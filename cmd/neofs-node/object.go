@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -300,13 +301,14 @@ func initObjectService(c *cfg) {
 		}),
 		v2.WithContainerSource(c.cnrSrc),
 	)
+	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
+		aclSvc.ResetTokenCheckCache()
+	})
+
 	aclChecker := acl.NewChecker(new(acl.CheckerPrm).
-		SetNetmapState(c.cfgNetmap.state).
 		SetEACLSource(c.eaclSrc).
 		SetValidator(eaclSDK.NewValidator()).
 		SetLocalStorage(ls).
-		SetFSChain(c.cli).
-		SetNetmapContract(c.nCli).
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
 

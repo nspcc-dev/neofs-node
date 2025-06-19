@@ -172,8 +172,13 @@ func initContainerService(c *cfg) {
 		})
 	})
 
+	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli)
+	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
+		cnrSrv.ResetSessionTokenCheckCache()
+	})
+
 	server := &usedSpaceService{
-		ContainerServiceServer: containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli),
+		ContainerServiceServer: cnrSrv,
 		loadWriterProvider:     loadRouter,
 		loadPlacementBuilder:   loadPlacementBuilder,
 		routeBuilder:           routeBuilder,

@@ -8,6 +8,8 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- SN caches up to 1000 bearer token verification results until the next epoch (#3369)
+- SN caches up to 1000 session token verification results until the next epoch (#3369)
 
 ### Removed
 

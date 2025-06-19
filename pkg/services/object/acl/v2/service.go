@@ -1,19 +1,24 @@
 package v2
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
@@ -21,11 +26,24 @@ import (
 	"go.uber.org/zap"
 )
 
+type sessionTokenCommonCheckResult struct {
+	token sessionSDK.Object
+	err   error
+}
+
+type bearerTokenCommonCheckResult struct {
+	token bearer.Token
+	err   error
+}
+
 // Service checks basic ACL rules.
 type Service struct {
 	*cfg
 
 	c senderClassifier
+
+	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	bearerTokenCommonCheckCache  *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
 }
 
 // Option represents Service constructor option.
@@ -88,15 +106,171 @@ func New(fsChain FSChain, opts ...Option) Service {
 	panicOnNil(cfg.containers, "container source")
 	panicOnNil(fsChain, "FS chain")
 
+	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
+	bearerTokenCheckCache, err := lru.New[[sha256.Size]byte, bearerTokenCommonCheckResult](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
+
 	return Service{
 		cfg: cfg,
 		c: senderClassifier{
 			log:       cfg.log,
 			innerRing: cfg.irFetcher,
-			netmap:    cfg.nm,
 			fsChain:   fsChain,
 		},
+		sessionTokenCommonCheckCache: sessionTokenCheckCache,
+		bearerTokenCommonCheckCache:  bearerTokenCheckCache,
 	}
+}
+
+// ResetTokenCheckCache resets cache of session and bearer tokens' check results.
+func (b Service) ResetTokenCheckCache() {
+	b.sessionTokenCommonCheckCache.Purge()
+	b.bearerTokenCommonCheckCache.Purge()
+}
+
+func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
+	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
+		mh = omh
+	}
+	m := mh.GetSessionToken()
+	if m == nil {
+		return nil, nil
+	}
+
+	mb := make([]byte, m.MarshaledSize())
+	m.MarshalStable(mb)
+
+	cacheKey := sha256.Sum256(mb)
+	res, ok := b.sessionTokenCommonCheckCache.Get(cacheKey)
+	if !ok {
+		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
+		res.token, res.err = b.decodeAndVerifySessionTokenCommon(m)
+		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
+	}
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	if err := b.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
+		return nil, err
+	}
+
+	return &res.token, nil
+}
+
+func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (sessionSDK.Object, error) {
+	var token sessionSDK.Object
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("invalid session token: %w", err)
+	}
+
+	currentEpoch, err := b.nm.Epoch()
+	if err != nil {
+		return token, errors.New("can't fetch current epoch")
+	}
+	if token.ExpiredAt(currentEpoch) {
+		return token, apistatus.ErrSessionTokenExpired
+	}
+	if !token.ValidAt(currentEpoch) {
+		return token, fmt.Errorf("%s: token is invalid at %d epoch)", invalidRequestMessage, currentEpoch)
+	}
+
+	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
+		FSChain:   b.c.fsChain,
+		Netmapper: b.nm,
+	}); err != nil {
+		return token, fmt.Errorf("authenticate session token: %w", err)
+	}
+
+	return token, nil
+}
+
+func (b Service) verifySessionTokenAgainstRequest(token sessionSDK.Object, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) error {
+	if err := assertSessionRelation(token, reqCnr, reqObj); err != nil {
+		return err
+	}
+
+	if !assertVerb(token, reqVerb) {
+		return errInvalidVerb
+	}
+
+	return nil
+}
+
+func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) (*bearer.Token, error) {
+	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
+		mh = omh
+	}
+	m := mh.GetBearerToken()
+	if m == nil {
+		return nil, nil
+	}
+
+	mb := make([]byte, m.MarshaledSize())
+	m.MarshalStable(mb)
+
+	cacheKey := sha256.Sum256(mb)
+	res, ok := b.bearerTokenCommonCheckCache.Get(cacheKey)
+	if !ok {
+		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
+		res.token, res.err = b.decodeAndVerifyBearerTokenCommon(m, ownerCnr)
+		b.bearerTokenCommonCheckCache.Add(cacheKey, res)
+	}
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	if err := b.verifyBearerTokenAgainstRequest(res.token, reqCnr, usrSender); err != nil {
+		return nil, err
+	}
+
+	return &res.token, nil
+}
+
+func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken, ownerCnr user.ID) (bearer.Token, error) {
+	var token bearer.Token
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("invalid bearer token: %w", err)
+	}
+
+	currentEpoch, err := b.nm.Epoch()
+	if err != nil {
+		return token, fmt.Errorf("get current epoch: %w", err)
+	}
+	if !token.ValidAt(currentEpoch) {
+		return token, errors.New("bearer token has expired")
+	}
+
+	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
+		FSChain:   b.c.fsChain,
+		Netmapper: b.nm,
+	}); err != nil {
+		return token, fmt.Errorf("authenticate bearer token: %w", err)
+	}
+
+	if token.ResolveIssuer() != ownerCnr {
+		return token, errors.New("bearer token owner differs from the request sender")
+	}
+
+	return token, nil
+}
+
+func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.ID, reqSender user.ID) error {
+	cnr := token.EACLTable().GetCID()
+	if !cnr.IsZero() && cnr != reqCnr {
+		return errors.New("bearer token was created for another container")
+	}
+
+	if !token.AssertUser(reqSender) {
+		return errors.New("bearer token owner differs from the request sender")
+	}
+
+	return nil
 }
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
@@ -112,38 +286,7 @@ func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo,
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
-	}
-
-	bTok, err := originalBearerToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
-	}
-
-	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectGet)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	reqInfo.obj = obj
-
-	return reqInfo, nil
+	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, *obj)
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
@@ -159,38 +302,7 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
-	}
-
-	bTok, err := originalBearerToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
-	}
-
-	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHead)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	reqInfo.obj = obj
-
-	return reqInfo, err
+	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, *obj)
 }
 
 // SearchRequestToInfo resolves RequestInfo from the request to check it using
@@ -215,36 +327,7 @@ func (b Service) searchRequestToInfo(request interface {
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, id, nil)
-		if err != nil {
-			return RequestInfo{}, err
-		}
-	}
-
-	bTok, err := originalBearerToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
-	}
-
-	reqInfo, err := b.findRequestInfo(req, id, acl.OpObjectSearch)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	return reqInfo, nil
+	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, oid.ID{})
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
@@ -260,38 +343,7 @@ func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (Reques
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
-	}
-
-	bTok, err := originalBearerToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
-	}
-
-	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectDelete)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	reqInfo.obj = obj
-
-	return reqInfo, nil
+	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, *obj)
 }
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
@@ -307,38 +359,7 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
-	}
-
-	bTok, err := originalBearerToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
-	}
-
-	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectRange)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	reqInfo.obj = obj
-
-	return reqInfo, nil
+	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, *obj)
 }
 
 // HashRequestToInfo resolves RequestInfo from the request to check it using
@@ -354,38 +375,7 @@ func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (Re
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
-	}
-
-	bTok, err := originalBearerToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
-	}
-
-	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHash)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	reqInfo.obj = obj
-
-	return reqInfo, nil
+	return b.findRequestInfo(request, cnr, acl.OpObjectHash, sessionSDK.VerbObjectRangeHash, *obj)
 }
 
 var ErrSkipRequest = errors.New("skip request")
@@ -444,57 +434,23 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid object owner: %w", err)
 	}
 
-	var obj *oid.ID
-
+	var obj oid.ID
 	if part.Init.ObjectId != nil {
-		obj = new(oid.ID)
 		err = obj.FromProtoMessage(part.Init.ObjectId)
 		if err != nil {
 			return RequestInfo{}, user.ID{}, err
 		}
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, user.ID{}, err
-	}
-
-	if sTok != nil {
-		if sTok.AssertVerb(sessionSDK.VerbObjectDelete) {
-			// if session relates to object's removal, we don't check
-			// relation of the tombstone to the session here since user
-			// can't predict tomb's ID.
-			err = assertSessionRelation(*sTok, cnr, nil)
-		} else {
-			err = assertSessionRelation(*sTok, cnr, obj)
-		}
-
-		if err != nil {
-			return RequestInfo{}, user.ID{}, err
-		}
-	}
-
-	bTok, err := originalBearerToken(request.GetMetaHeader())
-	if err != nil {
-		return RequestInfo{}, user.ID{}, err
-	}
-
-	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
-	}
-
-	verb := acl.OpObjectPut
+	op, verb := acl.OpObjectPut, sessionSDK.VerbObjectPut
 	tombstone := header.GetObjectType() == protoobject.ObjectType_TOMBSTONE
 	if tombstone {
 		// such objects are specific - saving them is essentially the removal of other
 		// objects
-		verb = acl.OpObjectDelete
+		op, verb = acl.OpObjectDelete, sessionSDK.VerbObjectDelete
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cnr, verb)
+	reqInfo, err := b.findRequestInfo(request, cnr, op, verb, obj)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, err
 	}
@@ -509,56 +465,63 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		}
 	}
 
-	reqInfo.obj = obj
-
 	return reqInfo, idOwner, nil
 }
 
-func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (info RequestInfo, err error) {
-	cnr, err := b.containers.Get(idCnr) // fetch actual container
+func (b Service) findRequestInfo(req interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
+	GetVerifyHeader() *protosession.RequestVerificationHeader
+}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, obj oid.ID) (info RequestInfo, err error) {
+	metaHdr := req.GetMetaHeader()
+	sTok, err := b.getVerifiedSessionToken(metaHdr, verb, idCnr, obj)
 	if err != nil {
 		return info, err
 	}
 
-	currentEpoch, err := b.nm.Epoch()
-	if err != nil {
-		return info, errors.New("can't fetch current epoch")
+	var reqAuthor user.ID
+	var reqAuthorPub []byte
+	if sTok != nil {
+		reqAuthor, reqAuthorPub = sTok.Issuer(), sTok.IssuerPublicKeyBytes()
+	} else {
+		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
+			return info, fmt.Errorf("get request author: %w", err)
+		}
 	}
-	if req.token != nil {
-		if req.token.ExpiredAt(currentEpoch) {
-			return info, apistatus.SessionTokenExpired{}
-		}
-		if !req.token.ValidAt(currentEpoch) {
-			return info, fmt.Errorf("%s: token is invalid at %d epoch)",
-				invalidRequestMessage, currentEpoch)
-		}
 
-		if !assertVerb(*req.token, op) {
-			return info, errInvalidVerb
-		}
+	cnr, err := b.containers.Get(idCnr)
+	if err != nil {
+		return info, err
+	}
+
+	bTok, err := b.getVerifiedBearerToken(metaHdr, idCnr, cnr.Owner(), reqAuthor)
+	if err != nil {
+		return info, err
 	}
 
 	// find request role and key
-	res, err := b.c.classify(req, idCnr, cnr)
+	role, err := b.c.classify(idCnr, cnr.Owner(), reqAuthor, reqAuthorPub)
 	if err != nil {
 		return info, err
 	}
 
 	info.basicACL = cnr.BasicACL()
-	info.requestRole = res.role
+	info.requestRole = role
 	info.operation = op
-	info.cnrOwner = cnr.Owner()
 	info.idCnr = idCnr
 
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation
-	info.senderKey = res.key
-	info.senderAccount = res.account
+	info.senderKey = reqAuthorPub
+	info.senderAccount = &reqAuthor
 
 	// add bearer token if it is present in request
-	info.bearer = req.bearer
+	info.bearer = bTok
 
-	info.srcRequest = req.src
+	info.srcRequest = req
+
+	if !obj.IsZero() {
+		info.obj = &obj
+	}
 
 	return info, nil
 }

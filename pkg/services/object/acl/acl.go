@@ -6,48 +6,24 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-// FSChain provides base non-contract functionality of the FS chain required for
-// [Checker] to work.
-type FSChain interface {
-	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
-}
-
-// NetmapContract represents Netmap contract deployed in the FS chain required
-// for [Checker] to work.
-type NetmapContract interface {
-	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
-	GetEpochBlock(epoch uint64) (uint32, error)
-}
-
 // CheckerPrm groups parameters for Checker
 // constructor.
 type CheckerPrm struct {
-	eaclSrc        container.EACLSource
-	validator      *eaclSDK.Validator
-	localStorage   *engine.StorageEngine
-	state          netmap.State
-	headerSource   eaclV2.HeaderSource
-	fsChain        FSChain
-	netmapContract NetmapContract
+	eaclSrc      container.EACLSource
+	validator    *eaclSDK.Validator
+	localStorage *engine.StorageEngine
+	headerSource eaclV2.HeaderSource
 }
 
 func (c *CheckerPrm) SetEACLSource(v container.EACLSource) *CheckerPrm {
@@ -65,50 +41,23 @@ func (c *CheckerPrm) SetLocalStorage(v *engine.StorageEngine) *CheckerPrm {
 	return c
 }
 
-func (c *CheckerPrm) SetNetmapState(v netmap.State) *CheckerPrm {
-	c.state = v
-	return c
-}
-
 func (c *CheckerPrm) SetHeaderSource(hs eaclV2.HeaderSource) *CheckerPrm {
 	c.headerSource = hs
-	return c
-}
-
-func (c *CheckerPrm) SetFSChain(fsChain FSChain) *CheckerPrm {
-	c.fsChain = fsChain
-	return c
-}
-
-func (c *CheckerPrm) SetNetmapContract(nc NetmapContract) *CheckerPrm {
-	c.netmapContract = nc
 	return c
 }
 
 // Checker implements v2.ACLChecker interfaces and provides
 // ACL/eACL validation functionality.
 type Checker struct {
-	eaclSrc        container.EACLSource
-	validator      *eaclSDK.Validator
-	localStorage   *engine.StorageEngine
-	state          netmap.State
-	headerSource   eaclV2.HeaderSource
-	fsChain        FSChain
-	netmapContract NetmapContract
-}
-
-type historicN3ScriptRunner struct {
-	FSChain
-	NetmapContract
+	eaclSrc      container.EACLSource
+	validator    *eaclSDK.Validator
+	localStorage *engine.StorageEngine
+	headerSource eaclV2.HeaderSource
 }
 
 // Various EACL check errors.
 var (
-	errEACLDeniedByRule         = errors.New("denied by rule")
-	errBearerExpired            = errors.New("bearer token has expired")
-	errBearerInvalidContainerID = errors.New("bearer token was created for another container")
-	errBearerNotSignedByOwner   = errors.New("bearer token is not signed by the container owner")
-	errBearerInvalidOwner       = errors.New("bearer token owner differs from the request sender")
+	errEACLDeniedByRule = errors.New("denied by rule")
 )
 
 // NewChecker creates Checker.
@@ -123,17 +72,13 @@ func NewChecker(prm *CheckerPrm) *Checker {
 	panicOnNil("EACLSource", prm.eaclSrc)
 	panicOnNil("EACLValidator", prm.validator)
 	panicOnNil("LocalStorageEngine", prm.localStorage)
-	panicOnNil("NetmapState", prm.state)
 	panicOnNil("HeaderSource", prm.headerSource)
 
 	return &Checker{
-		eaclSrc:        prm.eaclSrc,
-		validator:      prm.validator,
-		localStorage:   prm.localStorage,
-		state:          prm.state,
-		headerSource:   prm.headerSource,
-		fsChain:        prm.fsChain,
-		netmapContract: prm.netmapContract,
+		eaclSrc:      prm.eaclSrc,
+		validator:    prm.validator,
+		localStorage: prm.localStorage,
+		headerSource: prm.headerSource,
 	}
 }
 
@@ -207,12 +152,6 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 		table = bearerTok.EACLTable()
 	}
 
-	if bt := reqInfo.Bearer(); bt != nil {
-		if err := c.isValidBearer(*bt, reqInfo.ContainerID(), reqInfo.ContainerOwner(), *reqInfo.SenderAccount()); err != nil {
-			return err
-		}
-	}
-
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
 
 	hdrSrcOpts = append(hdrSrcOpts,
@@ -259,44 +198,6 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	if action != eaclSDK.ActionAllow {
 		return errEACLDeniedByRule
 	}
-	return nil
-}
-
-// isValidBearer checks whether bearer token was correctly signed by authorized
-// entity. This method might be defined on whole ACL service because it will
-// require fetching current epoch to check lifetime.
-func (c *Checker) isValidBearer(token bearer.Token, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) error {
-	// 1. First check token lifetime. Simplest verification.
-	if !token.ValidAt(c.state.CurrentEpoch()) {
-		return errBearerExpired
-	}
-
-	// 2. Then check if bearer token is signed correctly.
-	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
-		FSChain:        c.fsChain,
-		NetmapContract: c.netmapContract,
-	}); err != nil {
-		return fmt.Errorf("authenticate bearer token: %w", err)
-	}
-
-	// 3. Then check if container is either empty or equal to the container in the request.
-	cnr := token.EACLTable().GetCID()
-	if !cnr.IsZero() && cnr != reqCnr {
-		return errBearerInvalidContainerID
-	}
-
-	// 4. Then check if container owner signed this token.
-	if token.ResolveIssuer() != ownerCnr {
-		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
-		return errBearerNotSignedByOwner
-	}
-
-	// 5. Then check if request sender has rights to use this token.
-	if !token.AssertUser(usrSender) {
-		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
-		return errBearerInvalidOwner
-	}
-
 	return nil
 }
 
