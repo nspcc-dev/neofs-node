@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - SN caches up to 1000 session token verification results until the next epoch (#3369)
 - SN no longer wastes memory for logger in ACL and GET/HEAD/RANGE handlers (#3408)
 - SN, IR and CLI ignore signatures of object GET/HEAD responses (#3406)
+- SN does not sign object GET/HEAD responses to requests with API version > v2.17 (#3406)
 
 ### Removed
 
