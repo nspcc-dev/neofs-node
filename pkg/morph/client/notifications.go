@@ -244,7 +244,15 @@ routeloop:
 		case ev, ok := <-conn.headerChan:
 			connLost = handleEv(c.subs.headerChan, ok, ev)
 		case ev, ok := <-conn.notaryChan:
-			connLost = handleEv(c.subs.notaryChan, ok, ev)
+			if !ok {
+				connLost = true
+			} else {
+				evCopy := result.NotaryRequestEvent{
+					Type:          ev.Type,
+					NotaryRequest: ev.NotaryRequest.Copy(),
+				}
+				c.subs.notaryChan <- &evCopy
+			}
 		case <-restoreCh:
 			connLost = true
 		}
