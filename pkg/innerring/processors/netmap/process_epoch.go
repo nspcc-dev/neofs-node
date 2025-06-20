@@ -2,12 +2,16 @@ package netmap
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"slices"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -121,6 +125,28 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 
 		err = np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)
 		if err != nil {
+			expBackoff := backoff.NewExponentialBackOff()
+			expBackoff.InitialInterval = 1 * time.Second
+
+			err = backoff.RetryNotify(
+				func() error {
+					err = np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)
+					if errors.Is(err, client.ErrConnectionLost) {
+						return backoff.Permanent(err)
+					}
+					return err
+				},
+				expBackoff,
+				func(err error, d time.Duration) {
+					l.Warn("retrying updating placement vectors in Container contract",
+						zap.Stringer("cid", cID),
+						zap.Duration("retry-after", d),
+						zap.Error(err))
+				})
+			if err == nil {
+				continue
+			}
+
 			l.Error("can't put placement vectors to Container contract", zap.Error(err))
 			continue
 		}
