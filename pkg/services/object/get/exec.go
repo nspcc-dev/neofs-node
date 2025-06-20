@@ -31,6 +31,7 @@ type execCtx struct {
 
 	infoSplit *objectSDK.SplitInfo
 
+	// If debug level is enabled, all messages also include info about processing request.
 	log *zap.Logger
 
 	collectedObject *objectSDK.Object
@@ -75,6 +76,11 @@ func withLogger(l *zap.Logger) execOption {
 }
 
 func (exec *execCtx) setLogger(l *zap.Logger) {
+	if l.Level() != zap.DebugLevel {
+		exec.log = l
+		return
+	}
+
 	reqFields := []zap.Field{
 		zap.Stringer("address", exec.address()),
 		zap.Bool("raw", exec.isRaw()),
