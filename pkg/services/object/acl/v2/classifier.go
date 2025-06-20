@@ -21,8 +21,6 @@ type historicN3ScriptRunner struct {
 }
 
 func (c senderClassifier) classify(idCnr cid.ID, cnrOwner, reqAuthor user.ID, reqAuthorPub []byte) (acl.Role, error) {
-	l := c.log.With(zap.Stringer("cid", idCnr), zap.Stringer("requester", reqAuthor))
-
 	// if request owner is the same as container owner, return RoleUser
 	if reqAuthor == cnrOwner {
 		return acl.RoleOwner, nil
@@ -31,7 +29,8 @@ func (c senderClassifier) classify(idCnr cid.ID, cnrOwner, reqAuthor user.ID, re
 	isInnerRingNode, err := c.isInnerRingKey(reqAuthorPub)
 	if err != nil {
 		// do not throw error, try best case matching
-		l.Debug("can't check if request from inner ring",
+		c.log.Debug("can't check if request from inner ring",
+			zap.Stringer("cid", idCnr), zap.Stringer("requester", reqAuthor),
 			zap.Error(err))
 	} else if isInnerRingNode {
 		return acl.RoleInnerRing, nil
@@ -42,7 +41,8 @@ func (c senderClassifier) classify(idCnr cid.ID, cnrOwner, reqAuthor user.ID, re
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
 		// do not throw error, try best case matching
-		l.Debug("can't check if request from container node",
+		c.log.Debug("can't check if request from container node",
+			zap.Stringer("cid", idCnr), zap.Stringer("requester", reqAuthor),
 			zap.Error(err))
 	} else if isContainerNode {
 		return acl.RoleContainer, nil
