@@ -3,6 +3,7 @@ package innerring
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -38,8 +39,8 @@ func (s *Server) SetEpochCounter(val uint64) {
 }
 
 // EpochDuration is a getter for a global epoch duration.
-func (s *Server) EpochDuration() uint64 {
-	return s.epochDuration.Load()
+func (s *Server) EpochDuration() time.Duration {
+	return time.Duration(s.epochDuration.Load()) * time.Second
 }
 
 // SetEpochDuration is a setter for the Netmap processor to update global
@@ -192,15 +193,13 @@ func (s *Server) WriteReport(r *audit.Report) error {
 	return s.auditClient.PutAuditResult(prm)
 }
 
-// ResetEpochTimer resets the block timer that produces events to update epoch
-// counter in the netmap contract. It is used to synchronize this even production
-// based on the block with a notification of the last epoch.
-func (s *Server) ResetEpochTimer(h uint32) error {
-	if initEpochTimer := s.initEpochTimer.Swap(nil); initEpochTimer != nil {
-		initEpochTimer.Stop()
-	}
-	s.epochTimer.Tick(h)
-	return s.epochTimer.Reset()
+// ResetEpochTimer resets the epoch timer that produces events to update epoch
+// counter in the netmap contract. It is used to synchronize this time-based
+// even production with a notification of the last epoch. Must be called after
+// new epoch notification is received with a corresponding block height.
+func (s *Server) ResetEpochTimer(height uint32) error {
+	_, err := s.resetEpochTimer(height)
+	return err
 }
 
 func (s *Server) setHealthStatus(hs control.HealthStatus) {
