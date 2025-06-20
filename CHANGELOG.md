@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- IR exponentially retries updating SN lists in the Container contract in error cases (#3344) 
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)

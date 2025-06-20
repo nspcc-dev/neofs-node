@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"slices"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
@@ -121,7 +123,29 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 
 		err = np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)
 		if err != nil {
-			l.Error("can't put placement vectors to Container contract", zap.Error(err))
+			blockTimeMs, err := np.netmapClient.Morph().MsPerBlock()
+			if err != nil {
+				blockTimeMs = 1000 // a second block time is a common block time
+			}
+
+			expBackoff := backoff.NewExponentialBackOff()
+			expBackoff.InitialInterval = time.Duration(blockTimeMs) * time.Millisecond
+
+			err = backoff.RetryNotify(
+				func() error {
+					return np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)
+				},
+				expBackoff,
+				func(err error, d time.Duration) {
+					l.Warn("retrying updating placement vectors in Container contract",
+						zap.Stringer("cid", cID),
+						zap.Stringer("retry-after", d),
+						zap.Error(err))
+				})
+			if err != nil {
+				l.Error("can't put placement vectors to Container contract", zap.Error(err))
+			}
+
 			continue
 		}
 
