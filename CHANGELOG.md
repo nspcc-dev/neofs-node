@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Inner ring ticks epoch based on real time, not blocks count (#3402)
 - IR, CLI and SN ignore signatures of object GET/HEAD responses (#3406)
 - IR, CLI and SN verify object checksums from GET/HEAD responses (except SN proxy case) (#3406)
+- SN does not sign object GET/HEAD responses to requests with API version > v2.17 (#3406)
 
 ### Removed
 

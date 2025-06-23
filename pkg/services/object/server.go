@@ -551,12 +551,14 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	return s.signDeleteResponse(&protoobject.DeleteResponse{Body: &rb}), nil
 }
 
-func (s *Server) signHeadResponse(resp *protoobject.HeadResponse) *protoobject.HeadResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) signHeadResponse(resp *protoobject.HeadResponse, sign bool) *protoobject.HeadResponse {
+	if sign {
+		resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	}
 	return resp
 }
 
-func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
+func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadResponse {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.signHeadResponse(&protoobject.HeadResponse{
@@ -565,11 +567,11 @@ func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
-		})
+		}, sign)
 	}
 	return s.signHeadResponse(&protoobject.HeadResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, sign)
 }
 
 func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
@@ -579,45 +581,47 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
+	needSignResp := needSignGetResponse(req)
+
 	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
+		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp), nil
 	}
 
 	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
 	var resp protoobject.HeadResponse
 	p, err := convertHeadPrm(s.signer, req, &resp)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
 	err = s.aclChecker.CheckEACL(&resp, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
-	return s.signHeadResponse(&resp), nil
+	return s.signHeadResponse(&resp, needSignResp), nil
 }
 
 type headResponse struct {
@@ -962,12 +966,14 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 	return resp.GetBody().GetHashList(), nil
 }
 
-func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse, sign bool) error {
+	if sign {
+		resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	}
 	return stream.Send(resp)
 }
 
-func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServer, err error) error {
+func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServer, err error, sign bool) error {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.sendGetResponse(stream, &protoobject.GetResponse{
@@ -976,17 +982,19 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
-		})
+		}, sign)
 	}
 	return s.sendGetResponse(stream, &protoobject.GetResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, sign)
 }
 
 type getStream struct {
 	base    protoobject.ObjectService_GetServer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
+
+	signResponse bool
 }
 
 func (s *getStream) WriteHeader(hdr *object.Object) error {
@@ -1003,7 +1011,7 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 	if err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo); err != nil {
 		return eACLErr(s.reqInfo, err)
 	}
-	return s.srv.sendGetResponse(s.base, resp)
+	return s.srv.sendGetResponse(s.base, resp, s.signResponse)
 }
 
 func (s *getStream) WriteChunk(chunk []byte) error {
@@ -1015,7 +1023,7 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 				},
 			},
 		}
-		if err := s.srv.sendGetResponse(s.base, newResp); err != nil {
+		if err := s.srv.sendGetResponse(s.base, newResp, s.signResponse); err != nil {
 			return err
 		}
 	}
@@ -1029,39 +1037,43 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
+
+	needSignResp := needSignGetResponse(req)
+
 	if err = icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
 	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
 	p, err := convertGetPrm(s.signer, req, &getStream{
-		base:    gStream,
-		srv:     s,
-		reqInfo: reqInfo,
+		base:         gStream,
+		srv:          s,
+		reqInfo:      reqInfo,
+		signResponse: needSignResp,
 	})
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	return nil
 }
@@ -2255,4 +2267,12 @@ func chunkToSend(global, local int, chunk []byte) []byte {
 		return nil
 	}
 	return chunk[global-local:]
+}
+
+func needSignGetResponse(req interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
+}) bool {
+	ver := req.GetMetaHeader().GetVersion()
+	mjr := ver.GetMajor() // NPE-safe
+	return mjr < 2 || mjr == 2 && ver.GetMinor() <= 17
 }
