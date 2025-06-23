@@ -709,29 +709,22 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 			return nil, err
 		}
 
-		nodePub := node.PublicKey()
 		var hdr *object.Object
 		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
-			hdr, err = getHeaderFromRemoteNode(ctx, conn, nodePub, req)
+			hdr, err = getHeaderFromRemoteNode(ctx, conn, req)
 			return err // TODO: log error
 		})
 	})
 	return p, nil
 }
 
-func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.HeadRequest) (*object.Object, error) {
+func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest) (*object.Object, error) {
 	resp, err := protoobject.NewObjectServiceClient(conn).Head(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("sending the request failed: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return nil, err
-	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, fmt.Errorf("response verification failed: %w", err)
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, err
 	}
@@ -1128,9 +1121,8 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 			return nil, err
 		}
 
-		nodePub := node.PublicKey()
 		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := continueGetFromRemoteNode(ctx, conn, nodePub, req, stream, &onceHdr, &respondedPayload)
+			err := continueGetFromRemoteNode(ctx, conn, req, stream, &onceHdr, &respondedPayload)
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
@@ -1140,8 +1132,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	return p, nil
 }
 
-func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.GetRequest,
-	stream *getStream, onceHdr *sync.Once, respondedPayload *int) error {
+func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRequest, stream *getStream, onceHdr *sync.Once, respondedPayload *int) error {
 	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, req)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
@@ -1161,12 +1152,6 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return err
-		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("response verification failed: %w", err)
-		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
