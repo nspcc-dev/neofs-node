@@ -86,9 +86,7 @@ func (exec *execCtx) assemble() {
 }
 
 func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID) {
-	log := exec.log.With(zap.Stringer("child ID", obj))
-
-	log.Debug("starting assembling from child")
+	exec.log.Debug("starting assembling from child", zap.Stringer("child ID", obj))
 
 	child, ok := exec.getChild(obj, nil, true)
 	if !ok {
@@ -99,7 +97,7 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 	if par == nil {
 		exec.status = statusUndefined
 
-		log.Debug("received child with empty parent")
+		exec.log.Debug("received child with empty parent", zap.Stringer("child ID", obj))
 
 		return
 	}
