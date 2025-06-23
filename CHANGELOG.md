@@ -10,7 +10,7 @@ Changelog for NeoFS Node
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)
 - SN caches up to 1000 session token verification results until the next epoch (#3369)
-- SN no longer wastes memory for logger in ACL and GET/HEAD/RANGE handlers (#3408)
+- SN no longer wastes memory for logger in ACL and GET/HEAD/RANGE handlers (#3408, #3412)
 
 ### Removed
 
