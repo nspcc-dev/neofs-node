@@ -662,7 +662,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp)
+	p, err := convertHeadPrm(reqInfo.Container, req, &resp)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -767,7 +767,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -796,25 +796,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 		return p, nil
 	}
 
-	var onceResign sync.Once
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.HeadPrm{}, errors.New("missing meta header")
-	}
 	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
-		var err error
-		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
-			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
-		if err != nil {
-			return nil, iprotobuf.BuffersSlice{}, err
-		}
-
 		var respBuf mem.BufferSlice
 		var hdr iprotobuf.BuffersSlice
 		return respBuf, hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
@@ -1116,7 +1098,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		recheckEACL = true
 	}
 
-	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
+	p, err := convertGetPrm(reqInfo.Container, req, &getStream{
 		base:         gStream,
 		srv:          s,
 		reqInfo:      reqInfo,
@@ -1285,7 +1267,7 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream) (getsvc.Prm, error) {
+func convertGetPrm(cnr container.Container, req *protoobject.GetRequest, stream *getStream) (getsvc.Prm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -1312,12 +1294,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		return p, nil
 	}
 
-	var onceResign sync.Once
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.Prm{}, errors.New("missing meta header")
-	}
-
 	proxyCtx := getProxyContext{
 		req:        req,
 		reqOID:     addr.Object(),
@@ -1325,19 +1301,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	}
 
 	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
-		var err error
-		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
-			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
-		if err != nil {
-			return err
-		}
-
 		return c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			return proxyCtx.continueWithConn(ctx, conn) // TODO: log error
 		})
@@ -1435,7 +1398,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
-	p, err := convertRangePrm(s.signer, reqInfo.Container, req, &rangeStream{
+	p, err := convertRangePrm(reqInfo.Container, req, &rangeStream{
 		base: gStream,
 		srv:  s,
 		req:  req,
@@ -1458,7 +1421,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream) (getsvc.RangePrm, error) {
+func convertRangePrm(cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream) (getsvc.RangePrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -1498,26 +1461,8 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 		return p, nil
 	}
 
-	var onceResign sync.Once
 	var respondedPayload int
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.RangePrm{}, errors.New("missing meta header")
-	}
 	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (*object.Object, error) {
-		var err error
-		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
-			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
-		if err != nil {
-			return nil, err
-		}
-
 		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			err := continueRangeFromRemoteNode(ctx, conn, req, stream, &respondedPayload)
 			if errors.Is(err, io.EOF) {

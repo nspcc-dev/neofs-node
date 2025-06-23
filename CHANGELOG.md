@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - Optimized GET/HEAD request forwarding (#3877)
 - Optimized netmap caching in node (#3966)
 - Store in metabase associated object ID in bytes instead of Base58 (#3971)
+- SN no longer modifies original GET/HEAD/RANGE request when forwarding it to remote SN (#3413)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
