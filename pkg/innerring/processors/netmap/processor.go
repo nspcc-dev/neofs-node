@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -25,7 +26,7 @@ type (
 		SetEpochCounter(uint64)
 		EpochCounter() uint64
 		SetEpochDuration(uint64)
-		EpochDuration() uint64
+		EpochDuration() time.Duration
 	}
 
 	// AlphabetState is a callback interface for inner ring global state.

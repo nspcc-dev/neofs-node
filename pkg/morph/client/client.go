@@ -518,6 +518,22 @@ func (c *Client) BlockCount() (res uint32, err error) {
 	return conn.rpcActor.GetBlockCount()
 }
 
+// GetBlockHeader returns block header by index.
+func (c *Client) GetBlockHeader(ind uint32) (*block.Header, error) {
+	conn := c.conn.Load()
+	if conn == nil {
+		return nil, ErrConnectionLost
+	}
+
+	// there is no header by index in neo-go's client yet
+	b, err := conn.client.GetBlockByIndex(ind)
+	if err != nil {
+		return nil, err
+	}
+
+	return &b.Header, nil
+}
+
 // MsPerBlock returns MillisecondsPerBlock network parameter.
 func (c *Client) MsPerBlock() (res int64, err error) {
 	var conn = c.conn.Load()
