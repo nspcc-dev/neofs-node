@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - SN does not sign object GET/HEAD responses to requests with API version > v2.17 (#3406)
 - SN now verifies object header from proxy GET/HEAD responses against requested ID (#3406)
 - SN now verifies payload from proxy GET responses against in-header checksum (#3406)
+- Write cache initialization happens much faster now, some redundant checks were removed (#3417)
 
 ### Removed
 
