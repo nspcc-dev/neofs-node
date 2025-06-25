@@ -626,29 +626,11 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 }
 
 type headResponse struct {
-	short bool
-	dst   *protoobject.HeadResponse
+	dst *protoobject.HeadResponse
 }
 
 func (x *headResponse) WriteHeader(hdr *object.Object) error {
 	mo := hdr.ProtoMessage()
-	if x.short {
-		mh := mo.GetHeader()
-		x.dst.Body = &protoobject.HeadResponse_Body{
-			Head: &protoobject.HeadResponse_Body_ShortHeader{
-				ShortHeader: &protoobject.ShortHeader{
-					Version:         mh.GetVersion(),
-					CreationEpoch:   mh.GetCreationEpoch(),
-					OwnerId:         mh.GetOwnerId(),
-					ObjectType:      mh.GetObjectType(),
-					PayloadLength:   mh.GetPayloadLength(),
-					PayloadHash:     mh.GetPayloadHash(),
-					HomomorphicHash: mh.GetHomomorphicHash(),
-				},
-			},
-		}
-		return nil
-	}
 	x.dst.Body = &protoobject.HeadResponse_Body{
 		Head: &protoobject.HeadResponse_Body_Header{
 			Header: &protoobject.HeaderWithSignature{
@@ -684,8 +666,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	p.WithAddress(addr)
 	p.WithRawFlag(body.Raw)
 	p.SetHeaderWriter(&headResponse{
-		short: body.MainOnly,
-		dst:   resp,
+		dst: resp,
 	})
 	if cp.LocalOnly() {
 		return p, nil
@@ -736,30 +717,8 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *pr
 	case nil:
 		return nil, fmt.Errorf("unexpected header type %T", v)
 	case *protoobject.HeadResponse_Body_ShortHeader:
-		if !req.Body.MainOnly {
-			return nil, fmt.Errorf("wrong header part type: expected %T, received %T",
-				(*protoobject.HeadResponse_Body_Header)(nil), (*protoobject.HeadResponse_Body_ShortHeader)(nil),
-			)
-		}
-		if v == nil || v.ShortHeader == nil {
-			return nil, errors.New("nil short header oneof field")
-		}
-		h := v.ShortHeader
-		hdr = &protoobject.Header{
-			Version:         h.Version,
-			OwnerId:         h.OwnerId,
-			CreationEpoch:   h.CreationEpoch,
-			PayloadLength:   h.PayloadLength,
-			PayloadHash:     h.PayloadHash,
-			ObjectType:      h.ObjectType,
-			HomomorphicHash: h.HomomorphicHash,
-		}
+		return nil, fmt.Errorf("unsupported short header")
 	case *protoobject.HeadResponse_Body_Header:
-		if req.Body.MainOnly {
-			return nil, fmt.Errorf("wrong header part type: expected %T, received %T",
-				(*protoobject.HeadResponse_Body_Header)(nil), (*protoobject.HeadResponse_Body_ShortHeader)(nil),
-			)
-		}
 		if v == nil || v.Header == nil {
 			return nil, errors.New("nil header oneof field")
 		}
