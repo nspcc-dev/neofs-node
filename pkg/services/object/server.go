@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"sync"
 	"time"
@@ -551,12 +552,14 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	return s.signDeleteResponse(&protoobject.DeleteResponse{Body: &rb}), nil
 }
 
-func (s *Server) signHeadResponse(resp *protoobject.HeadResponse) *protoobject.HeadResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) signHeadResponse(resp *protoobject.HeadResponse, sign bool) *protoobject.HeadResponse {
+	if sign {
+		resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	}
 	return resp
 }
 
-func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
+func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadResponse {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.signHeadResponse(&protoobject.HeadResponse{
@@ -565,11 +568,11 @@ func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
-		})
+		}, sign)
 	}
 	return s.signHeadResponse(&protoobject.HeadResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, sign)
 }
 
 func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
@@ -579,45 +582,47 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
+	needSignResp := needSignGetResponse(req)
+
 	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
+		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp), nil
 	}
 
 	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
 	var resp protoobject.HeadResponse
 	p, err := convertHeadPrm(s.signer, req, &resp)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
 	err = s.aclChecker.CheckEACL(&resp, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
-	return s.signHeadResponse(&resp), nil
+	return s.signHeadResponse(&resp, needSignResp), nil
 }
 
 type headResponse struct {
@@ -705,29 +710,22 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 			return nil, err
 		}
 
-		nodePub := node.PublicKey()
 		var hdr *object.Object
 		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
-			hdr, err = getHeaderFromRemoteNode(ctx, conn, nodePub, req)
+			hdr, err = getHeaderFromRemoteNode(ctx, conn, req, addr.Object())
 			return err // TODO: log error
 		})
 	})
 	return p, nil
 }
 
-func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.HeadRequest) (*object.Object, error) {
+func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest, reqOID oid.ID) (*object.Object, error) {
 	resp, err := protoobject.NewObjectServiceClient(conn).Head(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("sending the request failed: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return nil, err
-	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, fmt.Errorf("response verification failed: %w", err)
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, err
 	}
@@ -771,6 +769,10 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 		if v.Header.Signature == nil {
 			// TODO(@cthulhu-rider): #1387 use "const" error
 			return nil, errors.New("missing signature")
+		}
+
+		if err := checkHeaderAgainstID(v.Header.Header, reqOID); err != nil {
+			return nil, err
 		}
 
 		hdr = v.Header.Header
@@ -962,12 +964,14 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 	return resp.GetBody().GetHashList(), nil
 }
 
-func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse, sign bool) error {
+	if sign {
+		resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	}
 	return stream.Send(resp)
 }
 
-func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServer, err error) error {
+func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServer, err error, sign bool) error {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.sendGetResponse(stream, &protoobject.GetResponse{
@@ -976,17 +980,19 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
-		})
+		}, sign)
 	}
 	return s.sendGetResponse(stream, &protoobject.GetResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, sign)
 }
 
 type getStream struct {
 	base    protoobject.ObjectService_GetServer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
+
+	signResponse bool
 }
 
 func (s *getStream) WriteHeader(hdr *object.Object) error {
@@ -1003,7 +1009,7 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 	if err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo); err != nil {
 		return eACLErr(s.reqInfo, err)
 	}
-	return s.srv.sendGetResponse(s.base, resp)
+	return s.srv.sendGetResponse(s.base, resp, s.signResponse)
 }
 
 func (s *getStream) WriteChunk(chunk []byte) error {
@@ -1015,7 +1021,7 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 				},
 			},
 		}
-		if err := s.srv.sendGetResponse(s.base, newResp); err != nil {
+		if err := s.srv.sendGetResponse(s.base, newResp, s.signResponse); err != nil {
 			return err
 		}
 	}
@@ -1029,39 +1035,43 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
+
+	needSignResp := needSignGetResponse(req)
+
 	if err = icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
 	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
 	p, err := convertGetPrm(s.signer, req, &getStream{
-		base:    gStream,
-		srv:     s,
-		reqInfo: reqInfo,
+		base:         gStream,
+		srv:          s,
+		reqInfo:      reqInfo,
+		signResponse: needSignResp,
 	})
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	return nil
 }
@@ -1096,12 +1106,17 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	}
 
 	var onceResign sync.Once
-	var onceHdr sync.Once
-	var respondedPayload int
 	meta := req.GetMetaHeader()
 	if meta == nil {
 		return getsvc.Prm{}, errors.New("missing meta header")
 	}
+
+	proxyCtx := getProxyContext{
+		req:        req,
+		reqOID:     addr.Object(),
+		respStream: stream,
+	}
+
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
@@ -1116,9 +1131,8 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 			return nil, err
 		}
 
-		nodePub := node.PublicKey()
 		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := continueGetFromRemoteNode(ctx, conn, nodePub, req, stream, &onceHdr, &respondedPayload)
+			err := proxyCtx.continueWithConn(ctx, conn)
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
@@ -1128,9 +1142,22 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	return p, nil
 }
 
-func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.GetRequest,
-	stream *getStream, onceHdr *sync.Once, respondedPayload *int) error {
-	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, req)
+type getProxyContext struct {
+	req        *protoobject.GetRequest
+	reqOID     oid.ID
+	respStream *getStream
+
+	onceHdr sync.Once
+
+	payloadLenCheck  uint64
+	payloadHashCheck []byte
+
+	respondedPayload int
+	payloadHashGot   hash.Hash
+}
+
+func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.ClientConn) error {
+	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, x.req)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
 	}
@@ -1149,12 +1176,6 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return err
-		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("response verification failed: %w", err)
-		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
@@ -1170,6 +1191,17 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 			if v == nil || v.Init == nil {
 				return errors.New("nil header oneof field")
 			}
+
+			if v.Init.Header == nil {
+				return errors.New("invalid response: missing header")
+			}
+			if v.Init.Header.PayloadHash == nil {
+				return errors.New("invalid response: invalid header: missing payload hash")
+			}
+			if err := checkHeaderAgainstID(v.Init.Header, x.reqOID); err != nil {
+				return err
+			}
+
 			mo := &protoobject.Object{
 				ObjectId:  v.Init.ObjectId,
 				Signature: v.Init.Signature,
@@ -1180,27 +1212,40 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 			if err != nil {
 				return err
 			}
-			onceHdr.Do(func() {
-				err = stream.WriteHeader(obj)
+			x.onceHdr.Do(func() {
+				err = x.respStream.WriteHeader(obj)
 			})
 			if err != nil {
 				return fmt.Errorf("could not write object header in Get forwarder: %w", err)
 			}
+
+			x.payloadLenCheck = v.Init.Header.PayloadLength
+			x.payloadHashCheck = v.Init.Header.PayloadHash.Sum
+			x.payloadHashGot = sha256.New()
 		case *protoobject.GetResponse_Body_Chunk:
 			if !headWas {
 				return errors.New("incorrect message sequence")
 			}
 			fullChunk := v.Chunk
-			respChunk := chunkToSend(*respondedPayload, readPayload, fullChunk)
+			respChunk := chunkToSend(x.respondedPayload, readPayload, fullChunk)
 			if len(respChunk) == 0 {
 				readPayload += len(fullChunk)
 				continue
 			}
-			if err := stream.WriteChunk(respChunk); err != nil {
+
+			x.payloadHashGot.Write(respChunk) // never returns an error according to docs
+
+			if uint64(x.respondedPayload+len(respChunk)) == x.payloadLenCheck {
+				if !bytes.Equal(x.payloadHashGot.Sum(nil), x.payloadHashCheck) { // not merged via && for readability
+					return errors.New("received payload mismatches checksum from header")
+				}
+			}
+
+			if err := x.respStream.WriteChunk(respChunk); err != nil {
 				return fmt.Errorf("could not write object chunk in Get forwarder: %w", err)
 			}
 			readPayload += len(fullChunk)
-			*respondedPayload += len(respChunk)
+			x.respondedPayload += len(respChunk)
 		case *protoobject.GetResponse_Body_SplitInfo:
 			if v == nil || v.SplitInfo == nil {
 				return errors.New("nil split info oneof field")
@@ -2255,4 +2300,23 @@ func chunkToSend(global, local int, chunk []byte) []byte {
 		return nil
 	}
 	return chunk[global-local:]
+}
+
+func needSignGetResponse(req interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
+}) bool {
+	ver := req.GetMetaHeader().GetVersion()
+	mjr := ver.GetMajor() // NPE-safe
+	return mjr < 2 || mjr == 2 && ver.GetMinor() <= 17
+}
+
+func checkHeaderAgainstID(hdr *protoobject.Header, id oid.ID) error {
+	b := make([]byte, hdr.MarshaledSize())
+	hdr.MarshalStable(b)
+
+	if oid.NewFromObjectHeaderBinary(b) != id {
+		return errors.New("received header mismatches ID")
+	}
+
+	return nil
 }
