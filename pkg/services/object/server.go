@@ -712,14 +712,14 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 		var hdr *object.Object
 		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
-			hdr, err = getHeaderFromRemoteNode(ctx, conn, req)
+			hdr, err = getHeaderFromRemoteNode(ctx, conn, req, addr.Object())
 			return err // TODO: log error
 		})
 	})
 	return p, nil
 }
 
-func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest) (*object.Object, error) {
+func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest, reqOID oid.ID) (*object.Object, error) {
 	resp, err := protoobject.NewObjectServiceClient(conn).Head(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("sending the request failed: %w", err)
@@ -768,6 +768,10 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *pr
 		if v.Header.Signature == nil {
 			// TODO(@cthulhu-rider): #1387 use "const" error
 			return nil, errors.New("missing signature")
+		}
+
+		if err := checkHeaderAgainstID(v.Header.Header, reqOID); err != nil {
+			return nil, err
 		}
 
 		hdr = v.Header.Header
@@ -1122,7 +1126,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 		}
 
 		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := continueGetFromRemoteNode(ctx, conn, req, stream, &onceHdr, &respondedPayload)
+			err := continueGetFromRemoteNode(ctx, conn, req, stream, &onceHdr, &respondedPayload, addr.Object())
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
@@ -1132,7 +1136,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	return p, nil
 }
 
-func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRequest, stream *getStream, onceHdr *sync.Once, respondedPayload *int) error {
+func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRequest, stream *getStream, onceHdr *sync.Once, respondedPayload *int, reqOID oid.ID) error {
 	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, req)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
@@ -1167,6 +1171,17 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *
 			if v == nil || v.Init == nil {
 				return errors.New("nil header oneof field")
 			}
+
+			if v.Init.Header == nil {
+				return errors.New("invalid response: missing header")
+			}
+			if v.Init.Header.PayloadHash == nil {
+				return errors.New("invalid response: invalid header: missing payload hash")
+			}
+			if err := checkHeaderAgainstID(v.Init.Header, reqOID); err != nil {
+				return err
+			}
+
 			mo := &protoobject.Object{
 				ObjectId:  v.Init.ObjectId,
 				Signature: v.Init.Signature,
@@ -2260,4 +2275,15 @@ func needSignGetResponse(req interface {
 	ver := req.GetMetaHeader().GetVersion()
 	mjr := ver.GetMajor() // NPE-safe
 	return mjr < 2 || mjr == 2 && ver.GetMinor() <= 17
+}
+
+func checkHeaderAgainstID(hdr *protoobject.Header, id oid.ID) error {
+	b := make([]byte, hdr.MarshaledSize())
+	hdr.MarshalStable(b)
+
+	if oid.NewFromObjectHeaderBinary(b) != id {
+		return errors.New("received header mismatches ID")
+	}
+
+	return nil
 }
