@@ -177,7 +177,6 @@ func (c *cache) Init() error {
 		}
 
 		// Flush part
-		c.initFlushMarks()
 		c.runFlushLoop()
 	}
 	return nil

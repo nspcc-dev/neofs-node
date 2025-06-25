@@ -17,7 +17,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -145,61 +144,6 @@ func TestFlush(t *testing.T) {
 				require.NoError(t, os.Chmod(p, 0))
 			})
 		})
-	})
-
-	t.Run("on init", func(t *testing.T) {
-		wc, ss, mb := newCache(t)
-		defer wc.Close()
-		objects := []objectPair{
-			// removed
-			putObject(t, wc, 1),
-			putObject(t, wc, bigSize+1),
-			// not found
-			putObject(t, wc, 1),
-			putObject(t, wc, bigSize+1),
-			// ok
-			putObject(t, wc, 1),
-			putObject(t, wc, bigSize+1),
-		}
-
-		require.NoError(t, wc.Close())
-		require.NoError(t, storageSetMode(ss, mode.ReadWrite))
-		require.NoError(t, mb.SetMode(mode.ReadWrite))
-
-		for i := range objects {
-			err := mb.Put(objects[i].obj, nil)
-			require.NoError(t, err)
-		}
-
-		_, _, err := mb.Inhume(oidtest.Address(), 0, false, objects[0].addr, objects[1].addr)
-		require.NoError(t, err)
-
-		_, err = mb.Delete([]oid.Address{objects[2].addr, objects[3].addr})
-		require.NoError(t, err)
-
-		require.NoError(t, storageSetMode(ss, mode.ReadOnly))
-		require.NoError(t, mb.SetMode(mode.ReadOnly))
-
-		// Open in read-only: no error, nothing is removed.
-		require.NoError(t, wc.Open(true))
-		require.NoError(t, wc.Init())
-		for i := range objects {
-			_, err := wc.Get(objects[i].addr)
-			require.NoError(t, err, i)
-		}
-		require.NoError(t, wc.Close())
-
-		// Open in read-write: no error, something is removed.
-		require.NoError(t, wc.Open(false))
-		require.NoError(t, wc.Init())
-		for i := range objects {
-			_, err := wc.Get(objects[i].addr)
-			if i < 2 {
-				require.ErrorAs(t, err, new(apistatus.ObjectNotFound), i)
-			} else {
-				require.NoError(t, err, i)
-			}
-		}
 	})
 }
 
