@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"sync"
 	"time"
@@ -1105,12 +1106,17 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	}
 
 	var onceResign sync.Once
-	var onceHdr sync.Once
-	var respondedPayload int
 	meta := req.GetMetaHeader()
 	if meta == nil {
 		return getsvc.Prm{}, errors.New("missing meta header")
 	}
+
+	proxyCtx := getProxyContext{
+		req:        req,
+		reqOID:     addr.Object(),
+		respStream: stream,
+	}
+
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
@@ -1126,7 +1132,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 		}
 
 		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := continueGetFromRemoteNode(ctx, conn, req, stream, &onceHdr, &respondedPayload, addr.Object())
+			err := proxyCtx.continueWithConn(ctx, conn)
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
@@ -1136,8 +1142,22 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	return p, nil
 }
 
-func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRequest, stream *getStream, onceHdr *sync.Once, respondedPayload *int, reqOID oid.ID) error {
-	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, req)
+type getProxyContext struct {
+	req        *protoobject.GetRequest
+	reqOID     oid.ID
+	respStream *getStream
+
+	onceHdr sync.Once
+
+	payloadLenCheck  uint64
+	payloadHashCheck []byte
+
+	respondedPayload int
+	payloadHashGot   hash.Hash
+}
+
+func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.ClientConn) error {
+	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, x.req)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
 	}
@@ -1178,7 +1198,7 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *
 			if v.Init.Header.PayloadHash == nil {
 				return errors.New("invalid response: invalid header: missing payload hash")
 			}
-			if err := checkHeaderAgainstID(v.Init.Header, reqOID); err != nil {
+			if err := checkHeaderAgainstID(v.Init.Header, x.reqOID); err != nil {
 				return err
 			}
 
@@ -1192,27 +1212,40 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *
 			if err != nil {
 				return err
 			}
-			onceHdr.Do(func() {
-				err = stream.WriteHeader(obj)
+			x.onceHdr.Do(func() {
+				err = x.respStream.WriteHeader(obj)
 			})
 			if err != nil {
 				return fmt.Errorf("could not write object header in Get forwarder: %w", err)
 			}
+
+			x.payloadLenCheck = v.Init.Header.PayloadLength
+			x.payloadHashCheck = v.Init.Header.PayloadHash.Sum
+			x.payloadHashGot = sha256.New()
 		case *protoobject.GetResponse_Body_Chunk:
 			if !headWas {
 				return errors.New("incorrect message sequence")
 			}
 			fullChunk := v.Chunk
-			respChunk := chunkToSend(*respondedPayload, readPayload, fullChunk)
+			respChunk := chunkToSend(x.respondedPayload, readPayload, fullChunk)
 			if len(respChunk) == 0 {
 				readPayload += len(fullChunk)
 				continue
 			}
-			if err := stream.WriteChunk(respChunk); err != nil {
+
+			x.payloadHashGot.Write(respChunk) // never returns an error according to docs
+
+			if uint64(x.respondedPayload+len(respChunk)) == x.payloadLenCheck {
+				if !bytes.Equal(x.payloadHashGot.Sum(nil), x.payloadHashCheck) { // not merged via && for readability
+					return errors.New("received payload mismatches checksum from header")
+				}
+			}
+
+			if err := x.respStream.WriteChunk(respChunk); err != nil {
 				return fmt.Errorf("could not write object chunk in Get forwarder: %w", err)
 			}
 			readPayload += len(fullChunk)
-			*respondedPayload += len(respChunk)
+			x.respondedPayload += len(respChunk)
 		case *protoobject.GetResponse_Body_SplitInfo:
 			if v == nil || v.SplitInfo == nil {
 				return errors.New("nil split info oneof field")
