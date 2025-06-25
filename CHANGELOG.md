@@ -14,10 +14,13 @@ Changelog for NeoFS Node
 - SN caches up to 1000 session token verification results until the next epoch (#3369)
 - SN no longer wastes memory for logger in ACL and GET/HEAD/RANGE handlers (#3408, #3412)
 - Inner ring ticks epoch based on real time, not blocks count (#3402)
+- IR, CLI and SN ignore signatures of object GET/HEAD responses (#3406)
+- IR, CLI and SN verify object checksums from GET/HEAD responses (except SN proxy case) (#3406)
 
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250623124459-a9cfab652dc0` (#3406)
 
 ### Updating from v0.47.1
 
