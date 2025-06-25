@@ -6,7 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- IR exponentially retries updating SN lists in the Container contract in error cases (#3344) 
+- IR exponentially retries updating SN lists in the Container contract in error cases (#3344)
 - Epoch stale after NEO RPC connection loss by IR (#3397)
 
 ### Changed
