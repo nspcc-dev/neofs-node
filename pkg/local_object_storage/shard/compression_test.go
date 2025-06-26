@@ -57,23 +57,38 @@ func TestCompression(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	testHead := func(t *testing.T, s *shard.Shard, i int) {
+		res1, err := s.Head(object.AddressOf(smallObj[i]), false)
+		require.NoError(t, err)
+		require.Equal(t, smallObj[i].CutPayload(), res1)
+
+		res2, err := s.Head(object.AddressOf(bigObj[i]), false)
+		require.NoError(t, err)
+		require.Equal(t, bigObj[i].CutPayload(), res2)
+	}
+
 	// Put and Get uncompressed object
 	s := newShardCompression(t, false)
 	testPut(t, s, 0)
 	testGet(t, s, 0)
+	testHead(t, s, 0)
 	require.NoError(t, s.Close())
 
 	s = newShardCompression(t, true)
 	testGet(t, s, 0) // get uncompressed object with compress enabled
+	testHead(t, s, 0)
 	testPut(t, s, 1)
 	testGet(t, s, 1)
 	require.NoError(t, s.Close())
 
 	s = newShardCompression(t, false)
 	testGet(t, s, 0) // get old uncompressed object
+	testHead(t, s, 0)
 	testGet(t, s, 1) // get compressed object with compression disabled
+	testHead(t, s, 1)
 	testPut(t, s, 2)
 	testGet(t, s, 2)
+	testHead(t, s, 2)
 	require.NoError(t, s.Close())
 }
 

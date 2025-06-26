@@ -15,8 +15,16 @@ import (
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	if s.GetMode().NoMetabase() {
-		return s.Get(addr, true)
+	if !s.GetMode().NoMetabase() {
+		return s.metaBase.Get(addr, raw)
 	}
-	return s.metaBase.Get(addr, raw)
+
+	if s.hasWriteCache() {
+		obj, err := s.writeCache.Head(addr)
+		if err == nil {
+			return obj, err
+		}
+	}
+
+	return s.blobStor.Head(addr)
 }

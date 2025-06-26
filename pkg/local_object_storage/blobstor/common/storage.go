@@ -26,6 +26,7 @@ type Storage interface {
 	GetBytes(oid.Address) ([]byte, error)
 	Get(oid.Address) (*objectSDK.Object, error)
 	GetRange(oid.Address, uint64, uint64) ([]byte, error)
+	Head(oid.Address) (*objectSDK.Object, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
 	PutBatch(map[oid.Address][]byte) error

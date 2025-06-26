@@ -232,14 +232,11 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 					return nil
 				})
 			} else {
-				data, err = getRawObjectBytes(addr.Object(), p)
-				if err != nil && errors.Is(err, apistatus.ObjectNotFound{}) {
-					continue
-				}
-				if err == nil {
-					data, err = t.Decompress(data)
-				}
+				data, err = t.getObjectBytesByPath(addr.Object(), p)
 				if err != nil {
+					if errors.Is(err, apistatus.ErrObjectNotFound) {
+						continue
+					}
 					if errorHandler != nil {
 						err = errorHandler(*addr, err)
 						if err == nil {
@@ -403,20 +400,11 @@ func (t *FSTree) GetBytes(addr oid.Address) ([]byte, error) {
 // getObjBytes extracts object bytes from the storage by address.
 func (t *FSTree) getObjBytes(addr oid.Address) ([]byte, error) {
 	p := t.treePath(addr)
-	data, err := getRawObjectBytes(addr.Object(), p)
-	if err != nil {
-		return nil, err
-	}
-	data, err = t.Decompress(data)
-	if err != nil {
-		return nil, fmt.Errorf("decompress file data %q: %w", p, err)
-	}
-	return data, nil
+	return t.getObjectBytesByPath(addr.Object(), p)
 }
 
-// getRawObjectBytes extracts raw object bytes from the storage by path. No
-// decompression is performed.
-func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
+// getObjectBytesByPath extracts object bytes from the storage by path.
+func (t *FSTree) getObjectBytesByPath(id oid.ID, p string) ([]byte, error) {
 	f, err := os.Open(p)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -425,7 +413,7 @@ func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
 		return nil, fmt.Errorf("read file %q: %w", p, err)
 	}
 	defer f.Close()
-	data, err := extractCombinedObject(id, f)
+	data, err := t.extractCombinedObject(id, f)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
@@ -437,7 +425,7 @@ func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
 
 // parseCombinedPrefix checks the given array for combined data prefix and
 // returns a subslice with OID and object length if so (nil and 0 otherwise).
-func parseCombinedPrefix(p [combinedDataOff]byte) ([]byte, uint32) {
+func parseCombinedPrefix(p []byte) ([]byte, uint32) {
 	if p[0] != combinedPrefix || p[1] != 0 { // Only version 0 is supported now.
 		return nil, 0
 	}
@@ -445,10 +433,9 @@ func parseCombinedPrefix(p [combinedDataOff]byte) ([]byte, uint32) {
 		binary.BigEndian.Uint32(p[combinedLengthOff:combinedDataOff])
 }
 
-func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
+func (t *FSTree) extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 	var (
 		comBuf     [combinedDataOff]byte
-		data       []byte
 		isCombined bool
 	)
 
@@ -457,13 +444,13 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				if !isCombined {
-					return comBuf[:n], nil
+					return t.Decompress(comBuf[:n])
 				}
 				return nil, fs.ErrNotExist
 			}
 			return nil, err
 		}
-		thisOID, l := parseCombinedPrefix(comBuf)
+		thisOID, l := parseCombinedPrefix(comBuf[:])
 		if thisOID == nil {
 			if isCombined {
 				return nil, errors.New("malformed combined file")
@@ -476,28 +463,30 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			if sz > math.MaxInt {
 				return nil, errors.New("too large file")
 			}
-			data = make([]byte, int(sz))
-			copy(data, comBuf[:])
-			_, err = io.ReadFull(f, data[len(comBuf):])
-			if err != nil {
-				return nil, err
-			}
-			return data, nil
+			return t.readFullObject(f, comBuf[:n], sz)
 		}
 		isCombined = true
 		if bytes.Equal(thisOID, id[:]) {
-			data = make([]byte, l)
-			_, err = io.ReadFull(f, data)
-			if err != nil {
-				return nil, err
-			}
-			return data, nil
+			return t.readFullObject(f, nil, int64(l))
 		}
 		_, err = f.Seek(int64(l), 1)
 		if err != nil {
 			return nil, err
 		}
 	}
+}
+
+// readFullObject reads full data of object from the file and decompresses it if necessary.
+func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte, error) {
+	data := make([]byte, size)
+	copy(data, initial)
+	n, err := io.ReadFull(f, data[len(initial):])
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	data = data[:len(initial)+n]
+
+	return t.Decompress(data)
 }
 
 // GetRange implements common.Storage.

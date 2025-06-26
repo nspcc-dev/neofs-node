@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `Head` operation for FSTree (#3383)
 
 ### Fixed
 - IR exponentially retries updating SN lists in the Container contract in error cases (#3344)
