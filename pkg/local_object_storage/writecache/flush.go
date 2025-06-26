@@ -160,7 +160,7 @@ func (c *cache) flushScheduler() {
 					case c.flushErrCh <- struct{}{}:
 					default:
 					}
-					break
+					break addrLoop
 				case c.flushCh <- as.addr:
 					c.processingBigObjs.Store(as.addr.String(), struct{}{})
 					continue
