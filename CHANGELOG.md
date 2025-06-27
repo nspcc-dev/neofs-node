@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - `Head` operation for FSTree (#3383)
+- `GetStream` operation for FSTree (#3431)
 
 ### Fixed
 - IR exponentially retries updating SN lists in the Container contract in error cases (#3344)
