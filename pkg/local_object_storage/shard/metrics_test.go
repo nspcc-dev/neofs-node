@@ -103,7 +103,7 @@ func TestCounters(t *testing.T) {
 
 	t.Run("put", func(t *testing.T) {
 		for i := range objNumber {
-			err := sh.Put(oo[i], nil, 0)
+			err := sh.Put(oo[i], nil)
 			require.NoError(t, err)
 		}
 

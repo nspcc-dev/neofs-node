@@ -11,6 +11,7 @@ import (
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -24,7 +25,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 5
+const currentMetaVersion = 6
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -52,6 +53,7 @@ var (
 		2: migrateFrom2Version,
 		3: migrateFrom3Version,
 		4: migrateFrom4Version,
+		5: migrateFrom5Version,
 	}
 
 	versionKey = []byte("version")
@@ -156,7 +158,7 @@ func migrateFrom2VersionTx(tx *bbolt.Tx, epochState EpochState) error {
 }
 
 func migrateFrom3Version(db *DB) error {
-	var validPrefixes = []byte{primaryPrefix, tombstonePrefix, storageGroupPrefix, lockersPrefix, linkObjectsPrefix}
+	var validPrefixes = []byte{unusedPrimaryPrefix, unusedTombstonePrefix, unusedStorageGroupPrefix, unusedLockersPrefix, unusedLinkObjectsPrefix}
 
 	err := updateContainersInterruptable(db, validPrefixes, migrateContainerToMetaBucket)
 	if err != nil {
@@ -359,7 +361,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		}
 
 		var addr = oid.NewAddress(cnr, id)
-		hdr, err := get(tx, addr, oidKey, false, false, 0)
+		hdr, err := getCompat(tx, addr, oidKey, false, false, 0)
 		if err != nil {
 			return 0, nil, fmt.Errorf("header error for %s: %w", addr, err)
 		}
@@ -387,4 +389,182 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		k = nil // End of iteration for this bucket.
 	}
 	return uint(len(queue)), k, nil
+}
+
+// getCompat is used for migrations only, it retrieves full headers from
+// respective buckets.
+func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
+	if checkStatus {
+		switch objectStatus(tx, addr, currEpoch) {
+		case statusGCMarked:
+			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+		case statusTombstoned:
+			return nil, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
+		case statusExpired:
+			return nil, ErrObjectIsExpired
+		}
+	}
+
+	key = objectKey(addr.Object(), key)
+	cnr := addr.Container()
+	obj := object.New()
+	bucketName := make([]byte, bucketKeySize)
+
+	// check in primary index
+	data := getFromBucket(tx, primaryBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in tombstone index
+	data = getFromBucket(tx, tombstoneBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in storage group index
+	data = getFromBucket(tx, storageGroupBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in locker index
+	data = getFromBucket(tx, bucketNameLockers(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in link objects index
+	data = getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check if object is a virtual one, but this contradicts raw flag
+	if raw {
+		return nil, getSplitInfoError(tx, cnr, addr.Object(), bucketName)
+	}
+	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
+}
+
+func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
+	bkt := tx.Bucket(name)
+	if bkt == nil {
+		return nil
+	}
+
+	return bkt.Get(key)
+}
+
+func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
+	var childOID oid.ID
+
+	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
+	if metaBucket == nil {
+		return childOID
+	}
+
+	var cur = metaBucket.Cursor()
+	k, _ := cur.Seek(parentPrefix)
+
+	if bytes.HasPrefix(k, parentPrefix) {
+		// Error will lead to zero oid which is ~the same as missing child.
+		childOID, _ = oid.DecodeBytes(k[len(parentPrefix):])
+	}
+	return childOID
+}
+
+func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*object.Object, error) {
+	var childOID = getChildForParent(tx, cnr, parentID, bucketName)
+
+	if childOID.IsZero() {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	// we should have a link object
+	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), childOID[:])
+	if len(data) == 0 {
+		// no link object, so we may have the last object with parent header
+		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), childOID[:])
+	}
+
+	if len(data) == 0 {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	child := object.New()
+
+	err := child.Unmarshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", childOID, parentID, err)
+	}
+
+	par := child.Parent()
+
+	if par == nil { // this should never happen though
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	return par, nil
+}
+
+func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
+	splitInfo, err := getSplitInfo(tx, cnr, parentID, bucketName)
+	if err == nil {
+		return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
+	}
+
+	return logicerr.Wrap(apistatus.ObjectNotFound{})
+}
+
+// primaryBucketName returns <CID>.
+func primaryBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedPrimaryPrefix, key)
+}
+
+// returns name of the bucket with objects of type LOCK for specified container.
+func bucketNameLockers(idCnr cid.ID, key []byte) []byte {
+	return bucketName(idCnr, unusedLockersPrefix, key)
+}
+
+// tombstoneBucketName returns <CID>_TS.
+func tombstoneBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedTombstonePrefix, key)
+}
+
+// linkObjectsBucketName returns link objects bucket key (`18<CID>`).
+func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedLinkObjectsPrefix, key)
+}
+
+// storageGroupBucketName returns <CID>_SG.
+func storageGroupBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedStorageGroupPrefix, key)
+}
+
+func migrateFrom5Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		var (
+			buckets          [][]byte
+			obsoletePrefixes = []byte{unusedPrimaryPrefix,
+				unusedLockersPrefix, unusedStorageGroupPrefix,
+				unusedTombstonePrefix, unusedLinkObjectsPrefix}
+		)
+		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
+			if slices.Contains(obsoletePrefixes, name[0]) {
+				buckets = append(buckets, slices.Clone(name))
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("iterating buckets: %w", err)
+		}
+		for _, name := range buckets {
+			err := tx.DeleteBucket(name)
+			if err != nil {
+				return fmt.Errorf("deleting %v bucket: %w", name, err)
+			}
+		}
+		return updateVersion(tx, 6)
+	})
 }

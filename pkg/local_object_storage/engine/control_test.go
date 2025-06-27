@@ -135,7 +135,7 @@ func TestExecBlocks(t *testing.T) {
 
 	addr := object.AddressOf(obj)
 
-	require.NoError(t, e.Put(obj, nil, 0))
+	require.NoError(t, e.Put(obj, nil))
 
 	// block executions
 	errBlock := errors.New("block exec err")

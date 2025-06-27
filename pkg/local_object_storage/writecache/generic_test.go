@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -31,13 +30,8 @@ func TestGeneric(t *testing.T) {
 	storagetest.TestAll(t, newCache)
 }
 
-func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage, *meta.DB) {
+func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
 	dir := tb.TempDir()
-	mb := meta.New(
-		meta.WithPath(filepath.Join(dir, "meta")),
-		meta.WithEpochState(dummyEpoch{}))
-	require.NoError(tb, mb.Open(false))
-	require.NoError(tb, mb.Init())
 
 	fsTree := fstree.New(
 		fstree.WithPath(filepath.Join(dir, "fstree")),
@@ -58,11 +52,10 @@ func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage, *meta.DB) {
 	wc := New(
 		append([]Option{
 			WithPath(filepath.Join(dir, "writecache")),
-			WithMetabase(mb),
 			WithStorage(modeAwareStorage),
 		}, opts...)...)
 	require.NoError(tb, wc.Open(false))
 	require.NoError(tb, wc.Init())
 
-	return wc, modeAwareStorage, mb
+	return wc, modeAwareStorage
 }

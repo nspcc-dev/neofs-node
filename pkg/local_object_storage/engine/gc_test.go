@@ -86,10 +86,10 @@ func TestChildrenExpiration(t *testing.T) {
 		link.SetChildren(child1ID, child2ID, child3ID)
 		link.SetSplitID(splitID)
 
-		require.NoError(t, e.Put(child1, nil, 0))
-		require.NoError(t, e.Put(child2, nil, 0))
-		require.NoError(t, e.Put(child3, nil, 0))
-		require.NoError(t, e.Put(link, nil, 0))
+		require.NoError(t, e.Put(child1, nil))
+		require.NoError(t, e.Put(child2, nil))
+		require.NoError(t, e.Put(child3, nil))
+		require.NoError(t, e.Put(link, nil))
 
 		e.HandleNewEpoch(currEpoch + 1)
 
@@ -137,10 +137,10 @@ func TestChildrenExpiration(t *testing.T) {
 		linkObj.CalculateAndSetPayloadChecksum()
 		require.NoError(t, linkObj.CalculateAndSetID())
 
-		require.NoError(t, e.Put(child1, nil, 0))
-		require.NoError(t, e.Put(child2, nil, 0))
-		require.NoError(t, e.Put(child3, nil, 0))
-		require.NoError(t, e.Put(&linkObj, nil, 0))
+		require.NoError(t, e.Put(child1, nil))
+		require.NoError(t, e.Put(child2, nil))
+		require.NoError(t, e.Put(child3, nil))
+		require.NoError(t, e.Put(&linkObj, nil))
 
 		e.HandleNewEpoch(currEpoch + 1)
 

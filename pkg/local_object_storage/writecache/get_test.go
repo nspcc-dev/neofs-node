@@ -8,7 +8,7 @@ import (
 
 func TestCache_GetBytes(t *testing.T) {
 	const maxObjSize = 4 << 10
-	c, _, _ := newCache(t)
+	c, _ := newCache(t)
 
 	o := putObject(t, c, maxObjSize/2)
 	objBin := o.obj.Marshal()

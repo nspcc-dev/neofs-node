@@ -125,7 +125,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 	}
 
 	cIDRaw := cID[:]
-	buff := make([]byte, addressKeySize)
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		// Estimations
@@ -140,36 +139,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 		err = bktLocked.DeleteBucket(cIDRaw)
 		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("locked bucket cleanup: %w", err)
-		}
-
-		// Regular objects
-		err = tx.DeleteBucket(primaryBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("regular bucket cleanup: %w", err)
-		}
-
-		// Lock objects
-		err = tx.DeleteBucket(bucketNameLockers(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("lockers bucket cleanup: %w", err)
-		}
-
-		// SG objects
-		err = tx.DeleteBucket(storageGroupBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("storage group bucket cleanup: %w", err)
-		}
-
-		// TS objects
-		err = tx.DeleteBucket(tombstoneBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("tombstone bucket cleanup: %w", err)
-		}
-
-		// Link objects
-		err = tx.DeleteBucket(linkObjectsBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("link objects' bucket cleanup: %w", err)
 		}
 
 		// Metadata

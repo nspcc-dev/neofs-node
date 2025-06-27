@@ -69,7 +69,7 @@ func (s *Shard) Restore(r io.Reader, ignoreErrors bool) (int, int, error) {
 			return count, failCount, err
 		}
 
-		err = s.Put(obj, nil, 0)
+		err = s.Put(obj, nil)
 		if err != nil && !IsErrObjectExpired(err) && !IsErrRemoved(err) {
 			return count, failCount, err
 		}

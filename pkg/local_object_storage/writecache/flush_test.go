@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -40,14 +39,13 @@ func TestFlush(t *testing.T) {
 		bigSize  = defaultMaxBatchTreshold
 	)
 
-	newCache := func(t *testing.T, opts ...Option) (Cache, common.Storage, *meta.DB) {
-		wc, s, mb := newCache(t, append(opts, WithLogger(zaptest.NewLogger(t)))...)
+	newCache := func(t *testing.T, opts ...Option) (Cache, common.Storage) {
+		wc, s := newCache(t, append(opts, WithLogger(zaptest.NewLogger(t)))...)
 
-		// First set mode for metabase and blobstor to prevent background flushes.
-		require.NoError(t, mb.SetMode(mode.ReadOnly))
+		// First set mode for blobstor to prevent background flushes.
 		require.NoError(t, storageSetMode(s, mode.ReadOnly))
 
-		return wc, s, mb
+		return wc, s
 	}
 
 	putObjects := func(t *testing.T, c Cache) []objectPair {
@@ -58,7 +56,7 @@ func TestFlush(t *testing.T) {
 		return objects
 	}
 
-	check := func(t *testing.T, mb *meta.DB, s common.Storage, objects []objectPair) {
+	check := func(t *testing.T, s common.Storage, objects []objectPair) {
 		for i := range objects {
 			res, err := s.Get(objects[i].addr)
 			require.NoError(t, err)
@@ -67,12 +65,11 @@ func TestFlush(t *testing.T) {
 	}
 
 	t.Run("no errors", func(t *testing.T) {
-		wc, ss, mb := newCache(t)
+		wc, ss := newCache(t)
 		defer wc.Close()
 		objects := putObjects(t, wc)
 
 		require.NoError(t, storageSetMode(ss, mode.ReadWrite))
-		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 		for _, obj := range objects {
 			_, err := wc.Get(obj.addr)
@@ -81,7 +78,7 @@ func TestFlush(t *testing.T) {
 
 		require.NoError(t, wc.Flush(false))
 
-		check(t, mb, ss, objects)
+		check(t, ss, objects)
 		require.Equal(t, wc.(*cache).objCounters.Size(), uint64(0))
 		for _, obj := range objects {
 			_, err := wc.Get(obj.addr)
@@ -90,7 +87,7 @@ func TestFlush(t *testing.T) {
 	})
 
 	t.Run("flush on moving to degraded mode", func(t *testing.T) {
-		wc, s, mb := newCache(t)
+		wc, s := newCache(t)
 		defer wc.Close()
 		objects := putObjects(t, wc)
 
@@ -100,17 +97,16 @@ func TestFlush(t *testing.T) {
 		// First move to read-only mode to close background workers.
 		require.NoError(t, wc.SetMode(mode.ReadOnly))
 		require.NoError(t, storageSetMode(s, mode.ReadWrite))
-		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 		require.NoError(t, wc.SetMode(mode.Degraded))
 
-		check(t, mb, s, objects)
+		check(t, s, objects)
 	})
 
 	t.Run("ignore errors", func(t *testing.T) {
 		testIgnoreErrors := func(t *testing.T, f func(*cache)) {
 			var errCount atomic.Uint32
-			wc, s, mb := newCache(t, WithReportErrorFunc(func(message string, err error) {
+			wc, s := newCache(t, WithReportErrorFunc(func(message string, err error) {
 				errCount.Add(1)
 			}))
 			defer wc.Close()
@@ -119,14 +115,13 @@ func TestFlush(t *testing.T) {
 
 			require.NoError(t, wc.SetMode(mode.ReadOnly))
 			require.NoError(t, storageSetMode(s, mode.ReadWrite))
-			require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 			require.Equal(t, uint32(0), errCount.Load())
 			require.Error(t, wc.Flush(false))
 			require.True(t, errCount.Load() > 0)
 			require.NoError(t, wc.Flush(true))
 
-			check(t, mb, s, objects)
+			check(t, s, objects)
 		}
 		t.Run("fs, read error", func(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
@@ -156,10 +151,9 @@ func TestFlushPerformance(t *testing.T) {
 		for _, workerCount := range workerCounts {
 			t.Run(fmt.Sprintf("objects=%d_workers=%d", objCount, workerCount), func(t *testing.T) {
 				t.Parallel()
-				wc, s, mb := newCache(t, WithFlushWorkersCount(workerCount))
+				wc, s := newCache(t, WithFlushWorkersCount(workerCount))
 				defer wc.Close()
 
-				require.NoError(t, mb.SetMode(mode.ReadOnly))
 				require.NoError(t, storageSetMode(s, mode.ReadOnly))
 
 				objects := make([]objectPair, objCount)
@@ -174,7 +168,6 @@ func TestFlushPerformance(t *testing.T) {
 				require.NoError(t, wc.Close())
 
 				require.NoError(t, storageSetMode(s, mode.ReadWrite))
-				require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 				require.NoError(t, wc.Open(false))
 				require.NoError(t, wc.Init())
@@ -205,11 +198,6 @@ func TestFlushErrorRetry(t *testing.T) {
 	for _, workerCount := range workerCounts {
 		t.Run(fmt.Sprintf("worker=%d", workerCount), func(t *testing.T) {
 			dir := t.TempDir()
-			mb := meta.New(
-				meta.WithPath(filepath.Join(dir, "meta")),
-				meta.WithEpochState(dummyEpoch{}))
-			require.NoError(t, mb.Open(false))
-			require.NoError(t, mb.Init())
 
 			fsTree := fstree.New(
 				fstree.WithPath(filepath.Join(dir, "fstree")),
@@ -238,7 +226,6 @@ func TestFlushErrorRetry(t *testing.T) {
 				),
 			)
 			wc := New(WithPath(filepath.Join(dir, "writecache")),
-				WithMetabase(mb),
 				WithStorage(s),
 				WithFlushWorkersCount(workerCount),
 				WithLogger(logger))
@@ -282,11 +269,10 @@ func TestFlushErrorRetry(t *testing.T) {
 }
 
 func TestFlushScheduler(t *testing.T) {
-	wc, s, mb := newCache(t)
+	wc, s := newCache(t)
 	defer wc.Close()
 
 	require.NoError(t, storageSetMode(s, mode.ReadWrite))
-	require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 	objects := make([]objectPair, 2)
 	objects[0] = putObject(t, wc, 1)
@@ -299,7 +285,6 @@ func TestFlushScheduler(t *testing.T) {
 	require.NoError(t, wc.Close())
 
 	require.NoError(t, storageSetMode(s, mode.ReadWrite))
-	require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 	require.NoError(t, wc.Open(false))
 	require.NoError(t, wc.Init())
@@ -377,12 +362,6 @@ func storageSetMode(s common.Storage, m mode.Mode) error {
 		}
 	}
 	return err
-}
-
-type dummyEpoch struct{}
-
-func (dummyEpoch) CurrentEpoch() uint64 {
-	return 0
 }
 
 type ModeAwareStorage struct {

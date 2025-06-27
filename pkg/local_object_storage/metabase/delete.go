@@ -162,29 +162,7 @@ func delBucketKey(tx *bbolt.Tx, bucket []byte, key []byte) {
 func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID, typ objectSDK.Type, isParent bool) error {
 	addr := oid.NewAddress(cnr, oID)
 
-	objKey := objectKey(oID, make([]byte, objectKeySize))
 	addrKey := addressKey(addr, make([]byte, addressKeySize))
-	bucketName := make([]byte, bucketKeySize)
-
-	// add value to primary unique bucket
-	if !isParent {
-		switch typ {
-		case objectSDK.TypeRegular:
-			bucketName = primaryBucketName(cnr, bucketName)
-		case objectSDK.TypeTombstone:
-			bucketName = tombstoneBucketName(cnr, bucketName)
-		case objectSDK.TypeStorageGroup:
-			bucketName = storageGroupBucketName(cnr, bucketName)
-		case objectSDK.TypeLock:
-			bucketName = bucketNameLockers(cnr, bucketName)
-		case objectSDK.TypeLink:
-			bucketName = linkObjectsBucketName(cnr, bucketName)
-		default:
-			return ErrUnknownObjectType
-		}
-
-		delBucketKey(tx, bucketName, objKey)
-	}
 
 	delBucketKey(tx, toMoveItBucketName, addrKey)
 

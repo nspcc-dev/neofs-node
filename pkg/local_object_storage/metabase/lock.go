@@ -16,11 +16,6 @@ import (
 
 var bucketNameLocked = []byte{lockedPrefix}
 
-// returns name of the bucket with objects of type LOCK for specified container.
-func bucketNameLockers(idCnr cid.ID, key []byte) []byte {
-	return bucketName(idCnr, lockersPrefix, key)
-}
-
 // Lock marks objects as locked with another object. All objects are from the
 // specified container.
 //

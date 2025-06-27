@@ -8,15 +8,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// Put saves the object in shard. objBin and hdrLen parameters are
-// optional and used to optimize out object marshaling, when used both must
-// be valid.
+// Put saves the object in shard. objBin parameter is  optional and used
+// to optimize out object marshaling.
 //
 // Returns any error encountered that
 // did not allow to completely save the object.
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
-func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
+func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -28,9 +27,6 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 	var err error
 	if objBin == nil {
 		objBin = obj.Marshal()
-		// TODO: currently, we don't need to calculate prm.hdrLen in this case.
-		//  If you do this, then underlying code below for accessing the metabase could
-		//  reuse already encoded header.
 	}
 
 	var addr = objectCore.AddressOf(obj)
@@ -55,11 +51,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 	}
 
 	if !m.NoMetabase() {
-		var binHeader []byte
-		if hdrLen != 0 {
-			binHeader = objBin[:hdrLen]
-		}
-		if err := s.metaBase.Put(obj, binHeader); err != nil {
+		if err := s.metaBase.Put(obj); err != nil {
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor
 			return fmt.Errorf("could not put object to metabase: %w", err)

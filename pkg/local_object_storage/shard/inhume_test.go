@@ -30,7 +30,7 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 
 	ts := generateObjectWithCID(cnr)
 
-	err := sh.Put(obj, nil, 0)
+	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
 	_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)

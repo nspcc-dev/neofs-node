@@ -33,7 +33,7 @@ func TestCounters(t *testing.T) {
 		}
 
 		for i := range objCount {
-			err = db.Put(oo[i], nil)
+			err = db.Put(oo[i])
 			require.NoError(t, err)
 
 			c, err = db.ObjectCounters()
@@ -259,7 +259,7 @@ func putObjs(t *testing.T, db *meta.DB, count int, withParent bool) []*object.Ob
 
 		oo = append(oo, o)
 
-		err = db.Put(o, nil)
+		err = db.Put(o)
 		require.NoError(t, err)
 
 		c, err := db.ObjectCounters()

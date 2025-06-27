@@ -15,7 +15,7 @@ func TestStorageEngine_GetBytes(t *testing.T) {
 
 	objBin := obj.Marshal()
 
-	err := e.Put(obj, nil, 0)
+	err := e.Put(obj, nil)
 	require.NoError(t, err)
 
 	b, err := e.GetBytes(addr)

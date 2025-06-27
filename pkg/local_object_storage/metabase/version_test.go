@@ -201,7 +201,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 				lockWasChecked = true
 			}
 
-			obj, err := get(tx, prm.target[i], buf, false, true, currEpoch)
+			obj, err := getCompat(tx, prm.target[i], buf, false, true, currEpoch)
 			targetKey := addressKey(prm.target[i], buf)
 			if err == nil {
 				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
@@ -460,7 +460,7 @@ func TestMigrate3to4(t *testing.T) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
-		require.Equal(t, []byte{0x05, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+		require.Equal(t, []byte{0x06, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 		return nil
 	})
 	require.NoError(t, err)
@@ -591,7 +591,7 @@ func TestMigrate3to4(t *testing.T) {
 				)
 				// put object and force old version
 				require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-					b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+					b, err := tx.CreateBucket(slices.Concat([]byte{unusedPrimaryPrefix}, cnr[:]))
 					require.NoError(t, err)
 					require.NoError(t, b.Put(id[:], obj.Marshal()))
 					bkt := tx.Bucket([]byte{0x05})
@@ -648,7 +648,7 @@ func TestMigrate3to4(t *testing.T) {
 		}
 		// store objects and force version#3
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			b, err := tx.CreateBucket(slices.Concat([]byte{unusedPrimaryPrefix}, cnr[:]))
 			require.NoError(t, err)
 			for i := range objs {
 				require.NoError(t, b.Put(ids[i][:], objs[i]))
@@ -660,7 +660,7 @@ func TestMigrate3to4(t *testing.T) {
 		}))
 		// corrupt one object
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			b := tx.Bucket(slices.Concat([]byte{unusedPrimaryPrefix}, cnr[:]))
 			require.NotNil(t, b)
 			require.NoError(t, b.Put(ids[1][:], invalidProtobuf))
 			return nil
@@ -703,7 +703,7 @@ func TestMigrate3to4(t *testing.T) {
 		}
 		// store objects and force version#3
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			b, err := tx.CreateBucket(slices.Concat([]byte{unusedPrimaryPrefix}, cnr[:]))
 			require.NoError(t, err)
 			for i := range objBins {
 				require.NoError(t, b.Put(ids[i][:], objBins[i]))
@@ -718,7 +718,7 @@ func TestMigrate3to4(t *testing.T) {
 		objs[1].SetAttributes(object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
 		objBins[1] = objs[1].Marshal()
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			b := tx.Bucket(slices.Concat([]byte{unusedPrimaryPrefix}, cnr[:]))
 			require.NotNil(t, b)
 			require.NoError(t, b.Put(ids[1][:], objBins[1]))
 			return nil
@@ -760,8 +760,8 @@ func TestMigrate3to4(t *testing.T) {
 			objBins[i] = objs[i].Marshal()
 		}
 		// store objects and force version#3
-		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+		var pushObjects = func(tx *bbolt.Tx) error {
+			b, err := tx.CreateBucket(slices.Concat([]byte{unusedPrimaryPrefix}, cnr[:]))
 			require.NoError(t, err)
 			for i := range objBins {
 				require.NoError(t, b.Put(ids[i][:], objBins[i]))
@@ -770,7 +770,8 @@ func TestMigrate3to4(t *testing.T) {
 			require.NotNil(t, bkt)
 			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 			return nil
-		}))
+		}
+		require.NoError(t, db.boltDB.Update(pushObjects))
 		t.Run("failed to check", func(t *testing.T) {
 			anyErr := errors.New("any error")
 			cnrs.err = anyErr
@@ -788,7 +789,7 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 				bkt := tx.Bucket([]byte{0x05})
 				require.NotNil(t, bkt)
-				require.Equal(t, []byte{0x05, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+				require.Equal(t, []byte{0x06, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 				require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 				return nil
 			}))
@@ -801,6 +802,8 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
 			require.Subset(t, m, map[string]any{"level": "info", "msg": "container no longer exists, ignoring", "container": cnr.String()})
 		})
+		// Previous test updated meta to 6 and wiped objects, get them back.
+		require.NoError(t, db.boltDB.Update(pushObjects))
 		// migrate
 		require.NoError(t, db.Init())
 		// assert all others are available
@@ -978,9 +981,23 @@ func TestMigrate4to5(t *testing.T) {
 	rightObj.SetPreviousID(middleObj.GetID())
 	rightObj.SetParent(parent)
 
-	require.NoError(t, db.Put(leftObj, nil))
-	require.NoError(t, db.Put(middleObj, nil))
-	require.NoError(t, db.Put(rightObj, nil))
+	require.NoError(t, db.Put(leftObj))
+	require.NoError(t, db.Put(middleObj))
+	require.NoError(t, db.Put(rightObj))
+
+	// primary bucket was deleted in version 6 and Put() no longer adds it,
+	// so put additional data manually here that version 4 had.
+	require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+		b, err := tx.CreateBucket(slices.Concat([]byte{unusedPrimaryPrefix}, cnr[:]))
+		require.NoError(t, err)
+		objId := leftObj.GetID()
+		require.NoError(t, b.Put(objId[:], leftObj.CutPayload().Marshal()))
+		objId = middleObj.GetID()
+		require.NoError(t, b.Put(objId[:], middleObj.CutPayload().Marshal()))
+		objId = rightObj.GetID()
+		require.NoError(t, b.Put(objId[:], rightObj.CutPayload().Marshal()))
+		return nil
+	}))
 
 	var fs object.SearchFilters
 	fs.AddRootFilter()

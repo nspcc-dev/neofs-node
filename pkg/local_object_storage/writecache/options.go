@@ -2,19 +2,12 @@ package writecache
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // Option represents write-cache configuration option.
 type Option func(*options)
-
-// Metabase is an interface to metabase sufficient for writecache to operate.
-type Metabase interface {
-	Exists(addr oid.Address, ignoreExpiration bool) (bool, error)
-	Put(obj *objectSDK.Object, binHeader []byte) error
-}
 
 // stor is an interface for the storage.
 type stor interface {
@@ -29,8 +22,6 @@ type options struct {
 	path string
 	// storage is the main persistent storage.
 	storage stor
-	// metabase is the metabase instance.
-	metabase Metabase
 	// maxCacheSize is the maximum total size of all objects saved in cache.
 	// 1 GiB by default.
 	maxCacheSize uint64
@@ -70,13 +61,6 @@ func WithPath(path string) Option {
 func WithStorage(s common.Storage) Option {
 	return func(o *options) {
 		o.storage = s
-	}
-}
-
-// WithMetabase sets metabase.
-func WithMetabase(db Metabase) Option {
-	return func(o *options) {
-		o.metabase = db
 	}
 }
 

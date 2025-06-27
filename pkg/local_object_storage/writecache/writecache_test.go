@@ -9,7 +9,7 @@ import (
 )
 
 func TestCache_InitReadOnly(t *testing.T) {
-	wc, _, _ := newCache(t)
+	wc, _ := newCache(t)
 
 	obj := objecttest.Object()
 

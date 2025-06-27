@@ -20,16 +20,11 @@ var (
 	ErrIncorrectRootObject      = errors.New("invalid root object")
 )
 
-// Put saves object header in metabase. Object payload is expected to be cut.
-//
-// binHeader parameter is optional and allows to provide an already encoded
-// object header in [DB] format. If provided, the encoding step is skipped.
-// It's the caller's responsibility to ensure that the data matches the object
-// structure being processed.
+// Put updates metabase indexes for the given object.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (db *DB) Put(obj *objectSDK.Object, binHeader []byte) error {
+func (db *DB) Put(obj *objectSDK.Object) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -42,7 +37,7 @@ func (db *DB) Put(obj *objectSDK.Object, binHeader []byte) error {
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, obj, nil, currEpoch, binHeader)
+		return db.put(tx, obj, nil, currEpoch)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -55,7 +50,7 @@ func (db *DB) Put(obj *objectSDK.Object, binHeader []byte) error {
 
 func (db *DB) put(
 	tx *bbolt.Tx, obj *objectSDK.Object,
-	si *objectSDK.SplitInfo, currEpoch uint64, hdrBin []byte) error {
+	si *objectSDK.SplitInfo, currEpoch uint64) error {
 	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
@@ -82,15 +77,10 @@ func (db *DB) put(
 				return err
 			}
 
-			err = db.put(tx, par, parentSI, currEpoch, nil)
+			err = db.put(tx, par, parentSI, currEpoch)
 			if err != nil {
 				return err
 			}
-		}
-
-		err = putHeaderIndex(tx, obj, hdrBin)
-		if err != nil {
-			return fmt.Errorf("can't put header: %w", err)
 		}
 
 		// update container volume size estimation
@@ -119,43 +109,6 @@ func (db *DB) put(
 	}
 
 	return nil
-}
-
-func putHeaderIndex(
-	tx *bbolt.Tx,
-	obj *objectSDK.Object,
-	hdrBin []byte,
-) error {
-	addr := objectCore.AddressOf(obj)
-	cnr := addr.Container()
-	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
-
-	bucketName := make([]byte, bucketKeySize)
-	// add value to primary unique bucket
-	switch obj.Type() {
-	case objectSDK.TypeRegular:
-		bucketName = primaryBucketName(cnr, bucketName)
-	case objectSDK.TypeTombstone:
-		bucketName = tombstoneBucketName(cnr, bucketName)
-	case objectSDK.TypeStorageGroup:
-		bucketName = storageGroupBucketName(cnr, bucketName)
-	case objectSDK.TypeLock:
-		bucketName = bucketNameLockers(cnr, bucketName)
-	case objectSDK.TypeLink:
-		bucketName = linkObjectsBucketName(cnr, bucketName)
-	default:
-		return ErrUnknownObjectType
-	}
-
-	if hdrBin == nil {
-		hdrBin = obj.CutPayload().Marshal()
-	}
-
-	bkt, err := tx.CreateBucketIfNotExists(bucketName)
-	if err != nil {
-		return fmt.Errorf("can't create bucket %v: %w", bucketName, err)
-	}
-	return bkt.Put(objKey, hdrBin)
 }
 
 // encodeList decodes list of bytes into a single blog for list bucket indexes.

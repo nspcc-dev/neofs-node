@@ -131,8 +131,7 @@ func New(opts ...Option) *Shard {
 		s.writeCache = writecache.New(
 			append(c.writeCacheOpts,
 				writecache.WithReportErrorFunc(reportFunc),
-				writecache.WithStorage(s.blobStor),
-				writecache.WithMetabase(mb))...)
+				writecache.WithStorage(s.blobStor))...)
 	}
 
 	s.fillInfo()
