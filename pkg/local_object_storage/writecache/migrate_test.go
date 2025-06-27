@@ -14,7 +14,7 @@ import (
 )
 
 func TestMigrateFromBolt(t *testing.T) {
-	c, s, _ := newCache(t)
+	c, s := newCache(t)
 
 	wc := c.(*cache)
 	path := filepath.Join(wc.path, dbName)
