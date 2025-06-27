@@ -359,7 +359,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		}
 
 		var addr = oid.NewAddress(cnr, id)
-		hdr, err := get(tx, addr, oidKey, false, false, 0)
+		hdr, err := getCompat(tx, addr, oidKey, false, false, 0)
 		if err != nil {
 			return 0, nil, fmt.Errorf("header error for %s: %w", addr, err)
 		}
