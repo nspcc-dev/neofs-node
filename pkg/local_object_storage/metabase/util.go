@@ -201,9 +201,18 @@ func containerKey(cID cid.ID, key []byte) []byte {
 
 // return true if provided object is of LOCK type.
 func isLockObject(tx *bbolt.Tx, idCnr cid.ID, obj oid.ID) bool {
-	return inBucket(tx,
-		bucketNameLockers(idCnr, make([]byte, bucketKeySize)),
-		objectKey(obj, make([]byte, objectKeySize)))
+	var bkt = tx.Bucket(metaBucketKey(idCnr))
+	if bkt == nil {
+		return false
+	}
+
+	var typeKey = make([]byte, metaIDTypePrefixSize+len(object.TypeLock.String()))
+
+	fillIDTypePrefix(typeKey)
+	copy(typeKey[1:], obj[:])
+	copy(typeKey[metaIDTypePrefixSize:], object.TypeLock.String())
+
+	return bkt.Get(typeKey) != nil
 }
 
 func parseInt(s string) (*big.Int, bool) { return new(big.Int).SetString(s, 10) }
