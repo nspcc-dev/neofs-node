@@ -181,71 +181,6 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	return obj, nil
 }
 
-// getCompat is used for migrations only, it retrieves full headers from
-// respective buckets.
-func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
-	if checkStatus {
-		switch objectStatus(tx, addr, currEpoch) {
-		case statusGCMarked:
-			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-		case statusTombstoned:
-			return nil, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
-		case statusExpired:
-			return nil, ErrObjectIsExpired
-		}
-	}
-
-	key = objectKey(addr.Object(), key)
-	cnr := addr.Container()
-	obj := objectSDK.New()
-	bucketName := make([]byte, bucketKeySize)
-
-	// check in primary index
-	data := getFromBucket(tx, primaryBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in tombstone index
-	data = getFromBucket(tx, tombstoneBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in storage group index
-	data = getFromBucket(tx, storageGroupBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in locker index
-	data = getFromBucket(tx, bucketNameLockers(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in link objects index
-	data = getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check if object is a virtual one, but this contradicts raw flag
-	if raw {
-		return nil, getSplitInfoError(tx, cnr, addr.Object(), bucketName)
-	}
-	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
-}
-
-func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return nil
-	}
-
-	return bkt.Get(key)
-}
-
 func getParentMetaOwnersPrefix(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*bbolt.Bucket, []byte) {
 	bucketName[0] = metadataPrefix
 	copy(bucketName[1:], cnr[:])
@@ -262,67 +197,6 @@ func getParentMetaOwnersPrefix(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucket
 	copy(parentPrefix[off:], parentID[:])
 
 	return metaBucket, parentPrefix
-}
-
-func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
-	var childOID oid.ID
-
-	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
-	if metaBucket == nil {
-		return childOID
-	}
-
-	var cur = metaBucket.Cursor()
-	k, _ := cur.Seek(parentPrefix)
-
-	if bytes.HasPrefix(k, parentPrefix) {
-		// Error will lead to zero oid which is ~the same as missing child.
-		childOID, _ = oid.DecodeBytes(k[len(parentPrefix):])
-	}
-	return childOID
-}
-
-func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*objectSDK.Object, error) {
-	var childOID = getChildForParent(tx, cnr, parentID, bucketName)
-
-	if childOID.IsZero() {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	// we should have a link object
-	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), childOID[:])
-	if len(data) == 0 {
-		// no link object, so we may have the last object with parent header
-		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), childOID[:])
-	}
-
-	if len(data) == 0 {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	child := objectSDK.New()
-
-	err := child.Unmarshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", childOID, parentID, err)
-	}
-
-	par := child.Parent()
-
-	if par == nil { // this should never happen though
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	return par, nil
-}
-
-func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
-	splitInfo, err := getSplitInfo(tx, cnr, parentID, bucketName)
-	if err == nil {
-		return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
-	}
-
-	return logicerr.Wrap(apistatus.ObjectNotFound{})
 }
 
 func listContainerObjects(tx *bbolt.Tx, cID cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {
