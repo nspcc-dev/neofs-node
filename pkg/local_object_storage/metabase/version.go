@@ -25,7 +25,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 5
+const currentMetaVersion = 6
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -53,6 +53,7 @@ var (
 		2: migrateFrom2Version,
 		3: migrateFrom3Version,
 		4: migrateFrom4Version,
+		5: migrateFrom5Version,
 	}
 
 	versionKey = []byte("version")
@@ -157,7 +158,7 @@ func migrateFrom2VersionTx(tx *bbolt.Tx, epochState EpochState) error {
 }
 
 func migrateFrom3Version(db *DB) error {
-	var validPrefixes = []byte{primaryPrefix, tombstonePrefix, storageGroupPrefix, lockersPrefix, linkObjectsPrefix}
+	var validPrefixes = []byte{unusedPrimaryPrefix, unusedTombstonePrefix, unusedStorageGroupPrefix, unusedLockersPrefix, unusedLinkObjectsPrefix}
 
 	err := updateContainersInterruptable(db, validPrefixes, migrateContainerToMetaBucket)
 	if err != nil {
@@ -514,4 +515,56 @@ func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []b
 	}
 
 	return logicerr.Wrap(apistatus.ObjectNotFound{})
+}
+
+// primaryBucketName returns <CID>.
+func primaryBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedPrimaryPrefix, key)
+}
+
+// returns name of the bucket with objects of type LOCK for specified container.
+func bucketNameLockers(idCnr cid.ID, key []byte) []byte {
+	return bucketName(idCnr, unusedLockersPrefix, key)
+}
+
+// tombstoneBucketName returns <CID>_TS.
+func tombstoneBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedTombstonePrefix, key)
+}
+
+// linkObjectsBucketName returns link objects bucket key (`18<CID>`).
+func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedLinkObjectsPrefix, key)
+}
+
+// storageGroupBucketName returns <CID>_SG.
+func storageGroupBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, unusedStorageGroupPrefix, key)
+}
+
+func migrateFrom5Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		var (
+			buckets          [][]byte
+			obsoletePrefixes = []byte{unusedPrimaryPrefix,
+				unusedLockersPrefix, unusedStorageGroupPrefix,
+				unusedTombstonePrefix, unusedLinkObjectsPrefix}
+		)
+		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
+			if slices.Contains(obsoletePrefixes, name[0]) {
+				buckets = append(buckets, slices.Clone(name))
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("iterating buckets: %w", err)
+		}
+		for _, name := range buckets {
+			err := tx.DeleteBucket(name)
+			if err != nil {
+				return fmt.Errorf("deleting %v bucket: %w", name, err)
+			}
+		}
+		return updateVersion(tx, 6)
+	})
 }

@@ -62,22 +62,14 @@ const (
 	// Unique index buckets.
 	//======================
 
-	// primaryPrefix is used for prefixing buckets containing objects of REGULAR type.
-	//  Key: object ID
-	//  Value: marshalled object
-	primaryPrefix
-	// lockersPrefix is used for prefixing buckets containing objects of LOCK type.
-	//  Key: object ID
-	//  Value: marshalled object
-	lockersPrefix
-	// storageGroupPrefix is used for prefixing buckets containing objects of STORAGEGROUP type.
-	//  Key: object ID
-	//  Value: marshaled object
-	storageGroupPrefix
-	// tombstonePrefix is used for prefixing buckets containing objects of TOMBSTONE type.
-	//  Key: object ID
-	//  Value: marshaled object
-	tombstonePrefix
+	// unusedPrimaryPrefix was deleted in metabase version 6
+	unusedPrimaryPrefix
+	// unusedLockersPrefix was deleted in metabase version 6
+	unusedLockersPrefix
+	// unusedStorageGroupPrefix was deleted in metabase version 6
+	unusedStorageGroupPrefix
+	// unusedTombstonePrefix was deleted in metabase version 6
+	unusedTombstonePrefix
 	// unusedSmallPrefix was deleted in metabase version 5
 	unusedSmallPrefix
 	// unusedRootPrefix was deleted in metabase version 5
@@ -108,10 +100,8 @@ const (
 	// 	Value: dummy value
 	garbageContainersPrefix
 
-	// linkObjectsPrefix is used for prefixing buckets containing objects of LINK type.
-	//  Key: object ID
-	//  Value: marshaled object
-	linkObjectsPrefix
+	// unusedLinkObjectsPrefix was deleted in metabase version 6
+	unusedLinkObjectsPrefix
 
 	// unusedFirstObjectIDPrefix was deleted in metabase version 5
 	unusedFirstObjectIDPrefix
@@ -135,26 +125,6 @@ func bucketName(cnr cid.ID, prefix byte, key []byte) []byte {
 	key[0] = prefix
 	copy(key[1:], cnr[:])
 	return key[:bucketKeySize]
-}
-
-// primaryBucketName returns <CID>.
-func primaryBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, primaryPrefix, key)
-}
-
-// tombstoneBucketName returns <CID>_TS.
-func tombstoneBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, tombstonePrefix, key)
-}
-
-// storageGroupBucketName returns <CID>_SG.
-func storageGroupBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, storageGroupPrefix, key)
-}
-
-// linkObjectsBucketName returns link objects bucket key (`18<CID>`).
-func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, linkObjectsPrefix, key)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.

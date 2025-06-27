@@ -41,29 +41,6 @@ The lowest not used bucket index: 20.
     - `phy_counter` -> shard's physical object counter as little-endian uint64
     - `logic_counter` -> shard's logical object counter as little-endian uint64
     - `last_resync_epoch` -> last epoch when metabase was resynchronized as little-endian uint64
-
-### Unique index buckets
-- Bucket containing objects of REGULAR type
-  - Name: container ID
-  - Key: object ID
-  - Value: marshalled object
-- Bucket containing objects of LOCK type
-  - Name: `7` + container ID
-  - Key: object ID
-  - Value: marshalled object
-- Bucket containing objects of STORAGEGROUP type
-  - Name: `8` + container ID
-  - Key: object ID
-  - Value: marshaled object
-- Bucket containing objects of TOMBSTONE type
-  - Name: `9` + container ID
-  - Key: object ID
-  - Value: marshaled object
-- Bucket containing object or LINK type
-  - Name: `18` + container ID
-  - Key: object ID
-  - Value: marshaled object
-
 - Metadata bucket
   - Name: `255` + container ID
   - Keys without values
@@ -74,6 +51,15 @@ The lowest not used bucket index: 20.
     - `3` + object ID + attribute + `0x00` + value
 
 # History
+
+## Version 6
+
+Dropped the following buckets:
+ * regular object index (6)
+ * lock object index (7)
+ * storage group object index (8)
+ * tombstone object index (9)
+ * link object index (18)
 
 ## Version 5
 
