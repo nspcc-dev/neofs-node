@@ -76,5 +76,5 @@ func BenchmarkPut(b *testing.B) {
 }
 
 func metaPut(db *meta.DB, obj *objectSDK.Object) error {
-	return db.Put(obj, nil)
+	return db.Put(obj)
 }

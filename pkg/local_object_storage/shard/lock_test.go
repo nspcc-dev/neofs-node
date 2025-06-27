@@ -53,7 +53,7 @@ func TestShard_Lock(t *testing.T) {
 
 	// put the object
 
-	err := sh.Put(obj, nil, 0)
+	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
 	// lock the object
@@ -61,7 +61,7 @@ func TestShard_Lock(t *testing.T) {
 	err = sh.Lock(cnr, lockID, []oid.ID{objID})
 	require.NoError(t, err)
 
-	err = sh.Put(lock, nil, 0)
+	err = sh.Put(lock, nil)
 	require.NoError(t, err)
 
 	t.Run("inhuming locked objects", func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestShard_IsLocked(t *testing.T) {
 
 	// put the object
 
-	err := sh.Put(obj, nil, 0)
+	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
 	// not locked object is not locked

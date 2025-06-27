@@ -47,11 +47,11 @@ func TestHeadRaw(t *testing.T) {
 		defer e.Close()
 
 		// put most left object in one shard
-		err := s1.Put(child, nil, 0)
+		err := s1.Put(child, nil)
 		require.NoError(t, err)
 
 		// put link object in another shard
-		err = s2.Put(link, nil, 0)
+		err = s2.Put(link, nil)
 		require.NoError(t, err)
 
 		// head with raw flag should return SplitInfoError

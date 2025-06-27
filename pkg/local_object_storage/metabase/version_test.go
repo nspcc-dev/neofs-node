@@ -981,9 +981,9 @@ func TestMigrate4to5(t *testing.T) {
 	rightObj.SetPreviousID(middleObj.GetID())
 	rightObj.SetParent(parent)
 
-	require.NoError(t, db.Put(leftObj, nil))
-	require.NoError(t, db.Put(middleObj, nil))
-	require.NoError(t, db.Put(rightObj, nil))
+	require.NoError(t, db.Put(leftObj))
+	require.NoError(t, db.Put(middleObj))
+	require.NoError(t, db.Put(rightObj))
 
 	// primary bucket was deleted in version 6 and Put() no longer adds it,
 	// so put additional data manually here that version 4 had.

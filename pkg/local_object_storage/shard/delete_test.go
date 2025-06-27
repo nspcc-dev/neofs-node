@@ -32,7 +32,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	t.Run("big object", func(t *testing.T) {
 		addPayload(obj, 1<<20)
 
-		err := sh.Put(obj, nil, 0)
+		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
 		_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)
@@ -50,7 +50,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 
-		err := sh.Put(obj, nil, 0)
+		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
 		_, err = sh.Get(object.AddressOf(obj), false)
