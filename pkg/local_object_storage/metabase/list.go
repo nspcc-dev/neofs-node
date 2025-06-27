@@ -6,7 +6,6 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -71,29 +70,14 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, result []objectcore.AddressWithType, 
 loop:
 	for ; name != nil; name, _ = c.Next() {
 		cidRaw, prefix := parseContainerIDWithPrefix(&containerID, name)
-		if cidRaw == nil {
-			continue
-		}
-
-		var objType object.Type
-
-		switch prefix {
-		case primaryPrefix:
-			objType = object.TypeRegular
-		case storageGroupPrefix:
-			objType = object.TypeStorageGroup
-		case lockersPrefix:
-			objType = object.TypeLock
-		case tombstonePrefix:
-			objType = object.TypeTombstone
-		default:
+		if cidRaw == nil || prefix != metadataPrefix {
 			continue
 		}
 
 		bkt := tx.Bucket(name)
 		if bkt != nil {
 			copy(rawAddr, cidRaw)
-			result, offset, cursor = selectNFromBucket(bkt, objType, graveyardBkt, garbageObjectsBkt, garbageContainersBkt, rawAddr, containerID,
+			result, offset, cursor = selectNFromBucket(bkt, graveyardBkt, garbageObjectsBkt, garbageContainersBkt, rawAddr, containerID,
 				result, count, cursor, threshold)
 		}
 		bucketName = name
@@ -126,7 +110,6 @@ loop:
 // selectNFromBucket similar to selectAllFromBucket but uses cursor to find
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
-	objType object.Type, // type of the objects stored in the main bucket
 	graveyardBkt, garbageObjectsBkt, garbageContainersBkt *bbolt.Bucket, // cached graveyard buckets
 	cidRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID
@@ -139,29 +122,44 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		cursor = new(Cursor)
 	}
 
-	count := len(to)
-	c := bkt.Cursor()
-	k, _ := c.First()
+	var (
+		c          = bkt.Cursor()
+		count      = len(to)
+		offset     []byte
+		phyPrefix  = mkFilterPhysicalPrefix()
+		typePrefix = make([]byte, metaIDTypePrefixSize)
+	)
 
-	offset := cursor.inBucketOffset
+	fillIDTypePrefix(typePrefix)
+
+	if threshold {
+		offset = phyPrefix
+	} else {
+		offset = cursor.inBucketOffset
+	}
+	k, _ := c.Seek(offset)
 
 	if !threshold {
-		c.Seek(offset)
 		k, _ = c.Next() // we are looking for objects _after_ the cursor
 	}
 
-	for ; k != nil; k, _ = c.Next() {
+	for ; bytes.HasPrefix(k, phyPrefix); k, _ = c.Next() {
 		if count >= limit {
 			break
 		}
 
 		var obj oid.ID
-		if err := obj.Decode(k); err != nil {
+		if err := obj.Decode(k[len(phyPrefix):]); err != nil {
 			break
 		}
 
 		offset = k
-		if inGraveyardWithKey(append(cidRaw, k...), graveyardBkt, garbageObjectsBkt, garbageContainersBkt) != statusAvailable {
+		if inGraveyardWithKey(append(cidRaw, obj[:]...), graveyardBkt, garbageObjectsBkt, garbageContainersBkt) != statusAvailable {
+			continue
+		}
+
+		objType, err := fetchTypeForID(bkt, typePrefix, obj)
+		if err != nil {
 			continue
 		}
 

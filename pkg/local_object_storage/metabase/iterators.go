@@ -232,6 +232,16 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Addres
 	return err
 }
 
+func mkFilterPhysicalPrefix() []byte {
+	var prefix = make([]byte, 1+len(object.FilterPhysical)+1+len(binPropMarker)+1)
+
+	prefix[0] = metaPrefixAttrIDPlain
+	copy(prefix[1:], object.FilterPhysical)
+	copy(prefix[1+len(object.FilterPhysical)+1:], binPropMarker)
+
+	return prefix
+}
+
 func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
 	var cID cid.ID
 	var oID oid.ID
@@ -244,11 +254,8 @@ func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
 
 		var (
 			c      = b.Cursor()
-			prefix = make([]byte, 1+len(object.FilterPhysical)+1+len(binPropMarker)+1)
+			prefix = mkFilterPhysicalPrefix()
 		)
-		prefix[0] = metaPrefixAttrIDPlain
-		copy(prefix[1:], object.FilterPhysical)
-		copy(prefix[1+len(object.FilterPhysical)+1:], binPropMarker)
 		for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			if oID.Decode(k[len(prefix):]) == nil {
 				err := f(cID, oID)
