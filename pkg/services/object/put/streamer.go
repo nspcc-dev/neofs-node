@@ -122,6 +122,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		}
 	}
 
+	var rsp *reedSolomonPrm
+
 	p.target = &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
@@ -133,6 +135,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			sToken,
 			p.networkState.CurrentEpoch(),
 			p.newCommonTarget(prm),
+			rsp,
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}
