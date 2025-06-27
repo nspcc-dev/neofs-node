@@ -115,6 +115,9 @@ func TestDB_Get(t *testing.T) {
 
 		newChild, err := metaGet(db, object.AddressOf(child), true)
 		require.NoError(t, err)
+		// newChild doesn't have parent header, so for ease of
+		// comparison re-add it
+		newChild.SetParent(newParent)
 		require.True(t, binaryEqual(child.CutPayload(), newChild))
 	})
 
