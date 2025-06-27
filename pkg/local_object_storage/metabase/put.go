@@ -88,11 +88,6 @@ func (db *DB) put(
 			}
 		}
 
-		err = putHeaderIndex(tx, obj, hdrBin)
-		if err != nil {
-			return fmt.Errorf("can't put header: %w", err)
-		}
-
 		// update container volume size estimation
 		if obj.Type() == objectSDK.TypeRegular {
 			err = changeContainerSize(tx, obj.GetContainerID(), obj.PayloadSize(), true)
@@ -119,43 +114,6 @@ func (db *DB) put(
 	}
 
 	return nil
-}
-
-func putHeaderIndex(
-	tx *bbolt.Tx,
-	obj *objectSDK.Object,
-	hdrBin []byte,
-) error {
-	addr := objectCore.AddressOf(obj)
-	cnr := addr.Container()
-	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
-
-	bucketName := make([]byte, bucketKeySize)
-	// add value to primary unique bucket
-	switch obj.Type() {
-	case objectSDK.TypeRegular:
-		bucketName = primaryBucketName(cnr, bucketName)
-	case objectSDK.TypeTombstone:
-		bucketName = tombstoneBucketName(cnr, bucketName)
-	case objectSDK.TypeStorageGroup:
-		bucketName = storageGroupBucketName(cnr, bucketName)
-	case objectSDK.TypeLock:
-		bucketName = bucketNameLockers(cnr, bucketName)
-	case objectSDK.TypeLink:
-		bucketName = linkObjectsBucketName(cnr, bucketName)
-	default:
-		return ErrUnknownObjectType
-	}
-
-	if hdrBin == nil {
-		hdrBin = obj.CutPayload().Marshal()
-	}
-
-	bkt, err := tx.CreateBucketIfNotExists(bucketName)
-	if err != nil {
-		return fmt.Errorf("can't create bucket %v: %w", bucketName, err)
-	}
-	return bkt.Put(objKey, hdrBin)
 }
 
 // encodeList decodes list of bytes into a single blog for list bucket indexes.

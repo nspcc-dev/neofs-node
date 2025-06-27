@@ -98,11 +98,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []Head
 		graveyardBucketName,
 		garbageObjectsBucketName,
 		toMoveItBucketName,
-		primaryBucketName(cID, make([]byte, bucketKeySize)),
-		bucketNameLockers(cID, make([]byte, bucketKeySize)),
-		storageGroupBucketName(cID, make([]byte, bucketKeySize)),
-		tombstoneBucketName(cID, make([]byte, bucketKeySize)),
-		linkObjectsBucketName(cID, make([]byte, bucketKeySize)),
 	}
 
 	for _, bucketKey := range objectBuckets {
