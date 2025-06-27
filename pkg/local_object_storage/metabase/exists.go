@@ -72,16 +72,10 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		cnr       = addr.Container()
 		objKeyBuf = make([]byte, metaIDTypePrefixSize)
 		id        = addr.Object()
-		objKey    = objectKey(id, objKeyBuf[:objectKeySize])
 		key       = make([]byte, bucketKeySize)
 	)
 
-	// if graveyard is empty, then check if object exists in primary bucket
-	if inBucket(tx, primaryBucketName(cnr, key), objKey) {
-		return true, nil
-	}
-
-	// if primary bucket is empty, then check if object is a virtual one
+	// check split info first, it's important to return split info if object is split.
 	splitInfo, err := getSplitInfo(tx, cnr, id, key)
 	if err == nil {
 		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
@@ -95,8 +89,8 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, nil
 	}
 	fillIDTypePrefix(objKeyBuf)
-	typ, err := fetchTypeForID(metaBucket, objKeyBuf, id)
-	return (err == nil && typ != objectSDK.TypeRegular), nil
+	_, err = fetchTypeForID(metaBucket, objKeyBuf, id)
+	return err == nil, nil
 }
 
 func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
@@ -190,19 +184,6 @@ func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageCon
 
 	// object in the graveyard
 	return statusTombstoned
-}
-
-// inBucket checks if key <key> is present in bucket <name>.
-func inBucket(tx *bbolt.Tx, name, key []byte) bool {
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return false
-	}
-
-	// using `get` as `exists`: https://github.com/boltdb/bolt/issues/321
-	val := bkt.Get(key)
-
-	return len(val) != 0
 }
 
 // getSplitInfo returns SplitInfo structure from root index. Returns error
