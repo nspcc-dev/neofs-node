@@ -11,6 +11,7 @@ import (
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -387,4 +388,130 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		k = nil // End of iteration for this bucket.
 	}
 	return uint(len(queue)), k, nil
+}
+
+// getCompat is used for migrations only, it retrieves full headers from
+// respective buckets.
+func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
+	if checkStatus {
+		switch objectStatus(tx, addr, currEpoch) {
+		case statusGCMarked:
+			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+		case statusTombstoned:
+			return nil, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
+		case statusExpired:
+			return nil, ErrObjectIsExpired
+		}
+	}
+
+	key = objectKey(addr.Object(), key)
+	cnr := addr.Container()
+	obj := object.New()
+	bucketName := make([]byte, bucketKeySize)
+
+	// check in primary index
+	data := getFromBucket(tx, primaryBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in tombstone index
+	data = getFromBucket(tx, tombstoneBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in storage group index
+	data = getFromBucket(tx, storageGroupBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in locker index
+	data = getFromBucket(tx, bucketNameLockers(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check in link objects index
+	data = getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
+	// if not found then check if object is a virtual one, but this contradicts raw flag
+	if raw {
+		return nil, getSplitInfoError(tx, cnr, addr.Object(), bucketName)
+	}
+	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
+}
+
+func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
+	bkt := tx.Bucket(name)
+	if bkt == nil {
+		return nil
+	}
+
+	return bkt.Get(key)
+}
+
+func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
+	var childOID oid.ID
+
+	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
+	if metaBucket == nil {
+		return childOID
+	}
+
+	var cur = metaBucket.Cursor()
+	k, _ := cur.Seek(parentPrefix)
+
+	if bytes.HasPrefix(k, parentPrefix) {
+		// Error will lead to zero oid which is ~the same as missing child.
+		childOID, _ = oid.DecodeBytes(k[len(parentPrefix):])
+	}
+	return childOID
+}
+
+func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*object.Object, error) {
+	var childOID = getChildForParent(tx, cnr, parentID, bucketName)
+
+	if childOID.IsZero() {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	// we should have a link object
+	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), childOID[:])
+	if len(data) == 0 {
+		// no link object, so we may have the last object with parent header
+		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), childOID[:])
+	}
+
+	if len(data) == 0 {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	child := object.New()
+
+	err := child.Unmarshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", childOID, parentID, err)
+	}
+
+	par := child.Parent()
+
+	if par == nil { // this should never happen though
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	return par, nil
+}
+
+func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
+	splitInfo, err := getSplitInfo(tx, cnr, parentID, bucketName)
+	if err == nil {
+		return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
+	}
+
+	return logicerr.Wrap(apistatus.ObjectNotFound{})
 }
