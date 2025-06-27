@@ -2,6 +2,7 @@ package fstree
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -38,9 +39,11 @@ func (t *FSTree) Head(addr oid.Address) (*objectSDK.Object, error) {
 		}
 		return nil, fmt.Errorf("read file %q: %w", p, err)
 	}
-	defer f.Close()
 
-	obj, err := t.extractHeaderOnly(addr.Object(), f)
+	obj, reader, err := t.extractHeaderAndStream(addr.Object(), f)
+	if reader != nil {
+		_ = reader.Close()
+	}
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
@@ -48,20 +51,24 @@ func (t *FSTree) Head(addr oid.Address) (*objectSDK.Object, error) {
 		return nil, fmt.Errorf("extract object header from %q: %w", p, err)
 	}
 
-	return obj, nil
+	return obj.CutPayload(), nil
 }
 
 // extractHeaderOnly reads the header of an object from a file.
-func (t *FSTree) extractHeaderOnly(id oid.ID, f *os.File) (*objectSDK.Object, error) {
+// The caller is responsible for closing the returned io.ReadCloser if it is not nil.
+func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Object, io.ReadCloser, error) {
 	buf := make([]byte, objectSDK.MaxHeaderLen, 2*objectSDK.MaxHeaderLen)
 	n, err := io.ReadFull(f, buf)
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return nil, err
+		return nil, f, err
+	}
+	if n < combinedDataOff {
+		return t.readHeaderAndPayload(f, buf[:n])
 	}
 
 	thisOID, l := parseCombinedPrefix(buf)
 	if thisOID == nil {
-		return t.readHeader(f, buf[:n])
+		return t.readHeaderAndPayload(f, buf[:n])
 	}
 
 	offset := combinedDataOff
@@ -71,10 +78,10 @@ func (t *FSTree) extractHeaderOnly(id oid.ID, f *os.File) (*objectSDK.Object, er
 			if n < size {
 				_, err = io.ReadFull(f, buf[n:size])
 				if err != nil {
-					return nil, fmt.Errorf("read up to size: %w", err)
+					return nil, f, fmt.Errorf("read up to size: %w", err)
 				}
 			}
-			return t.readHeader(f, buf[offset:size])
+			return t.readHeaderAndPayload(f, buf[offset:size])
 		}
 
 		offset += int(l)
@@ -82,67 +89,80 @@ func (t *FSTree) extractHeaderOnly(id oid.ID, f *os.File) (*objectSDK.Object, er
 			if offset > n {
 				_, err = f.Seek(int64(offset-n), io.SeekCurrent)
 				if err != nil {
-					return nil, err
+					return nil, f, err
 				}
 			}
 			n = copy(buf, buf[min(offset, n):n])
 			offset = 0
 			k, err := io.ReadFull(f, buf[n:n+objectSDK.MaxHeaderLen])
 			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-				return nil, fmt.Errorf("read full: %w", err)
+				return nil, f, fmt.Errorf("read full: %w", err)
 			}
 			n += k
 		}
 
 		thisOID, l = parseCombinedPrefix(buf[offset:])
 		if thisOID == nil {
-			return nil, errors.New("malformed combined file")
+			return nil, f, errors.New("malformed combined file")
 		}
 
 		offset += combinedDataOff
 	}
 }
 
-// readHeader reads an object from the file.
-func (t *FSTree) readHeader(f io.Reader, initial []byte) (*objectSDK.Object, error) {
+// readHeaderAndPayload reads an object header from the file and returns reader for payload.
+// This function takes ownership of the io.ReadCloser and will close it if it does not return it.
+func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadCloser, error) {
 	var err error
 	if len(initial) < objectSDK.MaxHeaderLen {
+		_ = f.Close()
 		initial, err = t.Decompress(initial)
 		if err != nil {
-			return nil, fmt.Errorf("decompress initial data: %w", err)
+			return nil, nil, fmt.Errorf("decompress initial data: %w", err)
 		}
 		var obj objectSDK.Object
-		err = obj.Unmarshal(initial)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshal object: %w", err)
-		}
-		return obj.CutPayload(), nil
+		return &obj, nil, obj.Unmarshal(initial)
 	}
+
 	return t.readUntilPayload(f, initial)
 }
 
-// readUntilPayload reads an object from the file until the payload field is reached.
-func (t *FSTree) readUntilPayload(f io.Reader, initial []byte) (*objectSDK.Object, error) {
+// readUntilPayload reads an object from the file until the payload field is reached
+// and returns the object along with a reader for the remaining data.
+// This function takes ownership of the io.ReadCloser and will close it if it does not return it.
+func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadCloser, error) {
+	reader := f
+
 	if t.IsCompressed(initial) {
 		decoder, err := zstd.NewReader(io.MultiReader(bytes.NewReader(initial), f))
 		if err != nil {
-			return nil, fmt.Errorf("zstd decoder: %w", err)
+			return nil, nil, fmt.Errorf("zstd decoder: %w", err)
 		}
-		defer decoder.Close()
+		reader = decoder.IOReadCloser()
 
 		buf := make([]byte, objectSDK.MaxHeaderLen)
 		n, err := decoder.Read(buf)
 		if err != nil && !errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("zstd read: %w", err)
+			decoder.Close()
+			return nil, nil, fmt.Errorf("zstd read: %w", err)
 		}
 		initial = buf[:n]
 	}
 
-	return fastExtractHeader(initial)
+	obj, rest, err := extractHeaderAndPayload(initial)
+	if err != nil {
+		_ = reader.Close()
+		return nil, nil, fmt.Errorf("extract header and payload: %w", err)
+	}
+
+	return obj, &payloadReader{
+		reader: io.MultiReader(bytes.NewReader(rest), reader),
+		close:  reader.Close,
+	}, nil
 }
 
-// fastExtractHeader extracts the header of an object from the given byte slice.
-func fastExtractHeader(data []byte) (*objectSDK.Object, error) {
+// extractHeaderAndPayload extracts the header of an object from the given byte slice and returns rest of the data.
+func extractHeaderAndPayload(data []byte) (*objectSDK.Object, []byte, error) {
 	var (
 		offset int
 		res    objectSDK.Object
@@ -150,27 +170,31 @@ func fastExtractHeader(data []byte) (*objectSDK.Object, error) {
 	)
 
 	if len(data) == 0 {
-		return nil, fmt.Errorf("empty data")
+		return nil, nil, fmt.Errorf("empty data")
 	}
 
 	for offset < len(data) {
 		num, typ, n := protowire.ConsumeTag(data[offset:])
 		if err := protowire.ParseError(n); err != nil {
-			return nil, fmt.Errorf("invalid tag at offset %d: %w", offset, err)
+			return nil, nil, fmt.Errorf("invalid tag at offset %d: %w", offset, err)
 		}
 		offset += n
 
 		if typ != protowire.BytesType {
-			return nil, fmt.Errorf("unexpected wire type: %v", typ)
+			return nil, nil, fmt.Errorf("unexpected wire type: %v", typ)
 		}
 
 		if num == fieldObjectPayload {
+			_, n = binary.Varint(data[offset:])
+			if err := protowire.ParseError(n); err != nil {
+				return nil, nil, fmt.Errorf("invalid varint at offset %d: %w", offset, err)
+			}
+			offset += n
 			break
 		}
-
 		val, n := protowire.ConsumeBytes(data[offset:])
 		if err := protowire.ParseError(n); err != nil {
-			return nil, fmt.Errorf("invalid bytes field at offset %d: %w", offset, err)
+			return nil, nil, fmt.Errorf("invalid bytes field at offset %d: %w", offset, err)
 		}
 		offset += n
 
@@ -179,25 +203,37 @@ func fastExtractHeader(data []byte) (*objectSDK.Object, error) {
 			obj.ObjectId = new(refs.ObjectID)
 			err := proto.Unmarshal(val, obj.ObjectId)
 			if err != nil {
-				return nil, fmt.Errorf("unmarshal object ID: %w", err)
+				return nil, nil, fmt.Errorf("unmarshal object ID: %w", err)
 			}
 		case fieldObjectSignature:
 			obj.Signature = new(refs.Signature)
 			err := proto.Unmarshal(val, obj.Signature)
 			if err != nil {
-				return nil, fmt.Errorf("unmarshal object signature: %w", err)
+				return nil, nil, fmt.Errorf("unmarshal object signature: %w", err)
 			}
 		case fieldObjectHeader:
 			obj.Header = new(object.Header)
 			err := proto.Unmarshal(val, obj.Header)
 			if err != nil {
-				return nil, fmt.Errorf("unmarshal object header: %w", err)
+				return nil, nil, fmt.Errorf("unmarshal object header: %w", err)
 			}
-			return &res, res.FromProtoMessage(&obj)
 		default:
-			return nil, fmt.Errorf("unknown field number: %d", num)
+			return nil, nil, fmt.Errorf("unknown field number: %d", num)
 		}
 	}
 
-	return &res, res.FromProtoMessage(&obj)
+	return &res, data[offset:], res.FromProtoMessage(&obj)
+}
+
+type payloadReader struct {
+	reader io.Reader
+	close  func() error
+}
+
+func (p *payloadReader) Read(b []byte) (int, error) {
+	return p.reader.Read(b)
+}
+
+func (p *payloadReader) Close() error {
+	return p.close()
 }
