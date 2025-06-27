@@ -72,7 +72,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			addr := object.AddressOf(obj)
 			payload := bytes.Clone(obj.Payload())
 
-			err := sh.Put(obj, nil, 0)
+			err := sh.Put(obj, nil)
 			require.NoError(t, err)
 
 			res, err := sh.GetRange(addr, tc.rng.GetOffset(), tc.rng.GetLength(), false)

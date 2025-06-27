@@ -85,13 +85,13 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	lock.SetAttributes(expAttr)
 	lockID := lock.GetID()
 
-	err := sh.Put(obj, nil, 0)
+	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
 	err = sh.Lock(cnr, lockID, []oid.ID{objID})
 	require.NoError(t, err)
 
-	err = sh.Put(lock, nil, 0)
+	err = sh.Put(lock, nil)
 	require.NoError(t, err)
 
 	epoch.Value = 5
@@ -123,7 +123,7 @@ func TestGC_ContainerCleanup(t *testing.T) {
 			addPayload(obj, 1<<20) // big
 		}
 
-		err := sh.Put(obj, nil, 0)
+		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
 		oo = append(oo, objectCore.AddressOf(obj))
@@ -205,7 +205,7 @@ func TestExpiration(t *testing.T) {
 			obj.SetType(typ)
 			require.NoError(t, obj.SetIDWithSignature(neofscryptotest.Signer()))
 
-			err := sh.Put(obj, nil, 0)
+			err := sh.Put(obj, nil)
 			require.NoError(t, err)
 
 			_, err = sh.Get(objectCore.AddressOf(obj), false)

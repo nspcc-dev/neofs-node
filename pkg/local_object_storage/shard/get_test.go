@@ -35,7 +35,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		addPayload(obj, 1<<5)
 		addr := object.AddressOf(obj)
 
-		err := sh.Put(obj, nil, 0)
+		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
 		res, err := testGet(t, sh, addr, hasWriteCache)
@@ -52,7 +52,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		addPayload(obj, 1<<20) // big obj
 		addr := object.AddressOf(obj)
 
-		err := sh.Put(obj, nil, 0)
+		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
 		res, err := testGet(t, sh, addr, hasWriteCache)
@@ -78,7 +78,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
 
-		err := sh.Put(child, nil, 0)
+		err := sh.Put(child, nil)
 		require.NoError(t, err)
 
 		res, err := testGet(t, sh, object.AddressOf(child), hasWriteCache)

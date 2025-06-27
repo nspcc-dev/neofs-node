@@ -13,7 +13,7 @@ type Option func(*options)
 // Metabase is an interface to metabase sufficient for writecache to operate.
 type Metabase interface {
 	Exists(addr oid.Address, ignoreExpiration bool) (bool, error)
-	Put(obj *objectSDK.Object, binHeader []byte) error
+	Put(obj *objectSDK.Object) error
 }
 
 // stor is an interface for the storage.

@@ -148,7 +148,7 @@ func TestPutMetadata(t *testing.T) {
 					object.NewAttribute("valid key", "valid value"),
 					object.NewAttribute(k, v),
 				)
-				require.EqualError(t, db.Put(&obj, nil), msg)
+				require.EqualError(t, db.Put(&obj), msg)
 			}
 			t.Run("in key", func(t *testing.T) {
 				testWithAttr(t, "k\x00y", "value", "attribute #1 key contains 0x00 byte used in sep")
@@ -159,7 +159,7 @@ func TestPutMetadata(t *testing.T) {
 		})
 	})
 
-	err := db.Put(&obj, nil)
+	err := db.Put(&obj)
 	require.NoError(t, err)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
@@ -209,7 +209,7 @@ func TestPutMetadata(t *testing.T) {
 		obj.SetOwner(usertest.ID())     // Put requires
 		obj.SetPayloadChecksum(pldHash) // Put requires
 
-		require.NoError(t, db.Put(&obj, nil))
+		require.NoError(t, db.Put(&obj))
 
 		require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
 			mb := tx.Bucket(append([]byte{0xFF}, cnr[:]...))
@@ -375,7 +375,7 @@ func (s *searchTestDB) EmptyDB(t *testing.T) {
 }
 
 func (s *searchTestDB) Put(obj *object.Object) error {
-	return s.db.Put(obj, nil)
+	return s.db.Put(obj)
 }
 
 func (s *searchTestDB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
@@ -408,7 +408,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			objs[i].SetOwner(usertest.ID())                     // required to Put
 			objs[i].SetPayloadChecksum(checksumtest.Checksum()) // required to Put
 
-			err := db.Put(&objs[i], nil)
+			err := db.Put(&objs[i])
 			require.NoError(t, err, i)
 		}
 
@@ -465,7 +465,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			}
 			objs[i].SetOwner(usertest.ID())                     // Put requires
 			objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
-			require.NoError(t, db.Put(&objs[i], nil))
+			require.NoError(t, db.Put(&objs[i]))
 		}
 
 		check := func(t *testing.T, exp []oid.ID) {

@@ -52,7 +52,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 	for i := 0; ; i++ {
 		objects = append(objects, generateObjectWithCID(cidtest.ID()))
 
-		err := e.Put(objects[i], nil, 0)
+		err := e.Put(objects[i], nil)
 		require.NoError(t, err)
 
 		res, err := e.shards[ids[len(ids)-1].String()].List()

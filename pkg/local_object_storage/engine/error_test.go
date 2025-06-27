@@ -63,7 +63,7 @@ func TestErrorReporting(t *testing.T) {
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		e.mtx.RLock()
-		err := e.shards[id[0].String()].Shard.Put(obj, nil, 0)
+		err := e.shards[id[0].String()].Shard.Put(obj, nil)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
@@ -91,7 +91,7 @@ func TestErrorReporting(t *testing.T) {
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		e.mtx.RLock()
-		err := e.shards[id[0].String()].Put(obj, nil, 0)
+		err := e.shards[id[0].String()].Put(obj, nil)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
@@ -139,7 +139,7 @@ func TestBlobstorFailback(t *testing.T) {
 		obj.SetPayload(make([]byte, size))
 
 		e.mtx.RLock()
-		err = e.shards[id[0].String()].Shard.Put(obj, nil, 0)
+		err = e.shards[id[0].String()].Shard.Put(obj, nil)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 		objs = append(objs, obj)

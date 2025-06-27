@@ -19,8 +19,8 @@ type ObjectStorage interface {
 	// and return any appeared error.
 	//
 	// Optional objBin parameter carries object encoded in a canonical NeoFS binary
-	// format where first hdrLen bytes represent an object header.
-	Put(obj *object.Object, objBin []byte, hdrLen int) error
+	// format.
+	Put(obj *object.Object, objBin []byte) error
 	// Delete must delete passed objects
 	// and return any appeared error.
 	Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error
@@ -80,13 +80,11 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 	}
 
 	var objBin []byte
-	var hdrLen int
 	if enc != nil && enc.pldOff > 0 {
 		objBin = enc.b[enc.hdrOff:]
-		hdrLen = enc.pldFldOff - enc.hdrOff
 	}
 
-	if err := storage.Put(obj, objBin, hdrLen); err != nil {
+	if err := storage.Put(obj, objBin); err != nil {
 		return fmt.Errorf("could not put object to local storage: %w", err)
 	}
 

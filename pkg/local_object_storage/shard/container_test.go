@@ -16,17 +16,17 @@ func TestShard_DeleteContainer(t *testing.T) {
 	cID := cidtest.ID()
 
 	o1 := generateObjectWithCID(cID)
-	err := sh.Put(o1, nil, 0)
+	err := sh.Put(o1, nil)
 	require.NoError(t, err)
 
 	o2 := generateObjectWithCID(cID)
 	o2.SetType(objectSDK.TypeStorageGroup)
-	err = sh.Put(o2, nil, 0)
+	err = sh.Put(o2, nil)
 	require.NoError(t, err)
 
 	o3 := generateObjectWithCID(cID)
 	o3.SetType(objectSDK.TypeLock)
-	err = sh.Put(o3, nil, 0)
+	err = sh.Put(o3, nil)
 	require.NoError(t, err)
 
 	err = sh.DeleteContainer(context.Background(), cID)

@@ -43,7 +43,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShardNum(t, 1)
 		defer e.Close()
 
-		err := e.Put(parent, nil, 0)
+		err := e.Put(parent, nil)
 		require.NoError(t, err)
 
 		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
@@ -61,10 +61,10 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShards(s1, s2)
 		defer e.Close()
 
-		err := s1.Put(child, nil, 0)
+		err := s1.Put(child, nil)
 		require.NoError(t, err)
 
-		err = s2.Put(link, nil, 0)
+		err = s2.Put(link, nil)
 		require.NoError(t, err)
 
 		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
@@ -120,7 +120,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 		wrongShard := e.getShard(wrongShardID)
 
-		err := wrongShard.Put(obj, nil, 0)
+		err := wrongShard.Put(obj, nil)
 		require.NoError(t, err)
 
 		_, err = wrongShard.Get(addr, false)

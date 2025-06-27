@@ -30,7 +30,7 @@ func TestExists(t *testing.T) {
 	}
 
 	for i := range objects {
-		err = sh.Put(objects[i], nil, 0)
+		err = sh.Put(objects[i], nil)
 		require.NoError(t, err)
 	}
 

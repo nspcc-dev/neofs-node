@@ -55,7 +55,7 @@ func writeObject(cmd *cobra.Command, _ []string) error {
 		return errors.New("missing container ID in object")
 	}
 
-	err = db.Put(obj, nil)
+	err = db.Put(obj)
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
