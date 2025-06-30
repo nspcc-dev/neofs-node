@@ -4,7 +4,7 @@ Delete existing container
 
 ### Synopsis
 
-Delete existing container. 
+Delete existing container.
 Only owner of the container has a permission to remove container.
 
 ```

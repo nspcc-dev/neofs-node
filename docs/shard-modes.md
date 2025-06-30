@@ -4,7 +4,7 @@
 
 Each mode is characterized by two important properties:
 1. Whether modifying operations are allowed.
-2. Whether metabase and write-cache is available. 
+2. Whether metabase and write-cache is available.
    The expected deployment scenario is to place both metabase and write-cache on an SSD drive thus these modes
    can be approximately described as no-SSD modes.
 

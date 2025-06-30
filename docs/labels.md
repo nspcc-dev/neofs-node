@@ -18,5 +18,5 @@ We don't yet support anything but Linux. We at the same time are likely to
 support Mac/Win in the future and historically one label was always here:
 
 - windows
-  
+
   It won't be easy, so it deserves a label of its own.

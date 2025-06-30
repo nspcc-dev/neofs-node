@@ -13,8 +13,8 @@ Action is 'allow' or 'deny'.
 Operation is an object service verb: 'get', 'head', 'put', 'search', 'delete', 'getrange', or 'getrangehash'.
 
 Filter consists of <typ>:<key><match><value>
-  Typ is 'obj' for object applied filter or 'req' for request applied filter. 
-  Key is a valid unicode string corresponding to object or request header key. 
+  Typ is 'obj' for object applied filter or 'req' for request applied filter.
+  Key is a valid unicode string corresponding to object or request header key.
     Well-known system object headers start with '$Object:' prefix.
     User defined headers start without prefix.
     Read more about filter keys at github.com/nspcc-dev/neofs-api/blob/master/proto-docs/acl.md#message-eaclrecordfilter
@@ -24,10 +24,10 @@ Filter consists of <typ>:<key><match><value>
     '>' | '>=' | '<' | '<=' for integer comparison.
   Value is a valid unicode string corresponding to object or request header value. Numeric filters must have base-10 integer values.
 
-Target is 
-  'user' for container owner, 
+Target is
+  'user' for container owner,
   'system' for Storage nodes in container and Inner Ring nodes,
-  'others' for all other request senders, 
+  'others' for all other request senders,
   'address:<adr1>,<adr2>,...' for exact request sender, where <adr> is a base58 25-byte address. Example: NSiVJYZej4XsxG5CUpdwn7VRQk8iiiDMPM.
 
 When both '--rule' and '--file' arguments are used, '--rule' records will be placed higher in resulting extended ACL table.

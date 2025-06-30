@@ -6,8 +6,8 @@ Create session token
 
 Create session token.
 
-Default lifetime of session token is 10 epochs 
-if none of --expire-at or --lifetime flags is specified. 
+Default lifetime of session token is 10 epochs
+if none of --expire-at or --lifetime flags is specified.
 
 
 ```
