@@ -79,7 +79,7 @@ func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]clie
 					switch firstAttr {
 					default:
 						cmpAttr = strings.Compare(sets[i][0].Attributes[0], sets[minInd][0].Attributes[0])
-					case object.FilterParentID, object.FilterFirstSplitObject:
+					case object.FilterParentID, object.FilterFirstSplitObject, object.FilterTarget:
 						if err = curOID.DecodeString(sets[i][0].Attributes[0]); err == nil {
 							err = minOID.DecodeString(sets[minInd][0].Attributes[0])
 						}
@@ -506,7 +506,7 @@ func combineValues(attr string, dbVal []byte, fltVal string) ([]byte, []byte, er
 		//  - decoded filter byte is always 21 while the DB one is always 53
 		// so we'd get false mismatch. To avoid this, we have to decode each DB val.
 		dbVal = []byte(base58.Encode(dbVal))
-	case object.FilterFirstSplitObject, object.FilterParentID:
+	case object.FilterFirstSplitObject, object.FilterParentID, object.FilterTarget:
 		if len(dbVal) != oid.Size {
 			return nil, nil, fmt.Errorf("invalid OID len %d != %d", len(dbVal), oid.Size)
 		}
@@ -585,7 +585,7 @@ func RestoreIntAttribute(b []byte) (string, error) {
 
 func restoreAttributeValue(attr string, stored []byte) (string, error) {
 	switch attr {
-	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
+	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID, object.FilterTarget:
 		return base58.Encode(stored), nil
 	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		return hex.EncodeToString(stored), nil
@@ -637,7 +637,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 		switch attr := fs[0].Header(); attr {
 		default:
 			primValDB = []byte(primVal)
-		case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
+		case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID, object.FilterTarget:
 			var err error
 			if primValDB, err = base58.Decode(primVal); err != nil {
 				return nil, nil, fmt.Errorf("%w: decode %q attribute value from Base58: %w", errInvalidPrimaryFilter, attr, err)
@@ -865,7 +865,7 @@ func CalculateCursor(filt *object.SearchFilter, lastItem client.SearchResultItem
 			copy(res[off+intValLen:], lastItem.ID[:])
 			return res, nil
 		}
-	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
+	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID, object.FilterTarget:
 		var err error
 		if val, err = base58.Decode(lastItemVal); err != nil {
 			return nil, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)

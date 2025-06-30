@@ -8,6 +8,7 @@ import (
 	"hash"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -48,6 +49,16 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 	chunkLn := uint64(len(obj.Payload()))
 
 	if !t.unpreparedObject {
+		sysObj := obj.Type() == objectSDK.TypeTombstone || obj.Type() == objectSDK.TypeLock
+		targetIsZero := obj.Target().IsZero()
+		if sysObj {
+			if version.SysObjTargetShouldBeInHeader(obj.Version()) && targetIsZero {
+				return errors.New("system object is versioned to have target in header but it is empty")
+			}
+		} else if !targetIsZero {
+			return errors.New("non-system object has target")
+		}
+
 		// check chunk size
 		if chunkLn > t.payloadSz {
 			return ErrWrongPayloadSize

@@ -76,9 +76,8 @@ var objectLockCmd = &cobra.Command{
 		obj := objectSDK.New()
 		obj.SetContainerID(cnr)
 		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
-		obj.SetType(objectSDK.TypeLock)
+		bla
 		obj.SetAttributes(expirationAttr)
-		obj.SetPayload(lock.Marshal())
 
 		var prm internalclient.PutObjectPrm
 		prm.SetPrivateKey(*key)

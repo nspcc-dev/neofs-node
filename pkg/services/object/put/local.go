@@ -66,14 +66,18 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 			return fmt.Errorf("reading tombstone expiration: %w", err)
 		}
 
-		err = storage.Delete(objectCore.AddressOf(obj), exp, meta.Objects())
-		if err != nil {
-			return fmt.Errorf("could not delete objects from tombstone locally: %w", err)
+		if !obj.Target().IsZero() {
+			err = storage.Delete(objectCore.AddressOf(obj), exp, meta.Objects())
+			if err != nil {
+				return fmt.Errorf("could not delete objects from tombstone locally: %w", err)
+			}
 		}
 	case object.TypeLock:
-		err := storage.Lock(objectCore.AddressOf(obj), meta.Objects())
-		if err != nil {
-			return fmt.Errorf("could not lock object from lock objects locally: %w", err)
+		if !obj.Target().IsZero() {
+			err := storage.Lock(objectCore.AddressOf(obj), meta.Objects())
+			if err != nil {
+				return fmt.Errorf("could not lock object from lock objects locally: %w", err)
+			}
 		}
 	default:
 		// objects that do not change meta storage

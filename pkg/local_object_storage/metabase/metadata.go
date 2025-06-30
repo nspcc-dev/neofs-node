@@ -96,6 +96,11 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 			return err
 		}
 	}
+	if target := hdr.Target(); !target.IsZero() {
+		if err = putPlainAttribute(metaBkt, &keyBuf, target, object.FilterTarget, string(target[:])); err != nil {
+			return err
+		}
+	}
 	if firstID := hdr.GetFirstID(); !firstID.IsZero() {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterFirstSplitObject, string(firstID[:])); err != nil {
 			return err
