@@ -33,7 +33,7 @@ var (
 var createContainerCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create new container",
-	Long: `Create new container and register it in the NeoFS. 
+	Long: `Create new container and register it in the NeoFS.
 It will be stored in FS chain when inner ring will accepts it.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {

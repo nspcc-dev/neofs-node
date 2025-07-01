@@ -32,8 +32,8 @@ var createCmd = &cobra.Command{
 	Short: "Create session token",
 	Long: `Create session token.
 
-Default lifetime of session token is ` + strconv.Itoa(defaultLifetime) + ` epochs 
-if none of --` + commonflags.ExpireAt + ` or --` + commonflags.Lifetime + ` flags is specified. 
+Default lifetime of session token is ` + strconv.Itoa(defaultLifetime) + ` epochs
+if none of --` + commonflags.ExpireAt + ` or --` + commonflags.Lifetime + ` flags is specified.
 `,
 	Args: cobra.NoArgs,
 	RunE: createSession,

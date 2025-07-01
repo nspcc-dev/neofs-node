@@ -489,6 +489,18 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 	return t.Decompress(data)
 }
 
+// GetStream returns an object from the storage by address as a stream.
+// It returns the object with header only, and a reader for the payload.
+// The caller is responsible for closing the returned io.ReadCloser if it is not nil.
+func (t *FSTree) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
+	obj, reader, err := t.getObjectStream(addr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return obj, reader, nil
+}
+
 // GetRange implements common.Storage.
 func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte, error) {
 	obj, err := t.Get(addr)

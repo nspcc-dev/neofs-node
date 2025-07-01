@@ -18,7 +18,7 @@ import (
 var deleteContainerCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete existing container",
-	Long: `Delete existing container. 
+	Long: `Delete existing container.
 Only owner of the container has a permission to remove container.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
