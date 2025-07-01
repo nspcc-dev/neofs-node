@@ -137,6 +137,7 @@ func TestBlobstorFailback(t *testing.T) {
 	for _, size := range []int{15, errSmallSize + 1} {
 		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, size))
+		obj.SetPayloadSize(uint64(size))
 
 		e.mtx.RLock()
 		err = e.shards[id[0].String()].Shard.Put(obj, nil)

@@ -105,6 +105,7 @@ func generateTestObject(payloadSize int) *objectSDK.Object {
 	} else {
 		obj.SetPayload(nil)
 	}
+	obj.SetPayloadSize(uint64(payloadSize))
 
 	return &obj
 }
