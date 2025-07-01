@@ -17,8 +17,8 @@ affect system behaviour:
 encoded `uint64` in decimal presentation. If set to '0' or omitted, the
 current epoch only will be used.
 * `__NEOFS__NETMAP_LOOKUP_DEPTH` - if object can't be found using current epoch's netmap, this header limits
-how many past epochs the node can look up through. Depth is applied to a current epoch or the value 
-of `__NEOFS__NETMAP_EPOCH` attribute. The `value` is string encoded `uint64` in decimal presentation. 
+how many past epochs the node can look up through. Depth is applied to a current epoch or the value
+of `__NEOFS__NETMAP_EPOCH` attribute. The `value` is string encoded `uint64` in decimal presentation.
 If set to '0' or not set, only the current epoch is used.
 
 ## `neofs-cli` commands with `--xhdr`

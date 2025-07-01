@@ -1,0 +1,15 @@
+name: Trailing spaces
+
+on:
+  pull_request:
+    branches:
+      - master
+      - support/**
+
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    name: Search spaces in *.md files
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocular-d/trailing-spaces@0.0.2

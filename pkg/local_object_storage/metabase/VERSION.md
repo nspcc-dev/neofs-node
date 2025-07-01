@@ -10,7 +10,7 @@ The lowest not used bucket index: 20.
 ### Primary buckets
 - Graveyard bucket
   - Name: `0`
-  - Key: object address 
+  - Key: object address
   - Value: tombstone address + little-endian uint64 tombstone expiration epoch
 - Garbage objects bucket
   - Name: `1`
@@ -30,7 +30,7 @@ The lowest not used bucket index: 20.
   - Key: container ID
   - Value: container size in bytes as little-endian uint64
 - Bucket for storing locked objects information
-  - Name: `4` 
+  - Name: `4`
   - Key: container ID
   - Value: bucket mapping objects locked to the list of corresponding LOCK objects
 - Bucket containing auxiliary information. All keys are custom and are not connected to the container

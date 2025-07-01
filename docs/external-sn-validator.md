@@ -48,7 +48,7 @@ field and a signature over the result in the `signature` field.
 ```json
 {
   "body": {
-    "verified": true, 
+    "verified": true,
     "details": "",
     "nonce": 123456789
   },
@@ -85,7 +85,7 @@ to the private key used for signing the request.
 3. IR node sends a POST request to the configured endpoint with the signed request.
 4. Validator checks the signature over the request body, verifies the node info, and responds with a signed
 verification result in the `body` field, including the same nonce.
-5. IR node verifies the response signature (over the raw `body` field), validates that the nonce matches, 
+5. IR node verifies the response signature (over the raw `body` field), validates that the nonce matches,
 and acts according to the `verified` and `details` fields.
 
 ## Configuration
@@ -103,6 +103,6 @@ sn_validator:
 - The validator must use the same signature scheme as the IR node.
 - The IR node expects the response signature to be generated using the same key as
 the request signature and to cover the full `body` object.
-- The validator should implement nonce checking to prevent replay attacks. The nonce value 
+- The validator should implement nonce checking to prevent replay attacks. The nonce value
   is included in the signed body to prevent tampering.
 - The response must echo back the same nonce value that was sent in the request.

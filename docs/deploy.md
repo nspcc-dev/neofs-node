@@ -2,7 +2,7 @@
 
 This is a short guide on how to deploy a private NeoFS storage network on bare
 metal without docker images. This guide does not cover details on how to start
-consensus, Alphabet, or Storage nodes. This guide covers only `neofs-adm` 
+consensus, Alphabet, or Storage nodes. This guide covers only `neofs-adm`
 related configuration details.
 
 ## Prerequisites
@@ -12,11 +12,11 @@ To follow this guide you need:
 - latest released version of [neofs-adm](https://github.com/nspcc-dev/neofs-node/releases) utility (v0.25.1 at the moment),
 - latest released version of compiled [neofs-contract](https://github.com/nspcc-dev/neofs-contract/releases) (v0.11.0 at the moment).
 
-## Step 1: Prepare network configuration 
+## Step 1: Prepare network configuration
 
-To start a network, you need a set of consensus nodes, the same number of 
-Alphabet nodes and any number of Storage nodes. While the number of Storage 
-nodes can be scaled almost infinitely, the number of consensus and Alphabet 
+To start a network, you need a set of consensus nodes, the same number of
+Alphabet nodes and any number of Storage nodes. While the number of Storage
+nodes can be scaled almost infinitely, the number of consensus and Alphabet
 nodes can't be changed so easily right now. Consider this before going any further.
 
 It is easier to use`neofs-adm` with a predefined configuration. First, create
@@ -27,7 +27,7 @@ consensus / Alphabet node in the network.
 $ neofs-adm config init --path foo.network.yml
 Initial config file saved to foo.network.yml
 
-$ cat foo.network.yml 
+$ cat foo.network.yml
 rpc-endpoint: https://neo.rpc.node:30333
 alphabet-wallets: /home/user/deploy/alphabet-wallets
 network:
@@ -43,17 +43,17 @@ credentials:
   az: hunter2
 ```
 
-For private installation, it is recommended to set all **fees** and **basic 
-income rate** to 0. 
+For private installation, it is recommended to set all **fees** and **basic
+income rate** to 0.
 
-As for **epoch duration**, consider consensus node block generation frequency. 
-With default 15 seconds per block, 240 blocks are going to be a 1-hour epoch. 
+As for **epoch duration**, consider consensus node block generation frequency.
+With default 15 seconds per block, 240 blocks are going to be a 1-hour epoch.
 
-For **max object size**, 67108864 (64 MiB) or 134217728 (128 MiB) should provide 
+For **max object size**, 67108864 (64 MiB) or 134217728 (128 MiB) should provide
 good chunk distribution in most cases.
 
 With this config, generate wallets (private keys) of consensus nodes. The same
-wallets will be used for Alphabet nodes. Make sure, that dir for alphabet 
+wallets will be used for Alphabet nodes. Make sure, that dir for alphabet
 wallets already exists.
 
 ```
@@ -69,14 +69,14 @@ storage.
 ## Step 2: Launch consensus nodes
 
 Configure blockchain nodes with the generated wallets from the previous step.
-Config examples can be found in 
+Config examples can be found in
 [neo-go repository](https://github.com/nspcc-dev/neo-go/tree/master/config).
 
 Gather public keys from **all** generated wallets. We are interested in the first
 `simple signature contract` public key.
 
 ```
-$ neo-go wallet dump-keys -w alphabet-wallets/az.json 
+$ neo-go wallet dump-keys -w alphabet-wallets/az.json
 NitdS4k4f1Hh5mbLJhAswBK3WC2gQgPN1o (simple signature contract):
 02c1cc85f9c856dbe2d02017349bcb7b4e5defa78b8056a09b3240ba2a8c078869
 
@@ -87,7 +87,7 @@ NiMKabp3ddi3xShmLAXhTfbnuWb4cSJT6E (1 out of 1 multisig contract):
 02c1cc85f9c856dbe2d02017349bcb7b4e5defa78b8056a09b3240ba2a8c078869
 ```
 
-Put the list of public keys into `ProtocolConfiguration.StandbyCommittee` 
+Put the list of public keys into `ProtocolConfiguration.StandbyCommittee`
 section. Specify the wallet path and the password in `ApplicationConfiguration.P2PNotary`
 and `ApplicationConfiguration.UnlockWallet` sections.
 
@@ -117,7 +117,7 @@ and possible overload issues.
 Use archive with compiled NeoFS contracts to initialize the sidechain.
 
 ```
-$ tar -xzvf neofs-contract-v0.11.0.tar.gz 
+$ tar -xzvf neofs-contract-v0.11.0.tar.gz
 
 $ ./neofs-adm -c foo.network.yml fschain init --contracts ./neofs-contract-v0.11.0
 Stage 1: transfer GAS to alphabet nodes.
@@ -149,8 +149,8 @@ Waiting for transactions to persist...
 
 ## Step 4: Launch Alphabet nodes
 
-Configure Alphabet nodes with the wallets generated in step 1. For 
-`fschain.validators` use a list of public keys from 
+Configure Alphabet nodes with the wallets generated in step 1. For
+`fschain.validators` use a list of public keys from
 `ProtocolConfiguration.StandbyCommittee`.
 
 ```yaml
@@ -170,10 +170,10 @@ Generate a new wallet for a Storage node.
 
 ```
 $ neofs-adm -c foo.network.yml fschain generate-storage-wallet --storage-wallet ./sn01.json --initial-gas 10.0
-New password > 
+New password >
 Waiting for transactions to persist...
 
-$ neo-go wallet dump-keys -w sn01.json 
+$ neo-go wallet dump-keys -w sn01.json
 Ngr7p8Z9S22XDH6VkUG9oXobv8zZRAWwwv (simple signature contract):
 0355eccb72cd46f09a3e5237eaa0f4949cceb5ecfa5a225bd3bb9fd021c4d75b85
 ```
@@ -197,7 +197,7 @@ Current epoch: 8, increase to 9.
 Waiting for transactions to persist...
 ```
 
---- 
+---
 
 After that, NeoFS Storage is ready to work. You can access it directly or
 with protocol gates.

@@ -4,7 +4,7 @@ Create new container
 
 ### Synopsis
 
-Create new container and register it in the NeoFS. 
+Create new container and register it in the NeoFS.
 It will be stored in FS chain when inner ring will accepts it.
 
 ```

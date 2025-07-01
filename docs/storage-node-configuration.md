@@ -48,8 +48,8 @@ control:
 grpc:
   - endpoint: localhost:8080
     tls:
-      enabled: true 
-      certificate: /path/to/cert.pem 
+      enabled: true
+      certificate: /path/to/cert.pem
       key: /path/to/key.pem
   - endpoint: internal.ip:8080
   - endpoint: external.ip:8080
@@ -217,7 +217,7 @@ gc:
 | Parameter                | Type       | Default value | Description                                  |
 |--------------------------|------------|---------------|----------------------------------------------|
 | `remover_batch_size`     | `int`      | `100`         | Amount of objects to grab in a single batch. |
-| `remover_sleep_interval` | `duration` | `1m`          | Time to sleep between iterations.            | 
+| `remover_sleep_interval` | `duration` | `1m`          | Time to sleep between iterations.            |
 
 ### `metabase` subsection
 

@@ -30,5 +30,5 @@ Update `GO_VERSION` variable in `./Makefile`.
 
 ## Apply language changes
 
-Open PR that fixes/updates repository's code according to 
+Open PR that fixes/updates repository's code according to
 language improvements.
