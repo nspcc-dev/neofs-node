@@ -199,6 +199,10 @@ func newCachedContainerStorage(v container.Source, ttl time.Duration) *ttlContai
 	}
 }
 
+func (s *ttlContainerStorage) handleCreation(cnr cid.ID) {
+	s.tc.remove(cnr)
+}
+
 func (s *ttlContainerStorage) handleRemoval(cnr cid.ID) {
 	s.tc.set(cnr, sdkcontainer.Container{}, apistatus.ContainerNotFound{})
 }

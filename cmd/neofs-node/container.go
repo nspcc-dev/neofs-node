@@ -67,6 +67,8 @@ func initContainerService(c *cfg) {
 			}
 			c.log.Info("caught container creation, updating cache...", zap.Stringer("id", id), zap.Stringer("owner", owner))
 			c.containerListCache.update(owner, id, true)
+			c.containerCache.handleCreation(id)
+			c.log.Info("successfully updated cache for the created container", zap.Stringer("id", id))
 		})
 
 		subscribeToContainerRemoval(c, func(id cid.ID, owner user.ID) {
