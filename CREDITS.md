@@ -22,6 +22,20 @@ In chronological order:
 - Angira Kekteeva
 - Sergio Nemirowski
 - Tivizi Jing
+- Denis Kirillov
+- Elizaveta Chichindaeva
+- Aleksandr Volkov
+- Vladimir Domnich
+- Anton Nikiforov
+- Dmitry Zabolotsky
+- Roman Khimov
+- Anna Shaleva
+- Oleg Kulachenko
+- Ekaterina Pavlova
+- Evgenii Zaiats
+- Evgenii Baidakov
+- Andrey Butusov
+- Tatiana Nesterenko
 
 # Special Thanks
 
