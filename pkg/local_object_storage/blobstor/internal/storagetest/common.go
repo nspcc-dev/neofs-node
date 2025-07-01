@@ -100,6 +100,7 @@ func NewObject(sz uint64) *objectSDK.Object {
 	if ln := uint64(len(data)); ln > sz {
 		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
 	}
+	raw.SetPayloadSize(uint64(len(raw.Payload())))
 
 	return raw
 }
