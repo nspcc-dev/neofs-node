@@ -606,7 +606,7 @@ func (c *cfg) bootstrapOnline() error {
 	return c.nCli.AddPeer(ni, c.key.PublicKey())
 }
 
-// heartbeat sends AddNode and/or UpdatePeer transactions with the current
+// heartbeat sends UpdatePeer transaction with the current
 // node state which can be "maintenance" or "online".
 func (c *cfg) heartbeat() error {
 	var (
