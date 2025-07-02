@@ -125,6 +125,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
 		putPayload(t.encodedObject.b)
 		t.encodedObject.b = nil
+		t.collectedSignatures = nil
 	}()
 
 	firstObj := t.obj.GetFirstID()
