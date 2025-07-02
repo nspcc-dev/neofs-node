@@ -142,6 +142,15 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	// this is not safe to do for subscribers (can affect shared structures
 	// leading to data corruption like broken notary request in our case).
 	nr = nr.Copy()
+	// if NR is triggered by SN, not by an external event, there can be a race
+	// with other Alphabet nodes, that also sign NR and we may get it already
+	// signed, `alreadyHandledTXs` cannot help in such cases but NR must be
+	// still handled, see https://github.com/nspcc-dev/neofs-node/issues/3254
+	// and https://github.com/nspcc-dev/neo-go/issues/3770; Alphabet signature
+	// is always expected to be at the second place
+	if len(nr.MainTransaction.Scripts[1].InvocationScript) != 0 {
+		nr.MainTransaction.Scripts[1].InvocationScript = nr.MainTransaction.Scripts[1].InvocationScript[:0]
+	}
 
 	currentAlphabet, err := p.alphaKeys()
 	if err != nil {
