@@ -218,7 +218,7 @@ func (t *distributedTarget) encodeCurrentObjectMetadata() []byte {
 
 	var deletedObjs []oid.ID
 	var lockedObjs []oid.ID
-	typ := t.objMeta.Type()
+	typ := t.obj.Type()
 	switch typ {
 	case objectSDK.TypeTombstone:
 		deletedObjs = t.objMeta.Objects()

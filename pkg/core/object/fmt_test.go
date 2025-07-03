@@ -309,7 +309,6 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.NoError(t, err) // all good
 
 		require.EqualValues(t, []oid.ID{id}, contentGot.Objects())
-		require.Equal(t, object.TypeTombstone, contentGot.Type())
 	})
 
 	t.Run("storage group content", func(t *testing.T) {
@@ -352,7 +351,6 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, err)
 
 			require.EqualValues(t, ids, content.Objects())
-			require.Equal(t, object.TypeStorageGroup, content.Type())
 		})
 	})
 
