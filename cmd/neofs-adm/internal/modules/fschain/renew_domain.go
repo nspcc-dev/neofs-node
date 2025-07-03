@@ -25,7 +25,6 @@ func renewDomain(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	defer wCtx.close()
 	nnsHash, err := nns.InferHash(wCtx.Client)
 	if err != nil {
 		return err

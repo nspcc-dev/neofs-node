@@ -154,7 +154,6 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	defer wCtx.close()
 
 	nnsReader, err := nns.NewInferredReader(wCtx.Client, wCtx.ReadOnlyInvoker)
 	if err != nil {

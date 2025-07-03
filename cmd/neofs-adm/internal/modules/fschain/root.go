@@ -46,7 +46,6 @@ const (
 	refillGasAmountFlag             = "gas"
 	walletAccountFlag               = "account"
 	notaryDepositTillFlag           = "till"
-	localDumpFlag                   = "local-dump"
 	protoConfigPath                 = "protocol"
 	walletAddressFlag               = "wallet-address"
 	domainFlag                      = "domain"

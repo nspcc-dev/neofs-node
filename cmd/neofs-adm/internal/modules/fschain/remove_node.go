@@ -32,7 +32,6 @@ func removeNodesCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("can't initialize context: %w", err)
 	}
-	defer wCtx.close()
 
 	nnsReader, err := nns.NewInferredReader(wCtx.Client, wCtx.ReadOnlyInvoker)
 	if err != nil {

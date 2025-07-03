@@ -143,6 +143,29 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
+var errGetDesignatedByRoleResponse = errors.New("`getDesignatedByRole`: invalid response")
+
+func getDesignatedByRole(inv *invoker.Invoker, h util.Uint160, role noderoles.Role, u uint32) (keys.PublicKeys, error) {
+	arr, err := unwrap.Array(inv.Call(h, "getDesignatedByRole", int64(role), int64(u)))
+	if err != nil {
+		return nil, errGetDesignatedByRoleResponse
+	}
+
+	pubs := make(keys.PublicKeys, len(arr))
+	for i := range arr {
+		bs, err := arr[i].TryBytes()
+		if err != nil {
+			return nil, errGetDesignatedByRoleResponse
+		}
+		pubs[i], err = keys.NewPublicKeyFromBytes(bs, elliptic.P256())
+		if err != nil {
+			return nil, errGetDesignatedByRoleResponse
+		}
+	}
+
+	return pubs, nil
+}
+
 func fetchIRNodes(c Client, desigHash util.Uint160) ([]accBalancePair, error) {
 	inv := invoker.New(c, nil)
 

@@ -43,16 +43,6 @@ type initializeContext struct {
 	ContractPath string
 }
 
-func (c *initializeContext) close() {
-	if local, ok := c.Client.(*localClient); ok {
-		err := local.dump()
-		if err != nil {
-			c.Command.PrintErrf("Can't write dump: %v\n", err)
-			os.Exit(1)
-		}
-	}
-}
-
 func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContext, error) {
 	walletDir := config.ResolveHomePath(viper.GetString(alphabetWalletsFlag))
 	wallets, err := openAlphabetWallets(v, walletDir)
@@ -60,15 +50,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, err
 	}
 
-	var c Client
-	if v.GetString(localDumpFlag) != "" {
-		if v.GetString(endpointFlag) != "" {
-			return nil, fmt.Errorf("`%s` and `%s` flags are mutually exclusive", endpointFlag, localDumpFlag)
-		}
-		c, err = newLocalClient(cmd, v, wallets)
-	} else {
-		c, err = getN3Client(v)
-	}
+	c, err := getN3Client(v)
 	if err != nil {
 		return nil, fmt.Errorf("can't create N3 client: %w", err)
 	}
@@ -244,12 +226,6 @@ func (c *initializeContext) getSigner(fancyScope bool, acc *wallet.Account) tran
 func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 	if len(c.SentTxs) == 0 {
 		return nil
-	}
-
-	if local, ok := c.Client.(*localClient); ok {
-		if err := local.putTransactions(); err != nil {
-			return fmt.Errorf("can't persist transactions: %w", err)
-		}
 	}
 
 	err := awaitTx(cmd, c.Client, c.SentTxs)
