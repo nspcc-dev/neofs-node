@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Epoch stale after NEO RPC connection loss by IR (#3397)
 - Data race in write-cache flush scheduler after error (#3427)
 - IR may send double signed notary requests triggered by SNs (#3254)
+- Submitting redundant and incorrect replication signatures to Container contract by SN on object split (#3443)
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)
