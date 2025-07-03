@@ -28,7 +28,7 @@ func BenchmarkSearch(b *testing.B) {
 		attrts.SetValue(strconv.Itoa(1748028502 + i))
 		obj := generateObjectWithCID(b, cid)
 		obj.SetAttributes(attrfp, attrts)
-		require.NoError(b, db.Put(obj, nil))
+		require.NoError(b, db.Put(obj))
 	}
 
 	fs := object.SearchFilters{}

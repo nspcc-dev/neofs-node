@@ -31,7 +31,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	sh := newCustomShard(t, dir, true, wcOpts)
 
 	for i := range objects {
-		err := sh.Put(objects[i], nil, 0)
+		err := sh.Put(objects[i], nil)
 		require.NoError(t, err)
 	}
 	require.NoError(t, sh.Close())

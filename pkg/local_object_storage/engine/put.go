@@ -26,7 +26,7 @@ var errPutShard = errors.New("could not put object to any shard")
 // Returns an error if executions are blocked (see BlockExecution).
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
-func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) error {
+func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
@@ -63,7 +63,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 			continue
 		}
 
-		putDone, exists, _ := e.putToShard(sh, i, pool, addr, obj, objBin, hdrLen)
+		putDone, exists, _ := e.putToShard(sh, i, pool, addr, obj, objBin)
 		if putDone || exists {
 			return nil
 		}
@@ -72,7 +72,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 	e.log.Debug("failed to put object to shards, trying the best one more",
 		zap.Stringer("addr", addr), zap.Stringer("best shard", bestShard.ID()))
 
-	if e.objectPutTimeout > 0 && e.putToShardWithDeadLine(bestShard, 0, bestPool, addr, obj, objBin, hdrLen) {
+	if e.objectPutTimeout > 0 && e.putToShardWithDeadLine(bestShard, 0, bestPool, addr, obj, objBin) {
 		return nil
 	}
 
@@ -83,7 +83,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 // First return value is true iff put has been successfully done.
 // Second return value is true iff object already exists.
 // Third return value is true iff object cannot be put because of max concurrent load.
-func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) (bool, bool, bool) {
+func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) (bool, bool, bool) {
 	var (
 		alreadyExists bool
 		err           error
@@ -131,7 +131,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 			return
 		}
 
-		err = sh.Put(obj, objBin, hdrLen)
+		err = sh.Put(obj, objBin)
 		if err != nil {
 			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
 				errors.Is(err, common.ErrNoSpace) {
@@ -158,7 +158,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 	return putSuccess, alreadyExists, overloaded
 }
 
-func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) bool {
+func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) bool {
 	timer := time.NewTimer(e.cfg.objectPutTimeout)
 
 	const putCooldown = 100 * time.Millisecond
@@ -170,7 +170,7 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool ut
 			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.cfg.objectPutTimeout))
 			return false
 		case <-ticker.C:
-			putDone, exists, overloaded := e.putToShard(sh, ind, pool, addr, obj, objBin, hdrLen)
+			putDone, exists, overloaded := e.putToShard(sh, ind, pool, addr, obj, objBin)
 			if overloaded {
 				ticker.Reset(putCooldown)
 				continue

@@ -45,7 +45,7 @@ func TestShardReload(t *testing.T) {
 	for i := range objects {
 		objects[i].obj = newObject(t)
 		objects[i].addr = objectCore.AddressOf(objects[i].obj)
-		require.NoError(t, sh.Put(objects[i].obj, nil, 0))
+		require.NoError(t, sh.Put(objects[i].obj, nil))
 	}
 
 	checkHasObjects := func(t *testing.T, exists bool) {
@@ -76,7 +76,7 @@ func TestShardReload(t *testing.T) {
 
 		t.Run("can put objects", func(t *testing.T) {
 			obj := newObject(t)
-			require.NoError(t, sh.Put(obj, nil, 0))
+			require.NoError(t, sh.Put(obj, nil))
 			objects = append(objects, objAddr{obj: obj, addr: objectCore.AddressOf(obj)})
 		})
 
@@ -94,7 +94,7 @@ func TestShardReload(t *testing.T) {
 
 			// Cleanup is done, no panic.
 			obj := newObject(t)
-			require.ErrorIs(t, sh.Put(obj, nil, 0), ErrReadOnlyMode)
+			require.ErrorIs(t, sh.Put(obj, nil), ErrReadOnlyMode)
 
 			// Old objects are still accessible.
 			checkHasObjects(t, true)
@@ -104,7 +104,7 @@ func TestShardReload(t *testing.T) {
 			require.NoError(t, sh.Reload(newOpts...))
 
 			obj = newObject(t)
-			require.NoError(t, sh.Put(obj, nil, 0))
+			require.NoError(t, sh.Put(obj, nil))
 
 			objects = append(objects, objAddr{obj: obj, addr: objectCore.AddressOf(obj)})
 			checkHasObjects(t, true)

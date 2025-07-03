@@ -50,10 +50,10 @@ func TestCompression(t *testing.T) {
 	}
 
 	testPut := func(t *testing.T, s *shard.Shard, i int) {
-		err = s.Put(smallObj[i], nil, 0)
+		err = s.Put(smallObj[i], nil)
 		require.NoError(t, err)
 
-		err = s.Put(bigObj[i], nil, 0)
+		err = s.Put(bigObj[i], nil)
 		require.NoError(t, err)
 	}
 

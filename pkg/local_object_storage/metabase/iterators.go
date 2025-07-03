@@ -232,31 +232,38 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Addres
 	return err
 }
 
+func mkFilterPhysicalPrefix() []byte {
+	var prefix = make([]byte, 1+len(object.FilterPhysical)+1+len(binPropMarker)+1)
+
+	prefix[0] = metaPrefixAttrIDPlain
+	copy(prefix[1:], object.FilterPhysical)
+	copy(prefix[1+len(object.FilterPhysical)+1:], binPropMarker)
+
+	return prefix
+}
+
 func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
 	var cID cid.ID
 	var oID oid.ID
 
 	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		b58CID, postfix := parseContainerIDWithPrefix(&cID, name)
-		if len(b58CID) == 0 {
+		rawCID, tablePrefix := parseContainerIDWithPrefix(&cID, name)
+		if len(rawCID) == 0 || tablePrefix != metadataPrefix {
 			return nil
 		}
 
-		switch postfix {
-		case primaryPrefix,
-			storageGroupPrefix,
-			lockersPrefix,
-			tombstonePrefix:
-		default:
-			return nil
-		}
-
-		return b.ForEach(func(k, v []byte) error {
-			if oID.Decode(k) == nil {
-				return f(cID, oID)
+		var (
+			c      = b.Cursor()
+			prefix = mkFilterPhysicalPrefix()
+		)
+		for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			if oID.Decode(k[len(prefix):]) == nil {
+				err := f(cID, oID)
+				if err != nil {
+					return err
+				}
 			}
-
-			return nil
-		})
+		}
+		return nil
 	})
 }

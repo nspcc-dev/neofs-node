@@ -475,8 +475,8 @@ func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
 	return e.engine.Lock(locker.Container(), locker.Object(), toLock)
 }
 
-func (e storageEngine) Put(o *objectSDK.Object, objBin []byte, hdrLen int) error {
-	return e.engine.Put(o, objBin, hdrLen)
+func (e storageEngine) Put(o *objectSDK.Object, objBin []byte) error {
+	return e.engine.Put(o, objBin)
 }
 
 func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int, l *zap.Logger) headerSource {

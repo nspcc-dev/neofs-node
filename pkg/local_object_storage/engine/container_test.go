@@ -49,10 +49,10 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 	o2 := objecttest.Object()
 	o2.SetPayload(make([]byte, errSmallSize+1))
 
-	err := e.Put(&o1, nil, 0)
+	err := e.Put(&o1, nil)
 	require.NoError(t, err)
 
-	err = e.Put(&o2, nil, 0)
+	err = e.Put(&o2, nil)
 	require.NoError(t, err)
 
 	require.NoError(t, e.Init())

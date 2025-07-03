@@ -173,7 +173,7 @@ func TestDB_IsLocked(t *testing.T) {
 
 	obj := objecttest.Object()
 
-	err = db.Put(&obj, nil)
+	err = db.Put(&obj)
 	require.NoError(t, err)
 
 	locked, err = db.IsLocked(objectcore.AddressOf(&obj))

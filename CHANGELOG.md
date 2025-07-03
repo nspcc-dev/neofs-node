@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - SN now verifies object header from proxy GET/HEAD responses against requested ID (#3406)
 - SN now verifies payload from proxy GET responses against in-header checksum (#3406)
 - Write cache initialization happens much faster now, some redundant checks were removed (#3417)
+- Metabase no longer stores object headers (#3430)
 
 ### Removed
 - Short header support in HEAD's request and response (#3424)
