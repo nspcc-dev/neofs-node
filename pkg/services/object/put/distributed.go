@@ -96,7 +96,7 @@ func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
 		if t.placementIterator.localOnly {
 			t.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
 		} else {
-			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), true)
+			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), t.metainfoConsistencyAttr != "")
 		}
 		if err != nil {
 			return fmt.Errorf("encode object into binary: %w", err)
@@ -241,7 +241,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
 
-	if t.localNodeInContainer {
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()),
