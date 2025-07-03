@@ -246,68 +246,6 @@ func (c *initializeContext) updateContracts() error {
 	return c.awaitTx()
 }
 
-func (c *initializeContext) deployContracts() error {
-	alphaCs := c.getContract(alphabetContract)
-
-	var keysParam []any
-
-	// alphabet contracts should be deployed by individual nodes to get different hashes.
-	for i, acc := range c.Accounts {
-		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
-		if c.isUpdated(ctrHash, alphaCs) {
-			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
-			continue
-		}
-
-		keysParam = append(keysParam, acc.PublicKey().Bytes())
-		params := getContractDeployParameters(alphaCs, c.getAlphabetDeployItems(i, len(c.Wallets)))
-
-		act, err := actor.NewSimple(c.Client, acc)
-		if err != nil {
-			return fmt.Errorf("could not create actor: %w", err)
-		}
-
-		txHash, vub, err := act.SendCall(management.Hash, deployMethodName, params...)
-		if err != nil {
-			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
-		}
-
-		c.SentTxs = append(c.SentTxs, hashVUBPair{hash: txHash, vub: vub})
-	}
-
-	var sBuilder = smartcontract.NewBuilder()
-	for _, ctrName := range contractList {
-		cs := c.getContract(ctrName)
-
-		ctrHash := cs.Hash
-		if c.isUpdated(ctrHash, cs) {
-			c.Command.Printf("%s contract is already deployed.\n", ctrName)
-			continue
-		}
-
-		params := getContractDeployParameters(cs, c.getContractDeployData(ctrHash, ctrName, keysParam))
-		sBuilder.InvokeWithAssert(management.Hash, deployMethodName, params...) // ASSERT just drop the contract data from the stack.
-	}
-	script, err := sBuilder.Script()
-	if err != nil {
-		return fmt.Errorf("script builder: %w", err)
-	}
-	if len(script) > transaction.MaxScriptLength {
-		return fmt.Errorf("deployment script overflow: %d", len(script))
-	}
-
-	if err := c.sendCommitteeTx(script, true); err != nil {
-		return err
-	}
-
-	return c.awaitTx()
-}
-
-func (c *initializeContext) isUpdated(ctrHash util.Uint160, cs *contractState) bool {
-	realCs, err := c.Client.GetContractStateByHash(ctrHash)
-	return err == nil && realCs.NEF.Checksum == cs.NEF.Checksum
-}
-
 func (c *initializeContext) getContract(ctrName string) *contractState {
 	return c.Contracts[ctrName]
 }

@@ -112,42 +112,7 @@ nodes at this stage because Storage nodes should be connected to the chain too.
 It is not recommended to use a consensus node as an RPC node due to security policies
 and possible overload issues.
 
-## Step 3: Initialize sidechain
-
-Use archive with compiled NeoFS contracts to initialize the sidechain.
-
-```
-$ tar -xzvf neofs-contract-v0.11.0.tar.gz
-
-$ ./neofs-adm -c foo.network.yml fschain init --contracts ./neofs-contract-v0.11.0
-Stage 1: transfer GAS to alphabet nodes.
-Waiting for transactions to persist...
-Stage 2: set notary and alphabet nodes in designate contract.
-Waiting for transactions to persist...
-Stage 3: deploy NNS contract.
-Waiting for transactions to persist...
-Stage 4: deploy NeoFS contracts.
-Waiting for transactions to persist...
-Stage 4.1: Transfer GAS to proxy contract.
-Waiting for transactions to persist...
-Stage 5: register candidates.
-Waiting for transactions to persist...
-Stage 6: transfer NEO to alphabet contracts.
-Waiting for transactions to persist...
-Stage 7: set addresses in NNS.
-Waiting for transactions to persist...
-NNS: Set alphabet0.neofs -> f692dfb4d43a15b464eb51a7041160fb29c44b6a
-NNS: Set audit.neofs -> 7df847b993affb3852074345a7c2bd622171ee0d
-NNS: Set balance.neofs -> 103519b3067a66307080a66570c0491ee8f68879
-NNS: Set container.neofs -> cae60bdd689d185901e495352d0247752ce50846
-NNS: Set neofsid.neofs -> c421fb60a3895865a8f24d197d6a80ef686041d2
-NNS: Set netmap.neofs -> 894eb854632f50fb124412ce7951ebc00763525e
-NNS: Set proxy.neofs -> ac6e6fe4b373d0ca0ca4969d1e58fa0988724e7d
-NNS: Set reputation.neofs -> 6eda57c9d93d990573646762d1fea327ce41191f
-Waiting for transactions to persist...
-```
-
-## Step 4: Launch Alphabet nodes
+## Step 3: Launch Alphabet nodes
 
 Configure Alphabet nodes with the wallets generated in step 1. For
 `fschain.validators` use a list of public keys from
