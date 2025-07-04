@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Data race in write-cache flush scheduler after error (#3427)
 - IR may send double signed notary requests triggered by SNs (#3254)
 - Submitting redundant and incorrect replication signatures to Container contract by SN on object split (#3443)
+- False negative log record on succeeded SN bootstrap (#3446)
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)
