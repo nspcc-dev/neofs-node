@@ -59,7 +59,7 @@ func (t *localTarget) Close() (oid.ID, []byte, error) {
 }
 
 func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, enc *encodedObject) error {
-	switch meta.Type() {
+	switch obj.Type() {
 	case object.TypeTombstone:
 		exp, err := objectCore.Expiration(*obj)
 		if err != nil && !errors.Is(err, objectCore.ErrNoExpiration) {

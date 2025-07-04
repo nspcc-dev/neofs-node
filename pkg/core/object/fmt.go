@@ -224,14 +224,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 //   - object.TypeLink;
 //   - object.TypeLock.
 type ContentMeta struct {
-	typ object.Type
-
 	objs []oid.ID
-}
-
-// Type returns object's type.
-func (i ContentMeta) Type() object.Type {
-	return i.typ
 }
 
 // Objects returns objects that the original object's payload affects:
@@ -245,9 +238,7 @@ func (i ContentMeta) Objects() []oid.ID {
 
 // ValidateContent validates payload content according to the object type.
 func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error) {
-	meta := ContentMeta{
-		typ: o.Type(),
-	}
+	var meta ContentMeta
 
 	switch o.Type() {
 	case object.TypeRegular:

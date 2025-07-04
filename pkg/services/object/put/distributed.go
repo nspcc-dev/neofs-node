@@ -96,7 +96,7 @@ func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
 		if t.placementIterator.localOnly {
 			t.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
 		} else {
-			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), true)
+			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), t.metainfoConsistencyAttr != "")
 		}
 		if err != nil {
 			return fmt.Errorf("encode object into binary: %w", err)
@@ -128,13 +128,6 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		t.collectedSignatures = nil
 	}()
 
-	firstObj := t.obj.GetFirstID()
-	if t.obj.HasParent() && firstObj.IsZero() {
-		// object itself is the first one
-		firstObj = t.obj.GetID()
-	}
-	prevObj := t.obj.GetPreviousID()
-
 	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
 
 	tombOrLink := t.obj.Type() == objectSDK.TypeLink || t.obj.Type() == objectSDK.TypeTombstone
@@ -155,20 +148,10 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		}
 	}
 
-	var deletedObjs []oid.ID
-	var lockedObjs []oid.ID
-	typ := t.objMeta.Type()
-	switch typ {
-	case objectSDK.TypeTombstone:
-		deletedObjs = t.objMeta.Objects()
-	case objectSDK.TypeLock:
-		lockedObjs = t.objMeta.Objects()
-	default:
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		t.objSharedMeta = t.encodeCurrentObjectMetadata()
 	}
 
-	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
-	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), firstObj, prevObj, t.obj.PayloadSize(), typ, deletedObjs,
-		lockedObjs, expectedVUB, t.networkMagicNumber)
 	id := t.obj.GetID()
 	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)
 	if err != nil {
@@ -224,6 +207,30 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	return id, nil
 }
 
+func (t *distributedTarget) encodeCurrentObjectMetadata() []byte {
+	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
+
+	firstObj := t.obj.GetFirstID()
+	if t.obj.HasParent() && firstObj.IsZero() {
+		// object itself is the first one
+		firstObj = t.obj.GetID()
+	}
+
+	var deletedObjs []oid.ID
+	var lockedObjs []oid.ID
+	typ := t.obj.Type()
+	switch typ {
+	case objectSDK.TypeTombstone:
+		deletedObjs = t.objMeta.Objects()
+	case objectSDK.TypeLock:
+		lockedObjs = t.objMeta.Objects()
+	default:
+	}
+
+	return object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), firstObj, t.obj.GetPreviousID(),
+		t.obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.networkMagicNumber)
+}
+
 func (t *distributedTarget) sendObject(node nodeDesc) error {
 	if !node.local && t.relay != nil {
 		return t.relay(node)
@@ -241,7 +248,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
 
-	if t.localNodeInContainer {
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()),
