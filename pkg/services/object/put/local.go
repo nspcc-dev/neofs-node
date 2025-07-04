@@ -31,15 +31,6 @@ type ObjectStorage interface {
 	IsLocked(oid.Address) (bool, error)
 }
 
-type localTarget struct {
-	storage ObjectStorage
-}
-
-func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta, enc encodedObject) ([]byte, error) {
-	err := putObjectLocally(t.storage, obj, meta, &enc)
-	return nil, err
-}
-
 func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, enc *encodedObject) error {
 	switch obj.Type() {
 	case object.TypeTombstone:

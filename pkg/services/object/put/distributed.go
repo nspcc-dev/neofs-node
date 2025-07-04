@@ -238,9 +238,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	var sigsRaw []byte
 	var err error
 	if node.local {
-		sigsRaw, err = (&localTarget{
-			storage: t.localStorage,
-		}).WriteObject(t.obj, t.objMeta, t.encodedObject)
+		err = putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject)
 	} else {
 		sigsRaw, err = (&remoteTarget{
 			ctx:               t.opCtx,
