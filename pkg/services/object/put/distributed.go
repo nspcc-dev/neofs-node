@@ -244,10 +244,9 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 			ctx:               t.opCtx,
 			keyStorage:        t.keyStorage,
 			commonPrm:         t.commonPrm,
-			nodeInfo:          node.info,
 			clientConstructor: t.clientConstructor,
 			transport:         t.transport,
-		}).WriteObject(t.obj, t.objMeta, t.encodedObject)
+		}).WriteObject(node.info, t.obj, t.objMeta, t.encodedObject)
 	}
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)

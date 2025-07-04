@@ -23,8 +23,6 @@ type remoteTarget struct {
 
 	commonPrm *util.CommonPrm
 
-	nodeInfo clientcore.NodeInfo
-
 	clientConstructor ClientConstructor
 	transport         Transport
 }
@@ -44,11 +42,11 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) ([]byte, error) {
+func (t *remoteTarget) WriteObject(nodeInfo clientcore.NodeInfo, obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) ([]byte, error) {
 	if enc.hdrOff > 0 {
-		sigs, err := t.transport.SendReplicationRequestToNode(t.ctx, enc.b, t.nodeInfo)
+		sigs, err := t.transport.SendReplicationRequestToNode(t.ctx, enc.b, nodeInfo)
 		if err != nil {
-			return nil, fmt.Errorf("replicate object to remote node (key=%x): %w", t.nodeInfo.PublicKey(), err)
+			return nil, fmt.Errorf("replicate object to remote node (key=%x): %w", nodeInfo.PublicKey(), err)
 		}
 		return sigs, nil
 	}
@@ -67,9 +65,9 @@ func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta,
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
-	c, err := t.clientConstructor.Get(t.nodeInfo)
+	c, err := t.clientConstructor.Get(nodeInfo)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, nodeInfo, err)
 	}
 
 	var prm internalclient.PutObjectPrm
@@ -84,7 +82,7 @@ func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta,
 
 	_, err = internalclient.PutObject(prm)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
+		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, nodeInfo.AddressGroup(), err)
 	}
 
 	return nil, nil
@@ -124,12 +122,13 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		clientConstructor: s.clientConstructor,
 	}
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&t.nodeInfo, netmapCore.Node(p.node))
+	var nodeInfo clientcore.NodeInfo
+	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfo, netmapCore.Node(p.node))
 	if err != nil {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	_, err = t.WriteObject(p.obj, objectcore.ContentMeta{}, encodedObject{})
+	_, err = t.WriteObject(nodeInfo, p.obj, objectcore.ContentMeta{}, encodedObject{})
 	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
