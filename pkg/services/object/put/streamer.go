@@ -223,24 +223,11 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 			linearReplNum:  uint(prm.copiesNumber),
 			broadcast:      withBroadcast,
 		},
-		nodeTargetInitializer: func(node nodeDesc) preparedObjectTarget {
-			if node.local {
-				return &localTarget{
-					storage: p.localStore,
-				}
-			}
-
-			rt := &remoteTarget{
-				ctx:               p.ctx,
-				keyStorage:        p.keyStorage,
-				commonPrm:         prm.common,
-				nodeInfo:          node.info,
-				clientConstructor: p.clientConstructor,
-				transport:         p.transport,
-			}
-
-			return rt
-		},
+		localStorage:            p.localStore,
+		keyStorage:              p.keyStorage,
+		commonPrm:               prm.common,
+		clientConstructor:       p.clientConstructor,
+		transport:               p.transport,
 		relay:                   relay,
 		fmt:                     p.fmtValidator,
 		localNodeInContainer:    prm.localNodeInContainer,

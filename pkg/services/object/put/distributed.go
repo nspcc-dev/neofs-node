@@ -56,11 +56,15 @@ type distributedTarget struct {
 	// - payload otherwise
 	encodedObject encodedObject
 
-	nodeTargetInitializer func(nodeDesc) preparedObjectTarget
-
 	relay func(nodeDesc) error
 
 	fmt *object.FormatValidator
+
+	localStorage      ObjectStorage
+	clientConstructor ClientConstructor
+	transport         Transport
+	commonPrm         *svcutil.CommonPrm
+	keyStorage        *svcutil.KeyStorage
 }
 
 type nodeDesc struct {
@@ -235,7 +239,21 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		return t.relay(node)
 	}
 
-	target := t.nodeTargetInitializer(node)
+	var target preparedObjectTarget
+	if node.local {
+		target = &localTarget{
+			storage: t.localStorage,
+		}
+	} else {
+		target = &remoteTarget{
+			ctx:               t.opCtx,
+			keyStorage:        t.keyStorage,
+			commonPrm:         t.commonPrm,
+			nodeInfo:          node.info,
+			clientConstructor: t.clientConstructor,
+			transport:         t.transport,
+		}
+	}
 
 	sigsRaw, err := target.WriteObject(t.obj, t.objMeta, t.encodedObject)
 	if err != nil {
