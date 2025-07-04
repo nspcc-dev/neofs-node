@@ -25,9 +25,6 @@ type remoteTarget struct {
 
 	nodeInfo clientcore.NodeInfo
 
-	obj *object.Object
-	enc encodedObject
-
 	clientConstructor ClientConstructor
 	transport         Transport
 }
@@ -47,19 +44,13 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) error {
-	t.obj = obj
-	t.enc = enc
-	return nil
-}
-
-func (t *remoteTarget) Close() (oid.ID, []byte, error) {
-	if t.enc.hdrOff > 0 {
-		sigs, err := t.transport.SendReplicationRequestToNode(t.ctx, t.enc.b, t.nodeInfo)
+func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) (oid.ID, []byte, error) {
+	if enc.hdrOff > 0 {
+		sigs, err := t.transport.SendReplicationRequestToNode(t.ctx, enc.b, t.nodeInfo)
 		if err != nil {
 			return oid.ID{}, nil, fmt.Errorf("replicate object to remote node (key=%x): %w", t.nodeInfo.PublicKey(), err)
 		}
-		return t.obj.GetID(), sigs, nil
+		return obj.GetID(), sigs, nil
 	}
 
 	var sessionInfo *util.SessionInfo
@@ -89,7 +80,7 @@ func (t *remoteTarget) Close() (oid.ID, []byte, error) {
 	prm.SetSessionToken(t.commonPrm.SessionToken())
 	prm.SetBearerToken(t.commonPrm.BearerToken())
 	prm.SetXHeaders(t.commonPrm.XHeaders())
-	prm.SetObject(t.obj)
+	prm.SetObject(obj)
 
 	res, err := internalclient.PutObject(prm)
 	if err != nil {
@@ -138,12 +129,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	err = t.WriteObject(p.obj, objectcore.ContentMeta{}, encodedObject{})
-	if err != nil {
-		return fmt.Errorf("(%T) could not send object header: %w", s, err)
-	}
-
-	_, _, err = t.Close()
+	_, _, err = t.WriteObject(p.obj, objectcore.ContentMeta{}, encodedObject{})
 	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
