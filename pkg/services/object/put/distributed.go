@@ -25,10 +25,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type preparedObjectTarget interface {
-	WriteObject(*objectSDK.Object, object.ContentMeta, encodedObject) ([]byte, error)
-}
-
 type distributedTarget struct {
 	opCtx context.Context
 
@@ -239,23 +235,22 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		return t.relay(node)
 	}
 
-	var target preparedObjectTarget
+	var sigsRaw []byte
+	var err error
 	if node.local {
-		target = &localTarget{
+		sigsRaw, err = (&localTarget{
 			storage: t.localStorage,
-		}
+		}).WriteObject(t.obj, t.objMeta, t.encodedObject)
 	} else {
-		target = &remoteTarget{
+		sigsRaw, err = (&remoteTarget{
 			ctx:               t.opCtx,
 			keyStorage:        t.keyStorage,
 			commonPrm:         t.commonPrm,
 			nodeInfo:          node.info,
 			clientConstructor: t.clientConstructor,
 			transport:         t.transport,
-		}
+		}).WriteObject(t.obj, t.objMeta, t.encodedObject)
 	}
-
-	sigsRaw, err := target.WriteObject(t.obj, t.objMeta, t.encodedObject)
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
