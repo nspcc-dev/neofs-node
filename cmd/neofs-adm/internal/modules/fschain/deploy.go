@@ -63,7 +63,6 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("initialization error: %w", err)
 	}
-	defer c.close()
 
 	ctrPath, _ := cmd.Flags().GetString(contractPathFlag)
 	ctrName, err := probeContractName(ctrPath)

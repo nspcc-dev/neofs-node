@@ -46,7 +46,6 @@ const (
 	refillGasAmountFlag             = "gas"
 	walletAccountFlag               = "account"
 	notaryDepositTillFlag           = "till"
-	localDumpFlag                   = "local-dump"
 	protoConfigPath                 = "protocol"
 	walletAddressFlag               = "wallet-address"
 	domainFlag                      = "domain"
@@ -74,27 +73,6 @@ var (
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 		},
 		RunE: generateAlphabetCreds,
-	}
-
-	initCmd = &cobra.Command{
-		Use:   "init",
-		Short: "Initialize FS chain network with smart-contracts and network settings",
-		PreRun: func(cmd *cobra.Command, _ []string) {
-			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
-			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
-			_ = viper.BindPFlag(epochDurationInitFlag, cmd.Flags().Lookup(epochDurationCLIFlag))
-			_ = viper.BindPFlag(maxObjectSizeInitFlag, cmd.Flags().Lookup(maxObjectSizeCLIFlag))
-			_ = viper.BindPFlag(incomeRateInitFlag, cmd.Flags().Lookup(incomeRateCLIFlag))
-			_ = viper.BindPFlag(homomorphicHashDisabledInitFlag, cmd.Flags().Lookup(homomorphicHashDisabledCLIFlag))
-			_ = viper.BindPFlag(auditFeeInitFlag, cmd.Flags().Lookup(auditFeeCLIFlag))
-			_ = viper.BindPFlag(candidateFeeInitFlag, cmd.Flags().Lookup(candidateFeeCLIFlag))
-			_ = viper.BindPFlag(containerFeeInitFlag, cmd.Flags().Lookup(containerFeeCLIFlag))
-			_ = viper.BindPFlag(containerAliasFeeInitFlag, cmd.Flags().Lookup(containerAliasFeeCLIFlag))
-			_ = viper.BindPFlag(withdrawFeeInitFlag, cmd.Flags().Lookup(withdrawFeeCLIFlag))
-			_ = viper.BindPFlag(protoConfigPath, cmd.Flags().Lookup(protoConfigPath))
-			_ = viper.BindPFlag(localDumpFlag, cmd.Flags().Lookup(localDumpFlag))
-		},
-		RunE: initializeFSChainCmd,
 	}
 
 	generateStorageCmd = &cobra.Command{
@@ -368,19 +346,6 @@ func init() {
 	RootCmd.AddCommand(generateAlphabetCmd)
 	generateAlphabetCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
 	generateAlphabetCmd.Flags().Uint(alphabetSizeFlag, 7, "Amount of alphabet wallets to generate")
-
-	RootCmd.AddCommand(initCmd)
-	initCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
-	initCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-	initCmd.Flags().String(contractsInitFlag, "", "Path to archive with compiled NeoFS contracts (default fetched from latest github release)")
-	initCmd.Flags().Uint(epochDurationCLIFlag, 240, "Amount of FS chain blocks in one NeoFS epoch")
-	initCmd.Flags().Uint(maxObjectSizeCLIFlag, 67108864, "Max single object size in bytes")
-	initCmd.Flags().Bool(homomorphicHashDisabledCLIFlag, false, "Disable object homomorphic hashing")
-	// Defaults are taken from neo-preodolenie.
-	initCmd.Flags().Uint64(containerFeeCLIFlag, 1000, "Container registration fee")
-	initCmd.Flags().Uint64(containerAliasFeeCLIFlag, 500, "Container alias fee")
-	initCmd.Flags().String(protoConfigPath, "", "Path to the consensus node configuration")
-	initCmd.Flags().String(localDumpFlag, "", "Path to the blocks dump file")
 
 	RootCmd.AddCommand(deployCmd)
 
