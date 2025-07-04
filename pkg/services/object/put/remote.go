@@ -7,7 +7,6 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -17,16 +16,9 @@ import (
 )
 
 type remoteTarget struct {
-	ctx context.Context
-
 	keyStorage *util.KeyStorage
 
 	commonPrm *util.CommonPrm
-
-	nodeInfo clientcore.NodeInfo
-
-	obj *object.Object
-	enc encodedObject
 
 	clientConstructor ClientConstructor
 	transport         Transport
@@ -47,19 +39,13 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) error {
-	t.obj = obj
-	t.enc = enc
-	return nil
-}
-
-func (t *remoteTarget) Close() (oid.ID, []byte, error) {
-	if t.enc.hdrOff > 0 {
-		sigs, err := t.transport.SendReplicationRequestToNode(t.ctx, t.enc.b, t.nodeInfo)
+func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object, enc encodedObject) ([]byte, error) {
+	if enc.hdrOff > 0 {
+		sigs, err := t.transport.SendReplicationRequestToNode(ctx, enc.b, nodeInfo)
 		if err != nil {
-			return oid.ID{}, nil, fmt.Errorf("replicate object to remote node (key=%x): %w", t.nodeInfo.PublicKey(), err)
+			return nil, fmt.Errorf("replicate object to remote node (key=%x): %w", nodeInfo.PublicKey(), err)
 		}
-		return t.obj.GetID(), sigs, nil
+		return sigs, nil
 	}
 
 	var sessionInfo *util.SessionInfo
@@ -73,30 +59,30 @@ func (t *remoteTarget) Close() (oid.ID, []byte, error) {
 
 	key, err := t.keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return oid.ID{}, nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
+		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
-	c, err := t.clientConstructor.Get(t.nodeInfo)
+	c, err := t.clientConstructor.Get(nodeInfo)
 	if err != nil {
-		return oid.ID{}, nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, nodeInfo, err)
 	}
 
 	var prm internalclient.PutObjectPrm
 
-	prm.SetContext(t.ctx)
+	prm.SetContext(ctx)
 	prm.SetClient(c)
 	prm.SetPrivateKey(key)
 	prm.SetSessionToken(t.commonPrm.SessionToken())
 	prm.SetBearerToken(t.commonPrm.BearerToken())
 	prm.SetXHeaders(t.commonPrm.XHeaders())
-	prm.SetObject(t.obj)
+	prm.SetObject(obj)
 
-	res, err := internalclient.PutObject(prm)
+	_, err = internalclient.PutObject(prm)
 	if err != nil {
-		return oid.ID{}, nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
+		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, nodeInfo.AddressGroup(), err)
 	}
 
-	return res.ID(), nil, nil
+	return nil, nil
 }
 
 // NewRemoteSender creates, initializes and returns new RemoteSender instance.
@@ -128,22 +114,17 @@ func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
 // PutObject sends object to remote node.
 func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 	t := &remoteTarget{
-		ctx:               ctx,
 		keyStorage:        s.keyStorage,
 		clientConstructor: s.clientConstructor,
 	}
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&t.nodeInfo, netmapCore.Node(p.node))
+	var nodeInfo clientcore.NodeInfo
+	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfo, netmapCore.Node(p.node))
 	if err != nil {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	err = t.WriteObject(p.obj, objectcore.ContentMeta{}, encodedObject{})
-	if err != nil {
-		return fmt.Errorf("(%T) could not send object header: %w", s, err)
-	}
-
-	_, _, err = t.Close()
+	_, err = t.WriteObject(ctx, nodeInfo, p.obj, encodedObject{})
 	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
