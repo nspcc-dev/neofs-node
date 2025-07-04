@@ -7,7 +7,6 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -40,7 +39,7 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) ([]byte, error) {
+func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object, enc encodedObject) ([]byte, error) {
 	if enc.hdrOff > 0 {
 		sigs, err := t.transport.SendReplicationRequestToNode(ctx, enc.b, nodeInfo)
 		if err != nil {
@@ -125,7 +124,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	_, err = t.WriteObject(ctx, nodeInfo, p.obj, objectcore.ContentMeta{}, encodedObject{})
+	_, err = t.WriteObject(ctx, nodeInfo, p.obj, encodedObject{})
 	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
