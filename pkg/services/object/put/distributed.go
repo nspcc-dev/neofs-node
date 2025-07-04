@@ -26,7 +26,7 @@ import (
 )
 
 type preparedObjectTarget interface {
-	WriteObject(*objectSDK.Object, object.ContentMeta, encodedObject) (oid.ID, []byte, error)
+	WriteObject(*objectSDK.Object, object.ContentMeta, encodedObject) ([]byte, error)
 }
 
 type distributedTarget struct {
@@ -237,7 +237,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 
 	target := t.nodeTargetInitializer(node)
 
-	_, sigsRaw, err := target.WriteObject(t.obj, t.objMeta, t.encodedObject)
+	sigsRaw, err := target.WriteObject(t.obj, t.objMeta, t.encodedObject)
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}

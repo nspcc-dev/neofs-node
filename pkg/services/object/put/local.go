@@ -35,15 +35,9 @@ type localTarget struct {
 	storage ObjectStorage
 }
 
-func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta, enc encodedObject) (oid.ID, []byte, error) {
+func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta, enc encodedObject) ([]byte, error) {
 	err := putObjectLocally(t.storage, obj, meta, &enc)
-	if err != nil {
-		return oid.ID{}, nil, err
-	}
-
-	id := obj.GetID()
-
-	return id, nil, nil
+	return nil, err
 }
 
 func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, enc *encodedObject) error {
