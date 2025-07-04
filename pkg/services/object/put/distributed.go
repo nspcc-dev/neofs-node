@@ -241,12 +241,11 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		err = putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject)
 	} else {
 		sigsRaw, err = (&remoteTarget{
-			ctx:               t.opCtx,
 			keyStorage:        t.keyStorage,
 			commonPrm:         t.commonPrm,
 			clientConstructor: t.clientConstructor,
 			transport:         t.transport,
-		}).WriteObject(node.info, t.obj, t.objMeta, t.encodedObject)
+		}).WriteObject(t.opCtx, node.info, t.obj, t.objMeta, t.encodedObject)
 	}
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
