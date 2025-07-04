@@ -33,27 +33,15 @@ type ObjectStorage interface {
 
 type localTarget struct {
 	storage ObjectStorage
-
-	obj  *object.Object
-	meta objectCore.ContentMeta
-	enc  encodedObject
 }
 
-func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta, enc encodedObject) error {
-	t.obj = obj
-	t.meta = meta
-	t.enc = enc
-
-	return nil
-}
-
-func (t *localTarget) Close() (oid.ID, []byte, error) {
-	err := putObjectLocally(t.storage, t.obj, t.meta, &t.enc)
+func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta, enc encodedObject) (oid.ID, []byte, error) {
+	err := putObjectLocally(t.storage, obj, meta, &enc)
 	if err != nil {
 		return oid.ID{}, nil, err
 	}
 
-	id := t.obj.GetID()
+	id := obj.GetID()
 
 	return id, nil, nil
 }
