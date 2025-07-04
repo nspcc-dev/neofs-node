@@ -17,8 +17,6 @@ import (
 )
 
 type remoteTarget struct {
-	ctx context.Context
-
 	keyStorage *util.KeyStorage
 
 	commonPrm *util.CommonPrm
@@ -42,9 +40,9 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(nodeInfo clientcore.NodeInfo, obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) ([]byte, error) {
+func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) ([]byte, error) {
 	if enc.hdrOff > 0 {
-		sigs, err := t.transport.SendReplicationRequestToNode(t.ctx, enc.b, nodeInfo)
+		sigs, err := t.transport.SendReplicationRequestToNode(ctx, enc.b, nodeInfo)
 		if err != nil {
 			return nil, fmt.Errorf("replicate object to remote node (key=%x): %w", nodeInfo.PublicKey(), err)
 		}
@@ -72,7 +70,7 @@ func (t *remoteTarget) WriteObject(nodeInfo clientcore.NodeInfo, obj *object.Obj
 
 	var prm internalclient.PutObjectPrm
 
-	prm.SetContext(t.ctx)
+	prm.SetContext(ctx)
 	prm.SetClient(c)
 	prm.SetPrivateKey(key)
 	prm.SetSessionToken(t.commonPrm.SessionToken())
@@ -117,7 +115,6 @@ func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
 // PutObject sends object to remote node.
 func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 	t := &remoteTarget{
-		ctx:               ctx,
 		keyStorage:        s.keyStorage,
 		clientConstructor: s.clientConstructor,
 	}
@@ -128,7 +125,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	_, err = t.WriteObject(nodeInfo, p.obj, objectcore.ContentMeta{}, encodedObject{})
+	_, err = t.WriteObject(ctx, nodeInfo, p.obj, objectcore.ContentMeta{}, encodedObject{})
 	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
