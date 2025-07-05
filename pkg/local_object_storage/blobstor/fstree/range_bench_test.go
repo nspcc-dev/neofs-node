@@ -45,7 +45,7 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 				addr := object.AddressOf(obj)
 
 				b.Run("regular", func(b *testing.B) {
-					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+					require.NoError(b, fsTree.Put(addr, obj.Payload(), obj.CutPayload().Marshal()))
 					b.ResetTimer()
 					for range b.N {
 						_, err := fsTree.GetRange(addr, tc.from, tc.length)
@@ -60,7 +60,7 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 						Enabled: true,
 					}
 					require.NoError(b, compressConfig.Init())
-					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+					require.NoError(b, fsTree.Put(addr, obj.Payload(), obj.CutPayload().Marshal()))
 
 					b.ResetTimer()
 					for range b.N {
@@ -74,11 +74,11 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 				b.Run("combined", func(b *testing.B) {
 					const numObjects = 10
 
-					objMap := make(map[oid.Address][]byte, numObjects)
+					objMap := make(map[oid.Address][2][]byte, numObjects)
 					addrs := make([]oid.Address, numObjects)
 					for i := range numObjects {
 						o := generateTestObject(tc.objectSize)
-						objMap[object.AddressOf(o)] = o.Marshal()
+						objMap[object.AddressOf(o)] = [2][]byte{o.Payload(), o.CutPayload().Marshal()}
 						addrs[i] = object.AddressOf(o)
 					}
 					require.NoError(b, fsTree.PutBatch(objMap))

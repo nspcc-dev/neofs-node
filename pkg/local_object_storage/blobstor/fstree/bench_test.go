@@ -43,7 +43,7 @@ func testReadOp(b *testing.B, fsTree *fstree.FSTree, read func(address oid.Addre
 		obj := generateTestObject(payloadSize)
 		addr := object.AddressOf(obj)
 
-		require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+		require.NoError(b, fsTree.Put(addr, obj.Payload(), obj.CutPayload().Marshal()))
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
@@ -57,11 +57,11 @@ func testReadOp(b *testing.B, fsTree *fstree.FSTree, read func(address oid.Addre
 	b.Run(name+"_combined", func(b *testing.B) {
 		const numObjects = 10
 
-		objMap := make(map[oid.Address][]byte, numObjects)
+		objMap := make(map[oid.Address][2][]byte, numObjects)
 		addrs := make([]oid.Address, numObjects)
 		for i := range numObjects {
 			o := generateTestObject(payloadSize)
-			objMap[object.AddressOf(o)] = o.Marshal()
+			objMap[object.AddressOf(o)] = [2][]byte{o.Payload(), o.CutPayload().Marshal()}
 			addrs[i] = object.AddressOf(o)
 		}
 		require.NoError(b, fsTree.PutBatch(objMap))
@@ -85,7 +85,7 @@ func testReadOp(b *testing.B, fsTree *fstree.FSTree, read func(address oid.Addre
 		}
 		require.NoError(b, compressConfig.Init())
 		fsTree.SetCompressor(compressConfig)
-		require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+		require.NoError(b, fsTree.Put(addr, obj.Payload(), obj.CutPayload().Marshal()))
 
 		b.ReportAllocs()
 		b.ResetTimer()

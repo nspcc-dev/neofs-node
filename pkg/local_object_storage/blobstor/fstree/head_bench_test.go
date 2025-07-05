@@ -71,7 +71,7 @@ func runHeadVsGetBenchmark(b *testing.B, payloadSize int, compressed bool) {
 	obj := generateTestObject(payloadSize)
 	addr := object.AddressOf(obj)
 
-	require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+	require.NoError(b, fsTree.Put(addr, obj.Payload(), obj.CutPayload().Marshal()))
 
 	b.Run("Head"+suffix, func(b *testing.B) {
 		b.ResetTimer()
@@ -94,6 +94,53 @@ func runHeadVsGetBenchmark(b *testing.B, payloadSize int, compressed bool) {
 			}
 		}
 	})
+}
+
+func BenchmarkFSTree_NewStructureHead(b *testing.B) {
+	for _, size := range payloadSizes {
+		b.Run(generateSizeLabel(size), func(b *testing.B) {
+			for _, tc := range []struct {
+				name       string
+				compressed bool
+				nilHeader  bool
+			}{
+				{"WithHeader", false, false},
+				{"WithoutHeader", false, true},
+				{"WithHeader_Compressed", true, false},
+				{"WithoutHeader_Compressed", true, true},
+			} {
+				b.Run(tc.name, func(b *testing.B) {
+					fsTree := fstree.New(fstree.WithPath(b.TempDir()))
+					if tc.compressed {
+						compressConfig := &compression.Config{Enabled: true}
+						require.NoError(b, compressConfig.Init())
+						fsTree.SetCompressor(compressConfig)
+					}
+					require.NoError(b, fsTree.Open(false))
+					require.NoError(b, fsTree.Init())
+
+					obj := generateTestObject(size)
+					addr := object.AddressOf(obj)
+
+					if tc.nilHeader {
+						payload := obj.Marshal()
+						require.NoError(b, fsTree.Put(addr, payload, nil))
+					} else {
+						header := obj.CutPayload().Marshal()
+						payload := obj.Payload()
+						require.NoError(b, fsTree.Put(addr, payload, header))
+					}
+
+					b.ReportAllocs()
+					b.ResetTimer()
+					for range b.N {
+						_, err := fsTree.Head(addr)
+						require.NoError(b, err)
+					}
+				})
+			}
+		})
+	}
 }
 
 func generateTestObject(payloadSize int) *objectSDK.Object {

@@ -42,7 +42,7 @@ func (c *cache) put(addr oid.Address, obj objectInfo) error {
 		return ErrOutOfSpace
 	}
 
-	err := c.fsTree.Put(addr, obj.data)
+	err := c.fsTree.Put(addr, obj.data, nil)
 	if err != nil {
 		return err
 	}

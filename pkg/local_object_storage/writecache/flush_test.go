@@ -128,7 +128,7 @@ func TestFlush(t *testing.T) {
 				obj, data := newObject(t, 1)
 				addr := objectCore.AddressOf(obj)
 
-				err := c.fsTree.Put(addr, data)
+				err := c.fsTree.Put(addr, data, nil)
 				require.NoError(t, err)
 
 				p := addr.Object().EncodeToString() + "." + addr.Container().EncodeToString()
@@ -404,16 +404,16 @@ type mockWriter struct {
 	full bool
 }
 
-func (x *mockWriter) Put(addr oid.Address, data []byte) error {
+func (x *mockWriter) Put(addr oid.Address, data []byte, header []byte) error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	if x.full {
 		return common.ErrNoSpace
 	}
-	return x.Storage.Put(addr, data)
+	return x.Storage.Put(addr, data, header)
 }
 
-func (x *mockWriter) PutBatch(m map[oid.Address][]byte) error {
+func (x *mockWriter) PutBatch(m map[oid.Address][2][]byte) error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	if x.full {

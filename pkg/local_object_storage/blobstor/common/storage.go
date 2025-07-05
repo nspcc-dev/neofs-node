@@ -28,8 +28,17 @@ type Storage interface {
 	GetRange(oid.Address, uint64, uint64) ([]byte, error)
 	Head(oid.Address) (*objectSDK.Object, error)
 	Exists(oid.Address) (bool, error)
-	Put(oid.Address, []byte) error
-	PutBatch(map[oid.Address][]byte) error
+	// Put stores object in the storage. Arguments are:
+	//
+	// - addr oid.Address is the address of the object to store.
+	//
+	// - data []byte is the object payload in a binary format or
+	// full data if header is nil.
+	//
+	// - header []byte is the optional object header in a binary format.
+	// If nil, the header is extracted from the payload.
+	Put(addr oid.Address, data []byte, header []byte) error
+	PutBatch(map[oid.Address][2][]byte) error
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte) error, func(oid.Address, error) error) error
 	IterateAddresses(func(oid.Address) error, bool) error
@@ -69,7 +78,7 @@ func CopyBatched(dst, src Storage, batchSize int) error {
 		return fmt.Errorf("initialize destination sub-storage: %w", err)
 	}
 
-	var objBatch = make(map[oid.Address][]byte)
+	var objBatch = make(map[oid.Address][2][]byte)
 
 	err = src.Iterate(func(addr oid.Address, data []byte) error {
 		exists, err := dst.Exists(addr)
@@ -80,13 +89,13 @@ func CopyBatched(dst, src Storage, batchSize int) error {
 		}
 
 		if batchSize <= 1 {
-			err = dst.Put(addr, data)
+			err = dst.Put(addr, data, nil)
 			if err != nil {
 				return fmt.Errorf("put object %s into destination sub-storage: %w", addr, err)
 			}
 			return nil
 		}
-		objBatch[addr] = data
+		objBatch[addr] = [2][]byte{data}
 		if len(objBatch) == batchSize {
 			err = dst.PutBatch(objBatch)
 			if err != nil {

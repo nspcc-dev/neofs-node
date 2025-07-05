@@ -254,7 +254,7 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 
 // flushObject is used to write object directly to the main storage.
 func (c *cache) flushObject(addr oid.Address, data []byte) error {
-	err := c.storage.Put(addr, data)
+	err := c.storage.Put(addr, data, nil)
 	if err != nil {
 		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
 			c.reportFlushError("can't flush an object to blobstor",
@@ -278,7 +278,7 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 		defer elapsed(c.metrics.AddWCFlushBatchDuration)()
 	}
 
-	objs := make(map[oid.Address][]byte, len(addrs))
+	objs := make(map[oid.Address][2][]byte, len(addrs))
 	for _, addr := range addrs {
 		data, err := c.getObject(addr)
 		if err != nil {
@@ -288,7 +288,7 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 			return err
 		}
 
-		objs[addr] = data
+		objs[addr] = [2][]byte{data}
 	}
 
 	err := c.storage.PutBatch(objs)

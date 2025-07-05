@@ -42,6 +42,7 @@ func newTestFSTree(tb testing.TB) common.Storage {
 func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 	data := make([]byte, objSize)
 	_, _ = rand.Read(data)
+	hLen := objSize / 2
 
 	b.ResetTimer()
 
@@ -53,7 +54,7 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 			go func() {
 				defer wg.Done()
 
-				err := p.Put(oidtest.Address(), data)
+				err := p.Put(oidtest.Address(), data[:hLen], data[hLen:])
 				require.NoError(b, err)
 			}()
 		}
@@ -162,14 +163,15 @@ func prepareObjects(b *testing.B, creat func(testing.TB) common.Storage, objSize
 	obj.SetContainerID(cid.ID{1, 2, 3})
 	obj.SetPayload(data)
 
-	rawData := obj.Marshal()
+	header := obj.CutPayload().Marshal()
+	payload := obj.Payload()
 
 	var ach = make(chan oid.Address)
 	for range 100 {
 		go func() {
 			for range nObjects / 100 {
 				addr := oidtest.Address()
-				err := ptt.Put(addr, rawData)
+				err := ptt.Put(addr, payload, header)
 				require.NoError(b, err)
 				ach <- addr
 			}

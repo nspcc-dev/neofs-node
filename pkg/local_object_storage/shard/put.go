@@ -25,7 +25,9 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	var err error
+	putBin := true
 	if objBin == nil {
+		putBin = false
 		objBin = obj.Marshal()
 	}
 
@@ -43,7 +45,14 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 				zap.String("err", err.Error()))
 		}
 
-		err = s.blobStor.Put(addr, objBin)
+		var data, header []byte
+		if putBin {
+			data = objBin
+		} else {
+			data = obj.Payload()
+			header = obj.CutPayload().Marshal()
+		}
+		err = s.blobStor.Put(addr, data, header)
 		if err != nil {
 			return fmt.Errorf("could not put object to BLOB storage: %w", err)
 		}
