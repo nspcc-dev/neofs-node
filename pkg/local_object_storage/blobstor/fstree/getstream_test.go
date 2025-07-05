@@ -100,7 +100,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 	t.Run("corrupt compressed data", func(t *testing.T) {
 		compress := compression.Config{Enabled: true}
 		require.NoError(t, compress.Init())
-		tree.Config = &compress
+		tree.SetCompressor(&compress)
 
 		addr := oidtest.Address()
 		obj := objectSDK.New()
@@ -118,7 +118,16 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
 
-		_, _, err = tree.GetStream(addr)
-		require.Error(t, err)
+		res, reader, err := tree.GetStream(addr)
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.Equal(t, res.CutPayload(), res)
+		require.NotNil(t, reader)
+
+		streamedPayload, err := io.ReadAll(reader)
+		// we use io.LimitReader to avoid reading the corrupted part
+		require.NoError(t, err)
+		require.Equal(t, streamedPayload, payload)
+		require.NoError(t, reader.Close())
 	})
 }
