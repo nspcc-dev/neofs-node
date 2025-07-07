@@ -231,23 +231,23 @@ func (t *distributedTarget) encodeCurrentObjectMetadata() []byte {
 }
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {
-	if !node.local && t.relay != nil {
+	if node.local {
+		return t.writeObjectLocally()
+	}
+
+	if t.relay != nil {
 		return t.relay(node)
 	}
 
 	var sigsRaw []byte
 	var err error
-	if node.local {
-		err = putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject)
-	} else {
-		if t.encodedObject.hdrOff > 0 {
-			sigsRaw, err = t.transport.SendReplicationRequestToNode(t.opCtx, t.encodedObject.b, node.info)
-			if err != nil {
-				err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
-			}
-		} else {
-			err = putObjectToNode(t.opCtx, node.info, t.obj, t.keyStorage, t.clientConstructor, t.commonPrm)
+	if t.encodedObject.hdrOff > 0 {
+		sigsRaw, err = t.transport.SendReplicationRequestToNode(t.opCtx, t.encodedObject.b, node.info)
+		if err != nil {
+			err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
 		}
+	} else {
+		err = putObjectToNode(t.opCtx, node.info, t.obj, t.keyStorage, t.clientConstructor, t.commonPrm)
 	}
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
@@ -258,19 +258,6 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()),
 			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
-
-		if node.local {
-			sig, err := t.metaSigner.Sign(t.objSharedMeta)
-			if err != nil {
-				return fmt.Errorf("failed to sign object metadata: %w", err)
-			}
-
-			t.metaMtx.Lock()
-			t.collectedSignatures = append(t.collectedSignatures, sig)
-			t.metaMtx.Unlock()
-
-			return nil
-		}
 
 		sigs, err := decodeSignatures(sigsRaw)
 		if err != nil {
@@ -295,6 +282,25 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		}
 
 		return errors.New("signatures were not found in object's metadata")
+	}
+
+	return nil
+}
+
+func (t *distributedTarget) writeObjectLocally() error {
+	if err := putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject); err != nil {
+		return fmt.Errorf("could not close object stream: %w", err)
+	}
+
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		sig, err := t.metaSigner.Sign(t.objSharedMeta)
+		if err != nil {
+			return fmt.Errorf("failed to sign object metadata: %w", err)
+		}
+
+		t.metaMtx.Lock()
+		t.collectedSignatures = append(t.collectedSignatures, sig)
+		t.metaMtx.Unlock()
 	}
 
 	return nil
