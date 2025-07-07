@@ -240,12 +240,18 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	if node.local {
 		err = putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject)
 	} else {
-		sigsRaw, err = (&remoteTarget{
-			keyStorage:        t.keyStorage,
-			commonPrm:         t.commonPrm,
-			clientConstructor: t.clientConstructor,
-			transport:         t.transport,
-		}).WriteObject(t.opCtx, node.info, t.obj, t.encodedObject)
+		if t.encodedObject.hdrOff > 0 {
+			sigsRaw, err = t.transport.SendReplicationRequestToNode(t.opCtx, t.encodedObject.b, node.info)
+			if err != nil {
+				err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
+			}
+		} else {
+			err = (&remoteTarget{
+				keyStorage:        t.keyStorage,
+				commonPrm:         t.commonPrm,
+				clientConstructor: t.clientConstructor,
+			}).WriteObject(t.opCtx, node.info, t.obj)
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)

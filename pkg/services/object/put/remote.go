@@ -21,7 +21,6 @@ type remoteTarget struct {
 	commonPrm *util.CommonPrm
 
 	clientConstructor ClientConstructor
-	transport         Transport
 }
 
 // RemoteSender represents utility for
@@ -39,15 +38,7 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object, enc encodedObject) ([]byte, error) {
-	if enc.hdrOff > 0 {
-		sigs, err := t.transport.SendReplicationRequestToNode(ctx, enc.b, nodeInfo)
-		if err != nil {
-			return nil, fmt.Errorf("replicate object to remote node (key=%x): %w", nodeInfo.PublicKey(), err)
-		}
-		return sigs, nil
-	}
-
+func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object) error {
 	var sessionInfo *util.SessionInfo
 
 	if tok := t.commonPrm.SessionToken(); tok != nil {
@@ -59,12 +50,12 @@ func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.Node
 
 	key, err := t.keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
+		return fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
 	c, err := t.clientConstructor.Get(nodeInfo)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, nodeInfo, err)
+		return fmt.Errorf("(%T) could not create SDK client %s: %w", t, nodeInfo, err)
 	}
 
 	var prm internalclient.PutObjectPrm
@@ -79,10 +70,10 @@ func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.Node
 
 	_, err = internalclient.PutObject(prm)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, nodeInfo.AddressGroup(), err)
+		return fmt.Errorf("(%T) could not put object to %s: %w", t, nodeInfo.AddressGroup(), err)
 	}
 
-	return nil, nil
+	return nil
 }
 
 // NewRemoteSender creates, initializes and returns new RemoteSender instance.
@@ -124,7 +115,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	_, err = t.WriteObject(ctx, nodeInfo, p.obj, encodedObject{})
+	err = t.WriteObject(ctx, nodeInfo, p.obj)
 	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
