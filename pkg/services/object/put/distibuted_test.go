@@ -173,38 +173,6 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
 	}
 
-	t.Run("local only", func(t *testing.T) {
-		objID := oidtest.ID()
-		cnrNodes := allocNodes([]uint{2, 3, 1})
-		var lwp, rwp testWorkerPool
-		iter := placementIterator{
-			log: zap.NewNop(),
-			neoFSNet: testNetwork{
-				localPubKey: cnrNodes[1][1].PublicKey(),
-			},
-			remotePool: &rwp,
-			localPool:  &lwp,
-			containerNodes: testContainerNodes{
-				cnrNodes: cnrNodes,
-			},
-			localOnly:    true,
-			localNodePos: [2]int{1, 1},
-			broadcast:    true,
-		}
-		var handlerMtx sync.Mutex
-		var handlerCalls []nodeDesc
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
-			handlerMtx.Lock()
-			handlerCalls = append(handlerCalls, node)
-			handlerMtx.Unlock()
-			return nil
-		})
-		require.NoError(t, err)
-		require.Len(t, handlerCalls, 1)
-		require.True(t, handlerCalls[0].local)
-		require.EqualValues(t, 1, lwp.nCalls)
-		require.Zero(t, rwp.nCalls)
-	})
 	t.Run("linear num of replicas", func(t *testing.T) {
 		// nodes: [A B C] [D B E] [F G]
 		// policy: [2 1 2]

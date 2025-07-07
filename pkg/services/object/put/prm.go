@@ -21,7 +21,6 @@ type PutInitPrm struct {
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
-	localNodePos         [2]int // in containerNodeSets. Undefined when localNodeInContainer is false
 	localSignerRFC6979   neofscrypto.Signer
 	localNodeSigner      neofscrypto.Signer
 }

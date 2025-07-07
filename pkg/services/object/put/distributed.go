@@ -61,6 +61,8 @@ type distributedTarget struct {
 	transport         Transport
 	commonPrm         *svcutil.CommonPrm
 	keyStorage        *svcutil.KeyStorage
+
+	localOnly bool
 }
 
 type nodeDesc struct {
@@ -92,7 +94,7 @@ func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
 
 	if t.localNodeInContainer {
 		var err error
-		if t.placementIterator.localOnly {
+		if t.localOnly {
 			t.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
 		} else {
 			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), t.metainfoConsistencyAttr != "")
@@ -152,7 +154,12 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	}
 
 	id := t.obj.GetID()
-	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)
+	var err error
+	if t.localOnly {
+		err = t.writeObjectLocallyThroughWorkerPool()
+	} else {
+		err = t.placementIterator.iterateNodesForObject(id, t.sendObject)
+	}
 	if err != nil {
 		return oid.ID{}, err
 	}
@@ -290,6 +297,30 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	return nil
 }
 
+func (t *distributedTarget) writeObjectLocallyThroughWorkerPool() error {
+	var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()))
+	ch := make(chan error)
+
+	poolErr := t.placementIterator.localPool.Submit(func() {
+		err := t.writeObjectLocally()
+		if err != nil {
+			err = fmt.Errorf("write object locally: %w", err)
+		}
+		ch <- err
+	})
+	if poolErr != nil {
+		svcutil.LogWorkerPoolError(l, "PUT", fmt.Errorf("submit next job to save an object to the worker pool: %w", poolErr))
+		return errIncompletePut{singleErr: errNotEnoughNodes{required: 1}}
+	}
+
+	if err := <-ch; err != nil {
+		svcutil.LogServiceError(l, "PUT", nil, err)
+		return errIncompletePut{singleErr: fmt.Errorf("%w (last node error: %w)", errNotEnoughNodes{required: 1}, err)}
+	}
+
+	return nil
+}
+
 func (t *distributedTarget) writeObjectLocally() error {
 	if err := putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject); err != nil {
 		return err
@@ -362,8 +393,6 @@ type placementIterator struct {
 	remotePool util.WorkerPool
 	/* request-dependent */
 	containerNodes ContainerNodes
-	localOnly      bool
-	localNodePos   [2]int // in containerNodeSets. Undefined localOnly is false
 	// when non-zero, this setting simplifies the object's storage policy
 	// requirements to a fixed number of object replicas to be retained
 	linearReplNum uint
@@ -373,27 +402,18 @@ type placementIterator struct {
 }
 
 func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) error) error {
-	var err error
-	var nodeLists [][]netmap.NodeInfo
 	var replCounts []uint
 	var l = x.log.With(zap.Stringer("oid", obj))
-	if x.localOnly {
-		// TODO: although this particular case fits correctly into the general approach,
-		//  much less actions can be done
-		nn := x.containerNodes.Unsorted()
-		nodeLists = [][]netmap.NodeInfo{{nn[x.localNodePos[0]][x.localNodePos[1]]}}
-		replCounts = []uint{1}
+	nodeLists, err := x.containerNodes.SortForObject(obj)
+	if err != nil {
+		return fmt.Errorf("sort container nodes for the object: %w", err)
+	}
+	if x.linearReplNum > 0 {
+		ns := slices.Concat(nodeLists...)
+		nodeLists = [][]netmap.NodeInfo{ns}
+		replCounts = []uint{x.linearReplNum}
 	} else {
-		if nodeLists, err = x.containerNodes.SortForObject(obj); err != nil {
-			return fmt.Errorf("sort container nodes for the object: %w", err)
-		}
-		if x.linearReplNum > 0 {
-			ns := slices.Concat(nodeLists...)
-			nodeLists = [][]netmap.NodeInfo{ns}
-			replCounts = []uint{x.linearReplNum}
-		} else {
-			replCounts = x.containerNodes.PrimaryCounts()
-		}
+		replCounts = x.containerNodes.PrimaryCounts()
 	}
 	var processedNodesMtx sync.RWMutex
 	var nextNodeGroupKeys []string

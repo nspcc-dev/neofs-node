@@ -172,7 +172,6 @@ nextSet:
 		for j := range cnrNodes[i] {
 			prm.localNodeInContainer = p.neoFSNet.IsLocalNodePublicKey(cnrNodes[i][j].PublicKey())
 			if prm.localNodeInContainer {
-				prm.localNodePos[0], prm.localNodePos[1] = i, j
 				break nextSet
 			}
 		}
@@ -218,8 +217,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 			localPool:      p.localPool,
 			remotePool:     p.remotePool,
 			containerNodes: prm.containerNodes,
-			localOnly:      localOnly,
-			localNodePos:   prm.localNodePos,
 			linearReplNum:  uint(prm.copiesNumber),
 			broadcast:      withBroadcast,
 		},
@@ -235,6 +232,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		cnrClient:               p.cfg.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 		metaSigner:              prm.localSignerRFC6979,
+		localOnly:               localOnly,
 	}
 }
 
