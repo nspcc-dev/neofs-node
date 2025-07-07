@@ -41,7 +41,7 @@ func (t *FSTree) Head(addr oid.Address) (*objectSDK.Object, error) {
 
 // getObjectStream reads an object from the storage by address as a stream.
 // It returns the object with header only, and a reader for the payload.
-func (t *FSTree) getObjectStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
+func (t *FSTree) getObjectStream(addr oid.Address) (*objectSDK.Object, io.ReadSeekCloser, error) {
 	p := t.treePath(addr)
 
 	f, err := os.Open(p)
@@ -68,7 +68,7 @@ func (t *FSTree) getObjectStream(addr oid.Address) (*objectSDK.Object, io.ReadCl
 
 // extractHeaderOnly reads the header of an object from a file.
 // The caller is responsible for closing the returned io.ReadCloser if it is not nil.
-func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Object, io.ReadCloser, error) {
+func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Object, io.ReadSeekCloser, error) {
 	buf := make([]byte, objectSDK.MaxHeaderLen, 2*objectSDK.MaxHeaderLen)
 	n, err := io.ReadFull(f, buf)
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
@@ -124,7 +124,7 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 
 // readHeaderAndPayload reads an object header from the file and returns reader for payload.
 // This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadCloser, error) {
+func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
 	var err error
 	if len(initial) < objectSDK.MaxHeaderLen {
 		_ = f.Close()
@@ -137,7 +137,10 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectS
 		if err != nil {
 			return nil, nil, fmt.Errorf("unmarshal object: %w", err)
 		}
-		return obj.CutPayload(), io.NopCloser(bytes.NewReader(obj.Payload())), nil
+		return obj.CutPayload(), &payloadReader{
+			Reader: bytes.NewReader(obj.Payload()),
+			close:  func() error { return nil },
+		}, nil
 	}
 
 	return t.readUntilPayload(f, initial)
@@ -146,7 +149,7 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectS
 // readUntilPayload reads an object from the file until the payload field is reached
 // and returns the object along with a reader for the remaining data.
 // This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadCloser, error) {
+func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
 	reader := f
 
 	if t.IsCompressed(initial) {
@@ -248,4 +251,18 @@ type payloadReader struct {
 
 func (p *payloadReader) Close() error {
 	return p.close()
+}
+
+// Seek implements io.Seeker interface for payloadReader.
+// If the Reader does not support seeking, it will discard the data until the offset
+// is reached, but only if whence is io.SeekStart. If whence is not io.SeekStart,
+// it returns an error indicating that seeking is not supported.
+func (p *payloadReader) Seek(offset int64, whence int) (int64, error) {
+	if seeker, ok := p.Reader.(io.Seeker); ok {
+		return seeker.Seek(offset, whence)
+	}
+	if whence == io.SeekStart {
+		return io.CopyN(io.Discard, p.Reader, offset)
+	}
+	return 0, errors.New("payload reader does not support seeking")
 }

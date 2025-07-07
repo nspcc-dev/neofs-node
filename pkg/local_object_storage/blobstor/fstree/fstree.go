@@ -503,13 +503,13 @@ func (t *FSTree) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, 
 
 // GetRange implements common.Storage.
 func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte, error) {
-	obj, err := t.Get(addr)
+	header, reader, err := t.getObjectStream(addr)
 	if err != nil {
 		return nil, err
 	}
+	defer reader.Close()
 
-	payload := obj.Payload()
-	pLen := uint64(len(payload))
+	pLen := header.PayloadSize()
 	var to uint64
 	if length != 0 {
 		to = from + length
@@ -518,10 +518,23 @@ func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte,
 	}
 
 	if to < from || pLen < from || pLen < to {
-		return nil, logicerr.Wrap(apistatus.ObjectOutOfRange{})
+		return nil, logicerr.Wrap(apistatus.ErrObjectOutOfRange)
 	}
 
-	return payload[from:to], nil
+	if from > 0 {
+		_, err = reader.Seek(int64(from), io.SeekStart)
+		if err != nil {
+			return nil, fmt.Errorf("seek to %d in stream: %w", from, err)
+		}
+	}
+
+	payload := make([]byte, to-from)
+	_, err = io.ReadFull(reader, payload)
+	if err != nil {
+		return nil, fmt.Errorf("read %d bytes from stream: %w", length, err)
+	}
+
+	return payload, nil
 }
 
 // Type is fstree storage type used in logs and configuration.
