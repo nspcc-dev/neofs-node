@@ -232,7 +232,10 @@ func (t *distributedTarget) encodeCurrentObjectMetadata() []byte {
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {
 	if node.local {
-		return t.writeObjectLocally()
+		if err := t.writeObjectLocally(); err != nil {
+			return fmt.Errorf("write object locally: %w", err)
+		}
+		return nil
 	}
 
 	if t.relay != nil {
@@ -289,7 +292,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 
 func (t *distributedTarget) writeObjectLocally() error {
 	if err := putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject); err != nil {
-		return fmt.Errorf("could not close object stream: %w", err)
+		return err
 	}
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
