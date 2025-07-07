@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - False negative log record on succeeded SN bootstrap (#3446)
 - Object replication signatures are no longer collected for containers with inconsistent metadata (#3445)
 - Metadata's signatures for extremely big objects and/or short epochs (#3391)
+- No object addresses in object inhuming/deleting error logs (#3450)
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)
