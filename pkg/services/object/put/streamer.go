@@ -214,7 +214,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		placementIterator: placementIterator{
 			log:            p.log,
 			neoFSNet:       p.neoFSNet,
-			localPool:      p.localPool,
 			remotePool:     p.remotePool,
 			containerNodes: prm.containerNodes,
 			linearReplNum:  uint(prm.copiesNumber),

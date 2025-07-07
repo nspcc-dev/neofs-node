@@ -88,14 +88,13 @@ func TestIterateNodesForObject(t *testing.T) {
 	cnrNodes := allocNodes([]uint{3, 5, 4})
 	cnrNodes[2][0].SetPublicKey(cnrNodes[0][1].PublicKey())
 	cnrNodes[1][1].SetPublicKey(cnrNodes[0][2].PublicKey())
-	var lwp, rwp testWorkerPool
+	var rwp testWorkerPool
 	iter := placementIterator{
 		log: zap.NewNop(),
 		neoFSNet: testNetwork{
 			localPubKey: cnrNodes[0][2].PublicKey(),
 		},
 		remotePool: &rwp,
-		localPool:  &lwp,
 		containerNodes: testContainerNodes{
 			objID:      objID,
 			cnrNodes:   cnrNodes,
@@ -187,7 +186,6 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: new(testWorkerPool),
-			localPool:  new(testWorkerPool),
 			containerNodes: testContainerNodes{
 				objID:      objID,
 				cnrNodes:   cnrNodes,
@@ -229,7 +227,6 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: new(testWorkerPool),
-			localPool:  new(testWorkerPool),
 			containerNodes: testContainerNodes{
 				objID:      objID,
 				cnrNodes:   cnrNodes,
@@ -292,7 +289,6 @@ func TestIterateNodesForObject(t *testing.T) {
 		iter := placementIterator{
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
-			localPool:  &wp,
 			remotePool: &wp,
 			containerNodes: testContainerNodes{
 				objID:      objID,
