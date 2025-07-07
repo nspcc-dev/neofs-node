@@ -43,12 +43,12 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 
 	key, err := keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return fmt.Errorf("(*remoteTarget) could not receive private key: %w", err)
+		return fmt.Errorf("could not receive private key: %w", err)
 	}
 
 	c, err := clientConstructor.Get(nodeInfo)
 	if err != nil {
-		return fmt.Errorf("(*remoteTarget) could not create SDK client %s: %w", nodeInfo, err)
+		return fmt.Errorf("could not create SDK client %s: %w", nodeInfo, err)
 	}
 
 	var prm internalclient.PutObjectPrm
@@ -63,7 +63,7 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 
 	_, err = internalclient.PutObject(prm)
 	if err != nil {
-		return fmt.Errorf("(*remoteTarget) could not put object to %s: %w", nodeInfo.AddressGroup(), err)
+		return fmt.Errorf("could not put object to %s: %w", nodeInfo.AddressGroup(), err)
 	}
 
 	return nil
