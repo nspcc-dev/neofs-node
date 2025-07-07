@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -199,12 +198,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		}
 	}
 
-	// enable additional container broadcast on non-local operation
-	// if object has TOMBSTONE or LOCK type.
-	typ := prm.hdr.Type()
-	localOnly := prm.common.LocalOnly()
-	withBroadcast := !localOnly && (typ == object.TypeTombstone || typ == object.TypeLock)
-
 	return &distributedTarget{
 		opCtx:              p.ctx,
 		fsState:            p.networkState,
@@ -216,7 +209,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 			remotePool:     p.remotePool,
 			containerNodes: prm.containerNodes,
 			linearReplNum:  uint(prm.copiesNumber),
-			broadcast:      withBroadcast,
 		},
 		localStorage:            p.localStore,
 		keyStorage:              p.keyStorage,
@@ -230,7 +222,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		cnrClient:               p.cfg.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 		metaSigner:              prm.localSignerRFC6979,
-		localOnly:               localOnly,
+		localOnly:               prm.common.LocalOnly(),
 	}
 }
 
