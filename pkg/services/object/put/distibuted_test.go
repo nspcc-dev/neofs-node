@@ -103,7 +103,7 @@ func TestIterateNodesForObject(t *testing.T) {
 	}
 	var handlerMtx sync.Mutex
 	var handlerCalls []nodeDesc
-	err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+	err := iter.iterateNodesForObject(objID, false, func(node nodeDesc) error {
 		handlerMtx.Lock()
 		handlerCalls = append(handlerCalls, node)
 		handlerMtx.Unlock()
@@ -195,7 +195,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -232,11 +232,10 @@ func TestIterateNodesForObject(t *testing.T) {
 				cnrNodes:   cnrNodes,
 				primCounts: []uint{1, 1, 1},
 			},
-			broadcast: true,
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, true, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -269,7 +268,7 @@ func TestIterateNodesForObject(t *testing.T) {
 				sortErr: errors.New("any sort error"),
 			},
 		}
-		err := iter.iterateNodesForObject(objID, func(nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, false, func(nodeDesc) error {
 			t.Fatal("must not be called")
 			return nil
 		})
@@ -298,7 +297,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -342,7 +341,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -380,7 +379,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -421,7 +420,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -461,7 +460,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		blockCh := make(chan struct{})
 		returnCh := make(chan struct{})
 		go func() {
-			err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+			err := iter.iterateNodesForObject(objID, false, func(node nodeDesc) error {
 				<-blockCh
 				return nil
 			})
