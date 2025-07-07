@@ -131,12 +131,8 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
 
-	tombOrLink := t.obj.Type() == objectSDK.TypeLink || t.obj.Type() == objectSDK.TypeTombstone
-
-	if !t.placementIterator.broadcast && len(t.obj.Children()) > 0 || tombOrLink {
-		// enabling extra broadcast for linking and tomb objects
-		t.placementIterator.broadcast = true
-	}
+	typ := t.obj.Type()
+	tombOrLink := typ == objectSDK.TypeLink || typ == objectSDK.TypeTombstone
 
 	// v2 split link object and tombstone validations are expensive routines
 	// and are useless if the node does not belong to the container, since
@@ -165,7 +161,8 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 			err = errIncompletePut{singleErr: fmt.Errorf("%w (last node error: %w)", errNotEnoughNodes{required: 1}, err)}
 		}
 	} else {
-		err = t.placementIterator.iterateNodesForObject(id, t.sendObject)
+		broadcast := tombOrLink || (!t.localOnly && typ == objectSDK.TypeLock) || len(t.obj.Children()) > 0
+		err = t.placementIterator.iterateNodesForObject(id, broadcast, t.sendObject)
 	}
 	if err != nil {
 		return oid.ID{}, err
@@ -380,12 +377,9 @@ type placementIterator struct {
 	// when non-zero, this setting simplifies the object's storage policy
 	// requirements to a fixed number of object replicas to be retained
 	linearReplNum uint
-	// whether to perform additional best-effort of sending the object replica to
-	// all reserve nodes of the container
-	broadcast bool
 }
 
-func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) error) error {
+func (x placementIterator) iterateNodesForObject(obj oid.ID, broadcast bool, f func(nodeDesc) error) error {
 	var replCounts []uint
 	var l = x.log.With(zap.Stringer("oid", obj))
 	nodeLists, err := x.containerNodes.SortForObject(obj)
@@ -514,7 +508,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 			wg.Wait()
 		}
 	}
-	if !x.broadcast {
+	if !broadcast {
 		return nil
 	}
 	// TODO: since main part of the operation has already been completed, and
