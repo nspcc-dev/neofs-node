@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -35,11 +36,10 @@ type distributedTarget struct {
 
 	placementIterator placementIterator
 
-	obj                  *objectSDK.Object
-	objMeta              object.ContentMeta
-	networkMagicNumber   uint32
-	currentBlock         uint32
-	currentEpochDuration uint64
+	obj                *objectSDK.Object
+	objMeta            object.ContentMeta
+	networkMagicNumber uint32
+	fsState            netmapcore.StateDetailed
 
 	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
@@ -208,7 +208,9 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 }
 
 func (t *distributedTarget) encodeCurrentObjectMetadata() []byte {
-	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
+	currBlock := t.fsState.CurrentBlock()
+	currEpochDuration := t.fsState.CurrentEpochDuration()
+	expectedVUB := (uint64(currBlock)/currEpochDuration + 2) * currEpochDuration
 
 	firstObj := t.obj.GetFirstID()
 	if t.obj.HasParent() && firstObj.IsZero() {
