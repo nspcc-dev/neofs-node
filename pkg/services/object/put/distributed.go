@@ -246,11 +246,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 				err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
 			}
 		} else {
-			err = (&remoteTarget{
-				keyStorage:        t.keyStorage,
-				commonPrm:         t.commonPrm,
-				clientConstructor: t.clientConstructor,
-			}).WriteObject(t.opCtx, node.info, t.obj)
+			err = putObjectToNode(t.opCtx, node.info, t.obj, t.keyStorage, t.clientConstructor, t.commonPrm)
 		}
 	}
 	if err != nil {

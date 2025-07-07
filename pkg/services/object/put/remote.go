@@ -15,14 +15,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-type remoteTarget struct {
-	keyStorage *util.KeyStorage
-
-	commonPrm *util.CommonPrm
-
-	clientConstructor ClientConstructor
-}
-
 // RemoteSender represents utility for
 // sending an object to a remote host.
 type RemoteSender struct {
@@ -38,24 +30,25 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object) error {
+func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object,
+	keyStorage *util.KeyStorage, clientConstructor ClientConstructor, commonPrm *util.CommonPrm) error {
 	var sessionInfo *util.SessionInfo
 
-	if tok := t.commonPrm.SessionToken(); tok != nil {
+	if tok := commonPrm.SessionToken(); tok != nil {
 		sessionInfo = &util.SessionInfo{
 			ID:    tok.ID(),
 			Owner: tok.Issuer(),
 		}
 	}
 
-	key, err := t.keyStorage.GetKey(sessionInfo)
+	key, err := keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return fmt.Errorf("(%T) could not receive private key: %w", t, err)
+		return fmt.Errorf("(*remoteTarget) could not receive private key: %w", err)
 	}
 
-	c, err := t.clientConstructor.Get(nodeInfo)
+	c, err := clientConstructor.Get(nodeInfo)
 	if err != nil {
-		return fmt.Errorf("(%T) could not create SDK client %s: %w", t, nodeInfo, err)
+		return fmt.Errorf("(*remoteTarget) could not create SDK client %s: %w", nodeInfo, err)
 	}
 
 	var prm internalclient.PutObjectPrm
@@ -63,14 +56,14 @@ func (t *remoteTarget) WriteObject(ctx context.Context, nodeInfo clientcore.Node
 	prm.SetContext(ctx)
 	prm.SetClient(c)
 	prm.SetPrivateKey(key)
-	prm.SetSessionToken(t.commonPrm.SessionToken())
-	prm.SetBearerToken(t.commonPrm.BearerToken())
-	prm.SetXHeaders(t.commonPrm.XHeaders())
+	prm.SetSessionToken(commonPrm.SessionToken())
+	prm.SetBearerToken(commonPrm.BearerToken())
+	prm.SetXHeaders(commonPrm.XHeaders())
 	prm.SetObject(obj)
 
 	_, err = internalclient.PutObject(prm)
 	if err != nil {
-		return fmt.Errorf("(%T) could not put object to %s: %w", t, nodeInfo.AddressGroup(), err)
+		return fmt.Errorf("(*remoteTarget) could not put object to %s: %w", nodeInfo.AddressGroup(), err)
 	}
 
 	return nil
@@ -104,18 +97,13 @@ func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
 
 // PutObject sends object to remote node.
 func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
-	t := &remoteTarget{
-		keyStorage:        s.keyStorage,
-		clientConstructor: s.clientConstructor,
-	}
-
 	var nodeInfo clientcore.NodeInfo
 	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfo, netmapCore.Node(p.node))
 	if err != nil {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	err = t.WriteObject(ctx, nodeInfo, p.obj)
+	err = putObjectToNode(ctx, nodeInfo, p.obj, s.keyStorage, s.clientConstructor, nil)
 	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
