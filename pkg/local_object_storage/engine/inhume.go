@@ -80,6 +80,7 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 		err := sh.InhumeContainer(cID)
 		if err != nil {
 			e.log.Warn("inhuming container",
+				zap.Stringer("cid", cID),
 				zap.Stringer("shard", sh.ID()),
 				zap.Error(err))
 		}
@@ -133,7 +134,10 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 
 			linkObj, err := e.Get(linkAddr)
 			if err != nil {
-				e.log.Error("inhuming root object but no link object is found", zap.Error(err))
+				e.log.Error("inhuming root object but no link object is found",
+					zap.Stringer("linkAddr", linkAddr),
+					zap.Stringer("addrBeingInhumed", addr),
+					zap.Error(err))
 
 				// nothing can be done here, so just returning ok
 				// to continue handling other addresses
@@ -145,7 +149,10 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 				var link objectSDK.Link
 				err := linkObj.ReadLink(&link)
 				if err != nil {
-					e.log.Error("inhuming root object but link object cannot be read", zap.Error(err))
+					e.log.Error("inhuming root object but link object cannot be read",
+						zap.Stringer("linkAddr", linkAddr),
+						zap.Stringer("addrBeingInhumed", addr),
+						zap.Error(err))
 
 					// nothing can be done here, so just returning ok
 					// to continue handling other addresses
@@ -182,7 +189,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 
 		if err != nil {
 			if !errors.Is(err, logicerr.Error) {
-				e.reportShardError(sh, "could not inhume object in shard", err)
+				e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
 			}
 
 			return false, err
@@ -219,7 +226,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 				return false, err
 			}
 
-			e.reportShardError(sh, "could not inhume object in shard", err)
+			e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
 			continue
 		}
 
