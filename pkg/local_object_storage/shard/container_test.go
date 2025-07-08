@@ -19,11 +19,6 @@ func TestShard_DeleteContainer(t *testing.T) {
 	err := sh.Put(o1, nil)
 	require.NoError(t, err)
 
-	o2 := generateObjectWithCID(cID)
-	o2.SetType(objectSDK.TypeStorageGroup)
-	err = sh.Put(o2, nil)
-	require.NoError(t, err)
-
 	o3 := generateObjectWithCID(cID)
 	o3.SetType(objectSDK.TypeLock)
 	err = sh.Put(o3, nil)

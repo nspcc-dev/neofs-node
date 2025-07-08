@@ -158,11 +158,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	err = putBig(db, ts)
 	require.NoError(t, err)
 
-	sg := generateObjectWithCID(t, cnr)
-	sg.SetType(objectSDK.TypeStorageGroup)
-	err = putBig(db, sg)
-	require.NoError(t, err)
-
 	firstChild := oidtest.ID()
 
 	leftChild := generateObjectWithCID(t, cnr)
@@ -211,7 +206,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(ts),
-			object.AddressOf(sg),
 			object.AddressOf(leftChild),
 			object.AddressOf(rightChild),
 			object.AddressOf(link),
@@ -234,7 +228,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		fs.AddTypeFilter(objectSDK.MatchStringNotEqual, objectSDK.TypeRegular)
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(ts),
-			object.AddressOf(sg),
 			object.AddressOf(lock),
 		)
 
@@ -256,29 +249,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			object.AddressOf(rightChild),
 			object.AddressOf(link),
 			object.AddressOf(parent),
-			object.AddressOf(sg),
-			object.AddressOf(lock),
-		)
-
-		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(objectSDK.FilterType, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cnr, fs)
-	})
-
-	t.Run("storage group objects", func(t *testing.T) {
-		fs := objectSDK.SearchFilters{}
-		fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeStorageGroup)
-		testSelect(t, db, cnr, fs, object.AddressOf(sg))
-
-		fs = objectSDK.SearchFilters{}
-		fs.AddTypeFilter(objectSDK.MatchStringNotEqual, objectSDK.TypeStorageGroup)
-		testSelect(t, db, cnr, fs,
-			object.AddressOf(small),
-			object.AddressOf(leftChild),
-			object.AddressOf(rightChild),
-			object.AddressOf(link),
-			object.AddressOf(parent),
-			object.AddressOf(ts),
 			object.AddressOf(lock),
 		)
 
@@ -317,7 +287,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(ts),
-			object.AddressOf(sg),
 			object.AddressOf(leftChild),
 			object.AddressOf(rightChild),
 			object.AddressOf(link),

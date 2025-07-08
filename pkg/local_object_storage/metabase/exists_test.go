@@ -56,18 +56,6 @@ func TestDB_Exists(t *testing.T) {
 		require.True(t, exists)
 	})
 
-	t.Run("storage group object", func(t *testing.T) {
-		sg := generateObject(t)
-		sg.SetType(objectSDK.TypeStorageGroup)
-
-		err := putBig(db, sg)
-		require.NoError(t, err)
-
-		exists, err := metaExists(db, object.AddressOf(sg))
-		require.NoError(t, err)
-		require.True(t, exists)
-	})
-
 	t.Run("lock object", func(t *testing.T) {
 		lock := generateObject(t)
 		lock.SetType(objectSDK.TypeLock)
