@@ -27,6 +27,11 @@ type slicingTarget struct {
 	payloadWriter *slicer.PayloadWriter
 }
 
+type reedSolomonPolicy struct {
+	dataShards   int
+	parityShards int
+}
+
 // returns [internal.Target] for raw root object streamed by the client
 // with payload slicing and child objects' formatting. Each ready child object
 // is written into destination target constructed via the given [internal.Target].
@@ -38,7 +43,12 @@ func newSlicingTarget(
 	sessionToken *session.Object,
 	curEpoch uint64,
 	initNextTarget internal.Target,
+	rsp *reedSolomonPolicy,
 ) internal.Target {
+	if rsp != nil {
+		initNextTarget = newReedSolomonEncoder(initNextTarget, rsp.dataShards, rsp.parityShards, signer)
+	}
+
 	return &slicingTarget{
 		ctx:              ctx,
 		signer:           signer,

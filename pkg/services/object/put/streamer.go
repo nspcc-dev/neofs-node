@@ -133,6 +133,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			sToken,
 			p.networkState.CurrentEpoch(),
 			p.newCommonTarget(prm),
+			nil,
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}
