@@ -88,14 +88,13 @@ func TestIterateNodesForObject(t *testing.T) {
 	cnrNodes := allocNodes([]uint{3, 5, 4})
 	cnrNodes[2][0].SetPublicKey(cnrNodes[0][1].PublicKey())
 	cnrNodes[1][1].SetPublicKey(cnrNodes[0][2].PublicKey())
-	var lwp, rwp testWorkerPool
+	var rwp testWorkerPool
 	iter := placementIterator{
 		log: zap.NewNop(),
 		neoFSNet: testNetwork{
 			localPubKey: cnrNodes[0][2].PublicKey(),
 		},
 		remotePool: &rwp,
-		localPool:  &lwp,
 		containerNodes: testContainerNodes{
 			objID:      objID,
 			cnrNodes:   cnrNodes,
@@ -173,38 +172,6 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
 	}
 
-	t.Run("local only", func(t *testing.T) {
-		objID := oidtest.ID()
-		cnrNodes := allocNodes([]uint{2, 3, 1})
-		var lwp, rwp testWorkerPool
-		iter := placementIterator{
-			log: zap.NewNop(),
-			neoFSNet: testNetwork{
-				localPubKey: cnrNodes[1][1].PublicKey(),
-			},
-			remotePool: &rwp,
-			localPool:  &lwp,
-			containerNodes: testContainerNodes{
-				cnrNodes: cnrNodes,
-			},
-			localOnly:    true,
-			localNodePos: [2]int{1, 1},
-			broadcast:    true,
-		}
-		var handlerMtx sync.Mutex
-		var handlerCalls []nodeDesc
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
-			handlerMtx.Lock()
-			handlerCalls = append(handlerCalls, node)
-			handlerMtx.Unlock()
-			return nil
-		})
-		require.NoError(t, err)
-		require.Len(t, handlerCalls, 1)
-		require.True(t, handlerCalls[0].local)
-		require.EqualValues(t, 1, lwp.nCalls)
-		require.Zero(t, rwp.nCalls)
-	})
 	t.Run("linear num of replicas", func(t *testing.T) {
 		// nodes: [A B C] [D B E] [F G]
 		// policy: [2 1 2]
@@ -219,7 +186,6 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: new(testWorkerPool),
-			localPool:  new(testWorkerPool),
 			containerNodes: testContainerNodes{
 				objID:      objID,
 				cnrNodes:   cnrNodes,
@@ -261,7 +227,6 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: new(testWorkerPool),
-			localPool:  new(testWorkerPool),
 			containerNodes: testContainerNodes{
 				objID:      objID,
 				cnrNodes:   cnrNodes,
@@ -324,7 +289,6 @@ func TestIterateNodesForObject(t *testing.T) {
 		iter := placementIterator{
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
-			localPool:  &wp,
 			remotePool: &wp,
 			containerNodes: testContainerNodes{
 				objID:      objID,

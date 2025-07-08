@@ -172,7 +172,6 @@ nextSet:
 		for j := range cnrNodes[i] {
 			prm.localNodeInContainer = p.neoFSNet.IsLocalNodePublicKey(cnrNodes[i][j].PublicKey())
 			if prm.localNodeInContainer {
-				prm.localNodePos[0], prm.localNodePos[1] = i, j
 				break nextSet
 			}
 		}
@@ -214,32 +213,16 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		placementIterator: placementIterator{
 			log:            p.log,
 			neoFSNet:       p.neoFSNet,
-			localPool:      p.localPool,
 			remotePool:     p.remotePool,
 			containerNodes: prm.containerNodes,
-			localOnly:      localOnly,
-			localNodePos:   prm.localNodePos,
 			linearReplNum:  uint(prm.copiesNumber),
 			broadcast:      withBroadcast,
 		},
-		nodeTargetInitializer: func(node nodeDesc) preparedObjectTarget {
-			if node.local {
-				return &localTarget{
-					storage: p.localStore,
-				}
-			}
-
-			rt := &remoteTarget{
-				ctx:               p.ctx,
-				keyStorage:        p.keyStorage,
-				commonPrm:         prm.common,
-				nodeInfo:          node.info,
-				clientConstructor: p.clientConstructor,
-				transport:         p.transport,
-			}
-
-			return rt
-		},
+		localStorage:            p.localStore,
+		keyStorage:              p.keyStorage,
+		commonPrm:               prm.common,
+		clientConstructor:       p.clientConstructor,
+		transport:               p.transport,
 		relay:                   relay,
 		fmt:                     p.fmtValidator,
 		localNodeInContainer:    prm.localNodeInContainer,
@@ -247,6 +230,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		cnrClient:               p.cfg.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 		metaSigner:              prm.localSignerRFC6979,
+		localOnly:               localOnly,
 	}
 }
 

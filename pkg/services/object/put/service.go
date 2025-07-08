@@ -92,7 +92,7 @@ type cfg struct {
 
 	netMapSrc netmap.Source
 
-	remotePool, localPool util.WorkerPool
+	remotePool util.WorkerPool
 
 	fmtValidator *object.FormatValidator
 
@@ -114,7 +114,6 @@ type cfg struct {
 func defaultCfg() *cfg {
 	return &cfg{
 		remotePool: util.NewPseudoWorkerPool(),
-		localPool:  util.NewPseudoWorkerPool(),
 		log:        zap.L(),
 	}
 }
@@ -176,10 +175,9 @@ func WithNetworkMapSource(v netmap.Source) Option {
 	}
 }
 
-func WithWorkerPools(remote, local util.WorkerPool) Option {
+func WithRemoteWorkerPool(remote util.WorkerPool) Option {
 	return func(c *cfg) {
 		c.remotePool = remote
-		c.localPool = local
 	}
 }
 

@@ -26,11 +26,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type preparedObjectTarget interface {
-	WriteObject(*objectSDK.Object, object.ContentMeta, encodedObject) error
-	Close() (oid.ID, []byte, error)
-}
-
 type distributedTarget struct {
 	opCtx context.Context
 
@@ -57,11 +52,17 @@ type distributedTarget struct {
 	// - payload otherwise
 	encodedObject encodedObject
 
-	nodeTargetInitializer func(nodeDesc) preparedObjectTarget
-
 	relay func(nodeDesc) error
 
 	fmt *object.FormatValidator
+
+	localStorage      ObjectStorage
+	clientConstructor ClientConstructor
+	transport         Transport
+	commonPrm         *svcutil.CommonPrm
+	keyStorage        *svcutil.KeyStorage
+
+	localOnly bool
 }
 
 type nodeDesc struct {
@@ -93,7 +94,7 @@ func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
 
 	if t.localNodeInContainer {
 		var err error
-		if t.placementIterator.localOnly {
+		if t.localOnly {
 			t.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
 		} else {
 			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), t.metainfoConsistencyAttr != "")
@@ -153,7 +154,19 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	}
 
 	id := t.obj.GetID()
-	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)
+	var err error
+	if t.localOnly {
+		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()))
+
+		err = t.writeObjectLocally()
+		if err != nil {
+			err = fmt.Errorf("write object locally: %w", err)
+			svcutil.LogServiceError(l, "PUT", nil, err)
+			err = errIncompletePut{singleErr: fmt.Errorf("%w (last node error: %w)", errNotEnoughNodes{required: 1}, err)}
+		}
+	} else {
+		err = t.placementIterator.iterateNodesForObject(id, t.sendObject)
+	}
 	if err != nil {
 		return oid.ID{}, err
 	}
@@ -234,18 +247,27 @@ func (t *distributedTarget) encodeCurrentObjectMetadata() []byte {
 }
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {
-	if !node.local && t.relay != nil {
+	if node.local {
+		if err := t.writeObjectLocally(); err != nil {
+			return fmt.Errorf("write object locally: %w", err)
+		}
+		return nil
+	}
+
+	if t.relay != nil {
 		return t.relay(node)
 	}
 
-	target := t.nodeTargetInitializer(node)
-
-	err := target.WriteObject(t.obj, t.objMeta, t.encodedObject)
-	if err != nil {
-		return fmt.Errorf("could not write header: %w", err)
+	var sigsRaw []byte
+	var err error
+	if t.encodedObject.hdrOff > 0 {
+		sigsRaw, err = t.transport.SendReplicationRequestToNode(t.opCtx, t.encodedObject.b, node.info)
+		if err != nil {
+			err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
+		}
+	} else {
+		err = putObjectToNode(t.opCtx, node.info, t.obj, t.keyStorage, t.clientConstructor, t.commonPrm)
 	}
-
-	_, sigsRaw, err := target.Close()
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
@@ -255,19 +277,6 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()),
 			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
-
-		if node.local {
-			sig, err := t.metaSigner.Sign(t.objSharedMeta)
-			if err != nil {
-				return fmt.Errorf("failed to sign object metadata: %w", err)
-			}
-
-			t.metaMtx.Lock()
-			t.collectedSignatures = append(t.collectedSignatures, sig)
-			t.metaMtx.Unlock()
-
-			return nil
-		}
 
 		sigs, err := decodeSignatures(sigsRaw)
 		if err != nil {
@@ -292,6 +301,25 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		}
 
 		return errors.New("signatures were not found in object's metadata")
+	}
+
+	return nil
+}
+
+func (t *distributedTarget) writeObjectLocally() error {
+	if err := putObjectLocally(t.localStorage, t.obj, t.objMeta, &t.encodedObject); err != nil {
+		return err
+	}
+
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		sig, err := t.metaSigner.Sign(t.objSharedMeta)
+		if err != nil {
+			return fmt.Errorf("failed to sign object metadata: %w", err)
+		}
+
+		t.metaMtx.Lock()
+		t.collectedSignatures = append(t.collectedSignatures, sig)
+		t.metaMtx.Unlock()
 	}
 
 	return nil
@@ -346,12 +374,9 @@ func (x errNotEnoughNodes) Error() string {
 type placementIterator struct {
 	log        *zap.Logger
 	neoFSNet   NeoFSNetwork
-	localPool  util.WorkerPool
 	remotePool util.WorkerPool
 	/* request-dependent */
 	containerNodes ContainerNodes
-	localOnly      bool
-	localNodePos   [2]int // in containerNodeSets. Undefined localOnly is false
 	// when non-zero, this setting simplifies the object's storage policy
 	// requirements to a fixed number of object replicas to be retained
 	linearReplNum uint
@@ -361,38 +386,57 @@ type placementIterator struct {
 }
 
 func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) error) error {
-	var err error
-	var nodeLists [][]netmap.NodeInfo
 	var replCounts []uint
 	var l = x.log.With(zap.Stringer("oid", obj))
-	if x.localOnly {
-		// TODO: although this particular case fits correctly into the general approach,
-		//  much less actions can be done
-		nn := x.containerNodes.Unsorted()
-		nodeLists = [][]netmap.NodeInfo{{nn[x.localNodePos[0]][x.localNodePos[1]]}}
-		replCounts = []uint{1}
+	nodeLists, err := x.containerNodes.SortForObject(obj)
+	if err != nil {
+		return fmt.Errorf("sort container nodes for the object: %w", err)
+	}
+	if x.linearReplNum > 0 {
+		ns := slices.Concat(nodeLists...)
+		nodeLists = [][]netmap.NodeInfo{ns}
+		replCounts = []uint{x.linearReplNum}
 	} else {
-		if nodeLists, err = x.containerNodes.SortForObject(obj); err != nil {
-			return fmt.Errorf("sort container nodes for the object: %w", err)
-		}
-		if x.linearReplNum > 0 {
-			ns := slices.Concat(nodeLists...)
-			nodeLists = [][]netmap.NodeInfo{ns}
-			replCounts = []uint{x.linearReplNum}
-		} else {
-			replCounts = x.containerNodes.PrimaryCounts()
-		}
+		replCounts = x.containerNodes.PrimaryCounts()
 	}
 	var processedNodesMtx sync.RWMutex
 	var nextNodeGroupKeys []string
 	var wg sync.WaitGroup
 	var lastRespErr atomic.Value
 	nodesCounters := make([]struct{ stored, processed uint }, len(nodeLists))
-	nodeResults := make(map[string]struct {
+	type nodeResult struct {
 		convertErr error
 		desc       nodeDesc
 		succeeded  bool
-	})
+	}
+	var nrCap int
+	for i := range nodeLists {
+		nrCap += len(nodeLists[i])
+	}
+	nodeResults := make(map[string]nodeResult, nrCap)
+
+	processNode := func(pubKeyStr string, listInd int, nr nodeResult, wg *sync.WaitGroup) {
+		defer wg.Done()
+		err := f(nr.desc)
+		processedNodesMtx.Lock()
+		if listInd >= 0 {
+			if nr.succeeded = err == nil; nr.succeeded {
+				nodesCounters[listInd].stored++
+			}
+		}
+		nodeResults[pubKeyStr] = nr
+		processedNodesMtx.Unlock()
+		if err != nil {
+			lastRespErr.Store(err)
+			if listInd >= 0 {
+				svcutil.LogServiceError(l, "PUT", nr.desc.info.AddressGroup(), err)
+			} else {
+				svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.AddressGroup(), err)
+			}
+			return
+		}
+	}
+
 	// TODO: processing node lists in ascending size can potentially reduce failure
 	//  latency and volume of "unfinished" data to be garbage-collected. Also after
 	//  the failure of any of the nodes the ability to comply with the policy
@@ -450,31 +494,17 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 				// continue to try the best to save required number of replicas
 			}
 			for j := range nextNodeGroupKeys {
-				var workerPool util.WorkerPool
 				pks := nextNodeGroupKeys[j]
 				processedNodesMtx.RLock()
 				nr := nodeResults[pks]
 				processedNodesMtx.RUnlock()
-				if nr.desc.local {
-					workerPool = x.localPool
-				} else {
-					workerPool = x.remotePool
-				}
 				wg.Add(1)
-				if err := workerPool.Submit(func() {
-					defer wg.Done()
-					err := f(nr.desc)
-					processedNodesMtx.Lock()
-					if nr.succeeded = err == nil; nr.succeeded {
-						nodesCounters[listInd].stored++
-					}
-					nodeResults[pks] = nr
-					processedNodesMtx.Unlock()
-					if err != nil {
-						lastRespErr.Store(err)
-						svcutil.LogServiceError(l, "PUT", nr.desc.info.AddressGroup(), err)
-						return
-					}
+				if nr.desc.local {
+					go processNode(pks, listInd, nr, &wg)
+					continue
+				}
+				if err := x.remotePool.Submit(func() {
+					processNode(pks, listInd, nr, &wg)
 				}); err != nil {
 					wg.Done()
 					err = fmt.Errorf("submit next job to save an object to the worker pool: %w", err)
@@ -514,24 +544,13 @@ broadcast:
 					zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])), zap.Error(nr.convertErr))
 				continue // to send as many replicas as possible
 			}
-			var workerPool util.WorkerPool
-			if nr.desc.local {
-				workerPool = x.localPool
-			} else {
-				workerPool = x.remotePool
-			}
 			wg.Add(1)
-			if err := workerPool.Submit(func() {
-				defer wg.Done()
-				err := f(nr.desc)
-				processedNodesMtx.Lock()
-				// no need to update result details, just cache
-				nodeResults[pks] = nr
-				processedNodesMtx.Unlock()
-				if err != nil {
-					svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.AddressGroup(), err)
-					return
-				}
+			if nr.desc.local {
+				go processNode(pks, -1, nr, &wg)
+				continue
+			}
+			if err := x.remotePool.Submit(func() {
+				processNode(pks, -1, nr, &wg)
 			}); err != nil {
 				wg.Done()
 				svcutil.LogWorkerPoolError(l, "PUT (extra broadcast)", err)
