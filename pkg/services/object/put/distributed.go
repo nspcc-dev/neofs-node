@@ -407,7 +407,11 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 		desc       nodeDesc
 		succeeded  bool
 	}
-	nodeResults := make(map[string]nodeResult)
+	var nrCap int
+	for i := range nodeLists {
+		nrCap += len(nodeLists[i])
+	}
+	nodeResults := make(map[string]nodeResult, nrCap)
 
 	processNode := func(pubKeyStr string, listInd int, nr nodeResult, wg *sync.WaitGroup) {
 		defer wg.Done()
