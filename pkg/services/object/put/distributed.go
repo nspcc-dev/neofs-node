@@ -44,8 +44,11 @@ type distributedTarget struct {
 	objSharedMeta       []byte
 	collectedSignatures [][]byte
 
+	containerNodes       ContainerNodes
+	ecPart               ecPartInfo
 	localNodeInContainer bool
 	localNodeSigner      neofscrypto.Signer
+	sessionSigner        neofscrypto.Signer
 	// - object if localOnly
 	// - replicate request if localNodeInContainer
 	// - payload otherwise
@@ -125,7 +128,6 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
 		putPayload(t.encodedObject.b)
 		t.encodedObject.b = nil
-		t.collectedSignatures = nil
 	}()
 
 	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
@@ -154,6 +156,57 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 }
 
 func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
+	repRules := t.containerNodes.PrimaryCounts() // TODO: deduplicate with Streamer.preparePrm
+	repRulesN := len(repRules)
+	ecRules := t.containerNodes.ECRules()
+
+	ecRuleIdx := t.ecPart.ruleIdx // >= 0 when object from request is an EC part
+	if t.localOnly && (ecRuleIdx >= 0 || len(ecRules) == 0) {
+		return t.distributeObject(obj, objMeta, encObj, nil)
+	}
+
+	// TODO: in some cases we use only part of lists while always sort all of them
+	nodeLists, err := t.containerNodes.SortForObject(t.obj.GetID())
+	if err != nil {
+		return fmt.Errorf("sort container nodes by object ID: %w", err)
+	}
+
+	if ecRuleIdx >= 0 {
+		total := int(ecRules[ecRuleIdx].DataShards + ecRules[ecRuleIdx].ParityShards)
+		nodes := nodeLists[repRulesN+ecRuleIdx]
+		return t.saveECPart(obj, objMeta, encObj, t.ecPart.partIdx, total, nodes, nil)
+	}
+
+	if len(ecRules) > 0 {
+		if err := t.ecAndSaveObject(t.sessionSigner, obj, ecRules, nodeLists[repRulesN:]); err != nil {
+			return err
+		}
+	}
+
+	if repRulesN == 0 {
+		return nil
+	}
+
+	return t.distributeObject(obj, objMeta, encObj, func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
+		return t.replicateObject(obj, objMeta, encObj, repRules, nodeLists[:repRulesN])
+	})
+}
+
+func (t *distributedTarget) replicateObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject,
+	repRules []uint, nodeLists [][]netmap.NodeInfo) error {
+	typ := obj.Type()
+	broadcast := typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLink || typ == objectSDK.TypeLock || len(obj.Children()) > 0
+	return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, nodeLists, broadcast, func(node nodeDesc) error {
+		return t.sendObject(obj, objMeta, encObj, node)
+	})
+}
+
+func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject,
+	placementFn func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error) error {
+	defer func() {
+		t.collectedSignatures = nil
+	}()
+
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		t.objSharedMeta = t.encodeObjectMetadata(obj, objMeta)
 	}
@@ -170,11 +223,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 			err = errIncompletePut{singleErr: fmt.Errorf("%w (last node error: %w)", errNotEnoughNodes{required: 1}, err)}
 		}
 	} else {
-		typ := obj.Type()
-		broadcast := typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLink || typ == objectSDK.TypeLock || len(obj.Children()) > 0
-		err = t.placementIterator.iterateNodesForObject(id, broadcast, func(node nodeDesc) error {
-			return t.sendObject(obj, objMeta, encObj, node)
-		})
+		err = placementFn(obj, objMeta, encObj)
 	}
 	if err != nil {
 		return err
@@ -385,25 +434,17 @@ type placementIterator struct {
 	neoFSNet   NeoFSNetwork
 	remotePool util.WorkerPool
 	/* request-dependent */
-	containerNodes ContainerNodes
 	// when non-zero, this setting simplifies the object's storage policy
 	// requirements to a fixed number of object replicas to be retained
 	linearReplNum uint
 }
 
-func (x placementIterator) iterateNodesForObject(obj oid.ID, broadcast bool, f func(nodeDesc) error) error {
-	var replCounts []uint
+func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, nodeLists [][]netmap.NodeInfo, broadcast bool, f func(nodeDesc) error) error {
 	var l = x.log.With(zap.Stringer("oid", obj))
-	nodeLists, err := x.containerNodes.SortForObject(obj)
-	if err != nil {
-		return fmt.Errorf("sort container nodes for the object: %w", err)
-	}
 	if x.linearReplNum > 0 {
 		ns := slices.Concat(nodeLists...)
 		nodeLists = [][]netmap.NodeInfo{ns}
 		replCounts = []uint{x.linearReplNum}
-	} else {
-		replCounts = x.containerNodes.PrimaryCounts()
 	}
 	var processedNodesMtx sync.RWMutex
 	var nextNodeGroupKeys []string
@@ -456,7 +497,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, broadcast bool, f f
 			}
 			listLen := uint(len(nodeLists[listInd]))
 			if listLen-nodesCounters[listInd].processed < replRem {
-				err = errNotEnoughNodes{listIndex: listInd, required: replRem, left: listLen - nodesCounters[listInd].processed}
+				var err error = errNotEnoughNodes{listIndex: listInd, required: replRem, left: listLen - nodesCounters[listInd].processed}
 				if e, _ := lastRespErr.Load().(error); e != nil {
 					err = fmt.Errorf("%w (last node error: %w)", err, e)
 				}
@@ -478,7 +519,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, broadcast bool, f f
 					continue
 				}
 				if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-					nr.desc.info, nr.convertErr = x.convertNodeInfo(nodeLists[listInd][j])
+					nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[listInd][j])
 				}
 				processedNodesMtx.Lock()
 				nodeResults[pks] = nr
@@ -492,7 +533,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, broadcast bool, f f
 				l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
 					zap.String("public key", netmap.StringifyPublicKey(nodeLists[listInd][j])), zap.Error(nr.convertErr))
 				if listLen-nodesCounters[listInd].processed-1 < replRem { // -1 includes current node failure
-					err = fmt.Errorf("%w (last node error: failed to decode network addresses: %w)",
+					err := fmt.Errorf("%w (last node error: failed to decode network addresses: %w)",
 						errNotEnoughNodes{listIndex: listInd, required: replRem, left: listLen - nodesCounters[listInd].processed - 1},
 						nr.convertErr)
 					return errIncompletePut{singleErr: err}
@@ -538,7 +579,7 @@ broadcast:
 				continue
 			}
 			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-				nr.desc.info, nr.convertErr = x.convertNodeInfo(nodeLists[i][j])
+				nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[i][j])
 			}
 			processedNodesMtx.Lock()
 			nodeResults[pks] = nr
@@ -568,7 +609,7 @@ broadcast:
 	return nil
 }
 
-func (x placementIterator) convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
+func convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
 	var res client.NodeInfo
 	var endpoints network.AddressGroup
 	if err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeInfo)); err != nil {
