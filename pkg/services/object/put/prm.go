@@ -20,9 +20,11 @@ type PutInitPrm struct {
 	relay func(client.NodeInfo, client.MultiAddressClient) error
 
 	containerNodes       ContainerNodes
+	ecPart               ecPartInfo
 	localNodeInContainer bool
 	localSignerRFC6979   neofscrypto.Signer
 	localNodeSigner      neofscrypto.Signer
+	sessionSigner        neofscrypto.Signer
 }
 
 type PutChunkPrm struct {
