@@ -36,6 +36,7 @@ Changelog for NeoFS Node
 - Short header support in HEAD's request and response (#3424)
 - Stuck missing container in SN cache after creation (#3433)
 - neofs-adm fschain init command (#2905)
+- neofs-cli storagegroup commands (#3442)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250623124459-a9cfab652dc0` (#3406)
