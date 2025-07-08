@@ -196,7 +196,6 @@ func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.MaxObjectSize = 64 << 20 // in bytes of object payload
 	netCfg.EpochDuration = 240      // in seconds
 	netCfg.StoragePrice = 0         // in GAS per 1GB (NeoFS Balance contract's decimals)
-	netCfg.AuditFee = 0             // in GAS per audit (NeoFS Balance contract's decimals)
 	netCfg.ContainerFee = 1000      // in GAS per container (NeoFS Balance contract's decimals)
 	netCfg.ContainerAliasFee = 500  // in GAS per container (NeoFS Balance contract's decimals)
 	netCfg.IRCandidateFee = 0       // in GAS per candidate (Fixed8)

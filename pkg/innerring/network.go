@@ -158,7 +158,7 @@ func convertKnownConfigValues(k, v string) (any, error) {
 		err error
 	)
 	switch k {
-	case netmapcore.AuditFeeConfig, netmapcore.BasicIncomeRateConfig,
+	case netmapcore.BasicIncomeRateConfig,
 		netmapcore.ContainerFeeConfig, netmapcore.ContainerAliasFeeConfig,
 		netmapcore.EigenTrustIterationsConfig,
 		netmapcore.EpochDurationConfig, netmapcore.InnerRingCandidateFeeConfig,

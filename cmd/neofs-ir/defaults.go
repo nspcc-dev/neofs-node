@@ -94,7 +94,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("emit.gas.balance_threshold", 0)
 
 	cfg.SetDefault("settlement.basic_income_rate", 0)
-	cfg.SetDefault("settlement.audit_fee", 0)
 
 	cfg.SetDefault("indexer.cache_timeout", 15*time.Second)
 

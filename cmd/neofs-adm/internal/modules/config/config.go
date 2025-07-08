@@ -19,7 +19,6 @@ type configTemplate struct {
 	MaxObjectSize           int
 	EpochDuration           int
 	BasicIncomeRate         int
-	AuditFee                int
 	CandidateFee            int
 	ContainerFee            int
 	ContainerAliasFee       int
@@ -36,7 +35,6 @@ network:
   basic_income_rate: {{ .BasicIncomeRate}}
   homomorphic_hash_disabled: {{ .HomomorphicHashDisabled}}
   fee:
-    audit: {{ .AuditFee}}
     candidate: {{ .CandidateFee}}
     container: {{ .ContainerFee}}
     container_alias: {{ .ContainerAliasFee }}
@@ -112,7 +110,6 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 		EpochDuration:           240,           // 1 hour with 15s per block
 		BasicIncomeRate:         1_0000_0000,   // 0.0001 GAS per GiB (Fixed12)
 		HomomorphicHashDisabled: false,         // object homomorphic hash is enabled
-		AuditFee:                1_0000,        // 0.00000001 GAS per audit (Fixed12)
 		CandidateFee:            100_0000_0000, // 100.0 GAS (Fixed8)
 		ContainerFee:            1000,          // 0.000000001 * 7 GAS per container (Fixed12)
 		ContainerAliasFee:       500,           // ContainerFee / 2

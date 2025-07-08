@@ -28,8 +28,6 @@ const (
 	epochDurationCLIFlag            = "epoch-duration"
 	incomeRateInitFlag              = "network.basic_income_rate"
 	incomeRateCLIFlag               = "basic-income-rate"
-	auditFeeInitFlag                = "network.fee.audit"
-	auditFeeCLIFlag                 = "audit-fee"
 	containerFeeInitFlag            = "network.fee.container"
 	containerAliasFeeInitFlag       = "network.fee.container_alias"
 	containerFeeCLIFlag             = "container-fee"

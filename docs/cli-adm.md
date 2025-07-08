@@ -39,7 +39,6 @@ network:
   epoch_duration: 240       # duration of a NeoFS epoch in blocks, consider block generation frequency in the sidechain
   basic_income_rate: 0      # basic income rate, for private consider 0
   fee:
-    audit: 0     # network audit fee, for private installation consider 0
     candidate: 0 # inner ring candidate registration fee, for private installation consider 0
     container: 0 # container creation fee, for private installation consider 0
     container_alias: 0 # container nice-name registration fee, for private installation consider 0

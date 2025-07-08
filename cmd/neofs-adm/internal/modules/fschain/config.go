@@ -64,7 +64,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 		}
 
 		switch string(k) {
-		case netmapAuditFeeKey, netmapBasicIncomeRateKey,
+		case netmapBasicIncomeRateKey,
 			netmapContainerFeeKey, netmapContainerAliasFeeKey,
 			netmapEigenTrustIterationsKey,
 			netmapEpochKey, netmapInnerRingCandidateFeeKey,
@@ -151,7 +151,7 @@ func parseConfigPair(kvStr string, force bool) (key string, val any, err error) 
 	valRaw := kv[1]
 
 	switch key {
-	case netmapAuditFeeKey, netmapBasicIncomeRateKey,
+	case netmapBasicIncomeRateKey,
 		netmapContainerFeeKey, netmapContainerAliasFeeKey,
 		netmapEigenTrustIterationsKey,
 		netmapEpochKey, netmapInnerRingCandidateFeeKey,

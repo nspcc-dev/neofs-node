@@ -475,7 +475,6 @@ func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
 	ni.SetMsPerBlock(msPerBlock)
 	ni.SetMaxObjectSize(netInfoMorph.MaxObjectSize)
 	ni.SetStoragePrice(netInfoMorph.StoragePrice)
-	ni.SetAuditFee(netInfoMorph.AuditFee)
 	ni.SetEpochDuration(netInfoMorph.EpochDuration)
 	ni.SetContainerFee(netInfoMorph.ContainerFee)
 	ni.SetNamedContainerFee(netInfoMorph.ContainerAliasFee)

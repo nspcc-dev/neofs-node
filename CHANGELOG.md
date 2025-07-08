@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - neofs-adm fschain init command (#2905)
 - neofs-cli storagegroup commands (#3442)
 - SG-based audit from IR and SN (#3442)
+- Support for audit fee setting (#3442)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250623124459-a9cfab652dc0` (#3406)
@@ -46,7 +47,8 @@ Changelog for NeoFS Node
 Storage group objects are no longer supported (rejected by SN), you can
 remove them.
 
-IR no longer has "audit" configuration section, please remove it.
+IR no longer has "audit" configuration section as well as
+"settlement.audit_fee" setting, please remove them.
 
 ## [0.47.1] - 2025-06-12
 

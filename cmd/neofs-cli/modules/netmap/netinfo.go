@@ -47,7 +47,6 @@ var netInfoCmd = &cobra.Command{
 		const format = "  %s: %v\n"
 
 		cmd.Println("NeoFS network configuration (system)")
-		cmd.Printf(format, "Audit fee", netInfo.AuditFee())
 		cmd.Printf(format, "Storage price", netInfo.StoragePrice())
 		cmd.Printf(format, "Container fee", netInfo.ContainerFee())
 		cmd.Printf(format, "Container alias fee", netInfo.NamedContainerFee())

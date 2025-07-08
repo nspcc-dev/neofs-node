@@ -46,7 +46,6 @@ const (
 const (
 	netmapEpochKey                   = "EpochDuration"
 	netmapMaxObjectSizeKey           = "MaxObjectSize"
-	netmapAuditFeeKey                = "AuditFee"
 	netmapContainerFeeKey            = "ContainerFee"
 	netmapContainerAliasFeeKey       = "ContainerAliasFee"
 	netmapEigenTrustIterationsKey    = "EigenTrustIterations"
@@ -443,7 +442,6 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 		}{
 			{netmapEpochKey, epochDurationInitFlag},
 			{netmapMaxObjectSizeKey, maxObjectSizeInitFlag},
-			{netmapAuditFeeKey, auditFeeInitFlag},
 			{netmapContainerFeeKey, containerFeeInitFlag},
 			{netmapContainerAliasFeeKey, containerAliasFeeInitFlag},
 			{netmapBasicIncomeRateKey, incomeRateInitFlag},

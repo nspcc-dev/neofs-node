@@ -124,7 +124,6 @@ type Validator struct {
 // Applied only in debug mode.
 type Settlement struct {
 	BasicIncomeRate int64 `mapstructure:"basic_income_rate"`
-	AuditFee        int64 `mapstructure:"audit_fee"`
 }
 
 // Experimental configures experimental features.

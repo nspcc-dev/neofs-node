@@ -321,7 +321,6 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 		},
 		Settlement: config.Settlement{
 			BasicIncomeRate: 100,
-			AuditFee:        100,
 		},
 		Experimental: config.Experimental{
 			ChainMetaData: false,

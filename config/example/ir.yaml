@@ -188,7 +188,6 @@ prometheus:
 
 settlement:
   basic_income_rate: 100 # Optional: override basic income rate value from network config; applied only in debug mode
-  audit_fee: 100         # Optional: override audit fee value from network config; applied only in debug mode
 
 experimental:
   chain_meta_data: false # Optional: allows creating containers with meta data handled via FS chain
