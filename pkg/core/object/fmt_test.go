@@ -90,6 +90,15 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.Validate(nil, true))
 	})
 
+	t.Run("storage group", func(t *testing.T) {
+		obj := object.New()
+		obj.SetType(object.TypeStorageGroup) //nolint:staticcheck // Deprecated, but that's exactly the test.
+		obj.SetContainerID(cidtest.ID())
+
+		require.Error(t, v.Validate(obj, false))
+		require.Error(t, v.Validate(obj, true))
+	})
+
 	t.Run("invalid identifier", func(t *testing.T) {
 		t.Run("missing", func(t *testing.T) {
 			obj := smallECDSASHA512

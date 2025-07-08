@@ -134,6 +134,10 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilObject
 	}
 
+	if obj.Type() == object.TypeStorageGroup { //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
+		return fmt.Errorf("strorage group type is no longer supported")
+	}
+
 	var hdrLen = obj.HeaderLen()
 	if hdrLen > object.MaxHeaderLen {
 		return fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, object.MaxHeaderLen)

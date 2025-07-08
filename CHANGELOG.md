@@ -43,7 +43,8 @@ Changelog for NeoFS Node
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250623124459-a9cfab652dc0` (#3406)
 
 ### Updating from v0.47.1
-Storage group objects are no longer supported, you can remove them.
+Storage group objects are no longer supported (rejected by SN), you can
+remove them.
 
 IR no longer has "audit" configuration section, please remove it.
 
