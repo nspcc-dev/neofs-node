@@ -36,7 +36,6 @@ const (
 	neofsContract      = "neofs"      // not deployed in FS chain.
 	processingContract = "processing" // not deployed in FS chain.
 	alphabetContract   = "alphabet"
-	auditContract      = "audit"
 	balanceContract    = "balance"
 	containerContract  = "container"
 	netmapContract     = "netmap"
@@ -64,7 +63,6 @@ const (
 var (
 	contractList = []string{
 		netmapContract,
-		auditContract,
 		balanceContract,
 		containerContract,
 		proxyContract,
@@ -420,8 +418,6 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 	case processingContract:
 		items = append(items, c.Contracts[neofsContract].Hash)
 		return items[1:] // no notary info
-	case auditContract:
-		items = append(items, c.Contracts[netmapContract].Hash)
 	case balanceContract:
 		items = append(items,
 			c.Contracts[netmapContract].Hash,

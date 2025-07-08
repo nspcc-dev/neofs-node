@@ -4,12 +4,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 )
 
-// AuditProcessor is an interface of data audit fee processor.
-type AuditProcessor interface {
-	// ProcessAuditSettlements must process data audit conducted in epoch.
-	ProcessAuditSettlements(epoch uint64)
-}
-
 // BasicIncomeInitializer is an interface of basic income context creator.
 type BasicIncomeInitializer interface {
 	// CreateContext creates context that processes basic income for provided epoch.

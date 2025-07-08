@@ -57,10 +57,8 @@ type (
 		netmapClient *nmClient.Client
 		containerWrp *container.Client
 
-		handleNewAudit         event.Handler
-		handleAuditSettlements event.Handler
-		handleAlphabetSync     event.Handler
-		handleNotaryDeposit    event.Handler
+		handleAlphabetSync  event.Handler
+		handleNotaryDeposit event.Handler
 
 		nodeValidator NodeValidator
 	}
@@ -75,10 +73,8 @@ type (
 		AlphabetState    AlphabetState
 		ContainerWrapper *container.Client
 
-		HandleAudit             event.Handler
-		AuditSettlementsHandler event.Handler
-		AlphabetSyncHandler     event.Handler
-		NotaryDepositHandler    event.Handler
+		AlphabetSyncHandler  event.Handler
+		NotaryDepositHandler event.Handler
 
 		NodeValidator NodeValidator
 	}
@@ -97,10 +93,6 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: global state is not set")
 	case p.AlphabetState == nil:
 		return nil, errors.New("ir/netmap: global state is not set")
-	case p.HandleAudit == nil:
-		return nil, errors.New("ir/netmap: audit handler is not set")
-	case p.AuditSettlementsHandler == nil:
-		return nil, errors.New("ir/netmap: audit settlement handler is not set")
 	case p.AlphabetSyncHandler == nil:
 		return nil, errors.New("ir/netmap: alphabet sync handler is not set")
 	case p.NotaryDepositHandler == nil:
@@ -124,16 +116,13 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	var processor = &Processor{
-		log:            p.Log,
-		pool:           pool,
-		epochTimer:     p.EpochTimer,
-		epochState:     p.EpochState,
-		alphabetState:  p.AlphabetState,
-		netmapClient:   p.NetmapClient,
-		containerWrp:   p.ContainerWrapper,
-		handleNewAudit: p.HandleAudit,
-
-		handleAuditSettlements: p.AuditSettlementsHandler,
+		log:           p.Log,
+		pool:          pool,
+		epochTimer:    p.EpochTimer,
+		epochState:    p.EpochState,
+		alphabetState: p.AlphabetState,
+		netmapClient:  p.NetmapClient,
+		containerWrp:  p.ContainerWrapper,
 
 		handleAlphabetSync: p.AlphabetSyncHandler,
 

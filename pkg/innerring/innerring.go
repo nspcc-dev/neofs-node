@@ -18,7 +18,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
@@ -32,11 +31,9 @@ import (
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/structure"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
-	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	neofsClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
@@ -44,14 +41,11 @@ import (
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
-	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -71,11 +65,8 @@ type (
 
 		fsChainClient *client.Client
 		mainnetClient *client.Client
-		auditClient   *auditClient.Client
 		balanceClient *balanceClient.Client
 		netmapClient  *nmClient.Client
-
-		auditTaskManager *audittask.Manager
 
 		// global state
 		epochCounter  atomic.Uint64
@@ -658,18 +649,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	server.pubKey = server.key.PublicKey().Bytes()
 
-	auditPool, err := ants.NewPool(cfg.Audit.Task.ExecPoolSize)
-	if err != nil {
-		return nil, err
-	}
-
-	// do not use TryNotary() in audit wrapper
-	// audit operations do not require multisignatures
-	server.auditClient, err = auditClient.NewFromMorph(server.fsChainClient, server.contracts.audit)
-	if err != nil {
-		return nil, err
-	}
-
 	cnrClient, err := cntClient.NewFromMorph(server.fsChainClient, server.contracts.container, cntClient.AsAlphabet())
 	if err != nil {
 		return nil, err
@@ -724,67 +703,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return &b
 	}
 
-	clientCache := newClientCache(&clientCacheParams{
-		Log:          log,
-		Key:          &server.key.PrivateKey,
-		SGTimeout:    cfg.Audit.Timeout.Get,
-		HeadTimeout:  cfg.Audit.Timeout.Head,
-		RangeTimeout: cfg.Audit.Timeout.RangeHash,
-		Buffers:      &buffers,
-	})
-
-	server.registerNoErrCloser(clientCache.cache.CloseAll)
-
-	pdpPoolSize := cfg.Audit.PDP.PairsPoolSize
-	porPoolSize := cfg.Audit.POR.PoolSize
-
-	// create audit processor dependencies
-	server.auditTaskManager = audittask.New(
-		audittask.WithQueueCapacity(cfg.Audit.Task.QueueCapacity),
-		audittask.WithWorkerPool(auditPool),
-		audittask.WithLogger(log),
-		audittask.WithContainerCommunicator(clientCache),
-		audittask.WithMaxPDPSleepInterval(cfg.Audit.PDP.MaxSleepInterval),
-		audittask.WithPDPWorkerPoolGenerator(func() (util2.WorkerPool, error) {
-			return ants.NewPool(pdpPoolSize)
-		}),
-		audittask.WithPoRWorkerPoolGenerator(func() (util2.WorkerPool, error) {
-			return ants.NewPool(porPoolSize)
-		}),
-	)
-
-	server.workers = append(server.workers, server.auditTaskManager.Listen)
-
-	// create audit processor
-	auditProcessor, err := audit.New(&audit.Params{
-		Log:              log,
-		NetmapClient:     server.netmapClient,
-		ContainerClient:  cnrClient,
-		IRList:           server,
-		EpochSource:      server,
-		SGSource:         clientCache,
-		Key:              &server.key.PrivateKey,
-		RPCSearchTimeout: cfg.Audit.Timeout.Search,
-		TaskManager:      server.auditTaskManager,
-		Reporter:         server,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	// create settlement processor dependencies
 	settlementDeps := settlementDeps{
 		log:           server.log,
 		cnrSrc:        cntClient.AsContainerSource(cnrClient),
-		auditClient:   server.auditClient,
 		nmClient:      server.netmapClient,
-		clientCache:   clientCache,
 		balanceClient: server.balanceClient,
-	}
-
-	settlementDeps.settlementCtx = auditSettlementContext
-	auditCalcDeps := &auditSettlementDeps{
-		settlementDeps: settlementDeps,
 	}
 
 	settlementDeps.settlementCtx = basicIncomeSettlementContext
@@ -793,25 +717,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		cnrClient:      cnrClient,
 	}
 
-	auditSettlementCalc := auditSettlement.NewCalculator(
-		&auditSettlement.CalculatorPrm{
-			ResultStorage:       auditCalcDeps,
-			ContainerStorage:    auditCalcDeps,
-			PlacementCalculator: auditCalcDeps,
-			SGStorage:           auditCalcDeps,
-			AccountStorage:      auditCalcDeps,
-			Exchanger:           auditCalcDeps,
-			AuditFeeFetcher:     server.netmapClient,
-		},
-		auditSettlement.WithLogger(server.log),
-	)
-
 	// create settlement processor
 	settlementProcessor := settlement.New(
 		settlement.Prm{
-			AuditProcessor: (*auditSettlementCalculator)(auditSettlementCalc),
-			BasicIncome:    &basicSettlementConstructor{dep: basicSettlementDeps},
-			State:          server,
+			BasicIncome: &basicSettlementConstructor{dep: basicSettlementDeps},
+			State:       server,
 		},
 		settlement.WithLogger(server.log),
 	)
@@ -879,14 +789,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		EpochState:       server,
 		AlphabetState:    server,
 		ContainerWrapper: cnrClient,
-		HandleAudit: server.onlyActiveEventHandler(
-			auditProcessor.StartAuditHandler(),
-		),
 		NotaryDepositHandler: server.onlyAlphabetEventHandler(
 			server.notaryHandler,
-		),
-		AuditSettlementsHandler: server.onlyAlphabetEventHandler(
-			settlementProcessor.HandleAuditEvent,
 		),
 		AlphabetSyncHandler: alphaSync,
 		NodeValidator:       nodevalidator.New(nodeValidators...),
@@ -1114,16 +1018,6 @@ func (s *Server) initConfigFromBlockchain() error {
 	return nil
 }
 
-// onlyActiveEventHandler wrapper around event handler that executes it
-// only if inner ring node state is active.
-func (s *Server) onlyActiveEventHandler(f event.Handler) event.Handler {
-	return func(ev event.Event) {
-		if s.IsActive() {
-			f(ev)
-		}
-	}
-}
-
 // onlyAlphabetEventHandler wrapper around event handler that executes it
 // only if inner ring node is alphabet node.
 func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
@@ -1147,7 +1041,6 @@ func (s *Server) newEpochTickHandlers() []newEpochHandler {
 func (s *Server) restartFSChain() error {
 	s.log.Info("restarting internal services because of RPC connection loss...")
 
-	s.auditTaskManager.Reset()
 	s.statusIndex.reset()
 
 	err := s.initConfigFromBlockchain()

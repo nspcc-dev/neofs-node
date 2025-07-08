@@ -9,8 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
-	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"go.uber.org/zap"
@@ -179,18 +177,6 @@ func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
 func (s *Server) VoteForFSChainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
 	sort.Sort(validators)
 	return s.voteForFSChainValidator(validators, trigger)
-}
-
-// WriteReport composes the audit result structure from the audit report
-// and sends it to Audit contract.
-func (s *Server) WriteReport(r *audit.Report) error {
-	res := r.Result()
-	res.AuditorPublicKey = s.pubKey
-
-	prm := auditClient.PutPrm{}
-	prm.SetResult(res)
-
-	return s.auditClient.PutAuditResult(prm)
 }
 
 // ResetEpochTimer resets the epoch timer that produces events to update epoch

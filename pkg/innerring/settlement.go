@@ -1,7 +1,6 @@
 package innerring
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/hex"
@@ -10,25 +9,19 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
-	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	auditsvc "github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapAPI "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
 const (
-	auditSettlementContext       = "audit"
 	basicIncomeSettlementContext = "basic income"
 )
 
@@ -37,19 +30,11 @@ type settlementDeps struct {
 
 	cnrSrc container.Source
 
-	auditClient *auditClient.Client
-
 	nmClient *netmapClient.Client
-
-	clientCache *ClientCache
 
 	balanceClient *balanceClient.Client
 
 	settlementCtx string
-}
-
-type auditSettlementDeps struct {
-	settlementDeps
 }
 
 type basicIncomeSettlementDeps struct {
@@ -61,18 +46,10 @@ type basicSettlementConstructor struct {
 	dep *basicIncomeSettlementDeps
 }
 
-type auditSettlementCalculator audit.Calculator
-
 type containerWrapper containerAPI.Container
 
 type nodeInfoWrapper struct {
 	ni netmapAPI.NodeInfo
-}
-
-type sgWrapper storagegroup.StorageGroup
-
-func (s *sgWrapper) Size() uint64 {
-	return (*storagegroup.StorageGroup)(s).ValidationDataSize()
 }
 
 func (n nodeInfoWrapper) PublicKey() []byte {
@@ -85,26 +62,6 @@ func (n nodeInfoWrapper) Price() *big.Int {
 
 func (c containerWrapper) Owner() user.ID {
 	return (containerAPI.Container)(c).Owner()
-}
-
-func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditsvc.Result, error) {
-	idList, err := s.auditClient.ListAuditResultIDByEpoch(epoch)
-	if err != nil {
-		return nil, fmt.Errorf("could not list audit results in FS chain: %w", err)
-	}
-
-	res := make([]*auditsvc.Result, 0, len(idList))
-
-	for i := range idList {
-		r, err := s.auditClient.GetAuditResult(idList[i])
-		if err != nil {
-			return nil, fmt.Errorf("could not get audit result: %w", err)
-		}
-
-		res = append(res, r)
-	}
-
-	return res, nil
 }
 
 func (s settlementDeps) ContainerInfo(cid cid.ID) (common.ContainerInfo, error) {
@@ -175,25 +132,6 @@ func (s settlementDeps) ContainerNodes(e uint64, cid cid.ID) ([]common.NodeInfo,
 	return res, nil
 }
 
-// SGInfo returns audit.SGInfo by object address.
-//
-// Returns an error of type apistatus.ObjectNotFound if storage group is missing.
-func (s settlementDeps) SGInfo(addr oid.Address) (audit.SGInfo, error) {
-	cnr := addr.Container()
-
-	cn, nm, err := s.buildContainer(0, cnr)
-	if err != nil {
-		return nil, err
-	}
-
-	sg, err := s.clientCache.getSG(context.Background(), addr, nm, cn)
-	if err != nil {
-		return nil, err
-	}
-
-	return (*sgWrapper)(sg), nil
-}
-
 func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*user.ID, error) {
 	pubKey, err := keys.NewPublicKeyFromBytes(ni.PublicKey(), elliptic.P256())
 	if err != nil {
@@ -239,10 +177,6 @@ func (b basicIncomeSettlementDeps) Estimations(epoch uint64) (map[cid.ID]*contai
 
 func (b basicIncomeSettlementDeps) Balance(id user.ID) (*big.Int, error) {
 	return b.balanceClient.BalanceOf(id)
-}
-
-func (s *auditSettlementCalculator) ProcessAuditSettlements(epoch uint64) {
-	(*audit.Calculator)(s).Calculate(epoch)
 }
 
 func (b *basicSettlementConstructor) CreateContext(epoch uint64) (*basic.IncomeSettlementContext, error) {

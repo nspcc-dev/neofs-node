@@ -37,11 +37,15 @@ Changelog for NeoFS Node
 - Stuck missing container in SN cache after creation (#3433)
 - neofs-adm fschain init command (#2905)
 - neofs-cli storagegroup commands (#3442)
+- SG-based audit from IR and SN (#3442)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250623124459-a9cfab652dc0` (#3406)
 
 ### Updating from v0.47.1
+Storage group objects are no longer supported, you can remove them.
+
+IR no longer has "audit" configuration section, please remove it.
 
 ## [0.47.1] - 2025-06-12
 

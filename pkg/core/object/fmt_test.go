@@ -18,7 +18,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
-	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -309,49 +308,6 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.NoError(t, err) // all good
 
 		require.EqualValues(t, []oid.ID{id}, contentGot.Objects())
-	})
-
-	t.Run("storage group content", func(t *testing.T) {
-		obj := object.New()
-		obj.SetType(object.TypeStorageGroup)
-
-		t.Run("empty payload", func(t *testing.T) {
-			_, err := v.ValidateContent(obj)
-			require.Error(t, err)
-		})
-
-		var content storagegroup.StorageGroup
-		content.SetValidationDataSize(1) // some non-default value
-
-		t.Run("empty members", func(t *testing.T) {
-			obj.SetPayload(content.Marshal())
-
-			_, err = v.ValidateContent(obj)
-			require.ErrorIs(t, err, errEmptySGMembers)
-		})
-
-		t.Run("non-unique members", func(t *testing.T) {
-			id := oidtest.ID()
-
-			content.SetMembers([]oid.ID{id, id})
-
-			obj.SetPayload(content.Marshal())
-
-			_, err = v.ValidateContent(obj)
-			require.Error(t, err)
-		})
-
-		t.Run("correct SG", func(t *testing.T) {
-			ids := []oid.ID{oidtest.ID(), oidtest.ID()}
-			content.SetMembers(ids)
-
-			obj.SetPayload(content.Marshal())
-
-			content, err := v.ValidateContent(obj)
-			require.NoError(t, err)
-
-			require.EqualValues(t, ids, content.Objects())
-		})
 	})
 
 	t.Run("expiration", func(t *testing.T) {

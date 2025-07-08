@@ -40,8 +40,6 @@ type Config struct {
 
 	Workers Workers `mapstructure:"workers"`
 
-	Audit Audit `mapstructure:"audit"`
-
 	Indexer Indexer `mapstructure:"indexer"`
 
 	Contracts Contracts `mapstructure:"contracts"`

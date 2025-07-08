@@ -169,21 +169,6 @@ workers:
   netmap: 10     # Number of workers to process events from netmap contract in parallel
   reputation: 10 # Number of workers to process events from reputation contract in parallel
 
-audit:
-  timeout:
-    get: 5s       # Timeout for object.Get operation during data audit
-    head: 5s      # Timeout for object.Head operation during data audit
-    rangehash: 5s # Timeout for object.RangeHash operation during data audit
-    search: 10s   # Timeout for object.Search operation during data audit
-  task:
-    exec_pool_size: 10   # Number of workers to process audit routine in parallel
-    queue_capacity:  100 # Maximum amount of simultaneous audit jobs
-  pdp:
-    pairs_pool_size: 10    # Number of workers to process PDP part of data audit in parallel
-    max_sleep_interval: 5s # Maximum timeout between object.RangeHash requests to the storage node
-  por:
-    pool_size: 10 # Number of workers to process PoR part of data audit in parallel
-
 indexer:
   cache_timeout: 15s # Duration between internal state update about current list of inner ring nodes
 
