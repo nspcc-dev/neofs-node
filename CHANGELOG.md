@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Object replication signatures are no longer collected for containers with inconsistent metadata (#3445)
 - Metadata's signatures for extremely big objects and/or short epochs (#3391)
 - No object addresses in object inhuming/deleting error logs (#3450)
+- Flush test timing issue with object counters update (#3455)
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)

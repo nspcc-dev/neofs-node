@@ -316,11 +316,18 @@ func waitForFlush(t *testing.T, wc Cache, objects []objectPair) {
 					cachedCount++
 				}
 			}
-			if cachedCount == 0 {
+			if cachedCount == 0 && wc.(*cache).objCounters.Size() == 0 {
 				return
 			}
 		case <-timeout:
-			t.Fatalf("Flush did not complete within 60 seconds, %d objects still cached", len(objects))
+			cachedCount := 0
+			for _, obj := range objects {
+				if _, err := wc.Get(obj.addr); err == nil {
+					cachedCount++
+				}
+			}
+			t.Fatalf("Flush did not complete within 60 seconds, %d objects still cached, counter size: %d",
+				cachedCount, wc.(*cache).objCounters.Size())
 		}
 	}
 }
