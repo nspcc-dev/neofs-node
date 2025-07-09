@@ -63,6 +63,8 @@ type ContainerNodes interface {
 	//  - first N nodes of each L are primary data holders while others (if any)
 	//    are backup.
 	PrimaryCounts() []uint
+	// TODO: docs.
+	ECRules() []ECRule
 }
 
 // NeoFSNetwork provides access to the NeoFS network to get information
