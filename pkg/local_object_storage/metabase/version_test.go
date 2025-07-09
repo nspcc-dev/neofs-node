@@ -145,6 +145,11 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
+		metaBkt := tx.Bucket(metaBucketKey(prm.tomb.Container()))
+		var metaCursor *bbolt.Cursor
+		if metaBkt != nil {
+			metaCursor = metaBkt.Cursor()
+		}
 
 		var (
 			// target bucket of the operation, one of the:
@@ -184,7 +189,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 			cnr := prm.target[i].Container()
 
 			// prevent locked objects to be inhumed
-			if !prm.forceRemoval && objectLocked(tx, cnr, id) {
+			if !prm.forceRemoval && objectLocked(tx, metaCursor, cnr, id) {
 				return apistatus.ObjectLocked{}
 			}
 
@@ -204,7 +209,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 			obj, err := getCompat(tx, prm.target[i], buf, true, currEpoch)
 			targetKey := addressKey(prm.target[i], buf)
 			if err == nil {
-				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
+				if inGraveyardWithKey(metaCursor, targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++

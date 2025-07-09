@@ -129,12 +129,18 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 // counter). The third return value is removed object payload size.
 func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bool, uint64, error) {
 	key := make([]byte, addressKeySize)
+	cID := addr.Container()
 	addrKey := addressKey(addr, key)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 	garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 	graveyardBKT := tx.Bucket(graveyardBucketName)
+	metaBucket := tx.Bucket(metaBucketKey(cID))
+	var metaCursor *bbolt.Cursor
+	if metaBucket != nil {
+		metaCursor = metaBucket.Cursor()
+	}
 
-	removeAvailableObject := inGraveyardWithKey(addrKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable
+	removeAvailableObject := inGraveyardWithKey(metaCursor, addrKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable
 
 	// remove record from the garbage bucket
 	if garbageObjectsBKT != nil {
