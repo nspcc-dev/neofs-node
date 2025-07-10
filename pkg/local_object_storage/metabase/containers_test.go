@@ -93,7 +93,7 @@ func TestDB_Containers(t *testing.T) {
 func TestDB_ContainersCount(t *testing.T) {
 	db := newDB(t)
 
-	const R, T, SG, L = 10, 11, 12, 13 // amount of object per type
+	const R, T, L = 10, 11, 13 // amount of object per type
 
 	uploadObjects := [...]struct {
 		amount int
@@ -101,11 +101,10 @@ func TestDB_ContainersCount(t *testing.T) {
 	}{
 		{R, objectSDK.TypeRegular},
 		{T, objectSDK.TypeTombstone},
-		{SG, objectSDK.TypeStorageGroup},
 		{L, objectSDK.TypeLock},
 	}
 
-	expected := make([]cid.ID, 0, R+T+SG+L)
+	expected := make([]cid.ID, 0, R+T+L)
 
 	for _, upload := range uploadObjects {
 		for range upload.amount {
@@ -225,13 +224,6 @@ func TestDB_DeleteContainer(t *testing.T) {
 
 		// lockers
 		err = db.Lock(cID, oidtest.ID(), []oid.ID{oidtest.ID()})
-		require.NoError(t, err)
-
-		// SG
-		o3 := objecttest.Object()
-		o3.SetContainerID(cID)
-		o3.SetType(objectSDK.TypeStorageGroup)
-		err = putBig(db, &o3)
 		require.NoError(t, err)
 
 		// TS

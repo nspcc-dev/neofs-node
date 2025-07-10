@@ -23,7 +23,6 @@ func TestDB_IterateExpired(t *testing.T) {
 	for _, typ := range []object.Type{
 		object.TypeRegular,
 		object.TypeTombstone,
-		object.TypeStorageGroup,
 		object.TypeLock,
 	} {
 		mAlive[typ] = putWithExpiration(t, db, typ, epoch)

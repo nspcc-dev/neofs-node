@@ -117,6 +117,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/ipfs/go-cid v0.4.1 h1:A/T3qGvxi4kpKWWcPC/PgbvDA2bjVLO7n4UeVwnbs/s=
 github.com/ipfs/go-cid v0.4.1/go.mod h1:uQHwDeX4c6CtyrFwdqyhpNcxVewur1M7l7fNU7LKwZk=
+github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
+github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
 github.com/klauspost/compress v1.17.11 h1:In6xLpyWOi1+C7tXUUWv2ot1QvBjxevKAaI6IXrJmUc=
 github.com/klauspost/compress v1.17.11/go.mod h1:pMDklpSncoRMuLFrf1W9Ss9KT+0rH90U12bZKk7uwG0=
 github.com/klauspost/cpuid/v2 v2.2.7 h1:ZWSB3igEs+d0qvnxR/ZBzXVmxkgt8DdzP6m9pfuVLDM=
@@ -193,8 +195,8 @@ github.com/nspcc-dev/hrw/v2 v2.0.3 h1:GUIitIiDpAaQat9SZccp7XVAuwtqaM40+uZ9D8Q4A8
 github.com/nspcc-dev/hrw/v2 v2.0.3/go.mod h1:VWlFSGGPcHG1abuIDJb5u83tIF2EqOatC8Z7svZmgWQ=
 github.com/nspcc-dev/locode-db v0.6.0 h1:EdRUug+sL0EMLZgucLETD6bnegKjyEZh+D5x4r5VMvY=
 github.com/nspcc-dev/locode-db v0.6.0/go.mod h1:mJLXdzlcRucr3AFUvf5fJH+rFv1bJuU85e1jtDHDTz8=
-github.com/nspcc-dev/neo-go v0.110.0 h1:dF7C4zU5pw3oydfr5SIKHJ31hElgdWwfUVgVH2KB4x4=
-github.com/nspcc-dev/neo-go v0.110.0/go.mod h1:Sv/mc0zbRUauA2HhA0TMy6L/lYMIe7pnI2QQers9elM=
+github.com/nspcc-dev/neo-go v0.110.1-0.20250709130255-4f05526f09f6 h1:2T/whI2JcweHqlCsH/PHhGTefP8nrtRFzmHZg/4TCVs=
+github.com/nspcc-dev/neo-go v0.110.1-0.20250709130255-4f05526f09f6/go.mod h1:PkLFBJPwuyEu+KSccDBMzdfjEr+Wml8mxZRliQWL8Ck=
 github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250423172732-0e55bd820115 h1:VWIceT+fh7sB5H+J5hhOIN+pWCy9/PHcvpvjSXteIQg=
 github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250423172732-0e55bd820115/go.mod h1:3byneDNT60tiD8MSyGSyjpI1uVp9v+coySegJoQPF8c=
 github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea h1:mK0EMGLvunXcFyq7fBURS/CsN4MH+4nlYiqn6pTwWAU=

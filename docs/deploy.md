@@ -35,7 +35,6 @@ network:
   epoch_duration: 240
   basic_income_rate: 0
   fee:
-    audit: 0
     candidate: 0
     container: 0
     withdraw: 0

@@ -97,7 +97,7 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			object.NewAttribute("group_attr_1", "group_val_1"),
 			object.NewAttribute("group_attr_2", "group_val_2"),
 		}
-		types := [nRoot]object.Type{object.TypeRegular, object.TypeStorageGroup}
+		types := [nRoot]object.Type{object.TypeRegular, object.TypeStorageGroup} //nolint:staticcheck // storage groups are deprecated, but this test needs some additional type.
 		splitIDs := [nRoot][]byte{
 			// 8b69e76d-5e95-4639-8213-46786c41ab73
 			{139, 105, 231, 109, 94, 149, 70, 57, 130, 19, 70, 120, 108, 65, 171, 115},

@@ -22,30 +22,18 @@ type (
 
 		pool nodeutil.WorkerPool
 
-		auditProc AuditProcessor
-
 		basicIncome BasicIncomeInitializer
 	}
 
 	// Prm groups the required parameters of Processor's constructor.
 	Prm struct {
-		AuditProcessor AuditProcessor
-		BasicIncome    BasicIncomeInitializer
-		State          AlphabetState
+		BasicIncome BasicIncomeInitializer
+		State       AlphabetState
 	}
 )
 
-func panicOnPrmValue(n string, v any) {
-	panic(fmt.Sprintf("invalid parameter %s (%T):%v", n, v, v))
-}
-
 // New creates and returns a new Processor instance.
 func New(prm Prm, opts ...Option) *Processor {
-	switch {
-	case prm.AuditProcessor == nil:
-		panicOnPrmValue("AuditProcessor", prm.AuditProcessor)
-	}
-
 	o := defaultOptions()
 
 	for i := range opts {
@@ -65,7 +53,6 @@ func New(prm Prm, opts ...Option) *Processor {
 		log:         o.log,
 		state:       prm.State,
 		pool:        pool,
-		auditProc:   prm.AuditProcessor,
 		basicIncome: prm.BasicIncome,
 	}
 }

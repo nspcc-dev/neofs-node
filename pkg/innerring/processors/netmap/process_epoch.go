@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -85,8 +83,6 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 			l.Debug("updated placements in Container contract")
 		}
 	}
-	np.handleNewAudit(audit.NewAuditStartEvent(epoch))
-	np.handleAuditSettlements(settlement.NewAuditEvent(epoch))
 	np.handleAlphabetSync(governance.NewSyncEvent(ev.TxHash()))
 	np.handleNotaryDeposit(ev)
 }

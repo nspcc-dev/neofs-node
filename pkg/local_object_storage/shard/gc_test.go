@@ -196,7 +196,7 @@ func TestExpiration(t *testing.T) {
 
 	obj := generateObject()
 
-	for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink, object.TypeStorageGroup} {
+	for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink} {
 		t.Run(fmt.Sprintf("type: %s", typ), func(t *testing.T) {
 			exp := uint64(i * 10)
 

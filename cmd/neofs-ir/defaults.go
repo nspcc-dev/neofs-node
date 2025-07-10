@@ -93,18 +93,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("emit.mint.value", 20000000) // 0.2 Fixed8
 	cfg.SetDefault("emit.gas.balance_threshold", 0)
 
-	cfg.SetDefault("audit.task.exec_pool_size", 10)
-	cfg.SetDefault("audit.task.queue_capacity", 100)
-	cfg.SetDefault("audit.timeout.get", "5s")
-	cfg.SetDefault("audit.timeout.head", "5s")
-	cfg.SetDefault("audit.timeout.rangehash", "5s")
-	cfg.SetDefault("audit.timeout.search", "10s")
-	cfg.SetDefault("audit.pdp.max_sleep_interval", "5s")
-	cfg.SetDefault("audit.pdp.pairs_pool_size", "10")
-	cfg.SetDefault("audit.por.pool_size", "10")
-
 	cfg.SetDefault("settlement.basic_income_rate", 0)
-	cfg.SetDefault("settlement.audit_fee", 0)
 
 	cfg.SetDefault("indexer.cache_timeout", 15*time.Second)
 

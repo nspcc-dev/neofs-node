@@ -63,23 +63,6 @@ func TestValidateDefaultConfig(t *testing.T) {
 			Netmap:     10,
 			Reputation: 10,
 		},
-		Audit: config.Audit{
-			Timeout: config.Timeout{
-				Get:       5 * time.Second,
-				Head:      5 * time.Second,
-				RangeHash: 5 * time.Second,
-				Search:    10 * time.Second,
-			},
-			Task: config.Task{
-				ExecPoolSize:  10,
-				QueueCapacity: 100,
-			},
-			PDP: config.PDP{
-				PairsPoolSize:    10,
-				MaxSleepInterval: 5 * time.Second,
-			},
-			POR: config.POR{PoolSize: 10},
-		},
 		Indexer: config.Indexer{CacheTimeout: 15 * time.Second},
 		Pprof: config.BasicService{
 			Enabled:         false,
@@ -97,7 +80,6 @@ func TestValidateDefaultConfig(t *testing.T) {
 		},
 		Settlement: config.Settlement{
 			BasicIncomeRate: 0,
-			AuditFee:        0,
 		},
 		Experimental: config.Experimental{ChainMetaData: false}})
 }

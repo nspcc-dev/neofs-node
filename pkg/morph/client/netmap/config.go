@@ -13,7 +13,6 @@ import (
 const (
 	MaxObjectSizeConfig           = "MaxObjectSize"
 	BasicIncomeRateConfig         = "BasicIncomeRate"
-	AuditFeeConfig                = "AuditFee"
 	EpochDurationConfig           = "EpochDuration"
 	ContainerFeeConfig            = "ContainerFee"
 	ContainerAliasFeeConfig       = "ContainerAliasFee"
@@ -44,17 +43,6 @@ func (c *Client) BasicIncomeRate() (uint64, error) {
 	}
 
 	return rate, nil
-}
-
-// AuditFee returns audit fee configuration value from network
-// config in netmap contract.
-func (c *Client) AuditFee() (uint64, error) {
-	fee, err := c.readUInt64Config(AuditFeeConfig)
-	if err != nil {
-		return 0, fmt.Errorf("(%T) could not get audit fee: %w", c, err)
-	}
-
-	return fee, nil
 }
 
 // EpochDuration returns number of seconds per one NeoFS epoch.
@@ -228,8 +216,6 @@ type NetworkConfiguration struct {
 
 	StoragePrice uint64
 
-	AuditFee uint64
-
 	EpochDuration uint64
 
 	ContainerFee uint64
@@ -291,8 +277,6 @@ func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 			res.MaxObjectSize = bytesToUint64(value)
 		case BasicIncomeRateConfig:
 			res.StoragePrice = bytesToUint64(value)
-		case AuditFeeConfig:
-			res.AuditFee = bytesToUint64(value)
 		case EpochDurationConfig:
 			res.EpochDuration = bytesToUint64(value)
 		case ContainerFeeConfig:

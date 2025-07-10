@@ -26,7 +26,6 @@ If set to '0' or not set, only the current epoch is used.
 List of commands with support of extended headers:
 * `container list-objects`
 * `object delete/get/hash/head/lock/put/range/search`
-* `storagegroup delete/get/list/put`
 
 Example:
 ```shell

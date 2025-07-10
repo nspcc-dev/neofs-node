@@ -371,7 +371,7 @@ func TestMigrate2to3(t *testing.T) {
 func TestMigrate3to4(t *testing.T) {
 	db := newDB(t)
 
-	typs := []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeStorageGroup, object.TypeLock, object.TypeLink}
+	typs := []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeStorageGroup, object.TypeLock, object.TypeLink} //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 	objs := make([]object.Object, len(typs))
 	var css, hcss [][]byte
 	for i := range objs {

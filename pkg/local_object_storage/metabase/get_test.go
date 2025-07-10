@@ -53,18 +53,6 @@ func TestDB_Get(t *testing.T) {
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
-	t.Run("put storage group object", func(t *testing.T) {
-		raw.SetType(objectSDK.TypeStorageGroup)
-		raw.SetID(oidtest.ID())
-
-		err := putBig(db, raw)
-		require.NoError(t, err)
-
-		newObj, err := metaGet(db, object.AddressOf(raw), false)
-		require.NoError(t, err)
-		require.Equal(t, raw.CutPayload(), newObj)
-	})
-
 	t.Run("put lock object", func(t *testing.T) {
 		raw.SetType(objectSDK.TypeLock)
 		raw.SetID(oidtest.ID())
@@ -256,13 +244,8 @@ func TestDB_GetContainer(t *testing.T) {
 	err = db.Lock(cID, id4, []oid.ID{o5, o6}) // locked object have not been put to meta, no new objects
 	require.NoError(t, err)
 
-	o7 := generateObjectWithCID(t, cID) // 5
-	o7.SetType(objectSDK.TypeStorageGroup)
-	err = metaPut(db, o7)
-	require.NoError(t, err)
-
 	// TS
-	o8 := generateObjectWithCID(t, cID) // 6
+	o8 := generateObjectWithCID(t, cID) // 5
 	o8.SetType(objectSDK.TypeTombstone)
 	err = metaPut(db, o8)
 	require.NoError(t, err)
@@ -273,7 +256,7 @@ func TestDB_GetContainer(t *testing.T) {
 	objs, err := db.Select(cID, objectSDK.SearchFilters{})
 	require.NoError(t, err)
 
-	require.Len(t, objs, 5) // Tombstone is not returned.
+	require.Len(t, objs, 4) // Tombstone is not returned.
 }
 
 func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {

@@ -26,7 +26,6 @@ func TestDB_Lock(t *testing.T) {
 	t.Run("(ir)regular", func(t *testing.T) {
 		for _, typ := range [...]object.Type{
 			object.TypeTombstone,
-			object.TypeStorageGroup,
 			object.TypeLock,
 			object.TypeRegular,
 		} {

@@ -70,7 +70,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	const (
 		containers = 5
-		total      = containers * 5 // regular + ts + sg + child + lock
+		total      = containers * 4 // regular + ts + child + lock
 	)
 
 	expected := make([]object.AddressWithType, 0, total)
@@ -92,13 +92,6 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		err = putBig(db, obj)
 		require.NoError(t, err)
 		expected = append(expected, object.AddressWithType{Address: object.AddressOf(obj), Type: objectSDK.TypeTombstone})
-
-		// add one storage group
-		obj = generateObjectWithCID(t, containerID)
-		obj.SetType(objectSDK.TypeStorageGroup)
-		err = putBig(db, obj)
-		require.NoError(t, err)
-		expected = append(expected, object.AddressWithType{Address: object.AddressOf(obj), Type: objectSDK.TypeStorageGroup})
 
 		// add one lock
 		obj = generateObjectWithCID(t, containerID)

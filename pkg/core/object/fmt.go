@@ -15,7 +15,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 )
 
 // FormatValidator represents an object format validator.
@@ -105,8 +104,6 @@ var errNilCID = errors.New("missing container identifier")
 
 var errTombstoneExpiration = errors.New("tombstone body and header contain different expiration values")
 
-var errEmptySGMembers = errors.New("storage group with empty members list")
-
 func defaultCfg() *cfg {
 	return new(cfg)
 }
@@ -135,6 +132,10 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...
 func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	if obj == nil {
 		return errNilObject
+	}
+
+	if obj.Type() == object.TypeStorageGroup { //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
+		return fmt.Errorf("strorage group type is no longer supported")
 	}
 
 	var hdrLen = obj.HeaderLen()
@@ -220,7 +221,6 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 // ContentMeta describes NeoFS meta information that brings object's payload if the object
 // is one of:
 //   - object.TypeTombstone;
-//   - object.TypeStorageGroup;
 //   - object.TypeLink;
 //   - object.TypeLock.
 type ContentMeta struct {
@@ -230,7 +230,6 @@ type ContentMeta struct {
 // Objects returns objects that the original object's payload affects:
 //   - inhumed objects, if the original object is a Tombstone;
 //   - locked objects, if the original object is a Lock;
-//   - members of a storage group, if the original object is a Storage group;
 //   - nil, if the original object is a Regular object.
 func (i ContentMeta) Objects() []oid.ID {
 	return i.objs
@@ -302,34 +301,6 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 
 		idList := tombstone.Members()
 		meta.objs = idList
-	case object.TypeStorageGroup:
-		if len(o.Payload()) == 0 {
-			return ContentMeta{}, errors.New("empty payload in SG")
-		}
-
-		var sg storagegroup.StorageGroup
-
-		if err := sg.Unmarshal(o.Payload()); err != nil {
-			return ContentMeta{}, fmt.Errorf("could not unmarshal SG content: %w", err)
-		}
-
-		mm := sg.Members()
-		meta.objs = mm
-
-		lenMM := len(mm)
-		if lenMM == 0 {
-			return ContentMeta{}, errEmptySGMembers
-		}
-
-		uniqueFilter := make(map[oid.ID]struct{}, lenMM)
-
-		for i := range lenMM {
-			if _, alreadySeen := uniqueFilter[mm[i]]; alreadySeen {
-				return ContentMeta{}, fmt.Errorf("storage group contains non-unique member: %s", mm[i])
-			}
-
-			uniqueFilter[mm[i]] = struct{}{}
-		}
 	case object.TypeLock:
 		if len(o.Payload()) == 0 {
 			return ContentMeta{}, errors.New("empty payload in lock")
