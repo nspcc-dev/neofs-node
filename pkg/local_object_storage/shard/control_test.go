@@ -102,7 +102,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	// https://github.com/nspcc-dev/neofs-node/issues/2563
 	err = fsTree.Delete(addr)
 	require.NoError(t, err)
-	err = fsTree.Put(addr, []byte("not an object"))
+	err = fsTree.Put(addr, []byte("not an object"), nil)
 	require.NoError(t, err)
 
 	sh = New(

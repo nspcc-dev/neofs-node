@@ -11,8 +11,8 @@ type Option func(*options)
 
 // stor is an interface for the storage.
 type stor interface {
-	Put(oid.Address, []byte) error
-	PutBatch(map[oid.Address][]byte) error
+	Put(oid.Address, []byte, []byte) error
+	PutBatch(map[oid.Address][2][]byte) error
 	Exists(oid.Address) (bool, error)
 }
 

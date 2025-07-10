@@ -124,8 +124,47 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 
 // readHeaderAndPayload reads an object header from the file and returns reader for payload.
 // This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
+func (t *FSTree) readHeaderAndPayload(f io.ReadSeekCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
 	var err error
+	var hLen, dLen uint32
+	if len(initial) >= streamDataOff {
+		hLen, dLen = parseStreamPrefix(initial)
+	} else {
+		var p []byte
+		copy(p[:], initial)
+		_, err := io.ReadFull(f, p[len(initial):])
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil, f, fmt.Errorf("read stream prefix: %w", err)
+		}
+		hLen, dLen = parseStreamPrefix(p)
+		if hLen == 0 {
+			initial = p[:]
+		}
+	}
+	if hLen > 0 {
+		initial = initial[streamDataOff:]
+		var header []byte
+		if len(initial) < int(hLen) {
+			header = make([]byte, hLen)
+			copy(header, initial)
+			_, err = io.ReadFull(f, header[len(initial):])
+			if err != nil {
+				return nil, nil, fmt.Errorf("read stream header: %w", err)
+			}
+			initial = header
+		}
+		header = initial[:hLen]
+		var obj objectSDK.Object
+		err = obj.Unmarshal(header)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unmarshal object: %w", err)
+		}
+		return &obj, &payloadReader{
+			Reader: io.LimitReader(io.MultiReader(bytes.NewReader(initial[hLen:]), f), int64(dLen)),
+			close:  f.Close,
+		}, nil
+	}
+
 	if len(initial) < objectSDK.MaxHeaderLen {
 		_ = f.Close()
 		initial, err = t.Decompress(initial)

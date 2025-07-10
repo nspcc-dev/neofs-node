@@ -39,7 +39,7 @@ func testCopy(t *testing.T, copier func(dst, src common.Storage) error) {
 		_, _ = rand.Read(data)
 		mObjs[addr] = data
 
-		err := src.Put(addr, data)
+		err := src.Put(addr, data, nil)
 		require.NoError(t, err)
 	}
 

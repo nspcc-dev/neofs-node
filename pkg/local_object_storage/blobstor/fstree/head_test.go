@@ -23,7 +23,7 @@ func TestHeadStorage(t *testing.T) {
 		addAttribute(obj, "test-key1", "test-value1")
 		addAttribute(obj, "test-key2", "test-value2")
 
-		err := fsTree.Put(object.AddressOf(obj), obj.Marshal())
+		err := fsTree.Put(object.AddressOf(obj), obj.Payload(), obj.CutPayload().Marshal())
 		require.NoError(t, err)
 
 		res, err := fsTree.Head(object.AddressOf(obj))
@@ -42,7 +42,7 @@ func TestHeadStorage(t *testing.T) {
 	testCombinedObjects := func(t *testing.T, fsTree *fstree.FSTree, size int) {
 		const numObjects = 100
 
-		objMap := make(map[oid.Address][]byte, numObjects)
+		objMap := make(map[oid.Address][2][]byte, numObjects)
 		objects := make([]*objectSDK.Object, numObjects)
 		for i := range numObjects {
 			obj := generateTestObject(size)
@@ -50,7 +50,7 @@ func TestHeadStorage(t *testing.T) {
 			addAttribute(obj, fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
 
 			objects[i] = obj
-			objMap[object.AddressOf(obj)] = obj.Marshal()
+			objMap[object.AddressOf(obj)] = [2][]byte{obj.Payload(), obj.CutPayload().Marshal()}
 		}
 
 		require.NoError(t, fsTree.PutBatch(objMap))
@@ -75,7 +75,7 @@ func TestHeadStorage(t *testing.T) {
 			addAttribute(obj, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
 		}
 
-		err := fsTree.Put(object.AddressOf(obj), obj.Marshal())
+		err := fsTree.Put(object.AddressOf(obj), obj.Payload(), obj.CutPayload().Marshal())
 		require.NoError(t, err)
 
 		res, err := fsTree.Head(object.AddressOf(obj))

@@ -41,7 +41,7 @@ func TestGetStream(t *testing.T) {
 		obj.SetID(addr.Object())
 		obj.SetPayload(payload)
 
-		require.NoError(t, tree.Put(addr, obj.Marshal()))
+		require.NoError(t, tree.Put(addr, obj.Marshal(), nil))
 
 		retrievedObj, reader, err := tree.GetStream(addr)
 		require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		payload := []byte("test payload")
 		obj.SetPayload(payload)
 
-		require.NoError(t, tree.Put(addr, obj.Marshal()))
+		require.NoError(t, tree.Put(addr, obj.Marshal(), nil))
 
 		objPath := tree.treePath(addr)
 
