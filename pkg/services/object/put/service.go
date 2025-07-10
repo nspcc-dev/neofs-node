@@ -90,8 +90,6 @@ type cfg struct {
 
 	cnrSrc container.Source
 
-	netMapSrc netmap.Source
-
 	remotePool util.WorkerPool
 
 	fmtValidator *object.FormatValidator
@@ -166,12 +164,6 @@ func WithObjectStorage(v ObjectStorage) Option {
 func WithContainerSource(v container.Source) Option {
 	return func(c *cfg) {
 		c.cnrSrc = v
-	}
-}
-
-func WithNetworkMapSource(v netmap.Source) Option {
-	return func(c *cfg) {
-		c.netMapSrc = v
 	}
 }
 
