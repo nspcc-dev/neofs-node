@@ -53,7 +53,6 @@ var netInfoCmd = &cobra.Command{
 		cmd.Printf(format, "EigenTrust alpha", netInfo.EigenTrustAlpha())
 		cmd.Printf(format, "Number of EigenTrust iterations", netInfo.NumberOfEigenTrustIterations())
 		cmd.Printf(format, "Epoch duration", netInfo.EpochDuration())
-		cmd.Printf(format, "Inner Ring candidate fee", netInfo.IRCandidateFee())
 		cmd.Printf(format, "Maximum object size", netInfo.MaxObjectSize())
 		cmd.Printf(format, "Withdrawal fee", netInfo.WithdrawalFee())
 		cmd.Printf(format, "Homomorphic hashing disabled", netInfo.HomomorphicHashingDisabled())

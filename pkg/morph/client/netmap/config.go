@@ -18,7 +18,6 @@ const (
 	ContainerAliasFeeConfig       = "ContainerAliasFee"
 	EigenTrustIterationsConfig    = "EigenTrustIterations"
 	EigenTrustAlphaConfig         = "EigenTrustAlpha"
-	InnerRingCandidateFeeConfig   = "InnerRingCandidateFee"
 	WithdrawFeeConfig             = "WithdrawFee"
 	HomomorphicHashingDisabledKey = "HomomorphicHashingDisabled"
 )
@@ -105,17 +104,6 @@ func (c *Client) EigenTrustAlpha() (float64, error) {
 // Returns (false, nil) if config key is not found in the contract.
 func (c *Client) HomomorphicHashDisabled() (bool, error) {
 	return c.readBoolConfig(HomomorphicHashingDisabledKey)
-}
-
-// InnerRingCandidateFee returns global configuration value of fee paid by
-// node to be in inner ring candidates list.
-func (c *Client) InnerRingCandidateFee() (uint64, error) {
-	fee, err := c.readUInt64Config(InnerRingCandidateFeeConfig)
-	if err != nil {
-		return 0, fmt.Errorf("(%T) could not get inner ring candidate fee: %w", c, err)
-	}
-
-	return fee, nil
 }
 
 // WithdrawFee returns global configuration value of fee paid by user to
@@ -226,8 +214,6 @@ type NetworkConfiguration struct {
 
 	EigenTrustAlpha float64
 
-	IRCandidateFee uint64
-
 	WithdrawalFee uint64
 
 	HomomorphicHashingDisabled bool
@@ -290,8 +276,6 @@ func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 			if err != nil {
 				return fmt.Errorf("invalid prm %s: %w", EigenTrustAlphaConfig, err)
 			}
-		case InnerRingCandidateFeeConfig:
-			res.IRCandidateFee = bytesToUint64(value)
 		case WithdrawFeeConfig:
 			res.WithdrawalFee = bytesToUint64(value)
 		case HomomorphicHashingDisabledKey:

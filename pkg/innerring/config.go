@@ -198,7 +198,6 @@ func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.StoragePrice = 0         // in GAS per 1GB (NeoFS Balance contract's decimals)
 	netCfg.ContainerFee = 1000      // in GAS per container (NeoFS Balance contract's decimals)
 	netCfg.ContainerAliasFee = 500  // in GAS per container (NeoFS Balance contract's decimals)
-	netCfg.IRCandidateFee = 0       // in GAS per candidate (Fixed8)
 	netCfg.WithdrawalFee = 0        // in GAS per withdrawal (Fixed8)
 	netCfg.EigenTrustIterations = 4
 	netCfg.EigenTrustAlpha = 0.1
