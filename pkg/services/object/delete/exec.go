@@ -2,7 +2,6 @@ package deletesvc
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -26,8 +25,6 @@ type execCtx struct {
 	statusError
 
 	log *zap.Logger
-
-	tombstone *object.Tombstone
 
 	tombstoneObj *object.Object
 }
@@ -73,44 +70,6 @@ func (exec *execCtx) newAddress(id oid.ID) oid.Address {
 	a.SetContainer(exec.containerID())
 
 	return a
-}
-
-func (exec *execCtx) addMembers(incoming []oid.ID) {
-	members := exec.tombstone.Members()
-
-	for i := range members {
-		for j := 0; j < len(incoming); j++ { // don't use range, slice mutates in body
-			if members[i] == incoming[j] {
-				incoming = append(incoming[:j], incoming[j+1:]...)
-				j--
-			}
-		}
-	}
-
-	exec.tombstone.SetMembers(append(members, incoming...))
-}
-
-func (exec *execCtx) initTombstoneObject() bool {
-	exec.tombstoneObj = object.New()
-	exec.tombstoneObj.SetContainerID(exec.containerID())
-	exec.tombstoneObj.SetType(object.TypeTombstone)
-	exec.tombstoneObj.SetPayload(exec.tombstone.Marshal())
-
-	tokenSession := exec.commonParameters().SessionToken()
-	if tokenSession != nil {
-		exec.tombstoneObj.SetOwner(tokenSession.Issuer())
-	} else {
-		// make local node a tombstone object owner
-		exec.tombstoneObj.SetOwner(exec.svc.netInfo.LocalNodeID())
-	}
-
-	var a object.Attribute
-	a.SetKey(object.AttributeExpirationEpoch)
-	a.SetValue(strconv.FormatUint(exec.tombstone.ExpirationEpoch(), 10))
-
-	exec.tombstoneObj.SetAttributes(a)
-
-	return true
 }
 
 func (exec *execCtx) saveTombstone() bool {
