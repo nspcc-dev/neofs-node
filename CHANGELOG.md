@@ -40,6 +40,7 @@ Changelog for NeoFS Node
 - neofs-cli storagegroup commands (#3442)
 - SG-based audit from IR and SN (#3442)
 - Support for audit fee setting (#3442)
+- Support for Inner Ring candidate fee setting (#3459)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250623124459-a9cfab652dc0` (#3406)

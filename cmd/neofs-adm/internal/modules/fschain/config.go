@@ -67,7 +67,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 		case netmapBasicIncomeRateKey,
 			netmapContainerFeeKey, netmapContainerAliasFeeKey,
 			netmapEigenTrustIterationsKey,
-			netmapEpochKey, netmapInnerRingCandidateFeeKey,
+			netmapEpochKey,
 			netmapMaxObjectSizeKey, netmapWithdrawFeeKey:
 			nbuf := make([]byte, 8)
 			copy(nbuf, v)
@@ -154,7 +154,7 @@ func parseConfigPair(kvStr string, force bool) (key string, val any, err error) 
 	case netmapBasicIncomeRateKey,
 		netmapContainerFeeKey, netmapContainerAliasFeeKey,
 		netmapEigenTrustIterationsKey,
-		netmapEpochKey, netmapInnerRingCandidateFeeKey,
+		netmapEpochKey,
 		netmapMaxObjectSizeKey, netmapWithdrawFeeKey:
 		val, err = strconv.ParseInt(valRaw, 10, 64)
 		if err != nil {

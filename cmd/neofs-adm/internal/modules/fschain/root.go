@@ -32,8 +32,6 @@ const (
 	containerAliasFeeInitFlag       = "network.fee.container_alias"
 	containerFeeCLIFlag             = "container-fee"
 	containerAliasFeeCLIFlag        = "container-alias-fee"
-	candidateFeeInitFlag            = "network.fee.candidate"
-	candidateFeeCLIFlag             = "candidate-fee"
 	homomorphicHashDisabledInitFlag = "network.homomorphic_hash_disabled"
 	homomorphicHashDisabledCLIFlag  = "homomorphic-disabled"
 	withdrawFeeInitFlag             = "network.fee.withdraw"

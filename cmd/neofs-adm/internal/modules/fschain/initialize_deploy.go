@@ -51,7 +51,6 @@ const (
 	netmapEigenTrustIterationsKey    = "EigenTrustIterations"
 	netmapEigenTrustAlphaKey         = "EigenTrustAlpha"
 	netmapBasicIncomeRateKey         = "BasicIncomeRate"
-	netmapInnerRingCandidateFeeKey   = "InnerRingCandidateFee"
 	netmapWithdrawFeeKey             = "WithdrawFee"
 	netmapHomomorphicHashDisabledKey = "HomomorphicHashingDisabled"
 
@@ -445,7 +444,6 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 			{netmapContainerFeeKey, containerFeeInitFlag},
 			{netmapContainerAliasFeeKey, containerAliasFeeInitFlag},
 			{netmapBasicIncomeRateKey, incomeRateInitFlag},
-			{netmapInnerRingCandidateFeeKey, candidateFeeInitFlag},
 			{netmapWithdrawFeeKey, withdrawFeeInitFlag},
 		} {
 			i64, err := unwrap.Int64(c.ReadOnlyInvoker.Call(ctrHash, "config", kf.key))
