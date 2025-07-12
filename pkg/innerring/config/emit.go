@@ -1,6 +1,6 @@
 package config
 
-// Emit configures settings of GAS emmission.
+// Emit configures settings of GAS emission.
 type Emit struct {
 	Storage EmitStorage `mapstructure:"storage"`
 	Mint    Mint        `mapstructure:"mint"`

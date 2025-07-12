@@ -353,7 +353,7 @@ func (s *containerStorage) deleteObjectsOps(dbKV map[string][]byte, objects []by
 				withoutOID := k[1+oid.Size:]
 				i := bytes.Index(withoutOID, object.MetaAttributeDelimiter)
 				if i < 0 {
-					err = fmt.Errorf("unexpected attribute index without delimeter: %s", string(k))
+					err = fmt.Errorf("unexpected attribute index without delimiter: %s", string(k))
 					return false
 				}
 				attrK := withoutOID[:i]

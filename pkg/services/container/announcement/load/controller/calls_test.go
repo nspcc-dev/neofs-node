@@ -172,7 +172,7 @@ func TestSimpleScenario(t *testing.T) {
 
 	wg.Wait()
 
-	// result target should contain all "good" announcements and shoult not container the "bad" one
+	// result target should contain all "good" announcements and should not container the "bad" one
 	var res []container.SizeEstimation
 
 	err := resultStorage.Iterate(
