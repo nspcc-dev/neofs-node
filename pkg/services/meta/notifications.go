@@ -635,7 +635,7 @@ func (m *Meta) NotifyObjectSuccess(ch chan<- struct{}, addr oid.Address) {
 }
 
 // UnsubscribeFromObject unsibscribes from object notification. Should be called
-// if notification is not reqired as a memory clean up.
+// if notification is not required as a memory clean up.
 func (m *Meta) UnsubscribeFromObject(addr oid.Address) {
 	m.notifier.unsubscribe(addr)
 }
