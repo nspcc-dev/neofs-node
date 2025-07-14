@@ -16,11 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-// maxInitialBufferSize is the maximum initial buffer size for GetRange result.
-// We don't want to allocate a lot of space in advance because a query can
-// fail with apistatus.ObjectOutOfRange status.
-const maxInitialBufferSize = 1024 * 1024 // 1 MiB
-
 type SimpleObjectWriter struct {
 	obj *object.Object
 
@@ -89,14 +84,15 @@ func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
 	}, nil
 }
 
-func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*object.Object, error) {
+func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*object.Object, io.ReadCloser, error) {
 	if exec.isForwardingEnabled() {
-		return exec.prm.forwarder(exec.ctx, info, c.client)
+		obj, err := exec.prm.forwarder(exec.ctx, info, c.client)
+		return obj, nil, err
 	}
 
 	key, err := exec.key()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if exec.headOnly() {
@@ -120,15 +116,15 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 		hdr, err := c.client.ObjectHead(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 		if err != nil {
-			return nil, fmt.Errorf("read object header from NeoFS: %w", err)
+			return nil, nil, fmt.Errorf("read object header from NeoFS: %w", err)
 		}
 
-		return hdr, nil
+		return hdr, nil, nil
 	}
 
 	if rngH := exec.prmRangeHash; rngH != nil && exec.isRangeHashForwardingEnabled() {
 		exec.prmRangeHash.forwardedRangeHashResponse, err = exec.prm.rangeForwarder(exec.ctx, info, c.client)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// we don't specify payload writer because we accumulate
@@ -158,50 +154,48 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 			if errors.Is(err, apistatus.ErrObjectAccessDenied) {
 				// Current spec allows other storage node to deny access,
 				// fallback to GET here.
-				obj, err := c.get(exec, key)
+				hdr, reader, err := c.get(exec, key)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 
-				payload := obj.Payload()
+				pLen := hdr.PayloadSize()
 				from := rng.GetOffset()
-				ln := rng.GetLength()
-				if ln == 0 {
-					ln = obj.PayloadSize()
-				}
-				to := from + ln
-
-				if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-					return nil, new(apistatus.ObjectOutOfRange)
+				var to uint64
+				if ln != 0 {
+					to = from + ln
+				} else {
+					to = pLen
 				}
 
-				return payloadOnlyObject(payload[from:to]), nil
+				if to < from || pLen < from || pLen < to {
+					return nil, nil, apistatus.ErrObjectOutOfRange
+				}
+
+				if from > 0 {
+					_, err = io.CopyN(io.Discard, reader, int64(from))
+					if err != nil {
+						return nil, nil, fmt.Errorf("discard %d bytes in stream: %w", from, err)
+					}
+				}
+
+				return nil, struct {
+					io.Reader
+					io.Closer
+				}{
+					Reader: io.LimitReader(reader, int64(to-from)),
+					Closer: reader,
+				}, nil
 			}
-			return nil, fmt.Errorf("init payload reading: %w", err)
+			return nil, nil, fmt.Errorf("init payload reading: %w", err)
 		}
-
-		if int64(ln) < 0 {
-			// `CopyN` expects `int64`, this check ensures that the result is positive.
-			// On practice this means that we can return incorrect results for objects
-			// with size > 8_388 Petabytes, this will be fixed later with support for streaming.
-			return nil, new(apistatus.ObjectOutOfRange)
-		}
-
-		ln = min(ln, maxInitialBufferSize)
-
-		w := bytes.NewBuffer(make([]byte, ln))
-		_, err = io.CopyN(w, rdr, int64(ln))
-		if err != nil {
-			return nil, fmt.Errorf("read payload: %w", err)
-		}
-
-		return payloadOnlyObject(w.Bytes()), nil
+		return nil, rdr, nil
 	}
 
 	return c.get(exec, key)
 }
 
-func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, error) {
+func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, io.ReadCloser, error) {
 	addr := exec.address()
 	id := addr.Object()
 
@@ -222,55 +216,28 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 	hdr, rdr, err := c.client.ObjectGetInit(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return nil, fmt.Errorf("init object reading:: %w", err)
+		return nil, nil, fmt.Errorf("init object reading:: %w", err)
 	}
-
-	buf := make([]byte, hdr.PayloadSize())
-
-	_, err = rdr.Read(buf)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("read payload: %w", err)
-	}
-
-	hdr.SetPayload(buf)
-
-	return &hdr, nil
+	return &hdr, rdr, nil
 }
 
-func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
+func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser, error) {
 	if exec.headOnly() {
 		r, err := e.engine.Head(exec.address(), exec.isRaw())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		return r, nil
+		return r, nil, nil
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
 		r, err := e.engine.GetRange(exec.address(), rng.GetOffset(), rng.GetLength())
-		if err != nil {
-			return nil, err
-		}
-
-		o := object.New()
-		o.SetPayload(r)
-
-		return o, nil
+		// TODO: use here GetRangeStream when it will be implemented
+		return nil, io.NopCloser(bytes.NewReader(r)), err
 	}
 
-	header, reader, err := e.engine.GetStream(exec.address())
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = reader.Close() }()
-
-	payload, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("can't read object payload: %w", err)
-	}
-	header.SetPayload(payload)
-	return header, nil
+	return e.engine.GetStream(exec.address())
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {
@@ -278,14 +245,13 @@ func (w *partWriter) WriteChunk(p []byte) error {
 }
 
 func (w *partWriter) WriteHeader(o *object.Object) error {
+	// Range responses use only ChunkWriter and didn't emit headers.
+	// Treat header writes as a no-op when no header writer is set so callers can
+	// still "trigger" header-dependent flows without affecting the client stream.
+	if w.headWriter == nil {
+		return nil
+	}
 	return w.headWriter.WriteHeader(o)
-}
-
-func payloadOnlyObject(payload []byte) *object.Object {
-	obj := object.New()
-	obj.SetPayload(payload)
-
-	return obj
 }
 
 func (h *hasherWrapper) WriteChunk(p []byte) error {
@@ -296,3 +262,31 @@ func (h *hasherWrapper) WriteChunk(p []byte) error {
 func prettyRange(rng *object.Range) string {
 	return fmt.Sprintf("[%d:%d]", rng.GetOffset(), rng.GetLength())
 }
+
+// DirectChildWriter streams child object payload directly into destination ChunkWriter
+// while capturing the header.
+type DirectChildWriter struct {
+	obj       *object.Object
+	dest      ChunkWriter
+	headerSet bool
+}
+
+func NewDirectChildWriter(dest ChunkWriter) *DirectChildWriter {
+	return &DirectChildWriter{
+		obj:  object.New(),
+		dest: dest,
+	}
+}
+
+func (w *DirectChildWriter) WriteHeader(obj *object.Object) error {
+	w.obj = obj
+	w.headerSet = true
+	return nil
+}
+
+func (w *DirectChildWriter) WriteChunk(p []byte) error {
+	return w.dest.WriteChunk(p)
+}
+
+func (w *DirectChildWriter) Object() *object.Object { return w.obj }
+func (w *DirectChildWriter) HeaderSet() bool        { return w.headerSet }
