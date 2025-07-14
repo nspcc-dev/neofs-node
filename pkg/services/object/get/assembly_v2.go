@@ -51,7 +51,7 @@ func (exec *execCtx) processV2Last(lastID oid.ID) {
 	// see it for comments and optimization suggestions
 	if ok := exec.writeCollectedHeader(); ok {
 		if ok := exec.overtakePayloadInReverse(lastID); ok {
-			exec.writeObjectPayload(exec.collectedObject)
+			exec.writeObjectPayload(exec.collectedObject, exec.collectedReader)
 		}
 	}
 }
@@ -132,12 +132,15 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 			}
 		}
 
-		part, ok := exec.getChild(child.ObjectID(), rngPerChild, false)
+		part, reader, ok := exec.getChildStream(child.ObjectID(), rngPerChild, false)
 		if !ok {
+			if reader != nil {
+				_ = reader.Close()
+			}
 			return false
 		}
 
-		if !exec.writeObjectPayload(part) {
+		if !exec.writeObjectPayload(part, reader) {
 			// we have payload, we want to send it but can't so stop here
 			return true
 		}
