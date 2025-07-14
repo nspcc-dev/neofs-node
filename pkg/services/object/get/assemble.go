@@ -66,7 +66,7 @@ func (exec *execCtx) assemble() {
 
 			if ok := exec.overtakePayloadInReverse(children[len(children)-1]); ok {
 				// payload of all children except the last are written, write last payload
-				exec.writeObjectPayload(exec.collectedObject)
+				exec.copyChild(exec.lastChildID, &exec.lastChildRange, false)
 			}
 		}
 	} else if prev != nil {
@@ -76,8 +76,12 @@ func (exec *execCtx) assemble() {
 			//  * else go right-to-left with GET and compose in single object before writing
 
 			if ok := exec.overtakePayloadInReverse(*prev); ok {
-				// payload of all children except the last are written, write last payloa
-				exec.writeObjectPayload(exec.collectedObject)
+				var rng *objectSDK.Range
+				if exec.ctxRange() != nil {
+					rng = &exec.lastChildRange
+				}
+				// payload of all children except the last are written, write last payload
+				exec.copyChild(exec.lastChildID, rng, false)
 			}
 		}
 	} else {
@@ -85,12 +89,12 @@ func (exec *execCtx) assemble() {
 	}
 }
 
-func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID) {
+func (exec *execCtx) initFromChild(obj oid.ID) (*oid.ID, []oid.ID) {
 	exec.log.Debug("starting assembling from child", zap.Stringer("child ID", obj))
 
-	child, ok := exec.getChild(obj, nil, true)
+	child, ok := exec.headChild(obj)
 	if !ok {
-		return
+		return nil, nil
 	}
 
 	par := child.Parent()
@@ -99,12 +103,10 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 
 		exec.log.Debug("received child with empty parent", zap.Stringer("child ID", obj))
 
-		return
+		return nil, nil
 	}
 
-	exec.collectedObject = par
-
-	var payload []byte
+	exec.collectedHeader = par
 
 	if rng := exec.ctxRange(); rng != nil {
 		seekOff := rng.GetOffset()
@@ -121,30 +123,42 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 			exec.err = &errOutOfRange
 			exec.status = statusAPIResponse
 
-			return
+			return nil, nil
 		}
 
 		childSize := child.PayloadSize()
 
-		exec.curOff = parSize - childSize
+		startRight := parSize - childSize
+		exec.curOff = startRight
 
 		from := uint64(0)
-		if exec.curOff < seekOff {
-			from = seekOff - exec.curOff
+		if startRight < seekOff {
+			from = seekOff - startRight
 		}
 
 		to := uint64(0)
-		if seekOff+seekLen > exec.curOff+from {
-			to = seekOff + seekLen - exec.curOff
+		if seekOff+seekLen > startRight+from {
+			to = seekOff + seekLen - startRight
+			if to > childSize {
+				to = childSize
+			}
 		}
 
-		payload = child.Payload()[from:to]
-		rng.SetLength(seekLen - to + from)
-	} else {
-		payload = child.Payload()
+		segLen := uint64(0)
+		if to > from {
+			segLen = to - from
+		}
+		rng.SetLength(seekLen - segLen)
+
+		if segLen > 0 {
+			exec.lastChildRange.SetOffset(from)
+			exec.lastChildRange.SetLength(segLen)
+		} else {
+			exec.lastChildRange.SetLength(0)
+		}
 	}
 
-	exec.collectedObject.SetPayload(payload)
+	exec.lastChildID = child.GetID()
 
 	idPrev := child.GetPreviousID()
 	if !idPrev.IsZero() {
@@ -163,12 +177,8 @@ func (exec *execCtx) overtakePayloadDirectly(children []oid.ID, rngs []objectSDK
 			r = &rngs[i]
 		}
 
-		child, ok := exec.getChild(children[i], r, !withRng && checkRight)
-		if !ok {
-			return
-		}
-
-		if ok := exec.writeObjectPayload(child); !ok {
+		retrieved, wrote := exec.copyChild(children[i], r, !withRng && checkRight)
+		if !retrieved && !wrote {
 			return
 		}
 	}

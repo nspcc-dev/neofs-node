@@ -1,6 +1,8 @@
 package getsvc
 
 import (
+	"io"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -41,14 +43,14 @@ type Service struct {
 type Option func(*cfg)
 
 type getClient interface {
-	getObject(*execCtx, client.NodeInfo) (*object.Object, error)
+	getObject(*execCtx, client.NodeInfo) (*object.Object, io.ReadCloser, error)
 }
 
 type cfg struct {
 	log *zap.Logger
 
 	localStorage interface {
-		get(*execCtx) (*object.Object, error)
+		get(*execCtx) (*object.Object, io.ReadCloser, error)
 	}
 
 	clientCache interface {

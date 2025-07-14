@@ -36,37 +36,54 @@ func (exec *execCtx) processV2Split(si *objectSDK.SplitInfo) {
 }
 
 func (exec *execCtx) processV2Last(lastID oid.ID) {
-	lastObj, ok := exec.getChild(lastID, nil, true)
+	lastHead, ok := exec.headChild(lastID)
 	if !ok {
 		exec.log.Debug("failed to read last object")
 		return
 	}
 
-	exec.collectedObject = lastObj.Parent()
+	exec.collectedHeader = lastHead.Parent()
 	if r := exec.ctxRange(); r != nil && r.GetLength() == 0 {
-		r.SetLength(exec.collectedObject.PayloadSize())
+		r.SetLength(exec.collectedHeader.PayloadSize())
 	}
 
-	// copied from V1, and it has the same problems as V1;
-	// see it for comments and optimization suggestions
 	if ok := exec.writeCollectedHeader(); ok {
 		if ok := exec.overtakePayloadInReverse(lastID); ok {
-			exec.writeObjectPayload(exec.collectedObject)
+			exec.writeObjectPayload(exec.collectedHeader, exec.collectedReader)
 		}
 	}
 }
 
 func (exec *execCtx) processV2Link(linkID oid.ID) bool {
-	linkObj, ok := exec.getChild(linkID, nil, true)
-	if !ok {
+	// need full payload of link object to parse link structure
+	w := NewSimpleObjectWriter()
+
+	p := exec.prm
+	p.common = p.common.WithLocalOnly(false)
+	p.objWriter = w
+	p.SetRange(nil)
+	p.addr.SetContainer(exec.containerID())
+	p.addr.SetObject(linkID)
+
+	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withLogger(exec.log))
+
+	if exec.status != statusOK {
 		exec.log.Debug("failed to read link object")
 		return false
 	}
 
-	exec.collectedObject = linkObj.Parent()
+	linkObj := w.Object()
+	if !exec.isChild(linkObj) {
+		exec.status = statusUndefined
+		exec.err = errors.New("wrong child header")
+		exec.log.Debug("parent address in link object differs")
+		return false
+	}
+
+	exec.collectedHeader = linkObj.Parent()
 	rng := exec.ctxRange()
 	if rng != nil && rng.GetLength() == 0 {
-		rng.SetLength(exec.collectedObject.PayloadSize())
+		rng.SetLength(exec.collectedHeader.PayloadSize())
 	}
 
 	var link objectSDK.Link
@@ -132,13 +149,11 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 			}
 		}
 
-		part, ok := exec.getChild(child.ObjectID(), rngPerChild, false)
-		if !ok {
+		retrieved, wrote := exec.copyChild(child.ObjectID(), rngPerChild, false)
+		if !retrieved { // failed to fetch child -> abort whole operation
 			return false
 		}
-
-		if !exec.writeObjectPayload(part) {
-			// we have payload, we want to send it but can't so stop here
+		if !wrote { // payload fetch ok but writing failed -> stop further processing
 			return true
 		}
 	}

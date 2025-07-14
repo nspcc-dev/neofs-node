@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - `neofs-cli object range` command now truncates file passed to `--file` (#3544)
 - `neofs-cli object range` command now creates file with `rw-r--r--` permissions (#3544)
 - Alphabet nodes send basic storage income based on the new Reports API from `container` contract (#3053)
+- Use stream API of FSTree for object service `Get` operation (#3466)
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)
