@@ -1464,10 +1464,7 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 			Body: &protoobject.SearchResponse_Body{},
 		}
 
-		cut := maxObjAddrRespAmount
-		if cut > len(ids) {
-			cut = len(ids)
-		}
+		cut := min(maxObjAddrRespAmount, len(ids))
 
 		r.Body.IdList = make([]*refs.ObjectID, cut)
 		for i := range cut {

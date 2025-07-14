@@ -330,10 +330,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 		return nil, new(apistatus.ObjectOutOfRange)
 	}
 
-	ln := prm.ln
-	if ln > maxInitialBufferSize {
-		ln = maxInitialBufferSize
-	}
+	ln := min(prm.ln, maxInitialBufferSize)
 
 	w := bytes.NewBuffer(make([]byte, ln))
 	_, err = io.CopyN(w, rdr, int64(prm.ln))

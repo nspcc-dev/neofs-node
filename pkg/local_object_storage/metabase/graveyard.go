@@ -285,10 +285,7 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 	}
 
 	const reasonableLimit = 1000
-	initCap := reasonableLimit
-	if limit < initCap {
-		initCap = limit
-	}
+	initCap := min(limit, reasonableLimit)
 
 	var addrBuff oid.Address
 	var cidBuff cid.ID

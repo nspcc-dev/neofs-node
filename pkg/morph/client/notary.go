@@ -164,10 +164,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 		return fmt.Errorf("can't get previous expiration value: %w", err)
 	}
 
-	till := int64(bc + delta)
-	if till < currentTill {
-		till = currentTill
-	}
+	till := max(int64(bc+delta), currentTill)
 
 	return c.depositNotary(conn, amount, till)
 }
