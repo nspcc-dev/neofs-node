@@ -1,9 +1,11 @@
 package getsvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -12,6 +14,12 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
+)
+
+const (
+	// streamChunkSize is the size of the chunk that is used to read/write
+	// object payload from/to the stream.
+	streamChunkSize = 64 * 1024 // 64 KiB
 )
 
 type statusError struct {
@@ -35,6 +43,7 @@ type execCtx struct {
 	log *zap.Logger
 
 	collectedObject *objectSDK.Object
+	collectedReader io.ReadCloser
 
 	curOff uint64
 
@@ -198,6 +207,73 @@ func (exec *execCtx) getChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (*o
 	return child, ok
 }
 
+func (exec *execCtx) getChildStream(id oid.ID, rng *objectSDK.Range, withHdr bool) (*objectSDK.Object, io.ReadCloser, bool) {
+	log := exec.log
+	if rng != nil {
+		log = log.With(zap.String("child range", prettyRange(rng)))
+	}
+
+	// during range execution, we fall back to the non-streaming execution
+	if exec.ctxRange() != nil {
+		child, ok := exec.getChild(id, rng, withHdr)
+
+		var reader io.ReadCloser
+		if ok && child != nil && child.PayloadSize() > 0 {
+			reader = io.NopCloser(bytes.NewReader(child.Payload()))
+		}
+
+		return child, reader, ok
+	}
+
+	w := NewStreamingWriter()
+
+	p := exec.prm
+	p.common = p.common.WithLocalOnly(false)
+	p.objWriter = w
+	p.SetRange(rng)
+
+	p.addr.SetContainer(exec.containerID())
+	p.addr.SetObject(id)
+
+	done := make(chan struct{})
+	go func() {
+		defer func() {
+			_ = w.Close()
+			close(done)
+		}()
+
+		statusErr := exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng), withLogger(log))
+
+		exec.statusError = statusErr
+	}()
+
+	select {
+	case <-done:
+	case <-w.HeaderChannel():
+	case <-exec.ctx.Done():
+		exec.status = statusUndefined
+		exec.err = exec.ctx.Err()
+		exec.log.Debug("context was canceled while waiting for child header",
+			zap.Stringer("child ID", id),
+			zap.Error(exec.err),
+		)
+		return nil, nil, false
+	}
+
+	child := w.Object()
+	reader := w.Reader()
+	ok := exec.status == statusOK
+
+	if ok && withHdr && !exec.isChild(child) {
+		exec.status = statusUndefined
+		exec.err = errors.New("wrong child header")
+
+		exec.log.Debug("parent address in child object differs")
+	}
+
+	return child, reader, ok
+}
+
 func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
@@ -299,12 +375,18 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
+func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadCloser) bool {
 	if exec.headOnly() {
 		return true
 	}
 
-	err := exec.prm.objWriter.WriteChunk(obj.Payload())
+	var err error
+	if reader != nil {
+		defer func() { _ = reader.Close() }()
+		err = exec.writeFromStream(reader)
+	} else {
+		err = exec.prm.objWriter.WriteChunk(obj.Payload())
+	}
 
 	switch {
 	default:
@@ -322,9 +404,29 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
 	return err == nil
 }
 
+// writeFromStream writes payload from stream.
+func (exec *execCtx) writeFromStream(reader io.ReadCloser) error {
+	buf := make([]byte, streamChunkSize)
+	for {
+		n, err := reader.Read(buf)
+		if n > 0 {
+			if writeErr := exec.prm.objWriter.WriteChunk(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+		}
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func (exec *execCtx) writeCollectedObject() {
 	if ok := exec.writeCollectedHeader(); ok {
-		exec.writeObjectPayload(exec.collectedObject)
+		exec.writeObjectPayload(exec.collectedObject, exec.collectedReader)
 	}
 }
 
