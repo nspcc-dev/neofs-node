@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"io"
 
@@ -114,6 +113,7 @@ func (x *GetObjectPrm) SetAddress(addr oid.Address) {
 // GetObjectRes groups the resulting values of GetObject operation.
 type GetObjectRes struct {
 	obj *object.Object
+	rdr io.ReadCloser
 }
 
 // Object returns requested object.
@@ -121,7 +121,12 @@ func (x GetObjectRes) Object() *object.Object {
 	return x.obj
 }
 
-// GetObject reads the object by address.
+// Reader returns reader for the object payload.
+func (x GetObjectRes) Reader() io.ReadCloser {
+	return x.rdr
+}
+
+// GetObject reads the object header and reader of its payload by address.
 //
 // Client, context and key must be set.
 //
@@ -154,17 +159,9 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 		return nil, fmt.Errorf("init object reading: %w", err)
 	}
 
-	buf := make([]byte, obj.PayloadSize())
-
-	_, err = rdr.Read(buf)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("read payload: %w", err)
-	}
-
-	obj.SetPayload(buf)
-
 	return &GetObjectRes{
 		obj: &obj,
+		rdr: rdr,
 	}, nil
 }
 
