@@ -480,7 +480,6 @@ func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
 	ni.SetNamedContainerFee(netInfoMorph.ContainerAliasFee)
 	ni.SetNumberOfEigenTrustIterations(netInfoMorph.EigenTrustIterations)
 	ni.SetEigenTrustAlpha(netInfoMorph.EigenTrustAlpha)
-	ni.SetIRCandidateFee(netInfoMorph.IRCandidateFee)
 	ni.SetWithdrawalFee(netInfoMorph.WithdrawalFee)
 
 	if netInfoMorph.HomomorphicHashingDisabled {

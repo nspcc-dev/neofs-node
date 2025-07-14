@@ -161,7 +161,7 @@ func convertKnownConfigValues(k, v string) (any, error) {
 	case netmapcore.BasicIncomeRateConfig,
 		netmapcore.ContainerFeeConfig, netmapcore.ContainerAliasFeeConfig,
 		netmapcore.EigenTrustIterationsConfig,
-		netmapcore.EpochDurationConfig, netmapcore.InnerRingCandidateFeeConfig,
+		netmapcore.EpochDurationConfig,
 		netmapcore.MaxObjectSizeConfig, netmapcore.WithdrawFeeConfig:
 		val, err = strconv.ParseInt(v, 10, 64)
 		if err != nil {
