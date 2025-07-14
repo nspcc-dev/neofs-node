@@ -142,7 +142,7 @@ func (s *server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	res, ok := s.sessionTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
 		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = s.decodeAndVerifySessionTokenCommon(m, reqVerb, reqCnr)
+		res.token, res.err = s.decodeAndVerifySessionTokenCommon(m, reqCnr)
 		s.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
@@ -156,7 +156,7 @@ func (s *server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	return &res.token, nil
 }
 
-func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, expVerb session.ContainerVerb, reqCnr cid.ID) (session.Container, error) {
+func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, reqCnr cid.ID) (session.Container, error) {
 	var token session.Container
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("decode: %w", err)
@@ -164,12 +164,6 @@ func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken,
 
 	if err := icrypto.AuthenticateToken(&token, s.historicN3ScriptRunner); err != nil {
 		return token, fmt.Errorf("authenticate: %w", err)
-	}
-
-	if !token.AssertVerb(expVerb) {
-		// must be checked by ReadFromV2, so NPE is OK here
-		verb := m.Body.Context.(*protosession.SessionToken_Body_Container).Container.Verb
-		return token, fmt.Errorf("wrong container session operation: %s", verb)
 	}
 
 	cur := s.net.CurrentEpoch()

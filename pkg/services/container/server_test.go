@@ -18,6 +18,7 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	eacltest "github.com/nspcc-dev/neofs-sdk-go/eacl/test"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -55,7 +56,7 @@ func (testFSChain) GetEACL(cid.ID) (eacl.Table, error) {
 }
 
 func (testFSChain) Delete(cid.ID, []byte, []byte, *session.Container) error {
-	return errors.New("unimplemented")
+	return nil
 }
 
 func (x testFSChain) GetEpochBlock(uint64) (uint32, error) { panic("unimplemented") }
@@ -151,7 +152,7 @@ func TestServer_Delete(t *testing.T) {
 				require.NotNil(t, resp.MetaHeader.Status)
 				sts := resp.MetaHeader.Status
 				require.EqualValues(t, 1024, sts.Code, st)
-				require.Equal(t, "wrong container session operation: PUT", sts.Message)
+				require.Equal(t, "wrong container session operation", sts.Message)
 				require.Zero(t, sts.Details)
 			})
 			t.Run("container ID mismatch", func(t *testing.T) {
@@ -277,4 +278,79 @@ func TestServer_Delete(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestSessionVerb(t *testing.T) {
+	var err error
+	owner := usertest.User()
+	cnrID := cidtest.ID()
+
+	var fsChain testFSChain
+	fsChain.cnr.SetOwner(owner.ID)
+
+	s := containerSvc.New(&owner.ECDSAPrivateKey, fsChain, fsChain, fsChain, fsChain)
+
+	var st session.Container
+	st.SetID(uuid.New())
+	st.SetExp(fsChain.epoch + 1)
+	st.SetAuthKey(neofscryptotest.Signer().Public())
+	st.ForVerb(session.VerbContainerDelete)
+	require.NoError(t, st.Sign(owner))
+
+	t.Run("other op", func(t *testing.T) {
+		eACL := eacltest.Table()
+		eACLSig, err := owner.RFC6979.Sign(eACL.SignedData())
+		require.NoError(t, err)
+
+		setEACLReq := &protocontainer.SetExtendedACLRequest{
+			Body: &protocontainer.SetExtendedACLRequest_Body{
+				Eacl: eACL.ProtoMessage(),
+				Signature: &refs.SignatureRFC6979{
+					Key:  owner.PublicKeyBytes,
+					Sign: eACLSig,
+				},
+			},
+			MetaHeader: &protosession.RequestMetaHeader{
+				SessionToken: st.ProtoMessage(),
+			},
+		}
+		setEACLReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(owner, setEACLReq, nil)
+		require.NoError(t, err)
+
+		setEAClResp, err := s.SetExtendedACL(context.Background(), setEACLReq)
+		require.NoError(t, err)
+		require.NotNil(t, setEAClResp)
+		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(setEAClResp, nil))
+		require.Nil(t, setEAClResp.Body)
+		require.NotNil(t, setEAClResp.MetaHeader)
+		require.NotZero(t, setEAClResp.MetaHeader.Status)
+		require.EqualValues(t, 1024, setEAClResp.MetaHeader.Status.Code)
+		require.Equal(t, "wrong container session operation", setEAClResp.MetaHeader.Status.Message)
+	})
+
+	cidSig, err := owner.RFC6979.Sign(cnrID[:])
+	require.NoError(t, err)
+
+	delReq := &protocontainer.DeleteRequest{
+		Body: &protocontainer.DeleteRequest_Body{
+			ContainerId: cnrID.ProtoMessage(),
+			Signature: &refs.SignatureRFC6979{
+				Key:  owner.PublicKeyBytes,
+				Sign: cidSig,
+			},
+		},
+		MetaHeader: &protosession.RequestMetaHeader{
+			SessionToken: st.ProtoMessage(),
+		},
+	}
+	delReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(owner, delReq, nil)
+	require.NoError(t, err)
+
+	delResp, err := s.Delete(context.Background(), delReq)
+	require.NoError(t, err)
+	require.NotNil(t, delResp)
+	require.Nil(t, delResp.Body)
+	require.NoError(t, neofscrypto.VerifyResponseWithBuffer(delResp, nil))
+	require.NotNil(t, delResp.MetaHeader)
+	require.Zero(t, delResp.MetaHeader.Status)
 }
