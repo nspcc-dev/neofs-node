@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Metadata's signatures for extremely big objects and/or short epochs (#3391)
 - No object addresses in object inhuming/deleting error logs (#3450)
 - Flush test timing issue with object counters update (#3455)
+- Incorrect binary for LINK object put into local storage (#3461)
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)
@@ -43,7 +44,7 @@ Changelog for NeoFS Node
 - Support for Inner Ring candidate fee setting (#3459)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250623124459-a9cfab652dc0` (#3406)
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250715070617-c7038b450691` (#3406, #3461)
 - NeoGo dependency to v0.110.1-0.20250709130255-4f05526f09f6 (#3456)
 
 ### Updating from v0.47.1
