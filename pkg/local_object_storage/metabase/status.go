@@ -69,7 +69,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 			var typPrefix = make([]byte, metaIDTypePrefixSize)
 
 			fillIDTypePrefix(typPrefix)
-			typ, err := fetchTypeForID(metaBucket, typPrefix, oID)
+			typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, oID)
 			existsRegular = (err == nil && typ == objectSDK.TypeRegular)
 		}
 

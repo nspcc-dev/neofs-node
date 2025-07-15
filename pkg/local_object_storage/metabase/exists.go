@@ -61,10 +61,15 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
+		metaCursor *bbolt.Cursor
 	)
 
+	if metaBucket != nil {
+		metaCursor = metaBucket.Cursor()
+	}
+
 	// check graveyard and object expiration first
-	switch objectStatus(tx, metaBucket, addr, currEpoch) {
+	switch objectStatus(tx, metaCursor, addr, currEpoch) {
 	case statusGCMarked:
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	case statusTombstoned:
@@ -83,7 +88,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	)
 
 	// check split info first, it's important to return split info if object is split.
-	splitInfo, err := getSplitInfo(metaBucket, cnr, id)
+	splitInfo, err := getSplitInfo(metaBucket, metaCursor, cnr, id)
 	if err == nil {
 		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
@@ -92,27 +97,25 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	}
 
 	fillIDTypePrefix(objKeyBuf)
-	_, err = fetchTypeForID(metaBucket, objKeyBuf, id)
+	_, err = fetchTypeForID(metaCursor, objKeyBuf, id)
 	return err == nil, nil
 }
 
-func objectStatus(tx *bbolt.Tx, metaBucket *bbolt.Bucket, addr oid.Address, currEpoch uint64) uint8 {
+func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
 	var (
 		expired bool
 		oID     = addr.Object()
 		cID     = addr.Container()
 	)
 
-	if metaBucket != nil {
-		var (
-			cur       = metaBucket.Cursor()
-			expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
-		)
+	if metaCursor != nil {
+		var expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
+
 		expPrefix[0] = metaPrefixIDAttr
 		copy(expPrefix[1:], oID[:])
 		copy(expPrefix[1+len(oID):], objectSDK.AttributeExpirationEpoch)
 
-		expKey, _ := cur.Seek(expPrefix)
+		expKey, _ := metaCursor.Seek(expPrefix)
 		if bytes.HasPrefix(expKey, expPrefix) {
 			// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
 			var val = expKey[len(expPrefix):]
@@ -185,14 +188,13 @@ func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageCon
 
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
-func getSplitInfo(metaBucket *bbolt.Bucket, cnr cid.ID, parentID oid.ID) (*objectSDK.SplitInfo, error) {
+func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) (*objectSDK.SplitInfo, error) {
 	var (
-		c            = metaBucket.Cursor()
 		splitInfo    *objectSDK.SplitInfo
 		parentPrefix = getParentMetaOwnersPrefix(parentID)
 	)
 
-	for k, _ := c.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = c.Next() {
+	for k, _ := metaCursor.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = metaCursor.Next() {
 		objID, err := oid.DecodeBytes(k[len(parentPrefix):])
 		if err != nil {
 			return nil, fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)

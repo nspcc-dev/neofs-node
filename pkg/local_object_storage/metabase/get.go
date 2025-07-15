@@ -58,10 +58,15 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
+		metaCursor *bbolt.Cursor
 	)
 
+	if metaBucket != nil {
+		metaCursor = metaBucket.Cursor()
+	}
+
 	if checkStatus {
-		switch objectStatus(tx, metaBucket, addr, currEpoch) {
+		switch objectStatus(tx, metaCursor, addr, currEpoch) {
 		case statusGCMarked:
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		case statusTombstoned:
@@ -78,7 +83,7 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var objID = addr.Object()
 
 	if raw {
-		splitInfo, err := getSplitInfo(metaBucket, cnr, objID)
+		splitInfo, err := getSplitInfo(metaBucket, metaCursor, cnr, objID)
 		if err == nil {
 			return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 		}
@@ -89,10 +94,9 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var (
 		attrs     []objectSDK.Attribute
 		obj       = objectSDK.New()
-		objCur    = metaBucket.Cursor()
 		objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
 	)
-	for ak, _ := objCur.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = objCur.Next() {
+	for ak, _ := metaCursor.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = metaCursor.Next() {
 		attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
 		if !ok {
 			return nil, fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)

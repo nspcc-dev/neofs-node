@@ -507,7 +507,7 @@ func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []b
 		return logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
-	splitInfo, err := getSplitInfo(metaBucket, cnr, parentID)
+	splitInfo, err := getSplitInfo(metaBucket, metaBucket.Cursor(), cnr, parentID)
 	if err == nil {
 		return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 	}
