@@ -18,6 +18,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -389,8 +390,11 @@ func getUnsignedNoIssuerBearerToken() bearer.Token {
 		),
 	}
 
+	eACL := eacl.NewTableForContainer(cnr, rs)
+	eACL.SetVersion(version.New(2, 16))
+
 	var token bearer.Token
-	token.SetEACLTable(eacl.NewTableForContainer(cnr, rs))
+	token.SetEACLTable(eACL)
 	token.SetIat(943083305)
 	token.SetNbf(1362292619)
 	token.SetExp(1922557325)
