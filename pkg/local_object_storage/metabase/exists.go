@@ -58,8 +58,13 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 }
 
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists bool, err error) {
+	var (
+		cnr        = addr.Container()
+		metaBucket = tx.Bucket(metaBucketKey(cnr))
+	)
+
 	// check graveyard and object expiration first
-	switch objectStatus(tx, addr, currEpoch) {
+	switch objectStatus(tx, metaBucket, addr, currEpoch) {
 	case statusGCMarked:
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	case statusTombstoned:
@@ -69,7 +74,6 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	}
 
 	var (
-		cnr       = addr.Container()
 		objKeyBuf = make([]byte, metaIDTypePrefixSize)
 		id        = addr.Object()
 		key       = make([]byte, bucketKeySize)
@@ -84,7 +88,6 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, err
 	}
 
-	var metaBucket = tx.Bucket(metaBucketKey(cnr))
 	if metaBucket == nil {
 		return false, nil
 	}
@@ -93,12 +96,11 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	return err == nil, nil
 }
 
-func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
+func objectStatus(tx *bbolt.Tx, metaBucket *bbolt.Bucket, addr oid.Address, currEpoch uint64) uint8 {
 	var (
-		expired    bool
-		oID        = addr.Object()
-		cID        = addr.Container()
-		metaBucket = tx.Bucket(metaBucketKey(cID))
+		expired bool
+		oID     = addr.Object()
+		cID     = addr.Container()
 	)
 
 	if metaBucket != nil {

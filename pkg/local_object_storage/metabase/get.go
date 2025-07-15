@@ -55,8 +55,14 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 }
 
 func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
+	var (
+		cnr        = addr.Container()
+		bucketName = metaBucketKey(cnr)
+		metaBucket = tx.Bucket(bucketName)
+	)
+
 	if checkStatus {
-		switch objectStatus(tx, addr, currEpoch) {
+		switch objectStatus(tx, metaBucket, addr, currEpoch) {
 		case statusGCMarked:
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		case statusTombstoned:
@@ -66,11 +72,8 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 		}
 	}
 
-	var (
-		cnr        = addr.Container()
-		bucketName = metaBucketKey(cnr)
-		objID      = addr.Object()
-	)
+	var objID = addr.Object()
+
 	if raw {
 		splitInfo, err := getSplitInfo(tx, cnr, objID, bucketName)
 		if err == nil {
@@ -78,8 +81,6 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 		}
 		// Otherwise it can be a valid non-split object.
 	}
-
-	var metaBucket = tx.Bucket(bucketName)
 
 	if metaBucket == nil {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
