@@ -57,8 +57,7 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
 	var (
 		cnr        = addr.Container()
-		bucketName = metaBucketKey(cnr)
-		metaBucket = tx.Bucket(bucketName)
+		metaBucket = tx.Bucket(metaBucketKey(cnr))
 	)
 
 	if checkStatus {
@@ -72,18 +71,18 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 		}
 	}
 
+	if metaBucket == nil {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
 	var objID = addr.Object()
 
 	if raw {
-		splitInfo, err := getSplitInfo(tx, cnr, objID, bucketName)
+		splitInfo, err := getSplitInfo(metaBucket, cnr, objID)
 		if err == nil {
 			return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 		}
 		// Otherwise it can be a valid non-split object.
-	}
-
-	if metaBucket == nil {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	// Reconstruct header from available data.
@@ -182,22 +181,14 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	return obj, nil
 }
 
-func getParentMetaOwnersPrefix(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*bbolt.Bucket, []byte) {
-	bucketName[0] = metadataPrefix
-	copy(bucketName[1:], cnr[:])
-
-	var metaBucket = tx.Bucket(bucketName)
-	if metaBucket == nil {
-		return nil, nil
-	}
-
+func getParentMetaOwnersPrefix(parentID oid.ID) []byte {
 	var parentPrefix = make([]byte, 1+len(objectSDK.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
 	parentPrefix[0] = metaPrefixAttrIDPlain
 	off := 1 + copy(parentPrefix[1:], objectSDK.FilterParentID)
 	off += copy(parentPrefix[off:], objectcore.MetaAttributeDelimiter)
 	copy(parentPrefix[off:], parentID[:])
 
-	return metaBucket, parentPrefix
+	return parentPrefix
 }
 
 func listContainerObjects(tx *bbolt.Tx, cID cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {

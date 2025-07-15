@@ -73,14 +73,17 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, ErrObjectIsExpired
 	}
 
+	if metaBucket == nil {
+		return false, nil
+	}
+
 	var (
 		objKeyBuf = make([]byte, metaIDTypePrefixSize)
 		id        = addr.Object()
-		key       = make([]byte, bucketKeySize)
 	)
 
 	// check split info first, it's important to return split info if object is split.
-	splitInfo, err := getSplitInfo(tx, cnr, id, key)
+	splitInfo, err := getSplitInfo(metaBucket, cnr, id)
 	if err == nil {
 		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
@@ -88,9 +91,6 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, err
 	}
 
-	if metaBucket == nil {
-		return false, nil
-	}
 	fillIDTypePrefix(objKeyBuf)
 	_, err = fetchTypeForID(metaBucket, objKeyBuf, id)
 	return err == nil, nil
@@ -185,15 +185,11 @@ func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageCon
 
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
-func getSplitInfo(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*objectSDK.SplitInfo, error) {
-	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
-	if metaBucket == nil {
-		return nil, ErrLackSplitInfo
-	}
-
+func getSplitInfo(metaBucket *bbolt.Bucket, cnr cid.ID, parentID oid.ID) (*objectSDK.SplitInfo, error) {
 	var (
-		c         = metaBucket.Cursor()
-		splitInfo *objectSDK.SplitInfo
+		c            = metaBucket.Cursor()
+		splitInfo    *objectSDK.SplitInfo
+		parentPrefix = getParentMetaOwnersPrefix(parentID)
 	)
 
 	for k, _ := c.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = c.Next() {

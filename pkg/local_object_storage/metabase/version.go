@@ -445,10 +445,13 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
-	var childOID oid.ID
+func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID) oid.ID {
+	var (
+		childOID     oid.ID
+		metaBucket   = tx.Bucket(metaBucketKey(cnr))
+		parentPrefix = getParentMetaOwnersPrefix(parentID)
+	)
 
-	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
 	if metaBucket == nil {
 		return childOID
 	}
@@ -464,7 +467,7 @@ func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []b
 }
 
 func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*object.Object, error) {
-	var childOID = getChildForParent(tx, cnr, parentID, bucketName)
+	var childOID = getChildForParent(tx, cnr, parentID)
 
 	if childOID.IsZero() {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
@@ -498,7 +501,13 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []by
 }
 
 func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
-	splitInfo, err := getSplitInfo(tx, cnr, parentID, bucketName)
+	var metaBucket = tx.Bucket(metaBucketKey(cnr))
+
+	if metaBucket == nil {
+		return logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	splitInfo, err := getSplitInfo(metaBucket, cnr, parentID)
 	if err == nil {
 		return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 	}
