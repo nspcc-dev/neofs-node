@@ -256,7 +256,6 @@ func initObjectService(c *cfg) {
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
 		putsvc.WithObjectStorage(storageEngine{engine: ls}),
 		putsvc.WithContainerSource(c.cnrSrc),
-		putsvc.WithNetworkMapSource(c.netMapSource),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithRemoteWorkerPool(c.cfgObject.pool.putRemote),
 		putsvc.WithLogger(c.log),
