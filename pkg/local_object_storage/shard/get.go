@@ -3,6 +3,7 @@ package shard
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -139,4 +140,53 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
 	}
 	return b, err
+}
+
+// GetStream reads an object from shard as a stream. skipMeta flag allows to fetch object from
+// the blobstor directly.
+//
+// Returns the object header and a reader for the payload.
+// On success, the reader is non-nil and must be closed;
+// a nil reader is only returned with a non‑nil error.
+//
+// Returns any error encountered that did not allow to completely read the object part.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
+// Returns the object.ErrObjectIsExpired if the object is present but already expired.
+func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*objectSDK.Object, io.ReadCloser, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	var (
+		res    *objectSDK.Object
+		reader io.ReadCloser
+	)
+
+	cb := func(stor common.Storage) error {
+		obj, r, err := stor.GetStream(addr)
+		if err != nil {
+			return err
+		}
+		res = obj
+		reader = r
+		return nil
+	}
+
+	wc := func(c writecache.Cache) error {
+		o, r, err := c.GetStream(addr)
+		if err != nil {
+			return err
+		}
+		res = o
+		reader = r
+		return nil
+	}
+
+	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
+	if err != nil && gotMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
+
+	return res, reader, err
 }

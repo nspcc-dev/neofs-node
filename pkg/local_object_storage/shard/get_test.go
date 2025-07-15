@@ -3,6 +3,7 @@ package shard_test
 import (
 	"bytes"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -43,6 +44,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		require.Equal(t, obj, res)
 
 		testGetBytes(t, sh, addr, obj.Marshal())
+		testGetStream(t, sh, addr, obj)
 	})
 
 	t.Run("big object", func(t *testing.T) {
@@ -60,6 +62,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		require.Equal(t, obj, res)
 
 		testGetBytes(t, sh, addr, obj.Marshal())
+		testGetStream(t, sh, addr, obj)
 	})
 
 	t.Run("parent object", func(t *testing.T) {
@@ -68,6 +71,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 
 		parent := generateObjectWithCID(cnr)
 		addAttribute(parent, "parent", "attribute")
+		parentAddr := object.AddressOf(parent)
 
 		child := generateObjectWithCID(cnr)
 		child.SetParent(parent)
@@ -75,15 +79,21 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
+		childAddr := object.AddressOf(child)
 
 		err := sh.Put(child, nil)
 		require.NoError(t, err)
 
-		res, err := testGet(t, sh, object.AddressOf(child), hasWriteCache)
+		res, err := testGet(t, sh, childAddr, hasWriteCache)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(child, res))
 
-		_, err = testGet(t, sh, object.AddressOf(parent), hasWriteCache)
+		testGetStream(t, sh, childAddr, child)
+
+		_, _, streamErr := sh.GetStream(parentAddr, false)
+		require.Error(t, streamErr)
+		_, err = testGet(t, sh, parentAddr, hasWriteCache)
+		require.Equal(t, streamErr, err)
 
 		var si *objectSDK.SplitInfoError
 		require.True(t, errors.As(err, &si))
@@ -118,6 +128,18 @@ func testGetBytes(t testing.TB, sh *shard.Shard, addr oid.Address, objBin []byte
 	b, err = sh.GetBytesWithMetadataLookup(addr)
 	require.NoError(t, err)
 	require.Equal(t, objBin, b)
+}
+
+func testGetStream(t testing.TB, sh *shard.Shard, addr oid.Address, obj *objectSDK.Object) {
+	header, reader, err := sh.GetStream(addr, false)
+	require.NoError(t, err)
+	require.Equal(t, obj.CutPayload(), header)
+
+	data, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	require.Equal(t, obj.Payload(), data)
+
+	require.NoError(t, reader.Close())
 }
 
 // binary equal is used when object contains empty lists in the structure and
