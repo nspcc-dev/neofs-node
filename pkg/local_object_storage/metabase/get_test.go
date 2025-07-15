@@ -112,6 +112,7 @@ func TestDB_Get(t *testing.T) {
 	t.Run("get removed object", func(t *testing.T) {
 		obj := oidtest.Address()
 		ts := oidtest.Address()
+		ts.SetContainer(obj.Container())
 
 		require.NoError(t, metaInhume(db, obj, ts))
 		_, err := metaGet(db, obj, false)
