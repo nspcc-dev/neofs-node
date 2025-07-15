@@ -94,11 +94,6 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 }
 
 func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
-	// we check only if the object is expired in the current
-	// epoch since it is considered the only corner case: the
-	// GC is expected to collect all the objects that have
-	// expired previously for less than the one epoch duration
-
 	var (
 		expired    bool
 		oID        = addr.Object()
