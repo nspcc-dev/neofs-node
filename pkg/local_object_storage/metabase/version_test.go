@@ -818,19 +818,19 @@ func TestMigrate3to4(t *testing.T) {
 			{name: "empty containers only", m: map[object.Type][]uint{
 				object.TypeRegular:      make([]uint, 3),
 				object.TypeTombstone:    make([]uint, 5),
-				object.TypeStorageGroup: make([]uint, 10),
+				object.TypeStorageGroup: make([]uint, 10), //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 				object.TypeLock:         make([]uint, 1),
 				object.TypeLink:         make([]uint, 100),
 			}},
 			{name: "some containers are empty", m: map[object.Type][]uint{
 				object.TypeRegular:      {1, 7, 0, 20},
 				object.TypeTombstone:    {0, 15, 0},
-				object.TypeStorageGroup: make([]uint, 10),
+				object.TypeStorageGroup: make([]uint, 10), //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 			}},
 			{name: "some containers are empty", m: map[object.Type][]uint{
 				object.TypeRegular:      {1, 7, 0, 20},
 				object.TypeTombstone:    {0, 15, 0},
-				object.TypeStorageGroup: make([]uint, 10),
+				object.TypeStorageGroup: make([]uint, 10), //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 			}},
 			{name: "one big container", m: map[object.Type][]uint{
 				object.TypeRegular: {3999},
@@ -838,19 +838,19 @@ func TestMigrate3to4(t *testing.T) {
 			{name: "big counts", m: map[object.Type][]uint{
 				object.TypeRegular:      {200, 700, 600},
 				object.TypeTombstone:    {20, 30},
-				object.TypeStorageGroup: {10, 0, 20, 0, 30, 0, 40, 0},
+				object.TypeStorageGroup: {10, 0, 20, 0, 30, 0, 40, 0}, //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 				object.TypeLock:         {1, 2, 3, 4, 5, 6, 7, 8, 9},
 				object.TypeLink:         {99},
 			}},
 			{name: "big counts aligned", m: map[object.Type][]uint{
 				object.TypeRegular:      {1000},
 				object.TypeTombstone:    {500, 500, 500},
-				object.TypeStorageGroup: {200, 200, 200, 200, 200},
+				object.TypeStorageGroup: {200, 200, 200, 200, 200}, //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 			}},
 			{name: "big counts not aligned", m: map[object.Type][]uint{
 				object.TypeRegular:      {999, 999},
 				object.TypeTombstone:    {999},
-				object.TypeStorageGroup: {999, 999, 999},
+				object.TypeStorageGroup: {999, 999, 999}, //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 			}},
 		} {
 			t.Run(tc.name, func(t *testing.T) { testMigrationV3To4(t, tc.m) })
@@ -895,7 +895,7 @@ func testMigrationV3To4(t *testing.T, mAll map[object.Type][]uint) {
 						prefix = 0x06
 					case object.TypeTombstone:
 						prefix = 0x09
-					case object.TypeStorageGroup:
+					case object.TypeStorageGroup: //nolint:staticcheck // storage groups are deprecated, but this is a migration test.
 						prefix = 0x08
 					case object.TypeLock:
 						prefix = 0x07
