@@ -478,7 +478,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, broadcast bool, f f
 					continue
 				}
 				if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-					nr.desc.info, nr.convertErr = x.convertNodeInfo(nodeLists[listInd][j])
+					nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[listInd][j])
 				}
 				processedNodesMtx.Lock()
 				nodeResults[pks] = nr
@@ -538,7 +538,7 @@ broadcast:
 				continue
 			}
 			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-				nr.desc.info, nr.convertErr = x.convertNodeInfo(nodeLists[i][j])
+				nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[i][j])
 			}
 			processedNodesMtx.Lock()
 			nodeResults[pks] = nr
@@ -568,7 +568,7 @@ broadcast:
 	return nil
 }
 
-func (x placementIterator) convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
+func convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
 	var res client.NodeInfo
 	var endpoints network.AddressGroup
 	if err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeInfo)); err != nil {
