@@ -2,6 +2,7 @@ package meta_test
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -9,6 +10,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -172,5 +174,41 @@ func TestDB_Exists(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, gotObj)
 		})
+	})
+}
+
+func BenchmarkExists(b *testing.B) {
+	const numOfObjects = 100
+	var (
+		addrs = make([]oid.Address, 0, numOfObjects)
+		db    = newDB(b)
+	)
+
+	b.Cleanup(func() { _ = os.RemoveAll(b.Name()) })
+
+	for range numOfObjects {
+		raw := generateObject(b)
+		addrs = append(addrs, object.AddressOf(raw))
+
+		require.NoError(b, putBig(db, raw))
+	}
+
+	b.Run("existing", func(b *testing.B) {
+		var i int
+
+		for range b.N {
+			ex, err := db.Exists(addrs[i%len(addrs)], false)
+			require.NoError(b, err)
+			require.True(b, ex)
+			i++
+		}
+	})
+	b.Run("inexisting", func(b *testing.B) {
+		var addr oid.Address
+		for range b.N {
+			ex, err := db.Exists(addr, false)
+			require.NoError(b, err)
+			require.False(b, ex)
+		}
 	})
 }

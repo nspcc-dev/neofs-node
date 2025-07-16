@@ -86,13 +86,11 @@ func keyToEpochOID(k []byte, expStart []byte) (uint64, oid.ID) {
 
 // metaBucket is metadata bucket (0xff), typPrefix is the key for FilterType
 // object ID-Attribute key, id is the ID we're looking for.
-func fetchTypeForID(metaBucket *bbolt.Bucket, typPrefix []byte, id oid.ID) (object.Type, error) {
-	var (
-		typCur = metaBucket.Cursor()
-		typ    object.Type
-	)
+func fetchTypeForID(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (object.Type, error) {
+	var typ object.Type
+
 	copy(typPrefix[1:], id[:])
-	typKey, _ := typCur.Seek(typPrefix)
+	typKey, _ := metaCursor.Seek(typPrefix)
 	if bytes.HasPrefix(typKey, typPrefix) {
 		var success = typ.DecodeString(string(typKey[len(typPrefix):]))
 		if !success {
@@ -153,7 +151,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 			addr.SetContainer(cnrID)
 			addr.SetObject(id)
 
-			typ, err := fetchTypeForID(b, typPrefix, id)
+			typ, err := fetchTypeForID(b.Cursor(), typPrefix, id)
 			if err != nil {
 				db.log.Warn("inconsistent DB in expired iterator",
 					zap.Stringer("object", addr), zap.Error(err))

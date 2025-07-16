@@ -45,6 +45,8 @@ func TestInhumeTombOnTomb(t *testing.T) {
 		addr2 = oidtest.Address()
 		addr3 = oidtest.Address()
 	)
+	addr2.SetContainer(addr1.Container())
+	addr3.SetContainer(addr1.Container())
 
 	// inhume addr1 via addr2
 	_, _, err = db.Inhume(addr2, 0, false, addr1)

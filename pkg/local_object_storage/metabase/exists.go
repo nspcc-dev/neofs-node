@@ -58,8 +58,18 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 }
 
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists bool, err error) {
+	var (
+		cnr        = addr.Container()
+		metaBucket = tx.Bucket(metaBucketKey(cnr))
+		metaCursor *bbolt.Cursor
+	)
+
+	if metaBucket != nil {
+		metaCursor = metaBucket.Cursor()
+	}
+
 	// check graveyard and object expiration first
-	switch objectStatus(tx, addr, currEpoch) {
+	switch objectStatus(tx, metaCursor, addr, currEpoch) {
 	case statusGCMarked:
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	case statusTombstoned:
@@ -68,15 +78,17 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, ErrObjectIsExpired
 	}
 
+	if metaBucket == nil {
+		return false, nil
+	}
+
 	var (
-		cnr       = addr.Container()
 		objKeyBuf = make([]byte, metaIDTypePrefixSize)
 		id        = addr.Object()
-		key       = make([]byte, bucketKeySize)
 	)
 
 	// check split info first, it's important to return split info if object is split.
-	splitInfo, err := getSplitInfo(tx, cnr, id, key)
+	splitInfo, err := getSplitInfo(metaBucket, metaCursor, cnr, id)
 	if err == nil {
 		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
@@ -84,38 +96,26 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, err
 	}
 
-	var metaBucket = tx.Bucket(metaBucketKey(cnr))
-	if metaBucket == nil {
-		return false, nil
-	}
 	fillIDTypePrefix(objKeyBuf)
-	_, err = fetchTypeForID(metaBucket, objKeyBuf, id)
+	_, err = fetchTypeForID(metaCursor, objKeyBuf, id)
 	return err == nil, nil
 }
 
-func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
-	// we check only if the object is expired in the current
-	// epoch since it is considered the only corner case: the
-	// GC is expected to collect all the objects that have
-	// expired previously for less than the one epoch duration
-
+func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
 	var (
-		expired    bool
-		oID        = addr.Object()
-		cID        = addr.Container()
-		metaBucket = tx.Bucket(metaBucketKey(cID))
+		expired bool
+		oID     = addr.Object()
+		cID     = addr.Container()
 	)
 
-	if metaBucket != nil {
-		var (
-			cur       = metaBucket.Cursor()
-			expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
-		)
+	if metaCursor != nil {
+		var expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
+
 		expPrefix[0] = metaPrefixIDAttr
 		copy(expPrefix[1:], oID[:])
 		copy(expPrefix[1+len(oID):], objectSDK.AttributeExpirationEpoch)
 
-		expKey, _ := cur.Seek(expPrefix)
+		expKey, _ := metaCursor.Seek(expPrefix)
 		if bytes.HasPrefix(expKey, expPrefix) {
 			// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
 			var val = expKey[len(expPrefix):]
@@ -188,18 +188,13 @@ func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageCon
 
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
-func getSplitInfo(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*objectSDK.SplitInfo, error) {
-	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
-	if metaBucket == nil {
-		return nil, ErrLackSplitInfo
-	}
-
+func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) (*objectSDK.SplitInfo, error) {
 	var (
-		c         = metaBucket.Cursor()
-		splitInfo *objectSDK.SplitInfo
+		splitInfo    *objectSDK.SplitInfo
+		parentPrefix = getParentMetaOwnersPrefix(parentID)
 	)
 
-	for k, _ := c.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = c.Next() {
+	for k, _ := metaCursor.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = metaCursor.Next() {
 		objID, err := oid.DecodeBytes(k[len(parentPrefix):])
 		if err != nil {
 			return nil, fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)

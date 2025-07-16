@@ -385,6 +385,9 @@ func TestDropExpiredTSMarks(t *testing.T) {
 	db := newDB(t)
 	droppedObjects := oidtest.Addresses(1024)
 	tombstone := oidtest.Address()
+	for i := range droppedObjects {
+		droppedObjects[i].SetContainer(tombstone.Container())
+	}
 
 	_, _, err := db.Inhume(tombstone, epoch, false, droppedObjects[:len(droppedObjects)/2]...)
 	require.NoError(t, err)

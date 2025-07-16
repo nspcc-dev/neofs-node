@@ -53,7 +53,7 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		// check if all objects are regular
 		if metaBucket != nil {
 			for i := range locked {
-				typ, err := fetchTypeForID(metaBucket, typPrefix, locked[i])
+				typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, locked[i])
 				if err != nil {
 					// It's OK if object is missing, but DB inconsistency is bad
 					// even though we can't do much about it.

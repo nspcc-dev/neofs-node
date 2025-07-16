@@ -361,7 +361,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		}
 
 		var addr = oid.NewAddress(cnr, id)
-		hdr, err := getCompat(tx, addr, oidKey, false, false, 0)
+		hdr, err := getCompat(tx, addr, oidKey, false, 0)
 		if err != nil {
 			return 0, nil, fmt.Errorf("header error for %s: %w", addr, err)
 		}
@@ -393,18 +393,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 
 // getCompat is used for migrations only, it retrieves full headers from
 // respective buckets.
-func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
-	if checkStatus {
-		switch objectStatus(tx, addr, currEpoch) {
-		case statusGCMarked:
-			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-		case statusTombstoned:
-			return nil, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
-		case statusExpired:
-			return nil, ErrObjectIsExpired
-		}
-	}
-
+func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, raw bool, currEpoch uint64) (*object.Object, error) {
 	key = objectKey(addr.Object(), key)
 	cnr := addr.Container()
 	obj := object.New()
@@ -456,10 +445,13 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
-	var childOID oid.ID
+func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID) oid.ID {
+	var (
+		childOID     oid.ID
+		metaBucket   = tx.Bucket(metaBucketKey(cnr))
+		parentPrefix = getParentMetaOwnersPrefix(parentID)
+	)
 
-	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
 	if metaBucket == nil {
 		return childOID
 	}
@@ -475,7 +467,7 @@ func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []b
 }
 
 func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*object.Object, error) {
-	var childOID = getChildForParent(tx, cnr, parentID, bucketName)
+	var childOID = getChildForParent(tx, cnr, parentID)
 
 	if childOID.IsZero() {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
@@ -509,7 +501,13 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []by
 }
 
 func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
-	splitInfo, err := getSplitInfo(tx, cnr, parentID, bucketName)
+	var metaBucket = tx.Bucket(metaBucketKey(cnr))
+
+	if metaBucket == nil {
+		return logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	splitInfo, err := getSplitInfo(metaBucket, metaBucket.Cursor(), cnr, parentID)
 	if err == nil {
 		return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 	}
