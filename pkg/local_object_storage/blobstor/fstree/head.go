@@ -124,8 +124,57 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 
 // readHeaderAndPayload reads an object header from the file and returns reader for payload.
 // This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
+func (t *FSTree) readHeaderAndPayload(f io.ReadSeekCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
 	var err error
+	var hLen, pLen uint32
+	if len(initial) >= streamDataOff {
+		hLen, pLen = parseStreamPrefix(initial)
+	} else {
+		var p []byte
+		copy(p[:], initial)
+		_, err := io.ReadFull(f, p[len(initial):])
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil, f, fmt.Errorf("read stream prefix: %w", err)
+		}
+		hLen, pLen = parseStreamPrefix(p)
+		if hLen == 0 {
+			initial = p[:]
+		}
+	}
+	if hLen > 0 {
+		initial = initial[streamDataOff:]
+		var header []byte
+		if len(initial) < int(hLen) {
+			header = make([]byte, hLen)
+			copy(header, initial)
+			_, err = io.ReadFull(f, header[len(initial):])
+			if err != nil {
+				return nil, nil, fmt.Errorf("read stream header: %w", err)
+			}
+			initial = header
+		}
+		header = initial[:hLen]
+		var obj objectSDK.Object
+		err = obj.Unmarshal(header)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unmarshal object: %w", err)
+		}
+
+		data := initial[hLen:]
+		reader := io.LimitReader(io.MultiReader(bytes.NewReader(data), f), int64(pLen))
+		if t.IsCompressed(data) {
+			decoder, err := zstd.NewReader(reader)
+			if err != nil {
+				return nil, nil, fmt.Errorf("zstd decoder: %w", err)
+			}
+			reader = decoder.IOReadCloser()
+		}
+		return &obj, &payloadReader{
+			Reader: reader,
+			close:  f.Close,
+		}, nil
+	}
+
 	if len(initial) < objectSDK.MaxHeaderLen {
 		_ = f.Close()
 		initial, err = t.Decompress(initial)
@@ -168,80 +217,98 @@ func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*objectSDK.O
 		initial = buf[:n]
 	}
 
-	obj, rest, err := extractHeaderAndPayload(initial)
+	var (
+		obj object.Object
+		res objectSDK.Object
+	)
+
+	_, offset, err := extractHeaderAndPayload(initial, func(num int, val []byte) error {
+		switch num {
+		case fieldObjectID:
+			obj.ObjectId = new(refs.ObjectID)
+			err := proto.Unmarshal(val, obj.ObjectId)
+			if err != nil {
+				return fmt.Errorf("unmarshal object ID: %w", err)
+			}
+		case fieldObjectSignature:
+			obj.Signature = new(refs.Signature)
+			err := proto.Unmarshal(val, obj.Signature)
+			if err != nil {
+				return fmt.Errorf("unmarshal object signature: %w", err)
+			}
+		case fieldObjectHeader:
+			obj.Header = new(object.Header)
+			err := proto.Unmarshal(val, obj.Header)
+			if err != nil {
+				return fmt.Errorf("unmarshal object header: %w", err)
+			}
+		default:
+			return fmt.Errorf("unknown field number: %d", num)
+		}
+		return nil
+	})
 	if err != nil {
 		_ = reader.Close()
 		return nil, nil, fmt.Errorf("extract header and payload: %w", err)
 	}
 
-	return obj, &payloadReader{
-		Reader: io.MultiReader(bytes.NewReader(rest), reader),
+	err = res.FromProtoMessage(&obj)
+	if err != nil {
+		_ = reader.Close()
+		return nil, nil, fmt.Errorf("convert to objectSDK.Object: %w", err)
+	}
+
+	return &res, &payloadReader{
+		Reader: io.MultiReader(bytes.NewReader(initial[offset:]), reader),
 		close:  reader.Close,
 	}, nil
 }
 
-// extractHeaderAndPayload extracts the header of an object from the given byte slice and returns rest of the data.
-func extractHeaderAndPayload(data []byte) (*objectSDK.Object, []byte, error) {
-	var (
-		offset int
-		res    objectSDK.Object
-		obj    object.Object
-	)
+// extractHeaderAndPayload processes the initial data to extract the header and payload
+// fields of an object. It calls the provided dataHandler for each field found in the data.
+// It returns the start offset of the header, the end offset of the payload, and an error if any.
+func extractHeaderAndPayload(data []byte, dataHandler func(int, []byte) error) (int, int, error) {
+	var offset, headerEnd int
 
 	if len(data) == 0 {
-		return nil, nil, fmt.Errorf("empty data")
+		return 0, 0, fmt.Errorf("empty data")
 	}
 
 	for offset < len(data) {
 		num, typ, n := protowire.ConsumeTag(data[offset:])
 		if err := protowire.ParseError(n); err != nil {
-			return nil, nil, fmt.Errorf("invalid tag at offset %d: %w", offset, err)
+			return 0, 0, fmt.Errorf("invalid tag at offset %d: %w", offset, err)
 		}
 		offset += n
 
 		if typ != protowire.BytesType {
-			return nil, nil, fmt.Errorf("unexpected wire type: %v", typ)
+			return 0, 0, fmt.Errorf("unexpected wire type: %v", typ)
 		}
 
 		if num == fieldObjectPayload {
+			headerEnd = offset - n
 			_, n = binary.Varint(data[offset:])
 			if err := protowire.ParseError(n); err != nil {
-				return nil, nil, fmt.Errorf("invalid varint at offset %d: %w", offset, err)
+				return 0, 0, fmt.Errorf("invalid varint at offset %d: %w", offset, err)
 			}
 			offset += n
 			break
 		}
 		val, n := protowire.ConsumeBytes(data[offset:])
 		if err := protowire.ParseError(n); err != nil {
-			return nil, nil, fmt.Errorf("invalid bytes field at offset %d: %w", offset, err)
+			return 0, 0, fmt.Errorf("invalid bytes field at offset %d: %w", offset, err)
 		}
 		offset += n
 
-		switch num {
-		case fieldObjectID:
-			obj.ObjectId = new(refs.ObjectID)
-			err := proto.Unmarshal(val, obj.ObjectId)
+		if dataHandler != nil {
+			err := dataHandler(int(num), val)
 			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshal object ID: %w", err)
+				return 0, 0, fmt.Errorf("data handler error at offset %d: %w", offset, err)
 			}
-		case fieldObjectSignature:
-			obj.Signature = new(refs.Signature)
-			err := proto.Unmarshal(val, obj.Signature)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshal object signature: %w", err)
-			}
-		case fieldObjectHeader:
-			obj.Header = new(object.Header)
-			err := proto.Unmarshal(val, obj.Header)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshal object header: %w", err)
-			}
-		default:
-			return nil, nil, fmt.Errorf("unknown field number: %d", num)
 		}
 	}
 
-	return &res, data[offset:], res.FromProtoMessage(&obj)
+	return headerEnd, offset, nil
 }
 
 type payloadReader struct {

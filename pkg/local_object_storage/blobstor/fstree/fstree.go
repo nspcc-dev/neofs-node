@@ -22,6 +22,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 // FSTree represents an object storage as a filesystem tree.
@@ -90,6 +91,26 @@ const (
 	// combinedDataOff is the offset from the start of the combined prefix to object data.
 	// It's also the length of the prefix in total.
 	combinedDataOff = combinedLengthOff + combinedLenSize
+
+	// streamPrefix is the prefix for streamed objects. It is used to distinguish
+	// streamed objects from regular ones.
+	streamPrefix = 0x7e
+
+	// streamLenHeaderOff is the offset from the start of the stream prefix to
+	// the length of the header data.
+	streamLenHeaderOff = 2
+
+	// streamLenSize is sizeof(uint32), length of a serialized 32-bit BE integer
+	// that represents the length of the header or payload data.
+	streamLenSize = 4
+
+	// streamLenDataOff is the offset from the start of the stream prefix to
+	// the length of the data.
+	streamLenDataOff = streamLenHeaderOff + streamLenSize
+
+	// streamDataOff is the offset from the start of the stream prefix to the
+	// start of the data. It is used to read the data after the header.
+	streamDataOff = streamLenDataOff + streamLenSize
 )
 
 var _ common.Storage = (*FSTree)(nil)
@@ -342,7 +363,7 @@ func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
 		return fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
-	data = t.Compress(data)
+	data = t.processHeaderAndPayload(data)
 
 	err := t.writer.writeData(addr.Object(), p, data)
 	if err != nil {
@@ -366,7 +387,7 @@ func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 		writeDataUnits = append(writeDataUnits, writeDataUnit{
 			id:   addr.Object(),
 			path: p,
-			data: t.Compress(data),
+			data: t.processHeaderAndPayload(data),
 		})
 	}
 
@@ -376,6 +397,32 @@ func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 	}
 
 	return nil
+}
+
+// processHeaderAndPayload processes the header and payload of the object data.
+func (t *FSTree) processHeaderAndPayload(data []byte) []byte {
+	headerEnd, payloadStart, err := extractHeaderAndPayload(data, nil)
+	if err != nil || headerEnd == 0 {
+		return data
+	}
+
+	header := data[:headerEnd]
+	payload := data[payloadStart:]
+
+	hLen := len(header)
+	payload = t.Compress(payload)
+	pLen := len(payload)
+
+	res := make([]byte, hLen+pLen+streamDataOff)
+	res[0] = streamPrefix
+	res[1] = 0 // version 0
+	binary.BigEndian.PutUint32(res[streamLenHeaderOff:], uint32(hLen))
+	binary.BigEndian.PutUint32(res[streamLenDataOff:], uint32(pLen))
+
+	copy(res[streamDataOff:], header)
+	copy(res[streamDataOff+hLen:], payload)
+
+	return res
 }
 
 // Get returns an object from the storage by address.
@@ -436,6 +483,16 @@ func parseCombinedPrefix(p []byte) ([]byte, uint32) {
 		binary.BigEndian.Uint32(p[combinedLengthOff:combinedDataOff])
 }
 
+// parseStreamPrefix checks the given byte slice for stream prefix and returns
+// the length of the header and data if so (0, 0 otherwise).
+func parseStreamPrefix(p []byte) (uint32, uint32) {
+	if p[0] != streamPrefix || p[1] != 0 { // Only version 0 is supported now.
+		return 0, 0
+	}
+	return binary.BigEndian.Uint32(p[streamLenHeaderOff:streamLenDataOff]),
+		binary.BigEndian.Uint32(p[streamLenDataOff:])
+}
+
 func (t *FSTree) extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 	var (
 		comBuf     [combinedDataOff]byte
@@ -488,6 +545,23 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 		return nil, fmt.Errorf("read: %w", err)
 	}
 	data = data[:len(initial)+n]
+	hLen, _ := parseStreamPrefix(data)
+	if hLen > 0 {
+		data = data[streamDataOff:]
+		payload, err := t.Decompress(data[hLen:])
+		if err != nil {
+			return nil, fmt.Errorf("decompress payload: %w", err)
+		}
+		pLen := len(payload)
+		payloadNum := protowire.Number(4)
+		n := protowire.SizeTag(payloadNum) + protowire.SizeVarint(uint64(pLen))
+		buf := make([]byte, int(hLen)+pLen+n)
+		copy(buf[:hLen], data)
+		off := binary.PutUvarint(buf[hLen:], protowire.EncodeTag(payloadNum, protowire.BytesType)) + int(hLen)
+		off += binary.PutUvarint(buf[off:], uint64(pLen))
+		copy(buf[off:], payload)
+		data = buf
+	}
 
 	return t.Decompress(data)
 }
