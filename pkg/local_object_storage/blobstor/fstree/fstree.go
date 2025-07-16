@@ -247,6 +247,9 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 				}
 
 				err = objHandler(*addr, data)
+				if err != nil {
+					err = fmt.Errorf("handling %s object: %w", addr, err)
+				}
 			}
 		}
 

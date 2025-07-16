@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -216,7 +217,15 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 
 		_, _, err = s.metaBase.Inhume(tombAddr, exp, false, tombMembers...)
 		if err != nil {
-			return fmt.Errorf("could not inhume objects: %w", err)
+			if errors.Is(err, apistatus.ErrObjectLocked) {
+				// if we are trying to inhume locked object, likely we are doing
+				// something wrong and it should not stop resynchronisation
+				s.log.Warn("inhuming locked objects",
+					zap.Stringer("TS_address", tombAddr),
+					zap.Stringers("targets", memberIDs))
+				return nil
+			}
+			return fmt.Errorf("could not inhume [%s] objects: %w", oidsToString(memberIDs), err)
 		}
 	case objectSDK.TypeLock:
 		var lock objectSDK.Lock
@@ -229,7 +238,7 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 
 		err := s.metaBase.Lock(obj.GetContainerID(), obj.GetID(), locked)
 		if err != nil {
-			return fmt.Errorf("could not lock objects: %w", err)
+			return fmt.Errorf("could not lock [%s] objects: %w", oidsToString(locked), err)
 		}
 	}
 
@@ -239,6 +248,18 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 	}
 
 	return nil
+}
+
+func oidsToString(ids []oid.ID) string {
+	var res string
+	for i, id := range ids {
+		res += id.String()
+		if i != len(ids)-1 {
+			res += ", "
+		}
+	}
+
+	return res
 }
 
 // Close releases all Shard's components.
