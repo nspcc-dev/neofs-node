@@ -82,14 +82,18 @@ func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
 	}, nil
 }
 
-func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*object.Object, error) {
+func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*object.Object, io.ReadCloser, error) {
 	if exec.isForwardingEnabled() {
-		return exec.prm.forwarder(exec.ctx, info, c.client)
+		obj, err := exec.prm.forwarder(exec.ctx, info, c.client)
+		if err != nil {
+			return nil, nil, err
+		}
+		return obj, nil, nil
 	}
 
 	key, err := exec.key()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if exec.headOnly() {
@@ -110,15 +114,15 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 		res, err := internalclient.HeadObject(prm)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		return res.Header(), nil
+		return res.Header(), nil, nil
 	}
 
 	if rngH := exec.prmRangeHash; rngH != nil && exec.isRangeHashForwardingEnabled() {
 		exec.prmRangeHash.forwardedRangeHashResponse, err = exec.prm.rangeForwarder(exec.ctx, info, c.client)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// we don't specify payload writer because we accumulate
@@ -145,12 +149,19 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 			if errors.Is(err, apistatus.ErrObjectAccessDenied) {
 				// Current spec allows other storage node to deny access,
 				// fallback to GET here.
-				obj, err := c.get(exec, key)
+				obj, reader, err := c.get(exec, key)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
+				}
+				defer reader.Close()
+
+				// Read the whole object and extract range
+				payload := make([]byte, obj.PayloadSize())
+				_, err = io.ReadFull(reader, payload)
+				if err != nil {
+					return nil, nil, err
 				}
 
-				payload := obj.Payload()
 				from := rng.GetOffset()
 				ln := rng.GetLength()
 				if ln == 0 {
@@ -159,21 +170,23 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 				to := from + ln
 
 				if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-					return nil, new(apistatus.ObjectOutOfRange)
+					return nil, nil, apistatus.ErrObjectOutOfRange
 				}
 
-				return payloadOnlyObject(payload[from:to]), nil
+				rangeObj := payloadOnlyObject(payload[from:to])
+				return rangeObj, nil, nil
 			}
-			return nil, err
+			return nil, nil, err
 		}
 
-		return payloadOnlyObject(res.PayloadRange()), nil
+		rangeObj := payloadOnlyObject(res.PayloadRange())
+		return rangeObj, nil, nil
 	}
 
 	return c.get(exec, key)
 }
 
-func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, error) {
+func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, io.ReadCloser, error) {
 	var prm internalclient.GetObjectPrm
 
 	prm.SetContext(exec.context())
@@ -191,35 +204,34 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 	res, err := internalclient.GetObject(prm)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
-	return res.Object(), nil
+	return res.Object(), res.Reader(), nil
 }
 
-func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
+func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser, error) {
 	if exec.headOnly() {
 		r, err := e.engine.Head(exec.address(), exec.isRaw())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		return r, nil
+		return r, nil, nil
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
 		r, err := e.engine.GetRange(exec.address(), rng.GetOffset(), rng.GetLength())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		o := object.New()
 		o.SetPayload(r)
 
-		return o, nil
+		return o, nil, nil
 	}
 
-	return e.engine.Get(exec.address())
+	return e.engine.GetStream(exec.address())
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {

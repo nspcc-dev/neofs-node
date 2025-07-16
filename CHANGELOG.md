@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - Write cache initialization happens much faster now, some redundant checks were removed (#3417)
 - Metabase no longer stores object headers (#3430)
 - Optimize `GetRange` operation for FSTree (#3438)
+- Use stream API of FSTree for object service `Get` operation (#3466)
 
 ### Removed
 - Short header support in HEAD's request and response (#3424)

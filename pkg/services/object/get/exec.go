@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -12,6 +13,12 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
+)
+
+const (
+	// streamChunkSize is the size of the chunk that is used to read/write
+	// object payload from/to the stream.
+	streamChunkSize = 64 * 1024 // 64 KiB
 )
 
 type statusError struct {
@@ -35,6 +42,7 @@ type execCtx struct {
 	log *zap.Logger
 
 	collectedObject *objectSDK.Object
+	collectedReader io.ReadCloser
 
 	curOff uint64
 
@@ -299,12 +307,18 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
+func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadCloser) bool {
 	if exec.headOnly() {
 		return true
 	}
 
-	err := exec.prm.objWriter.WriteChunk(obj.Payload())
+	var err error
+	if reader != nil {
+		defer reader.Close()
+		err = exec.writeFromStream(reader)
+	} else {
+		err = exec.prm.objWriter.WriteChunk(obj.Payload())
+	}
 
 	switch {
 	default:
@@ -322,9 +336,29 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
 	return err == nil
 }
 
+// writeFromStream writes payload from stream.
+func (exec *execCtx) writeFromStream(reader io.ReadCloser) error {
+	buf := make([]byte, streamChunkSize)
+	for {
+		n, err := reader.Read(buf)
+		if n > 0 {
+			if writeErr := exec.prm.objWriter.WriteChunk(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+		}
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func (exec *execCtx) writeCollectedObject() {
 	if ok := exec.writeCollectedHeader(); ok {
-		exec.writeObjectPayload(exec.collectedObject)
+		exec.writeObjectPayload(exec.collectedObject, exec.collectedReader)
 	}
 }
 

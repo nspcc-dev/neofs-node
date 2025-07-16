@@ -1,10 +1,12 @@
 package getsvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"testing"
 
@@ -113,19 +115,28 @@ func newTestClient() *testClient {
 	}
 }
 
-func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, error) {
+func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, io.ReadCloser, error) {
 	v, ok := c.results[exec.address().EncodeToString()]
 	if !ok {
 		var errNotFound apistatus.ObjectNotFound
 
-		return nil, errNotFound
+		return nil, nil, errNotFound
 	}
 
 	if v.err != nil {
-		return nil, v.err
+		return nil, nil, v.err
 	}
 
-	return cutToRange(v.obj, exec.ctxRange()), nil
+	obj := cutToRange(v.obj, exec.ctxRange())
+
+	if obj != nil && len(obj.Payload()) > 0 {
+		reader := io.NopCloser(bytes.NewReader(obj.Payload()))
+		objWithoutPayload := obj.CutPayload()
+		objWithoutPayload.SetPayloadSize(obj.PayloadSize())
+		return objWithoutPayload, reader, nil
+	}
+
+	return obj, nil, nil
 }
 
 func (c *testClient) addResult(addr oid.Address, obj *objectSDK.Object, err error) {
@@ -135,7 +146,7 @@ func (c *testClient) addResult(addr oid.Address, obj *objectSDK.Object, err erro
 	}{obj: obj, err: err}
 }
 
-func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, error) {
+func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, io.ReadCloser, error) {
 	var (
 		ok    bool
 		obj   *objectSDK.Object
@@ -145,20 +156,29 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, error) {
 	if _, ok = s.inhumed[sAddr]; ok {
 		var errRemoved apistatus.ObjectAlreadyRemoved
 
-		return nil, errRemoved
+		return nil, nil, errRemoved
 	}
 
 	if info, ok := s.virtual[sAddr]; ok {
-		return nil, objectSDK.NewSplitInfoError(info)
+		return nil, nil, objectSDK.NewSplitInfoError(info)
 	}
 
 	if obj, ok = s.phy[sAddr]; ok {
-		return cutToRange(obj, exec.ctxRange()), nil
+		obj = cutToRange(obj, exec.ctxRange())
+
+		if obj != nil && len(obj.Payload()) > 0 {
+			reader := io.NopCloser(bytes.NewReader(obj.Payload()))
+			objWithoutPayload := obj.CutPayload()
+			objWithoutPayload.SetPayloadSize(obj.PayloadSize())
+			return objWithoutPayload, reader, nil
+		}
+
+		return obj, nil, nil
 	}
 
 	var errNotFound apistatus.ObjectNotFound
 
-	return nil, errNotFound
+	return nil, nil, errNotFound
 }
 
 func cutToRange(o *objectSDK.Object, rng *objectSDK.Range) *objectSDK.Object {
