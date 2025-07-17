@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -160,7 +161,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	par := obj.Parent()
 
 	if obj.HasParent() {
-		if par != nil && par.HasParent() {
+		if par != nil && par.HasParent() && !isECPart(*obj) {
 			return errors.New("parent object has a parent itself")
 		}
 
@@ -462,4 +463,11 @@ func WithTombVerifier(tv TombVerifier) FormatValidatorOption {
 	return func(c *cfg) {
 		c.tv = tv
 	}
+}
+
+// TODO: share util.
+func isECPart(obj object.Object) bool {
+	return slices.ContainsFunc(obj.Attributes(), func(attr object.Attribute) bool {
+		return strings.HasPrefix(attr.Key(), "__NEOFS__EC_") // TODO: use const
+	})
 }
