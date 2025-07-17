@@ -5,9 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,24 +25,22 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 		{from: 1 * KB, length: 4 * KB, objectSize: 1 * MB},  // 1MB, range in the middle
 		{from: 0, length: 1 * MB, objectSize: 1 * MB},       // 1MB, full range
 		{from: 0, length: 0, objectSize: 1 * MB},            // 1MB, zero range
+		{from: 1 * KB, length: 1 * KB, objectSize: 4 * KB},  // 4KB, range in the middle
 		{from: 0, length: 4 * KB, objectSize: 4 * KB},       // 4KB, full range
 		{from: 0, length: 0, objectSize: 4 * KB},            // 4KB, zero range
-		{from: 1 * KB, length: 1 * KB, objectSize: 4 * KB},  // 4KB, range in the middle
 	}
 
 	for _, tc := range testCases {
 		b.Run(fmt.Sprintf("size=%s,off=%s,len=%s",
 			generateSizeLabel(tc.objectSize), generateSizeLabel(int(tc.from)), generateSizeLabel(int(tc.length))),
 			func(b *testing.B) {
-				tmpDir := b.TempDir()
-
-				fsTree := fstree.New(fstree.WithPath(tmpDir))
-
 				obj := generateTestObject(tc.objectSize)
 				addr := object.AddressOf(obj)
 
 				b.Run("regular", func(b *testing.B) {
+					fsTree := setupFSTree(b)
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+
 					b.ResetTimer()
 					for range b.N {
 						_, err := fsTree.GetRange(addr, tc.from, tc.length)
@@ -56,10 +51,8 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 				})
 
 				b.Run("compressed", func(b *testing.B) {
-					compressConfig := &compression.Config{
-						Enabled: true,
-					}
-					require.NoError(b, compressConfig.Init())
+					fsTree := setupFSTree(b)
+					setupCompressor(b, fsTree)
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
 					b.ResetTimer()
@@ -72,20 +65,12 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 				})
 
 				b.Run("combined", func(b *testing.B) {
-					const numObjects = 10
-
-					objMap := make(map[oid.Address][]byte, numObjects)
-					addrs := make([]oid.Address, numObjects)
-					for i := range numObjects {
-						o := generateTestObject(tc.objectSize)
-						objMap[object.AddressOf(o)] = o.Marshal()
-						addrs[i] = object.AddressOf(o)
-					}
-					require.NoError(b, fsTree.PutBatch(objMap))
+					fsTree := setupFSTree(b)
+					addrs := prepareMultipleObjects(b, fsTree, tc.objectSize)
 
 					b.ResetTimer()
 					for k := range b.N {
-						_, err := fsTree.GetRange(addrs[k%numObjects], tc.from, tc.length)
+						_, err := fsTree.GetRange(addrs[k%len(addrs)], tc.from, tc.length)
 						if err != nil {
 							b.Fatal(err)
 						}

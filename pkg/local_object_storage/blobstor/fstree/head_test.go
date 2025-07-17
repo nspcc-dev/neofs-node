@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -13,9 +12,7 @@ import (
 )
 
 func TestHeadStorage(t *testing.T) {
-	fsTree := fstree.New(fstree.WithPath(t.TempDir()))
-	require.NoError(t, fsTree.Open(false))
-	require.NoError(t, fsTree.Init())
+	fsTree := setupFSTree(t)
 
 	testObjects := func(t *testing.T, fsTree *fstree.FSTree, size int) {
 		obj := generateTestObject(size)
@@ -109,16 +106,8 @@ func TestHeadStorage(t *testing.T) {
 	})
 
 	t.Run("with compression", func(t *testing.T) {
-		compressConfig := &compression.Config{
-			Enabled: true,
-		}
-		require.NoError(t, compressConfig.Init())
-
-		fsComp := fstree.New(fstree.WithPath(t.TempDir()))
-		fsComp.SetCompressor(compressConfig)
-
-		require.NoError(t, fsComp.Open(false))
-		require.NoError(t, fsComp.Init())
+		fsComp := setupFSTree(t)
+		setupCompressor(t, fsComp)
 
 		for _, size := range payloadSizes {
 			t.Run("compressed_"+generateSizeLabel(size), func(t *testing.T) {
@@ -130,14 +119,4 @@ func TestHeadStorage(t *testing.T) {
 			})
 		}
 	})
-}
-
-func addAttribute(obj *objectSDK.Object, key, value string) {
-	var attr objectSDK.Attribute
-	attr.SetKey(key)
-	attr.SetValue(value)
-
-	attrs := obj.Attributes()
-	attrs = append(attrs, attr)
-	obj.SetAttributes(attrs...)
 }
