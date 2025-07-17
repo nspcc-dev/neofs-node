@@ -4,8 +4,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -15,12 +13,8 @@ import (
 func BenchmarkFSTree_Head(b *testing.B) {
 	for _, size := range payloadSizes {
 		b.Run(generateSizeLabel(size), func(b *testing.B) {
-			fsTree := fstree.New(fstree.WithPath(b.TempDir()))
-
-			require.NoError(b, fsTree.Open(false))
-			require.NoError(b, fsTree.Init())
-
-			testReadOp(b, fsTree, fsTree.Head, "Head", size)
+			fsTree := setupFSTree(b)
+			runReadBenchmark(b, fsTree, fsTree.Head, "Head", size)
 		})
 	}
 }
@@ -28,12 +22,8 @@ func BenchmarkFSTree_Head(b *testing.B) {
 func BenchmarkFSTree_Get(b *testing.B) {
 	for _, size := range payloadSizes {
 		b.Run(generateSizeLabel(size), func(b *testing.B) {
-			fsTree := fstree.New(fstree.WithPath(b.TempDir()))
-
-			require.NoError(b, fsTree.Open(false))
-			require.NoError(b, fsTree.Init())
-
-			testReadOp(b, fsTree, fsTree.Get, "Get", size)
+			fsTree := setupFSTree(b)
+			runReadBenchmark(b, fsTree, fsTree.Get, "Get", size)
 		})
 	}
 }
@@ -41,27 +31,20 @@ func BenchmarkFSTree_Get(b *testing.B) {
 func BenchmarkFSTree_GetStream(b *testing.B) {
 	for _, size := range payloadSizes {
 		b.Run(generateSizeLabel(size), func(b *testing.B) {
-			fsTree := fstree.New(fstree.WithPath(b.TempDir()))
-
-			require.NoError(b, fsTree.Open(false))
-			require.NoError(b, fsTree.Init())
-
-			testGetStreamOp(b, fsTree, size)
+			fsTree := setupFSTree(b)
+			runGetStreamBenchmark(b, fsTree, size)
 		})
 	}
 }
 
-func testReadOp(b *testing.B, fsTree *fstree.FSTree, read func(address oid.Address) (*objectSDK.Object, error),
-	name string, payloadSize int) {
+func runReadBenchmark(b *testing.B, fsTree *fstree.FSTree, readFunc func(oid.Address) (*objectSDK.Object, error), name string, payloadSize int) {
 	b.Run(name+"_regular", func(b *testing.B) {
-		obj := generateTestObject(payloadSize)
-		addr := object.AddressOf(obj)
+		addr := prepareSingleObject(b, fsTree, payloadSize)
 
-		require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			_, err := read(addr)
+			_, err := readFunc(addr)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -69,21 +52,12 @@ func testReadOp(b *testing.B, fsTree *fstree.FSTree, read func(address oid.Addre
 	})
 
 	b.Run(name+"_combined", func(b *testing.B) {
-		const numObjects = 10
-
-		objMap := make(map[oid.Address][]byte, numObjects)
-		addrs := make([]oid.Address, numObjects)
-		for i := range numObjects {
-			o := generateTestObject(payloadSize)
-			objMap[object.AddressOf(o)] = o.Marshal()
-			addrs[i] = object.AddressOf(o)
-		}
-		require.NoError(b, fsTree.PutBatch(objMap))
+		addrs := prepareMultipleObjects(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
 		b.ResetTimer()
 		for k := range b.N {
-			_, err := read(addrs[k%numObjects])
+			_, err := readFunc(addrs[k%len(addrs)])
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -91,20 +65,13 @@ func testReadOp(b *testing.B, fsTree *fstree.FSTree, read func(address oid.Addre
 	})
 
 	b.Run(name+"_compressed", func(b *testing.B) {
-		obj := generateTestObject(payloadSize)
-		addr := object.AddressOf(obj)
-
-		compressConfig := &compression.Config{
-			Enabled: true,
-		}
-		require.NoError(b, compressConfig.Init())
-		fsTree.SetCompressor(compressConfig)
-		require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+		setupCompressor(b, fsTree)
+		addr := prepareSingleObject(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
-			_, err := read(addr)
+			_, err := readFunc(addr)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -112,12 +79,10 @@ func testReadOp(b *testing.B, fsTree *fstree.FSTree, read func(address oid.Addre
 	})
 }
 
-func testGetStreamOp(b *testing.B, fsTree *fstree.FSTree, payloadSize int) {
+func runGetStreamBenchmark(b *testing.B, fsTree *fstree.FSTree, payloadSize int) {
 	b.Run("GetStream_regular", func(b *testing.B) {
-		obj := generateTestObject(payloadSize)
-		addr := object.AddressOf(obj)
+		addr := prepareSingleObject(b, fsTree, payloadSize)
 
-		require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
@@ -129,27 +94,18 @@ func testGetStreamOp(b *testing.B, fsTree *fstree.FSTree, payloadSize int) {
 				b.Fatal("header is nil")
 			}
 			if reader != nil {
-				reader.Close()
+				require.NoError(b, reader.Close())
 			}
 		}
 	})
 
 	b.Run("GetStream_combined", func(b *testing.B) {
-		const numObjects = 10
-
-		objMap := make(map[oid.Address][]byte, numObjects)
-		addrs := make([]oid.Address, numObjects)
-		for i := range numObjects {
-			o := generateTestObject(payloadSize)
-			objMap[object.AddressOf(o)] = o.Marshal()
-			addrs[i] = object.AddressOf(o)
-		}
-		require.NoError(b, fsTree.PutBatch(objMap))
+		addrs := prepareMultipleObjects(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
 		b.ResetTimer()
 		for k := range b.N {
-			header, reader, err := fsTree.GetStream(addrs[k%numObjects])
+			header, reader, err := fsTree.GetStream(addrs[k%len(addrs)])
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -157,21 +113,14 @@ func testGetStreamOp(b *testing.B, fsTree *fstree.FSTree, payloadSize int) {
 				b.Fatal("header is nil")
 			}
 			if reader != nil {
-				reader.Close()
+				require.NoError(b, reader.Close())
 			}
 		}
 	})
 
 	b.Run("GetStream_compressed", func(b *testing.B) {
-		obj := generateTestObject(payloadSize)
-		addr := object.AddressOf(obj)
-
-		compressConfig := &compression.Config{
-			Enabled: true,
-		}
-		require.NoError(b, compressConfig.Init())
-		fsTree.SetCompressor(compressConfig)
-		require.NoError(b, fsTree.Put(addr, obj.Marshal()))
+		setupCompressor(b, fsTree)
+		addr := prepareSingleObject(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -184,16 +133,14 @@ func testGetStreamOp(b *testing.B, fsTree *fstree.FSTree, payloadSize int) {
 				b.Fatal("header is nil")
 			}
 			if reader != nil {
-				reader.Close()
+				require.NoError(b, reader.Close())
 			}
 		}
 	})
 
 	b.Run("GetStream_with_payload_read", func(b *testing.B) {
-		obj := generateTestObject(payloadSize)
-		addr := object.AddressOf(obj)
+		addr := prepareSingleObject(b, fsTree, payloadSize)
 
-		require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 		b.ReportAllocs()
 		b.ResetTimer()
 		for range b.N {
@@ -210,7 +157,7 @@ func testGetStreamOp(b *testing.B, fsTree *fstree.FSTree, payloadSize int) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				reader.Close()
+				require.NoError(b, reader.Close())
 			}
 		}
 	})
