@@ -33,10 +33,19 @@ type Consensus struct {
 	// Required.
 	Storage Storage `mapstructure:"storage"`
 
-	// Time period (approximate) between two adjacent blocks.
+	// Time period (approximate) between two adjacent blocks. If used
+	// with MaxTimePerBlock, specifies minimal time.
 	//
 	// Optional: defaults to 15s. Must not be negative.
 	TimePerBlock time.Duration `mapstructure:"time_per_block"`
+
+	// Maximum time period (approximate) between two adjacent blocks,
+	// if used enables dynamic block time (contrary to TimePerBlock
+	// targeting for every block).
+	//
+	// Optional: not set by default. Must not be negative, must be
+	// bigger than TimePerBlock.
+	MaxTimePerBlock time.Duration `mapstructure:"max_time_per_block"`
 
 	// Length of the chain accessible to smart contracts.
 	//
