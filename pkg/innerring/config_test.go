@@ -38,6 +38,7 @@ fschain:
 // YAML sub-configuration of the IR consensus with all optional fields.
 const validBlockchainConfigOptions = `
     time_per_block: 1s
+    max_time_per_block: 20s
     max_traceable_blocks: 200
     seed_nodes:
       - localhost:20000
@@ -178,9 +179,10 @@ func TestParseBlockchainConfig(t *testing.T) {
 		require.Equal(t, &irconfig.Config{
 			FSChain: irconfig.Chain{
 				Consensus: irconfig.Consensus{
-					Magic:        15405,
-					Committee:    validCommittee,
-					TimePerBlock: time.Second,
+					Magic:           15405,
+					Committee:       validCommittee,
+					TimePerBlock:    time.Second,
+					MaxTimePerBlock: 20 * time.Second,
 					RPC: irconfig.RPC{
 						MaxWebSocketClients: 100,
 						SessionPoolSize:     100,
@@ -357,6 +359,7 @@ fschain:
 				{kvF("magic", math.MaxUint32+1)},
 				{kvF("committee", []string{"not a key"})},
 				{kvF("time_per_block", "not a duration")},
+				{kvF("max_time_per_block", "not a duration")},
 				{kvF("max_traceable_blocks", -1)},
 				{kvF("max_traceable_blocks", math.MaxUint32+1)},
 				{kvF("max_valid_until_block_increment", -1)},
@@ -398,6 +401,8 @@ fschain:
 				{kvF("committee", []string{})},
 				{kvF("storage.type", "random string")},
 				{kvF("time_per_block", -time.Second)},
+				{kvF("max_time_per_block", -time.Second)},
+				{kvF("max_time_per_block", time.Millisecond)},
 				{kvF("seed_nodes", []string{"a:1:2"})},
 				{kvF("hardforks", map[string]any{"": 1})},
 				{kvF("validators_history", map[string]any{"0": len(validCommittee) + 1})},
