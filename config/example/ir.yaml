@@ -41,6 +41,8 @@ fschain:
       path: ./db/morph.bolt # File system path to the storage. Ignored for 'inmemory' storage.
     time_per_block: 1s # Optional time period (approximate) between two adjacent blocks. Defaults to 15s.
       # Must not be negative
+    max_time_per_block: 20s # Optional maximum time period (approximate) between two adjacent blocks, enabled dynamic block time. Not set by default (time_per_block only used).
+      # Must not be negative, must be bigger than time_per_block.
     max_traceable_blocks: 11520 # Optional length of the chain accessible to smart contracts. Defaults to 17280.
       # Must not be greater than 4294967295
     max_valid_until_block_increment: 3600 # Optional transaction validity period relative to the current height. Defaults to 8640.

@@ -54,6 +54,8 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 		panic("uninitialized storage config")
 	case cfg.TimePerBlock < 0:
 		panic("negative block interval")
+	case cfg.MaxTimePerBlock < 0:
+		panic("negative max block interval")
 	case wallet.Path == "":
 		panic("missing wallet path")
 	case errChan == nil:
@@ -155,6 +157,7 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	cfgBaseProto.StandbyCommittee = standByCommittee
 
 	cfgBaseProto.TimePerBlock = cfg.TimePerBlock
+	cfgBaseProto.MaxTimePerBlock = cfg.MaxTimePerBlock
 	cfgBaseProto.Genesis.TimePerBlock = cfg.TimePerBlock
 	cfgBaseProto.SeedList = cfg.SeedNodes
 	cfgBaseProto.VerifyTransactions = true
