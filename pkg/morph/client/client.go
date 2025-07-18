@@ -525,13 +525,7 @@ func (c *Client) GetBlockHeader(ind uint32) (*block.Header, error) {
 		return nil, ErrConnectionLost
 	}
 
-	// there is no header by index in neo-go's client yet
-	b, err := conn.client.GetBlockByIndex(ind)
-	if err != nil {
-		return nil, err
-	}
-
-	return &b.Header, nil
+	return conn.client.GetBlockHeaderByIndex(ind)
 }
 
 // MsPerBlock returns MillisecondsPerBlock network parameter.
