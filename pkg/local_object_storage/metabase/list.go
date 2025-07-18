@@ -153,12 +153,13 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 			break
 		}
 
+		mCursor := bkt.Cursor()
 		offset = k
-		if inGraveyardWithKey(append(cidRaw, obj[:]...), graveyardBkt, garbageObjectsBkt, garbageContainersBkt) != statusAvailable {
+		if inGraveyardWithKey(mCursor, append(cidRaw, obj[:]...), graveyardBkt, garbageObjectsBkt, garbageContainersBkt) != statusAvailable {
 			continue
 		}
 
-		objType, err := fetchTypeForID(bkt.Cursor(), typePrefix, obj)
+		objType, err := fetchTypeForID(mCursor, typePrefix, obj)
 		if err != nil {
 			continue
 		}

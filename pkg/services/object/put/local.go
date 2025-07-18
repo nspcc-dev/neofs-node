@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -32,24 +33,26 @@ type ObjectStorage interface {
 }
 
 func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, enc *encodedObject) error {
-	switch obj.Type() {
-	case object.TypeTombstone:
-		exp, err := objectCore.Expiration(*obj)
-		if err != nil && !errors.Is(err, objectCore.ErrNoExpiration) {
-			return fmt.Errorf("reading tombstone expiration: %w", err)
-		}
+	if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
+		switch obj.Type() {
+		case object.TypeTombstone:
+			exp, err := objectCore.Expiration(*obj)
+			if err != nil && !errors.Is(err, objectCore.ErrNoExpiration) {
+				return fmt.Errorf("reading tombstone expiration: %w", err)
+			}
 
-		err = storage.Delete(objectCore.AddressOf(obj), exp, meta.Objects())
-		if err != nil {
-			return fmt.Errorf("could not delete objects from tombstone locally: %w", err)
+			err = storage.Delete(objectCore.AddressOf(obj), exp, meta.Objects())
+			if err != nil {
+				return fmt.Errorf("could not delete objects from tombstone locally: %w", err)
+			}
+		case object.TypeLock:
+			err := storage.Lock(objectCore.AddressOf(obj), meta.Objects())
+			if err != nil {
+				return fmt.Errorf("could not lock object from lock objects locally: %w", err)
+			}
+		default:
+			// objects that do not change meta storage
 		}
-	case object.TypeLock:
-		err := storage.Lock(objectCore.AddressOf(obj), meta.Objects())
-		if err != nil {
-			return fmt.Errorf("could not lock object from lock objects locally: %w", err)
-		}
-	default:
-		// objects that do not change meta storage
 	}
 
 	var objBin []byte

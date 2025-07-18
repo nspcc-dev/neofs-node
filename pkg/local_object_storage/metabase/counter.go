@@ -149,9 +149,15 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 		addr.SetContainer(cnr)
 		addr.SetObject(obj)
 
+		metaBucket := tx.Bucket(metaBucketKey(cnr))
+		var metaCursor *bbolt.Cursor
+		if metaBucket != nil {
+			metaCursor = metaBucket.Cursor()
+		}
+
 		// check if an object is available: not with GCMark
 		// and not covered with a tombstone
-		if inGraveyardWithKey(addressKey(addr, key), graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
+		if inGraveyardWithKey(metaCursor, addressKey(addr, key), graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
 			logicCounter++
 		}
 

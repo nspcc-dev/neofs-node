@@ -47,9 +47,6 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		var lock objectSDK.Lock
-		lock.WriteMembers(lockList)
-
 		exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 		lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 
@@ -73,13 +70,6 @@ var objectLockCmd = &cobra.Command{
 		expirationAttr.SetKey(objectSDK.AttributeExpirationEpoch)
 		expirationAttr.SetValue(strconv.FormatUint(exp, 10))
 
-		obj := objectSDK.New()
-		obj.SetContainerID(cnr)
-		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
-		obj.SetType(objectSDK.TypeLock)
-		obj.SetAttributes(expirationAttr)
-		obj.SetPayload(lock.Marshal())
-
 		var prm internalclient.PutObjectPrm
 		prm.SetPrivateKey(*key)
 
@@ -101,15 +91,24 @@ var objectLockCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		prm.SetHeader(obj)
 
-		res, err := internalclient.PutObject(ctx, prm)
-		if err != nil {
-			return fmt.Errorf("Store lock object in NeoFS: %w", err)
+		obj := objectSDK.New()
+		obj.SetContainerID(cnr)
+		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
+		obj.SetAttributes(expirationAttr)
+
+		for _, locked := range lockList {
+			obj.AssociateLocked(locked)
+			prm.SetHeader(obj)
+
+			res, err := internalclient.PutObject(ctx, prm)
+			if err != nil {
+				return fmt.Errorf("Store lock object for %s in NeoFS: %w", locked, err)
+			}
+
+			cmd.Printf("Lock object ID for %s locked object: %s\n", locked, res.ID())
+			cmd.Println("Objects successfully locked.")
 		}
-
-		cmd.Printf("Lock object ID: %s\n", res.ID())
-		cmd.Println("Objects successfully locked.")
 
 		return nil
 	},

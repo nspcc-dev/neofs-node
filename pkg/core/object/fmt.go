@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -134,8 +135,19 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilObject
 	}
 
-	if obj.Type() == object.TypeStorageGroup { //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
+	switch obj.Type() {
+	case object.TypeStorageGroup: //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
 		return fmt.Errorf("strorage group type is no longer supported")
+	case object.TypeLock, object.TypeTombstone:
+		if !unprepared && version.SysObjTargetShouldBeInHeader(obj.Version()) {
+			if len(obj.Payload()) > 0 {
+				return errors.New("system object has payload")
+			}
+			if obj.AssociatedObject().IsZero() {
+				return errors.New("system object has zero associated object")
+			}
+		}
+	default:
 	}
 
 	var hdrLen = obj.HeaderLen()
@@ -269,6 +281,10 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, fmt.Errorf("link object's split chain verification: %w", err)
 		}
 	case object.TypeTombstone:
+		if version.SysObjTargetShouldBeInHeader(o.Version()) {
+			return ContentMeta{}, nil
+		}
+
 		if len(o.Payload()) == 0 {
 			return ContentMeta{}, errors.New("empty payload in tombstone")
 		}
@@ -302,6 +318,20 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		idList := tombstone.Members()
 		meta.objs = idList
 	case object.TypeLock:
+		// check that LOCK object has correct expiration epoch
+		lockExp, err := Expiration(*o)
+		if err != nil {
+			return ContentMeta{}, fmt.Errorf("lock object expiration epoch: %w", err)
+		}
+
+		if currEpoch := v.netState.CurrentEpoch(); lockExp < currEpoch {
+			return ContentMeta{}, fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
+		}
+
+		if version.SysObjTargetShouldBeInHeader(o.Version()) {
+			return ContentMeta{}, nil
+		}
+
 		if len(o.Payload()) == 0 {
 			return ContentMeta{}, errors.New("empty payload in lock")
 		}
@@ -314,16 +344,6 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		objID := o.GetID()
 		if objID.IsZero() {
 			return ContentMeta{}, errors.New("missing ID")
-		}
-
-		// check that LOCK object has correct expiration epoch
-		lockExp, err := Expiration(*o)
-		if err != nil {
-			return ContentMeta{}, fmt.Errorf("lock object expiration epoch: %w", err)
-		}
-
-		if currEpoch := v.netState.CurrentEpoch(); lockExp < currEpoch {
-			return ContentMeta{}, fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
 		}
 
 		var lock object.Lock
