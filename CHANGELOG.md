@@ -45,7 +45,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250715070617-c7038b450691` (#3406, #3461)
-- NeoGo dependency to v0.110.1-0.20250709130255-4f05526f09f6 (#3456)
+- NeoGo dependency to v0.111.0 (#3456, #3474)
 
 ### Updating from v0.47.1
 Storage group objects are no longer supported (rejected by SN), you can
