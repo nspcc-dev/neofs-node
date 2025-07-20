@@ -564,7 +564,7 @@ func (x *BlobstorInfo) GetType() string {
 //     [ISO 3166-1_alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
 //     format. Calculated automatically from `Locode` attribute
 //   - Region \
-//     Country's administative subdivision where node is located. Calculated
+//     Country's administrative subdivision where node is located. Calculated
 //     automatically from `Locode` attribute based on `SubDiv` field. Presented
 //     in [ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2) format.
 //   - City \
