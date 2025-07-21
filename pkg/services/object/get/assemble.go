@@ -76,7 +76,7 @@ func (exec *execCtx) assemble() {
 			//  * else go right-to-left with GET and compose in single object before writing
 
 			if ok := exec.overtakePayloadInReverse(*prev); ok {
-				// payload of all children except the last are written, write last payloa
+				// payload of all children except the last are written, write last payload
 				exec.writeObjectPayload(exec.collectedObject, exec.collectedReader)
 			}
 		}
