@@ -1,6 +1,7 @@
 package innerring
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -68,6 +69,15 @@ func validateBlockchainConfig(cfg *config.Config) error {
 	err = checkDurationPositive(cfgFSChainLocalConsensus.TimePerBlock, cfgPathFSChainLocalConsensus+".time_per_block")
 	if err != nil {
 		return err
+	}
+
+	err = checkDurationPositive(cfgFSChainLocalConsensus.MaxTimePerBlock, cfgPathFSChainLocalConsensus+".max_time_per_block")
+	if err != nil {
+		return err
+	}
+
+	if cfgFSChainLocalConsensus.MaxTimePerBlock != 0 && cfgFSChainLocalConsensus.MaxTimePerBlock < cfgFSChainLocalConsensus.TimePerBlock {
+		return errors.New("consensus max_time_per_block set to lower value than time_per_block")
 	}
 
 	cfgFSChainLocalConsensus.SeedNodes, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.SeedNodes,

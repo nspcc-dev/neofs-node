@@ -40,6 +40,7 @@ fschain:
       type: boltdb
       path: ./db/fschain.bolt
     time_per_block: 1s
+    max_time_per_block: 20s
     max_traceable_blocks: 11520
     seed_nodes:
       - node2
@@ -200,6 +201,7 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 					Path: "./db/morph.bolt",
 				},
 				TimePerBlock:                time.Second,
+				MaxTimePerBlock:             20 * time.Second,
 				MaxTraceableBlocks:          11520,
 				MaxValidUntilBlockIncrement: 3600,
 				SeedNodes:                   []string{"node2", "node3:20333"},

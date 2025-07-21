@@ -19,7 +19,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.12.2
 	github.com/nspcc-dev/hrw/v2 v2.0.3
 	github.com/nspcc-dev/locode-db v0.6.0
-	github.com/nspcc-dev/neo-go v0.110.1-0.20250709130255-4f05526f09f6
+	github.com/nspcc-dev/neo-go v0.111.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.23.0
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.13.0.20250715070617-c7038b450691
@@ -73,7 +73,7 @@ require (
 	github.com/multiformats/go-multihash v0.2.3 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nspcc-dev/dbft v0.3.3-0.20250321140139-7462b47e4d2d // indirect
+	github.com/nspcc-dev/dbft v0.4.0 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20250226190835-fb3f82b1f468 // indirect
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250423172732-0e55bd820115 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.3 // indirect
