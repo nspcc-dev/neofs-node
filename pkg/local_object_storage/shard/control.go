@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -191,54 +192,56 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 		return nil
 	}
 
-	// nolint: exhaustive
-	switch obj.Type() {
-	case objectSDK.TypeTombstone:
-		tombstone := objectSDK.NewTombstone()
-		exp, err := object.Expiration(*obj)
-		if err != nil && !errors.Is(err, object.ErrNoExpiration) {
-			return fmt.Errorf("tombstone's expiration: %w", err)
-		}
-
-		if err := tombstone.Unmarshal(obj.Payload()); err != nil {
-			return fmt.Errorf("could not unmarshal tombstone content: %w", err)
-		}
-
-		tombAddr := object.AddressOf(obj)
-		memberIDs := tombstone.Members()
-		tombMembers := make([]oid.Address, 0, len(memberIDs))
-
-		for i := range memberIDs {
-			a := tombAddr
-			a.SetObject(memberIDs[i])
-
-			tombMembers = append(tombMembers, a)
-		}
-
-		_, _, err = s.metaBase.Inhume(tombAddr, exp, false, tombMembers...)
-		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectLocked) {
-				// if we are trying to inhume locked object, likely we are doing
-				// something wrong and it should not stop resynchronisation
-				s.log.Warn("inhuming locked objects",
-					zap.Stringer("TS_address", tombAddr),
-					zap.Stringers("targets", memberIDs))
-				return nil
+	if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
+		// nolint: exhaustive
+		switch obj.Type() {
+		case objectSDK.TypeTombstone:
+			tombstone := objectSDK.NewTombstone()
+			exp, err := object.Expiration(*obj)
+			if err != nil && !errors.Is(err, object.ErrNoExpiration) {
+				return fmt.Errorf("tombstone's expiration: %w", err)
 			}
-			return fmt.Errorf("could not inhume [%s] objects: %w", oidsToString(memberIDs), err)
-		}
-	case objectSDK.TypeLock:
-		var lock objectSDK.Lock
-		if err := lock.Unmarshal(obj.Payload()); err != nil {
-			return fmt.Errorf("could not unmarshal lock content: %w", err)
-		}
 
-		locked := make([]oid.ID, lock.NumberOfMembers())
-		lock.ReadMembers(locked)
+			if err := tombstone.Unmarshal(obj.Payload()); err != nil {
+				return fmt.Errorf("could not unmarshal tombstone content: %w", err)
+			}
 
-		err := s.metaBase.Lock(obj.GetContainerID(), obj.GetID(), locked)
-		if err != nil {
-			return fmt.Errorf("could not lock [%s] objects: %w", oidsToString(locked), err)
+			tombAddr := object.AddressOf(obj)
+			memberIDs := tombstone.Members()
+			tombMembers := make([]oid.Address, 0, len(memberIDs))
+
+			for i := range memberIDs {
+				a := tombAddr
+				a.SetObject(memberIDs[i])
+
+				tombMembers = append(tombMembers, a)
+			}
+
+			_, _, err = s.metaBase.Inhume(tombAddr, exp, false, tombMembers...)
+			if err != nil {
+				if errors.Is(err, apistatus.ErrObjectLocked) {
+					// if we are trying to inhume locked object, likely we are doing
+					// something wrong and it should not stop resynchronisation
+					s.log.Warn("inhuming locked objects",
+						zap.Stringer("TS_address", tombAddr),
+						zap.Stringers("targets", memberIDs))
+					return nil
+				}
+				return fmt.Errorf("could not inhume [%s] objects: %w", oidsToString(memberIDs), err)
+			}
+		case objectSDK.TypeLock:
+			var lock objectSDK.Lock
+			if err := lock.Unmarshal(obj.Payload()); err != nil {
+				return fmt.Errorf("could not unmarshal lock content: %w", err)
+			}
+
+			locked := make([]oid.ID, lock.NumberOfMembers())
+			lock.ReadMembers(locked)
+
+			err := s.metaBase.Lock(obj.GetContainerID(), obj.GetID(), locked)
+			if err != nil {
+				return fmt.Errorf("could not lock [%s] objects: %w", oidsToString(locked), err)
+			}
 		}
 	}
 
