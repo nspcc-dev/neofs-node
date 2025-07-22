@@ -95,9 +95,9 @@ var objectLockCmd = &cobra.Command{
 		obj := objectSDK.New()
 		obj.SetContainerID(cnr)
 		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
-		obj.SetAttributes(expirationAttr)
 
 		for _, locked := range lockList {
+			obj.SetAttributes(expirationAttr)
 			obj.AssociateLocked(locked)
 			prm.SetHeader(obj)
 
