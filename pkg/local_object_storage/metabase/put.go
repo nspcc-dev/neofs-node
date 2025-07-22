@@ -133,6 +133,10 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 			fillIDTypePrefix(typPrefix)
 			targetTyp, err := fetchTypeForID(metaCursor, typPrefix, target)
 			if err != nil {
+				if errors.Is(err, errObjTypeNotFound) {
+					return nil
+				}
+
 				return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, err)
 			}
 			if typ == objectSDK.TypeLock {
