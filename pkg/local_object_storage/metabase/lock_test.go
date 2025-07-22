@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"fmt"
 	"testing"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -274,6 +275,37 @@ func TestDB_IsLocked(t *testing.T) {
 		locked, err = db.IsLocked(objectcore.AddressOf(&anotherObj))
 		require.NoError(t, err)
 		require.False(t, locked)
+
+		t.Run("lock expiration", func(t *testing.T) {
+			es := &epochState{e: currEpoch}
+			db := newDB(t, meta.WithEpochState(es))
+
+			cnr := cidtest.ID()
+
+			o := objecttest.Object()
+			o.SetContainerID(cnr)
+			o.SetType(object.TypeRegular)
+			l := objecttest.Object()
+			l.SetContainerID(cnr)
+			l.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, fmt.Sprintf("%d", currEpoch)))
+			l.AssociateLocked(o.GetID())
+
+			err := putBig(db, &o)
+			require.NoError(t, err)
+			err = putBig(db, &l)
+			require.NoError(t, err)
+
+			ts := objecttest.Object()
+			ts.SetContainerID(cnr)
+			ts.AssociateDeleted(o.GetID())
+			err = putBig(db, &ts)
+			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
+
+			es.e = currEpoch + 1
+
+			err = putBig(db, &ts)
+			require.NoError(t, err)
+		})
 	})
 }
 

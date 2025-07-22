@@ -143,7 +143,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 			//
 			// To slightly optimize performance we can check only REGULAR objects
 			// (only they can be locked), but it's more reliable.
-			if objectLocked(tx, curForLocked, cnrID, id) {
+			if objectLocked(tx, curEpoch, curForLocked, cnrID, id) {
 				expKey, _ = cur.Next()
 				continue
 			}
@@ -194,12 +194,14 @@ func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.
 		return ErrDegradedMode
 	}
 
+	currEpoch := db.epochState.CurrentEpoch()
+
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateCoveredByTombstones(tx, tss, h)
+		return db.iterateCoveredByTombstones(tx, currEpoch, tss, h)
 	})
 }
 
-func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Address, h func(oid.Address) error) error {
+func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, currEpoch uint64, tss map[string]oid.Address, h func(oid.Address) error) error {
 	bktGraveyard := tx.Bucket(graveyardBucketName)
 
 	err := bktGraveyard.ForEach(func(k, v []byte) error {
@@ -221,7 +223,7 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Addres
 				metaCursor = metaBucket.Cursor()
 			}
 
-			if objectLocked(tx, metaCursor, addr.Container(), addr.Object()) {
+			if objectLocked(tx, currEpoch, metaCursor, addr.Container(), addr.Object()) {
 				return nil
 			}
 

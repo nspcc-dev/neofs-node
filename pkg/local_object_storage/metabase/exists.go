@@ -126,7 +126,7 @@ func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, curr
 	}
 
 	if expired {
-		if objectLocked(tx, metaCursor, cID, oID) {
+		if objectLocked(tx, currEpoch, metaCursor, cID, oID) {
 			return statusAvailable
 		}
 
@@ -134,7 +134,7 @@ func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, curr
 	}
 
 	graveyardStatus := inGraveyard(tx, metaCursor, addr)
-	if graveyardStatus != statusAvailable && objectLocked(tx, metaCursor, cID, oID) {
+	if graveyardStatus != statusAvailable && objectLocked(tx, currEpoch, metaCursor, cID, oID) {
 		return statusAvailable
 	}
 
@@ -154,7 +154,7 @@ func inGraveyard(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address) uint8
 }
 
 func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, garbageObjectsBCK, garbageContainersBCK *bbolt.Bucket) uint8 {
-	if associatedWithTypedObject(metaCursor, oid.ID(addrKey[cid.Size:]), objectSDK.TypeTombstone) {
+	if associatedWithTypedObject(0, metaCursor, oid.ID(addrKey[cid.Size:]), objectSDK.TypeTombstone) {
 		return statusTombstoned
 	}
 
