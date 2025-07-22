@@ -77,6 +77,10 @@ type TombVerifier interface {
 	// VerifyTomb must verify tombstone payload. Must break (if possible) any internal
 	// computations if context is done.
 	VerifyTomb(ctx context.Context, cnr cid.ID, t object.Tombstone) error
+
+	// VerifyTombStoneWithoutPayload must verify API 2.18+ tombstones without
+	// payload.
+	VerifyTombStoneWithoutPayload(ctx context.Context, t object.Object) error
 }
 
 // FSChain provides base non-contract functionality of the FS chain required for
@@ -282,7 +286,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		}
 	case object.TypeTombstone:
 		if version.SysObjTargetShouldBeInHeader(o.Version()) {
-			return ContentMeta{}, nil
+			return ContentMeta{}, v.tv.VerifyTombStoneWithoutPayload(context.Background(), *o)
 		}
 
 		if len(o.Payload()) == 0 {
