@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
@@ -104,8 +105,60 @@ func (db *DB) put(
 		}
 	}
 
+	err = handleNonRegularObject(tx, *obj)
+	if err != nil {
+		return err
+	}
+
 	if err := PutMetadataForObject(tx, *obj, !isParent); err != nil {
 		return fmt.Errorf("put metadata: %w", err)
+	}
+
+	return nil
+}
+
+func handleNonRegularObject(tx *bbolt.Tx, obj objectSDK.Object) error {
+	cID := obj.GetContainerID()
+	oID := obj.GetID()
+	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
+	if err != nil {
+		return fmt.Errorf("create meta bucket for container: %w", err)
+	}
+	metaCursor := metaBkt.Cursor()
+	typ := obj.Type()
+	switch typ {
+	case objectSDK.TypeLock, objectSDK.TypeTombstone:
+		if target := obj.AssociatedObject(); !target.IsZero() {
+			typPrefix := make([]byte, metaIDTypePrefixSize)
+			fillIDTypePrefix(typPrefix)
+			targetTyp, err := fetchTypeForID(metaCursor, typPrefix, target)
+			if err != nil {
+				return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, err)
+			}
+			if typ == objectSDK.TypeLock {
+				if targetTyp != objectSDK.TypeRegular {
+					return logicerr.Wrap(apistatus.LockNonRegularObject{})
+				}
+			} else { // TS case
+				if targetTyp == objectSDK.TypeTombstone {
+					return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
+				}
+				if targetTyp == objectSDK.TypeLock {
+					return ErrLockObjectRemoval
+				}
+
+				if objectLocked(tx, metaCursor, cID, target) {
+					return apistatus.ErrObjectLocked
+				}
+
+				garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
+				err = garbageObjectsBKT.Put(target[:], zeroValue)
+				if err != nil {
+					return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
+				}
+			}
+		}
+	default:
 	}
 
 	return nil

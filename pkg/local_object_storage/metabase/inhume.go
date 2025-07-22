@@ -98,8 +98,14 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			id := addr.Object()
 			cnr := addr.Container()
 
+			metaBucket := tx.Bucket(metaBucketKey(addr.Container()))
+			var metaCursor *bbolt.Cursor
+			if metaBucket != nil {
+				metaCursor = metaBucket.Cursor()
+			}
+
 			// prevent locked objects to be inhumed
-			if !force && objectLocked(tx, cnr, id) {
+			if !force && objectLocked(tx, metaCursor, cnr, id) {
 				return apistatus.ObjectLocked{}
 			}
 
@@ -119,7 +125,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			obj, err := get(tx, addr, false, true, currEpoch)
 			targetKey := addressKey(addr, buf)
 			if err == nil {
-				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
+				if inGraveyardWithKey(metaCursor, targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++

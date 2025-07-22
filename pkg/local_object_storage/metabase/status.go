@@ -52,19 +52,21 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		objKey := objectKey(address.Object(), make([]byte, objectKeySize))
 
 		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, objKey)
+		metaBucket := tx.Bucket(metaBucketKey(cID))
+		var metaCursor *bbolt.Cursor
+		if metaBucket != nil {
+			metaCursor = metaBucket.Cursor()
+		}
 
-		var objLocked = objectLocked(tx, cID, oID)
+		var objLocked = objectLocked(tx, metaCursor, cID, oID)
 
 		if objLocked {
 			res.State = append(res.State, "LOCKED")
 		}
 
-		removedStatus := inGraveyard(tx, address)
+		removedStatus := inGraveyard(tx, metaCursor, address)
 
-		var (
-			existsRegular bool
-			metaBucket    = tx.Bucket(metaBucketKey(cID))
-		)
+		var existsRegular bool
 		if metaBucket != nil {
 			var typPrefix = make([]byte, metaIDTypePrefixSize)
 

@@ -126,15 +126,15 @@ func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, curr
 	}
 
 	if expired {
-		if objectLocked(tx, cID, oID) {
+		if objectLocked(tx, metaCursor, cID, oID) {
 			return statusAvailable
 		}
 
 		return statusExpired
 	}
 
-	graveyardStatus := inGraveyard(tx, addr)
-	if graveyardStatus != statusAvailable && objectLocked(tx, cID, oID) {
+	graveyardStatus := inGraveyard(tx, metaCursor, addr)
+	if graveyardStatus != statusAvailable && objectLocked(tx, metaCursor, cID, oID) {
 		return statusAvailable
 	}
 
@@ -143,17 +143,21 @@ func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, curr
 
 // inGraveyard is an easier to use version of inGraveyardWithKey for cases
 // where a single address needs to be checked.
-func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
+func inGraveyard(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address) uint8 {
 	var (
 		addrKey              = addressKey(addr, make([]byte, addressKeySize))
 		garbageContainersBkt = tx.Bucket(garbageContainersBucketName)
 		garbageObjectsBkt    = tx.Bucket(garbageObjectsBucketName)
 		graveyardBkt         = tx.Bucket(graveyardBucketName)
 	)
-	return inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
+	return inGraveyardWithKey(metaCursor, addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 }
 
-func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageContainersBCK *bbolt.Bucket) uint8 {
+func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, garbageObjectsBCK, garbageContainersBCK *bbolt.Bucket) uint8 {
+	if associatedWithTypedObject(metaCursor, oid.ID(addrKey[cid.Size:]), objectSDK.TypeTombstone) {
+		return statusTombstoned
+	}
+
 	if graveyard == nil {
 		// incorrect metabase state, does not make
 		// sense to check garbage bucket

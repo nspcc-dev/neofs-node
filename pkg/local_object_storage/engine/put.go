@@ -2,12 +2,15 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
@@ -45,6 +48,42 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 	_, err := e.exists(addr)
 	if err != nil {
 		return err
+	}
+
+	// API 2.18+ system objects handling
+	switch obj.Type() {
+	case objectSDK.TypeTombstone:
+		deleted := obj.AssociatedObject()
+		if !deleted.IsZero() {
+			tsExp, err := object.Expiration(*obj)
+			if err != nil {
+				return fmt.Errorf("cannot parse %s TS's expiration: %w", addr, err)
+			}
+
+			err = e.inhume([]oid.Address{oid.NewAddress(addr.Container(), deleted)}, false, &addr, tsExp)
+			if err != nil {
+				return fmt.Errorf("cannot inhume %s object on %s TS put: %w", deleted, addr, err)
+			}
+		}
+	case objectSDK.TypeLock:
+		locked := obj.AssociatedObject()
+		if !locked.IsZero() {
+			cnr := addr.Container()
+			locker := addr.Object()
+
+			switch e.lockSingle(cnr, locker, locked, true) {
+			case 1:
+				return logicerr.Wrap(apistatus.LockNonRegularObject{})
+			case 0:
+				switch e.lockSingle(cnr, locker, locked, false) {
+				case 1:
+					return logicerr.Wrap(apistatus.LockNonRegularObject{})
+				case 0:
+					return logicerr.Wrap(errLockFailed)
+				}
+			}
+		}
+	default:
 	}
 
 	var bestShard shardWrapper

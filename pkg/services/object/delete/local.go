@@ -1,8 +1,9 @@
 package deletesvc
 
 import (
+	"strconv"
+
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -32,15 +33,21 @@ func (exec *execCtx) formTombstone() (ok bool) {
 		return false
 	}
 
-	exec.tombstone = object.NewTombstone()
-	exec.tombstone.SetExpirationEpoch(
-		exec.svc.netInfo.CurrentEpoch() + tsLifetime,
-	)
-	exec.addMembers([]oid.ID{exec.address().Object()})
+	exec.tombstoneObj = object.New()
+	exec.tombstoneObj.SetContainerID(exec.containerID())
 
-	ok = exec.initTombstoneObject()
-	if !ok {
-		return
+	var a object.Attribute
+	a.SetKey(object.AttributeExpirationEpoch)
+	a.SetValue(strconv.FormatUint(exec.svc.netInfo.CurrentEpoch()+tsLifetime, 10))
+	exec.tombstoneObj.SetAttributes(a)
+	exec.tombstoneObj.AssociateDeleted(exec.address().Object())
+
+	tokenSession := exec.commonParameters().SessionToken()
+	if tokenSession != nil {
+		exec.tombstoneObj.SetOwner(tokenSession.Issuer())
+	} else {
+		// make local node a tombstone object owner
+		exec.tombstoneObj.SetOwner(exec.svc.netInfo.LocalNodeID())
 	}
 
 	return true
