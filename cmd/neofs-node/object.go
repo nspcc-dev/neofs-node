@@ -804,6 +804,7 @@ type containerNodesSorter struct {
 
 func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
 func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
+func (x *containerNodesSorter) ECRules() []putsvc.ECRule         { return nil }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
 	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
 	cacheKey.addr.SetContainer(x.cnrID)
