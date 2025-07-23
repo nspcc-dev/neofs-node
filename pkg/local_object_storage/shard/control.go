@@ -246,7 +246,8 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 	}
 
 	err := s.metaBase.Put(obj)
-	if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) {
+	if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) &&
+		!errors.Is(err, apistatus.ErrObjectLocked) {
 		return err
 	}
 
