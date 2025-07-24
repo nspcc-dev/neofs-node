@@ -1241,9 +1241,8 @@ func (s *Server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRan
 }
 
 type rangeStream struct {
-	base    protoobject.ObjectService_GetRangeServer
-	srv     *Server
-	reqInfo aclsvc.RequestInfo
+	base protoobject.ObjectService_GetRangeServer
+	srv  *Server
 }
 
 func (s *rangeStream) WriteChunk(chunk []byte) error {
@@ -1254,11 +1253,6 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 					Chunk: buf.Next(maxRespDataChunkSize),
 				},
 			},
-		}
-		// TODO: do not check response multiple times
-		// TODO: why check it at all?
-		if err := s.srv.aclChecker.CheckEACL(newResp, s.reqInfo); err != nil {
-			return eACLErr(s.reqInfo, err)
 		}
 		if err := s.srv.sendRangeResponse(s.base, newResp); err != nil {
 			return err
@@ -1296,9 +1290,8 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	}
 
 	p, err := convertRangePrm(s.signer, req, &rangeStream{
-		base:    gStream,
-		srv:     s,
-		reqInfo: reqInfo,
+		base: gStream,
+		srv:  s,
 	})
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)

@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- Redundant EACL check in GetRange handler (#3481)
 
 ### Updated
 
