@@ -66,7 +66,7 @@ func (t *FSTree) getObjectStream(addr oid.Address) (*objectSDK.Object, io.ReadSe
 	return obj, reader, nil
 }
 
-// extractHeaderOnly reads the header of an object from a file.
+// extractHeaderAndStream reads the header of an object from a file.
 // The caller is responsible for closing the returned io.ReadCloser if it is not nil.
 func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Object, io.ReadSeekCloser, error) {
 	buf := make([]byte, objectSDK.MaxHeaderLen, 2*objectSDK.MaxHeaderLen)
