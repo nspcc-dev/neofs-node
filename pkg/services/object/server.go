@@ -1445,9 +1445,8 @@ func (s *Server) sendStatusSearchResponse(stream protoobject.ObjectService_Searc
 }
 
 type searchStream struct {
-	base    protoobject.ObjectService_SearchServer
-	srv     *Server
-	reqInfo aclsvc.RequestInfo
+	base protoobject.ObjectService_SearchServer
+	srv  *Server
 }
 
 func (s *searchStream) WriteIDs(ids []oid.ID) error {
@@ -1462,11 +1461,6 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 		r.Body.IdList = make([]*refs.ObjectID, cut)
 		for i := range cut {
 			r.Body.IdList[i] = ids[i].ProtoMessage()
-		}
-		// TODO: do not check response multiple times
-		// TODO: why check it at all?
-		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
-			return eACLErr(s.reqInfo, err)
 		}
 		if err := s.srv.sendSearchResponse(s.base, r); err != nil {
 			return err
@@ -1506,9 +1500,8 @@ func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 	}
 
 	p, err := convertSearchPrm(gStream.Context(), s.signer, req, &searchStream{
-		base:    gStream,
-		srv:     s,
-		reqInfo: reqInfo,
+		base: gStream,
+		srv:  s,
 	})
 	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
