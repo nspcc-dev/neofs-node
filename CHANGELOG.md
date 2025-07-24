@@ -4,6 +4,25 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.48.0
+
+## [0.48.0] - 2025-07-24 - Gapado
+
+Dynamic block time for FS networks, API 2.18 support and a number of
+optimizations are included into this release. We also removed a number of
+outdated configurations and internal services making NeoFS lighter and easier
+to use.
+
+### Added
 - `Head` operation for FSTree (#3383)
 - `GetStream` operation for FSTree (#3431)
 - `max_time_per_block` configuration for embedded IR CN (#3474)
@@ -23,7 +42,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)
-- SN caches up to 1000 session token verification results until the next epoch (#3369)
+- SN caches up to 1000 session token verification results until the next epoch (#3369, #3465)
 - SN no longer wastes memory for logger in ACL and GET/HEAD/RANGE handlers (#3408, #3412)
 - Inner ring ticks epoch based on real time, not blocks count (#3402)
 - IR, CLI and SN ignore signatures of object GET/HEAD responses (#3406)
@@ -34,6 +53,7 @@ Changelog for NeoFS Node
 - Write cache initialization happens much faster now, some redundant checks were removed (#3417)
 - Metabase no longer stores object headers (#3430)
 - Optimize `GetRange` operation for FSTree (#3438)
+- Lock and tombstone objects compatible with API 2.18 are used everywhere (#3470, #3478, #3480)
 
 ### Removed
 - Short header support in HEAD's request and response (#3424)
@@ -2550,7 +2570,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.0...master
+[0.48.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.1...v0.48.0
 [0.47.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.0...v0.46.1
