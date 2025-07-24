@@ -3,6 +3,7 @@ package meta_test
 import (
 	"crypto/rand"
 	"os"
+	"path"
 	"strconv"
 	"testing"
 
@@ -44,11 +45,11 @@ func testSelect(t *testing.T, db *meta.DB, cnr cid.ID, fs object.SearchFilters, 
 }
 
 func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
-	path := t.Name()
+	p := t.TempDir()
 
 	bdb := meta.New(
 		append([]meta.Option{
-			meta.WithPath(path),
+			meta.WithPath(path.Join(p, "meta.db")),
 			meta.WithPermissions(0o600),
 			meta.WithEpochState(epochState{}),
 		}, opts...)...,

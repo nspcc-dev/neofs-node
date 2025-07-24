@@ -43,6 +43,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	if db.mode.NoMetabase() {
 		return res, nil
 	}
+	currEpoch := db.epochState.CurrentEpoch()
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.Version, _ = getVersion(tx)
@@ -58,7 +59,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 			metaCursor = metaBucket.Cursor()
 		}
 
-		var objLocked = objectLocked(tx, metaCursor, cID, oID)
+		var objLocked = objectLocked(tx, currEpoch, metaCursor, cID, oID)
 
 		if objLocked {
 			res.State = append(res.State, "LOCKED")

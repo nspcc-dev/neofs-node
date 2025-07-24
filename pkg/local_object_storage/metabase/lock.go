@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -139,17 +140,24 @@ func (db *DB) FreeLockedBy(lockers []oid.Address) ([]oid.Address, error) {
 	})
 }
 
-func associatedWithTypedObject(metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) bool {
+// associatedWithTypedObject checks if an object is associated with a typed
+// object and typed object has not expired yet. If expiration is unimportant
+// zero currEpoch skips expiration check.
+func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) bool {
 	if metaCursor == nil {
 		return false
 	}
 
 	var (
-		typString = typ.String()
-		idStr     = idObj.EncodeToString()
-		accPrefix = make([]byte, 1+len(object.AttributeAssociatedObject)+1+len(idStr)+1)
-		typeKey   = make([]byte, metaIDTypePrefixSize+len(typString))
+		typString        = typ.String()
+		idStr            = idObj.EncodeToString()
+		accPrefix        = make([]byte, 1+len(object.AttributeAssociatedObject)+1+len(idStr)+1)
+		typeKey          = make([]byte, metaIDTypePrefixSize+len(typString))
+		expirationPrefix = make([]byte, attrIDFixedLen+len(object.AttributeExpirationEpoch))
 	)
+
+	expirationPrefix[0] = metaPrefixIDAttr
+	copy(expirationPrefix[1+oid.Size:], object.AttributeExpirationEpoch)
 
 	accPrefix[0] = metaPrefixAttrIDPlain
 	copy(accPrefix[1:], object.AttributeAssociatedObject)
@@ -163,6 +171,22 @@ func associatedWithTypedObject(metaCursor *bbolt.Cursor, idObj oid.ID, typ objec
 		copy(typeKey[1:], mainObj)
 
 		if metaCursor.Bucket().Get(typeKey) != nil {
+			if currEpoch > 0 {
+				copy(expirationPrefix[1:], mainObj)
+
+				expKey, _ := metaCursor.Seek(expirationPrefix)
+				if bytes.HasPrefix(expKey, expirationPrefix) {
+					// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
+					var val = expKey[len(expirationPrefix):]
+
+					objExpiration, err := strconv.ParseUint(string(val), 10, 64)
+					associationExpired := (err == nil) && (currEpoch > objExpiration)
+					if associationExpired {
+						continue
+					}
+				}
+			}
+
 			return true
 		}
 	}
@@ -171,8 +195,8 @@ func associatedWithTypedObject(metaCursor *bbolt.Cursor, idObj oid.ID, typ objec
 }
 
 // checks if specified object is locked in the specified container.
-func objectLocked(tx *bbolt.Tx, metaCursor *bbolt.Cursor, idCnr cid.ID, idObj oid.ID) bool {
-	if associatedWithTypedObject(metaCursor, idObj, object.TypeLock) {
+func objectLocked(tx *bbolt.Tx, currEpoch uint64, metaCursor *bbolt.Cursor, idCnr cid.ID, idObj oid.ID) bool {
+	if associatedWithTypedObject(currEpoch, metaCursor, idObj, object.TypeLock) {
 		return true
 	}
 
@@ -290,7 +314,10 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 		return false, ErrDegradedMode
 	}
 
-	var locked bool
+	var (
+		locked    bool
+		currEpoch = db.epochState.CurrentEpoch()
+	)
 
 	return locked, db.boltDB.View(func(tx *bbolt.Tx) error {
 		cID := addr.Container()
@@ -300,7 +327,7 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 			mCursor = mBucket.Cursor()
 		}
 
-		locked = objectLocked(tx, mCursor, cID, addr.Object())
+		locked = objectLocked(tx, currEpoch, mCursor, cID, addr.Object())
 		return nil
 	})
 }

@@ -36,19 +36,20 @@ func (db *DB) ListWithCursor(count int, cursor *Cursor) ([]objectcore.AddressWit
 	}
 
 	var (
-		err    error
-		result = make([]objectcore.AddressWithType, 0, count)
+		err       error
+		result    = make([]objectcore.AddressWithType, 0, count)
+		currEpoch = db.epochState.CurrentEpoch()
 	)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		result, cursor, err = db.listWithCursor(tx, result, count, cursor)
+		result, cursor, err = db.listWithCursor(tx, currEpoch, result, count, cursor)
 		return err
 	})
 
 	return result, cursor, err
 }
 
-func (db *DB) listWithCursor(tx *bbolt.Tx, result []objectcore.AddressWithType, count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
+func (db *DB) listWithCursor(tx *bbolt.Tx, currEpoch uint64, result []objectcore.AddressWithType, count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
 	threshold := cursor == nil // threshold is a flag to ignore cursor
 	var bucketName []byte
 
@@ -77,7 +78,7 @@ loop:
 		bkt := tx.Bucket(name)
 		if bkt != nil {
 			copy(rawAddr, cidRaw)
-			result, offset, cursor = selectNFromBucket(bkt, graveyardBkt, garbageObjectsBkt, garbageContainersBkt, rawAddr, containerID,
+			result, offset, cursor = selectNFromBucket(bkt, currEpoch, graveyardBkt, garbageObjectsBkt, garbageContainersBkt, rawAddr, containerID,
 				result, count, cursor, threshold)
 		}
 		bucketName = name
@@ -110,6 +111,7 @@ loop:
 // selectNFromBucket similar to selectAllFromBucket but uses cursor to find
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
+	currEpoch uint64,
 	graveyardBkt, garbageObjectsBkt, garbageContainersBkt *bbolt.Bucket, // cached graveyard buckets
 	cidRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID

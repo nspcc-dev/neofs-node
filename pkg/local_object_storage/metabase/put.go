@@ -105,7 +105,7 @@ func (db *DB) put(
 		}
 	}
 
-	err = handleNonRegularObject(tx, *obj)
+	err = handleNonRegularObject(tx, currEpoch, *obj)
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func (db *DB) put(
 	return nil
 }
 
-func handleNonRegularObject(tx *bbolt.Tx, obj objectSDK.Object) error {
+func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object) error {
 	cID := obj.GetContainerID()
 	oID := obj.GetID()
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
@@ -133,6 +133,10 @@ func handleNonRegularObject(tx *bbolt.Tx, obj objectSDK.Object) error {
 			fillIDTypePrefix(typPrefix)
 			targetTyp, err := fetchTypeForID(metaCursor, typPrefix, target)
 			if err != nil {
+				if errors.Is(err, errObjTypeNotFound) {
+					return nil
+				}
+
 				return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, err)
 			}
 			if typ == objectSDK.TypeLock {
@@ -147,7 +151,7 @@ func handleNonRegularObject(tx *bbolt.Tx, obj objectSDK.Object) error {
 					return ErrLockObjectRemoval
 				}
 
-				if objectLocked(tx, metaCursor, cID, target) {
+				if objectLocked(tx, currEpoch, metaCursor, cID, target) {
 					return apistatus.ErrObjectLocked
 				}
 

@@ -64,6 +64,10 @@ func (t testLockSource) IsLocked(address oid.Address) (bool, error) {
 type tombstoneVerifier struct {
 }
 
+func (t2 tombstoneVerifier) VerifyTombStoneWithoutPayload(ctx context.Context, t object.Object) error {
+	return nil
+}
+
 func (t2 tombstoneVerifier) VerifyTomb(_ context.Context, _ cid.ID, _ object.Tombstone) error {
 	return nil
 }

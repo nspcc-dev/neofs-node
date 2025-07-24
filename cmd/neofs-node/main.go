@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -175,6 +176,7 @@ func wait(c *cfg) {
 
 	select {
 	case <-c.ctx.Done(): // graceful shutdown
+		c.log.Info("application is shutting down...", zap.String("cause", context.Cause(c.ctx).Error()))
 	case err := <-c.internalErr: // internal application error
 		c.ctxCancel()
 

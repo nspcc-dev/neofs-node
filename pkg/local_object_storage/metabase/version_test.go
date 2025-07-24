@@ -189,7 +189,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 			cnr := prm.target[i].Container()
 
 			// prevent locked objects to be inhumed
-			if !prm.forceRemoval && objectLocked(tx, metaCursor, cnr, id) {
+			if !prm.forceRemoval && objectLocked(tx, currEpoch, metaCursor, cnr, id) {
 				return apistatus.ObjectLocked{}
 			}
 

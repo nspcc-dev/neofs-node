@@ -18,6 +18,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -150,6 +151,7 @@ func TestResyncMetabase(t *testing.T) {
 	require.NoError(t, sh.Init())
 
 	const objNum = 10
+	oldVersion := version.New(2, 17)
 
 	mObjs := make(map[string]objAddr)
 	locked := make([]oid.ID, 1, 2)
@@ -183,6 +185,7 @@ func TestResyncMetabase(t *testing.T) {
 
 	tombObj := objecttest.Object()
 	tombObj.SetType(objectSDK.TypeTombstone)
+	tombObj.SetVersion(&oldVersion)
 
 	tombstone := objecttest.Tombstone()
 
@@ -215,6 +218,7 @@ func TestResyncMetabase(t *testing.T) {
 	lock.WriteMembers(locked)
 
 	lockObj := objecttest.Object()
+	lockObj.SetVersion(&oldVersion)
 	lockObj.SetContainerID(cnrLocked)
 	lockObj.WriteLock(lock)
 

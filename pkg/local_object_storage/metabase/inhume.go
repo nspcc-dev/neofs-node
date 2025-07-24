@@ -105,7 +105,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			}
 
 			// prevent locked objects to be inhumed
-			if !force && objectLocked(tx, metaCursor, cnr, id) {
+			if !force && objectLocked(tx, currEpoch, metaCursor, cnr, id) {
 				return apistatus.ObjectLocked{}
 			}
 

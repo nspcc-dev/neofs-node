@@ -12,6 +12,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -264,6 +265,50 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			os.searchV1[splitID] = v1Children
 
 			require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
+		})
+	})
+
+	t.Run("API V2.18+ tombstones", func(t *testing.T) {
+		t.Run("not a TS", func(t *testing.T) {
+			o := objecttest.Object()
+			o.SetType(object.TypeRegular)
+
+			require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
+		})
+
+		t.Run("incorrect version", func(t *testing.T) {
+			o := objecttest.Object()
+			ver := versionSDK.New(1, 17)
+			o.SetVersion(&ver)
+
+			require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
+		})
+
+		t.Run("empty target", func(t *testing.T) {
+			o := objecttest.Object()
+			o.AssociateDeleted(oid.ID{})
+
+			require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
+		})
+
+		t.Run("ok", func(t *testing.T) {
+			cnr := cidtest.ID()
+
+			ts := objecttest.Object()
+			ts.SetContainerID(cnr)
+			deleted := objecttest.Object()
+			deleted.SetContainerID(cnr)
+
+			deleted.ResetRelations()
+			ts.AssociateDeleted(objectcore.AddressOf(&deleted).Object())
+
+			*os = testObjectSource{
+				head: map[oid.Address]headRes{
+					objectcore.AddressOf(&deleted): {h: &deleted},
+				},
+			}
+
+			require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
 		})
 	})
 }
