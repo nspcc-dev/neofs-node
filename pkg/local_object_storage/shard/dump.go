@@ -12,7 +12,7 @@ var dumpMagic = []byte("NEOF")
 
 var ErrMustBeReadOnly = logicerr.New("shard must be in read-only mode")
 
-// DumpToStream dumps all objects from the shard to a given stream.
+// Dump dumps all objects from the shard to a given stream.
 //
 // Returns any error encountered and the number of objects written.
 func (s *Shard) Dump(w io.Writer, ignoreErrors bool) (int, error) {
