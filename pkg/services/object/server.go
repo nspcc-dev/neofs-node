@@ -1255,11 +1255,6 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 				},
 			},
 		}
-		// TODO: do not check response multiple times
-		// TODO: why check it at all?
-		if err := s.srv.aclChecker.CheckEACL(newResp, s.reqInfo); err != nil {
-			return eACLErr(s.reqInfo, err)
-		}
 		if err := s.srv.sendRangeResponse(s.base, newResp); err != nil {
 			return err
 		}
