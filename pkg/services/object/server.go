@@ -2182,22 +2182,9 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	typ := o.Type()
 	switch typ {
 	case object.TypeTombstone:
-		var t object.Tombstone
-		err := t.Unmarshal(o.Payload())
-		if err != nil {
-			return nil, fmt.Errorf("reading tombstoned objects: %w", err)
-		}
-
-		deleted = t.Members()
+		deleted = append(deleted, o.AssociatedObject())
 	case object.TypeLock:
-		var l object.Lock
-		err := l.Unmarshal(o.Payload())
-		if err != nil {
-			return nil, fmt.Errorf("reading locked objects: %w", err)
-		}
-
-		locked = make([]oid.ID, l.NumberOfMembers())
-		l.ReadMembers(locked)
+		locked = append(locked, o.AssociatedObject())
 	default:
 	}
 

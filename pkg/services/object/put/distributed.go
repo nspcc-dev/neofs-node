@@ -236,9 +236,9 @@ func (t *distributedTarget) encodeCurrentObjectMetadata() []byte {
 	typ := t.obj.Type()
 	switch typ {
 	case objectSDK.TypeTombstone:
-		deletedObjs = t.objMeta.Objects()
+		deletedObjs = append(deletedObjs, t.obj.AssociatedObject())
 	case objectSDK.TypeLock:
-		lockedObjs = t.objMeta.Objects()
+		lockedObjs = append(lockedObjs, t.obj.AssociatedObject())
 	default:
 	}
 
