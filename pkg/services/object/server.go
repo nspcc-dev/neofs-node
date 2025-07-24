@@ -1465,11 +1465,6 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 		for i := range cut {
 			r.Body.IdList[i] = ids[i].ProtoMessage()
 		}
-		// TODO: do not check response multiple times
-		// TODO: why check it at all?
-		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
-			return eACLErr(s.reqInfo, err)
-		}
 		if err := s.srv.sendSearchResponse(s.base, r); err != nil {
 			return err
 		}
