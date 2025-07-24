@@ -464,7 +464,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 				return s.sendStatusPutResponse(gStream, err)
 			}
 			err = s.aclChecker.CheckEACL(req, reqInfo)
-			if err != nil {
+			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 				err = eACLErr(reqInfo, err) // needed for defer
 				return s.sendStatusPutResponse(gStream, err)
 			}
@@ -518,7 +518,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(err), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
+	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.makeStatusDeleteResponse(err), nil
 	}
@@ -577,8 +577,9 @@ func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadR
 
 func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
 	var (
-		err error
-		t   = time.Now()
+		err         error
+		recheckEACL bool
+		t           = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
@@ -602,8 +603,11 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHeadResponse(err, needSignResp), nil
+		if !errors.Is(err, aclsvc.ErrNotMatched) {
+			err = eACLErr(reqInfo, err) // needed for defer
+			return s.makeStatusHeadResponse(err, needSignResp), nil
+		}
+		recheckEACL = true
 	}
 
 	var resp protoobject.HeadResponse
@@ -616,10 +620,12 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
-	err = s.aclChecker.CheckEACL(&resp, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err) // defer
-		return s.makeStatusHeadResponse(err, needSignResp), nil
+	if recheckEACL { // previous check didn't match, but we have a header now.
+		err = s.aclChecker.CheckEACL(&resp, reqInfo)
+		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			err = eACLErr(reqInfo, err) // defer
+			return s.makeStatusHeadResponse(err, needSignResp), nil
+		}
 	}
 
 	return s.signHeadResponse(&resp, needSignResp), nil
@@ -794,7 +800,7 @@ func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return s.makeStatusHashResponse(err), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
+	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.makeStatusHashResponse(err), nil
 	}
@@ -951,6 +957,7 @@ type getStream struct {
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
 
+	recheckEACL  bool
 	signResponse bool
 }
 
@@ -965,8 +972,11 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 			}},
 		},
 	}
-	if err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo); err != nil {
-		return eACLErr(s.reqInfo, err)
+	if s.recheckEACL {
+		err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo)
+		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			return eACLErr(s.reqInfo, err)
+		}
 	}
 	return s.srv.sendGetResponse(s.base, resp, s.signResponse)
 }
@@ -990,8 +1000,9 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 
 func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
 	var (
-		err error
-		t   = time.Now()
+		err         error
+		recheckEACL bool
+		t           = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 
@@ -1015,14 +1026,18 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusGetResponse(gStream, err, needSignResp)
+		if !errors.Is(err, aclsvc.ErrNotMatched) {
+			err = eACLErr(reqInfo, err) // needed for defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+		recheckEACL = true
 	}
 
 	p, err := convertGetPrm(s.signer, req, &getStream{
 		base:         gStream,
 		srv:          s,
 		reqInfo:      reqInfo,
+		recheckEACL:  recheckEACL,
 		signResponse: needSignResp,
 	})
 	if err != nil {
@@ -1284,7 +1299,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
+	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err)
 	}
@@ -1494,7 +1509,7 @@ func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
+	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err)
 		return s.sendStatusSearchResponse(gStream, err)
 	}
@@ -1820,7 +1835,7 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		return s.makeStatusSearchResponse(err), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
+	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err)
 		return s.makeStatusSearchResponse(err), nil
 	}
