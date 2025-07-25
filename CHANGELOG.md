@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Incorrect garbage bucket internals (#3483)
 
 ### Changed
 
