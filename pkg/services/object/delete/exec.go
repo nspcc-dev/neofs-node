@@ -86,6 +86,8 @@ func (exec *execCtx) saveTombstone() bool {
 
 		return false
 	case err == nil:
+		exec.log.Debug("saved tombstone", zap.Stringer("addr", id))
+
 		exec.status = statusOK
 		exec.err = nil
 
