@@ -2,16 +2,25 @@ package meta_test
 
 import (
 	"runtime"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/stretchr/testify/require"
 )
 
 func prepareObjects(t testing.TB, n int) []*objectSDK.Object {
@@ -77,4 +86,135 @@ func BenchmarkPut(b *testing.B) {
 
 func metaPut(db *meta.DB, obj *objectSDK.Object) error {
 	return db.Put(obj)
+}
+
+func TestDB_Put_ObjectWithTombstone(t *testing.T) {
+	db := newDB(t)
+
+	var obj objectSDK.Object
+	ver := version.Current()
+	obj.SetVersion(&ver)
+	obj.SetContainerID(cidtest.ID())
+	obj.SetID(oidtest.ID())
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+
+	ts := obj
+	ts.SetID(oidtest.OtherID(obj.GetID()))
+	ts.AssociateDeleted(obj.GetID())
+
+	addr := oid.NewAddress(obj.GetContainerID(), obj.GetID())
+	tsAddr := oid.NewAddress(ts.GetContainerID(), ts.GetID())
+
+	require.NoError(t, db.Put(&obj))
+
+	t.Run("before tombstone", func(t *testing.T) {
+		assertObjectAvailability(t, db, addr, obj)
+	})
+
+	require.NoError(t, db.Put(&ts))
+
+	t.Run("with tombstone", func(t *testing.T) {
+		t.Run("get", func(t *testing.T) {
+			_, err := db.Get(addr, false)
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		})
+		t.Run("exists", func(t *testing.T) {
+			_, err := db.Exists(addr, true)
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		})
+		t.Run("status", func(t *testing.T) {
+			st, err := db.ObjectStatus(addr)
+			require.NoError(t, err)
+			require.NoError(t, st.Error)
+			require.ElementsMatch(t, st.State, []string{"AVAILABLE", "IN GRAVEYARD"})
+			require.True(t, slices.ContainsFunc(st.Buckets, func(bv meta.BucketValue) bool { return bv.BucketIndex == 1 }))
+		})
+		t.Run("list with cursor", func(t *testing.T) {
+			res, c, err := db.ListWithCursor(2, nil)
+			require.NoError(t, err)
+			require.Equal(t, []object.AddressWithType{{Address: tsAddr, Type: objectSDK.TypeTombstone}}, res)
+
+			require.NotZero(t, c)
+			_, _, err = db.ListWithCursor(1, c)
+			require.ErrorIs(t, err, meta.ErrEndOfListing)
+		})
+		t.Run("get garbage", func(t *testing.T) {
+			gObjs, gCnrs, err := db.GetGarbage(100)
+			require.NoError(t, err)
+			require.Empty(t, gCnrs)
+			require.Equal(t, []oid.Address{addr}, gObjs)
+		})
+		t.Run("iterate garbage", func(t *testing.T) {
+			var collected []oid.Address
+			err := db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
+				collected = append(collected, gObj.Address())
+				return nil
+			}, nil)
+			require.NoError(t, err)
+			require.Equal(t, []oid.Address{addr}, collected)
+		})
+		t.Run("mark garbage", func(t *testing.T) {
+			// already garbage, should not do anything
+			n, locks, err := db.MarkGarbage(false, false, addr)
+			require.NoError(t, err)
+			require.Empty(t, locks)
+			require.Zero(t, n)
+		})
+	})
+
+	rs, err := db.ReviveObject(addr)
+	require.NoError(t, err)
+	require.Equal(t, meta.ReviveStatusGarbage, rs.StatusType())
+	require.Equal(t, "successful revival from garbage bucket", rs.Message())
+
+	t.Run("after revival", func(t *testing.T) {
+		t.Skip("https://github.com/nspcc-dev/neofs-node/issues/3486")
+		assertObjectAvailability(t, db, addr, obj)
+	})
+}
+
+func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj objectSDK.Object) {
+	t.Run("get", func(t *testing.T) {
+		res, err := db.Get(addr, false)
+		require.NoError(t, err)
+		require.Equal(t, obj, *res)
+	})
+	t.Run("exists", func(t *testing.T) {
+		exists, err := db.Exists(addr, true)
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+	t.Run("status", func(t *testing.T) {
+		st, err := db.ObjectStatus(addr)
+		require.NoError(t, err)
+		require.NoError(t, st.Error)
+		require.ElementsMatch(t, st.State, []string{"AVAILABLE"})
+		require.False(t, slices.ContainsFunc(st.Buckets, func(bv meta.BucketValue) bool {
+			return bv.BucketIndex <= 1 // graveyard or garbage
+		}))
+	})
+	t.Run("list with cursor", func(t *testing.T) {
+		res, c, err := db.ListWithCursor(2, nil)
+		require.NoError(t, err)
+		require.Equal(t, []object.AddressWithType{{Address: addr, Type: obj.Type()}}, res)
+
+		require.NotZero(t, c)
+		_, _, err = db.ListWithCursor(1, c)
+		require.ErrorIs(t, err, meta.ErrEndOfListing)
+	})
+	t.Run("get garbage", func(t *testing.T) {
+		gObjs, _, err := db.GetGarbage(100)
+		require.NoError(t, err)
+		require.NotContains(t, gObjs, addr)
+	})
+	t.Run("iterate garbage", func(t *testing.T) {
+		var collected []oid.Address
+		err := db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
+			collected = append(collected, gObj.Address())
+			return nil
+		}, nil)
+		require.NoError(t, err)
+		require.NotContains(t, collected, addr)
+	})
 }

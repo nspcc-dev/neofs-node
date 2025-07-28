@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	gio "io"
+	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -156,7 +157,8 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 				}
 
 				garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-				err = garbageObjectsBKT.Put(target[:], zeroValue)
+				garbageKey := slices.Concat(cID[:], target[:])
+				err = garbageObjectsBKT.Put(garbageKey, zeroValue)
 				if err != nil {
 					return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
 				}
