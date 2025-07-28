@@ -163,12 +163,6 @@ func objectKey(obj oid.ID, key []byte) []byte {
 	return key[:objectKeySize]
 }
 
-// containerKey returns key for K-V tables when key is a container ID.
-func containerKey(cID cid.ID, key []byte) []byte {
-	copy(key, cID[:])
-	return key[:cidSize]
-}
-
 // return true if provided object is of LOCK type.
 func isLockObject(tx *bbolt.Tx, idCnr cid.ID, obj oid.ID) bool {
 	var bkt = tx.Bucket(metaBucketKey(idCnr))

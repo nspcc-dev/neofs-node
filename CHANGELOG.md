@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Missing garbage, graveyard and to-move buckets in object metabase status (#3485)
 
 ### Changed
 

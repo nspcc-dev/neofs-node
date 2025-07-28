@@ -50,9 +50,8 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 
 		oID := address.Object()
 		cID := address.Container()
-		objKey := objectKey(address.Object(), make([]byte, objectKeySize))
 
-		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, objKey)
+		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, oID)
 		metaBucket := tx.Bucket(metaBucketKey(cID))
 		var metaCursor *bbolt.Cursor
 		if metaBucket != nil {
@@ -92,10 +91,12 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	return res, err
 }
 
-func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []HeaderField) {
+func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderField) {
 	var oldIndexes []BucketValue
 	var newIndexes []HeaderField
-	cIDRaw := containerKey(cID, make([]byte, cidSize))
+	addr := slices.Concat(cID[:], oID[:])
+	cIDRaw := addr[:cid.Size]
+	objKey := addr[cid.Size:]
 
 	objectBuckets := [][]byte{
 		graveyardBucketName,
@@ -109,7 +110,7 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []Head
 			continue
 		}
 
-		v := b.Get(objKey)
+		v := b.Get(addr)
 		if v == nil {
 			continue
 		}
