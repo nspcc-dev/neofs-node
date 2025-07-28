@@ -465,7 +465,7 @@ func TestMigrate3to4(t *testing.T) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
-		require.Equal(t, []byte{0x06, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+		require.Equal(t, []byte{0x07, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 		return nil
 	})
 	require.NoError(t, err)
@@ -794,7 +794,7 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 				bkt := tx.Bucket([]byte{0x05})
 				require.NotNil(t, bkt)
-				require.Equal(t, []byte{0x06, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+				require.Equal(t, []byte{0x07, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 				require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 				return nil
 			}))
@@ -1021,4 +1021,85 @@ func TestMigrate4to5(t *testing.T) {
 
 	require.NoError(t, db.Init())
 	assertSearchResult(t, db, cnr, fs, nil, searchResultForIDs([]oid.ID{parent.GetID()}))
+}
+
+func TestMigrate6to7(t *testing.T) {
+	db := newDB(t)
+
+	const cnrNum = 5
+	const objsPerCnr = 20
+	mObjs := make(map[cid.ID][]oid.ID)
+	trashKey := []byte("trash")
+	leakingObj := oidtest.ID()
+
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		garbageBkt := tx.Bucket([]byte{0x01})
+		require.NotNil(t, garbageBkt)
+
+		cnrs := cidtest.IDs(cnrNum)
+
+		for _, cnr := range cnrs {
+			metaBkt, err := tx.CreateBucketIfNotExists(slices.Concat([]byte{0xFF}, cnr[:]))
+			require.NoError(t, err)
+
+			ids := oidtest.IDs(objsPerCnr)
+
+			for j, id := range ids {
+				metaKey := slices.Concat([]byte{0x00}, id[:])
+				require.NoError(t, metaBkt.Put(metaKey, nil))
+
+				var garbageKey []byte
+				if j%2 == 0 { // correct
+					garbageKey = id[:]
+				} else { // broken
+					garbageKey = slices.Concat(cnr[:], id[:])
+				}
+
+				require.NoError(t, garbageBkt.Put(garbageKey, nil))
+			}
+
+			mObjs[cnr] = ids
+		}
+
+		// add trash key which is neither OID nor CID+OID
+		require.NoError(t, garbageBkt.Put(trashKey, nil))
+		// add random OID which should be cleaned because there is no container for it
+		require.NoError(t, garbageBkt.Put(leakingObj[:], nil))
+
+		// force old version
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		require.NoError(t, bkt.Put([]byte("version"), []byte{0x06, 0, 0, 0, 0, 0, 0, 0}))
+
+		return nil
+	})
+	require.NoError(t, err)
+
+	// migrate
+	require.NoError(t, db.Init())
+
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		garbageBkt := tx.Bucket([]byte{0x01})
+		require.NotNil(t, garbageBkt)
+
+		require.EqualValues(t, cnrNum*objsPerCnr+1, garbageBkt.Stats().KeyN) // + 1 for leaking OID
+
+		for cnr, ids := range mObjs {
+			for _, id := range ids {
+				garbageKey := slices.Concat(cnr[:], id[:])
+				require.NotNil(t, garbageBkt.Get(garbageKey))
+			}
+		}
+
+		require.NotNil(t, garbageBkt.Get(trashKey))
+		require.Nil(t, garbageBkt.Get(leakingObj[:]))
+
+		// check new version
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		require.Equal(t, []byte{0x07, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+
+		return nil
+	})
+	require.NoError(t, err)
 }
