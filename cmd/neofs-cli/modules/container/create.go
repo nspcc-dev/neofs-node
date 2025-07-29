@@ -17,6 +17,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -123,44 +124,29 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		}
 		cnr.ApplyNetworkConfig(ni)
 
+		var actor containerModifier = cli
+
+		if containerAwait {
+			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
+		}
+
 		var putPrm client.PrmContainerPut
 		if tok != nil {
 			putPrm.WithinSession(*tok)
 		}
 
-		id, err := cli.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
+		id, err := actor.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
 		if err != nil {
 			return fmt.Errorf("put container rpc error: %w", err)
 		}
 
-		cmd.Println("container creation request accepted for processing (the operation may not be completed yet)")
+		if !containerAwait {
+			cmd.Println("container creation request accepted for processing (the operation may not be completed yet)")
+		} else {
+			cmd.Println("container has been persisted on FS chain")
+		}
 		cmd.Println("container ID:", id)
 
-		if containerAwait {
-			cmd.Println("awaiting...")
-
-			var getPrm internalclient.GetContainerPrm
-			getPrm.SetClient(cli)
-			getPrm.SetContainer(id)
-
-			var waitInterval = pollTimeFromNetworkInfo(ni)
-
-			t := time.NewTimer(waitInterval)
-
-			for ; ; t.Reset(waitInterval) {
-				select {
-				case <-ctx.Done():
-					return fmt.Errorf("container creation: %w", common.ErrAwaitTimeout)
-				case <-t.C:
-				}
-
-				_, err := internalclient.GetContainer(ctx, getPrm)
-				if err == nil {
-					cmd.Println("container has been persisted on FS chain")
-					return nil
-				}
-			}
-		}
 		return nil
 	},
 }

@@ -1,10 +1,8 @@
 package container
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -13,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -106,16 +105,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			cmd.Println("ACL extension is enabled in the container, continue processing.")
 		}
 
-		var setEACLPrm client.PrmContainerSetEACL
-		if tok != nil {
-			setEACLPrm.WithinSession(*tok)
-		}
-		err = cli.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
-		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
-		}
-
-		cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
+		var actor containerModifier = cli
 
 		if containerAwait {
 			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
@@ -123,33 +113,22 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				return fmt.Errorf("fetching network info: %w", err)
 			}
 
-			exp := eaclTable.Marshal()
+			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
+		}
 
-			cmd.Println("awaiting...")
+		var setEACLPrm client.PrmContainerSetEACL
+		if tok != nil {
+			setEACLPrm.WithinSession(*tok)
+		}
+		err = actor.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
-			var waitInterval = pollTimeFromNetworkInfo(ni)
-
-			t := time.NewTimer(waitInterval)
-
-			for ; ; t.Reset(waitInterval) {
-				select {
-				case <-ctx.Done():
-					return fmt.Errorf("eACL setting: %w", common.ErrAwaitTimeout)
-				case <-t.C:
-				}
-
-				table, err := cli.ContainerEACL(ctx, id, client.PrmContainerEACL{})
-				if err == nil {
-					// compare binary values because EACL could have been set already
-					got := table.Marshal()
-
-					if bytes.Equal(exp, got) {
-						cmd.Println("EACL has been persisted on FS chain")
-						return nil
-					}
-				}
-			}
-
+		if !containerAwait {
+			cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
+		} else {
+			cmd.Println("EACL has been persisted on FS chain")
 		}
 		return nil
 	},
