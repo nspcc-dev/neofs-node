@@ -52,6 +52,10 @@ The lowest not used bucket index: 20.
 
 # History
 
+## Version 7
+
+Fixed version 6 which could store OID keys in garbage object bucket.
+
 ## Version 6
 
 Dropped the following buckets:

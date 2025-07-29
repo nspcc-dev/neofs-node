@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Missing garbage, graveyard and to-move buckets in object metabase status (#3485)
+- Incorrect garbage bucket setting in metabase on tombstone writing (#3484)
+- Incorrect garbage bucket items via metabase migration (#3484)
 
 ### Changed
 

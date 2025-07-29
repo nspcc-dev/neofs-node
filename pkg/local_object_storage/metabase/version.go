@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/mr-tron/base58"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -25,7 +26,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 6
+const currentMetaVersion = 7
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -54,6 +55,7 @@ var (
 		3: migrateFrom3Version,
 		4: migrateFrom4Version,
 		5: migrateFrom5Version,
+		6: migrateFrom6Version,
 	}
 
 	versionKey = []byte("version")
@@ -565,4 +567,66 @@ func migrateFrom5Version(db *DB) error {
 		}
 		return updateVersion(tx, 6)
 	})
+}
+
+func migrateFrom6Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		if garbageBkt := tx.Bucket(garbageObjectsBucketName); garbageBkt != nil {
+			if err := fixGarbageBucketKeys(db.log, tx, garbageBkt); err != nil {
+				return fmt.Errorf("fix garbage bucket keys: %w", err)
+			}
+		}
+		return updateVersion(tx, 7)
+	})
+}
+
+func fixGarbageBucketKeys(log *zap.Logger, tx *bbolt.Tx, garbageBkt *bbolt.Bucket) error {
+	var rmKeys [][]byte
+	newItems := make(map[cid.ID][][]byte)
+	metaOIDKey := [1 + oid.Size]byte{metaPrefixID}
+
+	garbageCursor := garbageBkt.Cursor()
+	for k, _ := garbageCursor.First(); k != nil; k, _ = garbageCursor.Next() {
+		if len(k) != oid.Size {
+			continue
+		}
+
+		copy(metaOIDKey[1:], k)
+
+		cnr, err := resolveContainerByOID(tx, metaOIDKey[:])
+		if err != nil {
+			return fmt.Errorf("resolve container by OID: %w", err)
+		}
+
+		// update after so as not to break the cursor
+		rmKeys = append(rmKeys, k)
+
+		if cnr.IsZero() {
+			log.Info("failed to resolve container for broken item in garbage bucket, removing...", zap.String("OID", base58.Encode(k)))
+			continue
+		}
+
+		newItems[cnr] = append(newItems[cnr], k)
+	}
+
+	for i := range rmKeys {
+		if err := garbageBkt.Delete(rmKeys[i]); err != nil {
+			return fmt.Errorf("remove broken item: %w", err)
+		}
+	}
+
+	var newKey [cid.Size + oid.Size]byte
+	for cnr, objs := range newItems {
+		copy(newKey[:], cnr[:])
+
+		for _, id := range objs {
+			copy(newKey[cid.Size:], id)
+
+			if err := garbageBkt.Put(newKey[:], zeroValue); err != nil {
+				return fmt.Errorf("put fixed item: %w", err)
+			}
+		}
+	}
+
+	return nil
 }

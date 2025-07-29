@@ -422,3 +422,26 @@ func (x *metaAttributeSeeker) Get(id []byte, attr string) (attributeValue []byte
 	}
 	return key[len(pref):], nil
 }
+
+// returns both zero if object is missing.
+func resolveContainerByOID(tx *bbolt.Tx, metaOIDKey []byte) (cid.ID, error) {
+	var res cid.ID
+
+	err := tx.ForEach(func(name []byte, bkt *bbolt.Bucket) error {
+		if len(name) != 1+cid.Size || name[0] != metadataPrefix {
+			return nil
+		}
+
+		if bkt.Get(metaOIDKey) != nil {
+			res = cid.ID(name[1:]) // len is checked above
+			return errBreakBucketForEach
+		}
+
+		return nil
+	})
+	if errors.Is(err, errBreakBucketForEach) {
+		err = nil
+	}
+
+	return res, err
+}
