@@ -123,21 +123,15 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		}
 		cnr.ApplyNetworkConfig(ni)
 
-		var putPrm internalclient.PutContainerPrm
-		putPrm.SetClient(cli)
-		putPrm.SetContainer(cnr)
-		putPrm.SetPrivateKey(*key)
-
+		var putPrm client.PrmContainerPut
 		if tok != nil {
 			putPrm.WithinSession(*tok)
 		}
 
-		res, err := internalclient.PutContainer(ctx, putPrm)
+		id, err := cli.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
 		if err != nil {
 			return fmt.Errorf("put container rpc error: %w", err)
 		}
-
-		id := res.ID()
 
 		cmd.Println("container creation request accepted for processing (the operation may not be completed yet)")
 		cmd.Println("container ID:", id)

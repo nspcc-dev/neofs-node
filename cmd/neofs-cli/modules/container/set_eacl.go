@@ -106,16 +106,11 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			cmd.Println("ACL extension is enabled in the container, continue processing.")
 		}
 
-		var setEACLPrm internalclient.SetEACLPrm
-		setEACLPrm.SetClient(cli)
-		setEACLPrm.SetTable(eaclTable)
-		setEACLPrm.SetPrivateKey(*pk)
-
+		var setEACLPrm client.PrmContainerSetEACL
 		if tok != nil {
 			setEACLPrm.WithinSession(*tok)
 		}
-
-		_, err = internalclient.SetEACL(ctx, setEACLPrm)
+		err = cli.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}

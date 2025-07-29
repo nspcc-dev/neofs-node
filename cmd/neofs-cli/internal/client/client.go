@@ -75,47 +75,6 @@ func ListContainers(ctx context.Context, prm ListContainersPrm) (res ListContain
 	return
 }
 
-// PutContainerPrm groups parameters of PutContainer operation.
-type PutContainerPrm struct {
-	commonPrm
-	signerRFC6979Prm
-
-	cnr containerSDK.Container
-	client.PrmContainerPut
-}
-
-// SetContainer sets container.
-func (p *PutContainerPrm) SetContainer(cnr containerSDK.Container) {
-	p.cnr = cnr
-}
-
-// PutContainerRes groups the resulting values of PutContainer operation.
-type PutContainerRes struct {
-	cnr cid.ID
-}
-
-// ID returns identifier of the created container.
-func (x PutContainerRes) ID() cid.ID {
-	return x.cnr
-}
-
-// PutContainer sends a request to save the container in NeoFS.
-//
-// Operation is asynchronous and not guaranteed even in the absence of errors.
-// The required time is also not predictable.
-//
-// Success can be verified by reading by identifier.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func PutContainer(ctx context.Context, prm PutContainerPrm) (res PutContainerRes, err error) {
-	cliRes, err := prm.cli.ContainerPut(ctx, prm.cnr, prm.signer, prm.PrmContainerPut)
-	if err == nil {
-		res.cnr = cliRes
-	}
-
-	return
-}
-
 // GetContainerPrm groups parameters of GetContainer operation.
 type GetContainerPrm struct {
 	commonPrm
@@ -144,37 +103,6 @@ func (x GetContainerRes) Container() containerSDK.Container {
 // Returns any error which prevented the operation from completing correctly in error return.
 func GetContainer(ctx context.Context, prm GetContainerPrm) (res GetContainerRes, err error) {
 	res.cliRes, err = prm.cli.ContainerGet(ctx, prm.cid, prm.cliPrm)
-
-	return
-}
-
-// DeleteContainerPrm groups parameters of DeleteContainerPrm operation.
-type DeleteContainerPrm struct {
-	commonPrm
-	signerRFC6979Prm
-
-	cid cid.ID
-	client.PrmContainerDelete
-}
-
-// SetContainer sets an ID of a container to be removed.
-func (d *DeleteContainerPrm) SetContainer(cid cid.ID) {
-	d.cid = cid
-}
-
-// DeleteContainerRes groups the resulting values of DeleteContainer operation.
-type DeleteContainerRes struct{}
-
-// DeleteContainer sends a request to remove a container from NeoFS by ID.
-//
-// Operation is asynchronous and not guaranteed even in the absence of errors.
-// The required time is also not predictable.
-//
-// Success can be verified by reading by identifier.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func DeleteContainer(ctx context.Context, prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
-	err = prm.cli.ContainerDelete(ctx, prm.cid, prm.signer, prm.PrmContainerDelete)
 
 	return
 }
@@ -208,37 +136,6 @@ func (x EACLRes) EACL() eacl.Table {
 // Returns any error which prevented the operation from completing correctly in error return.
 func EACL(ctx context.Context, prm EACLPrm) (res EACLRes, err error) {
 	res.cliRes, err = prm.cli.ContainerEACL(ctx, prm.cid, prm.PrmContainerEACL)
-
-	return
-}
-
-// SetEACLPrm groups parameters of SetEACL operation.
-type SetEACLPrm struct {
-	commonPrm
-	signerRFC6979Prm
-
-	table eacl.Table
-	client.PrmContainerSetEACL
-}
-
-// SetTable sets extended Access Control List table to be applied.
-func (s *SetEACLPrm) SetTable(table eacl.Table) {
-	s.table = table
-}
-
-// SetEACLRes groups the resulting values of SetEACL operation.
-type SetEACLRes struct{}
-
-// SetEACL requests to save an eACL table in NeoFS.
-//
-// Operation is asynchronous and no guaranteed even in the absence of errors.
-// The required time is also not predictable.
-//
-// Success can be verified by reading by container identifier.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func SetEACL(ctx context.Context, prm SetEACLPrm) (res SetEACLRes, err error) {
-	err = prm.cli.ContainerSetEACL(ctx, prm.table, prm.signer, prm.PrmContainerSetEACL)
 
 	return
 }

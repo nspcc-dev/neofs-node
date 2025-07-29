@@ -101,16 +101,12 @@ Only owner of the container has a permission to remove container.`,
 			}
 		}
 
-		var delPrm internalclient.DeleteContainerPrm
-		delPrm.SetClient(cli)
-		delPrm.SetContainer(id)
-		delPrm.SetPrivateKey(*pk)
-
+		var delPrm client.PrmContainerDelete
 		if tok != nil {
 			delPrm.WithinSession(*tok)
 		}
 
-		_, err = internalclient.DeleteContainer(ctx, delPrm)
+		err = cli.ContainerDelete(ctx, id, user.NewAutoIDSignerRFC6979(*pk), delPrm)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
