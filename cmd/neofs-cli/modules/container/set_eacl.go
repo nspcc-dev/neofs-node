@@ -127,10 +127,6 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 			cmd.Println("awaiting...")
 
-			var getEACLPrm internalclient.EACLPrm
-			getEACLPrm.SetClient(cli)
-			getEACLPrm.SetContainer(id)
-
 			var waitInterval = pollTimeFromNetworkInfo(ni)
 
 			t := time.NewTimer(waitInterval)
@@ -142,10 +138,9 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				case <-t.C:
 				}
 
-				res, err := internalclient.EACL(ctx, getEACLPrm)
+				table, err := cli.ContainerEACL(ctx, id, client.PrmContainerEACL{})
 				if err == nil {
 					// compare binary values because EACL could have been set already
-					table := res.EACL()
 					got := table.Marshal()
 
 					if bytes.Equal(exp, got) {

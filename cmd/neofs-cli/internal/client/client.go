@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -103,39 +102,6 @@ func (x GetContainerRes) Container() containerSDK.Container {
 // Returns any error which prevented the operation from completing correctly in error return.
 func GetContainer(ctx context.Context, prm GetContainerPrm) (res GetContainerRes, err error) {
 	res.cliRes, err = prm.cli.ContainerGet(ctx, prm.cid, prm.cliPrm)
-
-	return
-}
-
-// EACLPrm groups parameters of EACL operation.
-type EACLPrm struct {
-	commonPrm
-
-	cid cid.ID
-	client.PrmContainerEACL
-}
-
-// SetContainer sets container ID to be requested
-// for its eACL.
-func (E *EACLPrm) SetContainer(cid cid.ID) {
-	E.cid = cid
-}
-
-// EACLRes groups the resulting values of EACL operation.
-type EACLRes struct {
-	cliRes eacl.Table
-}
-
-// EACL returns requested eACL table.
-func (x EACLRes) EACL() eacl.Table {
-	return x.cliRes
-}
-
-// EACL reads eACL table from NeoFS by container ID.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func EACL(ctx context.Context, prm EACLPrm) (res EACLRes, err error) {
-	res.cliRes, err = prm.cli.ContainerEACL(ctx, prm.cid, prm.PrmContainerEACL)
 
 	return
 }

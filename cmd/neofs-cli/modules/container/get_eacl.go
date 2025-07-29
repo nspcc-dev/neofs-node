@@ -7,6 +7,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/spf13/cobra"
 )
 
@@ -29,16 +30,10 @@ var getExtendedACLCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var eaclPrm internalclient.EACLPrm
-		eaclPrm.SetClient(cli)
-		eaclPrm.SetContainer(id)
-
-		res, err := internalclient.EACL(ctx, eaclPrm)
+		eaclTable, err := cli.ContainerEACL(ctx, id, client.PrmContainerEACL{})
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
-
-		eaclTable := res.EACL()
 
 		if containerPathTo == "" {
 			cmd.Println("eACL: ")
