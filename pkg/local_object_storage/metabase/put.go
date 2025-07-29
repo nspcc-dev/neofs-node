@@ -26,6 +26,10 @@ var (
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// Returns [apistatus.ErrObjectLocked] error on attempt to put [objectSDK.TypeTombstone] object
+// associated with the locked one, i.e. there DB contains object of [objectSDK.TypeLock] type
+// associated with the tombstone target. If target is not locked, Put marks is as garbage.
 func (db *DB) Put(obj *objectSDK.Object) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
