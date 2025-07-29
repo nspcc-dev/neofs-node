@@ -32,18 +32,45 @@ type fsChain struct {
 
 	wsClient *rpcclient.WSClient
 
-	subsMtx sync.Mutex
-	subs    []string
+	subsMtx  sync.Mutex
+	subs     []string
+	headerCh chan *block.Header
+	notaryCh chan *result.NotaryRequestEvent
 }
 
 // cancels all active subscriptions. Must not be called concurrently with
 // subscribe methods.
 func (x *fsChain) cancelSubs() {
-	if x.wsClient != nil {
-		for i := range x.subs {
-			_ = x.wsClient.Unsubscribe(x.subs[i])
-		}
+	if x.wsClient == nil {
 		return
+	}
+	go func() {
+		if x.headerCh == nil && x.notaryCh == nil {
+			return
+		}
+		for {
+			var ok bool
+
+			// Drain channels until they're closed.
+			select {
+			case _, ok = <-x.headerCh:
+			case _, ok = <-x.notaryCh:
+			}
+			// A single channel is enough, both are closed by that time.
+			if !ok {
+				break
+			}
+		}
+	}()
+	for i := range x.subs {
+		_ = x.wsClient.Unsubscribe(x.subs[i])
+	}
+	// Unsubscription is done, it's safe to close().
+	if x.headerCh != nil {
+		close(x.headerCh)
+	}
+	if x.notaryCh != nil {
+		close(x.notaryCh)
 	}
 }
 
@@ -59,6 +86,7 @@ func (x *fsChain) SubscribeToNewHeaders() (<-chan *block.Header, error) {
 
 		x.subsMtx.Lock()
 		x.subs = append(x.subs, sub)
+		x.headerCh = ch
 		x.subsMtx.Unlock()
 
 		return ch, nil
@@ -89,6 +117,7 @@ func (x *fsChain) SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent
 
 		x.subsMtx.Lock()
 		x.subs = append(x.subs, sub)
+		x.notaryCh = ch
 		x.subsMtx.Unlock()
 
 		return ch, nil
