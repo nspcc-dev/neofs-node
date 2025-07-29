@@ -118,13 +118,17 @@ Only owner of the container has a permission to remove container.`,
 		cmd.Println("container removal request accepted for processing (the operation may not be completed yet)")
 
 		if containerAwait {
+			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
+			if err != nil {
+				return fmt.Errorf("fetching network info: %w", err)
+			}
 			cmd.Println("awaiting...")
 
 			var getPrm internalclient.GetContainerPrm
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			const waitInterval = time.Second
+			var waitInterval = pollTimeFromNetworkInfo(ni)
 
 			t := time.NewTimer(waitInterval)
 

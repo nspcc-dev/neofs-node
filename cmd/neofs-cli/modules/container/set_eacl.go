@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
@@ -122,6 +123,11 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
 
 		if containerAwait {
+			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
+			if err != nil {
+				return fmt.Errorf("fetching network info: %w", err)
+			}
+
 			exp := eaclTable.Marshal()
 
 			cmd.Println("awaiting...")
@@ -130,7 +136,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			getEACLPrm.SetClient(cli)
 			getEACLPrm.SetContainer(id)
 
-			const waitInterval = time.Second
+			var waitInterval = pollTimeFromNetworkInfo(ni)
 
 			t := time.NewTimer(waitInterval)
 

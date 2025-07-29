@@ -830,37 +830,3 @@ func PayloadRange(ctx context.Context, prm PayloadRangePrm) (*PayloadRangeRes, e
 
 	return new(PayloadRangeRes), nil
 }
-
-// SyncContainerPrm groups parameters of SyncContainerSettings operation.
-type SyncContainerPrm struct {
-	commonPrm
-	c *containerSDK.Container
-}
-
-// SetContainer sets a container that is required to be synced.
-func (s *SyncContainerPrm) SetContainer(c *containerSDK.Container) {
-	s.c = c
-}
-
-// SyncContainerRes groups resulting values of SyncContainerSettings
-// operation.
-type SyncContainerRes struct{}
-
-// SyncContainerSettings reads global network config from NeoFS and
-// syncs container settings with it.
-//
-// Interrupts on any writer error.
-//
-// Panics if a container passed as a parameter is nil.
-func SyncContainerSettings(ctx context.Context, prm SyncContainerPrm) (*SyncContainerRes, error) {
-	if prm.c == nil {
-		panic("sync container settings with the network: nil container")
-	}
-
-	err := client.SyncContainerWithNetwork(ctx, prm.c, prm.cli)
-	if err != nil {
-		return nil, err
-	}
-
-	return new(SyncContainerRes), nil
-}

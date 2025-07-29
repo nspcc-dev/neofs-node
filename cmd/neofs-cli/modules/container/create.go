@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -116,14 +117,11 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		cnr.SetPlacementPolicy(*placementPolicy)
 		cnr.SetBasicACL(basicACL)
 
-		var syncContainerPrm internalclient.SyncContainerPrm
-		syncContainerPrm.SetClient(cli)
-		syncContainerPrm.SetContainer(&cnr)
-
-		_, err = internalclient.SyncContainerSettings(ctx, syncContainerPrm)
+		ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 		if err != nil {
-			return fmt.Errorf("syncing container's settings rpc error: %w", err)
+			return fmt.Errorf("fetching network info: %w", err)
 		}
+		cnr.ApplyNetworkConfig(ni)
 
 		var putPrm internalclient.PutContainerPrm
 		putPrm.SetClient(cli)
@@ -151,7 +149,7 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			const waitInterval = time.Second
+			var waitInterval = pollTimeFromNetworkInfo(ni)
 
 			t := time.NewTimer(waitInterval)
 

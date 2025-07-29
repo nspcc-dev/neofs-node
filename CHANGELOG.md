@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Incorrect garbage bucket items via metabase migration (#3484)
 
 ### Changed
+- CLI uses dynamic polling interval now depending on block time (half a block, but not less than 50ms), this reduces delays for fast networks (#3488)
 
 ### Removed
 - Redundant EACL check in GetRange and Search handlers (#3481)

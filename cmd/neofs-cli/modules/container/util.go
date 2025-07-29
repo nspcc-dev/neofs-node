@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
 )
@@ -59,4 +60,9 @@ func getSession(cmd *cobra.Command) (*session.Container, error) {
 
 func getAwaitContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	return commonflags.GetCommandContextWithAwait(cmd, "await", awaitTimeout)
+}
+
+func pollTimeFromNetworkInfo(ni netmap.NetworkInfo) time.Duration {
+	// Half a block time by default, but not less than 50ms.
+	return max(50*time.Millisecond, time.Duration(ni.MsPerBlock())*time.Millisecond/2)
 }
