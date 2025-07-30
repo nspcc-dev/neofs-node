@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -40,9 +41,9 @@ type NeoFSNetwork interface {
 	// List returns node's containers that support chain-based meta data and
 	// any error that does not allow listing.
 	List(uint64) (map[cid.ID]struct{}, error)
-	// IsMineWithMeta checks if the given CID has meta enabled and current
+	// IsMineWithMeta checks if the given container has meta enabled and current
 	// node belongs to it.
-	IsMineWithMeta(cid.ID) (bool, error)
+	IsMineWithMeta([]byte) (bool, error)
 	// Head returns actual object header from the NeoFS network (non-local
 	// objects should also be returned). Missing, removed object statuses
 	// must be reported according to API statuses from SDK.
@@ -51,6 +52,8 @@ type NeoFSNetwork interface {
 
 // wsClient is for test purposes only.
 type wsClient interface {
+	invoker.RPCInvoke
+
 	GetBlockNotifications(blockHash util.Uint256, filters *neorpc.NotificationFilter) (*result.BlockNotifications, error)
 	GetVersion() (*result.Version, error)
 
