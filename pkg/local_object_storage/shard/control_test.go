@@ -2,15 +2,19 @@ package shard
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -18,6 +22,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -337,4 +342,110 @@ func TestResyncMetabase(t *testing.T) {
 	checkObj(object.AddressOf(&tombObj), &tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
+}
+
+type mockResyncBlobstor struct {
+	unimplementedBlobstor
+	objs []objectSDK.Object
+}
+
+func (mockResyncBlobstor) SetCompressor(*compression.Config) {}
+func (mockResyncBlobstor) Type() string                      { return "mock blobstor" }
+func (mockResyncBlobstor) Path() string                      { return "mock path" }
+func (mockResyncBlobstor) Open(bool) error                   { return nil }
+func (mockResyncBlobstor) Init() error                       { return nil }
+func (mockResyncBlobstor) Close() error                      { return nil }
+func (mockResyncBlobstor) Delete(oid.Address) error          { return nil }
+
+func (x *mockResyncBlobstor) Iterate(f func(oid.Address, []byte) error, _ func(oid.Address, error) error) error {
+	for i := range x.objs {
+		addr := oid.NewAddress(x.objs[i].GetContainerID(), x.objs[i].GetID())
+		if err := f(addr, x.objs[i].Marshal()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestResyncMetabase_ObjectWithTombstoneAndLock(t *testing.T) {
+	var bs mockResyncBlobstor
+
+	s := New(
+		WithLogger(zaptest.NewLogger(t)),
+		WithBlobstor(&bs),
+		WithMetaBaseOptions(
+			meta.WithPath(filepath.Join(t.TempDir(), "meta")),
+			meta.WithEpochState(epochState{}),
+		),
+	)
+
+	require.NoError(t, s.Open())
+	t.Cleanup(func() { _ = s.Close() })
+	require.NoError(t, s.Init())
+
+	cnr := cidtest.ID()
+	anyPldHash := testutil.RandByteSlice(sha256.Size)
+	ver := version.Current()
+
+	var obj, ts, lock objectSDK.Object
+
+	for _, o := range []*objectSDK.Object{&obj, &ts, &lock} {
+		o.SetContainerID(cnr)
+		o.SetID(oidtest.ID())
+		o.SetVersion(&ver)
+		o.SetOwner(usertest.ID())
+		o.SetPayloadChecksum(checksum.NewSHA256([sha256.Size]byte(anyPldHash)))
+	}
+
+	obj.SetType(objectSDK.TypeRegular)
+	ts.AssociateDeleted(obj.GetID())
+	lock.AssociateLocked(obj.GetID())
+
+	objAddr := oid.NewAddress(cnr, obj.GetID())
+	tsAddr := oid.NewAddress(cnr, ts.GetID())
+	lockAddr := oid.NewAddress(cnr, lock.GetID())
+
+	check := func(t *testing.T) {
+		checkAvailable := func(t *testing.T, addr oid.Address, obj objectSDK.Object) {
+			got, err := s.metaBase.Get(addr, false)
+			require.NoError(t, err)
+			require.Equal(t, obj, *got)
+
+			exists, err := s.metaBase.Exists(addr, true)
+			require.NoError(t, err)
+			require.True(t, exists)
+		}
+
+		checkAvailable(t, objAddr, obj)
+		checkAvailable(t, tsAddr, ts)
+		checkAvailable(t, lockAddr, lock)
+
+		locked, err := s.metaBase.IsLocked(objAddr)
+		require.NoError(t, err)
+		require.True(t, locked)
+	}
+
+	for _, tc := range []struct {
+		name  string
+		order []objectSDK.Object
+	}{
+		{name: "O,T,L", order: []objectSDK.Object{obj, ts, lock}},
+		{name: "O,L,T", order: []objectSDK.Object{obj, lock, ts}},
+		{name: "L,O,T", order: []objectSDK.Object{lock, obj, ts}},
+		{name: "L,T,O", order: []objectSDK.Object{lock, ts, obj}},
+		{name: "T,O,L", order: []objectSDK.Object{ts, obj, lock}},
+		{name: "T,L,O", order: []objectSDK.Object{ts, lock, obj}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bs.objs = tc.order
+
+			require.NoError(t, s.resyncMetabase())
+
+			check(t)
+
+			s.removeGarbage()
+
+			check(t)
+		})
+	}
 }

@@ -26,7 +26,21 @@ var (
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// Returns [apistatus.ErrObjectLocked] error on attempt to put [objectSDK.TypeTombstone] object
+// associated with the locked one, i.e. there DB contains object of [objectSDK.TypeLock] type
+// associated with the tombstone target. If target is not locked, Put marks is as garbage.
 func (db *DB) Put(obj *objectSDK.Object) error {
+	return db._Put(obj, false)
+}
+
+// PutResync is similar [DB.Put] but handles objects of [objectSDK.TypeTombstone] type specifically:
+// PutResync does not check for locks and does not mark the target as garbage.
+func (db *DB) PutResync(obj *objectSDK.Object) error {
+	return db._Put(obj, true)
+}
+
+func (db *DB) _Put(obj *objectSDK.Object, resync bool) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -39,7 +53,7 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, obj, nil, currEpoch)
+		return db.put(tx, obj, nil, currEpoch, resync)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -52,7 +66,7 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 
 func (db *DB) put(
 	tx *bbolt.Tx, obj *objectSDK.Object,
-	si *objectSDK.SplitInfo, currEpoch uint64) error {
+	si *objectSDK.SplitInfo, currEpoch uint64, resync bool) error {
 	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
@@ -66,6 +80,8 @@ func (db *DB) put(
 		return nil
 	case errors.Is(err, ErrLackSplitInfo), errors.As(err, &apistatus.ObjectNotFound{}):
 		// OK, we're putting here.
+	case resync && IsErrRemoved(err):
+		// on resync, order can be (tombstone, object, lock). Object must be stored in this case.
 	case err != nil:
 		return err // return any other errors
 	}
@@ -79,7 +95,7 @@ func (db *DB) put(
 				return err
 			}
 
-			err = db.put(tx, par, parentSI, currEpoch)
+			err = db.put(tx, par, parentSI, currEpoch, resync)
 			if err != nil {
 				return err
 			}
@@ -106,7 +122,7 @@ func (db *DB) put(
 		}
 	}
 
-	err = handleNonRegularObject(tx, currEpoch, *obj)
+	err = handleNonRegularObject(tx, currEpoch, *obj, resync)
 	if err != nil {
 		return err
 	}
@@ -118,7 +134,7 @@ func (db *DB) put(
 	return nil
 }
 
-func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object) error {
+func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object, resync bool) error {
 	cID := obj.GetContainerID()
 	oID := obj.GetID()
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
@@ -150,6 +166,10 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 				}
 				if targetTyp == objectSDK.TypeLock {
 					return ErrLockObjectRemoval
+				}
+
+				if resync {
+					break
 				}
 
 				if objectLocked(tx, currEpoch, metaCursor, cID, target) {
