@@ -78,6 +78,7 @@ jobs:
     needs: build_bins
     name: Build and push docker images
     runs-on: ubuntu-22.04
+    if: ${{ github.event_name != 'pull_request' }}
     strategy:
       matrix:
         image: [adm, cli, ir, storage]
