@@ -8,8 +8,14 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +24,13 @@ const (
 
 	awaitTimeout = time.Minute
 )
+
+// containerModifier groups container modification operations.
+type containerModifier interface {
+	ContainerSetEACL(ctx context.Context, table eacl.Table, signer user.Signer, prm client.PrmContainerSetEACL) error
+	ContainerPut(ctx context.Context, cont container.Container, signer neofscrypto.Signer, prm client.PrmContainerPut) (cid.ID, error)
+	ContainerDelete(ctx context.Context, id cid.ID, signer neofscrypto.Signer, prm client.PrmContainerDelete) error
+}
 
 func parseContainerID() (cid.ID, error) {
 	if containerID == "" {
@@ -59,4 +72,9 @@ func getSession(cmd *cobra.Command) (*session.Container, error) {
 
 func getAwaitContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	return commonflags.GetCommandContextWithAwait(cmd, "await", awaitTimeout)
+}
+
+func pollTimeFromNetworkInfo(ni netmap.NetworkInfo) time.Duration {
+	// Half a block time by default, but not less than 50ms.
+	return max(50*time.Millisecond, time.Duration(ni.MsPerBlock())*time.Millisecond/2)
 }

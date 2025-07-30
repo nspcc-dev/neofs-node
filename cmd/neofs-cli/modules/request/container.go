@@ -225,12 +225,12 @@ func createContainer(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("status failure: %w", err)
 		}
 
-		const maxAttempts = 3
+		const maxAttempts = 15
 		if attempt == maxAttempts {
 			break
 		}
 
-		const pollInterval = 5 * time.Second
+		const pollInterval = time.Second
 		cmd.Printf("Container is still missing. Attempts left: %d. Retrying after %s...\n", maxAttempts-attempt, pollInterval)
 		time.Sleep(pollInterval)
 	}

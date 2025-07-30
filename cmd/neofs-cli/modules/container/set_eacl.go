@@ -1,17 +1,17 @@
 package container
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -105,55 +105,30 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			cmd.Println("ACL extension is enabled in the container, continue processing.")
 		}
 
-		var setEACLPrm internalclient.SetEACLPrm
-		setEACLPrm.SetClient(cli)
-		setEACLPrm.SetTable(eaclTable)
-		setEACLPrm.SetPrivateKey(*pk)
+		var actor containerModifier = cli
 
+		if containerAwait {
+			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
+			if err != nil {
+				return fmt.Errorf("fetching network info: %w", err)
+			}
+
+			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
+		}
+
+		var setEACLPrm client.PrmContainerSetEACL
 		if tok != nil {
 			setEACLPrm.WithinSession(*tok)
 		}
-
-		_, err = internalclient.SetEACL(ctx, setEACLPrm)
+		err = actor.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
-
-		if containerAwait {
-			exp := eaclTable.Marshal()
-
-			cmd.Println("awaiting...")
-
-			var getEACLPrm internalclient.EACLPrm
-			getEACLPrm.SetClient(cli)
-			getEACLPrm.SetContainer(id)
-
-			const waitInterval = time.Second
-
-			t := time.NewTimer(waitInterval)
-
-			for ; ; t.Reset(waitInterval) {
-				select {
-				case <-ctx.Done():
-					return fmt.Errorf("eACL setting: %w", common.ErrAwaitTimeout)
-				case <-t.C:
-				}
-
-				res, err := internalclient.EACL(ctx, getEACLPrm)
-				if err == nil {
-					// compare binary values because EACL could have been set already
-					table := res.EACL()
-					got := table.Marshal()
-
-					if bytes.Equal(exp, got) {
-						cmd.Println("EACL has been persisted on FS chain")
-						return nil
-					}
-				}
-			}
-
+		if !containerAwait {
+			cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
+		} else {
+			cmd.Println("EACL has been persisted on FS chain")
 		}
 		return nil
 	},

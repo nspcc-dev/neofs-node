@@ -2,7 +2,6 @@ package container
 
 import (
 	"fmt"
-	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -12,6 +11,7 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -101,46 +101,30 @@ Only owner of the container has a permission to remove container.`,
 			}
 		}
 
-		var delPrm internalclient.DeleteContainerPrm
-		delPrm.SetClient(cli)
-		delPrm.SetContainer(id)
-		delPrm.SetPrivateKey(*pk)
+		var actor containerModifier = cli
+		if containerAwait {
+			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
+			if err != nil {
+				return fmt.Errorf("fetching network info: %w", err)
+			}
 
+			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
+		}
+
+		var delPrm client.PrmContainerDelete
 		if tok != nil {
 			delPrm.WithinSession(*tok)
 		}
 
-		_, err = internalclient.DeleteContainer(ctx, delPrm)
+		err = actor.ContainerDelete(ctx, id, user.NewAutoIDSignerRFC6979(*pk), delPrm)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		cmd.Println("container removal request accepted for processing (the operation may not be completed yet)")
-
-		if containerAwait {
-			cmd.Println("awaiting...")
-
-			var getPrm internalclient.GetContainerPrm
-			getPrm.SetClient(cli)
-			getPrm.SetContainer(id)
-
-			const waitInterval = time.Second
-
-			t := time.NewTimer(waitInterval)
-
-			for ; ; t.Reset(waitInterval) {
-				select {
-				case <-ctx.Done():
-					return fmt.Errorf("container deletion: %w", common.ErrAwaitTimeout)
-				case <-t.C:
-				}
-
-				_, err := internalclient.GetContainer(ctx, getPrm)
-				if err != nil {
-					cmd.Println("container has been removed:", containerID)
-					return nil
-				}
-			}
+		if !containerAwait {
+			cmd.Println("container removal request accepted for processing (the operation may not be completed yet)")
+		} else {
+			cmd.Println("container has been removed:", containerID)
 		}
 		return nil
 	},

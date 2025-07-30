@@ -102,12 +102,3 @@ type signerPrm struct {
 func (x *signerPrm) SetPrivateKey(key ecdsa.PrivateKey) {
 	x.signer = user.NewAutoIDSigner(key)
 }
-
-type signerRFC6979Prm struct {
-	signer user.Signer
-}
-
-// SetPrivateKey sets ecdsa.PrivateKey to be used for the operation.
-func (p *signerRFC6979Prm) SetPrivateKey(key ecdsa.PrivateKey) {
-	p.signer = user.NewAutoIDSignerRFC6979(key)
-}
