@@ -6,23 +6,31 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.48.1
+
+## [0.48.1] - 2025-07-31
+
+### Fixed
 - Missing garbage, graveyard and to-move buckets in object metabase status (#3485)
 - Incorrect garbage bucket setting in metabase on tombstone writing (#3484)
 - Incorrect garbage bucket items via metabase migration (#3484)
 - Rare IR deadlocks during contract deployment (#3237)
 - Rare failure to add container into listened list for meta-enabled nodes (#3491)
+- Incorrect height passed into N3 verification scripts (#3494)
 
 ### Changed
 - CLI uses dynamic polling interval now depending on block time (half a block, but not less than 50ms), this reduces delays for fast networks (#3488)
-- N3 script verification returns persisted block number (#3494)
 
 ### Removed
 - Redundant EACL check in GetRange and Search handlers (#3481)
 - Duplicated EACL checks in Get and Head handlers (#3481)
-
-### Updated
-
-### Updating from v0.48.0
 
 ## [0.48.0] - 2025-07-24 - Gapado
 
@@ -2579,7 +2587,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...master
+[0.48.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.0...v0.48.1
 [0.48.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.1...v0.48.0
 [0.47.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.1...v0.47.0
