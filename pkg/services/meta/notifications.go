@@ -13,7 +13,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-contract/rpc/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -135,21 +137,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			ok, err = m.net.IsMineWithMeta(ev.cID)
-			if err != nil {
-				l.Error("can't get container data", zap.Error(err))
-				continue
-			}
-			if !ok {
-				continue
-			}
-
-			err = m.addContainer(ev.cID)
-			if err != nil {
-				return fmt.Errorf("could not handle new %s container: %w", ev.cID, err)
-			}
-
-			l.Debug("added container storage", zap.Stringer("cID", ev.cID))
+			go m.addContainerIfMine(l, ev.cID)
 		case aer, ok := <-m.epochEv:
 			if !ok {
 				err := m.reconnect(ctx)
@@ -180,6 +168,34 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func (m *Meta) addContainerIfMine(l *zap.Logger, cID cid.ID) {
+	m.cliM.RLock()
+	reader := container.NewReader(invoker.New(m.ws, nil), m.cnrH)
+	cData, err := reader.GetContainerData(cID[:])
+	m.cliM.RUnlock()
+	if err != nil {
+		l.Error("can't get container data", zap.Stringer("cid", cID), zap.Error(err))
+		return
+	}
+
+	ok, err := m.net.IsMineWithMeta(cData)
+	if err != nil {
+		l.Error("failed to check container relation to node", zap.Stringer("cid", cID), zap.Error(err))
+		return
+	}
+	if !ok {
+		return
+	}
+
+	err = m.addContainer(cID)
+	if err != nil {
+		l.Error("can't add new container storage", zap.Stringer("cid", cID), zap.Error(err))
+		return
+	}
+
+	l.Debug("added container storage", zap.Stringer("cid", cID))
 }
 
 func (m *Meta) reconnect(ctx context.Context) error {

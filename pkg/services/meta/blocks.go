@@ -97,23 +97,7 @@ func (m *Meta) handleBlock(b *block.Header) error {
 				continue
 			}
 
-			ok, err := m.net.IsMineWithMeta(ev.cID)
-			if err != nil {
-				l.Error("can't get container data", zap.Error(err))
-				continue
-			}
-			if !ok {
-				l.Debug("skip new inactual container", zap.Stringer("cid", ev.cID))
-				continue
-			}
-
-			err = m.addContainer(ev.cID)
-			if err != nil {
-				l.Error("could not handle new container", zap.Stringer("cID", ev.cID), zap.Error(err))
-				continue
-			}
-
-			l.Debug("added container storage", zap.Stringer("cID", ev.cID))
+			go m.addContainerIfMine(l, ev.cID)
 		default:
 			l.Debug("skip notification", zap.String("event name", n.Name))
 			continue

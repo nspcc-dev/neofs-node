@@ -12,6 +12,7 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -89,7 +90,7 @@ func (c *neofsNetwork) Head(ctx context.Context, cID cid.ID, oID oid.ID) (object
 	return *hw.h, nil
 }
 
-func (c *neofsNetwork) IsMineWithMeta(id cid.ID) (bool, error) {
+func (c *neofsNetwork) IsMineWithMeta(cData []byte) (bool, error) {
 	curEpoch, err := c.network.Epoch()
 	if err != nil {
 		return false, fmt.Errorf("read current NeoFS epoch: %w", err)
@@ -98,21 +99,24 @@ func (c *neofsNetwork) IsMineWithMeta(id cid.ID) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
 	}
-	return c.isMineWithMeta(id, networkMap)
+	var cnr containerSDK.Container
+	err = cnr.Unmarshal(cData)
+	if err != nil {
+		return false, fmt.Errorf("unmarshal container: %w", err)
+	}
+	return c.isMineWithMeta(cnr, networkMap)
 }
 
-func (c *neofsNetwork) isMineWithMeta(id cid.ID, networkMap *netmapsdk.NetMap) (bool, error) {
-	cnr, err := c.containers.Get(id)
-	if err != nil {
-		return false, fmt.Errorf("read %s container: %w", id, err)
-	}
-
+func (c *neofsNetwork) isMineWithMeta(cnr containerSDK.Container, networkMap *netmapsdk.NetMap) (bool, error) {
 	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
 	switch cnr.Attribute(metaOnChainAttr) {
 	case "optimistic", "strict":
 	default:
 		return false, nil
 	}
+
+	var id cid.ID
+	cnr.CalculateID(&id)
 
 	nodeSets, err := networkMap.ContainerNodes(cnr.PlacementPolicy(), id)
 	if err != nil {
@@ -157,7 +161,12 @@ func (c *neofsNetwork) List(e uint64) (map[cid.ID]struct{}, error) {
 	var wg errgroup.Group
 	for _, cID := range actualContainers {
 		wg.Go(func() error {
-			ok, err := c.isMineWithMeta(cID, networkMap)
+			cnr, err := c.containers.Get(cID)
+			if err != nil {
+				return err
+			}
+
+			ok, err := c.isMineWithMeta(cnr, networkMap)
 			if err != nil || !ok {
 				return err
 			}

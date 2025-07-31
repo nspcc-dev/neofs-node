@@ -13,12 +13,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -80,7 +83,7 @@ func (t *testNetwork) Head(_ context.Context, cID cid.ID, oID oid.ID) (objectsdk
 	return t.resObjects[oid.NewAddress(cID, oID)], t.resErr
 }
 
-func (t *testNetwork) IsMineWithMeta(id cid.ID) (bool, error) {
+func (t *testNetwork) IsMineWithMeta(_ []byte) (bool, error) {
 	return true, nil
 }
 
@@ -193,6 +196,26 @@ func (t *testWS) ReceiveExecutionNotifications(flt *neorpc.NotificationFilter, r
 
 func (t *testWS) Close() {
 	panic("not expected for now")
+}
+
+func (t *testWS) InvokeContractVerify(contract util.Uint160, params []smartcontract.Parameter, signers []transaction.Signer, witnesses ...transaction.Witness) (*result.Invoke, error) {
+	panic("not called")
+}
+
+func (t *testWS) InvokeFunction(contract util.Uint160, operation string, params []smartcontract.Parameter, signers []transaction.Signer) (*result.Invoke, error) {
+	panic("not called")
+}
+
+func (t *testWS) InvokeScript(script []byte, signers []transaction.Signer) (*result.Invoke, error) {
+	panic("not called")
+}
+
+func (t *testWS) TerminateSession(sessionID uuid.UUID) (bool, error) {
+	panic("not called")
+}
+
+func (t *testWS) TraverseIterator(sessionID, iteratorID uuid.UUID, maxItemsCount int) ([]stackitem.Item, error) {
+	panic("not called")
 }
 
 func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Meta, func(), chan struct{}) {
