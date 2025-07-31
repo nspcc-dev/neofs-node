@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - CLI uses dynamic polling interval now depending on block time (half a block, but not less than 50ms), this reduces delays for fast networks (#3488)
+- N3 script verification returns persisted block number (#3494)
 
 ### Removed
 - Redundant EACL check in GetRange and Search handlers (#3481)
