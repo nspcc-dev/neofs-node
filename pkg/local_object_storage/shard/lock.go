@@ -13,6 +13,9 @@ import (
 // Allows locking regular objects only (otherwise returns apistatus.LockNonRegularObject).
 //
 // Locked list should be unique. Panics if it is empty.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if there is an object of
+// [objectSDK.TypeTombstone] type associated with the locked one.
 func (s *Shard) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
 	s.m.RLock()
 	defer s.m.RUnlock()

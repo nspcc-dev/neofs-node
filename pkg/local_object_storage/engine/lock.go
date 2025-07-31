@@ -19,6 +19,9 @@ var errLockFailed = errors.New("lock operation failed")
 // Allows locking regular objects only (otherwise returns apistatus.LockNonRegularObject).
 //
 // Locked list should be unique. Panics if it is empty.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if there is an object of
+// [objectSDK.TypeTombstone] type associated with the locked one.
 func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
@@ -31,10 +34,14 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 		switch e.lockSingle(idCnr, locker, locked[i], true) {
 		case 1:
 			return logicerr.Wrap(apistatus.LockNonRegularObject{})
+		case 3:
+			return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 		case 0:
 			switch e.lockSingle(idCnr, locker, locked[i], false) {
 			case 1:
 				return logicerr.Wrap(apistatus.LockNonRegularObject{})
+			case 3:
+				return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 			case 0:
 				return logicerr.Wrap(errLockFailed)
 			}
@@ -48,6 +55,7 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 //   - 0: fail
 //   - 1: locking irregular object
 //   - 2: ok
+//   - 3: locking tombstoned object
 func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) uint8 {
 	// code is pretty similar to inhumeAddr, maybe unify?
 	var (
@@ -68,6 +76,9 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 						// object is already expired =>
 						// do not lock it
 						return 0
+					}
+					if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+						return 3
 					}
 
 					e.reportShardError(sh, "could not check locked object for presence in shard", err)
@@ -94,6 +105,8 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 
 			if errors.As(err, &errIrregular) {
 				status = 1
+			} else if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+				status = 3
 			} else {
 				continue
 			}

@@ -23,6 +23,9 @@ var bucketNameLocked = []byte{lockedPrefix}
 // Allows locking regular objects only (otherwise returns apistatus.LockNonRegularObject).
 //
 // Locked list should be unique. Panics if it is empty.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if there is an object of
+// [objectSDK.TypeTombstone] type associated with the locked one.
 func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -48,25 +51,36 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		bucketKeysLocked[i] = objectKey(locked[i], make([]byte, objectKeySize))
 	}
 
+	curEpoch := db.epochState.CurrentEpoch()
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var metaBucket = tx.Bucket(metaBucketKey(cnr))
+		var metaCursor *bbolt.Cursor
+		if metaBucket != nil {
+			metaCursor = metaBucket.Cursor()
+		}
 
 		// check if all objects are regular
-		if metaBucket != nil {
+		if metaCursor != nil {
 			for i := range locked {
-				typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, locked[i])
-				if err != nil {
-					// It's OK if object is missing, but DB inconsistency is bad
-					// even though we can't do much about it.
-					if !errors.Is(err, errObjTypeNotFound) {
-						db.log.Warn("inconsistent DB upon lock attempt", zap.Error(err),
-							zap.Stringer("locked", locked[i]))
-					}
-					continue
-				}
-				if typ != object.TypeRegular {
+				typ, typErr := fetchTypeForID(metaCursor, typPrefix, locked[i])
+				if typErr == nil && typ != object.TypeRegular {
 					return logicerr.Wrap(apistatus.LockNonRegularObject{})
 				}
+
+				if typErr != nil && !errors.Is(typErr, errObjTypeNotFound) {
+					// It's OK if object is missing, but DB inconsistency is bad
+					// even though we can't do much about it.
+					db.log.Warn("inconsistent DB upon lock attempt", zap.Error(typErr),
+						zap.Stringer("locked", locked[i]))
+				}
+			}
+		}
+
+		for i := range locked {
+			st := objectStatus(tx, metaCursor, oid.NewAddress(cnr, locked[i]), curEpoch)
+			if st == statusTombstoned {
+				return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 			}
 		}
 

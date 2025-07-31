@@ -443,25 +443,34 @@ func TestDB_Lock_Removed(t *testing.T) {
 	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
 
 	for _, tc := range []struct {
-		name   string
-		preset func(*testing.T, *meta.DB)
+		name          string
+		preset        func(*testing.T, *meta.DB)
+		assertLockErr func(t *testing.T, err error)
 	}{
 		{name: "with target and tombstone", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 			require.NoError(t, db.Put(&tomb))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&tomb))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and tombstone mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 			n, _, err := db.Inhume(tombAddr, 0, false, objAddr)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone mark without target", preset: func(t *testing.T, db *meta.DB) {
 			_, _, err := db.Inhume(tombAddr, 0, false, objAddr)
 			require.NoError(t, err)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
@@ -474,12 +483,20 @@ func TestDB_Lock_Removed(t *testing.T) {
 
 			tc.preset(t, db)
 
-			err := db.Lock(cnr, oidtest.ID(), []oid.ID{objID})
-			require.NoError(t, err)
+			lockErr := db.Lock(cnr, lockID, []oid.ID{objID})
+			locked, lockedErr := db.IsLocked(objAddr)
 
-			locked, err := db.IsLocked(objAddr)
-			require.NoError(t, err)
-			require.True(t, locked)
+			if tc.assertLockErr != nil {
+				tc.assertLockErr(t, lockErr)
+
+				require.NoError(t, lockedErr)
+				require.False(t, locked)
+			} else {
+				require.NoError(t, lockErr)
+
+				require.NoError(t, lockedErr)
+				require.True(t, locked)
+			}
 
 			exists, err := db.Exists(lockAddr, false)
 			require.NoError(t, err)
