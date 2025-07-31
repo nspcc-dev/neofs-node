@@ -15,6 +15,10 @@ import (
 // did not allow to completely save the object.
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [object.TypeLock]
+// type and there is an object of [object.TypeTombstone] type associated with
+// the same target.
 func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	s.m.RLock()
 	defer s.m.RUnlock()

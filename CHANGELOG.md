@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Tombstoned objects cannot be locked now (#3495)
 
 ### Changed
 
