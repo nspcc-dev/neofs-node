@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -26,6 +27,10 @@ var (
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [objectSDK.TypeLock]
+// type and there is an object of [objectSDK.TypeTombstone] type associated with
+// the same target.
 func (db *DB) Put(obj *objectSDK.Object) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -132,19 +137,29 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 		if target := obj.AssociatedObject(); !target.IsZero() {
 			typPrefix := make([]byte, metaIDTypePrefixSize)
 			fillIDTypePrefix(typPrefix)
-			targetTyp, err := fetchTypeForID(metaCursor, typPrefix, target)
-			if err != nil {
-				if errors.Is(err, errObjTypeNotFound) {
-					return nil
-				}
+			targetTyp, targetTypErr := fetchTypeForID(metaCursor, typPrefix, target)
 
-				return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, err)
-			}
 			if typ == objectSDK.TypeLock {
-				if targetTyp != objectSDK.TypeRegular {
+				if targetTypErr == nil && targetTyp != objectSDK.TypeRegular {
 					return logicerr.Wrap(apistatus.LockNonRegularObject{})
 				}
+
+				st := objectStatus(tx, metaCursor, oid.NewAddress(cID, target), currEpoch)
+				if st == statusTombstoned {
+					return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
+				}
+
+				if targetTypErr != nil && !errors.Is(targetTypErr, errObjTypeNotFound) {
+					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
+				}
 			} else { // TS case
+				if targetTypErr != nil {
+					if errors.Is(targetTypErr, errObjTypeNotFound) {
+						return nil
+					}
+					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
+				}
+
 				if targetTyp == objectSDK.TypeTombstone {
 					return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
 				}
@@ -158,9 +173,9 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 
 				garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 				garbageKey := slices.Concat(cID[:], target[:])
-				err = garbageObjectsBKT.Put(garbageKey, zeroValue)
+				err := garbageObjectsBKT.Put(garbageKey, zeroValue)
 				if err != nil {
-					return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
+					return fmt.Errorf("put %s object to garbage bucket: %w", target, targetTypErr)
 				}
 			}
 		}

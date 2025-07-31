@@ -272,9 +272,9 @@ func TestDB_Put_Lock(t *testing.T) {
 	})
 
 	for _, tc := range []struct {
-		name   string
-		preset func(*testing.T, *meta.DB)
-		err    error
+		name         string
+		preset       func(*testing.T, *meta.DB)
+		assertPutErr func(t *testing.T, err error)
 	}{
 		{name: "no target", preset: func(t *testing.T, db *meta.DB) {}},
 		{name: "with target", preset: func(t *testing.T, db *meta.DB) {
@@ -283,19 +283,27 @@ func TestDB_Put_Lock(t *testing.T) {
 		{name: "with target and tombstone", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 			require.NoError(t, db.Put(&tomb))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&tomb))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and tombstone mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 			n, _, err := db.Inhume(tombAddr, 0, false, objAddr)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n)
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone mark without target", preset: func(t *testing.T, db *meta.DB) {
 			_, _, err := db.Inhume(tombAddr, 0, false, objAddr)
 			require.NoError(t, err)
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
@@ -310,19 +318,33 @@ func TestDB_Put_Lock(t *testing.T) {
 
 			tc.preset(t, db)
 
-			require.NoError(t, db.Put(&lock))
+			putErr := db.Put(&lock)
+			locked, lockedErr := db.IsLocked(objAddr)
+			exists, existsErr := db.Exists(lockAddr, false)
+			got, getErr := db.Get(lockAddr, false)
 
-			locked, err := db.IsLocked(objAddr)
-			require.NoError(t, err)
-			require.True(t, locked)
+			if tc.assertPutErr != nil {
+				tc.assertPutErr(t, putErr)
 
-			exists, err := db.Exists(lockAddr, false)
-			require.NoError(t, err)
-			require.True(t, exists)
+				require.NoError(t, lockedErr)
+				require.False(t, locked)
 
-			got, err := db.Get(lockAddr, false)
-			require.NoError(t, err)
-			require.Equal(t, lock, *got)
+				require.NoError(t, existsErr)
+				require.False(t, exists)
+
+				require.ErrorIs(t, getErr, apistatus.ErrObjectNotFound)
+			} else {
+				require.NoError(t, putErr)
+
+				require.NoError(t, lockedErr)
+				require.True(t, locked)
+
+				require.NoError(t, existsErr)
+				require.True(t, exists)
+
+				require.NoError(t, getErr)
+				require.Equal(t, lock, *got)
+			}
 		})
 	}
 }
