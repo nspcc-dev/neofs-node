@@ -8,9 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
@@ -72,23 +70,8 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 	case objectSDK.TypeLock:
 		locked := obj.AssociatedObject()
 		if !locked.IsZero() {
-			cnr := addr.Container()
-			locker := addr.Object()
-
-			switch e.lockSingle(cnr, locker, locked, true) {
-			case 1:
-				return logicerr.Wrap(apistatus.LockNonRegularObject{})
-			case 3:
-				return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
-			case 0:
-				switch e.lockSingle(cnr, locker, locked, false) {
-				case 1:
-					return logicerr.Wrap(apistatus.LockNonRegularObject{})
-				case 3:
-					return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
-				case 0:
-					return logicerr.Wrap(errLockFailed)
-				}
+			if err := e.lock(addr.Container(), addr.Object(), locked); err != nil {
+				return err
 			}
 		}
 	default:
