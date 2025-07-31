@@ -29,6 +29,10 @@ var errPutShard = errors.New("could not put object to any shard")
 // Returns an error if executions are blocked (see BlockExecution).
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [object.TypeLock]
+// type and there is an object of [object.TypeTombstone] type associated with
+// the same target.
 func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
@@ -74,10 +78,14 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 			switch e.lockSingle(cnr, locker, locked, true) {
 			case 1:
 				return logicerr.Wrap(apistatus.LockNonRegularObject{})
+			case 3:
+				return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 			case 0:
 				switch e.lockSingle(cnr, locker, locked, false) {
 				case 1:
 					return logicerr.Wrap(apistatus.LockNonRegularObject{})
+				case 3:
+					return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 				case 0:
 					return logicerr.Wrap(errLockFailed)
 				}

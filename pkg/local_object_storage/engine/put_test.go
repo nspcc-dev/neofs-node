@@ -118,8 +118,9 @@ func testPutLock(t *testing.T, shardNum int) {
 	})
 
 	for _, tc := range []struct {
-		name   string
-		preset func(*testing.T, *StorageEngine)
+		name         string
+		preset       func(*testing.T, *StorageEngine)
+		assertPutErr func(t *testing.T, err error)
 	}{
 		{name: "no target", preset: func(t *testing.T, s *StorageEngine) {}},
 		{name: "with target", preset: func(t *testing.T, s *StorageEngine) {
@@ -128,18 +129,26 @@ func testPutLock(t *testing.T, shardNum int) {
 		{name: "with target and tombstone", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
 			require.NoError(t, s.Put(&tomb, nil))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&tomb, nil))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and tombstone mark", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
 			err := s.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone mark without target", preset: func(t *testing.T, s *StorageEngine) {
 			err := s.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
@@ -153,15 +162,26 @@ func testPutLock(t *testing.T, shardNum int) {
 
 			tc.preset(t, s)
 
-			require.NoError(t, s.Put(&lock, nil))
+			putErr := s.Put(&lock, nil)
+			locked, lockedErr := s.IsLocked(objAddr)
+			got, getErr := s.Get(lockAddr)
 
-			locked, err := s.IsLocked(objAddr)
-			require.NoError(t, err)
-			require.True(t, locked)
+			if tc.assertPutErr != nil {
+				tc.assertPutErr(t, putErr)
 
-			got, err := s.Get(lockAddr)
-			require.NoError(t, err)
-			require.Equal(t, lock, *got)
+				require.NoError(t, lockedErr)
+				require.False(t, locked)
+
+				require.ErrorIs(t, getErr, apistatus.ErrObjectNotFound)
+			} else {
+				require.NoError(t, putErr)
+
+				require.NoError(t, lockedErr)
+				require.True(t, locked)
+
+				require.NoError(t, getErr)
+				require.Equal(t, lock, *got)
+			}
 		})
 	}
 }

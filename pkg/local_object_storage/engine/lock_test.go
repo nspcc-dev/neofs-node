@@ -315,24 +315,33 @@ func testLockRemoved(t *testing.T, shardNum int) {
 	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
 
 	for _, tc := range []struct {
-		name   string
-		preset func(*testing.T, *StorageEngine)
+		name          string
+		preset        func(*testing.T, *StorageEngine)
+		assertLockErr func(t *testing.T, err error)
 	}{
 		{name: "with target and tombstone", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
 			require.NoError(t, s.Put(&tomb, nil))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&tomb, nil))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and tombstone mark", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
 			err := s.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone mark without target", preset: func(t *testing.T, s *StorageEngine) {
 			err := s.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
@@ -345,14 +354,22 @@ func testLockRemoved(t *testing.T, shardNum int) {
 
 			tc.preset(t, s)
 
-			err := s.Lock(cnr, oidtest.ID(), []oid.ID{objID})
-			require.NoError(t, err)
+			lockErr := s.Lock(cnr, oidtest.ID(), []oid.ID{objID})
+			locked, lockedErr := s.IsLocked(objAddr)
 
-			locked, err := s.IsLocked(objAddr)
-			require.NoError(t, err)
-			require.True(t, locked)
+			if tc.assertLockErr != nil {
+				tc.assertLockErr(t, lockErr)
 
-			_, err = s.Head(lockAddr, false)
+				require.NoError(t, lockedErr)
+				require.False(t, locked)
+			} else {
+				require.NoError(t, lockErr)
+
+				require.NoError(t, lockedErr)
+				require.True(t, locked)
+			}
+
+			_, err := s.Head(lockAddr, false)
 			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 			_, err = s.Get(lockAddr)

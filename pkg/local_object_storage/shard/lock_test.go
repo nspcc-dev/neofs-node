@@ -181,24 +181,33 @@ func TestShard_Lock_Removed(t *testing.T) {
 	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
 
 	for _, tc := range []struct {
-		name   string
-		preset func(*testing.T, *shard.Shard)
+		name          string
+		preset        func(*testing.T, *shard.Shard)
+		assertLockErr func(t *testing.T, err error)
 	}{
 		{name: "with target and tombstone", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&obj, nil))
 			require.NoError(t, sh.Put(&tomb, nil))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&tomb, nil))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and tombstone mark", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&obj, nil))
 			err := sh.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone mark without target", preset: func(t *testing.T, sh *shard.Shard) {
 			err := sh.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&obj, nil))
@@ -211,12 +220,20 @@ func TestShard_Lock_Removed(t *testing.T) {
 
 			tc.preset(t, sh)
 
-			err := sh.Lock(cnr, oidtest.ID(), []oid.ID{objID})
-			require.NoError(t, err)
+			lockErr := sh.Lock(cnr, oidtest.ID(), []oid.ID{objID})
+			locked, lockedErr := sh.IsLocked(objAddr)
 
-			locked, err := sh.IsLocked(objAddr)
-			require.NoError(t, err)
-			require.True(t, locked)
+			if tc.assertLockErr != nil {
+				tc.assertLockErr(t, lockErr)
+
+				require.NoError(t, lockedErr)
+				require.False(t, locked)
+			} else {
+				require.NoError(t, lockErr)
+
+				require.NoError(t, lockedErr)
+				require.True(t, locked)
+			}
 
 			exists, err := sh.Exists(lockAddr, false)
 			require.NoError(t, err)

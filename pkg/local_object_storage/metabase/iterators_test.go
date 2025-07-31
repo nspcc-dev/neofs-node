@@ -96,18 +96,4 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	require.Contains(t, handled, protected1)
 	require.Contains(t, handled, protected2)
 	require.Contains(t, handled, protectedLocked)
-
-	err = db.Lock(protectedLocked.Container(), oidtest.ID(), []oid.ID{protectedLocked.Object()})
-	require.NoError(t, err)
-
-	handled = handled[:0]
-
-	err = db.IterateCoveredByTombstones(tss, func(addr oid.Address) error {
-		handled = append(handled, addr)
-		return nil
-	})
-	require.NoError(t, err)
-
-	require.Len(t, handled, 2)
-	require.NotContains(t, handled, protectedLocked)
 }
