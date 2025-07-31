@@ -31,20 +31,28 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 	}
 
 	for i := range locked {
-		switch e.lockSingle(idCnr, locker, locked[i], true) {
+		if err := e.lock(idCnr, locker, locked[i]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (e *StorageEngine) lock(idCnr cid.ID, locker, locked oid.ID) error {
+	switch e.lockSingle(idCnr, locker, locked, true) {
+	case 1:
+		return logicerr.Wrap(apistatus.LockNonRegularObject{})
+	case 3:
+		return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
+	case 0:
+		switch e.lockSingle(idCnr, locker, locked, false) {
 		case 1:
 			return logicerr.Wrap(apistatus.LockNonRegularObject{})
 		case 3:
 			return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 		case 0:
-			switch e.lockSingle(idCnr, locker, locked[i], false) {
-			case 1:
-				return logicerr.Wrap(apistatus.LockNonRegularObject{})
-			case 3:
-				return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
-			case 0:
-				return logicerr.Wrap(errLockFailed)
-			}
+			return logicerr.Wrap(errLockFailed)
 		}
 	}
 
