@@ -3,8 +3,17 @@ package shard_test
 import (
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,4 +54,125 @@ func TestShard_PutBinary(t *testing.T) {
 
 	_, err = sh.Get(addr, false)
 	require.Error(t, err)
+}
+
+func TestShard_Put_Lock(t *testing.T) {
+	var obj objectSDK.Object
+	ver := version.Current()
+	obj.SetVersion(&ver)
+	obj.SetContainerID(cidtest.ID())
+	obj.SetID(oidtest.ID())
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+
+	objID := obj.GetID()
+	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
+
+	lock := obj
+	lock.SetID(oidtest.OtherID(objID))
+	lock.AssociateLocked(objID)
+
+	lockAddr := oid.NewAddress(lock.GetContainerID(), lock.GetID())
+
+	tomb := obj
+	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
+	tomb.AssociateDeleted(objID)
+
+	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
+
+	t.Run("non-regular target", func(t *testing.T) {
+		for _, typ := range []objectSDK.Type{
+			objectSDK.TypeTombstone,
+			objectSDK.TypeLock,
+			objectSDK.TypeLink,
+		} {
+			sh, fst := newShardWithFSTree(t)
+
+			obj := obj
+			obj.SetType(typ)
+
+			require.NoError(t, sh.Put(&obj, nil))
+
+			require.ErrorIs(t, sh.Put(&lock, nil), apistatus.ErrLockNonRegularObject)
+
+			locked, err := sh.IsLocked(objAddr)
+			require.NoError(t, err)
+			require.False(t, locked)
+
+			exists, err := sh.Exists(lockAddr, false)
+			require.NoError(t, err)
+			require.False(t, exists)
+
+			_, err = sh.Get(lockAddr, false)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			exists, err = fst.Exists(lockAddr)
+			require.NoError(t, err)
+			require.True(t, exists)
+
+			got, err := fst.Get(lockAddr)
+			require.NoError(t, err)
+			require.Equal(t, lock, *got)
+		}
+	})
+
+	for _, tc := range []struct {
+		name   string
+		preset func(*testing.T, *shard.Shard)
+	}{
+		{name: "no target", preset: func(t *testing.T, sh *shard.Shard) {}},
+		{name: "with target", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+		}},
+		{name: "with target and tombstone", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+			require.NoError(t, sh.Put(&tomb, nil))
+		}},
+		{name: "tombstone without target", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&tomb, nil))
+		}},
+		{name: "with target and tombstone mark", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+			err := sh.Inhume(tombAddr, 0, objAddr)
+			require.NoError(t, err)
+		}},
+		{name: "tombstone mark without target", preset: func(t *testing.T, sh *shard.Shard) {
+			err := sh.Inhume(tombAddr, 0, objAddr)
+			require.NoError(t, err)
+		}},
+		{name: "with target and GC mark", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+
+			err := sh.MarkGarbage(false, objAddr)
+			require.NoError(t, err)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sh, fst := newShardWithFSTree(t)
+
+			tc.preset(t, sh)
+
+			require.NoError(t, sh.Put(&lock, nil))
+
+			locked, err := sh.IsLocked(objAddr)
+			require.NoError(t, err)
+			require.True(t, locked)
+
+			exists, err := sh.Exists(lockAddr, false)
+			require.NoError(t, err)
+			require.True(t, exists)
+
+			got, err := sh.Get(lockAddr, false)
+			require.NoError(t, err)
+			require.Equal(t, lock, *got)
+
+			exists, err = fst.Exists(lockAddr)
+			require.NoError(t, err)
+			require.True(t, exists)
+
+			got, err = fst.Get(lockAddr)
+			require.NoError(t, err)
+			require.Equal(t, lock, *got)
+		})
+	}
 }

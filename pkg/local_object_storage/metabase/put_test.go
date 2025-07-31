@@ -218,3 +218,111 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 		require.NotContains(t, collected, addr)
 	})
 }
+
+func TestDB_Put_Lock(t *testing.T) {
+	var obj objectSDK.Object
+	ver := version.Current()
+	obj.SetVersion(&ver)
+	obj.SetContainerID(cidtest.ID())
+	obj.SetID(oidtest.ID())
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+
+	objID := obj.GetID()
+	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
+
+	lock := obj
+	lock.SetID(oidtest.OtherID(objID))
+	lock.AssociateLocked(objID)
+
+	lockAddr := oid.NewAddress(lock.GetContainerID(), lock.GetID())
+
+	tomb := obj
+	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
+	tomb.AssociateDeleted(objID)
+
+	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
+
+	t.Run("non-regular target", func(t *testing.T) {
+		for _, typ := range []objectSDK.Type{
+			objectSDK.TypeTombstone,
+			objectSDK.TypeLock,
+			objectSDK.TypeLink,
+		} {
+			db := newDB(t)
+
+			obj := obj
+			obj.SetType(typ)
+
+			require.NoError(t, db.Put(&obj))
+
+			require.ErrorIs(t, db.Put(&lock), apistatus.ErrLockNonRegularObject)
+
+			locked, err := db.IsLocked(objAddr)
+			require.NoError(t, err)
+			require.False(t, locked)
+
+			exists, err := db.Exists(lockAddr, false)
+			require.NoError(t, err)
+			require.False(t, exists)
+
+			_, err = db.Get(lockAddr, false)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		}
+	})
+
+	for _, tc := range []struct {
+		name   string
+		preset func(*testing.T, *meta.DB)
+		err    error
+	}{
+		{name: "no target", preset: func(t *testing.T, db *meta.DB) {}},
+		{name: "with target", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&obj))
+		}},
+		{name: "with target and tombstone", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&obj))
+			require.NoError(t, db.Put(&tomb))
+		}},
+		{name: "tombstone without target", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&tomb))
+		}},
+		{name: "with target and tombstone mark", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&obj))
+			n, _, err := db.Inhume(tombAddr, 0, false, objAddr)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, n)
+		}},
+		{name: "tombstone mark without target", preset: func(t *testing.T, db *meta.DB) {
+			_, _, err := db.Inhume(tombAddr, 0, false, objAddr)
+			require.NoError(t, err)
+		}},
+		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&obj))
+
+			n, _, err := db.MarkGarbage(false, false, objAddr)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, n)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newDB(t)
+
+			tc.preset(t, db)
+
+			require.NoError(t, db.Put(&lock))
+
+			locked, err := db.IsLocked(objAddr)
+			require.NoError(t, err)
+			require.True(t, locked)
+
+			exists, err := db.Exists(lockAddr, false)
+			require.NoError(t, err)
+			require.True(t, exists)
+
+			got, err := db.Get(lockAddr, false)
+			require.NoError(t, err)
+			require.Equal(t, lock, *got)
+		})
+	}
+}
