@@ -40,36 +40,23 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 }
 
 func (e *StorageEngine) lock(idCnr cid.ID, locker, locked oid.ID) error {
-	switch e.lockSingle(idCnr, locker, locked, true) {
-	case 1:
-		return logicerr.Wrap(apistatus.LockNonRegularObject{})
-	case 3:
-		return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
-	case 0:
-		switch e.lockSingle(idCnr, locker, locked, false) {
-		case 1:
-			return logicerr.Wrap(apistatus.LockNonRegularObject{})
-		case 3:
-			return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
-		case 0:
-			return logicerr.Wrap(errLockFailed)
-		}
+	err := e.lockSingle(idCnr, locker, locked, true)
+	if errors.Is(err, errLockFailed) {
+		err = e.lockSingle(idCnr, locker, locked, false)
+	}
+	if err != nil {
+		return logicerr.Wrap(err)
 	}
 
 	return nil
 }
 
-// Returns:
-//   - 0: fail
-//   - 1: locking irregular object
-//   - 2: ok
-//   - 3: locking tombstoned object
-func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) uint8 {
+func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) error {
 	// code is pretty similar to inhumeAddr, maybe unify?
 	var (
 		addrLocked oid.Address
 		root       bool
-		status     uint8
+		status     error
 	)
 	addrLocked.SetContainer(idCnr)
 	addrLocked.SetObject(locked)
@@ -83,15 +70,15 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 					if shard.IsErrObjectExpired(err) {
 						// object is already expired =>
 						// do not lock it
-						return 0
+						return errLockFailed
 					}
 					if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
-						return 3
+						return apistatus.ErrObjectAlreadyRemoved
 					}
 
 					e.reportShardError(sh, "could not check locked object for presence in shard", err)
 					if !root {
-						return 0
+						return errLockFailed
 					}
 					continue
 				}
@@ -99,7 +86,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 				root = true
 			} else if !exists {
 				if !root {
-					return 0
+					return errLockFailed
 				}
 				continue
 			}
@@ -112,14 +99,14 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 			e.reportShardError(sh, "could not lock object in shard", err)
 
 			if errors.As(err, &errIrregular) {
-				status = 1
+				status = apistatus.ErrLockNonRegularObject
 			} else if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
-				status = 3
+				status = apistatus.ErrObjectAlreadyRemoved
 			} else {
 				continue
 			}
 		} else {
-			status = 2
+			status = nil
 		}
 
 		// if object is root we continue since information about it
