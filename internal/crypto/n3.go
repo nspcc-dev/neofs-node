@@ -49,7 +49,7 @@ func verifyN3Scripts(nsr N3ScriptRunner, height uint32, acc util.Uint160, invocS
 	var fakeBlockHdr *block.Header
 	if height > 0 {
 		fakeBlockHdr = &block.Header{
-			Index: height,
+			Index: height + 1,
 		}
 	}
 
