@@ -4,14 +4,18 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -413,4 +417,76 @@ func objsToAddrs(oo []*object.Object) []oid.Address {
 	}
 
 	return res
+}
+
+func TestDB_Lock_Removed(t *testing.T) {
+	cnr := cidtest.ID()
+
+	var obj object.Object
+	ver := version.Current()
+	obj.SetVersion(&ver)
+	obj.SetContainerID(cnr)
+	obj.SetID(oidtest.ID())
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+
+	objID := obj.GetID()
+	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
+
+	lockID := oidtest.OtherID(objID)
+	lockAddr := oid.NewAddress(cnr, lockID)
+
+	tomb := obj
+	tomb.SetID(oidtest.OtherID(objID))
+	tomb.AssociateDeleted(objID)
+
+	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
+
+	for _, tc := range []struct {
+		name   string
+		preset func(*testing.T, *meta.DB)
+	}{
+		{name: "with target and tombstone", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&obj))
+			require.NoError(t, db.Put(&tomb))
+		}},
+		{name: "tombstone without target", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&tomb))
+		}},
+		{name: "with target and tombstone mark", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&obj))
+			n, _, err := db.Inhume(tombAddr, 0, false, objAddr)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, n)
+		}},
+		{name: "tombstone mark without target", preset: func(t *testing.T, db *meta.DB) {
+			_, _, err := db.Inhume(tombAddr, 0, false, objAddr)
+			require.NoError(t, err)
+		}},
+		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&obj))
+			_, _, err := db.MarkGarbage(false, false, objAddr)
+			require.NoError(t, err)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newDB(t)
+
+			tc.preset(t, db)
+
+			err := db.Lock(cnr, oidtest.ID(), []oid.ID{objID})
+			require.NoError(t, err)
+
+			locked, err := db.IsLocked(objAddr)
+			require.NoError(t, err)
+			require.True(t, locked)
+
+			exists, err := db.Exists(lockAddr, false)
+			require.NoError(t, err)
+			require.False(t, exists)
+
+			_, err = db.Get(lockAddr, false)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		})
+	}
 }

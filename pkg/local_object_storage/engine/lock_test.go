@@ -2,19 +2,25 @@ package engine
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 )
@@ -245,4 +251,112 @@ func TestLockForceRemoval(t *testing.T) {
 	// 5.
 	err = e.deleteObj(objectcore.AddressOf(obj), false)
 	require.NoError(t, err)
+}
+
+func TestStorageEngine_Lock_Removed(t *testing.T) {
+	for _, shardNum := range []int{1, 5} {
+		t.Run("shards="+strconv.Itoa(shardNum), func(t *testing.T) {
+			testLockRemoved(t, shardNum)
+		})
+	}
+}
+
+func testLockRemoved(t *testing.T, shardNum int) {
+	newStorage := func(t *testing.T) *StorageEngine {
+		dir := t.TempDir()
+
+		s := New()
+
+		for i := range shardNum {
+			sIdx := strconv.Itoa(i)
+
+			_, err := s.AddShard(
+				shard.WithBlobstor(fstree.New(
+					fstree.WithPath(filepath.Join(dir, "fstree"+sIdx)),
+					fstree.WithDepth(1),
+				)),
+				shard.WithMetaBaseOptions(
+					meta.WithPath(filepath.Join(dir, "meta"+sIdx)),
+					meta.WithEpochState(epochState{}),
+				),
+			)
+			require.NoError(t, err)
+		}
+
+		require.NoError(t, s.Open())
+		require.NoError(t, s.Init())
+
+		return s
+	}
+
+	cnr := cidtest.ID()
+
+	var obj object.Object
+	ver := version.Current()
+	obj.SetVersion(&ver)
+	obj.SetContainerID(cnr)
+	obj.SetID(oidtest.ID())
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+
+	objID := obj.GetID()
+	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
+
+	lockID := oidtest.OtherID(objID)
+	lockAddr := oid.NewAddress(cnr, lockID)
+
+	tomb := obj
+	tomb.SetID(oidtest.OtherID(objID))
+	tomb.SetAttributes(
+		object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+	)
+	tomb.AssociateDeleted(objID)
+
+	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
+
+	for _, tc := range []struct {
+		name   string
+		preset func(*testing.T, *StorageEngine)
+	}{
+		{name: "with target and tombstone", preset: func(t *testing.T, s *StorageEngine) {
+			require.NoError(t, s.Put(&obj, nil))
+			require.NoError(t, s.Put(&tomb, nil))
+		}},
+		{name: "tombstone without target", preset: func(t *testing.T, s *StorageEngine) {
+			require.NoError(t, s.Put(&tomb, nil))
+		}},
+		{name: "with target and tombstone mark", preset: func(t *testing.T, s *StorageEngine) {
+			require.NoError(t, s.Put(&obj, nil))
+			err := s.Inhume(tombAddr, 0, objAddr)
+			require.NoError(t, err)
+		}},
+		{name: "tombstone mark without target", preset: func(t *testing.T, s *StorageEngine) {
+			err := s.Inhume(tombAddr, 0, objAddr)
+			require.NoError(t, err)
+		}},
+		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
+			require.NoError(t, s.Put(&obj, nil))
+			err := s.Delete(objAddr)
+			require.NoError(t, err)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newStorage(t)
+
+			tc.preset(t, s)
+
+			err := s.Lock(cnr, oidtest.ID(), []oid.ID{objID})
+			require.NoError(t, err)
+
+			locked, err := s.IsLocked(objAddr)
+			require.NoError(t, err)
+			require.True(t, locked)
+
+			_, err = s.Head(lockAddr, false)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			_, err = s.Get(lockAddr)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		})
+	}
 }
