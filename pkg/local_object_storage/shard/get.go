@@ -144,9 +144,9 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 
 // TODO: docs.
 // TODO: keep in sync with https://github.com/nspcc-dev/neofs-node/pull/3466.
-func (s *Shard) GetECPartByIdx(cnr cid.ID, parent oid.ID, idx int) (objectSDK.Object, error) {
+func (s *Shard) GetECPartByIdx(cnr cid.ID, parent oid.ID, ruleIdx, partIdx int) (objectSDK.Object, error) {
 	// FIXME: metabase can be disabled
-	partID, err := s.metaBase.ResolveECPartByIdx(cnr, parent, idx)
+	partID, err := s.metaBase.ResolveECPartByIdx(cnr, parent, ruleIdx, partIdx)
 	if err != nil {
 		return objectSDK.Object{}, fmt.Errorf("resolve part ID in metabase: %w", err)
 	}

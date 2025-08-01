@@ -73,7 +73,8 @@ func testGetECPartByIdx(t *testing.T, shardNum int) {
 
 	cnr := cidtest.ID()
 	parentID := oidtest.ID()
-	idx := 123
+	const ruleIdx = 123
+	const partIdx = 456
 
 	var parent objectsdk.Object
 	parent.SetContainerID(cnr)
@@ -85,25 +86,39 @@ func testGetECPartByIdx(t *testing.T, shardNum int) {
 	part.SetID(oidtest.OtherID(parentID))
 	part.SetParent(&parent)
 	part.SetAttributes(
-		objectsdk.NewAttribute("__NEOFS__EC_PART_IDX", strconv.Itoa(idx)),
+		objectsdk.NewAttribute("__NEOFS__EC_RULE_IDX", strconv.Itoa(ruleIdx)),
+		objectsdk.NewAttribute("__NEOFS__EC_PART_IDX", strconv.Itoa(partIdx)),
 	)
 
 	s := newStorage(t)
 
-	checkMissingIdxs := func(t *testing.T, idxs ...int) {
-		for _, idx := range idxs {
-			_, err := s.GetECPartByIdx(cnr, parentID, idx)
-			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-		}
+	checkMissingIdxs := func(t *testing.T, ruleIdx, partIdx int) {
+		_, err := s.GetECPartByIdx(cnr, parentID, ruleIdx, partIdx)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	}
 
-	checkMissingIdxs(t, idx-1, idx, idx+1)
+	checkMissingIdxs(t, ruleIdx-1, partIdx-1)
+	checkMissingIdxs(t, ruleIdx-1, partIdx)
+	checkMissingIdxs(t, ruleIdx-1, partIdx+1)
+	checkMissingIdxs(t, ruleIdx, partIdx-1)
+	checkMissingIdxs(t, ruleIdx, partIdx)
+	checkMissingIdxs(t, ruleIdx, partIdx+1)
+	checkMissingIdxs(t, ruleIdx+1, partIdx-1)
+	checkMissingIdxs(t, ruleIdx+1, partIdx)
+	checkMissingIdxs(t, ruleIdx+1, partIdx+1)
 
 	require.NoError(t, s.Put(&part, nil))
 
-	checkMissingIdxs(t, idx-1, idx+1)
+	checkMissingIdxs(t, ruleIdx-1, partIdx-1)
+	checkMissingIdxs(t, ruleIdx-1, partIdx)
+	checkMissingIdxs(t, ruleIdx-1, partIdx+1)
+	checkMissingIdxs(t, ruleIdx, partIdx-1)
+	checkMissingIdxs(t, ruleIdx, partIdx+1)
+	checkMissingIdxs(t, ruleIdx+1, partIdx-1)
+	checkMissingIdxs(t, ruleIdx+1, partIdx)
+	checkMissingIdxs(t, ruleIdx+1, partIdx+1)
 
-	got, err := s.GetECPartByIdx(cnr, parentID, idx)
+	got, err := s.GetECPartByIdx(cnr, parentID, ruleIdx, partIdx)
 	require.NoError(t, err)
 	require.Equal(t, part, got)
 }

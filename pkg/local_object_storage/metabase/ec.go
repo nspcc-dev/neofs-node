@@ -16,21 +16,22 @@ import (
 
 // TODO: Place in SDK.
 const (
+	attrECRuleIdx = "__NEOFS__EC_RULE_IDX"
 	attrECPartIdx = "__NEOFS__EC_PART_IDX"
 )
 
-func (db *DB) ResolveECPartByIdx(cnr cid.ID, parent oid.ID, idx int) (oid.ID, error) {
+func (db *DB) ResolveECPartByIdx(cnr cid.ID, parent oid.ID, ruleIdx, partIdx int) (oid.ID, error) {
 	// FIXME: check degraded
 	var res oid.ID
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
-		res, err = db.resolveECPartByIdxTx(tx, cnr, parent, idx)
+		res, err = db.resolveECPartByIdxTx(tx, cnr, parent, ruleIdx, partIdx)
 		return err
 	})
 	return res, err
 }
 
-func (db *DB) resolveECPartByIdxTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, idx int) (oid.ID, error) {
+func (db *DB) resolveECPartByIdxTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, ruleIdx, partIdx int) (oid.ID, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
 		return oid.ID{}, apistatus.ErrObjectNotFound
@@ -49,7 +50,12 @@ func (db *DB) resolveECPartByIdxTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, idx 
 		return oid.ID{}, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
 	}
 
-	k = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(attrECPartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(idx)))
+	k = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(attrECRuleIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(ruleIdx)))
+	if metaBkt.Get(k) == nil {
+		return oid.ID{}, apistatus.ErrObjectNotFound
+	}
+
+	k = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(attrECPartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(partIdx)))
 	if metaBkt.Get(k) == nil {
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	}

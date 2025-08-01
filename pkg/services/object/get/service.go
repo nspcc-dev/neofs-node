@@ -1,14 +1,29 @@
 package getsvc
 
 import (
+	"strconv"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
+
+// ECRule represents erasure coding rule for object encoding and placement.
+// TODO: copied from PUT service. Share.
+type ECRule struct {
+	DataParts   uint8
+	ParityParts uint8
+}
+
+// String implements [fmt.Stringer].
+func (x ECRule) String() string {
+	return strconv.FormatUint(uint64(x.DataParts), 10) + "/" + strconv.FormatUint(uint64(x.ParityParts), 10)
+}
 
 // NeoFSNetwork provides access to the NeoFS network to get information
 // necessary for the [Service] to work.
@@ -25,7 +40,7 @@ type NeoFSNetwork interface {
 	//
 	// Returns [apistatus.ContainerNotFound] if requested container is missing in
 	// the network.
-	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, []ECRule, error) // TODO: upd docs
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node providing [Service].
 	IsLocalNodePublicKey([]byte) bool
@@ -49,10 +64,14 @@ type cfg struct {
 
 	log *zap.Logger
 
+	localObjects interface {
+		GetECPartByIdx(cnr cid.ID, parent oid.ID, ruleIdx, partIdx int) (object.Object, error)
+	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, error)
 	}
 
+	conns       ClientConstructor
 	clientCache interface {
 		get(client.NodeInfo) (getClient, error)
 	}
@@ -102,6 +121,7 @@ func WithoutAssembly() Option {
 // instance.
 func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 	return func(c *cfg) {
+		c.localObjects = e
 		c.localStorage.(*storageEngineWrapper).engine = e
 	}
 }
@@ -113,6 +133,7 @@ type ClientConstructor interface {
 // WithClientConstructor returns option to set constructor of remote node clients.
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
+		c.conns = v
 		c.clientCache.(*clientCacheWrapper).cache = v
 	}
 }

@@ -17,7 +17,7 @@ func (exec *execCtx) executeOnContainer() {
 
 	exec.log.Debug("trying to execute in container...")
 
-	nodeLists, primaryCounts, err := exec.svc.neoFSNet.GetNodesForObject(exec.address())
+	nodeLists, primaryCounts, _, err := exec.svc.neoFSNet.GetNodesForObject(exec.address())
 	if err != nil {
 		exec.status = statusUndefined
 		exec.err = err
@@ -34,7 +34,7 @@ func (exec *execCtx) executeOnContainer() {
 	var j, jLim uint
 	primary := true
 
-	for i := 0; i < len(nodeLists); i++ { // do not use for-range!
+	for i := 0; i < len(primaryCounts); i++ { // do not use for-range!
 		if primary {
 			j, jLim = 0, primaryCounts[i]
 		} else {

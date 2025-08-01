@@ -159,18 +159,18 @@ func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
 
 // TODO:: docs.
 // TODO: keep in sync with https://github.com/nspcc-dev/neofs-node/pull/3466.
-func (e *StorageEngine) GetECPartByIdx(cnr cid.ID, parent oid.ID, idx int) (objectSDK.Object, error) {
+func (e *StorageEngine) GetECPartByIdx(cnr cid.ID, parent oid.ID, ruleIdx, partIdx int) (objectSDK.Object, error) {
 	// TODO: metrics and blockErr like Get
 
 	// TODO: sync placement with PUT. They must sort shard equally
 	shs := e.sortedShards(oid.NewAddress(cnr, parent))
 	for i := range shs {
-		obj, err := shs[i].GetECPartByIdx(cnr, parent, idx)
+		obj, err := shs[i].GetECPartByIdx(cnr, parent, ruleIdx, partIdx)
 		if err == nil {
 			return obj, nil
 		}
 		e.log.Info("failed to get EC part from shard", zap.Stringer("container", cnr), zap.Stringer("parent", parent),
-			zap.Int("idx", idx), zap.Error(err))
+			zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Error(err))
 		// FIXME: some errors like 'akready removed' must abort
 	}
 
