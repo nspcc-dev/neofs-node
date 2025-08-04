@@ -153,22 +153,21 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
 				}
 			} else { // TS case
-				if targetTypErr != nil {
-					if errors.Is(targetTypErr, errObjTypeNotFound) {
-						return nil
+				if targetTypErr == nil {
+					if targetTyp == objectSDK.TypeTombstone {
+						return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
 					}
-					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
-				}
-
-				if targetTyp == objectSDK.TypeTombstone {
-					return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
-				}
-				if targetTyp == objectSDK.TypeLock {
-					return ErrLockObjectRemoval
+					if targetTyp == objectSDK.TypeLock {
+						return ErrLockObjectRemoval
+					}
 				}
 
 				if objectLocked(tx, currEpoch, metaCursor, cID, target) {
 					return apistatus.ErrObjectLocked
+				}
+
+				if targetTypErr != nil && !errors.Is(targetTypErr, errObjTypeNotFound) {
+					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
 				}
 
 				garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)

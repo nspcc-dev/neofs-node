@@ -1,9 +1,11 @@
 package shard_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -196,6 +198,124 @@ func TestShard_Put_Lock(t *testing.T) {
 			got, err = fst.Get(lockAddr)
 			require.NoError(t, err)
 			require.Equal(t, lock, *got)
+		})
+	}
+}
+
+func TestDB_Put_Tombstone(t *testing.T) {
+	var obj objectSDK.Object
+	ver := version.Current()
+	obj.SetVersion(&ver)
+	obj.SetContainerID(cidtest.ID())
+	obj.SetID(oidtest.ID())
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+
+	objID := obj.GetID()
+	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
+
+	lock := obj
+	lock.SetID(oidtest.OtherID(objID))
+	lock.AssociateLocked(objID)
+
+	tomb := obj
+	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
+	tomb.AssociateDeleted(objID)
+
+	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
+
+	for _, tc := range []struct {
+		name         string
+		preset       func(*testing.T, *shard.Shard)
+		assertPutErr func(t *testing.T, err error)
+	}{
+		{name: "no target", preset: func(t *testing.T, sh *shard.Shard) {}},
+		{name: "with target", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+		}},
+		{name: "with target and lock", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+			require.NoError(t, sh.Put(&lock, nil))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
+		}},
+		{name: "lock without target", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&lock, nil))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
+		}},
+		{name: "with target and lock mark", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+			err := sh.Lock(obj.GetContainerID(), lock.GetID(), []oid.ID{objID})
+			require.NoError(t, err)
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
+		}},
+		{name: "lock mark without target", preset: func(t *testing.T, sh *shard.Shard) {
+			err := sh.Lock(obj.GetContainerID(), lock.GetID(), []oid.ID{objID})
+			require.NoError(t, err)
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
+		}},
+		{name: "target is lock", preset: func(t *testing.T, sh *shard.Shard) {
+			obj := obj
+			obj.SetType(objectSDK.TypeLock)
+			require.NoError(t, sh.Put(&obj, nil))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
+		}},
+		{name: "target is tombstone", preset: func(t *testing.T, sh *shard.Shard) {
+			obj := obj
+			obj.SetAttributes(
+				objectSDK.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+			)
+			obj.AssociateDeleted(oidtest.ID())
+			require.NoError(t, sh.Put(&obj, nil))
+		}, assertPutErr: func(t *testing.T, err error) {
+			require.ErrorContains(t, err, "TS's target is another TS")
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, fst := newShardWithFSTree(t)
+
+			tc.preset(t, db)
+
+			putTombErr := db.Put(&tomb, nil)
+			tombExists, tombExistsErr := db.Exists(tombAddr, false)
+			gotTomb, getTombErr := db.Get(tombAddr, false)
+			_, objExistsErr := db.Exists(objAddr, false)
+			_, getObjErr := db.Get(objAddr, false)
+
+			if tc.assertPutErr != nil {
+				tc.assertPutErr(t, putTombErr)
+
+				require.NoError(t, tombExistsErr)
+				require.False(t, tombExists)
+
+				require.ErrorIs(t, getTombErr, apistatus.ErrObjectNotFound)
+
+				require.NotErrorIs(t, objExistsErr, apistatus.ErrObjectAlreadyRemoved)
+				require.NotErrorIs(t, getObjErr, apistatus.ErrObjectAlreadyRemoved)
+			} else {
+				require.NoError(t, putTombErr)
+
+				require.NoError(t, tombExistsErr)
+				require.True(t, tombExists)
+
+				require.NoError(t, getTombErr)
+				require.Equal(t, tomb, *gotTomb)
+
+				require.ErrorIs(t, objExistsErr, apistatus.ErrObjectAlreadyRemoved)
+				require.ErrorIs(t, getObjErr, apistatus.ErrObjectAlreadyRemoved)
+			}
+
+			tombExists, err := fst.Exists(tombAddr)
+			require.NoError(t, err)
+			require.True(t, tombExists)
+
+			gotTomb, err = fst.Get(tombAddr)
+			require.NoError(t, err)
+			require.Equal(t, tomb, *gotTomb)
 		})
 	}
 }
