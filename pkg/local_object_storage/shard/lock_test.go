@@ -4,15 +4,19 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -131,4 +135,112 @@ func TestShard_IsLocked(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, locked)
+}
+
+func TestShard_Lock_Removed(t *testing.T) {
+	newShard := func(t *testing.T) *shard.Shard {
+		dir := t.TempDir()
+
+		sh := shard.New(
+			shard.WithBlobstor(fstree.New(
+				fstree.WithPath(filepath.Join(dir, "fstree")),
+				fstree.WithDepth(1),
+			)),
+			shard.WithMetaBaseOptions(
+				meta.WithPath(filepath.Join(dir, "meta")),
+				meta.WithEpochState(epochState{}),
+			),
+		)
+
+		require.NoError(t, sh.Open())
+		require.NoError(t, sh.Init())
+
+		return sh
+	}
+
+	cnr := cidtest.ID()
+
+	var obj object.Object
+	ver := version.Current()
+	obj.SetVersion(&ver)
+	obj.SetContainerID(cnr)
+	obj.SetID(oidtest.ID())
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+
+	objID := obj.GetID()
+	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
+
+	lockID := oidtest.OtherID(objID)
+	lockAddr := oid.NewAddress(cnr, lockID)
+
+	tomb := obj
+	tomb.SetID(oidtest.OtherID(objID))
+	tomb.AssociateDeleted(objID)
+
+	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
+
+	for _, tc := range []struct {
+		name          string
+		preset        func(*testing.T, *shard.Shard)
+		assertLockErr func(t *testing.T, err error)
+	}{
+		{name: "with target and tombstone", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+			require.NoError(t, sh.Put(&tomb, nil))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		}},
+		{name: "tombstone without target", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&tomb, nil))
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		}},
+		{name: "with target and tombstone mark", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+			err := sh.Inhume(tombAddr, 0, objAddr)
+			require.NoError(t, err)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		}},
+		{name: "tombstone mark without target", preset: func(t *testing.T, sh *shard.Shard) {
+			err := sh.Inhume(tombAddr, 0, objAddr)
+			require.NoError(t, err)
+		}, assertLockErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		}},
+		{name: "with target and GC mark", preset: func(t *testing.T, sh *shard.Shard) {
+			require.NoError(t, sh.Put(&obj, nil))
+			err := sh.MarkGarbage(false, objAddr)
+			require.NoError(t, err)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sh := newShard(t)
+
+			tc.preset(t, sh)
+
+			lockErr := sh.Lock(cnr, oidtest.ID(), []oid.ID{objID})
+			locked, lockedErr := sh.IsLocked(objAddr)
+
+			if tc.assertLockErr != nil {
+				tc.assertLockErr(t, lockErr)
+
+				require.NoError(t, lockedErr)
+				require.False(t, locked)
+			} else {
+				require.NoError(t, lockErr)
+
+				require.NoError(t, lockedErr)
+				require.True(t, locked)
+			}
+
+			exists, err := sh.Exists(lockAddr, false)
+			require.NoError(t, err)
+			require.False(t, exists)
+
+			_, err = sh.Get(lockAddr, false)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		})
+	}
 }

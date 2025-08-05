@@ -479,8 +479,8 @@ func TestDB_SearchObjects(t *testing.T) {
 			_, _, err := db.MarkGarbage(false, false, oid.NewAddress(cnr, ids[1]))
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:1], ids[2:]))
-			// lock resurrects the object
-			err = db.Lock(cnr, oidtest.ID(), []oid.ID{ids[1]})
+			// resurrect the object
+			_, err = db.ReviveObject(oid.NewAddress(cnr, ids[1]))
 			require.NoError(t, err)
 			check(t, ids)
 		})
@@ -488,8 +488,8 @@ func TestDB_SearchObjects(t *testing.T) {
 			_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), math.MaxUint64, false, oid.NewAddress(cnr, ids[2]))
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:2], ids[3:]))
-			// lock resurrects the object
-			err = db.Lock(cnr, oidtest.ID(), []oid.ID{ids[2]})
+			// resurrect the object
+			_, err = db.ReviveObject(oid.NewAddress(cnr, ids[2]))
 			require.NoError(t, err)
 			check(t, ids)
 		})

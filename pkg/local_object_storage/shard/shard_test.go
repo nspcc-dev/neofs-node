@@ -36,11 +36,24 @@ func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 }
 
 func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, options ...shard.Option) *shard.Shard {
+	sh, _ := _newShardWithFSTree(t, rootPath, enableWriteCache, wcOpts, options...)
+	return sh
+}
+
+func newShardWithFSTree(t testing.TB, opts ...shard.Option) (*shard.Shard, *fstree.FSTree) {
+	return _newShardWithFSTree(t, t.TempDir(), false, nil, opts...)
+}
+
+func _newShardWithFSTree(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, options ...shard.Option) (*shard.Shard, *fstree.FSTree) {
 	if enableWriteCache {
 		rootPath = filepath.Join(rootPath, "wc")
 	} else {
 		rootPath = filepath.Join(rootPath, "nowc")
 	}
+
+	fst := fstree.New(
+		fstree.WithPath(filepath.Join(rootPath, "fstree")),
+	)
 
 	opts := append([]shard.Option{
 		shard.WithID(shard.NewIDFromBytes([]byte("testShard"))),
@@ -59,9 +72,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 				},
 				wcOpts...)...,
 		),
-		shard.WithBlobstor(fstree.New(
-			fstree.WithPath(filepath.Join(rootPath, "fstree"))),
-		),
+		shard.WithBlobstor(fst),
 	}, options...)
 
 	sh := shard.New(opts...)
@@ -69,7 +80,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
-	return sh
+	return sh, fst
 }
 
 func releaseShard(s *shard.Shard, t testing.TB) {
