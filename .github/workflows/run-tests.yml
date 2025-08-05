@@ -38,6 +38,7 @@ permissions: write-all
 
 jobs:
   run_system_tests:
+    if: ${{ github.event.inputs.test_set == 'sanity' || (github.event.inputs.test_set != 'all' && github.event_name == 'pull_request') }}
     uses: nspcc-dev/neofs-testcases/.github/workflows/system-tests.yml@master
     with:
       neofs_network_domain: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
@@ -49,7 +50,30 @@ jobs:
       neofs_other_expiration_period: ${{ vars.OTHER_EXPIRATION_PERIOD }}
       neofs_testcases_commit: ${{ github.event.inputs.neofs_testcases_ref }}
       neofs_node_commit: ${{ github.event.inputs.neofs_node_ref }}
-      marks: ${{ (github.event.inputs.test_set == 'sanity' || (github.event.inputs.test_set != 'all' && github.event_name == 'pull_request')) && 'sanity' || '' }}
+      marks: sanity
       tests_parallel_level: 3
-      os: '[{runner: "ubuntu-latest", binary: "linux-amd64"}, {runner: "macos-14", binary: "darwin-arm64"}]'
+      os: >
+        [{"runner": "ubuntu-latest", "binary": "linux-amd64"},
+         {"runner": "macos-14", "binary": "darwin-arm64"}]
+    secrets: inherit
+
+  run_all_tests:
+    if: ${{ !(github.event.inputs.test_set == 'sanity' || (github.event.inputs.test_set != 'all' && github.event_name == 'pull_request')) }}
+    uses: nspcc-dev/neofs-testcases/.github/workflows/system-tests.yml@master
+    with:
+      neofs_network_domain: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
+      neofs_http_gate: ${{ vars.TEST_RESULTS_HTTP_GATE }}
+      neofs_store_objects_cid: ${{ vars.TEST_RESULTS_CID }}
+      neofs_pr_expiration_period: ${{ vars.PR_EXPIRATION_PERIOD }}
+      neofs_master_expiration_period: ${{ vars.MASTER_EXPIRATION_PERIOD }}
+      neofs_manual_expiration_period: ${{ vars.MANUAL_RUN_EXPIRATION_PERIOD }}
+      neofs_other_expiration_period: ${{ vars.OTHER_EXPIRATION_PERIOD }}
+      neofs_testcases_commit: ${{ github.event.inputs.neofs_testcases_ref }}
+      neofs_node_commit: ${{ github.event.inputs.neofs_node_ref }}
+      tests_parallel_level: 3
+      os: >
+        [{"runner": "ubuntu-latest", "binary": "linux-amd64"},
+         {"runner": "macos-14", "binary": "darwin-arm64", "shard": 0},
+         {"runner": "macos-14", "binary": "darwin-arm64", "shard": 1},
+         {"runner": "macos-14", "binary": "darwin-arm64", "shard": 2}]
     secrets: inherit
