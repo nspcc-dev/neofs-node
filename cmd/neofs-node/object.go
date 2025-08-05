@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -804,6 +805,7 @@ type containerNodesSorter struct {
 
 func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
 func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
+func (x *containerNodesSorter) ECRules() []iec.Rule              { return nil }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
 	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
 	cacheKey.addr.SetContainer(x.cnrID)
