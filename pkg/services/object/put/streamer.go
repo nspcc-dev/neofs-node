@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -121,6 +122,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		}
 	}
 
+	sessionSigner := user.NewAutoIDSigner(*sessionKey)
+	prm.sessionSigner = sessionSigner
 	p.target = &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
@@ -128,7 +131,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			p.ctx,
 			p.maxPayloadSz,
 			!homomorphicChecksumRequired,
-			user.NewAutoIDSigner(*sessionKey),
+			sessionSigner,
 			sToken,
 			p.networkState.CurrentEpoch(),
 			p.newCommonTarget(prm),
@@ -166,14 +169,32 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return fmt.Errorf("select storage nodes for the container: %w", err)
 	}
 	cnrNodes := prm.containerNodes.Unsorted()
-nextSet:
-	for i := range cnrNodes {
-		for j := range cnrNodes[i] {
-			prm.localNodeInContainer = p.neoFSNet.IsLocalNodePublicKey(cnrNodes[i][j].PublicKey())
-			if prm.localNodeInContainer {
-				break nextSet
-			}
+	ecRulesN := len(prm.containerNodes.ECRules())
+	if ecRulesN > 0 {
+		ecPart, err := iec.GetPartInfo(*prm.hdr)
+		if err != nil {
+			return fmt.Errorf("get EC part info from object header: %w", err)
 		}
+
+		repRulesN := len(prm.containerNodes.PrimaryCounts())
+		if ecPart.Index >= 0 {
+			if ecPart.RuleIndex >= ecRulesN {
+				return fmt.Errorf("invalid EC part info in object header: EC rule idx=%d with %d rules in total", ecPart.RuleIndex, ecRulesN)
+			}
+			if prm.hdr.Signature() == nil {
+				return errors.New("unsigned EC part object")
+			}
+			prm.localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
+		} else {
+			if repRulesN == 0 && prm.hdr.Signature() != nil {
+				return errors.New("missing EC part info in signed object")
+			}
+			prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+		}
+
+		prm.ecPart = ecPart
+	} else {
+		prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
 	}
 	if !prm.localNodeInContainer && localOnly {
 		return errors.New("local operation on the node not compliant with the container storage policy")
@@ -204,11 +225,10 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		networkMagicNumber: p.networkMagic,
 		metaSvc:            p.metaSvc,
 		placementIterator: placementIterator{
-			log:            p.log,
-			neoFSNet:       p.neoFSNet,
-			remotePool:     p.remotePool,
-			containerNodes: prm.containerNodes,
-			linearReplNum:  uint(prm.copiesNumber),
+			log:           p.log,
+			neoFSNet:      p.neoFSNet,
+			remotePool:    p.remotePool,
+			linearReplNum: uint(prm.copiesNumber),
 		},
 		localStorage:            p.localStore,
 		keyStorage:              p.keyStorage,
@@ -217,8 +237,11 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		transport:               p.transport,
 		relay:                   relay,
 		fmt:                     p.fmtValidator,
+		containerNodes:          prm.containerNodes,
+		ecPart:                  prm.ecPart,
 		localNodeInContainer:    prm.localNodeInContainer,
 		localNodeSigner:         prm.localNodeSigner,
+		sessionSigner:           prm.sessionSigner,
 		cnrClient:               p.cfg.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 		metaSigner:              prm.localSignerRFC6979,
