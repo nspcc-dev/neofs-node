@@ -25,10 +25,6 @@ type Streamer struct {
 	maxPayloadSz uint64 // network config
 }
 
-var errNotInit = errors.New("stream not initialized")
-
-var errInitRecall = errors.New("init recall")
-
 func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
 	// initialize destination target
 	if err := p.initTarget(hdr, cp, opts); err != nil {
@@ -49,11 +45,6 @@ func (p *Streamer) MaxObjectSize() uint64 {
 }
 
 func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
-	// prevent re-calling
-	if p.target != nil {
-		return errInitRecall
-	}
-
 	// prepare needed put parameters
 	if err := p.prepareOptions(hdr, cp, &opts); err != nil {
 		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
@@ -244,10 +235,6 @@ func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions, rela
 }
 
 func (p *Streamer) SendChunk(chunk []byte) error {
-	if p.target == nil {
-		return errNotInit
-	}
-
 	if _, err := p.target.Write(chunk); err != nil {
 		return fmt.Errorf("(%T) could not write payload chunk to target: %w", p, err)
 	}
@@ -256,10 +243,6 @@ func (p *Streamer) SendChunk(chunk []byte) error {
 }
 
 func (p *Streamer) Close() (oid.ID, error) {
-	if p.target == nil {
-		return oid.ID{}, errNotInit
-	}
-
 	id, err := p.target.Close()
 	if err != nil {
 		return oid.ID{}, fmt.Errorf("(%T) could not close object target: %w", p, err)

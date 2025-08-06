@@ -326,7 +326,7 @@ func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.Put
 func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 	switch v := req.GetBody().GetObjectPart().(type) {
 	default:
-		return fmt.Errorf("invalid object put stream part type %T", v)
+		panic(fmt.Errorf("invalid object put stream part type %T", v))
 	case *protoobject.PutRequest_Body_Init_:
 		if v == nil || v.Init == nil { // TODO: seems like this is done several times, deduplicate
 			return errors.New("nil oneof field with heading part")
@@ -418,11 +418,16 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 
 	var req *protoobject.PutRequest
 	var resp *protoobject.PutResponse
+	var headerWas bool
 
 	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
 	for {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
+				if !headerWas {
+					return s.sendStatusPutResponse(gStream, errors.New("stream is closed without messages"))
+				}
+
 				resp, err = ps.close()
 				if err != nil {
 					return s.sendStatusPutResponse(gStream, err)
@@ -434,8 +439,26 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return err
 		}
 
-		if c := req.GetBody().GetChunk(); c != nil {
-			s.metrics.AddPutPayload(len(c))
+		switch v := req.GetBody().GetObjectPart().(type) {
+		default:
+			err = fmt.Errorf("invalid object put stream part type %T", v)
+		case *protoobject.PutRequest_Body_Init_:
+			if headerWas {
+				err = errors.New("repeated message with object header")
+				break
+			}
+			headerWas = true
+		case *protoobject.PutRequest_Body_Chunk:
+			if !headerWas {
+				err = errors.New("message with payload chunk before object header")
+				break
+			}
+
+			s.metrics.AddPutPayload(len(v.Chunk))
+		}
+		if err != nil {
+			err = s.sendStatusPutResponse(gStream, err) // assign for defer
+			return err
 		}
 
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
