@@ -13,13 +13,9 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -28,24 +24,18 @@ import (
 )
 
 type distributedTarget struct {
-	opCtx context.Context
+	svc *Service
 
-	log        *zap.Logger
-	neoFSNet   NeoFSNetwork
-	remotePool util.WorkerPool
+	opCtx context.Context
 
 	// when non-zero, this setting simplifies the object's storage policy
 	// requirements to a fixed number of object replicas to be retained
 	linearReplNum uint
 
-	obj                *objectSDK.Object
-	networkMagicNumber uint32
-	fsState            netmapcore.StateDetailed
+	obj *objectSDK.Object
 
-	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
 
-	metaSvc             *meta.Meta
 	metaMtx             sync.Mutex
 	metaSigner          neofscrypto.Signer
 	objSharedMeta       []byte
@@ -62,13 +52,7 @@ type distributedTarget struct {
 
 	relay func(nodeDesc) error
 
-	fmt *object.FormatValidator
-
-	localStorage      ObjectStorage
-	clientConstructor ClientConstructor
-	transport         Transport
-	commonPrm         *svcutil.CommonPrm
-	keyStorage        *svcutil.KeyStorage
+	commonPrm *svcutil.CommonPrm
 
 	localOnly bool
 
@@ -152,7 +136,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	var objMeta object.ContentMeta
 	if !tombOrLink || t.localNodeInContainer {
 		var err error
-		if objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
+		if objMeta, err = t.svc.fmtValidator.ValidateContent(t.obj); err != nil {
 			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 		}
 	}
@@ -218,7 +202,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 	id := obj.GetID()
 	var err error
 	if t.localOnly {
-		var l = t.log.With(zap.Stringer("oid", id))
+		var l = t.svc.log.With(zap.Stringer("oid", id))
 
 		err = t.writeObjectLocally(obj, objMeta, encObj)
 		if err != nil {
@@ -253,13 +237,13 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 		var objAccepted chan struct{}
 		if await {
 			objAccepted = make(chan struct{}, 1)
-			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
+			t.svc.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 		}
 
-		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
+		err = t.svc.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
 		if err != nil {
 			if await {
-				t.metaSvc.UnsubscribeFromObject(addr)
+				t.svc.metaSvc.UnsubscribeFromObject(addr)
 			}
 			return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
 		}
@@ -267,21 +251,21 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 		if await {
 			select {
 			case <-t.opCtx.Done():
-				t.metaSvc.UnsubscribeFromObject(addr)
+				t.svc.metaSvc.UnsubscribeFromObject(addr)
 				return fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
 			case <-objAccepted:
 			}
 		}
 
-		t.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
+		t.svc.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
 	}
 
 	return nil
 }
 
 func (t *distributedTarget) encodeObjectMetadata(obj objectSDK.Object) []byte {
-	currBlock := t.fsState.CurrentBlock()
-	currEpochDuration := t.fsState.CurrentEpochDuration()
+	currBlock := t.svc.networkState.CurrentBlock()
+	currEpochDuration := t.svc.networkState.CurrentEpochDuration()
 	expectedVUB := (uint64(currBlock)/currEpochDuration + 2) * currEpochDuration
 
 	firstObj := obj.GetFirstID()
@@ -302,7 +286,7 @@ func (t *distributedTarget) encodeObjectMetadata(obj objectSDK.Object) []byte {
 	}
 
 	return object.EncodeReplicationMetaInfo(obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
-		obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.networkMagicNumber)
+		obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.svc.networkMagic)
 }
 
 func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject, node nodeDesc) error {
@@ -320,12 +304,12 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 	var sigsRaw []byte
 	var err error
 	if encObj.hdrOff > 0 {
-		sigsRaw, err = t.transport.SendReplicationRequestToNode(t.opCtx, encObj.b, node.info)
+		sigsRaw, err = t.svc.transport.SendReplicationRequestToNode(t.opCtx, encObj.b, node.info)
 		if err != nil {
 			err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
 		}
 	} else {
-		err = putObjectToNode(t.opCtx, node.info, &obj, t.keyStorage, t.clientConstructor, t.commonPrm)
+		err = putObjectToNode(t.opCtx, node.info, &obj, t.svc.keyStorage, t.svc.clientConstructor, t.commonPrm)
 	}
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
@@ -334,7 +318,7 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
-		var l = t.log.With(zap.Stringer("oid", obj.GetID()),
+		var l = t.svc.log.With(zap.Stringer("oid", obj.GetID()),
 			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
 
 		sigs, err := decodeSignatures(sigsRaw)
@@ -366,7 +350,7 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 }
 
 func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
-	if err := putObjectLocally(t.localStorage, &obj, objMeta, &encObj); err != nil {
+	if err := putObjectLocally(t.svc.localStore, &obj, objMeta, &encObj); err != nil {
 		return err
 	}
 
@@ -431,7 +415,7 @@ func (x errNotEnoughNodes) Error() string {
 }
 
 func (t *distributedTarget) iterateNodesForObject(obj oid.ID, replCounts []uint, nodeLists [][]netmap.NodeInfo, broadcast bool, f func(nodeDesc) error) error {
-	var l = t.log.With(zap.Stringer("oid", obj))
+	var l = t.svc.log.With(zap.Stringer("oid", obj))
 	if t.linearReplNum > 0 {
 		ns := slices.Concat(nodeLists...)
 		nodeLists = [][]netmap.NodeInfo{ns}
@@ -509,7 +493,7 @@ func (t *distributedTarget) iterateNodesForObject(obj oid.ID, replCounts []uint,
 					}
 					continue
 				}
-				if nr.desc.local = t.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
+				if nr.desc.local = t.svc.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
 					nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[listInd][j])
 				}
 				processedNodesMtx.Lock()
@@ -541,7 +525,7 @@ func (t *distributedTarget) iterateNodesForObject(obj oid.ID, replCounts []uint,
 					go processNode(pks, listInd, nr, &wg)
 					continue
 				}
-				if err := t.remotePool.Submit(func() {
+				if err := t.svc.remotePool.Submit(func() {
 					processNode(pks, listInd, nr, &wg)
 				}); err != nil {
 					wg.Done()
@@ -569,7 +553,7 @@ broadcast:
 			if ok {
 				continue
 			}
-			if nr.desc.local = t.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
+			if nr.desc.local = t.svc.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
 				nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[i][j])
 			}
 			processedNodesMtx.Lock()
@@ -587,7 +571,7 @@ broadcast:
 				go processNode(pks, -1, nr, &wg)
 				continue
 			}
-			if err := t.remotePool.Submit(func() {
+			if err := t.svc.remotePool.Submit(func() {
 				processNode(pks, -1, nr, &wg)
 			}); err != nil {
 				wg.Done()

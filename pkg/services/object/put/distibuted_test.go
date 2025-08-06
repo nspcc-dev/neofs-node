@@ -69,11 +69,15 @@ func TestIterateNodesForObject(t *testing.T) {
 	cnrNodes[1][1].SetPublicKey(cnrNodes[0][2].PublicKey())
 	var rwp testWorkerPool
 	iter := distributedTarget{
-		log: zap.NewNop(),
-		neoFSNet: testNetwork{
-			localPubKey: cnrNodes[0][2].PublicKey(),
+		svc: &Service{
+			cfg: &cfg{
+				log:        zap.NewNop(),
+				remotePool: &rwp,
+			},
+			neoFSNet: testNetwork{
+				localPubKey: cnrNodes[0][2].PublicKey(),
+			},
 		},
-		remotePool: &rwp,
 	}
 	var handlerMtx sync.Mutex
 	var handlerCalls []nodeDesc
@@ -157,9 +161,13 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{3, 3, 2})
 		cnrNodes[1][1].SetPublicKey(cnrNodes[0][1].PublicKey())
 		iter := distributedTarget{
-			log:           zap.NewNop(),
-			neoFSNet:      new(testNetwork),
-			remotePool:    new(testWorkerPool),
+			svc: &Service{
+				cfg: &cfg{
+					log:        zap.NewNop(),
+					remotePool: new(testWorkerPool),
+				},
+				neoFSNet: new(testNetwork),
+			},
 			linearReplNum: 4,
 		}
 		var handlerMtx sync.Mutex
@@ -193,9 +201,13 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{2, 3, 2})
 		cnrNodes[1][2].SetPublicKey(cnrNodes[0][1].PublicKey())
 		iter := distributedTarget{
-			log:        zap.NewNop(),
-			neoFSNet:   new(testNetwork),
-			remotePool: new(testWorkerPool),
+			svc: &Service{
+				cfg: &cfg{
+					log:        zap.NewNop(),
+					remotePool: new(testWorkerPool),
+				},
+				neoFSNet: new(testNetwork),
+			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -235,9 +247,13 @@ func TestIterateNodesForObject(t *testing.T) {
 			err:   errors.New("any worker pool error"),
 		}
 		iter := distributedTarget{
-			log:        zap.NewNop(),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
+			svc: &Service{
+				cfg: &cfg{
+					log:        zap.NewNop(),
+					remotePool: &wp,
+				},
+				neoFSNet: new(testNetwork),
+			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -274,9 +290,13 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{2, 3, 1})
 		var wp testWorkerPool
 		iter := distributedTarget{
-			log:        zap.NewNop(),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
+			svc: &Service{
+				cfg: &cfg{
+					log:        zap.NewNop(),
+					remotePool: &wp,
+				},
+				neoFSNet: new(testNetwork),
+			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -307,9 +327,13 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes[1][2].SetNetworkEndpoints("definitely invalid network address")
 		var wp testWorkerPool
 		iter := distributedTarget{
-			log:        zap.NewNop(),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
+			svc: &Service{
+				cfg: &cfg{
+					log:        zap.NewNop(),
+					remotePool: &wp,
+				},
+				neoFSNet: new(testNetwork),
+			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -343,9 +367,13 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{2, 3, 1})
 		var wp testWorkerPool
 		iter := distributedTarget{
-			log:        zap.NewNop(),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
+			svc: &Service{
+				cfg: &cfg{
+					log:        zap.NewNop(),
+					remotePool: &wp,
+				},
+				neoFSNet: new(testNetwork),
+			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -374,11 +402,15 @@ func TestIterateNodesForObject(t *testing.T) {
 		objID := oidtest.ID()
 		cnrNodes := allocNodes([]uint{2, 3, 1})
 		iter := distributedTarget{
-			log:      zap.NewNop(),
-			neoFSNet: new(testNetwork),
-			remotePool: &testWorkerPool{
-				err:   errors.New("pool err"),
-				nFail: 2,
+			svc: &Service{
+				cfg: &cfg{
+					log: zap.NewNop(),
+					remotePool: &testWorkerPool{
+						err:   errors.New("pool err"),
+						nFail: 2,
+					},
+				},
+				neoFSNet: new(testNetwork),
 			},
 		}
 		blockCh := make(chan struct{})
