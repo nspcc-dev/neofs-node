@@ -185,16 +185,14 @@ func (p *Service) newCommonTarget(ctx context.Context, cp *util.CommonPrm, opts 
 	}
 
 	return &distributedTarget{
-		opCtx:              ctx,
-		fsState:            p.networkState,
-		networkMagicNumber: p.networkMagic,
-		metaSvc:            p.metaSvc,
-		placementIterator: placementIterator{
-			log:           p.log,
-			neoFSNet:      p.neoFSNet,
-			remotePool:    p.remotePool,
-			linearReplNum: uint(opts.CopiesNumber),
-		},
+		opCtx:                   ctx,
+		fsState:                 p.networkState,
+		networkMagicNumber:      p.networkMagic,
+		metaSvc:                 p.metaSvc,
+		log:                     p.log,
+		neoFSNet:                p.neoFSNet,
+		remotePool:              p.remotePool,
+		linearReplNum:           uint(opts.CopiesNumber),
 		localStorage:            p.localStore,
 		keyStorage:              p.keyStorage,
 		commonPrm:               cp,

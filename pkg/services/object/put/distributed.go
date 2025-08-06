@@ -30,7 +30,13 @@ import (
 type distributedTarget struct {
 	opCtx context.Context
 
-	placementIterator placementIterator
+	log        *zap.Logger
+	neoFSNet   NeoFSNetwork
+	remotePool util.WorkerPool
+
+	// when non-zero, this setting simplifies the object's storage policy
+	// requirements to a fixed number of object replicas to be retained
+	linearReplNum uint
 
 	obj                *objectSDK.Object
 	networkMagicNumber uint32
@@ -176,7 +182,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 		typ := obj.Type()
 		broadcast := typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLink || typ == objectSDK.TypeLock || len(obj.Children()) > 0
 		return t.distributeObject(obj, objMeta, encObj, func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
-			return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, objNodeLists, broadcast, func(node nodeDesc) error {
+			return t.iterateNodesForObject(obj.GetID(), repRules, objNodeLists, broadcast, func(node nodeDesc) error {
 				return t.sendObject(obj, objMeta, encObj, node)
 			})
 		})
@@ -212,7 +218,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 	id := obj.GetID()
 	var err error
 	if t.localOnly {
-		var l = t.placementIterator.log.With(zap.Stringer("oid", id))
+		var l = t.log.With(zap.Stringer("oid", id))
 
 		err = t.writeObjectLocally(obj, objMeta, encObj)
 		if err != nil {
@@ -267,7 +273,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 			}
 		}
 
-		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
+		t.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
 	}
 
 	return nil
@@ -328,7 +334,7 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
-		var l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()),
+		var l = t.log.With(zap.Stringer("oid", obj.GetID()),
 			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
 
 		sigs, err := decodeSignatures(sigsRaw)
@@ -424,22 +430,12 @@ func (x errNotEnoughNodes) Error() string {
 		x.listIndex, x.required, x.left)
 }
 
-type placementIterator struct {
-	log        *zap.Logger
-	neoFSNet   NeoFSNetwork
-	remotePool util.WorkerPool
-	/* request-dependent */
-	// when non-zero, this setting simplifies the object's storage policy
-	// requirements to a fixed number of object replicas to be retained
-	linearReplNum uint
-}
-
-func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, nodeLists [][]netmap.NodeInfo, broadcast bool, f func(nodeDesc) error) error {
-	var l = x.log.With(zap.Stringer("oid", obj))
-	if x.linearReplNum > 0 {
+func (t *distributedTarget) iterateNodesForObject(obj oid.ID, replCounts []uint, nodeLists [][]netmap.NodeInfo, broadcast bool, f func(nodeDesc) error) error {
+	var l = t.log.With(zap.Stringer("oid", obj))
+	if t.linearReplNum > 0 {
 		ns := slices.Concat(nodeLists...)
 		nodeLists = [][]netmap.NodeInfo{ns}
-		replCounts = []uint{x.linearReplNum}
+		replCounts = []uint{t.linearReplNum}
 	}
 	var processedNodesMtx sync.RWMutex
 	var nextNodeGroupKeys []string
@@ -513,7 +509,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 					}
 					continue
 				}
-				if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
+				if nr.desc.local = t.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
 					nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[listInd][j])
 				}
 				processedNodesMtx.Lock()
@@ -545,7 +541,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 					go processNode(pks, listInd, nr, &wg)
 					continue
 				}
-				if err := x.remotePool.Submit(func() {
+				if err := t.remotePool.Submit(func() {
 					processNode(pks, listInd, nr, &wg)
 				}); err != nil {
 					wg.Done()
@@ -573,7 +569,7 @@ broadcast:
 			if ok {
 				continue
 			}
-			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
+			if nr.desc.local = t.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
 				nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[i][j])
 			}
 			processedNodesMtx.Lock()
@@ -591,7 +587,7 @@ broadcast:
 				go processNode(pks, -1, nr, &wg)
 				continue
 			}
-			if err := x.remotePool.Submit(func() {
+			if err := t.remotePool.Submit(func() {
 				processNode(pks, -1, nr, &wg)
 			}); err != nil {
 				wg.Done()

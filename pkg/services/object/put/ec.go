@@ -112,7 +112,7 @@ func (t *distributedTarget) distributeECPart(part object.Object, objMeta objectc
 		if firstErr == nil {
 			firstErr = fmt.Errorf("save on SN #%d (%s): %w", idx, na, err)
 		} else {
-			t.placementIterator.log.Info("failed to save EC part on reserve SN", zap.Error(err), zap.Strings("addresses", na))
+			t.log.Info("failed to save EC part on reserve SN", zap.Error(err), zap.Strings("addresses", na))
 		}
 
 		if idx += total; idx >= len(nodeList) {
@@ -123,7 +123,7 @@ func (t *distributedTarget) distributeECPart(part object.Object, objMeta objectc
 
 func (t *distributedTarget) saveECPartOnNode(obj object.Object, objMeta objectcore.ContentMeta, enc encodedObject, node netmap.NodeInfo) error {
 	var n nodeDesc
-	n.local = t.placementIterator.neoFSNet.IsLocalNodePublicKey(node.PublicKey())
+	n.local = t.neoFSNet.IsLocalNodePublicKey(node.PublicKey())
 	if !n.local {
 		var err error
 		if n.info, err = convertNodeInfo(node); err != nil {
