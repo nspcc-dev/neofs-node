@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -254,19 +255,17 @@ func (p *Streamer) SendChunk(chunk []byte) error {
 	return nil
 }
 
-func (p *Streamer) Close() (*PutResponse, error) {
+func (p *Streamer) Close() (oid.ID, error) {
 	if p.target == nil {
-		return nil, errNotInit
+		return oid.ID{}, errNotInit
 	}
 
 	id, err := p.target.Close()
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not close object target: %w", p, err)
+		return oid.ID{}, fmt.Errorf("(%T) could not close object target: %w", p, err)
 	}
 
-	return &PutResponse{
-		id: id,
-	}, nil
+	return id, nil
 }
 
 func metaAttribute(cnr container.Container) string {

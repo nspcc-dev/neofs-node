@@ -395,12 +395,11 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 		return nil, putsvc.ErrWrongPayloadSize
 	}
 
-	resp, err := x.base.Close()
+	id, err := x.base.Close()
 	if err != nil {
 		return nil, fmt.Errorf("could not object put stream: %w", err)
 	}
 
-	id := resp.ObjectID()
 	return &protoobject.PutResponse{
 		Body: &protoobject.PutResponse_Body{
 			ObjectId: id.ProtoMessage(),
