@@ -487,11 +487,6 @@ func (m *serviceClient) ContainerAnnounceUsedSpace(context.Context, []container.
 }
 
 func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
-	stream, err := (*Service)(m).Put(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// TODO: following is needed because struct parameters privatize some data. Refactor to avoid this.
 	localReq := &protoobject.PutRequest{
 		MetaHeader: &protosession.RequestMetaHeader{Ttl: 1},
@@ -503,7 +498,7 @@ func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ 
 
 	var opts PutInitOptions
 
-	pw, err := stream.WriteHeader(ctx, hdr.CutPayload(), commonPrm, opts)
+	pw, err := (*Service)(m).InitPut(ctx, hdr.CutPayload(), commonPrm, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -591,9 +586,6 @@ func (x *testCluster) resetAllStoredObjects() {
 }
 
 func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st session.Object) {
-	stream, err := svc.Put(context.Background())
-	require.NoError(t, err)
-
 	req := &protoobject.PutRequest{
 		MetaHeader: &protosession.RequestMetaHeader{
 			Ttl:          2,
@@ -605,7 +597,7 @@ func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st se
 	require.NoError(t, err)
 
 	var opts PutInitOptions
-	pw, err := stream.WriteHeader(context.Background(), obj.CutPayload(), commonPrm, opts)
+	pw, err := svc.InitPut(context.Background(), obj.CutPayload(), commonPrm, opts)
 	require.NoError(t, err)
 
 	_, err = pw.Write(obj.Payload())

@@ -146,12 +146,6 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, opts .
 	}
 }
 
-func (p *Service) Put(context.Context) (*Streamer, error) {
-	return &Streamer{
-		Service: p,
-	}, nil
-}
-
 func WithKeyStorage(v *objutil.KeyStorage) Option {
 	return func(c *cfg) {
 		c.keyStorage = v

@@ -69,7 +69,7 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 
 // ValidateAndStoreObjectLocally checks format of given object and, if it's
 // correct, stores it in the underlying local object storage. Serves operation
-// similar to local-only [Service.Put] one.
+// similar to local-only [Service.InitPut] one.
 func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 	cnrID := obj.GetContainerID()
 	if cnrID.IsZero() {

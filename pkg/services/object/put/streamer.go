@@ -14,11 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-type Streamer struct {
-	*Service
-}
-
-func (p *Streamer) WriteHeader(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.PayloadWriter, error) {
+func (p *Service) InitPut(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.PayloadWriter, error) {
 	// initialize destination target
 	target, err := p.initTarget(ctx, hdr, cp, opts)
 	if err != nil {
@@ -32,7 +28,7 @@ func (p *Streamer) WriteHeader(ctx context.Context, hdr *object.Object, cp *util
 	return target, nil
 }
 
-func (p *Streamer) initTarget(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.Target, error) {
+func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.Target, error) {
 	// prepare needed put parameters
 	if err := p.prepareOptions(hdr, cp, &opts); err != nil {
 		return nil, fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
@@ -111,7 +107,7 @@ func (p *Streamer) initTarget(ctx context.Context, hdr *object.Object, cp *util.
 	}, nil
 }
 
-func (p *Streamer) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
+func (p *Service) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
 	localOnly := cp.LocalOnly()
 	if localOnly && opts.copiesNumber > 1 {
 		return errors.New("storage of multiple object replicas is requested for a local operation")
@@ -175,7 +171,7 @@ func (p *Streamer) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *
 	return nil
 }
 
-func (p *Streamer) newCommonTarget(ctx context.Context, cp *util.CommonPrm, opts PutInitOptions, relayFn RelayFunc) internal.Target {
+func (p *Service) newCommonTarget(ctx context.Context, cp *util.CommonPrm, opts PutInitOptions, relayFn RelayFunc) internal.Target {
 	var relay func(nodeDesc) error
 	if relayFn != nil {
 		relay = func(node nodeDesc) error {

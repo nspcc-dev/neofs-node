@@ -50,7 +50,7 @@ import (
 )
 
 type objectSvc struct {
-	put *putsvc.Service
+	*putsvc.Service
 
 	search *searchsvc.Service
 
@@ -68,10 +68,6 @@ func (c *cfg) MaxObjectSize() uint64 {
 	}
 
 	return sz
-}
-
-func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
-	return s.put.Put(ctx)
 }
 
 func (s *objectSvc) Head(ctx context.Context, prm getsvc.HeadPrm) error {
@@ -277,10 +273,10 @@ func initObjectService(c *cfg) {
 	)
 
 	objSvc := &objectSvc{
-		put:    sPut,
-		search: sSearch,
-		get:    sGet,
-		delete: sDelete,
+		Service: sPut,
+		search:  sSearch,
+		get:     sGet,
+		delete:  sDelete,
 	}
 
 	// cachedFirstObjectsNumber is a total cached objects number; the V2 split scheme

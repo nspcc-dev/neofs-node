@@ -50,11 +50,15 @@ import (
 	"google.golang.org/grpc"
 )
 
+type putHandler interface {
+	InitPut(context.Context, *object.Object, *objutil.CommonPrm, putsvc.PutInitOptions) (internal.PayloadWriter, error)
+}
+
 // Handlers represents storage node's internal handler Object service op
 // payloads.
 type Handlers interface {
 	Get(context.Context, getsvc.Prm) error
-	Put(context.Context) (*putsvc.Streamer, error)
+	putHandler
 	Head(context.Context, getsvc.HeadPrm) error
 	Search(context.Context, searchsvc.Prm) error
 	Delete(context.Context, deletesvc.Prm) error
@@ -248,7 +252,7 @@ func (s *Server) sendStatusPutResponse(stream protoobject.ObjectService_PutServe
 type putStream struct {
 	ctx    context.Context
 	signer ecdsa.PrivateKey
-	base   *putsvc.Streamer
+	base   putHandler
 
 	payloadWriter internal.PayloadWriter
 
@@ -259,7 +263,7 @@ type putStream struct {
 	expBytes, recvBytes uint64 // payload
 }
 
-func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context) *putStream {
+func newIntermediatePutStream(signer ecdsa.PrivateKey, base putHandler, ctx context.Context) *putStream {
 	return &putStream{
 		ctx:    ctx,
 		signer: signer,
@@ -353,7 +357,7 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 		var opts putsvc.PutInitOptions
 		opts.WithCopiesNumber(v.Init.CopiesNumber)
 		opts.WithRelay(x.sendToRemoteNode)
-		if x.payloadWriter, err = x.base.WriteHeader(x.ctx, obj, cp, opts); err != nil {
+		if x.payloadWriter, err = x.base.InitPut(x.ctx, obj, cp, opts); err != nil {
 			return fmt.Errorf("could not init object put stream: %w", err)
 		}
 
@@ -408,18 +412,15 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 
 func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 	t := time.Now()
-	stream, err := s.handlers.Put(gStream.Context())
+	var err error
 
 	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
-	if err != nil {
-		return err
-	}
 
 	var req *protoobject.PutRequest
 	var resp *protoobject.PutResponse
 	var headerWas bool
 
-	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
+	ps := newIntermediatePutStream(s.signer, s.handlers, gStream.Context())
 	for {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
