@@ -15,7 +15,7 @@ import (
 )
 
 type Streamer struct {
-	*cfg
+	*Service
 
 	ctx context.Context
 
@@ -24,9 +24,6 @@ type Streamer struct {
 	relay func(client.NodeInfo, client.MultiAddressClient) error
 
 	maxPayloadSz uint64 // network config
-
-	transport Transport
-	neoFSNet  NeoFSNetwork
 }
 
 var errNotInit = errors.New("stream not initialized")

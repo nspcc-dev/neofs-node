@@ -148,10 +148,8 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, opts .
 
 func (p *Service) Put(ctx context.Context) (*Streamer, error) {
 	return &Streamer{
-		cfg:       p.cfg,
-		ctx:       ctx,
-		transport: p.transport,
-		neoFSNet:  p.neoFSNet,
+		Service: p,
+		ctx:     ctx,
 	}, nil
 }
 
