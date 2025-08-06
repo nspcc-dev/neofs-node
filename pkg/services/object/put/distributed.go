@@ -36,10 +36,10 @@ type distributedTarget struct {
 
 	metainfoConsistencyAttr string
 
-	metaMtx             sync.Mutex
-	metaSigner          neofscrypto.Signer
-	objSharedMeta       []byte
-	collectedSignatures [][]byte
+	metaSigner             neofscrypto.Signer
+	objSharedMeta          []byte
+	collectedSignaturesMtx sync.Mutex
+	collectedSignatures    [][]byte
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
@@ -336,9 +336,9 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 				continue
 			}
 
-			t.metaMtx.Lock()
+			t.collectedSignaturesMtx.Lock()
 			t.collectedSignatures = append(t.collectedSignatures, sig.Value())
-			t.metaMtx.Unlock()
+			t.collectedSignaturesMtx.Unlock()
 
 			return nil
 		}
@@ -360,9 +360,9 @@ func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, objMeta obj
 			return fmt.Errorf("failed to sign object metadata: %w", err)
 		}
 
-		t.metaMtx.Lock()
+		t.collectedSignaturesMtx.Lock()
 		t.collectedSignatures = append(t.collectedSignatures, sig)
-		t.metaMtx.Unlock()
+		t.collectedSignaturesMtx.Unlock()
 	}
 
 	return nil
