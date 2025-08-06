@@ -250,6 +250,8 @@ type putStream struct {
 	signer ecdsa.PrivateKey
 	base   *putsvc.Streamer
 
+	payloadWriter internal.PayloadWriter
+
 	cacheReqs bool
 	initReq   *protoobject.PutRequest
 	chunkReqs []*protoobject.PutRequest
@@ -351,7 +353,7 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 		var opts putsvc.PutInitOptions
 		opts.WithCopiesNumber(v.Init.CopiesNumber)
 		opts.WithRelay(x.sendToRemoteNode)
-		if err = x.base.Init(obj, cp, opts); err != nil {
+		if x.payloadWriter, err = x.base.WriteHeader(obj, cp, opts); err != nil {
 			return fmt.Errorf("could not init object put stream: %w", err)
 		}
 
@@ -372,7 +374,7 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 				return putsvc.ErrWrongPayloadSize
 			}
 		}
-		if err := x.base.SendChunk(c); err != nil {
+		if _, err := x.payloadWriter.Write(c); err != nil {
 			return fmt.Errorf("could not send payload chunk: %w", err)
 		}
 		if !x.cacheReqs {
@@ -392,7 +394,7 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 		return nil, putsvc.ErrWrongPayloadSize
 	}
 
-	id, err := x.base.Close()
+	id, err := x.payloadWriter.Close()
 	if err != nil {
 		return nil, fmt.Errorf("could not object put stream: %w", err)
 	}

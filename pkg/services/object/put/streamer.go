@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -23,13 +22,17 @@ type Streamer struct {
 	target internal.Target
 }
 
-func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
+func (p *Streamer) WriteHeader(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.PayloadWriter, error) {
 	// initialize destination target
 	if err := p.initTarget(hdr, cp, opts); err != nil {
-		return err
+		return nil, err
 	}
 
-	return p.target.WriteHeader(hdr)
+	if err := p.target.WriteHeader(hdr); err != nil {
+		return nil, err
+	}
+
+	return p.target, nil
 }
 
 func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
@@ -220,20 +223,6 @@ func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions, rela
 		metaSigner:              opts.localSignerRFC6979,
 		localOnly:               cp.LocalOnly(),
 	}
-}
-
-func (p *Streamer) SendChunk(chunk []byte) error {
-	_, err := p.target.Write(chunk)
-	return err
-}
-
-func (p *Streamer) Close() (oid.ID, error) {
-	id, err := p.target.Close()
-	if err != nil {
-		return oid.ID{}, err
-	}
-
-	return id, nil
 }
 
 func metaAttribute(cnr container.Container) string {

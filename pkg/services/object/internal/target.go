@@ -21,9 +21,8 @@ type HeaderWriter interface {
 	WriteHeader(*object.Object) error
 }
 
-// Target is an interface of the object writer.
-type Target interface {
-	HeaderWriter
+// PayloadWriter is an interface of the object payload writer.
+type PayloadWriter interface {
 	// Writer writes object payload chunk.
 	//
 	// Can be called multiple times.
@@ -40,4 +39,10 @@ type Target interface {
 	// Re-calling can lead to undefined behavior
 	// that depends on the implementation.
 	Close() (oid.ID, error)
+}
+
+// Target is an interface of the object writer.
+type Target interface {
+	HeaderWriter
+	PayloadWriter
 }

@@ -20,6 +20,7 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -502,11 +503,12 @@ func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ 
 
 	var opts PutInitOptions
 
-	if err := stream.Init(hdr.CutPayload(), commonPrm, opts); err != nil {
+	pw, err := stream.WriteHeader(hdr.CutPayload(), commonPrm, opts)
+	if err != nil {
 		return nil, err
 	}
 
-	return (*testPayloadStream)(stream), nil
+	return &testPayloadStream{PayloadWriter: pw}, nil
 }
 
 func (m *serviceClient) ReplicateObject(context.Context, oid.ID, io.ReadSeeker, neofscrypto.Signer, bool) (*neofscrypto.Signature, error) {
@@ -554,17 +556,12 @@ func (m *serviceClient) ForEachGRPCConn(context.Context, func(context.Context, *
 	panic("unimplemented")
 }
 
-type testPayloadStream Streamer
-
-func (x *testPayloadStream) Write(p []byte) (int, error) {
-	if err := (*Streamer)(x).SendChunk(p); err != nil {
-		return 0, err
-	}
-	return len(p), nil
+type testPayloadStream struct {
+	internal.PayloadWriter
 }
 
 func (x *testPayloadStream) Close() error {
-	_, err := (*Streamer)(x).Close()
+	_, err := x.PayloadWriter.Close()
 	return err
 }
 
@@ -608,11 +605,13 @@ func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st se
 	require.NoError(t, err)
 
 	var opts PutInitOptions
-	require.NoError(t, stream.Init(obj.CutPayload(), commonPrm, opts))
+	pw, err := stream.WriteHeader(obj.CutPayload(), commonPrm, opts)
+	require.NoError(t, err)
 
-	require.NoError(t, stream.SendChunk(obj.Payload()))
+	_, err = pw.Write(obj.Payload())
+	require.NoError(t, err)
 
-	_, err = stream.Close()
+	_, err = pw.Close()
 	require.NoError(t, err)
 }
 

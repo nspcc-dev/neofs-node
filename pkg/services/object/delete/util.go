@@ -17,17 +17,17 @@ func (w *putSvcWrapper) put(exec *execCtx) (*oid.ID, error) {
 
 	var opts putsvc.PutInitOptions
 
-	err = streamer.Init(exec.tombstoneObj.CutPayload(), exec.commonParameters(), opts)
+	pw, err := streamer.WriteHeader(exec.tombstoneObj.CutPayload(), exec.commonParameters(), opts)
 	if err != nil {
 		return nil, err
 	}
 
-	err = streamer.SendChunk(payload)
+	_, err = pw.Write(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	id, err := streamer.Close()
+	id, err := pw.Close()
 	if err != nil {
 		return nil, err
 	}
