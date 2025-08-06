@@ -37,29 +37,24 @@ type distributedTargetState struct {
 }
 
 type distributedTarget struct {
-	svc *Service
+	svc             *Service
+	localNodeSigner neofscrypto.Signer
+	metaSigner      neofscrypto.Signer
 
-	opCtx context.Context
-
+	/* request parameters */
+	opCtx     context.Context
+	commonPrm *svcutil.CommonPrm
+	localOnly bool
 	// when non-zero, this setting simplifies the object's storage policy
 	// requirements to a fixed number of object replicas to be retained
-	linearReplNum uint
-
+	linearReplNum           uint
 	metainfoConsistencyAttr string
+	relay                   func(nodeDesc) error
 
-	metaSigner neofscrypto.Signer
-
+	/* processing data */
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
-	localNodeSigner      neofscrypto.Signer
 	sessionSigner        neofscrypto.Signer
-
-	relay func(nodeDesc) error
-
-	commonPrm *svcutil.CommonPrm
-
-	localOnly bool
-
 	// When object from request is an EC part, ecPart.RuleIndex is >= 0.
 	// Undefined when policy have no EC rules.
 	ecPart iec.PartInfo

@@ -186,18 +186,18 @@ func (p *Service) newCommonTarget(ctx context.Context, cp *util.CommonPrm, opts 
 
 	return &distributedTarget{
 		svc:                     p,
+		localNodeSigner:         opts.localNodeSigner,
+		metaSigner:              opts.localSignerRFC6979,
 		opCtx:                   ctx,
-		linearReplNum:           uint(opts.CopiesNumber),
 		commonPrm:               cp,
+		localOnly:               cp.LocalOnly(),
+		linearReplNum:           uint(opts.CopiesNumber),
+		metainfoConsistencyAttr: metaAttribute(opts.cnr),
 		relay:                   relay,
 		containerNodes:          opts.containerNodes,
-		ecPart:                  opts.ecPart,
 		localNodeInContainer:    opts.localNodeInContainer,
-		localNodeSigner:         opts.localNodeSigner,
 		sessionSigner:           opts.sessionSigner,
-		metainfoConsistencyAttr: metaAttribute(opts.cnr),
-		metaSigner:              opts.localSignerRFC6979,
-		localOnly:               cp.LocalOnly(),
+		ecPart:                  opts.ecPart,
 	}
 }
 
