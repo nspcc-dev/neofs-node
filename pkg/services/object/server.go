@@ -348,12 +348,10 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 			return err
 		}
 
-		var p putsvc.PutInitPrm
-		p.WithCommonPrm(cp)
-		p.WithObject(obj)
-		p.WithCopiesNumber(v.Init.CopiesNumber)
-		p.WithRelay(x.sendToRemoteNode)
-		if err = x.base.Init(&p); err != nil {
+		var opts putsvc.PutInitOptions
+		opts.WithCopiesNumber(v.Init.CopiesNumber)
+		opts.WithRelay(x.sendToRemoteNode)
+		if err = x.base.Init(obj, cp, &opts); err != nil {
 			return fmt.Errorf("could not init object put stream: %w", err)
 		}
 

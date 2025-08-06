@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -30,13 +31,13 @@ var errNotInit = errors.New("stream not initialized")
 
 var errInitRecall = errors.New("init recall")
 
-func (p *Streamer) Init(prm *PutInitPrm) error {
+func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
 	// initialize destination target
-	if err := p.initTarget(prm); err != nil {
+	if err := p.initTarget(hdr, cp, opts); err != nil {
 		return fmt.Errorf("(%T) could not initialize object target: %w", p, err)
 	}
 
-	if err := p.target.WriteHeader(prm.hdr); err != nil {
+	if err := p.target.WriteHeader(hdr); err != nil {
 		return fmt.Errorf("(%T) could not write header to target: %w", p, err)
 	}
 	return nil
@@ -49,14 +50,14 @@ func (p *Streamer) MaxObjectSize() uint64 {
 	return p.maxPayloadSz
 }
 
-func (p *Streamer) initTarget(prm *PutInitPrm) error {
+func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
 	// prevent re-calling
 	if p.target != nil {
 		return errInitRecall
 	}
 
 	// prepare needed put parameters
-	if err := p.preparePrm(prm); err != nil {
+	if err := p.prepareOptions(hdr, cp, opts); err != nil {
 		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
 	}
 
@@ -65,14 +66,14 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
-	homomorphicChecksumRequired := !prm.cnr.IsHomomorphicHashingDisabled()
+	homomorphicChecksumRequired := !opts.cnr.IsHomomorphicHashingDisabled()
 
-	if prm.hdr.Signature() != nil {
-		p.relay = prm.relay
+	if hdr.Signature() != nil {
+		p.relay = opts.relay
 
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
-			nextTarget: p.newCommonTarget(prm),
+			nextTarget: p.newCommonTarget(cp, opts),
 			fmt:        p.fmtValidator,
 
 			maxPayloadSz: p.maxPayloadSz,
@@ -83,7 +84,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return nil
 	}
 
-	sToken := prm.common.SessionToken()
+	sToken := cp.SessionToken()
 
 	// prepare trusted-Put object target
 
@@ -107,7 +108,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// In case session token is missing, the line above returns the default key.
 	// If it isn't owner key, replication attempts will fail, thus this check.
 	if sToken == nil {
-		ownerObj := prm.hdr.Owner()
+		ownerObj := hdr.Owner()
 		if ownerObj.IsZero() {
 			return errors.New("missing object owner")
 		}
@@ -120,7 +121,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	}
 
 	sessionSigner := user.NewAutoIDSigner(*sessionKey)
-	prm.sessionSigner = sessionSigner
+	opts.sessionSigner = sessionSigner
 	p.target = &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
@@ -131,7 +132,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			sessionSigner,
 			sToken,
 			p.networkState.CurrentEpoch(),
-			p.newCommonTarget(prm),
+			p.newCommonTarget(cp, opts),
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}
@@ -139,9 +140,9 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	return nil
 }
 
-func (p *Streamer) preparePrm(prm *PutInitPrm) error {
-	localOnly := prm.common.LocalOnly()
-	if localOnly && prm.copiesNumber > 1 {
+func (p *Streamer) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
+	localOnly := cp.LocalOnly()
+	if localOnly && opts.copiesNumber > 1 {
 		return errors.New("storage of multiple object replicas is requested for a local operation")
 	}
 
@@ -150,60 +151,60 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return fmt.Errorf("get local node's private key: %w", err)
 	}
 
-	idCnr := prm.hdr.GetContainerID()
+	idCnr := hdr.GetContainerID()
 	if idCnr.IsZero() {
 		return errors.New("missing container ID")
 	}
 
 	// get container to store the object
-	prm.cnr, err = p.cnrSrc.Get(idCnr)
+	opts.cnr, err = p.cnrSrc.Get(idCnr)
 	if err != nil {
 		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
 
-	prm.containerNodes, err = p.neoFSNet.GetContainerNodes(idCnr)
+	opts.containerNodes, err = p.neoFSNet.GetContainerNodes(idCnr)
 	if err != nil {
 		return fmt.Errorf("select storage nodes for the container: %w", err)
 	}
-	cnrNodes := prm.containerNodes.Unsorted()
-	ecRulesN := len(prm.containerNodes.ECRules())
+	cnrNodes := opts.containerNodes.Unsorted()
+	ecRulesN := len(opts.containerNodes.ECRules())
 	if ecRulesN > 0 {
-		ecPart, err := iec.GetPartInfo(*prm.hdr)
+		ecPart, err := iec.GetPartInfo(*hdr)
 		if err != nil {
 			return fmt.Errorf("get EC part info from object header: %w", err)
 		}
 
-		repRulesN := len(prm.containerNodes.PrimaryCounts())
+		repRulesN := len(opts.containerNodes.PrimaryCounts())
 		if ecPart.Index >= 0 {
 			if ecPart.RuleIndex >= ecRulesN {
 				return fmt.Errorf("invalid EC part info in object header: EC rule idx=%d with %d rules in total", ecPart.RuleIndex, ecRulesN)
 			}
-			if prm.hdr.Signature() == nil {
+			if hdr.Signature() == nil {
 				return errors.New("unsigned EC part object")
 			}
-			prm.localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
+			opts.localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
 		} else {
-			if repRulesN == 0 && prm.hdr.Signature() != nil {
+			if repRulesN == 0 && hdr.Signature() != nil {
 				return errors.New("missing EC part info in signed object")
 			}
-			prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+			opts.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
 		}
 
-		prm.ecPart = ecPart
+		opts.ecPart = ecPart
 	} else {
-		prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+		opts.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
 	}
-	if !prm.localNodeInContainer && localOnly {
+	if !opts.localNodeInContainer && localOnly {
 		return errors.New("local operation on the node not compliant with the container storage policy")
 	}
 
-	prm.localNodeSigner = (*neofsecdsa.Signer)(localNodeKey)
-	prm.localSignerRFC6979 = (*neofsecdsa.SignerRFC6979)(localNodeKey)
+	opts.localNodeSigner = (*neofsecdsa.Signer)(localNodeKey)
+	opts.localSignerRFC6979 = (*neofsecdsa.SignerRFC6979)(localNodeKey)
 
 	return nil
 }
 
-func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
+func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts *PutInitOptions) internal.Target {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {
@@ -225,24 +226,24 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 			log:           p.log,
 			neoFSNet:      p.neoFSNet,
 			remotePool:    p.remotePool,
-			linearReplNum: uint(prm.copiesNumber),
+			linearReplNum: uint(opts.copiesNumber),
 		},
 		localStorage:            p.localStore,
 		keyStorage:              p.keyStorage,
-		commonPrm:               prm.common,
+		commonPrm:               cp,
 		clientConstructor:       p.clientConstructor,
 		transport:               p.transport,
 		relay:                   relay,
 		fmt:                     p.fmtValidator,
-		containerNodes:          prm.containerNodes,
-		ecPart:                  prm.ecPart,
-		localNodeInContainer:    prm.localNodeInContainer,
-		localNodeSigner:         prm.localNodeSigner,
-		sessionSigner:           prm.sessionSigner,
+		containerNodes:          opts.containerNodes,
+		ecPart:                  opts.ecPart,
+		localNodeInContainer:    opts.localNodeInContainer,
+		localNodeSigner:         opts.localNodeSigner,
+		sessionSigner:           opts.sessionSigner,
 		cnrClient:               p.cfg.cnrClient,
-		metainfoConsistencyAttr: metaAttribute(prm.cnr),
-		metaSigner:              prm.localSignerRFC6979,
-		localOnly:               prm.common.LocalOnly(),
+		metainfoConsistencyAttr: metaAttribute(opts.cnr),
+		metaSigner:              opts.localSignerRFC6979,
+		localOnly:               cp.LocalOnly(),
 	}
 }
 
