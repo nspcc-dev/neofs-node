@@ -23,6 +23,19 @@ import (
 	"go.uber.org/zap"
 )
 
+type distributedTargetState struct {
+	obj *objectSDK.Object
+	// - object if localOnly
+	// - replicate request if localNodeInContainer
+	// - payload otherwise
+	encodedObject encodedObject
+
+	objSharedMeta []byte
+
+	collectedSignaturesMtx sync.Mutex
+	collectedSignatures    [][]byte
+}
+
 type distributedTarget struct {
 	svc *Service
 
@@ -32,23 +45,14 @@ type distributedTarget struct {
 	// requirements to a fixed number of object replicas to be retained
 	linearReplNum uint
 
-	obj *objectSDK.Object
-
 	metainfoConsistencyAttr string
 
-	metaSigner             neofscrypto.Signer
-	objSharedMeta          []byte
-	collectedSignaturesMtx sync.Mutex
-	collectedSignatures    [][]byte
+	metaSigner neofscrypto.Signer
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
 	localNodeSigner      neofscrypto.Signer
 	sessionSigner        neofscrypto.Signer
-	// - object if localOnly
-	// - replicate request if localNodeInContainer
-	// - payload otherwise
-	encodedObject encodedObject
 
 	relay func(nodeDesc) error
 
@@ -59,6 +63,8 @@ type distributedTarget struct {
 	// When object from request is an EC part, ecPart.RuleIndex is >= 0.
 	// Undefined when policy have no EC rules.
 	ecPart iec.PartInfo
+
+	state distributedTargetState
 }
 
 type nodeDesc struct {
@@ -91,9 +97,9 @@ func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
 	if t.localNodeInContainer {
 		var err error
 		if t.localOnly {
-			t.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
+			t.state.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
 		} else {
-			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), t.metainfoConsistencyAttr != "")
+			t.state.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), t.metainfoConsistencyAttr != "")
 		}
 		if err != nil {
 			return fmt.Errorf("encode object into binary: %w", err)
@@ -104,29 +110,29 @@ func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
 			putPayload(b)
 			b = make([]byte, 0, payloadLen)
 		}
-		t.encodedObject = encodedObject{b: b}
+		t.state.encodedObject = encodedObject{b: b}
 	}
 
-	t.obj = hdr
+	t.state.obj = hdr
 
 	return nil
 }
 
 func (t *distributedTarget) Write(p []byte) (n int, err error) {
-	t.encodedObject.b = append(t.encodedObject.b, p...)
+	t.state.encodedObject.b = append(t.state.encodedObject.b, p...)
 
 	return len(p), nil
 }
 
 func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
-		putPayload(t.encodedObject.b)
-		t.encodedObject.b = nil
+		putPayload(t.state.encodedObject.b)
+		t.state.encodedObject.b = nil
 	}()
 
-	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
+	t.state.obj.SetPayload(t.state.encodedObject.b[t.state.encodedObject.pldOff:])
 
-	typ := t.obj.Type()
+	typ := t.state.obj.Type()
 	tombOrLink := typ == objectSDK.TypeLink || typ == objectSDK.TypeTombstone
 
 	// v2 split link object and tombstone validations are expensive routines
@@ -136,17 +142,17 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	var objMeta object.ContentMeta
 	if !tombOrLink || t.localNodeInContainer {
 		var err error
-		if objMeta, err = t.svc.fmtValidator.ValidateContent(t.obj); err != nil {
+		if objMeta, err = t.svc.fmtValidator.ValidateContent(t.state.obj); err != nil {
 			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 		}
 	}
 
-	err := t.saveObject(*t.obj, objMeta, t.encodedObject)
+	err := t.saveObject(*t.state.obj, objMeta, t.state.encodedObject)
 	if err != nil {
 		return oid.ID{}, err
 	}
 
-	return t.obj.GetID(), nil
+	return t.state.obj.GetID(), nil
 }
 
 func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
@@ -154,7 +160,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 		return t.distributeObject(obj, objMeta, encObj, nil)
 	}
 
-	objNodeLists, err := t.containerNodes.SortForObject(t.obj.GetID())
+	objNodeLists, err := t.containerNodes.SortForObject(t.state.obj.GetID())
 	if err != nil {
 		return fmt.Errorf("sort container nodes by object ID: %w", err)
 	}
@@ -192,11 +198,11 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject,
 	placementFn func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error) error {
 	defer func() {
-		t.collectedSignatures = nil
+		t.state.collectedSignatures = nil
 	}()
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		t.objSharedMeta = t.encodeObjectMetadata(obj)
+		t.state.objSharedMeta = t.encodeObjectMetadata(obj)
 	}
 
 	id := obj.GetID()
@@ -218,7 +224,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 	}
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		if len(t.collectedSignatures) == 0 {
+		if len(t.state.collectedSignatures) == 0 {
 			return fmt.Errorf("skip metadata chain submit for %s object: no signatures were collected", id)
 		}
 
@@ -240,7 +246,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 			t.svc.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 		}
 
-		err = t.svc.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
+		err = t.svc.cnrClient.SubmitObjectPut(t.state.objSharedMeta, t.state.collectedSignatures)
 		if err != nil {
 			if await {
 				t.svc.metaSvc.UnsubscribeFromObject(addr)
@@ -332,13 +338,13 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 				continue
 			}
 
-			if !sig.Verify(t.objSharedMeta) {
+			if !sig.Verify(t.state.objSharedMeta) {
 				continue
 			}
 
-			t.collectedSignaturesMtx.Lock()
-			t.collectedSignatures = append(t.collectedSignatures, sig.Value())
-			t.collectedSignaturesMtx.Unlock()
+			t.state.collectedSignaturesMtx.Lock()
+			t.state.collectedSignatures = append(t.state.collectedSignatures, sig.Value())
+			t.state.collectedSignaturesMtx.Unlock()
 
 			return nil
 		}
@@ -355,14 +361,14 @@ func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, objMeta obj
 	}
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		sig, err := t.metaSigner.Sign(t.objSharedMeta)
+		sig, err := t.metaSigner.Sign(t.state.objSharedMeta)
 		if err != nil {
 			return fmt.Errorf("failed to sign object metadata: %w", err)
 		}
 
-		t.collectedSignaturesMtx.Lock()
-		t.collectedSignatures = append(t.collectedSignatures, sig)
-		t.collectedSignaturesMtx.Unlock()
+		t.state.collectedSignaturesMtx.Lock()
+		t.state.collectedSignatures = append(t.state.collectedSignatures, sig)
+		t.state.collectedSignaturesMtx.Unlock()
 	}
 
 	return nil
