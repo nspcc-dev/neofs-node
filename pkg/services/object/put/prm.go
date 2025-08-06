@@ -7,12 +7,15 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 )
 
+// RelayFunc relays request using given connection to SN.
+type RelayFunc = func(client.NodeInfo, client.MultiAddressClient) error
+
 type PutInitOptions struct {
 	cnr containerSDK.Container
 
 	copiesNumber uint32
 
-	relay func(client.NodeInfo, client.MultiAddressClient) error
+	relay RelayFunc
 
 	containerNodes       ContainerNodes
 	ecPart               iec.PartInfo
@@ -22,7 +25,7 @@ type PutInitOptions struct {
 	sessionSigner        neofscrypto.Signer
 }
 
-func (p *PutInitOptions) WithRelay(f func(client.NodeInfo, client.MultiAddressClient) error) *PutInitOptions {
+func (p *PutInitOptions) WithRelay(f RelayFunc) *PutInitOptions {
 	if p != nil {
 		p.relay = f
 	}
