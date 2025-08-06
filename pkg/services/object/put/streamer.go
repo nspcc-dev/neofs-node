@@ -16,13 +16,11 @@ import (
 
 type Streamer struct {
 	*Service
-
-	ctx context.Context
 }
 
-func (p *Streamer) WriteHeader(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.PayloadWriter, error) {
+func (p *Streamer) WriteHeader(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.PayloadWriter, error) {
 	// initialize destination target
-	target, err := p.initTarget(hdr, cp, opts)
+	target, err := p.initTarget(ctx, hdr, cp, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +32,7 @@ func (p *Streamer) WriteHeader(hdr *object.Object, cp *util.CommonPrm, opts PutI
 	return target, nil
 }
 
-func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.Target, error) {
+func (p *Streamer) initTarget(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.Target, error) {
 	// prepare needed put parameters
 	if err := p.prepareOptions(hdr, cp, &opts); err != nil {
 		return nil, fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
@@ -50,7 +48,7 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 	if hdr.Signature() != nil {
 		// prepare untrusted-Put object target
 		return &validatingTarget{
-			nextTarget: p.newCommonTarget(cp, opts, opts.relay),
+			nextTarget: p.newCommonTarget(ctx, cp, opts, opts.relay),
 			fmt:        p.fmtValidator,
 
 			maxPayloadSz: maxPayloadSz,
@@ -101,13 +99,13 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
 		nextTarget: newSlicingTarget(
-			p.ctx,
+			ctx,
 			maxPayloadSz,
 			!homomorphicChecksumRequired,
 			sessionSigner,
 			sToken,
 			p.networkState.CurrentEpoch(),
-			p.newCommonTarget(cp, opts, nil),
+			p.newCommonTarget(ctx, cp, opts, nil),
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}, nil
@@ -177,7 +175,7 @@ func (p *Streamer) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *
 	return nil
 }
 
-func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions, relayFn RelayFunc) internal.Target {
+func (p *Streamer) newCommonTarget(ctx context.Context, cp *util.CommonPrm, opts PutInitOptions, relayFn RelayFunc) internal.Target {
 	var relay func(nodeDesc) error
 	if relayFn != nil {
 		relay = func(node nodeDesc) error {
@@ -191,7 +189,7 @@ func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions, rela
 	}
 
 	return &distributedTarget{
-		opCtx:              p.ctx,
+		opCtx:              ctx,
 		fsState:            p.networkState,
 		networkMagicNumber: p.networkMagic,
 		metaSvc:            p.metaSvc,
