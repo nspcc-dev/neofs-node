@@ -13,9 +13,9 @@ type RelayFunc = func(client.NodeInfo, client.MultiAddressClient) error
 type PutInitOptions struct {
 	cnr containerSDK.Container
 
-	copiesNumber uint32
+	CopiesNumber uint32
 
-	relay RelayFunc
+	Relay RelayFunc
 
 	containerNodes       ContainerNodes
 	ecPart               iec.PartInfo
@@ -23,20 +23,4 @@ type PutInitOptions struct {
 	localSignerRFC6979   neofscrypto.Signer
 	localNodeSigner      neofscrypto.Signer
 	sessionSigner        neofscrypto.Signer
-}
-
-func (p *PutInitOptions) WithRelay(f RelayFunc) *PutInitOptions {
-	if p != nil {
-		p.relay = f
-	}
-
-	return p
-}
-
-func (p *PutInitOptions) WithCopiesNumber(cn uint32) *PutInitOptions {
-	if p != nil {
-		p.copiesNumber = cn
-	}
-
-	return p
 }

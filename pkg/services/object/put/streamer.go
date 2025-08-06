@@ -44,7 +44,7 @@ func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.C
 	if hdr.Signature() != nil {
 		// prepare untrusted-Put object target
 		return &validatingTarget{
-			nextTarget: p.newCommonTarget(ctx, cp, opts, opts.relay),
+			nextTarget: p.newCommonTarget(ctx, cp, opts, opts.Relay),
 			fmt:        p.fmtValidator,
 
 			maxPayloadSz: maxPayloadSz,
@@ -109,7 +109,7 @@ func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.C
 
 func (p *Service) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
 	localOnly := cp.LocalOnly()
-	if localOnly && opts.copiesNumber > 1 {
+	if localOnly && opts.CopiesNumber > 1 {
 		return errors.New("storage of multiple object replicas is requested for a local operation")
 	}
 
@@ -193,7 +193,7 @@ func (p *Service) newCommonTarget(ctx context.Context, cp *util.CommonPrm, opts 
 			log:           p.log,
 			neoFSNet:      p.neoFSNet,
 			remotePool:    p.remotePool,
-			linearReplNum: uint(opts.copiesNumber),
+			linearReplNum: uint(opts.CopiesNumber),
 		},
 		localStorage:            p.localStore,
 		keyStorage:              p.keyStorage,
