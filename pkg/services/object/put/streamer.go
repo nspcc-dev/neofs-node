@@ -26,13 +26,10 @@ type Streamer struct {
 func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
 	// initialize destination target
 	if err := p.initTarget(hdr, cp, opts); err != nil {
-		return fmt.Errorf("(%T) could not initialize object target: %w", p, err)
+		return err
 	}
 
-	if err := p.target.WriteHeader(hdr); err != nil {
-		return fmt.Errorf("(%T) could not write header to target: %w", p, err)
-	}
-	return nil
+	return p.target.WriteHeader(hdr)
 }
 
 func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
@@ -226,17 +223,14 @@ func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions, rela
 }
 
 func (p *Streamer) SendChunk(chunk []byte) error {
-	if _, err := p.target.Write(chunk); err != nil {
-		return fmt.Errorf("(%T) could not write payload chunk to target: %w", p, err)
-	}
-
-	return nil
+	_, err := p.target.Write(chunk)
+	return err
 }
 
 func (p *Streamer) Close() (oid.ID, error) {
 	id, err := p.target.Close()
 	if err != nil {
-		return oid.ID{}, fmt.Errorf("(%T) could not close object target: %w", p, err)
+		return oid.ID{}, err
 	}
 
 	return id, nil
