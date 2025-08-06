@@ -18,48 +18,45 @@ type Streamer struct {
 	*Service
 
 	ctx context.Context
-
-	target internal.Target
 }
 
 func (p *Streamer) WriteHeader(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.PayloadWriter, error) {
 	// initialize destination target
-	if err := p.initTarget(hdr, cp, opts); err != nil {
+	target, err := p.initTarget(hdr, cp, opts)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := p.target.WriteHeader(hdr); err != nil {
+	if err := target.WriteHeader(hdr); err != nil {
 		return nil, err
 	}
 
-	return p.target, nil
+	return target, nil
 }
 
-func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
+func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.Target, error) {
 	// prepare needed put parameters
 	if err := p.prepareOptions(hdr, cp, &opts); err != nil {
-		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
+		return nil, fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
 	}
 
 	maxPayloadSz := p.maxSizeSrc.MaxObjectSize()
 	if maxPayloadSz == 0 {
-		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
+		return nil, fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
 	homomorphicChecksumRequired := !opts.cnr.IsHomomorphicHashingDisabled()
 
 	if hdr.Signature() != nil {
 		// prepare untrusted-Put object target
-		p.target = &validatingTarget{
+		return &validatingTarget{
 			nextTarget: p.newCommonTarget(cp, opts, opts.relay),
 			fmt:        p.fmtValidator,
 
 			maxPayloadSz: maxPayloadSz,
 
 			homomorphicChecksumRequired: homomorphicChecksumRequired,
-		}
-
-		return nil
+		}, nil
 	}
 
 	sToken := cp.SessionToken()
@@ -78,7 +75,7 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 
 	sessionKey, err := p.keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
+		return nil, fmt.Errorf("(%T) could not receive session key: %w", p, err)
 	}
 
 	signer := neofsecdsa.SignerRFC6979(*sessionKey)
@@ -88,19 +85,19 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 	if sToken == nil {
 		ownerObj := hdr.Owner()
 		if ownerObj.IsZero() {
-			return errors.New("missing object owner")
+			return nil, errors.New("missing object owner")
 		}
 
 		ownerSession := user.NewFromECDSAPublicKey(signer.PublicKey)
 
 		if ownerObj != ownerSession {
-			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
+			return nil, fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
 		}
 	}
 
 	sessionSigner := user.NewAutoIDSigner(*sessionKey)
 	opts.sessionSigner = sessionSigner
-	p.target = &validatingTarget{
+	return &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
 		nextTarget: newSlicingTarget(
@@ -113,9 +110,7 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 			p.newCommonTarget(cp, opts, nil),
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
-	}
-
-	return nil
+	}, nil
 }
 
 func (p *Streamer) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
