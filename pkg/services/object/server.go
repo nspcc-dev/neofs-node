@@ -377,7 +377,7 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 				return putsvc.ErrWrongPayloadSize
 			}
 		}
-		if err := x.base.SendChunk(new(putsvc.PutChunkPrm).WithChunk(c)); err != nil {
+		if err := x.base.SendChunk(c); err != nil {
 			return fmt.Errorf("could not send payload chunk: %w", err)
 		}
 		if !x.cacheReqs {

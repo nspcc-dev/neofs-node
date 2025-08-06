@@ -28,10 +28,6 @@ type PutInitPrm struct {
 	sessionSigner        neofscrypto.Signer
 }
 
-type PutChunkPrm struct {
-	chunk []byte
-}
-
 func (p *PutInitPrm) WithCommonPrm(v *util.CommonPrm) *PutInitPrm {
 	if p != nil {
 		p.common = v
@@ -59,14 +55,6 @@ func (p *PutInitPrm) WithRelay(f func(client.NodeInfo, client.MultiAddressClient
 func (p *PutInitPrm) WithCopiesNumber(cn uint32) *PutInitPrm {
 	if p != nil {
 		p.copiesNumber = cn
-	}
-
-	return p
-}
-
-func (p *PutChunkPrm) WithChunk(v []byte) *PutChunkPrm {
-	if p != nil {
-		p.chunk = v
 	}
 
 	return p

@@ -24,7 +24,7 @@ func (w *putSvcWrapper) put(exec *execCtx) (*oid.ID, error) {
 		return nil, err
 	}
 
-	err = streamer.SendChunk(new(putsvc.PutChunkPrm).WithChunk(payload))
+	err = streamer.SendChunk(payload)
 	if err != nil {
 		return nil, err
 	}

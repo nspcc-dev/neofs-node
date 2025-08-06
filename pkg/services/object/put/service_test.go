@@ -559,7 +559,7 @@ func (m *serviceClient) ForEachGRPCConn(context.Context, func(context.Context, *
 type testPayloadStream Streamer
 
 func (x *testPayloadStream) Write(p []byte) (int, error) {
-	if err := (*Streamer)(x).SendChunk(new(PutChunkPrm).WithChunk(p)); err != nil {
+	if err := (*Streamer)(x).SendChunk(p); err != nil {
 		return 0, err
 	}
 	return len(p), nil
@@ -614,9 +614,7 @@ func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st se
 		WithCommonPrm(commonPrm)
 	require.NoError(t, stream.Init(ip))
 
-	cp := new(PutChunkPrm).
-		WithChunk(obj.Payload())
-	require.NoError(t, stream.SendChunk(cp))
+	require.NoError(t, stream.SendChunk(obj.Payload()))
 
 	_, err = stream.Close()
 	require.NoError(t, err)

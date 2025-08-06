@@ -246,12 +246,12 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	}
 }
 
-func (p *Streamer) SendChunk(prm *PutChunkPrm) error {
+func (p *Streamer) SendChunk(chunk []byte) error {
 	if p.target == nil {
 		return errNotInit
 	}
 
-	if _, err := p.target.Write(prm.chunk); err != nil {
+	if _, err := p.target.Write(chunk); err != nil {
 		return fmt.Errorf("(%T) could not write payload chunk to target: %w", p, err)
 	}
 
