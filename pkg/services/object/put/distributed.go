@@ -40,7 +40,7 @@ type distributedTarget struct {
 	metainfoConsistencyAttr string
 
 	metaSvc             *meta.Meta
-	metaMtx             sync.RWMutex
+	metaMtx             sync.Mutex
 	metaSigner          neofscrypto.Signer
 	objSharedMeta       []byte
 	collectedSignatures [][]byte
@@ -228,9 +228,6 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 	}
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		t.metaMtx.RLock()
-		defer t.metaMtx.RUnlock()
-
 		if len(t.collectedSignatures) == 0 {
 			return fmt.Errorf("skip metadata chain submit for %s object: no signatures were collected", id)
 		}
