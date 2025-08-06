@@ -29,9 +29,63 @@ func (p *Service) InitPut(ctx context.Context, hdr *object.Object, cp *util.Comm
 }
 
 func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.Target, error) {
-	// prepare needed put parameters
-	if err := p.prepareOptions(hdr, cp, &opts); err != nil {
-		return nil, fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
+	localOnly := cp.LocalOnly()
+	if localOnly && opts.CopiesNumber > 1 {
+		return nil, errors.New("storage of multiple object replicas is requested for a local operation")
+	}
+
+	localNodeKey, err := p.keyStorage.GetKey(nil)
+	if err != nil {
+		return nil, fmt.Errorf("get local node's private key: %w", err)
+	}
+
+	idCnr := hdr.GetContainerID()
+	if idCnr.IsZero() {
+		return nil, errors.New("missing container ID")
+	}
+
+	// get container to store the object
+	cnr, err := p.cnrSrc.Get(idCnr)
+	if err != nil {
+		return nil, fmt.Errorf("(%T) could not get container by ID: %w", p, err)
+	}
+
+	containerNodes, err := p.neoFSNet.GetContainerNodes(idCnr)
+	if err != nil {
+		return nil, fmt.Errorf("select storage nodes for the container: %w", err)
+	}
+
+	cnrNodes := containerNodes.Unsorted()
+	ecRulesN := len(containerNodes.ECRules())
+
+	var localNodeInContainer bool
+	var ecPart iec.PartInfo
+	if ecRulesN > 0 {
+		ecPart, err = iec.GetPartInfo(*hdr)
+		if err != nil {
+			return nil, fmt.Errorf("get EC part info from object header: %w", err)
+		}
+
+		repRulesN := len(containerNodes.PrimaryCounts())
+		if ecPart.Index >= 0 {
+			if ecPart.RuleIndex >= ecRulesN {
+				return nil, fmt.Errorf("invalid EC part info in object header: EC rule idx=%d with %d rules in total", ecPart.RuleIndex, ecRulesN)
+			}
+			if hdr.Signature() == nil {
+				return nil, errors.New("unsigned EC part object")
+			}
+			localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
+		} else {
+			if repRulesN == 0 && hdr.Signature() != nil {
+				return nil, errors.New("missing EC part info in signed object")
+			}
+			localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+		}
+	} else {
+		localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+	}
+	if !localNodeInContainer && localOnly {
+		return nil, errors.New("local operation on the node not compliant with the container storage policy")
 	}
 
 	maxPayloadSz := p.maxSizeSrc.MaxObjectSize()
@@ -39,20 +93,20 @@ func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.C
 		return nil, fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
-	homomorphicChecksumRequired := !opts.cnr.IsHomomorphicHashingDisabled()
+	homomorphicChecksumRequired := !cnr.IsHomomorphicHashingDisabled()
 
 	target := &distributedTarget{
 		svc:                     p,
-		localNodeSigner:         opts.localNodeSigner,
-		metaSigner:              opts.localSignerRFC6979,
+		localNodeSigner:         (*neofsecdsa.Signer)(localNodeKey),
+		metaSigner:              (*neofsecdsa.SignerRFC6979)(localNodeKey),
 		opCtx:                   ctx,
 		commonPrm:               cp,
 		localOnly:               cp.LocalOnly(),
 		linearReplNum:           uint(opts.CopiesNumber),
-		metainfoConsistencyAttr: metaAttribute(opts.cnr),
-		containerNodes:          opts.containerNodes,
-		localNodeInContainer:    opts.localNodeInContainer,
-		ecPart:                  opts.ecPart,
+		metainfoConsistencyAttr: metaAttribute(cnr),
+		containerNodes:          containerNodes,
+		localNodeInContainer:    localNodeInContainer,
+		ecPart:                  ecPart,
 	}
 
 	if hdr.Signature() != nil {
@@ -129,70 +183,6 @@ func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.C
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}, nil
-}
-
-func (p *Service) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
-	localOnly := cp.LocalOnly()
-	if localOnly && opts.CopiesNumber > 1 {
-		return errors.New("storage of multiple object replicas is requested for a local operation")
-	}
-
-	localNodeKey, err := p.keyStorage.GetKey(nil)
-	if err != nil {
-		return fmt.Errorf("get local node's private key: %w", err)
-	}
-
-	idCnr := hdr.GetContainerID()
-	if idCnr.IsZero() {
-		return errors.New("missing container ID")
-	}
-
-	// get container to store the object
-	opts.cnr, err = p.cnrSrc.Get(idCnr)
-	if err != nil {
-		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
-	}
-
-	opts.containerNodes, err = p.neoFSNet.GetContainerNodes(idCnr)
-	if err != nil {
-		return fmt.Errorf("select storage nodes for the container: %w", err)
-	}
-	cnrNodes := opts.containerNodes.Unsorted()
-	ecRulesN := len(opts.containerNodes.ECRules())
-	if ecRulesN > 0 {
-		ecPart, err := iec.GetPartInfo(*hdr)
-		if err != nil {
-			return fmt.Errorf("get EC part info from object header: %w", err)
-		}
-
-		repRulesN := len(opts.containerNodes.PrimaryCounts())
-		if ecPart.Index >= 0 {
-			if ecPart.RuleIndex >= ecRulesN {
-				return fmt.Errorf("invalid EC part info in object header: EC rule idx=%d with %d rules in total", ecPart.RuleIndex, ecRulesN)
-			}
-			if hdr.Signature() == nil {
-				return errors.New("unsigned EC part object")
-			}
-			opts.localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
-		} else {
-			if repRulesN == 0 && hdr.Signature() != nil {
-				return errors.New("missing EC part info in signed object")
-			}
-			opts.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
-		}
-
-		opts.ecPart = ecPart
-	} else {
-		opts.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
-	}
-	if !opts.localNodeInContainer && localOnly {
-		return errors.New("local operation on the node not compliant with the container storage policy")
-	}
-
-	opts.localNodeSigner = (*neofsecdsa.Signer)(localNodeKey)
-	opts.localSignerRFC6979 = (*neofsecdsa.SignerRFC6979)(localNodeKey)
-
-	return nil
 }
 
 func metaAttribute(cnr container.Container) string {
