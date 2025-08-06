@@ -21,8 +21,6 @@ type Streamer struct {
 	ctx context.Context
 
 	target internal.Target
-
-	maxPayloadSz uint64 // network config
 }
 
 func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
@@ -37,21 +35,14 @@ func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts PutInitOpti
 	return nil
 }
 
-// MaxObjectSize returns maximum payload size for the streaming session.
-//
-// Must be called after the successful Init.
-func (p *Streamer) MaxObjectSize() uint64 {
-	return p.maxPayloadSz
-}
-
 func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
 	// prepare needed put parameters
 	if err := p.prepareOptions(hdr, cp, &opts); err != nil {
 		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
 	}
 
-	p.maxPayloadSz = p.maxSizeSrc.MaxObjectSize()
-	if p.maxPayloadSz == 0 {
+	maxPayloadSz := p.maxSizeSrc.MaxObjectSize()
+	if maxPayloadSz == 0 {
 		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
@@ -63,7 +54,7 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 			nextTarget: p.newCommonTarget(cp, opts, opts.relay),
 			fmt:        p.fmtValidator,
 
-			maxPayloadSz: p.maxPayloadSz,
+			maxPayloadSz: maxPayloadSz,
 
 			homomorphicChecksumRequired: homomorphicChecksumRequired,
 		}
@@ -114,7 +105,7 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 		unpreparedObject: true,
 		nextTarget: newSlicingTarget(
 			p.ctx,
-			p.maxPayloadSz,
+			maxPayloadSz,
 			!homomorphicChecksumRequired,
 			sessionSigner,
 			sToken,

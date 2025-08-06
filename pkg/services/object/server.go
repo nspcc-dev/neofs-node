@@ -360,9 +360,6 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 		}
 
 		x.expBytes = v.Init.Header.GetPayloadLength()
-		if m := x.base.MaxObjectSize(); x.expBytes > m {
-			return putsvc.ErrExceedingMaxSize
-		}
 		signed, err := x.resignRequest(req) // TODO: resign only when needed
 		if err != nil {
 			return err // TODO: add context
