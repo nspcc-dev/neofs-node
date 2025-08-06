@@ -31,7 +31,7 @@ var errNotInit = errors.New("stream not initialized")
 
 var errInitRecall = errors.New("init recall")
 
-func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
+func (p *Streamer) Init(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
 	// initialize destination target
 	if err := p.initTarget(hdr, cp, opts); err != nil {
 		return fmt.Errorf("(%T) could not initialize object target: %w", p, err)
@@ -50,14 +50,14 @@ func (p *Streamer) MaxObjectSize() uint64 {
 	return p.maxPayloadSz
 }
 
-func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts *PutInitOptions) error {
+func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) error {
 	// prevent re-calling
 	if p.target != nil {
 		return errInitRecall
 	}
 
 	// prepare needed put parameters
-	if err := p.prepareOptions(hdr, cp, opts); err != nil {
+	if err := p.prepareOptions(hdr, cp, &opts); err != nil {
 		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
 	}
 
@@ -204,7 +204,7 @@ func (p *Streamer) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *
 	return nil
 }
 
-func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts *PutInitOptions) internal.Target {
+func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions) internal.Target {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {

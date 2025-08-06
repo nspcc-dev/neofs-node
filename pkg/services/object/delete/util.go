@@ -15,7 +15,7 @@ func (w *putSvcWrapper) put(exec *execCtx) (*oid.ID, error) {
 
 	payload := exec.tombstoneObj.Payload()
 
-	opts := new(putsvc.PutInitOptions)
+	var opts putsvc.PutInitOptions
 
 	err = streamer.Init(exec.tombstoneObj.CutPayload(), exec.commonParameters(), opts)
 	if err != nil {

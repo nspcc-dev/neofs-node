@@ -502,7 +502,7 @@ func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ 
 
 	var opts PutInitOptions
 
-	if err := stream.Init(hdr.CutPayload(), commonPrm, &opts); err != nil {
+	if err := stream.Init(hdr.CutPayload(), commonPrm, opts); err != nil {
 		return nil, err
 	}
 
@@ -607,7 +607,7 @@ func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st se
 	commonPrm, err := objutil.CommonPrmFromRequest(req)
 	require.NoError(t, err)
 
-	opts := new(PutInitOptions)
+	var opts PutInitOptions
 	require.NoError(t, stream.Init(obj.CutPayload(), commonPrm, opts))
 
 	require.NoError(t, stream.SendChunk(obj.Payload()))
