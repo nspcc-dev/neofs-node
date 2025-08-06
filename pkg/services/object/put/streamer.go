@@ -41,10 +41,34 @@ func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.C
 
 	homomorphicChecksumRequired := !opts.cnr.IsHomomorphicHashingDisabled()
 
+	target := &distributedTarget{
+		svc:                     p,
+		localNodeSigner:         opts.localNodeSigner,
+		metaSigner:              opts.localSignerRFC6979,
+		opCtx:                   ctx,
+		commonPrm:               cp,
+		localOnly:               cp.LocalOnly(),
+		linearReplNum:           uint(opts.CopiesNumber),
+		metainfoConsistencyAttr: metaAttribute(opts.cnr),
+		containerNodes:          opts.containerNodes,
+		localNodeInContainer:    opts.localNodeInContainer,
+		ecPart:                  opts.ecPart,
+	}
+
 	if hdr.Signature() != nil {
 		// prepare untrusted-Put object target
+		if opts.Relay != nil {
+			target.relay = func(node nodeDesc) error {
+				c, err := p.clientConstructor.Get(node.info)
+				if err != nil {
+					return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
+				}
+
+				return opts.Relay(node.info, c)
+			}
+		}
 		return &validatingTarget{
-			nextTarget: p.newCommonTarget(ctx, cp, opts, opts.Relay),
+			nextTarget: target,
 			fmt:        p.fmtValidator,
 
 			maxPayloadSz: maxPayloadSz,
@@ -90,7 +114,7 @@ func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.C
 	}
 
 	sessionSigner := user.NewAutoIDSigner(*sessionKey)
-	opts.sessionSigner = sessionSigner
+	target.sessionSigner = sessionSigner
 	return &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
@@ -101,7 +125,7 @@ func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.C
 			sessionSigner,
 			sToken,
 			p.networkState.CurrentEpoch(),
-			p.newCommonTarget(ctx, cp, opts, nil),
+			target,
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}, nil
@@ -169,36 +193,6 @@ func (p *Service) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *P
 	opts.localSignerRFC6979 = (*neofsecdsa.SignerRFC6979)(localNodeKey)
 
 	return nil
-}
-
-func (p *Service) newCommonTarget(ctx context.Context, cp *util.CommonPrm, opts PutInitOptions, relayFn RelayFunc) internal.Target {
-	var relay func(nodeDesc) error
-	if relayFn != nil {
-		relay = func(node nodeDesc) error {
-			c, err := p.clientConstructor.Get(node.info)
-			if err != nil {
-				return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
-			}
-
-			return relayFn(node.info, c)
-		}
-	}
-
-	return &distributedTarget{
-		svc:                     p,
-		localNodeSigner:         opts.localNodeSigner,
-		metaSigner:              opts.localSignerRFC6979,
-		opCtx:                   ctx,
-		commonPrm:               cp,
-		localOnly:               cp.LocalOnly(),
-		linearReplNum:           uint(opts.CopiesNumber),
-		metainfoConsistencyAttr: metaAttribute(opts.cnr),
-		relay:                   relay,
-		containerNodes:          opts.containerNodes,
-		localNodeInContainer:    opts.localNodeInContainer,
-		sessionSigner:           opts.sessionSigner,
-		ecPart:                  opts.ecPart,
-	}
 }
 
 func metaAttribute(cnr container.Container) string {
