@@ -21,8 +21,6 @@ type Streamer struct {
 
 	target internal.Target
 
-	relay RelayFunc
-
 	maxPayloadSz uint64 // network config
 }
 
@@ -68,11 +66,9 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 	homomorphicChecksumRequired := !opts.cnr.IsHomomorphicHashingDisabled()
 
 	if hdr.Signature() != nil {
-		p.relay = opts.relay
-
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
-			nextTarget: p.newCommonTarget(cp, opts),
+			nextTarget: p.newCommonTarget(cp, opts, opts.relay),
 			fmt:        p.fmtValidator,
 
 			maxPayloadSz: p.maxPayloadSz,
@@ -131,7 +127,7 @@ func (p *Streamer) initTarget(hdr *object.Object, cp *util.CommonPrm, opts PutIn
 			sessionSigner,
 			sToken,
 			p.networkState.CurrentEpoch(),
-			p.newCommonTarget(cp, opts),
+			p.newCommonTarget(cp, opts, nil),
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}
@@ -203,16 +199,16 @@ func (p *Streamer) prepareOptions(hdr *object.Object, cp *util.CommonPrm, opts *
 	return nil
 }
 
-func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions) internal.Target {
+func (p *Streamer) newCommonTarget(cp *util.CommonPrm, opts PutInitOptions, relayFn RelayFunc) internal.Target {
 	var relay func(nodeDesc) error
-	if p.relay != nil {
+	if relayFn != nil {
 		relay = func(node nodeDesc) error {
 			c, err := p.clientConstructor.Get(node.info)
 			if err != nil {
 				return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
 			}
 
-			return p.relay(node.info, c)
+			return relayFn(node.info, c)
 		}
 	}
 
