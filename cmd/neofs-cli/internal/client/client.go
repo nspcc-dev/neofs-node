@@ -113,48 +113,6 @@ func PutObject(ctx context.Context, prm PutObjectPrm) (*PutObjectRes, error) {
 	}, nil
 }
 
-// DeleteObjectPrm groups parameters of DeleteObject operation.
-type DeleteObjectPrm struct {
-	commonObjectPrm
-	objectAddressPrm
-}
-
-// DeleteObjectRes groups the resulting values of DeleteObject operation.
-type DeleteObjectRes struct {
-	tomb oid.ID
-}
-
-// Tombstone returns the ID of the created object with tombstone.
-func (x DeleteObjectRes) Tombstone() oid.ID {
-	return x.tomb
-}
-
-// DeleteObject marks an object to be removed from NeoFS through tombstone placement.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func DeleteObject(ctx context.Context, prm DeleteObjectPrm) (*DeleteObjectRes, error) {
-	var delPrm client.PrmObjectDelete
-
-	if prm.sessionToken != nil {
-		delPrm.WithinSession(*prm.sessionToken)
-	}
-
-	if prm.bearerToken != nil {
-		delPrm.WithBearerToken(*prm.bearerToken)
-	}
-
-	delPrm.WithXHeaders(prm.xHeaders...)
-
-	cliRes, err := prm.cli.ObjectDelete(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, delPrm)
-	if err != nil {
-		return nil, fmt.Errorf("remove object via client: %w", err)
-	}
-
-	return &DeleteObjectRes{
-		tomb: cliRes,
-	}, nil
-}
-
 // GetObjectPrm groups parameters of GetObject operation.
 type GetObjectPrm struct {
 	commonObjectPrm
