@@ -7,11 +7,12 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type ClientConstructor interface {
@@ -32,8 +33,6 @@ type RemoteHeadPrm struct {
 
 	node netmap.NodeInfo
 }
-
-const remoteOpTTL = 1
 
 var ErrNotFound = errors.New("object header not found")
 
@@ -84,18 +83,13 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, info.AddressGroup(), err)
 	}
 
-	var headPrm internalclient.HeadObjectPrm
+	var opts client.PrmObjectHead
+	opts.MarkLocal()
 
-	headPrm.SetContext(ctx)
-	headPrm.SetClient(c)
-	headPrm.SetPrivateKey(key)
-	headPrm.SetAddress(prm.commonHeadPrm.addr)
-	headPrm.SetTTL(remoteOpTTL)
-
-	res, err := internalclient.HeadObject(headPrm)
+	res, err := c.ObjectHead(ctx, prm.commonHeadPrm.addr.Container(), prm.commonHeadPrm.addr.Object(), user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, info.AddressGroup(), err)
+		return nil, fmt.Errorf("(%T) could not head object in %s: read object header from NeoFS: %w", h, info.AddressGroup(), err)
 	}
 
-	return res.Header(), nil
+	return res, nil
 }
