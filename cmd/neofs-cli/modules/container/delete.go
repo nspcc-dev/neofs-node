@@ -49,16 +49,12 @@ Only owner of the container has a permission to remove container.`,
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
 
-			var getPrm internalclient.GetContainerPrm
-			getPrm.SetClient(cli)
-			getPrm.SetContainer(id)
-
-			resGet, err := internalclient.GetContainer(ctx, getPrm)
+			cnr, err := cli.ContainerGet(ctx, id, client.PrmContainerGet{})
 			if err != nil {
 				return fmt.Errorf("can't get the container: %w", err)
 			}
 
-			owner := resGet.Container().Owner()
+			owner := cnr.Owner()
 
 			if tok != nil {
 				common.PrintVerbose(cmd, "Checking session issuer...")

@@ -7,6 +7,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -53,16 +54,11 @@ var objectNodesCmd = &cobra.Command{
 			return fmt.Errorf("could not get netmap snapshot: %w", err)
 		}
 
-		var prmCnr internalclient.GetContainerPrm
-		prmCnr.SetClient(cli)
-		prmCnr.SetContainer(cnrID)
-
-		res, err := internalclient.GetContainer(ctx, prmCnr)
+		cnr, err := cli.ContainerGet(ctx, cnrID, client.PrmContainerGet{})
 		if err != nil {
 			return fmt.Errorf("could not get container: %w", err)
 		}
 
-		cnr := res.Container()
 		policy := cnr.PlacementPolicy()
 
 		var cnrNodes [][]netmap.NodeInfo
