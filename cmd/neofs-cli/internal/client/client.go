@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -16,31 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
-
-// BalanceOfPrm groups parameters of BalanceOf operation.
-type BalanceOfPrm struct {
-	commonPrm
-	client.PrmBalanceGet
-}
-
-// BalanceOfRes groups the resulting values of BalanceOf operation.
-type BalanceOfRes struct {
-	cliRes accounting.Decimal
-}
-
-// Balance returns the current balance.
-func (x BalanceOfRes) Balance() accounting.Decimal {
-	return x.cliRes
-}
-
-// BalanceOf requests the current balance of a NeoFS user.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func BalanceOf(ctx context.Context, prm BalanceOfPrm) (res BalanceOfRes, err error) {
-	res.cliRes, err = prm.cli.BalanceGet(ctx, prm.PrmBalanceGet)
-
-	return
-}
 
 // ListContainersPrm groups parameters of ListContainers operation.
 type ListContainersPrm struct {
