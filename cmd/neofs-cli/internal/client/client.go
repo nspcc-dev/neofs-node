@@ -1,14 +1,11 @@
 package internal
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // PutObjectPrm groups parameters of PutObject operation.
@@ -16,10 +13,6 @@ type PutObjectPrm struct {
 	commonObjectPrm
 
 	hdr *object.Object
-
-	rdr io.Reader
-
-	headerCallback func(*object.Object)
 }
 
 // SetHeader sets object header.
@@ -27,31 +20,10 @@ func (x *PutObjectPrm) SetHeader(hdr *object.Object) {
 	x.hdr = hdr
 }
 
-// SetPayloadReader sets reader of the object payload.
-func (x *PutObjectPrm) SetPayloadReader(rdr io.Reader) {
-	x.rdr = rdr
-}
-
-// SetHeaderCallback sets callback which is called on the object after the header is received
-// but before the payload is written.
-func (x *PutObjectPrm) SetHeaderCallback(f func(*object.Object)) {
-	x.headerCallback = f
-}
-
-// PutObjectRes groups the resulting values of PutObject operation.
-type PutObjectRes struct {
-	id oid.ID
-}
-
-// ID returns identifier of the created object.
-func (x PutObjectRes) ID() oid.ID {
-	return x.id
-}
-
 // PutObject saves the object in NeoFS network.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func PutObject(ctx context.Context, prm PutObjectPrm) (*PutObjectRes, error) {
+func PutObject(ctx context.Context, prm PutObjectPrm) (client.ObjectWriter, error) {
 	var putPrm client.PrmObjectPutInit
 
 	if prm.sessionToken != nil {
@@ -73,35 +45,5 @@ func PutObject(ctx context.Context, prm PutObjectPrm) (*PutObjectRes, error) {
 		return nil, fmt.Errorf("init object writing: %w", err)
 	}
 
-	if prm.headerCallback != nil {
-		prm.headerCallback(prm.hdr)
-	}
-
-	sz := prm.hdr.PayloadSize()
-
-	if data := prm.hdr.Payload(); len(data) > 0 {
-		prm.rdr = io.MultiReader(bytes.NewReader(data), prm.rdr)
-	}
-
-	const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
-
-	if sz == 0 || sz > defaultBufferSizePut {
-		sz = defaultBufferSizePut
-	}
-
-	buf := make([]byte, sz)
-
-	_, err = io.CopyBuffer(wrt, prm.rdr, buf)
-	if err != nil {
-		return nil, fmt.Errorf("copy data into object stream: %w", err)
-	}
-
-	err = wrt.Close()
-	if err != nil {
-		return nil, fmt.Errorf("finish object stream: %w", err)
-	}
-
-	return &PutObjectRes{
-		id: wrt.GetResult().StoredObjectID(),
-	}, nil
+	return wrt, nil
 }

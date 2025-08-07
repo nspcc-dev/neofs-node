@@ -144,32 +144,46 @@ func putObject(cmd *cobra.Command, _ []string) error {
 
 	var p *pb.ProgressBar
 
-	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
-	if noProgress {
-		prm.SetPayloadReader(payloadReader)
-	} else {
-		if binary {
-			p = pb.New(len(obj.Payload()))
-			p.Output = cmd.OutOrStdout()
-			prm.SetPayloadReader(p.NewProxyReader(payloadReader))
-			prm.SetHeaderCallback(func(o *object.Object) { p.Start() })
-		} else {
-			fi, err := f.Stat()
-			if err != nil {
-				cmd.PrintErrf("Failed to get file size, progress bar is disabled: %v\n", err)
-				prm.SetPayloadReader(f)
-			} else {
-				p = pb.New64(fi.Size())
+	wrt, err := internalclient.PutObject(ctx, prm)
+	if err == nil {
+		if noProgress, _ := cmd.Flags().GetBool(noProgressFlag); !noProgress {
+			if binary {
+				p = pb.New(len(obj.Payload()))
 				p.Output = cmd.OutOrStdout()
-				prm.SetPayloadReader(p.NewProxyReader(f))
-				prm.SetHeaderCallback(func(o *object.Object) {
+				p.Start()
+
+				payloadReader = p.NewProxyReader(payloadReader)
+			} else {
+				fi, err := f.Stat()
+				if err != nil {
+					cmd.PrintErrf("Failed to get file size, progress bar is disabled: %v\n", err)
+				} else {
+					p = pb.New64(fi.Size())
+					p.Output = cmd.OutOrStdout()
 					p.Start()
-				})
+
+					payloadReader = p.NewProxyReader(payloadReader)
+				}
 			}
 		}
-	}
 
-	res, err := internalclient.PutObject(ctx, prm)
+		if data := obj.Payload(); len(data) > 0 {
+			payloadReader = io.MultiReader(bytes.NewReader(data), payloadReader)
+		}
+
+		const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
+		sz := obj.PayloadSize()
+		if sz == 0 || sz > defaultBufferSizePut {
+			sz = defaultBufferSizePut
+		}
+		buf := make([]byte, sz)
+
+		if _, err = io.CopyBuffer(wrt, payloadReader, buf); err != nil {
+			err = fmt.Errorf("copy data into object stream: %w", err)
+		} else if err = wrt.Close(); err != nil {
+			err = fmt.Errorf("finish object stream: %w", err)
+		}
+	}
 	if p != nil {
 		p.Finish()
 	}
@@ -178,7 +192,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	cmd.Printf("[%s] Object successfully stored\n", filename)
-	cmd.Printf("  OID: %s\n  CID: %s\n", res.ID(), cnr)
+	cmd.Printf("  OID: %s\n  CID: %s\n", wrt.GetResult().StoredObjectID(), cnr)
 
 	return nil
 }
