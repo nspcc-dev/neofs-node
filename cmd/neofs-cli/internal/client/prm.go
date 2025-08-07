@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -28,23 +27,6 @@ type bearerTokenPrm struct {
 // WithBearerToken sets the bearer token to be attached to the request.
 func (x *bearerTokenPrm) WithBearerToken(tok bearer.Token) {
 	x.bearerToken = &tok
-}
-
-type objectAddressPrm struct {
-	objAddr oid.Address
-}
-
-func (x *objectAddressPrm) SetAddress(addr oid.Address) {
-	x.objAddr = addr
-}
-
-type rawPrm struct {
-	raw bool
-}
-
-// SetRawFlag sets flag of raw request.
-func (x *rawPrm) SetRawFlag(raw bool) {
-	x.raw = raw
 }
 
 type commonObjectPrm struct {
