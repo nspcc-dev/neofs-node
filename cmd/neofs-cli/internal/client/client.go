@@ -13,31 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
-// NetworkInfoPrm groups parameters of NetworkInfo operation.
-type NetworkInfoPrm struct {
-	commonPrm
-	client.PrmNetworkInfo
-}
-
-// NetworkInfoRes groups the resulting values of NetworkInfo operation.
-type NetworkInfoRes struct {
-	cliRes netmap.NetworkInfo
-}
-
-// NetworkInfo returns structured information about the NeoFS network.
-func (x NetworkInfoRes) NetworkInfo() netmap.NetworkInfo {
-	return x.cliRes
-}
-
-// NetworkInfo reads information about the NeoFS network.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func NetworkInfo(ctx context.Context, prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
-	res.cliRes, err = prm.cli.NetworkInfo(ctx, prm.PrmNetworkInfo)
-
-	return
-}
-
 // NodeInfoPrm groups parameters of NodeInfo operation.
 type NodeInfoPrm struct {
 	commonPrm
