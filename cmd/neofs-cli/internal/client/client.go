@@ -10,38 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
-
-// NodeInfoPrm groups parameters of NodeInfo operation.
-type NodeInfoPrm struct {
-	commonPrm
-	client.PrmEndpointInfo
-}
-
-// NodeInfoRes groups the resulting values of NodeInfo operation.
-type NodeInfoRes struct {
-	cliRes *client.ResEndpointInfo
-}
-
-// NodeInfo returns information about the node from netmap.
-func (x NodeInfoRes) NodeInfo() netmap.NodeInfo {
-	return x.cliRes.NodeInfo()
-}
-
-// LatestVersion returns the latest NeoFS API version in use.
-func (x NodeInfoRes) LatestVersion() version.Version {
-	return x.cliRes.LatestVersion()
-}
-
-// NodeInfo requests information about the remote server from NeoFS netmap.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func NodeInfo(ctx context.Context, prm NodeInfoPrm) (res NodeInfoRes, err error) {
-	res.cliRes, err = prm.cli.EndpointInfo(ctx, prm.PrmEndpointInfo)
-
-	return
-}
 
 // NetMapSnapshotPrm groups parameters of NetMapSnapshot operation.
 type NetMapSnapshotPrm struct {
