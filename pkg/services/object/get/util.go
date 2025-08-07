@@ -10,8 +10,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type SimpleObjectWriter struct {
@@ -93,27 +95,30 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 	}
 
 	if exec.headOnly() {
-		var prm internalclient.HeadObjectPrm
+		addr := exec.address()
+		id := addr.Object()
 
-		prm.SetContext(exec.context())
-		prm.SetClient(c.client)
-		prm.SetTTL(exec.prm.common.TTL())
-		prm.SetAddress(exec.address())
-		prm.SetPrivateKey(key)
-		prm.SetSessionToken(exec.prm.common.SessionToken())
-		prm.SetBearerToken(exec.prm.common.BearerToken())
-		prm.SetXHeaders(exec.prm.common.XHeaders())
-
+		var opts client.PrmObjectHead
+		if exec.prm.common.TTL() < 2 {
+			opts.MarkLocal()
+		}
+		if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+			opts.WithinSession(*st)
+		}
+		if bt := exec.prm.common.BearerToken(); bt != nil {
+			opts.WithBearerToken(*bt)
+		}
+		opts.WithXHeaders(exec.prm.common.XHeaders()...)
 		if exec.isRaw() {
-			prm.SetRawFlag()
+			opts.MarkRaw()
 		}
 
-		res, err := internalclient.HeadObject(prm)
+		hdr, err := c.client.ObjectHead(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 		}
 
-		return res.Header(), nil
+		return hdr, nil
 	}
 
 	if rngH := exec.prmRangeHash; rngH != nil && exec.isRangeHashForwardingEnabled() {
