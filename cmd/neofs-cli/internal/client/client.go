@@ -12,41 +12,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
-
-// ListContainersPrm groups parameters of ListContainers operation.
-type ListContainersPrm struct {
-	commonPrm
-
-	owner user.ID
-	client.PrmContainerList
-}
-
-// SetAccount sets containers' owner.
-func (l *ListContainersPrm) SetAccount(owner user.ID) {
-	l.owner = owner
-}
-
-// ListContainersRes groups the resulting values of ListContainers operation.
-type ListContainersRes struct {
-	cliRes []cid.ID
-}
-
-// IDList returns list of identifiers of user's containers.
-func (x ListContainersRes) IDList() []cid.ID {
-	return x.cliRes
-}
-
-// ListContainers requests a list of NeoFS user's containers.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func ListContainers(ctx context.Context, prm ListContainersPrm) (res ListContainersRes, err error) {
-	res.cliRes, err = prm.cli.ContainerList(ctx, prm.owner, prm.PrmContainerList)
-
-	return
-}
 
 // GetContainerPrm groups parameters of GetContainer operation.
 type GetContainerPrm struct {
