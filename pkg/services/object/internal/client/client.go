@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -11,7 +10,6 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -165,109 +163,6 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 
 	return &GetObjectRes{
 		obj: &obj,
-	}, nil
-}
-
-// PayloadRangePrm groups parameters of PayloadRange operation.
-type PayloadRangePrm struct {
-	readPrmCommon
-
-	offset, ln uint64
-
-	cliPrm client.PrmObjectRange
-
-	obj oid.ID
-	cnr cid.ID
-}
-
-// SetRawFlag sets raw flag of the request.
-//
-// By default request will not be raw.
-func (x *PayloadRangePrm) SetRawFlag() {
-	x.cliPrm.MarkRaw()
-}
-
-// SetAddress sets object address.
-//
-// Required parameter.
-func (x *PayloadRangePrm) SetAddress(addr oid.Address) {
-	x.obj = addr.Object()
-	x.cnr = addr.Container()
-}
-
-// SetRange range of the object payload to be read.
-//
-// Required parameter.
-func (x *PayloadRangePrm) SetRange(rng *object.Range) {
-	x.offset = rng.GetOffset()
-	x.ln = rng.GetLength()
-}
-
-// PayloadRangeRes groups the resulting values of GetObject operation.
-type PayloadRangeRes struct {
-	data []byte
-}
-
-// PayloadRange returns data of the requested payload range.
-func (x PayloadRangeRes) PayloadRange() []byte {
-	return x.data
-}
-
-// maxInitialBufferSize is the maximum initial buffer size for PayloadRange result.
-// We don't want to allocate a lot of space in advance because a query can
-// fail with apistatus.ObjectOutOfRange status.
-const maxInitialBufferSize = 1024 * 1024 // 1 MiB
-
-// PayloadRange reads object payload range by address.
-//
-// Client, context and key must be set.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-// Returns:
-//   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual
-//   - [apistatus.ErrObjectAlreadyRemoved] error if the requested object is marked to be removed
-//   - [apistatus.ErrObjectOutOfRange] error if the requested range is too big
-//   - [apistatus.ErrObjectAccessDenied] error if access to the requested object is denied
-//
-// PayloadRange ignores the provided session if it is not related to the requested object.
-func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
-	if prm.local {
-		prm.cliPrm.MarkLocal()
-	}
-
-	// see details in same statement of GetObject
-	if prm.tokenSession != nil && prm.tokenSession.AssertObject(prm.obj) {
-		prm.cliPrm.WithinSession(*prm.tokenSession)
-	}
-
-	if prm.tokenBearer != nil {
-		prm.cliPrm.WithBearerToken(*prm.tokenBearer)
-	}
-
-	prm.cliPrm.WithXHeaders(prm.xHeaders...)
-
-	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cnr, prm.obj, prm.offset, prm.ln, prm.signer, prm.cliPrm)
-	if err != nil {
-		return nil, fmt.Errorf("init payload reading: %w", err)
-	}
-
-	if int64(prm.ln) < 0 {
-		// `CopyN` expects `int64`, this check ensures that the result is positive.
-		// On practice this means that we can return incorrect results for objects
-		// with size > 8_388 Petabytes, this will be fixed later with support for streaming.
-		return nil, new(apistatus.ObjectOutOfRange)
-	}
-
-	ln := min(prm.ln, maxInitialBufferSize)
-
-	w := bytes.NewBuffer(make([]byte, ln))
-	_, err = io.CopyN(w, rdr, int64(prm.ln))
-	if err != nil {
-		return nil, fmt.Errorf("read payload: %w", err)
-	}
-
-	return &PayloadRangeRes{
-		data: w.Bytes(),
 	}, nil
 }
 
