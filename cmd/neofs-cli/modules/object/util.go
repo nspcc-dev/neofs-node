@@ -43,9 +43,8 @@ const (
 )
 
 type RPCParameters interface {
-	SetBearerToken(prm *bearer.Token)
-	SetTTL(uint32)
-	SetXHeaders([]string)
+	WithBearerToken(bearer.Token)
+	WithXHeaders(...string)
 }
 
 // InitBearer adds bearer token flag to a command.
@@ -65,9 +64,13 @@ func Prepare(cmd *cobra.Command, prms ...RPCParameters) error {
 			return err
 		}
 
-		prms[i].SetBearerToken(btok)
-		prms[i].SetTTL(ttl)
-		prms[i].SetXHeaders(ParseXHeaders(cmd))
+		if btok != nil {
+			prms[i].WithBearerToken(*btok)
+		}
+		if v, ok := prms[i].(interface{ MarkLocal() }); ok && ttl < 2 {
+			v.MarkLocal()
+		}
+		prms[i].WithXHeaders(ParseXHeaders(cmd)...)
 	}
 	return nil
 }
