@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- NeoFS SDK to RC14 version fixing object inaccessibility problem (#3510)
 
 ### Updating from v0.48.1
 
