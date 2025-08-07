@@ -7,45 +7,11 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
-
-// GetContainerPrm groups parameters of GetContainer operation.
-type GetContainerPrm struct {
-	commonPrm
-
-	cid    cid.ID
-	cliPrm client.PrmContainerGet
-}
-
-// SetContainer sets identifier of the container to be read.
-func (x *GetContainerPrm) SetContainer(id cid.ID) {
-	x.cid = id
-}
-
-// GetContainerRes groups the resulting values of GetContainer operation.
-type GetContainerRes struct {
-	cliRes containerSDK.Container
-}
-
-// Container returns structured of the requested container.
-func (x GetContainerRes) Container() containerSDK.Container {
-	return x.cliRes
-}
-
-// GetContainer reads a container from NeoFS by ID.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func GetContainer(ctx context.Context, prm GetContainerPrm) (res GetContainerRes, err error) {
-	res.cliRes, err = prm.cli.ContainerGet(ctx, prm.cid, prm.cliPrm)
-
-	return
-}
 
 // NetworkInfoPrm groups parameters of NetworkInfo operation.
 type NetworkInfoPrm struct {

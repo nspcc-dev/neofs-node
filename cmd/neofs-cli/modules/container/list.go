@@ -59,18 +59,13 @@ var listContainersCmd = &cobra.Command{
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		var prmGet internalclient.GetContainerPrm
-		prmGet.SetClient(cli)
-
 		for i := range list {
 			cmd.Println(list[i].String())
 
 			if flagVarListPrintAttr {
-				prmGet.SetContainer(list[i])
-
-				res, err := internalclient.GetContainer(ctx, prmGet)
+				cnr, err := cli.ContainerGet(ctx, list[i], client.PrmContainerGet{})
 				if err == nil {
-					for key, val := range res.Container().UserAttributes() {
+					for key, val := range cnr.UserAttributes() {
 						cmd.Printf("  %s: %s\n", key, val)
 					}
 				} else {
