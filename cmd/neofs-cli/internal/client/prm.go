@@ -36,9 +36,9 @@ type bearerTokenPrm struct {
 	bearerToken *bearer.Token
 }
 
-// SetBearerToken sets the bearer token to be attached to the request.
-func (x *bearerTokenPrm) SetBearerToken(tok *bearer.Token) {
-	x.bearerToken = tok
+// WithBearerToken sets the bearer token to be attached to the request.
+func (x *bearerTokenPrm) WithBearerToken(tok bearer.Token) {
+	x.bearerToken = &tok
 }
 
 type objectAddressPrm struct {
@@ -79,13 +79,13 @@ type commonObjectPrm struct {
 	xHeaders []string
 }
 
-// SetTTL sets request TTL value.
-func (x *commonObjectPrm) SetTTL(ttl uint32) {
-	x.local = ttl < 2
+// MarkLocal request as local-only.
+func (x *commonObjectPrm) MarkLocal() {
+	x.local = true
 }
 
-// SetXHeaders sets request X-Headers.
-func (x *commonObjectPrm) SetXHeaders(hs []string) {
+// WithXHeaders sets request X-Headers.
+func (x *commonObjectPrm) WithXHeaders(hs ...string) {
 	x.xHeaders = hs
 }
 
