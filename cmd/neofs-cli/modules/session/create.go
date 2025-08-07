@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -123,12 +124,10 @@ func createSession(cmd *cobra.Command, _ []string) error {
 //
 // Fills ID, lifetime and session key.
 func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, key ecdsa.PrivateKey, expireAt uint64, currEpoch uint64) error {
-	var sessionPrm internalclient.CreateSessionPrm
-	sessionPrm.SetClient(c)
+	var sessionPrm client.PrmSessionCreate
 	sessionPrm.SetExp(expireAt)
-	sessionPrm.SetPrivateKey(key)
 
-	sessionRes, err := internalclient.CreateSession(ctx, sessionPrm)
+	sessionRes, err := c.SessionCreate(ctx, user.NewAutoIDSigner(key), sessionPrm)
 	if err != nil {
 		return fmt.Errorf("can't open session: %w", err)
 	}
@@ -137,7 +136,7 @@ func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, k
 
 	var keySession neofsecdsa.PublicKey
 
-	err = keySession.Decode(sessionRes.SessionKey())
+	err = keySession.Decode(sessionRes.PublicKey())
 	if err != nil {
 		return fmt.Errorf("decode public session key: %w", err)
 	}

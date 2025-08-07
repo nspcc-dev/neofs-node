@@ -11,37 +11,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// CreateSessionPrm groups parameters of CreateSession operation.
-type CreateSessionPrm struct {
-	commonPrm
-	signerPrm
-	client.PrmSessionCreate
-}
-
-// CreateSessionRes groups the resulting values of CreateSession operation.
-type CreateSessionRes struct {
-	cliRes *client.ResSessionCreate
-}
-
-// ID returns session identifier.
-func (x CreateSessionRes) ID() []byte {
-	return x.cliRes.ID()
-}
-
-// SessionKey returns public session key in a binary format.
-func (x CreateSessionRes) SessionKey() []byte {
-	return x.cliRes.PublicKey()
-}
-
-// CreateSession opens a new unlimited session with the remote node.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func CreateSession(ctx context.Context, prm CreateSessionPrm) (res CreateSessionRes, err error) {
-	res.cliRes, err = prm.cli.SessionCreate(ctx, prm.signer, prm.PrmSessionCreate)
-
-	return
-}
-
 // PutObjectPrm groups parameters of PutObject operation.
 type PutObjectPrm struct {
 	commonObjectPrm
