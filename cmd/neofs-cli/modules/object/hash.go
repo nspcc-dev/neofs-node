@@ -54,7 +54,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	var cnr cid.ID
 	var obj oid.ID
 
-	objAddr, err := readObjectAddress(cmd, &cnr, &obj)
+	_, err := readObjectAddress(cmd, &cnr, &obj)
 	if err != nil {
 		return err
 	}
@@ -123,9 +123,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	var hashPrm internalclient.HashPayloadRangesPrm
-	hashPrm.SetClient(cli)
-	hashPrm.SetPrivateKey(*pk)
+	var hashPrm client.PrmObjectHash
 	err = Prepare(cmd, &hashPrm)
 	if err != nil {
 		return err
@@ -134,20 +132,23 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	hashPrm.SetAddress(objAddr)
-	hashPrm.SetSalt(salt)
-	hashPrm.SetRanges(ranges)
+	hashPrm.UseSalt(salt)
+
+	rngs := make([]uint64, 2*len(ranges))
+	for i := range ranges {
+		rngs[2*i] = ranges[i].GetOffset()
+		rngs[2*i+1] = ranges[i].GetLength()
+	}
+	hashPrm.SetRangeList(rngs...)
 
 	if tz {
-		hashPrm.TZ()
+		hashPrm.TillichZemorAlgo()
 	}
 
-	res, err := internalclient.HashPayloadRanges(ctx, hashPrm)
+	hs, err := cli.ObjectHash(ctx, cnr, obj, user.NewAutoIDSigner(*pk), hashPrm)
 	if err != nil {
-		return fmt.Errorf("rpc error: %w", err)
+		return fmt.Errorf("rpc error: read payload hashes via client: %w", err)
 	}
-
-	hs := res.HashList()
 
 	for i := range hs {
 		cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
