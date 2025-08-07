@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
@@ -109,19 +108,21 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		payloadWriter = out
 	}
 
-	if filename == "" || noProgress {
-		prm.SetPayloadWriter(payloadWriter)
-	} else {
-		p = pb.New64(0)
-		p.Output = cmd.OutOrStdout()
-		prm.SetPayloadWriter(p.NewProxyWriter(payloadWriter))
-		prm.SetHeaderCallback(func(o *object.Object) {
-			p.SetTotal64(int64(o.PayloadSize()))
+	hdr, rdr, err := internalclient.GetObject(ctx, prm)
+	if err == nil {
+		if filename != "" && !noProgress {
+			p = pb.New64(0)
+			p.Output = cmd.OutOrStdout()
+			p.SetTotal64(int64(hdr.PayloadSize()))
 			p.Start()
-		})
-	}
 
-	res, err := internalclient.GetObject(ctx, prm)
+			payloadWriter = p.NewProxyWriter(payloadWriter)
+		}
+
+		if _, err = io.Copy(payloadWriter, rdr); err != nil {
+			err = fmt.Errorf("copy payload: %w", err)
+		}
+	}
 	if p != nil {
 		p.Finish()
 	}
@@ -135,7 +136,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	if binary {
-		objToStore := res.Header()
+		objToStore := hdr
 		// TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
 		objToStore.SetPayload(payloadBuffer.Bytes())
 		objBytes := objToStore.Marshal()
@@ -151,7 +152,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 
 	// Print header only if file is not streamed to stdout.
 	if filename != "" {
-		err = printHeader(cmd, res.Header())
+		err = printHeader(cmd, &hdr)
 		if err != nil {
 			return err
 		}

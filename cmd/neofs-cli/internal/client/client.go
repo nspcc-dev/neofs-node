@@ -118,24 +118,6 @@ type GetObjectPrm struct {
 	commonObjectPrm
 	objectAddressPrm
 	rawPrm
-	payloadWriterPrm
-	headerCallback func(*object.Object)
-}
-
-// SetHeaderCallback sets callback which is called on the object after the header is received
-// but before the payload is written.
-func (p *GetObjectPrm) SetHeaderCallback(f func(*object.Object)) {
-	p.headerCallback = f
-}
-
-// GetObjectRes groups the resulting values of GetObject operation.
-type GetObjectRes struct {
-	hdr *object.Object
-}
-
-// Header returns the header of the request object.
-func (x GetObjectRes) Header() *object.Object {
-	return x.hdr
 }
 
 // GetObject reads an object by address.
@@ -144,7 +126,7 @@ func (x GetObjectRes) Header() *object.Object {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
-func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
+func GetObject(ctx context.Context, prm GetObjectPrm) (object.Object, io.Reader, error) {
 	var getPrm client.PrmObjectGet
 
 	if prm.sessionToken != nil {
@@ -167,19 +149,8 @@ func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
 
 	hdr, rdr, err := prm.cli.ObjectGetInit(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, getPrm)
 	if err != nil {
-		return nil, fmt.Errorf("init object reading on client: %w", err)
+		return object.Object{}, nil, fmt.Errorf("init object reading on client: %w", err)
 	}
 
-	if prm.headerCallback != nil {
-		prm.headerCallback(&hdr)
-	}
-
-	_, err = io.Copy(prm.wrt, rdr)
-	if err != nil {
-		return nil, fmt.Errorf("copy payload: %w", err)
-	}
-
-	return &GetObjectRes{
-		hdr: &hdr,
-	}, nil
+	return hdr, rdr, nil
 }
