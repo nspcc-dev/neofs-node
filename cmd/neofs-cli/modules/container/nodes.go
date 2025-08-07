@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
@@ -33,10 +34,7 @@ var containerNodesCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prm internalclient.NetMapSnapshotPrm
-		prm.SetClient(cli)
-
-		resmap, err := internalclient.NetMapSnapshot(ctx, prm)
+		nm, err := cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
 		if err != nil {
 			return fmt.Errorf("unable to get netmap snapshot: %w", err)
 		}
@@ -46,7 +44,7 @@ var containerNodesCmd = &cobra.Command{
 		policy := cnr.PlacementPolicy()
 
 		var cnrNodes [][]netmap.NodeInfo
-		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, id)
+		cnrNodes, err = nm.ContainerNodes(policy, id)
 		if err != nil {
 			return fmt.Errorf("could not build container nodes for given container: %w", err)
 		}
