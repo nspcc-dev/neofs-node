@@ -184,58 +184,6 @@ func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
 	}, nil
 }
 
-// HeadObjectPrm groups parameters of HeadObject operation.
-type HeadObjectPrm struct {
-	commonObjectPrm
-	objectAddressPrm
-	rawPrm
-}
-
-// HeadObjectRes groups the resulting values of HeadObject operation.
-type HeadObjectRes struct {
-	hdr *object.Object
-}
-
-// Header returns the requested object header.
-func (x HeadObjectRes) Header() *object.Object {
-	return x.hdr
-}
-
-// HeadObject reads an object header by address.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-// For raw reading, returns *object.SplitInfoError error if object is virtual.
-func HeadObject(ctx context.Context, prm HeadObjectPrm) (*HeadObjectRes, error) {
-	var cliPrm client.PrmObjectHead
-
-	if prm.sessionToken != nil {
-		cliPrm.WithinSession(*prm.sessionToken)
-	}
-
-	if prm.bearerToken != nil {
-		cliPrm.WithBearerToken(*prm.bearerToken)
-	}
-
-	if prm.raw {
-		cliPrm.MarkRaw()
-	}
-
-	if prm.local {
-		cliPrm.MarkLocal()
-	}
-
-	cliPrm.WithXHeaders(prm.xHeaders...)
-
-	hdr, err := prm.cli.ObjectHead(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, cliPrm)
-	if err != nil {
-		return nil, fmt.Errorf("read object header via client: %w", err)
-	}
-
-	return &HeadObjectRes{
-		hdr: hdr,
-	}, nil
-}
-
 // SearchObjectsPrm groups parameters of SearchObjects operation.
 type SearchObjectsPrm struct {
 	commonObjectPrm
