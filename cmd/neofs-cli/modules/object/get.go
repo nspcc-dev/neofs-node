@@ -10,8 +10,10 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +47,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	var cnr cid.ID
 	var obj oid.ID
 
-	objAddr, err := readObjectAddress(cmd, &cnr, &obj)
+	_, err := readObjectAddress(cmd, &cnr, &obj)
 	if err != nil {
 		return err
 	}
@@ -79,9 +81,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	}
 	defer cli.Close()
 
-	var prm internalclient.GetObjectPrm
-	prm.SetClient(cli)
-	prm.SetPrivateKey(*pk)
+	var prm client.PrmObjectGet
 	err = Prepare(cmd, &prm)
 	if err != nil {
 		return err
@@ -92,8 +92,9 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
-	prm.SetRawFlag(raw)
-	prm.SetAddress(objAddr)
+	if raw {
+		prm.MarkRaw()
+	}
 
 	var p *pb.ProgressBar
 	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
@@ -108,7 +109,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		payloadWriter = out
 	}
 
-	hdr, rdr, err := internalclient.GetObject(ctx, prm)
+	hdr, rdr, err := cli.ObjectGetInit(ctx, cnr, obj, user.NewAutoIDSigner(*pk), prm)
 	if err == nil {
 		if filename != "" && !noProgress {
 			p = pb.New64(0)
