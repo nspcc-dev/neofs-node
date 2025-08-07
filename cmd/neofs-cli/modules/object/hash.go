@@ -10,8 +10,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -91,28 +93,25 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	fullHash := len(ranges) == 0
 	if fullHash {
 		common.PrintVerbose(cmd, "Get the hash of the full object payload.")
-		var headPrm internalclient.HeadObjectPrm
-		headPrm.SetPrivateKey(*pk)
-		headPrm.SetClient(cli)
+		var headPrm client.PrmObjectHead
 		err = Prepare(cmd, &headPrm)
 		if err != nil {
 			return err
 		}
-		headPrm.SetAddress(objAddr)
 
 		// get hash of full payload through HEAD (may be user can do it through dedicated command?)
-		res, err := internalclient.HeadObject(ctx, headPrm)
+		hdr, err := cli.ObjectHead(ctx, cnr, obj, user.NewAutoIDSigner(*pk), headPrm)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			return fmt.Errorf("rpc error: read object header via client: %w", err)
 		}
 
 		var cs checksum.Checksum
 		var csSet bool
 
 		if tz {
-			cs, csSet = res.Header().PayloadHomomorphicHash()
+			cs, csSet = hdr.PayloadHomomorphicHash()
 		} else {
-			cs, csSet = res.Header().PayloadChecksum()
+			cs, csSet = hdr.PayloadChecksum()
 		}
 
 		if csSet {

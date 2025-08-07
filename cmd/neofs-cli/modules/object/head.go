@@ -10,9 +10,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +48,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	var cnr cid.ID
 	var obj oid.ID
 
-	objAddr, err := readObjectAddress(cmd, &cnr, &obj)
+	_, err := readObjectAddress(cmd, &cnr, &obj)
 	if err != nil {
 		return err
 	}
@@ -65,9 +67,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	}
 	defer cli.Close()
 
-	var prm internalclient.HeadObjectPrm
-	prm.SetClient(cli)
-	prm.SetPrivateKey(*pk)
+	var prm client.PrmObjectHead
 	err = Prepare(cmd, &prm)
 	if err != nil {
 		return err
@@ -78,20 +78,21 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	}
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
-	prm.SetRawFlag(raw)
-	prm.SetAddress(objAddr)
+	if raw {
+		prm.MarkRaw()
+	}
 
-	res, err := internalclient.HeadObject(ctx, prm)
+	hdr, err := cli.ObjectHead(ctx, cnr, obj, user.NewAutoIDSigner(*pk), prm)
 	if err != nil {
 		if ok, err := printSplitInfoErr(cmd, err); ok {
 			return err
 		}
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			return fmt.Errorf("rpc error: read object header via client: %w", err)
 		}
 	}
 
-	err = saveAndPrintHeader(cmd, res.Header(), cmd.Flag(fileFlag).Value.String())
+	err = saveAndPrintHeader(cmd, hdr, cmd.Flag(fileFlag).Value.String())
 	if err != nil {
 		return err
 	}

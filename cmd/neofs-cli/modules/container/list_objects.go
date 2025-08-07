@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -58,10 +58,8 @@ var listContainerObjectsCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prmHead internalclient.HeadObjectPrm
+		var prmHead client.PrmObjectHead
 		if flagVarListObjectsPrintAttr {
-			prmHead.SetClient(cli)
-			prmHead.SetPrivateKey(*pk)
 			err = objectCli.Prepare(cmd, &prmHead)
 			if err != nil {
 				return err
@@ -84,21 +82,17 @@ var listContainerObjectsCmd = &cobra.Command{
 		for {
 			res, cursor, err = cli.SearchObjects(ctx, id, *filters, nil, cursor, (*neofsecdsa.Signer)(pk), opts)
 			if err != nil {
-				return fmt.Errorf("rpc error: %w", err)
+				return fmt.Errorf("rpc error: read object header via client: %w", err)
 			}
 			for i := range res {
 				cmd.Println(res[i].ID)
 				if !flagVarListObjectsPrintAttr {
 					continue
 				}
-				var addr oid.Address
-				addr.SetContainer(id)
-				addr.SetObject(res[i].ID)
-				prmHead.SetAddress(addr)
 
-				resHead, err := internalclient.HeadObject(ctx, prmHead)
+				hdr, err := cli.ObjectHead(ctx, id, res[i].ID, user.NewAutoIDSigner(*pk), prmHead)
 				if err == nil {
-					attrs := resHead.Header().UserAttributes()
+					attrs := hdr.UserAttributes()
 					for i := range attrs {
 						key := attrs[i].Key()
 						val := attrs[i].Value()
