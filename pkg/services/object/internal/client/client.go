@@ -3,9 +3,7 @@ package internal
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
-	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -82,88 +80,6 @@ func (x *commonPrm) SetXHeaders(hs []string) {
 
 type readPrmCommon struct {
 	commonPrm
-}
-
-// GetObjectPrm groups parameters of GetObject operation.
-type GetObjectPrm struct {
-	readPrmCommon
-
-	cliPrm client.PrmObjectGet
-
-	obj oid.ID
-	cnr cid.ID
-}
-
-// SetRawFlag sets raw flag of the request.
-//
-// By default request will not be raw.
-func (x *GetObjectPrm) SetRawFlag() {
-	x.cliPrm.MarkRaw()
-}
-
-// SetAddress sets object address.
-//
-// Required parameter.
-func (x *GetObjectPrm) SetAddress(addr oid.Address) {
-	x.obj = addr.Object()
-	x.cnr = addr.Container()
-}
-
-// GetObjectRes groups the resulting values of GetObject operation.
-type GetObjectRes struct {
-	obj *object.Object
-}
-
-// Object returns requested object.
-func (x GetObjectRes) Object() *object.Object {
-	return x.obj
-}
-
-// GetObject reads the object by address.
-//
-// Client, context and key must be set.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-// Returns:
-//   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual
-//   - [apistatus.ErrObjectAlreadyRemoved] error if the requested object is marked to be removed
-//
-// GetObject ignores the provided session if it is not related to the requested object.
-func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
-	// here we ignore session if it is opened for other object since such
-	// request will almost definitely fail. The case can occur, for example,
-	// when session is bound to the parent object and child object is requested.
-	if prm.tokenSession != nil && prm.tokenSession.AssertObject(prm.obj) {
-		prm.cliPrm.WithinSession(*prm.tokenSession)
-	}
-
-	if prm.tokenBearer != nil {
-		prm.cliPrm.WithBearerToken(*prm.tokenBearer)
-	}
-
-	if prm.local {
-		prm.cliPrm.MarkLocal()
-	}
-
-	prm.cliPrm.WithXHeaders(prm.xHeaders...)
-
-	obj, rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cnr, prm.obj, prm.signer, prm.cliPrm)
-	if err != nil {
-		return nil, fmt.Errorf("init object reading: %w", err)
-	}
-
-	buf := make([]byte, obj.PayloadSize())
-
-	_, err = rdr.Read(buf)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("read payload: %w", err)
-	}
-
-	obj.SetPayload(buf)
-
-	return &GetObjectRes{
-		obj: &obj,
-	}, nil
 }
 
 // PutObjectPrm groups parameters of PutObject operation.

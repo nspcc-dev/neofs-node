@@ -10,7 +10,6 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
-	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -203,27 +202,39 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 }
 
 func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, error) {
-	var prm internalclient.GetObjectPrm
+	addr := exec.address()
+	id := addr.Object()
 
-	prm.SetContext(exec.context())
-	prm.SetClient(c.client)
-	prm.SetTTL(exec.prm.common.TTL())
-	prm.SetAddress(exec.address())
-	prm.SetPrivateKey(key)
-	prm.SetSessionToken(exec.prm.common.SessionToken())
-	prm.SetBearerToken(exec.prm.common.BearerToken())
-	prm.SetXHeaders(exec.prm.common.XHeaders())
-
+	var opts client.PrmObjectGet
+	if exec.prm.common.TTL() < 2 {
+		opts.MarkLocal()
+	}
+	if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+		opts.WithinSession(*st)
+	}
+	if bt := exec.prm.common.BearerToken(); bt != nil {
+		opts.WithBearerToken(*bt)
+	}
+	opts.WithXHeaders(exec.prm.common.XHeaders()...)
 	if exec.isRaw() {
-		prm.SetRawFlag()
+		opts.MarkRaw()
 	}
 
-	res, err := internalclient.GetObject(prm)
+	hdr, rdr, err := c.client.ObjectGetInit(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init object reading:: %w", err)
 	}
 
-	return res.Object(), nil
+	buf := make([]byte, hdr.PayloadSize())
+
+	_, err = rdr.Read(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("read payload: %w", err)
+	}
+
+	hdr.SetPayload(buf)
+
+	return &hdr, nil
 }
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
