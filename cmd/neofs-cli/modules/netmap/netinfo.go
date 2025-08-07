@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/spf13/cobra"
 )
 
@@ -27,15 +28,10 @@ var netInfoCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prm internalclient.NetworkInfoPrm
-		prm.SetClient(cli)
-
-		res, err := internalclient.NetworkInfo(ctx, prm)
+		netInfo, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
-
-		netInfo := res.NetworkInfo()
 
 		cmd.Printf("Epoch: %d\n", netInfo.CurrentEpoch())
 
