@@ -7,33 +7,9 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
-
-// NetMapSnapshotPrm groups parameters of NetMapSnapshot operation.
-type NetMapSnapshotPrm struct {
-	commonPrm
-}
-
-// NetMapSnapshotRes groups the resulting values of NetMapSnapshot operation.
-type NetMapSnapshotRes struct {
-	cliRes netmap.NetMap
-}
-
-// NetMap returns current local snapshot of the NeoFS network map.
-func (x NetMapSnapshotRes) NetMap() netmap.NetMap {
-	return x.cliRes
-}
-
-// NetMapSnapshot requests current network view of the remote server.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func NetMapSnapshot(ctx context.Context, prm NetMapSnapshotPrm) (res NetMapSnapshotRes, err error) {
-	res.cliRes, err = prm.cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
-	return
-}
 
 // CreateSessionPrm groups parameters of CreateSession operation.
 type CreateSessionPrm struct {

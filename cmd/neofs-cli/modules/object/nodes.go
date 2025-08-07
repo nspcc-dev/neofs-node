@@ -46,10 +46,7 @@ var objectNodesCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prmSnap internalclient.NetMapSnapshotPrm
-		prmSnap.SetClient(cli)
-
-		resmap, err := internalclient.NetMapSnapshot(ctx, prmSnap)
+		nm, err := cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
 		if err != nil {
 			return fmt.Errorf("could not get netmap snapshot: %w", err)
 		}
@@ -62,12 +59,12 @@ var objectNodesCmd = &cobra.Command{
 		policy := cnr.PlacementPolicy()
 
 		var cnrNodes [][]netmap.NodeInfo
-		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, cnrID)
+		cnrNodes, err = nm.ContainerNodes(policy, cnrID)
 		if err != nil {
 			return fmt.Errorf("could not build container nodes for the given container: %w", err)
 		}
 
-		placementNodes, err := resmap.NetMap().PlacementVectors(cnrNodes, oID)
+		placementNodes, err := nm.PlacementVectors(cnrNodes, oID)
 		if err != nil {
 			return fmt.Errorf("could not build placement nodes for the given container: %w", err)
 		}
