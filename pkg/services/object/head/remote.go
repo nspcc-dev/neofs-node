@@ -2,7 +2,6 @@ package headsvc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -33,8 +32,6 @@ type RemoteHeadPrm struct {
 
 	node netmap.NodeInfo
 }
-
-var ErrNotFound = errors.New("object header not found")
 
 // NewRemoteHeader creates, initializes and returns new RemoteHeader instance.
 func NewRemoteHeader(keyStorage *util.KeyStorage, cache ClientConstructor) *RemoteHeader {
