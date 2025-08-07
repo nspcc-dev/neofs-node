@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -51,17 +52,16 @@ var accountingBalanceCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prm internalclient.BalanceOfPrm
-		prm.SetClient(cli)
+		var prm client.PrmBalanceGet
 		prm.SetAccount(idUser)
 
-		res, err := internalclient.BalanceOf(ctx, prm)
+		res, err := cli.BalanceGet(ctx, prm)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
 		// print to stdout
-		prettyPrintDecimal(cmd, res.Balance())
+		prettyPrintDecimal(cmd, res)
 		return nil
 	},
 }
