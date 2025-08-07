@@ -89,9 +89,9 @@ func (x *commonObjectPrm) SetXHeaders(hs []string) {
 	x.xHeaders = hs
 }
 
-// SetSessionToken sets the token of the session within which the request should be sent.
-func (x *commonObjectPrm) SetSessionToken(tok *session.Object) {
-	x.sessionToken = tok
+// WithinSession sets the token of the session within which the request should be sent.
+func (x *commonObjectPrm) WithinSession(tok session.Object) {
+	x.sessionToken = &tok
 }
 
 type signerPrm struct {
