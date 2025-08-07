@@ -16,6 +16,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -122,8 +123,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	obj.SetOwner(ownerID)
 	obj.SetAttributes(attrs...)
 
-	var prm internalclient.PutObjectPrm
-	prm.SetPrivateKey(*pk)
+	var prm client.PrmObjectPutInit
 
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {
@@ -139,12 +139,10 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	prm.SetClient(cli)
-	prm.SetHeader(obj)
 
 	var p *pb.ProgressBar
 
-	wrt, err := internalclient.PutObject(ctx, prm)
+	wrt, err := cli.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*pk), prm)
 	if err == nil {
 		if noProgress, _ := cmd.Flags().GetBool(noProgressFlag); !noProgress {
 			if binary {
@@ -183,6 +181,8 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		} else if err = wrt.Close(); err != nil {
 			err = fmt.Errorf("finish object stream: %w", err)
 		}
+	} else {
+		err = fmt.Errorf("init object writing: %w", err)
 	}
 	if p != nil {
 		p.Finish()
