@@ -92,6 +92,8 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
+		prm.SetClient(cli)
+
 		obj := objectSDK.New()
 		obj.SetContainerID(cnr)
 		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))

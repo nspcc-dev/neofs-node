@@ -142,7 +142,6 @@ func readOID(cmd *cobra.Command, id *oid.ID) error {
 // sessions.
 type SessionPrm interface {
 	SetSessionToken(*session.Object)
-	SetClient(*client.Client)
 }
 
 // forwards all parameters to _readVerifiedSession and object as nil.
@@ -274,7 +273,6 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 	if err != nil {
 		return err
 	}
-	dst.SetClient(cli)
 	return nil
 }
 
@@ -309,7 +307,6 @@ func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPr
 		return err
 	}
 
-	dst.SetClient(cli)
 	return nil
 }
 

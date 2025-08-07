@@ -139,6 +139,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	prm.SetClient(cli)
 	prm.SetHeader(obj)
 
 	var p *pb.ProgressBar

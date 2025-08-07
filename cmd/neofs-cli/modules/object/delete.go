@@ -104,6 +104,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return err
 		}
+		prm.SetClient(cli)
 		prm.SetAddress(addr)
 
 		res, err := internalclient.DeleteObject(ctx, prm)
