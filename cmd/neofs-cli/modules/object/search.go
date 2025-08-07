@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -103,9 +104,7 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 	}
 	defer cli.Close()
 
-	var prm internalclient.SearchObjectsPrm
-	prm.SetClient(cli)
-	prm.SetPrivateKey(*pk)
+	var prm client.PrmObjectSearch
 	err = Prepare(cmd, &prm)
 	if err != nil {
 		return err
@@ -116,15 +115,22 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	prm.SetContainerID(cnr)
 	prm.SetFilters(sf)
 
-	res, err := internalclient.SearchObjects(ctx, prm)
+	rdr, err := cli.ObjectSearchInit(ctx, cnr, user.NewAutoIDSigner(*pk), prm)
 	if err != nil {
-		return fmt.Errorf("rpc error: %w", err)
+		return fmt.Errorf("rpc error: init object search: %w", err)
 	}
 
-	ids := res.IDList()
+	var ids []oidSDK.ID
+
+	err = rdr.Iterate(func(id oidSDK.ID) bool {
+		ids = append(ids, id)
+		return false
+	})
+	if err != nil {
+		return fmt.Errorf("rpc error: search objects using NeoFS API: %w", err)
+	}
 
 	cmd.Printf("Found %d objects.\n", len(ids))
 	for i := range ids {

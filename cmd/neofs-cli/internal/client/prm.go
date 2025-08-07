@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -21,15 +20,6 @@ type commonPrm struct {
 // SetClient sets the base client for NeoFS API communication.
 func (x *commonPrm) SetClient(cli *client.Client) {
 	x.cli = cli
-}
-
-type containerIDPrm struct {
-	cnrID cid.ID
-}
-
-// SetContainerID sets the container identifier.
-func (x *containerIDPrm) SetContainerID(id cid.ID) {
-	x.cnrID = id
 }
 
 type bearerTokenPrm struct {
