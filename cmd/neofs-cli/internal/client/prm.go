@@ -2,7 +2,6 @@ package internal
 
 import (
 	"crypto/ecdsa"
-	"io"
 
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -46,15 +45,6 @@ type rawPrm struct {
 // SetRawFlag sets flag of raw request.
 func (x *rawPrm) SetRawFlag(raw bool) {
 	x.raw = raw
-}
-
-type payloadWriterPrm struct {
-	wrt io.Writer
-}
-
-// SetPayloadWriter sets the writer of the object payload.
-func (x *payloadWriterPrm) SetPayloadWriter(wrt io.Writer) {
-	x.wrt = wrt
 }
 
 type commonObjectPrm struct {
