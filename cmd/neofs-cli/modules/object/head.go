@@ -37,7 +37,6 @@ func initObjectHeadCmd() {
 	_ = objectHeadCmd.MarkFlagRequired(commonflags.OIDFlag)
 
 	flags.String(fileFlag, "", "File to write header to. Default: stdout.")
-	flags.Bool("main-only", false, "Return only main fields")
 	flags.Bool(commonflags.JSON, false, "Marshal output in JSON")
 	flags.Bool("proto", false, "Marshal output in Protobuf")
 	flags.Bool(rawFlag, false, rawFlagDesc)
@@ -51,7 +50,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	mainOnly, _ := cmd.Flags().GetBool("main-only")
+
 	pk, err := key.GetOrGenerate(cmd)
 	if err != nil {
 		return err
@@ -81,7 +80,6 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 	prm.SetRawFlag(raw)
 	prm.SetAddress(objAddr)
-	prm.SetMainOnlyFlag(mainOnly)
 
 	res, err := internalclient.HeadObject(ctx, prm)
 	if err != nil {

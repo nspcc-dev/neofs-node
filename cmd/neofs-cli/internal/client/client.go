@@ -189,13 +189,6 @@ type HeadObjectPrm struct {
 	commonObjectPrm
 	objectAddressPrm
 	rawPrm
-
-	mainOnly bool
-}
-
-// SetMainOnlyFlag sets flag to get only main fields of an object header in terms of NeoFS API.
-func (x *HeadObjectPrm) SetMainOnlyFlag(v bool) {
-	x.mainOnly = v
 }
 
 // HeadObjectRes groups the resulting values of HeadObject operation.
