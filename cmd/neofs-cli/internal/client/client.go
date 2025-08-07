@@ -80,27 +80,20 @@ func PutObject(ctx context.Context, prm PutObjectPrm) (*PutObjectRes, error) {
 	sz := prm.hdr.PayloadSize()
 
 	if data := prm.hdr.Payload(); len(data) > 0 {
-		if prm.rdr != nil {
-			prm.rdr = io.MultiReader(bytes.NewReader(data), prm.rdr)
-		} else {
-			prm.rdr = bytes.NewReader(data)
-			sz = uint64(len(data))
-		}
+		prm.rdr = io.MultiReader(bytes.NewReader(data), prm.rdr)
 	}
 
-	if prm.rdr != nil {
-		const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
+	const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
 
-		if sz == 0 || sz > defaultBufferSizePut {
-			sz = defaultBufferSizePut
-		}
+	if sz == 0 || sz > defaultBufferSizePut {
+		sz = defaultBufferSizePut
+	}
 
-		buf := make([]byte, sz)
+	buf := make([]byte, sz)
 
-		_, err = io.CopyBuffer(wrt, prm.rdr, buf)
-		if err != nil {
-			return nil, fmt.Errorf("copy data into object stream: %w", err)
-		}
+	_, err = io.CopyBuffer(wrt, prm.rdr, buf)
+	if err != nil {
+		return nil, fmt.Errorf("copy data into object stream: %w", err)
 	}
 
 	err = wrt.Close()

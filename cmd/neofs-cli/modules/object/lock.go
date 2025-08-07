@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -70,8 +71,7 @@ var objectLockCmd = &cobra.Command{
 		expirationAttr.SetKey(objectSDK.AttributeExpirationEpoch)
 		expirationAttr.SetValue(strconv.FormatUint(exp, 10))
 
-		var prm internalclient.PutObjectPrm
-		prm.SetPrivateKey(*key)
+		var prm client.PrmObjectPutInit
 
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
@@ -92,8 +92,6 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		prm.SetClient(cli)
-
 		obj := objectSDK.New()
 		obj.SetContainerID(cnr)
 		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
@@ -101,14 +99,18 @@ var objectLockCmd = &cobra.Command{
 		for _, locked := range lockList {
 			obj.SetAttributes(expirationAttr)
 			obj.AssociateLocked(locked)
-			prm.SetHeader(obj)
 
-			res, err := internalclient.PutObject(ctx, prm)
+			wrt, err := cli.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), prm)
+			if err != nil {
+				err = fmt.Errorf("nit object writing: %w", err)
+			} else if err = wrt.Close(); err != nil {
+				err = fmt.Errorf("finish object stream: %w", err)
+			}
 			if err != nil {
 				return fmt.Errorf("Store lock object for %s in NeoFS: %w", locked, err)
 			}
 
-			cmd.Printf("Lock object ID for %s locked object: %s\n", locked, res.ID())
+			cmd.Printf("Lock object ID for %s locked object: %s\n", locked, wrt.GetResult().StoredObjectID())
 			cmd.Println("Objects successfully locked.")
 		}
 
