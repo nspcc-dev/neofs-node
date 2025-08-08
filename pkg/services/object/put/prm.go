@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -20,9 +21,11 @@ type PutInitPrm struct {
 	relay func(client.NodeInfo, client.MultiAddressClient) error
 
 	containerNodes       ContainerNodes
+	ecPart               iec.PartInfo
 	localNodeInContainer bool
 	localSignerRFC6979   neofscrypto.Signer
 	localNodeSigner      neofscrypto.Signer
+	sessionSigner        neofscrypto.Signer
 }
 
 type PutChunkPrm struct {
