@@ -50,11 +50,15 @@ import (
 	"google.golang.org/grpc"
 )
 
+type putHandler interface {
+	InitPut(context.Context, *object.Object, *objutil.CommonPrm, putsvc.PutInitOptions) (internal.PayloadWriter, error)
+}
+
 // Handlers represents storage node's internal handler Object service op
 // payloads.
 type Handlers interface {
 	Get(context.Context, getsvc.Prm) error
-	Put(context.Context) (*putsvc.Streamer, error)
+	putHandler
 	Head(context.Context, getsvc.HeadPrm) error
 	Search(context.Context, searchsvc.Prm) error
 	Delete(context.Context, deletesvc.Prm) error
@@ -248,7 +252,9 @@ func (s *Server) sendStatusPutResponse(stream protoobject.ObjectService_PutServe
 type putStream struct {
 	ctx    context.Context
 	signer ecdsa.PrivateKey
-	base   *putsvc.Streamer
+	base   putHandler
+
+	payloadWriter internal.PayloadWriter
 
 	cacheReqs bool
 	initReq   *protoobject.PutRequest
@@ -257,7 +263,7 @@ type putStream struct {
 	expBytes, recvBytes uint64 // payload
 }
 
-func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context) *putStream {
+func newIntermediatePutStream(signer ecdsa.PrivateKey, base putHandler, ctx context.Context) *putStream {
 	return &putStream{
 		ctx:    ctx,
 		signer: signer,
@@ -326,7 +332,7 @@ func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.Put
 func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 	switch v := req.GetBody().GetObjectPart().(type) {
 	default:
-		return fmt.Errorf("invalid object put stream part type %T", v)
+		panic(fmt.Errorf("invalid object put stream part type %T", v))
 	case *protoobject.PutRequest_Body_Init_:
 		if v == nil || v.Init == nil { // TODO: seems like this is done several times, deduplicate
 			return errors.New("nil oneof field with heading part")
@@ -348,12 +354,10 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 			return err
 		}
 
-		var p putsvc.PutInitPrm
-		p.WithCommonPrm(cp)
-		p.WithObject(obj)
-		p.WithCopiesNumber(v.Init.CopiesNumber)
-		p.WithRelay(x.sendToRemoteNode)
-		if err = x.base.Init(&p); err != nil {
+		var opts putsvc.PutInitOptions
+		opts.CopiesNumber = v.Init.CopiesNumber
+		opts.Relay = x.sendToRemoteNode
+		if x.payloadWriter, err = x.base.InitPut(x.ctx, obj, cp, opts); err != nil {
 			return fmt.Errorf("could not init object put stream: %w", err)
 		}
 
@@ -362,9 +366,6 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 		}
 
 		x.expBytes = v.Init.Header.GetPayloadLength()
-		if m := x.base.MaxObjectSize(); x.expBytes > m {
-			return putsvc.ErrExceedingMaxSize
-		}
 		signed, err := x.resignRequest(req) // TODO: resign only when needed
 		if err != nil {
 			return err // TODO: add context
@@ -377,7 +378,7 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 				return putsvc.ErrWrongPayloadSize
 			}
 		}
-		if err := x.base.SendChunk(new(putsvc.PutChunkPrm).WithChunk(c)); err != nil {
+		if _, err := x.payloadWriter.Write(c); err != nil {
 			return fmt.Errorf("could not send payload chunk: %w", err)
 		}
 		if !x.cacheReqs {
@@ -397,12 +398,11 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 		return nil, putsvc.ErrWrongPayloadSize
 	}
 
-	resp, err := x.base.Close()
+	id, err := x.payloadWriter.Close()
 	if err != nil {
 		return nil, fmt.Errorf("could not object put stream: %w", err)
 	}
 
-	id := resp.ObjectID()
 	return &protoobject.PutResponse{
 		Body: &protoobject.PutResponse_Body{
 			ObjectId: id.ProtoMessage(),
@@ -412,20 +412,22 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 
 func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 	t := time.Now()
-	stream, err := s.handlers.Put(gStream.Context())
+	var err error
 
 	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
-	if err != nil {
-		return err
-	}
 
 	var req *protoobject.PutRequest
 	var resp *protoobject.PutResponse
+	var headerWas bool
 
-	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
+	ps := newIntermediatePutStream(s.signer, s.handlers, gStream.Context())
 	for {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
+				if !headerWas {
+					return s.sendStatusPutResponse(gStream, errors.New("stream is closed without messages"))
+				}
+
 				resp, err = ps.close()
 				if err != nil {
 					return s.sendStatusPutResponse(gStream, err)
@@ -437,8 +439,26 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return err
 		}
 
-		if c := req.GetBody().GetChunk(); c != nil {
-			s.metrics.AddPutPayload(len(c))
+		switch v := req.GetBody().GetObjectPart().(type) {
+		default:
+			err = fmt.Errorf("invalid object put stream part type %T", v)
+		case *protoobject.PutRequest_Body_Init_:
+			if headerWas {
+				err = errors.New("repeated message with object header")
+				break
+			}
+			headerWas = true
+		case *protoobject.PutRequest_Body_Chunk:
+			if !headerWas {
+				err = errors.New("message with payload chunk before object header")
+				break
+			}
+
+			s.metrics.AddPutPayload(len(v.Chunk))
+		}
+		if err != nil {
+			err = s.sendStatusPutResponse(gStream, err) // assign for defer
+			return err
 		}
 
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {

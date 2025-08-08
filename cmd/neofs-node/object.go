@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -49,7 +50,7 @@ import (
 )
 
 type objectSvc struct {
-	put *putsvc.Service
+	*putsvc.Service
 
 	search *searchsvc.Service
 
@@ -67,10 +68,6 @@ func (c *cfg) MaxObjectSize() uint64 {
 	}
 
 	return sz
-}
-
-func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
-	return s.put.Put(ctx)
 }
 
 func (s *objectSvc) Head(ctx context.Context, prm getsvc.HeadPrm) error {
@@ -276,10 +273,10 @@ func initObjectService(c *cfg) {
 	)
 
 	objSvc := &objectSvc{
-		put:    sPut,
-		search: sSearch,
-		get:    sGet,
-		delete: sDelete,
+		Service: sPut,
+		search:  sSearch,
+		get:     sGet,
+		delete:  sDelete,
 	}
 
 	// cachedFirstObjectsNumber is a total cached objects number; the V2 split scheme
@@ -804,6 +801,7 @@ type containerNodesSorter struct {
 
 func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
 func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
+func (x *containerNodesSorter) ECRules() []iec.Rule              { return nil }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
 	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
 	cacheKey.addr.SetContainer(x.cnrID)

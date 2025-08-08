@@ -24,8 +24,10 @@ import (
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -59,7 +61,7 @@ func (x noCallObjectService) Get(context.Context, getsvc.Prm) error {
 	panic("must not be called")
 }
 
-func (x noCallObjectService) Put(context.Context) (*putsvc.Streamer, error) {
+func (x noCallObjectService) InitPut(context.Context, *object.Object, *util.CommonPrm, putsvc.PutInitOptions) (internal.PayloadWriter, error) {
 	panic("must not be called")
 }
 

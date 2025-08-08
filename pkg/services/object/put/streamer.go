@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -14,79 +14,124 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-type Streamer struct {
-	*cfg
-
-	ctx context.Context
-
-	target internal.Target
-
-	relay func(client.NodeInfo, client.MultiAddressClient) error
-
-	maxPayloadSz uint64 // network config
-
-	transport Transport
-	neoFSNet  NeoFSNetwork
-}
-
-var errNotInit = errors.New("stream not initialized")
-
-var errInitRecall = errors.New("init recall")
-
-func (p *Streamer) Init(prm *PutInitPrm) error {
+func (p *Service) InitPut(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.PayloadWriter, error) {
 	// initialize destination target
-	if err := p.initTarget(prm); err != nil {
-		return fmt.Errorf("(%T) could not initialize object target: %w", p, err)
+	target, err := p.initTarget(ctx, hdr, cp, opts)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := p.target.WriteHeader(prm.hdr); err != nil {
-		return fmt.Errorf("(%T) could not write header to target: %w", p, err)
+	if err := target.WriteHeader(hdr); err != nil {
+		return nil, err
 	}
-	return nil
+
+	return target, nil
 }
 
-// MaxObjectSize returns maximum payload size for the streaming session.
-//
-// Must be called after the successful Init.
-func (p *Streamer) MaxObjectSize() uint64 {
-	return p.maxPayloadSz
-}
-
-func (p *Streamer) initTarget(prm *PutInitPrm) error {
-	// prevent re-calling
-	if p.target != nil {
-		return errInitRecall
+func (p *Service) initTarget(ctx context.Context, hdr *object.Object, cp *util.CommonPrm, opts PutInitOptions) (internal.Target, error) {
+	localOnly := cp.LocalOnly()
+	if localOnly && opts.CopiesNumber > 1 {
+		return nil, errors.New("storage of multiple object replicas is requested for a local operation")
 	}
 
-	// prepare needed put parameters
-	if err := p.preparePrm(prm); err != nil {
-		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
+	localNodeKey, err := p.keyStorage.GetKey(nil)
+	if err != nil {
+		return nil, fmt.Errorf("get local node's private key: %w", err)
 	}
 
-	p.maxPayloadSz = p.maxSizeSrc.MaxObjectSize()
-	if p.maxPayloadSz == 0 {
-		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
+	idCnr := hdr.GetContainerID()
+	if idCnr.IsZero() {
+		return nil, errors.New("missing container ID")
 	}
 
-	homomorphicChecksumRequired := !prm.cnr.IsHomomorphicHashingDisabled()
+	// get container to store the object
+	cnr, err := p.cnrSrc.Get(idCnr)
+	if err != nil {
+		return nil, fmt.Errorf("(%T) could not get container by ID: %w", p, err)
+	}
 
-	if prm.hdr.Signature() != nil {
-		p.relay = prm.relay
+	containerNodes, err := p.neoFSNet.GetContainerNodes(idCnr)
+	if err != nil {
+		return nil, fmt.Errorf("select storage nodes for the container: %w", err)
+	}
 
-		// prepare untrusted-Put object target
-		p.target = &validatingTarget{
-			nextTarget: p.newCommonTarget(prm),
-			fmt:        p.fmtValidator,
+	cnrNodes := containerNodes.Unsorted()
+	ecRulesN := len(containerNodes.ECRules())
 
-			maxPayloadSz: p.maxPayloadSz,
-
-			homomorphicChecksumRequired: homomorphicChecksumRequired,
+	var localNodeInContainer bool
+	var ecPart iec.PartInfo
+	if ecRulesN > 0 {
+		ecPart, err = iec.GetPartInfo(*hdr)
+		if err != nil {
+			return nil, fmt.Errorf("get EC part info from object header: %w", err)
 		}
 
-		return nil
+		repRulesN := len(containerNodes.PrimaryCounts())
+		if ecPart.Index >= 0 {
+			if ecPart.RuleIndex >= ecRulesN {
+				return nil, fmt.Errorf("invalid EC part info in object header: EC rule idx=%d with %d rules in total", ecPart.RuleIndex, ecRulesN)
+			}
+			if hdr.Signature() == nil {
+				return nil, errors.New("unsigned EC part object")
+			}
+			localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
+		} else {
+			if repRulesN == 0 && hdr.Signature() != nil {
+				return nil, errors.New("missing EC part info in signed object")
+			}
+			localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+		}
+	} else {
+		localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+	}
+	if !localNodeInContainer && localOnly {
+		return nil, errors.New("local operation on the node not compliant with the container storage policy")
 	}
 
-	sToken := prm.common.SessionToken()
+	maxPayloadSz := p.maxSizeSrc.MaxObjectSize()
+	if maxPayloadSz == 0 {
+		return nil, fmt.Errorf("(%T) could not obtain max object size parameter", p)
+	}
+
+	homomorphicChecksumRequired := !cnr.IsHomomorphicHashingDisabled()
+
+	target := &distributedTarget{
+		svc:                     p,
+		localNodeSigner:         (*neofsecdsa.Signer)(localNodeKey),
+		metaSigner:              (*neofsecdsa.SignerRFC6979)(localNodeKey),
+		opCtx:                   ctx,
+		commonPrm:               cp,
+		localOnly:               cp.LocalOnly(),
+		linearReplNum:           uint(opts.CopiesNumber),
+		metainfoConsistencyAttr: metaAttribute(cnr),
+		containerNodes:          containerNodes,
+		localNodeInContainer:    localNodeInContainer,
+		ecPart:                  ecPart,
+	}
+
+	if hdr.Signature() != nil {
+		// prepare untrusted-Put object target
+		if opts.Relay != nil {
+			target.relay = func(node nodeDesc) error {
+				c, err := p.clientConstructor.Get(node.info)
+				if err != nil {
+					return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
+				}
+
+				return opts.Relay(node.info, c)
+			}
+		}
+		return &validatingTarget{
+			nextTarget: target,
+			fmt:        p.fmtValidator,
+
+			maxPayloadSz: maxPayloadSz,
+
+			homomorphicChecksumRequired: homomorphicChecksumRequired,
+		}, nil
+	}
+
+	sToken := cp.SessionToken()
 
 	// prepare trusted-Put object target
 
@@ -102,7 +147,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 	sessionKey, err := p.keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
+		return nil, fmt.Errorf("(%T) could not receive session key: %w", p, err)
 	}
 
 	signer := neofsecdsa.SignerRFC6979(*sessionKey)
@@ -110,154 +155,33 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// In case session token is missing, the line above returns the default key.
 	// If it isn't owner key, replication attempts will fail, thus this check.
 	if sToken == nil {
-		ownerObj := prm.hdr.Owner()
+		ownerObj := hdr.Owner()
 		if ownerObj.IsZero() {
-			return errors.New("missing object owner")
+			return nil, errors.New("missing object owner")
 		}
 
 		ownerSession := user.NewFromECDSAPublicKey(signer.PublicKey)
 
 		if ownerObj != ownerSession {
-			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
+			return nil, fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
 		}
 	}
 
-	p.target = &validatingTarget{
+	sessionSigner := user.NewAutoIDSigner(*sessionKey)
+	target.sessionSigner = sessionSigner
+	return &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
 		nextTarget: newSlicingTarget(
-			p.ctx,
-			p.maxPayloadSz,
+			ctx,
+			maxPayloadSz,
 			!homomorphicChecksumRequired,
-			user.NewAutoIDSigner(*sessionKey),
+			sessionSigner,
 			sToken,
 			p.networkState.CurrentEpoch(),
-			p.newCommonTarget(prm),
+			target,
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
-	}
-
-	return nil
-}
-
-func (p *Streamer) preparePrm(prm *PutInitPrm) error {
-	localOnly := prm.common.LocalOnly()
-	if localOnly && prm.copiesNumber > 1 {
-		return errors.New("storage of multiple object replicas is requested for a local operation")
-	}
-
-	localNodeKey, err := p.keyStorage.GetKey(nil)
-	if err != nil {
-		return fmt.Errorf("get local node's private key: %w", err)
-	}
-
-	idCnr := prm.hdr.GetContainerID()
-	if idCnr.IsZero() {
-		return errors.New("missing container ID")
-	}
-
-	// get container to store the object
-	prm.cnr, err = p.cnrSrc.Get(idCnr)
-	if err != nil {
-		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
-	}
-
-	prm.containerNodes, err = p.neoFSNet.GetContainerNodes(idCnr)
-	if err != nil {
-		return fmt.Errorf("select storage nodes for the container: %w", err)
-	}
-	cnrNodes := prm.containerNodes.Unsorted()
-nextSet:
-	for i := range cnrNodes {
-		for j := range cnrNodes[i] {
-			prm.localNodeInContainer = p.neoFSNet.IsLocalNodePublicKey(cnrNodes[i][j].PublicKey())
-			if prm.localNodeInContainer {
-				break nextSet
-			}
-		}
-	}
-	if !prm.localNodeInContainer && localOnly {
-		return errors.New("local operation on the node not compliant with the container storage policy")
-	}
-
-	prm.localNodeSigner = (*neofsecdsa.Signer)(localNodeKey)
-	prm.localSignerRFC6979 = (*neofsecdsa.SignerRFC6979)(localNodeKey)
-
-	return nil
-}
-
-func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
-	var relay func(nodeDesc) error
-	if p.relay != nil {
-		relay = func(node nodeDesc) error {
-			c, err := p.clientConstructor.Get(node.info)
-			if err != nil {
-				return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
-			}
-
-			return p.relay(node.info, c)
-		}
-	}
-
-	// enable additional container broadcast on non-local operation
-	// if object has TOMBSTONE or LOCK type.
-	typ := prm.hdr.Type()
-	localOnly := prm.common.LocalOnly()
-	withBroadcast := !localOnly && (typ == object.TypeTombstone || typ == object.TypeLock)
-
-	return &distributedTarget{
-		opCtx:              p.ctx,
-		fsState:            p.networkState,
-		networkMagicNumber: p.networkMagic,
-		metaSvc:            p.metaSvc,
-		placementIterator: placementIterator{
-			log:            p.log,
-			neoFSNet:       p.neoFSNet,
-			remotePool:     p.remotePool,
-			containerNodes: prm.containerNodes,
-			linearReplNum:  uint(prm.copiesNumber),
-			broadcast:      withBroadcast,
-		},
-		localStorage:            p.localStore,
-		keyStorage:              p.keyStorage,
-		commonPrm:               prm.common,
-		clientConstructor:       p.clientConstructor,
-		transport:               p.transport,
-		relay:                   relay,
-		fmt:                     p.fmtValidator,
-		localNodeInContainer:    prm.localNodeInContainer,
-		localNodeSigner:         prm.localNodeSigner,
-		cnrClient:               p.cfg.cnrClient,
-		metainfoConsistencyAttr: metaAttribute(prm.cnr),
-		metaSigner:              prm.localSignerRFC6979,
-		localOnly:               localOnly,
-	}
-}
-
-func (p *Streamer) SendChunk(prm *PutChunkPrm) error {
-	if p.target == nil {
-		return errNotInit
-	}
-
-	if _, err := p.target.Write(prm.chunk); err != nil {
-		return fmt.Errorf("(%T) could not write payload chunk to target: %w", p, err)
-	}
-
-	return nil
-}
-
-func (p *Streamer) Close() (*PutResponse, error) {
-	if p.target == nil {
-		return nil, errNotInit
-	}
-
-	id, err := p.target.Close()
-	if err != nil {
-		return nil, fmt.Errorf("(%T) could not close object target: %w", p, err)
-	}
-
-	return &PutResponse{
-		id: id,
 	}, nil
 }
 
