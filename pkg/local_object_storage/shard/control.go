@@ -130,7 +130,7 @@ func (s *Shard) Init() error {
 		gcCfg:       &s.gcCfg,
 		remover:     s.removeGarbage,
 		stopChannel: make(chan struct{}),
-		eventChan:   make(chan Event),
+		eventChan:   make(chan Event, 1),
 		mEventHandler: map[eventType]*eventHandlers{
 			eventNewEpoch: {
 				handlers: []eventHandler{
