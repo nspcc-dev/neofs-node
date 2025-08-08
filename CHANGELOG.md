@@ -6,18 +6,26 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.48.2
+
+## [0.48.2] - 2025-08-08
+
+### Fixed
 - Tombstoned objects cannot be locked now (#3495)
 - RPC client deadlock when GC cycle takes more than an epoch on some shard (#3507)
 
 ### Changed
 - Tombstone objects are removed faster after expiration now (#3511)
 
-### Removed
-
 ### Updated
 - NeoFS SDK to RC14 version fixing object inaccessibility problem (#3510)
-
-### Updating from v0.48.1
 
 ## [0.48.1] - 2025-07-31
 
@@ -2591,7 +2599,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...master
+[0.48.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...v0.48.2
 [0.48.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.0...v0.48.1
 [0.48.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.1...v0.48.0
 [0.47.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.0...v0.47.1
