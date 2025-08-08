@@ -20,7 +20,6 @@ neofs-cli object head [flags]
   -g, --generate-key          Generate new private key
   -h, --help                  help for head
       --json                  Marshal output in JSON
-      --main-only             Return only main fields
       --oid string            Object ID.
       --proto                 Marshal output in Protobuf
       --raw                   Set raw request option

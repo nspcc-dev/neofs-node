@@ -2,13 +2,15 @@ package searchsvc
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type uniqueIDWriter struct {
@@ -88,24 +90,34 @@ func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info c
 		return nil, err
 	}
 
-	var prm internalclient.SearchObjectsPrm
+	var opts sdkclient.PrmObjectSearch
+	if exec.prm.common.TTL() < 2 {
+		opts.MarkLocal()
+	}
+	if st := exec.prm.common.SessionToken(); st != nil {
+		opts.WithinSession(*st)
+	}
+	if bt := exec.prm.common.BearerToken(); bt != nil {
+		opts.WithBearerToken(*bt)
+	}
+	opts.WithXHeaders(exec.prm.common.XHeaders()...)
 
-	prm.SetContext(ctx)
-	prm.SetClient(c.client)
-	prm.SetPrivateKey(key)
-	prm.SetSessionToken(exec.prm.common.SessionToken())
-	prm.SetBearerToken(exec.prm.common.BearerToken())
-	prm.SetTTL(exec.prm.common.TTL())
-	prm.SetXHeaders(exec.prm.common.XHeaders())
-	prm.SetContainerID(exec.containerID())
-	prm.SetFilters(exec.searchFilters())
-
-	res, err := internalclient.SearchObjects(prm)
+	rdr, err := c.client.ObjectSearchInit(ctx, exec.containerID(), user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init object searching in client: %w", err)
 	}
 
-	return res.IDList(), nil
+	var ids []oid.ID
+
+	err = rdr.Iterate(func(id oid.ID) bool {
+		ids = append(ids, id)
+		return false
+	})
+	if err != nil {
+		return nil, fmt.Errorf("search objects using NeoFS API: %w", err)
+	}
+
+	return ids, nil
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]oid.ID, error) {

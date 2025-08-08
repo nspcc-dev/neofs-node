@@ -63,16 +63,13 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		defer cli.Close()
 
 		if !force {
-			var prm internalclient.NetMapSnapshotPrm
-			prm.SetClient(cli)
-
-			resmap, err := internalclient.NetMapSnapshot(ctx, prm)
+			nm, err := cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
 			if err != nil {
 				return fmt.Errorf("unable to get netmap snapshot to validate container placement, "+
 					"use --force option to skip this check: %w", err)
 			}
 
-			nodesByRep, err := resmap.NetMap().ContainerNodes(*placementPolicy, cid.ID{})
+			nodesByRep, err := nm.ContainerNodes(*placementPolicy, cid.ID{})
 			if err != nil {
 				return fmt.Errorf("could not build container nodes based on given placement policy, "+
 					"use --force option to skip this check: %w", err)

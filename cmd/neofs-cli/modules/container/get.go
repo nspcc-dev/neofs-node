@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -172,16 +173,10 @@ func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container,
 		}
 		defer cli.Close()
 
-		var prm internalclient.GetContainerPrm
-		prm.SetClient(cli)
-		prm.SetContainer(id)
-
-		res, err := internalclient.GetContainer(ctx, prm)
+		cnr, err = cli.ContainerGet(ctx, id, client.PrmContainerGet{})
 		if err != nil {
 			return container.Container{}, fmt.Errorf("rpc error: %w", err)
 		}
-
-		cnr = res.Container()
 	}
 	return cnr, nil
 }
