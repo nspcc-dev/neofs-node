@@ -244,7 +244,11 @@ func (e *StorageEngine) HandleNewEpoch(epoch uint64) {
 	defer e.mtx.RUnlock()
 
 	for _, sh := range e.shards {
-		sh.NotificationChannel() <- ev
+		select {
+		case sh.NotificationChannel() <- ev:
+		default:
+			e.log.Warn("can't deliver notification to shard (it's busy)", zap.Uint64("epoch", epoch), zap.Stringer("shard", sh.ID()))
+		}
 	}
 }
 

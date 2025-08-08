@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Tombstoned objects cannot be locked now (#3495)
+- RPC client deadlock when GC cycle takes more than an epoch on some shard (#3507)
 
 ### Changed
 - Tombstone objects are removed faster after expiration now (#3511)
