@@ -215,7 +215,7 @@ func (s *Shard) collectExpiredObjects(e Event) {
 	log.Debug("started expired objects handling")
 
 	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
-		return typ != object.TypeLock
+		return typ != object.TypeLock && typ != object.TypeTombstone
 	})
 	if err != nil {
 		log.Warn("iterator over expired objects failed", zap.Error(err))
@@ -237,7 +237,7 @@ func (s *Shard) collectExpiredTombstones(e Event) {
 	epoch := e.(newEpoch).epoch
 	log := s.log.With(zap.Uint64("epoch", epoch))
 
-	log.Debug("started expired tombstones handling")
+	log.Debug("started expired graveyard mark handling")
 
 	dropped, err := s.metaBase.DropExpiredTSMarks(epoch)
 	if err != nil {
@@ -245,7 +245,29 @@ func (s *Shard) collectExpiredTombstones(e Event) {
 		return
 	}
 
-	log.Debug("finished expired tombstones handling", zap.Int("dropped marks", dropped))
+	log.Debug("finished expired graveyard mark handling", zap.Int("dropped marks", dropped))
+
+	log.Debug("started expired tombstones handling")
+
+	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
+		return typ == object.TypeTombstone
+	})
+	if err != nil {
+		log.Warn("iterator over expired tombstones failed", zap.Error(err))
+		return
+	}
+	if len(expired) == 0 {
+		log.Debug("no expired tombstones")
+		return
+	}
+
+	err = s.MarkGarbage(false, expired...)
+	if err != nil {
+		log.Warn("failed to mark expired tombstones as garbage", zap.Error(err))
+		return
+	}
+
+	log.Debug("finished expired tombstones handling", zap.Int("count", len(expired)))
 }
 
 func (s *Shard) collectExpiredLocks(e Event) {

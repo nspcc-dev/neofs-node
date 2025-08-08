@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Tombstoned objects cannot be locked now (#3495)
 
 ### Changed
+- Tombstone objects are removed faster after expiration now (#3511)
 
 ### Removed
 
