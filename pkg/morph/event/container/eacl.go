@@ -20,7 +20,7 @@ type SetEACL struct {
 // MorphEvent implements Neo:Morph Event interface.
 func (SetEACL) MorphEvent() {}
 
-// Table returns returns eACL table in a binary NeoFS API format.
+// Table returns eACL table in a binary NeoFS API format.
 func (x SetEACL) Table() []byte {
 	return x.table
 }

@@ -56,7 +56,7 @@ func (x *NotaryRequestRequest_Body) SetArgs(v [][]byte) {
 	}
 }
 
-// SetBody sets notary request request body.
+// SetBody sets notary request body.
 func (x *NotaryRequestRequest) SetBody(v *NotaryRequestRequest_Body) {
 	if x != nil {
 		x.Body = v
