@@ -491,7 +491,12 @@ func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtend
 		return s.makeSetEACLResponse(fmt.Errorf("invalid eACL: %w", err))
 	}
 
-	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerSetEACL, eACL.GetCID())
+	cnrID := eACL.GetCID()
+	if cnrID.IsZero() {
+		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"))
+	}
+
+	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
 	if err != nil {
 		return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err))
 	}
