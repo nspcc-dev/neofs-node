@@ -19,21 +19,67 @@ import (
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	eacltest "github.com/nspcc-dev/neofs-sdk-go/eacl/test"
+	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
-type testFSChain struct {
-	cnr   container.Container
+type unimplementedFSChain struct{}
+
+func (unimplementedFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
+	panic("unimplemented")
+}
+
+type unimplementedContainerContract struct{}
+
+func (unimplementedContainerContract) Put(container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
+	panic("implement me")
+}
+
+func (unimplementedContainerContract) Get(cid.ID) (container.Container, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedContainerContract) List(user.ID) ([]cid.ID, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedContainerContract) PutEACL(eacl.Table, []byte, []byte, *session.Container) error {
+	panic("unimplemented")
+}
+
+func (unimplementedContainerContract) GetEACL(cid.ID) (eacl.Table, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedContainerContract) Delete(cid.ID, []byte, []byte, *session.Container) error {
+	panic("unimplemented")
+}
+
+type unimplementedNetmapContract struct{}
+
+func (unimplementedNetmapContract) GetEpochBlock(uint64) (uint32, error) {
+	panic("unimplemented")
+}
+
+type testNodeState struct {
 	epoch uint64
 }
 
-func (x testFSChain) CurrentEpoch() uint64 { return x.epoch }
+func (x testNodeState) CurrentEpoch() uint64 { return x.epoch }
+
+type testFSChain struct {
+	testNodeState
+	cnr container.Container
+}
 
 func (testFSChain) Put(container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
 	return cid.ID{}, errors.New("unimplemented")
@@ -99,9 +145,9 @@ func TestServer_Delete(t *testing.T) {
 	cnr.SetOwner(usr.ID)
 
 	m := &testFSChain{
-		cnr:   cnr,
-		epoch: anyEpoch,
+		cnr: cnr,
 	}
+	m.epoch = anyEpoch
 	svc := containerSvc.New(&usr.ECDSAPrivateKey, m, m, m, m)
 
 	t.Run("session", func(t *testing.T) {
@@ -353,4 +399,52 @@ func TestSessionVerb(t *testing.T) {
 	require.NoError(t, neofscrypto.VerifyResponseWithBuffer(delResp, nil))
 	require.NotNil(t, delResp.MetaHeader)
 	require.Zero(t, delResp.MetaHeader.Status)
+}
+
+func TestServer_SetExtendedACL_InvalidRequest(t *testing.T) {
+	ctx := context.Background()
+	usr := usertest.User()
+	const currentEpoch = 10
+
+	state := &testNodeState{
+		epoch: currentEpoch,
+	}
+	var fsChain unimplementedFSChain
+	var cnrContract unimplementedContainerContract
+	var nmContract unimplementedNetmapContract
+
+	// fsChain is used for response, other components must not be accessed for invalid request
+	svc := containerSvc.New(&usr.ECDSAPrivateKey, state, fsChain, cnrContract, nmContract)
+
+	t.Run("eACL without container ID", func(t *testing.T) {
+		req := &protocontainer.SetExtendedACLRequest{
+			Body: &protocontainer.SetExtendedACLRequest_Body{
+				Eacl: &protoacl.EACLTable{
+					ContainerId: nil,
+				},
+				Signature: &refs.SignatureRFC6979{},
+			},
+		}
+
+		var err error
+		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(usr, req, nil)
+		require.NoError(t, err)
+
+		resp, err := svc.SetExtendedACL(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+		resp.VerifyHeader = nil
+
+		require.True(t, proto.Equal(resp, &protocontainer.SetExtendedACLResponse{
+			MetaHeader: &protosession.ResponseMetaHeader{
+				Version: version.Current().ProtoMessage(),
+				Epoch:   currentEpoch,
+				Status: &protostatus.Status{
+					Code:    1024,
+					Message: "missing container ID in eACL table",
+				},
+			},
+		}))
+	})
 }

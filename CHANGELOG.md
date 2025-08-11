@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- SN no longer accepts PUT eACL requests without container ID (#3515)
 
 ### Removed
 - Metabase version 2 to 3 migration code, minimal corresponding NeoFS version is 0.44.0 (#3514)
