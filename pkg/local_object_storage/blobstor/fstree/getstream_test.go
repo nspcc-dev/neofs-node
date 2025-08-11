@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -72,6 +75,66 @@ func TestGetStream(t *testing.T) {
 			t.Run(fmt.Sprint(size), func(t *testing.T) {
 				testStream(t, size)
 			})
+		}
+	})
+
+	t.Run("specific combined object", func(t *testing.T) {
+		fsTree := setupFSTree(t)
+
+		const numObjects = 3
+		const size1 = objectSDK.MaxHeaderLen - 77 - 38 - 37 // (MaxHeaderLen - headerLen - combinedDataOff) - (combinedDataOff - 1)
+		const size2 = objectSDK.MaxHeaderLen - 77 - 38 - 1  // (MaxHeaderLen - headerLen - combinedDataOff) - (combinedDataOff - 37)
+		// In this case, after the second read from the file,
+		// the third object's calculated buffer length should be sufficient
+		// to parse the combined prefix. However, if it is not expanded,
+		// its actual length will be one, which causes panic.
+		// Therefore, the buffer must have enough bytes for parsing the combined prefix
+		// only if it has been properly expanded.
+
+		cnr := cidtest.ID()
+		payload1 := make([]byte, size1)
+		_, _ = rand.Read(payload1)
+		payload2 := make([]byte, size2)
+		_, _ = rand.Read(payload2)
+
+		objects := make([]*objectSDK.Object, numObjects)
+		for i := range objects {
+			obj := objectSDK.New()
+			obj.SetID(oidtest.ID())
+			obj.SetContainerID(cnr)
+			if i == 1 {
+				obj.SetPayload(payload2)
+			} else {
+				obj.SetPayload(payload1)
+			}
+
+			objects[i] = obj
+		}
+
+		// Don't use map with FSTree.PutBatch because we need ordered writes
+		writeDataUnits := make([]writeDataUnit, 0, len(objects))
+		for _, obj := range objects {
+			addr := object.AddressOf(obj)
+			p := fsTree.treePath(addr)
+			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fsTree.Permissions))
+			writeDataUnits = append(writeDataUnits, writeDataUnit{
+				id:   addr.Object(),
+				path: p,
+				data: fsTree.Compress(obj.Marshal()),
+			})
+		}
+		require.NoError(t, fsTree.writer.writeBatch(writeDataUnits))
+
+		for i := range objects {
+			res, reader, err := fsTree.GetStream(object.AddressOf(objects[i]))
+			require.NoError(t, err)
+			require.Equal(t, objects[i].CutPayload(), res)
+
+			require.NotNil(t, reader)
+			streamedPayload, err := io.ReadAll(reader)
+			require.NoError(t, err)
+			require.Equal(t, objects[i].Payload(), streamedPayload)
+			require.NoError(t, reader.Close())
 		}
 	})
 }
