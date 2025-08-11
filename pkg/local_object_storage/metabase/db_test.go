@@ -2,11 +2,13 @@ package meta_test
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"os"
 	"path"
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -129,4 +131,13 @@ func setExpiration(o *object.Object, epoch uint64) {
 	attr.SetValue(strconv.FormatUint(epoch, 10))
 
 	o.SetAttributes(append(o.Attributes(), attr)...)
+}
+
+func newBlankObject(cnr cid.ID, id oid.ID) object.Object {
+	var obj object.Object
+	obj.SetContainerID(cnr)
+	obj.SetID(id)
+	obj.SetOwner(usertest.ID())
+	obj.SetPayloadChecksum(checksum.NewSHA256([sha256.Size]byte(testutil.RandByteSlice(sha256.Size))))
+	return obj
 }

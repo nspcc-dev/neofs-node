@@ -75,6 +75,14 @@ func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
 		return nil, fmt.Errorf("restore Reed-Solomon: %w", err)
 	}
 
+	return ConcatDataParts(rule, dataLen, parts), nil
+}
+
+// ConcatDataParts returns a new slice of dataLen bytes originating given EC
+// parts according to rule.
+//
+// Panics if there are less than [Rule.DataPartNum] parts.
+func ConcatDataParts(rule Rule, dataLen uint64, parts [][]byte) []byte {
 	// TODO: last part may be shorter, do not overallocate buffer.
-	return slices.Concat(parts[:rule.DataPartNum]...)[:dataLen], nil
+	return slices.Concat(parts[:rule.DataPartNum]...)[:dataLen]
 }
