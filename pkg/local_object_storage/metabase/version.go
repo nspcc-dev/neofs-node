@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/mr-tron/base58"
-	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -51,7 +49,6 @@ var (
 	// and it's hardly acceptable, so in general it's better to log and
 	// continue rather than return an error.
 	migrateFrom = map[uint64]func(*DB) error{
-		2: migrateFrom2Version,
 		3: migrateFrom3Version,
 		4: migrateFrom4Version,
 		5: migrateFrom5Version,
@@ -123,40 +120,6 @@ func getVersion(tx *bbolt.Tx) (uint64, bool) {
 	}
 
 	return 0, false
-}
-
-func migrateFrom2Version(db *DB) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error { return migrateFrom2VersionTx(tx, db.epochState) })
-}
-
-func migrateFrom2VersionTx(tx *bbolt.Tx, epochState EpochState) error {
-	tsExpiration := epochState.CurrentEpoch() + objectconfig.DefaultTombstoneLifetime
-	bkt := tx.Bucket(graveyardBucketName)
-	if bkt == nil {
-		return errors.New("graveyard bucket is nil")
-	}
-	c := bkt.Cursor()
-
-	for k, v := c.First(); k != nil; k, v = c.Next() {
-		l := len(v)
-		if l == addressKeySize+8 { // Because of a 0.44.0 bug we can have a migrated DB with version 2.
-			continue
-		}
-		if l != addressKeySize {
-			return fmt.Errorf("graveyard value with unexpected %d length", l)
-		}
-
-		newVal := make([]byte, addressKeySize, addressKeySize+8)
-		copy(newVal, v)
-		newVal = binary.LittleEndian.AppendUint64(newVal, tsExpiration)
-
-		err := bkt.Put(k, newVal)
-		if err != nil {
-			return err
-		}
-	}
-
-	return updateVersion(tx, 3)
 }
 
 func migrateFrom3Version(db *DB) error {

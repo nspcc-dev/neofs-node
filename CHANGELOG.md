@@ -10,10 +10,14 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- Metabase version 2 to 3 migration code, minimal corresponding NeoFS version is 0.44.0 (#3514)
 
 ### Updated
 
 ### Updating from v0.48.2
+Metabase version 2 can't be migrated to current with this version of NeoFS, if
+you're updating from version earlier than 0.44.0 consider metabase resync or
+updating using 0.48.2 first and then using this version.
 
 ## [0.48.2] - 2025-08-08
 
