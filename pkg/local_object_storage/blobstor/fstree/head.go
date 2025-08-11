@@ -110,6 +110,9 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 				return nil, f, fmt.Errorf("read full: %w", err)
 			}
+			if k == 0 {
+				return nil, f, fmt.Errorf("file was found, but this object is not in it: %w", io.ErrUnexpectedEOF)
+			}
 			n += k
 		}
 

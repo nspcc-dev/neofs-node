@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -183,6 +184,35 @@ func TestGetStreamAfterErrors(t *testing.T) {
 
 		_, _, err = tree.GetStream(addr)
 		require.Error(t, err)
+	})
+
+	t.Run("ID not found in combined object", func(t *testing.T) {
+		fsTree := setupFSTree(t)
+
+		cnr := cidtest.ID()
+
+		idStr := "HhW47uw6Fs48M2GtNx1Joem6qUjP1JxGPo4ffvp4QJaL"
+		id, err := oid.DecodeString(idStr)
+		require.NoError(t, err)
+		obj := objectSDK.New()
+		obj.SetID(id)
+		obj.SetContainerID(cnr)
+		addr := object.AddressOf(obj)
+
+		require.NoError(t, fsTree.Put(addr, obj.Marshal()))
+
+		p := fsTree.treePath(addr)
+
+		newIDStr := "HhW47uw6Fs48M2GtNx1Joem6qUjP1JxGPo4ffvp4QJaM"
+		newID, err := oid.DecodeString(newIDStr)
+		require.NoError(t, err)
+		newAddr := oid.NewAddress(cnr, newID)
+		newPath := fsTree.treePath(newAddr)
+
+		require.NoError(t, os.Rename(p, newPath))
+
+		_, _, err = fsTree.GetStream(newAddr)
+		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 }
 
