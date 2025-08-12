@@ -10,6 +10,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO: docs and move share to internal/.
+type ErrObjectID oid.ID
+
+func (x ErrObjectID) Error() string {
+	return oid.ID(x).String()
+}
+
 // TODO: docs.
 // TODO: keep in sync with https://github.com/nspcc-dev/neofs-node/pull/3466.
 func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (objectSDK.Object, error) {
@@ -32,7 +39,7 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (objectSDK
 
 	obj, err := s.blobStor.Get(partAddr)
 	if err != nil {
-		return objectSDK.Object{}, fmt.Errorf("get from BLOB storage by ID %s: %w", partID, err)
+		return objectSDK.Object{}, fmt.Errorf("get from BLOB storage by ID %w: %w", ErrObjectID(partID), err)
 	}
 
 	return *obj, nil

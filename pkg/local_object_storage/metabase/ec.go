@@ -83,6 +83,7 @@ func (db *DB) resolveECPartInMetaBucket(bkt *bbolt.Bucket, crs *bbolt.Cursor, pa
 	if len(partID) != oid.Size {
 		return oid.ID{}, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
 	}
+	// TODO: check and test all zeros
 
 	// TODO: make one buffer for all keys
 	k = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributeRuleIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.RuleIndex)))
