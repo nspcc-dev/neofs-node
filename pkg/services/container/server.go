@@ -209,7 +209,7 @@ func (s *server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	}
 
 	if owner := cnr.Owner(); issuer != owner {
-		return errors.New("session was not issued by the container owner")
+		return fmt.Errorf("session issuer %s mismatches container owner %s", issuer, owner)
 	}
 
 	return nil

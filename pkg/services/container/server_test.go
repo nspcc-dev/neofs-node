@@ -3,6 +3,7 @@ package container_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -251,7 +252,7 @@ func TestServer_Delete(t *testing.T) {
 				require.NotNil(t, resp.MetaHeader.Status)
 				sts := resp.MetaHeader.Status
 				require.EqualValues(t, 1024, sts.Code, st)
-				require.Equal(t, "session was not issued by the container owner", sts.Message)
+				require.Equal(t, fmt.Sprintf("session issuer %s mismatches container owner %s", otherUsr.ID, usr.ID), sts.Message)
 				require.Zero(t, sts.Details)
 			})
 			t.Run("incorrect signature", func(t *testing.T) {
