@@ -8,33 +8,24 @@ import (
 type putSvcWrapper putsvc.Service
 
 func (w *putSvcWrapper) put(exec *execCtx) (*oid.ID, error) {
-	streamer, err := (*putsvc.Service)(w).Put(exec.context())
-	if err != nil {
-		return nil, err
-	}
-
 	payload := exec.tombstoneObj.Payload()
 
-	initPrm := new(putsvc.PutInitPrm).
-		WithCommonPrm(exec.commonParameters()).
-		WithObject(exec.tombstoneObj.CutPayload())
+	var opts putsvc.PutInitOptions
 
-	err = streamer.Init(initPrm)
+	pw, err := (*putsvc.Service)(w).InitPut(exec.context(), exec.tombstoneObj.CutPayload(), exec.commonParameters(), opts)
 	if err != nil {
 		return nil, err
 	}
 
-	err = streamer.SendChunk(new(putsvc.PutChunkPrm).WithChunk(payload))
+	_, err = pw.Write(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := streamer.Close()
+	id, err := pw.Close()
 	if err != nil {
 		return nil, err
 	}
-
-	id := r.ObjectID()
 
 	return &id, nil
 }

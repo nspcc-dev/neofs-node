@@ -2,69 +2,13 @@ package putsvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
-type PutInitPrm struct {
-	common *util.CommonPrm
+// RelayFunc relays request using given connection to SN.
+type RelayFunc = func(client.NodeInfo, client.MultiAddressClient) error
 
-	hdr *object.Object
+type PutInitOptions struct {
+	CopiesNumber uint32
 
-	cnr containerSDK.Container
-
-	copiesNumber uint32
-
-	relay func(client.NodeInfo, client.MultiAddressClient) error
-
-	containerNodes       ContainerNodes
-	localNodeInContainer bool
-	localSignerRFC6979   neofscrypto.Signer
-	localNodeSigner      neofscrypto.Signer
-}
-
-type PutChunkPrm struct {
-	chunk []byte
-}
-
-func (p *PutInitPrm) WithCommonPrm(v *util.CommonPrm) *PutInitPrm {
-	if p != nil {
-		p.common = v
-	}
-
-	return p
-}
-
-func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
-	if p != nil {
-		p.hdr = v
-	}
-
-	return p
-}
-
-func (p *PutInitPrm) WithRelay(f func(client.NodeInfo, client.MultiAddressClient) error) *PutInitPrm {
-	if p != nil {
-		p.relay = f
-	}
-
-	return p
-}
-
-func (p *PutInitPrm) WithCopiesNumber(cn uint32) *PutInitPrm {
-	if p != nil {
-		p.copiesNumber = cn
-	}
-
-	return p
-}
-
-func (p *PutChunkPrm) WithChunk(v []byte) *PutChunkPrm {
-	if p != nil {
-		p.chunk = v
-	}
-
-	return p
+	Relay RelayFunc
 }

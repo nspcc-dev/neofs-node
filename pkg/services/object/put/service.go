@@ -3,6 +3,7 @@ package putsvc
 import (
 	"context"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -51,6 +52,8 @@ type ContainerNodes interface {
 	// matching storage policy of the container. Nodes are identified by their
 	// public keys and can be repeated in different sets.
 	//
+	// First PrimaryCounts() sets are for replication, the rest are for ECRules().
+	//
 	// Unsorted callers do not change resulting slices and their elements.
 	Unsorted() [][]netmapsdk.NodeInfo
 	// SortForObject sorts container nodes for the referenced object's storage.
@@ -63,6 +66,11 @@ type ContainerNodes interface {
 	//  - first N nodes of each L are primary data holders while others (if any)
 	//    are backup.
 	PrimaryCounts() []uint
+	// ECRules returns list of erasure coding rules for all objects in the
+	// container. Same rule may repeat.
+	//
+	// ECRules callers do not change resulting slice.
+	ECRules() []iec.Rule
 }
 
 // NeoFSNetwork provides access to the NeoFS network to get information
@@ -136,15 +144,6 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, opts .
 		transport: transport,
 		neoFSNet:  neoFSNet,
 	}
-}
-
-func (p *Service) Put(ctx context.Context) (*Streamer, error) {
-	return &Streamer{
-		cfg:       p.cfg,
-		ctx:       ctx,
-		transport: p.transport,
-		neoFSNet:  p.neoFSNet,
-	}, nil
 }
 
 func WithKeyStorage(v *objutil.KeyStorage) Option {
