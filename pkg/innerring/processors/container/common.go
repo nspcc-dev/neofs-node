@@ -72,8 +72,8 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return errWrongCID
 		}
 
-		if !session.IssuedBy(tok, v.ownerContainer) {
-			return errors.New("owner differs with token owner")
+		if issuer := tok.Issuer(); issuer != v.ownerContainer {
+			return fmt.Errorf("owner %s differs with token owner %s", v.ownerContainer, issuer)
 		}
 
 		err = cp.checkTokenLifetime(tok)
