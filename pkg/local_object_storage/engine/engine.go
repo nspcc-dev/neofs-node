@@ -33,6 +33,9 @@ type StorageEngine struct {
 
 	blockMtx sync.RWMutex
 	blockErr error
+
+	// TODO: use in all methods
+	sortShardsFn func(*StorageEngine, interface{ EncodeToString() string }) []shardWrapper
 }
 
 type shardWrapper struct {
@@ -223,12 +226,13 @@ func New(opts ...Option) *StorageEngine {
 	}
 
 	return &StorageEngine{
-		cfg:        c,
-		mtx:        new(sync.RWMutex),
-		shards:     make(map[string]shardWrapper),
-		shardPools: make(map[string]util.WorkerPool),
-		closeCh:    make(chan struct{}),
-		setModeCh:  make(chan setModeRequest),
+		cfg:          c,
+		mtx:          new(sync.RWMutex),
+		shards:       make(map[string]shardWrapper),
+		shardPools:   make(map[string]util.WorkerPool),
+		closeCh:      make(chan struct{}),
+		setModeCh:    make(chan setModeRequest),
+		sortShardsFn: (*StorageEngine).sortedShards,
 	}
 }
 

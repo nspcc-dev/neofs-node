@@ -17,12 +17,19 @@ func (exec *execCtx) executeOnContainer() {
 
 	exec.log.Debug("trying to execute in container...")
 
-	nodeLists, primaryCounts, err := exec.svc.neoFSNet.GetNodesForObject(exec.address())
-	if err != nil {
-		exec.status = statusUndefined
-		exec.err = err
-		exec.log.Debug("failed to list storage nodes for the object", zap.Error(err))
-		return
+	addr := exec.address()
+
+	nodeLists := exec.nodeLists
+	primaryCounts := exec.repRules
+	if nodeLists == nil {
+		var err error
+		nodeLists, primaryCounts, _, err = exec.svc.neoFSNet.GetNodesForObject(addr)
+		if err != nil {
+			exec.status = statusUndefined
+			exec.err = err
+			exec.log.Debug("failed to list storage nodes for the object", zap.Error(err))
+			return
+		}
 	}
 
 	ctx, cancel := context.WithCancel(exec.context())
@@ -34,7 +41,7 @@ func (exec *execCtx) executeOnContainer() {
 	var j, jLim uint
 	primary := true
 
-	for i := 0; i < len(nodeLists); i++ { // do not use for-range!
+	for i := 0; i < len(primaryCounts); i++ { // do not use for-range!
 		if primary {
 			j, jLim = 0, primaryCounts[i]
 		} else {
@@ -60,7 +67,7 @@ func (exec *execCtx) executeOnContainer() {
 
 			mProcessedNodes[strKey] = struct{}{}
 
-			if err = endpoints.FromIterator(network.NodeEndpointsIterator(nodeLists[i][j])); err != nil {
+			if err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeLists[i][j])); err != nil {
 				// critical error that may ultimately block the storage service. Normally it
 				// should not appear because entry into the network map under strict control
 				exec.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
@@ -81,7 +88,7 @@ func (exec *execCtx) executeOnContainer() {
 			}
 		}
 
-		if primary && i == len(nodeLists)-1 {
+		if primary && i == len(primaryCounts)-1 {
 			// switch to reserve nodes
 			primary = false
 			i = -1
