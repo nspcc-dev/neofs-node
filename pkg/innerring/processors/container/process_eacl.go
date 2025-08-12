@@ -7,6 +7,7 @@ import (
 
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
@@ -18,9 +19,10 @@ func (cp *Processor) processPutEACLRequest(req container.PutContainerEACLRequest
 		return
 	}
 
-	err := cp.checkSetEACL(req)
+	idCnr, err := cp.checkSetEACL(req)
 	if err != nil {
 		cp.log.Error("set EACL check failed",
+			skipZeroCIDLogField(idCnr),
 			zap.Error(err),
 		)
 
@@ -30,32 +32,32 @@ func (cp *Processor) processPutEACLRequest(req container.PutContainerEACLRequest
 	cp.approveSetEACL(req)
 }
 
-func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
+func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) (cid.ID, error) {
 	// unmarshal table
 	table, err := eacl.Unmarshal(req.EACL)
 	if err != nil {
-		return fmt.Errorf("invalid binary table: %w", err)
+		return cid.ID{}, fmt.Errorf("invalid binary table: %w", err)
 	}
 
 	err = validateEACL(table)
 	if err != nil {
-		return fmt.Errorf("table validation: %w", err)
+		return cid.ID{}, fmt.Errorf("table validation: %w", err)
 	}
 
 	idCnr := table.GetCID()
 	if idCnr.IsZero() {
-		return errors.New("missing container ID in eACL table")
+		return idCnr, errors.New("missing container ID in eACL table")
 	}
 
 	// receive owner of the related container
 	cnr, err := cntClient.Get(cp.cnrClient, idCnr)
 	if err != nil {
-		return fmt.Errorf("could not receive the container: %w", err)
+		return idCnr, fmt.Errorf("could not receive the container: %w", err)
 	}
 
 	// ACL extensions can be disabled by basic ACL, check it
 	if !cnr.BasicACL().Extendable() {
-		return errors.New("ACL extension disabled by container basic ACL")
+		return idCnr, errors.New("ACL extension disabled by container basic ACL")
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
@@ -69,10 +71,10 @@ func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
 		signedData:      req.EACL,
 	})
 	if err != nil {
-		return fmt.Errorf("auth eACL table setting: %w", err)
+		return idCnr, fmt.Errorf("auth eACL table setting: %w", err)
 	}
 
-	return nil
+	return idCnr, nil
 }
 
 func (cp *Processor) approveSetEACL(req container.PutContainerEACLRequest) {
