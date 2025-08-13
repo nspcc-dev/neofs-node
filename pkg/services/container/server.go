@@ -355,14 +355,6 @@ func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*
 	if err != nil {
 		return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
 	}
-	if st != nil {
-		if err := s.checkSessionIssuer(id, st.Issuer()); err != nil {
-			return s.makeDeleteResponse(fmt.Errorf("verify session issuer: %w", err))
-		}
-		if !st.AppliedTo(id) {
-			return s.makeDeleteResponse(errors.New("session is not applied to requested container"))
-		}
-	}
 
 	if err := s.contract.Delete(id, mSig.Key, mSig.Sign, st); err != nil {
 		return s.makeDeleteResponse(err)
