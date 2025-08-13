@@ -15,7 +15,7 @@ import (
 )
 
 func TestGetStream(t *testing.T) {
-	tree := New(WithPath(t.TempDir()))
+	tree := setupFSTree(t)
 
 	payloadSizes := []int{
 		1,
@@ -121,4 +121,12 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		_, _, err = tree.GetStream(addr)
 		require.Error(t, err)
 	})
+}
+
+func setupFSTree(t *testing.T) *FSTree {
+	tree := New(WithPath(t.TempDir()))
+	require.NoError(t, tree.Open(false))
+	require.NoError(t, tree.Init())
+	t.Cleanup(func() { require.NoError(t, tree.Close()) })
+	return tree
 }
