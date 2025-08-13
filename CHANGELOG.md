@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Send on closed channel panic in node's new epoch handler (#3529)
 
 ### Changed
 
