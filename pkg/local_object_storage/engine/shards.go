@@ -244,11 +244,34 @@ func (e *StorageEngine) HandleNewEpoch(epoch uint64) {
 	defer e.mtx.RUnlock()
 
 	for _, sh := range e.shards {
-		select {
-		case sh.NotificationChannel() <- ev:
-		default:
-			e.log.Warn("can't deliver notification to shard (it's busy)", zap.Uint64("epoch", epoch), zap.Stringer("shard", sh.ID()))
+		ch := sh.NotificationChannel()
+		if sent, closed := trySendEvent(ch, ev); !sent {
+			if closed {
+				// shard GC channel is closed; shard is stopping/closed
+				e.log.Debug("can't deliver notification to shard (channel closed)", zap.Uint64("epoch", epoch), zap.Stringer("shard", sh.ID()))
+			} else {
+				e.log.Warn("can't deliver notification to shard (it's busy)", zap.Uint64("epoch", epoch), zap.Stringer("shard", sh.ID()))
+			}
 		}
+	}
+}
+
+// trySendEvent attempts to send an event to the shard channel without blocking.
+// It returns whether the event was sent and whether the channel was closed.
+func trySendEvent(ch chan<- shard.Event, ev shard.Event) (sent bool, closed bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			// send on a closed channel panics; mark as closed.
+			closed = true
+			sent = false
+		}
+	}()
+
+	select {
+	case ch <- ev:
+		return true, false
+	default:
+		return false, false
 	}
 }
 
