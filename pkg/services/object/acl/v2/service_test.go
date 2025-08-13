@@ -126,7 +126,7 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 
 	t.Run("not a container owner", func(t *testing.T) {
 		err := call(t, otherCnrID)
-		require.EqualError(t, err, "bearer token owner differs from the request sender")
+		require.EqualError(t, err, "bearer token issuer differs from the container owner")
 	})
 
 	err = call(t, cnrID)

@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 - SN no longer caches request-dependent container session errors (#3526)
 - SN no longer caches request-dependent bearer token errors (#3527)
+- Unclear SN status message for bearer token issuer mismatch (#3527)
 
 ### Changed
 - SN no longer accepts PUT eACL requests without container ID (#3515)

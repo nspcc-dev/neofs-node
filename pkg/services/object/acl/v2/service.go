@@ -258,7 +258,7 @@ func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken) (bear
 
 func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.ID, ownerCnr, reqSender user.ID) error {
 	if token.ResolveIssuer() != ownerCnr {
-		return errors.New("bearer token owner differs from the request sender")
+		return errors.New("bearer token issuer differs from the container owner")
 	}
 
 	cnr := token.EACLTable().GetCID()
