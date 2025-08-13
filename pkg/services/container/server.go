@@ -142,7 +142,7 @@ func (s *server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	res, ok := s.sessionTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
 		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = s.decodeAndVerifySessionTokenCommon(m, reqCnr)
+		res.token, res.err = s.decodeAndVerifySessionTokenCommon(m)
 		s.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
@@ -156,7 +156,7 @@ func (s *server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	return &res.token, nil
 }
 
-func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, reqCnr cid.ID) (session.Container, error) {
+func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (session.Container, error) {
 	var token session.Container
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("decode: %w", err)
@@ -178,15 +178,6 @@ func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken,
 		return token, fmt.Errorf("token is not valid yet: NBf: %d, current epoch: %d", nbf, cur)
 	}
 
-	if !reqCnr.IsZero() {
-		if err := s.checkSessionIssuer(reqCnr, token.Issuer()); err != nil {
-			return token, fmt.Errorf("verify session issuer: %w", err)
-		}
-		if !token.AppliedTo(reqCnr) {
-			return token, errors.New("session is not applied to requested container")
-		}
-	}
-
 	return token, nil
 }
 
@@ -195,8 +186,16 @@ func (s *server) verifySessionTokenAgainstRequest(token session.Container, reqVe
 		return errors.New("wrong container session operation")
 	}
 
-	if !reqCnr.IsZero() && !token.AppliedTo(reqCnr) {
+	if reqCnr.IsZero() {
+		return nil
+	}
+
+	if !token.AppliedTo(reqCnr) {
 		return errors.New("session is not applied to requested container")
+	}
+
+	if err := s.checkSessionIssuer(reqCnr, token.Issuer()); err != nil {
+		return fmt.Errorf("verify session issuer: %w", err)
 	}
 
 	return nil
@@ -355,14 +354,6 @@ func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*
 	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerDelete, id)
 	if err != nil {
 		return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
-	}
-	if st != nil {
-		if err := s.checkSessionIssuer(id, st.Issuer()); err != nil {
-			return s.makeDeleteResponse(fmt.Errorf("verify session issuer: %w", err))
-		}
-		if !st.AppliedTo(id) {
-			return s.makeDeleteResponse(errors.New("session is not applied to requested container"))
-		}
 	}
 
 	if err := s.contract.Delete(id, mSig.Key, mSig.Sign, st); err != nil {

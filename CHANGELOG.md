@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- SN no longer caches request-dependent container session errors (#3526)
 
 ### Changed
 - SN no longer accepts PUT eACL requests without container ID (#3515)
