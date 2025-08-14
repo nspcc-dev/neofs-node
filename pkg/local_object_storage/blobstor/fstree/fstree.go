@@ -429,7 +429,7 @@ func (t *FSTree) getObjectBytesByPath(id oid.ID, p string) ([]byte, error) {
 // parseCombinedPrefix checks the given array for combined data prefix and
 // returns a subslice with OID and object length if so (nil and 0 otherwise).
 func parseCombinedPrefix(p []byte) ([]byte, uint32) {
-	if p[0] != combinedPrefix || p[1] != 0 { // Only version 0 is supported now.
+	if len(p) < combinedDataOff || p[0] != combinedPrefix || p[1] != 0 { // Only version 0 is supported now.
 		return nil, 0
 	}
 	return p[combinedIDOff:combinedLengthOff],

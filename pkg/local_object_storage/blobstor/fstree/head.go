@@ -69,8 +69,8 @@ func (t *FSTree) getObjectStream(addr oid.Address) (*objectSDK.Object, io.ReadSe
 // extractHeaderAndStream reads the header of an object from a file.
 // The caller is responsible for closing the returned io.ReadCloser if it is not nil.
 func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Object, io.ReadSeekCloser, error) {
-	buf := make([]byte, objectSDK.MaxHeaderLen, 2*objectSDK.MaxHeaderLen)
-	n, err := io.ReadFull(f, buf)
+	buf := make([]byte, 2*objectSDK.MaxHeaderLen)
+	n, err := io.ReadFull(f, buf[:objectSDK.MaxHeaderLen])
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, f, err
 	}
@@ -109,6 +109,9 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 			k, err := io.ReadFull(f, buf[n:n+objectSDK.MaxHeaderLen])
 			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 				return nil, f, fmt.Errorf("read full: %w", err)
+			}
+			if k == 0 {
+				return nil, f, fmt.Errorf("file was found, but this object is not in it: %w", io.ErrUnexpectedEOF)
 			}
 			n += k
 		}
