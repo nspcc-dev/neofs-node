@@ -182,6 +182,15 @@ func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken)
 }
 
 func (s *server) verifySessionTokenAgainstRequest(token session.Container, reqVerb session.ContainerVerb, reqCnr cid.ID) error {
+	if !reqCnr.IsZero() {
+		if err := s.checkSessionIssuer(reqCnr, token.Issuer()); err != nil {
+			return fmt.Errorf("verify session issuer: %w", err)
+		}
+		if !token.AppliedTo(reqCnr) {
+			return errors.New("session is not applied to requested container")
+		}
+	}
+
 	if !token.AssertVerb(reqVerb) {
 		return errors.New("wrong container session operation")
 	}
@@ -208,7 +217,7 @@ func (s *server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	}
 
 	if owner := cnr.Owner(); issuer != owner {
-		return errors.New("session was not issued by the container owner")
+		return fmt.Errorf("session issuer %s mismatches container owner %s", issuer, owner)
 	}
 
 	return nil

@@ -28,7 +28,6 @@ type putContainerContext struct {
 	e containerEvent.CreateContainerRequest
 
 	// must be filled when verifying raw data from e
-	cID cid.ID
 	cnr containerSDK.Container
 	d   containerSDK.Domain
 }
@@ -45,16 +44,19 @@ func (cp *Processor) processContainerPut(req containerEvent.CreateContainerReque
 		e: req,
 	}
 
+	cID := cid.NewFromMarshalledContainer(req.Container)
+
 	err := cp.checkPutContainer(ctx)
 	if err != nil {
 		cp.log.Error("put container check failed",
+			zap.Stringer("cid", cID),
 			zap.Error(err),
 		)
 
 		return
 	}
 
-	cp.approvePutContainer(ctx)
+	cp.approvePutContainer(ctx, cID)
 }
 
 const (
@@ -71,7 +73,6 @@ var allowedSystemAttributes = map[string]struct{}{
 
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	binCnr := ctx.e.Container
-	ctx.cID = cid.NewFromMarshalledContainer(binCnr)
 
 	err := ctx.cnr.Unmarshal(binCnr)
 	if err != nil {
@@ -121,7 +122,7 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	return nil
 }
 
-func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
+func (cp *Processor) approvePutContainer(ctx *putContainerContext, cID cid.ID) {
 	e := ctx.e
 
 	var err error
@@ -137,14 +138,14 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	nm, err := cp.netState.NetMap()
 	if err != nil {
-		cp.log.Error("could not get netmap for Container contract update", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		cp.log.Error("could not get netmap for Container contract update", zap.Stringer("cid", cID), zap.Error(err))
 		return
 	}
 
 	policy := ctx.cnr.PlacementPolicy()
-	vectors, err := nm.ContainerNodes(policy, ctx.cID)
+	vectors, err := nm.ContainerNodes(policy, cID)
 	if err != nil {
-		cp.log.Error("could not build placement for Container contract update", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		cp.log.Error("could not build placement for Container contract update", zap.Stringer("cid", cID), zap.Error(err))
 		return
 	}
 
@@ -153,9 +154,9 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		replicas = append(replicas, policy.ReplicaNumberByIndex(i))
 	}
 
-	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)
+	err = cp.cnrClient.UpdateContainerPlacement(cID, vectors, replicas)
 	if err != nil {
-		cp.log.Error("could not update Container contract", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		cp.log.Error("could not update Container contract", zap.Stringer("cid", cID), zap.Error(err))
 		return
 	}
 }
@@ -168,9 +169,15 @@ func (cp *Processor) processContainerDelete(e containerEvent.RemoveContainerRequ
 		return
 	}
 
-	err := cp.checkDeleteContainer(e)
+	idCnr, err := cid.DecodeBytes(e.ID)
+	if err != nil {
+		err = fmt.Errorf("invalid container ID: %w", err)
+	} else {
+		err = cp.checkDeleteContainer(e, idCnr)
+	}
 	if err != nil {
 		cp.log.Error("delete container check failed",
+			skipZeroCIDLogField(idCnr),
 			zap.Error(err),
 		)
 
@@ -180,14 +187,7 @@ func (cp *Processor) processContainerDelete(e containerEvent.RemoveContainerRequ
 	cp.approveDeleteContainer(e)
 }
 
-func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequest) error {
-	var idCnr cid.ID
-
-	err := idCnr.Decode(req.ID)
-	if err != nil {
-		return fmt.Errorf("invalid container ID: %w", err)
-	}
-
+func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequest, idCnr cid.ID) error {
 	// receive owner of the related container
 	cnr, err := cp.cnrClient.Get(req.ID)
 	if err != nil {
