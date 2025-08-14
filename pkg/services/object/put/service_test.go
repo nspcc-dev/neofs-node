@@ -2,16 +2,22 @@ package putsvc
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/klauspost/reedsolomon"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -64,6 +70,37 @@ func Test_Slicing_REP3(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testSlicingREP3(t, tc.ln)
+		})
+	}
+}
+
+func Test_Slicing_EC(t *testing.T) {
+	rules := []iec.Rule{
+		{DataPartNum: 2, ParityPartNum: 2},
+		{DataPartNum: 3, ParityPartNum: 1},
+		{DataPartNum: 6, ParityPartNum: 3},
+		{DataPartNum: 12, ParityPartNum: 4},
+	}
+
+	for _, tc := range []struct {
+		name string
+		ln   uint64
+		skip string
+	}{
+		{name: "no payload", ln: 0},
+		{name: "1B", ln: 1},
+		{name: "limit-1B", ln: maxObjectSize - 1},
+		{name: "exactly limit", ln: maxObjectSize},
+		{name: "limit+1b", ln: maxObjectSize + 1, skip: "https://github.com/nspcc-dev/neofs-node/issues/3500"},
+		{name: "limitX2", ln: maxObjectSize * 2, skip: "https://github.com/nspcc-dev/neofs-node/issues/3500"},
+		{name: "limitX4-1", ln: maxObjectSize + 4 - 1, skip: "https://github.com/nspcc-dev/neofs-node/issues/3500"},
+		{name: "limitX5", ln: maxObjectSize * 5, skip: "https://github.com/nspcc-dev/neofs-node/issues/3500"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip != "" {
+				t.Skip(tc.skip)
+			}
+			testSlicingECRules(t, tc.ln, rules)
 		})
 	}
 }
@@ -146,6 +183,75 @@ func testSlicingREP3(t *testing.T, ln uint64) {
 	}
 }
 
+func testSlicingECRules(t *testing.T, ln uint64, rules []iec.Rule) {
+	maxRule := slices.MaxFunc(rules, func(a, b iec.Rule) int {
+		return cmp.Compare(a.DataPartNum+a.ParityPartNum, b.DataPartNum+b.ParityPartNum)
+	})
+
+	maxTotalParts := int(maxRule.DataPartNum + maxRule.ParityPartNum)
+	const cnrReserveNodes = 2
+	const outCnrNodes = 2
+
+	cluster := newTestClusterForRepPolicy(t, uint(maxTotalParts), cnrReserveNodes, outCnrNodes)
+	for i := range cluster.nodeNetworks {
+		// TODO: add alternative to newTestClusterForRepPolicy for EC instead
+		cluster.nodeNetworks[i].cnrNodes.repCounts = nil
+		for range len(rules) - 1 {
+			cluster.nodeNetworks[i].cnrNodes.unsorted = append(cluster.nodeNetworks[i].cnrNodes.unsorted, cluster.nodeNetworks[i].cnrNodes.unsorted[0])
+			cluster.nodeNetworks[i].cnrNodes.sorted = append(cluster.nodeNetworks[i].cnrNodes.sorted, cluster.nodeNetworks[i].cnrNodes.sorted[0])
+		}
+		cluster.nodeNetworks[i].cnrNodes.ecRules = rules
+	}
+
+	var srcObj object.Object
+	srcObj.SetContainerID(cidtest.ID())
+	srcObj.SetOwner(usertest.ID())
+	srcObj.SetAttributes(
+		object.NewAttribute("attr1", "val1"),
+		object.NewAttribute("attr2", "val2"),
+	)
+
+	var sessionToken session.Object
+	sessionToken.SetID(uuid.New())
+	sessionToken.SetExp(1)
+	sessionToken.BindContainer(cidtest.ID())
+	srcObj.SetPayload(testutil.RandByteSlice(ln))
+
+	testThroughNode := func(t *testing.T, idx int) {
+		sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
+		require.NoError(t, sessionToken.Sign(usertest.User()))
+
+		storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken)
+
+		nodeObjLists := cluster.allStoredObjects()
+
+		var restoredObj object.Object
+		if ln > maxObjectSize {
+			restoredObj = checkAndCutSplitECObject(t, ln, sessionToken, rules, nodeObjLists)
+		} else {
+			restoredObj = checkAndCutUnsplitECObject(t, rules, nodeObjLists)
+		}
+
+		require.Zero(t, islices.TwoDimSliceElementCount(nodeObjLists))
+
+		assertObjectIntegrity(t, restoredObj)
+		require.Equal(t, sessionToken, *restoredObj.SessionToken())
+		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
+		require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
+		require.Equal(t, object.TypeRegular, restoredObj.Type())
+		require.Equal(t, srcObj.Attributes(), restoredObj.Attributes())
+		require.False(t, restoredObj.HasParent())
+		require.True(t, bytes.Equal(srcObj.Payload(), restoredObj.Payload()))
+
+		cluster.resetAllStoredObjects()
+	}
+
+	for i := range maxTotalParts + cnrReserveNodes + outCnrNodes {
+		testThroughNode(t, i)
+	}
+}
+
 func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrNodes uint) *testCluster {
 	allNodes := allocNodes([]uint{repNodes + cnrReserveNodes + outCnrNodes})[0]
 	cnrNodes := allNodes[:repNodes+cnrReserveNodes]
@@ -166,7 +272,7 @@ func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrN
 	for i := range allNodes {
 		nodeKey := neofscryptotest.ECDSAPrivateKey()
 
-		nodeWorkerPool, err := ants.NewPool(10, ants.WithNonblocking(true))
+		nodeWorkerPool, err := ants.NewPool(len(cnrNodes), ants.WithNonblocking(true))
 		require.NoError(t, err)
 
 		cluster.nodeNetworks[i] = mockNetwork{
@@ -240,6 +346,7 @@ type mockContainerNodes struct {
 	unsorted  [][]netmap.NodeInfo
 	sorted    [][]netmap.NodeInfo
 	repCounts []uint
+	ecRules   []iec.Rule
 }
 
 func (x mockContainerNodes) Unsorted() [][]netmap.NodeInfo {
@@ -252,6 +359,10 @@ func (x mockContainerNodes) SortForObject(oid.ID) ([][]netmap.NodeInfo, error) {
 
 func (x mockContainerNodes) PrimaryCounts() []uint {
 	return x.repCounts
+}
+
+func (x mockContainerNodes) ECRules() []iec.Rule {
+	return x.ecRules
 }
 
 type mockMaxSize uint64
@@ -636,4 +747,155 @@ func assertObjectIntegrity(t *testing.T, obj object.Object) {
 	require.Zero(t, obj.Children())
 
 	require.Zero(t, obj.SplitID())
+}
+
+func checkAndGetObjectFromECParts(t *testing.T, limit uint64, rule iec.Rule, parts []object.Object) object.Object {
+	require.Len(t, parts, int(rule.DataPartNum+rule.ParityPartNum))
+
+	for _, part := range parts {
+		assertObjectIntegrity(t, part)
+		require.LessOrEqual(t, part.PayloadSize(), limit)
+	}
+
+	hdr := checkAndCutParentHeaderFromECPart(t, parts[0])
+
+	for i := 1; i < len(parts); i++ {
+		hdrI := checkAndCutParentHeaderFromECPart(t, parts[i])
+		require.Equal(t, hdr, hdrI)
+	}
+
+	payload := checkAndGetPayloadFromECParts(t, hdr.PayloadSize(), rule, parts)
+
+	res := hdr
+	res.SetPayload(payload)
+
+	return res
+}
+
+func checkAndGetPayloadFromECParts(t *testing.T, ln uint64, rule iec.Rule, parts []object.Object) []byte {
+	var payloadParts [][]byte
+	for i := range parts {
+		payloadParts = append(payloadParts, parts[i].Payload())
+	}
+
+	if ln == 0 {
+		require.Negative(t, slices.IndexFunc(payloadParts, func(e []byte) bool { return len(e) > 0 }))
+		return nil
+	}
+
+	enc, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
+	require.NoError(t, err)
+
+	ok, err := enc.Verify(payloadParts)
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	required := make([]bool, rule.DataPartNum+rule.ParityPartNum)
+	for i := range rule.DataPartNum {
+		required[i] = true
+	}
+
+	for lostCount := 1; lostCount <= int(rule.ParityPartNum); lostCount++ {
+		for _, lostIdxs := range islices.IndexCombos(len(payloadParts), lostCount) {
+			brokenParts := islices.NilTwoDimSliceElements(payloadParts, lostIdxs)
+			require.NoError(t, enc.Reconstruct(brokenParts))
+			require.Equal(t, payloadParts, brokenParts)
+
+			brokenParts = islices.NilTwoDimSliceElements(payloadParts, lostIdxs)
+			require.NoError(t, enc.ReconstructSome(brokenParts, required))
+			require.Equal(t, payloadParts[:rule.DataPartNum], brokenParts[:rule.DataPartNum])
+		}
+	}
+
+	for _, lostIdxs := range islices.IndexCombos(len(payloadParts), int(rule.ParityPartNum)+1) {
+		require.Error(t, enc.Reconstruct(islices.NilTwoDimSliceElements(payloadParts, lostIdxs)))
+		require.Error(t, enc.ReconstructSome(islices.NilTwoDimSliceElements(payloadParts, lostIdxs), required))
+	}
+
+	payload := slices.Concat(payloadParts[:rule.DataPartNum]...)
+
+	require.GreaterOrEqual(t, uint64(len(payload)), ln)
+
+	require.False(t, slices.ContainsFunc(payload[ln:], func(b byte) bool { return b != 0 }))
+
+	return payload[:ln]
+}
+
+func checkAndCutParentHeaderFromECPart(t *testing.T, part object.Object) object.Object {
+	par := part.Parent()
+	require.NotNil(t, par)
+
+	require.Equal(t, par.Version(), part.Version())
+	require.Equal(t, par.GetContainerID(), part.GetContainerID())
+	require.Equal(t, par.Owner(), part.Owner())
+	require.Equal(t, par.CreationEpoch(), part.CreationEpoch())
+	require.Equal(t, object.TypeRegular, part.Type())
+	require.Equal(t, par.SessionToken(), part.SessionToken())
+
+	return *par
+}
+
+func checkAndGetECPartInfo(t testing.TB, part object.Object) (int, int) {
+	ruleIdxAttr := iobject.GetAttribute(part, "__NEOFS__EC_RULE_IDX")
+	require.NotZero(t, ruleIdxAttr)
+	ruleIdx, err := strconv.Atoi(ruleIdxAttr)
+	require.NoError(t, err)
+	require.True(t, ruleIdx >= 0)
+
+	partIdxAttr := iobject.GetAttribute(part, "__NEOFS__EC_PART_IDX")
+	require.NotZero(t, partIdxAttr)
+	partIdx, err := strconv.Atoi(partIdxAttr)
+	require.NoError(t, err)
+	require.True(t, partIdx >= 0)
+
+	return ruleIdx, partIdx
+}
+
+func checkAndCutSplitECObject(t *testing.T, ln uint64, sessionToken session.Object, rules []iec.Rule, nodeObjLists [][]object.Object) object.Object {
+	splitPartCount := splitMembersCount(maxObjectSize, ln)
+
+	var expectedCount int
+	for i := range rules {
+		expectedCount += int(rules[i].DataPartNum+rules[i].ParityPartNum) * splitPartCount
+	}
+
+	require.EqualValues(t, expectedCount, islices.TwoDimSliceElementCount(nodeObjLists))
+
+	var splitParts []object.Object
+	for range splitPartCount {
+		splitPart := checkAndCutUnsplitECObject(t, rules, nodeObjLists)
+		splitParts = append(splitParts, splitPart)
+	}
+
+	restoredObj := assertSplitChain(t, maxObjectSize, ln, sessionToken, splitParts)
+
+	return restoredObj
+}
+
+func checkAndCutUnsplitECObject(t *testing.T, rules []iec.Rule, nodeObjLists [][]object.Object) object.Object {
+	ecParts := checkAndCutECPartsForRule(t, 0, rules[0], nodeObjLists)
+	restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, rules[0], ecParts)
+
+	for i := 1; i < len(rules); i++ {
+		ecPartsI := checkAndCutECPartsForRule(t, i, rules[i], nodeObjLists)
+		restoredObjI := checkAndGetObjectFromECParts(t, maxObjectSize, rules[i], ecPartsI)
+		require.Equal(t, restoredObj, restoredObjI)
+	}
+
+	return restoredObj
+}
+
+func checkAndCutECPartsForRule(t *testing.T, ruleIdx int, rule iec.Rule, nodeObjLists [][]object.Object) []object.Object {
+	var parts []object.Object
+
+	for i := range rule.DataPartNum + rule.ParityPartNum {
+		gotRuleIdx, partIdx := checkAndGetECPartInfo(t, nodeObjLists[i][0])
+		require.EqualValues(t, ruleIdx, gotRuleIdx)
+		require.EqualValues(t, i, partIdx)
+
+		parts = append(parts, nodeObjLists[i][0])
+		nodeObjLists[i] = nodeObjLists[i][1:]
+	}
+
+	return parts
 }

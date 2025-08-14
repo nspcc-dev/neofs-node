@@ -11,7 +11,6 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -31,26 +30,6 @@ func allocNodes(n []uint) [][]netmap.NodeInfo {
 	}
 	return res
 }
-
-type testContainerNodes struct {
-	objID oid.ID
-
-	sortErr  error
-	cnrNodes [][]netmap.NodeInfo
-
-	primCounts []uint
-}
-
-func (x testContainerNodes) Unsorted() [][]netmap.NodeInfo { return x.cnrNodes }
-
-func (x testContainerNodes) SortForObject(obj oid.ID) ([][]netmap.NodeInfo, error) {
-	if x.objID != obj {
-		return nil, errors.New("[test] unexpected object ID")
-	}
-	return x.cnrNodes, x.sortErr
-}
-
-func (x testContainerNodes) PrimaryCounts() []uint { return x.primCounts }
 
 type testNetwork struct {
 	localPubKey []byte
@@ -95,15 +74,10 @@ func TestIterateNodesForObject(t *testing.T) {
 			localPubKey: cnrNodes[0][2].PublicKey(),
 		},
 		remotePool: &rwp,
-		containerNodes: testContainerNodes{
-			objID:      objID,
-			cnrNodes:   cnrNodes,
-			primCounts: []uint{2, 3, 2},
-		},
 	}
 	var handlerMtx sync.Mutex
 	var handlerCalls []nodeDesc
-	err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+	err := iter.iterateNodesForObject(objID, []uint{2, 3, 2}, cnrNodes, false, func(node nodeDesc) error {
 		handlerMtx.Lock()
 		handlerCalls = append(handlerCalls, node)
 		handlerMtx.Unlock()
@@ -183,19 +157,14 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{3, 3, 2})
 		cnrNodes[1][1].SetPublicKey(cnrNodes[0][1].PublicKey())
 		iter := placementIterator{
-			log:        zap.NewNop(),
-			neoFSNet:   new(testNetwork),
-			remotePool: new(testWorkerPool),
-			containerNodes: testContainerNodes{
-				objID:      objID,
-				cnrNodes:   cnrNodes,
-				primCounts: []uint{2, 1, 2},
-			},
+			log:           zap.NewNop(),
+			neoFSNet:      new(testNetwork),
+			remotePool:    new(testWorkerPool),
 			linearReplNum: 4,
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, []uint{2, 1, 2}, cnrNodes, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -227,16 +196,10 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: new(testWorkerPool),
-			containerNodes: testContainerNodes{
-				objID:      objID,
-				cnrNodes:   cnrNodes,
-				primCounts: []uint{1, 1, 1},
-			},
-			broadcast: true,
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, []uint{1, 1, 1}, cnrNodes, true, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -260,21 +223,6 @@ func TestIterateNodesForObject(t *testing.T) {
 			}, key)
 		}
 	})
-	t.Run("sort nodes for object failure", func(t *testing.T) {
-		objID := oidtest.ID()
-		iter := placementIterator{
-			log: zap.NewNop(),
-			containerNodes: testContainerNodes{
-				objID:   objID,
-				sortErr: errors.New("any sort error"),
-			},
-		}
-		err := iter.iterateNodesForObject(objID, func(nodeDesc) error {
-			t.Fatal("must not be called")
-			return nil
-		})
-		require.EqualError(t, err, "sort container nodes for the object: any sort error")
-	})
 	t.Run("worker pool failure", func(t *testing.T) {
 		// nodes: [A B] [C D E] [F]
 		// policy: [2 2 1]
@@ -290,15 +238,10 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
-			containerNodes: testContainerNodes{
-				objID:      objID,
-				cnrNodes:   cnrNodes,
-				primCounts: []uint{2, 2, 1},
-			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, []uint{2, 2, 1}, cnrNodes, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -334,15 +277,10 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
-			containerNodes: testContainerNodes{
-				objID:      objID,
-				cnrNodes:   cnrNodes,
-				primCounts: []uint{2, 4, 1},
-			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, []uint{2, 4, 1}, cnrNodes, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -372,15 +310,10 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
-			containerNodes: testContainerNodes{
-				objID:      objID,
-				cnrNodes:   cnrNodes,
-				primCounts: []uint{2, 2, 1},
-			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, []uint{2, 2, 1}, cnrNodes, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -413,15 +346,10 @@ func TestIterateNodesForObject(t *testing.T) {
 			log:        zap.NewNop(),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
-			containerNodes: testContainerNodes{
-				objID:      objID,
-				cnrNodes:   cnrNodes,
-				primCounts: []uint{2, 2, 1},
-			},
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+		err := iter.iterateNodesForObject(objID, []uint{2, 2, 1}, cnrNodes, false, func(node nodeDesc) error {
 			handlerMtx.Lock()
 			handlerCalls = append(handlerCalls, node.info.PublicKey())
 			handlerMtx.Unlock()
@@ -452,16 +380,11 @@ func TestIterateNodesForObject(t *testing.T) {
 				err:   errors.New("pool err"),
 				nFail: 2,
 			},
-			containerNodes: testContainerNodes{
-				objID:      objID,
-				cnrNodes:   cnrNodes,
-				primCounts: []uint{2, 3, 1},
-			},
 		}
 		blockCh := make(chan struct{})
 		returnCh := make(chan struct{})
 		go func() {
-			err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+			err := iter.iterateNodesForObject(objID, []uint{2, 3, 1}, cnrNodes, false, func(node nodeDesc) error {
 				<-blockCh
 				return nil
 			})
