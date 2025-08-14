@@ -218,21 +218,21 @@ func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqC
 	res, ok := b.bearerTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
 		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = b.decodeAndVerifyBearerTokenCommon(m, ownerCnr)
+		res.token, res.err = b.decodeAndVerifyBearerTokenCommon(m)
 		b.bearerTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
 		return nil, res.err
 	}
 
-	if err := b.verifyBearerTokenAgainstRequest(res.token, reqCnr, usrSender); err != nil {
+	if err := b.verifyBearerTokenAgainstRequest(res.token, reqCnr, ownerCnr, usrSender); err != nil {
 		return nil, err
 	}
 
 	return &res.token, nil
 }
 
-func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken, ownerCnr user.ID) (bearer.Token, error) {
+func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken) (bearer.Token, error) {
 	var token bearer.Token
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("invalid bearer token: %w", err)
@@ -253,14 +253,14 @@ func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken, owner
 		return token, fmt.Errorf("authenticate bearer token: %w", err)
 	}
 
-	if token.ResolveIssuer() != ownerCnr {
-		return token, errors.New("bearer token owner differs from the request sender")
-	}
-
 	return token, nil
 }
 
-func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.ID, reqSender user.ID) error {
+func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.ID, ownerCnr, reqSender user.ID) error {
+	if token.ResolveIssuer() != ownerCnr {
+		return errors.New("bearer token issuer differs from the container owner")
+	}
+
 	cnr := token.EACLTable().GetCID()
 	if !cnr.IsZero() && cnr != reqCnr {
 		return errors.New("bearer token was created for another container")
