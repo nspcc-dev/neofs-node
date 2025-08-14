@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -85,14 +86,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 	if len(partID) != oid.Size {
 		return oid.ID{}, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
 	}
-	allZeros := true
-	for i := range partID {
-		if partID[i] != 0 {
-			allZeros = false
-			break
-		}
-	}
-	if allZeros {
+	if islices.AllZeros(partID) {
 		return oid.ID{}, invalidMetaBucketKeyErr(k, oid.ErrZero)
 	}
 
