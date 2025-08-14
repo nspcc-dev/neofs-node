@@ -6,6 +6,18 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.48.3
+
+## [0.48.3] - 2025-08-14
+
+### Fixed
 - SN no longer caches request-dependent container session errors (#3526)
 - SN no longer caches request-dependent bearer token errors (#3527)
 - Unclear SN status message for bearer token issuer mismatch (#3527)
@@ -17,8 +29,6 @@ Changelog for NeoFS Node
 
 ### Removed
 - Metabase version 2 to 3 migration code, minimal corresponding NeoFS version is 0.44.0 (#3514)
-
-### Updated
 
 ### Updating from v0.48.2
 Metabase version 2 can't be migrated to current with this version of NeoFS, if
@@ -2609,7 +2619,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...master
+[0.48.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...v0.48.3
 [0.48.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...v0.48.2
 [0.48.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.0...v0.48.1
 [0.48.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.1...v0.48.0
