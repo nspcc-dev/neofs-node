@@ -1,6 +1,8 @@
 package slices
 
-import "slices"
+import (
+	"slices"
+)
 
 // TwoDimSliceElementCount returns sum len for ss.
 func TwoDimSliceElementCount[E any](s [][]E) int {
@@ -35,4 +37,15 @@ func CountNilsInTwoDimSlice[T any](s [][]T) int {
 		}
 	}
 	return n
+}
+
+// AllZeros checks whether s contains all zeros. Returns true if s has no
+// elements.
+func AllZeros(s []byte) bool {
+	for i := range s {
+		if s[i] != 0 {
+			return false
+		}
+	}
+	return true
 }

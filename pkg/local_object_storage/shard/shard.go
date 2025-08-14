@@ -4,15 +4,22 @@ import (
 	"sync"
 	"time"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
+
+// interface of [meta.DB] used by [Shard] for overriding in tests.
+type metabase interface {
+	ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error)
+}
 
 // Shard represents single shard of NeoFS Local Storage Engine.
 type Shard struct {
@@ -23,6 +30,8 @@ type Shard struct {
 	writeCache writecache.Cache
 
 	metaBase *meta.DB
+	// TODO: make metaBase of metabase type
+	metaBaseIface metabase
 }
 
 // Option represents Shard's constructor option.
@@ -119,8 +128,9 @@ func New(opts ...Option) *Shard {
 	mb := meta.New(c.metaOpts...)
 
 	s := &Shard{
-		cfg:      c,
-		metaBase: mb,
+		cfg:           c,
+		metaBase:      mb,
+		metaBaseIface: mb,
 	}
 
 	reportFunc := func(msg string, err error) {
