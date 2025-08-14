@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - Metabase version 2 to 3 migration code, minimal corresponding NeoFS version is 0.44.0 (#3514)
+- `neofs-cli object head --main-only` no-op flag (#3509)
 
 ### Updated
 
@@ -22,6 +23,8 @@ Changelog for NeoFS Node
 Metabase version 2 can't be migrated to current with this version of NeoFS, if
 you're updating from version earlier than 0.44.0 consider metabase resync or
 updating using 0.48.2 first and then using this version.
+
+Remove `--main-only` flag from `neofs-cli object head` commands.
 
 ## [0.48.2] - 2025-08-08
 
