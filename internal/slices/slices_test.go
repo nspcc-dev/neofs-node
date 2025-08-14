@@ -1,6 +1,7 @@
 package slices_test
 
 import (
+	"slices"
 	"testing"
 
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
@@ -37,4 +38,22 @@ func TestNilTwoDimSliceElements(t *testing.T) {
 		nil,
 	}, res)
 	require.EqualValues(t, len(excl), islices.CountNilsInTwoDimSlice(res))
+}
+
+func TestAllZeros(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		require.True(t, islices.AllZeros(nil))
+	})
+	t.Run("empty", func(t *testing.T) {
+		require.True(t, islices.AllZeros([]byte{}))
+	})
+
+	s := make([]byte, 32)
+	require.True(t, islices.AllZeros(s))
+
+	for i := range s {
+		sc := slices.Clone(s)
+		sc[i]++
+		require.False(t, islices.AllZeros(sc), i)
+	}
 }

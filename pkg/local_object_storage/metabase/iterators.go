@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -71,10 +72,8 @@ func keyToEpochOID(k []byte, expStart []byte) (uint64, oid.ID) {
 		oidB = k[len(expStart)+32:]
 		id   oid.ID
 	)
-	for i := range len(f256) - 8 {
-		if f256[i] != 0 { // BE integer, too big.
-			return math.MaxUint64, oid.ID{}
-		}
+	if !islices.AllZeros(f256[:len(f256)-8]) { // BE integer, too big.
+		return math.MaxUint64, oid.ID{}
 	}
 	var err = id.Decode(oidB)
 	if err != nil {

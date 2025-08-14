@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/bigint"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -296,13 +297,7 @@ func bytesToUint64(val []byte) uint64 {
 }
 
 func bytesToBool(val []byte) bool {
-	for i := range val {
-		if val[i] != 0 {
-			return true
-		}
-	}
-
-	return false
+	return !islices.AllZeros(val)
 }
 
 // ErrConfigNotFound is returned when the requested key was not found
