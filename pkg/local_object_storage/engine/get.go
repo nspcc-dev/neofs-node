@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
@@ -153,4 +154,39 @@ func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
 		return err
 	})
 	return b, err
+}
+
+// GetStream reads an object from local storage as a stream.
+//
+// Returns the object header and a reader for the payload.
+// The caller is responsible for closing the returned io.ReadCloser if it is not nil.
+//
+// Returns any error encountered that did not allow to completely read the object part.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in local storage.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddStreamDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return nil, nil, e.blockErr
+	}
+
+	var (
+		err    error
+		obj    *objectSDK.Object
+		reader io.ReadCloser
+	)
+
+	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
+		obj, reader, err = s.GetStream(addr, ignoreMetadata)
+		return err
+	})
+	return obj, reader, err
 }
