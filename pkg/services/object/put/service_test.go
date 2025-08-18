@@ -816,7 +816,7 @@ func checkAndGetPayloadFromECParts(t *testing.T, ln uint64, rule iec.Rule, parts
 
 	require.GreaterOrEqual(t, uint64(len(payload)), ln)
 
-	require.False(t, slices.ContainsFunc(payload[ln:], func(b byte) bool { return b != 0 }))
+	require.True(t, islices.AllZeros(payload[ln:]))
 
 	return payload[:ln]
 }
