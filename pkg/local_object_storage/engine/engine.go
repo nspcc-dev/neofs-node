@@ -2,15 +2,20 @@ package engine
 
 import (
 	"errors"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -33,11 +38,21 @@ type StorageEngine struct {
 
 	blockMtx sync.RWMutex
 	blockErr error
+
+	sortShardsFn func(*StorageEngine, interface{ EncodeToString() string }) []shardWrapper
+}
+
+// interface of [shard.Shard] used by [StorageEngine] for overriding in tests.
+type shardInterface interface {
+	ID() *shard.ID
+	GetStream(oid.Address, bool) (*object.Object, io.ReadCloser, error)
+	GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error)
 }
 
 type shardWrapper struct {
 	errorCount *atomic.Uint32
 	*shard.Shard
+	shardIface shardInterface // TODO: make Shard a shardInterface
 }
 
 type setModeRequest struct {
@@ -229,6 +244,8 @@ func New(opts ...Option) *StorageEngine {
 		shardPools: make(map[string]util.WorkerPool),
 		closeCh:    make(chan struct{}),
 		setModeCh:  make(chan setModeRequest),
+
+		sortShardsFn: (*StorageEngine).sortedShards,
 	}
 }
 

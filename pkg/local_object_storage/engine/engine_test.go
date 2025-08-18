@@ -1,12 +1,18 @@
 package engine
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -17,6 +23,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -196,4 +203,176 @@ func testNewEngineWithShardNum(t *testing.T, num int) *StorageEngine {
 	}
 
 	return testNewEngineWithShards(shards...)
+}
+
+func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
+	e := New()
+
+	ws := make([]shardWrapper, len(ss))
+
+	for i := range ss {
+		ws[i] = shardWrapper{
+			shardIface: ss[i],
+		}
+	}
+
+	e.sortShardsFn = func(*StorageEngine, interface{ EncodeToString() string }) []shardWrapper {
+		return ws
+	}
+
+	return e
+}
+
+type unimplementedShard struct{}
+
+func (unimplementedShard) ID() *shard.ID {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) GetStream(oid.Address, bool) (*object.Object, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+type getECPartKey struct {
+	cnr    cid.ID
+	parent oid.ID
+	pi     iec.PartInfo
+}
+
+type getECPartValue struct {
+	obj object.Object
+	err error
+}
+
+type getStreamKey struct {
+	addr     oid.Address
+	skipMeta bool
+}
+
+type getStreamValue struct {
+	obj object.Object
+	err error
+}
+
+type mockShard struct {
+	i              int
+	getECPartSleep time.Duration
+	getECPart      map[getECPartKey]getECPartValue
+	getStream      map[getStreamKey]getStreamValue
+}
+
+func (x *mockShard) ID() *shard.ID {
+	si := strconv.Itoa(x.i)
+	return shard.NewIDFromBytes([]byte(si))
+}
+
+func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
+	time.Sleep(x.getECPartSleep)
+	val, ok := x.getECPart[getECPartKey{
+		cnr:    cnr,
+		parent: parent,
+		pi:     pi,
+	}]
+	if !ok {
+		return object.Object{}, nil, errors.New("[test] unexpected object requested")
+	}
+	return *val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
+}
+
+func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {
+	val, ok := x.getStream[getStreamKey{
+		addr:     addr,
+		skipMeta: skipMeta,
+	}]
+	if !ok {
+		return nil, nil, errors.New("[test] unexpected object requested")
+	}
+	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
+}
+
+type unimplementedMetrics struct{}
+
+func (x unimplementedMetrics) AddListContainersDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddEstimateContainerSizeDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddDeleteDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddExistsDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddGetDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddHeadDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddGetStreamDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddInhumeDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddPutDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddRangeDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddSearchDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddListObjectsDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddGetECPartDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) SetObjectCounter(string, string, uint64) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddToObjectCounter(string, string, int) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) SetReadonly(string, bool) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddToContainerSize(string, int64) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddToPayloadCounter(string, int64) {
+	panic("unimplemented")
+}
+
+type testMetrics struct {
+	unimplementedMetrics
+	getECPart atomic.Int64
+}
+
+func (x *testMetrics) AddGetECPartDuration(d time.Duration) {
+	x.getECPart.Add(int64(d))
 }

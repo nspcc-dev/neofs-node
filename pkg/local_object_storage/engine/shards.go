@@ -194,6 +194,10 @@ func (e *StorageEngine) sortedShards(objAddr interface{ EncodeToString() string 
 
 	hrw.Sort(shards, hrw.WrapBytes([]byte(objAddr.EncodeToString())))
 
+	for i := range shards {
+		shards[i].shardIface = shards[i].Shard
+	}
+
 	return shards
 }
 
