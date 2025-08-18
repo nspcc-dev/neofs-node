@@ -6,8 +6,10 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -82,8 +84,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var prm internalclient.DeleteObjectPrm
-	prm.SetPrivateKey(*pk)
+	var prm client.PrmObjectDelete
 	err = Prepare(cmd, &prm)
 	if err != nil {
 		return err
@@ -104,14 +105,11 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return err
 		}
-		prm.SetAddress(addr)
 
-		res, err := internalclient.DeleteObject(ctx, prm)
+		tomb, err := cli.ObjectDelete(ctx, addr.Container(), id, user.NewAutoIDSigner(*pk), prm)
 		if err != nil {
-			return fmt.Errorf("rpc error: deleting %s object: %w", id, err)
+			return fmt.Errorf("rpc error: deleting %s object: remove object via client: %w", id, err)
 		}
-
-		tomb := res.Tombstone()
 
 		cmd.Printf("Object %s removed successfully.\n", id)
 		cmd.Printf("  ID: %s\n  CID: %s\n", tomb, cnr)

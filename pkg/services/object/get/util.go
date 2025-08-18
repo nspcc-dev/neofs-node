@@ -1,6 +1,7 @@
 package getsvc
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -9,10 +10,16 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
-	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
+
+// maxInitialBufferSize is the maximum initial buffer size for GetRange result.
+// We don't want to allocate a lot of space in advance because a query can
+// fail with apistatus.ObjectOutOfRange status.
+const maxInitialBufferSize = 1024 * 1024 // 1 MiB
 
 type SimpleObjectWriter struct {
 	obj *object.Object
@@ -93,27 +100,30 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 	}
 
 	if exec.headOnly() {
-		var prm internalclient.HeadObjectPrm
+		addr := exec.address()
+		id := addr.Object()
 
-		prm.SetContext(exec.context())
-		prm.SetClient(c.client)
-		prm.SetTTL(exec.prm.common.TTL())
-		prm.SetAddress(exec.address())
-		prm.SetPrivateKey(key)
-		prm.SetSessionToken(exec.prm.common.SessionToken())
-		prm.SetBearerToken(exec.prm.common.BearerToken())
-		prm.SetXHeaders(exec.prm.common.XHeaders())
-
+		var opts client.PrmObjectHead
+		if exec.prm.common.TTL() < 2 {
+			opts.MarkLocal()
+		}
+		if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+			opts.WithinSession(*st)
+		}
+		if bt := exec.prm.common.BearerToken(); bt != nil {
+			opts.WithBearerToken(*bt)
+		}
+		opts.WithXHeaders(exec.prm.common.XHeaders()...)
 		if exec.isRaw() {
-			prm.SetRawFlag()
+			opts.MarkRaw()
 		}
 
-		res, err := internalclient.HeadObject(prm)
+		hdr, err := c.client.ObjectHead(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 		}
 
-		return res.Header(), nil
+		return hdr, nil
 	}
 
 	if rngH := exec.prmRangeHash; rngH != nil && exec.isRangeHashForwardingEnabled() {
@@ -124,23 +134,26 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 	// we don't specify payload writer because we accumulate
 	// the object locally (even huge).
 	if rng := exec.ctxRange(); rng != nil {
-		var prm internalclient.PayloadRangePrm
+		addr := exec.address()
+		id := addr.Object()
+		ln := rng.GetLength()
 
-		prm.SetContext(exec.context())
-		prm.SetClient(c.client)
-		prm.SetTTL(exec.prm.common.TTL())
-		prm.SetAddress(exec.address())
-		prm.SetPrivateKey(key)
-		prm.SetSessionToken(exec.prm.common.SessionToken())
-		prm.SetBearerToken(exec.prm.common.BearerToken())
-		prm.SetXHeaders(exec.prm.common.XHeaders())
-		prm.SetRange(rng)
-
+		var opts client.PrmObjectRange
+		if exec.prm.common.TTL() < 2 {
+			opts.MarkLocal()
+		}
+		if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+			opts.WithinSession(*st)
+		}
+		if bt := exec.prm.common.BearerToken(); bt != nil {
+			opts.WithBearerToken(*bt)
+		}
+		opts.WithXHeaders(exec.prm.common.XHeaders()...)
 		if exec.isRaw() {
-			prm.SetRawFlag()
+			opts.MarkRaw()
 		}
 
-		res, err := internalclient.PayloadRange(prm)
+		rdr, err := c.client.ObjectRangeInit(exec.context(), addr.Container(), id, rng.GetOffset(), ln, user.NewAutoIDSigner(*key), opts)
 		if err != nil {
 			if errors.Is(err, apistatus.ErrObjectAccessDenied) {
 				// Current spec allows other storage node to deny access,
@@ -164,37 +177,64 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 				return payloadOnlyObject(payload[from:to]), nil
 			}
-			return nil, err
+			return nil, fmt.Errorf("init payload reading: %w", err)
 		}
 
-		return payloadOnlyObject(res.PayloadRange()), nil
+		if int64(ln) < 0 {
+			// `CopyN` expects `int64`, this check ensures that the result is positive.
+			// On practice this means that we can return incorrect results for objects
+			// with size > 8_388 Petabytes, this will be fixed later with support for streaming.
+			return nil, new(apistatus.ObjectOutOfRange)
+		}
+
+		ln = min(ln, maxInitialBufferSize)
+
+		w := bytes.NewBuffer(make([]byte, ln))
+		_, err = io.CopyN(w, rdr, int64(ln))
+		if err != nil {
+			return nil, fmt.Errorf("read payload: %w", err)
+		}
+
+		return payloadOnlyObject(w.Bytes()), nil
 	}
 
 	return c.get(exec, key)
 }
 
 func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, error) {
-	var prm internalclient.GetObjectPrm
+	addr := exec.address()
+	id := addr.Object()
 
-	prm.SetContext(exec.context())
-	prm.SetClient(c.client)
-	prm.SetTTL(exec.prm.common.TTL())
-	prm.SetAddress(exec.address())
-	prm.SetPrivateKey(key)
-	prm.SetSessionToken(exec.prm.common.SessionToken())
-	prm.SetBearerToken(exec.prm.common.BearerToken())
-	prm.SetXHeaders(exec.prm.common.XHeaders())
-
+	var opts client.PrmObjectGet
+	if exec.prm.common.TTL() < 2 {
+		opts.MarkLocal()
+	}
+	if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+		opts.WithinSession(*st)
+	}
+	if bt := exec.prm.common.BearerToken(); bt != nil {
+		opts.WithBearerToken(*bt)
+	}
+	opts.WithXHeaders(exec.prm.common.XHeaders()...)
 	if exec.isRaw() {
-		prm.SetRawFlag()
+		opts.MarkRaw()
 	}
 
-	res, err := internalclient.GetObject(prm)
+	hdr, rdr, err := c.client.ObjectGetInit(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init object reading:: %w", err)
 	}
 
-	return res.Object(), nil
+	buf := make([]byte, hdr.PayloadSize())
+
+	_, err = rdr.Read(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("read payload: %w", err)
+	}
+
+	hdr.SetPayload(buf)
+
+	return &hdr, nil
 }
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {

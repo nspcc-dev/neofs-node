@@ -10,10 +10,12 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- `neofs-cli object head --main-only` no-op flag (#3509)
 
 ### Updated
 
 ### Updating from v0.48.3
+Drop `--main-only` flag from all `neofs-cli object head` commands.
 
 ## [0.48.3] - 2025-08-14
 

@@ -7,12 +7,13 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // RemoteSender represents utility for
@@ -51,19 +52,34 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 		return fmt.Errorf("could not create SDK client %s: %w", nodeInfo, err)
 	}
 
-	var prm internalclient.PutObjectPrm
+	var opts client.PrmObjectPutInit
+	opts.MarkLocal()
+	if st := commonPrm.SessionToken(); st != nil {
+		opts.WithinSession(*st)
+	}
+	if bt := commonPrm.BearerToken(); bt != nil {
+		opts.WithBearerToken(*bt)
+	}
+	opts.WithXHeaders(commonPrm.XHeaders()...)
 
-	prm.SetContext(ctx)
-	prm.SetClient(c)
-	prm.SetPrivateKey(key)
-	prm.SetSessionToken(commonPrm.SessionToken())
-	prm.SetBearerToken(commonPrm.BearerToken())
-	prm.SetXHeaders(commonPrm.XHeaders())
-	prm.SetObject(obj)
-
-	_, err = internalclient.PutObject(prm)
+	w, err := c.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return fmt.Errorf("could not put object to %s: %w", nodeInfo.AddressGroup(), err)
+		return fmt.Errorf("could not put object to %s: init object writing on client: %w", nodeInfo.AddressGroup(), err)
+	}
+
+	_, err = w.Write(obj.Payload())
+	if err != nil {
+		return fmt.Errorf("could not put object to %s: write object payload into stream: %w", nodeInfo.AddressGroup(), err)
+	}
+
+	err = w.Close()
+	if err != nil {
+		if ce, ok := c.(interface {
+			ReportError(error)
+		}); ok {
+			ce.ReportError(err)
+		}
+		return fmt.Errorf("could not put object to %s: finish object stream: %w", nodeInfo.AddressGroup(), err)
 	}
 
 	return nil

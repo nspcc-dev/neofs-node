@@ -43,9 +43,8 @@ const (
 )
 
 type RPCParameters interface {
-	SetBearerToken(prm *bearer.Token)
-	SetTTL(uint32)
-	SetXHeaders([]string)
+	WithBearerToken(bearer.Token)
+	WithXHeaders(...string)
 }
 
 // InitBearer adds bearer token flag to a command.
@@ -65,9 +64,13 @@ func Prepare(cmd *cobra.Command, prms ...RPCParameters) error {
 			return err
 		}
 
-		prms[i].SetBearerToken(btok)
-		prms[i].SetTTL(ttl)
-		prms[i].SetXHeaders(ParseXHeaders(cmd))
+		if btok != nil {
+			prms[i].WithBearerToken(*btok)
+		}
+		if v, ok := prms[i].(interface{ MarkLocal() }); ok && ttl < 2 {
+			v.MarkLocal()
+		}
+		prms[i].WithXHeaders(ParseXHeaders(cmd)...)
 	}
 	return nil
 }
@@ -141,8 +144,7 @@ func readOID(cmd *cobra.Command, id *oid.ID) error {
 // SessionPrm is a common interface of object operation's input which supports
 // sessions.
 type SessionPrm interface {
-	SetSessionToken(*session.Object)
-	SetClient(*client.Client)
+	WithinSession(session.Object)
 }
 
 // forwards all parameters to _readVerifiedSession and object as nil.
@@ -201,15 +203,15 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 	switch dst.(type) {
 	default:
 		panic(fmt.Sprintf("unsupported op parameters %T", dst))
-	case *internal.GetObjectPrm:
+	case *client.PrmObjectGet:
 		cmdVerb = session.VerbObjectGet
-	case *internal.HeadObjectPrm:
+	case *client.PrmObjectHead:
 		cmdVerb = session.VerbObjectHead
-	case *internal.SearchObjectsPrm:
+	case *client.PrmObjectSearch:
 		cmdVerb = session.VerbObjectSearch
-	case *internal.PayloadRangePrm:
+	case *client.PrmObjectRange:
 		cmdVerb = session.VerbObjectRange
-	case *internal.HashPayloadRangesPrm:
+	case *client.PrmObjectHash:
 		cmdVerb = session.VerbObjectRangeHash
 	}
 
@@ -226,7 +228,7 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 
 	common.PrintVerbose(cmd, "Session is correct.")
 
-	dst.SetSessionToken(tok)
+	dst.WithinSession(*tok)
 	return nil
 }
 
@@ -274,7 +276,6 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 	if err != nil {
 		return err
 	}
-	dst.SetClient(cli)
 	return nil
 }
 
@@ -309,7 +310,6 @@ func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPr
 		return err
 	}
 
-	dst.SetClient(cli)
 	return nil
 }
 
@@ -328,10 +328,10 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 	switch dst.(type) {
 	default:
 		panic(fmt.Sprintf("unsupported op parameters %T", dst))
-	case *internal.PutObjectPrm:
+	case *client.PrmObjectPutInit:
 		common.PrintVerbose(cmd, "Binding session to object PUT...")
 		tok.ForVerb(session.VerbObjectPut)
-	case *internal.DeleteObjectPrm:
+	case *client.PrmObjectDelete:
 		common.PrintVerbose(cmd, "Binding session to object DELETE...")
 		tok.ForVerb(session.VerbObjectDelete)
 	}
@@ -353,7 +353,7 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 
 	common.PrintVerbose(cmd, "Session token successfully formed and attached to the request.")
 
-	dst.SetSessionToken(tok)
+	dst.WithinSession(*tok)
 	return nil
 }
 

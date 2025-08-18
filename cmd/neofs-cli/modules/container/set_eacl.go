@@ -66,16 +66,11 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			cmd.Println("Checking the ability to modify access rights in the container...")
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
 
-			var getPrm internalclient.GetContainerPrm
-			getPrm.SetClient(cli)
-			getPrm.SetContainer(id)
-
-			resGet, err := internalclient.GetContainer(ctx, getPrm)
+			cnr, err := cli.ContainerGet(ctx, id, client.PrmContainerGet{})
 			if err != nil {
 				return fmt.Errorf("can't get the container: %w", err)
 			}
 
-			cnr := resGet.Container()
 			owner := cnr.Owner()
 
 			if tok != nil {

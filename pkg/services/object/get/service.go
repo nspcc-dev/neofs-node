@@ -45,8 +45,6 @@ type getClient interface {
 }
 
 type cfg struct {
-	assembly bool
-
 	log *zap.Logger
 
 	localStorage interface {
@@ -62,7 +60,6 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		assembly:     true,
 		log:          zap.L(),
 		localStorage: new(storageEngineWrapper),
 		clientCache:  new(clientCacheWrapper),
@@ -88,13 +85,6 @@ func New(neoFSNet NeoFSNetwork, opts ...Option) *Service {
 func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l.With(zap.String("component", "Object.Get service"))
-	}
-}
-
-// WithoutAssembly returns option to disable object assembling.
-func WithoutAssembly() Option {
-	return func(c *cfg) {
-		c.assembly = false
 	}
 }
 

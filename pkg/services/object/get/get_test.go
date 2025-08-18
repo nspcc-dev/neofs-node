@@ -210,7 +210,6 @@ func TestGetLocalOnly(t *testing.T) {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
 		svc.localStorage = storage
-		svc.assembly = true
 
 		return svc
 	}
@@ -488,7 +487,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
-		svc.assembly = true
 
 		svc.neoFSNet = &testNeoFS{
 			c: cnr,

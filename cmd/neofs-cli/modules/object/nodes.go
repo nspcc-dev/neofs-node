@@ -7,6 +7,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -45,33 +46,25 @@ var objectNodesCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prmSnap internalclient.NetMapSnapshotPrm
-		prmSnap.SetClient(cli)
-
-		resmap, err := internalclient.NetMapSnapshot(ctx, prmSnap)
+		nm, err := cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
 		if err != nil {
 			return fmt.Errorf("could not get netmap snapshot: %w", err)
 		}
 
-		var prmCnr internalclient.GetContainerPrm
-		prmCnr.SetClient(cli)
-		prmCnr.SetContainer(cnrID)
-
-		res, err := internalclient.GetContainer(ctx, prmCnr)
+		cnr, err := cli.ContainerGet(ctx, cnrID, client.PrmContainerGet{})
 		if err != nil {
 			return fmt.Errorf("could not get container: %w", err)
 		}
 
-		cnr := res.Container()
 		policy := cnr.PlacementPolicy()
 
 		var cnrNodes [][]netmap.NodeInfo
-		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, cnrID)
+		cnrNodes, err = nm.ContainerNodes(policy, cnrID)
 		if err != nil {
 			return fmt.Errorf("could not build container nodes for the given container: %w", err)
 		}
 
-		placementNodes, err := resmap.NetMap().PlacementVectors(cnrNodes, oID)
+		placementNodes, err := nm.PlacementVectors(cnrNodes, oID)
 		if err != nil {
 			return fmt.Errorf("could not build placement nodes for the given container: %w", err)
 		}

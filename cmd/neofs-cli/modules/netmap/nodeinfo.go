@@ -7,6 +7,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
@@ -28,10 +29,7 @@ var nodeInfoCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prm internalclient.NodeInfoPrm
-		prm.SetClient(cli)
-
-		res, err := internalclient.NodeInfo(ctx, prm)
+		res, err := cli.EndpointInfo(ctx, client.PrmEndpointInfo{})
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}

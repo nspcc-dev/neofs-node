@@ -6,6 +6,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
@@ -53,28 +54,18 @@ var listContainersCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		var prm internalclient.ListContainersPrm
-		prm.SetClient(cli)
-		prm.SetAccount(idUser)
-
-		res, err := internalclient.ListContainers(ctx, prm)
+		list, err := cli.ContainerList(ctx, idUser, client.PrmContainerList{})
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		var prmGet internalclient.GetContainerPrm
-		prmGet.SetClient(cli)
-
-		list := res.IDList()
 		for i := range list {
 			cmd.Println(list[i].String())
 
 			if flagVarListPrintAttr {
-				prmGet.SetContainer(list[i])
-
-				res, err := internalclient.GetContainer(ctx, prmGet)
+				cnr, err := cli.ContainerGet(ctx, list[i], client.PrmContainerGet{})
 				if err == nil {
-					for key, val := range res.Container().UserAttributes() {
+					for key, val := range cnr.UserAttributes() {
 						cmd.Printf("  %s: %s\n", key, val)
 					}
 				} else {
