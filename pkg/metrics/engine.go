@@ -14,6 +14,7 @@ type (
 		existsDuration                prometheus.Histogram
 		getDuration                   prometheus.Histogram
 		headDuration                  prometheus.Histogram
+		getStreamDuration             prometheus.Histogram
 		inhumeDuration                prometheus.Histogram
 		putDuration                   prometheus.Histogram
 		rangeDuration                 prometheus.Histogram
@@ -70,6 +71,13 @@ func newEngineMetrics() engineMetrics {
 			Subsystem: engineSubsystem,
 			Name:      "head_time",
 			Help:      "Engine 'head' operations handling time",
+		})
+
+		getStreamDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "get_stream_time",
+			Help:      "Engine 'get stream' operations handling time",
 		})
 
 		inhumeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -138,6 +146,7 @@ func newEngineMetrics() engineMetrics {
 		existsDuration:                existsDuration,
 		getDuration:                   getDuration,
 		headDuration:                  headDuration,
+		getStreamDuration:             getStreamDuration,
 		inhumeDuration:                inhumeDuration,
 		putDuration:                   putDuration,
 		rangeDuration:                 rangeDuration,
@@ -156,6 +165,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.existsDuration)
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.headDuration)
+	prometheus.MustRegister(m.getStreamDuration)
 	prometheus.MustRegister(m.inhumeDuration)
 	prometheus.MustRegister(m.putDuration)
 	prometheus.MustRegister(m.rangeDuration)
@@ -188,6 +198,10 @@ func (m engineMetrics) AddGetDuration(d time.Duration) {
 
 func (m engineMetrics) AddHeadDuration(d time.Duration) {
 	m.headDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddGetStreamDuration(d time.Duration) {
+	m.getStreamDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddInhumeDuration(d time.Duration) {

@@ -3,6 +3,7 @@ package writecache
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,6 +30,8 @@ type Cache interface {
 	// canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
 	// is missing.
 	GetBytes(oid.Address) ([]byte, error)
+	// GetStream returns an object and a stream to read its payload.
+	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
 	Head(oid.Address) (*object.Object, error)
 	// Delete removes object referenced by the given oid.Address from the
 	// Cache. Returns any error encountered that prevented the object to be

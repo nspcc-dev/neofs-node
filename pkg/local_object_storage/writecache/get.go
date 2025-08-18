@@ -2,6 +2,7 @@ package writecache
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -49,4 +50,20 @@ func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
 	}
 
 	return b, nil
+}
+
+// GetStream returns an object stream from write-cache.
+// On success, the reader is non-nil and must be closed;
+// a nil reader is only returned with a non‑nil error.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in write-cache.
+func (c *cache) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+	}
+	stream, reader, err := c.fsTree.GetStream(addr)
+	if err != nil {
+		return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+	}
+
+	return stream, reader, nil
 }
