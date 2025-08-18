@@ -6,6 +6,7 @@ import (
 	"io"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -17,6 +18,10 @@ import (
 // parent object and indexed by pi in the underlying metabase, checks its
 // availability and reads it from the underlying BLOB storage. The result is a
 // header and a payload stream that must be closed by caller after processing.
+//
+// If object is found in the metabase but unreadable from the BLOB storage,
+// GetECPart wraps [ierrors.ObjectID] with the object ID along with the failure
+// cause.
 //
 // If write-cache is enabled, GetECPart tries to get the object from it first.
 //
@@ -52,7 +57,7 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 
 	hdr, rdr, err := s.blobStor.GetStream(partAddr)
 	if err != nil {
-		return object.Object{}, nil, fmt.Errorf("get from BLOB storage by ID %s: %w", partID, err)
+		return object.Object{}, nil, fmt.Errorf("get from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
 	}
 
 	return *hdr, rdr, nil

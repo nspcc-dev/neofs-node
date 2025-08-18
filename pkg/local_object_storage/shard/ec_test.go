@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -102,6 +103,10 @@ func TestShard_GetECPart(t *testing.T) {
 			_, _, err := s.GetECPart(cnr, parentID, pi)
 			require.ErrorIs(t, err, tc.err)
 			require.ErrorContains(t, err, fmt.Sprintf("get from BLOB storage by ID %s", partID))
+
+			var oidErr ierrors.ObjectID
+			require.ErrorAs(t, err, &oidErr)
+			require.EqualValues(t, partID, oidErr)
 		})
 	}
 
