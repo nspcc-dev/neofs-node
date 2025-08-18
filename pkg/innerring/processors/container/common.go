@@ -9,6 +9,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"go.uber.org/zap"
 )
 
 var (
@@ -72,8 +73,8 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return errWrongCID
 		}
 
-		if !session.IssuedBy(tok, v.ownerContainer) {
-			return errors.New("owner differs with token owner")
+		if issuer := tok.Issuer(); issuer != v.ownerContainer {
+			return fmt.Errorf("owner %s differs with token owner %s", v.ownerContainer, issuer)
 		}
 
 		err = cp.checkTokenLifetime(tok)
@@ -102,4 +103,11 @@ func (cp *Processor) checkTokenLifetime(token session.Container) error {
 	}
 
 	return nil
+}
+
+func skipZeroCIDLogField(cnr cid.ID) zap.Field {
+	if cnr.IsZero() {
+		return zap.Skip()
+	}
+	return zap.Stringer("cid", cnr)
 }
