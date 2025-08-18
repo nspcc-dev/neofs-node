@@ -219,7 +219,18 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 		return o, nil
 	}
 
-	return e.engine.Get(exec.address())
+	header, reader, err := e.engine.GetStream(exec.address())
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = reader.Close() }()
+
+	payload, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("can't read object payload: %w", err)
+	}
+	header.SetPayload(payload)
+	return header, nil
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {
