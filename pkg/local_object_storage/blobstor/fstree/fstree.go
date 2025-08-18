@@ -494,7 +494,8 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 
 // GetStream returns an object from the storage by address as a stream.
 // It returns the object with header only, and a reader for the payload.
-// The caller is responsible for closing the returned io.ReadCloser if it is not nil.
+// On success, the reader is non-nil and must be closed;
+// a nil reader is only returned with a non‑nil error.
 func (t *FSTree) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
 	obj, reader, err := t.getObjectStream(addr)
 	if err != nil {
