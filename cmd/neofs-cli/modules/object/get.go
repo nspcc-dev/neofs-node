@@ -1,7 +1,6 @@
 package object
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +9,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -99,29 +99,30 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	var p *pb.ProgressBar
 	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
 
-	var payloadWriter io.Writer
-	var payloadBuffer *bytes.Buffer
 	binary, _ := cmd.Flags().GetBool(binaryFlag)
-	if binary {
-		payloadBuffer = new(bytes.Buffer)
-		payloadWriter = payloadBuffer
-	} else {
-		payloadWriter = out
-	}
 
 	hdr, rdr, err := cli.ObjectGetInit(ctx, cnr, obj, user.NewAutoIDSigner(*pk), prm)
 	if err == nil {
+		// In binary mode, write header (without payload) and protobuf payload field tag+length, then stream payload
+		if binary {
+			if wErr := object.WriteWithoutPayload(out, hdr); wErr != nil {
+				err = fmt.Errorf("write object header: %w", wErr)
+			}
+		}
+
 		if filename != "" && !noProgress {
 			p = pb.New64(0)
 			p.Output = cmd.OutOrStdout()
 			p.SetTotal64(int64(hdr.PayloadSize()))
 			p.Start()
 
-			payloadWriter = p.NewProxyWriter(payloadWriter)
+			out = p.NewProxyWriter(out)
 		}
 
-		if _, err = io.Copy(payloadWriter, rdr); err != nil {
-			err = fmt.Errorf("copy payload: %w", err)
+		if err == nil {
+			if _, err = io.Copy(out, rdr); err != nil {
+				err = fmt.Errorf("copy payload: %w", err)
+			}
 		}
 	}
 	if p != nil {
@@ -133,17 +134,6 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		}
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
-		}
-	}
-
-	if binary {
-		objToStore := hdr
-		// TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
-		objToStore.SetPayload(payloadBuffer.Bytes())
-		objBytes := objToStore.Marshal()
-		_, err = out.Write(objBytes)
-		if err != nil {
-			return fmt.Errorf("unable to write binary object in out: %w", err)
 		}
 	}
 

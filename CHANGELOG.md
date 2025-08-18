@@ -8,7 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
-- Stream payload without buffering to reduce memory usage in CLI `Put` operation (#3535)
+- Stream payload without buffering to reduce memory usage in CLI `Get/Put` operations (#3535)
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)
