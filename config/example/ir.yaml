@@ -143,9 +143,6 @@ fee:
   main_chain: 50000000                 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain
 
 timers:
-  stop_estimation:
-    mul: 1 # Multiplier in x/y relation of when to stop basic income estimation within the epoch
-    div: 4 # Divider in x/y relation of when to stop basic income estimation within the epoch
   collect_basic_income:
     mul: 1 # Multiplier in x/y relation of when to start basic income asset collection within the epoch
     div: 2 # Divider in x/y relation of when to start basic income asset collecting within the epoch

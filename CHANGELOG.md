@@ -11,11 +11,13 @@ Changelog for NeoFS Node
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)
+- IR's estimations timer management (#3539)
 
 ### Updated
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
+Drop IR's `timers.stop_estimation.*` configuration values, they are not used anymore.
 
 ## [0.48.3] - 2025-08-14
 

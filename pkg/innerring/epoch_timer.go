@@ -30,9 +30,6 @@ type (
 		cnrWrapper *container.Client // to invoke stop container estimation
 		epoch      epochState        // to specify which epoch to stop, and epoch duration
 
-		stopEstimationDMul uint32 // X: X/Y of epoch in seconds
-		stopEstimationDDiv uint32 // Y: X/Y of epoch in seconds
-
 		basicIncome subEpochEventHandler
 	}
 )
@@ -94,31 +91,6 @@ func newEpochTimer(args *epochTimerArgs) *epochTimer {
 		eHandlers:     args.newEpochHandlers,
 		deltaHandlers: make([]*deltaHandler, 0, 2),
 	}
-
-	// sub-timer for epoch timer to tick stop container estimation events at
-	// some block in epoch
-	et.deltaHandlers = append(et.deltaHandlers, &deltaHandler{
-		mul: uint64(args.stopEstimationDMul),
-		div: uint64(args.stopEstimationDDiv),
-		h: func() {
-			epochN := args.epoch.EpochCounter()
-			if epochN == 0 { // estimates are invalid in genesis epoch
-				return
-			}
-
-			estimationEpoch := epochN - 1
-			args.l.Info("stop estimation collections", zap.Uint64("epoch", estimationEpoch))
-
-			prm := container.StopEstimationPrm{}
-			prm.SetEpoch(estimationEpoch)
-
-			err := args.cnrWrapper.StopEstimation(prm)
-			if err != nil {
-				args.l.Warn("can't stop epoch estimation",
-					zap.Uint64("epoch", epochN),
-					zap.Error(err))
-			}
-		}})
 
 	et.deltaHandlers = append(et.deltaHandlers, &deltaHandler{
 		mul: uint64(args.basicIncome.durationMul),
