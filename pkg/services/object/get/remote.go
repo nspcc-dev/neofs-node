@@ -17,7 +17,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		return true
 	}
 
-	obj, err := remoteClient.getObject(exec, info)
+	obj, reader, err := remoteClient.getObject(exec, info)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 
@@ -40,6 +40,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		// response is not an object
 		if obj != nil {
 			exec.collectedObject = obj
+			exec.collectedReader = reader
 			exec.writeCollectedObject()
 		}
 	case errors.Is(err, apistatus.Error) && !errors.Is(err, apistatus.ErrObjectNotFound):

@@ -66,7 +66,7 @@ func (exec *execCtx) assemble() {
 
 			if ok := exec.overtakePayloadInReverse(children[len(children)-1]); ok {
 				// payload of all children except the last are written, write last payload
-				exec.writeObjectPayload(exec.collectedObject)
+				exec.writeObjectPayload(exec.collectedObject, exec.collectedReader)
 			}
 		}
 	} else if prev != nil {
@@ -76,8 +76,8 @@ func (exec *execCtx) assemble() {
 			//  * else go right-to-left with GET and compose in single object before writing
 
 			if ok := exec.overtakePayloadInReverse(*prev); ok {
-				// payload of all children except the last are written, write last payloa
-				exec.writeObjectPayload(exec.collectedObject)
+				// payload of all children except the last are written, write last payload
+				exec.writeObjectPayload(exec.collectedObject, exec.collectedReader)
 			}
 		}
 	} else {
@@ -163,12 +163,15 @@ func (exec *execCtx) overtakePayloadDirectly(children []oid.ID, rngs []objectSDK
 			r = &rngs[i]
 		}
 
-		child, ok := exec.getChild(children[i], r, !withRng && checkRight)
+		child, reader, ok := exec.getChildStream(children[i], r, !withRng && checkRight)
 		if !ok {
+			if reader != nil {
+				_ = reader.Close()
+			}
 			return
 		}
 
-		if ok := exec.writeObjectPayload(child); !ok {
+		if ok := exec.writeObjectPayload(child, reader); !ok {
 			return
 		}
 	}

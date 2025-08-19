@@ -11,7 +11,7 @@ import (
 func (exec *execCtx) executeLocal() {
 	var err error
 
-	exec.collectedObject, err = exec.svc.localStorage.get(exec)
+	exec.collectedObject, exec.collectedReader, err = exec.svc.localStorage.get(exec)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 

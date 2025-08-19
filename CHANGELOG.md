@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- Use stream API of FSTree for object service `Get` operation (#3466)
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)
