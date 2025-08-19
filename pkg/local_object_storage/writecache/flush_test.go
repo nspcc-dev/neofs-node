@@ -1,7 +1,7 @@
 package writecache
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -24,7 +25,6 @@ import (
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -214,17 +214,7 @@ func TestFlushErrorRetry(t *testing.T) {
 			require.NoError(t, s.Open(false))
 			require.NoError(t, s.Init())
 
-			var logBuf safeBuffer
-			multiSyncer := zapcore.NewMultiWriteSyncer(
-				zapcore.Lock(zapcore.AddSync(os.Stderr)),
-				zapcore.Lock(zapcore.AddSync(&logBuf)))
-			logger := zap.New(
-				zapcore.NewCore(
-					zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-					multiSyncer,
-					zapcore.DebugLevel,
-				),
-			)
+			logger, logBuf := testutil.NewBufferedLogger(t, zap.DebugLevel)
 			wc := New(WithPath(filepath.Join(dir, "writecache")),
 				WithStorage(s),
 				WithFlushWorkersCount(workerCount),
@@ -258,9 +248,22 @@ func TestFlushErrorRetry(t *testing.T) {
 				"Flush completed too quickly (%v), expected at least %v retry delay",
 				duration, defaultErrorDelay)
 
-			logOutput := logBuf.String()
-			require.Contains(t, logOutput, "flush scheduler paused due to error")
-			require.Contains(t, logOutput, common.ErrNoSpace.Error())
+			logBuf.AssertContains(testutil.LogEntry{
+				Level:   zap.WarnLevel,
+				Message: "flush scheduler paused due to error",
+				Fields: map[string]any{
+					"component": "WriteCache",
+					"delay":     json.Number("10"),
+				},
+			})
+			logBuf.AssertContains(testutil.LogEntry{
+				Level:   zap.ErrorLevel,
+				Message: "can't flush batch of objects",
+				Fields: map[string]any{
+					"component": "WriteCache",
+					"error":     common.ErrNoSpace.Error(),
+				},
+			})
 
 			require.Equal(t, uint64(0), wc.(*cache).objCounters.Size())
 			t.Logf("Flush completed in %v after retrying", duration)
@@ -426,21 +429,4 @@ func (x *mockWriter) SetFull(full bool) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	x.full = full
-}
-
-type safeBuffer struct {
-	buf bytes.Buffer
-	mu  sync.Mutex
-}
-
-func (s *safeBuffer) Write(p []byte) (n int, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.Write(p)
-}
-
-func (s *safeBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.String()
 }

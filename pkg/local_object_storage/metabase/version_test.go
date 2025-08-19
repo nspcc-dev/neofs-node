@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -31,8 +30,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -348,12 +345,8 @@ func TestMigrate3to4(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Run("zero by in attribute", func(t *testing.T) {
 			testWithAttr := func(t *testing.T, k, v, msg string) {
-				var logBuf zaptest.Buffer
-				db := newDB(t, WithLogger(zap.New(zapcore.NewCore(
-					zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-					zap.CombineWriteSyncers(&logBuf),
-					zapcore.InfoLevel,
-				))))
+				l, logBuf := testutil.NewBufferedLogger(t, zap.InfoLevel)
+				db := newDB(t, WithLogger(l))
 				cnr := cid.ID{74, 207, 174, 156, 40, 231, 114, 55, 114, 92, 232, 152, 106, 247, 193, 112, 158, 52, 3, 52, 184, 14, 75, 215, 86, 203, 76, 88, 158, 253, 241, 195}
 				id := oid.ID{254, 229, 187, 147, 179, 23, 187, 50, 37, 212, 113, 82, 18, 24, 192, 81, 251, 204, 82, 56, 211, 244, 161, 185, 71, 248, 118, 213, 134, 26, 49, 79}
 				var obj object.Object
@@ -379,17 +372,15 @@ func TestMigrate3to4(t *testing.T) {
 				// assert ignored
 				assertSearchResult(t, db, cnr, nil, nil, nil)
 				// assert log message
-				msgs := logBuf.Lines()
-				require.Len(t, msgs, 1)
-				var m map[string]any
-				require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
-				require.Subset(t, m, map[string]any{
-					"level":     "info",
-					"msg":       "invalid header in the container bucket, ignoring",
-					"error":     msg,
-					"container": "632qzc5qrxpvB1PZam23Xq5AXQ5Kbt2h6G1gtWDb8AzW",
-					"object":    "JA1jTW3qwWK9hWs95tesMVbrSLpjCjW6URv8xM7woPnv",
-					"data":      base64.StdEncoding.EncodeToString(obj.Marshal()),
+				logBuf.AssertSingle(testutil.LogEntry{
+					Level:   zap.InfoLevel,
+					Message: "invalid header in the container bucket, ignoring",
+					Fields: map[string]any{
+						"error":     msg,
+						"container": "632qzc5qrxpvB1PZam23Xq5AXQ5Kbt2h6G1gtWDb8AzW",
+						"object":    "JA1jTW3qwWK9hWs95tesMVbrSLpjCjW6URv8xM7woPnv",
+						"data":      base64.StdEncoding.EncodeToString(obj.Marshal()),
+					},
 				})
 			}
 			t.Run("in key", func(t *testing.T) {
@@ -401,12 +392,8 @@ func TestMigrate3to4(t *testing.T) {
 		})
 	})
 	t.Run("invalid protobuf", func(t *testing.T) {
-		var logBuf zaptest.Buffer
-		db := newDB(t, WithLogger(zap.New(zapcore.NewCore(
-			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-			zap.CombineWriteSyncers(&logBuf),
-			zapcore.InfoLevel,
-		))))
+		l, logBuf := testutil.NewBufferedLogger(t, zap.InfoLevel)
+		db := newDB(t, WithLogger(l))
 		invalidProtobuf := []byte("Hello, protobuf!")
 		errProto := proto.Unmarshal(invalidProtobuf, new(protoobject.Object))
 		require.Error(t, errProto)
@@ -445,26 +432,16 @@ func TestMigrate3to4(t *testing.T) {
 		// assert all others are available
 		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(slices.Concat(ids[:1], ids[2:])))
 		// assert log message
-		msgs := logBuf.Lines()
-		require.Len(t, msgs, 1)
-		var m map[string]any
-		require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
-		require.Subset(t, m, map[string]any{
-			"level":     "info",
-			"msg":       "invalid object binary in the container bucket's value, ignoring",
+		logBuf.AssertSingle(testutil.LogEntry{Fields: map[string]any{
 			"error":     errProto.Error(),
 			"container": cnr.String(),
 			"object":    ids[1].String(),
 			"data":      base64.StdEncoding.EncodeToString(invalidProtobuf),
-		})
+		}, Level: zap.InfoLevel, Message: "invalid object binary in the container bucket's value, ignoring"})
 	})
 	t.Run("header limit overflow", func(t *testing.T) {
-		var logBuf zaptest.Buffer
-		db := newDB(t, WithLogger(zap.New(zapcore.NewCore(
-			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-			zap.CombineWriteSyncers(&logBuf),
-			zapcore.InfoLevel,
-		))))
+		l, logBuf := testutil.NewBufferedLogger(t, zap.InfoLevel)
+		db := newDB(t, WithLogger(l))
 		cnr := cidtest.ID()
 		ids := sortObjectIDs(oidtest.IDs(5))
 		objs := make([]object.Object, len(ids))
@@ -503,27 +480,17 @@ func TestMigrate3to4(t *testing.T) {
 		// assert all others are available
 		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(slices.Concat(ids[:1], ids[2:])))
 		// assert log message
-		msgs := logBuf.Lines()
-		require.Len(t, msgs, 1)
-		var m map[string]any
-		require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
-		require.Subset(t, m, map[string]any{
-			"level":     "info",
-			"msg":       "invalid header in the container bucket, ignoring",
+		logBuf.AssertSingle(testutil.LogEntry{Fields: map[string]any{
 			"error":     fmt.Sprintf("header len %d exceeds the limit", objs[1].HeaderLen()),
 			"container": cnr.String(),
 			"object":    ids[1].String(),
 			"data":      base64.StdEncoding.EncodeToString(objBins[1]),
-		})
+		}, Level: zap.InfoLevel, Message: "invalid header in the container bucket, ignoring"})
 	})
 	t.Run("container presence", func(t *testing.T) {
 		var cnrs mockContainers
-		var logBuf zaptest.Buffer
-		db := newDB(t, WithContainers(&cnrs), WithLogger(zap.New(zapcore.NewCore(
-			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-			zap.CombineWriteSyncers(&logBuf),
-			zapcore.InfoLevel,
-		))))
+		l, logBuf := testutil.NewBufferedLogger(t, zap.InfoLevel)
+		db := newDB(t, WithContainers(&cnrs), WithLogger(l))
 		cnr := cidtest.ID()
 		ids := sortObjectIDs(oidtest.IDs(5))
 		objBins := make([][]byte, len(ids))
@@ -571,11 +538,13 @@ func TestMigrate3to4(t *testing.T) {
 			// assert none were migrated
 			assertSearchResult(t, db, cnr, nil, nil, nil)
 			// assert log message
-			msgs := logBuf.Lines()
-			require.Len(t, msgs, 1)
-			var m map[string]any
-			require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
-			require.Subset(t, m, map[string]any{"level": "info", "msg": "container no longer exists, ignoring", "container": cnr.String()})
+			logBuf.AssertSingle(testutil.LogEntry{
+				Level:   zap.InfoLevel,
+				Message: "container no longer exists, ignoring",
+				Fields: map[string]any{
+					"container": cnr.String(),
+				},
+			})
 		})
 		// Previous test updated meta to 6 and wiped objects, get them back.
 		require.NoError(t, db.boltDB.Update(pushObjects))

@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,8 +17,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 )
 
 func TestShard_GetECPart(t *testing.T) {
@@ -109,34 +106,24 @@ func TestShard_GetECPart(t *testing.T) {
 	}
 
 	t.Run("writecache", func(t *testing.T) {
-		// TODO: share utility for logger testing
-		var lb zaptest.Buffer
-		l := zap.New(zapcore.NewCore(
-			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-			zap.CombineWriteSyncers(&lb),
-			zapcore.DebugLevel,
-		))
-
 		// errors
 		for _, tc := range []struct {
 			name   string
 			err    error
-			logMsg map[string]any
+			logMsg testutil.LogEntry
 		}{
-			{name: "internal error", err: errors.New("internal error"), logMsg: map[string]any{
-				"level":    "info",
-				"msg":      "failed to get EC part object from write-cache, fallback to BLOB storage",
+			{name: "internal error", err: errors.New("internal error"), logMsg: testutil.LogEntry{Fields: map[string]any{
 				"partAddr": partAddr.String(),
 				"error":    "internal error",
-			}},
-			{name: "object not found", err: fmt.Errorf("wrapped: %w", apistatus.ErrObjectNotFound), logMsg: map[string]any{
-				"level":    "debug",
-				"msg":      "EC part object is missing in write-cache, fallback to BLOB storage",
+			}, Level: zap.InfoLevel, Message: "failed to get EC part object from write-cache, fallback to BLOB storage"}},
+			{name: "object not found", err: fmt.Errorf("wrapped: %w", apistatus.ErrObjectNotFound), logMsg: testutil.LogEntry{Fields: map[string]any{
 				"partAddr": partAddr.String(),
 				"error":    "wrapped: " + apistatus.ErrObjectNotFound.Error(),
-			}},
+			}, Level: zap.DebugLevel, Message: "EC part object is missing in write-cache, fallback to BLOB storage"}},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
+				l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
 				wc := mockWriteCache{
 					getStream: map[oid.Address]getStreamValue{
 						oid.NewAddress(cnr, partID): {err: tc.err},
@@ -146,17 +133,11 @@ func TestShard_GetECPart(t *testing.T) {
 				s := newSimpleTestShard(t, &bs, &mb, &wc)
 				s.log = l
 
-				lb.Reset()
-
 				hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
 				require.NoError(t, err)
 				assertGetECPartOK(t, partObj, hdr, rdr)
 
-				logMsgs := lb.Lines()
-				require.Len(t, logMsgs, 1)
-				var logMsg map[string]any
-				require.NoError(t, json.Unmarshal([]byte(logMsgs[0]), &logMsg))
-				require.Subset(t, logMsg, tc.logMsg)
+				lb.AssertSingle(tc.logMsg)
 			})
 		}
 
