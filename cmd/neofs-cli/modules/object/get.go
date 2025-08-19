@@ -62,7 +62,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("can't open file '%s': %w", filename, err)
 		}
 
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		out = f
 	}
@@ -79,7 +79,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	var prm client.PrmObjectGet
 	err = Prepare(cmd, &prm)
@@ -111,9 +111,8 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		}
 
 		if filename != "" && !noProgress {
-			p = pb.New64(0)
+			p = pb.New64(int64(hdr.PayloadSize()))
 			p.Output = cmd.OutOrStdout()
-			p.SetTotal64(int64(hdr.PayloadSize()))
 			p.Start()
 
 			out = p.NewProxyWriter(out)

@@ -126,7 +126,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr)
 	if err != nil {
@@ -207,7 +207,7 @@ func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribu
 		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 		if err != nil {
-			return nil, fmt.Errorf("Request current epoch: %w", err)
+			return nil, fmt.Errorf("request current epoch: %w", err)
 		}
 
 		expiresOn = currEpoch + lifetime
