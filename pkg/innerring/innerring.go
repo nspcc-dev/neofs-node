@@ -913,12 +913,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
-		l:                  server.log,
-		newEpochHandlers:   server.newEpochTickHandlers(),
-		cnrWrapper:         cnrClient,
-		epoch:              server,
-		stopEstimationDMul: cfg.Timers.StopEstimation.Mul,
-		stopEstimationDDiv: cfg.Timers.StopEstimation.Div,
+		l:                server.log,
+		newEpochHandlers: server.newEpochTickHandlers(),
+		cnrWrapper:       cnrClient,
+		epoch:            server,
 		basicIncome: subEpochEventHandler{
 			handler:     settlementProcessor.HandleBasicIncomeEvent,
 			durationMul: cfg.Timers.CollectBasicIncome.Mul,
