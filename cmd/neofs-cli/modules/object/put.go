@@ -162,10 +162,6 @@ func putObject(cmd *cobra.Command, _ []string) error {
 			}
 		}
 
-		if data := obj.Payload(); len(data) > 0 {
-			payloadReader = io.MultiReader(bytes.NewReader(data), payloadReader)
-		}
-
 		const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
 		sz := obj.PayloadSize()
 		if sz == 0 || sz > defaultBufferSizePut {
