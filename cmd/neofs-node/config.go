@@ -19,6 +19,7 @@ import (
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -372,6 +373,15 @@ func initCfg(appCfg *config.Config) *cfg {
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
 	)
 	fatalOnErr(err)
+
+	var ecRule iec.Rule
+	if ecCfg := appCfg.Experimental.ECRule; ecCfg != nil {
+		ecRule.DataPartNum, ecRule.ParityPartNum = ecCfg.Data, ecCfg.Parity
+	} else {
+		ecRule.DataPartNum, ecRule.ParityPartNum = 3, 1
+	}
+	c.log.Info("forcing default EC policy for all containers", zap.Stringer("rule", ecRule))
+	ecRules = []iec.Rule{ecRule}
 
 	var buffers sync.Pool
 	buffers.New = func() any {

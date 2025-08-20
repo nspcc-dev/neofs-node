@@ -36,6 +36,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -223,7 +224,7 @@ func initObjectService(c *cfg) {
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 	)
 
-	c.workers = append(c.workers, c.shared.policer)
+	// c.workers = append(c.workers, c.shared.policer)
 
 	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
@@ -717,8 +718,8 @@ func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
 //
 // GetNodesForObject implements [getsvc.NeoFSNetwork].
 func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) {
-	nodeSets, repRules, err := c.cfgObject.containerNodes.getNodesForObject(addr)
-	return nodeSets, repRules, nil, err
+	nodeSets, repRules, ecRules, err := c.cfgObject.containerNodes.getNodesForObject(addr)
+	return nodeSets, repRules, ecRules, err
 }
 
 type netmapSourceWithNodes struct {
@@ -755,6 +756,60 @@ func (c *cfg) GetEpochBlock(epoch uint64) (uint32, error) {
 	return c.nCli.GetEpochBlock(epoch)
 }
 
+var ecRules []iec.Rule
+
+func applyFakeECPolicy(nm netmapsdk.NetMap, policy netmapsdk.PlacementPolicy, cnrID cid.ID) storagePolicyRes {
+	ecReps := make([]netmapsdk.ReplicaDescriptor, len(ecRules))
+	for i := range ecRules {
+		ecReps[i].SetNumberOfObjects(uint32(ecRules[i].DataPartNum + ecRules[i].ParityPartNum))
+	}
+
+	policy.SetReplicas(ecReps)
+
+	nodeSets, err := nm.ContainerNodes(policy, cnrID)
+	if err != nil {
+		return storagePolicyRes{err: err}
+	}
+
+	return storagePolicyRes{nodeSets: nodeSets, ecRules: ecRules}
+}
+
+func noECContainer(cnr container.Container) bool {
+	return cnr.Name() == "access-box-storage" || cnr.Attribute("owner-public-key") != ""
+}
+
+func applyContainerPolicy(nm netmapsdk.NetMap, cnr container.Container, cnrID cid.ID) storagePolicyRes {
+	policy := cnr.PlacementPolicy()
+	if !noECContainer(cnr) {
+		return applyFakeECPolicy(nm, policy, cnrID)
+	}
+
+	nodeSets, err := nm.ContainerNodes(policy, cnrID)
+	if err != nil {
+		return storagePolicyRes{err: err}
+	}
+
+	// ContainerNodes should control following, but still better to double-check
+	if policyNum := policy.NumberOfReplicas(); len(nodeSets) != policyNum {
+		err = fmt.Errorf("invalid result of container's storage policy application to the network map: "+
+			"diff number of storage node sets (%d) and required replica descriptors (%d)",
+			len(nodeSets), policyNum)
+		return storagePolicyRes{err: err}
+	}
+
+	repRules := make([]uint, len(nodeSets))
+	for i := range nodeSets {
+		if repRules[i] = uint(policy.ReplicaNumberByIndex(i)); repRules[i] > uint(len(nodeSets[i])) {
+			err = fmt.Errorf("invalid result of container's storage policy application to the network map: "+
+				"invalid storage node set #%d: number of nodes (%d) is less than minimum required by the container policy (%d)",
+				i, len(nodeSets[i]), repRules[i])
+			return storagePolicyRes{err: err}
+		}
+	}
+
+	return storagePolicyRes{nodeSets: nodeSets, repCounts: repRules}
+}
+
 // GetContainerNodes reads storage policy of the referenced container from the
 // underlying container storage, reads current network map from the underlying
 // storage, applies the storage policy to it, gathers storage nodes matching the
@@ -774,20 +829,12 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
 	}
-	policy := cnr.PlacementPolicy()
-	nodeSets, err := networkMap.ContainerNodes(policy, cnrID)
-	if err != nil {
+	policyRes := applyContainerPolicy(*networkMap, cnr, cnrID)
+	if policyRes.err != nil {
 		return nil, fmt.Errorf("apply container storage policy to the network map at current epoch #%d: %w", curEpoch, err)
 	}
-	repCounts := make([]uint, policy.NumberOfReplicas())
-	for i := range repCounts {
-		repCounts[i] = uint(policy.ReplicaNumberByIndex(i))
-	}
 	return &containerNodesSorter{
-		policy: storagePolicyRes{
-			nodeSets:  nodeSets,
-			repCounts: repCounts,
-		},
+		policy:         policyRes,
 		networkMap:     networkMap,
 		cnrID:          cnrID,
 		curEpoch:       curEpoch,
@@ -806,7 +853,7 @@ type containerNodesSorter struct {
 
 func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
 func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
-func (x *containerNodesSorter) ECRules() []iec.Rule              { return nil }
+func (x *containerNodesSorter) ECRules() []iec.Rule              { return x.policy.ecRules }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
 	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
 	cacheKey.addr.SetContainer(x.cnrID)
@@ -823,6 +870,7 @@ func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo
 		}
 	}
 	res.repCounts = x.policy.repCounts
+	res.ecRules = x.policy.ecRules
 	res.nodeSets, res.err = x.containerNodes.sortContainerNodesFunc(*x.networkMap, x.policy.nodeSets, obj)
 	if res.err != nil {
 		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)

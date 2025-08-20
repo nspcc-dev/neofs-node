@@ -33,6 +33,13 @@ type Config struct {
 	Object     objectconfig.Object         `mapstructure:"object"`
 	Storage    engineconfig.Storage        `mapstructure:"storage"`
 
+	Experimental struct {
+		ECRule *struct {
+			Data   uint8 `mapstructure:"data"`
+			Parity uint8 `mapstructure:"parity"`
+		} `mapstructure:"ec_rule"`
+	} `mapstructure:"experimental"`
+
 	isSet map[string]struct{}
 	opts  *opts
 }
