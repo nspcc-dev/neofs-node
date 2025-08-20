@@ -1,12 +1,20 @@
 package getsvc
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"io"
+
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +33,7 @@ type NeoFSNetwork interface {
 	//
 	// Returns [apistatus.ContainerNotFound] if requested container is missing in
 	// the network.
-	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) // TODO: upd docs
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node providing [Service].
 	IsLocalNodePublicKey([]byte) bool
@@ -45,8 +53,19 @@ type getClient interface {
 }
 
 type cfg struct {
+	assembly bool
+
 	log *zap.Logger
 
+	// TODO: merge localStorage into localObjects
+	localObjects interface {
+		// GetECPart reads stored object that carries EC part produced within cnr for
+		// parent object and indexed by pi.
+		//
+		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
+		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
+		GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error)
+	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, error)
 	}
@@ -54,12 +73,22 @@ type cfg struct {
 	clientCache interface {
 		get(client.NodeInfo) (getClient, error)
 	}
+	// TODO: merge with clientCache
+	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client.ObjectGetInit
+	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
+	conns interface {
+		InitGetObjectStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+			st *session.Object, bt *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
+	}
 
-	keyStore *util.KeyStorage
+	keyStore interface {
+		GetKey(*util.SessionInfo) (*ecdsa.PrivateKey, error)
+	}
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
+		assembly:     true,
 		log:          zap.L(),
 		localStorage: new(storageEngineWrapper),
 		clientCache:  new(clientCacheWrapper),
@@ -88,10 +117,18 @@ func WithLogger(l *zap.Logger) Option {
 	}
 }
 
+// WithoutAssembly returns option to disable object assembling.
+func WithoutAssembly() Option {
+	return func(c *cfg) {
+		c.assembly = false
+	}
+}
+
 // WithLocalStorageEngine returns option to set local storage
 // instance.
 func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 	return func(c *cfg) {
+		c.localObjects = e
 		c.localStorage.(*storageEngineWrapper).engine = e
 	}
 }
@@ -104,6 +141,7 @@ type ClientConstructor interface {
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientCache.(*clientCacheWrapper).cache = v
+		c.conns = c.clientCache.(*clientCacheWrapper)
 	}
 }
 

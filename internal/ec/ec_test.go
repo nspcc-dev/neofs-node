@@ -1,6 +1,8 @@
 package ec_test
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/klauspost/reedsolomon"
@@ -71,6 +73,47 @@ func TestEncode(t *testing.T) {
 	for _, rule := range rules {
 		t.Run(rule.String(), func(t *testing.T) {
 			testEncode(t, rule, data)
+		})
+	}
+}
+
+func testConcatDataParts(t *testing.T, ln uint64) {
+	data := testutil.RandByteSlice(ln)
+
+	for _, rule := range []iec.Rule{
+		{DataPartNum: 3, ParityPartNum: 1},
+		{DataPartNum: 12, ParityPartNum: 4},
+	} {
+		t.Run(fmt.Sprintf("rule=%s", rule.String()), func(t *testing.T) {
+			var parts [][]byte
+			if ln > 0 {
+				rs, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
+				require.NoError(t, err)
+
+				parts, err = rs.Split(data)
+				require.NoError(t, err)
+			} else {
+				parts = make([][]byte, rule.DataPartNum+rule.ParityPartNum)
+			}
+
+			got := iec.ConcatDataParts(rule, ln, parts)
+			require.True(t, bytes.Equal(data, got))
+		})
+	}
+}
+
+func TestConcatDataParts(t *testing.T) {
+	for _, ln := range []uint64{
+		0,
+		1,
+		100,
+		1 << 10,
+		1<<10 + 1,
+		10 << 10,
+		10<<10 + 1,
+	} {
+		t.Run(fmt.Sprintf("len=%d", ln), func(t *testing.T) {
+			testConcatDataParts(t, ln)
 		})
 	}
 }
