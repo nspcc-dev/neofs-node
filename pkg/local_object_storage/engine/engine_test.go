@@ -216,7 +216,7 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 		}
 	}
 
-	e.sortShardsFn = func(*StorageEngine, interface{ EncodeToString() string }) []shardWrapper {
+	e.sortShardsFn = func(*StorageEngine, oid.Address) []shardWrapper {
 		return ws
 	}
 

@@ -39,7 +39,7 @@ type StorageEngine struct {
 	blockMtx sync.RWMutex
 	blockErr error
 
-	sortShardsFn func(*StorageEngine, interface{ EncodeToString() string }) []shardWrapper
+	sortShardsFn func(*StorageEngine, oid.Address) []shardWrapper
 }
 
 // interface of [shard.Shard] used by [StorageEngine] for overriding in tests.
