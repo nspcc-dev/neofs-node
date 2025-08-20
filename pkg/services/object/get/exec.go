@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -39,6 +40,9 @@ type execCtx struct {
 	curOff uint64
 
 	head bool
+
+	nodeLists [][]netmap.NodeInfo
+	repRules  []uint
 }
 
 type execOption func(*execCtx)
@@ -72,6 +76,13 @@ func withHash(p *RangeHashPrm) execOption {
 func withLogger(l *zap.Logger) execOption {
 	return func(ctx *execCtx) {
 		ctx.log = l
+	}
+}
+
+func withPreSortedContainerNodes(nodeLists [][]netmap.NodeInfo, repRules []uint) execOption {
+	return func(ctx *execCtx) {
+		ctx.nodeLists = nodeLists
+		ctx.repRules = repRules
 	}
 }
 
@@ -148,7 +159,7 @@ func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 }
 
 func (exec *execCtx) canAssemble() bool {
-	return !exec.isRaw() && !exec.headOnly()
+	return exec.svc.assembly && !exec.isRaw() && !exec.headOnly()
 }
 
 func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {
