@@ -26,5 +26,5 @@ func TestErrObjectID(t *testing.T) {
 	})
 
 	require.Implements(t, new(error), err)
-	require.Equal(t, id.String(), err.Error())
+	require.EqualError(t, err, id.String())
 }
