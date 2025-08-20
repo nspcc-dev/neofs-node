@@ -1,14 +1,20 @@
 package getsvc
 
 import (
+	"context"
+	"crypto/ecdsa"
 	"io"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 )
 
@@ -17,17 +23,27 @@ import (
 type NeoFSNetwork interface {
 	// GetNodesForObject returns descriptors of storage nodes matching storage
 	// policy of the referenced object for now. Nodes are identified by their public
-	// keys and can be repeated in different lists. The second value specifies the
-	// number (N) of primary object holders for each list (L) so:
+	// keys and can be repeated in different lists. First len(repRules) lists relate
+	// to replication, the rest len(ecRules) - to EC.
+	//
+	// repRules specifies replication rules: the number (N) of primary object
+	// holders for each list (L) so:
 	//  - size of each L >= N;
 	//  - first N nodes of each L are primary data holders while others (if any)
 	//    are backup.
+	//
+	// ecRules specifies erasure coding rules for all objects in the container: each
+	// object is split into [iec.Rule.DataPartNum] data and [iec.Rule.ParityPartNum]
+	// parity parts. Each i-th part most expected to be located on SN described by
+	// i-th list element. In general, list len is a multiple of CBF, and the part is
+	// expected on N with index M*i, M in [0,CBF). Then part is expected on SN
+	// for i+1-th part and so on.
 	//
 	// GetContainerNodes does not change resulting slices and their elements.
 	//
 	// Returns [apistatus.ContainerNotFound] if requested container is missing in
 	// the network.
-	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	GetNodesForObject(oid.Address) (nodeRules [][]netmapsdk.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node providing [Service].
 	IsLocalNodePublicKey([]byte) bool
@@ -49,6 +65,15 @@ type getClient interface {
 type cfg struct {
 	log *zap.Logger
 
+	// TODO: merge localStorage into localObjects
+	localObjects interface {
+		// GetECPart reads stored object that carries EC part produced within cnr for
+		// parent object and indexed by pi.
+		//
+		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
+		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
+		GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error)
+	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)
 	}
@@ -56,8 +81,17 @@ type cfg struct {
 	clientCache interface {
 		get(client.NodeInfo) (getClient, error)
 	}
+	// TODO: merge with clientCache
+	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client.ObjectGetInit
+	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
+	conns interface {
+		InitGetObjectStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+			st *session.Object, bt *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
+	}
 
-	keyStore *util.KeyStorage
+	keyStore interface {
+		GetKey(*util.SessionInfo) (*ecdsa.PrivateKey, error)
+	}
 }
 
 func defaultCfg() *cfg {
@@ -94,6 +128,7 @@ func WithLogger(l *zap.Logger) Option {
 // instance.
 func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 	return func(c *cfg) {
+		c.localObjects = e
 		c.localStorage.(*storageEngineWrapper).engine = e
 	}
 }
@@ -106,6 +141,7 @@ type ClientConstructor interface {
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientCache.(*clientCacheWrapper).cache = v
+		c.conns = c.clientCache.(*clientCacheWrapper)
 	}
 }
 

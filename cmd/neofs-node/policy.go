@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	sdkcontainer "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -17,6 +18,7 @@ import (
 type storagePolicyRes struct {
 	nodeSets  [][]netmapsdk.NodeInfo
 	repCounts []uint
+	ecRules   []iec.Rule
 	err       error
 }
 
@@ -152,33 +154,34 @@ func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, 
 // the underlying storage, applies the storage policy to it and returns sorted
 // lists of selected storage nodes along with the per-list numbers of primary
 // object holders. Resulting slices must not be changed.
-func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, error) {
+func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) {
 	curEpoch, err := x.network.Epoch()
 	if err != nil {
-		return nil, nil, fmt.Errorf("read current NeoFS epoch: %w", err)
+		return nil, nil, nil, fmt.Errorf("read current NeoFS epoch: %w", err)
 	}
 	cacheKey := objectNodesCacheKey{curEpoch, addr}
 	res, ok := x.objCache.Get(cacheKey)
 	if ok {
-		return res.nodeSets, res.repCounts, res.err
+		return res.nodeSets, res.repCounts, res.ecRules, res.err
 	}
 	cnrRes, networkMap, err := x.getForCurrentEpoch(curEpoch, addr.Container())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if networkMap == nil {
 		if networkMap, err = x.network.GetNetMapByEpoch(curEpoch); err != nil {
 			// non-persistent error => do not cache
-			return nil, nil, fmt.Errorf("read network map by epoch: %w", err)
+			return nil, nil, nil, fmt.Errorf("read network map by epoch: %w", err)
 		}
 	}
 	res.repCounts = cnrRes.repCounts
+	res.ecRules = cnrRes.ecRules
 	res.nodeSets, res.err = x.sortContainerNodesFunc(*networkMap, cnrRes.nodeSets, addr.Object())
 	if res.err != nil {
 		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)
 	}
 	x.objCache.Add(cacheKey, res)
-	return res.nodeSets, res.repCounts, res.err
+	return res.nodeSets, res.repCounts, res.ecRules, res.err
 }
 
 func (x *containerNodes) getForCurrentEpoch(curEpoch uint64, cnr cid.ID) (storagePolicyRes, *netmapsdk.NetMap, error) {
