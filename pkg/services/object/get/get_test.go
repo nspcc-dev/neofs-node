@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"testing"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -21,6 +22,8 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,10 +60,10 @@ func newTestStorage() *testStorage {
 
 func (g *testNeoFS) IsLocalNodePublicKey([]byte) bool { return false }
 
-func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, error) {
+func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	nodeLists, ok := g.vectors[addr]
 	if !ok {
-		return nil, nil, errors.New("vectors for address not found")
+		return nil, nil, nil, errors.New("vectors for address not found")
 	}
 
 	primaryNums := make([]uint, len(nodeLists))
@@ -68,7 +71,7 @@ func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []
 		primaryNums[i] = 1
 	}
 
-	return nodeLists, primaryNums, nil
+	return nodeLists, primaryNums, nil, nil
 }
 
 func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {
@@ -181,11 +184,18 @@ func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...
 
 func TestGetLocalOnly(t *testing.T) {
 	ctx := context.Background()
+	addr := oidtest.Address()
+	anyNodeLists, _ := testNodeMatrix(t, []int{2})
 
 	newSvc := func(storage *testStorage) *Service {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
 		svc.localStorage = storage
+		svc.neoFSNet = &testNeoFS{
+			vectors: map[oid.Address][][]netmap.NodeInfo{
+				addr: anyNodeLists,
+			},
+		}
 
 		return svc
 	}
@@ -234,7 +244,6 @@ func TestGetLocalOnly(t *testing.T) {
 		payload := make([]byte, payloadSz)
 		_, _ = rand.Read(payload)
 
-		addr := oidtest.Address()
 		obj := generateObject(addr, nil, payload)
 
 		storage.addPhy(addr, obj)
@@ -273,8 +282,6 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(false, nil)
 
-		addr := oidtest.Address()
-
 		storage.inhume(addr)
 
 		p.WithAddress(addr)
@@ -301,8 +308,6 @@ func TestGetLocalOnly(t *testing.T) {
 		svc := newSvc(storage)
 
 		p := newPrm(false, nil)
-
-		addr := oidtest.Address()
 
 		p.WithAddress(addr)
 
@@ -364,7 +369,7 @@ func TestGetLocalOnly(t *testing.T) {
 			splitInfo.SetLink(oidtest.ID())
 			splitInfo.SetLastPart(oidtest.ID())
 
-			testSplit(oidtest.Address(), splitInfo)
+			testSplit(addr, splitInfo)
 		})
 
 		t.Run("V2 split", func(t *testing.T) {
@@ -373,7 +378,7 @@ func TestGetLocalOnly(t *testing.T) {
 			splitInfo.SetLastPart(oidtest.ID())
 			splitInfo.SetFirstPart(oidtest.ID())
 
-			testSplit(oidtest.Address(), splitInfo)
+			testSplit(addr, splitInfo)
 		})
 	})
 }
@@ -1081,4 +1086,20 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 		})
 	})
+}
+
+func parameterizeXHeaders(t testing.TB, p *Prm, ss []string) {
+	xs := make([]*protosession.XHeader, len(ss))
+	for i := 0; i < len(ss); i += 2 {
+		xs[i] = &protosession.XHeader{Key: ss[i], Value: ss[i+1]}
+	}
+
+	cp, err := util.CommonPrmFromRequest(&protoobject.GetRequest{
+		MetaHeader: &protosession.RequestMetaHeader{
+			XHeaders: xs,
+		},
+	})
+	require.NoError(t, err)
+
+	p.SetCommonParameters(cp)
 }

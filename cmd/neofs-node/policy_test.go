@@ -520,7 +520,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 		require.NoError(t, err)
 
 		for n := 1; n < 10; n++ {
-			_, _, err = ns.getNodesForObject(anyAddr)
+			_, _, _, err = ns.getNodesForObject(anyAddr)
 			require.ErrorIs(t, err, epochErr)
 			require.EqualError(t, err, "read current NeoFS epoch: any epoch error")
 			// such error must not be cached
@@ -534,7 +534,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 		require.NoError(t, err)
 
 		for n := 1; n < 10; n++ {
-			_, _, err = ns.getNodesForObject(anyAddr)
+			_, _, _, err = ns.getNodesForObject(anyAddr)
 			require.ErrorIs(t, err, cnrErr)
 			require.EqualError(t, err, "select container nodes for current epoch #42: read container by ID: any container error")
 			// such error must not be cached
@@ -548,7 +548,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 		require.NoError(t, err)
 
 		for n := 1; n <= 10; n++ {
-			_, _, err = ns.getNodesForObject(anyAddr)
+			_, _, _, err = ns.getNodesForObject(anyAddr)
 			require.ErrorIs(t, err, curNetmapErr)
 			require.EqualError(t, err, "select container nodes for current epoch #42: read network map by epoch: any current netmap error")
 			network.assertEpochCallCount(t, n)
@@ -569,7 +569,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 			require.NoError(t, err)
 
 			for n := 1; n <= 10; n++ {
-				_, _, err = ns.getNodesForObject(anyAddr)
+				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, fmt.Sprintf("select container nodes for current epoch #42: %v", policyErr))
 				network.assertEpochCallCount(t, n)
 				// assert results are cached
@@ -592,7 +592,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 			}
 
 			for n := 1; n <= 10; n++ {
-				_, _, err = ns.getNodesForObject(anyAddr)
+				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, "select container nodes for current epoch #42: "+
 					"invalid result of container's storage policy application to the network map: "+
 					"diff number of storage node sets (4) and required replica descriptors (2)")
@@ -622,7 +622,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 			}
 
 			for n := 1; n <= 10; n++ {
-				_, _, err = ns.getNodesForObject(anyAddr)
+				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, "select container nodes for current epoch #42: "+
 					"invalid result of container's storage policy application to the network map: "+
 					"invalid storage node set #1: number of nodes (1) is less than minimum required by the container policy (2)")
@@ -647,7 +647,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 			}
 
 			for n := 1; n <= 10; n++ {
-				_, _, err = ns.getNodesForObject(anyAddr)
+				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, "select container nodes for current epoch #42: "+
 					"invalid result of container's storage policy application to the network map: "+
 					"diff number of storage node sets (4) and required replica descriptors (2)")
@@ -677,7 +677,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 			}
 
 			for n := 1; n <= 10; n++ {
-				_, _, err = ns.getNodesForObject(anyAddr)
+				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, "sort container nodes for object: any sort error")
 				network.assertEpochCallCount(t, n)
 				// assert results are cached
@@ -700,7 +700,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 		require.NoError(t, err)
 
 		for n := 1; n <= 10; n++ {
-			nodeLists, primCounts, err := ns.getNodesForObject(anyAddr)
+			nodeLists, primCounts, _, err := ns.getNodesForObject(anyAddr)
 			require.NoError(t, err)
 			require.Len(t, primCounts, 4)
 			require.Len(t, nodeLists, 4)
