@@ -1,9 +1,13 @@
 package getsvc
 
 import (
+	"io"
+
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -25,7 +29,7 @@ type NeoFSNetwork interface {
 	//
 	// Returns [apistatus.ContainerNotFound] if requested container is missing in
 	// the network.
-	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) // TODO: upd docs
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node providing [Service].
 	IsLocalNodePublicKey([]byte) bool
@@ -45,12 +49,24 @@ type getClient interface {
 }
 
 type cfg struct {
+	assembly bool
+
 	log *zap.Logger
 
+	// TODO: merge localStorage into localObjects
+	localObjects interface {
+		// GetECPart reads stored object that carries EC part produced within cnr for
+		// parent object and indexed by pi.
+		//
+		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
+		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
+		GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error)
+	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, error)
 	}
 
+	conns       ClientConstructor
 	clientCache interface {
 		get(client.NodeInfo) (getClient, error)
 	}
@@ -60,6 +76,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
+		assembly:     true,
 		log:          zap.L(),
 		localStorage: new(storageEngineWrapper),
 		clientCache:  new(clientCacheWrapper),
@@ -88,10 +105,18 @@ func WithLogger(l *zap.Logger) Option {
 	}
 }
 
+// WithoutAssembly returns option to disable object assembling.
+func WithoutAssembly() Option {
+	return func(c *cfg) {
+		c.assembly = false
+	}
+}
+
 // WithLocalStorageEngine returns option to set local storage
 // instance.
 func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 	return func(c *cfg) {
+		c.localObjects = e
 		c.localStorage.(*storageEngineWrapper).engine = e
 	}
 }
@@ -103,6 +128,7 @@ type ClientConstructor interface {
 // WithClientConstructor returns option to set constructor of remote node clients.
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
+		c.conns = v
 		c.clientCache.(*clientCacheWrapper).cache = v
 	}
 }

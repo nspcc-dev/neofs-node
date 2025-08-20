@@ -21,6 +21,8 @@ import (
 // fail with apistatus.ObjectOutOfRange status.
 const maxInitialBufferSize = 1024 * 1024 // 1 MiB
 
+const maxPayloadBufferSize = 64 << 10
+
 type SimpleObjectWriter struct {
 	obj *object.Object
 
@@ -295,4 +297,39 @@ func (h *hasherWrapper) WriteChunk(p []byte) error {
 
 func prettyRange(rng *object.Range) string {
 	return fmt.Sprintf("[%d:%d]", rng.GetOffset(), rng.GetLength())
+}
+
+func copyObject(w ObjectWriter, obj object.Object) error {
+	if err := w.WriteHeader(&obj); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	if err := w.WriteChunk(obj.Payload()); err != nil {
+		return fmt.Errorf("write payload: %w", err)
+	}
+
+	return nil
+}
+
+func copyObjectStream(w ObjectWriter, h object.Object, r io.Reader) error {
+	if err := w.WriteHeader(&h); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	buf := make([]byte, min(h.PayloadSize(), maxPayloadBufferSize))
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			if err := w.WriteChunk(buf[:n]); err != nil {
+				return fmt.Errorf("write next payload chunk: %w", err)
+			}
+		}
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("read next payload chunk: %w", err)
+		}
+	}
 }
