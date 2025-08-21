@@ -32,8 +32,9 @@ const (
 	eaclDataMethod = "getEACLData"
 	setEACLMethod  = "setEACL"
 
-	startEstimationMethod = "startContainerEstimation"
-	stopEstimationMethod  = "stopContainerEstimation"
+	putReportMethod       = "putEstimation"
+	iterateReports        = "iterateEstimations"
+	iterateAllEstimations = "iterateAllEstimations"
 
 	putSizeMethod   = "putContainerSize"
 	listSizesMethod = "iterateAllContainerSizes"
