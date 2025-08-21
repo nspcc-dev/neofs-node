@@ -11,10 +11,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// ContainerSize returns the sum of estimation container sizes among all shards.
+// ContainerSize returns container statistics' pair: (totalStorageSize, totalObjectsNumber).
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
+func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, uint64, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
@@ -23,23 +23,25 @@ func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
 	defer e.blockMtx.RUnlock()
 
 	if e.blockErr != nil {
-		return 0, e.blockErr
+		return 0, 0, e.blockErr
 	}
 
 	var size uint64
+	var objsNumber uint64
 
 	for _, sh := range e.unsortedShards() {
-		shardSize, err := sh.Shard.ContainerSize(cnr)
+		shardInfo, err := sh.Shard.ContainerSize(cnr)
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
 				zap.Stringer("container_id", cnr))
 			continue
 		}
 
-		size += shardSize
+		size += shardInfo.StorageSize
+		objsNumber += shardInfo.ObjectsNumber
 	}
 
-	return size, nil
+	return size, objsNumber, nil
 }
 
 // ListContainers returns a unique container IDs presented in the engine objects.

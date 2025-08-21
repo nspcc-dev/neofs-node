@@ -122,7 +122,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 	}
 
 	containerBuckets := []byte{
-		containerVolumePrefix,
 		garbageContainersPrefix,
 	}
 
