@@ -8,6 +8,7 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	netmapEv "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -77,6 +78,41 @@ func initContainerService(c *cfg) {
 			c.log.Info("successfully updated cache of the container eACL", zap.Stringer("id", cnr))
 		})
 	}
+
+	// TODO: report more often than once: https://github.com/nspcc-dev/neofs-node/issues/3543.
+	addNewEpochAsyncNotificationHandler(c, func(e event.Event) {
+		ev := e.(netmapEv.NewEpoch)
+		st := c.cfgObject.cfgLocalStorage.localStorage
+		l := c.log.With(zap.String("component", "containerReports"), zap.Uint64("epoch", ev.EpochNumber()))
+
+		l.Debug("sending container report to contract...")
+
+		idList, err := st.ListContainers()
+		if err != nil {
+			l.Warn("engine's list containers failure", zap.Error(err))
+			return
+		}
+
+		for _, cnr := range idList {
+			size, objsNum, err := st.ContainerInfo(cnr)
+			if err != nil {
+				l.Warn("container's stat fetching error", zap.Stringer("cid", cnr), zap.Error(err))
+				return
+			}
+
+			err = c.cCli.PutReport(cnr, size, objsNum, c.PublicKey())
+			if err != nil {
+				l.Warn("put report to contract error", zap.Stringer("cid", cnr), zap.Error(err))
+				continue
+			}
+
+			l.Debug("successfully put container report to contract",
+				zap.Stringer("cid", cnr), zap.Uint64("size", size), zap.Uint64("objectsNum", objsNum))
+		}
+
+		l.Debug("sent container reports",
+			zap.Int("numOfSuccessReports", len(idList)))
+	})
 
 	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli)
 	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
