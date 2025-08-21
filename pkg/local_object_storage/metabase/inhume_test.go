@@ -131,7 +131,7 @@ func TestInhumeContainer(t *testing.T) {
 	require.Equal(t, uint64(numOfObjs), cc.Phy())
 	require.Zero(t, cc.Logic())
 
-	containerSize, err := db.ContainerSize(cID)
+	containerSize, err := db.GetContainerInfo(cID)
 	require.NoError(t, err)
 	require.Zero(t, containerSize)
 

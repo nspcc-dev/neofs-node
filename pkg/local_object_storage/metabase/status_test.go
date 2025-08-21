@@ -39,14 +39,8 @@ func TestDB_ObjectStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, st.Error)
 	require.Equal(t, db.DumpInfo().Path, st.Path)
-	require.EqualValues(t, 7, st.Version)
+	require.EqualValues(t, 8, st.Version)
 	require.Equal(t, []string{"AVAILABLE"}, st.State)
-
-	require.Len(t, st.Buckets, 1)
-	require.Contains(t, st.Buckets, meta.BucketValue{
-		BucketIndex: 3, // container volume, i.e. object payload len
-		Value:       []byte{219, 230, 126, 51, 189, 168, 132, 32},
-	})
 
 	require.Len(t, st.HeaderIndex, 8)
 	for _, idx := range [][2]string{

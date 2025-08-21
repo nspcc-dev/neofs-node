@@ -4,18 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
-func (s *Shard) ContainerSize(cnr cid.ID) (uint64, error) {
+func (s *Shard) ContainerInfo(cnr cid.ID) (meta.ContainerInfo, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if s.info.Mode.NoMetabase() {
-		return 0, ErrDegradedMode
+		return meta.ContainerInfo{}, ErrDegradedMode
 	}
 
-	return s.metaBase.ContainerSize(cnr)
+	return s.metaBase.GetContainerInfo(cnr)
 }
 
 // DeleteContainer deletes any information related to the container

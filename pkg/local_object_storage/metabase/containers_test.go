@@ -169,16 +169,17 @@ func TestDB_ContainerSize(t *testing.T) {
 	}
 
 	for cnr, volume := range cids {
-		n, err := db.ContainerSize(cnr)
+		info, err := db.GetContainerInfo(cnr)
 		require.NoError(t, err)
-		require.Equal(t, volume, int(n))
+		require.Equal(t, volume, int(info.StorageSize))
+		require.Equal(t, N, int(info.ObjectsNumber))
 	}
 
 	t.Run("Inhume", func(t *testing.T) {
 		for cnr, list := range objs {
 			volume := cids[cnr]
 
-			for _, obj := range list {
+			for i, obj := range list {
 				require.NoError(t, metaInhume(
 					db,
 					object.AddressOf(obj),
@@ -187,9 +188,10 @@ func TestDB_ContainerSize(t *testing.T) {
 
 				volume -= int(obj.PayloadSize())
 
-				n, err := db.ContainerSize(cnr)
+				info, err := db.GetContainerInfo(cnr)
 				require.NoError(t, err)
-				require.Equal(t, volume, int(n))
+				require.Equal(t, volume, int(info.StorageSize))
+				require.Equal(t, N-(i+1), int(info.ObjectsNumber))
 			}
 		}
 	})
