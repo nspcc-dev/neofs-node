@@ -20,7 +20,6 @@ type contracts struct {
 	netmap     util.Uint160 // in FS chain
 	balance    util.Uint160 // in FS chain
 	container  util.Uint160 // in FS chain
-	audit      util.Uint160 // in FS chain
 	proxy      util.Uint160 // in FS chain
 	processing util.Uint160 // in mainnet
 	reputation util.Uint160 // in FS chain
@@ -59,7 +58,6 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *config.Contrac
 		{client.NNSNetmapContractName, &result.netmap},
 		{client.NNSBalanceContractName, &result.balance},
 		{client.NNSContainerContractName, &result.container},
-		{client.NNSAuditContractName, &result.audit},
 		{client.NNSReputationContractName, &result.reputation},
 		{client.NNSProxyContractName, &result.proxy},
 	}
@@ -174,7 +172,6 @@ func readEmbeddedContracts(deployPrm *deploy.Prm) error {
 	mRequired := map[string]*deploy.CommonDeployPrm{
 		"NameService":        &deployPrm.NNS.Common,
 		"NeoFS Alphabet":     &deployPrm.AlphabetContract.Common,
-		"NeoFS Audit":        &deployPrm.AuditContract.Common,
 		"NeoFS Balance":      &deployPrm.BalanceContract.Common,
 		"NeoFS Container":    &deployPrm.ContainerContract.Common,
 		"NeoFS Netmap":       &deployPrm.NetmapContract.Common,

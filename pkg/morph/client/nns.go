@@ -13,8 +13,6 @@ import (
 )
 
 const (
-	// NNSAuditContractName is a name of the audit contract in NNS.
-	NNSAuditContractName = nns.NameAudit
 	// NNSBalanceContractName is a name of the balance contract in NNS.
 	NNSBalanceContractName = nns.NameBalance
 	// NNSContainerContractName is a name of the container contract in NNS.
