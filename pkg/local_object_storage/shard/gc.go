@@ -100,34 +100,34 @@ func (gc *gc) listenEvents() {
 	defer gc.wg.Done()
 
 	for {
-		event, ok := <-gc.eventChan
-		if !ok {
-			gc.log.Warn("stop event listener by closed channel")
+		select {
+		case <-gc.stopChannel:
+			gc.log.Warn("stop event listener")
 			return
-		}
+		case event := <-gc.eventChan:
+			v, ok := gc.mEventHandler[event.typ()]
+			if !ok {
+				continue
+			}
 
-		v, ok := gc.mEventHandler[event.typ()]
-		if !ok {
-			continue
-		}
+			v.prevGroup.Wait()
 
-		v.prevGroup.Wait()
+			v.prevGroup.Add(len(v.handlers))
 
-		v.prevGroup.Add(len(v.handlers))
+			for i := range v.handlers {
+				h := v.handlers[i]
 
-		for i := range v.handlers {
-			h := v.handlers[i]
+				err := gc.workerPool.Submit(func() {
+					h(event)
+					v.prevGroup.Done()
+				})
+				if err != nil {
+					gc.log.Warn("could not submit GC job to worker pool",
+						zap.Error(err),
+					)
 
-			err := gc.workerPool.Submit(func() {
-				h(event)
-				v.prevGroup.Done()
-			})
-			if err != nil {
-				gc.log.Warn("could not submit GC job to worker pool",
-					zap.Error(err),
-				)
-
-				v.prevGroup.Done()
+					v.prevGroup.Done()
+				}
 			}
 		}
 	}
@@ -145,8 +145,6 @@ func (gc *gc) tickRemover() {
 				gc.workerPool.Release()
 			}
 
-			close(gc.eventChan)
-
 			gc.log.Debug("GC is stopped")
 			return
 		case <-timer.C:
@@ -158,7 +156,7 @@ func (gc *gc) tickRemover() {
 
 func (gc *gc) stop() {
 	gc.onceStop.Do(func() {
-		gc.stopChannel <- struct{}{}
+		close(gc.stopChannel)
 	})
 
 	gc.log.Info("waiting for GC workers to stop...")
