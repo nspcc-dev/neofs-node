@@ -92,7 +92,7 @@ func (db *DB) put(
 
 		// update container volume size estimation
 		if obj.Type() == objectSDK.TypeRegular {
-			err = changeContainerSize(tx, obj.GetContainerID(), obj.PayloadSize(), true)
+			err = changeContainerInfo(tx, obj.GetContainerID(), int(obj.PayloadSize()), 1)
 			if err != nil {
 				return err
 			}
