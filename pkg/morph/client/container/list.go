@@ -15,16 +15,12 @@ import (
 // Returns the identifiers of all NeoFS containers if pointer
 // to user identifier is nil.
 func (c *Client) List(idUser *user.ID) ([]cid.ID, error) {
-	// neo-go's stack elements default limit
-	// is 2048, make it less a little
-	const prefetchNumber = 2000
-
 	var rawIdUser []byte
 	if idUser != nil {
 		rawIdUser = idUser[:]
 	}
 
-	res, err := c.client.TestInvokeIterator(listMethod, prefetchNumber, rawIdUser)
+	res, err := c.client.TestInvokeIterator(listMethod, iteratorPrefetchNumber, rawIdUser)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listMethod, err)
 	}
