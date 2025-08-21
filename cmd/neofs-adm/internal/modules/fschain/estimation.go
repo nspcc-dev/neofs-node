@@ -74,7 +74,7 @@ func estimationsFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("container contract hash resolution: %w", err)
 	}
 
-	sID, iter, err := unwrap.SessionIterator(inv.Call(cnrHash, "iterateContainerSizes", epoch, cID[:]))
+	sID, iter, err := unwrap.SessionIterator(inv.Call(cnrHash, "iterateEstimations", epoch, cID[:]))
 	if err != nil {
 		return fmt.Errorf("iterator expansion: %w", err)
 	}
@@ -100,7 +100,7 @@ func estimationsFunc(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func parseEstimations(inv *invoker.Invoker, sID uuid.UUID, iter result.Iterator) ([]container.Estimation, error) {
+func parseEstimations(inv *invoker.Invoker, sID uuid.UUID, iter result.Iterator) ([]container.Report, error) {
 	items := make([]stackitem.Item, 0)
 
 	for {
@@ -116,7 +116,7 @@ func parseEstimations(inv *invoker.Invoker, sID uuid.UUID, iter result.Iterator)
 		items = append(items, ii...)
 	}
 
-	ee := make([]container.Estimation, len(items))
+	ee := make([]container.Report, len(items))
 	for i := range items {
 		err := ee[i].FromStackItem(items[i])
 		if err != nil {
@@ -127,11 +127,15 @@ func parseEstimations(inv *invoker.Invoker, sID uuid.UUID, iter result.Iterator)
 	return ee, nil
 }
 
-func printEstimations(cmd *cobra.Command, epoch int64, ee []container.Estimation) {
+func printEstimations(cmd *cobra.Command, epoch int64, rr []container.Report) {
 	cmd.Printf("Estimations for %d epoch:\n", epoch)
 
-	for _, estimation := range ee {
-		reporterString := base58.Encode(estimation.Reporter)
-		cmd.Printf("Container size: %d, reporter's key (base58 encoding): %s\n", estimation.Size, reporterString)
+	for _, r := range rr {
+		reporterString := base58.Encode(r.Reporter)
+		cmd.Printf(
+			"Reporter's key (base58 encoding): %s\n"+
+				"\tStorage size: %d\n"+
+				"\tNumber of objects: %d\n"+
+				"\tNumber of reports: %d\n", reporterString, r.StorageSize, r.ObjectsNumber, r.ReportsNumber)
 	}
 }
