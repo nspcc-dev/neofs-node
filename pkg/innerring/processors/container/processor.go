@@ -155,8 +155,8 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	pp = append(pp, p)
 
 	// announce load
-	p.SetRequestType(containerEvent.AnnounceLoadNotaryEvent)
-	p.SetParser(containerEvent.ParseAnnounceLoadNotary)
+	p.SetRequestType(containerEvent.PutReportNotaryEvent)
+	p.SetParser(containerEvent.ParsePutReport)
 	pp = append(pp, p)
 
 	// object put meta data
@@ -212,7 +212,7 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	hh = append(hh, h)
 
 	// announce load
-	h.SetRequestType(containerEvent.AnnounceLoadNotaryEvent)
+	h.SetRequestType(containerEvent.PutReportNotaryEvent)
 	h.SetHandler(cp.handleAnnounceLoad)
 	hh = append(hh, h)
 
