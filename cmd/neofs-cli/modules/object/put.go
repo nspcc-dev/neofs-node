@@ -16,6 +16,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -84,18 +85,14 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	obj := object.New()
 
 	if binary {
-		buf, err := os.ReadFile(filename)
+		hdrObj, payloadPrefix, err := objectwire.ReadHeaderPrefix(f)
 		if err != nil {
-			return fmt.Errorf("unable to read given file: %w", err)
+			return fmt.Errorf("read binary object header: %w", err)
 		}
-		objTemp := object.New()
-		//TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
-		if err := objTemp.Unmarshal(buf); err != nil {
-			return fmt.Errorf("can't unmarshal object from given file: %w", err)
-		}
-		payloadReader = bytes.NewReader(objTemp.Payload())
-		cnr = objTemp.GetContainerID()
-		ownerID = objTemp.Owner()
+		cnr = hdrObj.GetContainerID()
+		ownerID = hdrObj.Owner()
+		obj.SetPayloadSize(hdrObj.PayloadSize())
+		payloadReader = io.MultiReader(bytes.NewReader(payloadPrefix), f)
 	} else {
 		fi, err := f.Stat()
 		if err != nil {
@@ -129,7 +126,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr)
 	if err != nil {
@@ -146,7 +143,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if err == nil {
 		if noProgress, _ := cmd.Flags().GetBool(noProgressFlag); !noProgress {
 			if binary {
-				p = pb.New(len(obj.Payload()))
+				p = pb.New64(int64(obj.PayloadSize()))
 				p.Output = cmd.OutOrStdout()
 				p.Start()
 
@@ -163,10 +160,6 @@ func putObject(cmd *cobra.Command, _ []string) error {
 					payloadReader = p.NewProxyReader(payloadReader)
 				}
 			}
-		}
-
-		if data := obj.Payload(); len(data) > 0 {
-			payloadReader = io.MultiReader(bytes.NewReader(data), payloadReader)
 		}
 
 		const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
@@ -210,7 +203,7 @@ func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribu
 		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 		if err != nil {
-			return nil, fmt.Errorf("Request current epoch: %w", err)
+			return nil, fmt.Errorf("request current epoch: %w", err)
 		}
 
 		expiresOn = currEpoch + lifetime

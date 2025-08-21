@@ -2,7 +2,6 @@ package fstree
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -10,22 +9,11 @@ import (
 	"os"
 
 	"github.com/klauspost/compress/zstd"
+	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/proto/object"
-	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
-	"google.golang.org/protobuf/encoding/protowire"
-	"google.golang.org/protobuf/proto"
-)
-
-const (
-	_ = iota
-	fieldObjectID
-	fieldObjectSignature
-	fieldObjectHeader
-	fieldObjectPayload
 )
 
 // Head returns an object's header from the storage by address without reading the full payload.
@@ -171,80 +159,16 @@ func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*objectSDK.O
 		initial = buf[:n]
 	}
 
-	obj, rest, err := extractHeaderAndPayload(initial)
+	obj, payloadPrefix, err := objectwire.ExtractHeaderAndPayload(initial)
 	if err != nil {
 		_ = reader.Close()
 		return nil, nil, fmt.Errorf("extract header and payload: %w", err)
 	}
 
 	return obj, &payloadReader{
-		Reader: io.MultiReader(bytes.NewReader(rest), reader),
+		Reader: io.MultiReader(bytes.NewReader(payloadPrefix), reader),
 		close:  reader.Close,
 	}, nil
-}
-
-// extractHeaderAndPayload extracts the header of an object from the given byte slice and returns rest of the data.
-func extractHeaderAndPayload(data []byte) (*objectSDK.Object, []byte, error) {
-	var (
-		offset int
-		res    objectSDK.Object
-		obj    object.Object
-	)
-
-	if len(data) == 0 {
-		return nil, nil, fmt.Errorf("empty data")
-	}
-
-	for offset < len(data) {
-		num, typ, n := protowire.ConsumeTag(data[offset:])
-		if err := protowire.ParseError(n); err != nil {
-			return nil, nil, fmt.Errorf("invalid tag at offset %d: %w", offset, err)
-		}
-		offset += n
-
-		if typ != protowire.BytesType {
-			return nil, nil, fmt.Errorf("unexpected wire type: %v", typ)
-		}
-
-		if num == fieldObjectPayload {
-			_, n = binary.Varint(data[offset:])
-			if err := protowire.ParseError(n); err != nil {
-				return nil, nil, fmt.Errorf("invalid varint at offset %d: %w", offset, err)
-			}
-			offset += n
-			break
-		}
-		val, n := protowire.ConsumeBytes(data[offset:])
-		if err := protowire.ParseError(n); err != nil {
-			return nil, nil, fmt.Errorf("invalid bytes field at offset %d: %w", offset, err)
-		}
-		offset += n
-
-		switch num {
-		case fieldObjectID:
-			obj.ObjectId = new(refs.ObjectID)
-			err := proto.Unmarshal(val, obj.ObjectId)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshal object ID: %w", err)
-			}
-		case fieldObjectSignature:
-			obj.Signature = new(refs.Signature)
-			err := proto.Unmarshal(val, obj.Signature)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshal object signature: %w", err)
-			}
-		case fieldObjectHeader:
-			obj.Header = new(object.Header)
-			err := proto.Unmarshal(val, obj.Header)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshal object header: %w", err)
-			}
-		default:
-			return nil, nil, fmt.Errorf("unknown field number: %d", num)
-		}
-	}
-
-	return &res, data[offset:], res.FromProtoMessage(&obj)
 }
 
 type payloadReader struct {
