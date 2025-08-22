@@ -20,6 +20,7 @@ type (
 		rangeDuration                 prometheus.Histogram
 		searchDuration                prometheus.Histogram
 		listObjectsDuration           prometheus.Histogram
+		getECPartDuration             prometheus.Histogram
 
 		containerSize prometheus.GaugeVec
 		payloadSize   prometheus.GaugeVec
@@ -114,6 +115,13 @@ func newEngineMetrics() engineMetrics {
 			Name:      "list_objects_time",
 			Help:      "Engine 'list objects' operations handling time",
 		})
+
+		getECPartDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "get_ec_part_time",
+			Help:      "Engine 'get EC part' operations handling time",
+		})
 	)
 
 	var (
@@ -152,6 +160,7 @@ func newEngineMetrics() engineMetrics {
 		rangeDuration:                 rangeDuration,
 		searchDuration:                searchDuration,
 		listObjectsDuration:           listObjectsDuration,
+		getECPartDuration:             getECPartDuration,
 		containerSize:                 *containerSize,
 		payloadSize:                   *payloadSize,
 		capacitySize:                  *capacitySize,
@@ -171,6 +180,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.rangeDuration)
 	prometheus.MustRegister(m.searchDuration)
 	prometheus.MustRegister(m.listObjectsDuration)
+	prometheus.MustRegister(m.getECPartDuration)
 	prometheus.MustRegister(m.containerSize)
 	prometheus.MustRegister(m.payloadSize)
 	prometheus.MustRegister(m.capacitySize)
@@ -222,6 +232,10 @@ func (m engineMetrics) AddSearchDuration(d time.Duration) {
 
 func (m engineMetrics) AddListObjectsDuration(d time.Duration) {
 	m.listObjectsDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddGetECPartDuration(d time.Duration) {
+	m.getECPartDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddToContainerSize(cnrID string, size int64) {
