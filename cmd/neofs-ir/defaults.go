@@ -73,8 +73,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("wallet.address", "")  // account address
 	cfg.SetDefault("wallet.password", "") // password
 
-	cfg.SetDefault("timers.stop_estimation.mul", 1)
-	cfg.SetDefault("timers.stop_estimation.div", 4)
 	cfg.SetDefault("timers.collect_basic_income.mul", 1)
 	cfg.SetDefault("timers.collect_basic_income.div", 2)
 	cfg.SetDefault("timers.distribute_basic_income.mul", 3)

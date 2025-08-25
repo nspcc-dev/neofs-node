@@ -47,7 +47,6 @@ func TestValidateDefaultConfig(t *testing.T) {
 		},
 		Fee: config.Fee{MainChain: 50000000},
 		Timers: config.Timers{
-			StopEstimation:        config.BasicTimer{Mul: 1, Div: 4},
 			CollectBasicIncome:    config.BasicTimer{Mul: 1, Div: 2},
 			DistributeBasicIncome: config.BasicTimer{Mul: 3, Div: 4},
 		},

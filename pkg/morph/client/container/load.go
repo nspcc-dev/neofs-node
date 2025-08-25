@@ -55,11 +55,7 @@ func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
 // ListLoadEstimationsByEpoch returns a list of container load estimations for to the specified epoch.
 // The list is composed through Container contract call.
 func (c *Client) ListLoadEstimationsByEpoch(epoch uint64) (map[cid.ID]*Estimations, error) {
-	// neo-go's stack elements default limit
-	// is 2048, make it less a little
-	const prefetchNumber = 2000
-
-	kvs, err := c.client.TestInvokeIterator(listSizesMethod, prefetchNumber, epoch)
+	kvs, err := c.client.TestInvokeIterator(listSizesMethod, iteratorPrefetchNumber, epoch)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listSizesMethod, err)
 	}

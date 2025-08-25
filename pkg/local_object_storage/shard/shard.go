@@ -351,15 +351,15 @@ func (s *Shard) initMetrics() {
 		var totalPayload uint64
 
 		for i := range cnrList {
-			size, err := s.metaBase.ContainerSize(cnrList[i])
+			cnrInfo, err := s.metaBase.GetContainerInfo(cnrList[i])
 			if err != nil {
 				s.log.Warn("meta: can't read container size",
 					zap.String("cid", cnrList[i].EncodeToString()),
 					zap.Error(err))
 				continue
 			}
-			s.metricsWriter.AddToContainerSize(cnrList[i].EncodeToString(), int64(size))
-			totalPayload += size
+			s.metricsWriter.AddToContainerSize(cnrList[i].EncodeToString(), int64(cnrInfo.StorageSize))
+			totalPayload += cnrInfo.StorageSize
 		}
 
 		s.metricsWriter.AddToPayloadSize(int64(totalPayload))
