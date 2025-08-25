@@ -28,9 +28,11 @@ The lowest not used bucket index: 20.
 - Container volume bucket
   - Name: `3`
   - Key: container ID
-  - Value: container size in bytes as little-endian uint64
+  - Value: bucket with container metrics:
+            - `0` -> container size in bytes as little-endian uint64
+            - `1` -> container's objects number as little-endian uint64
 - Bucket for storing locked objects information
-  - Name: `4`
+        - Name: `4`
   - Key: container ID
   - Value: bucket mapping objects locked to the list of corresponding LOCK objects
 - Bucket containing auxiliary information. All keys are custom and are not connected to the container
@@ -51,6 +53,11 @@ The lowest not used bucket index: 20.
     - `3` + object ID + attribute + `0x00` + value
 
 # History
+
+## Version 8
+
+Container statistic is now a bucket with multiple values. In the version number
+of objects was added
 
 ## Version 7
 

@@ -24,7 +24,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 7
+const currentMetaVersion = 8
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -53,6 +53,7 @@ var (
 		4: migrateFrom4Version,
 		5: migrateFrom5Version,
 		6: migrateFrom6Version,
+		7: migrateFrom7Version,
 	}
 
 	versionKey = []byte("version")
@@ -540,6 +541,71 @@ func migrateFrom6Version(db *DB) error {
 			}
 		}
 		return updateVersion(tx, 7)
+	})
+}
+
+func migrateFrom7Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		type cnrAndSize struct {
+			cID     cid.ID
+			sizeRaw []byte
+		}
+
+		currEpoch := db.epochState.CurrentEpoch()
+		phyPrefix := mkFilterPhysicalPrefix()
+		infoBkt := tx.Bucket(containerVolumeBucketName)
+		var cnrsOld []cnrAndSize
+		err := infoBkt.ForEach(func(cnr, sizeRaw []byte) error {
+			if sizeRaw != nil {
+				cnrsOld = append(cnrsOld, cnrAndSize{cID: cid.ID(cnr), sizeRaw: sizeRaw})
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("iterating container volumes: %w", err)
+		}
+		for _, cnrOld := range cnrsOld {
+			err := infoBkt.Delete(cnrOld.cID[:])
+			if err != nil {
+				return fmt.Errorf("removing old values for %s container: %w", cnrOld.cID, err)
+			}
+
+			cnrBkt, err := infoBkt.CreateBucket(cnrOld.cID[:])
+			if err != nil {
+				return fmt.Errorf("creating (%s) container info bucket: %w", cnrOld.cID, err)
+			}
+			err = cnrBkt.Put([]byte{containerStorageSizeKey}, cnrOld.sizeRaw)
+			if err != nil {
+				return fmt.Errorf("put old container size to new %s container info bucket: %w", cnrOld.cID, err)
+			}
+
+			metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnrOld.cID))
+			if err != nil {
+				return fmt.Errorf("get (%s) meta bucket: %w", cnrOld.cID, err)
+			}
+			var (
+				metaCursor = metaBkt.Cursor()
+				addr       = oid.NewAddress(cnrOld.cID, oid.ID{})
+				objsNumber uint64
+			)
+			k, _ := metaCursor.Seek(phyPrefix)
+			for ; bytes.HasPrefix(k, phyPrefix); k, _ = metaCursor.Next() {
+				id := oid.ID(k[len(phyPrefix):])
+				addr.SetObject(id)
+				if objectStatus(tx, metaBkt.Cursor(), addr, currEpoch) == statusAvailable {
+					objsNumber++
+				}
+			}
+
+			objsNumRaw := make([]byte, 8)
+			binary.LittleEndian.PutUint64(objsNumRaw, objsNumber)
+			err = cnrBkt.Put([]byte{containerObjectsNumberKey}, objsNumRaw)
+			if err != nil {
+				return fmt.Errorf("put new object size value for (%s) container: %w", cnrOld.cID, err)
+			}
+		}
+
+		return updateVersion(tx, 8)
 	})
 }
 
