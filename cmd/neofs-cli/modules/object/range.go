@@ -69,9 +69,9 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 	if filename == "" {
 		out = os.Stdout
 	} else {
-		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+		f, err := openFileForPayload(filename)
 		if err != nil {
-			return fmt.Errorf("can't open file '%s': %w", filename, err)
+			return err
 		}
 
 		defer f.Close()
