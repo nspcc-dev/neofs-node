@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Stream payload without buffering to reduce memory usage in CLI `Get/Put` operations (#3535)
+- `neofs-cli object range` command now truncates file passed to `--file` (#3544)
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)
