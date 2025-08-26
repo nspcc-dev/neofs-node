@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -360,4 +361,12 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 // calls commonflags.InitSession with "object <verb>" name.
 func initFlagSession(cmd *cobra.Command, verb string) {
 	commonflags.InitSession(cmd, "object "+verb)
+}
+
+func openFileForPayload(name string) (io.WriteCloser, error) {
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("can't open file '%s': %w", name, err)
+	}
+	return f, nil
 }
