@@ -18,7 +18,7 @@ import (
 const (
 	// streamChunkSize is the size of the chunk that is used to read/write
 	// object payload from/to the stream.
-	streamChunkSize = 64 * 1024 // 64 KiB
+	streamChunkSize = 256 * 1024 // 256 KiB
 )
 
 type statusError struct {
