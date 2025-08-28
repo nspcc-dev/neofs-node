@@ -183,7 +183,6 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 			payload := obj.Payload()
 			from := rng.GetOffset()
-			ln := rng.GetLength()
 			if ln == 0 {
 				ln = obj.PayloadSize()
 			}
