@@ -7,12 +7,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -20,6 +22,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -375,4 +379,94 @@ type testMetrics struct {
 
 func (x *testMetrics) AddGetECPartDuration(d time.Duration) {
 	x.getECPart.Add(int64(d))
+}
+
+func assertAvailableObject(t testing.TB, s *StorageEngine, addr oid.Address, obj object.Object) {
+	hdr, err := s.Head(addr, false)
+	require.NoError(t, err)
+	require.Equal(t, obj.CutPayload(), hdr)
+
+	hdr, rc, err := s.GetStream(addr)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = rc.Close() })
+	assertGetStreamResult(t, obj, *hdr, rc)
+
+	got, err := s.Get(addr)
+	require.NoError(t, err)
+	require.Equal(t, obj, *got)
+
+	b, err := s.GetBytes(addr)
+	require.NoError(t, err)
+	require.Equal(t, obj.Marshal(), b)
+
+	st, err := s.ObjectStatus(addr)
+	require.NoError(t, err)
+	require.True(t, slices.ContainsFunc(st.Shards, func(s ObjectShardStatus) bool {
+		return slices.Equal(s.Shard.Metabase.State, []string{"AVAILABLE"})
+	}))
+
+	assertSearchable(t, s, addr)
+}
+
+func assertSearchable(t testing.TB, s *StorageEngine, addr oid.Address) {
+	_assertObjectSearchable(t, s, addr, require.True)
+}
+
+func assertNotSearchable(t testing.TB, s *StorageEngine, addr oid.Address) {
+	_assertObjectSearchable(t, s, addr, require.False)
+}
+
+func _assertObjectSearchable(t testing.TB, s *StorageEngine, addr oid.Address, requireFunc func(require.TestingT, bool, ...any)) {
+	fs, c, err := objectcore.PreprocessSearchQuery(nil, nil, "")
+	require.NoError(t, err)
+
+	res, _, err := s.Search(addr.Container(), fs, nil, c, 1000)
+	require.NoError(t, err)
+	requireFunc(t, slices.ContainsFunc(res, func(item client.SearchResultItem) bool {
+		return item.ID == addr.Object()
+	}))
+}
+
+func assertMarkedAsGarbage(t testing.TB, s *StorageEngine, addr oid.Address) {
+	_, err := s.Head(addr, false)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	_, _, err = s.GetStream(addr)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	_, err = s.Get(addr)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	_, err = s.GetBytes(addr)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	st, err := s.ObjectStatus(addr)
+	require.NoError(t, err)
+	require.True(t, slices.ContainsFunc(st.Shards, func(s ObjectShardStatus) bool {
+		return slices.Equal(s.Shard.Metabase.State, []string{"AVAILABLE", "GC MARKED"})
+	}))
+
+	assertNotSearchable(t, s, addr)
+}
+
+func assertNoObject(t testing.TB, s *StorageEngine, addr oid.Address) {
+	_, err := s.Head(addr, false)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	_, _, err = s.GetStream(addr)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	_, err = s.Get(addr)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	_, err = s.GetBytes(addr)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	st, err := s.ObjectStatus(addr)
+	require.NoError(t, err)
+	for i := range st.Shards {
+		require.Zero(t, st.Shards[i].Shard)
+	}
+
+	assertNotSearchable(t, s, addr)
 }

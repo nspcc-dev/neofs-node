@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"errors"
 	"runtime"
 	"slices"
 	"strconv"
@@ -217,6 +218,88 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 		require.NoError(t, err)
 		require.NotContains(t, collected, addr)
 	})
+}
+
+func assertObjectAvailabilityWithoutSubTests(t *testing.T, db *meta.DB, addr oid.Address, obj objectSDK.Object, skipGetCmp bool) {
+	hdr, err := db.Get(addr, false)
+	require.NoError(t, err)
+	if !skipGetCmp {
+		require.Equal(t, obj, *hdr)
+	}
+
+	exists, err := db.Exists(addr, true)
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	st, err := db.ObjectStatus(addr)
+	require.NoError(t, err)
+	require.NoError(t, st.Error)
+	require.ElementsMatch(t, st.State, []string{"AVAILABLE"})
+	require.False(t, slices.ContainsFunc(st.Buckets, func(bv meta.BucketValue) bool {
+		return bv.BucketIndex <= 1 // graveyard or garbage
+	}))
+
+	items, c, err := db.ListWithCursor(2, nil)
+	require.NoError(t, err)
+	require.Equal(t, []object.AddressWithType{{Address: addr, Type: obj.Type()}}, items)
+
+	require.NotZero(t, c)
+	_, _, err = db.ListWithCursor(1, c)
+	require.ErrorIs(t, err, meta.ErrEndOfListing)
+
+	gObjs, _, err := db.GetGarbage(100)
+	require.NoError(t, err)
+	require.NotContains(t, gObjs, addr)
+
+	var collected []oid.Address
+	err = db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
+		collected = append(collected, gObj.Address())
+		return nil
+	}, nil)
+	require.NoError(t, err)
+	require.NotContains(t, collected, addr)
+}
+
+func assertGarbageObject(t *testing.T, db *meta.DB, addr oid.Address) {
+	_, err := db.Get(addr, false)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	_, err = db.Exists(addr, true)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+	st, err := db.ObjectStatus(addr)
+	require.NoError(t, err)
+	require.NoError(t, st.Error)
+	require.ElementsMatch(t, st.State, []string{"AVAILABLE", "GC MARKED"})
+	require.True(t, slices.ContainsFunc(st.Buckets, func(bv meta.BucketValue) bool {
+		return bv.BucketIndex == 1 // garbage
+	}))
+
+	var crs *meta.Cursor
+	for {
+		res, nextCrs, err := db.ListWithCursor(100, crs)
+		require.False(t, slices.ContainsFunc(res, func(el object.AddressWithType) bool {
+			return el.Address == addr
+		}))
+
+		if errors.Is(err, meta.ErrEndOfListing) {
+			break
+		}
+
+		crs = nextCrs
+	}
+
+	gObjs, _, err := db.GetGarbage(100)
+	require.NoError(t, err)
+	require.Contains(t, gObjs, addr)
+
+	var collected []oid.Address
+	err = db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
+		collected = append(collected, gObj.Address())
+		return nil
+	}, nil)
+	require.NoError(t, err)
+	require.Contains(t, collected, addr)
 }
 
 func TestDB_Put_Lock(t *testing.T) {
@@ -457,4 +540,23 @@ func TestDB_Put_Tombstone(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("child objects affect", func(t *testing.T) {
+		db := newDB(t)
+
+		child := obj
+		child.SetParent(&obj)
+		child.SetID(oidtest.OtherID(objID))
+		require.NoError(t, db.Put(&child))
+
+		childAddr := objAddr
+		childAddr.SetObject(child.GetID())
+
+		// TODO: check why Get returns different header
+		assertObjectAvailabilityWithoutSubTests(t, db, childAddr, child, true)
+
+		require.NoError(t, db.Put(&tomb))
+
+		assertGarbageObject(t, db, childAddr)
+	})
 }

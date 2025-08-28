@@ -115,7 +115,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 	checkOK := func(t *testing.T, s *StorageEngine) {
 		hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
 		require.NoError(t, err)
-		assertGetECPartOK(t, partObj, hdr, rdr)
+		assertGetStreamResult(t, partObj, hdr, rdr)
 	}
 	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
 		_, _, err := s.GetECPart(cnr, parentID, pi)
@@ -388,7 +388,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 	lb.AssertEmpty()
 }
 
-func assertGetECPartOK(t testing.TB, exp, hdr object.Object, rdr io.ReadCloser) {
+func assertGetStreamResult(t testing.TB, exp, hdr object.Object, rdr io.ReadCloser) {
 	b, err := io.ReadAll(rdr)
 	require.NoError(t, err)
 	hdr.SetPayload(b)
