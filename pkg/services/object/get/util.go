@@ -187,9 +187,9 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 			return nil, new(apistatus.ObjectOutOfRange)
 		}
 
-		ln = min(ln, maxInitialBufferSize)
+		bufInitLen := min(ln, maxInitialBufferSize)
 
-		w := bytes.NewBuffer(make([]byte, ln))
+		w := bytes.NewBuffer(make([]byte, bufInitLen))
 		_, err = io.CopyN(w, rdr, int64(ln))
 		if err != nil {
 			return nil, fmt.Errorf("read payload: %w", err)
