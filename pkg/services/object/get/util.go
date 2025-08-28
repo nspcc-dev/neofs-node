@@ -173,28 +173,28 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 			}
 			err = fmt.Errorf("read payload: %w", err)
 		}
-		if errors.Is(err, apistatus.ErrObjectAccessDenied) {
-			// Current spec allows other storage node to deny access,
-			// fallback to GET here.
-			obj, err := c.get(exec, key)
-			if err != nil {
-				return nil, err
-			}
-
-			payload := obj.Payload()
-			from := rng.GetOffset()
-			if ln == 0 {
-				ln = obj.PayloadSize()
-			}
-			to := from + ln
-
-			if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-				return nil, new(apistatus.ObjectOutOfRange)
-			}
-
-			return payloadOnlyObject(payload[from:to]), nil
+		if !errors.Is(err, apistatus.ErrObjectAccessDenied) {
+			return nil, err
 		}
-		return nil, err
+		// Current spec allows other storage node to deny access,
+		// fallback to GET here.
+		obj, err := c.get(exec, key)
+		if err != nil {
+			return nil, err
+		}
+
+		payload := obj.Payload()
+		from := rng.GetOffset()
+		if ln == 0 {
+			ln = obj.PayloadSize()
+		}
+		to := from + ln
+
+		if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
+			return nil, new(apistatus.ObjectOutOfRange)
+		}
+
+		return payloadOnlyObject(payload[from:to]), nil
 	}
 
 	return c.get(exec, key)
