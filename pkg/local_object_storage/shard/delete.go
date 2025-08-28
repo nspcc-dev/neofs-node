@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Shard) deleteObjs(addrs []oid.Address, skipNotFoundError bool) error {
+func (s *Shard) deleteObjs(addrs []oid.Address) error {
 	if s.info.Mode.ReadOnly() {
 		return ErrReadOnlyMode
 	} else if s.info.Mode.NoMetabase() {
@@ -47,7 +47,7 @@ func (s *Shard) deleteObjs(addrs []oid.Address, skipNotFoundError bool) error {
 		if err == nil {
 			logOp(s.log, deleteOp, addr)
 		} else {
-			if IsErrNotFound(err) && skipNotFoundError {
+			if IsErrNotFound(err) {
 				continue
 			}
 
