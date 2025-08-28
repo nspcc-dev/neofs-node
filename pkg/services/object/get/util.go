@@ -153,8 +153,6 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 			opts.MarkRaw()
 		}
 
-		var w *bytes.Buffer
-
 		rdr, err := c.client.ObjectRangeInit(exec.context(), addr.Container(), id, rng.GetOffset(), ln, user.NewAutoIDSigner(*key), opts)
 		if err != nil {
 			err = fmt.Errorf("init payload reading: %w", err)
@@ -168,39 +166,36 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 			bufInitLen := min(ln, maxInitialBufferSize)
 
-			w = bytes.NewBuffer(make([]byte, bufInitLen))
+			w := bytes.NewBuffer(make([]byte, bufInitLen))
 			_, err = io.CopyN(w, rdr, int64(ln))
+			if err == nil {
+				return payloadOnlyObject(w.Bytes()), nil
+			}
+			err = fmt.Errorf("read payload: %w", err)
+		}
+		if errors.Is(err, apistatus.ErrObjectAccessDenied) {
+			// Current spec allows other storage node to deny access,
+			// fallback to GET here.
+			obj, err := c.get(exec, key)
 			if err != nil {
-				err = fmt.Errorf("read payload: %w", err)
+				return nil, err
 			}
-		}
-		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectAccessDenied) {
-				// Current spec allows other storage node to deny access,
-				// fallback to GET here.
-				obj, err := c.get(exec, key)
-				if err != nil {
-					return nil, err
-				}
 
-				payload := obj.Payload()
-				from := rng.GetOffset()
-				ln := rng.GetLength()
-				if ln == 0 {
-					ln = obj.PayloadSize()
-				}
-				to := from + ln
-
-				if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-					return nil, new(apistatus.ObjectOutOfRange)
-				}
-
-				return payloadOnlyObject(payload[from:to]), nil
+			payload := obj.Payload()
+			from := rng.GetOffset()
+			ln := rng.GetLength()
+			if ln == 0 {
+				ln = obj.PayloadSize()
 			}
-			return nil, err
-		}
+			to := from + ln
 
-		return payloadOnlyObject(w.Bytes()), nil
+			if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
+				return nil, new(apistatus.ObjectOutOfRange)
+			}
+
+			return payloadOnlyObject(payload[from:to]), nil
+		}
+		return nil, err
 	}
 
 	return c.get(exec, key)
