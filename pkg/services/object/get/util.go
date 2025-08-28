@@ -153,7 +153,27 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 			opts.MarkRaw()
 		}
 
+		var w *bytes.Buffer
+
 		rdr, err := c.client.ObjectRangeInit(exec.context(), addr.Container(), id, rng.GetOffset(), ln, user.NewAutoIDSigner(*key), opts)
+		if err != nil {
+			err = fmt.Errorf("init payload reading: %w", err)
+		} else {
+			if int64(ln) < 0 {
+				// `CopyN` expects `int64`, this check ensures that the result is positive.
+				// On practice this means that we can return incorrect results for objects
+				// with size > 8_388 Petabytes, this will be fixed later with support for streaming.
+				return nil, new(apistatus.ObjectOutOfRange)
+			}
+
+			bufInitLen := min(ln, maxInitialBufferSize)
+
+			w = bytes.NewBuffer(make([]byte, bufInitLen))
+			_, err = io.CopyN(w, rdr, int64(ln))
+			if err != nil {
+				err = fmt.Errorf("read payload: %w", err)
+			}
+		}
 		if err != nil {
 			if errors.Is(err, apistatus.ErrObjectAccessDenied) {
 				// Current spec allows other storage node to deny access,
@@ -177,22 +197,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 				return payloadOnlyObject(payload[from:to]), nil
 			}
-			return nil, fmt.Errorf("init payload reading: %w", err)
-		}
-
-		if int64(ln) < 0 {
-			// `CopyN` expects `int64`, this check ensures that the result is positive.
-			// On practice this means that we can return incorrect results for objects
-			// with size > 8_388 Petabytes, this will be fixed later with support for streaming.
-			return nil, new(apistatus.ObjectOutOfRange)
-		}
-
-		bufInitLen := min(ln, maxInitialBufferSize)
-
-		w := bytes.NewBuffer(make([]byte, bufInitLen))
-		_, err = io.CopyN(w, rdr, int64(ln))
-		if err != nil {
-			return nil, fmt.Errorf("read payload: %w", err)
+			return nil, err
 		}
 
 		return payloadOnlyObject(w.Bytes()), nil
