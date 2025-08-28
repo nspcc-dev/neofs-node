@@ -8,7 +8,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
-	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
@@ -50,25 +49,6 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		return
 	}
 	var oldMap = np.curMap.Swap(networkMap).(*netmap.NetMap)
-
-	estimationEpoch := epoch - 1
-
-	prm := cntClient.StartEstimationPrm{}
-
-	prm.SetEpoch(estimationEpoch)
-	prm.SetHash(ev.TxHash())
-
-	if epoch > 0 { // estimates are invalid in genesis epoch
-		l.Info("start estimation collection", zap.Uint64("estimated epoch", estimationEpoch))
-
-		err = np.containerWrp.StartEstimation(prm)
-
-		if err != nil {
-			l.Warn("can't start container size estimation",
-				zap.Uint64("estimated epoch", estimationEpoch),
-				zap.Error(err))
-		}
-	}
 
 	mapChanged := !slices.EqualFunc(oldMap.Nodes(), networkMap.Nodes(), func(i1 netmap.NodeInfo, i2 netmap.NodeInfo) bool {
 		return bytes.Equal(i1.PublicKey(), i2.PublicKey())

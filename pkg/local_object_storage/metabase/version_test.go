@@ -232,7 +232,7 @@ func TestMigrate3to4(t *testing.T) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
-		require.Equal(t, []byte{0x07, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+		require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 		return nil
 	})
 	require.NoError(t, err)
@@ -531,7 +531,7 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 				bkt := tx.Bucket([]byte{0x05})
 				require.NotNil(t, bkt)
-				require.Equal(t, []byte{0x07, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+				require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 				require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 				return nil
 			}))
@@ -836,7 +836,76 @@ func TestMigrate6to7(t *testing.T) {
 		// check new version
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
-		require.Equal(t, []byte{0x07, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+		require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestMigrate7to8(t *testing.T) {
+	db := newDB(t)
+	cnr := cidtest.ID()
+	var totalSize uint64
+	const objsNum = 10
+	for range objsNum {
+		err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+			o := objecttest.Object()
+			o.SetContainerID(cnr)
+			totalSize += o.PayloadSize()
+
+			return PutMetadataForObject(tx, o, true)
+		})
+		require.NoError(t, err)
+	}
+
+	// one more parent (virtual) object
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		return PutMetadataForObject(tx, objecttest.Object(), false)
+	})
+	require.NoError(t, err)
+
+	// force 7th version
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		infoBtk := tx.Bucket(containerVolumeBucketName)
+		buff := make([]byte, 8)
+		binary.LittleEndian.PutUint64(buff, totalSize)
+		err = infoBtk.Put(cnr[:], buff)
+		if err != nil {
+			return err
+		}
+
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		require.NoError(t, bkt.Put([]byte("version"), []byte{0x07, 0, 0, 0, 0, 0, 0, 0}))
+
+		return nil
+	})
+	require.NoError(t, err)
+
+	// migrate
+	require.NoError(t, db.Init())
+
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		infoBkt := tx.Bucket(containerVolumeBucketName)
+		v := infoBkt.Get(cnr[:])
+		require.Nil(t, v) // it is a bucket now, now a regular value
+
+		cnrBkt := infoBkt.Bucket(cnr[:])
+		require.NotNil(t, cnrBkt)
+
+		sizeRaw := cnrBkt.Get([]byte{containerStorageSizeKey})
+		sizeRead := binary.LittleEndian.Uint64(sizeRaw)
+		require.Equal(t, totalSize, sizeRead)
+
+		objsNumRaw := cnrBkt.Get([]byte{containerObjectsNumberKey})
+		objsNumRead := binary.LittleEndian.Uint64(objsNumRaw)
+		require.Equal(t, uint64(objsNum), objsNumRead)
+
+		// check new version
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 
 		return nil
 	})

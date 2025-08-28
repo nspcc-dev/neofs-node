@@ -97,14 +97,14 @@ func (cp *Processor) handleSetEACL(ev event.Event) {
 }
 
 func (cp *Processor) handleAnnounceLoad(ev event.Event) {
-	e := ev.(containerEvent.AnnounceLoad)
+	e := ev.(containerEvent.Report)
 
 	cp.log.Info("notification",
 		zap.String("type", "announce load"),
-		zap.Stringer("cid", cid.ID(e.ContainerID())),
-		zap.Uint64("epoch", e.Epoch()),
-		zap.Uint64("size", e.Value()),
-		zap.Binary("reporter", e.Key()),
+		zap.Stringer("cid", cid.ID(e.CID)),
+		zap.Int64("storage size", e.StorageSize),
+		zap.Int64("objects number", e.ObjectsNumber),
+		zap.Binary("reporter", e.NodeKey),
 	)
 
 	// send an event to the worker pool

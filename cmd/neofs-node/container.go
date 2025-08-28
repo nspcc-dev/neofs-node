@@ -2,47 +2,22 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"crypto/ecdsa"
-	"encoding/binary"
 	"errors"
-	"fmt"
 
-	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
-	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	netmapEv "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
-	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
-	loadroute "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route"
-	placementrouter "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route/placement"
-	loadstorage "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/storage"
-	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
-)
-
-const (
-	startEstimationNotifyEvent = "StartEstimation"
-	stopEstimationNotifyEvent  = "StopEstimation"
 )
 
 func initContainerService(c *cfg) {
@@ -104,74 +79,39 @@ func initContainerService(c *cfg) {
 		})
 	}
 
-	estimationsLogger := c.log.With(zap.String("component", "container_estimations"))
-
-	localMetrics := &localStorageLoad{
-		log:    estimationsLogger,
-		engine: c.cfgObject.cfgLocalStorage.localStorage,
-	}
-
-	pubKey := c.key.PublicKey().Bytes()
-
-	resultWriter := &morphLoadWriter{
-		log:            estimationsLogger,
-		cnrMorphClient: c.cCli,
-		key:            pubKey,
-	}
-
-	loadAccumulator := loadstorage.New(containerrpc.CleanupDelta)
-
+	// TODO: report more often than once: https://github.com/nspcc-dev/neofs-node/issues/3543.
 	addNewEpochAsyncNotificationHandler(c, func(e event.Event) {
 		ev := e.(netmapEv.NewEpoch)
-		loadAccumulator.EpochEvent(ev.EpochNumber())
-	})
+		st := c.cfgObject.cfgLocalStorage.localStorage
+		l := c.log.With(zap.String("component", "containerReports"), zap.Uint64("epoch", ev.EpochNumber()))
 
-	loadPlacementBuilder := &loadPlacementBuilder{
-		log:    estimationsLogger,
-		nmSrc:  c.netMapSource,
-		cnrSrc: c.cnrSrc,
-	}
+		l.Debug("sending container report to contract...")
 
-	routeBuilder := placementrouter.New(placementrouter.Prm{
-		PlacementBuilder: loadPlacementBuilder,
-	})
+		idList, err := st.ListContainers()
+		if err != nil {
+			l.Warn("engine's list containers failure", zap.Error(err))
+			return
+		}
 
-	loadRouter := loadroute.New(
-		loadroute.Prm{
-			LocalServerInfo: c,
-			RemoteWriterProvider: &remoteLoadAnnounceProvider{
-				key:             &c.key.PrivateKey,
-				netmapKeys:      c,
-				clientCache:     c.bgClientCache,
-				deadEndProvider: loadcontroller.SimpleWriterProvider(loadAccumulator),
-			},
-			Builder: routeBuilder,
-		},
-		loadroute.WithLogger(estimationsLogger),
-	)
+		for _, cnr := range idList {
+			size, objsNum, err := st.ContainerInfo(cnr)
+			if err != nil {
+				l.Warn("container's stat fetching error", zap.Stringer("cid", cnr), zap.Error(err))
+				return
+			}
 
-	ctrl := loadcontroller.New(
-		loadcontroller.Prm{
-			LocalMetrics:            loadcontroller.SimpleIteratorProvider(localMetrics),
-			AnnouncementAccumulator: loadcontroller.SimpleIteratorProvider(loadAccumulator),
-			LocalAnnouncementTarget: loadRouter,
-			ResultReceiver:          loadcontroller.SimpleWriterProvider(resultWriter),
-		},
-		loadcontroller.WithLogger(estimationsLogger),
-	)
+			err = c.cCli.PutReport(cnr, size, objsNum, c.PublicKey())
+			if err != nil {
+				l.Warn("put report to contract error", zap.Stringer("cid", cnr), zap.Error(err))
+				continue
+			}
 
-	setContainerNotificationParser(c, startEstimationNotifyEvent, containerEvent.ParseStartEstimation)
-	addContainerAsyncNotificationHandler(c, startEstimationNotifyEvent, func(ev event.Event) {
-		ctrl.Start(loadcontroller.StartPrm{
-			Epoch: ev.(containerEvent.StartEstimation).Epoch(),
-		})
-	})
+			l.Debug("successfully put container report to contract",
+				zap.Stringer("cid", cnr), zap.Uint64("size", size), zap.Uint64("objectsNum", objsNum))
+		}
 
-	setContainerNotificationParser(c, stopEstimationNotifyEvent, containerEvent.ParseStopEstimation)
-	addContainerAsyncNotificationHandler(c, stopEstimationNotifyEvent, func(ev event.Event) {
-		ctrl.Stop(loadcontroller.StopPrm{
-			Epoch: ev.(containerEvent.StopEstimation).Epoch(),
-		})
+		l.Debug("sent container reports",
+			zap.Int("numOfSuccessReports", len(idList)))
 	})
 
 	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli)
@@ -179,16 +119,8 @@ func initContainerService(c *cfg) {
 		cnrSrv.ResetSessionTokenCheckCache()
 	})
 
-	server := &usedSpaceService{
-		ContainerServiceServer: cnrSrv,
-		loadWriterProvider:     loadRouter,
-		loadPlacementBuilder:   loadPlacementBuilder,
-		routeBuilder:           routeBuilder,
-		cfg:                    c,
-	}
-
 	for _, srv := range c.cfgGRPC.servers {
-		protocontainer.RegisterContainerServiceServer(srv, server)
+		protocontainer.RegisterContainerServiceServer(srv, cnrSrv)
 	}
 }
 
@@ -280,216 +212,6 @@ func setContainerNotificationParser(c *cfg, sTyp string, p event.NotificationPar
 	c.cfgContainer.parsers[typ] = p
 }
 
-type morphLoadWriter struct {
-	log *zap.Logger
-
-	cnrMorphClient *cntClient.Client
-
-	key []byte
-}
-
-func (w *morphLoadWriter) Put(a containerSDK.SizeEstimation) error {
-	w.log.Debug("save used space announcement in contract",
-		zap.Uint64("epoch", a.Epoch()),
-		zap.Stringer("cid", a.Container()),
-		zap.Uint64("size", a.Value()),
-	)
-
-	prm := cntClient.AnnounceLoadPrm{}
-
-	prm.SetAnnouncement(a)
-	prm.SetReporter(w.key)
-
-	return w.cnrMorphClient.AnnounceLoad(prm)
-}
-
-func (*morphLoadWriter) Close() error {
-	return nil
-}
-
-type nopLoadWriter struct{}
-
-func (nopLoadWriter) Put(containerSDK.SizeEstimation) error {
-	return nil
-}
-
-func (nopLoadWriter) Close() error {
-	return nil
-}
-
-type remoteLoadAnnounceProvider struct {
-	key *ecdsa.PrivateKey
-
-	netmapKeys netmapCore.AnnouncedKeys
-
-	clientCache interface {
-		Get(client.NodeInfo) (client.MultiAddressClient, error)
-	}
-
-	deadEndProvider loadcontroller.WriterProvider
-}
-
-func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadcontroller.WriterProvider, error) {
-	if srv == nil {
-		return r.deadEndProvider, nil
-	}
-
-	if r.netmapKeys.IsLocalKey(srv.PublicKey()) {
-		// if local => return no-op writer
-		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
-	}
-
-	var info client.NodeInfo
-
-	err := client.NodeInfoFromRawNetmapElement(&info, srv)
-	if err != nil {
-		return nil, fmt.Errorf("parse client node info: %w", err)
-	}
-
-	c, err := r.clientCache.Get(info)
-	if err != nil {
-		return nil, fmt.Errorf("could not initialize API client: %w", err)
-	}
-
-	return &remoteLoadAnnounceWriterProvider{
-		client: c,
-	}, nil
-}
-
-type remoteLoadAnnounceWriterProvider struct {
-	client client.Client
-}
-
-func (p *remoteLoadAnnounceWriterProvider) InitWriter(ctx context.Context) (loadcontroller.Writer, error) {
-	return &remoteLoadAnnounceWriter{
-		ctx:    ctx,
-		client: p.client,
-	}, nil
-}
-
-type remoteLoadAnnounceWriter struct {
-	ctx context.Context
-
-	client client.Client
-
-	buf []containerSDK.SizeEstimation
-}
-
-func (r *remoteLoadAnnounceWriter) Put(a containerSDK.SizeEstimation) error {
-	r.buf = append(r.buf, a)
-
-	return nil
-}
-
-func (r *remoteLoadAnnounceWriter) Close() error {
-	var cliPrm apiClient.PrmAnnounceSpace
-	return r.client.ContainerAnnounceUsedSpace(r.ctx, r.buf, cliPrm)
-}
-
-type loadPlacementBuilder struct {
-	log *zap.Logger
-
-	nmSrc netmapCore.Source
-
-	cnrSrc containerCore.Source
-}
-
-func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([][]netmap.NodeInfo, error) {
-	cnrNodes, nm, err := l.buildPlacement(epoch, cnr)
-	if err != nil {
-		return nil, err
-	}
-
-	buf := cnr[:]
-
-	binary.LittleEndian.PutUint64(buf, epoch)
-
-	var pivot oid.ID
-	_ = pivot.Decode(buf)
-
-	placement, err := nm.PlacementVectors(cnrNodes, pivot)
-	if err != nil {
-		return nil, fmt.Errorf("could not build placement vectors: %w", err)
-	}
-
-	return placement, nil
-}
-
-func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]netmap.NodeInfo, *netmap.NetMap, error) {
-	cnr, err := l.cnrSrc.Get(idCnr)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	nm, err := l.nmSrc.GetNetMapByEpoch(epoch)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not get network map: %w", err)
-	}
-
-	cnrNodes, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
-	}
-
-	return cnrNodes, nm, nil
-}
-
-type localStorageLoad struct {
-	log *zap.Logger
-
-	engine *engine.StorageEngine
-}
-
-func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontroller.UsedSpaceHandler) error {
-	idList, err := d.engine.ListContainers()
-	if err != nil {
-		return fmt.Errorf("list containers on engine failure: %w", err)
-	}
-
-	for i := range idList {
-		sz, err := d.engine.ContainerSize(idList[i])
-		if err != nil {
-			d.log.Debug("failed to calculate container size in storage engine",
-				zap.Stringer("cid", idList[i]),
-				zap.Error(err),
-			)
-
-			continue
-		}
-
-		d.log.Debug("container size in storage engine calculated successfully",
-			zap.Uint64("size", sz),
-			zap.Stringer("cid", idList[i]),
-		)
-
-		var a containerSDK.SizeEstimation
-		a.SetContainer(idList[i])
-		a.SetValue(sz)
-
-		if f != nil && !f(a) {
-			continue
-		}
-
-		if err := h(a); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-type usedSpaceService struct {
-	protocontainer.ContainerServiceServer
-
-	loadWriterProvider loadcontroller.WriterProvider
-
-	loadPlacementBuilder *loadPlacementBuilder
-
-	routeBuilder loadroute.Builder
-
-	cfg *cfg
-}
-
 func (c *cfg) PublicKey() []byte {
 	return nodeKeyFromNetmap(c)
 }
@@ -504,131 +226,6 @@ func (c *cfg) IterateAddresses(f func(string) bool) {
 
 func (c *cfg) NumberOfAddresses() int {
 	return c.addressNum()
-}
-
-func (c *usedSpaceService) PublicKey() []byte {
-	return nodeKeyFromNetmap(c.cfg)
-}
-
-func (c *usedSpaceService) IterateAddresses(f func(string) bool) {
-	c.cfg.iterateNetworkAddresses(f)
-}
-
-func (c *usedSpaceService) NumberOfAddresses() int {
-	return c.cfg.addressNum()
-}
-
-func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceResponse_Body, st *protostatus.Status) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	resp := &protocontainer.AnnounceUsedSpaceResponse{
-		Body: body,
-		MetaHeader: &protosession.ResponseMetaHeader{
-			Version: version.Current().ProtoMessage(),
-			Epoch:   c.cfg.networkState.CurrentEpoch(),
-			Status:  st,
-		},
-	}
-	resp.VerifyHeader = util.SignResponse(&c.cfg.key.PrivateKey, resp)
-	return resp, nil
-}
-
-func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	return c.makeResponse(nil, util.ToStatus(err))
-}
-
-func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return c.makeStatusResponse(err)
-	}
-
-	var passedRoute []loadroute.ServerInfo
-
-	for hdr := req.GetVerifyHeader(); hdr != nil; hdr = hdr.GetOrigin() {
-		passedRoute = append(passedRoute, &containerOnlyKeyRemoteServerInfo{
-			key: hdr.GetBodySignature().GetKey(),
-		})
-	}
-
-	for left, right := 0, len(passedRoute)-1; left < right; left, right = left+1, right-1 {
-		passedRoute[left], passedRoute[right] = passedRoute[right], passedRoute[left]
-	}
-
-	passedRoute = append(passedRoute, c)
-
-	w, err := c.loadWriterProvider.InitWriter(loadroute.NewRouteContext(ctx, passedRoute))
-	if err != nil {
-		return c.makeStatusResponse(fmt.Errorf("could not initialize container's used space writer: %w", err))
-	}
-
-	var est containerSDK.SizeEstimation
-
-	for _, a := range req.GetBody().GetAnnouncements() {
-		err = est.FromProtoMessage(a)
-		if err != nil {
-			return c.makeStatusResponse(fmt.Errorf("invalid size announcement: %w", err))
-		}
-
-		if err := c.processLoadValue(ctx, est, passedRoute, w); err != nil {
-			return c.makeStatusResponse(err)
-		}
-	}
-
-	return c.makeResponse(nil, util.StatusOK)
-}
-
-var errNodeOutsideContainer = errors.New("node outside the container")
-
-type containerOnlyKeyRemoteServerInfo struct {
-	key []byte
-}
-
-func (i *containerOnlyKeyRemoteServerInfo) PublicKey() []byte {
-	return i.key
-}
-
-func (*containerOnlyKeyRemoteServerInfo) IterateAddresses(func(string) bool) {
-}
-
-func (*containerOnlyKeyRemoteServerInfo) NumberOfAddresses() int {
-	return 0
-}
-
-func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cnr cid.ID, key []byte) (bool, error) {
-	cnrNodes, _, err := l.buildPlacement(epoch, cnr)
-	if err != nil {
-		return false, err
-	}
-
-	for i := range cnrNodes {
-		for j := range cnrNodes[i] {
-			if bytes.Equal(cnrNodes[i][j].PublicKey(), key) {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
-func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.SizeEstimation,
-	route []loadroute.ServerInfo, w loadcontroller.Writer) error {
-	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), a.Container(), route[0].PublicKey())
-	if err != nil {
-		return fmt.Errorf("could not verify that the sender belongs to the container: %w", err)
-	} else if !fromCnr {
-		return errNodeOutsideContainer
-	}
-
-	err = loadroute.CheckRoute(c.routeBuilder, a, route)
-	if err != nil {
-		return fmt.Errorf("wrong route of container's used space value: %w", err)
-	}
-
-	err = w.Put(a)
-	if err != nil {
-		return fmt.Errorf("could not write container's used space value: %w", err)
-	}
-
-	return nil
 }
 
 type containersInChain basics

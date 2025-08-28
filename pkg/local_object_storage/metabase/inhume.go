@@ -134,7 +134,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				// if object is stored, and it is regular object then update bucket
 				// with container size estimations
 				if obj.Type() == object.TypeRegular {
-					err := changeContainerSize(tx, cnr, obj.PayloadSize(), false)
+					err := changeContainerInfo(tx, cnr, -int(obj.PayloadSize()), -1)
 					if err != nil {
 						return err
 					}

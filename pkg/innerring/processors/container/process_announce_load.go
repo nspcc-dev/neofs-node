@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (cp *Processor) processAnnounceLoad(e container.AnnounceLoad) {
+func (cp *Processor) processAnnounceLoad(e container.Report) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore announce load")
 		return
@@ -25,7 +25,7 @@ func (cp *Processor) processAnnounceLoad(e container.AnnounceLoad) {
 		return
 	}
 
-	nr := e.NotaryRequest()
+	nr := e.NotaryRequest
 	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
 	if err != nil {
 		cp.log.Error("could not approve announce load",
@@ -34,13 +34,21 @@ func (cp *Processor) processAnnounceLoad(e container.AnnounceLoad) {
 	}
 }
 
-func (cp *Processor) checkAnnounceLoad(e container.AnnounceLoad) error {
-	binCnr := e.ContainerID()
+func (cp *Processor) checkAnnounceLoad(e container.Report) error {
+	binCnr := e.CID
 
 	var idCnr cid.ID
 	err := idCnr.Decode(binCnr)
 	if err != nil || idCnr.IsZero() {
 		return fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	if e.StorageSize < 0 {
+		return fmt.Errorf("negative storage size: %d", e.StorageSize)
+	}
+
+	if e.ObjectsNumber < 0 {
+		return fmt.Errorf("negative objects number: %d", e.ObjectsNumber)
 	}
 
 	cnr, err := cp.cnrClient.Get(binCnr)
@@ -58,8 +66,8 @@ func (cp *Processor) checkAnnounceLoad(e container.AnnounceLoad) error {
 		return fmt.Errorf("could not get container nodes: %w", err)
 	}
 
-	if !checkNodes(ni, e.Key()) {
-		return fmt.Errorf("%s does not belong to container %s", e.Key(), idCnr.String())
+	if !checkNodes(ni, e.NodeKey) {
+		return fmt.Errorf("%s does not belong to container %s", e.NodeKey, idCnr.String())
 	}
 
 	return nil

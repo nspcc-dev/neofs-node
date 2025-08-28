@@ -32,15 +32,17 @@ const (
 	eaclDataMethod = "getEACLData"
 	setEACLMethod  = "setEACL"
 
-	startEstimationMethod = "startContainerEstimation"
-	stopEstimationMethod  = "stopContainerEstimation"
-
 	putSizeMethod   = "putContainerSize"
 	listSizesMethod = "iterateAllContainerSizes"
 
 	addNextEpochNodes         = "addNextEpochNodes"
 	commitContainerListUpdate = "commitContainerListUpdate"
 	submitObjectPutMethod     = "submitObjectPut"
+
+	// iteratorPrefetchNumber is a number of stack items to prefetch in the
+	// first call of iterator-based methods. neo-go's stack elements default
+	// limit is 2048, make it less a little.
+	iteratorPrefetchNumber = 2000
 )
 
 var (
