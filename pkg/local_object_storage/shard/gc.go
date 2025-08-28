@@ -184,7 +184,7 @@ func (s *Shard) removeGarbage() {
 	}
 
 	// delete accumulated objects
-	err = s.deleteObjs(gObjs, true)
+	err = s.deleteObjs(gObjs)
 	if err != nil {
 		s.log.Warn("could not delete the objects",
 			zap.Error(err),

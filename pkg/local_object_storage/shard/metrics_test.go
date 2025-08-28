@@ -147,29 +147,6 @@ func TestCounters(t *testing.T) {
 
 		oo = oo[inhumedNumber:]
 	})
-
-	t.Run("Delete", func(t *testing.T) {
-		phy := mm.objectCounters[physical]
-		logic := mm.objectCounters[logical]
-
-		deletedNumber := int(phy / 4)
-
-		err := sh.Delete(addrFromObjs(oo[:deletedNumber]))
-		require.NoError(t, err)
-
-		require.Equal(t, phy-uint64(deletedNumber), mm.objectCounters[physical])
-		require.Equal(t, logic-uint64(deletedNumber), mm.objectCounters[logical])
-		var totalRemovedpayload uint64
-		for i := range oo[:deletedNumber] {
-			removedPayload := oo[i].PayloadSize()
-			totalRemovedpayload += removedPayload
-
-			cnr := oo[i].GetContainerID()
-			expectedSizes[cnr.EncodeToString()] -= int64(removedPayload)
-		}
-		require.Equal(t, expectedSizes, mm.containerSize)
-		require.Equal(t, totalPayload-int64(totalRemovedpayload), mm.payloadSize)
-	})
 }
 
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
