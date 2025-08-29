@@ -260,14 +260,3 @@ func AsAlphabet() StaticClientOption {
 		o.alpha = true
 	}
 }
-
-// WithStaticFeeIncrement returns option to increment transaction system fee
-// by static value. Otherwise 10% are added automatically to handle potential
-// state mismatch between test and real executions.
-//
-// Shouldn't be used in notary-enabled scenarios.
-func WithStaticFeeIncrement(fee fixedn.Fixed8) StaticClientOption {
-	return func(o *staticOpts) {
-		o.feeInc = fee
-	}
-}

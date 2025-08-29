@@ -5,8 +5,6 @@ import (
 )
 
 const (
-	// MaxSizeDefault is the default value of the object payload size limit.
-	MaxSizeDefault = 64 << 20
 	// SizeLimitDefault is the default write-cache size limit.
 	SizeLimitDefault = 1 << 30
 )

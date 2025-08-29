@@ -34,11 +34,6 @@ func (t NotaryType) String() string {
 	return string(t)
 }
 
-// NotaryTypeFromBytes converts bytes slice to NotaryType.
-func NotaryTypeFromBytes(data []byte) NotaryType {
-	return NotaryType(data)
-}
-
 // NotaryTypeFromString converts string to NotaryType.
 func NotaryTypeFromString(str string) NotaryType {
 	return NotaryType(str)
