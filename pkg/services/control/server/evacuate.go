@@ -9,7 +9,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -71,7 +70,7 @@ func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
 		return fmt.Errorf("can't build a list of container nodes: %w", err)
 	}
 
-	nodes := placement.FlattenNodes(ns)
+	nodes := slices.Concat(ns...)
 	bs := (*keys.PublicKey)(&s.key.PublicKey).Bytes()
 	nodes = slices.DeleteFunc(nodes, func(info netmap.NodeInfo) bool {
 		return bytes.Equal(info.PublicKey(), bs)
