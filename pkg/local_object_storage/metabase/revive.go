@@ -31,6 +31,9 @@ const (
 type ReviveStatus struct {
 	statusType reviveStatusType
 	message    string
+	// tombstoneAddr holds the address of the tombstone used to inhume the object (if any).
+	// It is set only when revival happened from a graveyard.
+	tombstoneAddr oid.Address
 }
 
 // Message returns message of status.
@@ -41,6 +44,14 @@ func (s *ReviveStatus) Message() string {
 // StatusType returns the type of revival status.
 func (s *ReviveStatus) StatusType() reviveStatusType {
 	return s.statusType
+}
+
+// TombstoneAddress returns the tombstone address if revival was from graveyard.
+func (s *ReviveStatus) TombstoneAddress() *oid.Address {
+	if s.statusType != ReviveStatusGraveyard || s.tombstoneAddr.Object().IsZero() {
+		return nil
+	}
+	return &s.tombstoneAddr
 }
 
 func (s *ReviveStatus) setStatusGraveyard(tomb string) {
@@ -101,6 +112,7 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 				return err
 			}
 			res.setStatusGraveyard(tombAddress.EncodeToString())
+			res.tombstoneAddr = tombAddress
 		} else {
 			val = garbageContainersBKT.Get(targetKey[:cidSize])
 			if val != nil {
