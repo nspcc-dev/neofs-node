@@ -17,7 +17,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		return true
 	}
 
-	obj, err := remoteClient.getObject(exec, info)
+	obj, reader, err := remoteClient.getObject(exec, info)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 
@@ -38,8 +38,9 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		// has already been streamed to the requesting party,
 		// or it is a GETRANGEHASH forwarded request whose
 		// response is not an object
-		if obj != nil {
-			exec.collectedObject = obj
+		if obj != nil || reader != nil {
+			exec.collectedHeader = obj
+			exec.collectedReader = reader
 			exec.writeCollectedObject()
 		}
 	case errors.Is(err, apistatus.Error) && !errors.Is(err, apistatus.ErrObjectNotFound):
