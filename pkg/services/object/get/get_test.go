@@ -16,10 +16,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	netmaptest "github.com/nspcc-dev/neofs-sdk-go/netmap/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -35,7 +34,6 @@ type testStorage struct {
 }
 
 type testNeoFS struct {
-	c container.Container
 	b placement.Builder
 }
 
@@ -478,10 +476,7 @@ func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 func TestGetRemoteSmall(t *testing.T) {
 	ctx := context.Background()
 
-	var cnr container.Container
-	cnr.SetPlacementPolicy(netmaptest.PlacementPolicy())
-
-	idCnr := cid.NewFromMarshalledContainer(cnr.Marshal())
+	idCnr := cidtest.ID()
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -489,7 +484,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.localStorage = newTestStorage()
 
 		svc.neoFSNet = &testNeoFS{
-			c: cnr,
 			b: b,
 		}
 		svc.clientCache = c

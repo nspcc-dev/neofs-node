@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -35,7 +34,6 @@ type testStorage struct {
 }
 
 type testContainers struct {
-	c container.Container
 	b placement.Builder
 }
 
@@ -226,18 +224,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	placementDim := []int{2}
 
-	rs := make([]netmap.ReplicaDescriptor, len(placementDim))
-	for i := range placementDim {
-		rs[i].SetNumberOfObjects(uint32(placementDim[i]))
-	}
-
-	var pp netmap.PlacementPolicy
-	pp.SetReplicas(rs)
-
-	var cnr container.Container
-	cnr.SetPlacementPolicy(pp)
-
-	id := cid.NewFromMarshalledContainer(cnr.Marshal())
+	id := cidtest.ID()
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -245,7 +232,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.localStorage = newTestStorage()
 
 		svc.containers = &testContainers{
-			c: cnr,
 			b: b,
 		}
 		svc.clientConstructor = c
