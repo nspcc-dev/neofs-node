@@ -33,10 +33,6 @@ type testStorage struct {
 }
 
 type testContainers struct {
-	b *testPlacementBuilder
-}
-
-type testPlacementBuilder struct {
 	vectors map[string][][]netmap.NodeInfo
 }
 
@@ -61,7 +57,7 @@ func newTestStorage() *testStorage {
 
 func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netmap.NodeInfo)) error {
 	var anyPolicy netmap.PlacementPolicy // policy is ignored in this test
-	nodeSets, err := g.b.BuildPlacement(cnr, nil, anyPolicy)
+	nodeSets, err := g.BuildPlacement(cnr, nil, anyPolicy)
 	if err != nil {
 		return err
 	}
@@ -75,7 +71,7 @@ func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netm
 	return nil
 }
 
-func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
+func (p *testContainers) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
 	var addr oid.Address
 	addr.SetContainer(cnr)
 
@@ -225,13 +221,13 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	id := cidtest.ID()
 
-	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
+	newSvc := func(vectors map[string][][]netmap.NodeInfo, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
 
 		svc.containers = &testContainers{
-			b: b,
+			vectors: vectors,
 		}
 		svc.clientConstructor = c
 
@@ -253,10 +249,8 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		ns, as := testNodeMatrix(t, placementDim)
 
-		builder := &testPlacementBuilder{
-			vectors: map[string][][]netmap.NodeInfo{
-				addr.EncodeToString(): ns,
-			},
+		vectors := map[string][][]netmap.NodeInfo{
+			addr.EncodeToString(): ns,
 		}
 
 		c1 := newTestStorage()
@@ -267,7 +261,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		ids2 := oidtest.IDs(10)
 		c2.addResult(id, ids2, nil)
 
-		svc := newSvc(builder, &testClientCache{
+		svc := newSvc(vectors, &testClientCache{
 			clients: map[string]*testStorage{
 				as[0][0]: c1,
 				as[0][1]: c2,
