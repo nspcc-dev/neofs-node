@@ -723,7 +723,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			BasicIncome: &basicSettlementConstructor{dep: basicSettlementDeps},
 			State:       server,
 		},
-		settlement.WithLogger(server.log),
+		settlement.WithLogger(server.log.With(zap.String("component", "basicIncomeProcessor"))),
 	)
 
 	locodeValidator, err := server.newLocodeValidator()
