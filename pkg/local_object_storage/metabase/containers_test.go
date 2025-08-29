@@ -20,14 +20,14 @@ func TestDB_Containers(t *testing.T) {
 
 	const N = 10
 
-	cids := make(map[string]int, N)
+	cids := make(map[cid.ID]int, N)
 
 	for range N {
 		obj := generateObject(t)
 
 		cnr := obj.GetContainerID()
 
-		cids[cnr.EncodeToString()] = 0
+		cids[cnr] = 0
 
 		err := putBig(db, obj)
 		require.NoError(t, err)
@@ -37,11 +37,11 @@ func TestDB_Containers(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, cnr := range lst {
-		i, ok := cids[cnr.EncodeToString()]
+		i, ok := cids[cnr]
 		require.True(t, ok)
 		require.Equal(t, 0, i)
 
-		cids[cnr.EncodeToString()] = 1
+		cids[cnr] = 1
 	}
 
 	// require.Contains not working since cnrs is a ptr slice

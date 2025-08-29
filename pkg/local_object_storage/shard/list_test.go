@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +32,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	const C = 10
 	const N = 5
 
-	objs := make(map[string]int)
+	objs := make(map[oid.Address]int)
 
 	for range C {
 		cnr := cidtest.ID()
@@ -46,7 +47,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 			obj.SetParentID(idParent)
 			obj.SetParent(parent)
 
-			objs[object.AddressOf(obj).EncodeToString()] = 0
+			objs[object.AddressOf(obj)] = 0
 
 			err := sh.Put(obj, nil)
 			require.NoError(t, err)
@@ -57,10 +58,10 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	require.NoError(t, err)
 
 	for _, objID := range res {
-		i, ok := objs[objID.EncodeToString()]
+		i, ok := objs[objID]
 		require.True(t, ok)
 		require.Equal(t, 0, i)
 
-		objs[objID.EncodeToString()] = 1
+		objs[objID] = 1
 	}
 }

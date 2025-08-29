@@ -9,6 +9,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
@@ -163,22 +164,22 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 
 	const total = 5
 
-	expected := make(map[string]int, total)
+	expected := make(map[oid.Address]int, total)
 
 	// fill metabase with objects
 	for range total {
 		obj := generateObject(t)
 		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected[object.AddressOf(obj).EncodeToString()] = 0
+		expected[object.AddressOf(obj)] = 0
 	}
 
 	// get half of the objects
 	got, cursor, err := metaListWithCursor(db, total/2, nil)
 	require.NoError(t, err)
 	for _, obj := range got {
-		if _, ok := expected[obj.Address.EncodeToString()]; ok {
-			expected[obj.Address.EncodeToString()]++
+		if _, ok := expected[obj.Address]; ok {
+			expected[obj.Address]++
 		}
 	}
 
@@ -196,8 +197,8 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 			break
 		}
 		for _, obj := range got {
-			if _, ok := expected[obj.Address.EncodeToString()]; ok {
-				expected[obj.Address.EncodeToString()]++
+			if _, ok := expected[obj.Address]; ok {
+				expected[obj.Address]++
 			}
 		}
 	}
