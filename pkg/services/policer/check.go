@@ -223,7 +223,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		default:
 		}
 
-		isLocalNode := p.netmapKeys.IsLocalKey(nodes[i].PublicKey())
+		isLocalNode := p.network.IsLocalNodePublicKey(nodes[i].PublicKey())
 
 		if !plc.localNodeInContainer {
 			plc.localNodeInContainer = isLocalNode

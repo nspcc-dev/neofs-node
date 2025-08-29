@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -79,6 +78,9 @@ type Network interface {
 	// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
 	// the network.
 	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node running [Policer].
+	IsLocalNodePublicKey([]byte) bool
 }
 
 type cfg struct {
@@ -94,8 +96,6 @@ type cfg struct {
 	jobQueue jobQueue
 
 	remoteHeader *headsvc.RemoteHeader
-
-	netmapKeys netmap.AnnouncedKeys
 
 	replicator *replicator.Replicator
 
@@ -162,13 +162,6 @@ func WithLocalStorage(v *engine.StorageEngine) Option {
 func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 	return func(c *cfg) {
 		c.remoteHeader = v
-	}
-}
-
-// WithNetmapKeys returns option to set tool to work with announced public keys.
-func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
-	return func(c *cfg) {
-		c.netmapKeys = v
 	}
 }
 
