@@ -18,13 +18,6 @@ func Uint32() uint32 {
 	return source.Uint32()
 }
 
-// Shuffle randomizes the order of elements.
-// n is the number of elements. Shuffle panics if n < 0.
-// swap swaps the elements with indexes i and j.
-func Shuffle(n int, swap func(i, j int)) {
-	source.Shuffle(n, swap)
-}
-
 // cryptoSource is math/rand.Source which takes entropy via crypto/rand.
 type cryptoSource struct{}
 

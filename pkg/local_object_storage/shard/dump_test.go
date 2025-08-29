@@ -265,9 +265,7 @@ func checkRestore(t *testing.T, sh *shard.Shard, path string, r io.Reader, objec
 
 func TestDumpIgnoreErrors(t *testing.T) {
 	const (
-		wcSmallObjectSize = 512                    // goes to write-cache memory
-		wcBigObjectSize   = wcSmallObjectSize << 1 // goes to write-cache FSTree
-		bsSmallObjectSize = wcSmallObjectSize << 2
+		wcSmallObjectSize = 512 // goes to write-cache memory
 
 		objCount   = 10
 		headerSize = 400

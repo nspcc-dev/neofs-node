@@ -3,7 +3,6 @@ package nodeconfig
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -13,8 +12,6 @@ import (
 const (
 	// PersistentStatePathDefault is the default path for persistent state file.
 	PersistentStatePathDefault = ".neofs-storage-state"
-	// NotificationTimeoutDefault is the default timeout for object notification operation.
-	NotificationTimeoutDefault = 5 * time.Second
 )
 
 // Node contains configuration for a node.

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/nspcc-dev/bbolt"
@@ -167,68 +166,6 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 			}
 			expKey, _ = cur.Next()
 		}
-		return nil
-	})
-
-	if errors.Is(err, ErrInterruptIterator) {
-		err = nil
-	}
-
-	return err
-}
-
-// IterateCoveredByTombstones iterates over all objects in DB which are covered
-// by tombstone with string address from tss. Locked objects are not included
-// (do not confuse with objects of type LOCK).
-//
-// If h returns ErrInterruptIterator, nil returns immediately.
-// Returns other errors of h directly.
-//
-// Does not modify tss.
-func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.Address) error) error {
-	db.modeMtx.RLock()
-	defer db.modeMtx.RUnlock()
-
-	if db.mode.NoMetabase() {
-		return ErrDegradedMode
-	}
-
-	currEpoch := db.epochState.CurrentEpoch()
-
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateCoveredByTombstones(tx, currEpoch, tss, h)
-	})
-}
-
-func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, currEpoch uint64, tss map[string]oid.Address, h func(oid.Address) error) error {
-	bktGraveyard := tx.Bucket(graveyardBucketName)
-
-	err := bktGraveyard.ForEach(func(k, v []byte) error {
-		var addr oid.Address
-		if err := decodeAddressFromKey(&addr, v[:addressKeySize]); err != nil {
-			return err
-		}
-		if _, ok := tss[addr.EncodeToString()]; ok {
-			var addr oid.Address
-
-			err := decodeAddressFromKey(&addr, k)
-			if err != nil {
-				return fmt.Errorf("could not parse address of the object under tombstone: %w", err)
-			}
-
-			metaBucket := tx.Bucket(metaBucketKey(addr.Container()))
-			var metaCursor *bbolt.Cursor
-			if metaBucket != nil {
-				metaCursor = metaBucket.Cursor()
-			}
-
-			if objectLocked(tx, currEpoch, metaCursor, addr.Container(), addr.Object()) {
-				return nil
-			}
-
-			return h(addr)
-		}
-
 		return nil
 	})
 
