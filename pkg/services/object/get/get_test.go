@@ -58,10 +58,9 @@ func newTestStorage() *testStorage {
 func (g *testNeoFS) IsLocalNodePublicKey([]byte) bool { return false }
 
 func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, error) {
-	obj := addr.Object()
-	nodeLists, err := g.BuildPlacement(addr.Container(), &obj, netmap.PlacementPolicy{}) // policy is ignored in this test
-	if err != nil {
-		return nil, nil, err
+	nodeLists, ok := g.vectors[addr.EncodeToString()]
+	if !ok {
+		return nil, nil, errors.New("vectors for address not found")
 	}
 
 	primaryNums := make([]uint, len(nodeLists))
@@ -70,22 +69,6 @@ func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []
 	}
 
 	return nodeLists, primaryNums, nil
-}
-
-func (p *testNeoFS) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
-	var addr oid.Address
-	addr.SetContainer(cnr)
-
-	if obj != nil {
-		addr.SetObject(*obj)
-	}
-
-	vs, ok := p.vectors[addr.EncodeToString()]
-	if !ok {
-		return nil, errors.New("vectors for address not found")
-	}
-
-	return vs, nil
 }
 
 func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {

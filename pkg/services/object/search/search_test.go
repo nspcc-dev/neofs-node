@@ -56,10 +56,11 @@ func newTestStorage() *testStorage {
 }
 
 func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netmap.NodeInfo)) error {
-	var anyPolicy netmap.PlacementPolicy // policy is ignored in this test
-	nodeSets, err := g.BuildPlacement(cnr, nil, anyPolicy)
-	if err != nil {
-		return err
+	var addr oid.Address
+	addr.SetContainer(cnr)
+	nodeSets, ok := g.vectors[addr.EncodeToString()]
+	if !ok {
+		return errors.New("vectors for address not found")
 	}
 
 	for i := range nodeSets {
@@ -69,25 +70,6 @@ func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netm
 	}
 
 	return nil
-}
-
-func (p *testContainers) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
-	var addr oid.Address
-	addr.SetContainer(cnr)
-
-	if obj != nil {
-		addr.SetObject(*obj)
-	}
-
-	vs, ok := p.vectors[addr.EncodeToString()]
-	if !ok {
-		return nil, errors.New("vectors for address not found")
-	}
-
-	res := make([][]netmap.NodeInfo, len(vs))
-	copy(res, vs)
-
-	return res, nil
 }
 
 func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
