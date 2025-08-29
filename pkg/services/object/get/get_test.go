@@ -13,13 +13,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	netmaptest "github.com/nspcc-dev/neofs-sdk-go/netmap/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -27,20 +25,15 @@ import (
 )
 
 type testStorage struct {
-	inhumed map[string]struct{}
+	inhumed map[oid.Address]struct{}
 
-	virtual map[string]*objectSDK.SplitInfo
+	virtual map[oid.Address]*objectSDK.SplitInfo
 
-	phy map[string]*objectSDK.Object
+	phy map[oid.Address]*objectSDK.Object
 }
 
 type testNeoFS struct {
-	c container.Container
-	b placement.Builder
-}
-
-type testPlacementBuilder struct {
-	vectors map[string][][]netmap.NodeInfo
+	vectors map[oid.Address][][]netmap.NodeInfo
 }
 
 type testClientCache struct {
@@ -48,7 +41,7 @@ type testClientCache struct {
 }
 
 type testClient struct {
-	results map[string]struct {
+	results map[oid.Address]struct {
 		obj *objectSDK.Object
 		err error
 	}
@@ -56,19 +49,18 @@ type testClient struct {
 
 func newTestStorage() *testStorage {
 	return &testStorage{
-		inhumed: make(map[string]struct{}),
-		virtual: make(map[string]*objectSDK.SplitInfo),
-		phy:     make(map[string]*objectSDK.Object),
+		inhumed: make(map[oid.Address]struct{}),
+		virtual: make(map[oid.Address]*objectSDK.SplitInfo),
+		phy:     make(map[oid.Address]*objectSDK.Object),
 	}
 }
 
 func (g *testNeoFS) IsLocalNodePublicKey([]byte) bool { return false }
 
 func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, error) {
-	obj := addr.Object()
-	nodeLists, err := g.b.BuildPlacement(addr.Container(), &obj, netmap.PlacementPolicy{}) // policy is ignored in this test
-	if err != nil {
-		return nil, nil, err
+	nodeLists, ok := g.vectors[addr]
+	if !ok {
+		return nil, nil, errors.New("vectors for address not found")
 	}
 
 	primaryNums := make([]uint, len(nodeLists))
@@ -77,22 +69,6 @@ func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []
 	}
 
 	return nodeLists, primaryNums, nil
-}
-
-func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
-	var addr oid.Address
-	addr.SetContainer(cnr)
-
-	if obj != nil {
-		addr.SetObject(*obj)
-	}
-
-	vs, ok := p.vectors[addr.EncodeToString()]
-	if !ok {
-		return nil, errors.New("vectors for address not found")
-	}
-
-	return vs, nil
 }
 
 func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {
@@ -106,7 +82,7 @@ func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {
 
 func newTestClient() *testClient {
 	return &testClient{
-		results: map[string]struct {
+		results: map[oid.Address]struct {
 			obj *objectSDK.Object
 			err error
 		}{},
@@ -114,7 +90,7 @@ func newTestClient() *testClient {
 }
 
 func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, error) {
-	v, ok := c.results[exec.address().EncodeToString()]
+	v, ok := c.results[exec.address()]
 	if !ok {
 		var errNotFound apistatus.ObjectNotFound
 
@@ -129,7 +105,7 @@ func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Obj
 }
 
 func (c *testClient) addResult(addr oid.Address, obj *objectSDK.Object, err error) {
-	c.results[addr.EncodeToString()] = struct {
+	c.results[addr] = struct {
 		obj *objectSDK.Object
 		err error
 	}{obj: obj, err: err}
@@ -139,7 +115,7 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, error) {
 	var (
 		ok    bool
 		obj   *objectSDK.Object
-		sAddr = exec.address().EncodeToString()
+		sAddr = exec.address()
 	)
 
 	if _, ok = s.inhumed[sAddr]; ok {
@@ -178,15 +154,15 @@ func cutToRange(o *objectSDK.Object, rng *objectSDK.Range) *objectSDK.Object {
 }
 
 func (s *testStorage) addPhy(addr oid.Address, obj *objectSDK.Object) {
-	s.phy[addr.EncodeToString()] = obj
+	s.phy[addr] = obj
 }
 
 func (s *testStorage) addVirtual(addr oid.Address, info *objectSDK.SplitInfo) {
-	s.virtual[addr.EncodeToString()] = info
+	s.virtual[addr] = info
 }
 
 func (s *testStorage) inhume(addr oid.Address) {
-	s.inhumed[addr.EncodeToString()] = struct{}{}
+	s.inhumed[addr] = struct{}{}
 }
 
 func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *objectSDK.Object {
@@ -478,19 +454,15 @@ func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 func TestGetRemoteSmall(t *testing.T) {
 	ctx := context.Background()
 
-	var cnr container.Container
-	cnr.SetPlacementPolicy(netmaptest.PlacementPolicy())
+	idCnr := cidtest.ID()
 
-	idCnr := cid.NewFromMarshalledContainer(cnr.Marshal())
-
-	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
+	newSvc := func(vectors map[oid.Address][][]netmap.NodeInfo, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
 
 		svc.neoFSNet = &testNeoFS{
-			c: cnr,
-			b: b,
+			vectors: vectors,
 		}
 		svc.clientCache = c
 
@@ -536,10 +508,8 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		ns, as := testNodeMatrix(t, []int{2})
 
-		builder := &testPlacementBuilder{
-			vectors: map[string][][]netmap.NodeInfo{
-				addr.EncodeToString(): ns,
-			},
+		vectors := map[oid.Address][][]netmap.NodeInfo{
+			addr: ns,
 		}
 
 		payloadSz := uint64(10)
@@ -554,7 +524,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		c2 := newTestClient()
 		c2.addResult(addr, nil, errors.New("any error"))
 
-		svc := newSvc(builder, &testClientCache{
+		svc := newSvc(vectors, &testClientCache{
 			clients: map[string]*testClient{
 				as[0][0]: c1,
 				as[0][1]: c2,
@@ -599,10 +569,8 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		ns, as := testNodeMatrix(t, []int{2})
 
-		builder := &testPlacementBuilder{
-			vectors: map[string][][]netmap.NodeInfo{
-				addr.EncodeToString(): ns,
-			},
+		vectors := map[oid.Address][][]netmap.NodeInfo{
+			addr: ns,
 		}
 
 		c1 := newTestClient()
@@ -611,7 +579,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		c2 := newTestClient()
 		c2.addResult(addr, nil, new(apistatus.ObjectAlreadyRemoved))
 
-		svc := newSvc(builder, &testClientCache{
+		svc := newSvc(vectors, &testClientCache{
 			clients: map[string]*testClient{
 				as[0][0]: c1,
 				as[0][1]: c2,
@@ -643,10 +611,8 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		ns, as := testNodeMatrix(t, []int{2})
 
-		builder := &testPlacementBuilder{
-			vectors: map[string][][]netmap.NodeInfo{
-				addr.EncodeToString(): ns,
-			},
+		vectors := map[oid.Address][][]netmap.NodeInfo{
+			addr: ns,
 		}
 
 		c1 := newTestClient()
@@ -655,7 +621,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		c2 := newTestClient()
 		c2.addResult(addr, nil, errors.New("any error"))
 
-		svc := newSvc(builder, &testClientCache{
+		svc := newSvc(vectors, &testClientCache{
 			clients: map[string]*testClient{
 				as[0][0]: c1,
 				as[0][1]: c2,
@@ -718,14 +684,12 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
 				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
-				builder := &testPlacementBuilder{
-					vectors: map[string][][]netmap.NodeInfo{
-						addr.EncodeToString():      ns,
-						splitAddr.EncodeToString(): ns,
-					},
+				vectors := map[oid.Address][][]netmap.NodeInfo{
+					addr:      ns,
+					splitAddr: ns,
 				}
 
-				svc := newSvc(builder, &testClientCache{
+				svc := newSvc(vectors, &testClientCache{
 					clients: map[string]*testClient{
 						as[0][0]: c1,
 						as[0][1]: c2,
@@ -792,16 +756,14 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(child1Addr, children[0], nil)
 				c2.addResult(child2Addr, nil, apistatus.ObjectNotFound{})
 
-				builder := &testPlacementBuilder{
-					vectors: map[string][][]netmap.NodeInfo{
-						addr.EncodeToString():       ns,
-						linkAddr.EncodeToString():   ns,
-						child1Addr.EncodeToString(): ns,
-						child2Addr.EncodeToString(): ns,
-					},
+				vectors := map[oid.Address][][]netmap.NodeInfo{
+					addr:       ns,
+					linkAddr:   ns,
+					child1Addr: ns,
+					child2Addr: ns,
 				}
 
-				svc := newSvc(builder, &testClientCache{
+				svc := newSvc(vectors, &testClientCache{
 					clients: map[string]*testClient{
 						as[0][0]: c1,
 						as[0][1]: c2,
@@ -870,16 +832,14 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(child1Addr, children[0], nil)
 				c2.addResult(child2Addr, children[1], nil)
 
-				builder := &testPlacementBuilder{
-					vectors: map[string][][]netmap.NodeInfo{
-						addr.EncodeToString():       ns,
-						linkAddr.EncodeToString():   ns,
-						child1Addr.EncodeToString(): ns,
-						child2Addr.EncodeToString(): ns,
-					},
+				vectors := map[oid.Address][][]netmap.NodeInfo{
+					addr:       ns,
+					linkAddr:   ns,
+					child1Addr: ns,
+					child2Addr: ns,
 				}
 
-				svc := newSvc(builder, &testClientCache{
+				svc := newSvc(vectors, &testClientCache{
 					clients: map[string]*testClient{
 						as[0][0]: c1,
 						as[0][1]: c2,
@@ -937,14 +897,12 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
 				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
-				builder := &testPlacementBuilder{
-					vectors: map[string][][]netmap.NodeInfo{
-						addr.EncodeToString():      ns,
-						splitAddr.EncodeToString(): ns,
-					},
+				vectors := map[oid.Address][][]netmap.NodeInfo{
+					addr:      ns,
+					splitAddr: ns,
 				}
 
-				svc := newSvc(builder, &testClientCache{
+				svc := newSvc(vectors, &testClientCache{
 					clients: map[string]*testClient{
 						as[0][0]: c1,
 						as[0][1]: c2,
@@ -1002,15 +960,13 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
 				c2.addResult(rightAddr, rightObj, nil)
 
-				builder := &testPlacementBuilder{
-					vectors: map[string][][]netmap.NodeInfo{
-						addr.EncodeToString():         ns,
-						rightAddr.EncodeToString():    ns,
-						preRightAddr.EncodeToString(): ns,
-					},
+				vectors := map[oid.Address][][]netmap.NodeInfo{
+					addr:         ns,
+					rightAddr:    ns,
+					preRightAddr: ns,
 				}
 
-				svc := newSvc(builder, &testClientCache{
+				svc := newSvc(vectors, &testClientCache{
 					clients: map[string]*testClient{
 						as[0][0]: c1,
 						as[0][1]: c2,
@@ -1073,17 +1029,15 @@ func TestGetRemoteSmall(t *testing.T) {
 					c2.addResult(object.AddressOf(children[i]), children[i], nil)
 				}
 
-				builder := &testPlacementBuilder{
-					vectors: map[string][][]netmap.NodeInfo{},
-				}
+				vectors := map[oid.Address][][]netmap.NodeInfo{}
 
-				builder.vectors[addr.EncodeToString()] = ns
+				vectors[addr] = ns
 
 				for i := range children {
-					builder.vectors[object.AddressOf(children[i]).EncodeToString()] = ns
+					vectors[object.AddressOf(children[i])] = ns
 				}
 
-				svc := newSvc(builder, &testClientCache{
+				svc := newSvc(vectors, &testClientCache{
 					clients: map[string]*testClient{
 						as[0][0]: c1,
 						as[0][1]: c2,

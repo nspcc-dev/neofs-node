@@ -31,7 +31,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/tombstone"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
@@ -197,14 +196,9 @@ func initObjectService(c *cfg) {
 	c.shared.policer = policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
-		policer.WithContainerSource(c.cnrSrc),
-		policer.WithPlacementBuilder(
-			placement.NewNetworkMapSourceBuilder(c.netMapSource),
-		),
 		policer.WithRemoteHeader(
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
-		policer.WithNetmapKeys(c),
 		policer.WithHeadTimeout(c.appCfg.Policer.HeadTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {

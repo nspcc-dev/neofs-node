@@ -153,7 +153,7 @@ func TestResyncMetabase(t *testing.T) {
 	const objNum = 10
 	oldVersion := version.New(2, 17)
 
-	mObjs := make(map[string]objAddr)
+	mObjs := make(map[oid.Address]objAddr)
 	locked := make([]oid.ID, 1, 2)
 	locked[0] = oidtest.ID()
 	cnrLocked := cidtest.ID()
@@ -177,7 +177,7 @@ func TestResyncMetabase(t *testing.T) {
 
 		addr := object.AddressOf(&obj)
 
-		mObjs[addr.EncodeToString()] = objAddr{
+		mObjs[addr] = objAddr{
 			obj:  &obj,
 			addr: addr,
 		}
