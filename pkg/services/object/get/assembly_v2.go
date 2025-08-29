@@ -117,9 +117,7 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 	seekTo := seekOff + seekLen
 
 	if seekTo < seekOff || parSize < seekOff || parSize < seekTo {
-		var errOutOfRange apistatus.ObjectOutOfRange
-
-		exec.err = &errOutOfRange
+		exec.err = apistatus.ErrObjectOutOfRange
 		exec.status = statusAPIResponse
 
 		// the operation has failed but no need to continue so `true` here
