@@ -173,7 +173,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		}
 
 		if to < from || pLen < from || pLen < to {
-			return nil, nil, new(apistatus.ObjectOutOfRange)
+			return nil, nil, apistatus.ErrObjectOutOfRange
 		}
 
 		if from > 0 {
