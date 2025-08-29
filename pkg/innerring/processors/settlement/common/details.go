@@ -5,13 +5,8 @@ import (
 )
 
 var (
-	basicIncomeCollectionPrefix   = []byte{0x41}
 	basicIncomeDistributionPrefix = []byte{0x42}
 )
-
-func BasicIncomeCollectionDetails(epoch uint64) []byte {
-	return details(basicIncomeCollectionPrefix, epoch)
-}
 
 func BasicIncomeDistributionDetails(epoch uint64) []byte {
 	return details(basicIncomeDistributionPrefix, epoch)

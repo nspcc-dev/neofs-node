@@ -8,17 +8,12 @@ import (
 type Option func(*options)
 
 type options struct {
-	poolSize int
-
 	log *zap.Logger
 }
 
 func defaultOptions() *options {
-	const poolSize = 10
-
 	return &options{
-		poolSize: poolSize,
-		log:      zap.L(),
+		log: zap.L(),
 	}
 }
 
