@@ -35,7 +35,6 @@ type testStorage struct {
 }
 
 type testContainers struct {
-	c container.Container
 	b placement.Builder
 }
 
@@ -245,7 +244,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.localStorage = newTestStorage()
 
 		svc.containers = &testContainers{
-			c: cnr,
 			b: b,
 		}
 		svc.clientConstructor = c
