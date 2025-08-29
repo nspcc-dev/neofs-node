@@ -448,11 +448,7 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("failed to mark required %s flag: %w", endpointFlag, err))
 	}
-	ff.String(estimationsContainerFlag, "", "Inspected container, base58 encoded")
-	err = cobra.MarkFlagRequired(ff, estimationsContainerFlag)
-	if err != nil {
-		panic(fmt.Errorf("failed to mark required %s flag: %w", estimationsContainerFlag, err))
-	}
+	ff.String(estimationsContainerFlag, "", "Inspected container, base58 encoded (all estimations will be printed if omitted)")
 
 	cmd := verifiedNodesDomainAccessListCmd
 	fs := cmd.Flags()
