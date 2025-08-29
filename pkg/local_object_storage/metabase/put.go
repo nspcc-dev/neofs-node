@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -12,9 +13,11 @@ import (
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 var (
@@ -111,7 +114,7 @@ func (db *DB) put(
 		}
 	}
 
-	err = handleNonRegularObject(tx, currEpoch, *obj)
+	err = handleNonRegularObject(db.log, tx, currEpoch, *obj)
 	if err != nil {
 		return err
 	}
@@ -123,7 +126,7 @@ func (db *DB) put(
 	return nil
 }
 
-func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object) error {
+func handleNonRegularObject(l *zap.Logger, tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object) error {
 	cID := obj.GetContainerID()
 	oID := obj.GetID()
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
@@ -175,6 +178,26 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 				err := garbageObjectsBKT.Put(garbageKey, zeroValue)
 				if err != nil {
 					return fmt.Errorf("put %s object to garbage bucket: %w", target, targetTypErr)
+				}
+
+				parentPrefix := getParentMetaOwnersPrefix(target)
+				for k, _ := metaCursor.Seek(parentPrefix); ; k, _ = metaCursor.Next() {
+					b, ok := bytes.CutPrefix(k, parentPrefix)
+					if !ok {
+						break
+					}
+					if len(b) != oid.Size {
+						l.Error("unexpected OID suffix len in meta bucket's parent index, ignore item", zap.Int("suffixLen", len(b)),
+							zap.Int("keyLen", len(k)))
+						continue
+					}
+
+					copy(garbageKey[cid.Size:], b)
+
+					if err := garbageObjectsBKT.Put(garbageKey, zeroValue); err != nil {
+						return fmt.Errorf("put child object %s to garbage bucket: %w", oid.ID(b), targetTypErr)
+					}
+					// TODO: child may be a parent itself. For example https://github.com/nspcc-dev/neofs-node/issues/3500. Do recursively.
 				}
 			}
 		}

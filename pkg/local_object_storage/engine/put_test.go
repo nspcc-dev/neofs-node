@@ -1,11 +1,15 @@
 package engine
 
 import (
+	"fmt"
+	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -16,6 +20,7 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestStorageEngine_PutBinary(t *testing.T) {
@@ -301,4 +306,59 @@ func testPutTombstone(t *testing.T, shardNum int) {
 			}
 		})
 	}
+
+	t.Run("child objects affect", func(t *testing.T) {
+		const gcInterval = 100 * time.Millisecond // pretty big for test, pretty small IRL
+
+		l := zaptest.NewLogger(t)
+
+		dir := t.TempDir()
+		s := New(
+			WithLogger(l),
+		)
+		t.Cleanup(func() {
+			_ = s.Close()
+		})
+		for i := range shardNum {
+			_, err := s.AddShard(
+				shard.WithLogger(l),
+				shard.WithGCRemoverSleepInterval(gcInterval),
+				shard.WithBlobstor(
+					newStorage(filepath.Join(dir, fmt.Sprintf("fstree%d", i))),
+				),
+				shard.WithMetaBaseOptions(
+					meta.WithPath(filepath.Join(dir, fmt.Sprintf("metabase%d", i))),
+					meta.WithPermissions(0700),
+					meta.WithEpochState(epochState{}),
+				),
+			)
+			require.NoError(t, err)
+		}
+
+		require.NoError(t, s.Open())
+		require.NoError(t, s.Init())
+
+		child := obj
+		child.SetParent(&obj)
+		child.SetID(oidtest.OtherID(objID))
+		child.SetPayload([]byte("child payload"))
+		require.NoError(t, s.Put(&child, nil))
+
+		childAddr := objAddr
+		childAddr.SetObject(child.GetID())
+
+		assertAvailableObject(t, s, childAddr, child)
+
+		require.NoError(t, s.Put(&tomb, nil))
+
+		if shardNum > 1 {
+			t.Skip("https://github.com/nspcc-dev/neofs-node/issues/3551")
+		}
+
+		assertMarkedAsGarbage(t, s, childAddr)
+
+		time.Sleep(gcInterval + gcInterval/2) // at least one beat + actual removal in all shards
+
+		assertNoObject(t, s, childAddr)
+	})
 }
