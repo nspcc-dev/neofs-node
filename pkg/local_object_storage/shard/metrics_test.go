@@ -9,6 +9,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 
 type metricsStore struct {
 	objectCounters map[string]uint64
-	containerSize  map[string]int64
+	containerSize  map[cid.ID]int64
 	payloadSize    int64
 	readOnly       bool
 }
@@ -57,7 +58,11 @@ func (m *metricsStore) SetReadonly(r bool) {
 }
 
 func (m metricsStore) AddToContainerSize(cnr string, size int64) {
-	m.containerSize[cnr] += size
+	c, err := cid.DecodeString(cnr)
+	if err != nil {
+		return
+	}
+	m.containerSize[c] += size
 }
 
 func (m *metricsStore) AddToPayloadSize(size int64) {
@@ -93,11 +98,11 @@ func TestCounters(t *testing.T) {
 
 	var totalPayload int64
 
-	expectedSizes := make(map[string]int64)
+	expectedSizes := make(map[cid.ID]int64)
 	for i := range oo {
 		cnr := oo[i].GetContainerID()
 		oSize := int64(oo[i].PayloadSize())
-		expectedSizes[cnr.EncodeToString()] += oSize
+		expectedSizes[cnr] += oSize
 		totalPayload += oSize
 	}
 
@@ -155,7 +160,7 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 			"phy":   0,
 			"logic": 0,
 		},
-		containerSize: make(map[string]int64),
+		containerSize: make(map[cid.ID]int64),
 	}
 
 	sh := shard.New(

@@ -25,10 +25,10 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	objects = append(objects[:delID], objects[delID+1:]...)
 
 	t.Run("normal handler", func(t *testing.T) {
-		seen := make(map[string]objectDesc)
+		seen := make(map[oid.Address]objectDesc)
 
 		var objHandler = func(addr oid.Address, data []byte) error {
-			seen[addr.String()] = objectDesc{
+			seen[addr] = objectDesc{
 				addr: addr,
 				raw:  data,
 			}
@@ -39,7 +39,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
-			d, ok := seen[objects[i].addr.String()]
+			d, ok := seen[objects[i].addr]
 			require.True(t, ok)
 			require.Equal(t, objects[i].raw, d.raw)
 			require.Equal(t, objects[i].addr, d.addr)
@@ -47,13 +47,13 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	})
 
 	t.Run("addresses", func(t *testing.T) {
-		seen := make(map[string]objectDesc)
+		seen := make(map[oid.Address]objectDesc)
 
 		var addrHandler = func(addr oid.Address) error {
 			data, err := s.GetBytes(addr)
 			require.NoError(t, err)
 
-			seen[addr.String()] = objectDesc{
+			seen[addr] = objectDesc{
 				addr: addr,
 				raw:  data,
 			}
@@ -64,20 +64,20 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
-			objDesc, ok := seen[objects[i].addr.String()]
+			objDesc, ok := seen[objects[i].addr]
 			require.True(t, ok)
 			require.Equal(t, objects[i].raw, objDesc.raw)
 		}
 	})
 
 	t.Run("ignore errors doesn't work for logical errors", func(t *testing.T) {
-		seen := make(map[string]objectDesc)
+		seen := make(map[oid.Address]objectDesc)
 
 		var n int
 		var logicErr = errors.New("logic error")
 
 		var objHandler = func(addr oid.Address, data []byte) error {
-			seen[addr.String()] = objectDesc{
+			seen[addr] = objectDesc{
 				addr: addr,
 				raw:  data,
 			}
@@ -94,7 +94,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		require.ErrorIs(t, err, logicErr)
 		require.Equal(t, len(objects)/2, len(seen))
 		for i := range objects {
-			d, ok := seen[objects[i].addr.String()]
+			d, ok := seen[objects[i].addr]
 			if ok {
 				n--
 				require.Equal(t, objects[i].raw, d.raw)

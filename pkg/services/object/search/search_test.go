@@ -29,11 +29,11 @@ type idsErr struct {
 }
 
 type testStorage struct {
-	items map[string]idsErr
+	items map[cid.ID]idsErr
 }
 
 type testContainers struct {
-	vectors map[string][][]netmap.NodeInfo
+	vectors map[cid.ID][][]netmap.NodeInfo
 }
 
 type testClientCache struct {
@@ -51,14 +51,12 @@ func (s *simpleIDWriter) WriteIDs(ids []oid.ID) error {
 
 func newTestStorage() *testStorage {
 	return &testStorage{
-		items: make(map[string]idsErr),
+		items: make(map[cid.ID]idsErr),
 	}
 }
 
 func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netmap.NodeInfo)) error {
-	var addr oid.Address
-	addr.SetContainer(cnr)
-	nodeSets, ok := g.vectors[addr.EncodeToString()]
+	nodeSets, ok := g.vectors[cnr]
 	if !ok {
 		return errors.New("vectors for address not found")
 	}
@@ -82,7 +80,7 @@ func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
 }
 
 func (ts *testStorage) search(exec *execCtx) ([]oid.ID, error) {
-	v, ok := ts.items[exec.containerID().EncodeToString()]
+	v, ok := ts.items[exec.containerID()]
 	if !ok {
 		return nil, nil
 	}
@@ -91,7 +89,7 @@ func (ts *testStorage) search(exec *execCtx) ([]oid.ID, error) {
 }
 
 func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
-	v, ok := ts.items[exec.containerID().EncodeToString()]
+	v, ok := ts.items[exec.containerID()]
 	if !ok {
 		return nil, nil
 	}
@@ -100,7 +98,7 @@ func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientc
 }
 
 func (ts *testStorage) addResult(addr cid.ID, ids []oid.ID, err error) {
-	ts.items[addr.EncodeToString()] = idsErr{
+	ts.items[addr] = idsErr{
 		ids: ids,
 		err: err,
 	}
@@ -203,7 +201,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	id := cidtest.ID()
 
-	newSvc := func(vectors map[string][][]netmap.NodeInfo, c *testClientCache) *Service {
+	newSvc := func(vectors map[cid.ID][][]netmap.NodeInfo, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
@@ -226,13 +224,10 @@ func TestGetRemoteSmall(t *testing.T) {
 	}
 
 	t.Run("OK", func(t *testing.T) {
-		var addr oid.Address
-		addr.SetContainer(id)
-
 		ns, as := testNodeMatrix(t, placementDim)
 
-		vectors := map[string][][]netmap.NodeInfo{
-			addr.EncodeToString(): ns,
+		vectors := map[cid.ID][][]netmap.NodeInfo{
+			id: ns,
 		}
 
 		c1 := newTestStorage()
