@@ -4,12 +4,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -67,6 +66,19 @@ type Network interface {
 	// network map. If it is impossible to check this fact, IsLocalNodeInNetmap
 	// returns false.
 	IsLocalNodeInNetmap() bool
+	// GetNodesForObject returns descriptors of storage nodes matching storage
+	// policy of the referenced object for now. Nodes are identified by their public
+	// keys and can be repeated in different lists. The second value specifies the
+	// number (N) of primary object holders for each list (L) so:
+	//  - size of each L >= N;
+	//  - first N nodes of each L are primary data holders while others (if any)
+	//    are backup.
+	//
+	// GetContainerNodes callers do not change resulting slices and their elements.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
+	// the network.
+	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
 }
 
 type cfg struct {
@@ -80,10 +92,6 @@ type cfg struct {
 	log *zap.Logger
 
 	jobQueue jobQueue
-
-	cnrSrc container.Source
-
-	placementBuilder placement.Builder
 
 	remoteHeader *headsvc.RemoteHeader
 
@@ -147,20 +155,6 @@ func WithLogger(v *zap.Logger) Option {
 func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.jobQueue.localStorage = v
-	}
-}
-
-// WithContainerSource returns option to set container source of Policer.
-func WithContainerSource(v container.Source) Option {
-	return func(c *cfg) {
-		c.cnrSrc = v
-	}
-}
-
-// WithPlacementBuilder returns option to set object placement builder of Policer.
-func WithPlacementBuilder(v placement.Builder) Option {
-	return func(c *cfg) {
-		c.placementBuilder = v
 	}
 }
 
