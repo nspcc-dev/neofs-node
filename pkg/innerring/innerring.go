@@ -703,27 +703,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return &b
 	}
 
-	// create settlement processor dependencies
-	settlementDeps := settlementDeps{
-		log:           server.log,
-		cnrSrc:        cntClient.AsContainerSource(cnrClient),
-		nmClient:      server.netmapClient,
-		balanceClient: server.balanceClient,
-	}
-
-	settlementDeps.settlementCtx = basicIncomeSettlementContext
-	basicSettlementDeps := &basicIncomeSettlementDeps{
-		settlementDeps: settlementDeps,
-		cnrClient:      cnrClient,
-	}
-
 	// create settlement processor
 	settlementProcessor := settlement.New(
 		settlement.Prm{
-			BasicIncome: &basicSettlementConstructor{dep: basicSettlementDeps},
-			State:       server,
+			State:           server,
+			ContainerClient: cnrClient,
+			NetmapClient:    server.netmapClient,
+			BalanceClient:   server.balanceClient,
 		},
-		settlement.WithLogger(server.log),
+		settlement.WithLogger(server.log.With(zap.String("component", "basicIncomeProcessor"))),
 	)
 
 	locodeValidator, err := server.newLocodeValidator()

@@ -1,12 +1,22 @@
 package settlement
 
 import (
-	"fmt"
+	"math/big"
 
-	nodeutil "github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/panjf2000/ants/v2"
+	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
+	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"go.uber.org/zap"
 )
+
+var (
+	bigGB  = big.NewInt(1 << 30)
+	bigOne = big.NewInt(1)
+)
+
+// parallelFactor is a max parallel routines number doing settlement
+// calculations/handlings.
+const parallelFactor = 10
 
 type (
 	// AlphabetState is a callback interface for inner ring global state.
@@ -20,15 +30,17 @@ type (
 
 		state AlphabetState
 
-		pool nodeutil.WorkerPool
-
-		basicIncome BasicIncomeInitializer
+		cnrClient     *containerClient.Client
+		nmClient      *netmapClient.Client
+		balanceClient *balanceClient.Client
 	}
 
 	// Prm groups the required parameters of Processor's constructor.
 	Prm struct {
-		BasicIncome BasicIncomeInitializer
-		State       AlphabetState
+		State           AlphabetState
+		ContainerClient *containerClient.Client
+		NetmapClient    *netmapClient.Client
+		BalanceClient   *balanceClient.Client
 	}
 )
 
@@ -40,19 +52,11 @@ func New(prm Prm, opts ...Option) *Processor {
 		opts[i](o)
 	}
 
-	pool, err := ants.NewPool(o.poolSize, ants.WithNonblocking(true))
-	if err != nil {
-		panic(fmt.Errorf("could not create worker pool: %w", err))
-	}
-
-	o.log.Debug("worker pool for settlement processor successfully initialized",
-		zap.Int("capacity", o.poolSize),
-	)
-
 	return &Processor{
-		log:         o.log,
-		state:       prm.State,
-		pool:        pool,
-		basicIncome: prm.BasicIncome,
+		log:           o.log,
+		state:         prm.State,
+		cnrClient:     prm.ContainerClient,
+		nmClient:      prm.NetmapClient,
+		balanceClient: prm.BalanceClient,
 	}
 }
