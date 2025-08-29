@@ -35,7 +35,6 @@ type testStorage struct {
 }
 
 type testNeoFS struct {
-	c container.Container
 	b placement.Builder
 }
 
@@ -489,7 +488,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.localStorage = newTestStorage()
 
 		svc.neoFSNet = &testNeoFS{
-			c: cnr,
 			b: b,
 		}
 		svc.clientCache = c
