@@ -854,6 +854,9 @@ func TestMigrate7to8(t *testing.T) {
 			o.SetContainerID(cnr)
 			totalSize += o.PayloadSize()
 
+			require.NoError(t, db.updateCounter(tx, phy, 1, true))
+			require.NoError(t, db.updateCounter(tx, logical, 1, true))
+
 			return PutMetadataForObject(tx, o, true)
 		})
 		require.NoError(t, err)
@@ -874,6 +877,18 @@ func TestMigrate7to8(t *testing.T) {
 		if err != nil {
 			return err
 		}
+
+		// corrupt counters
+		b := tx.Bucket(shardInfoBucket)
+		require.NotNil(t, b)
+		require.Equal(t, uint64(objsNum), binary.LittleEndian.Uint64(b.Get(objectPhyCounterKey)))
+		require.Equal(t, uint64(objsNum), binary.LittleEndian.Uint64(b.Get(objectLogicCounterKey)))
+		cc := make([]byte, 8)
+		binary.LittleEndian.PutUint64(cc, uint64(100)) // corrupt physical counter
+		require.NoError(t, b.Put(objectPhyCounterKey, cc))
+		cc = make([]byte, 8)
+		binary.LittleEndian.PutUint64(cc, uint64(100)) // corrupt logical counter
+		require.NoError(t, b.Put(objectLogicCounterKey, cc))
 
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
@@ -907,6 +922,9 @@ func TestMigrate7to8(t *testing.T) {
 		require.NotNil(t, bkt)
 		require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 
+		pc, lc := getCounters(tx)
+		require.Equal(t, uint64(objsNum), pc)
+		require.Equal(t, uint64(objsNum), lc)
 		return nil
 	})
 	require.NoError(t, err)
