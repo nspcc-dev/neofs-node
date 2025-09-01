@@ -9,6 +9,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -147,6 +148,51 @@ func TestCounters(t *testing.T) {
 
 		oo = oo[inhumedNumber:]
 	})
+}
+
+func TestInhumeContainerCounters(t *testing.T) {
+	sh, mm := shardWithMetrics(t, t.TempDir())
+
+	c1 := cidtest.ID()
+	c2 := cidtest.ID()
+
+	var objsC1, objsC2 = 5, 7
+	var sizeC1, sizeC2 int64 = 0, 0
+
+	for range objsC1 {
+		obj := generateObjectWithCID(c1)
+		require.NoError(t, sh.Put(obj, nil))
+		sizeC1 += int64(obj.PayloadSize())
+	}
+	for range objsC2 {
+		obj := generateObjectWithCID(c2)
+		require.NoError(t, sh.Put(obj, nil))
+		sizeC2 += int64(obj.PayloadSize())
+	}
+
+	total := uint64(objsC1 + objsC2)
+	initialPayload := mm.payloadSize
+	require.Equal(t, sizeC1+sizeC2, initialPayload)
+	require.Equal(t, mm.objectCounters[physical], total)
+	require.Equal(t, mm.objectCounters[logical], total)
+
+	require.NoError(t, sh.InhumeContainer(c1))
+
+	require.Equal(t, mm.objectCounters[physical], total)
+	require.Equal(t, mm.objectCounters[logical], uint64(objsC2))
+	require.Empty(t, mm.containerSize[c1.EncodeToString()])
+	require.Equal(t, mm.containerSize[c2.EncodeToString()], sizeC2)
+	// payload size must remain unchanged after logical removal
+	require.Equal(t, initialPayload, mm.payloadSize)
+
+	require.NoError(t, sh.InhumeContainer(c2))
+
+	require.Equal(t, mm.objectCounters[physical], total)
+	require.Empty(t, mm.objectCounters[logical])
+	require.Empty(t, mm.containerSize[c1.EncodeToString()])
+	require.Empty(t, mm.containerSize[c2.EncodeToString()])
+	// payload size still unchanged
+	require.Equal(t, initialPayload, mm.payloadSize)
 }
 
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
