@@ -39,7 +39,7 @@ type NeoFSNetwork interface {
 	// expected on N with index M*i, M in [0,CBF). Then part is expected on SN
 	// for i+1-th part and so on.
 	//
-	// GetContainerNodes does not change resulting slices and their elements.
+	// GetNodesForObject does not change resulting slices and their elements.
 	//
 	// Returns [apistatus.ContainerNotFound] if requested container is missing in
 	// the network.
