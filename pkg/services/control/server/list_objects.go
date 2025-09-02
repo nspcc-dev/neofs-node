@@ -24,7 +24,7 @@ func (s *Server) ListObjects(req *control.ListObjectsRequest, stream control.Con
 
 	var (
 		cursor    *engine.Cursor
-		addresses []objectcore.AddressWithType
+		addresses []objectcore.AddressWithAttributes
 	)
 	// (Limit 4MB - 64KB for service bytes and future fields) / 89B address length = 46390 addresses can be sent
 	const count = 46390

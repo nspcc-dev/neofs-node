@@ -56,3 +56,17 @@ func RepeatElement[E any, S []E](n int, e E) S {
 	}
 	return s
 }
+
+// MaxLen returns max length in s. Returns 0 if s is empty.
+func MaxLen(s []string) int {
+	if len(s) == 0 {
+		return 0
+	}
+	mx := len(s[0])
+	for i := 1; i < len(s); i++ {
+		if len(s[i]) > mx {
+			mx = len(s[i])
+		}
+	}
+	return mx
+}

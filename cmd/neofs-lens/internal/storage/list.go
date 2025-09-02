@@ -34,7 +34,7 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 	defer storage.Close()
 
 	var (
-		addrs  []objectcore.AddressWithType
+		addrs  []objectcore.AddressWithAttributes
 		cursor *engine.Cursor
 	)
 	for {

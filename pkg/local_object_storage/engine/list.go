@@ -25,14 +25,17 @@ type Cursor struct {
 // Does not include inhumed objects. Use cursor value from the response
 // for consecutive requests (it's nil when iteration is over).
 //
+// Optional attrs specifies attributes to include in the result. If object does
+// not have requested attribute, corresponding element in the result is empty.
+//
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
+func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
 
-	result := make([]objectcore.AddressWithType, 0, count)
+	result := make([]objectcore.AddressWithAttributes, 0, count)
 
 	// 1. Get available shards and sort them.
 	e.mtx.RLock()
@@ -76,7 +79,7 @@ func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor) ([]objectco
 			shCursor = cursor.shardCursor
 		}
 
-		res, shCursor, err := shardInstance.ListWithCursor(int(count), shCursor)
+		res, shCursor, err := shardInstance.ListWithCursor(int(count), shCursor, attrs...)
 		if err != nil {
 			continue
 		}

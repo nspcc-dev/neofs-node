@@ -5,9 +5,9 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// AddressWithType groups object address with its NeoFS
-// object type.
-type AddressWithType struct {
-	Address oid.Address
-	Type    object.Type
+// AddressWithAttributes groups object's address and its attributes.
+type AddressWithAttributes struct {
+	Address    oid.Address
+	Type       object.Type
+	Attributes []string
 }

@@ -29,7 +29,7 @@ type replicatorIface interface {
 
 // interface of [engine.StorageEngine] used by [Policer] for overriding in tests.
 type localStorage interface {
-	ListWithCursor(uint32, *engine.Cursor) ([]objectcore.AddressWithType, *engine.Cursor, error)
+	ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
 	Delete(oid.Address) error
 }
 

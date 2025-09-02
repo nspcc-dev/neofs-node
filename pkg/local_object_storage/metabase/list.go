@@ -3,6 +3,7 @@ package meta
 import (
 	"bytes"
 
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -19,15 +20,19 @@ var ErrEndOfListing = logicerr.New("end of object listing")
 type Cursor struct {
 	bucketName     []byte
 	inBucketOffset []byte
+	attrsPrefix    []byte
 }
 
 // ListWithCursor lists physical objects available in metabase starting from
 // cursor. Includes objects of all types. Does not include inhumed objects.
 // Use cursor value from response for consecutive requests.
 //
+// Optional attrs specifies attributes to include in the result. If object does
+// not have requested attribute, corresponding element in the result is empty.
+//
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (db *DB) ListWithCursor(count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
+func (db *DB) ListWithCursor(count int, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -37,19 +42,19 @@ func (db *DB) ListWithCursor(count int, cursor *Cursor) ([]objectcore.AddressWit
 
 	var (
 		err       error
-		result    = make([]objectcore.AddressWithType, 0, count)
+		result    = make([]objectcore.AddressWithAttributes, 0, count)
 		currEpoch = db.epochState.CurrentEpoch()
 	)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		result, cursor, err = db.listWithCursor(tx, currEpoch, result, count, cursor)
+		result, cursor, err = db.listWithCursor(tx, currEpoch, result, count, cursor, attrs...)
 		return err
 	})
 
 	return result, cursor, err
 }
 
-func (db *DB) listWithCursor(tx *bbolt.Tx, currEpoch uint64, result []objectcore.AddressWithType, count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
+func (db *DB) listWithCursor(tx *bbolt.Tx, currEpoch uint64, result []objectcore.AddressWithAttributes, count int, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
 	threshold := cursor == nil // threshold is a flag to ignore cursor
 	var bucketName []byte
 
@@ -68,6 +73,17 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, currEpoch uint64, result []objectcore
 
 	var rawAddr = make([]byte, cidSize, addressKeySize)
 
+	var attrsPrefix []byte
+	if len(attrs) > 0 {
+		if cursor != nil {
+			attrsPrefix = cursor.attrsPrefix
+		} else {
+			mx := islices.MaxLen(attrs)
+			attrsPrefix = make([]byte, attrIDFixedLen+mx)
+			attrsPrefix[0] = metaPrefixIDAttr
+		}
+	}
+
 loop:
 	for ; name != nil; name, _ = c.Next() {
 		cidRaw, prefix := parseContainerIDWithPrefix(&containerID, name)
@@ -79,7 +95,7 @@ loop:
 		if bkt != nil {
 			copy(rawAddr, cidRaw)
 			result, offset, cursor = selectNFromBucket(bkt, currEpoch, graveyardBkt, garbageObjectsBkt, garbageContainersBkt, rawAddr, containerID,
-				result, count, cursor, threshold)
+				result, count, cursor, threshold, attrsPrefix, attrs...)
 		}
 		bucketName = name
 		if len(result) >= count {
@@ -105,6 +121,8 @@ loop:
 	// we need to copy, because bucketName exists during bbolt tx
 	cursor.bucketName = bytes.Clone(bucketName)
 
+	cursor.attrsPrefix = attrsPrefix
+
 	return result, cursor, nil
 }
 
@@ -115,11 +133,13 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 	graveyardBkt, garbageObjectsBkt, garbageContainersBkt *bbolt.Bucket, // cached graveyard buckets
 	cidRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID
-	to []objectcore.AddressWithType, // listing result
+	to []objectcore.AddressWithAttributes, // listing result
 	limit int, // stop listing at `limit` items in result
 	cursor *Cursor, // start from cursor object
 	threshold bool, // ignore cursor and start immediately
-) ([]objectcore.AddressWithType, []byte, *Cursor) {
+	attrsPrefix []byte,
+	attrs ...string,
+) ([]objectcore.AddressWithAttributes, []byte, *Cursor) {
 	if cursor == nil {
 		cursor = new(Cursor)
 	}
@@ -130,6 +150,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		offset     []byte
 		phyPrefix  = mkFilterPhysicalPrefix()
 		typePrefix = make([]byte, metaIDTypePrefixSize)
+		gotAttrs   []string
 	)
 
 	fillIDTypePrefix(typePrefix)
@@ -166,10 +187,20 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 			continue
 		}
 
+		if len(attrs) > 0 {
+			gotAttrs = make([]string, len(attrs))
+			for i := range attrs {
+				n := fillIDAttributePrefix(attrsPrefix, obj, attrs[i])
+				if k, _ := mCursor.Seek(attrsPrefix[:n]); bytes.HasPrefix(k, attrsPrefix[:n]) {
+					gotAttrs[i] = string(k[n:])
+				}
+			}
+		}
+
 		var a oid.Address
 		a.SetContainer(cnt)
 		a.SetObject(obj)
-		to = append(to, objectcore.AddressWithType{Address: a, Type: objType})
+		to = append(to, objectcore.AddressWithAttributes{Address: a, Type: objType, Attributes: gotAttrs})
 		count++
 	}
 

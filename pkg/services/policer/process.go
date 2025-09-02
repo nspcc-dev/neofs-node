@@ -27,7 +27,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	p.cfg.mtx.RUnlock()
 
 	var (
-		addrs  []objectcore.AddressWithType
+		addrs  []objectcore.AddressWithAttributes
 		cursor *engine.Cursor
 		err    error
 	)
