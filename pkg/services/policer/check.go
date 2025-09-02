@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -79,7 +81,14 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 	idCnr := addr.Container()
 	idObj := addr.Object()
 
-	nn, repRules, err := p.network.GetNodesForObject(addr)
+	ecp, err := iec.DecodePartInfoFromAttributes(addrWithAttrs.Attributes[0], addrWithAttrs.Attributes[1])
+	if err != nil {
+		p.log.Error("failed to decode EC part info from attributes, skip object",
+			zap.Stringer("object", addr), zap.Error(err))
+		return
+	}
+
+	nn, repRules, ecRules, err := p.network.GetNodesForObject(addr)
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
 			zap.Stringer("cid", idCnr),
@@ -98,12 +107,30 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		return
 	}
 
+	if ecp.RuleIndex >= 0 {
+		if len(ecRules) > 0 {
+			p.processECPart(ctx, addr, ecp, ecRules, nn[len(repRules):])
+			return
+		}
+		// TODO: forbid to PUT such objects and drop this one?
+		p.log.Info("object with EC attributes in container without EC rules detected, process according to REP rules",
+			zap.Stringer("object", addr), zap.Int("ruleIdx", ecp.RuleIndex), zap.Int("partIdx", ecp.Index))
+	} else if len(ecRules) > 0 && len(repRules) == 0 {
+		p.log.Info("object with lacking EC attributes detected, deleting",
+			zap.Stringer("object", addr))
+		if err := p.localStorage.Delete(addr); err != nil {
+			p.log.Error("failed to delete local object with lacking EC attributes",
+				zap.Stringer("object", addr), zap.Error(err))
+		}
+		return
+	}
+
 	c := &processPlacementContext{
 		object:       addrWithAttrs,
 		checkedNodes: newNodeCache(),
 	}
 
-	for i := range nn {
+	for i := range repRules {
 		select {
 		case <-ctx.Done():
 			return
@@ -158,12 +185,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			)
 		}
 
-		err = p.localStorage.Delete(addr)
-		if err != nil {
-			p.log.Warn("could not inhume mark redundant copy as garbage",
-				zap.Error(err),
-			)
-		}
+		p.dropRedundantLocalObject(addr)
 	}
 }
 
@@ -185,9 +207,7 @@ type processPlacementContext struct {
 }
 
 func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
-	p.cfg.mtx.RLock()
-	headTimeout := p.headTimeout
-	p.cfg.mtx.RUnlock()
+	headTimeout := p.getHeadTimeout()
 
 	// Number of copies that are stored on maintenance nodes.
 	var uncheckedCopies int
@@ -280,12 +300,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Uint32("shortage", shortage),
 		)
 
-		var task replicator.Task
-		task.SetObjectAddress(plc.object.Address)
-		task.SetNodes(candidates)
-		task.SetCopiesNumber(shortage)
-
-		p.replicator.HandleTask(ctx, task, plc.checkedNodes)
+		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, plc.checkedNodes)
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
@@ -293,4 +308,21 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		p.log.Debug("some of the copies are stored on nodes under maintenance, save local copy",
 			zap.Int("count", uncheckedCopies))
 	}
+}
+
+func (p *Policer) dropRedundantLocalObject(addr oid.Address) {
+	err := p.localStorage.Delete(addr)
+	if err != nil {
+		p.log.Warn("could not inhume mark redundant copy as garbage",
+			zap.Error(err))
+	}
+}
+
+func (p *Policer) tryToReplicate(ctx context.Context, addr oid.Address, shortage uint32, candidates []netmap.NodeInfo, res replicator.TaskResult) {
+	var task replicator.Task
+	task.SetObjectAddress(addr)
+	task.SetNodes(candidates)
+	task.SetCopiesNumber(shortage)
+
+	p.replicator.HandleTask(ctx, task, res)
 }

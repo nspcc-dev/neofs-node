@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"go.uber.org/zap"
@@ -41,7 +42,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		default:
 		}
 
-		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor)
+		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor, iec.AttributeRuleIdx, iec.AttributePartIdx)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				time.Sleep(time.Second) // finished whole cycle, sleep a bit
