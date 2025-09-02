@@ -133,7 +133,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 		t.Run("list with cursor", func(t *testing.T) {
 			res, c, err := db.ListWithCursor(2, nil)
 			require.NoError(t, err)
-			require.Equal(t, []object.AddressWithType{{Address: tsAddr, Type: objectSDK.TypeTombstone}}, res)
+			require.Equal(t, []object.AddressWithAttributes{{Address: tsAddr, Type: objectSDK.TypeTombstone}}, res)
 
 			require.NotZero(t, c)
 			_, _, err = db.ListWithCursor(1, c)
@@ -216,7 +216,7 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 	t.Run("list with cursor", func(t *testing.T) {
 		res, c, err := db.ListWithCursor(2, nil)
 		require.NoError(t, err)
-		require.Equal(t, []object.AddressWithType{{Address: addr, Type: obj.Type()}}, res)
+		require.Equal(t, []object.AddressWithAttributes{{Address: addr, Type: obj.Type()}}, res)
 
 		require.NotZero(t, c)
 		_, _, err = db.ListWithCursor(1, c)

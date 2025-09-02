@@ -324,7 +324,7 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 	objAddr := oid.NewAddress(cnr, objID)
 
 	localNode := newTestLocalNode()
-	localNode.objList = []objectcore.AddressWithType{
+	localNode.objList = []objectcore.AddressWithAttributes{
 		{Address: objAddr, Type: object.TypeRegular},
 	}
 
@@ -417,7 +417,7 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 }
 
 type testLocalNode struct {
-	objList []objectcore.AddressWithType
+	objList []objectcore.AddressWithAttributes
 
 	delMtx sync.RWMutex
 	del    map[oid.Address]struct{}
@@ -451,7 +451,7 @@ func (x *mockNetwork) IsLocalNodeInNetmap() bool {
 	return x.inNetmap
 }
 
-func (x *testLocalNode) ListWithCursor(uint32, *engine.Cursor) ([]objectcore.AddressWithType, *engine.Cursor, error) {
+func (x *testLocalNode) ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
 	return x.objList, nil, nil
 }
 

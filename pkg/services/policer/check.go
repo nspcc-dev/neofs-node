@@ -74,8 +74,8 @@ func (n nodeCache) atLeastOneHolder() bool {
 	return false
 }
 
-func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.AddressWithType) {
-	addr := addrWithType.Address
+func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.AddressWithAttributes) {
+	addr := addrWithAttrs.Address
 	idCnr := addr.Container()
 	idObj := addr.Object()
 
@@ -86,7 +86,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 			zap.Error(err),
 		)
 		if container.IsErrNotFound(err) {
-			err = p.localStorage.Delete(addrWithType.Address)
+			err = p.localStorage.Delete(addrWithAttrs.Address)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
@@ -99,7 +99,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	}
 
 	c := &processPlacementContext{
-		object:       addrWithType,
+		object:       addrWithAttrs,
 		checkedNodes: newNodeCache(),
 	}
 
@@ -178,7 +178,7 @@ type processPlacementContext struct {
 	needLocalCopy bool
 
 	// descriptor of the object for which the policy is being checked
-	object objectcore.AddressWithType
+	object objectcore.AddressWithAttributes
 
 	// caches nodes which has been already processed in previous iterations
 	checkedNodes *nodeCache

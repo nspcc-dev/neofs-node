@@ -142,7 +142,7 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 
 func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 	var (
-		addrs          []objectcore.AddressWithType
+		addrs          []objectcore.AddressWithAttributes
 		cursor         *meta.Cursor
 		err            error
 		objectsChecked int
