@@ -3,6 +3,7 @@ package policer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -40,12 +41,13 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		default:
 		}
 
-		addrs, cursor, err = p.jobQueue.Select(cursor, batchSize)
+		addrs, cursor, err = p.jobQueue.localStorage.ListWithCursor(batchSize, cursor)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				time.Sleep(time.Second) // finished whole cycle, sleep a bit
 				continue
 			}
+			err = fmt.Errorf("cannot list objects in engine: %w", err)
 			p.log.Warn("failure at object select for replication", zap.Error(err))
 		}
 
