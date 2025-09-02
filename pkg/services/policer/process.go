@@ -41,7 +41,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		default:
 		}
 
-		addrs, cursor, err = p.jobQueue.localStorage.ListWithCursor(batchSize, cursor)
+		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				time.Sleep(time.Second) // finished whole cycle, sleep a bit

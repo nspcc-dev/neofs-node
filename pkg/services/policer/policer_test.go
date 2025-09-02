@@ -356,7 +356,7 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 		WithRedundantCopyCallback(func(addr oid.Address) { redundantAddr.Store(addr) }),
 		WithLogger(l),
 	)
-	p.jobQueue.localStorage = &localNode
+	p.localStorage = &localNode
 	p.apiConns = conns
 	p.replicator = r
 

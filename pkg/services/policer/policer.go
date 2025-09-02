@@ -112,7 +112,7 @@ type cfg struct {
 
 	log *zap.Logger
 
-	jobQueue jobQueue
+	localStorage localStorage
 
 	apiConns apiConnections
 
@@ -173,7 +173,7 @@ func WithLogger(v *zap.Logger) Option {
 // WithLocalStorage returns option to set local object storage of Policer.
 func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
-		c.jobQueue.localStorage = v
+		c.localStorage = v
 	}
 }
 

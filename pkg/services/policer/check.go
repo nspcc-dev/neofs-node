@@ -86,7 +86,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 			zap.Error(err),
 		)
 		if container.IsErrNotFound(err) {
-			err = p.jobQueue.localStorage.Delete(addrWithType.Address)
+			err = p.localStorage.Delete(addrWithType.Address)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
