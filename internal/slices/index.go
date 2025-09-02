@@ -15,3 +15,12 @@ func Indexes(n int) []int {
 	}
 	return s
 }
+
+// CollectIndex returns new slice of shallows copies of s elements with given indexes.
+func CollectIndex[E any, S []E](s S, idxs ...int) S {
+	newS := make(S, len(idxs))
+	for i, idx := range idxs {
+		newS[i] = s[idx]
+	}
+	return newS
+}
