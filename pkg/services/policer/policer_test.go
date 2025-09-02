@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
@@ -322,10 +323,9 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 	objID := oidtest.ID()
 	objAddr := oid.NewAddress(cnr, objID)
 
-	localNode := testLocalNode{
-		objList: []objectcore.AddressWithType{
-			{Address: objAddr, Type: object.TypeRegular},
-		},
+	localNode := newTestLocalNode()
+	localNode.objList = []objectcore.AddressWithType{
+		{Address: objAddr, Type: object.TypeRegular},
 	}
 
 	mockNet := newMockNetwork()
@@ -346,17 +346,15 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 		}
 	}
 
-	var redundantAddr atomic.Value // oid.Address
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 	p := New(
 		WithPool(wp),
 		WithReplicationCooldown(time.Hour), // any huge time to cancel process repeat
 		WithNodeLoader(nopNodeLoader{}),
 		WithNetwork(mockNet),
-		WithRedundantCopyCallback(func(addr oid.Address) { redundantAddr.Store(addr) }),
 		WithLogger(l),
 	)
-	p.localStorage = &localNode
+	p.localStorage = localNode
 	p.apiConns = conns
 	p.replicator = r
 
@@ -385,9 +383,9 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 	}
 
 	if expRedundant {
-		require.Equal(t, objAddr, redundantAddr.Load())
+		require.Equal(t, []oid.Address{objAddr}, localNode.deletedObjects())
 	} else {
-		require.Nil(t, redundantAddr.Load())
+		require.Empty(t, localNode.deletedObjects())
 	}
 
 	return testRepCheckResult{
@@ -420,6 +418,15 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 
 type testLocalNode struct {
 	objList []objectcore.AddressWithType
+
+	delMtx sync.RWMutex
+	del    map[oid.Address]struct{}
+}
+
+func newTestLocalNode() *testLocalNode {
+	return &testLocalNode{
+		del: make(map[oid.Address]struct{}),
+	}
 }
 
 type mockNetwork struct {
@@ -448,8 +455,18 @@ func (x *testLocalNode) ListWithCursor(uint32, *engine.Cursor) ([]objectcore.Add
 	return x.objList, nil, nil
 }
 
-func (x *testLocalNode) Delete(oid.Address) error {
-	panic("unimplemented")
+func (x *testLocalNode) deletedObjects() []oid.Address {
+	x.delMtx.RLock()
+	res := slices.Collect(maps.Keys(x.del))
+	x.delMtx.RUnlock()
+	return res
+}
+
+func (x *testLocalNode) Delete(addr oid.Address) error {
+	x.delMtx.Lock()
+	x.del[addr] = struct{}{}
+	x.delMtx.Unlock()
+	return nil
 }
 
 type getNodesKey struct {

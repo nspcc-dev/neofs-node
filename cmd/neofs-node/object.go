@@ -201,14 +201,6 @@ func initObjectService(c *cfg) {
 		),
 		policer.WithHeadTimeout(c.appCfg.Policer.HeadTimeout),
 		policer.WithReplicator(c.replicator),
-		policer.WithRedundantCopyCallback(func(addr oid.Address) {
-			err := ls.Delete(addr)
-			if err != nil {
-				c.log.Warn("could not inhume mark redundant copy as garbage",
-					zap.Error(err),
-				)
-			}
-		}),
 		policer.WithMaxCapacity(c.appCfg.Policer.MaxWorkers),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),

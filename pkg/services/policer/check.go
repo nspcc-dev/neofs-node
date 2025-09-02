@@ -158,7 +158,12 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 			)
 		}
 
-		p.cbRedundantCopy(addr)
+		err = p.localStorage.Delete(addr)
+		if err != nil {
+			p.log.Warn("could not inhume mark redundant copy as garbage",
+				zap.Error(err),
+			)
+		}
 	}
 }
 

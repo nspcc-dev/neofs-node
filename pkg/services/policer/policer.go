@@ -74,10 +74,6 @@ type Policer struct {
 // Option is an option for Policer constructor.
 type Option func(*cfg)
 
-// RedundantCopyCallback is a callback to pass
-// the redundant local copy of the object.
-type RedundantCopyCallback func(oid.Address)
-
 // Network provides information about the NeoFS network to Policer for work.
 type Network interface {
 	// IsLocalNodeInNetmap checks whether the local node belongs to the current
@@ -117,8 +113,6 @@ type cfg struct {
 	apiConns apiConnections
 
 	replicator replicatorIface
-
-	cbRedundantCopy RedundantCopyCallback
 
 	taskPool *ants.Pool
 
@@ -202,15 +196,6 @@ func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 func WithReplicator(v *replicator.Replicator) Option {
 	return func(c *cfg) {
 		c.replicator = v
-	}
-}
-
-// WithRedundantCopyCallback returns option to set
-// callback to pass redundant local object copies
-// detected by Policer.
-func WithRedundantCopyCallback(cb RedundantCopyCallback) Option {
-	return func(c *cfg) {
-		c.cbRedundantCopy = cb
 	}
 }
 
