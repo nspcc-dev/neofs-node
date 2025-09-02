@@ -99,7 +99,7 @@ type Network interface {
 }
 
 type cfg struct {
-	sync.RWMutex
+	mtx sync.RWMutex
 	// available for runtime reconfiguration
 	headTimeout time.Duration
 	repCooldown time.Duration

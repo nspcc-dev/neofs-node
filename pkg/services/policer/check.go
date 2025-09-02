@@ -185,9 +185,9 @@ type processPlacementContext struct {
 }
 
 func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
-	p.cfg.RLock()
+	p.cfg.mtx.RLock()
 	headTimeout := p.headTimeout
-	p.cfg.RUnlock()
+	p.cfg.mtx.RUnlock()
 
 	// Number of copies that are stored on maintenance nodes.
 	var uncheckedCopies int
