@@ -1,7 +1,9 @@
 package slices_test
 
 import (
+	"errors"
 	"slices"
+	"strconv"
 	"testing"
 
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
@@ -55,5 +57,39 @@ func TestAllZeros(t *testing.T) {
 		sc := slices.Clone(s)
 		sc[i]++
 		require.False(t, islices.AllZeros(sc), i)
+	}
+}
+
+func TestRepeatElements(t *testing.T) {
+	tcs := []struct {
+		name string
+		e    any
+	}{
+		{name: "int", e: 1},
+		{name: "bool", e: true},
+		{name: "error", e: errors.New("some error")},
+		{name: "nil", e: nil},
+		{name: "struct", e: struct {
+			i int
+			s string
+		}{
+			i: 1,
+			s: "foo",
+		}},
+		{name: "slice", e: []string{"foo", "bar"}},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, n := range []int{0, 1, 10} {
+				t.Run(strconv.Itoa(n), func(t *testing.T) {
+					s := islices.RepeatElement(n, tc.e)
+					require.Len(t, s, n)
+					for i := range s {
+						require.Equal(t, tc.e, s[i])
+					}
+				})
+			}
+		})
 	}
 }

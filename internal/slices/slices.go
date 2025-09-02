@@ -47,3 +47,12 @@ func AllZeros(s []byte) bool {
 	}
 	return true
 }
+
+// RepeatElement returns slice of n shallow copies of e.
+func RepeatElement[E any, S []E](n int, e E) S {
+	s := make(S, n)
+	for i := range s {
+		s[i] = e
+	}
+	return s
+}
