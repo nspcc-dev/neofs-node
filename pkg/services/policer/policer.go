@@ -5,12 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -87,6 +84,22 @@ type Network interface {
 	// network map. If it is impossible to check this fact, IsLocalNodeInNetmap
 	// returns false.
 	IsLocalNodeInNetmap() bool
+	// GetNodesForObject returns descriptors of storage nodes matching storage
+	// policy of the referenced object for now. Nodes are identified by their public
+	// keys and can be repeated in different lists. The second value specifies the
+	// number (N) of primary object holders for each list (L) so:
+	//  - size of each L >= N;
+	//  - first N nodes of each L are primary data holders while others (if any)
+	//    are backup.
+	//
+	// GetContainerNodes callers do not change resulting slices and their elements.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
+	// the network.
+	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node running [Policer].
+	IsLocalNodePublicKey([]byte) bool
 }
 
 type cfg struct {
@@ -101,13 +114,7 @@ type cfg struct {
 
 	jobQueue jobQueue
 
-	cnrSrc container.Source
-
-	placementBuilder placement.Builder
-
 	apiConns apiConnections
-
-	netmapKeys netmap.AnnouncedKeys
 
 	replicator replicatorIface
 
@@ -170,20 +177,6 @@ func WithLocalStorage(v *engine.StorageEngine) Option {
 	}
 }
 
-// WithContainerSource returns option to set container source of Policer.
-func WithContainerSource(v container.Source) Option {
-	return func(c *cfg) {
-		c.cnrSrc = v
-	}
-}
-
-// WithPlacementBuilder returns option to set object placement builder of Policer.
-func WithPlacementBuilder(v placement.Builder) Option {
-	return func(c *cfg) {
-		c.placementBuilder = v
-	}
-}
-
 type remoteHeader headsvc.RemoteHeader
 
 func (x *remoteHeader) headObject(ctx context.Context, node netmapsdk.NodeInfo, addr oid.Address) (object.Object, error) {
@@ -202,13 +195,6 @@ func (x *remoteHeader) headObject(ctx context.Context, node netmapsdk.NodeInfo, 
 func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 	return func(c *cfg) {
 		c.apiConns = (*remoteHeader)(v)
-	}
-}
-
-// WithNetmapKeys returns option to set tool to work with announced public keys.
-func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
-	return func(c *cfg) {
-		c.netmapKeys = v
 	}
 }
 

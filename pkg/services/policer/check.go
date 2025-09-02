@@ -79,9 +79,9 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	idCnr := addr.Container()
 	idObj := addr.Object()
 
-	cnr, err := p.cnrSrc.Get(idCnr)
+	nn, repRules, err := p.network.GetNodesForObject(addr)
 	if err != nil {
-		p.log.Error("could not get container",
+		p.log.Error("could not build placement vector for object",
 			zap.Stringer("cid", idCnr),
 			zap.Error(err),
 		)
@@ -98,18 +98,6 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		return
 	}
 
-	policy := cnr.PlacementPolicy()
-
-	nn, err := p.placementBuilder.BuildPlacement(idCnr, &idObj, policy)
-	if err != nil {
-		p.log.Error("could not build placement vector for object",
-			zap.Stringer("cid", idCnr),
-			zap.Error(err),
-		)
-
-		return
-	}
-
 	c := &processPlacementContext{
 		object:       addrWithType,
 		checkedNodes: newNodeCache(),
@@ -122,7 +110,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		default:
 		}
 
-		p.processNodes(ctx, c, nn[i], policy.ReplicaNumberByIndex(i))
+		p.processNodes(ctx, c, nn[i], uint32(repRules[i]))
 	}
 
 	// if context is done, needLocalCopy might not be able to calculate
@@ -223,6 +211,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		shortage = uint32(len(nodes))
 	}
 
+	var candidates []netmap.NodeInfo
 	for i := 0; (!plc.localNodeInContainer || shortage > 0) && i < len(nodes); i++ {
 		select {
 		case <-ctx.Done():
@@ -230,13 +219,14 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		default:
 		}
 
-		isLocalNode := p.netmapKeys.IsLocalKey(nodes[i].PublicKey())
+		isLocalNode := p.network.IsLocalNodePublicKey(nodes[i].PublicKey())
 
 		if !plc.localNodeInContainer {
 			plc.localNodeInContainer = isLocalNode
 		}
 
 		if shortage == 0 {
+			candidates = append(candidates, nodes[i])
 			continue
 		} else if isLocalNode {
 			plc.needLocalCopy = true
@@ -246,11 +236,8 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			handleMaintenance(nodes[i])
 		} else {
 			if status := plc.checkedNodes.processStatus(nodes[i]); status >= 0 {
-				if status == 0 {
-					// node already contains replica, no need to replicate
-					nodes = append(nodes[:i], nodes[i+1:]...)
-					i--
-					shortage--
+				if status > 0 {
+					candidates = append(candidates, nodes[i])
 				}
 
 				continue
@@ -264,6 +251,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 
 			if errors.Is(err, apistatus.ErrObjectNotFound) {
 				plc.checkedNodes.submitReplicaCandidate(nodes[i])
+				candidates = append(candidates, nodes[i])
 				continue
 			}
 
@@ -279,9 +267,6 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 				plc.checkedNodes.submitReplicaHolder(nodes[i])
 			}
 		}
-
-		nodes = append(nodes[:i], nodes[i+1:]...)
-		i--
 	}
 
 	if shortage > 0 {
@@ -292,7 +277,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 
 		var task replicator.Task
 		task.SetObjectAddress(plc.object.Address)
-		task.SetNodes(nodes)
+		task.SetNodes(candidates)
 		task.SetCopiesNumber(shortage)
 
 		p.replicator.HandleTask(ctx, task, plc.checkedNodes)
