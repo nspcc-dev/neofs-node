@@ -167,9 +167,28 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, meta.ReviveStatusGarbage, rs.StatusType())
 	require.Equal(t, "successful revival from garbage bucket", rs.Message())
+	require.Equal(t, tsAddr, rs.TombstoneAddress())
 
 	t.Run("after revival", func(t *testing.T) {
-		t.Skip("https://github.com/nspcc-dev/neofs-node/issues/3486")
+		// tombstone is still there, but the garbage was cleared
+		t.Run("get garbage", func(t *testing.T) {
+			gObjs, _, err := db.GetGarbage(100)
+			require.NoError(t, err)
+			require.NotContains(t, gObjs, addr)
+		})
+		t.Run("iterate garbage", func(t *testing.T) {
+			var collected []oid.Address
+			err := db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
+				collected = append(collected, gObj.Address())
+				return nil
+			}, nil)
+			require.NoError(t, err)
+			require.NotContains(t, collected, addr)
+		})
+
+		_, err = db.Delete([]oid.Address{tsAddr})
+		require.NoError(t, err)
+
 		assertObjectAvailability(t, db, addr, obj)
 	})
 }

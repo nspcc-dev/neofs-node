@@ -41,10 +41,15 @@ func TestDB_ReviveObject(t *testing.T) {
 		res, err := db.ReviveObject(object.AddressOf(raw))
 		require.NoError(t, err)
 		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
+		require.NotNil(t, res.TombstoneAddress())
 
 		exists, err = metaExists(db, object.AddressOf(raw))
 		require.NoError(t, err)
 		require.True(t, exists)
+
+		exists, err = metaExists(db, tombstoneID)
+		require.NoError(t, err)
+		require.False(t, exists)
 	})
 
 	t.Run("from GC", func(t *testing.T) {

@@ -224,6 +224,47 @@ func TestDB_Put_Tombstone(t *testing.T) {
 
 	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
 
+	t.Run("revive after tombstone", func(t *testing.T) {
+		sh, fs := newShardWithFSTree(t)
+
+		require.NoError(t, sh.Put(&obj, nil))
+		require.NoError(t, sh.Put(&tomb, nil))
+
+		exist, err := sh.Exists(objAddr, false)
+		require.Error(t, err, apistatus.ErrObjectAlreadyRemoved)
+		require.False(t, exist)
+
+		_, err = sh.Get(objAddr, false)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+
+		rs, err := sh.ReviveObject(objAddr)
+		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGarbage, rs.StatusType())
+		require.Equal(t, tombAddr, rs.TombstoneAddress())
+
+		exist, err = sh.Exists(objAddr, false)
+		require.NoError(t, err)
+		require.True(t, exist)
+
+		got, err := sh.Get(objAddr, false)
+		require.NoError(t, err)
+		require.Equal(t, &obj, got)
+
+		exist, err = sh.Exists(tombAddr, false)
+		require.NoError(t, err)
+		require.False(t, exist)
+
+		_, err = sh.Get(tombAddr, false)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+		exist, err = fs.Exists(tombAddr)
+		require.NoError(t, err)
+		require.False(t, exist)
+
+		_, err = fs.Get(tombAddr)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+	})
+
 	for _, tc := range []struct {
 		name         string
 		preset       func(*testing.T, *shard.Shard)
