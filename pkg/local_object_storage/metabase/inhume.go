@@ -228,7 +228,8 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 			return fmt.Errorf("put GC mark for container: %w", err)
 		}
 
-		_, removedAvailable = getCounters(tx)
+		info := db.containerInfo(tx, cID)
+		removedAvailable = info.ObjectsNumber
 
 		err = db.updateCounter(tx, logical, removedAvailable, false)
 		if err != nil {

@@ -605,6 +605,11 @@ func migrateFrom7Version(db *DB) error {
 			}
 		}
 
+		err = syncCounter(tx, currEpoch, true)
+		if err != nil {
+			return fmt.Errorf("syncing counters: %w", err)
+		}
+
 		return updateVersion(tx, 8)
 	})
 }

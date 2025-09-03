@@ -1,6 +1,7 @@
 package shard_test
 
 import (
+	"encoding/binary"
 	"path/filepath"
 	"testing"
 
@@ -9,9 +10,11 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
 )
 
 type metricsStore struct {
@@ -147,6 +150,108 @@ func TestCounters(t *testing.T) {
 
 		oo = oo[inhumedNumber:]
 	})
+}
+
+func TestInhumeContainerCounters(t *testing.T) {
+	sh, mm := shardWithMetrics(t, t.TempDir())
+
+	c1 := cidtest.ID()
+	c2 := cidtest.ID()
+
+	var objsC1, objsC2 = 5, 7
+	var sizeC1, sizeC2 int64 = 0, 0
+
+	for range objsC1 {
+		obj := generateObjectWithCID(c1)
+		require.NoError(t, sh.Put(obj, nil))
+		sizeC1 += int64(obj.PayloadSize())
+	}
+	for range objsC2 {
+		obj := generateObjectWithCID(c2)
+		require.NoError(t, sh.Put(obj, nil))
+		sizeC2 += int64(obj.PayloadSize())
+	}
+
+	total := uint64(objsC1 + objsC2)
+	initialPayload := mm.payloadSize
+	require.Equal(t, sizeC1+sizeC2, initialPayload)
+	require.Equal(t, mm.objectCounters[physical], total)
+	require.Equal(t, mm.objectCounters[logical], total)
+
+	require.NoError(t, sh.InhumeContainer(c1))
+
+	require.Equal(t, mm.objectCounters[physical], total)
+	require.Equal(t, mm.objectCounters[logical], uint64(objsC2))
+	require.Empty(t, mm.containerSize[c1.EncodeToString()])
+	require.Equal(t, mm.containerSize[c2.EncodeToString()], sizeC2)
+	// payload size must remain unchanged after logical removal
+	require.Equal(t, initialPayload, mm.payloadSize)
+
+	require.NoError(t, sh.InhumeContainer(c2))
+
+	require.Equal(t, mm.objectCounters[physical], total)
+	require.Empty(t, mm.objectCounters[logical])
+	require.Empty(t, mm.containerSize[c1.EncodeToString()])
+	require.Empty(t, mm.containerSize[c2.EncodeToString()])
+	// payload size still unchanged
+	require.Equal(t, initialPayload, mm.payloadSize)
+}
+
+func TestShardCounterMigration(t *testing.T) {
+	path := t.TempDir()
+	sh, mm := shardWithMetrics(t, path)
+
+	const n = 11
+	for range n {
+		obj := generateObject()
+		require.NoError(t, sh.Put(obj, nil))
+	}
+	require.Equal(t, uint64(n), mm.objectCounters[physical])
+	require.Equal(t, uint64(n), mm.objectCounters[logical])
+
+	// Close shard so we can mutate Bolt file.
+	require.NoError(t, sh.Close())
+
+	metaPath := filepath.Join(path, "meta")
+	mdb, err := bbolt.Open(metaPath, 0o600, nil)
+	require.NoError(t, err)
+
+	var (
+		bucketPrefix          = []byte{5} // shardInfoPrefix
+		objectPhyCounterKey   = []byte("phy_counter")
+		objectLogicCounterKey = []byte("logic_counter")
+		corruptPhysical       = uint64(100)
+		corruptLogical        = uint64(200)
+	)
+
+	require.NoError(t, mdb.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketPrefix)
+		require.NotNil(t, b)
+
+		require.Equal(t, uint64(n), binary.LittleEndian.Uint64(b.Get(objectPhyCounterKey)))
+		require.Equal(t, uint64(n), binary.LittleEndian.Uint64(b.Get(objectLogicCounterKey)))
+
+		cc := make([]byte, 8)
+		binary.LittleEndian.PutUint64(cc, corruptPhysical)
+		require.NoError(t, b.Put(objectPhyCounterKey, cc))
+		cc = make([]byte, 8)
+		binary.LittleEndian.PutUint64(cc, corruptLogical)
+		require.NoError(t, b.Put(objectLogicCounterKey, cc))
+
+		// force metabase version to 7 to restore counters
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		require.NoError(t, bkt.Put([]byte("version"), []byte{0x07, 0, 0, 0, 0, 0, 0, 0}))
+		return nil
+	}))
+	require.NoError(t, mdb.Close())
+
+	// re-open shard, initMetrics should force sync counters and restore real values
+	sh, mm = shardWithMetrics(t, path)
+
+	require.Equal(t, uint64(n), mm.objectCounters[physical])
+	require.Equal(t, uint64(n), mm.objectCounters[logical])
+	require.NoError(t, sh.Close())
 }
 
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
