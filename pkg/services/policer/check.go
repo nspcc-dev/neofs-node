@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -193,8 +192,6 @@ type processPlacementContext struct {
 }
 
 func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
-	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(plc.object.Address)
-
 	p.cfg.RLock()
 	headTimeout := p.headTimeout
 	p.cfg.RUnlock()
@@ -261,7 +258,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 
 			callCtx, cancel := context.WithTimeout(ctx, headTimeout)
 
-			_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i]))
+			_, err := p.apiConns.headObject(callCtx, nodes[i], plc.object.Address)
 
 			cancel()
 

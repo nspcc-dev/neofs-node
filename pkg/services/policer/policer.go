@@ -1,15 +1,19 @@
 package policer
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -19,6 +23,22 @@ import (
 type nodeLoader interface {
 	// ObjectServiceLoad returns object service load value in [0:1] range.
 	ObjectServiceLoad() float64
+}
+
+// interface of [replicator.Replicator] used by [Policer] for overriding in tests.
+type replicatorIface interface {
+	HandleTask(context.Context, replicator.Task, replicator.TaskResult)
+}
+
+// interface of [engine.StorageEngine] used by [Policer] for overriding in tests.
+type localStorage interface {
+	ListWithCursor(uint32, *engine.Cursor) ([]objectcore.AddressWithType, *engine.Cursor, error)
+	Delete(oid.Address) error
+}
+
+// interface of [headsvc.RemoteHeader] used by [Policer] for overriding in tests.
+type apiConnections interface {
+	headObject(context.Context, netmapsdk.NodeInfo, oid.Address) (object.Object, error)
 }
 
 type objectsInWork struct {
@@ -85,11 +105,11 @@ type cfg struct {
 
 	placementBuilder placement.Builder
 
-	remoteHeader *headsvc.RemoteHeader
+	apiConns apiConnections
 
 	netmapKeys netmap.AnnouncedKeys
 
-	replicator *replicator.Replicator
+	replicator replicatorIface
 
 	cbRedundantCopy RedundantCopyCallback
 
@@ -164,10 +184,24 @@ func WithPlacementBuilder(v placement.Builder) Option {
 	}
 }
 
+type remoteHeader headsvc.RemoteHeader
+
+func (x *remoteHeader) headObject(ctx context.Context, node netmapsdk.NodeInfo, addr oid.Address) (object.Object, error) {
+	var p headsvc.RemoteHeadPrm
+	p.WithNodeInfo(node)
+	p.WithObjectAddress(addr)
+	hdr, err := (*headsvc.RemoteHeader)(x).Head(ctx, &p)
+	if err != nil {
+		return object.Object{}, err
+	}
+
+	return *hdr, nil
+}
+
 // WithRemoteHeader returns option to set object header receiver of Policer.
 func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 	return func(c *cfg) {
-		c.remoteHeader = v
+		c.apiConns = (*remoteHeader)(v)
 	}
 }
 

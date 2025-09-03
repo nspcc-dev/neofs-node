@@ -8,7 +8,7 @@ import (
 )
 
 type jobQueue struct {
-	localStorage *engine.StorageEngine
+	localStorage localStorage
 }
 
 func (q *jobQueue) Select(cursor *engine.Cursor, count uint32) ([]objectcore.AddressWithType, *engine.Cursor, error) {

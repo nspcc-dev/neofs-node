@@ -3,6 +3,7 @@ package testutil
 import (
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,7 @@ type LogEntry struct {
 // LogBuffer is a memory buffer for [zap.Logger] entries.
 type LogBuffer struct {
 	t testing.TB
+	l sync.Locker
 	b zaptest.Buffer
 }
 
@@ -38,6 +40,7 @@ func NewBufferedLogger(t testing.TB, minLevel zapcore.Level) (*zap.Logger, *LogB
 	// TODO: https://github.com/nspcc-dev/neofs-node/issues/3313
 	var lb LogBuffer
 	lb.t = t
+	lb.l = new(sync.Mutex)
 
 	encCfg := zap.NewProductionEncoderConfig()
 	encCfg.LevelKey = logLevelKey
@@ -46,7 +49,10 @@ func NewBufferedLogger(t testing.TB, minLevel zapcore.Level) (*zap.Logger, *LogB
 
 	zc := zapcore.NewCore(
 		zapcore.NewJSONEncoder(encCfg),
-		zap.CombineWriteSyncers(&lb.b),
+		zap.CombineWriteSyncers(lockedWriteSyncer{
+			l: lb.l,
+			w: &lb.b,
+		}),
 		minLevel,
 	)
 
@@ -78,7 +84,9 @@ func (x *LogBuffer) AssertContains(e LogEntry) {
 }
 
 func (x *LogBuffer) collectEntries() []LogEntry {
+	x.l.Lock()
 	lines := x.b.Lines()
+	x.l.Unlock()
 	res := make([]LogEntry, len(lines))
 
 	var err error
@@ -108,4 +116,24 @@ func (x *LogBuffer) collectEntries() []LogEntry {
 	}
 
 	return res
+}
+
+// [zapcore.Lock] implementation analogue.
+type lockedWriteSyncer struct {
+	l sync.Locker
+	w zapcore.WriteSyncer
+}
+
+func (x lockedWriteSyncer) Write(p []byte) (int, error) {
+	x.l.Lock()
+	n, err := x.w.Write(p)
+	x.l.Unlock()
+	return n, err
+}
+
+func (x lockedWriteSyncer) Sync() error {
+	x.l.Lock()
+	err := x.w.Sync()
+	x.l.Unlock()
+	return err
 }
