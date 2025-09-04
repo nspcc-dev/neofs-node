@@ -41,8 +41,10 @@ const (
 
 	// iteratorPrefetchNumber is a number of stack items to prefetch in the
 	// first call of iterator-based methods. neo-go's stack elements default
-	// limit is 2048, make it less a little.
-	iteratorPrefetchNumber = 2000
+	// limit is 2048, but JSON output is then limited to 128K, given that
+	// each item has ~30 bytes overhead for type/value structure using large
+	// values is dangerous here.
+	iteratorPrefetchNumber = 512
 )
 
 var (

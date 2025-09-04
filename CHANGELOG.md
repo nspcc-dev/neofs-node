@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Send on closed channel panic in node's new epoch handler (#3529)
 - Tomstoned objects revival not working (#3542)
 - Negative logic object counters in metabase (#3555)
+- Inability to list 2K+ containers via API (#3558)
 
 ### Changed
 - Stream payload without buffering to reduce memory usage in CLI `Get/Put` operations (#3535)
