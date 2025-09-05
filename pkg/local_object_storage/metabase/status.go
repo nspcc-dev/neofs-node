@@ -121,27 +121,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 		})
 	}
 
-	containerBuckets := []byte{
-		garbageContainersPrefix,
-	}
-
-	for _, bucketKey := range containerBuckets {
-		b := tx.Bucket([]byte{bucketKey})
-		if b == nil {
-			continue
-		}
-
-		v := b.Get(cIDRaw)
-		if v == nil {
-			continue
-		}
-
-		oldIndexes = append(oldIndexes, BucketValue{
-			BucketIndex: int(bucketKey),
-			Value:       bytes.Clone(v),
-		})
-	}
-
 	if b := tx.Bucket(bucketNameLocked); b != nil {
 		b = b.Bucket(cIDRaw)
 		if b != nil {

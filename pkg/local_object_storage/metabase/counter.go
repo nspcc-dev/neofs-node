@@ -140,7 +140,6 @@ func syncCounter(tx *bbolt.Tx, currEpoch uint64, force bool) error {
 
 	graveyardBKT := tx.Bucket(graveyardBucketName)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-	garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 	key := make([]byte, addressKeySize)
 
 	err = iteratePhyObjects(tx, func(cnr cid.ID, obj oid.ID) error {
@@ -157,7 +156,7 @@ func syncCounter(tx *bbolt.Tx, currEpoch uint64, force bool) error {
 
 		// check if an object is available: not with GCMark
 		// and not covered with a tombstone
-		if inGraveyardWithKey(metaCursor, addressKey(addr, key), graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
+		if inGraveyardWithKey(metaCursor, addressKey(addr, key), graveyardBKT, garbageObjectsBKT) == statusAvailable {
 			logicCounter++
 		}
 

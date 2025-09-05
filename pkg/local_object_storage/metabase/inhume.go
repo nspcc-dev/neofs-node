@@ -58,7 +58,6 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 	)
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
 
 		var (
@@ -125,7 +124,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			obj, err := get(tx, addr, false, true, currEpoch)
 			targetKey := addressKey(addr, buf)
 			if err == nil {
-				if inGraveyardWithKey(metaCursor, targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
+				if inGraveyardWithKey(metaCursor, targetKey, graveyardBKT, garbageObjectsBKT) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++
@@ -219,19 +218,20 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 	}
 
 	var removedAvailable uint64
-	rawCID := cID[:]
 
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
-		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
-		err := garbageContainersBKT.Put(rawCID, zeroValue)
-		if err != nil {
-			return fmt.Errorf("put GC mark for container: %w", err)
+		metaBkt := tx.Bucket(metaBucketKey(cID))
+		if metaBkt == nil {
+			return errors.New("meta bucket not found")
+		}
+		if err := metaBkt.Put(containerGCMarkKey, zeroValue); err != nil {
+			return fmt.Errorf("write container GC mark: %w", err)
 		}
 
 		info := db.containerInfo(tx, cID)
 		removedAvailable = info.ObjectsNumber
 
-		err = db.updateCounter(tx, logical, removedAvailable, false)
+		err := db.updateCounter(tx, logical, removedAvailable, false)
 		if err != nil {
 			return fmt.Errorf("logical counter update: %w", err)
 		}
