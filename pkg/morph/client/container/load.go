@@ -9,36 +9,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
-// EstimationV2 is a structure of grouped container load estimation inside Container contract.
-type EstimationV2 struct {
-	CID             cid.ID
-	StorageSize     int64
-	NumberOfObjects int64
-}
-
-// FromStackItem implements [stackitem.Convertible].
-func (e *EstimationV2) FromStackItem(item stackitem.Item) error {
-	v, err := client.ArrayFromStackItem(item)
-	if err != nil {
-		return fmt.Errorf("incorrect estimation value from iterator: %w", err)
-	}
-
-	if len(v) != 2 { // 2 field resulting struct
-		return fmt.Errorf("incorrect estimation struct size: %d", len(v))
-	}
-
-	e.StorageSize, err = client.IntFromStackItem(v[0])
-	if err != nil {
-		return fmt.Errorf("incorrect container size estimation: %w", err)
-	}
-	e.NumberOfObjects, err = client.IntFromStackItem(v[1])
-	if err != nil {
-		return fmt.Errorf("incorrect container's objects number estimation: %w", err)
-	}
-
-	return nil
-}
-
 // Report is a structure of single container load reported by a storage node.
 type Report struct {
 	StorageSize   int64
@@ -97,39 +67,6 @@ func (c *Client) PutReport(cID cid.ID, storageSize, objsNumber uint64, key []byt
 		return fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.PutContainerReportMethod, err)
 	}
 	return nil
-}
-
-// EstimationsForEpoch returns list of all container size estimations for epoch.
-func (c *Client) EstimationsForEpoch(epoch uint64) ([]EstimationV2, error) {
-	kvs, err := c.client.TestInvokeIterator(fschaincontracts.IterateAllContainerEstimationsMethod, iteratorPrefetchNumber, epoch)
-	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", fschaincontracts.IterateAllContainerEstimationsMethod, err)
-	}
-
-	res := make([]EstimationV2, 0, len(kvs))
-	for i := range kvs {
-		kv, err := client.ArrayFromStackItem(kvs[i])
-		if err != nil {
-			return nil, fmt.Errorf("could not unwrap iterator key-value pair: %w", err)
-		}
-		if len(kv) != 2 { // key-value array
-			return nil, fmt.Errorf("incorrect contract key-value struct size: %d", len(kv))
-		}
-
-		var e EstimationV2
-		e.CID, err = cidFromStorageKey(kv[0])
-		if err != nil {
-			return nil, fmt.Errorf("storage key handling: %w", err)
-		}
-		err = e.FromStackItem(kv[1])
-		if err != nil {
-			return nil, fmt.Errorf("storage value handling: %w", err)
-		}
-
-		res = append(res, e)
-	}
-
-	return res, nil
 }
 
 // NodeReports returns a list of container load reports for to the
