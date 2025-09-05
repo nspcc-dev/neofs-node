@@ -64,7 +64,6 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, currEpoch uint64, result []objectcore
 	var offset []byte
 	graveyardBkt := tx.Bucket(graveyardBucketName)
 	garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
-	garbageContainersBkt := tx.Bucket(garbageContainersBucketName)
 
 	var rawAddr = make([]byte, cidSize, addressKeySize)
 
@@ -78,7 +77,7 @@ loop:
 		bkt := tx.Bucket(name)
 		if bkt != nil {
 			copy(rawAddr, cidRaw)
-			result, offset, cursor = selectNFromBucket(bkt, currEpoch, graveyardBkt, garbageObjectsBkt, garbageContainersBkt, rawAddr, containerID,
+			result, offset, cursor = selectNFromBucket(bkt, currEpoch, graveyardBkt, garbageObjectsBkt, rawAddr, containerID,
 				result, count, cursor, threshold)
 		}
 		bucketName = name
@@ -112,7 +111,7 @@ loop:
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 	currEpoch uint64,
-	graveyardBkt, garbageObjectsBkt, garbageContainersBkt *bbolt.Bucket, // cached graveyard buckets
+	graveyardBkt, garbageObjectsBkt *bbolt.Bucket, // cached graveyard buckets
 	cidRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID
 	to []objectcore.AddressWithType, // listing result
@@ -131,6 +130,10 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		phyPrefix  = mkFilterPhysicalPrefix()
 		typePrefix = make([]byte, metaIDTypePrefixSize)
 	)
+
+	if containerMarkedGC(c) {
+		return to, nil, cursor
+	}
 
 	fillIDTypePrefix(typePrefix)
 
@@ -157,7 +160,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 
 		mCursor := bkt.Cursor()
 		offset = k
-		if inGraveyardWithKey(mCursor, append(cidRaw, obj[:]...), graveyardBkt, garbageObjectsBkt, garbageContainersBkt) != statusAvailable {
+		if inGraveyardWithKey(mCursor, append(cidRaw, obj[:]...), graveyardBkt, garbageObjectsBkt) != statusAvailable {
 			continue
 		}
 

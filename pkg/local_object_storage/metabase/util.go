@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"math/big"
@@ -21,12 +22,12 @@ var (
 	graveyardBucketName = []byte{graveyardPrefix}
 	// garbageObjectsBucketName stores rows with the objects that should be physically
 	// deleted by the node (Garbage Collector routine).
-	garbageObjectsBucketName = []byte{garbageObjectsPrefix}
-	// garbageContainersBucketName stores rows with the containers that should be physically
-	// deleted by the node (Garbage Collector routine).
-	garbageContainersBucketName = []byte{garbageContainersPrefix}
-	toMoveItBucketName          = []byte{toMoveItPrefix}
-	containerVolumeBucketName   = []byte{containerVolumePrefix}
+	garbageObjectsBucketName  = []byte{garbageObjectsPrefix}
+	toMoveItBucketName        = []byte{toMoveItPrefix}
+	containerVolumeBucketName = []byte{containerVolumePrefix}
+
+	// containerGCMarkKey marker key inside meta bucket designating whole container GC-marked.
+	containerGCMarkKey = []byte{metaPrefixGC}
 
 	zeroValue = []byte{0xFF}
 )
@@ -95,10 +96,8 @@ const (
 	// unusedSplitPrefix was deleted in metabase version 5
 	unusedSplitPrefix
 
-	// garbageContainersPrefix is used for the garbage containers bucket.
-	// 	Key: container ID
-	// 	Value: dummy value
-	garbageContainersPrefix
+	// unusedGarbageContainersPrefix was deleted in metabase version 8
+	unusedGarbageContainersPrefix
 
 	// unusedLinkObjectsPrefix was deleted in metabase version 6
 	unusedLinkObjectsPrefix
@@ -188,4 +187,11 @@ func (x *keyBuffer) alloc(ln int) []byte {
 		*x = make([]byte, ln)
 	}
 	return (*x)[:ln]
+}
+
+// containerMarkedGC checks if the container is marked by GC.
+// metaCursor must be not nil.
+func containerMarkedGC(metaCursor *bbolt.Cursor) bool {
+	k, _ := metaCursor.Seek(containerGCMarkKey)
+	return bytes.Equal(k, containerGCMarkKey)
 }

@@ -551,6 +551,38 @@ func migrateFrom7Version(db *DB) error {
 			sizeRaw []byte
 		}
 
+		// add GC marker key into meta buckets for containers already marked for GC
+		garbageContainersBucketName := []byte{unusedGarbageContainersPrefix}
+		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
+		if garbageContainersBKT != nil {
+			c := garbageContainersBKT.Cursor()
+			for k, _ := c.First(); k != nil; k, _ = c.Next() {
+				if len(k) != cid.Size { // skip malformed key
+					db.log.Warn("skip malformed key in garbage containers bucket while migration",
+						zap.Int("key length", len(k)))
+					continue
+				}
+				var cID cid.ID
+				if err := cID.Decode(k); err != nil {
+					db.log.Warn("skip malformed container ID in garbage containers bucket while migration",
+						zap.Int("key length", len(k)), zap.Error(err))
+					continue
+				}
+				metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
+				if err != nil {
+					return fmt.Errorf("create meta bucket for GC-marked container %s: %w", cID, err)
+				}
+				if err := metaBkt.Put(containerGCMarkKey, nil); err != nil {
+					return fmt.Errorf("write GC container marker for %s: %w", cID, err)
+				}
+			}
+
+			err := tx.DeleteBucket(garbageContainersBucketName)
+			if err != nil {
+				return fmt.Errorf("deleting garbage containers bucket: %w", err)
+			}
+		}
+
 		currEpoch := db.epochState.CurrentEpoch()
 		phyPrefix := mkFilterPhysicalPrefix()
 		infoBkt := tx.Bucket(containerVolumeBucketName)

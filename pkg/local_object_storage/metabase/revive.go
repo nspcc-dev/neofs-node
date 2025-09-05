@@ -85,7 +85,6 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
 
 		buf := make([]byte, addressKeySize)
@@ -96,6 +95,15 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 			// incorrect metabase state, does not make
 			// sense to check garbage bucket
 			return ErrObjectWasNotRemoved
+		}
+
+		metaBucket := tx.Bucket(metaBucketKey(cnr))
+		var metaCursor *bbolt.Cursor
+		if metaBucket != nil {
+			metaCursor = metaBucket.Cursor()
+			if containerMarkedGC(metaCursor) {
+				return ErrReviveFromContainerGarbage
+			}
 		}
 
 		val := graveyardBKT.Get(targetKey)
@@ -112,11 +120,6 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 			res.setStatusGraveyard(tombAddress.EncodeToString())
 			res.tombstoneAddr = tombAddress
 		} else {
-			val = garbageContainersBKT.Get(targetKey[:cidSize])
-			if val != nil {
-				return ErrReviveFromContainerGarbage
-			}
-
 			val = garbageObjectsBKT.Get(targetKey)
 			if val != nil {
 				// object marked with GC mark
@@ -125,12 +128,6 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 				// neither in the graveyard
 				// nor was marked with GC mark
 				return ErrObjectWasNotRemoved
-			}
-
-			metaBucket := tx.Bucket(metaBucketKey(cnr))
-			var metaCursor *bbolt.Cursor
-			if metaBucket != nil {
-				metaCursor = metaBucket.Cursor()
 			}
 
 			tombID, err := getTombstoneByAssociatedObject(metaCursor, addr.Object())

@@ -16,10 +16,6 @@ The lowest not used bucket index: 20.
   - Name: `1`
   - Key: object address
   - Value: dummy value
-- Garbage containers bucket
-  - Name: `17`
-  - Key: container ID
-  - Value: dummy value
 - Bucket containing IDs of objects that are candidates for moving
    to another shard.
   - Name: `2`
@@ -51,6 +47,8 @@ The lowest not used bucket index: 20.
       Sign byte is 0 for negatives, 1 otherwise. Bits are inverted for negatives also.
     - `2` + attribute + `0x00` + value + `0x00` + object ID
     - `3` + object ID + attribute + `0x00` + value
+    - `4` — container-level GC mark. \
+      Presence means the whole container is scheduled for garbage collection.
 
 # History
 
@@ -58,6 +56,8 @@ The lowest not used bucket index: 20.
 
 Container statistic is now a bucket with multiple values. In the version number
 of objects was added
+
+Drop garbage containers index (17), replaced with mark in metadata bucket.
 
 ## Version 7
 

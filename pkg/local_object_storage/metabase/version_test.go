@@ -862,8 +862,24 @@ func TestMigrate7to8(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	inhumeCnr := cidtest.ID()
+	const inhumeObjsNum = 5
+	for range inhumeObjsNum {
+		err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+			o := objecttest.Object()
+			o.SetContainerID(inhumeCnr)
+
+			require.NoError(t, db.updateCounter(tx, phy, 1, true))
+
+			return PutMetadataForObject(tx, o, true)
+		})
+		require.NoError(t, err)
+	}
+	_, err := db.InhumeContainer(inhumeCnr)
+	require.NoError(t, err)
+
 	// one more parent (virtual) object
-	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		return PutMetadataForObject(tx, objecttest.Object(), false)
 	})
 	require.NoError(t, err)
@@ -881,7 +897,7 @@ func TestMigrate7to8(t *testing.T) {
 		// corrupt counters
 		b := tx.Bucket(shardInfoBucket)
 		require.NotNil(t, b)
-		require.Equal(t, uint64(objsNum), binary.LittleEndian.Uint64(b.Get(objectPhyCounterKey)))
+		require.Equal(t, uint64(objsNum+inhumeObjsNum), binary.LittleEndian.Uint64(b.Get(objectPhyCounterKey)))
 		require.Equal(t, uint64(objsNum), binary.LittleEndian.Uint64(b.Get(objectLogicCounterKey)))
 		cc := make([]byte, 8)
 		binary.LittleEndian.PutUint64(cc, uint64(100)) // corrupt physical counter
@@ -917,15 +933,27 @@ func TestMigrate7to8(t *testing.T) {
 		objsNumRead := binary.LittleEndian.Uint64(objsNumRaw)
 		require.Equal(t, uint64(objsNum), objsNumRead)
 
+		// verify GC meta marker present
+		metaBkt := tx.Bucket(metaBucketKey(inhumeCnr))
+		require.NotNil(t, metaBkt)
+		require.NotNil(t, metaBkt.Get([]byte{4}))
+
 		// check new version
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
 		require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 
 		pc, lc := getCounters(tx)
-		require.Equal(t, uint64(objsNum), pc)
+		require.Equal(t, uint64(objsNum+inhumeObjsNum), pc)
 		require.Equal(t, uint64(objsNum), lc)
 		return nil
 	})
 	require.NoError(t, err)
+
+	// Verify GetGarbage sees the container via meta marker (should list all objects and list the container)
+	gObjs, gCnrs, err := db.GetGarbage(inhumeObjsNum + 5)
+	require.NoError(t, err)
+	require.Len(t, gObjs, inhumeObjsNum)
+	require.Len(t, gCnrs, 1)
+	require.Equal(t, inhumeCnr, gCnrs[0])
 }
