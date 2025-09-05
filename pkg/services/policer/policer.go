@@ -99,7 +99,7 @@ type Network interface {
 	// expected on N with index M*i, M in [0,CBF). Then part is expected on SN
 	// for i+1-th part and so on.
 	//
-	// GetContainerNodes callers do not change resulting slices and their elements.
+	// GetNodesForObject callers do not change resulting slices and their elements.
 	//
 	// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
 	// the network.
