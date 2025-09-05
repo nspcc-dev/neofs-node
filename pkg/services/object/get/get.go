@@ -3,15 +3,45 @@ package getsvc
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 
 // Get serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) Get(ctx context.Context, prm Prm) error {
-	return s.get(ctx, prm.commonPrm).err
+	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
+	if err != nil {
+		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
+		return fmt.Errorf("invalid request: %w", err)
+	}
+
+	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
+	if err != nil {
+		return fmt.Errorf("get nodes for object: %w", err)
+	}
+
+	if pi.RuleIndex >= 0 {
+		if len(ecRules) == 0 {
+			// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
+			return errors.New("invalid request: EC part requested in container without EC policy")
+		}
+		// TODO: deny if node is not in the container?
+		return s.copyLocalECPart(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
+	}
+
+	if len(repRules) > 0 { // REP format does not require encoding
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
+		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
+			return err
+		}
+	}
+
+	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), prm.common.BearerToken(),
+		ecRules, nodeLists[len(repRules):], prm.objWriter)
 }
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.

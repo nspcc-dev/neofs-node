@@ -204,7 +204,7 @@ func initObjectService(c *cfg) {
 		policer.WithMaxCapacity(c.appCfg.Policer.MaxWorkers),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
-		policer.WithNetwork(c),
+		policer.WithNetwork(noEC{c}),
 		policer.WithReplicationCooldown(c.appCfg.Policer.ReplicationCooldown),
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 	)
@@ -695,6 +695,25 @@ func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters objectS
 // IsLocalNodePublicKey implements [getsvc.NeoFSNetwork].
 func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
 
+// temporary wrapper until [getsvc.NeoFSNetwork] and [policer.Network]
+// interfaces converge.
+type noEC struct {
+	*cfg
+}
+
+// GetNodesForObject reads storage policy of the referenced container from the
+// underlying container storage, reads network map at the specified epoch from
+// the underlying storage, applies the storage policy to it and returns sorted
+// lists of selected storage nodes along with the policy rules.
+//
+// Resulting slices must not be changed.
+//
+// GetNodesForObject implements [policer.Network].
+func (x noEC) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, error) {
+	nodeLists, repRules, _, err := x.cfg.GetNodesForObject(addr)
+	return nodeLists[:len(repRules)], repRules, err
+}
+
 // GetNodesForObject reads storage policy of the referenced container from the
 // underlying container storage, reads network map at the specified epoch from
 // the underlying storage, applies the storage policy to it and returns sorted
@@ -702,8 +721,9 @@ func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
 // object holders. Resulting slices must not be changed.
 //
 // GetNodesForObject implements [getsvc.NeoFSNetwork].
-func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, error) {
-	return c.cfgObject.containerNodes.getNodesForObject(addr)
+func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) {
+	nodeSets, repRules, ecRules, err := c.cfgObject.containerNodes.getNodesForObject(addr)
+	return nodeSets, repRules, ecRules, err
 }
 
 type netmapSourceWithNodes struct {
@@ -791,7 +811,7 @@ type containerNodesSorter struct {
 
 func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
 func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
-func (x *containerNodesSorter) ECRules() []iec.Rule              { return nil }
+func (x *containerNodesSorter) ECRules() []iec.Rule              { return x.policy.ecRules }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
 	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
 	cacheKey.addr.SetContainer(x.cnrID)
@@ -808,6 +828,7 @@ func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo
 		}
 	}
 	res.repCounts = x.policy.repCounts
+	res.ecRules = x.policy.ecRules
 	res.nodeSets, res.err = x.containerNodes.sortContainerNodesFunc(*x.networkMap, x.policy.nodeSets, obj)
 	if res.err != nil {
 		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)
