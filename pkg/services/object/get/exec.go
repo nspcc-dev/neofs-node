@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -12,6 +13,12 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
+)
+
+const (
+	// streamChunkSize is the size of the chunk that is used to read/write
+	// object payload from/to the stream.
+	streamChunkSize = 256 * 1024 // 256 KiB
 )
 
 type statusError struct {
@@ -34,11 +41,16 @@ type execCtx struct {
 	// If debug level is enabled, all messages also include info about processing request.
 	log *zap.Logger
 
-	collectedObject *objectSDK.Object
+	collectedHeader *objectSDK.Object
+	collectedReader io.ReadCloser
 
 	curOff uint64
 
 	head bool
+
+	// range assembly (V1 split) helpers
+	lastChildID    oid.ID
+	lastChildRange objectSDK.Range
 }
 
 type execOption func(*execCtx)
@@ -167,35 +179,36 @@ func (exec *execCtx) headOnly() bool {
 	return exec.head
 }
 
-func (exec *execCtx) getChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (*objectSDK.Object, bool) {
+// copyChild fetches child object payload and streams it directly into current exec writer.
+// Returns if child header was received and if full payload was successfully written.
+func (exec *execCtx) copyChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (bool, bool) {
 	log := exec.log
 	if rng != nil {
 		log = log.With(zap.String("child range", prettyRange(rng)))
 	}
 
-	w := NewSimpleObjectWriter()
+	childWriter := newDirectChildWriter(exec.prm.objWriter)
 
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
-	p.objWriter = w
+	p.objWriter = childWriter
 	p.SetRange(rng)
-
 	p.addr.SetContainer(exec.containerID())
 	p.addr.SetObject(id)
 
 	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng), withLogger(log))
 
-	child := w.Object()
+	hdr := childWriter.hdr
 	ok := exec.status == statusOK
 
-	if ok && withHdr && !exec.isChild(child) {
+	if ok && withHdr && !exec.isChild(hdr) {
 		exec.status = statusUndefined
 		exec.err = errors.New("wrong child header")
 
 		exec.log.Debug("parent address in child object differs")
 	}
 
-	return child, ok
+	return hdr != nil, ok
 }
 
 func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
@@ -280,7 +293,7 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	}
 
 	err := exec.prm.objWriter.WriteHeader(
-		exec.collectedObject.CutPayload(),
+		exec.collectedHeader.CutPayload(),
 	)
 
 	switch {
@@ -299,12 +312,27 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
+func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadCloser) bool {
 	if exec.headOnly() {
 		return true
 	}
 
-	err := exec.prm.objWriter.WriteChunk(obj.Payload())
+	var err error
+	if reader != nil {
+		defer func() {
+			err := reader.Close()
+			if err != nil {
+				exec.log.Debug("error while closing payload reader", zap.Error(err))
+			}
+		}()
+		bufSize := streamChunkSize
+		if obj != nil {
+			bufSize = min(streamChunkSize, int(obj.PayloadSize()))
+		}
+		err = copyPayloadStream(exec.prm.objWriter, reader, bufSize)
+	} else {
+		err = exec.prm.objWriter.WriteChunk(obj.Payload())
+	}
 
 	switch {
 	default:
@@ -322,9 +350,29 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
 	return err == nil
 }
 
+// copyPayloadStream writes payload from stream to writer.
+func copyPayloadStream(w ChunkWriter, r io.Reader, bufSize int) error {
+	buf := make([]byte, bufSize)
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			if writeErr := w.WriteChunk(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+		}
+
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func (exec *execCtx) writeCollectedObject() {
 	if ok := exec.writeCollectedHeader(); ok {
-		exec.writeObjectPayload(exec.collectedObject)
+		exec.writeObjectPayload(exec.collectedHeader, exec.collectedReader)
 	}
 }
 
