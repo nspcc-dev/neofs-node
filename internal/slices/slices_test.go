@@ -2,11 +2,13 @@ package slices_test
 
 import (
 	"errors"
+	"math/rand/v2"
 	"slices"
 	"strconv"
 	"testing"
 
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,4 +94,29 @@ func TestRepeatElements(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMaxLen(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		require.Zero(t, islices.MaxLen(nil))
+	})
+	t.Run("empty", func(t *testing.T) {
+		require.Zero(t, islices.MaxLen([]string{}))
+	})
+
+	s := make([]string, 100)
+	for i := range s {
+		s[i] = string(testutil.RandByteSlice(i))
+	}
+	require.EqualValues(t, 99, islices.MaxLen(s))
+
+	slices.Reverse(s)
+	require.EqualValues(t, 99, islices.MaxLen(s))
+
+	rand.Shuffle(len(s), func(i, j int) { s[i], s[j] = s[j], s[i] })
+	require.EqualValues(t, 99, islices.MaxLen(s))
+
+	e := s[50]
+	s = islices.RepeatElement(len(s), e)
+	require.EqualValues(t, len(e), islices.MaxLen(s))
 }
