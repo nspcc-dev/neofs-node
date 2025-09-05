@@ -29,7 +29,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 	}
 
 	addrList := make([]oid.Address, 0)
-	uniqueMap := make(map[string]struct{})
+	uniqueMap := make(map[oid.Address]struct{})
 
 	for _, sh := range e.unsortedShards() {
 		res, err := sh.Select(cnr, filters)
@@ -42,8 +42,8 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 		}
 
 		for _, addr := range res { // save only unique values
-			if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
-				uniqueMap[addr.EncodeToString()] = struct{}{}
+			if _, ok := uniqueMap[addr]; !ok {
+				uniqueMap[addr] = struct{}{}
 				addrList = append(addrList, addr)
 			}
 		}

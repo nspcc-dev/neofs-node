@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
-	"strconv"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +18,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -313,12 +312,9 @@ type testRepCheckResult struct {
 	logBuf *testutil.LogBuffer
 }
 
-func testRepCheck(t *testing.T, rep uint32, nodes []netmap.NodeInfo, localIdx int, localInNM bool, headErrs []error,
+func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int, localInNM bool, headErrs []error,
 	expShortage uint32, expRedundant bool, expCandidates []netmap.NodeInfo) testRepCheckResult {
 	require.Equal(t, len(nodes), len(headErrs))
-
-	var policy netmap.PlacementPolicy
-	require.NoError(t, policy.DecodeString("REP "+strconv.FormatUint(uint64(rep), 10)))
 
 	wp, err := ants.NewPool(100)
 	require.NoError(t, err)
@@ -327,25 +323,18 @@ func testRepCheck(t *testing.T, rep uint32, nodes []netmap.NodeInfo, localIdx in
 	objID := oidtest.ID()
 	objAddr := oid.NewAddress(cnr, objID)
 
-	cnrs := mockContainers{
-		items: map[cid.ID]netmap.PlacementPolicy{
-			cnr: policy,
-		},
+	localNode := newTestLocalNode()
+	localNode.objList = []objectcore.AddressWithType{
+		{Address: objAddr, Type: object.TypeRegular},
 	}
 
-	mp := newMockPolicies()
-	mp.setResult(cnr, objID, policy, slices.Clone(nodes))
-
-	localNode := testLocalNode{
-		objList: []objectcore.AddressWithType{
-			{Address: objAddr, Type: object.TypeRegular},
-		},
-	}
+	mockNet := newMockNetwork()
+	mockNet.setObjectNodesResult(cnr, objID, slices.Clone(nodes), rep)
 	if localIdx >= 0 {
-		localNode.pubKey = nodes[localIdx].PublicKey()
-		localNode.inNetmap = true
+		mockNet.pubKey = nodes[localIdx].PublicKey()
+		mockNet.inNetmap = true
 	} else {
-		localNode.inNetmap = localInNM
+		mockNet.inNetmap = localInNM
 	}
 
 	r := newTestReplicator(t)
@@ -357,20 +346,15 @@ func testRepCheck(t *testing.T, rep uint32, nodes []netmap.NodeInfo, localIdx in
 		}
 	}
 
-	var redundantAddr atomic.Value // oid.Address
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 	p := New(
-		WithContainerSource(&cnrs),
-		WithPlacementBuilder(mp),
 		WithPool(wp),
 		WithReplicationCooldown(time.Hour), // any huge time to cancel process repeat
 		WithNodeLoader(nopNodeLoader{}),
-		WithNetmapKeys(&localNode),
-		WithNetwork(&localNode),
-		WithRedundantCopyCallback(func(addr oid.Address) { redundantAddr.Store(addr) }),
+		WithNetwork(mockNet),
 		WithLogger(l),
 	)
-	p.jobQueue.localStorage = &localNode
+	p.localStorage = localNode
 	p.apiConns = conns
 	p.replicator = r
 
@@ -399,9 +383,9 @@ func testRepCheck(t *testing.T, rep uint32, nodes []netmap.NodeInfo, localIdx in
 	}
 
 	if expRedundant {
-		require.Equal(t, objAddr, redundantAddr.Load())
+		require.Equal(t, []oid.Address{objAddr}, localNode.deletedObjects())
 	} else {
-		require.Nil(t, redundantAddr.Load())
+		require.Empty(t, localNode.deletedObjects())
 	}
 
 	return testRepCheckResult{
@@ -433,18 +417,37 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 }
 
 type testLocalNode struct {
+	objList []objectcore.AddressWithType
+
+	delMtx sync.RWMutex
+	del    map[oid.Address]struct{}
+}
+
+func newTestLocalNode() *testLocalNode {
+	return &testLocalNode{
+		del: make(map[oid.Address]struct{}),
+	}
+}
+
+type mockNetwork struct {
 	pubKey []byte
 
 	inNetmap bool
 
-	objList []objectcore.AddressWithType
+	getNodes map[getNodesKey]getNodesValue
 }
 
-func (x *testLocalNode) IsLocalKey(key []byte) bool {
+func newMockNetwork() *mockNetwork {
+	return &mockNetwork{
+		getNodes: make(map[getNodesKey]getNodesValue),
+	}
+}
+
+func (x *mockNetwork) IsLocalNodePublicKey(key []byte) bool {
 	return bytes.Equal(key, x.pubKey)
 }
 
-func (x *testLocalNode) IsLocalNodeInNetmap() bool {
+func (x *mockNetwork) IsLocalNodeInNetmap() bool {
 	return x.inNetmap
 }
 
@@ -452,70 +455,51 @@ func (x *testLocalNode) ListWithCursor(uint32, *engine.Cursor) ([]objectcore.Add
 	return x.objList, nil, nil
 }
 
-func (x *testLocalNode) Delete(oid.Address) error {
-	panic("unimplemented")
+func (x *testLocalNode) deletedObjects() []oid.Address {
+	x.delMtx.RLock()
+	res := slices.Collect(maps.Keys(x.del))
+	x.delMtx.RUnlock()
+	return res
+}
+
+func (x *testLocalNode) Delete(addr oid.Address) error {
+	x.delMtx.Lock()
+	x.del[addr] = struct{}{}
+	x.delMtx.Unlock()
+	return nil
 }
 
 type getNodesKey struct {
-	cnr    cid.ID
-	obj    oid.ID
-	policy string
+	cnr cid.ID
+	obj oid.ID
 }
 
-func newGetNodesKey(cnr cid.ID, obj oid.ID, p netmap.PlacementPolicy) getNodesKey {
-	var b bytes.Buffer
-	if err := p.WriteStringTo(&b); err != nil {
-		panic(err)
-	}
-	ps := b.String()
+type getNodesValue struct {
+	nodes []netmap.NodeInfo
+	rep   uint
+}
 
+func newGetNodesKey(cnr cid.ID, obj oid.ID) getNodesKey {
 	return getNodesKey{
-		cnr:    cnr,
-		obj:    obj,
-		policy: ps,
+		cnr: cnr,
+		obj: obj,
 	}
 }
 
-type mockPolicies struct {
-	items map[getNodesKey][]netmap.NodeInfo
-}
-
-func newMockPolicies() *mockPolicies {
-	return &mockPolicies{
-		items: make(map[getNodesKey][]netmap.NodeInfo),
+func (x *mockNetwork) setObjectNodesResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rep uint) {
+	x.getNodes[newGetNodesKey(cnr, obj)] = getNodesValue{
+		nodes: nodes,
+		rep:   rep,
 	}
 }
 
-func (x *mockPolicies) setResult(cnr cid.ID, obj oid.ID, p netmap.PlacementPolicy, nodes []netmap.NodeInfo) {
-	x.items[newGetNodesKey(cnr, obj, p)] = nodes
-}
-
-func (x *mockPolicies) BuildPlacement(cnr cid.ID, obj *oid.ID, p netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
-	if obj == nil {
-		return nil, errors.New("[test] unspecified object ID")
-	}
-
-	v, ok := x.items[newGetNodesKey(cnr, *obj, p)]
+func (x *mockNetwork) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, error) {
+	v, ok := x.getNodes[newGetNodesKey(addr.Container(), addr.Object())]
 	if !ok {
-		return nil, errors.New("[test] unexpected policy requested")
+		return nil, nil, errors.New("[test] unexpected policy requested")
 	}
 
-	return [][]netmap.NodeInfo{v}, nil
-}
-
-type mockContainers struct {
-	items map[cid.ID]netmap.PlacementPolicy
-}
-
-func (x *mockContainers) Get(id cid.ID) (container.Container, error) {
-	p, ok := x.items[id]
-	if !ok {
-		return container.Container{}, apistatus.ErrContainerNotFound
-	}
-
-	var cnr container.Container
-	cnr.SetPlacementPolicy(p)
-	return cnr, nil
+	return [][]netmap.NodeInfo{v.nodes}, []uint{v.rep}, nil
 }
 
 type nopNodeLoader struct{}

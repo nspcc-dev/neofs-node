@@ -13,9 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -31,16 +29,11 @@ type idsErr struct {
 }
 
 type testStorage struct {
-	items map[string]idsErr
+	items map[cid.ID]idsErr
 }
 
 type testContainers struct {
-	c container.Container
-	b placement.Builder
-}
-
-type testPlacementBuilder struct {
-	vectors map[string][][]netmap.NodeInfo
+	vectors map[cid.ID][][]netmap.NodeInfo
 }
 
 type testClientCache struct {
@@ -58,15 +51,14 @@ func (s *simpleIDWriter) WriteIDs(ids []oid.ID) error {
 
 func newTestStorage() *testStorage {
 	return &testStorage{
-		items: make(map[string]idsErr),
+		items: make(map[cid.ID]idsErr),
 	}
 }
 
 func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netmap.NodeInfo)) error {
-	var anyPolicy netmap.PlacementPolicy // policy is ignored in this test
-	nodeSets, err := g.b.BuildPlacement(cnr, nil, anyPolicy)
-	if err != nil {
-		return err
+	nodeSets, ok := g.vectors[cnr]
+	if !ok {
+		return errors.New("vectors for address not found")
 	}
 
 	for i := range nodeSets {
@@ -76,25 +68,6 @@ func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netm
 	}
 
 	return nil
-}
-
-func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
-	var addr oid.Address
-	addr.SetContainer(cnr)
-
-	if obj != nil {
-		addr.SetObject(*obj)
-	}
-
-	vs, ok := p.vectors[addr.EncodeToString()]
-	if !ok {
-		return nil, errors.New("vectors for address not found")
-	}
-
-	res := make([][]netmap.NodeInfo, len(vs))
-	copy(res, vs)
-
-	return res, nil
 }
 
 func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
@@ -107,7 +80,7 @@ func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
 }
 
 func (ts *testStorage) search(exec *execCtx) ([]oid.ID, error) {
-	v, ok := ts.items[exec.containerID().EncodeToString()]
+	v, ok := ts.items[exec.containerID()]
 	if !ok {
 		return nil, nil
 	}
@@ -116,7 +89,7 @@ func (ts *testStorage) search(exec *execCtx) ([]oid.ID, error) {
 }
 
 func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
-	v, ok := ts.items[exec.containerID().EncodeToString()]
+	v, ok := ts.items[exec.containerID()]
 	if !ok {
 		return nil, nil
 	}
@@ -125,7 +98,7 @@ func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientc
 }
 
 func (ts *testStorage) addResult(addr cid.ID, ids []oid.ID, err error) {
-	ts.items[addr.EncodeToString()] = idsErr{
+	ts.items[addr] = idsErr{
 		ids: ids,
 		err: err,
 	}
@@ -226,27 +199,15 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	placementDim := []int{2}
 
-	rs := make([]netmap.ReplicaDescriptor, len(placementDim))
-	for i := range placementDim {
-		rs[i].SetNumberOfObjects(uint32(placementDim[i]))
-	}
+	id := cidtest.ID()
 
-	var pp netmap.PlacementPolicy
-	pp.SetReplicas(rs)
-
-	var cnr container.Container
-	cnr.SetPlacementPolicy(pp)
-
-	id := cid.NewFromMarshalledContainer(cnr.Marshal())
-
-	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
+	newSvc := func(vectors map[cid.ID][][]netmap.NodeInfo, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
 
 		svc.containers = &testContainers{
-			c: cnr,
-			b: b,
+			vectors: vectors,
 		}
 		svc.clientConstructor = c
 
@@ -263,15 +224,10 @@ func TestGetRemoteSmall(t *testing.T) {
 	}
 
 	t.Run("OK", func(t *testing.T) {
-		var addr oid.Address
-		addr.SetContainer(id)
-
 		ns, as := testNodeMatrix(t, placementDim)
 
-		builder := &testPlacementBuilder{
-			vectors: map[string][][]netmap.NodeInfo{
-				addr.EncodeToString(): ns,
-			},
+		vectors := map[cid.ID][][]netmap.NodeInfo{
+			id: ns,
 		}
 
 		c1 := newTestStorage()
@@ -282,7 +238,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		ids2 := oidtest.IDs(10)
 		c2.addResult(id, ids2, nil)
 
-		svc := newSvc(builder, &testClientCache{
+		svc := newSvc(vectors, &testClientCache{
 			clients: map[string]*testStorage{
 				as[0][0]: c1,
 				as[0][1]: c2,

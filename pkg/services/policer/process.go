@@ -3,6 +3,7 @@ package policer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -20,10 +21,10 @@ func (p *Policer) Run(ctx context.Context) {
 }
 
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
-	p.cfg.RLock()
+	p.cfg.mtx.RLock()
 	repCooldown := p.repCooldown
 	batchSize := p.batchSize
-	p.cfg.RUnlock()
+	p.cfg.mtx.RUnlock()
 
 	var (
 		addrs  []objectcore.AddressWithType
@@ -40,12 +41,13 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		default:
 		}
 
-		addrs, cursor, err = p.jobQueue.Select(cursor, batchSize)
+		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				time.Sleep(time.Second) // finished whole cycle, sleep a bit
 				continue
 			}
+			err = fmt.Errorf("cannot list objects in engine: %w", err)
 			p.log.Warn("failure at object select for replication", zap.Error(err))
 		}
 
@@ -78,17 +80,17 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			p.cfg.RLock()
+			p.cfg.mtx.RLock()
 			t.Reset(p.repCooldown)
-			p.cfg.RUnlock()
+			p.cfg.mtx.RUnlock()
 		}
 	}
 }
 
 func (p *Policer) poolCapacityWorker(ctx context.Context) {
-	p.cfg.RLock()
+	p.cfg.mtx.RLock()
 	maxCapacity := p.maxCapacity
-	p.cfg.RUnlock()
+	p.cfg.mtx.RUnlock()
 
 	ticker := time.NewTicker(p.rebalanceFreq)
 	for {

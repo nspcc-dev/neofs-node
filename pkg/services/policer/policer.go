@@ -5,12 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -77,20 +74,32 @@ type Policer struct {
 // Option is an option for Policer constructor.
 type Option func(*cfg)
 
-// RedundantCopyCallback is a callback to pass
-// the redundant local copy of the object.
-type RedundantCopyCallback func(oid.Address)
-
 // Network provides information about the NeoFS network to Policer for work.
 type Network interface {
 	// IsLocalNodeInNetmap checks whether the local node belongs to the current
 	// network map. If it is impossible to check this fact, IsLocalNodeInNetmap
 	// returns false.
 	IsLocalNodeInNetmap() bool
+	// GetNodesForObject returns descriptors of storage nodes matching storage
+	// policy of the referenced object for now. Nodes are identified by their public
+	// keys and can be repeated in different lists. The second value specifies the
+	// number (N) of primary object holders for each list (L) so:
+	//  - size of each L >= N;
+	//  - first N nodes of each L are primary data holders while others (if any)
+	//    are backup.
+	//
+	// GetContainerNodes callers do not change resulting slices and their elements.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
+	// the network.
+	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node running [Policer].
+	IsLocalNodePublicKey([]byte) bool
 }
 
 type cfg struct {
-	sync.RWMutex
+	mtx sync.RWMutex
 	// available for runtime reconfiguration
 	headTimeout time.Duration
 	repCooldown time.Duration
@@ -99,19 +108,11 @@ type cfg struct {
 
 	log *zap.Logger
 
-	jobQueue jobQueue
-
-	cnrSrc container.Source
-
-	placementBuilder placement.Builder
+	localStorage localStorage
 
 	apiConns apiConnections
 
-	netmapKeys netmap.AnnouncedKeys
-
 	replicator replicatorIface
-
-	cbRedundantCopy RedundantCopyCallback
 
 	taskPool *ants.Pool
 
@@ -166,21 +167,7 @@ func WithLogger(v *zap.Logger) Option {
 // WithLocalStorage returns option to set local object storage of Policer.
 func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
-		c.jobQueue.localStorage = v
-	}
-}
-
-// WithContainerSource returns option to set container source of Policer.
-func WithContainerSource(v container.Source) Option {
-	return func(c *cfg) {
-		c.cnrSrc = v
-	}
-}
-
-// WithPlacementBuilder returns option to set object placement builder of Policer.
-func WithPlacementBuilder(v placement.Builder) Option {
-	return func(c *cfg) {
-		c.placementBuilder = v
+		c.localStorage = v
 	}
 }
 
@@ -205,26 +192,10 @@ func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 	}
 }
 
-// WithNetmapKeys returns option to set tool to work with announced public keys.
-func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
-	return func(c *cfg) {
-		c.netmapKeys = v
-	}
-}
-
 // WithReplicator returns option to set object replicator of Policer.
 func WithReplicator(v *replicator.Replicator) Option {
 	return func(c *cfg) {
 		c.replicator = v
-	}
-}
-
-// WithRedundantCopyCallback returns option to set
-// callback to pass redundant local object copies
-// detected by Policer.
-func WithRedundantCopyCallback(cb RedundantCopyCallback) Option {
-	return func(c *cfg) {
-		c.cbRedundantCopy = cb
 	}
 }
 
