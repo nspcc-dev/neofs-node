@@ -192,8 +192,8 @@ func (exec *execCtx) headOnly() bool {
 }
 
 // copyChild fetches child object payload and streams it directly into current exec writer.
-// Returns if child header was received and if full payload was successfully written.
-func (exec *execCtx) copyChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (bool, bool) {
+// Returns true if full payload (or requested range) was successfully written and, if requested, header validated.
+func (exec *execCtx) copyChild(id oid.ID, rng *objectSDK.Range, withHdr bool) bool {
 	log := exec.log
 	if rng != nil {
 		log = log.With(zap.String("child range", prettyRange(rng)))
@@ -213,14 +213,18 @@ func (exec *execCtx) copyChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (b
 	hdr := childWriter.hdr
 	ok := exec.status == statusOK
 
-	if ok && withHdr && !exec.isChild(hdr) {
-		exec.status = statusUndefined
-		exec.err = errors.New("wrong child header")
-
-		exec.log.Debug("parent address in child object differs")
+	if ok && withHdr {
+		if hdr == nil {
+			return false
+		}
+		if !exec.isChild(hdr) {
+			exec.status = statusUndefined
+			exec.err = errors.New("wrong child header")
+			exec.log.Debug("parent address in child object differs")
+		}
 	}
 
-	return hdr != nil, ok
+	return ok
 }
 
 func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
