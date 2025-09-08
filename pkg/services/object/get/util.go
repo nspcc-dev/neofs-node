@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -9,12 +10,23 @@ import (
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+// TODO: share. We also use stop error for BoltDB iterators and so on.
+var errInterrupt = errors.New("interrupt")
 
 type SimpleObjectWriter struct {
 	obj *object.Object
@@ -273,4 +285,58 @@ func newDirectChildWriter(dest ChunkWriter) *directChildWriter {
 func (w *directChildWriter) WriteHeader(obj *object.Object) error {
 	w.hdr = obj
 	return nil
+}
+
+func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
+	cnr cid.ID, id oid.ID, sTok *session.Object, bTok *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
+	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
+	// TODO: we may waste resources doing this per request. Make once on network map change instead.
+	var ag network.AddressGroup
+	if err := ag.FromIterator(network.NodeEndpointsIterator(node)); err != nil {
+		return object.Object{}, nil, fmt.Errorf("decode SN network addresses: %w", err)
+	}
+
+	var ni coreclient.NodeInfo
+	ni.SetAddressGroup(ag)
+	ni.SetPublicKey(node.PublicKey())
+
+	conn, err := c.cache.Get(ni)
+	if err != nil {
+		return object.Object{}, nil, fmt.Errorf("get conn: %w", err)
+	}
+
+	var opts client.PrmObjectGet
+	opts.WithXHeaders(xs...)
+	if local {
+		opts.MarkLocal()
+	}
+	if !verifyID {
+		opts.SkipChecksumVerification()
+	}
+	if bTok != nil {
+		opts.WithBearerToken(*bTok)
+	}
+	if sTok != nil {
+		opts.WithinSession(*sTok)
+	}
+
+	hdr, rc, err := conn.ObjectGetInit(ctx, cnr, id, user.NewAutoIDSigner(pk), opts)
+	if err != nil {
+		return object.Object{}, nil, err
+	}
+
+	// TODO: SkipChecksumVerification() turns off checking all object checksums. Better to keep checking
+	//  OID against header and payload checksum.
+
+	return hdr, rc, nil
+}
+
+// TODO: share.
+// see also https://github.com/nspcc-dev/neofs-sdk-go/issues/624.
+func convertContextCanceledStatus(err error) error {
+	st, ok := status.FromError(err)
+	if ok && st.Code() == codes.Canceled {
+		return context.Canceled
+	}
+	return err
 }

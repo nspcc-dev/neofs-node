@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -51,6 +53,9 @@ type execCtx struct {
 	// range assembly (V1 split) helpers
 	lastChildID    oid.ID
 	lastChildRange objectSDK.Range
+
+	nodeLists [][]netmap.NodeInfo
+	repRules  []uint
 }
 
 type execOption func(*execCtx)
@@ -84,6 +89,13 @@ func withHash(p *RangeHashPrm) execOption {
 func withLogger(l *zap.Logger) execOption {
 	return func(ctx *execCtx) {
 		ctx.log = l
+	}
+}
+
+func withPreSortedContainerNodes(nodeLists [][]netmap.NodeInfo, repRules []uint) execOption {
+	return func(ctx *execCtx) {
+		ctx.nodeLists = nodeLists
+		ctx.repRules = repRules
 	}
 }
 
@@ -325,9 +337,9 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadClo
 				exec.log.Debug("error while closing payload reader", zap.Error(err))
 			}
 		}()
-		bufSize := streamChunkSize
+		bufSize := uint64(streamChunkSize)
 		if obj != nil {
-			bufSize = min(streamChunkSize, int(obj.PayloadSize()))
+			bufSize = min(streamChunkSize, obj.PayloadSize())
 		}
 		err = copyPayloadStream(exec.prm.objWriter, reader, bufSize)
 	} else {
@@ -350,14 +362,34 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadClo
 	return err == nil
 }
 
+func copyObject(w ObjectWriter, obj objectSDK.Object) error {
+	if err := w.WriteHeader(&obj); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	if err := w.WriteChunk(obj.Payload()); err != nil {
+		return fmt.Errorf("write payload: %w", err)
+	}
+
+	return nil
+}
+
+func copyObjectStream(w ObjectWriter, h objectSDK.Object, r io.Reader) error {
+	if err := w.WriteHeader(&h); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	return copyPayloadStream(w, r, min(h.PayloadSize(), streamChunkSize))
+}
+
 // copyPayloadStream writes payload from stream to writer.
-func copyPayloadStream(w ChunkWriter, r io.Reader, bufSize int) error {
+func copyPayloadStream(w ChunkWriter, r io.Reader, bufSize uint64) error {
 	buf := make([]byte, bufSize)
 	for {
 		n, err := r.Read(buf)
 		if n > 0 {
 			if writeErr := w.WriteChunk(buf[:n]); writeErr != nil {
-				return writeErr
+				return fmt.Errorf("write next payload chunk: %w", writeErr)
 			}
 		}
 
@@ -365,7 +397,7 @@ func copyPayloadStream(w ChunkWriter, r io.Reader, bufSize int) error {
 			return nil
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("read next payload chunk: %w", err)
 		}
 	}
 }

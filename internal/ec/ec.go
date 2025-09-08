@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/klauspost/reedsolomon"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 )
 
 // Erasure coding attributes.
@@ -75,6 +76,18 @@ func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
 		return nil, fmt.Errorf("restore Reed-Solomon: %w", err)
 	}
 
+	if got := islices.TwoDimSliceElementCount(parts[:rule.DataPartNum]); uint64(got) < dataLen {
+		return nil, fmt.Errorf("sum len of received data parts is less than full len: %d < %d", got, dataLen)
+	}
+
+	return ConcatDataParts(rule, dataLen, parts), nil
+}
+
+// ConcatDataParts returns a new slice of dataLen bytes originating given EC
+// parts according to rule.
+//
+// Panics if there are less than [Rule.DataPartNum] parts.
+func ConcatDataParts(rule Rule, dataLen uint64, parts [][]byte) []byte {
 	// TODO: last part may be shorter, do not overallocate buffer.
-	return slices.Concat(parts[:rule.DataPartNum]...)[:dataLen], nil
+	return slices.Concat(parts[:rule.DataPartNum]...)[:dataLen]
 }
