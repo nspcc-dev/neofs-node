@@ -59,9 +59,9 @@ const (
 	// shardInfoPrefix is used for storing shard ID. All keys are custom and are not connected to the container.
 	shardInfoPrefix
 
-	//======================
+	// ======================
 	// Unique index buckets.
-	//======================
+	// ======================
 
 	// unusedPrimaryPrefix was deleted in metabase version 6
 	unusedPrimaryPrefix
@@ -76,18 +76,18 @@ const (
 	// unusedRootPrefix was deleted in metabase version 5
 	unusedRootPrefix
 
-	//====================
+	// ====================
 	// FKBT index buckets.
-	//====================
+	// ====================
 
 	// unusedOwnerPrefix was deleted in metabase version 5
 	unusedOwnerPrefix
 	// unusedUserAttributePrefix was deleted in metabase version 5
 	unusedUserAttributePrefix
 
-	//====================
+	// ====================
 	// List index buckets.
-	//====================
+	// ====================
 
 	// unusedPayloadHashPrefix was deleted in metabase version 5
 	unusedPayloadHashPrefix
