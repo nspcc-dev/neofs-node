@@ -129,6 +129,7 @@ type Settlement struct {
 // Experimental configures experimental features.
 type Experimental struct {
 	ChainMetaData bool `mapstructure:"chain_meta_data"`
+	AllowEC       bool `mapstructure:"allow_ec"`
 }
 
 // IsSet checks if the key is set in the config.
