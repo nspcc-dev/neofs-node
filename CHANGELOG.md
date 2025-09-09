@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Erasure coding in containers' storage policies (#3570)
 
 ### Fixed
 

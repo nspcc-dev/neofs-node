@@ -151,9 +151,13 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		return
 	}
 
-	replicas := make([]uint32, 0, policy.NumberOfReplicas())
-	for i := range vectors {
-		replicas = append(replicas, policy.ReplicaNumberByIndex(i))
+	repRuleNum := policy.NumberOfReplicas()
+	replicas := make([]uint32, len(vectors))
+	for i := range repRuleNum {
+		replicas[i] = policy.ReplicaNumberByIndex(i)
+	}
+	for i := repRuleNum; i < len(vectors); i++ { // EC rules
+		replicas[i] = 1 // each EC part is stored in a single copy
 	}
 
 	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)

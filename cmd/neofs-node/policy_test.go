@@ -596,7 +596,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, "select container nodes for current epoch #42: "+
 					"invalid result of container's storage policy application to the network map: "+
-					"diff number of storage node sets (4) and required replica descriptors (2)")
+					"diff number of storage node sets (4) and rules (2)")
 				network.assertEpochCallCount(t, n)
 				// assert results are cached
 				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
@@ -626,7 +626,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, "select container nodes for current epoch #42: "+
 					"invalid result of container's storage policy application to the network map: "+
-					"invalid storage node set #1: number of nodes (1) is less than minimum required by the container policy (2)")
+					"invalid storage node set #1: number of nodes (1) is less than minimum required by REP rule (2)")
 				network.assertEpochCallCount(t, n)
 				// assert results are cached
 				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
@@ -651,7 +651,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 				_, _, _, err = ns.getNodesForObject(anyAddr)
 				require.EqualError(t, err, "select container nodes for current epoch #42: "+
 					"invalid result of container's storage policy application to the network map: "+
-					"diff number of storage node sets (4) and required replica descriptors (2)")
+					"diff number of storage node sets (4) and rules (2)")
 				network.assertEpochCallCount(t, n)
 				// assert results are cached
 				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())

@@ -791,6 +791,7 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 		policy: storagePolicyRes{
 			nodeSets:  nodeSets,
 			repCounts: repCounts,
+			ecRules:   convertECRules(policy.ECRules()),
 		},
 		networkMap:     networkMap,
 		cnrID:          cnrID,
@@ -934,4 +935,13 @@ func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo
 	}
 	x.containerNodes.objCache.Add(cacheKey, res)
 	return res.nodeSets, res.err
+}
+
+func convertECRules(from []netmapsdk.ECRule) []iec.Rule {
+	to := make([]iec.Rule, len(from))
+	for i := range to {
+		to[i].DataPartNum = uint8(from[i].DataPartNum())
+		to[i].ParityPartNum = uint8(from[i].ParityPartNum())
+	}
+	return to
 }

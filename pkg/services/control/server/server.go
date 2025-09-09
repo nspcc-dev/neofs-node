@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	"go.uber.org/zap"
 )
 
 // Server is an entity that serves
@@ -21,6 +22,8 @@ type Server struct {
 	available atomic.Bool
 
 	*cfg
+
+	log *zap.Logger
 }
 
 // HealthChecker is component interface for calculating
@@ -45,6 +48,9 @@ type NodeState interface {
 	//
 	// If status is control.NetmapStatus_MAINTENANCE, the node additionally starts local maintenance.
 	SetNetmapStatus(st control.NetmapStatus) error
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node running [Server].
+	IsLocalNodePublicKey([]byte) bool
 }
 
 // Option of the Server's constructor.
@@ -72,7 +78,7 @@ type cfg struct {
 // Must be marked as available with [Server.MarkReady] when all the
 // components for serving are ready. Before [Server.MarkReady] call
 // only health checks are available.
-func New(key *ecdsa.PrivateKey, authorizedKeys [][]byte, healthChecker HealthChecker) *Server {
+func New(key *ecdsa.PrivateKey, authorizedKeys [][]byte, healthChecker HealthChecker, l *zap.Logger) *Server {
 	cfg := &cfg{
 		key:           key,
 		allowedKeys:   authorizedKeys,
@@ -81,6 +87,7 @@ func New(key *ecdsa.PrivateKey, authorizedKeys [][]byte, healthChecker HealthChe
 
 	return &Server{
 		cfg: cfg,
+		log: l,
 	}
 }
 

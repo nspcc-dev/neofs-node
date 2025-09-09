@@ -247,22 +247,44 @@ func (x *containerPolicyContext) applyToNetmap(epoch uint64, cache *lru.Cache[co
 	result.nodeSets, result.err = x.getNodesFunc(*networkMap, policy, x.id)
 	if result.err == nil {
 		// ContainerNodes should control following, but still better to double-check
-		if policyNum := policy.NumberOfReplicas(); len(result.nodeSets) != policyNum {
-			result.err = fmt.Errorf("invalid result of container's storage policy application to the network map: "+
-				"diff number of storage node sets (%d) and required replica descriptors (%d)",
-				len(result.nodeSets), policyNum)
-		} else {
-			result.repCounts = make([]uint, len(result.nodeSets))
-			for i := range result.nodeSets {
-				if result.repCounts[i] = uint(policy.ReplicaNumberByIndex(i)); result.repCounts[i] > uint(len(result.nodeSets[i])) {
-					result.err = fmt.Errorf("invalid result of container's storage policy application to the network map: "+
-						"invalid storage node set #%d: number of nodes (%d) is less than minimum required by the container policy (%d)",
-						i, len(result.nodeSets[i]), result.repCounts[i])
-					break
-				}
+		if result.err = checkPolicyApplicationResult(policy, result.nodeSets); result.err == nil {
+			result.repCounts = make([]uint, policy.NumberOfReplicas())
+			for i := range result.repCounts {
+				result.repCounts[i] = uint(policy.ReplicaNumberByIndex(i))
 			}
+
+			result.ecRules = convertECRules(policy.ECRules())
 		}
 	}
 	cache.Add(cacheKey, result)
 	return result, networkMap, nil
+}
+
+func checkPolicyApplicationResult(policy netmapsdk.PlacementPolicy, nodeSets [][]netmapsdk.NodeInfo) error {
+	ecRules := policy.ECRules()
+	repRules := policy.Replicas()
+	if len(nodeSets) != len(repRules)+len(ecRules) {
+		return fmt.Errorf("invalid result of container's storage policy application to the network map: "+
+			"diff number of storage node sets (%d) and rules (%d)",
+			len(nodeSets), len(repRules)+len(ecRules))
+	}
+
+	for i := range repRules {
+		if exp := repRules[i].NumberOfObjects(); exp > uint32(len(nodeSets[i])) {
+			return fmt.Errorf("invalid result of container's storage policy application to the network map: "+
+				"invalid storage node set #%d: number of nodes (%d) is less than minimum required by REP rule (%d)",
+				i, len(nodeSets[i]), exp)
+		}
+	}
+
+	for i := range ecRules {
+		n := len(nodeSets[len(repRules)+i])
+		if exp := int(ecRules[i].DataPartNum() + ecRules[i].ParityPartNum()); exp > n {
+			return fmt.Errorf("invalid result of container's storage policy application to the network map: "+
+				"invalid storage node set #%d: number of nodes (%d) is less than minimum required by EC rule (%d)",
+				i, n, exp)
+		}
+	}
+
+	return nil
 }
