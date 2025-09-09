@@ -187,6 +187,7 @@ settlement:
 
 experimental:
   chain_meta_data: false # Optional: allows creating containers with meta data handled via FS chain
+  allow_ec: true # Optional: allows creating containers with EC rules
 
 sn_validator:
   enabled: true

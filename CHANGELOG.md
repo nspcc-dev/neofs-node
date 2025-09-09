@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Erasure coding in containers' storage policies (#3570)
+- IR `experimental.allow_ec` config option (#3570)
 
 ### Fixed
 
@@ -15,6 +16,8 @@ Changelog for NeoFS Node
 ### Updated
 
 ### Updating from v0.49.1
+Erasure coding is available in experimental mode. To enable it, set
+`experimental.allow_ec` flag in IR config.
 
 ## [0.49.1] - 2025-10-15
 
