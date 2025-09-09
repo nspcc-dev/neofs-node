@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -260,12 +259,6 @@ func (x *multiClient) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 		return nil, err
 	}
 	return signature, errSeek
-}
-
-func (x *multiClient) ContainerAnnounceUsedSpace(ctx context.Context, announcements []container.SizeEstimation, prm client.PrmAnnounceSpace) error {
-	return x.iterateClients(ctx, func(c clientcore.Client) error {
-		return c.ContainerAnnounceUsedSpace(ctx, announcements, prm)
-	})
 }
 
 func (x *multiClient) ObjectDelete(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectDelete) (tombID oid.ID, err error) {
