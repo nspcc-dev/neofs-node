@@ -45,6 +45,9 @@ type NodeState interface {
 	//
 	// If status is control.NetmapStatus_MAINTENANCE, the node additionally starts local maintenance.
 	SetNetmapStatus(st control.NetmapStatus) error
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node running [Server].
+	IsLocalNodePublicKey([]byte) bool
 }
 
 // Option of the Server's constructor.
