@@ -79,5 +79,5 @@ func TestValidateDefaultConfig(t *testing.T) {
 		Settlement: config.Settlement{
 			BasicIncomeRate: 0,
 		},
-		Experimental: config.Experimental{ChainMetaData: false}})
+		Experimental: config.Experimental{ChainMetaData: false, AllowEC: false}})
 }

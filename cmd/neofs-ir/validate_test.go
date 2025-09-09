@@ -324,6 +324,7 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 		},
 		Experimental: config.Experimental{
 			ChainMetaData: false,
+			AllowEC:       true,
 		},
 		Validator: config.Validator{
 			Enabled: true,
