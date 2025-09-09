@@ -15,7 +15,6 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -288,12 +287,6 @@ func (x *connections) forEach(ctx context.Context, f func(context.Context, *clie
 func (x *connections) ForEachGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
 	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
 		return f(ctx, c.Conn())
-	})
-}
-
-func (x *connections) ContainerAnnounceUsedSpace(ctx context.Context, es []container.SizeEstimation, opts client.PrmAnnounceSpace) error {
-	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
-		return c.ContainerAnnounceUsedSpace(ctx, es, opts)
 	})
 }
 

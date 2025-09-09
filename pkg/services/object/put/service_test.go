@@ -481,10 +481,6 @@ func (x nodeServices) SendReplicationRequestToNode(_ context.Context, reqBin []b
 
 type serviceClient Service
 
-func (m *serviceClient) ContainerAnnounceUsedSpace(context.Context, []container.SizeEstimation, client.PrmAnnounceSpace) error {
-	panic("unimplemented")
-}
-
 func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
 	stream, err := (*Service)(m).Put(ctx)
 	if err != nil {
