@@ -6,7 +6,11 @@ const (
 	RemoveContainerMethod         = "remove"
 	PutContainerEACLMethod        = "putEACL"
 	PutContainerReportMethod      = "putReport"
+	GetReportsSummaryMethod       = "getNodeReportSummary"
 	IterateContainerReportsMethod = "iterateReports"
+	GetTakenSpaceByUserMethod     = "getTakenSpaceByUserMethod"
+	GetContainerQuotaMethod       = "containerQuota"
+	GetUserQuotaMethod            = "userQuota"
 )
 
 // CreateContainerParams are parameters of [CreateContainerMethod].
