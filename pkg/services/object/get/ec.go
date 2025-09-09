@@ -182,7 +182,7 @@ func (s *Service) restoreFromECParts(ctx context.Context, cnr cid.ID, parent oid
 		if err == nil {
 			return obj, nil
 		}
-		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
 			return object.Object{}, err
 		}
 
