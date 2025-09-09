@@ -85,18 +85,19 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 
 		policy := cnr.PlacementPolicy()
 
+		// TODO: adopt EC rules
 		vectors, err := nm.ContainerNodes(policy, cID)
 		if err != nil {
 			l.Error("can't build placement vectors for update in Container contract", zap.Error(err))
 			continue
 		}
 
-		replicas := make([]uint32, 0, policy.NumberOfReplicas())
-		for i := range vectors {
-			replicas = append(replicas, policy.ReplicaNumberByIndex(i))
+		replicas := make([]uint32, policy.NumberOfReplicas())
+		for i := range replicas {
+			replicas[i] = policy.ReplicaNumberByIndex(i)
 		}
 
-		err = np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)
+		err = np.containerWrp.UpdateContainerPlacement(cID, vectors[:len(replicas)], replicas)
 		if err != nil {
 			blockTimeMs, err := np.netmapClient.Morph().MsPerBlock()
 			if err != nil {
