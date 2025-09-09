@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // Report is a structure of single container load reported by a storage node.
@@ -87,4 +88,88 @@ func (c *Client) NodeReports(epoch uint64, cID cid.ID) ([]Report, error) {
 	}
 
 	return res, nil
+}
+
+// Summary represents summary container report.
+type Summary struct {
+	Size            uint64
+	NumberOfObjects uint64
+}
+
+// FromStackItem implements [stackitem.Convertible].
+func (s *Summary) FromStackItem(item stackitem.Item) error {
+	sumStruct, err := client.ArrayFromStackItem(item)
+	if err != nil {
+		return fmt.Errorf("could not read stack as array: %w", err)
+	}
+	if l := len(sumStruct); l != 2 {
+		return fmt.Errorf("summary struct has unexpected number of elements: %d (%d expected)", l, 2)
+	}
+	size, err := client.IntFromStackItem(sumStruct[0])
+	if err != nil {
+		return fmt.Errorf("could not read container size: %w", err)
+	}
+	if size < 0 {
+		return fmt.Errorf("container size is negative: %d", size)
+	}
+	numberOfObjects, err := client.IntFromStackItem(sumStruct[1])
+	if err != nil {
+		return fmt.Errorf("could not read number of objects: %w", err)
+	}
+	if numberOfObjects < 0 {
+		return fmt.Errorf("number of objects is negative: %d", numberOfObjects)
+	}
+
+	s.Size = uint64(size)
+	s.NumberOfObjects = uint64(numberOfObjects)
+
+	return nil
+}
+
+// GetReportsSummary returns summary report based on preceding [PutReport]
+// calls made by storage nodes.
+func (c *Client) GetReportsSummary(epoch uint64, cID cid.ID) (Summary, error) {
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(fschaincontracts.GetReportsSummaryMethod)
+	prm.SetArgs(epoch, cID[:])
+
+	res, err := c.client.TestInvoke(prm)
+	if err != nil {
+		return Summary{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.GetReportsSummaryMethod, err)
+	}
+	if ln := len(res); ln != 1 {
+		return Summary{}, fmt.Errorf("unexpected stack item count (%s): %d", fschaincontracts.GetReportsSummaryMethod, ln)
+	}
+	var s Summary
+	err = s.FromStackItem(res[0])
+	if err != nil {
+		return Summary{}, fmt.Errorf("reading reports summary from stack: %w", err)
+	}
+
+	return s, nil
+}
+
+// GetTakenSpaceByUser returns a sum of all taken space in every container that
+// belongs to user.
+func (c *Client) GetTakenSpaceByUser(user user.ID) (uint64, error) {
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(fschaincontracts.GetTakenSpaceByUserMethod)
+	prm.SetArgs(user[:])
+
+	res, err := c.client.TestInvoke(prm)
+	if err != nil {
+		return 0, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.GetTakenSpaceByUserMethod, err)
+	}
+	if ln := len(res); ln != 1 {
+		return 0, fmt.Errorf("unexpected stack item count (%s): %d", fschaincontracts.GetTakenSpaceByUserMethod, ln)
+	}
+	size, err := client.IntFromStackItem(res[0])
+	if err != nil {
+		return 0, fmt.Errorf("reading integer result from stack: %w", err)
+	}
+	if size < 0 {
+		return 0, fmt.Errorf("taken space is negative: %d", size)
+	}
+
+	return uint64(size), nil
 }
