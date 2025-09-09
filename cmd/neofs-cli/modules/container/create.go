@@ -69,20 +69,33 @@ It will be stored in FS chain when inner ring will accepts it.`,
 					"use --force option to skip this check: %w", err)
 			}
 
-			nodesByRep, err := nm.ContainerNodes(*placementPolicy, cid.ID{})
+			// TODO: adopt EC rules
+			nodeSets, err := nm.ContainerNodes(*placementPolicy, cid.ID{})
 			if err != nil {
 				return fmt.Errorf("could not build container nodes based on given placement policy, "+
 					"use --force option to skip this check: %w", err)
 			}
 
-			for i, nodes := range nodesByRep {
-				if placementPolicy.ReplicaNumberByIndex(i) > uint32(len(nodes)) {
+			repRuleNum := placementPolicy.NumberOfReplicas()
+			for i := range repRuleNum {
+				if placementPolicy.ReplicaNumberByIndex(i) > uint32(len(nodeSets[i])) {
 					return fmt.Errorf(
 						"the number of nodes '%d' in selector is not enough for the number of replicas '%d', "+
 							"use --force option to skip this check",
-						len(nodes),
+						len(nodeSets[i]),
 						placementPolicy.ReplicaNumberByIndex(i),
 					)
+				}
+			}
+
+			ecRules := placementPolicy.ECRules()
+			for i := range ecRules {
+				pn := ecRules[i].DataPartNum() + ecRules[i].ParityPartNum()
+				nn := uint32(len(nodeSets[repRuleNum+i]))
+				if pn > nn {
+					return fmt.Errorf(
+						"the number of nodes '%d' in selector is not enough for total number of EC parts '%d', "+
+							"use --force option to skip this check", nn, pn)
 				}
 			}
 		}

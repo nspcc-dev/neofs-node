@@ -142,6 +142,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 	}
 
 	policy := ctx.cnr.PlacementPolicy()
+	// TODO: adopt EC rules
 	vectors, err := nm.ContainerNodes(policy, ctx.cID)
 	if err != nil {
 		cp.log.Error("could not build placement for Container contract update", zap.Stringer("cid", ctx.cID), zap.Error(err))

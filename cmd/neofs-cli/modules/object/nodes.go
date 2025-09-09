@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/ec"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
@@ -59,6 +60,7 @@ var objectNodesCmd = &cobra.Command{
 		policy := cnr.PlacementPolicy()
 
 		var cnrNodes [][]netmap.NodeInfo
+		// TODO: adopt EC rules
 		cnrNodes, err = nm.ContainerNodes(policy, cnrID)
 		if err != nil {
 			return fmt.Errorf("could not build container nodes for the given container: %w", err)
@@ -71,10 +73,26 @@ var objectNodesCmd = &cobra.Command{
 
 		short, _ := cmd.Flags().GetBool(shortFlag)
 
-		for i := range placementNodes {
+		// TODO: same code as in cmd/neofs-cli/modules/container/nodes.go:53
+		repRuleNum := policy.NumberOfReplicas()
+		for i := range repRuleNum {
 			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
 			for j := range placementNodes[i] {
 				cmdprinter.PrettyPrintNodeInfo(cmd, placementNodes[i][j], j, "\t", short)
+			}
+		}
+
+		ecRules := policy.ECRules()
+		for i := range ecRules {
+			ni := repRuleNum + i
+			r := ec.Rule{
+				DataPartNum:   ecRules[i].DataPartNum(),
+				ParityPartNum: ecRules[i].ParityPartNum(),
+			}
+
+			cmd.Printf("EC #%d, %s:\n", i+1, r)
+			for j := range placementNodes[ni] {
+				cmdprinter.PrettyPrintNodeInfo(cmd, placementNodes[ni][j], j, "\t", short)
 			}
 		}
 

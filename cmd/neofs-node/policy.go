@@ -246,20 +246,25 @@ func (x *containerPolicyContext) applyToNetmap(epoch uint64, cache *lru.Cache[co
 	policy := x.cnr.PlacementPolicy()
 	result.nodeSets, result.err = x.getNodesFunc(*networkMap, policy, x.id)
 	if result.err == nil {
+		ecRules := policy.ECRules()
 		// ContainerNodes should control following, but still better to double-check
-		if policyNum := policy.NumberOfReplicas(); len(result.nodeSets) != policyNum {
+		if policyNum := policy.NumberOfReplicas(); len(result.nodeSets) != policyNum+len(ecRules) {
 			result.err = fmt.Errorf("invalid result of container's storage policy application to the network map: "+
-				"diff number of storage node sets (%d) and required replica descriptors (%d)",
-				len(result.nodeSets), policyNum)
+				"diff number of storage node sets (%d) and rules (%d)",
+				len(result.nodeSets), policyNum+len(ecRules))
 		} else {
-			result.repCounts = make([]uint, len(result.nodeSets))
-			for i := range result.nodeSets {
+			result.repCounts = make([]uint, policyNum)
+			for i := range policyNum {
 				if result.repCounts[i] = uint(policy.ReplicaNumberByIndex(i)); result.repCounts[i] > uint(len(result.nodeSets[i])) {
 					result.err = fmt.Errorf("invalid result of container's storage policy application to the network map: "+
 						"invalid storage node set #%d: number of nodes (%d) is less than minimum required by the container policy (%d)",
 						i, len(result.nodeSets[i]), result.repCounts[i])
 					break
 				}
+			}
+			if result.err == nil {
+				// TODO: same checks (to separate func)
+				result.ecRules = convertECRules(policy.ECRules())
 			}
 		}
 	}
