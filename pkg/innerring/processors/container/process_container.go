@@ -90,6 +90,10 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		}
 	}
 
+	if !cp.allowEC && len(ctx.cnr.PlacementPolicy().ECRules()) > 0 {
+		return errors.New("EC rules are not supported yet")
+	}
+
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  ctx.cnr.Owner(),
 		verb:            session.VerbContainerPut,
