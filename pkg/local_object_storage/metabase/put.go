@@ -69,7 +69,7 @@ func (db *DB) put(
 	switch {
 	case exists || errors.As(err, &splitInfoError):
 		return nil
-	case errors.Is(err, ErrLackSplitInfo), errors.As(err, &apistatus.ObjectNotFound{}):
+	case errors.As(err, &apistatus.ObjectNotFound{}):
 		// OK, we're putting here.
 	case err != nil:
 		return err // return any other errors
