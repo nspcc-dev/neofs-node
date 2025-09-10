@@ -17,7 +17,7 @@ import (
 func (c *Client) List(idUser *user.ID) ([]cid.ID, error) {
 	// neo-go's stack elements default limit
 	// is 2048, make it less a little
-	const prefetchNumber = 2000
+	const prefetchNumber = 512
 
 	var rawIdUser []byte
 	if idUser != nil {
