@@ -40,8 +40,7 @@ const (
 	neoAddressesFlag                = "neo-addresses"
 	publicKeysFlag                  = "public-keys"
 	walletFlag                      = "wallet"
-	estimationsEpochFlag            = "epoch"
-	estimationsContainerFlag        = "cid"
+	containerIDFlag                 = "cid"
 	mintNeofsAmountFlag             = "amount"
 	mintTxHashFlag                  = "deposit-tx"
 )
@@ -431,16 +430,6 @@ func init() {
 
 	RootCmd.AddCommand(netmapCandidatesCmd)
 	netmapCandidatesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-
-	RootCmd.AddCommand(estimationsCmd)
-	ff := estimationsCmd.Flags()
-	ff.Int64(estimationsEpochFlag, 0, "Epoch for estimations, `0` for current, negative for relative epochs")
-	estimationsCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-	err := cobra.MarkFlagRequired(ff, endpointFlag)
-	if err != nil {
-		panic(fmt.Errorf("failed to mark required %s flag: %w", endpointFlag, err))
-	}
-	ff.String(estimationsContainerFlag, "", "Inspected container, base58 encoded (all estimations will be printed if omitted)")
 
 	cmd := verifiedNodesDomainAccessListCmd
 	fs := cmd.Flags()
