@@ -6,6 +6,8 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math"
+	"sync"
 	"sync/atomic"
 
 	"github.com/google/uuid"
@@ -17,8 +19,10 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	nmevent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -234,8 +238,15 @@ func initObjectService(c *cfg) {
 	mNumber, err := c.shared.basics.cli.MagicNumber()
 	fatalOnErr(err)
 
+	quotas := initQuotas(c.cCli, c.nCli)
+	addNewEpochAsyncNotificationHandler(c, func(e event.Event) {
+		epoch := e.(nmevent.NewEpoch).EpochNumber()
+		quotas.invalidateCache(epoch - 1)
+	})
+
 	os := &objectSource{get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.shared.metaService,
+		quotas,
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
@@ -798,6 +809,131 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 		curEpoch:       curEpoch,
 		containerNodes: c.cfgObject.containerNodes,
 	}, nil
+}
+
+func initQuotas(cnrCli *containerClient.Client, nmCli *netmapClient.Client) *quotas {
+	return &quotas{
+		cnrCli:    cnrCli,
+		netmapCli: nmCli,
+		cnrs:      make(map[cid.ID]cachedQuotaState),
+		users:     make(map[user.ID]cachedQuotaState),
+	}
+}
+
+type cachedQuotaState struct {
+	takenSpace uint64
+	q          containerClient.Quota
+}
+
+type quotas struct {
+	cnrCli    *containerClient.Client
+	netmapCli *netmapClient.Client
+
+	m     sync.RWMutex
+	epoch uint64 // TODO: drop epoch from contract: https://github.com/nspcc-dev/neofs-contract/issues/516
+	cnrs  map[cid.ID]cachedQuotaState
+	users map[user.ID]cachedQuotaState
+}
+
+func (q *quotas) invalidateCache(epoch uint64) {
+	q.m.Lock()
+	defer q.m.Unlock()
+
+	q.epoch = epoch
+	clear(q.cnrs)
+	clear(q.users)
+}
+
+func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64, error) {
+	q.m.RLock()
+	epoch := q.epoch
+	q.m.RUnlock()
+
+	var err error
+	if epoch == 0 {
+		epoch, err = q.netmapCli.Epoch()
+		if err != nil {
+			return 0, 0, fmt.Errorf("get current epoch: %w", err)
+		}
+
+		q.m.Lock()
+		q.epoch = epoch - 1
+		q.m.Unlock()
+	}
+
+	q.m.RLock()
+	cachedCnr, ok := q.cnrs[cID]
+	q.m.RUnlock()
+
+	if !ok {
+		cnrQ, err := q.cnrCli.GetContainerQuota(cID)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get container quota: %w", err)
+		}
+		cnrState, err := q.cnrCli.GetReportsSummary(epoch, cID)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get report summary: %w", err)
+		}
+
+		cachedCnr = cachedQuotaState{
+			takenSpace: cnrState.Size,
+			q:          cnrQ,
+		}
+
+		q.m.Lock()
+		q.cnrs[cID] = cachedCnr
+		q.m.Unlock()
+	}
+
+	q.m.RLock()
+	cachedUsr, ok := q.users[owner]
+	q.m.RUnlock()
+
+	if !ok {
+		userQ, err := q.cnrCli.GetUserQuota(owner)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get user quota: %w", err)
+		}
+		ownerTakenSpace, err := q.cnrCli.GetTakenSpaceByUser(owner)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get total space taken by user summary: %w", err)
+		}
+
+		cachedUsr = cachedQuotaState{
+			takenSpace: ownerTakenSpace,
+			q:          userQ,
+		}
+
+		q.m.Lock()
+		q.users[owner] = cachedUsr
+		q.m.Unlock()
+	}
+
+	softLeft := leftLimit(cachedCnr.q.SoftLimit, cachedCnr.takenSpace, cachedUsr.q.SoftLimit, cachedUsr.takenSpace)
+	hardLeft := leftLimit(cachedCnr.q.HardLimit, cachedCnr.takenSpace, cachedUsr.q.HardLimit, cachedUsr.takenSpace)
+
+	return softLeft, hardLeft, nil
+}
+
+func leftLimit(cnrLimit, cnrTaken, usrLimit, usrTaken uint64) uint64 {
+	var cnrLeft uint64
+	if cnrLimit == 0 {
+		cnrLeft = math.MaxUint64
+	} else {
+		if cnrTaken < cnrLimit {
+			cnrLeft = cnrLimit - cnrTaken
+		}
+	}
+	var usrLeft uint64
+	if usrLimit == 0 {
+		usrLeft = math.MaxUint64
+	} else {
+		if usrTaken < usrLimit {
+			usrLeft = usrLimit - usrTaken
+		}
+	}
+
+	return min(cnrLeft, usrLeft)
 }
 
 // implements [putsvc.ContainerNodes].

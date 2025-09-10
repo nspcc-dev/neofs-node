@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Used payload quotas (#3520)
 
 ### Fixed
 - Send on closed channel panic in node's new epoch handler (#3529)
