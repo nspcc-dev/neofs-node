@@ -51,6 +51,7 @@ const (
 	containerIDFlag                 = "cid"
 	mintNeofsAmountFlag             = "amount"
 	mintTxHashFlag                  = "deposit-tx"
+	quotasSoftLimitFlag             = "soft"
 )
 
 var (
@@ -465,4 +466,25 @@ func init() {
 	verifiedNodesDomainCmd.AddCommand(cmd)
 
 	RootCmd.AddCommand(verifiedNodesDomainCmd)
+
+	ff := quotasContainerCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	ff.String(containerIDFlag, "", "Inspected container, base58 encoded")
+	_ = cmd.MarkFlagRequired(containerIDFlag)
+	ff.StringP(walletFlag, "w", "", "Wallet that signs transaction (must own the container)")
+	ff.StringP(walletAccountFlag, "a", "", "Wallet account address")
+	ff.BoolP(quotasSoftLimitFlag, "s", false, "Set soft quota limit (omit if hard limit is required)")
+	quotasCmd.AddCommand(quotasContainerCmd)
+
+	ff = quotasUserCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	ff.StringP(walletFlag, "w", "", "Wallet that signs transaction (must have user's key)")
+	ff.StringP(walletAccountFlag, "a", "", "Inspected user account, base58 encoded")
+	_ = cmd.MarkFlagRequired(walletAccountFlag)
+	ff.BoolP(quotasSoftLimitFlag, "s", false, "Set soft quota limit (omit if hard limit is required)")
+	quotasCmd.AddCommand(quotasUserCmd)
+
+	RootCmd.AddCommand(quotasCmd)
 }
