@@ -51,12 +51,9 @@ func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.A
 			}
 		}
 
-		ok, err := e.inhumeAddr(addrs[i], force, tombstone, tombExpiration)
+		err := e.inhumeAddr(addrs[i], force, tombstone, tombExpiration)
 		if err != nil {
 			return err
-		}
-		if !ok {
-			return errInhumeFailure
 		}
 	}
 
@@ -90,12 +87,11 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 }
 
 // Returns ok if object was inhumed during this invocation or before.
-func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) (bool, error) {
+func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
 	var (
-		children        []oid.Address
-		err             error
-		root            bool
-		shardWithObject string
+		children []oid.Address
+		err      error
+		root     bool
 	)
 
 	// see if the object is root
@@ -106,9 +102,9 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 				continue
 			}
 
-			if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
+			if shard.IsErrRemoved(err) {
 				// inhumed once - no need to be inhumed again
-				return true, nil
+				return nil
 			}
 
 			var siErr *objectSDK.SplitInfoError
@@ -141,7 +137,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 
 				// nothing can be done here, so just returning ok
 				// to continue handling other addresses
-				return true, nil
+				return nil
 			}
 
 			// v2 split
@@ -156,7 +152,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 
 					// nothing can be done here, so just returning ok
 					// to continue handling other addresses
-					return true, nil
+					return nil
 				}
 
 				children = measuredObjsToAddresses(addr.Container(), link.Objects())
@@ -170,35 +166,27 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 			break
 		}
 
-		if exists {
-			shardWithObject = sh.ID().String()
-			break
+		if !exists {
+			continue
 		}
-	}
-
-	var addrs = append(children, addr)
-
-	if shardWithObject != "" {
-		sh := e.getShard(shardWithObject)
 
 		if tombstone != nil {
-			err = sh.Inhume(*tombstone, tombExpiration, addrs...)
+			err = sh.Inhume(*tombstone, tombExpiration, addr)
 		} else {
-			err = sh.MarkGarbage(force, addrs...)
+			err = sh.MarkGarbage(force, addr)
 		}
 
 		if err != nil {
 			if !errors.Is(err, logicerr.Error) {
 				e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
 			}
-
-			return false, err
 		}
 
-		return true, nil
+		return err
 	}
 
 	var (
+		addrs  = append(children, addr)
 		ok     bool
 		retErr error
 	)
@@ -215,28 +203,32 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 
 			switch {
 			case errors.As(err, &errLocked):
-				return false, apistatus.ObjectLocked{} // Always a final error if returned.
+				return apistatus.ObjectLocked{} // Always a final error if returned.
 			case errors.Is(err, shard.ErrLockObjectRemoval):
-				return false, meta.ErrLockObjectRemoval // Always a final error if returned.
+				return meta.ErrLockObjectRemoval // Always a final error if returned.
 			case errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode):
 				if root {
 					retErr = err
 					continue
 				}
-				return false, err
+				return err
 			}
 
 			e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
 			continue
 		}
 
-		ok = true
 		if !root {
-			break
+			return nil
 		}
+
+		ok = true
 	}
 
-	return ok, retErr
+	if retErr == nil && !ok {
+		retErr = errInhumeFailure
+	}
+	return retErr
 }
 
 // IsLocked checks whether an object is locked according to StorageEngine's state.
