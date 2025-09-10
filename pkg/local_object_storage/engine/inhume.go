@@ -106,7 +106,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 				continue
 			}
 
-			if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
+			if shard.IsErrRemoved(err) {
 				// inhumed once - no need to be inhumed again
 				return true, nil
 			}
