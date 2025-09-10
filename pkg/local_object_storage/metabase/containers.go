@@ -205,14 +205,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			return fmt.Errorf("metadata bucket cleanup: %w", err)
 		}
 
-		cnrGCBkt := tx.Bucket(garbageContainersBucketName)
-		if cnrGCBkt != nil {
-			err = cnrGCBkt.Delete(cIDRaw)
-			if err != nil {
-				return fmt.Errorf("garbage containers cleanup: %w", err)
-			}
-		}
-
 		return nil
 	})
 }

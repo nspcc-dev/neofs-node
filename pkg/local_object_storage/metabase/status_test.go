@@ -99,15 +99,17 @@ func TestDB_ObjectStatus(t *testing.T) {
 	})
 
 	t.Run("container marked as garbage", func(t *testing.T) {
+		obj.SetID(oidtest.OtherID(obj.GetID()))
+		require.NoError(t, db.Put(&obj))
+
+		addr := oid.NewAddress(obj.GetContainerID(), obj.GetID())
+
 		_, err := db.InhumeContainer(obj.GetContainerID())
 		require.NoError(t, err)
 
 		st, err := db.ObjectStatus(addr)
 		require.NoError(t, err)
-		require.Contains(t, st.Buckets, meta.BucketValue{
-			BucketIndex: 17,
-			Value:       []byte{0xFF},
-		})
+		require.ElementsMatch(t, st.State, []string{"AVAILABLE", "GC MARKED"})
 	})
 
 	t.Run("moved", func(t *testing.T) {

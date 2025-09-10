@@ -288,7 +288,6 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 	initCap := min(limit, reasonableLimit)
 
 	var addrBuff oid.Address
-	var cidBuff cid.ID
 	alreadyHandledContainers := make(map[cid.ID]struct{})
 	resObjects := make([]oid.Address, 0, initCap)
 	resContainers := make([]cid.ID, 0)
@@ -299,26 +298,34 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 		// also be deleted as a part of non-existing
 		// container so no need to handle it twice
 
-		bkt := tx.Bucket(garbageContainersBucketName)
-		c := bkt.Cursor()
+		var inhumedCnrs []cid.ID
+		err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+			if name[0] == metadataPrefix && containerMarkedGC(b.Cursor()) {
+				var cnr cid.ID
+				cidRaw, prefix := parseContainerIDWithPrefix(&cnr, name)
+				if cidRaw == nil || prefix != metadataPrefix {
+					return nil
+				}
+				inhumedCnrs = append(inhumedCnrs, cnr)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("scanning inhumed containers: %w", err)
+		}
 
-		for k, _ := c.First(); k != nil; k, _ = c.Next() {
-			err := cidBuff.Decode(k)
+		for _, cnr := range inhumedCnrs {
+			resObjects, err = listContainerObjects(tx, cnr, resObjects, limit)
 			if err != nil {
-				return fmt.Errorf("parsing raw CID: %w", err)
+				return fmt.Errorf("listing objects for %s container: %w", cnr, err)
 			}
 
-			resObjects, err = listContainerObjects(tx, cidBuff, resObjects, limit)
-			if err != nil {
-				return fmt.Errorf("listing objects for %s container: %w", cidBuff, err)
-			}
-
-			alreadyHandledContainers[cidBuff] = struct{}{}
+			alreadyHandledContainers[cnr] = struct{}{}
 
 			if len(resObjects) < limit {
 				// all the objects from the container were listed,
 				// container can be removed
-				resContainers = append(resContainers, cidBuff)
+				resContainers = append(resContainers, cnr)
 			} else {
 				return nil
 			}
@@ -327,8 +334,8 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 		// deleted containers are not enough to reach the limit,
 		// check manually deleted objects then
 
-		bkt = tx.Bucket(garbageObjectsBucketName)
-		c = bkt.Cursor()
+		bkt := tx.Bucket(garbageObjectsBucketName)
+		c := bkt.Cursor()
 
 		for k, _ := c.First(); k != nil; k, _ = c.Next() {
 			err := decodeAddressFromKey(&addrBuff, k)

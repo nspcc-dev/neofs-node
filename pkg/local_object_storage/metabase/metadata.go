@@ -23,6 +23,7 @@ const (
 	metaPrefixAttrIDInt
 	metaPrefixAttrIDPlain
 	metaPrefixIDAttr
+	metaPrefixGC
 )
 
 const (

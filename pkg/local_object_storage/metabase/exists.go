@@ -145,15 +145,18 @@ func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, curr
 // where a single address needs to be checked.
 func inGraveyard(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address) uint8 {
 	var (
-		addrKey              = addressKey(addr, make([]byte, addressKeySize))
-		garbageContainersBkt = tx.Bucket(garbageContainersBucketName)
-		garbageObjectsBkt    = tx.Bucket(garbageObjectsBucketName)
-		graveyardBkt         = tx.Bucket(graveyardBucketName)
+		addrKey           = addressKey(addr, make([]byte, addressKeySize))
+		garbageObjectsBkt = tx.Bucket(garbageObjectsBucketName)
+		graveyardBkt      = tx.Bucket(graveyardBucketName)
 	)
-	return inGraveyardWithKey(metaCursor, addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
+	return inGraveyardWithKey(metaCursor, addrKey, graveyardBkt, garbageObjectsBkt)
 }
 
-func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, garbageObjectsBCK, garbageContainersBCK *bbolt.Bucket) uint8 {
+func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, garbageObjectsBCK *bbolt.Bucket) uint8 {
+	if metaCursor != nil && containerMarkedGC(metaCursor) {
+		return statusGCMarked
+	}
+
 	if associatedWithTypedObject(0, metaCursor, oid.ID(addrKey[cid.Size:]), objectSDK.TypeTombstone) {
 		return statusTombstoned
 	}
@@ -171,11 +174,7 @@ func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, gar
 			return statusAvailable
 		}
 
-		val = garbageContainersBCK.Get(addrKey[:cidSize])
-		if val == nil {
-			val = garbageObjectsBCK.Get(addrKey)
-		}
-
+		val = garbageObjectsBCK.Get(addrKey)
 		if val != nil {
 			// object has been marked with GC
 			return statusGCMarked
