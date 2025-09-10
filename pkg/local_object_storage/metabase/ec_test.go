@@ -74,15 +74,21 @@ func TestDB_ResolveECPart(t *testing.T) {
 
 	expiredObj := partObj // same address as partObj
 	addAttribute(&expiredObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(currentEpoch-1))
+	expiredParentObj := parentObj // same address as parentObj
+	addAttribute(&expiredParentObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(currentEpoch-1))
 
 	locker := newBlankObject(cnr, oidtest.OtherID(partID))
 	locker.AssociateLocked(partID)
 
 	tomb := newBlankObject(cnr, oidtest.OtherID(partID, locker.GetID()))
 	tomb.AssociateDeleted(partID)
+	parentTomb := newBlankObject(cnr, oidtest.OtherID(parentID, locker.GetID()))
+	parentTomb.AssociateDeleted(parentID)
 
 	partAddr := oid.NewAddress(cnr, partID)
 	tombAddr := oid.NewAddress(cnr, tomb.GetID())
+	parentAddr := oid.NewAddress(cnr, parentID)
+	parentTombAddr := oid.NewAddress(cnr, parentTomb.GetID())
 
 	type testcase struct {
 		name      string
@@ -166,6 +172,52 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "expired with container garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
+			require.NoError(t, db.DeleteContainer(cnr))
+		}},
+		{name: "parent tombstone mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
+			_, _, err := db.Inhume(parentTombAddr, 0, false, parentAddr)
+			require.NoError(t, err)
+		}},
+		{name: "stored with parent tombstone mark", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&partObj))
+			_, _, err := db.Inhume(parentTombAddr, 0, false, parentAddr)
+			require.NoError(t, err)
+		}},
+		{name: "parent tombstone only", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&parentTomb))
+		}},
+		{name: "stored with parent tombstone", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&partObj))
+			require.NoError(t, db.Put(&parentTomb))
+		}},
+		{name: "parent garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
+			_, _, err := db.MarkGarbage(false, false, parentAddr)
+			require.NoError(t, err)
+		}},
+		{name: "stored with parent garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&partObj))
+			_, _, err := db.MarkGarbage(false, false, parentAddr)
+			require.NoError(t, err)
+		}},
+		{name: "parent expired", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&expiredParentObj))
+		}},
+		{name: "parent expired with tombstone mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&expiredParentObj))
+			_, _, err := db.Inhume(tombAddr, 0, false, parentAddr)
+			require.NoError(t, err)
+		}},
+		{name: "parent expired with tombstone", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&expiredParentObj))
+			require.NoError(t, db.Put(&parentTomb))
+		}},
+		{name: "parent expired with garbage mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&expiredParentObj))
+			_, _, err := db.MarkGarbage(false, false, parentAddr)
+			require.NoError(t, err)
+		}},
+		{name: "parent expired with container garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
+			require.NoError(t, db.Put(&expiredParentObj))
 			require.NoError(t, db.DeleteContainer(cnr))
 		}},
 	} {

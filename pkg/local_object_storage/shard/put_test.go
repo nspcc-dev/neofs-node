@@ -3,6 +3,7 @@ package shard_test
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -359,4 +360,30 @@ func TestDB_Put_Tombstone(t *testing.T) {
 			require.Equal(t, tomb, *gotTomb)
 		})
 	}
+
+	t.Run("child objects affect", func(t *testing.T) {
+		const gcInterval = 100 * time.Millisecond // pretty big for test, pretty small IRL
+		sh, fst := newShardWithFSTree(t, shard.WithGCRemoverSleepInterval(gcInterval))
+
+		child := obj
+		child.SetParent(&obj)
+		child.SetID(oidtest.OtherID(objID))
+		child.SetPayload([]byte("child payload"))
+		require.NoError(t, sh.Put(&child, nil))
+
+		childAddr := objAddr
+		childAddr.SetObject(child.GetID())
+
+		assertAvailableObject(t, sh, childAddr, child)
+		assertAvailableObjectInFSTree(t, fst, childAddr, child)
+
+		require.NoError(t, sh.Put(&tomb, nil))
+
+		assertMarkedAsGarbage(t, sh, childAddr, child)
+
+		time.Sleep(gcInterval + gcInterval/2) // at least one beat + actual removal
+
+		assertNoObject(t, sh, childAddr)
+		assertNoObjectInFSTree(t, fst, childAddr)
+	})
 }
