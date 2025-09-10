@@ -89,10 +89,9 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 // Returns ok if object was inhumed during this invocation or before.
 func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
 	var (
-		children        []oid.Address
-		err             error
-		root            bool
-		shardWithObject string
+		children []oid.Address
+		err      error
+		root     bool
 	)
 
 	// see if the object is root
@@ -167,21 +166,14 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 			break
 		}
 
-		if exists {
-			shardWithObject = sh.ID().String()
-			break
+		if !exists {
+			continue
 		}
-	}
-
-	var addrs = append(children, addr)
-
-	if shardWithObject != "" {
-		sh := e.getShard(shardWithObject)
 
 		if tombstone != nil {
-			err = sh.Inhume(*tombstone, tombExpiration, addrs...)
+			err = sh.Inhume(*tombstone, tombExpiration, addr)
 		} else {
-			err = sh.MarkGarbage(force, addrs...)
+			err = sh.MarkGarbage(force, addr)
 		}
 
 		if err != nil {
@@ -194,6 +186,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 	}
 
 	var (
+		addrs  = append(children, addr)
 		ok     bool
 		retErr error
 	)
