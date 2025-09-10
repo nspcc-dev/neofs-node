@@ -230,10 +230,11 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 			continue
 		}
 
-		ok = true
 		if !root {
-			break
+			return true, nil
 		}
+
+		ok = true
 	}
 
 	return ok, retErr
