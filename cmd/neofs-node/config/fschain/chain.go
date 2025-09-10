@@ -9,6 +9,8 @@ const (
 	DialTimeoutDefault = time.Minute
 	// CacheTTLDefault is the default value for cached values TTL.
 	CacheTTLDefault = 15 * time.Second
+	// QuotaTTLDefault is the default value for FS chain quotas TTL.
+	QuotaTTLDefault = 10 * time.Minute
 	// ReconnectionRetriesNumberDefault is the default value for reconnection retries.
 	ReconnectionRetriesNumberDefault = 5
 	// ReconnectionRetriesDelayDefault is the default delay b/w reconnections.
@@ -19,6 +21,7 @@ const (
 type Chain struct {
 	DialTimeout         time.Duration `mapstructure:"dial_timeout"`
 	CacheTTL            time.Duration `mapstructure:"cache_ttl"`
+	QuotaCacheTTL       time.Duration `mapstructure:"quota_ttl"`
 	ReconnectionsNumber int           `mapstructure:"reconnections_number"`
 	ReconnectionsDelay  time.Duration `mapstructure:"reconnections_delay"`
 	Endpoints           []string      `mapstructure:"endpoints"`
@@ -33,6 +36,9 @@ func (c *Chain) Normalize() {
 	}
 	if c.CacheTTL == 0 {
 		c.CacheTTL = CacheTTLDefault
+	}
+	if c.QuotaCacheTTL == 0 {
+		c.QuotaCacheTTL = QuotaTTLDefault
 	}
 	if c.ReconnectionsNumber == 0 {
 		c.ReconnectionsNumber = ReconnectionRetriesNumberDefault

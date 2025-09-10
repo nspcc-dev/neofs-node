@@ -17,6 +17,7 @@ func TestFSChainSection(t *testing.T) {
 		require.Empty(t, empty.FSChain.Endpoints)
 		require.Equal(t, fschainconfig.DialTimeoutDefault, empty.FSChain.DialTimeout)
 		require.Equal(t, fschainconfig.CacheTTLDefault, empty.FSChain.CacheTTL)
+		require.Equal(t, fschainconfig.QuotaTTLDefault, empty.FSChain.QuotaCacheTTL)
 		require.Equal(t, 5, empty.FSChain.ReconnectionsNumber)
 		require.Equal(t, 5*time.Second, empty.FSChain.ReconnectionsDelay)
 	})
@@ -28,6 +29,7 @@ func TestFSChainSection(t *testing.T) {
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, rpcs, c.FSChain.Endpoints)
 		require.Equal(t, 30*time.Second, c.FSChain.DialTimeout)
+		require.Equal(t, time.Minute, c.FSChain.QuotaCacheTTL)
 		require.Equal(t, 15*time.Second, c.FSChain.CacheTTL)
 		require.Equal(t, 6, c.FSChain.ReconnectionsNumber)
 		require.Equal(t, 6*time.Second, c.FSChain.ReconnectionsDelay)

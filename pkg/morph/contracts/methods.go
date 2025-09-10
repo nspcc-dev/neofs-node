@@ -8,7 +8,7 @@ const (
 	PutContainerReportMethod      = "putReport"
 	GetReportsSummaryMethod       = "getNodeReportSummary"
 	IterateContainerReportsMethod = "iterateReports"
-	GetTakenSpaceByUserMethod     = "getTakenSpaceByUserMethod"
+	GetTakenSpaceByUserMethod     = "getTakenSpaceByUser"
 	GetContainerQuotaMethod       = "containerQuota"
 	GetUserQuotaMethod            = "userQuota"
 )
