@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - `object.search.pool_size` configuration option for SN (#3583)
+- Used payload quotas (#3520)
 
 ### Fixed
 - Send on closed channel panic in node's new epoch handler (#3529)

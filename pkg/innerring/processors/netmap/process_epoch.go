@@ -53,26 +53,15 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	mapChanged := !slices.EqualFunc(oldMap.Nodes(), networkMap.Nodes(), func(i1 netmap.NodeInfo, i2 netmap.NodeInfo) bool {
 		return bytes.Equal(i1.PublicKey(), i2.PublicKey())
 	})
-	if np.forceContainersListUpdate.Load() {
-		l.Info("forcing Container contract lists update...")
-
-		// fixing missing container lists from 0.45.0 release; for 0.49.0 only,
-		// must be dropped after
-		mapChanged = true
-		np.forceContainersListUpdate.Store(false)
-	}
 
 	if mapChanged {
 		l.Debug("updating placements in Container contract...")
 		err = np.updatePlacementInContract(*networkMap, l)
 		if err != nil {
-			np.forceContainersListUpdate.Store(true)
 			l.Error("can't update placements in Container contract", zap.Error(err))
 		} else {
 			l.Debug("updated placements in Container contract")
 		}
-	} else {
-		l.Debug("network map has not been changed, no need to update placements in Container contract")
 	}
 	np.handleAlphabetSync(governance.NewSyncEvent(ev.TxHash()))
 	np.handleNotaryDeposit(ev)

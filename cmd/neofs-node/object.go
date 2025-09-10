@@ -6,7 +6,10 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -17,6 +20,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
@@ -236,6 +240,7 @@ func initObjectService(c *cfg) {
 
 	os := &objectSource{get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.shared.metaService,
+		initQuotas(c.cCli, c.nCli, c.cfgObject.quotasTTL),
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
@@ -779,6 +784,113 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 		curEpoch:       curEpoch,
 		containerNodes: c.cfgObject.containerNodes,
 	}, nil
+}
+
+func initQuotas(cnrCli *containerClient.Client, nmCli *netmapClient.Client, ttl time.Duration) *quotas {
+	return &quotas{
+		cnrCli:    cnrCli,
+		netmapCli: nmCli,
+		ttl:       ttl,
+		cnrs:      make(map[cid.ID]cachedQuotaState),
+		users:     make(map[user.ID]cachedQuotaState),
+	}
+}
+
+type cachedQuotaState struct {
+	takenSpace uint64
+	q          containerClient.Quota
+}
+
+type quotas struct {
+	cnrCli    *containerClient.Client
+	netmapCli *netmapClient.Client
+
+	m          sync.RWMutex
+	ttl        time.Duration
+	lastUpdate time.Time
+	cnrs       map[cid.ID]cachedQuotaState
+	users      map[user.ID]cachedQuotaState
+}
+
+func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64, error) {
+	q.m.RLock()
+	var (
+		cachedCnr, cnrOk = q.cnrs[cID]
+		cachedUsr, usrOk = q.users[owner]
+		needRefresh      = time.Since(q.lastUpdate) > q.ttl
+	)
+	q.m.RUnlock()
+
+	if !cnrOk || needRefresh {
+		epoch, err := q.netmapCli.Epoch()
+		if err != nil {
+			return 0, 0, fmt.Errorf("get current epoch: %w", err)
+		}
+
+		cnrQ, err := q.cnrCli.GetContainerQuota(cID)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get container quota: %w", err)
+		}
+		cnrState, err := q.cnrCli.GetReportsSummary(epoch, cID)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get report summary: %w", err)
+		}
+
+		cachedCnr = cachedQuotaState{
+			takenSpace: cnrState.Size,
+			q:          cnrQ,
+		}
+
+		q.m.Lock()
+		q.cnrs[cID] = cachedCnr
+		q.m.Unlock()
+	}
+
+	if !usrOk || needRefresh {
+		userQ, err := q.cnrCli.GetUserQuota(owner)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get user quota: %w", err)
+		}
+		ownerTakenSpace, err := q.cnrCli.GetTakenSpaceByUser(owner)
+		if err != nil {
+			return 0, 0, fmt.Errorf("get total space taken by user summary: %w", err)
+		}
+
+		cachedUsr = cachedQuotaState{
+			takenSpace: ownerTakenSpace,
+			q:          userQ,
+		}
+
+		q.m.Lock()
+		q.users[owner] = cachedUsr
+		q.m.Unlock()
+	}
+
+	softLeft := leftLimit(cachedCnr.q.SoftLimit, cachedCnr.takenSpace, cachedUsr.q.SoftLimit, cachedUsr.takenSpace)
+	hardLeft := leftLimit(cachedCnr.q.HardLimit, cachedCnr.takenSpace, cachedUsr.q.HardLimit, cachedUsr.takenSpace)
+
+	return softLeft, hardLeft, nil
+}
+
+func leftLimit(cnrLimit, cnrTaken, usrLimit, usrTaken uint64) uint64 {
+	var cnrLeft uint64
+	if cnrLimit == 0 {
+		cnrLeft = math.MaxUint64
+	} else {
+		if cnrTaken < cnrLimit {
+			cnrLeft = cnrLimit - cnrTaken
+		}
+	}
+	var usrLeft uint64
+	if usrLimit == 0 {
+		usrLeft = math.MaxUint64
+	} else {
+		if usrTaken < usrLimit {
+			usrLeft = usrLimit - usrTaken
+		}
+	}
+
+	return min(cnrLeft, usrLeft)
 }
 
 // implements [putsvc.ContainerNodes].

@@ -62,8 +62,6 @@ type (
 		handleNotaryDeposit event.Handler
 
 		nodeValidator NodeValidator
-
-		forceContainersListUpdate *atomic.Bool
 	}
 
 	// Params of the processor constructor.
@@ -118,14 +116,29 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/netmap: can't create worker pool: %w", err)
 	}
 
-	var (
-		forceContainersListUpdate atomic.Bool
-		migrationLog              = p.Log.With(zap.String("step", "0.49.0 Container contract migration"))
-	)
+	var processor = &Processor{
+		log:           p.Log,
+		pool:          pool,
+		epochTimer:    p.EpochTimer,
+		epochState:    p.EpochState,
+		alphabetState: p.AlphabetState,
+		netmapClient:  p.NetmapClient,
+		containerWrp:  p.ContainerWrapper,
+
+		handleAlphabetSync: p.AlphabetSyncHandler,
+
+		handleNotaryDeposit: p.NotaryDepositHandler,
+
+		nodeValidator: p.NodeValidator,
+	}
+	processor.curMap.Store(curMap)
+
 	{ // 0.49.0 Container contract members fix
 		var (
-			cnrToCheck cid.ID
-			nm         *netmap.NetMap
+			migrationLog              = p.Log.With(zap.String("step", "0.49.0 Container contract migration"))
+			forceContainersListUpdate bool
+			cnrToCheck                cid.ID
+			nm                        *netmap.NetMap
 		)
 		ids, err := p.ContainerWrapper.List(nil)
 		if err != nil {
@@ -166,40 +179,29 @@ func New(p *Params) (*Processor, error) {
 				return nil, fmt.Errorf("0.49.0 Container contract migration: cannot fetch nodes for container %s: %w", cnrToCheck, err)
 			}
 
-			forceContainersListUpdate.Store(true)
+			forceContainersListUpdate = true
 			for _, vector := range vectors {
 				if len(vector) != 0 {
-					forceContainersListUpdate.Store(false)
+					forceContainersListUpdate = false
 					break
 				}
+			}
+
+			if forceContainersListUpdate {
+				migrationLog.Info("forcing Container contract list update")
+
+				err = processor.updatePlacementInContract(*nm, migrationLog)
+				if err != nil {
+					migrationLog.Error("can't update placements in Container contract", zap.Error(err))
+				} else {
+					migrationLog.Debug("updated placements in Container contract")
+				}
+			} else {
+				migrationLog.Info("no need to migrate container lists")
 			}
 		}
 	}
 
-	if forceContainersListUpdate.Load() {
-		p.Log.Info("0.49.0 Container contract migration: at new epoch start there will be forced Container contract list update")
-	} else {
-		p.Log.Info("0.49.0 Container contract migration: no need to migrate container lists")
-	}
-
-	var processor = &Processor{
-		log:           p.Log,
-		pool:          pool,
-		epochTimer:    p.EpochTimer,
-		epochState:    p.EpochState,
-		alphabetState: p.AlphabetState,
-		netmapClient:  p.NetmapClient,
-		containerWrp:  p.ContainerWrapper,
-
-		handleAlphabetSync: p.AlphabetSyncHandler,
-
-		handleNotaryDeposit: p.NotaryDepositHandler,
-
-		nodeValidator: p.NodeValidator,
-
-		forceContainersListUpdate: &forceContainersListUpdate,
-	}
-	processor.curMap.Store(curMap)
 	return processor, nil
 }
 
