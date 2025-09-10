@@ -57,7 +57,7 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	return exists, err
 }
 
-func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists bool, err error) {
+func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, error) {
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
