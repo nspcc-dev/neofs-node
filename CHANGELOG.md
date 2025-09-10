@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)
 - IR's estimations timer management (#3539)
+- `neofs-adm fschain estimations` command (#3572)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.14.0.20250909131532-07fa82695f26` (#3569)
@@ -51,6 +52,7 @@ Changelog for NeoFS Node
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
 Drop IR's `timers.stop_estimation.*` configuration values, they are not used anymore.
+`neofs-adm fschain estimations` was removed.
 
 ## [0.48.3] - 2025-08-14
 
