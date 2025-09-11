@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -15,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/panjf2000/ants/v2"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
 )
 
 var (

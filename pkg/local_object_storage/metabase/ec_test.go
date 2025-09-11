@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -16,7 +17,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 )
 
 func BenchmarkDB_ResolveECPart(b *testing.B) {

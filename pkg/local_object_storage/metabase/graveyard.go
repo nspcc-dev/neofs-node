@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/bbolt"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
 
 // GarbageObject represents descriptor of the

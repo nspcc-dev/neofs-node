@@ -10,6 +10,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/nspcc-dev/bbolt"
+	bolterrors "github.com/nspcc-dev/bbolt/errors"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	metatest "github.com/nspcc-dev/neofs-node/pkg/util/meta/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -24,8 +26,6 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
-	bolterrors "go.etcd.io/bbolt/errors"
 )
 
 func sortObjectIDs(ids []oid.ID) []oid.ID {

@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
 
 // ErrObjectWasNotRemoved is returned when object neither in the graveyard nor was marked with GC mark.

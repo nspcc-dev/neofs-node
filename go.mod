@@ -2,8 +2,6 @@ module github.com/nspcc-dev/neofs-node
 
 go 1.23
 
-replace go.etcd.io/bbolt v1.4.0 => github.com/nspcc-dev/bbolt v0.0.0-20250612101626-5df2544a4a22
-
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cheggaaa/pb v1.0.29
@@ -19,6 +17,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.12.2
 	github.com/mxschmitt/golang-combinations v1.2.0
+	github.com/nspcc-dev/bbolt v0.0.0-20250911202005-807225ebb0c8
 	github.com/nspcc-dev/hrw/v2 v2.0.3
 	github.com/nspcc-dev/locode-db v0.6.0
 	github.com/nspcc-dev/neo-go v0.111.0
@@ -34,7 +33,6 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.10.0
-	go.etcd.io/bbolt v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 	golang.org/x/net v0.35.0
@@ -97,6 +95,7 @@ require (
 	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/urfave/cli/v2 v2.27.6 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
+	go.etcd.io/bbolt v1.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/text v0.22.0 // indirect

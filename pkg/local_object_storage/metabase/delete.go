@@ -3,11 +3,11 @@ package meta
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/bbolt"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 

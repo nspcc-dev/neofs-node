@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"slices"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
 
 // BucketValue pairs a bucket index and a value that relates

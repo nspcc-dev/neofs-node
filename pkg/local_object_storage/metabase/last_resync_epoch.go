@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"go.etcd.io/bbolt"
+	"github.com/nspcc-dev/bbolt"
 )
 
 var lastResyncEpochKey = []byte("last_resync_epoch")

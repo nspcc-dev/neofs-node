@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -16,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap/zaptest"
 )
 

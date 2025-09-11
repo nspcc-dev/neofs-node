@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/nspcc-dev/bbolt"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -17,7 +18,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 

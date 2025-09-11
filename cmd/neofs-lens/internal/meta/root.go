@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/nspcc-dev/bbolt"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
 )
 
 var (

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -13,7 +14,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
 
 // ResolveECPart resolves object that carries EC part produced within cnr for

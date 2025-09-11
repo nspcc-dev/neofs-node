@@ -7,6 +7,7 @@ import (
 	gio "io"
 	"slices"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
@@ -14,7 +15,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
 
 var (

@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 

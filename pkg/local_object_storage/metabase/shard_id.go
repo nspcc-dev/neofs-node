@@ -3,7 +3,7 @@ package meta
 import (
 	"bytes"
 
-	"go.etcd.io/bbolt"
+	"github.com/nspcc-dev/bbolt"
 )
 
 var (

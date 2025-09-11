@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -28,7 +29,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )

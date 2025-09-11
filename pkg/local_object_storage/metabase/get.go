@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/nspcc-dev/bbolt"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -17,7 +18,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
-	"go.etcd.io/bbolt"
 )
 
 // Get returns partial object header data for specified address (as stored in

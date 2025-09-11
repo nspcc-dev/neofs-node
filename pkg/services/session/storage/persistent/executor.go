@@ -4,8 +4,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.etcd.io/bbolt"
 )
 
 // Store saves parameterized private key in the underlying Bolt database.
