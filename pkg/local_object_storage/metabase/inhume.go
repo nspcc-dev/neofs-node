@@ -94,17 +94,11 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				return apistatus.ObjectLocked{}
 			}
 
-			var lockWasChecked bool
-
 			// prevent lock objects to be inhumed
 			// if `Inhume` was called not with the
 			// `WithForceGCMark` option
-			if !force {
-				if isLockObject(tx, cnr, id) {
-					return ErrLockObjectRemoval
-				}
-
-				lockWasChecked = true
+			if !force && isLockObject(tx, cnr, id) {
+				return ErrLockObjectRemoval
 			}
 
 			obj, err := get(tx, addr, false, true, currEpoch)
@@ -171,7 +165,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			if handleLocks {
 				// do not perform lock check if
 				// it was already called
-				if lockWasChecked {
+				if !force {
 					// inhumed object is not of
 					// the LOCK type
 					continue
