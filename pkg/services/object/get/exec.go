@@ -343,7 +343,7 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadClo
 		}()
 		bufSize := uint64(streamChunkSize)
 		if obj != nil {
-			bufSize = min(streamChunkSize, obj.PayloadSize())
+			bufSize = min(streamChunkSize, max(obj.PayloadSize(), 1))
 		}
 		err = copyPayloadStream(exec.prm.objWriter, reader, bufSize)
 	} else {
