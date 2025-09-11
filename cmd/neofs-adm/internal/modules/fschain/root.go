@@ -487,4 +487,12 @@ func init() {
 	quotasCmd.AddCommand(quotasUserCmd)
 
 	RootCmd.AddCommand(quotasCmd)
+
+	ff = nodesCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	ff.String(containerIDFlag, "", "Inspected container, base58 encoded")
+	_ = cmd.MarkFlagRequired(containerIDFlag)
+
+	RootCmd.AddCommand(nodesCmd)
 }
