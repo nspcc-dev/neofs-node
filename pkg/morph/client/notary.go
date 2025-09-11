@@ -558,7 +558,7 @@ func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {
 		return err
 	}
 
-	cosigners, err := c.notaryCosigners(false, alphabetList, false)
+	cosigners, err := c.notaryCosigners(true, alphabetList, false)
 	if err != nil {
 		return err
 	}

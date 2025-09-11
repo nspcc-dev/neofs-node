@@ -10,6 +10,7 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -61,6 +62,8 @@ type (
 		handleNotaryDeposit event.Handler
 
 		nodeValidator NodeValidator
+
+		forceContainersListUpdate *atomic.Bool
 	}
 
 	// Params of the processor constructor.
@@ -115,6 +118,70 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/netmap: can't create worker pool: %w", err)
 	}
 
+	var (
+		forceContainersListUpdate atomic.Bool
+		migrationLog              = p.Log.With(zap.String("step", "0.49.0 Container contract migration"))
+	)
+	{ // 0.49.0 Container contract members fix
+		var (
+			cnrToCheck cid.ID
+			nm         *netmap.NetMap
+		)
+		ids, err := p.ContainerWrapper.List(nil)
+		if err != nil {
+			return nil, fmt.Errorf("0.49.0 Container contract migration: cannot list containers: %w", err)
+		}
+		if len(ids) != 0 {
+			nm, err = p.NetmapClient.NetMap()
+			if err != nil {
+				return nil, fmt.Errorf("0.49.0 Container contract migration: cannot fetch current network map: %w", err)
+			}
+		}
+	cnrsLoop:
+		for _, id := range ids {
+			cnr, err := p.ContainerWrapper.Get(id[:])
+			if err != nil {
+				migrationLog.Warn("cannot fetch container", zap.Stringer("cID", id), zap.Error(err))
+				continue
+			}
+
+			policy := cnr.PlacementPolicy()
+			vectors, err := nm.ContainerNodes(policy, id)
+			if err != nil {
+				migrationLog.Warn("cannot build node placement policy", zap.Stringer("cID", id), zap.Error(err))
+				continue
+			}
+
+			for _, vector := range vectors {
+				if len(vector) != 0 {
+					cnrToCheck = id
+					break cnrsLoop
+				}
+			}
+		}
+
+		if !cnrToCheck.IsZero() {
+			vectors, err := p.ContainerWrapper.Nodes(cnrToCheck)
+			if err != nil {
+				return nil, fmt.Errorf("0.49.0 Container contract migration: cannot fetch nodes for container %s: %w", cnrToCheck, err)
+			}
+
+			forceContainersListUpdate.Store(true)
+			for _, vector := range vectors {
+				if len(vector) != 0 {
+					forceContainersListUpdate.Store(false)
+					break
+				}
+			}
+		}
+	}
+
+	if forceContainersListUpdate.Load() {
+		p.Log.Info("0.49.0 Container contract migration: at new epoch start there will be forced Container contract list update")
+	} else {
+		p.Log.Info("0.49.0 Container contract migration: no need to migrate container lists")
+	}
+
 	var processor = &Processor{
 		log:           p.Log,
 		pool:          pool,
@@ -129,6 +196,8 @@ func New(p *Params) (*Processor, error) {
 		handleNotaryDeposit: p.NotaryDepositHandler,
 
 		nodeValidator: p.NodeValidator,
+
+		forceContainersListUpdate: &forceContainersListUpdate,
 	}
 	processor.curMap.Store(curMap)
 	return processor, nil
