@@ -61,10 +61,6 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 		graveyardBKT := tx.Bucket(graveyardBucketName)
 
 		var (
-			// target bucket of the operation, one of the:
-			//	1. Graveyard if Inhume was called with a Tombstone
-			//	2. Garbage if Inhume was called with a GC mark
-			bkt *bbolt.Bucket
 			// value that will be put in the bucket, one of the:
 			// 1. tombstone address + tomb expiration epoch if Inhume was called
 			//    with a Tombstone
@@ -73,14 +69,13 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 		)
 
 		if tombstone != nil {
-			bkt = graveyardBKT
 			tombKey := addressKey(*tombstone, make([]byte, addressKeySize+8))
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
 			// so graveyard keys must not be addresses of tombstones
-			data := bkt.Get(tombKey)
+			data := graveyardBKT.Get(tombKey)
 			if data != nil {
-				err := bkt.Delete(tombKey)
+				err := graveyardBKT.Delete(tombKey)
 				if err != nil {
 					return fmt.Errorf("could not remove grave with tombstone key: %w", err)
 				}
@@ -88,7 +83,6 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 
 			value = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
 		} else {
-			bkt = garbageObjectsBKT
 			value = zeroValue
 		}
 
@@ -172,10 +166,12 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				if err != nil {
 					return err
 				}
-			}
 
-			// consider checking if target is already in graveyard?
-			err = bkt.Put(targetKey, value)
+				// consider checking if target is already in graveyard?
+				err = graveyardBKT.Put(targetKey, value)
+			} else {
+				err = garbageObjectsBKT.Put(targetKey, value)
+			}
 			if err != nil {
 				return err
 			}
