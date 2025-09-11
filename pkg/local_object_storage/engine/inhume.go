@@ -92,10 +92,11 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 		children []oid.Address
 		err      error
 		root     bool
+		shards   = e.sortedShards(addr)
 	)
 
 	// see if the object is root
-	for _, sh := range e.sortedShards(addr) {
+	for _, sh := range shards {
 		exists, err := sh.Exists(addr, true)
 		if err != nil {
 			if shard.IsErrNotFound(err) {
@@ -192,7 +193,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 	)
 
 	// has not found the object on any shard, so mark it as inhumed on the most probable one
-	for _, sh := range e.sortedShards(addr) {
+	for _, sh := range shards {
 		if tombstone != nil {
 			err = sh.Inhume(*tombstone, tombExpiration, addrs...)
 		} else {
