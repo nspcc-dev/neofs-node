@@ -83,7 +83,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			id := addr.Object()
 			cnr := addr.Container()
 
-			metaBucket := tx.Bucket(metaBucketKey(addr.Container()))
+			metaBucket := tx.Bucket(metaBucketKey(cnr))
 			var metaCursor *bbolt.Cursor
 			if metaBucket != nil {
 				metaCursor = metaBucket.Cursor()
