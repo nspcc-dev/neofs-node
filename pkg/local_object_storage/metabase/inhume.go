@@ -60,13 +60,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
 
-		var (
-			// value that will be put in the bucket, one of the:
-			// 1. tombstone address + tomb expiration epoch if Inhume was called
-			//    with a Tombstone
-			// 2. zeroValue if Inhume was called with a GC mark
-			value []byte
-		)
+		var graveyardValue []byte
 
 		if tombstone != nil {
 			tombKey := addressKey(*tombstone, make([]byte, addressKeySize+8))
@@ -81,9 +75,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				}
 			}
 
-			value = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
-		} else {
-			value = zeroValue
+			graveyardValue = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
 		}
 
 		buf := make([]byte, addressKeySize)
@@ -168,9 +160,9 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				}
 
 				// consider checking if target is already in graveyard?
-				err = graveyardBKT.Put(targetKey, value)
+				err = graveyardBKT.Put(targetKey, graveyardValue)
 			} else {
-				err = garbageObjectsBKT.Put(targetKey, value)
+				err = garbageObjectsBKT.Put(targetKey, zeroValue)
 			}
 			if err != nil {
 				return err
