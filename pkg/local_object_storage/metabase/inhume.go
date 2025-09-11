@@ -89,12 +89,13 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				metaCursor = metaBucket.Cursor()
 			}
 
-			if !force && objectLocked(tx, currEpoch, metaCursor, cnr, id) {
-				return apistatus.ObjectLocked{}
-			}
-
-			if !force && isLockObject(tx, cnr, id) {
-				return ErrLockObjectRemoval
+			if !force {
+				if objectLocked(tx, currEpoch, metaCursor, cnr, id) {
+					return apistatus.ObjectLocked{}
+				}
+				if isLockObject(tx, cnr, id) {
+					return ErrLockObjectRemoval
+				}
 			}
 
 			obj, err := get(tx, addr, false, true, currEpoch)
