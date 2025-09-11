@@ -95,7 +95,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 	)
 
 	// see if the object is root
-	for _, sh := range e.unsortedShards() {
+	for _, sh := range e.sortedShards(addr) {
 		exists, err := sh.Exists(addr, true)
 		if err != nil {
 			if shard.IsErrNotFound(err) {
