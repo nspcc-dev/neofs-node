@@ -159,18 +159,8 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				return err
 			}
 
-			if handleLocks {
-				// do not perform lock check if
-				// it was already called
-				if !force {
-					// inhumed object is not of
-					// the LOCK type
-					continue
-				}
-
-				if isLockObject(tx, cnr, id) {
-					deletedLockObjs = append(deletedLockObjs, addr)
-				}
+			if handleLocks && force && isLockObject(tx, cnr, id) { // if !force object cannot be LOCK, see above
+				deletedLockObjs = append(deletedLockObjs, addr)
 			}
 		}
 
