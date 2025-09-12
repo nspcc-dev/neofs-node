@@ -86,6 +86,7 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 
 		policy := cnr.PlacementPolicy()
 
+		// TODO: adopt EC rules
 		vectors, err := nm.ContainerNodes(policy, cID)
 		if err != nil {
 			l.Error("can't build placement vectors for update in Container contract", zap.Error(err))
