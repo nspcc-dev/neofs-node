@@ -327,7 +327,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		}
 
 		var addr = oid.NewAddress(cnr, id)
-		hdr, err := getCompat(tx, addr, oidKey, false, 0)
+		hdr, err := getCompat(tx, addr, oidKey, false)
 		if err != nil {
 			return 0, nil, fmt.Errorf("header error for %s: %w", addr, err)
 		}
@@ -359,7 +359,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 
 // getCompat is used for migrations only, it retrieves full headers from
 // respective buckets.
-func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, raw bool, currEpoch uint64) (*object.Object, error) {
+func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, raw bool) (*object.Object, error) {
 	key = objectKey(addr.Object(), key)
 	cnr := addr.Container()
 	obj := object.New()
