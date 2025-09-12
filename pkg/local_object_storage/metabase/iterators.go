@@ -9,6 +9,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -105,6 +106,14 @@ func fetchTypeForID(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (obje
 func fillIDTypePrefix(typPrefix []byte) {
 	typPrefix[0] = metaPrefixIDAttr
 	copy(typPrefix[1+objectKeySize:], object.FilterType)
+}
+
+func fillIDAttributePrefix(s []byte, id oid.ID, attr string) int {
+	s[0] = metaPrefixIDAttr
+	copy(s[1:], id[:])
+	copy(s[1+oid.Size:], attr)
+	copy(s[1+oid.Size+len(attr):], objectcore.MetaAttributeDelimiter)
+	return attrIDFixedLen + len(attr)
 }
 
 func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandler) error {

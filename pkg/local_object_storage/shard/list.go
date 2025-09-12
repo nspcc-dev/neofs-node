@@ -72,14 +72,17 @@ func (s *Shard) ListContainers() ([]cid.ID, error) {
 // cursor. Includes regular, tombstone and storage group objects. Does not
 // include inhumed objects. Use cursor value from response for consecutive requests.
 //
+// Optional attrs specifies attributes to include in the result. If object does
+// not have requested attribute, corresponding element in the result is empty.
+//
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (s *Shard) ListWithCursor(count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
+func (s *Shard) ListWithCursor(count int, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
 	if s.GetMode().NoMetabase() {
 		return nil, nil, ErrDegradedMode
 	}
 
-	addrs, cursor, err := s.metaBase.ListWithCursor(count, cursor)
+	addrs, cursor, err := s.metaBase.ListWithCursor(count, cursor, attrs...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get list of objects: %w", err)
 	}

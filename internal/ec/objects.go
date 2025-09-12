@@ -1,7 +1,9 @@
 package ec
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -72,4 +74,51 @@ func FormObjectForECPart(signer neofscrypto.Signer, parent object.Object, part [
 	}
 
 	return obj, nil
+}
+
+// DecodePartInfoFromAttributes decodes EC part info from given object
+// attributes. It one of attributes is set, the other must be set too. If both
+// are missing, DecodePartInfoFromAttributes returns [PartInfo.RuleIndex] = -1
+// without error.
+func DecodePartInfoFromAttributes(ruleIdxAttr, partIdxAttr string) (PartInfo, error) {
+	// TODO: sync with object GET server
+	// TODO: sync with GetPartInfo, it does not check for numeric limits.
+	if ruleIdxAttr == "" {
+		if partIdxAttr != "" {
+			return PartInfo{}, errors.New("part index is set, rule index is not")
+		}
+		return PartInfo{RuleIndex: -1}, nil
+	}
+	if partIdxAttr == "" {
+		return PartInfo{}, errors.New("rule index is set, part index is not")
+	}
+
+	ruleIdx, err := decodeUint8StringToInt(ruleIdxAttr)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return PartInfo{}, errors.New("rule index out of range")
+		}
+		return PartInfo{}, fmt.Errorf("decode rule index: %w", err)
+	}
+	partIdx, err := decodeUint8StringToInt(partIdxAttr)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return PartInfo{}, errors.New("part index out of range")
+		}
+		return PartInfo{}, fmt.Errorf("decode part index: %w", err)
+	}
+
+	return PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     partIdx,
+	}, nil
+}
+
+// returns [strconv.ErrRange] if value >= 256.
+func decodeUint8StringToInt(s string) (int, error) {
+	n, err := strconv.ParseUint(s, 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }

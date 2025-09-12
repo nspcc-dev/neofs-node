@@ -204,7 +204,7 @@ func initObjectService(c *cfg) {
 		policer.WithMaxCapacity(c.appCfg.Policer.MaxWorkers),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
-		policer.WithNetwork(noEC{c}),
+		policer.WithNetwork(c),
 		policer.WithReplicationCooldown(c.appCfg.Policer.ReplicationCooldown),
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 	)
@@ -695,32 +695,13 @@ func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters objectS
 // IsLocalNodePublicKey implements [getsvc.NeoFSNetwork].
 func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
 
-// temporary wrapper until [getsvc.NeoFSNetwork] and [policer.Network]
-// interfaces converge.
-type noEC struct {
-	*cfg
-}
-
-// GetNodesForObject reads storage policy of the referenced container from the
-// underlying container storage, reads network map at the specified epoch from
-// the underlying storage, applies the storage policy to it and returns sorted
-// lists of selected storage nodes along with the policy rules.
-//
-// Resulting slices must not be changed.
-//
-// GetNodesForObject implements [policer.Network].
-func (x noEC) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, error) {
-	nodeLists, repRules, _, err := x.cfg.GetNodesForObject(addr)
-	return nodeLists[:len(repRules)], repRules, err
-}
-
 // GetNodesForObject reads storage policy of the referenced container from the
 // underlying container storage, reads network map at the specified epoch from
 // the underlying storage, applies the storage policy to it and returns sorted
 // lists of selected storage nodes along with the per-list numbers of primary
 // object holders. Resulting slices must not be changed.
 //
-// GetNodesForObject implements [getsvc.NeoFSNetwork].
+// GetNodesForObject implements [getsvc.NeoFSNetwork], [policer.Network].
 func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) {
 	nodeSets, repRules, ecRules, err := c.cfgObject.containerNodes.getNodesForObject(addr)
 	return nodeSets, repRules, ecRules, err

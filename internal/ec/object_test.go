@@ -172,3 +172,54 @@ func TestFormObjectForECPart(t *testing.T) {
 		require.Equal(t, checksum.NewTillichZemor(tz.Sum(part)), phh)
 	})
 }
+
+func TestDecodePartInfoFromAttributes(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
+		pi, err := iec.DecodePartInfoFromAttributes("", "")
+		require.NoError(t, err)
+		require.EqualValues(t, -1, pi.RuleIndex)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		for _, tc := range []struct {
+			name      string
+			ruleIdx   string
+			partIdx   string
+			assertErr func(t *testing.T, err error)
+		}{
+			{name: "non-int rule index", ruleIdx: "not_an_int", partIdx: "34", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, `decode rule index: strconv.ParseUint: parsing "not_an_int": invalid syntax`)
+			}},
+			{name: "negative rule index", ruleIdx: "-12", partIdx: "34", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, `decode rule index: strconv.ParseUint: parsing "-12": invalid syntax`)
+			}},
+			{name: "rule index overflow", ruleIdx: "256", partIdx: "34", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, "rule index out of range")
+			}},
+			{name: "non-int part index", ruleIdx: "12", partIdx: "not_an_int", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, `decode part index: strconv.ParseUint: parsing "not_an_int": invalid syntax`)
+			}},
+			{name: "negative part index", ruleIdx: "12", partIdx: "-34", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, `decode part index: strconv.ParseUint: parsing "-34": invalid syntax`)
+			}},
+			{name: "part index overflow", ruleIdx: "12", partIdx: "256", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, "part index out of range")
+			}},
+			{name: "rule index without part index", ruleIdx: "12", partIdx: "", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, "rule index is set, part index is not")
+			}},
+			{name: "part index without rule index", ruleIdx: "", partIdx: "34", assertErr: func(t *testing.T, err error) {
+				require.EqualError(t, err, "part index is set, rule index is not")
+			}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := iec.DecodePartInfoFromAttributes(tc.ruleIdx, tc.partIdx)
+				tc.assertErr(t, err)
+			})
+		}
+	})
+
+	pi, err := iec.DecodePartInfoFromAttributes("12", "34")
+	require.NoError(t, err)
+	require.Equal(t, iec.PartInfo{RuleIndex: 12, Index: 34}, pi)
+}

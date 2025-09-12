@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
@@ -29,7 +30,7 @@ type replicatorIface interface {
 
 // interface of [engine.StorageEngine] used by [Policer] for overriding in tests.
 type localStorage interface {
-	ListWithCursor(uint32, *engine.Cursor) ([]objectcore.AddressWithType, *engine.Cursor, error)
+	ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
 	Delete(oid.Address) error
 }
 
@@ -82,17 +83,27 @@ type Network interface {
 	IsLocalNodeInNetmap() bool
 	// GetNodesForObject returns descriptors of storage nodes matching storage
 	// policy of the referenced object for now. Nodes are identified by their public
-	// keys and can be repeated in different lists. The second value specifies the
-	// number (N) of primary object holders for each list (L) so:
+	// keys and can be repeated in different lists. First len(repRules) lists relate
+	// to replication, the rest len(ecRules) - to EC.
+	//
+	// repRules specifies replication rules: the number (N) of primary object
+	// holders for each list (L) so:
 	//  - size of each L >= N;
 	//  - first N nodes of each L are primary data holders while others (if any)
 	//    are backup.
 	//
-	// GetContainerNodes callers do not change resulting slices and their elements.
+	// ecRules specifies erasure coding rules for all objects in the container: each
+	// object is split into [iec.Rule.DataPartNum] data and [iec.Rule.ParityPartNum]
+	// parity parts. Each i-th part most expected to be located on SN described by
+	// i-th list element. In general, list len is a multiple of CBF, and the part is
+	// expected on N with index M*i, M in [0,CBF). Then part is expected on SN
+	// for i+1-th part and so on.
+	//
+	// GetNodesForObject callers do not change resulting slices and their elements.
 	//
 	// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
 	// the network.
-	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	GetNodesForObject(oid.Address) (nodeLists [][]netmapsdk.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node running [Policer].
 	IsLocalNodePublicKey([]byte) bool
@@ -148,6 +159,13 @@ func New(opts ...Option) *Policer {
 			objs: make(map[oid.Address]struct{}, c.maxCapacity),
 		},
 	}
+}
+
+func (p *Policer) getHeadTimeout() time.Duration {
+	p.cfg.mtx.RLock()
+	headTimeout := p.headTimeout
+	p.cfg.mtx.RUnlock()
+	return headTimeout
 }
 
 // WithHeadTimeout returns option to set Head timeout of Policer.

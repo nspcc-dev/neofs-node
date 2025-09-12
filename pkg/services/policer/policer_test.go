@@ -8,10 +8,12 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -324,12 +326,12 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 	objAddr := oid.NewAddress(cnr, objID)
 
 	localNode := newTestLocalNode()
-	localNode.objList = []objectcore.AddressWithType{
-		{Address: objAddr, Type: object.TypeRegular},
+	localNode.objList = []objectcore.AddressWithAttributes{
+		{Address: objAddr, Type: object.TypeRegular, Attributes: make([]string, 2)},
 	}
 
 	mockNet := newMockNetwork()
-	mockNet.setObjectNodesResult(cnr, objID, slices.Clone(nodes), rep)
+	mockNet.setObjectNodesRepResult(cnr, objID, slices.Clone(nodes), rep)
 	if localIdx >= 0 {
 		mockNet.pubKey = nodes[localIdx].PublicKey()
 		mockNet.inNetmap = true
@@ -395,10 +397,370 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 	}
 }
 
+func TestPolicer_Run_EC(t *testing.T) {
+	const defaultCBF = 3
+	cnr := cidtest.ID()
+	partOID := oidtest.ID()
+	rule := iec.Rule{
+		DataPartNum:   6,
+		ParityPartNum: 3,
+	}
+	localObj := objectcore.AddressWithAttributes{
+		Address:    oid.NewAddress(cnr, partOID),
+		Type:       object.TypeRegular,
+		Attributes: []string{"0", "5"},
+	}
+
+	nodes := testutil.Nodes(int(rule.DataPartNum+rule.ParityPartNum) * defaultCBF)
+	allOK := islices.RepeatElement(len(nodes), error(nil))
+	all404 := islices.RepeatElement(len(nodes), error(apistatus.ErrObjectNotFound))
+	optimalOrder := []int{
+		5, 14, 23,
+		6, 15, 24,
+		7, 16, 25,
+		8, 17, 26,
+		0, 9, 18,
+		1, 10, 19,
+		2, 11, 20,
+		3, 12, 21,
+		4, 13, 22,
+	}
+
+	t.Run("invalid EC attributes in local object", func(t *testing.T) {
+		localObj := localObj
+
+		for _, tc := range []struct {
+			name    string
+			ruleIdx string
+			partIdx string
+			err     string
+		}{
+			{name: "non-int rule index", ruleIdx: "not_an_int", partIdx: "34",
+				err: `decode rule index: strconv.ParseUint: parsing "not_an_int": invalid syntax`},
+			{name: "negative rule index", ruleIdx: "-12", partIdx: "34",
+				err: `decode rule index: strconv.ParseUint: parsing "-12": invalid syntax`},
+			{name: "rule index overflow", ruleIdx: "256", partIdx: "34",
+				err: "rule index out of range"},
+			{name: "non-int part index", ruleIdx: "12", partIdx: "not_an_int",
+				err: `decode part index: strconv.ParseUint: parsing "not_an_int": invalid syntax`},
+			{name: "negative part index", ruleIdx: "12", partIdx: "-34",
+				err: `decode part index: strconv.ParseUint: parsing "-34": invalid syntax`},
+			{name: "part index overflow", ruleIdx: "12", partIdx: "256",
+				err: "part index out of range"},
+			{name: "rule index without part index", ruleIdx: "12", partIdx: "",
+				err: "rule index is set, part index is not"},
+			{name: "part index without rule index", ruleIdx: "", partIdx: "34",
+				err: "part index is set, rule index is not"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx}
+
+				logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, false, nil, false)
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.ErrorLevel, Message: "failed to decode EC part info from attributes, skip object",
+					Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "error": tc.err},
+				})
+			})
+		}
+	})
+
+	t.Run("EC part in non-EC container", func(t *testing.T) {
+		mockNet := newMockNetwork()
+		mockNet.setObjectNodesRepResult(localObj.Address.Container(), localObj.Address.Object(), nodes, 3)
+
+		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, false, nil, false)
+		logBuf.AssertContains(testutil.LogEntry{
+			Level: zap.InfoLevel, Message: "object with EC attributes in container without EC rules detected, process according to REP rules",
+			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(),
+				"ruleIdx": json.Number(localObj.Attributes[0]), "partIdx": json.Number(localObj.Attributes[1])},
+		})
+	})
+
+	t.Run("part violates EC policy", func(t *testing.T) {
+		t.Run("no EC attributes", func(t *testing.T) {
+			localObj := localObj
+			localObj.Attributes = []string{"", ""}
+
+			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil, false)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.InfoLevel, Message: "object with lacking EC attributes detected, deleting",
+				Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String()},
+			})
+		})
+		t.Run("too big rule index", func(t *testing.T) {
+			localObj := localObj
+			localObj.Attributes = slices.Clone(localObj.Attributes)
+			localObj.Attributes[0] = "1"
+
+			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil, false)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.WarnLevel, Message: "local object with invalid EC rule index detected, deleting",
+				Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(),
+					"ruleIdx": json.Number("1"), "totalRules": json.Number("1")},
+			})
+		})
+		t.Run("too big part index", func(t *testing.T) {
+			rule := iec.Rule{DataPartNum: 17, ParityPartNum: 4}
+			localObj := localObj
+			localObj.Attributes = slices.Clone(localObj.Attributes)
+			localObj.Attributes[1] = "21"
+
+			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil, false)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.WarnLevel, Message: "local object with invalid EC part index detected, deleting",
+				Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "rule": "17/4",
+					"partIdx": json.Number("21")},
+			})
+		})
+	})
+
+	t.Run("local node is optimal", func(t *testing.T) {
+		logBuf := testECCheck(t, rule, localObj, nodes, 5, all404, false, nil, false)
+		logBuf.AssertContains(testutil.LogEntry{
+			Level: zap.DebugLevel, Message: "local node is optimal for EC part, hold",
+			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+				"rule": "6/3", "partIdx": json.Number("5")},
+		})
+	})
+
+	t.Run("found on more optimal node", func(t *testing.T) {
+		errs := slices.Clone(all404)
+		errs[5] = nil
+
+		logBuf := testECCheck(t, rule, localObj, nodes, 6, errs, true, nil, false)
+		logBuf.AssertContains(testutil.LogEntry{
+			Level: zap.InfoLevel, Message: "EC part header successfully received from more optimal node, drop",
+			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+				"rule": "6/3", "partIdx": json.Number("5"), "node": []any{"localhost:10010", "localhost:10011"}},
+		})
+	})
+
+	t.Run("not found on more optimal node", func(t *testing.T) {
+		candidates := islices.CollectIndex(nodes, optimalOrder[:len(optimalOrder)-1]...)
+
+		t.Run("move failure", func(t *testing.T) {
+			logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], all404, false, candidates, false)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
+				Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+					"rule": "6/3", "partIdx": json.Number("5"), "candidateNum": json.Number("26")},
+			})
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.InfoLevel, Message: "failed to move EC part to more optimal node, hold",
+				Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+					"rule": "6/3", "partIdx": json.Number("5"), "candidateNum": json.Number("26")},
+			})
+		})
+
+		logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], all404, true, candidates, true)
+		logBuf.AssertContains(testutil.LogEntry{
+			Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
+			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(), "rule": "6/3",
+				"partIdx": json.Number("5"), "candidateNum": json.Number("26")},
+		})
+		logBuf.AssertContains(testutil.LogEntry{
+			Level: zap.InfoLevel, Message: "EC part successfully moved to more optimal node, drop",
+			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(), "rule": "6/3",
+				"partIdx": json.Number("5"), "newHolder": []any{"localhost:10010", "localhost:10011"}},
+		})
+	})
+
+	t.Run("maintenance", func(t *testing.T) {
+		errs := slices.Clone(all404)
+		errs[optimalOrder[len(optimalOrder)-3]] = apistatus.ErrNodeUnderMaintenance
+
+		t.Run("moved", func(t *testing.T) {
+			errs := slices.Clone(errs)
+			errs[optimalOrder[len(optimalOrder)-2]] = nil
+
+			logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], errs, true, nil, false)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.InfoLevel, Message: "failed to receive EC part header from more optimal node due to its maintenance, continue",
+				Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+					"rule": "6/3", "partIdx": json.Number("5"), "node": []any{"localhost:10008", "localhost:10009"}},
+			})
+		})
+
+		logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], errs, false, nil, false)
+		logBuf.AssertContains(testutil.LogEntry{
+			Level: zap.InfoLevel, Message: "failed to receive EC part header from more optimal node due to its maintenance, continue",
+			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+				"rule": "6/3", "partIdx": json.Number("5"), "node": []any{"localhost:10008", "localhost:10009"}},
+		})
+	})
+
+	t.Run("various errors", func(t *testing.T) {
+		otherErrs := []error{
+			errors.New("some error"),
+			apistatus.ErrServerInternal,
+			apistatus.ErrWrongMagicNumber,
+			apistatus.ErrSignatureVerification,
+			apistatus.ErrObjectAccessDenied,
+			apistatus.ErrObjectAlreadyRemoved,
+			apistatus.ErrContainerNotFound,
+			apistatus.ErrSessionTokenExpired,
+		}
+
+		errs := slices.Clone(all404)
+		for i := range otherErrs {
+			errs[optimalOrder[i]] = otherErrs[i]
+		}
+
+		checkErrsLog := func(logBuf *testutil.LogBuffer) {
+			for i := range otherErrs {
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.InfoLevel, Message: "failed to receive EC part header from more optimal node, exclude",
+					Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(), "rule": "6/3",
+						"partIdx": json.Number("5"), "error": otherErrs[i].Error()},
+				})
+			}
+		}
+
+		holderField := []any{"localhost:10050", "localhost:10051"}
+
+		testWithInContainer := func(t *testing.T, inCnr bool) {
+			candidates := islices.CollectIndex(nodes, optimalOrder[len(otherErrs):]...)
+			localIdx := -1
+			candidateNum := len(nodes) - len(otherErrs)
+			if inCnr {
+				localIdx = optimalOrder[len(optimalOrder)-1]
+				candidates = candidates[:len(candidates)-1]
+				candidateNum--
+			}
+
+			candidateNumField := json.Number(strconv.Itoa(candidateNum))
+
+			t.Run("drop", func(t *testing.T) {
+				errs := slices.Clone(errs)
+				errs[optimalOrder[len(otherErrs)]] = nil
+
+				logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, true, nil, false)
+				checkErrsLog(logBuf)
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.InfoLevel, Message: "EC part header successfully received from more optimal node, drop",
+					Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+						"rule": "6/3", "partIdx": json.Number("5"), "node": holderField},
+				})
+			})
+
+			t.Run("move failure", func(t *testing.T) {
+				logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, false, candidates, false)
+				checkErrsLog(logBuf)
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
+					Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+						"rule": "6/3", "partIdx": json.Number("5"), "candidateNum": candidateNumField},
+				})
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.InfoLevel, Message: "failed to move EC part to more optimal node, hold",
+					Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+						"rule": "6/3", "partIdx": json.Number("5"), "candidateNum": candidateNumField},
+				})
+			})
+
+			logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, true, candidates, true)
+			checkErrsLog(logBuf)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
+				Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+					"rule": "6/3", "partIdx": json.Number("5"), "candidateNum": candidateNumField},
+			})
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.InfoLevel, Message: "EC part successfully moved to more optimal node, drop",
+				Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
+					"rule": "6/3", "partIdx": json.Number("5"), "newHolder": holderField},
+			})
+		}
+
+		t.Run("in container", func(t *testing.T) {
+			testWithInContainer(t, true)
+		})
+		t.Run("out container", func(t *testing.T) {
+			testWithInContainer(t, false)
+		})
+	})
+}
+
+func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool) *testutil.LogBuffer {
+	mockNet := newMockNetwork()
+	mockNet.setObjectNodesECResult(localObj.Address.Container(), localObj.Address.Object(), slices.Clone(nodes), rule)
+	if localIdx >= 0 {
+		mockNet.pubKey = nodes[localIdx].PublicKey()
+	}
+
+	return testECCheckWithNetwork(t, mockNet, localObj, nodes, localIdx, headErrs, expRedundant, expCandidates, repSuccess)
+}
+
+func testECCheckWithNetwork(t *testing.T, mockNet *mockNetwork, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo,
+	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool) *testutil.LogBuffer {
+	require.Equal(t, len(nodes), len(headErrs))
+
+	wp, err := ants.NewPool(100)
+	require.NoError(t, err)
+
+	localNode := newTestLocalNode()
+	localNode.objList = []objectcore.AddressWithAttributes{localObj}
+
+	r := newTestReplicator(t)
+	r.success = repSuccess
+
+	conns := newMockAPIConnections()
+	for i := range nodes {
+		if i != localIdx {
+			conns.setHeadResult(nodes[i], localObj.Address, headErrs[i])
+		}
+	}
+
+	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+	p := New(
+		WithPool(wp),
+		WithReplicationCooldown(time.Hour), // any huge time to cancel process repeat
+		WithNodeLoader(nopNodeLoader{}),
+		WithNetwork(mockNet),
+		WithLogger(l),
+	)
+	p.localStorage = localNode
+	p.apiConns = conns
+	p.replicator = r
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go p.Run(ctx)
+
+	repTaskSubmitted := func() bool {
+		select {
+		case <-r.gotTaskCh:
+			return true
+		default:
+			return false
+		}
+	}
+	if len(expCandidates) > 0 {
+		require.Eventually(t, repTaskSubmitted, 3*time.Second, 30*time.Millisecond)
+
+		var exp replicator.Task
+		exp.SetObjectAddress(localObj.Address)
+		exp.SetCopiesNumber(1)
+		exp.SetNodes(expCandidates)
+		require.Equal(t, exp, r.task)
+	} else {
+		require.Never(t, repTaskSubmitted, 3*time.Second, 30*time.Millisecond)
+	}
+
+	if expRedundant {
+		require.Equal(t, []oid.Address{localObj.Address}, localNode.deletedObjects())
+	} else {
+		require.Empty(t, localNode.deletedObjects())
+	}
+
+	return lb
+}
+
 type testReplicator struct {
 	t         *testing.T
 	task      replicator.Task
 	gotTaskCh chan struct{}
+	success   bool
 }
 
 func newTestReplicator(t *testing.T) *testReplicator {
@@ -412,12 +774,18 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 	require.NotNil(x.t, ctx)
 	require.NotNil(x.t, r)
 
+	nodes := task.Nodes()
+	require.NotEmpty(x.t, nodes)
+	if x.success {
+		r.SubmitSuccessfulReplication(nodes[0])
+	}
+
 	x.task = task
 	close(x.gotTaskCh)
 }
 
 type testLocalNode struct {
-	objList []objectcore.AddressWithType
+	objList []objectcore.AddressWithAttributes
 
 	delMtx sync.RWMutex
 	del    map[oid.Address]struct{}
@@ -451,7 +819,7 @@ func (x *mockNetwork) IsLocalNodeInNetmap() bool {
 	return x.inNetmap
 }
 
-func (x *testLocalNode) ListWithCursor(uint32, *engine.Cursor) ([]objectcore.AddressWithType, *engine.Cursor, error) {
+func (x *testLocalNode) ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
 	return x.objList, nil, nil
 }
 
@@ -475,8 +843,9 @@ type getNodesKey struct {
 }
 
 type getNodesValue struct {
-	nodes []netmap.NodeInfo
-	rep   uint
+	nodes    []netmap.NodeInfo
+	repRules []uint
+	ecRules  []iec.Rule
 }
 
 func newGetNodesKey(cnr cid.ID, obj oid.ID) getNodesKey {
@@ -486,20 +855,27 @@ func newGetNodesKey(cnr cid.ID, obj oid.ID) getNodesKey {
 	}
 }
 
-func (x *mockNetwork) setObjectNodesResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rep uint) {
+func (x *mockNetwork) setObjectNodesRepResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rep uint) {
 	x.getNodes[newGetNodesKey(cnr, obj)] = getNodesValue{
-		nodes: nodes,
-		rep:   rep,
+		nodes:    nodes,
+		repRules: []uint{rep},
 	}
 }
 
-func (x *mockNetwork) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, error) {
+func (x *mockNetwork) setObjectNodesECResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rule iec.Rule) {
+	x.getNodes[newGetNodesKey(cnr, obj)] = getNodesValue{
+		nodes:   nodes,
+		ecRules: []iec.Rule{rule},
+	}
+}
+
+func (x *mockNetwork) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	v, ok := x.getNodes[newGetNodesKey(addr.Container(), addr.Object())]
 	if !ok {
-		return nil, nil, errors.New("[test] unexpected policy requested")
+		return nil, nil, nil, errors.New("[test] unexpected policy requested")
 	}
 
-	return [][]netmap.NodeInfo{v.nodes}, []uint{v.rep}, nil
+	return [][]netmap.NodeInfo{v.nodes}, v.repRules, v.ecRules, nil
 }
 
 type nopNodeLoader struct{}

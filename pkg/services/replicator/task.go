@@ -36,3 +36,8 @@ func (t *Task) SetObject(obj *objectSDK.Object) {
 func (t *Task) SetNodes(v []netmap.NodeInfo) {
 	t.nodes = v
 }
+
+// Nodes returns a list of potential object holders.
+func (t Task) Nodes() []netmap.NodeInfo {
+	return t.nodes
+}

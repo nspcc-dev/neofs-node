@@ -1,12 +1,17 @@
 package shard_test
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,5 +68,77 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 		require.Equal(t, 0, i)
 
 		objs[objID] = 1
+	}
+}
+
+func TestShard_ListWithCursor(t *testing.T) {
+	t.Run("attributes", func(t *testing.T) {
+		const containerNum = 10
+		const objectsPerContainer = 10
+		const totalObjects = containerNum * objectsPerContainer
+		const staticAttr, staticVal = "attr_static", "val_static"
+		const commonAttr = "attr_common"
+		const groupAttr = "attr_group"
+
+		s := newShard(t, true)
+
+		var exp []object.AddressWithAttributes
+		for i := range containerNum {
+			cnr := cidtest.ID()
+			for j := range objectsPerContainer {
+				commonVal := strconv.Itoa(i*objectsPerContainer + j)
+				owner := usertest.ID()
+
+				obj := generateObjectWithCID(cnr)
+				obj.SetOwner(owner)
+				obj.SetType(objectSDK.TypeRegular)
+				obj.SetAttributes(
+					objectSDK.NewAttribute(staticAttr, staticVal),
+					objectSDK.NewAttribute(commonAttr, commonVal),
+				)
+
+				var groupVal string
+				if j == 0 {
+					groupVal = strconv.Itoa(i)
+					addAttribute(obj, groupAttr, groupVal)
+				}
+
+				require.NoError(t, s.Put(obj, nil))
+
+				exp = append(exp, object.AddressWithAttributes{
+					Address:    object.AddressOf(obj),
+					Type:       objectSDK.TypeRegular,
+					Attributes: []string{staticVal, commonVal, groupVal, string(owner[:])},
+				})
+			}
+		}
+
+		for _, count := range []int{
+			1,
+			totalObjects / 10,
+			totalObjects / 2,
+			totalObjects - 1,
+			totalObjects,
+			totalObjects + 1,
+		} {
+			t.Run(fmt.Sprintf("total=%d,count=%d", totalObjects, count), func(t *testing.T) {
+				collected := collectListWithCursor(t, s, count, staticAttr, commonAttr, groupAttr, "$Object:ownerID")
+				require.ElementsMatch(t, exp, collected)
+			})
+		}
+	})
+}
+
+func collectListWithCursor(t *testing.T, s *shard.Shard, count int, attrs ...string) []object.AddressWithAttributes {
+	var next, collected []object.AddressWithAttributes
+	var crs *shard.Cursor
+	var err error
+	for {
+		next, crs, err = s.ListWithCursor(count, crs, attrs...)
+		collected = append(collected, next...)
+		if errors.Is(err, shard.ErrEndOfListing) {
+			return collected
+		}
+		require.NoError(t, err)
 	}
 }
