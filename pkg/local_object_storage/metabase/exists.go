@@ -186,8 +186,9 @@ func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, gar
 	return statusTombstoned
 }
 
-// getSplitInfo returns SplitInfo structure from root index. Returns error
-// if there is no `key` record in root index.
+// getSplitInfo checks whether referenced object is a parent of some stored
+// objects. If not, getSplitInfo returns (nil, nil). If object is split,
+// getSplitInfo returns [objectSDK.SplitInfo] collected from parts.
 func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) (*objectSDK.SplitInfo, error) {
 	var (
 		splitInfo    *objectSDK.SplitInfo
