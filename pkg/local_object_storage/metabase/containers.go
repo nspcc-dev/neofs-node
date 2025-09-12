@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/bbolt"
+	bolterrors "github.com/nspcc-dev/bbolt/errors"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"go.etcd.io/bbolt"
-	bolterrors "go.etcd.io/bbolt/errors"
 )
 
 const (

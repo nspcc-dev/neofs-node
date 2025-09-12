@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/bbolt"
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
@@ -20,7 +21,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 

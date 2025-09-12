@@ -3,8 +3,8 @@ package meta
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/bbolt"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
 
 // ToMoveIt marks objects to move it into another shard. This useful for

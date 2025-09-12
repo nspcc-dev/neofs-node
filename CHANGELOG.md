@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Alphabet nodes send basic storage income based on the new Reports API from `container` contract (#3053)
 - Use stream API of FSTree for object service `Get` operation (#3466)
 - Use meta buckets to mark containers with GC (#3561)
+- Switched to local BoltDB fork based on go.etcd.io/bbolt version 1.4.3 (#3576)
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)

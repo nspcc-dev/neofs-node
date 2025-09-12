@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 

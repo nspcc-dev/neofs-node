@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/bbolt"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 )
 
 func TestMigrateFromBolt(t *testing.T) {

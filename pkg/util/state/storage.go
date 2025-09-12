@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"go.etcd.io/bbolt"
+	"github.com/nspcc-dev/bbolt"
 )
 
 // PersistentStorage is a wrapper around persistent K:V db that
