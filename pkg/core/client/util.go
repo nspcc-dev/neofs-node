@@ -1,11 +1,9 @@
 package client
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
 // NodeInfoFromRawNetmapElement fills NodeInfo structure from the interface of raw netmap member's descriptor.
@@ -27,16 +25,4 @@ func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
 	dst.SetAddressGroup(a)
 
 	return nil
-}
-
-// AssertKeyResponseCallback returns client response callback which checks if the response was signed by the expected key.
-// Returns ErrWrongPublicKey in case of key mismatch.
-func AssertKeyResponseCallback(expectedKey []byte) func(client.ResponseMetaInfo) error {
-	return func(info client.ResponseMetaInfo) error {
-		if !bytes.Equal(info.ResponderKey(), expectedKey) {
-			return ErrWrongPublicKey
-		}
-
-		return nil
-	}
 }

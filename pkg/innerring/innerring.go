@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 	"sync/atomic"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -40,7 +39,6 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
@@ -696,12 +694,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		server.key.PublicKey(),
 		cfg.Indexer.CacheTimeout,
 	)
-
-	var buffers sync.Pool
-	buffers.New = func() any {
-		b := make([]byte, cache.DefaultBufferSize)
-		return &b
-	}
 
 	// create settlement processor
 	settlementProcessor := settlement.New(

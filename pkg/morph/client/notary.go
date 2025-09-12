@@ -700,23 +700,6 @@ func sigCount(ir []*keys.PublicKey, committee bool) int {
 	return sc.GetDefaultHonestNodeCount(len(ir))
 }
 
-// WithTxValidTime returns a notary support option for client
-// that specifies minimum amount of blocks when mainTx will be valid.
-func WithTxValidTime(t uint32) NotaryOption {
-	return func(c *notaryCfg) {
-		c.txValidTime = t
-	}
-}
-
-// WithRoundTime returns a notary support option for client
-// that specifies extra blocks to synchronize FS chain
-// height diff of inner ring nodes.
-func WithRoundTime(t uint32) NotaryOption {
-	return func(c *notaryCfg) {
-		c.roundTime = t
-	}
-}
-
 // WithAlphabetSource returns a notary support option for client
 // that specifies function to return list of alphabet node keys.
 // By default notary subsystem uses committee as a source. This is

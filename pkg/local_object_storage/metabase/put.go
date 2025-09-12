@@ -18,9 +18,7 @@ import (
 )
 
 var (
-	ErrUnknownObjectType        = errors.New("unknown object type")
-	ErrIncorrectSplitInfoUpdate = errors.New("updating split info on object without it")
-	ErrIncorrectRootObject      = errors.New("invalid root object")
+	ErrIncorrectRootObject = errors.New("invalid root object")
 )
 
 // Put updates metabase indexes for the given object.
