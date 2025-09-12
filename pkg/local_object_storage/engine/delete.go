@@ -21,9 +21,5 @@ func (e *StorageEngine) Delete(addr oid.Address) error {
 	if e.blockErr != nil {
 		return e.blockErr
 	}
-	return e.deleteObj(addr, true)
-}
-
-func (e *StorageEngine) deleteObj(addr oid.Address, force bool) error {
-	return e.inhume([]oid.Address{addr}, force, nil, 0)
+	return e.inhume([]oid.Address{addr}, true, nil, 0)
 }

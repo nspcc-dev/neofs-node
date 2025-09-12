@@ -60,36 +60,22 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
 
-		var (
-			// target bucket of the operation, one of the:
-			//	1. Graveyard if Inhume was called with a Tombstone
-			//	2. Garbage if Inhume was called with a GC mark
-			bkt *bbolt.Bucket
-			// value that will be put in the bucket, one of the:
-			// 1. tombstone address + tomb expiration epoch if Inhume was called
-			//    with a Tombstone
-			// 2. zeroValue if Inhume was called with a GC mark
-			value []byte
-		)
+		var graveyardValue []byte
 
 		if tombstone != nil {
-			bkt = graveyardBKT
 			tombKey := addressKey(*tombstone, make([]byte, addressKeySize+8))
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
 			// so graveyard keys must not be addresses of tombstones
-			data := bkt.Get(tombKey)
+			data := graveyardBKT.Get(tombKey)
 			if data != nil {
-				err := bkt.Delete(tombKey)
+				err := graveyardBKT.Delete(tombKey)
 				if err != nil {
 					return fmt.Errorf("could not remove grave with tombstone key: %w", err)
 				}
 			}
 
-			value = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
-		} else {
-			bkt = garbageObjectsBKT
-			value = zeroValue
+			graveyardValue = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
 		}
 
 		buf := make([]byte, addressKeySize)
@@ -97,28 +83,19 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			id := addr.Object()
 			cnr := addr.Container()
 
-			metaBucket := tx.Bucket(metaBucketKey(addr.Container()))
+			metaBucket := tx.Bucket(metaBucketKey(cnr))
 			var metaCursor *bbolt.Cursor
 			if metaBucket != nil {
 				metaCursor = metaBucket.Cursor()
 			}
 
-			// prevent locked objects to be inhumed
-			if !force && objectLocked(tx, currEpoch, metaCursor, cnr, id) {
-				return apistatus.ObjectLocked{}
-			}
-
-			var lockWasChecked bool
-
-			// prevent lock objects to be inhumed
-			// if `Inhume` was called not with the
-			// `WithForceGCMark` option
 			if !force {
+				if objectLocked(tx, currEpoch, metaCursor, cnr, id) {
+					return apistatus.ObjectLocked{}
+				}
 				if isLockObject(tx, cnr, id) {
 					return ErrLockObjectRemoval
 				}
-
-				lockWasChecked = true
 			}
 
 			obj, err := get(tx, addr, false, true, currEpoch)
@@ -172,26 +149,18 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				if err != nil {
 					return err
 				}
-			}
 
-			// consider checking if target is already in graveyard?
-			err = bkt.Put(targetKey, value)
+				// consider checking if target is already in graveyard?
+				err = graveyardBKT.Put(targetKey, graveyardValue)
+			} else {
+				err = garbageObjectsBKT.Put(targetKey, zeroValue)
+			}
 			if err != nil {
 				return err
 			}
 
-			if handleLocks {
-				// do not perform lock check if
-				// it was already called
-				if lockWasChecked {
-					// inhumed object is not of
-					// the LOCK type
-					continue
-				}
-
-				if isLockObject(tx, cnr, id) {
-					deletedLockObjs = append(deletedLockObjs, addr)
-				}
+			if handleLocks && force && isLockObject(tx, cnr, id) { // if !force object cannot be LOCK, see above
+				deletedLockObjs = append(deletedLockObjs, addr)
 			}
 		}
 
