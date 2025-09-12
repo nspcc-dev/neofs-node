@@ -327,7 +327,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		}
 
 		var addr = oid.NewAddress(cnr, id)
-		hdr, err := getCompat(tx, addr, oidKey, false)
+		hdr, err := getCompat(tx, addr, oidKey)
 		if err != nil {
 			return 0, nil, fmt.Errorf("header error for %s: %w", addr, err)
 		}
@@ -359,7 +359,7 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 
 // getCompat is used for migrations only, it retrieves full headers from
 // respective buckets.
-func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, raw bool) (*object.Object, error) {
+func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte) (*object.Object, error) {
 	key = objectKey(addr.Object(), key)
 	cnr := addr.Container()
 	obj := object.New()
@@ -395,10 +395,6 @@ func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte, raw bool) (*object.Ob
 		return obj, obj.Unmarshal(data)
 	}
 
-	// if not found then check if object is a virtual one, but this contradicts raw flag
-	if raw {
-		return nil, getSplitInfoError(tx, cnr, addr.Object(), bucketName)
-	}
 	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
 }
 
@@ -464,21 +460,6 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []by
 	}
 
 	return par, nil
-}
-
-func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
-	var metaBucket = tx.Bucket(metaBucketKey(cnr))
-
-	if metaBucket == nil {
-		return logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	splitInfo, err := getSplitInfo(metaBucket, metaBucket.Cursor(), cnr, parentID)
-	if err == nil {
-		return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
-	}
-
-	return logicerr.Wrap(apistatus.ObjectNotFound{})
 }
 
 // primaryBucketName returns <CID>.
