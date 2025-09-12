@@ -48,9 +48,7 @@ func (exec *execCtx) processV2Last(lastID oid.ID) {
 	}
 
 	if ok := exec.writeCollectedHeader(); ok {
-		if ok := exec.overtakePayloadInReverse(lastID); ok {
-			exec.writeObjectPayload(exec.collectedHeader, exec.collectedReader)
-		}
+		exec.overtakePayloadInReverse(lastID)
 	}
 }
 
@@ -147,11 +145,7 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 			}
 		}
 
-		retrieved, wrote := exec.copyChild(child.ObjectID(), rngPerChild, false)
-		if !retrieved { // failed to fetch child -> abort whole operation
-			return false
-		}
-		if !wrote { // payload fetch ok but writing failed -> stop further processing
+		if !exec.copyChild(child.ObjectID(), rngPerChild, false) {
 			return true
 		}
 	}

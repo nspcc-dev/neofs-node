@@ -58,6 +58,78 @@ type hasherWrapper struct {
 	hash io.Writer
 }
 
+// fallbackRangeReader wraps a range reader obtained via ObjectRangeInit and
+// falls back to a full GET in case apistatus.ErrObjectAccessDenied is
+// returned while reading.
+type fallbackRangeReader struct {
+	io.ReadCloser
+	exec   *execCtx
+	client *clientWrapper
+	key    *ecdsa.PrivateKey
+	rng    *object.Range
+
+	fallbackDone bool
+}
+
+func newFallbackRangeReader(exec *execCtx, c *clientWrapper, key *ecdsa.PrivateKey, rng *object.Range, rdr io.ReadCloser) io.ReadCloser {
+	return &fallbackRangeReader{
+		ReadCloser: rdr,
+		exec:       exec,
+		client:     c,
+		key:        key,
+		rng:        rng,
+	}
+}
+
+func (f *fallbackRangeReader) Read(p []byte) (int, error) {
+	n, err := f.ReadCloser.Read(p)
+	if err == nil || !errors.Is(err, apistatus.ErrObjectAccessDenied) || f.fallbackDone {
+		return n, err
+	}
+
+	f.exec.log.Debug("range read access denied, falling back to full GET")
+	f.fallbackDone = true
+
+	hdr, rdr, getErr := f.client.get(f.exec, f.key)
+	if getErr != nil {
+		return 0, fmt.Errorf("fallback GET after access denial failed: %w", getErr)
+	}
+
+	pLen := hdr.PayloadSize()
+	from := f.rng.GetOffset()
+	ln := f.rng.GetLength()
+	var to uint64
+	if ln != 0 {
+		to = from + ln
+	} else {
+		to = pLen
+	}
+
+	if to < from || pLen < from || pLen < to {
+		_ = rdr.Close()
+		return 0, apistatus.ErrObjectOutOfRange
+	}
+
+	if from > 0 {
+		_, err = io.CopyN(io.Discard, rdr, int64(from))
+		if err != nil {
+			_ = rdr.Close()
+			return n, fmt.Errorf("discard %d bytes in stream: %w", from, err)
+		}
+	}
+
+	f.ReadCloser = struct {
+		io.Reader
+		io.Closer
+	}{
+		Reader: io.LimitReader(rdr, int64(to-from)),
+		Closer: rdr,
+	}
+
+	// attempt to read again immediately to fill p.
+	return f.Read(p)
+}
+
 func NewSimpleObjectWriter() *SimpleObjectWriter {
 	return &SimpleObjectWriter{
 		obj: object.New(),
@@ -162,46 +234,11 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		}
 
 		rdr, err := c.client.ObjectRangeInit(exec.context(), addr.Container(), id, rng.GetOffset(), ln, user.NewAutoIDSigner(*key), opts)
-		if err == nil {
-			return nil, rdr, nil
-		}
-		if !errors.Is(err, apistatus.ErrObjectAccessDenied) {
+		if err != nil {
 			return nil, nil, fmt.Errorf("init payload reading: %w", err)
 		}
-		// Current spec allows other storage node to deny access,
-		// fallback to GET here.
-		hdr, reader, err := c.get(exec, key)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		pLen := hdr.PayloadSize()
-		from := rng.GetOffset()
-		var to uint64
-		if ln != 0 {
-			to = from + ln
-		} else {
-			to = pLen
-		}
-
-		if to < from || pLen < from || pLen < to {
-			return nil, nil, apistatus.ErrObjectOutOfRange
-		}
-
-		if from > 0 {
-			_, err = io.CopyN(io.Discard, reader, int64(from))
-			if err != nil {
-				return nil, nil, fmt.Errorf("discard %d bytes in stream: %w", from, err)
-			}
-		}
-
-		return nil, struct {
-			io.Reader
-			io.Closer
-		}{
-			Reader: io.LimitReader(reader, int64(to-from)),
-			Closer: reader,
-		}, nil
+		// fallback to full GET in case of access denial error.
+		return nil, newFallbackRangeReader(exec, c, key, rng, rdr), nil
 	}
 
 	return c.get(exec, key)

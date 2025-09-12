@@ -113,7 +113,7 @@ func (exec *execCtx) initFromChild(obj oid.ID) (*oid.ID, []oid.ID) {
 		seekLen := rng.GetLength()
 		parSize := par.PayloadSize()
 		if seekLen == 0 {
-			seekLen = parSize
+			seekLen = parSize - seekOff
 		}
 		seekTo := seekOff + seekLen
 
@@ -175,8 +175,7 @@ func (exec *execCtx) overtakePayloadDirectly(children []oid.ID, rngs []objectSDK
 			r = &rngs[i]
 		}
 
-		retrieved, wrote := exec.copyChild(children[i], r, !withRng && checkRight)
-		if !retrieved && !wrote {
+		if !exec.copyChild(children[i], r, !withRng && checkRight) {
 			return
 		}
 	}
