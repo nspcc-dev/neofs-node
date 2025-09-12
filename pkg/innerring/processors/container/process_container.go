@@ -122,6 +122,9 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 }
 
 func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
+	l := cp.log.With(zap.Stringer("cID", ctx.cID))
+	l.Debug("approving new container...")
+
 	e := ctx.e
 
 	var err error
@@ -137,14 +140,14 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	nm, err := cp.netState.NetMap()
 	if err != nil {
-		cp.log.Error("could not get netmap for Container contract update", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		l.Error("could not get netmap for Container contract update", zap.Error(err))
 		return
 	}
 
 	policy := ctx.cnr.PlacementPolicy()
 	vectors, err := nm.ContainerNodes(policy, ctx.cID)
 	if err != nil {
-		cp.log.Error("could not build placement for Container contract update", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		l.Error("could not build placement for Container contract update", zap.Error(err))
 		return
 	}
 
@@ -155,9 +158,11 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)
 	if err != nil {
-		cp.log.Error("could not update Container contract", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		l.Error("could not update Container contract", zap.Error(err))
 		return
 	}
+
+	l.Debug("container successfully approved")
 }
 
 // Process delete container operation from the user by checking container sanity
