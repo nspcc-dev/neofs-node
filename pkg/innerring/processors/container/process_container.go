@@ -132,7 +132,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(&e.MainTransaction, true)
 
 	if err != nil {
-		cp.log.Error("could not approve put container",
+		l.Error("could not approve put container",
 			zap.Error(err),
 		)
 		return
