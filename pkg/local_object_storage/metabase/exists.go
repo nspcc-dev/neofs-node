@@ -2,7 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -23,8 +22,6 @@ const (
 	statusTombstoned
 	statusExpired
 )
-
-var ErrLackSplitInfo = logicerr.New("no split info on parent object")
 
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
@@ -89,11 +86,11 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, er
 
 	// check split info first, it's important to return split info if object is split.
 	splitInfo, err := getSplitInfo(metaBucket, metaCursor, cnr, id)
-	if err == nil {
-		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
-	}
-	if !errors.Is(err, ErrLackSplitInfo) {
+	if err != nil {
 		return false, err
+	}
+	if splitInfo != nil {
+		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
 
 	fillIDTypePrefix(objKeyBuf)
@@ -248,9 +245,6 @@ func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID
 		if (isV1 && !isEmpty) || (!isV1 && !isLink) {
 			splitInfo.SetLastPart(objID)
 		}
-	}
-	if splitInfo == nil {
-		return nil, ErrLackSplitInfo
 	}
 	return splitInfo, nil
 }

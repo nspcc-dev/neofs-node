@@ -83,8 +83,8 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var objID = addr.Object()
 
 	if raw {
-		splitInfo, err := getSplitInfo(metaBucket, metaCursor, cnr, objID)
-		if err == nil {
+		splitInfo, _ := getSplitInfo(metaBucket, metaCursor, cnr, objID)
+		if splitInfo != nil {
 			return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 		}
 		// Otherwise it can be a valid non-split object.
