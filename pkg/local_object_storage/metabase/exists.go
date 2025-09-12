@@ -28,6 +28,9 @@ const (
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// If referenced object is split, Exists returns [*objectSDK.SplitInfoError]
+// wrapping [objectSDK.SplitInfo] collected from stored parts.
 func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -54,6 +57,8 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	return exists, err
 }
 
+// If referenced object is split, exists returns [*objectSDK.SplitInfoError]
+// wrapping [objectSDK.SplitInfo] collected from stored parts.
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, error) {
 	var (
 		cnr        = addr.Container()

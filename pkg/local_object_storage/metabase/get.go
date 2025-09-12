@@ -32,6 +32,9 @@ import (
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// If raw and the object is split, Get returns [*objectSDK.SplitInfoError]
+// wrapping [objectSDK.SplitInfo] collected from stored parts.
 func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -54,6 +57,8 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	return hdr, err
 }
 
+// If raw and the object is split, get returns [*objectSDK.SplitInfoError]
+// wrapping [objectSDK.SplitInfo] collected from stored parts.
 func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
 	var (
 		cnr        = addr.Container()
