@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"go.uber.org/zap"
 )
@@ -27,8 +26,7 @@ type (
 
 		newEpochHandlers []newEpochHandler
 
-		cnrWrapper *container.Client // to invoke stop container estimation
-		epoch      epochState        // to specify which epoch to stop, and epoch duration
+		epoch epochState // to specify which epoch to stop, and epoch duration
 
 		basicIncome subEpochEventHandler
 	}
