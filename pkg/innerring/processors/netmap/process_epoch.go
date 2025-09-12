@@ -71,6 +71,8 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		} else {
 			l.Debug("updated placements in Container contract")
 		}
+	} else {
+		l.Debug("network map has not been changed, no need to update placements in Container contract")
 	}
 	np.handleAlphabetSync(governance.NewSyncEvent(ev.TxHash()))
 	np.handleNotaryDeposit(ev)
