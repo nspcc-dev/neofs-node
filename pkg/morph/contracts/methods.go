@@ -2,12 +2,11 @@ package fschaincontracts
 
 // Various methods of FS chain Container contract.
 const (
-	CreateContainerMethod                = "create"
-	RemoveContainerMethod                = "remove"
-	PutContainerEACLMethod               = "putEACL"
-	PutContainerReportMethod             = "putReport"
-	IterateContainerReportsMethod        = "iterateReports"
-	IterateAllContainerEstimationsMethod = "iterateAllEstimations"
+	CreateContainerMethod         = "create"
+	RemoveContainerMethod         = "remove"
+	PutContainerEACLMethod        = "putEACL"
+	PutContainerReportMethod      = "putReport"
+	IterateContainerReportsMethod = "iterateReports"
 )
 
 // CreateContainerParams are parameters of [CreateContainerMethod].

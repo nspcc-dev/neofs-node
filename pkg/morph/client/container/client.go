@@ -32,9 +32,6 @@ const (
 	eaclDataMethod = "getEACLData"
 	setEACLMethod  = "setEACL"
 
-	putSizeMethod   = "putContainerSize"
-	listSizesMethod = "iterateAllContainerSizes"
-
 	addNextEpochNodes         = "addNextEpochNodes"
 	commitContainerListUpdate = "commitContainerListUpdate"
 	replicasListMethod        = "replicasNumbers"
