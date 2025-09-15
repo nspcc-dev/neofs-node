@@ -12,9 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
 
-// SmallSizeLimitDefault is the default limit of small objects payload in bytes.
-const SmallSizeLimitDefault = 1 << 20
-
 // ShardDetails contains configuration for a single shard of a storage node.
 type ShardDetails struct {
 	Mode                           mode.Mode `mapstructure:"mode"`

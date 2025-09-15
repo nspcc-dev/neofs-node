@@ -20,11 +20,6 @@ func (t Type) String() string {
 	return string(t)
 }
 
-// TypeFromBytes converts bytes slice to Type.
-func TypeFromBytes(data []byte) Type {
-	return Type(data)
-}
-
 // TypeFromString converts string to Type.
 func TypeFromString(str string) Type {
 	return Type(str)

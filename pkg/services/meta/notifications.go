@@ -299,10 +299,7 @@ const (
 
 const (
 	// meta map keys from FS chain.
-	cidKey          = "cid"
-	oidKey          = "oid"
 	sizeKey         = "size"
-	validUntilKey   = "validUntil"
 	networkMagicKey = "network"
 	firstPartKey    = "firstPart"
 	previousPartKey = "previousPart"
