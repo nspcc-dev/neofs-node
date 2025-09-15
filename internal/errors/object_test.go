@@ -10,6 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type testError string
+
+func (x testError) Error() string {
+	return string(x)
+}
+
 func TestErrObjectID(t *testing.T) {
 	id := oidtest.ID()
 	err := ierrors.ObjectID(id)
@@ -27,4 +33,22 @@ func TestErrObjectID(t *testing.T) {
 
 	require.Implements(t, new(error), err)
 	require.EqualError(t, err, id.String())
+}
+
+func TestNewParentObjectError(t *testing.T) {
+	cause := testError("some cause")
+	err := ierrors.NewParentObjectError(cause)
+
+	t.Run("errors.As", func(t *testing.T) {
+		var target testError
+		require.ErrorAs(t, err, &target)
+		require.Equal(t, cause, target)
+	})
+	t.Run("errors.Is", func(t *testing.T) {
+		require.ErrorIs(t, err, cause)
+		require.ErrorIs(t, err, ierrors.ErrParentObject)
+	})
+
+	require.Implements(t, new(error), err)
+	require.EqualError(t, err, "some cause")
 }

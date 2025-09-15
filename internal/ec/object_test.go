@@ -223,3 +223,26 @@ func TestDecodePartInfoFromAttributes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, iec.PartInfo{RuleIndex: 12, Index: 34}, pi)
 }
+
+func TestObjectWithAttributes(t *testing.T) {
+	var obj object.Object
+	require.False(t, iec.ObjectWithAttributes(obj))
+
+	otherAttrs := []object.Attribute{
+		object.NewAttribute("k1", "v1"),
+		object.NewAttribute("k2", "v2"),
+		object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", "123"),
+	}
+
+	obj.SetAttributes(otherAttrs...)
+	require.False(t, iec.ObjectWithAttributes(obj))
+
+	for _, attr := range []string{
+		iec.AttributePartIdx,
+		iec.AttributeRuleIdx,
+		"__NEOFS__EC_any",
+	} {
+		obj.SetAttributes(append(otherAttrs, object.NewAttribute(attr, "any"))...)
+		require.True(t, iec.ObjectWithAttributes(obj), attr)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -52,6 +53,15 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 		}
 		if !last.IsZero() {
 			cmd.Println("\tLast:", last)
+		}
+
+		return nil
+	}
+	var errSplitParts iec.ErrParts
+	if errors.Is(err, &errSplitParts) {
+		cmd.Println("Object is EC-encoded")
+		for i := range errSplitParts {
+			cmd.Println("\tPart:", errSplitParts[i])
 		}
 
 		return nil

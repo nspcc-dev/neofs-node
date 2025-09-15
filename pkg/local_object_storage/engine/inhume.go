@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -106,6 +107,13 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 			if shard.IsErrRemoved(err) {
 				// inhumed once - no need to be inhumed again
 				return nil
+			}
+
+			var errECParts iec.ErrParts
+			if errors.As(err, &errECParts) {
+				// TODO: Boolean switch, we don't need errECParts elements. Support and do fast return from Exists().
+				root = true
+				break
 			}
 
 			var siErr *objectSDK.SplitInfoError

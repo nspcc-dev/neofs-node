@@ -137,6 +137,8 @@ func TestDB_Get(t *testing.T) {
 			require.True(t, binaryEqual(gotNonExp, nonExp.CutPayload()))
 		})
 	})
+
+	t.Run("EC", testGetEC)
 }
 
 // binary equal is used when object contains empty lists in the structure and

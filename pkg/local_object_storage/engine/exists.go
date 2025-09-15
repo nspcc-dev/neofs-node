@@ -3,9 +3,9 @@ package engine
 import (
 	"errors"
 
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -21,8 +21,7 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 				return false, apistatus.ObjectAlreadyRemoved{}
 			}
 
-			var siErr *objectSDK.SplitInfoError
-			if errors.As(err, &siErr) {
+			if errors.Is(err, ierrors.ErrParentObject) {
 				return false, nil
 			}
 

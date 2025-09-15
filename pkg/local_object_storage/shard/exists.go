@@ -12,6 +12,10 @@ import (
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// If referenced object is a parent of some stored objects, Exists returns [ierrors.ErrParentObject] wrapping:
+// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [iec.ErrParts] if referenced object is EC.
 func (s *Shard) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()

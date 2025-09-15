@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -96,6 +97,7 @@ func TestDeleteAllChildren(t *testing.T) {
 	// Exists should return split info for parent
 	_, err := metaExists(db, object.AddressOf(parent))
 	siErr := objectSDK.NewSplitInfoError(nil)
+	require.ErrorIs(t, err, ierrors.ErrParentObject)
 	require.True(t, errors.As(err, &siErr))
 
 	// remove all children in single call

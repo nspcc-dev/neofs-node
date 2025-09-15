@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -76,6 +77,35 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			}
 
 			graveyardValue = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
+		}
+
+		// collect EC parts
+		// TODO: Do not extend addrs, do in the main loop. This likely would be more efficient regarding memory.
+		for i := range addrs {
+			cnr := addrs[i].Container()
+			if slices.ContainsFunc(addrs[:i], func(a oid.Address) bool { return a.Container() == cnr }) {
+				continue // already handled, see loop below
+			}
+
+			metaBucket := tx.Bucket(metaBucketKey(cnr))
+			if metaBucket == nil {
+				continue
+			}
+			metaCursor := metaBucket.Cursor()
+
+			for j := range addrs[i:] {
+				if j != 0 && addrs[i+j].Container() != cnr {
+					continue
+				}
+				partIDs, err := collectECParts(metaBucket, metaCursor, addrs[i+j].Object())
+				if err != nil {
+					return fmt.Errorf("collect EC parts: %w", err)
+				}
+
+				for i := range partIDs {
+					addrs = append(addrs, oid.NewAddress(cnr, partIDs[i]))
+				}
+			}
 		}
 
 		buf := make([]byte, addressKeySize)

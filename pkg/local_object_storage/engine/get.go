@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -22,6 +23,9 @@ import (
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
+//
+// If referenced object is a parent of some stored EC parts, Get returns
+// [ierrors.ErrParentObject] wrapping [iec.ErrParts].
 func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
@@ -82,6 +86,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 				}
 				continue
 			case
+				errors.Is(err, ierrors.ErrParentObject),
 				shard.IsErrRemoved(err),
 				shard.IsErrOutOfRange(err):
 				return err // stop, return it back
@@ -133,6 +138,9 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 // GetBytes reads object from the StorageEngine by address into memory buffer in
 // a canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
 // is missing.
+//
+// If referenced object is a parent of some stored EC parts, GetBytes returns
+// [ierrors.ErrParentObject] wrapping [iec.ErrParts].
 func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
@@ -167,6 +175,9 @@ func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
+//
+// If referenced object is a parent of some stored EC parts, GetStream returns
+// [ierrors.ErrParentObject] wrapping [iec.ErrParts].
 func (e *StorageEngine) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetStreamDuration)()

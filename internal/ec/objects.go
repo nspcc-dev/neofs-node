@@ -3,7 +3,9 @@ package ec
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -121,4 +123,11 @@ func decodeUint8StringToInt(s string) (int, error) {
 		return 0, err
 	}
 	return int(n), nil
+}
+
+// ObjectWithAttributes checks whether obj contains at least one EC attribute.
+func ObjectWithAttributes(obj object.Object) bool {
+	return slices.ContainsFunc(obj.Attributes(), func(a object.Attribute) bool {
+		return strings.HasPrefix(a.Key(), AttributePrefix)
+	})
 }
