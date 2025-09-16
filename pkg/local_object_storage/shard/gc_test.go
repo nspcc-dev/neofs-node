@@ -42,14 +42,14 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 			meta.WithEpochState(epoch),
 		),
 		shard.WithDeletedLockCallback(func(aa []oid.Address) {
-			unlocked := sh.HandleDeletedLocks(aa)
+			unlocked := sh.FreeLockedBy(aa)
 			expired := sh.FilterExpired(unlocked)
-			require.NoError(t, sh.MarkGarbage(false, expired...))
+			require.NoError(t, sh.Delete(expired))
 		}),
 		shard.WithExpiredLocksCallback(func(aa []oid.Address) {
-			unlocked := sh.HandleExpiredLocks(aa)
+			unlocked := sh.FreeLockedBy(aa)
 			expired := sh.FilterExpired(unlocked)
-			require.NoError(t, sh.MarkGarbage(false, expired...))
+			require.NoError(t, sh.Delete(append(aa, expired...)))
 		}),
 		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 			pool, err := ants.NewPool(sz)
@@ -170,8 +170,7 @@ func TestExpiration(t *testing.T) {
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {
-				err := sh.MarkGarbage(false, addresses...)
-				require.NoError(t, err)
+				require.NoError(t, sh.Delete(addresses))
 			},
 		),
 		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
@@ -180,6 +179,7 @@ func TestExpiration(t *testing.T) {
 
 			return pool
 		}),
+		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	}
 
 	sh = shard.New(opts...)

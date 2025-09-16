@@ -134,9 +134,7 @@ func (s *Shard) Init() error {
 		mEventHandler: map[eventType]*eventHandlers{
 			eventNewEpoch: {
 				handlers: []eventHandler{
-					s.collectExpiredObjects,
-					s.collectExpiredTombstones,
-					s.collectExpiredLocks,
+					s.setEpochEventHandler,
 				},
 			},
 		},

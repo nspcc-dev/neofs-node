@@ -2,6 +2,7 @@ package shard
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -60,6 +61,11 @@ type gc struct {
 
 	eventChan     chan Event
 	mEventHandler map[eventType]*eventHandlers
+
+	// currentEpoch stores the latest epoch announced via EventNewEpoch.
+	currentEpoch atomic.Uint64
+	// processedEpoch indicates highest epoch for which expired processing found nothing.
+	processedEpoch atomic.Uint64
 }
 
 type gcCfg struct {
@@ -174,6 +180,8 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
+	s.collectExpiredObjects()
+
 	gObjs, gContainers, err := s.metaBase.GetGarbage(s.rmBatchSize)
 	if err != nil {
 		s.log.Warn("fetching garbage objects",
@@ -206,108 +214,83 @@ func (s *Shard) removeGarbage() {
 	}
 }
 
-func (s *Shard) collectExpiredObjects(e Event) {
-	epoch := e.(newEpoch).epoch
-	log := s.log.With(zap.Uint64("epoch", epoch))
+func (s *Shard) collectExpiredObjects() {
+	epoch := s.gc.currentEpoch.Load()
+	doneUpTo := s.gc.processedEpoch.Load()
+	if s.info.Mode.NoMetabase() || doneUpTo == epoch {
+		return
+	}
+	if doneUpTo > epoch {
+		s.log.Warn("current epoch is less than the last processed epoch in GC",
+			zap.Uint64("current", epoch),
+			zap.Uint64("processed", doneUpTo),
+		)
+		s.gc.processedEpoch.Store(epoch)
+		return
+	}
 
+	var (
+		toDeleteTombstones []oid.Address
+		expiredLocks       []oid.Address
+		expiredObjects     []oid.Address
+	)
+	log := s.log.With(zap.Uint64("epoch", epoch))
 	log.Debug("started expired objects handling")
 
-	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
-		return typ != object.TypeLock && typ != object.TypeTombstone
-	})
-	if err != nil {
-		log.Warn("iterator over expired objects failed", zap.Error(err))
-		return
-	}
-	if len(expired) == 0 {
-		log.Debug("no expired objects")
-		return
+	if dropped, err := s.metaBase.DropExpiredTSMarks(epoch); err != nil {
+		log.Warn("drop expired tombstone marks", zap.Error(err))
+	} else if dropped > 0 {
+		log.Debug("dropped expired tombstone marks", zap.Int("count", dropped))
 	}
 
-	log.Debug("collected expired objects", zap.Int("num", len(expired)))
-
-	s.expiredObjectsCallback(expired)
-
-	log.Debug("finished expired objects handling")
-}
-
-func (s *Shard) collectExpiredTombstones(e Event) {
-	epoch := e.(newEpoch).epoch
-	log := s.log.With(zap.Uint64("epoch", epoch))
-
-	log.Debug("started expired graveyard mark handling")
-
-	dropped, err := s.metaBase.DropExpiredTSMarks(epoch)
-	if err != nil {
-		log.Error("cleaning graveyard up failed", zap.Error(err))
-		return
-	}
-
-	log.Debug("finished expired graveyard mark handling", zap.Int("dropped marks", dropped))
-
-	log.Debug("started expired tombstones handling")
-
-	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
-		return typ == object.TypeTombstone
-	})
-	if err != nil {
-		log.Warn("iterator over expired tombstones failed", zap.Error(err))
-		return
-	}
-	if len(expired) == 0 {
-		log.Debug("no expired tombstones")
-		return
-	}
-
-	err = s.MarkGarbage(false, expired...)
-	if err != nil {
-		log.Warn("failed to mark expired tombstones as garbage", zap.Error(err))
-		return
-	}
-
-	log.Debug("finished expired tombstones handling", zap.Int("count", len(expired)))
-}
-
-func (s *Shard) collectExpiredLocks(e Event) {
-	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
-		return typ == object.TypeLock
-	})
-	if err != nil || len(expired) == 0 {
-		if err != nil {
-			s.log.Warn("iterator over expired locks failed", zap.Error(err))
-		}
-		return
-	}
-
-	s.expiredLocksCallback(expired)
-}
-
-func (s *Shard) getExpiredObjects(epoch uint64, typeCond func(object.Type) bool) ([]oid.Address, error) {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	if s.info.Mode.NoMetabase() {
-		return nil, ErrDegradedMode
-	}
-
-	var expired []oid.Address
-
+	collected := 0
 	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
-		if typeCond(expiredObject.Type()) {
-			expired = append(expired, expiredObject.Address())
+		switch expiredObject.Type() {
+		case object.TypeTombstone:
+			toDeleteTombstones = append(toDeleteTombstones, expiredObject.Address())
+		case object.TypeLock:
+			expiredLocks = append(expiredLocks, expiredObject.Address())
+		default:
+			expiredObjects = append(expiredObjects, expiredObject.Address())
+		}
+		collected++
+		if collected >= s.rmBatchSize {
+			return meta.ErrInterruptIterator
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		log.Warn("iterate expired objects", zap.Error(err))
 	}
-	return expired, nil
+	if collected == 0 {
+		s.gc.processedEpoch.Store(epoch)
+	}
+
+	log.Debug("collected expired locks", zap.Int("num", len(expiredLocks)))
+	if len(expiredLocks) > 0 && s.expiredLocksCallback != nil {
+		s.expiredLocksCallback(expiredLocks)
+	}
+
+	log.Debug("collected expired tombstones", zap.Int("num", len(toDeleteTombstones)))
+	if len(toDeleteTombstones) > 0 {
+		err = s.deleteObjs(toDeleteTombstones)
+		if err != nil {
+			log.Warn("could not delete tombstones",
+				zap.Error(err),
+			)
+		}
+	}
+
+	log.Debug("collected expired objects", zap.Int("num", len(expiredObjects)))
+	if len(expiredObjects) > 0 && s.expiredObjectsCallback != nil {
+		s.expiredObjectsCallback(expiredObjects)
+	}
+	log.Debug("finished expired objects handling")
 }
 
-// HandleExpiredLocks unlocks all objects which were locked by lockers.
-// If successful, marks lockers themselves as garbage.
+// FreeLockedBy unlocks all objects which were locked by lockers.
 // Returns every object that is unlocked.
-func (s *Shard) HandleExpiredLocks(lockers []oid.Address) []oid.Address {
+func (s *Shard) FreeLockedBy(lockers []oid.Address) []oid.Address {
 	if s.GetMode().NoMetabase() {
 		return nil
 	}
@@ -320,17 +303,6 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) []oid.Address {
 
 		return nil
 	}
-
-	inhumed, _, err := s.metaBase.MarkGarbage(true, false, lockers...)
-	if err != nil {
-		s.log.Warn("failure to mark lockers as garbage",
-			zap.Error(err),
-		)
-
-		return nil
-	}
-
-	s.decObjectCounterBy(logical, inhumed)
 
 	return unlocked
 }
@@ -349,26 +321,14 @@ func (s *Shard) FilterExpired(addrs []oid.Address) []oid.Address {
 	return expired
 }
 
-// HandleDeletedLocks unlocks all objects which were locked by lockers.
-// Returns every object that is unlocked.
-func (s *Shard) HandleDeletedLocks(lockers []oid.Address) []oid.Address {
-	if s.GetMode().NoMetabase() {
-		return nil
-	}
-
-	unlocked, err := s.metaBase.FreeLockedBy(lockers)
-	if err != nil {
-		s.log.Warn("failure to unlock objects",
-			zap.Error(err),
-		)
-
-		return nil
-	}
-
-	return unlocked
-}
-
 // NotificationChannel returns channel for shard events.
 func (s *Shard) NotificationChannel() chan<- Event {
 	return s.gc.eventChan
+}
+
+// setEpochEventHandler handles EventNewEpoch by setting current epoch
+// and marking that expired objects up to this epoch are not yet processed.
+func (s *Shard) setEpochEventHandler(e Event) {
+	ne := e.(newEpoch)
+	s.gc.currentEpoch.Store(ne.epoch)
 }
