@@ -68,3 +68,10 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 
 	return nil
 }
+
+// DeleteNow deletes provided objects immediately without prior garbage marking.
+func (s *Shard) DeleteNow(addrs ...oid.Address) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+	return s.deleteObjs(addrs)
+}

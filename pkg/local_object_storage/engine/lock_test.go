@@ -47,6 +47,7 @@ func TestLockUserScenario(t *testing.T) {
 
 			return pool
 		}),
+		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
 
 	t.Cleanup(func() {
@@ -140,6 +141,7 @@ func TestLockExpiration(t *testing.T) {
 
 			return pool
 		}),
+		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
 
 	t.Cleanup(func() {
@@ -208,6 +210,7 @@ func TestLockForceRemoval(t *testing.T) {
 			return pool
 		}),
 		shard.WithDeletedLockCallback(e.processDeletedLocks),
+		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
 
 	t.Cleanup(func() {
