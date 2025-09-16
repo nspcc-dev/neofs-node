@@ -78,28 +78,41 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		parent[:], objectcore.MetaAttributeDelimiter,
 	)
 
-	k, _ := crs.Seek(pref)
-	partID, ok := bytes.CutPrefix(k, pref)
-	if !ok {
-		return oid.ID{}, apistatus.ErrObjectNotFound
-	}
-	if len(partID) != oid.Size {
-		return oid.ID{}, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
-	}
-	if islices.AllZeros(partID) {
-		return oid.ID{}, invalidMetaBucketKeyErr(k, oid.ErrZero)
-	}
+	var partCrs *bbolt.Cursor
+	var rulePref, partPref []byte
+	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
+		partID, ok := bytes.CutPrefix(k, pref)
+		if !ok {
+			return oid.ID{}, apistatus.ErrObjectNotFound
+		}
+		if len(partID) != oid.Size {
+			return oid.ID{}, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
+		}
+		if islices.AllZeros(partID) {
+			return oid.ID{}, invalidMetaBucketKeyErr(k, oid.ErrZero)
+		}
 
-	// TODO: make and reuse one buffer for all keys
-	pref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributeRuleIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.RuleIndex)))
-	if k, _ = crs.Seek(pref); !bytes.Equal(k, pref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
-		return oid.ID{}, apistatus.ErrObjectNotFound
-	}
+		if partCrs == nil {
+			partCrs = crs.Bucket().Cursor()
+		}
 
-	pref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.Index)))
-	if k, _ = crs.Seek(pref); !bytes.Equal(k, pref) {
-		return oid.ID{}, apistatus.ErrObjectNotFound
-	}
+		if rulePref == nil {
+			// TODO: make and reuse one buffer for all keys
+			rulePref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributeRuleIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.RuleIndex)))
+		} else {
+			copy(rulePref[1:], partID)
+		}
+		if k, _ = partCrs.Seek(rulePref); !bytes.Equal(k, rulePref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
+			continue
+		}
 
-	return oid.ID(partID), nil
+		if partPref == nil {
+			partPref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.Index)))
+		} else {
+			copy(partPref[1:], partID)
+		}
+		if k, _ = partCrs.Seek(partPref); bytes.Equal(k, partPref) {
+			return oid.ID(partID), nil
+		}
+	}
 }
