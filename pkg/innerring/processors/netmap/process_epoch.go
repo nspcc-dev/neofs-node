@@ -79,7 +79,6 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 }
 
 func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) error {
-	// TODO: https://github.com/nspcc-dev/neofs-node/issues/3045
 	cids, err := np.containerWrp.List(nil)
 	if err != nil {
 		return fmt.Errorf("can't get containers list: %w", err)
