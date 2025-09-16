@@ -37,6 +37,8 @@ const (
 
 	addNextEpochNodes         = "addNextEpochNodes"
 	commitContainerListUpdate = "commitContainerListUpdate"
+	replicasListMethod        = "replicasNumbers"
+	nodesListMethod           = "nodes"
 	submitObjectPutMethod     = "submitObjectPut"
 
 	// iteratorPrefetchNumber is a number of stack items to prefetch in the
