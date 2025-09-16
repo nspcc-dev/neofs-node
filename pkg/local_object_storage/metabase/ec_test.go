@@ -228,10 +228,10 @@ func TestDB_ResolveECPart(t *testing.T) {
 	}
 
 	// OK cases
-	checkOK := func(t *testing.T, db *meta.DB) {
+	checkOK := func(t *testing.T, db *meta.DB, pi iec.PartInfo, exp oid.ID) {
 		res, err := db.ResolveECPart(cnr, parentID, pi)
 		require.NoError(t, err)
-		require.Equal(t, partObj.GetID(), res)
+		require.Equal(t, exp, res)
 	}
 
 	for _, tc := range []testcase{
@@ -274,11 +274,30 @@ func TestDB_ResolveECPart(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			db := tc.preset(t)
-			checkOK(t, db)
+			checkOK(t, db, pi, partID)
 		})
 	}
 
+	t.Run("multiple", func(t *testing.T) {
+		db := newDB(t)
+
+		pi := pi
+		const partNum = 10
+
+		var partIDs []oid.ID
+		for i := range partNum {
+			pi.Index = i
+			id := addPart(t, db, pi)
+			partIDs = append(partIDs, id)
+		}
+
+		for i := range partIDs {
+			pi.Index = i
+			checkOK(t, db, pi, partIDs[i])
+		}
+	})
+
 	db := newDB(t)
 	require.NoError(t, db.Put(&partObj))
-	checkOK(t, db)
+	checkOK(t, db, pi, partID)
 }
