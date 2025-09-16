@@ -56,18 +56,18 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 
 	metaBktCursor := metaBkt.Cursor()
 
-	id, err := db.resolveECPartInMetaBucket(metaBktCursor, parent, pi)
-	if err != nil {
-		return oid.ID{}, err
-	}
-
-	switch objectStatus(tx, metaBktCursor, oid.NewAddress(cnr, id), db.epochState.CurrentEpoch()) {
+	switch objectStatus(tx, metaBktCursor, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
 	case statusGCMarked:
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	case statusTombstoned:
 		return oid.ID{}, apistatus.ErrObjectAlreadyRemoved
 	case statusExpired:
 		return oid.ID{}, ErrObjectIsExpired
+	}
+
+	id, err := db.resolveECPartInMetaBucket(metaBktCursor, parent, pi)
+	if err != nil {
+		return oid.ID{}, err
 	}
 
 	return id, nil

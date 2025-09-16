@@ -57,6 +57,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 	}
 
 	parentObj := newBlankObject(cnr, parentID)
+	parentAddr := objectcore.AddressOf(&parentObj)
 
 	newPart := func(t *testing.T, pi iec.PartInfo) object.Object {
 		obj, err := iec.FormObjectForECPart(signer, parentObj, testutil.RandByteSlice(32), pi)
@@ -73,14 +74,14 @@ func TestDB_ResolveECPart(t *testing.T) {
 	partObj := newPart(t, pi)
 	partObj.SetID(partID)
 
-	expiredObj := partObj // same address as partObj
+	expiredObj := parentObj // same address as parentObj
 	addAttribute(&expiredObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(currentEpoch-1))
 
 	locker := newBlankObject(cnr, oidtest.OtherID(partID))
 	locker.AssociateLocked(partID)
 
 	tomb := newBlankObject(cnr, oidtest.OtherID(partID, locker.GetID()))
-	tomb.AssociateDeleted(partID)
+	tomb.AssociateDeleted(parentID)
 
 	partAddr := oid.NewAddress(cnr, partID)
 	tombAddr := oid.NewAddress(cnr, tomb.GetID())
@@ -120,10 +121,10 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "stored with tombstone mark", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.Inhume(tombAddr, 0, false, partAddr)
+			_, _, err := db.Inhume(tombAddr, 0, false, parentAddr)
 			require.NoError(t, err)
 		}},
-		{name: "tombstone only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
+		{name: "tombstone only", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&tomb))
 		}},
 		{name: "stored with tombstone", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
@@ -136,7 +137,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "stored with garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.MarkGarbage(false, false, partAddr)
+			_, _, err := db.MarkGarbage(false, false, parentAddr)
 			require.NoError(t, err)
 		}},
 		{name: "container garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
