@@ -197,12 +197,7 @@ type Server struct {
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) *Server {
-	// TODO: configurable capacity
-	sp, err := ants.NewPool(100, ants.WithNonblocking(true))
-	if err != nil {
-		panic(fmt.Errorf("create ants pool: %w", err)) // fails on invalid input only
-	}
+func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) *Server {
 	return &Server{
 		handlers:      hs,
 		fsChain:       fsChain,

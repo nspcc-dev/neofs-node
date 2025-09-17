@@ -289,6 +289,8 @@ type cfgObjectRoutines struct {
 	replicatorPoolSize int
 
 	replication *ants.Pool
+
+	search *ants.Pool
 }
 
 type cfgControlService struct {
@@ -559,6 +561,9 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	pool.replication, err = ants.NewPool(pool.replicatorPoolSize)
 	fatalOnErr(err)
 
+	pool.search, err = ants.NewPool(cfg.Object.Search.PoolSize, optNonBlocking)
+	fatalOnErr(err)
+
 	return pool
 }
 
@@ -574,6 +579,8 @@ func (c *cfg) reloadObjectPoolSizes() {
 		c.cfgObject.pool.replicatorPoolSize = c.cfgObject.pool.putRemoteCapacity
 	}
 	c.cfgObject.pool.replication.Tune(c.cfgObject.pool.replicatorPoolSize)
+
+	c.cfgObject.pool.search.Tune(c.appCfg.Object.Search.PoolSize)
 }
 
 func (c *cfg) LocalNodeInfo() (netmap.NodeInfo, error) {

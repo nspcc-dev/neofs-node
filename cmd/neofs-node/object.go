@@ -304,7 +304,7 @@ func initObjectService(c *cfg) {
 		putSvc:  sPut,
 		keys:    keyStorage,
 	}
-	server := objectService.New(objSvc, mNumber, fsChain, storage, c.metaService, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
+	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 	os.server = server
 
 	for _, srv := range c.cfgGRPC.servers {
