@@ -782,7 +782,7 @@ func (c *cfg) reloadMetricsAndPprof(oldMetrics metricConfig, oldProfiler profile
 		preRunAndLog(c, metricName, initMetrics(c))
 	}
 
-	//Profiler
+	// Profiler
 
 	if oldProfiler.isUpdated(c.appCfg) {
 		if closer, ok := c.veryLastClosers[profilerName]; ok {
