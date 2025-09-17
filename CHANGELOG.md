@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Tomstoned objects revival not working (#3542)
 - Negative logic object counters in metabase (#3555)
 - Inability to list 2K+ containers via API (#3558)
+- Not using the IR `fee.main_chain` config parameter (#3584)
 
 ### Changed
 - Stream payload without buffering to reduce memory usage in CLI `Get/Put` operations (#3535)

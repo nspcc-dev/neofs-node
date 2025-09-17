@@ -34,6 +34,7 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 	for i := range opts {
 		opts[i](o)
 	}
+	*o = append(*o, client.WithStaticFeeIncrement(fee))
 
 	sc, err := client.NewStatic(cli, contract, ([]client.StaticClientOption)(*o)...)
 	if err != nil {
