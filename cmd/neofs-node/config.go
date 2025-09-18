@@ -284,10 +284,6 @@ type cfgLocalStorage struct {
 type cfgObjectRoutines struct {
 	putRemote *ants.Pool
 
-	putRemoteCapacity int
-
-	replicatorPoolSize int
-
 	replication *ants.Pool
 
 	search *ants.Pool
@@ -548,17 +544,15 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 
 	optNonBlocking := ants.WithNonblocking(true)
 
-	pool.putRemoteCapacity = cfg.Object.Put.PoolSizeRemote
-
-	pool.putRemote, err = ants.NewPool(pool.putRemoteCapacity, optNonBlocking)
+	pool.putRemote, err = ants.NewPool(cfg.Object.Put.PoolSizeRemote, optNonBlocking)
 	fatalOnErr(err)
 
-	pool.replicatorPoolSize = cfg.Replicator.PoolSize
-	if pool.replicatorPoolSize <= 0 {
-		pool.replicatorPoolSize = pool.putRemoteCapacity
+	replicatorPoolSize := cfg.Replicator.PoolSize
+	if replicatorPoolSize <= 0 {
+		replicatorPoolSize = cfg.Object.Put.PoolSizeRemote
 	}
 
-	pool.replication, err = ants.NewPool(pool.replicatorPoolSize)
+	pool.replication, err = ants.NewPool(replicatorPoolSize)
 	fatalOnErr(err)
 
 	pool.search, err = ants.NewPool(cfg.Object.Search.PoolSize, optNonBlocking)
@@ -571,14 +565,13 @@ func (c *cfg) reloadObjectPoolSizes() {
 	c.cfgObject.poolLock.Lock()
 	defer c.cfgObject.poolLock.Unlock()
 
-	c.cfgObject.pool.putRemoteCapacity = c.appCfg.Object.Put.PoolSizeRemote
-	c.cfgObject.pool.putRemote.Tune(c.cfgObject.pool.putRemoteCapacity)
+	c.cfgObject.pool.putRemote.Tune(c.appCfg.Object.Put.PoolSizeRemote)
 
-	c.cfgObject.pool.replicatorPoolSize = c.appCfg.Replicator.PoolSize
-	if c.cfgObject.pool.replicatorPoolSize <= 0 {
-		c.cfgObject.pool.replicatorPoolSize = c.cfgObject.pool.putRemoteCapacity
+	replicatorPoolSize := c.appCfg.Replicator.PoolSize
+	if replicatorPoolSize <= 0 {
+		replicatorPoolSize = c.appCfg.Object.Put.PoolSizeRemote
 	}
-	c.cfgObject.pool.replication.Tune(c.cfgObject.pool.replicatorPoolSize)
+	c.cfgObject.pool.replication.Tune(replicatorPoolSize)
 
 	c.cfgObject.pool.search.Tune(c.appCfg.Object.Search.PoolSize)
 }
