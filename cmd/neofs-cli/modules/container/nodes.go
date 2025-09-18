@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/ec"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
@@ -49,10 +50,25 @@ var containerNodesCmd = &cobra.Command{
 			return fmt.Errorf("could not build container nodes for given container: %w", err)
 		}
 
-		for i := range cnrNodes {
+		repRuleNum := policy.NumberOfReplicas()
+		for i := range repRuleNum {
 			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
 			for j := range cnrNodes[i] {
 				cmdprinter.PrettyPrintNodeInfo(cmd, cnrNodes[i][j], j, "\t", short)
+			}
+		}
+
+		ecRules := policy.ECRules()
+		for i := range ecRules {
+			ni := repRuleNum + i
+			r := ec.Rule{
+				DataPartNum:   ecRules[i].DataPartNum(),
+				ParityPartNum: ecRules[i].ParityPartNum(),
+			}
+
+			cmd.Printf("EC #%d, %s:\n", i+1, r)
+			for j := range cnrNodes[ni] {
+				cmdprinter.PrettyPrintNodeInfo(cmd, cnrNodes[ni][j], j, "\t", short)
 			}
 		}
 		return nil

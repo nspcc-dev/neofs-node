@@ -792,6 +792,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		ContainerClient: cnrClient,
 		NetworkState:    server.netmapClient,
 		MetaEnabled:     cfg.Experimental.ChainMetaData,
+		AllowEC:         cfg.Experimental.AllowEC,
 	})
 	if err != nil {
 		return nil, err
