@@ -327,7 +327,7 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 
 	localNode := newTestLocalNode()
 	localNode.objList = []objectcore.AddressWithAttributes{
-		{Address: objAddr, Type: object.TypeRegular, Attributes: make([]string, 2)},
+		{Address: objAddr, Type: object.TypeRegular, Attributes: make([]string, 3)},
 	}
 
 	mockNet := newMockNetwork()
@@ -401,6 +401,8 @@ func TestPolicer_Run_EC(t *testing.T) {
 	const defaultCBF = 3
 	cnr := cidtest.ID()
 	partOID := oidtest.ID()
+	parentOID := oidtest.OtherID(partOID)
+	parentOIDAttr := string(parentOID[:])
 	rule := iec.Rule{
 		DataPartNum:   6,
 		ParityPartNum: 3,
@@ -408,7 +410,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	localObj := objectcore.AddressWithAttributes{
 		Address:    oid.NewAddress(cnr, partOID),
 		Type:       object.TypeRegular,
-		Attributes: []string{"0", "5"},
+		Attributes: []string{"0", "5", parentOIDAttr},
 	}
 
 	nodes := testutil.Nodes(int(rule.DataPartNum+rule.ParityPartNum) * defaultCBF)
@@ -453,7 +455,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 				err: "part index is set, rule index is not"},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx}
+				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx, parentOIDAttr}
 
 				logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, false, nil, false)
 				logBuf.AssertContains(testutil.LogEntry{
@@ -464,9 +466,24 @@ func TestPolicer_Run_EC(t *testing.T) {
 		}
 	})
 
+	t.Run("invalid parent attribute in local object", func(t *testing.T) {
+		localObj := localObj
+		localObj.Attributes = slices.Clone(localObj.Attributes)
+		localObj.Attributes[2] = string(testutil.RandByteSlice(31))
+
+		mockNet := newMockNetwork()
+		mockNet.setObjectNodesECResult(cnr, parentOID, nodes, rule)
+
+		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, false, nil, false)
+		logBuf.AssertContains(testutil.LogEntry{
+			Level: zap.ErrorLevel, Message: "received EC parent OID with unexpected len from local storage, skip object",
+			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "len": json.Number("31")},
+		})
+	})
+
 	t.Run("EC part in non-EC container", func(t *testing.T) {
 		mockNet := newMockNetwork()
-		mockNet.setObjectNodesRepResult(localObj.Address.Container(), localObj.Address.Object(), nodes, 3)
+		mockNet.setObjectNodesRepResult(localObj.Address.Container(), parentOID, nodes, 3)
 
 		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, false, nil, false)
 		logBuf.AssertContains(testutil.LogEntry{
@@ -479,7 +496,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	t.Run("part violates EC policy", func(t *testing.T) {
 		t.Run("no EC attributes", func(t *testing.T) {
 			localObj := localObj
-			localObj.Attributes = []string{"", ""}
+			localObj.Attributes = []string{"", "", parentOIDAttr}
 
 			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil, false)
 			logBuf.AssertContains(testutil.LogEntry{
@@ -682,8 +699,18 @@ func TestPolicer_Run_EC(t *testing.T) {
 }
 
 func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool) *testutil.LogBuffer {
+	require.Len(t, localObj.Attributes, 3)
+
+	var sortOID oid.ID
+	if localObj.Attributes[0] == "" && localObj.Attributes[1] == "" {
+		sortOID = localObj.Address.Object()
+	} else {
+		require.Len(t, localObj.Attributes[2], oid.Size)
+		sortOID = oid.ID([]byte(localObj.Attributes[2]))
+	}
+
 	mockNet := newMockNetwork()
-	mockNet.setObjectNodesECResult(localObj.Address.Container(), localObj.Address.Object(), slices.Clone(nodes), rule)
+	mockNet.setObjectNodesECResult(localObj.Address.Container(), sortOID, slices.Clone(nodes), rule)
 	if localIdx >= 0 {
 		mockNet.pubKey = nodes[localIdx].PublicKey()
 	}
