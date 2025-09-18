@@ -88,7 +88,18 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		return
 	}
 
-	nn, repRules, ecRules, err := p.network.GetNodesForObject(addr)
+	selectNodesAddr := addr
+	if ecp.RuleIndex >= 0 {
+		if ln := len(addrWithAttrs.Attributes[2]); ln != oid.Size {
+			p.log.Error("received EC parent OID with unexpected len from local storage, skip object",
+				zap.Stringer("object", addr), zap.Int("len", ln))
+			return
+		}
+
+		selectNodesAddr.SetObject(oid.ID([]byte(addrWithAttrs.Attributes[2])))
+	}
+
+	nn, repRules, ecRules, err := p.network.GetNodesForObject(selectNodesAddr)
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
 			zap.Stringer("cid", idCnr),
