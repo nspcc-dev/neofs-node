@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/nspcc-dev/bbolt"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -24,13 +27,15 @@ const (
 	statusExpired
 )
 
-var ErrLackSplitInfo = logicerr.New("no split info on parent object")
-
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// If referenced object is a parent of some stored objects, Exists returns [ParentError] wrapping:
+// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [ErrParts] if referenced object is EC.
 func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -57,6 +62,9 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	return exists, err
 }
 
+// If referenced object is a parent of some stored objects, exists returns [ParentError] wrapping:
+// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [ErrParts] if object is EC.
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, error) {
 	var (
 		cnr        = addr.Container()
@@ -87,12 +95,11 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, er
 		id        = addr.Object()
 	)
 
-	// check split info first, it's important to return split info if object is split.
-	splitInfo, err := getSplitInfo(metaBucket, metaCursor, cnr, id)
-	if err == nil {
-		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
-	}
-	if !errors.Is(err, ErrLackSplitInfo) {
+	err := getParentInfo(metaBucket, metaCursor, cnr, id)
+	if err != nil {
+		if errors.Is(err, ierrors.ErrParentObject) {
+			return false, logicerr.Wrap(err)
+		}
 		return false, err
 	}
 
@@ -189,18 +196,23 @@ func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, gar
 	return statusTombstoned
 }
 
-// getSplitInfo returns SplitInfo structure from root index. Returns error
-// if there is no `key` record in root index.
-func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) (*objectSDK.SplitInfo, error) {
+// getParentInfo checks whether referenced object is a parent of some stored
+// objects. If not, getParentInfo returns (nil, nil). If yes, getParentInfo
+// returns [ParentError] wrapping:
+// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [ErrParts] if object is EC.
+func getParentInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) error {
 	var (
 		splitInfo    *objectSDK.SplitInfo
+		ecParts      []oid.ID
 		parentPrefix = getParentMetaOwnersPrefix(parentID)
 	)
 
+loop:
 	for k, _ := metaCursor.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = metaCursor.Next() {
 		objID, err := oid.DecodeBytes(k[len(parentPrefix):])
 		if err != nil {
-			return nil, fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)
+			return fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)
 		}
 		var (
 			objCur    = metaBucket.Cursor()
@@ -215,9 +227,13 @@ func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID
 		for ak, _ := objCur.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = objCur.Next() {
 			attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
 			if !ok {
-				return nil, fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)
+				return fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)
 			}
 
+			if strings.HasPrefix(string(attrKey), iec.AttributePrefix) {
+				ecParts = append(ecParts, objID)
+				continue loop
+			}
 			if string(attrKey) == objectSDK.FilterType && string(attrVal) == objectSDK.TypeLink.String() {
 				isLink = true
 			}
@@ -231,7 +247,7 @@ func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID
 			if string(attrKey) == objectSDK.FilterFirstSplitObject {
 				firstID, err := oid.DecodeBytes(attrVal)
 				if err != nil {
-					return nil, fmt.Errorf("invalid first ID attribute in %s/%s: %w", cnr, objID, err)
+					return fmt.Errorf("invalid first ID attribute in %s/%s: %w", cnr, objID, err)
 				}
 				splitInfo.SetFirstPart(firstID)
 			}
@@ -249,8 +265,11 @@ func getSplitInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID
 			splitInfo.SetLastPart(objID)
 		}
 	}
-	if splitInfo == nil {
-		return nil, ErrLackSplitInfo
+	if ecParts != nil {
+		return ierrors.NewParentObjectError(iec.ErrParts(ecParts))
 	}
-	return splitInfo, nil
+	if splitInfo != nil {
+		return ierrors.NewParentObjectError(objectSDK.NewSplitInfoError(splitInfo))
+	}
+	return nil
 }

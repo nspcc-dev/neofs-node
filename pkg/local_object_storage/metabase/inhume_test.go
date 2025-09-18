@@ -33,6 +33,8 @@ func TestDB_Inhume(t *testing.T) {
 
 	_, err = metaGet(db, object.AddressOf(raw), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
+
+	t.Run("EC", testInhumeEC)
 }
 
 func TestInhumeTombOnTomb(t *testing.T) {
@@ -139,6 +141,10 @@ func TestInhumeContainer(t *testing.T) {
 		_, err = metaGet(db, object.AddressOf(o), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	}
+}
+
+func TestDB_MarkGarbage(t *testing.T) {
+	t.Run("EC", testMarkGarbageEC)
 }
 
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {

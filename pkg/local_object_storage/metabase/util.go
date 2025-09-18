@@ -118,8 +118,6 @@ const (
 	addressKeySize = cidSize + objectKeySize
 )
 
-var splitInfoError *object.SplitInfoError // for errors.As comparisons
-
 func bucketName(cnr cid.ID, prefix byte, key []byte) []byte {
 	key[0] = prefix
 	copy(key[1:], cnr[:])

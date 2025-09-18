@@ -3,6 +3,7 @@ package shard
 import (
 	"errors"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -21,21 +22,33 @@ import (
 func (s *Shard) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	var (
 		errSplitInfo *objectSDK.SplitInfoError
-		children     = make([]oid.Address, 0, 2)
+		children     []oid.Address
 	)
 	if !s.GetMode().NoMetabase() {
 		available, err := s.metaBase.Exists(addr, false)
-		if err != nil && !errors.As(err, &errSplitInfo) {
-			return nil, err
-		}
-		if errSplitInfo != nil {
-			if raw {
+		if err != nil {
+			var errECParts iec.ErrParts
+			switch {
+			default:
 				return nil, err
-			}
-			var si = errSplitInfo.SplitInfo()
+			case errors.As(err, &errSplitInfo):
+				if raw {
+					return nil, err
+				}
+				var si = errSplitInfo.SplitInfo()
 
-			children = append(children, oid.NewAddress(addr.Container(), si.GetLastPart()))
-			children = append(children, oid.NewAddress(addr.Container(), si.GetLink()))
+				children = []oid.Address{oid.NewAddress(addr.Container(), si.GetLastPart()),
+					oid.NewAddress(addr.Container(), si.GetLink())}
+			case errors.As(err, &errECParts):
+				if len(errECParts) == 0 {
+					panic(errors.New("empty EC part set"))
+				}
+
+				children = make([]oid.Address, len(errECParts))
+				for i := range errECParts {
+					children[i] = oid.NewAddress(addr.Container(), errECParts[i])
+				}
+			}
 		} else if !available {
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
@@ -59,8 +72,11 @@ func (s *Shard) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 		}
 	}
 
-	// SI present, but no objects found -> let caller handle SI.
 	if len(children) != 0 {
+		if errSplitInfo == nil {
+			return nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		}
+		// SI present, but no objects found -> let caller handle SI.
 		return nil, errSplitInfo
 	}
 

@@ -193,6 +193,8 @@ func TestStorageEngine_Put_Tombstone(t *testing.T) {
 			testPutTombstone(t, shardNum)
 		})
 	}
+
+	t.Run("EC", testPutTombstoneEC)
 }
 
 func testPutTombstone(t *testing.T, shardNum int) {

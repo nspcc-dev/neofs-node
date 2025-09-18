@@ -16,6 +16,9 @@ import (
 // Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 //
 // Returns an error if executions are blocked (see BlockExecution).
+//
+// If referenced object is a parent of some stored EC parts, GetRange returns
+// [ierrors.ErrParentObject] wrapping [iec.ErrParts].
 func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64) ([]byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()

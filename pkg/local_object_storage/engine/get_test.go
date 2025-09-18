@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,18 +30,20 @@ func TestStorageEngine_GetStream(t *testing.T) {
 	obj := generateObjectWithCID(cidtest.ID())
 	addr := object.AddressOf(obj)
 
-	objBin := obj.Payload()
-
 	err := e.Put(obj, nil)
 	require.NoError(t, err)
 
 	header, reader, err := e.GetStream(addr)
+	assertGetStreamOK(t, header, reader, err, *obj)
+}
+
+func assertGetStreamOK(t *testing.T, header *objectsdk.Object, reader io.ReadCloser, err error, exp objectsdk.Object) {
 	require.NoError(t, err)
-	require.Equal(t, obj.CutPayload(), header)
+	require.Equal(t, exp.CutPayload(), header)
 
 	require.NotNil(t, reader)
 	b, err := io.ReadAll(reader)
 	require.NoError(t, err)
-	require.Equal(t, objBin, b)
+	require.Equal(t, exp.Payload(), b)
 	require.NoError(t, reader.Close())
 }

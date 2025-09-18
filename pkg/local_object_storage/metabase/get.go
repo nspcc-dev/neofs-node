@@ -3,11 +3,13 @@ package meta
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -32,6 +34,10 @@ import (
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// If raw and the object is a parent of some stored objects, Get returns:
+// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [iec.ErrPartitionedObject] if object is EC.
 func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -54,6 +60,9 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	return hdr, err
 }
 
+// If raw and the object is a parent of some stored objects, get returns:
+// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [iec.ErrPartitionedObject] if object is EC.
 func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
 	var (
 		cnr        = addr.Container()
@@ -83,9 +92,9 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var objID = addr.Object()
 
 	if raw {
-		splitInfo, err := getSplitInfo(metaBucket, metaCursor, cnr, objID)
-		if err == nil {
-			return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+		err := getParentInfo(metaBucket, metaCursor, cnr, objID)
+		if errors.Is(err, ierrors.ErrParentObject) {
+			return nil, logicerr.Wrap(err)
 		}
 		// Otherwise it can be a valid non-split object.
 	}

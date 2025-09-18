@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -85,6 +86,7 @@ func TestDB_Exists(t *testing.T) {
 		_, err = metaExists(db, object.AddressOf(parent))
 
 		var expectedErr *objectSDK.SplitInfoError
+		require.ErrorIs(t, err, ierrors.ErrParentObject)
 		require.True(t, errors.As(err, &expectedErr))
 	})
 
@@ -120,6 +122,7 @@ func TestDB_Exists(t *testing.T) {
 			require.Error(t, err)
 
 			var si *objectSDK.SplitInfoError
+			require.ErrorIs(t, err, ierrors.ErrParentObject)
 			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
 
@@ -143,6 +146,7 @@ func TestDB_Exists(t *testing.T) {
 			require.Error(t, err)
 
 			var si *objectSDK.SplitInfoError
+			require.ErrorIs(t, err, ierrors.ErrParentObject)
 			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
 
@@ -175,6 +179,8 @@ func TestDB_Exists(t *testing.T) {
 			require.True(t, gotObj)
 		})
 	})
+
+	t.Run("EC", testExistsEC)
 }
 
 func BenchmarkExists(b *testing.B) {

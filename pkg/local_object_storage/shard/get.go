@@ -26,6 +26,10 @@ var ErrMetaWithNoObject = errors.New("got meta, but no object")
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// If referenced object is a parent of some stored objects, Get returns [ierrors.ErrParentObject] wrapping:
+// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [iec.ErrParts] if referenced object is EC.
 func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -118,6 +122,10 @@ func (s *Shard) GetBytes(addr oid.Address) ([]byte, error) {
 // GetBytesWithMetadataLookup works similar to [shard.GetBytes], but pre-checks
 // object presence in the underlying metabase: if object cannot be accessed from
 // the metabase, GetBytesWithMetadataLookup returns an error.
+//
+// If referenced object is a parent of some stored objects, GetBytesWithMetadataLookup returns [ierrors.ErrParentObject] wrapping:
+// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [iec.ErrParts] if referenced object is EC.
 func (s *Shard) GetBytesWithMetadataLookup(addr oid.Address) ([]byte, error) {
 	return s.getBytesWithMetadataLookup(addr, false)
 }
@@ -153,6 +161,10 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is present but already expired.
+//
+// If referenced object is a parent of some stored objects, GetStream returns [ierrors.ErrParentObject] wrapping:
+// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [iec.ErrParts] if referenced object is EC.
 func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*objectSDK.Object, io.ReadCloser, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()

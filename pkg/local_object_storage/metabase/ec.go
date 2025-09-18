@@ -56,18 +56,18 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 
 	metaBktCursor := metaBkt.Cursor()
 
-	id, err := db.resolveECPartInMetaBucket(metaBktCursor, parent, pi)
-	if err != nil {
-		return oid.ID{}, err
-	}
-
-	switch objectStatus(tx, metaBktCursor, oid.NewAddress(cnr, id), db.epochState.CurrentEpoch()) {
+	switch objectStatus(tx, metaBktCursor, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
 	case statusGCMarked:
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	case statusTombstoned:
 		return oid.ID{}, apistatus.ErrObjectAlreadyRemoved
 	case statusExpired:
 		return oid.ID{}, ErrObjectIsExpired
+	}
+
+	id, err := db.resolveECPartInMetaBucket(metaBktCursor, parent, pi)
+	if err != nil {
+		return oid.ID{}, err
 	}
 
 	return id, nil
@@ -115,4 +115,37 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 			return oid.ID(partID), nil
 		}
 	}
+}
+
+func collectECParts(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, parentID oid.ID) ([]oid.ID, error) {
+	var res []oid.ID
+
+	parentPrefix := getParentMetaOwnersPrefix(parentID)
+
+	ecAttrPrefix := make([]byte, 1+oid.Size+len(iec.AttributePrefix))
+	ecAttrPrefix[0] = metaPrefixIDAttr
+	copy(ecAttrPrefix[1+oid.Size:], iec.AttributePrefix)
+
+	var partCrs *bbolt.Cursor
+	for k, _ := cnrMetaCrs.Seek(parentPrefix); ; k, _ = cnrMetaCrs.Next() {
+		partID, ok := bytes.CutPrefix(k, parentPrefix)
+		if !ok {
+			break
+		}
+		if len(partID) != oid.Size {
+			return nil, invalidMetaBucketKeyErr(k, fmt.Errorf("invalid OID len %d", len(partID)))
+		}
+
+		if partCrs == nil {
+			partCrs = cnrMetaBkt.Cursor()
+		}
+
+		copy(ecAttrPrefix[1:], partID)
+
+		if k, _ := partCrs.Seek(ecAttrPrefix); bytes.HasPrefix(k, ecAttrPrefix) {
+			res = append(res, oid.ID(partID))
+		}
+	}
+
+	return res, nil
 }

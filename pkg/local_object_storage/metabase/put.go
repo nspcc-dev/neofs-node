@@ -9,6 +9,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -65,7 +66,7 @@ func (db *DB) put(
 	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch)
 
 	switch {
-	case exists || errors.As(err, &splitInfoError):
+	case exists || errors.Is(err, ierrors.ErrParentObject):
 		return nil
 	case errors.As(err, &apistatus.ObjectNotFound{}):
 		// OK, we're putting here.

@@ -24,6 +24,10 @@ import (
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
+//
+// If referenced object is a parent of some stored objects, GetRange returns [ierrors.ErrParentObject] wrapping:
+// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [iec.ErrParts] if referenced object is EC.
 func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMeta bool) (*object.Object, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
