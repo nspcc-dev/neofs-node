@@ -107,6 +107,9 @@
     },
     "put": {
       "pool_size_remote": 100
+    },
+    "search": {
+      "pool_size": 50
     }
   },
   "storage": {

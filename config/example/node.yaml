@@ -92,6 +92,8 @@ object:
     tombstone_lifetime: 10 # tombstone "local" lifetime in epochs
   put:
     pool_size_remote: 100  # number of async workers for remote PUT operations
+  search:
+    pool_size: 50  # number of async workers for search operations (default: 100)
 
 metadata:
   path: path/to/meta  # path to meta data storages, required
