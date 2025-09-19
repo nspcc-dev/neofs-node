@@ -46,6 +46,7 @@ Changelog for NeoFS Node
 - `golang.org/x/exp` dependency from v0.0.0-20250819193227-8b4c13bb791b to v0.0.0-20250911091902-df9299821621 (#3589)
 - `golang.org/x/net` dependency from v0.43.0 to v0.44.0 (#3589)
 - `google.golang.org/grpc` dependency from v1.70.0 to v1.75.1 (#3589)
+- `google.golang.org/protobuf` dependency from v1.36.8 to v1.36.9 (#3589)
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
