@@ -849,6 +849,44 @@ func TestPolicer_Run_EC(t *testing.T) {
 			testWithInContainer(t, false)
 		})
 	})
+
+	for _, typ := range []object.Type{
+		object.TypeTombstone,
+		object.TypeLock,
+	} {
+		t.Run(typ.String(), func(t *testing.T) {
+			localObj := localObj
+			localObj.Type = typ
+			localObj.Attributes = make([]string, 3)
+
+			for localIdx := -1; localIdx < len(nodes); localIdx++ {
+				mockNet := newMockNetwork()
+				mockNet.setObjectNodesECResult(cnr, partOID, slices.Clone(nodes), rule)
+				if localIdx >= 0 {
+					mockNet.pubKey = nodes[localIdx].PublicKey()
+				}
+
+				expShortage := uint32(len(nodes))
+				expShortageStr := strconv.FormatUint(uint64(expShortage), 10)
+				expCandidates := nodes
+				if localIdx >= 0 {
+					expShortage--
+					expShortageStr = strconv.FormatUint(uint64(expShortage), 10)
+					expCandidates = slices.Clone(nodes)
+					expCandidates = slices.Delete(expCandidates, localIdx, localIdx+1)
+				}
+
+				logBuf := testECCheckWithNetworkAndShortage(t, mockNet, localObj, nodes, localIdx, all404, false, expCandidates, true, expShortage)
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.DebugLevel, Message: "shortage of object copies detected", Fields: map[string]any{
+						"component": "Object Policer",
+						"object":    localObj.Address.String(),
+						"shortage":  json.Number(expShortageStr),
+					},
+				})
+			}
+		})
+	}
 }
 
 func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool) *testutil.LogBuffer {
@@ -873,6 +911,16 @@ func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAtt
 
 func testECCheckWithNetwork(t *testing.T, mockNet *mockNetwork, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo,
 	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool) *testutil.LogBuffer {
+	expShortage := uint32(0)
+	if len(expCandidates) > 0 {
+		expShortage = 1
+	}
+
+	return testECCheckWithNetworkAndShortage(t, mockNet, localObj, nodes, localIdx, headErrs, expRedundant, expCandidates, expRedundant, expShortage)
+}
+
+func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo,
+	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool, expShortage uint32) *testutil.LogBuffer {
 	require.Equal(t, len(nodes), len(headErrs))
 
 	wp, err := ants.NewPool(100)
@@ -920,7 +968,7 @@ func testECCheckWithNetwork(t *testing.T, mockNet *mockNetwork, localObj objectc
 
 		var exp replicator.Task
 		exp.SetObjectAddress(localObj.Address)
-		exp.SetCopiesNumber(1)
+		exp.SetCopiesNumber(expShortage)
 		exp.SetNodes(expCandidates)
 		require.Equal(t, exp, r.task)
 	} else {
