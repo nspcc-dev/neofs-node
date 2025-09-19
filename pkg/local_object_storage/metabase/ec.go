@@ -32,6 +32,7 @@ import (
 //
 // If object is locked (via [DB.Lock] or stored locker object), ResolveECPart
 // ignores expiration, tombstone and garbage marks.
+// TODO: upd docs, unit tests.
 func (db *DB) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -80,9 +81,18 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 
 	var partCrs *bbolt.Cursor
 	var rulePref, partPref []byte
+	isParent := false
 	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
 		partID, ok := bytes.CutPrefix(k, pref)
 		if !ok {
+			if !isParent { // neither tombstone nor lock can be a parent
+				typePref := make([]byte, metaIDTypePrefixSize)
+				fillIDTypePrefix(typePref)
+				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock) {
+					return parent, nil
+				}
+			}
+
 			return oid.ID{}, apistatus.ErrObjectNotFound
 		}
 		if len(partID) != oid.Size {
@@ -91,6 +101,8 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		if islices.AllZeros(partID) {
 			return oid.ID{}, invalidMetaBucketKeyErr(k, oid.ErrZero)
 		}
+
+		isParent = true
 
 		if partCrs == nil {
 			partCrs = crs.Bucket().Cursor()
