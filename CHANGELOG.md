@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.14.0.20250909131532-07fa82695f26` (#3569)
 - Minimum required Go version to 1.24 (#3135)
+- `github.com/cenkalti/backoff/v4` dependency from v4.2.1 to v4.3.0 (#3589)
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
