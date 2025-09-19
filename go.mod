@@ -1,6 +1,6 @@
 module github.com/nspcc-dev/neofs-node
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -18,7 +18,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.16.1
 	github.com/mxschmitt/golang-combinations v1.2.0
 	github.com/nspcc-dev/bbolt v0.0.0-20250911202005-807225ebb0c8
-	github.com/nspcc-dev/hrw/v2 v2.0.3
+	github.com/nspcc-dev/hrw/v2 v2.0.4
 	github.com/nspcc-dev/locode-db v0.6.0
 	github.com/nspcc-dev/neo-go v0.111.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
@@ -32,11 +32,11 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.18.2
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
-	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
+	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b
 	golang.org/x/net v0.35.0
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.16.0
 	golang.org/x/sys v0.30.0
 	golang.org/x/term v0.29.0
 	google.golang.org/grpc v1.70.0

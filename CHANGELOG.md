@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - `github.com/klauspost/compress` dependency from v1.17.11 to v1.18.0 (#3589)
 - `github.com/klauspost/reedsolomon` depdendency from v1.12.4 to v1.12.5 (#3589)
 - `github.com/multiformats/go-multiaddr` dependency from v0.12.2 to v0.16.1 (#3589)
+- `github.com/nspcc-dev/hrw/v2` dependency from v2.0.3 to v2.0.4 (#3589)
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
