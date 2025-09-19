@@ -11,14 +11,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	statusSDK "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,14 +35,6 @@ func TestChildrenExpiration(t *testing.T) {
 				meta.WithEpochState(es),
 			),
 			shard.WithExpiredObjectsCallback(e.processExpiredObjects),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				if err != nil {
-					panic(err)
-				}
-
-				return pool
-			}),
 			shard.WithGCRemoverSleepInterval(100*time.Millisecond),
 		)
 		require.NoError(t, err)
