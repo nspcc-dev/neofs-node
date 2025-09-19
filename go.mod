@@ -26,7 +26,7 @@ require (
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.14.0.20250909131532-07fa82695f26
 	github.com/nspcc-dev/tzhash v1.8.3
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/panjf2000/ants/v2 v2.9.0
+	github.com/panjf2000/ants/v2 v2.11.3
 	github.com/prometheus/client_golang v1.21.1
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/cobra v1.8.1
