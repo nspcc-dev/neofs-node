@@ -670,9 +670,8 @@ func BenchmarkServer_Replicate(b *testing.B) {
 			req, _ := anyValidRequest(b, tc.newSigner(b), cidtest.ID(), oidtest.ID())
 
 			b.ReportAllocs()
-			b.ResetTimer()
 
-			for range b.N {
+			for b.Loop() {
 				resp, err := srv.Replicate(ctx, req)
 				require.NoError(b, err)
 				require.Zero(b, resp.GetStatus().GetCode())

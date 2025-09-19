@@ -41,9 +41,7 @@ func BenchmarkClassifierLoggerProduction(b *testing.B) {
 		fsChain:   nopFSChain{},
 	}
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		role, err := c.classify(cnrID, cnrOwner, reqOwner, reqAuthorPub)
 		require.NoError(b, err)
 		require.Equal(b, role, acl.RoleOthers)

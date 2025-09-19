@@ -1,6 +1,7 @@
 package alphabet
 
 import (
+	"context"
 	"crypto/elliptic"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -25,7 +26,7 @@ func (ap *Processor) processEmit() {
 		return
 	}
 
-	err := ap.fsChainClient.Invoke(ap.alphabetContracts[index], false, false, 0, emitMethod)
+	err := ap.fsChainClient.Invoke(context.TODO(), ap.alphabetContracts[index], false, false, 0, emitMethod)
 	if err != nil {
 		ap.log.Warn("can't invoke alphabet emit method", zap.Error(err))
 

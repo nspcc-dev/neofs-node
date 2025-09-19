@@ -41,8 +41,7 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 					fsTree := setupFSTree(b)
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
-					b.ResetTimer()
-					for range b.N {
+					for b.Loop() {
 						_, err := fsTree.GetRange(addr, tc.from, tc.length)
 						if err != nil {
 							b.Fatal(err)
@@ -55,8 +54,7 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 					setupCompressor(b, fsTree)
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
-					b.ResetTimer()
-					for range b.N {
+					for b.Loop() {
 						_, err := fsTree.GetRange(addr, tc.from, tc.length)
 						if err != nil {
 							b.Fatal(err)

@@ -36,8 +36,7 @@ func BenchmarkFSTree_GetStream(b *testing.B) {
 				addr := prepareSingleObject(b, freshFSTree, size)
 
 				b.ReportAllocs()
-				b.ResetTimer()
-				for range b.N {
+				for b.Loop() {
 					header, reader, err := freshFSTree.GetStream(addr)
 					if err != nil {
 						b.Fatal(err)
@@ -90,8 +89,7 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 		addr := prepareSingleObject(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			testRead(fsTree, addr)
 		}
 	})
@@ -113,8 +111,7 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 		addr := prepareSingleObject(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			testRead(fsTree, addr)
 		}
 	})

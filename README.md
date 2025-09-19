@@ -53,7 +53,10 @@ The latest version of neofs-node works with neofs-contract
 
 # Building
 
-To make all binaries you need Go 1.23+ and `make`:
+To build all binaries you need modern Go (any officially supported version, see
+[NeoSPCC Go policy](https://github.com/nspcc-dev/.github/blob/master/go.md)
+for how we manage Go updates) and `make`:
+
 ```
 make all
 ```

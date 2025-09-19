@@ -1,6 +1,7 @@
 package fschain
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -227,7 +228,8 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("build transaction script: %w", err)
 	}
 
-	_, err = actr.Wait(actr.SendRun(txScript))
+	txh, vub, err := actr.SendRun(txScript)
+	_, err = actr.Wait(context.TODO(), txh, vub, err)
 	if err != nil {
 		return fmt.Errorf("send transction with built script and wait for it to be accepted: %w", err)
 	}

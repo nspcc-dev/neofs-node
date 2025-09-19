@@ -97,8 +97,7 @@ func (t *testNetwork) List(uint64) (map[cid.ID]struct{}, error) {
 func testContainers(t *testing.T, num int) []cid.ID {
 	res := make([]cid.ID, num)
 	for i := range num {
-		_, err := rand.Read(res[i][:])
-		require.NoError(t, err)
+		_, _ = rand.Read(res[i][:])
 	}
 
 	return res
@@ -514,11 +513,6 @@ func TestObjectPut(t *testing.T) {
 
 			tempM := make(map[string][]byte)
 			fillObjectIndex(tempM, o, false)
-			// dbKeys := maps.Keys(tempM) // go 1.23+
-			dbKeys := make([][]byte, 0, len(tempM))
-			for k := range tempM {
-				dbKeys = append(dbKeys, []byte(k))
-			}
 
 			for _, key := range mptKeys {
 				_, err = st.mpt.Get(key)
@@ -527,8 +521,8 @@ func TestObjectPut(t *testing.T) {
 				}
 			}
 
-			for _, key := range dbKeys {
-				_, err = st.db.Get(key)
+			for key := range tempM {
+				_, err = st.db.Get([]byte(key))
 				if !errors.Is(err, storage.ErrKeyNotFound) {
 					return false
 				}

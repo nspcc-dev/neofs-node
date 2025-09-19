@@ -75,8 +75,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		ok, err := e.exists(addr)
 		if err != nil || ok {
 			b.Fatalf("%t %v", ok, err)

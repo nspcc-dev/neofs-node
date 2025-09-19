@@ -43,8 +43,7 @@ func BenchmarkSearch(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		res, _, err := db.Search(cid, sfs, attrs, curs, 1000)
 		if err != nil {
 			b.Fatal(err)

@@ -202,7 +202,7 @@ func BenchmarkExists(b *testing.B) {
 	b.Run("existing", func(b *testing.B) {
 		var i int
 
-		for range b.N {
+		for b.Loop() {
 			ex, err := db.Exists(addrs[i%len(addrs)], false)
 			require.NoError(b, err)
 			require.True(b, ex)
@@ -211,7 +211,7 @@ func BenchmarkExists(b *testing.B) {
 	})
 	b.Run("inexisting", func(b *testing.B) {
 		var addr oid.Address
-		for range b.N {
+		for b.Loop() {
 			ex, err := db.Exists(addr, false)
 			require.NoError(b, err)
 			require.False(b, ex)

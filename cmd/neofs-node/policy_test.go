@@ -91,8 +91,7 @@ func newNetmapWithContainer(tb testing.TB, nodeNum int, selected ...[]int) ([]ne
 	nodes := make([]netmap.NodeInfo, nodeNum)
 	for i := range nodes {
 		key := make([]byte, 33)
-		_, err := rand.Read(key)
-		require.NoError(tb, err)
+		_, _ = rand.Read(key)
 		nodes[i].SetPublicKey(key)
 
 		for j := range selected {
