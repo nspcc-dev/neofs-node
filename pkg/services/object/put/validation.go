@@ -10,13 +10,18 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
+	"go.uber.org/zap"
 )
 
 // validatingTarget validates object format and content.
 type validatingTarget struct {
+	l *zap.Logger
+
 	nextTarget internal.Target
 
 	fmt *object.FormatValidator
@@ -27,11 +32,13 @@ type validatingTarget struct {
 
 	checksum []byte
 
-	maxPayloadSz uint64 // network config
-
-	payloadSz uint64 // payload size of the streaming object from header
-
-	writtenPayload uint64 // number of already written payload bytes
+	quotaLimiter    QuotaLimiter
+	maxPayloadSz    uint64 // network config
+	payloadSz       uint64 // payload size of the streaming object from header
+	writtenPayload  uint64 // number of already written payload bytes
+	cachedHeader    *objectSDK.Object
+	cachedCnr       container.Container
+	cachedRepNumber uint64
 
 	homomorphicChecksumRequired bool
 }
@@ -44,8 +51,17 @@ var (
 )
 
 func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
+	t.cachedHeader = obj
 	t.payloadSz = obj.PayloadSize()
 	chunkLn := uint64(len(obj.Payload()))
+	p := t.cachedCnr.PlacementPolicy()
+	for i := range p.NumberOfReplicas() {
+		// simplification: there can be duplicates in complex cases with
+		// multiple placement vectors, but considering placement
+		// ambiguity, the rarity of complex placement rules, and quotas
+		// caching, this is an acceptable prediction
+		t.cachedRepNumber += uint64(p.ReplicaNumberByIndex(i))
+	}
 
 	if !t.unpreparedObject {
 		// check chunk size
@@ -93,18 +109,21 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 		return fmt.Errorf("(%T) coult not validate object format: %w", t, err)
 	}
 
-	err := t.nextTarget.WriteHeader(obj)
+	err := t.checkQuotaLimits(obj, t.payloadSz)
 	if err != nil {
 		return err
 	}
 
-	if !t.unpreparedObject {
-		// update written bytes
-		//
-		// Note: we MUST NOT add obj.PayloadSize() since obj
-		// can carry only the chunk of the full payload
-		t.writtenPayload += chunkLn
+	err = t.nextTarget.WriteHeader(obj)
+	if err != nil {
+		return err
 	}
+
+	// update written bytes
+	//
+	// Note: we MUST NOT add obj.PayloadSize() since obj
+	// can carry only the chunk of the full payload
+	t.writtenPayload += chunkLn
 
 	return nil
 }
@@ -129,6 +148,8 @@ func (t *validatingTarget) Write(p []byte) (n int, err error) {
 		t.writtenPayload += uint64(n)
 	}
 
+	err = t.checkQuotaLimits(t.cachedHeader, t.writtenPayload)
+
 	return
 }
 
@@ -145,4 +166,30 @@ func (t *validatingTarget) Close() (oid.ID, error) {
 	}
 
 	return t.nextTarget.Close()
+}
+
+func (t *validatingTarget) checkQuotaLimits(obj *objectSDK.Object, written uint64) error {
+	// header validation ensured values are non-zero before
+	cID := obj.GetContainerID()
+	owner := obj.Owner()
+	softLeft, hardLeft, err := t.quotaLimiter.AvailableQuotasLeft(cID, owner)
+	if err != nil {
+		t.l.Warn("failed to check quotas, accept object anyway",
+			zap.Stringer("cID", cID),
+			zap.Stringer("owner", owner),
+			zap.Error(err))
+	} else {
+		if written*t.cachedRepNumber > softLeft {
+			t.l.Warn("soft quota limit has been reached",
+				zap.Stringer("cID", cID),
+				zap.Stringer("owner", owner),
+				zap.Error(apistatus.ErrQuotaExceeded))
+		}
+
+		if written*t.cachedRepNumber > hardLeft {
+			return apistatus.ErrQuotaExceeded
+		}
+	}
+
+	return nil
 }

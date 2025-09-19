@@ -274,6 +274,7 @@ type cfgObject struct {
 
 	tombstoneLifetime uint64
 
+	quotasTTL      time.Duration
 	containerNodes *containerNodes
 }
 
@@ -408,6 +409,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.cfgObject = cfgObject{
 		pool:              initObjectPool(appCfg),
 		tombstoneLifetime: appCfg.Object.Delete.TombstoneLifetime,
+		quotasTTL:         c.appCfg.FSChain.QuotaCacheTTL,
 	}
 	c.cfgReputation = cfgReputation{
 		workerPool: reputationWorkerPool,

@@ -2,9 +2,12 @@ package container
 
 import (
 	"bytes"
+	"crypto/elliptic"
 	"fmt"
+	"math"
 	"slices"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -75,4 +78,55 @@ func toAnySlice[T any](vv []T) []any {
 	}
 
 	return res
+}
+
+// Nodes returns container nodes placement from the Container contract.
+// Result is a two-dimensional array corresponding to placement vectors.
+// Returns (nil, nil) if there is no information from the contract.
+func (c *Client) Nodes(cid cid.ID) ([][]*keys.PublicKey, error) {
+	items, err := c.client.TestInvokeIterator(replicasListMethod, iteratorPrefetchNumber, cid[:])
+	if err != nil {
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", replicasListMethod, err)
+	}
+	if len(items) > math.MaxUint8 {
+		return nil, fmt.Errorf("too many replicas returned from the contract: %d (max expected: %d)", len(items), math.MaxUint8)
+	}
+
+	res := make([][]*keys.PublicKey, 0, len(items))
+	for i := range items {
+		vector, err := c.placementVector(cid, uint8(i))
+		if err != nil {
+			return nil, fmt.Errorf("could not get placement vector at index %d: %w", i, err)
+		}
+
+		res = append(res, vector)
+	}
+
+	return res, nil
+}
+
+func (c *Client) placementVector(cid cid.ID, vector uint8) ([]*keys.PublicKey, error) {
+	items, err := c.client.TestInvokeIterator(nodesListMethod, iteratorPrefetchNumber, cid[:], vector)
+	if err != nil {
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", nodesListMethod, err)
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+
+	res := make([]*keys.PublicKey, 0, len(items))
+	for i, item := range items {
+		pkRaw, err := item.TryBytes()
+		if err != nil {
+			return nil, fmt.Errorf("reading %d stackitem as raw public key: %w", i, err)
+		}
+		pk, err := keys.NewPublicKeyFromBytes(pkRaw, elliptic.P256())
+		if err != nil {
+			return nil, fmt.Errorf("reading %d stackitem as public key: %w", i, err)
+		}
+
+		res = append(res, pk)
+	}
+
+	return res, nil
 }
