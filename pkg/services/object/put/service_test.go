@@ -36,6 +36,7 @@ import (
 	netmaptest "github.com/nspcc-dev/neofs-sdk-go/netmap/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -159,6 +160,12 @@ func TestQuotas(t *testing.T) {
 }
 
 func Test_Slicing_REP3(t *testing.T) {
+	const repNodes = 3
+	const cnrReserveNodes = 2
+	const outCnrNodes = 2
+
+	cluster := newTestClusterForRepPolicy(t, repNodes, cnrReserveNodes, outCnrNodes)
+
 	for _, tc := range []struct {
 		name string
 		ln   uint64
@@ -173,9 +180,17 @@ func Test_Slicing_REP3(t *testing.T) {
 		{name: "limitX5", ln: maxObjectSize * 5},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testSlicingREP3(t, tc.ln)
+			testSlicingREP3(t, cluster, tc.ln, repNodes, cnrReserveNodes, outCnrNodes)
 		})
 	}
+
+	t.Run("tombstone", func(t *testing.T) {
+		testTombstoneSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes)
+	})
+
+	t.Run("lock", func(t *testing.T) {
+		testLockSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes)
+	})
 }
 
 func Test_Slicing_EC(t *testing.T) {
@@ -184,6 +199,25 @@ func Test_Slicing_EC(t *testing.T) {
 		{DataPartNum: 3, ParityPartNum: 1},
 		{DataPartNum: 6, ParityPartNum: 3},
 		{DataPartNum: 12, ParityPartNum: 4},
+	}
+
+	maxRule := slices.MaxFunc(rules, func(a, b iec.Rule) int {
+		return cmp.Compare(a.DataPartNum+a.ParityPartNum, b.DataPartNum+b.ParityPartNum)
+	})
+
+	maxTotalParts := int(maxRule.DataPartNum + maxRule.ParityPartNum)
+	const cnrReserveNodes = 2
+	const outCnrNodes = 2
+
+	cluster := newTestClusterForRepPolicy(t, uint(maxTotalParts), cnrReserveNodes, outCnrNodes)
+	for i := range cluster.nodeNetworks {
+		// TODO: add alternative to newTestClusterForRepPolicy for EC instead
+		cluster.nodeNetworks[i].cnrNodes.repCounts = nil
+		for range len(rules) - 1 {
+			cluster.nodeNetworks[i].cnrNodes.unsorted = append(cluster.nodeNetworks[i].cnrNodes.unsorted, cluster.nodeNetworks[i].cnrNodes.unsorted[0])
+			cluster.nodeNetworks[i].cnrNodes.sorted = append(cluster.nodeNetworks[i].cnrNodes.sorted, cluster.nodeNetworks[i].cnrNodes.sorted[0])
+		}
+		cluster.nodeNetworks[i].cnrNodes.ecRules = rules
 	}
 
 	for _, tc := range []struct {
@@ -204,18 +238,20 @@ func Test_Slicing_EC(t *testing.T) {
 			if tc.skip != "" {
 				t.Skip(tc.skip)
 			}
-			testSlicingECRules(t, tc.ln, rules)
+			testSlicingECRules(t, cluster, tc.ln, rules, maxTotalParts, cnrReserveNodes, outCnrNodes)
 		})
 	}
+
+	t.Run("tombstone", func(t *testing.T) {
+		testTombstoneSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes)
+	})
+
+	t.Run("lock", func(t *testing.T) {
+		testLockSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes)
+	})
 }
 
-func testSlicingREP3(t *testing.T, ln uint64) {
-	const repNodes = 3
-	const cnrReserveNodes = 2
-	const outCnrNodes = 2
-
-	cluster := newTestClusterForRepPolicy(t, repNodes, cnrReserveNodes, outCnrNodes)
-
+func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cnrReserveNodes, outCnrNodes int) {
 	var srcObj object.Object
 	srcObj.SetContainerID(cidtest.ID())
 	srcObj.SetOwner(usertest.ID())
@@ -287,26 +323,7 @@ func testSlicingREP3(t *testing.T, ln uint64) {
 	}
 }
 
-func testSlicingECRules(t *testing.T, ln uint64, rules []iec.Rule) {
-	maxRule := slices.MaxFunc(rules, func(a, b iec.Rule) int {
-		return cmp.Compare(a.DataPartNum+a.ParityPartNum, b.DataPartNum+b.ParityPartNum)
-	})
-
-	maxTotalParts := int(maxRule.DataPartNum + maxRule.ParityPartNum)
-	const cnrReserveNodes = 2
-	const outCnrNodes = 2
-
-	cluster := newTestClusterForRepPolicy(t, uint(maxTotalParts), cnrReserveNodes, outCnrNodes)
-	for i := range cluster.nodeNetworks {
-		// TODO: add alternative to newTestClusterForRepPolicy for EC instead
-		cluster.nodeNetworks[i].cnrNodes.repCounts = nil
-		for range len(rules) - 1 {
-			cluster.nodeNetworks[i].cnrNodes.unsorted = append(cluster.nodeNetworks[i].cnrNodes.unsorted, cluster.nodeNetworks[i].cnrNodes.unsorted[0])
-			cluster.nodeNetworks[i].cnrNodes.sorted = append(cluster.nodeNetworks[i].cnrNodes.sorted, cluster.nodeNetworks[i].cnrNodes.sorted[0])
-		}
-		cluster.nodeNetworks[i].cnrNodes.ecRules = rules
-	}
-
+func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []iec.Rule, maxTotalParts, cnrReserveNodes, outCnrNodes int) {
 	var srcObj object.Object
 	srcObj.SetContainerID(cidtest.ID())
 	srcObj.SetOwner(usertest.ID())
@@ -352,6 +369,72 @@ func testSlicingECRules(t *testing.T, ln uint64, rules []iec.Rule) {
 	}
 
 	for i := range maxTotalParts + cnrReserveNodes + outCnrNodes {
+		testThroughNode(t, i)
+	}
+}
+
+func testTombstoneSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int) {
+	testSysObjectSlicing(t, cluster, cnrNodeNum, outCnrNodeNum, object.TypeTombstone, (*object.Object).AssociateDeleted)
+}
+
+func testLockSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int) {
+	testSysObjectSlicing(t, cluster, cnrNodeNum, outCnrNodeNum, object.TypeLock, (*object.Object).AssociateLocked)
+}
+
+func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, typ object.Type, associate func(*object.Object, oid.ID)) {
+	target := oidtest.ID()
+
+	var srcObj object.Object
+	srcObj.SetContainerID(cidtest.ID())
+	srcObj.SetOwner(usertest.ID())
+	srcObj.SetAttributes(
+		object.NewAttribute(object.AttributeExpirationEpoch, "123"),
+	)
+	associate(&srcObj, target)
+
+	var sessionToken session.Object
+	sessionToken.SetID(uuid.New())
+	sessionToken.SetExp(1)
+	sessionToken.BindContainer(cidtest.ID())
+
+	testThroughNode := func(t *testing.T, idx int) {
+		sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
+		require.NoError(t, sessionToken.Sign(usertest.User()))
+
+		storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken)
+
+		nodeObjLists := cluster.allStoredObjects()
+
+		var restoredObj object.Object
+		for i := range cnrNodeNum { // tombstones are broadcast
+			require.Len(t, nodeObjLists[i], 1)
+
+			obj := nodeObjLists[i][0]
+
+			if i == 0 {
+				restoredObj = obj
+			} else {
+				require.Equal(t, restoredObj.Marshal(), obj.Marshal())
+			}
+		}
+
+		require.Zero(t, islices.TwoDimSliceElementCount(nodeObjLists[cnrNodeNum:]))
+
+		assertObjectIntegrity(t, restoredObj)
+		require.Empty(t, restoredObj.Payload())
+		require.Equal(t, sessionToken, *restoredObj.SessionToken())
+		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
+		require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
+		require.Equal(t, typ, restoredObj.Type())
+		require.Equal(t, target, restoredObj.AssociatedObject())
+		require.Equal(t, srcObj.Attributes(), restoredObj.Attributes())
+		require.False(t, restoredObj.HasParent())
+
+		cluster.resetAllStoredObjects()
+	}
+
+	for i := range cnrNodeNum + outCnrNodeNum {
 		testThroughNode(t, i)
 	}
 }
@@ -403,6 +486,7 @@ func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrN
 			WithClientConstructor(cluster.nodeServices),
 			WithSplitChainVerifier(mockSplitVerifier{}),
 			WithRemoteWorkerPool(nodeWorkerPool),
+			WithTombstoneVerifier(mockTombstoneVerifier{}),
 		)
 	}
 
@@ -412,6 +496,17 @@ func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrN
 type mockSplitVerifier struct{}
 
 func (mockSplitVerifier) VerifySplit(context.Context, cid.ID, oid.ID, []object.MeasuredObject) error {
+	return nil
+}
+
+type mockTombstoneVerifier struct {
+}
+
+func (mockTombstoneVerifier) VerifyTomb(context.Context, cid.ID, object.Tombstone) error {
+	panic("unimplemented")
+}
+
+func (mockTombstoneVerifier) VerifyTombStoneWithoutPayload(context.Context, object.Object) error {
 	return nil
 }
 

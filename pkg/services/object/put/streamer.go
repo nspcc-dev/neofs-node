@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -175,7 +176,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 	cnrNodes := prm.containerNodes.Unsorted()
 	ecRulesN := len(prm.containerNodes.ECRules())
-	if ecRulesN > 0 {
+	if typ := prm.hdr.Type(); ecRulesN > 0 && typ != object.TypeTombstone && typ != object.TypeLock {
 		ecPart, err := iec.GetPartInfo(*prm.hdr)
 		if err != nil {
 			return fmt.Errorf("get EC part info from object header: %w", err)
