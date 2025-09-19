@@ -40,12 +40,9 @@ func EventNewEpoch(e uint64) Event {
 	}
 }
 
-type eventHandler func(Event)
-
-type eventHandlers struct {
+type eventHandler struct {
 	prevGroup sync.WaitGroup
-
-	handlers []eventHandler
+	handler   func(Event)
 }
 
 type gc struct {
@@ -60,7 +57,7 @@ type gc struct {
 	remover func()
 
 	eventChan     chan Event
-	mEventHandler map[eventType]*eventHandlers
+	mEventHandler map[eventType]*eventHandler
 
 	// currentEpoch stores the latest epoch announced via EventNewEpoch.
 	currentEpoch atomic.Uint64
@@ -89,8 +86,8 @@ func defaultGCCfg() gcCfg {
 func (gc *gc) init() {
 	sz := 0
 
-	for _, v := range gc.mEventHandler {
-		sz += len(v.handlers)
+	for range gc.mEventHandler {
+		sz++
 	}
 
 	if sz > 0 {
@@ -117,24 +114,11 @@ func (gc *gc) listenEvents() {
 			}
 
 			v.prevGroup.Wait()
-
-			v.prevGroup.Add(len(v.handlers))
-
-			for i := range v.handlers {
-				h := v.handlers[i]
-
-				err := gc.workerPool.Submit(func() {
-					h(event)
-					v.prevGroup.Done()
-				})
-				if err != nil {
-					gc.log.Warn("could not submit GC job to worker pool",
-						zap.Error(err),
-					)
-
-					v.prevGroup.Done()
-				}
-			}
+			v.prevGroup.Add(1)
+			go func() {
+				v.handler(event)
+				v.prevGroup.Done()
+			}()
 		}
 	}
 }
