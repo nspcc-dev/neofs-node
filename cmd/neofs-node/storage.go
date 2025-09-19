@@ -14,10 +14,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -168,12 +166,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(int(shCfg.GC.RemoverBatchSize)),
 			shard.WithGCRemoverSleepInterval(shCfg.GC.RemoverSleepInterval),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				fatalOnErr(err)
-
-				return pool
-			}),
 		}
 
 		shards = append(shards, sh)

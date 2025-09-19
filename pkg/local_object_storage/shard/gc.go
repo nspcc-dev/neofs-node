@@ -7,7 +7,6 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -52,8 +51,6 @@ type gc struct {
 	stopChannel chan struct{}
 	wg          sync.WaitGroup
 
-	workerPool util.WorkerPool
-
 	remover func()
 
 	eventChan     chan Event
@@ -69,31 +66,16 @@ type gcCfg struct {
 	removerInterval time.Duration
 
 	log *zap.Logger
-
-	workerPoolInit func(int) util.WorkerPool
 }
 
 func defaultGCCfg() gcCfg {
 	return gcCfg{
 		removerInterval: 10 * time.Second,
 		log:             zap.L(),
-		workerPoolInit: func(int) util.WorkerPool {
-			return nil
-		},
 	}
 }
 
 func (gc *gc) init() {
-	sz := 0
-
-	for range gc.mEventHandler {
-		sz++
-	}
-
-	if sz > 0 {
-		gc.workerPool = gc.workerPoolInit(sz)
-	}
-
 	gc.wg.Add(2)
 	go gc.tickRemover()
 	go gc.listenEvents()
@@ -131,10 +113,6 @@ func (gc *gc) tickRemover() {
 	for {
 		select {
 		case <-gc.stopChannel:
-			if gc.workerPool != nil {
-				gc.workerPool.Release()
-			}
-
 			gc.log.Debug("GC is stopped")
 			return
 		case <-timer.C:

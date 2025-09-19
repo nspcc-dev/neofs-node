@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -21,7 +20,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,12 +39,6 @@ func TestLockUserScenario(t *testing.T) {
 	tombObj.SetID(tombForLockID)
 
 	e := testEngineFromShardOpts(t, 2, []shard.Option{
-		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-			pool, err := ants.NewPool(sz)
-			require.NoError(t, err)
-
-			return pool
-		}),
 		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
 
@@ -135,12 +127,6 @@ func TestLockExpiration(t *testing.T) {
 	//   4. after some delay the object is not locked anymore
 
 	e := testEngineFromShardOpts(t, 2, []shard.Option{
-		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-			pool, err := ants.NewPool(sz)
-			require.NoError(t, err)
-
-			return pool
-		}),
 		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
 
@@ -203,12 +189,6 @@ func TestLockForceRemoval(t *testing.T) {
 	var e *StorageEngine
 
 	e = testEngineFromShardOpts(t, 2, []shard.Option{
-		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-			pool, err := ants.NewPool(sz)
-			require.NoError(t, err)
-
-			return pool
-		}),
 		shard.WithDeletedLockCallback(e.processDeletedLocks),
 		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})

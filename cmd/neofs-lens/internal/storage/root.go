@@ -13,8 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/panjf2000/ants/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -123,16 +121,6 @@ func openEngine() (*engine.StorageEngine, error) {
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(int(shCfg.GC.RemoverBatchSize)),
 			shard.WithGCRemoverSleepInterval(shCfg.GC.RemoverSleepInterval),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, poolErr := ants.NewPool(sz)
-				if poolErr != nil {
-					err = poolErr
-				}
-				return pool
-			}),
-		}
-		if err != nil {
-			return nil, err
 		}
 
 		shardsWithMeta = append(shardsWithMeta, sh)
