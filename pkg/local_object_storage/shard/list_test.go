@@ -81,6 +81,7 @@ func TestShard_ListWithCursor(t *testing.T) {
 		const groupAttr = "attr_group"
 
 		s := newShard(t, true)
+		defer releaseShard(s, t)
 
 		var exp []object.AddressWithAttributes
 		for i := range containerNum {
