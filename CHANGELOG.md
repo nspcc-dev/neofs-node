@@ -44,6 +44,7 @@ Changelog for NeoFS Node
 - `github.com/spf13/pflag` dependency from v1.0.6 to v1.0.10 (#3589)
 - `github.com/spf13/viper` dependency from v1.18.2 to v1.21.0 (#3589)
 - `golang.org/x/exp` dependency from v0.0.0-20250819193227-8b4c13bb791b to v0.0.0-20250911091902-df9299821621 (#3589)
+- `golang.org/x/net` dependency from v0.43.0 to v0.44.0 (#3589)
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
