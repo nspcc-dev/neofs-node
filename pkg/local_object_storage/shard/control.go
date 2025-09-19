@@ -131,14 +131,8 @@ func (s *Shard) Init() error {
 		remover:     s.removeGarbage,
 		stopChannel: make(chan struct{}),
 		eventChan:   make(chan Event, 1),
-		mEventHandler: map[eventType]*eventHandlers{
-			eventNewEpoch: {
-				handlers: []eventHandler{
-					s.collectExpiredObjects,
-					s.collectExpiredTombstones,
-					s.collectExpiredLocks,
-				},
-			},
+		mEventHandler: map[eventType]*eventHandler{
+			eventNewEpoch: {handler: s.setEpochEventHandler},
 		},
 	}
 

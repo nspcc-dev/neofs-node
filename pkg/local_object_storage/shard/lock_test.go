@@ -35,7 +35,7 @@ func TestShard_Lock(t *testing.T) {
 			meta.WithEpochState(epochState{}),
 		),
 		shard.WithDeletedLockCallback(func(addresses []oid.Address) {
-			sh.HandleDeletedLocks(addresses)
+			sh.FreeLockedBy(addresses)
 		}),
 	}
 

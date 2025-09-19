@@ -89,6 +89,16 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 
 // Returns ok if object was inhumed during this invocation or before.
 func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
+	return e.processAddrDelete(addr, func(sh *shard.Shard, addrs []oid.Address) error {
+		if tombstone != nil {
+			return sh.Inhume(*tombstone, tombExpiration, addrs...)
+		}
+		return sh.MarkGarbage(force, addrs...)
+	})
+}
+
+// processAddrDelete processes deletion (inhume or immediate delete) of an object by its address.
+func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*shard.Shard, []oid.Address) error) error {
 	var (
 		children []oid.Address
 		err      error
@@ -179,12 +189,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 			continue
 		}
 
-		if tombstone != nil {
-			err = sh.Inhume(*tombstone, tombExpiration, addr)
-		} else {
-			err = sh.MarkGarbage(force, addr)
-		}
-
+		err = deleteFunc(sh.Shard, []oid.Address{addr})
 		if err != nil {
 			if !errors.Is(err, logicerr.Error) {
 				e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
@@ -200,13 +205,9 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 		retErr error
 	)
 
-	// has not found the object on any shard, so mark it as inhumed on the most probable one
+	// has not found the object on any shard, so delete on the most probable one
 	for _, sh := range shards {
-		if tombstone != nil {
-			err = sh.Inhume(*tombstone, tombExpiration, addrs...)
-		} else {
-			err = sh.MarkGarbage(force, addrs...)
-		}
+		err = deleteFunc(sh.Shard, addrs)
 		if err != nil {
 			var errLocked apistatus.ObjectLocked
 
@@ -265,35 +266,45 @@ func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
-	err := e.inhume(addrs, false, nil, 0)
-	if err != nil {
-		e.log.Warn("handling expired objects", zap.Error(err))
+	for _, addr := range addrs {
+		locked, err := e.IsLocked(addr)
+		if err != nil {
+			e.log.Warn("removing an object without full locking check",
+				zap.Error(err),
+				zap.Stringer("addr", addr))
+		} else if locked {
+			e.log.Warn("skip an expired object with lock",
+				zap.Stringer("addr", addr))
+			continue
+		}
+
+		err = e.processAddrDelete(addr, (*shard.Shard).Delete)
+		if err != nil {
+			e.log.Warn("deleting expired object", zap.Stringer("addr", addr), zap.Error(err))
+		}
 	}
 }
 
 func (e *StorageEngine) processExpiredLocks(lockers []oid.Address) {
 	var unlocked, expired []oid.Address
 	for _, sh := range e.unsortedShards() {
-		unlocked = sh.HandleExpiredLocks(lockers)
+		unlocked = sh.FreeLockedBy(lockers)
 		for _, sh2 := range e.unsortedShards() {
 			expired = append(expired, sh2.FilterExpired(unlocked)...)
 		}
 	}
-	expired = removeDuplicateAddresses(expired)
+	expired = removeDuplicateAddresses(append(expired, lockers...))
 	e.log.Debug("expired objects after locks expired",
 		zap.Stringers("addrs", expired),
 		zap.Stringers("locks", lockers))
 
-	err := e.inhume(expired, false, nil, 0)
-	if err != nil {
-		e.log.Warn("handling expired locks", zap.Error(err))
-	}
+	e.processExpiredObjects(expired)
 }
 
 func (e *StorageEngine) processDeletedLocks(lockers []oid.Address) {
 	var unlocked, expired []oid.Address
 	for _, sh := range e.unsortedShards() {
-		unlocked = sh.HandleDeletedLocks(lockers)
+		unlocked = sh.FreeLockedBy(lockers)
 		for _, sh2 := range e.unsortedShards() {
 			expired = append(expired, sh2.FilterExpired(unlocked)...)
 		}
@@ -303,10 +314,7 @@ func (e *StorageEngine) processDeletedLocks(lockers []oid.Address) {
 		zap.Stringers("addrs", expired),
 		zap.Stringers("locks", lockers))
 
-	err := e.inhume(expired, false, nil, 0)
-	if err != nil {
-		e.log.Warn("handling deleted locks", zap.Error(err))
-	}
+	e.processExpiredObjects(expired)
 }
 
 func measuredObjsToAddresses(cID cid.ID, mm []objectSDK.MeasuredObject) []oid.Address {
