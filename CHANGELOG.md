@@ -39,6 +39,10 @@ Changelog for NeoFS Node
 - `github.com/nspcc-dev/tzhash` dependency from v1.8.2 to v1.8.3 (#3589)
 - `github.com/panjf2000/ants/v2` dependency from v2.9.0 to v2.11.3 (#3589)
 - `github.com/prometheus/client_golang` dependency from v1.21.1 to v1.23.2 (#3589)
+- `github.com/spf13/cast` dependency from v1.6.0 to v1.10.0 (#3589)
+- `github.com/spf13/cobra` dependency from v1.8.1 to v1.10.1 (#3589)
+- `github.com/spf13/pflag` dependency from v1.0.6 to v1.0.10 (#3589)
+- `github.com/spf13/viper` dependency from v1.18.2 to v1.21.0 (#3589)
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
