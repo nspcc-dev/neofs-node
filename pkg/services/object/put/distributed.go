@@ -43,7 +43,7 @@ type distributedTarget struct {
 	metaMtx             sync.RWMutex
 	metaSigner          neofscrypto.Signer
 	objSharedMeta       []byte
-	collectedSignatures [][]byte
+	collectedSignatures [][][]byte
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
@@ -72,9 +72,9 @@ type distributedTarget struct {
 }
 
 type nodeDesc struct {
-	local bool
-
-	info client.NodeInfo
+	local           bool
+	placementVector int
+	info            client.NodeInfo
 }
 
 // errIncompletePut is returned if processing on a container fails.
@@ -231,10 +231,6 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 		t.metaMtx.RLock()
 		defer t.metaMtx.RUnlock()
 
-		if len(t.collectedSignatures) == 0 {
-			return fmt.Errorf("skip metadata chain submit for %s object: no signatures were collected", id)
-		}
-
 		var await bool
 		switch t.metainfoConsistencyAttr {
 		// TODO: there was no constant in SDK at the code creation moment
@@ -253,6 +249,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 		}
 
+		sortSignatures(t.collectedSignatures)
 		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
 		if err != nil {
 			if await {
@@ -274,6 +271,12 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 	}
 
 	return nil
+}
+
+func sortSignatures(sigs [][][]byte) {
+	for _, vector := range sigs {
+		slices.SortFunc(vector, bytes.Compare)
+	}
 }
 
 func (t *distributedTarget) encodeObjectMetadata(obj objectSDK.Object) []byte {
@@ -307,6 +310,18 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 		if err := t.writeObjectLocally(obj, objMeta, encObj); err != nil {
 			return fmt.Errorf("write object locally: %w", err)
 		}
+
+		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+			sig, err := t.metaSigner.Sign(t.objSharedMeta)
+			if err != nil {
+				return fmt.Errorf("failed to sign object metadata: %w", err)
+			}
+
+			t.metaMtx.Lock()
+			t.collectedSignatures[node.placementVector] = append(t.collectedSignatures[node.placementVector], sig)
+			t.metaMtx.Unlock()
+		}
+
 		return nil
 	}
 
@@ -350,7 +365,7 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 			}
 
 			t.metaMtx.Lock()
-			t.collectedSignatures = append(t.collectedSignatures, sig.Value())
+			t.collectedSignatures[node.placementVector] = append(t.collectedSignatures[node.placementVector], sig.Value())
 			t.metaMtx.Unlock()
 
 			return nil
@@ -365,17 +380,6 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
 	if err := putObjectLocally(t.localStorage, &obj, objMeta, &encObj); err != nil {
 		return err
-	}
-
-	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		sig, err := t.metaSigner.Sign(t.objSharedMeta)
-		if err != nil {
-			return fmt.Errorf("failed to sign object metadata: %w", err)
-		}
-
-		t.metaMtx.Lock()
-		t.collectedSignatures = append(t.collectedSignatures, sig)
-		t.metaMtx.Unlock()
 	}
 
 	return nil
@@ -462,6 +466,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 
 	processNode := func(pubKeyStr string, listInd int, nr nodeResult, wg *sync.WaitGroup) {
 		defer wg.Done()
+		nr.desc.placementVector = listInd
 		err := f(nr.desc)
 		processedNodesMtx.Lock()
 		if listInd >= 0 {
