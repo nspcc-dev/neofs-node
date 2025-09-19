@@ -32,8 +32,6 @@ func TestValidator_Verify(t *testing.T) { // test record with valid but random v
 		SubDivCode: "MSK",
 	}
 
-	k, err := locodedb.NewKey("RU", "MOW")
-	require.NoError(t, err)
 	r.Location = "Moskva"
 	r.Country = "Russia"
 	r.SubDivName = "Moskva"
@@ -72,9 +70,9 @@ func TestValidator_Verify(t *testing.T) { // test record with valid but random v
 
 		t.Run("correct code", func(t *testing.T) {
 			n := nodeInfoWithSomeAttrs()
-			addLocodeAttr(&n, [2]string{k.CountryCode().String(), k.LocationCode().String()})
+			addLocodeAttr(&n, [2]string{"RU", "MOW"})
 
-			n.SetAttribute("CountryCode", k.CountryCode().String())
+			n.SetAttribute("CountryCode", "RU")
 			n.SetAttribute("Country", r.Country)
 			n.SetAttribute("Location", r.Location)
 			n.SetAttribute("SubDivCode", r.SubDivCode)
