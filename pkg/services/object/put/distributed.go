@@ -172,8 +172,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 	// TODO: handle rules in parallel. https://github.com/nspcc-dev/neofs-node/issues/3503
 
 	repRules := t.containerNodes.PrimaryCounts()
-	if len(repRules) > 0 {
-		typ := obj.Type()
+	if typ := obj.Type(); len(repRules) > 0 || typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLock {
 		broadcast := typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLink || (!t.localOnly && typ == objectSDK.TypeLock) || len(obj.Children()) > 0
 		return t.distributeObject(obj, objMeta, encObj, func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, objNodeLists, broadcast, func(node nodeDesc) error {

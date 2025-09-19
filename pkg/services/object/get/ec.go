@@ -221,6 +221,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 // removal.
 //
 // Can return [context.Canceled] from the passed ctx only.
+// TODO: upd docs.
 func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
 	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) (object.Object, []byte, error) {
 	var partHdr object.Object
@@ -266,6 +267,13 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 
 	defer rc.Close()
 
+	if typ := partHdr.Type(); typ == object.TypeTombstone || typ == object.TypeLock {
+		if partHdr.PayloadSize() != 0 {
+			return object.Object{}, nil, fmt.Errorf("received %s object with non-empty payload", typ)
+		}
+		return partHdr, nil, nil
+	}
+
 	parentHdr := partHdr.Parent()
 	if parentHdr == nil {
 		return object.Object{}, nil, errors.New("missing parent header in object for part")
@@ -299,6 +307,7 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 // Can return [context.Canceled] from the passed ctx only.
 //
 // RPC errors include network addresses.
+// TODO: upd docs.
 func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
 	pi iec.PartInfo, node netmap.NodeInfo) (object.Object, io.ReadCloser, error) {
 	localNodeKey, err := s.keyStore.GetKey(nil)
@@ -324,6 +333,10 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 			_ = rc.Close()
 		}
 	}()
+
+	if typ := hdr.Type(); typ == object.TypeTombstone || typ == object.TypeLock {
+		return hdr, rc, nil
+	}
 
 	if got := hdr.GetParentID(); got != parent {
 		err = fmt.Errorf("wrong parent ID in received object for part: requested %s, got %s", got, parent) // for defer
