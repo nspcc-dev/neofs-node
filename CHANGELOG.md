@@ -36,6 +36,7 @@ Changelog for NeoFS Node
 - `github.com/nspcc-dev/hrw/v2` dependency from v2.0.3 to v2.0.4 (#3589)
 - `github.com/nspcc-dev/locode-db` depdendency from v0.6.0 to v0.8.1 (#3589)
 - `github.com/nspcc-dev/neo-go` dependency from v0.111.0 to v0.112.0 (#3589)
+- `github.com/nspcc-dev/tzhash` dependency from v1.8.2 to v1.8.3 (#3589)
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.

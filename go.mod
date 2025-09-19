@@ -24,7 +24,7 @@ require (
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.23.1-0.20250826085033-4e723e6ed02b
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.14.0.20250909131532-07fa82695f26
-	github.com/nspcc-dev/tzhash v1.8.2
+	github.com/nspcc-dev/tzhash v1.8.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.9.0
 	github.com/prometheus/client_golang v1.21.1
@@ -37,7 +37,7 @@ require (
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b
 	golang.org/x/net v0.35.0
 	golang.org/x/sync v0.17.0
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.35.0
 	golang.org/x/term v0.29.0
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.5
