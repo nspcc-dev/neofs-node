@@ -8,6 +8,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// Delete removes data from the shard's writeCache, metaBase and
+// blobStor.
+func (s *Shard) Delete(addrs []oid.Address) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	return s.deleteObjs(addrs)
+}
+
 func (s *Shard) deleteObjs(addrs []oid.Address) error {
 	if s.info.Mode.ReadOnly() {
 		return ErrReadOnlyMode
