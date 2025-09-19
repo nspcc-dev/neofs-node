@@ -1,6 +1,7 @@
 package innerring
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -25,7 +26,7 @@ const (
 	gasDivisor = 2
 )
 
-func (s *Server) depositMainNotary() error {
+func (s *Server) depositMainNotary(ctx context.Context) error {
 	depositAmount, err := client.CalculateNotaryDepositAmount(s.mainnetClient, gasMultiplier, gasDivisor)
 	if err != nil {
 		return fmt.Errorf("could not calculate main notary deposit amount: %w", err)
@@ -36,10 +37,10 @@ func (s *Server) depositMainNotary() error {
 		zap.Stringer("fixed8 deposit", depositAmount),
 		zap.Uint32("till", till))
 
-	return s.mainnetClient.DepositNotary(depositAmount, till)
+	return s.mainnetClient.DepositNotary(ctx, depositAmount, till)
 }
 
-func (s *Server) depositFSNotary() error {
+func (s *Server) depositFSNotary(ctx context.Context) error {
 	depositAmount, err := client.CalculateNotaryDepositAmount(s.fsChainClient, gasMultiplier, gasDivisor)
 	if err != nil {
 		return fmt.Errorf("could not calculate FS notary deposit amount: %w", err)
@@ -47,18 +48,18 @@ func (s *Server) depositFSNotary() error {
 
 	s.log.Debug("making FS chain endless notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
 
-	return s.fsChainClient.DepositEndlessNotary(depositAmount)
+	return s.fsChainClient.DepositEndlessNotary(ctx, depositAmount)
 }
 
 func (s *Server) notaryHandler(_ event.Event) {
 	if !s.mainNotaryConfig.disabled {
-		err := s.depositMainNotary()
+		err := s.depositMainNotary(context.TODO())
 		if err != nil {
 			s.log.Error("can't make notary deposit in main chain", zap.Error(err))
 		}
 	}
 
-	err := s.depositFSNotary()
+	err := s.depositFSNotary(context.TODO())
 	if err != nil {
 		s.log.Error("can't make notary deposit in FS chain", zap.Error(err))
 	}

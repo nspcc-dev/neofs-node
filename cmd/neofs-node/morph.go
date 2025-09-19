@@ -56,7 +56,7 @@ func makeNotaryDeposit(c *cfg) error {
 
 	c.log.Debug("making neofs chain notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
 
-	return c.cfgMorph.client.DepositEndlessNotary(depositAmount)
+	return c.cfgMorph.client.DepositEndlessNotary(context.TODO(), depositAmount)
 }
 
 func listenMorphNotifications(c *cfg) {

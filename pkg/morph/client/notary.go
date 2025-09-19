@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"crypto/elliptic"
 	"encoding/binary"
 	"errors"
@@ -143,7 +144,7 @@ func (c *Client) ProbeNotary() (res bool) {
 // use this function. Blocks until transaction is persisted.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
+func (c *Client) DepositNotary(ctx context.Context, amount fixedn.Fixed8, delta uint32) error {
 	var conn = c.conn.Load()
 
 	if conn == nil {
@@ -166,7 +167,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 
 	till := max(int64(bc+delta), currentTill)
 
-	return c.depositNotary(conn, amount, till)
+	return c.depositNotary(ctx, conn, amount, till)
 }
 
 // DepositEndlessNotary calls notary deposit method. Unlike `DepositNotary`,
@@ -175,7 +176,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 // persisted.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) error {
+func (c *Client) DepositEndlessNotary(ctx context.Context, amount fixedn.Fixed8) error {
 	var conn = c.conn.Load()
 
 	if conn == nil {
@@ -187,10 +188,10 @@ func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) error {
 	}
 
 	// till value refers to a block height and it is uint32 value in neo-go
-	return c.depositNotary(conn, amount, math.MaxUint32)
+	return c.depositNotary(ctx, conn, amount, math.MaxUint32)
 }
 
-func (c *Client) depositNotary(conn *connection, amount fixedn.Fixed8, till int64) error {
+func (c *Client) depositNotary(ctx context.Context, conn *connection, amount fixedn.Fixed8, till int64) error {
 	acc := c.acc.ScriptHash()
 	txHash, vub, err := conn.gasToken.Transfer(
 		c.accAddr,
@@ -212,7 +213,7 @@ func (c *Client) depositNotary(conn *connection, amount fixedn.Fixed8, till int6
 		return nil
 	}
 
-	_, err = conn.rpcActor.WaitSuccess(txHash, vub, nil)
+	_, err = conn.rpcActor.WaitSuccess(ctx, txHash, vub, nil)
 	if err != nil {
 		return fmt.Errorf("waiting for %s TX (%d vub) to be persisted: %w", txHash.StringLE(), vub, err)
 	}
@@ -314,9 +315,9 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 // `nonce` and `vub` are used only if notary is enabled.
 // Note: true await flag always means additional subscription for [Client] which
 // is always limited on server side, use it carefully.
-func (c *Client) NotaryInvoke(contract util.Uint160, await bool, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
+func (c *Client) NotaryInvoke(ctx context.Context, contract util.Uint160, await bool, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
 	if c.notary == nil {
-		return util.Uint256{}, c.Invoke(contract, false, false, fee, method, args...)
+		return util.Uint256{}, c.Invoke(ctx, contract, false, false, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, true, contract, await, nonce, vub, method, args...)
@@ -331,7 +332,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, await bool, fee fixedn.Fixe
 // is always limited on server side, use it carefully.
 func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, await bool, fee fixedn.Fixed8, method string, args ...any) error {
 	if c.notary == nil {
-		return c.Invoke(contract, await, false, fee, method, args...)
+		return c.Invoke(context.TODO(), contract, await, false, fee, method, args...)
 	}
 
 	_, err := c.notaryInvoke(false, false, contract, await, rand.Uint32(), nil, method, args...)

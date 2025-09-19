@@ -156,7 +156,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	}
 
 	if !s.mainNotaryConfig.disabled {
-		err = s.depositMainNotary()
+		err = s.depositMainNotary(ctx)
 		if err != nil {
 			return fmt.Errorf("main notary deposit: %w", err)
 		}
@@ -164,7 +164,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		s.log.Info("made main chain notary deposit successfully")
 	}
 
-	err = s.depositFSNotary()
+	err = s.depositFSNotary(ctx)
 	if err != nil {
 		return fmt.Errorf("fs chain notary deposit: %w", err)
 	}
@@ -172,7 +172,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	s.log.Info("made fs chain notary deposit successfully")
 
 	// vote for FS chain validator if it is prepared in config
-	err = s.voteForFSChainValidator(s.predefinedValidators, nil)
+	err = s.voteForFSChainValidator(ctx, s.predefinedValidators, nil)
 	if err != nil {
 		// we don't stop inner ring execution on this error
 		s.log.Warn("can't vote for prepared validators",

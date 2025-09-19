@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -152,7 +153,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 			}
 
 			invokeFunc = func() error {
-				_, err := s.client.NotaryInvoke(s.scScriptHash, prm.await, s.feeInc, nonce, vubP, prm.method, prm.args...)
+				_, err := s.client.NotaryInvoke(context.TODO(), s.scScriptHash, prm.await, s.feeInc, nonce, vubP, prm.method, prm.args...)
 				return err
 			}
 		} else {
@@ -163,6 +164,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 	} else {
 		invokeFunc = func() error {
 			return s.client.Invoke(
+				context.TODO(),
 				s.scScriptHash,
 				prm.await,
 				prm.payByProxy,

@@ -1,6 +1,7 @@
 package innerring
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -93,7 +94,7 @@ func (s *Server) AlphabetIndex() int {
 	return int(index)
 }
 
-func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
+func (s *Server) voteForFSChainValidator(ctx context.Context, validators keys.PublicKeys, trigger *util.Uint256) error {
 	index := s.InnerRingIndex()
 	if index >= len(s.contracts.alphabet) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
@@ -136,7 +137,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 	vubP = &vub
 
 	for ind, contract := range s.contracts.alphabet {
-		_, err := s.fsChainClient.NotaryInvoke(contract, false, 0, nonce, vubP, voteMethod, epoch, validators)
+		_, err := s.fsChainClient.NotaryInvoke(ctx, contract, false, 0, nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int("alphabet_index", ind),
@@ -176,7 +177,7 @@ func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
 // the provided list of keys and hash of the triggering transaction.
 func (s *Server) VoteForFSChainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
 	sort.Sort(validators)
-	return s.voteForFSChainValidator(validators, trigger)
+	return s.voteForFSChainValidator(context.TODO(), validators, trigger)
 }
 
 // ResetEpochTimer resets the epoch timer that produces events to update epoch

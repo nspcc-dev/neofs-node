@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -298,7 +299,7 @@ func (e *notHaltStateError) Error() string {
 //
 // Note: true await flag always means additional subscription for [Client] which
 // is always limited on server side, use it carefully.
-func (c *Client) Invoke(contract util.Uint160, await, payByProxy bool, fee fixedn.Fixed8, method string, args ...any) error {
+func (c *Client) Invoke(ctx context.Context, contract util.Uint160, await, payByProxy bool, fee fixedn.Fixed8, method string, args ...any) error {
 	var conn = c.conn.Load()
 
 	if conn == nil {
@@ -312,7 +313,7 @@ func (c *Client) Invoke(contract util.Uint160, await, payByProxy bool, fee fixed
 
 	txHash, vub, err := act.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), args...)
 	if await {
-		_, err = conn.rpcActor.Wait(txHash, vub, err)
+		_, err = conn.rpcActor.Wait(ctx, txHash, vub, err)
 	}
 	if err != nil {
 		return fmt.Errorf("could not invoke %s: %w", method, err)
