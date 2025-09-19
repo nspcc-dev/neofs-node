@@ -81,8 +81,7 @@ func TestReadHeaderPrefix(t *testing.T) {
 
 	const size = 16 << 10 // 16 KB
 	payload := make([]byte, size)
-	_, err := rand.Read(payload)
-	require.NoError(t, err)
+	_, _ = rand.Read(payload)
 
 	obj := objecttest.Object()
 	obj.SetPayload(payload)

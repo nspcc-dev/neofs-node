@@ -71,12 +71,9 @@ func processKeyer(cmd *cobra.Command, args []string) error {
 func keyerGenerate(filename string, d *keyer.Dashboard) error {
 	key := make([]byte, keyer.NeoPrivateKeySize)
 
-	_, err := rand.Read(key)
-	if err != nil {
-		return fmt.Errorf("can't get random source: %w", err)
-	}
+	_, _ = rand.Read(key)
 
-	err = d.ParseBinary(key)
+	err := d.ParseBinary(key)
 	if err != nil {
 		return fmt.Errorf("can't parse key: %w", err)
 	}

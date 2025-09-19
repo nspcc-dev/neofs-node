@@ -37,8 +37,7 @@ func TestGetStream(t *testing.T) {
 
 	testStream := func(t *testing.T, size int) {
 		payload := make([]byte, size)
-		_, err := rand.Read(payload)
-		require.NoError(t, err)
+		_, _ = rand.Read(payload)
 
 		addr := oidtest.Address()
 		obj := objectSDK.New()

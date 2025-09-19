@@ -80,8 +80,7 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	ver.SetMinor(1)
 
 	payload := make([]byte, 10)
-	_, err := rand.Read(payload)
-	require.NoError(t, err)
+	_, _ = rand.Read(payload)
 
 	csum, err := checksum.NewFromData(checksum.SHA256, payload)
 	require.NoError(t, err)

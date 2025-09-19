@@ -97,8 +97,7 @@ func (t *testNetwork) List(uint64) (map[cid.ID]struct{}, error) {
 func testContainers(t *testing.T, num int) []cid.ID {
 	res := make([]cid.ID, num)
 	for i := range num {
-		_, err := rand.Read(res[i][:])
-		require.NoError(t, err)
+		_, _ = rand.Read(res[i][:])
 	}
 
 	return res

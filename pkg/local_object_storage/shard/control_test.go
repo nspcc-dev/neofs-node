@@ -163,8 +163,7 @@ func TestResyncMetabase(t *testing.T) {
 
 		if i < objNum/2 {
 			payload := make([]byte, 1024)
-			_, err := rand.Read(payload)
-			require.NoError(t, err)
+			_, _ = rand.Read(payload)
 
 			obj.SetPayload(payload)
 		}
