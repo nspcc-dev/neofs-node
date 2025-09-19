@@ -384,6 +384,30 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		lb.AssertEmpty()
 	})
 
+	for _, tc := range []struct {
+		typ       object.Type
+		associate func(*object.Object, oid.ID)
+	}{
+		{typ: object.TypeTombstone, associate: (*object.Object).AssociateDeleted},
+		{typ: object.TypeLock, associate: (*object.Object).AssociateLocked},
+	} {
+		t.Run(tc.typ.String(), func(t *testing.T) {
+			const shardNum = 5
+			s := testNewEngineWithShardNum(t, shardNum)
+
+			sysObj := *generateObjectWithCID(cnr)
+			tc.associate(&sysObj, oidtest.ID())
+			sysObj.SetPayload([]byte{})
+			addAttribute(&sysObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(123))
+
+			require.NoError(t, s.Put(&sysObj, nil))
+
+			hdr, rdr, err := s.GetECPart(cnr, sysObj.GetID(), pi)
+			require.NoError(t, err)
+			assertGetECPartOK(t, sysObj, hdr, rdr)
+		})
+	}
+
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 
 	s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed

@@ -217,6 +217,9 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 // policy. Returns parent object header and part payload. Payload slice is nil
 // iff parent payload is empty.
 //
+// If the object is not EC part but of [object.TypeTombstone] or
+// [object.TypeLock] type, getECPart returns this object without an error.
+//
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal.
 //
@@ -266,6 +269,13 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 
 	defer rc.Close()
 
+	if typ := partHdr.Type(); typ == object.TypeTombstone || typ == object.TypeLock {
+		if partHdr.PayloadSize() != 0 {
+			return object.Object{}, nil, fmt.Errorf("received %s object with non-empty payload", typ)
+		}
+		return partHdr, nil, nil
+	}
+
 	parentHdr := partHdr.Parent()
 	if parentHdr == nil {
 		return object.Object{}, nil, errors.New("missing parent header in object for part")
@@ -292,6 +302,10 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 
 // queries object that carries EC part produced within cnr for parent object and
 // indexed by pi from node. On success, returns header and payload reader.
+//
+// If the object is not EC part but of [object.TypeTombstone] or
+// [object.TypeLock] type, getECPartFromNode returns this object without an
+// error.
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
@@ -324,6 +338,10 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 			_ = rc.Close()
 		}
 	}()
+
+	if typ := hdr.Type(); typ == object.TypeTombstone || typ == object.TypeLock {
+		return hdr, rc, nil
+	}
 
 	if got := hdr.GetParentID(); got != parent {
 		err = fmt.Errorf("wrong parent ID in received object for part: requested %s, got %s", got, parent) // for defer

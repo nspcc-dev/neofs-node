@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -18,6 +20,7 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestShard_GetECPart(t *testing.T) {
@@ -158,6 +161,43 @@ func TestShard_GetECPart(t *testing.T) {
 		require.NoError(t, err)
 		assertGetECPartOK(t, partObj, hdr, rdr)
 	})
+
+	for _, tc := range []struct {
+		typ       object.Type
+		associate func(*object.Object, oid.ID)
+	}{
+		{typ: object.TypeTombstone, associate: (*object.Object).AssociateDeleted},
+		{typ: object.TypeLock, associate: (*object.Object).AssociateLocked},
+	} {
+		t.Run(tc.typ.String(), func(t *testing.T) {
+			mb := meta.New(
+				meta.WithPath(filepath.Join(t.TempDir(), "meta")),
+				meta.WithEpochState(epochState{}),
+				meta.WithLogger(zaptest.NewLogger(t)),
+			)
+			require.NoError(t, mb.Open(false))
+			t.Cleanup(func() { _ = mb.Close() })
+			require.NoError(t, mb.Init())
+
+			sysObj := *newObject(t)
+			sysObj.SetContainerID(cnr)
+			tc.associate(&sysObj, oidtest.ID())
+			sysObj.SetPayload([]byte{})
+			require.NoError(t, mb.Put(&sysObj))
+
+			bs := mockBLOBStore{
+				getStream: map[oid.Address]getStreamValue{
+					objectcore.AddressOf(&sysObj): {obj: sysObj},
+				},
+			}
+
+			s := newSimpleTestShard(t, &bs, mb, nil)
+
+			hdr, rdr, err := s.GetECPart(cnr, sysObj.GetID(), pi)
+			require.NoError(t, err)
+			assertGetECPartOK(t, sysObj, hdr, rdr)
+		})
+	}
 
 	s := newSimpleTestShard(t, &bs, &mb, nil)
 
