@@ -22,7 +22,7 @@ require (
 	github.com/nspcc-dev/locode-db v0.8.1
 	github.com/nspcc-dev/neo-go v0.112.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
-	github.com/nspcc-dev/neofs-contract v0.23.1-0.20250905123303-50f4c2c6d83e
+	github.com/nspcc-dev/neofs-contract v0.23.1-0.20250923094803-bf67baf7e5c4
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.14.0.20250909131532-07fa82695f26
 	github.com/nspcc-dev/tzhash v1.8.3
 	github.com/olekukonko/tablewriter v0.0.5
@@ -74,7 +74,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nspcc-dev/dbft v0.4.0 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20250226190835-fb3f82b1f468 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250827092051-0d90ffc70f57 // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250918092801-ae9c0aa1deed // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect

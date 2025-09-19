@@ -9,7 +9,7 @@ import (
 // SubmitObjectPut puts object meta information.
 //
 // Returns any error encountered that caused the saving to interrupt.
-func (c *Client) SubmitObjectPut(meta []byte, sigs [][]byte) error {
+func (c *Client) SubmitObjectPut(meta []byte, sigs [][][]byte) error {
 	if len(meta) == 0 || len(sigs) == 0 {
 		return errNilArgument
 	}
