@@ -74,9 +74,8 @@ func BenchmarkPut(b *testing.B) {
 		index := new(atomic.Int64)
 		index.Store(-1)
 		objs := prepareObjects(b, b.N)
-		b.ResetTimer()
 		b.ReportAllocs()
-		for range b.N {
+		for b.Loop() {
 			if err := metaPut(db, objs[index.Add(1)]); err != nil {
 				b.Fatal(err)
 			}

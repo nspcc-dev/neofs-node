@@ -14,9 +14,7 @@ func BenchmarkExecCtxSetLoggerProduction(b *testing.B) {
 
 	var c execCtx
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		c.setLogger(l)
 	}
 }

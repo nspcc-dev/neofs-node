@@ -32,9 +32,8 @@ func runHeadVsGetBenchmark(b *testing.B, payloadSize int, compressed bool) {
 	addr := prepareSingleObject(b, fsTree, payloadSize)
 
 	b.Run("Head"+suffix, func(b *testing.B) {
-		b.ResetTimer()
 		b.ReportAllocs()
-		for range b.N {
+		for b.Loop() {
 			_, err := fsTree.Head(addr)
 			if err != nil {
 				b.Fatal(err)
@@ -43,9 +42,8 @@ func runHeadVsGetBenchmark(b *testing.B, payloadSize int, compressed bool) {
 	})
 
 	b.Run("Get"+suffix, func(b *testing.B) {
-		b.ResetTimer()
 		b.ReportAllocs()
-		for range b.N {
+		for b.Loop() {
 			_, err := fsTree.Get(addr)
 			if err != nil {
 				b.Fatal(err)

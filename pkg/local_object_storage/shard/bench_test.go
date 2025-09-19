@@ -43,9 +43,7 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 	data := make([]byte, objSize)
 	_, _ = rand.Read(data)
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		var wg sync.WaitGroup
 
 		for range nThreads {

@@ -55,9 +55,8 @@ func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
 		err    error
 	)
 
-	b.ResetTimer()
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		_, cursor, err = db.ListWithCursor(batchSize, cursor)
 		if err != nil {
 			if !errors.Is(err, meta.ErrEndOfListing) {
@@ -108,7 +107,7 @@ func BenchmarkDB_ListWithCursor_Attributes(b *testing.B) {
 			totalObjects + 1,
 		} {
 			b.Run(fmt.Sprintf("total=%d,count=%d", totalObjects, count), func(b *testing.B) {
-				for range b.N {
+				for b.Loop() {
 					require.NoError(b, traverseListWithCursor(db, count, attrs...))
 				}
 			})

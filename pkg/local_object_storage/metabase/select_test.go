@@ -645,7 +645,7 @@ func TestRemovedObjects(t *testing.T) {
 }
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
-	for range b.N {
+	for b.Loop() {
 		addrs, err := db.Select(cid, fs)
 		if err != nil {
 			b.Fatal(err)

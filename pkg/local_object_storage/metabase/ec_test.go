@@ -37,9 +37,7 @@ func BenchmarkDB_ResolveECPart(b *testing.B) {
 	db := newDB(b)
 	require.NoError(b, db.Put(&partObj))
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		_, err = db.ResolveECPart(cnr, parentID, pi)
 		require.NoError(b, err)
 	}

@@ -32,9 +32,8 @@ func BenchmarkCompression(b *testing.B) {
 }
 
 func benchWith(b *testing.B, c Config, data []byte) {
-	b.ResetTimer()
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		_ = c.Compress(data)
 	}
 }
