@@ -37,6 +37,12 @@ func WithNoSync(noSync bool) Option {
 	}
 }
 
+func WithShardID(id string) Option {
+	return func(f *FSTree) {
+		f.shardID = id
+	}
+}
+
 func WithCombinedCountLimit(limit int) Option {
 	return func(f *FSTree) {
 		f.combinedCountLimit = limit

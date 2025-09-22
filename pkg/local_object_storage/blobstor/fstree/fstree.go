@@ -36,6 +36,7 @@ type FSTree struct {
 
 	noSync   bool
 	readOnly bool
+	shardID  string
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
