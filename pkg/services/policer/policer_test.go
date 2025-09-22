@@ -32,25 +32,51 @@ import (
 )
 
 func TestPolicer_Run_RepDefault(t *testing.T) {
+	for _, typ := range []object.Type{
+		object.TypeRegular,
+		object.TypeTombstone,
+		object.TypeLock,
+		object.TypeLink,
+	} {
+		t.Run(typ.String(), func(t *testing.T) {
+			testDefaultREPWithType(t, typ)
+		})
+	}
+}
+
+func testDefaultREPWithType(t *testing.T, typ object.Type) {
 	const defaultRep = 3
 	const defaultCBF = 3
 	nodes := testutil.Nodes(defaultRep * defaultCBF)
+	cnr := cidtest.ID()
+	objID := oidtest.ID()
+	objAddr := oid.NewAddress(cnr, objID)
+	broadcast := typ == object.TypeLock || typ == object.TypeLink
+
+	localObj := objectcore.AddressWithAttributes{
+		Address:    objAddr,
+		Type:       typ,
+		Attributes: make([]string, 3),
+	}
 
 	t.Run("all OK", func(t *testing.T) {
 		allOK := islices.RepeatElement(len(nodes), error(nil))
 		t.Run("in container", func(t *testing.T) {
 			t.Run("primary", func(t *testing.T) {
 				for i := range defaultRep {
-					testRepCheck(t, defaultRep, nodes, i, true, allOK, 0, false, nil)
+					testRepCheck(t, defaultRep, localObj, nodes, i, true, allOK, 0, false, nil)
 				}
 			})
 			t.Run("backup", func(t *testing.T) {
 				for i := defaultRep; i < len(nodes); i++ {
-					res := testRepCheck(t, defaultRep, nodes, i, true, allOK, 0, true, nil)
-					res.logBuf.AssertContains(testutil.LogEntry{
+					logBuf := testRepCheck(t, defaultRep, localObj, nodes, i, true, allOK, 0, !broadcast, nil)
+					if broadcast {
+						continue
+					}
+					logBuf.AssertContains(testutil.LogEntry{
 						Level: zap.InfoLevel, Message: "local replica of the object is redundant in the container, removing...", Fields: map[string]any{
 							"component": "Object Policer",
-							"object":    oid.NewAddress(res.cnr, res.obj).String(),
+							"object":    objAddr.String(),
 						},
 					})
 				}
@@ -58,20 +84,20 @@ func TestPolicer_Run_RepDefault(t *testing.T) {
 		})
 		t.Run("out container", func(t *testing.T) {
 			t.Run("in netmap", func(t *testing.T) {
-				res := testRepCheck(t, defaultRep, nodes, -1, true, allOK, 0, true, nil)
-				res.logBuf.AssertContains(testutil.LogEntry{
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, allOK, 0, true, nil)
+				logBuf.AssertContains(testutil.LogEntry{
 					Level: zap.InfoLevel, Message: "node outside the container, removing the replica so as not to violate the storage policy...", Fields: map[string]any{
 						"component": "Object Policer",
-						"object":    oid.NewAddress(res.cnr, res.obj).String(),
+						"object":    objAddr.String(),
 					},
 				})
 			})
 			t.Run("out netmap", func(t *testing.T) {
-				res := testRepCheck(t, defaultRep, nodes, -1, false, allOK, 0, false, nil)
-				res.logBuf.AssertContains(testutil.LogEntry{
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, false, allOK, 0, false, nil)
+				logBuf.AssertContains(testutil.LogEntry{
 					Level: zap.InfoLevel, Message: "node is outside the network map, holding the replica...", Fields: map[string]any{
 						"component": "Object Policer",
-						"object":    oid.NewAddress(res.cnr, res.obj).String(),
+						"object":    objAddr.String(),
 					},
 				})
 			})
@@ -81,29 +107,37 @@ func TestPolicer_Run_RepDefault(t *testing.T) {
 	t.Run("all 404", func(t *testing.T) {
 		allNotFound := islices.RepeatElement(len(nodes), error(apistatus.ErrObjectNotFound))
 		t.Run("in container", func(t *testing.T) {
+			expShortage := uint32(defaultRep - 1)
+			if broadcast {
+				expShortage = uint32(len(nodes) - 1)
+			}
 			t.Run("primary", func(t *testing.T) {
 				for i := range defaultRep {
-					testRepCheck(t, defaultRep, nodes, i, true, allNotFound, defaultRep-1, false, slices.Delete(slices.Clone(nodes), i, i+1))
+					testRepCheck(t, defaultRep, localObj, nodes, i, true, allNotFound, expShortage, false, slices.Delete(slices.Clone(nodes), i, i+1))
 				}
 			})
 			t.Run("backup", func(t *testing.T) {
 				for i := defaultRep; i < len(nodes); i++ {
-					testRepCheck(t, defaultRep, nodes, i, true, allNotFound, defaultRep-1, false, slices.Delete(slices.Clone(nodes), i, i+1))
+					testRepCheck(t, defaultRep, localObj, nodes, i, true, allNotFound, expShortage, false, slices.Delete(slices.Clone(nodes), i, i+1))
 				}
 			})
 		})
 		t.Run("out container", func(t *testing.T) {
+			expShortage := uint32(defaultRep)
+			if broadcast {
+				expShortage = uint32(len(nodes))
+			}
 			t.Run("in netmap", func(t *testing.T) {
-				res := testRepCheck(t, defaultRep, nodes, -1, true, allNotFound, defaultRep, false, nodes)
-				res.logBuf.AssertContains(testutil.LogEntry{
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, allNotFound, expShortage, false, nodes)
+				logBuf.AssertContains(testutil.LogEntry{
 					Level: zap.InfoLevel, Message: "node outside the container, but nobody stores the object, holding the replica...", Fields: map[string]any{
 						"component": "Object Policer",
-						"object":    oid.NewAddress(res.cnr, res.obj).String(),
+						"object":    objAddr.String(),
 					},
 				})
 			})
 			t.Run("out netmap", func(t *testing.T) {
-				testRepCheck(t, defaultRep, nodes, -1, false, allNotFound, defaultRep, false, nodes)
+				testRepCheck(t, defaultRep, localObj, nodes, -1, false, allNotFound, expShortage, false, nodes)
 			})
 		})
 	})
@@ -115,81 +149,176 @@ func TestPolicer_Run_RepDefault(t *testing.T) {
 		}
 		t.Run("in container", func(t *testing.T) {
 			t.Run("primary", func(t *testing.T) {
+				expShortage := uint32(0)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 3
+				}
+
 				for i := range defaultRep {
-					res := testRepCheck(t, defaultRep, nodes, i, true, errs, 0, false, nil)
-					res.logBuf.AssertContains(testutil.LogEntry{
+					var expCandidates []netmap.NodeInfo
+					if broadcast {
+						expCandidates = nodes[defaultRep:]
+					}
+
+					logBuf := testRepCheck(t, defaultRep, localObj, nodes, i, true, errs, expShortage, false, expCandidates)
+
+					for j := range defaultRep {
+						if j == i {
+							continue
+						}
+						logBuf.AssertContains(testutil.LogEntry{
+							Level: zap.DebugLevel, Message: "consider node under maintenance as OK", Fields: map[string]any{
+								"component": "Object Policer",
+								"node":      hex.EncodeToString(nodes[j].PublicKey()),
+							},
+						})
+					}
+
+					if broadcast {
+						logBuf.AssertContains(testutil.LogEntry{
+							Level: zap.DebugLevel, Message: "shortage of object copies detected", Fields: map[string]any{
+								"component": "Object Policer",
+								"object":    objAddr.String(),
+								"shortage":  json.Number("6"),
+							},
+						})
+						continue
+					}
+
+					logBuf.AssertContains(testutil.LogEntry{
 						Level: zap.DebugLevel, Message: "some of the copies are stored on nodes under maintenance, save local copy", Fields: map[string]any{
 							"component": "Object Policer",
 							"count":     json.Number("2"),
 						},
 					})
+				}
+			})
+			t.Run("backup", func(t *testing.T) {
+				expShortage := uint32(0)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 4
+				}
+
+				for i := defaultRep; i < len(nodes); i++ {
+					var expCandidates []netmap.NodeInfo
+					if broadcast {
+						expCandidates = slices.Delete(slices.Clone(nodes), i, i+1)
+						expCandidates = expCandidates[defaultRep:]
+					}
+
+					logBuf := testRepCheck(t, defaultRep, localObj, nodes, i, true, errs, expShortage, false, expCandidates)
+
 					for j := range defaultRep {
-						if j == i {
-							continue
-						}
-						res.logBuf.AssertContains(testutil.LogEntry{
+						logBuf.AssertContains(testutil.LogEntry{
 							Level: zap.DebugLevel, Message: "consider node under maintenance as OK", Fields: map[string]any{
 								"component": "Object Policer",
 								"node":      hex.EncodeToString(nodes[j].PublicKey()),
 							},
 						})
 					}
-				}
-			})
-			t.Run("backup", func(t *testing.T) {
-				for i := defaultRep; i < len(nodes); i++ {
-					res := testRepCheck(t, defaultRep, nodes, i, true, errs, 0, false, nil)
-					res.logBuf.AssertContains(testutil.LogEntry{
+
+					if broadcast {
+						logBuf.AssertContains(testutil.LogEntry{
+							Level: zap.DebugLevel, Message: "shortage of object copies detected", Fields: map[string]any{
+								"component": "Object Policer",
+								"object":    objAddr.String(),
+								"shortage":  json.Number("5"),
+							},
+						})
+						continue
+					}
+
+					logBuf.AssertContains(testutil.LogEntry{
 						Level: zap.DebugLevel, Message: "some of the copies are stored on nodes under maintenance, save local copy", Fields: map[string]any{
 							"component": "Object Policer",
 							"count":     json.Number("3"),
 						},
 					})
-					for j := range defaultRep {
-						res.logBuf.AssertContains(testutil.LogEntry{
-							Level: zap.DebugLevel, Message: "consider node under maintenance as OK", Fields: map[string]any{
-								"component": "Object Policer",
-								"node":      hex.EncodeToString(nodes[j].PublicKey()),
-							},
-						})
-					}
 				}
 			})
 		})
 		t.Run("out container", func(t *testing.T) {
 			t.Run("in netmap", func(t *testing.T) {
-				res := testRepCheck(t, defaultRep, nodes, -1, true, errs, 0, false, nil)
-				res.logBuf.AssertContains(testutil.LogEntry{
-					Level: zap.DebugLevel, Message: "some of the copies are stored on nodes under maintenance, save local copy", Fields: map[string]any{
-						"component": "Object Policer",
-						"count":     json.Number("3"),
-					},
-				})
+				expShortage := uint32(0)
+				expRedundant := false
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 3
+					expRedundant = true
+				}
+
+				var expCandidates []netmap.NodeInfo
+				if broadcast {
+					expCandidates = nodes[defaultRep:]
+				}
+
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, errs, expShortage, expRedundant, expCandidates)
+
 				for j := range defaultRep {
-					res.logBuf.AssertContains(testutil.LogEntry{
+					logBuf.AssertContains(testutil.LogEntry{
 						Level: zap.DebugLevel, Message: "consider node under maintenance as OK", Fields: map[string]any{
 							"component": "Object Policer",
 							"node":      hex.EncodeToString(nodes[j].PublicKey()),
 						},
 					})
 				}
+
+				if broadcast {
+					logBuf.AssertContains(testutil.LogEntry{
+						Level: zap.DebugLevel, Message: "shortage of object copies detected", Fields: map[string]any{
+							"component": "Object Policer",
+							"object":    objAddr.String(),
+							"shortage":  json.Number("6"),
+						},
+					})
+					return
+				}
+
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.DebugLevel, Message: "some of the copies are stored on nodes under maintenance, save local copy", Fields: map[string]any{
+						"component": "Object Policer",
+						"count":     json.Number("3"),
+					},
+				})
 			})
 			t.Run("out netmap", func(t *testing.T) {
-				res := testRepCheck(t, defaultRep, nodes, -1, false, errs, 0, false, nil)
-				res.logBuf.AssertContains(testutil.LogEntry{
-					Level: zap.DebugLevel, Message: "some of the copies are stored on nodes under maintenance, save local copy", Fields: map[string]any{
-						"component": "Object Policer",
-						"count":     json.Number("3"),
-					},
-				})
+				expShortage := uint32(0)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 3
+				}
+
+				var expCandidates []netmap.NodeInfo
+				if broadcast {
+					expCandidates = nodes[defaultRep:]
+				}
+
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, false, errs, expShortage, false, expCandidates)
+
 				for j := range defaultRep {
-					res.logBuf.AssertContains(testutil.LogEntry{
+					logBuf.AssertContains(testutil.LogEntry{
 						Level: zap.DebugLevel, Message: "consider node under maintenance as OK", Fields: map[string]any{
 							"component": "Object Policer",
 							"node":      hex.EncodeToString(nodes[j].PublicKey()),
 						},
 					})
 				}
+
+				if broadcast {
+					logBuf.AssertContains(testutil.LogEntry{
+						Level: zap.DebugLevel, Message: "shortage of object copies detected", Fields: map[string]any{
+							"component": "Object Policer",
+							"object":    objAddr.String(),
+							"shortage":  json.Number("6"),
+						},
+					})
+					return
+				}
+
+				logBuf.AssertContains(testutil.LogEntry{
+					Level: zap.DebugLevel, Message: "some of the copies are stored on nodes under maintenance, save local copy", Fields: map[string]any{
+						"component": "Object Policer",
+						"count":     json.Number("3"),
+					},
+				})
 			})
 		})
 	})
@@ -201,25 +330,35 @@ func TestPolicer_Run_RepDefault(t *testing.T) {
 				errs[0] = errors.New("non-status error")
 				errs[1] = nil
 
-				res := testRepCheck(t, defaultRep, nodes, 2, true, errs, 1, false, slices.Clone(nodes)[3:])
+				expShortage := uint32(1)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 2
+				}
+
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, 2, true, errs, expShortage, false, slices.Clone(nodes)[3:])
 				e := testutil.LogEntry{
 					Level:   zap.ErrorLevel,
 					Message: "receive object header to check policy compliance",
 					Fields: map[string]any{
 						"component": "Object Policer",
-						"object":    oid.NewAddress(res.cnr, res.obj).String(),
+						"object":    objAddr.String(),
 						"error":     "non-status error",
 					},
 				}
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 
 				errs[1] = apistatus.ErrServerInternal
 
-				res = testRepCheck(t, defaultRep, nodes, defaultRep-1, true, errs, 2, false, slices.Clone(nodes)[defaultRep:])
-				e.Fields["object"] = oid.NewAddress(res.cnr, res.obj).String()
-				res.logBuf.AssertContains(e)
+				expShortage = 2
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 1
+				}
+
+				logBuf = testRepCheck(t, defaultRep, localObj, nodes, defaultRep-1, true, errs, expShortage, false, slices.Clone(nodes)[defaultRep:])
+				e.Fields["object"] = objAddr.String()
+				logBuf.AssertContains(e)
 				e.Fields["error"] = errs[1].Error()
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 			})
 			t.Run("backup", func(t *testing.T) {
 				errs := islices.RepeatElement(len(nodes), error(apistatus.ErrObjectNotFound))
@@ -227,28 +366,38 @@ func TestPolicer_Run_RepDefault(t *testing.T) {
 				errs[1] = nil
 				errs[2] = nil
 
-				res := testRepCheck(t, defaultRep, nodes, defaultRep, true, errs, 0, false, slices.Clone(nodes)[defaultRep+1:])
+				expShortage := uint32(0)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 3
+				}
+
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, defaultRep, true, errs, expShortage, false, slices.Clone(nodes)[defaultRep+1:])
 				e := testutil.LogEntry{
 					Level:   zap.ErrorLevel,
 					Message: "receive object header to check policy compliance",
 					Fields: map[string]any{
 						"component": "Object Policer",
-						"object":    oid.NewAddress(res.cnr, res.obj).String(),
+						"object":    objAddr.String(),
 						"error":     "non-status error",
 					},
 				}
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 
 				errs[2] = apistatus.ErrObjectAlreadyRemoved
+
+				expShortage = 1
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 2
+				}
 
 				candidates := slices.Clone(nodes)[defaultRep:]
 				candidates = slices.Delete(candidates, 1, 2)
 
-				res = testRepCheck(t, defaultRep, nodes, defaultRep+1, true, errs, 1, false, candidates)
-				e.Fields["object"] = oid.NewAddress(res.cnr, res.obj).String()
-				res.logBuf.AssertContains(e)
+				logBuf = testRepCheck(t, defaultRep, localObj, nodes, defaultRep+1, true, errs, expShortage, false, candidates)
+				e.Fields["object"] = objAddr.String()
+				logBuf.AssertContains(e)
 				e.Fields["error"] = errs[2].Error()
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 			})
 		})
 		t.Run("out container", func(t *testing.T) {
@@ -258,25 +407,35 @@ func TestPolicer_Run_RepDefault(t *testing.T) {
 				errs[1] = nil
 				errs[2] = nil
 
-				res := testRepCheck(t, defaultRep, nodes, -1, true, errs, 1, true, slices.Clone(nodes)[3:])
+				expShortage := uint32(1)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 2
+				}
+
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, errs, expShortage, true, slices.Clone(nodes)[3:])
 				e := testutil.LogEntry{
 					Level:   zap.ErrorLevel,
 					Message: "receive object header to check policy compliance",
 					Fields: map[string]any{
 						"component": "Object Policer",
-						"object":    oid.NewAddress(res.cnr, res.obj).String(),
+						"object":    objAddr.String(),
 						"error":     "non-status error",
 					},
 				}
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 
 				errs[2] = apistatus.ErrServerInternal
 
-				res = testRepCheck(t, defaultRep, nodes, -1, true, errs, 2, true, slices.Clone(nodes)[defaultRep:])
-				e.Fields["object"] = oid.NewAddress(res.cnr, res.obj).String()
-				res.logBuf.AssertContains(e)
+				expShortage = uint32(2)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 1
+				}
+
+				logBuf = testRepCheck(t, defaultRep, localObj, nodes, -1, true, errs, expShortage, true, slices.Clone(nodes)[defaultRep:])
+				e.Fields["object"] = objAddr.String()
+				logBuf.AssertContains(e)
 				e.Fields["error"] = errs[2].Error()
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 			})
 			t.Run("out netmap", func(t *testing.T) {
 				errs := islices.RepeatElement(len(nodes), error(apistatus.ErrObjectNotFound))
@@ -284,54 +443,52 @@ func TestPolicer_Run_RepDefault(t *testing.T) {
 				errs[1] = nil
 				errs[2] = nil
 
-				res := testRepCheck(t, defaultRep, nodes, -1, false, errs, 1, false, slices.Clone(nodes)[3:])
+				expShortage := uint32(1)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 2
+				}
+
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, false, errs, expShortage, false, slices.Clone(nodes)[3:])
 				e := testutil.LogEntry{
 					Level:   zap.ErrorLevel,
 					Message: "receive object header to check policy compliance",
 					Fields: map[string]any{
 						"component": "Object Policer",
-						"object":    oid.NewAddress(res.cnr, res.obj).String(),
+						"object":    objAddr.String(),
 						"error":     "non-status error",
 					},
 				}
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 
 				errs[2] = apistatus.ErrServerInternal
 
-				res = testRepCheck(t, defaultRep, nodes, -1, false, errs, 2, false, slices.Clone(nodes)[defaultRep:])
-				e.Fields["object"] = oid.NewAddress(res.cnr, res.obj).String()
-				res.logBuf.AssertContains(e)
+				expShortage = uint32(2)
+				if broadcast {
+					expShortage = uint32(len(nodes)) - 1
+				}
+
+				logBuf = testRepCheck(t, defaultRep, localObj, nodes, -1, false, errs, expShortage, false, slices.Clone(nodes)[defaultRep:])
+				e.Fields["object"] = objAddr.String()
+				logBuf.AssertContains(e)
 				e.Fields["error"] = errs[2].Error()
-				res.logBuf.AssertContains(e)
+				logBuf.AssertContains(e)
 			})
 		})
 	})
 }
 
-type testRepCheckResult struct {
-	cnr    cid.ID
-	obj    oid.ID
-	logBuf *testutil.LogBuffer
-}
-
-func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int, localInNM bool, headErrs []error,
-	expShortage uint32, expRedundant bool, expCandidates []netmap.NodeInfo) testRepCheckResult {
+func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, localInNM bool, headErrs []error,
+	expShortage uint32, expRedundant bool, expCandidates []netmap.NodeInfo) *testutil.LogBuffer {
 	require.Equal(t, len(nodes), len(headErrs))
 
 	wp, err := ants.NewPool(100)
 	require.NoError(t, err)
 
-	cnr := cidtest.ID()
-	objID := oidtest.ID()
-	objAddr := oid.NewAddress(cnr, objID)
-
 	localNode := newTestLocalNode()
-	localNode.objList = []objectcore.AddressWithAttributes{
-		{Address: objAddr, Type: object.TypeRegular, Attributes: make([]string, 3)},
-	}
+	localNode.objList = []objectcore.AddressWithAttributes{localObj}
 
 	mockNet := newMockNetwork()
-	mockNet.setObjectNodesRepResult(cnr, objID, slices.Clone(nodes), rep)
+	mockNet.setObjectNodesRepResult(localObj.Address.Container(), localObj.Address.Object(), slices.Clone(nodes), rep)
 	if localIdx >= 0 {
 		mockNet.pubKey = nodes[localIdx].PublicKey()
 		mockNet.inNetmap = true
@@ -344,7 +501,7 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 	conns := newMockAPIConnections()
 	for i := range nodes {
 		if i != localIdx {
-			conns.setHeadResult(nodes[i], objAddr, headErrs[i])
+			conns.setHeadResult(nodes[i], localObj.Address, headErrs[i])
 		}
 	}
 
@@ -376,7 +533,7 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 		require.Eventually(t, repTaskSubmitted, 3*time.Second, 30*time.Millisecond)
 
 		var exp replicator.Task
-		exp.SetObjectAddress(objAddr)
+		exp.SetObjectAddress(localObj.Address)
 		exp.SetCopiesNumber(expShortage)
 		exp.SetNodes(expCandidates)
 		require.Equal(t, exp, r.task)
@@ -385,16 +542,12 @@ func testRepCheck(t *testing.T, rep uint, nodes []netmap.NodeInfo, localIdx int,
 	}
 
 	if expRedundant {
-		require.Equal(t, []oid.Address{objAddr}, localNode.deletedObjects())
+		require.Equal(t, []oid.Address{localObj.Address}, localNode.deletedObjects())
 	} else {
 		require.Empty(t, localNode.deletedObjects())
 	}
 
-	return testRepCheckResult{
-		cnr:    cnr,
-		obj:    objID,
-		logBuf: lb,
-	}
+	return lb
 }
 
 func TestPolicer_Run_EC(t *testing.T) {
