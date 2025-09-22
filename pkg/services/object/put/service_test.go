@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 	"strconv"
 	"sync"
@@ -24,14 +25,18 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	netmaptest "github.com/nspcc-dev/neofs-sdk-go/netmap/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -53,6 +58,105 @@ const (
 	currentEpoch  = 123
 	maxObjectSize = 1000
 )
+
+type quotas struct {
+	soft, hard uint64
+}
+
+func (q quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64, error) {
+	return q.soft, q.hard, nil
+}
+
+func TestQuotas(t *testing.T) {
+	const hardLimit = 2
+	var (
+		nodeKey = neofscryptotest.ECDSAPrivateKey()
+	)
+	nodeWorkerPool, err := ants.NewPool(1, ants.WithNonblocking(true))
+	require.NoError(t, err)
+
+	cluster := newTestClusterForRepPolicy(t, 1, 1, 1)
+
+	cnr := containertest.Container()
+	rep := netmap.ReplicaDescriptor{}
+	rep.SetNumberOfObjects(1)
+	p := netmaptest.PlacementPolicy()
+	p.SetReplicas([]netmap.ReplicaDescriptor{rep})
+	cnr.SetPlacementPolicy(p)
+
+	s := NewService(cluster.nodeServices, &cluster.nodeNetworks[0], nil,
+		quotas{hard: hardLimit},
+		WithLogger(zaptest.NewLogger(t)),
+		WithKeyStorage(objutil.NewKeyStorage(&nodeKey, cluster.nodeSessions[0], &cluster.nodeNetworks[0])),
+		WithObjectStorage(&cluster.nodeLocalStorages[0]),
+		WithMaxSizeSource(mockMaxSize(maxObjectSize)),
+		WithContainerSource(mockContainer(cnr)),
+		WithNetworkState(&cluster.nodeNetworks[0]),
+		WithClientConstructor(cluster.nodeServices),
+		WithSplitChainVerifier(mockSplitVerifier{}),
+		WithRemoteWorkerPool(nodeWorkerPool),
+	)
+
+	cID := cidtest.ID()
+	owner := usertest.User()
+
+	var sessionToken session.Object
+	sessionToken.SetID(uuid.New())
+	sessionToken.SetExp(1)
+	sessionToken.BindContainer(cID)
+	sessionToken.SetAuthKey(cluster.nodeSessions[0].signer.Public())
+	require.NoError(t, sessionToken.Sign(owner))
+
+	req := &protoobject.PutRequest{
+		MetaHeader: &protosession.RequestMetaHeader{
+			Ttl:          2,
+			SessionToken: sessionToken.ProtoMessage(),
+		},
+	}
+	commonPrm, err := objutil.CommonPrmFromRequest(req)
+	if err != nil {
+		panic(err)
+	}
+
+	t.Run("known size before streaming", func(t *testing.T) {
+		stream, err := s.Put(context.Background())
+		require.NoError(t, err)
+
+		o := objecttest.Object()
+		o.SetPayloadSize(hardLimit + 1)
+		o.SetContainerID(cID)
+		o.SetOwner(owner.ID)
+		o.ResetRelations()
+
+		ip := new(PutInitPrm).
+			WithObject(&o).
+			WithCommonPrm(commonPrm)
+
+		err = stream.Init(ip)
+		require.ErrorIs(t, err, apistatus.QuotaExceeded{})
+	})
+
+	t.Run("payload exceeded", func(t *testing.T) {
+		stream, err := s.Put(context.Background())
+		require.NoError(t, err)
+
+		o := objecttest.Object()
+		o.SetPayloadSize(hardLimit - 1)
+		o.SetContainerID(cID)
+		o.SetOwner(owner.ID)
+		o.ResetRelations()
+
+		ip := new(PutInitPrm).
+			WithObject(&o).
+			WithCommonPrm(commonPrm)
+		err = stream.Init(ip)
+		require.NoError(t, err)
+
+		sendPrm := PutChunkPrm{make([]byte, hardLimit+1)}
+		err = stream.SendChunk(&sendPrm)
+		require.ErrorIs(t, err, apistatus.ErrQuotaExceeded)
+	})
+}
 
 func Test_Slicing_REP3(t *testing.T) {
 	for _, tc := range []struct {
@@ -289,6 +393,7 @@ func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrN
 		}
 
 		cluster.nodeServices[i] = NewService(cluster.nodeServices, &cluster.nodeNetworks[i], nil,
+			quotas{math.MaxUint64, math.MaxUint64},
 			WithLogger(zaptest.NewLogger(t).With(zap.Int("node", i))),
 			WithKeyStorage(objutil.NewKeyStorage(&nodeKey, cluster.nodeSessions[i], &cluster.nodeNetworks[i])),
 			WithObjectStorage(&cluster.nodeLocalStorages[i]),

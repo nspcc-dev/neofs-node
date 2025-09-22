@@ -895,7 +895,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
 		l:                server.log,
 		newEpochHandlers: server.newEpochTickHandlers(),
-		cnrWrapper:       cnrClient,
 		epoch:            server,
 		basicIncome: subEpochEventHandler{
 			handler:     settlementProcessor.HandleBasicIncomeEvent,

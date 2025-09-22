@@ -15,8 +15,18 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
+
+// QuotaLimiter describes limits for used space.
+type QuotaLimiter interface {
+	// AvailableQuotasLeft must return (soft limit, hard limit) pair for
+	// provided container and user account. It limit is not set, [math.MaxUint64]
+	// must be returned. Returned error should only mean there is not possibility
+	// to fetch values from FS chain.
+	AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64, error)
+}
 
 type MaxSizeSource interface {
 	// MaxObjectSize returns maximum payload size
@@ -115,6 +125,8 @@ type cfg struct {
 	cnrClient *chaincontainer.Client
 
 	metaSvc *meta.Meta
+
+	quotaLimiter QuotaLimiter
 }
 
 func defaultCfg() *cfg {
@@ -124,7 +136,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, opts ...Option) *Service {
+func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -138,6 +150,7 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, opts .
 
 	c.fmtValidator = object.NewFormatValidator(fmtValidatorChain, neoFSNet, c.fmtValidatorOpts...)
 	c.metaSvc = m
+	c.quotaLimiter = q
 
 	return &Service{
 		cfg:       c,

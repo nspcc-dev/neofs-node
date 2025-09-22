@@ -75,9 +75,11 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
-			nextTarget: p.newCommonTarget(prm),
-			fmt:        p.fmtValidator,
-
+			l:            p.cfg.log,
+			nextTarget:   p.newCommonTarget(prm),
+			fmt:          p.fmtValidator,
+			quotaLimiter: p.cfg.quotaLimiter,
+			cachedCnr:    prm.cnr,
 			maxPayloadSz: p.maxPayloadSz,
 
 			homomorphicChecksumRequired: homomorphicChecksumRequired,
@@ -125,8 +127,11 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	sessionSigner := user.NewAutoIDSigner(*sessionKey)
 	prm.sessionSigner = sessionSigner
 	p.target = &validatingTarget{
+		l:                p.cfg.log,
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
+		quotaLimiter:     p.cfg.quotaLimiter,
+		cachedCnr:        prm.cnr,
 		nextTarget: newSlicingTarget(
 			p.ctx,
 			p.maxPayloadSz,

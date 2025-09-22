@@ -65,6 +65,7 @@ fschain:
   cache_ttl: 15s  # FS chain cache TTL value (min interval between similar calls). Negative value disables caching.
                   # Default value: block time. It is recommended to have this value less or equal to block time.
                   # Cached entities: containers, container lists, eACL tables.
+  quota_ttl: 1m  # quotas limit cache TTL value. Negative values disables caching. Default value: 10m.
   reconnections_number: 6  # number of reconnection attempts
   reconnections_delay: 6s  # time delay b/w reconnection attempts
   endpoints:  # FS chain NEO RPC endpoints; are shuffled and used one by one until the first success

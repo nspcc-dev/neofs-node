@@ -40,10 +40,10 @@ const (
 	neoAddressesFlag                = "neo-addresses"
 	publicKeysFlag                  = "public-keys"
 	walletFlag                      = "wallet"
-	estimationsEpochFlag            = "epoch"
-	estimationsContainerFlag        = "cid"
+	containerIDFlag                 = "cid"
 	mintNeofsAmountFlag             = "amount"
 	mintTxHashFlag                  = "deposit-tx"
+	quotasSoftLimitFlag             = "soft"
 )
 
 var (
@@ -432,16 +432,6 @@ func init() {
 	RootCmd.AddCommand(netmapCandidatesCmd)
 	netmapCandidatesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 
-	RootCmd.AddCommand(estimationsCmd)
-	ff := estimationsCmd.Flags()
-	ff.Int64(estimationsEpochFlag, 0, "Epoch for estimations, `0` for current, negative for relative epochs")
-	estimationsCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-	err := cobra.MarkFlagRequired(ff, endpointFlag)
-	if err != nil {
-		panic(fmt.Errorf("failed to mark required %s flag: %w", endpointFlag, err))
-	}
-	ff.String(estimationsContainerFlag, "", "Inspected container, base58 encoded (all estimations will be printed if omitted)")
-
 	cmd := verifiedNodesDomainAccessListCmd
 	fs := cmd.Flags()
 	fs.StringP(endpointFlag, "r", "", "FS chain RPC endpoint")
@@ -468,4 +458,33 @@ func init() {
 	verifiedNodesDomainCmd.AddCommand(cmd)
 
 	RootCmd.AddCommand(verifiedNodesDomainCmd)
+
+	ff := quotaContainerCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	ff.String(containerIDFlag, "", "Inspected container, base58 encoded")
+	_ = cmd.MarkFlagRequired(containerIDFlag)
+	ff.StringP(walletFlag, "w", "", "Wallet that signs transaction (must own the container)")
+	ff.StringP(walletAccountFlag, "a", "", "Wallet account address")
+	ff.BoolP(quotasSoftLimitFlag, "s", false, "Set soft quota limit (omit if hard limit is required)")
+	quotaCmd.AddCommand(quotaContainerCmd)
+
+	ff = quotaUserCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	ff.StringP(walletFlag, "w", "", "Wallet that signs transaction (must have user's key)")
+	ff.StringP(walletAccountFlag, "a", "", "Inspected user account, base58 encoded")
+	_ = cmd.MarkFlagRequired(walletAccountFlag)
+	ff.BoolP(quotasSoftLimitFlag, "s", false, "Set soft quota limit (omit if hard limit is required)")
+	quotaCmd.AddCommand(quotaUserCmd)
+
+	RootCmd.AddCommand(quotaCmd)
+
+	ff = nodesCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	ff.String(containerIDFlag, "", "Inspected container, base58 encoded")
+	_ = cmd.MarkFlagRequired(containerIDFlag)
+
+	RootCmd.AddCommand(nodesCmd)
 }

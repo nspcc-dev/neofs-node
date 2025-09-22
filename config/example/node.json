@@ -78,6 +78,7 @@
   "fschain": {
     "dial_timeout": "30s",
     "cache_ttl": "15s",
+    "quota_ttl": "1m",
     "reconnections_number": "6",
     "reconnections_delay": "6s",
     "endpoints": [
