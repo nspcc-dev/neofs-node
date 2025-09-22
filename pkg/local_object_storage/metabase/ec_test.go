@@ -297,6 +297,28 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}
 	})
 
+	for _, tc := range []struct {
+		typ       object.Type
+		associate func(*object.Object, oid.ID)
+	}{
+		{typ: object.TypeTombstone, associate: (*object.Object).AssociateDeleted},
+		{typ: object.TypeLock, associate: (*object.Object).AssociateLocked},
+	} {
+		t.Run(tc.typ.String(), func(t *testing.T) {
+			db := newDB(t)
+
+			sysObj := *generateObjectWithCID(t, cnr)
+			tc.associate(&sysObj, oidtest.ID())
+
+			require.NoError(t, db.Put(&partObj))
+			require.NoError(t, db.Put(&sysObj))
+
+			id, err := db.ResolveECPart(cnr, sysObj.GetID(), pi)
+			require.NoError(t, err)
+			require.Equal(t, sysObj.GetID(), id)
+		})
+	}
+
 	db := newDB(t)
 	require.NoError(t, db.Put(&partObj))
 	checkOK(t, db, pi, partID)

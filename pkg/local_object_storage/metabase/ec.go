@@ -19,6 +19,9 @@ import (
 // ResolveECPart resolves object that carries EC part produced within cnr for
 // parent object and indexed by pi, checks its availability and returns its ID.
 //
+// If the object is not EC part but of [object.TypeTombstone] or
+// [object.TypeLock] type, ResolveECPart returns its ID instead.
+//
 // If DB is disabled by mode (e.g. [DB.SetMode]), ResolveECPart returns
 // [ErrDegradedMode].
 //
@@ -80,9 +83,18 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 
 	var partCrs *bbolt.Cursor
 	var rulePref, partPref []byte
+	isParent := false
 	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
 		partID, ok := bytes.CutPrefix(k, pref)
 		if !ok {
+			if !isParent { // neither tombstone nor lock can be a parent
+				typePref := make([]byte, metaIDTypePrefixSize)
+				fillIDTypePrefix(typePref)
+				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock) {
+					return parent, nil
+				}
+			}
+
 			return oid.ID{}, apistatus.ErrObjectNotFound
 		}
 		if len(partID) != oid.Size {
@@ -91,6 +103,8 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		if islices.AllZeros(partID) {
 			return oid.ID{}, invalidMetaBucketKeyErr(k, oid.ErrZero)
 		}
+
+		isParent = true
 
 		if partCrs == nil {
 			partCrs = crs.Bucket().Cursor()

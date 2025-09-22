@@ -126,14 +126,30 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		// TODO: forbid to PUT such objects and drop this one?
 		p.log.Info("object with EC attributes in container without EC rules detected, process according to REP rules",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", ecp.RuleIndex), zap.Int("partIdx", ecp.Index))
-	} else if len(ecRules) > 0 && len(repRules) == 0 {
-		p.log.Info("object with lacking EC attributes detected, deleting",
-			zap.Stringer("object", addr))
-		if err := p.localStorage.Delete(addr); err != nil {
-			p.log.Error("failed to delete local object with lacking EC attributes",
-				zap.Stringer("object", addr), zap.Error(err))
+	} else if len(ecRules) > 0 {
+		if addrWithAttrs.Type == object.TypeTombstone || addrWithAttrs.Type == object.TypeLock {
+			// LOCK is broadcast across all container SN. TOMBSTONE is broadcast across EC
+			// SN. This increases efficiency of removing REGULAR objects' EC parts which are
+			// evenly distributed across EC SN. Note that TOMBSTONE is not broadcast across
+			// REP SN but behaves the same as REGULAR objects.
+			newRepRules := make([]uint, len(repRules)+len(ecRules))
+			copy(newRepRules, repRules)
+			if addrWithAttrs.Type != object.TypeLock { // processNodes() already does the same for LOCK
+				for i := range ecRules {
+					newRepRules[len(repRules)+i] = uint(len(nn[len(repRules)+i]))
+				}
+			}
+
+			repRules = newRepRules
+		} else if len(repRules) == 0 {
+			p.log.Info("object with lacking EC attributes detected, deleting",
+				zap.Stringer("object", addr))
+			if err := p.localStorage.Delete(addr); err != nil {
+				p.log.Error("failed to delete local object with lacking EC attributes",
+					zap.Stringer("object", addr), zap.Error(err))
+			}
+			return
 		}
-		return
 	}
 
 	c := &processPlacementContext{
