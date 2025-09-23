@@ -1,10 +1,12 @@
 package getsvc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"sync/atomic"
 
@@ -41,37 +43,6 @@ func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, p
 
 	if err := copyObjectStream(dst, hdr, rc); err != nil {
 		return fmt.Errorf("copy object: %w", err)
-	}
-
-	return nil
-}
-
-// looks up for local object that carries EC part produced within cnr for parent
-// object and indexed by pi, and writes its payload range into dst. Both zero
-// off and ln correspond to full payload.
-//
-// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
-// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
-// Returns [apistatus.ErrObjectOutOfRange] if the range is out of payload range.
-func (s *Service) copyLocalECPartRange(dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) error {
-	pldLen, rc, err := s.localObjects.GetECPartRange(cnr, parent, pi, off, ln)
-	if err != nil {
-		return fmt.Errorf("get object payload range from local storage: %w", err)
-	}
-	if pldLen == 0 {
-		// TODO: highlight (nil, nil) return for this case in interface and storage docs
-		return nil
-	}
-	defer rc.Close()
-
-	var bufLen uint64
-	if ln == 0 && off == 0 {
-		bufLen = min(pldLen, streamChunkSize)
-	} else {
-		bufLen = min(uint64(ln), streamChunkSize)
-	}
-	if err := copyPayloadStream(dst, rc, bufLen); err != nil {
-		return fmt.Errorf("copy payload: %w", err)
 	}
 
 	return nil
@@ -366,6 +337,265 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 	}
 
 	return hdr, rc, nil
+}
+
+// looks up for local object that carries EC part produced within cnr for parent
+// object and indexed by pi, and writes its payload range into dst. Both zero
+// off and ln correspond to full payload.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
+// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
+// Returns [apistatus.ErrObjectOutOfRange] if the range is out of payload range.
+func (s *Service) copyLocalECPartRange(dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
+	pldLen, rc, err := s.localObjects.GetECPartRange(cnr, parent, pi, off, ln)
+	if err != nil {
+		return fmt.Errorf("get object payload range from local storage: %w", err)
+	}
+	if pldLen == 0 {
+		// TODO: highlight (nil, nil) return for this case in interface and storage docs
+		return nil
+	}
+	defer rc.Close()
+
+	var bufLen uint64
+	if ln == 0 && off == 0 {
+		bufLen = min(pldLen, streamChunkSize)
+	} else {
+		bufLen = min(ln, streamChunkSize)
+	}
+	if err := copyPayloadStream(dst, rc, bufLen); err != nil {
+		return fmt.Errorf("copy payload: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
+	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, off, ln uint64) error {
+	return s.copyECObjectRangeByRule(ctx, dst, cnr, parent, sTok, bTok, ecRules[0], 0, sortedNodeLists[0], off, ln)
+	// // TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
+	// //  https://github.com/nspcc-dev/neofs-node/issues/3563
+	// for i := range ecRules {
+	// 	full, written, err := s.copyECObjectRangeByRule(ctx, cnr, parent, sTok, bTok, ecRules[i], i, sortedNodeLists[i], off, ln, dst)
+	// 	if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) {
+	// 		return err
+	// 	}
+	// 	if i == len(ecRules)-1 {
+	// 		return fmt.Errorf("%w: all rules failed (last rule error: %v)", apistatus.ErrObjectNotFound, err)
+	// 	}
+	// 	if written >= ln {
+	// 		panic(fmt.Sprintf("did not succeeded after writing %d bytes out of %d", n, ln))
+	// 	}
+	//
+	// 	s.log.Info("failed to copy object by EC rule",
+	// 		zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rules[i]),
+	// 		zap.Int("ruleIdx", i), zap.Error(err),
+	// 	)
+	//
+	// 	ln -= n
+	// }
+	// panic("unreachable")
+}
+
+// TODO: docs.
+func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, sTok *session.Object,
+	bTok *bearer.Token, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, off, ln uint64) error {
+	// TODO: limit context. https://github.com/nspcc-dev/neofs-node/issues/3560
+	// TODO: GET iff off == 0, otherwise HEAD.
+	parentHdr, part1Pld, err := s.getECPart(ctx, cnr, parent, sTok, bTok, rule, ruleIdx, sortedNodes, 0)
+	if err != nil {
+		// TODO: ACL = RANGE ALLOW && GET DENY is possible. Consider fallback to sequential RANGE iterator.
+		return err // FIXME: dont break on 1st part, try others
+	}
+
+	var firstIdx, lastIdx int
+	var firstOff, lastTo uint64
+	fullPartLen := uint64(len(part1Pld))
+
+	if pldLen := parentHdr.PayloadSize(); ln == 0 && off == 0 {
+		if pldLen == 0 {
+			return nil
+		}
+		lastIdx = int(rule.DataPartNum) - 1
+		lastTo = pldLen % fullPartLen
+		if lastTo == 0 {
+			lastTo = fullPartLen
+		}
+	} else {
+		if off >= pldLen || pldLen-off < ln {
+			return apistatus.ErrObjectOutOfRange
+		}
+
+		totalParts := int(rule.DataPartNum + rule.ParityPartNum)
+		firstIdx, firstOff, lastIdx, lastTo = requiredChildrenIter(off, ln, nEqualSizeIter(totalParts, fullPartLen))
+	}
+
+	var partOff, partLen uint64
+	for partIdx := firstIdx; partIdx <= lastIdx; partIdx++ {
+		if partIdx == firstIdx {
+			partOff = firstOff
+			if partIdx == lastIdx {
+				partLen = lastTo - firstOff
+			} else {
+				partLen = fullPartLen - firstOff
+			}
+		} else if partIdx < lastIdx {
+			partOff, partLen = 0, fullPartLen // full
+		} else {
+			partOff, partLen = 0, lastTo
+		}
+
+		var b []byte
+		if partIdx == 0 {
+			b = part1Pld[partOff:][:partLen]
+		} else {
+			b, err = s.getECPartRange(ctx, cnr, parent, partOff, partLen, sTok, bTok, rule, ruleIdx, sortedNodes, partIdx)
+			if err != nil {
+				return fmt.Errorf("get next payload range (part#%d): %w", partIdx, err) // FIXME: failover
+			}
+		}
+
+		if err := dst.WriteChunk(b); err != nil {
+			return fmt.Errorf("write next payload range (part#%d): %w", partIdx, err)
+		}
+	}
+
+	return nil
+}
+
+// TODO: docs.
+// Similar to getECPart.
+func (s *Service) getECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, off, ln uint64, sTok *session.Object, bTok *bearer.Token,
+	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) ([]byte, error) {
+	if ln == 0 { // TODO: mention in docs
+		panic("empty range")
+	}
+
+	var rc io.ReadCloser
+
+	pi := iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     partIdx,
+	}
+
+	var err error
+	var local, localDone bool
+	for i := range iec.NodeSequenceForPart(partIdx, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
+		local = !localDone && s.neoFSNet.IsLocalNodePublicKey(sortedNodes[i].PublicKey())
+		if local {
+			localDone = true
+		}
+
+		if local {
+			_, rc, err = s.localObjects.GetECPartRange(cnr, parent, pi, off, ln)
+		} else {
+			rc, err = s.getECPartRangeFromNode(ctx, cnr, parent, off, ln, sTok, bTok, pi, sortedNodes[i])
+			if err == nil {
+				// Fallback to GET similar to fallbackRangeReader. Track https://github.com/nspcc-dev/neofs-node/issues/3547.
+				b := []byte{0}
+				if _, rErr := io.ReadFull(rc, b); rErr == nil {
+					// TODO: used in several places, share.
+					rc = struct {
+						io.Reader
+						io.Closer
+					}{
+						Reader: io.MultiReader(bytes.NewReader(b), rc),
+						Closer: rc,
+					}
+				} else {
+					if errors.Is(rErr, apistatus.ErrObjectAccessDenied) {
+						var getErr error
+						if _, rc, getErr = s.getECPartFromNode(ctx, cnr, parent, sTok, bTok, pi, sortedNodes[i]); getErr == nil {
+							if off <= math.MaxInt64 && ln <= math.MaxInt64 { // io functions behave specifically with negative input
+								if _, getErr = io.CopyN(io.Discard, rc, int64(off)); getErr == nil {
+									rc = struct {
+										io.Reader
+										io.Closer
+									}{
+										Reader: io.LimitReader(rc, int64(ln)),
+										Closer: rc,
+									}
+									rErr = nil
+								} else {
+									s.log.Info("range->get fallback attempt for EC part failed on stream seek",
+										zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
+										zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Uint64("skipBytes", ln),
+										zap.Error(getErr))
+								}
+							}
+						} else {
+							s.log.Info("range->get fallback attempt for EC part failed on stream init",
+								zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
+								zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Error(getErr))
+						}
+					}
+					if rErr != nil {
+						// like outside for-loop
+						if errors.Is(rErr, io.EOF) { // empty range is caught above
+							rErr = io.ErrUnexpectedEOF
+						}
+						return nil, fmt.Errorf("read GetRange response stream: %w", rErr)
+					}
+				}
+			}
+		}
+		if err == nil {
+			break
+		}
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) {
+			return nil, err
+		}
+		if errors.Is(err, ctx.Err()) {
+			return nil, err
+		}
+
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			s.log.Info("failed to get EC part payload range from node, continue...",
+				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln),
+				zap.Stringer("rule", rule), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Bool("local", local),
+				zap.Error(err))
+		}
+	}
+	if err != nil {
+		return nil, errors.New("all nodes failed")
+	}
+
+	defer rc.Close()
+
+	buf := make([]byte, ln)
+	if _, err := io.ReadFull(rc, buf); err != nil {
+		if errors.Is(err, io.EOF) { // empty range is caught above
+			err = io.ErrUnexpectedEOF
+		}
+		return nil, fmt.Errorf("read GetRange response stream: %w", err)
+	}
+
+	return buf, nil
+}
+
+// TODO: docs.
+// Similar to getECPartFromNode.
+func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, off, ln uint64, sTok *session.Object,
+	bTok *bearer.Token, pi iec.PartInfo, node netmap.NodeInfo) (io.ReadCloser, error) {
+	localNodeKey, err := s.keyStore.GetKey(nil)
+	if err != nil {
+		return nil, fmt.Errorf("get local SN private key: %w", err)
+	}
+
+	ruleIdxAttr := strconv.Itoa(pi.RuleIndex)
+	partIdxAttr := strconv.Itoa(pi.Index)
+
+	// TODO: this must be stated in https://github.com/nspcc-dev/neofs-api
+	rc, err := s.conns.InitGetObjectRangeStream(ctx, node, *localNodeKey, cnr, parent, off, ln, sTok, bTok, true, []string{
+		iec.AttributeRuleIdx, ruleIdxAttr,
+		iec.AttributePartIdx, partIdxAttr,
+	})
+	if err != nil {
+		err = convertContextCanceledStatus(err)
+		return nil, fmt.Errorf("get object from remote SN: %w", err)
+	}
+
+	return rc, nil
 }
 
 // returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.

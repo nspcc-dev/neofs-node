@@ -2,7 +2,9 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"math"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
@@ -103,7 +105,12 @@ loop:
 }
 
 // TODO: docs.
-func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
+func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
+	// TODO: mention limit in docs.
+	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
+		return 0, nil, fmt.Errorf("range overlowing int64 is not supported by this server: off=%d,len=%d", off, ln)
+	}
+
 	if e.metrics != nil {
 		// FIXME: new metric
 		defer elapsed(e.metrics.AddGetECPartDuration)()
@@ -120,7 +127,7 @@ func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInf
 	var partID oid.ID
 loop:
 	for i := range s {
-		pldLen, rc, err := s[i].shardIface.GetECPartRange(cnr, parent, pi, off, ln)
+		pldLen, rc, err := s[i].shardIface.GetECPartRange(cnr, parent, pi, int64(off), int64(ln))
 		switch {
 		case err == nil:
 			return pldLen, rc, nil
@@ -155,7 +162,7 @@ loop:
 
 	for i := range s {
 		// get an object bypassing the metabase. We can miss deletion or expiration mark. GetECPart behaves like this, so here too.
-		pldLen, rc, err := s[i].shardIface.GetRangeStream(cnr, partID, off, ln)
+		pldLen, rc, err := s[i].shardIface.GetRangeStream(cnr, partID, int64(off), int64(ln))
 		switch {
 		case err == nil:
 			return pldLen, rc, nil

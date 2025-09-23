@@ -74,7 +74,7 @@ type cfg struct {
 		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 		GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error)
 		// TODO: docs.
-		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error)
+		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error)
 	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)
@@ -84,11 +84,13 @@ type cfg struct {
 		get(client.NodeInfo) (getClient, error)
 	}
 	// TODO: merge with clientCache
-	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client.ObjectGetInit
+	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client
 	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
 	conns interface {
 		InitGetObjectStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			st *session.Object, bt *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
+		InitGetObjectRangeStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+			off, ln uint64, st *session.Object, bt *bearer.Token, local bool, xs []string) (io.ReadCloser, error)
 	}
 
 	keyStore interface {

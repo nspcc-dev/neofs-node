@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -69,14 +68,8 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 			return fmt.Errorf("requested EC part index overflows container policy: idx=%d,parts=%d", pi.Index, total)
 		}
 
-		off, ln := prm.rng.GetOffset(), prm.rng.GetLength()
-		if off > math.MaxInt64 || ln > math.MaxInt64 {
-			return fmt.Errorf("range overlows int64: off=%d, len=%d", off, ln)
-		}
-		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, int64(off), int64(ln))
+		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
-
-	return errors.New("unimplemented")
 
 	if len(repRules) > 0 { // REP format does not require encoding
 		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng)).err
@@ -85,9 +78,8 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		}
 	}
 
-	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), prm.common.BearerToken(),
-		ecRules, nodeLists[len(repRules):], prm.objWriter)
-	return s.getRange(ctx, prm)
+	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), prm.common.BearerToken(),
+		ecRules, nodeLists[len(repRules):], prm.rng.GetOffset(), prm.rng.GetLength())
 }
 
 func (s *Service) getRange(ctx context.Context, prm RangePrm, opts ...execOption) error {
