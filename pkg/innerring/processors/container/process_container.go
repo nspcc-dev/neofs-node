@@ -90,6 +90,10 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		}
 	}
 
+	if !cp.allowEC && len(ctx.cnr.PlacementPolicy().ECRules()) > 0 {
+		return errors.New("EC rules are not supported yet")
+	}
+
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  ctx.cnr.Owner(),
 		verb:            session.VerbContainerPut,
@@ -151,12 +155,13 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		return
 	}
 
-	replicas := make([]uint32, 0, policy.NumberOfReplicas())
-	for i := range vectors {
-		replicas = append(replicas, policy.ReplicaNumberByIndex(i))
+	replicas := make([]uint32, policy.NumberOfReplicas())
+	for i := range replicas {
+		replicas[i] = policy.ReplicaNumberByIndex(i)
 	}
 
-	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)
+	// TODO: adopt EC rules
+	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors[:len(replicas)], replicas)
 	if err != nil {
 		l.Error("could not update Container contract", zap.Error(err))
 		return
