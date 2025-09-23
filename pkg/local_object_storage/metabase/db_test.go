@@ -145,7 +145,11 @@ func newBlankObject(cnr cid.ID, id oid.ID) object.Object {
 
 func presetBoltDB(t *testing.T, f func(*bbolt.Tx) error) *meta.DB {
 	db := newDB(t)
+	corruptDB(t, db, f)
+	return db
+}
 
+func corruptDB(t *testing.T, db *meta.DB, f func(*bbolt.Tx) error) {
 	// temporary close metabase to free BoltDB flock
 	require.NoError(t, db.Close())
 
@@ -157,8 +161,6 @@ func presetBoltDB(t *testing.T, f func(*bbolt.Tx) error) *meta.DB {
 
 	// reopen metabase
 	require.NoError(t, db.Open(false))
-
-	return db
 }
 
 func assertObjectNotFoundError(t *testing.T, err error) {

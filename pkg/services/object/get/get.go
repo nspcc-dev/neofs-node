@@ -46,7 +46,35 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
-	return s.getRange(ctx, prm)
+	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
+	if err != nil {
+		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
+		return fmt.Errorf("invalid request: %w", err)
+	}
+
+	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
+	if err != nil {
+		return fmt.Errorf("get nodes for object: %w", err)
+	}
+
+	if pi.RuleIndex >= 0 {
+		if err := checkPartRequestAgainstPolicy(ecRules, pi); err != nil {
+			// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
+			return fmt.Errorf("invalid request: %w", err)
+		}
+		// TODO: deny if node is not in the container?
+		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
+	}
+
+	if len(repRules) > 0 { // REP format does not require encoding
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng)).err
+		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
+			return err
+		}
+	}
+
+	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
+		ecRules, nodeLists[len(repRules):], prm.rng.GetOffset(), prm.rng.GetLength())
 }
 
 func (s *Service) getRange(ctx context.Context, prm RangePrm, opts ...execOption) error {
