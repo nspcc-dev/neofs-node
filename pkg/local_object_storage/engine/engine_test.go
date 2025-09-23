@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -224,7 +225,15 @@ func (unimplementedShard) GetStream(oid.Address, bool) (*object.Object, io.ReadC
 	panic("unimplemented")
 }
 
+func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, int64, int64) (uint64, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedShard) GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, int64, int64) (uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -235,6 +244,31 @@ type getECPartKey struct {
 }
 
 type getECPartValue struct {
+	obj object.Object
+	err error
+}
+
+type getRangeStreamKey struct {
+	cnr cid.ID
+	id  oid.ID
+	off int64
+	ln  int64
+}
+
+type getRangeStreamValue struct {
+	obj object.Object
+	err error
+}
+
+type getECPartRangeKey struct {
+	cnr    cid.ID
+	parent oid.ID
+	pi     iec.PartInfo
+	off    int64
+	ln     int64
+}
+
+type getECPartRangeValue struct {
 	obj object.Object
 	err error
 }
@@ -253,12 +287,51 @@ type mockShard struct {
 	i              int
 	getECPartSleep time.Duration
 	getECPart      map[getECPartKey]getECPartValue
+	getRangeStream map[getRangeStreamKey]getRangeStreamValue
+	getECPartRange map[getECPartRangeKey]getECPartRangeValue
 	getStream      map[getStreamKey]getStreamValue
 }
 
 func (x *mockShard) ID() *shard.ID {
 	si := strconv.Itoa(x.i)
 	return shard.NewIDFromBytes([]byte(si))
+}
+
+func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {
+	val, ok := x.getStream[getStreamKey{
+		addr:     addr,
+		skipMeta: skipMeta,
+	}]
+	if !ok {
+		return nil, nil, errors.New("[test] unexpected object requested")
+	}
+	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
+}
+
+func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error) {
+	val, ok := x.getRangeStream[getRangeStreamKey{
+		cnr: cnr,
+		id:  id,
+		off: off,
+		ln:  ln,
+	}]
+	if !ok {
+		return 0, nil, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, nil, val.err
+	}
+
+	pld := val.obj.Payload()
+	if off == 0 && ln == 0 {
+		if len(pld) == 0 {
+			return 0, nil, nil
+		}
+	} else if full := uint64(len(pld)); uint64(off) >= full || full-uint64(off) < uint64(ln) {
+		return 0, nil, apistatus.ErrObjectOutOfRange
+	}
+
+	return val.obj.PayloadSize(), io.NopCloser(bytes.NewReader(pld[off:][:ln])), nil
 }
 
 func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
@@ -274,15 +347,32 @@ func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (objec
 	return *val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {
-	val, ok := x.getStream[getStreamKey{
-		addr:     addr,
-		skipMeta: skipMeta,
+func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
+	time.Sleep(x.getECPartSleep)
+	val, ok := x.getECPartRange[getECPartRangeKey{
+		cnr:    cnr,
+		parent: parent,
+		pi:     pi,
+		off:    off,
+		ln:     ln,
 	}]
 	if !ok {
-		return nil, nil, errors.New("[test] unexpected object requested")
+		return 0, nil, errors.New("[test] unexpected object requested")
 	}
-	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
+	if val.err != nil {
+		return 0, nil, val.err
+	}
+
+	pld := val.obj.Payload()
+	if off == 0 && ln == 0 {
+		if len(pld) == 0 {
+			return 0, nil, nil
+		}
+	} else if full := uint64(len(pld)); uint64(off) >= full || full-uint64(off) < uint64(ln) {
+		return 0, nil, apistatus.ErrObjectOutOfRange
+	}
+
+	return val.obj.PayloadSize(), io.NopCloser(bytes.NewReader(pld[off:][:ln])), nil
 }
 
 type unimplementedMetrics struct{}
@@ -339,6 +429,10 @@ func (x unimplementedMetrics) AddGetECPartDuration(time.Duration) {
 	panic("unimplemented")
 }
 
+func (x unimplementedMetrics) AddGetECPartRangeDuration(d time.Duration) {
+	panic("unimplemented")
+}
+
 func (x unimplementedMetrics) SetObjectCounter(string, string, uint64) {
 	panic("unimplemented")
 }
@@ -361,9 +455,14 @@ func (x unimplementedMetrics) AddToPayloadCounter(string, int64) {
 
 type testMetrics struct {
 	unimplementedMetrics
-	getECPart atomic.Int64
+	getECPart      atomic.Int64
+	getECPartRange atomic.Int64
 }
 
 func (x *testMetrics) AddGetECPartDuration(d time.Duration) {
 	x.getECPart.Add(int64(d))
+}
+
+func (x *testMetrics) AddGetECPartRangeDuration(d time.Duration) {
+	x.getECPartRange.Add(int64(d))
 }
