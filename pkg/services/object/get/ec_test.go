@@ -12,6 +12,7 @@ import (
 	"testing/iotest"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
@@ -223,7 +224,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 			getECPart: map[getECPartKey]getECPartValue{
 				{cnr: cnr, parent: parentID, pi: pi}: {
 					hdr: partHdr,
-					rdr: ioReadCloser{
+					rdr: iio.ReadCloser{
 						Reader: io.MultiReader(bytes.NewReader(okData), iotest.ErrReader(readErr)),
 						Closer: &closer,
 					},
@@ -262,7 +263,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 			getECPart: map[getECPartKey]getECPartValue{
 				{cnr: cnr, parent: parentID, pi: pi}: {
 					hdr: partHdr,
-					rdr: ioReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
+					rdr: iio.ReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
 				},
 			},
 		}
@@ -299,7 +300,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 			getECPart: map[getECPartKey]getECPartValue{
 				{cnr: cnr, parent: parentID, pi: pi}: {
 					hdr: partHdr,
-					rdr: ioReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
+					rdr: iio.ReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
 				},
 			},
 		}
@@ -315,7 +316,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 		err := svc.Get(ctx, prm)
 		require.ErrorIs(t, err, writeChunkErr)
-		require.EqualError(t, err, "copy object: write next payload chunk: "+writeChunkErr.Error())
+		require.EqualError(t, err, "copy object: stream failure: "+writeChunkErr.Error())
 		require.Equal(t, partHdr, w.hdr)
 
 		require.EqualValues(t, 1, closer.count.Load())
@@ -333,7 +334,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 		getECPart: map[getECPartKey]getECPartValue{
 			{cnr: cnr, parent: parentID, pi: pi}: {
 				hdr: partHdr,
-				rdr: ioReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
+				rdr: iio.ReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
 			},
 		},
 	}
@@ -552,6 +553,7 @@ func parameterizePartInfoString(t testing.TB, p *Prm, ruleIdx, partIdx string) {
 }
 
 type testECServiceConn struct {
+	unimplementedServiceConns
 	mockKeyStorage
 	sTok *session.Object
 	bTok *bearer.Token
