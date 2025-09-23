@@ -415,15 +415,17 @@ func TestContainerNodes_ForEachContainerNodePublicKeyInLastTwoEpochs(t *testing.
 			})
 			require.NoError(t, err)
 			require.Len(t, calledKeys, limit)
-			if limit == 1 {
+			switch limit {
+			case 1:
 				require.Contains(t, curNodeKeys, calledKeys[0])
-			} else {
+			case 2:
 				require.ElementsMatch(t, curNodeKeys, calledKeys[:2])
-				if limit == 3 {
-					require.Contains(t, prevNodeKeys, calledKeys[2])
-				} else if limit == 4 {
-					require.ElementsMatch(t, prevNodeKeys, calledKeys[2:])
-				}
+			case 3:
+				require.ElementsMatch(t, curNodeKeys, calledKeys[:2])
+				require.Contains(t, prevNodeKeys, calledKeys[2])
+			case 4:
+				require.ElementsMatch(t, curNodeKeys, calledKeys[:2])
+				require.ElementsMatch(t, prevNodeKeys, calledKeys[2:])
 			}
 		}
 	})
