@@ -309,6 +309,11 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 			return fmt.Errorf("write object locally: %w", err)
 		}
 
+		if node.placementVector < 0 {
+			// additional broadcast
+			return nil
+		}
+
 		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 			sig, err := t.metaSigner.Sign(t.objSharedMeta)
 			if err != nil {
@@ -342,6 +347,11 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 	}
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		if node.placementVector < 0 {
+			// additional broadcast
+			return nil
+		}
+
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()),
