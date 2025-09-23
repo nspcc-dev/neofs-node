@@ -197,9 +197,9 @@ func printContractInfo(cmd *cobra.Command, infos []contractDumpInfo) {
 		if info.version == "" {
 			info.version = "unknown"
 		}
-		_, _ = tw.Write([]byte(fmt.Sprintf("%s\t(%s):\t%s\t%s\n",
+		_, _ = fmt.Fprintf(tw, "%s\t(%s):\t%s\t%s\n",
 			info.name, info.version, info.hash.StringLE(),
-			timeStr)))
+			timeStr)
 	}
 	_ = tw.Flush()
 

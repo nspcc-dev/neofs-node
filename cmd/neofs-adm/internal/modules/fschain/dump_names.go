@@ -81,8 +81,8 @@ func dumpNames(cmd *cobra.Command, _ []string) error {
 	buf := bytes.NewBuffer(nil)
 	tw := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for i := range res {
-		_, _ = tw.Write([]byte(fmt.Sprintf("%s\t%s\n",
-			res[i].name, time.UnixMilli(res[i].exp).String())))
+		_, _ = fmt.Fprintf(tw, "%s\t%s\n",
+			res[i].name, time.UnixMilli(res[i].exp).String())
 	}
 	_ = tw.Flush()
 

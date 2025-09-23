@@ -72,18 +72,18 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 			nbuf := make([]byte, 8)
 			copy(nbuf, v)
 			n := binary.LittleEndian.Uint64(nbuf)
-			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%d (int)\n", k, n)))
+			_, _ = fmt.Fprintf(tw, "%s:\t%d (int)\n", k, n)
 		case netmapEigenTrustAlphaKey:
-			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (str)\n", k, v)))
+			_, _ = fmt.Fprintf(tw, "%s:\t%s (str)\n", k, v)
 		case netmapHomomorphicHashDisabledKey:
 			vBool, err := tuple[1].TryBool()
 			if err != nil {
 				return invalidConfigValueErr(k)
 			}
 
-			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%t (bool)\n", k, vBool)))
+			_, _ = fmt.Fprintf(tw, "%s:\t%t (bool)\n", k, vBool)
 		default:
-			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (hex)\n", k, hex.EncodeToString(v))))
+			_, _ = fmt.Fprintf(tw, "%s:\t%s (hex)\n", k, hex.EncodeToString(v))
 		}
 	}
 
