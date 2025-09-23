@@ -9,7 +9,5 @@ import (
 
 func main() {
 	err := modules.Execute()
-	if err != nil {
-		cmderr.ExitOnErr(fmt.Errorf("Error: %w\n", err))
-	}
+	cmderr.ExitOnErr(fmt.Errorf("Error: %w\n", err))
 }
