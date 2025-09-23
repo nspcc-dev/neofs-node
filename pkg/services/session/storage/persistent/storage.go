@@ -62,7 +62,7 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 	// enable encryption if it
 	// was configured so
 	if cfg.privateKey != nil {
-		rawKey := make([]byte, (cfg.privateKey.Curve.Params().N.BitLen()+7)/8)
+		rawKey := make([]byte, (cfg.privateKey.Params().N.BitLen()+7)/8)
 		cfg.privateKey.D.FillBytes(rawKey)
 
 		c, err := aes.NewCipher(rawKey)

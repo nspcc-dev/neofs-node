@@ -221,7 +221,7 @@ func fillContractVersion(cmd *cobra.Command, c Client, infos []contractDumpInfo)
 
 			script := sub.Bytes()
 			emit.Instruction(bw.BinWriter, opcode.TRY, []byte{byte(3 + len(script) + 2), 0})
-			bw.BinWriter.WriteBytes(script)
+			bw.WriteBytes(script)
 			emit.Instruction(bw.BinWriter, opcode.ENDTRY, []byte{2 + 1})
 			emit.Opcodes(bw.BinWriter, opcode.PUSH0)
 		}

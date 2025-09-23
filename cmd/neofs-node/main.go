@@ -144,7 +144,7 @@ func initApp(c *cfg) {
 
 	c.workers = append(c.workers, newWorkerFromFunc(c.configWatcher))
 
-	c.shared.control.MarkReady(
+	c.control.MarkReady(
 		c.cfgObject.cfgLocalStorage.localStorage,
 		c.netMapSource,
 		c.cnrSrc,
@@ -208,7 +208,7 @@ func (c *cfg) onShutdown(f func()) {
 func (c *cfg) restartMorph() error {
 	c.log.Info("restarting internal services because of RPC connection loss...")
 
-	c.shared.resetCaches()
+	c.resetCaches()
 
 	epoch, ni, err := getNetworkState(c)
 	if err != nil {
@@ -218,7 +218,7 @@ func (c *cfg) restartMorph() error {
 	updateLocalState(c, epoch, ni)
 
 	// drop expired sessions if any has appeared while node was sleeping
-	c.shared.privateTokenStore.RemoveOld(epoch)
+	c.privateTokenStore.RemoveOld(epoch)
 
 	// bootstrap node after every reconnection cause the longevity of
 	// a connection downstate is unpredictable and bootstrap TX is a

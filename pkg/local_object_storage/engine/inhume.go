@@ -250,7 +250,7 @@ func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
 	}
 
 	for _, sh := range e.unsortedShards() {
-		locked, err := sh.Shard.IsLocked(addr)
+		locked, err := sh.IsLocked(addr)
 		if err != nil {
 			e.reportShardError(sh, "can't check object's lockers", err, zap.Stringer("addr", addr))
 			return false, err

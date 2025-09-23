@@ -28,9 +28,9 @@ func initMeta(c *cfg) {
 
 	c.cfgMeta.network = &neofsNetwork{
 		key:        c.binPublicKey,
-		cnrClient:  c.basics.cCli,
+		cnrClient:  c.cCli,
 		containers: c.cnrSrc,
-		network:    c.basics.netMapSource,
+		network:    c.netMapSource,
 		header:     c.cfgObject.getSvc,
 	}
 
@@ -40,18 +40,18 @@ func initMeta(c *cfg) {
 		Network:       c.cfgMeta.network,
 		Timeout:       c.appCfg.FSChain.DialTimeout,
 		NeoEnpoints:   c.appCfg.FSChain.Endpoints,
-		ContainerHash: c.basics.containerSH,
-		NetmapHash:    c.basics.netmapSH,
+		ContainerHash: c.containerSH,
+		NetmapHash:    c.netmapSH,
 		RootPath:      c.appCfg.Meta.Path,
 	}
 	if p.RootPath == "" {
 		p.RootPath = "metadata"
 	}
-	c.shared.metaService, err = meta.New(p)
+	c.metaService, err = meta.New(p)
 	fatalOnErr(err)
 
 	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		err = c.shared.metaService.Run(ctx)
+		err = c.metaService.Run(ctx)
 		if err != nil {
 			c.internalErr <- fmt.Errorf("meta data service error: %w", err)
 		}

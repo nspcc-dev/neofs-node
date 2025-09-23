@@ -31,7 +31,7 @@ func (s *Service) Delete(ctx context.Context, prm Prm) error {
 
 	exec.execute()
 
-	return exec.statusError.err
+	return exec.err
 }
 
 func (exec *execCtx) execute() {

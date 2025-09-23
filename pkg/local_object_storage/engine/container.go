@@ -32,7 +32,7 @@ func (e *StorageEngine) ContainerInfo(cnr cid.ID) (uint64, uint64, error) {
 	var objsNumber uint64
 
 	for _, sh := range e.unsortedShards() {
-		shardInfo, err := sh.Shard.ContainerInfo(cnr)
+		shardInfo, err := sh.ContainerInfo(cnr)
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
 				zap.Stringer("container_id", cnr))
@@ -64,7 +64,7 @@ func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
 	uniqueIDs := make(map[cid.ID]struct{})
 
 	for _, sh := range e.unsortedShards() {
-		res, err := sh.Shard.ListContainers()
+		res, err := sh.ListContainers()
 		if err != nil {
 			e.reportShardError(sh, "can't get list of containers", err)
 			continue
@@ -98,7 +98,7 @@ func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
 
 	for _, sh := range e.unsortedShards() {
 		wg.Go(func() error {
-			err := sh.Shard.DeleteContainer(ctx, cID)
+			err := sh.DeleteContainer(ctx, cID)
 			if err != nil {
 				err = fmt.Errorf("container cleanup in %s shard: %w", sh.ID(), err)
 				e.log.Warn("container cleanup", zap.Error(err))
@@ -114,7 +114,7 @@ func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
 }
 
 func (e *StorageEngine) deleteNotFoundContainers() error {
-	if e.cfg.containerSource == nil {
+	if e.containerSource == nil {
 		return nil
 	}
 
@@ -132,7 +132,7 @@ func (e *StorageEngine) deleteNotFoundContainers() error {
 
 			for _, cnrStored := range res {
 				// in the most loaded scenarios it is a cache
-				if _, err = e.cfg.containerSource.Get(cnrStored); errors.As(err, new(apistatus.ContainerNotFound)) {
+				if _, err = e.containerSource.Get(cnrStored); errors.As(err, new(apistatus.ContainerNotFound)) {
 					err = e.shards[iCopy].InhumeContainer(cnrStored)
 					if err != nil {
 						return fmt.Errorf("'%s' container cleanup in '%s' shard: %w", cnrStored, shID, err)

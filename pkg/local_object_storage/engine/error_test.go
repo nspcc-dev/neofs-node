@@ -63,7 +63,7 @@ func TestErrorReporting(t *testing.T) {
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		e.mtx.RLock()
-		err := e.shards[id[0].String()].Shard.Put(obj, nil)
+		err := e.shards[id[0].String()].Put(obj, nil)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
@@ -140,7 +140,7 @@ func TestBlobstorFailback(t *testing.T) {
 		obj.SetPayloadSize(uint64(size))
 
 		e.mtx.RLock()
-		err = e.shards[id[0].String()].Shard.Put(obj, nil)
+		err = e.shards[id[0].String()].Put(obj, nil)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 		objs = append(objs, obj)
@@ -157,8 +157,8 @@ func TestBlobstorFailback(t *testing.T) {
 	checkShardState(t, e, id[0], 0, mode.ReadWrite)
 	require.NoError(t, e.Close())
 
-	p1 := e.shards[id[0].String()].Shard.DumpInfo().BlobStorInfo.Path
-	p2 := e.shards[id[1].String()].Shard.DumpInfo().BlobStorInfo.Path
+	p1 := e.shards[id[0].String()].DumpInfo().BlobStorInfo.Path
+	p2 := e.shards[id[1].String()].DumpInfo().BlobStorInfo.Path
 	tmp := filepath.Join(dir, "tmp")
 	require.NoError(t, os.Rename(p1, tmp))
 	require.NoError(t, os.Rename(p2, p1))

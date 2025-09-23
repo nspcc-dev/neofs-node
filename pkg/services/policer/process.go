@@ -23,10 +23,10 @@ func (p *Policer) Run(ctx context.Context) {
 }
 
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
-	p.cfg.mtx.RLock()
+	p.mtx.RLock()
 	repCooldown := p.repCooldown
 	batchSize := p.batchSize
-	p.cfg.mtx.RUnlock()
+	p.mtx.RUnlock()
 
 	var (
 		addrs  []objectcore.AddressWithAttributes
@@ -82,17 +82,17 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			p.cfg.mtx.RLock()
+			p.mtx.RLock()
 			t.Reset(p.repCooldown)
-			p.cfg.mtx.RUnlock()
+			p.mtx.RUnlock()
 		}
 	}
 }
 
 func (p *Policer) poolCapacityWorker(ctx context.Context) {
-	p.cfg.mtx.RLock()
+	p.mtx.RLock()
 	maxCapacity := p.maxCapacity
-	p.cfg.mtx.RUnlock()
+	p.mtx.RUnlock()
 
 	ticker := time.NewTicker(p.rebalanceFreq)
 	for {

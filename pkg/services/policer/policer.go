@@ -162,9 +162,9 @@ func New(opts ...Option) *Policer {
 }
 
 func (p *Policer) getHeadTimeout() time.Duration {
-	p.cfg.mtx.RLock()
+	p.mtx.RLock()
 	headTimeout := p.headTimeout
-	p.cfg.mtx.RUnlock()
+	p.mtx.RUnlock()
 	return headTimeout
 }
 

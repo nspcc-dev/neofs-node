@@ -186,7 +186,7 @@ func initObjectService(c *cfg) {
 		fschain: c.cfgMorph.client,
 	}
 
-	c.shared.replicator = replicator.New(
+	c.replicator = replicator.New(
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
 			c.appCfg.Replicator.PutTimeout,
@@ -197,7 +197,7 @@ func initObjectService(c *cfg) {
 		),
 	)
 
-	c.shared.policer = policer.New(
+	c.policer = policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
 		policer.WithRemoteHeader(
@@ -213,7 +213,7 @@ func initObjectService(c *cfg) {
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 	)
 
-	c.workers = append(c.workers, c.shared.policer)
+	c.workers = append(c.workers, c.policer)
 
 	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
@@ -235,11 +235,11 @@ func initObjectService(c *cfg) {
 		searchsvc.WithKeyStorage(keyStorage),
 	)
 
-	mNumber, err := c.shared.basics.cli.MagicNumber()
+	mNumber, err := c.cli.MagicNumber()
 	fatalOnErr(err)
 
 	os := &objectSource{get: sGet}
-	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.shared.metaService,
+	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
 		initQuotas(c.cCli, c.nCli, c.cfgObject.quotasTTL),
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
@@ -305,11 +305,11 @@ func initObjectService(c *cfg) {
 
 	storage := storageForObjectService{
 		local:   ls,
-		metaSvc: c.shared.metaService,
+		metaSvc: c.metaService,
 		putSvc:  sPut,
 		keys:    keyStorage,
 	}
-	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
+	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 	os.server = server
 
 	for _, srv := range c.cfgGRPC.servers {

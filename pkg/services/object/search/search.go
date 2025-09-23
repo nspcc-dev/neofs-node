@@ -34,7 +34,7 @@ func (s *Service) Search(ctx context.Context, prm Prm) error {
 
 	exec.execute(ctx)
 
-	return exec.statusError.err
+	return exec.err
 }
 
 func (exec *execCtx) execute(ctx context.Context) {

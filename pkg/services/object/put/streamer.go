@@ -76,10 +76,10 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
-			l:            p.cfg.log,
+			l:            p.log,
 			nextTarget:   p.newCommonTarget(prm),
 			fmt:          p.fmtValidator,
-			quotaLimiter: p.cfg.quotaLimiter,
+			quotaLimiter: p.quotaLimiter,
 			cachedCnr:    prm.cnr,
 			maxPayloadSz: p.maxPayloadSz,
 
@@ -128,10 +128,10 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	sessionSigner := user.NewAutoIDSigner(*sessionKey)
 	prm.sessionSigner = sessionSigner
 	p.target = &validatingTarget{
-		l:                p.cfg.log,
+		l:                p.log,
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
-		quotaLimiter:     p.cfg.quotaLimiter,
+		quotaLimiter:     p.quotaLimiter,
 		cachedCnr:        prm.cnr,
 		nextTarget: newSlicingTarget(
 			p.ctx,
@@ -248,7 +248,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		localNodeInContainer:    prm.localNodeInContainer,
 		localNodeSigner:         prm.localNodeSigner,
 		sessionSigner:           prm.sessionSigner,
-		cnrClient:               p.cfg.cnrClient,
+		cnrClient:               p.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 		metaSigner:              prm.localSignerRFC6979,
 		localOnly:               prm.common.LocalOnly(),

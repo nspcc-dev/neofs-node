@@ -20,7 +20,7 @@ const (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	morphCli := c.shared.basics.cli
+	morphCli := c.cli
 	c.cfgMorph.client = morphCli
 
 	c.onShutdown(morphCli.Close)
@@ -82,8 +82,8 @@ func listenMorphNotifications(c *cfg) {
 
 		return res, err
 	})
-	registerNotificationHandlers(c.shared.basics.netmapSH, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
-	registerNotificationHandlers(c.shared.basics.containerSH, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
+	registerNotificationHandlers(c.netmapSH, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
+	registerNotificationHandlers(c.containerSH, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
 
 	lis.RegisterHeaderHandler(func(block *block.Header) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))
