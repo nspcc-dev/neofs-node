@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"errors"
+	"iter"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -137,11 +138,11 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 			rngPerChild = new(objectSDK.Range)
 
 			if i == first {
-				rngPerChild.SetOffset(uint64(firstOffset))
-				rngPerChild.SetLength(uint64(child.ObjectSize()) - uint64(firstOffset))
+				rngPerChild.SetOffset(firstOffset)
+				rngPerChild.SetLength(uint64(child.ObjectSize()) - firstOffset)
 			}
 			if i == last {
-				rngPerChild.SetLength(uint64(lastBound) - rngPerChild.GetOffset())
+				rngPerChild.SetLength(lastBound - rngPerChild.GetOffset())
 			}
 		}
 
@@ -159,19 +160,38 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 // it is required for ranges to be in the bounds of the all objects' payload;
 // it must be checked on higher levels; returns (firstObject, firstObjectOffset,
 // lastObject, lastObjectRightBound).
-func requiredChildren(rng *objectSDK.Range, children []objectSDK.MeasuredObject) (int, int, int, int) {
-	var firstChildIndex = -1
-	var firstChildOffset int
-	var lastChildIndex int
-	var lastChildRightBound int
+func requiredChildren(rng *objectSDK.Range, children []objectSDK.MeasuredObject) (int, uint64, int, uint64) {
+	return requiredChildrenIter(rng.GetOffset(), rng.GetLength(), func(yield func(int, uint64) bool) {
+		for i := range children {
+			if !yield(i, uint64(children[i].ObjectSize())) {
+				return
+			}
+		}
+	})
+}
 
-	leftBound := rng.GetOffset()
-	rightBound := leftBound + rng.GetLength()
+func nEqualSizeIter(n int, sz uint64) iter.Seq2[int, uint64] {
+	return func(yield func(int, uint64) bool) {
+		for i := range n {
+			if !yield(i, sz) {
+				return
+			}
+		}
+	}
+}
+
+func requiredChildrenIter(off, ln uint64, children iter.Seq2[int, uint64]) (int, uint64, int, uint64) {
+	var firstChildIndex = -1
+	var firstChildOffset uint64
+	var lastChildIndex int
+	var lastChildRightBound uint64
+
+	leftBound := off
+	rightBound := leftBound + ln
 
 	var bytesSeen uint64
 
-	for i, child := range children {
-		size := uint64(child.ObjectSize())
+	for i, size := range children {
 		bytesSeen += size
 
 		if bytesSeen <= leftBound {
@@ -180,12 +200,12 @@ func requiredChildren(rng *objectSDK.Range, children []objectSDK.MeasuredObject)
 
 		if firstChildIndex == -1 {
 			firstChildIndex = i
-			firstChildOffset = int(size - (bytesSeen - leftBound))
+			firstChildOffset = size - (bytesSeen - leftBound)
 		}
 
 		if rightBound <= bytesSeen {
 			lastChildIndex = i
-			lastChildRightBound = int(size - (bytesSeen - rightBound))
+			lastChildRightBound = size - (bytesSeen - rightBound)
 			break
 		}
 	}

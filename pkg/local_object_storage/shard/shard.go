@@ -18,6 +18,7 @@ import (
 // interface of [meta.DB] used by [Shard] for overriding in tests.
 type metabase interface {
 	ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error)
+	ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, uint64, error)
 }
 
 // Shard represents single shard of NeoFS Local Storage Engine.

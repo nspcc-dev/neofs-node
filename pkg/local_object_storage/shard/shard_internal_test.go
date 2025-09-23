@@ -39,8 +39,15 @@ type resolveECPartValue struct {
 	err error
 }
 
+type resolveECPartWithLenValue struct {
+	id  oid.ID
+	ln  uint64
+	err error
+}
+
 type mockMetabase struct {
-	resolveECPart map[resolveECPartKey]resolveECPartValue
+	resolveECPart        map[resolveECPartKey]resolveECPartValue
+	resolveECPartWithLen map[resolveECPartKey]resolveECPartWithLenValue
 }
 
 func (x *mockMetabase) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
@@ -55,8 +62,21 @@ func (x *mockMetabase) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo)
 	return val.id, val.err
 }
 
+func (x *mockMetabase) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, uint64, error) {
+	val, ok := x.resolveECPartWithLen[resolveECPartKey{
+		cnr:    cnr,
+		parent: parent,
+		pi:     pi,
+	}]
+	if !ok {
+		return oid.ID{}, 0, errors.New("[test] unexpected part requested")
+	}
+	return val.id, val.ln, val.err
+}
+
 type getStreamValue struct {
 	obj object.Object
+	rc  io.ReadCloser
 	err error
 }
 
@@ -70,6 +90,9 @@ func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 	if !ok {
 		return nil, nil, errors.New("[test] unexpected object requested")
 	}
+	if val.rc != nil {
+		return val.obj.CutPayload(), val.rc, nil
+	}
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
@@ -82,6 +105,9 @@ func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadClo
 	val, ok := x.getStream[addr]
 	if !ok {
 		return nil, nil, errors.New("[test] unexpected object requested")
+	}
+	if val.rc != nil {
+		return val.obj.CutPayload(), val.rc, nil
 	}
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
@@ -224,4 +250,31 @@ func (unimplementedWriteCache) Close() error {
 
 func (unimplementedWriteCache) ObjectStatus(oid.Address) (writecache.ObjectStatus, error) {
 	panic("unimplemented")
+}
+
+type unimplementedMetabase struct{}
+
+func (unimplementedMetabase) ResolveECPart(cid.ID, oid.ID, iec.PartInfo) (oid.ID, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetabase) ResolveECPartWithPayloadLen(cid.ID, oid.ID, iec.PartInfo) (oid.ID, uint64, error) {
+	panic("unimplemented")
+}
+
+type closeFlag bool
+
+func (x *closeFlag) Close() error {
+	*x = true
+	return nil
+}
+
+// [iotest.ErrReader] analogue.
+type errSeeker struct {
+	io.ReadCloser
+	err error
+}
+
+func (x errSeeker) Seek(int64, int) (int64, error) {
+	return 0, x.err
 }

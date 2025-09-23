@@ -65,3 +65,56 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 
 	return *hdr, rdr, nil
 }
+
+// GetECPartRange looks up for object that carries EC part produced within cnr
+// for parent object and indexed by pi in the underlying metabase, checks its
+// availability and reads it from the underlying BLOB storage. Returns full
+// payload len. If zero, GetECPartRange returns (0, nil, nil). Otherwise,
+// range-cut payload stream is also returned. In this case, the stream must be
+// finally closed by the caller.
+//
+// If object is missing, GetECPartRange returns [apistatus.ErrObjectNotFound].
+//
+// If object is found in the metabase but unreadable from the BLOB storage,
+// GetECPartRange wraps [ierrors.ObjectID] with the object ID along with the
+// failure cause.
+//
+// If object has expired, GetECPartRange returns [meta.ErrObjectIsExpired].
+//
+// If object exists but tombstoned (e.g. via [Shard.Inhume] or stored tombstone
+// object), GetECPartRange returns [apistatus.ErrObjectAlreadyRemoved].
+//
+// If object is marked as garbage (e.g. via [Shard.MarkGarbage]), GetECPartRange
+// returns [apistatus.ErrObjectNotFound].
+//
+// If object is locked (e.g. via [Shard.Lock] or stored locker object),
+// GetECPartRange ignores expiration, tombstone and garbage marks.
+//
+// If the range is out of payload bounds, GetECPartRange returns
+// [apistatus.ErrObjectOutOfRange].
+func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
+	partID, pldLen, err := s.metaBaseIface.ResolveECPartWithPayloadLen(cnr, parent, pi)
+	if err != nil {
+		if !errors.As(err, (*ierrors.ObjectID)(&partID)) {
+			return 0, nil, fmt.Errorf("resolve part ID and payload len in metabase: %w", err)
+		}
+
+		s.log.Warn("EC part ID returned from metabase with error",
+			zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("partID", partID), zap.Error(err))
+	} else {
+		if ln == 0 && off == 0 {
+			if pldLen == 0 {
+				return 0, nil, nil
+			}
+		} else if uint64(off) >= pldLen || pldLen-uint64(off) < uint64(ln) {
+			return 0, nil, apistatus.ErrObjectOutOfRange
+		}
+	}
+
+	pldLen, rc, err := s.GetRangeStream(cnr, partID, off, ln)
+	if err != nil {
+		return 0, nil, fmt.Errorf("get range by ID %w: %w", ierrors.ObjectID(partID), err)
+	}
+
+	return pldLen, rc, nil
+}

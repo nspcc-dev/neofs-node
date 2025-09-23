@@ -313,7 +313,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 		err := svc.Get(ctx, prm)
 		require.ErrorIs(t, err, writeChunkErr)
-		require.EqualError(t, err, "copy object: write next payload chunk: "+writeChunkErr.Error())
+		require.EqualError(t, err, "copy object: stream failure: "+writeChunkErr.Error())
 		require.Equal(t, partHdr, w.hdr)
 
 		require.EqualValues(t, 1, closer.count.Load())

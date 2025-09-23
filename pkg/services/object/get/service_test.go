@@ -122,6 +122,7 @@ type getECPartValue struct {
 }
 
 type mockLocalObjects struct {
+	unimplementedLocalStorage
 	getECPart map[getECPartKey]getECPartValue
 }
 
@@ -173,5 +174,11 @@ func (x unimplementedServiceConns) InitGetObjectRangeStream(context.Context, net
 }
 
 func (x unimplementedServiceConns) Head(context.Context, netmap.NodeInfo, ecdsa.PrivateKey, cid.ID, oid.ID, *session.Object) (object.Object, error) {
+	panic("unimplemented")
+}
+
+type unimplementedLocalStorage struct{}
+
+func (x unimplementedLocalStorage) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64) (uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
