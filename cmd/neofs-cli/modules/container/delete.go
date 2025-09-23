@@ -91,8 +91,8 @@ Only owner of the container has a permission to remove container.`,
 				}
 
 				if len(res) != 0 {
-					return fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
-						"Use --%s flag to remove anyway.", commonflags.ForceFlag)
+					return fmt.Errorf("container wasn't removed because LOCK objects were found.\n"+
+						"Use --%s flag to remove anyway", commonflags.ForceFlag)
 				}
 			}
 		}

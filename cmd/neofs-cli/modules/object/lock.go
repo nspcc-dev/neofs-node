@@ -29,7 +29,7 @@ var objectLockCmd = &cobra.Command{
 		var cnr cid.ID
 		err := cnr.DecodeString(cidRaw)
 		if err != nil {
-			return fmt.Errorf("Incorrect container arg: %w", err)
+			return fmt.Errorf("incorrect container arg: %w", err)
 		}
 
 		oidsRaw, _ := cmd.Flags().GetStringSlice(commonflags.OIDFlag)
@@ -59,7 +59,7 @@ var objectLockCmd = &cobra.Command{
 
 			currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 			if err != nil {
-				return fmt.Errorf("Request current epoch: %w", err)
+				return fmt.Errorf("request current epoch: %w", err)
 			}
 
 			exp = currEpoch + lifetime
@@ -107,7 +107,7 @@ var objectLockCmd = &cobra.Command{
 				err = fmt.Errorf("finish object stream: %w", err)
 			}
 			if err != nil {
-				return fmt.Errorf("Store lock object for %s in NeoFS: %w", locked, err)
+				return fmt.Errorf("store lock object for %s in NeoFS: %w", locked, err)
 			}
 
 			cmd.Printf("Lock object ID for %s locked object: %s\n", locked, wrt.GetResult().StoredObjectID())
