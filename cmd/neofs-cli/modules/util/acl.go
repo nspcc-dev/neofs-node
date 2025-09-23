@@ -1,7 +1,6 @@
 package util
 
 import (
-	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -59,115 +57,110 @@ func boolToString(b bool) string {
 
 // PrettyPrintTableEACL print extended ACL in table format.
 func PrettyPrintTableEACL(cmd *cobra.Command, table *eacl.Table) {
-	out := tablewriter.NewWriter(cmd.OutOrStdout())
-	out.SetHeader([]string{"Operation", "Action", "Filters", "Targets"})
-	out.SetAlignment(tablewriter.ALIGN_CENTER)
-	out.SetRowLine(true)
+	w := tabwriter.NewWriter(cmd.OutOrStdout(), 1, 4, 2, ' ', 0)
+	fmt.Fprintln(w, "No\tOperation\tAction\tFilters\tTargets")
 
-	out.SetAutoWrapText(false)
+	for i, r := range table.Records() {
+		var (
+			flts  = eaclFiltersToStrings(r.Filters())
+			targs = eaclTargetsToStrings(r.Targets())
+		)
 
-	for _, r := range table.Records() {
-		out.Append([]string{
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", i,
 			r.Operation().String(),
 			r.Action().String(),
-			eaclFiltersToString(r.Filters()),
-			eaclTargetsToString(r.Targets()),
-		})
+			flts[0],
+			targs[0],
+		)
+		for line := 1; line < len(flts) || line < len(targs); line++ {
+			var filt, targ string
+			if line < len(flts) {
+				filt = flts[line]
+			}
+			if line < len(targs) {
+				targ = targs[line]
+			}
+			fmt.Fprintf(w, "\t\t\t%s\t%s\n", filt, targ)
+		}
 	}
 
-	out.Render()
+	w.Flush()
 }
 
-func eaclTargetsToString(ts []eacl.Target) string {
-	b := bytes.NewBuffer(nil)
+func eaclTargetsToStrings(ts []eacl.Target) []string {
+	if len(ts) == 0 {
+		return []string{""}
+	}
+
+	var res = make([]string, 0, len(ts))
 	for _, t := range ts {
-		rawSubjects := t.RawSubjects()
-		keysExists := len(rawSubjects) > 0
-		switch t.Role() {
-		case eacl.RoleUser:
-			b.WriteString("User")
-			if keysExists {
-				b.WriteString(":    ")
-			}
-		case eacl.RoleSystem:
-			b.WriteString("System")
-			if keysExists {
-				b.WriteString(":  ")
-			}
-		case eacl.RoleOthers:
-			b.WriteString("Others")
-			if keysExists {
-				b.WriteString(":  ")
-			}
-		default:
-			b.WriteString("Unknown")
-			if keysExists {
-				b.WriteString(": ")
-			}
+		var role = t.Role().String()
+
+		if len(t.RawSubjects()) == 0 {
+			res = append(res, role)
+			continue
 		}
 
-		for i, rawSubject := range rawSubjects {
-			if i != 0 {
-				b.WriteString("         ")
+		role += ": "
+		for i, subj := range t.RawSubjects() {
+			if len(subj) == user.IDSize {
+				res = append(res, role+user.ID(subj).String())
+			} else {
+				res = append(res, role+hex.EncodeToString(subj))
 			}
-			b.WriteString(hex.EncodeToString(rawSubject))
-			b.WriteString("\n")
+			if i == 0 {
+				role = strings.Repeat(" ", len(role))
+			}
 		}
 	}
 
-	return b.String()
+	return res
 }
 
-func eaclFiltersToString(fs []eacl.Filter) string {
-	b := bytes.NewBuffer(nil)
-	tw := tabwriter.NewWriter(b, 0, 0, 1, ' ', 0)
+func eaclFiltersToStrings(fs []eacl.Filter) []string {
+	if len(fs) == 0 {
+		return []string{""}
+	}
 
+	var res = make([]string, 0, len(fs))
 	for _, f := range fs {
+		var flt string
 		switch f.From() {
 		case eacl.HeaderFromObject:
-			_, _ = tw.Write([]byte("O:\t"))
+			flt = "O: "
 		case eacl.HeaderFromRequest:
-			_, _ = tw.Write([]byte("R:\t"))
+			flt = "R: "
 		case eacl.HeaderFromService:
-			_, _ = tw.Write([]byte("S:\t"))
+			flt = "S: "
 		default:
-			_, _ = tw.Write([]byte("  \t"))
+			flt = "?: "
 		}
 
-		_, _ = tw.Write([]byte(f.Key()))
+		flt += f.Key()
+
 		//nolint:exhaustive
 		switch f.Matcher() {
 		case eacl.MatchStringEqual:
-			_, _ = tw.Write([]byte("\t==\t"))
+			flt += " == "
 		case eacl.MatchStringNotEqual:
-			_, _ = tw.Write([]byte("\t!=\t"))
+			flt += " != "
 		case eacl.MatchNumGT:
-			_, _ = tw.Write([]byte("\t>\t"))
+			flt += " > "
 		case eacl.MatchNumGE:
-			_, _ = tw.Write([]byte("\t>=\t"))
+			flt += " >= "
 		case eacl.MatchNumLT:
-			_, _ = tw.Write([]byte("\t<\t"))
+			flt += " < "
 		case eacl.MatchNumLE:
-			_, _ = tw.Write([]byte("\t<=\t"))
+			flt += " <= "
 		case eacl.MatchNotPresent:
-			_, _ = tw.Write([]byte("\tNULL\t"))
+			flt += " NULL "
 		}
 
-		_, _ = tw.Write([]byte(f.Value() + "\t"))
-		_, _ = tw.Write([]byte("\n"))
+		flt += f.Value()
+		res = append(res, flt)
 	}
 
-	_ = tw.Flush()
-
-	// To have nice output with tabwriter, we must append newline
-	// after the last line. Here we strip it to delete empty line
-	// in the final output.
-	s := b.String()
-	if len(s) > 0 {
-		s = s[:len(s)-1]
-	}
-
-	return s
+	return res
 }
 
 // ParseEACLRules parses eACL table.
