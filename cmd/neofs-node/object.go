@@ -374,7 +374,7 @@ func (c *reputationClient) ObjectDelete(ctx context.Context, containerID cid.ID,
 	return res, err
 }
 
-func (c *reputationClient) GetObjectInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectGet) (objectSDK.Object, *client.PayloadReader, error) {
+func (c *reputationClient) ObjectGetInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectGet) (objectSDK.Object, *client.PayloadReader, error) {
 	hdr, rdr, err := c.MultiAddressClient.ObjectGetInit(ctx, containerID, objectID, signer, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
