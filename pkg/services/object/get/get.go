@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -46,6 +47,46 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
+	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
+	if err != nil {
+		return fmt.Errorf("invalid request: %w", err)
+	}
+
+	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
+	if err != nil {
+		return fmt.Errorf("get nodes for object: %w", err)
+	}
+
+	if pi.RuleIndex >= 0 {
+		if len(ecRules) == 0 {
+			return errors.New("range of EC part requested in container without EC policy")
+		}
+		// TODO: check same in GET
+		if pi.RuleIndex >= len(ecRules) {
+			return fmt.Errorf("requested EC rule index overflows container policy: idx=%d,rules=%d", pi.RuleIndex, len(ecRules))
+		}
+		if total := ecRules[pi.RuleIndex].DataPartNum + ecRules[pi.RuleIndex].ParityPartNum; pi.Index >= int(total) {
+			return fmt.Errorf("requested EC part index overflows container policy: idx=%d,parts=%d", pi.Index, total)
+		}
+
+		off, ln := prm.rng.GetOffset(), prm.rng.GetLength()
+		if off > math.MaxInt64 || ln > math.MaxInt64 {
+			return fmt.Errorf("range overlows int64: off=%d, len=%d", off, ln)
+		}
+		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, int64(off), int64(ln))
+	}
+
+	return errors.New("unimplemented")
+
+	if len(repRules) > 0 { // REP format does not require encoding
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng)).err
+		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
+			return err
+		}
+	}
+
+	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), prm.common.BearerToken(),
+		ecRules, nodeLists[len(repRules):], prm.objWriter)
 	return s.getRange(ctx, prm)
 }
 

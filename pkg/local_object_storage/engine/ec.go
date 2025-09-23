@@ -101,3 +101,75 @@ loop:
 
 	return object.Object{}, nil, apistatus.ErrObjectNotFound
 }
+
+// TODO: docs.
+func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
+	if e.metrics != nil {
+		// FIXME: new metric
+		defer elapsed(e.metrics.AddGetECPartDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+	if e.blockErr != nil {
+		return 0, nil, e.blockErr
+	}
+
+	s := e.sortShardsFn(e, oid.NewAddress(cnr, parent))
+
+	var partID oid.ID
+loop:
+	for i := range s {
+		pldLen, rc, err := s[i].shardIface.GetECPartRange(cnr, parent, pi, off, ln)
+		switch {
+		case err == nil:
+			return pldLen, rc, nil
+		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved), errors.Is(err, apistatus.ErrObjectOutOfRange):
+			return 0, nil, err
+		case errors.Is(err, meta.ErrObjectIsExpired):
+			return 0, nil, apistatus.ErrObjectNotFound
+		case errors.As(err, (*ierrors.ObjectID)(&partID)):
+			if partID.IsZero() {
+				panic("zero object ID returned as error")
+			}
+
+			e.log.Info("EC part's object ID and payload len resolved in shard but reading failed, continue bypassing metabase",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
+				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
+				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+
+			s = s[i+1:]
+			break loop
+		case errors.Is(err, apistatus.ErrObjectNotFound):
+		default:
+			e.log.Info("failed to get payload range of EC part from shard, ignore error",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
+				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
+				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+		}
+	}
+
+	if partID.IsZero() {
+		return 0, nil, apistatus.ErrObjectNotFound
+	}
+
+	for i := range s {
+		// get an object bypassing the metabase. We can miss deletion or expiration mark. GetECPart behaves like this, so here too.
+		pldLen, rc, err := s[i].shardIface.GetRangeStream(cnr, partID, off, ln)
+		switch {
+		case err == nil:
+			return pldLen, rc, nil
+		case errors.Is(err, apistatus.ErrObjectOutOfRange):
+			return 0, nil, err
+		case errors.Is(err, apistatus.ErrObjectNotFound):
+		default:
+			e.log.Info("failed to get payload range of EC part from shard bypassing metabase, ignore error",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
+				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
+				zap.Stringer("partID", partID),
+				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+		}
+	}
+
+	return 0, nil, apistatus.ErrObjectNotFound
+}

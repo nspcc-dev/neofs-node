@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // ErrObjectIsExpired is returned when the requested object's
@@ -17,3 +18,10 @@ var ErrObjectIsExpired = logicerr.New("object is expired")
 func IsErrRemoved(err error) bool {
 	return errors.As(err, new(apistatus.ObjectAlreadyRemoved))
 }
+
+type OIDWithPayloadLen struct {
+	ID         oid.ID
+	PayloadLen uint64
+}
+
+type OIDWithPayloadLenError OIDWithPayloadLen

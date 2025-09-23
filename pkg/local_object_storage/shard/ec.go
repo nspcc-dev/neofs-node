@@ -62,3 +62,32 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 
 	return *hdr, rdr, nil
 }
+
+func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
+	var partID oid.ID
+	if part, err := s.metaBaseIface.ResolveECPartWithPayloadLen(cnr, parent, pi); err != nil {
+		if !errors.As(err, (*ierrors.ObjectID)(&partID)) {
+			return 0, nil, fmt.Errorf("resolve part ID and payload len in metabase: %w", err)
+		}
+
+		s.log.Warn("failed to get payload len for object from metabase",
+			zap.Stringer("container", cnr), zap.Error(err)) // error includes OID
+	} else {
+		if ln == 0 && off == 0 {
+			if part.PayloadLen == 0 {
+				return 0, nil, nil
+			}
+		} else if uint64(off) >= part.PayloadLen || part.PayloadLen-uint64(off) < uint64(ln) {
+			return 0, nil, apistatus.ErrObjectOutOfRange
+		}
+
+		partID = part.ID
+	}
+
+	pldLen, rc, err := s.GetRangeStream(cnr, partID, off, ln)
+	if err != nil {
+		return 0, nil, fmt.Errorf("get range by ID %w: %w", ierrors.ObjectID(partID), err)
+	}
+
+	return pldLen, rc, nil
+}

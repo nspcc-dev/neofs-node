@@ -46,6 +46,37 @@ func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, p
 	return nil
 }
 
+// looks up for local object that carries EC part produced within cnr for parent
+// object and indexed by pi, and writes its payload range into dst. Both zero
+// off and ln correspond to full payload.
+//
+// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
+// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
+// Returns [apistatus.ErrObjectOutOfRange] if the range is out of payload range.
+func (s *Service) copyLocalECPartRange(dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) error {
+	pldLen, rc, err := s.localObjects.GetECPartRange(cnr, parent, pi, off, ln)
+	if err != nil {
+		return fmt.Errorf("get object payload range from local storage: %w", err)
+	}
+	if pldLen == 0 {
+		// TODO: highlight (nil, nil) return for this case in interface and storage docs
+		return nil
+	}
+	defer rc.Close()
+
+	var bufLen uint64
+	if ln == 0 && off == 0 {
+		bufLen = min(pldLen, streamChunkSize)
+	} else {
+		bufLen = min(uint64(ln), streamChunkSize)
+	}
+	if err := copyPayloadStream(dst, rc, bufLen); err != nil {
+		return fmt.Errorf("copy payload: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
 	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter) error {
 	obj, err := s.restoreFromECParts(ctx, cnr, parent, sTok, bTok, ecRules, sortedNodeLists)

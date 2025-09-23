@@ -73,6 +73,8 @@ type cfg struct {
 		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 		GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error)
+		// TODO: docs.
+		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error)
 	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)

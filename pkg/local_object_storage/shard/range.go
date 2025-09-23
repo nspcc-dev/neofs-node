@@ -1,14 +1,18 @@
 package shard
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // GetRange reads part of an object from shard. If skipMeta is specified
@@ -77,4 +81,62 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 	}
 
 	return obj, err
+}
+
+// TODO: docs.
+func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error) {
+	addr := oid.NewAddress(cnr, id)
+	if s.hasWriteCache() {
+		// TODO: support GetRangeStream in write-cache. https://github.com/nspcc-dev/neofs-node/issues/3593
+		hdr, rc, err := s.writeCache.GetStream(addr)
+		if err == nil {
+			pldLen := hdr.PayloadSize()
+			rc, err = slicePayloadReader(rc, pldLen, off, ln)
+			return pldLen, rc, err
+		}
+
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			s.log.Info("failed to get object payload range from write-cache, fallback to BLOB storage",
+				zap.Stringer("partAddr", addr), zap.Error(err))
+		}
+	}
+
+	hdr, rc, err := s.blobStor.GetStream(oid.NewAddress(cnr, id))
+	if err != nil {
+		return 0, nil, fmt.Errorf("get from BLOB storage: %w", err)
+	}
+
+	pldLen := hdr.PayloadSize()
+	rc, err = slicePayloadReader(rc, pldLen, off, ln)
+	return pldLen, rc, err
+}
+
+func slicePayloadReader(rc io.ReadCloser, pldLen uint64, off, ln int64) (io.ReadCloser, error) {
+	if ln == 0 && off == 0 {
+		if pldLen == 0 {
+			rc.Close()
+			return nil, nil
+		}
+		return rc, nil
+	}
+
+	if uint64(off) >= pldLen || pldLen-uint64(off) < uint64(ln) {
+		rc.Close()
+		return nil, apistatus.ErrObjectOutOfRange
+	}
+
+	if off > 0 {
+		if s, ok := rc.(io.Seeker); ok {
+			// TODO: Seems like rc implements io.Seeker in all current cases. Consider extension of resulting interface.
+			if _, err := s.Seek(off, io.SeekStart); err != nil {
+				rc.Close()
+				return nil, fmt.Errorf("seek offset in payload stream: %w", err)
+			}
+		} else if _, err := io.CopyN(io.Discard, rc, off); err != nil {
+			rc.Close()
+			return nil, fmt.Errorf("discard first bytes in payload stream: %w", err)
+		}
+	}
+
+	return limitReadCloser(rc, ln), nil
 }
