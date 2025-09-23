@@ -16,7 +16,6 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -24,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -431,10 +429,6 @@ func testPutTombstoneEC(t *testing.T) {
 
 	s := testEngineFromShardOpts(t, shardNum, []shard.Option{
 		shard.WithGCRemoverSleepInterval(gcInterval),
-		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-			p, _ := ants.NewPool(sz)
-			return p
-		}),
 	})
 
 	const partNum = 10

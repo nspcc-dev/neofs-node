@@ -12,13 +12,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -42,20 +40,14 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 			meta.WithEpochState(epoch),
 		),
 		shard.WithDeletedLockCallback(func(aa []oid.Address) {
-			unlocked := sh.HandleDeletedLocks(aa)
+			unlocked := sh.FreeLockedBy(aa)
 			expired := sh.FilterExpired(unlocked)
-			require.NoError(t, sh.MarkGarbage(false, expired...))
+			require.NoError(t, sh.Delete(expired))
 		}),
 		shard.WithExpiredLocksCallback(func(aa []oid.Address) {
-			unlocked := sh.HandleExpiredLocks(aa)
+			unlocked := sh.FreeLockedBy(aa)
 			expired := sh.FilterExpired(unlocked)
-			require.NoError(t, sh.MarkGarbage(false, expired...))
-		}),
-		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-			pool, err := ants.NewPool(sz)
-			require.NoError(t, err)
-
-			return pool
+			require.NoError(t, sh.Delete(append(aa, expired...)))
 		}),
 		shard.WithGCRemoverSleepInterval(200 * time.Millisecond),
 	}
@@ -170,16 +162,10 @@ func TestExpiration(t *testing.T) {
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {
-				err := sh.MarkGarbage(false, addresses...)
-				require.NoError(t, err)
+				require.NoError(t, sh.Delete(addresses))
 			},
 		),
-		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-			pool, err := ants.NewPool(sz)
-			require.NoError(t, err)
-
-			return pool
-		}),
+		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	}
 
 	sh = shard.New(opts...)

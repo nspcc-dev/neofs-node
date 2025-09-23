@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -123,15 +122,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 			meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
 			meta.WithEpochState(epochState{}),
-		),
-		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-			pool, err := ants.NewPool(sz)
-			if err != nil {
-				panic(err)
-			}
-
-			return pool
-		}))
+		))
 
 	require.NoError(t, s.Open())
 	require.NoError(t, s.Init())
