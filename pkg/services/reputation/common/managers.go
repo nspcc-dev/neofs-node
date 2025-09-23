@@ -36,8 +36,7 @@ type ManagersPrm struct {
 // The created managerBuilder does not require additional
 // initialization and is completely ready for work.
 func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) ManagerBuilder {
-	switch {
-	case prm.NetMapSource == nil:
+	if prm.NetMapSource == nil {
 		panic(fmt.Sprintf("invalid NetMapSource (%T):%v", prm.NetMapSource, prm.NetMapSource))
 	}
 

@@ -75,23 +75,21 @@ func (exec *execCtx) newAddress(id oid.ID) oid.Address {
 func (exec *execCtx) saveTombstone() bool {
 	id, err := exec.svc.placer.put(exec)
 
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not save the tombstone",
-			zap.Error(err),
-		)
-
-		return false
-	case err == nil:
+	if err == nil {
 		exec.status = statusOK
 		exec.err = nil
 
 		exec.prm.tombAddrWriter.
 			SetAddress(exec.newAddress(*id))
+
+		return true
 	}
 
-	return true
+	exec.status = statusUndefined
+	exec.err = err
+
+	exec.log.Debug("could not save the tombstone",
+		zap.Error(err),
+	)
+	return false
 }
