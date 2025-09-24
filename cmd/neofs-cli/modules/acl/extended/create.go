@@ -71,13 +71,13 @@ func createEACL(cmd *cobra.Command, _ []string) error {
 	var containerID cid.ID
 	if cidArg != "" {
 		if err := containerID.DecodeString(cidArg); err != nil {
-			return fmt.Errorf("invalid container ID: %w\n", err)
+			return fmt.Errorf("invalid container ID: %w", err)
 		}
 	}
 
 	rulesFile, err := getRulesFromFile(fileArg)
 	if err != nil {
-		return fmt.Errorf("can't read rules from file: %w\n", err)
+		return fmt.Errorf("can't read rules from file: %w", err)
 	}
 
 	rules = append(rules, rulesFile...)

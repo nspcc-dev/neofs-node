@@ -189,7 +189,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 }
 
 func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) bool {
-	timer := time.NewTimer(e.cfg.objectPutTimeout)
+	timer := time.NewTimer(e.objectPutTimeout)
 
 	const putCooldown = 100 * time.Millisecond
 	ticker := time.NewTicker(putCooldown)
@@ -197,7 +197,7 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool ut
 	for {
 		select {
 		case <-timer.C:
-			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.cfg.objectPutTimeout))
+			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.objectPutTimeout))
 			return false
 		case <-ticker.C:
 			putDone, exists, overloaded := e.putToShard(sh, ind, pool, addr, obj, objBin)

@@ -104,7 +104,7 @@ func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s [
 		for id = range e.shards {
 			break
 		}
-		configID = calculateShardID(e.shards[id].Shard.DumpInfo())
+		configID = calculateShardID(e.shards[id].DumpInfo())
 		e.mtx.RUnlock()
 
 		err = e.Open()
@@ -176,8 +176,8 @@ func TestPersistentShardID(t *testing.T) {
 	require.Equal(t, id, newID)
 	require.NoError(t, e.Close())
 
-	p1 := e.shards[id[0].String()].Shard.DumpInfo().MetaBaseInfo.Path
-	p2 := e.shards[id[1].String()].Shard.DumpInfo().MetaBaseInfo.Path
+	p1 := e.shards[id[0].String()].DumpInfo().MetaBaseInfo.Path
+	p2 := e.shards[id[1].String()].DumpInfo().MetaBaseInfo.Path
 	tmp := filepath.Join(dir, "tmp")
 	require.NoError(t, os.Rename(p1, tmp))
 	require.NoError(t, os.Rename(p2, p1))

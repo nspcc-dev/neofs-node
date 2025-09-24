@@ -44,7 +44,7 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 				return nil
 			}
 			if err != nil {
-				return fmt.Errorf("Storage iterator failure: %w", err)
+				return fmt.Errorf("storage iterator failure: %w", err)
 			}
 		}
 		for _, at := range addrs {

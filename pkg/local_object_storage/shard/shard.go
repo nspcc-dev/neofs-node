@@ -215,7 +215,7 @@ func WithWriteCache(use bool) Option {
 
 // hasWriteCache returns bool if write cache exists on shards.
 func (s *Shard) hasWriteCache() bool {
-	return s.cfg.useWriteCache
+	return s.useWriteCache
 }
 
 // needResyncMetabase returns true if metabase is needed to be refilled.
@@ -296,15 +296,15 @@ func WithReportErrorFunc(f func(selfID string, message string, err error)) Optio
 }
 
 func (s *Shard) fillInfo() {
-	s.cfg.info.MetaBaseInfo = s.metaBase.DumpInfo()
-	s.cfg.info.BlobStorInfo = StorageInfo{
+	s.info.MetaBaseInfo = s.metaBase.DumpInfo()
+	s.info.BlobStorInfo = StorageInfo{
 		Type: s.blobStor.Type(),
 		Path: s.blobStor.Path(),
 	}
-	s.cfg.info.Mode = s.GetMode()
+	s.info.Mode = s.GetMode()
 
-	if s.cfg.useWriteCache {
-		s.cfg.info.WriteCacheInfo = s.writeCache.DumpInfo()
+	if s.useWriteCache {
+		s.info.WriteCacheInfo = s.writeCache.DumpInfo()
 	}
 }
 
@@ -320,7 +320,7 @@ const (
 )
 
 func (s *Shard) initMetrics() {
-	if s.cfg.metricsWriter != nil && !s.GetMode().NoMetabase() {
+	if s.metricsWriter != nil && !s.GetMode().NoMetabase() {
 		cc, err := s.metaBase.ObjectCounters()
 		if err != nil {
 			s.log.Warn("meta: object counter read",
@@ -330,8 +330,8 @@ func (s *Shard) initMetrics() {
 			return
 		}
 
-		s.cfg.metricsWriter.SetObjectCounter(physical, cc.Phy())
-		s.cfg.metricsWriter.SetObjectCounter(logical, cc.Logic())
+		s.metricsWriter.SetObjectCounter(physical, cc.Phy())
+		s.metricsWriter.SetObjectCounter(logical, cc.Logic())
 
 		cnrList, err := s.metaBase.Containers()
 		if err != nil {
@@ -360,26 +360,26 @@ func (s *Shard) initMetrics() {
 // incObjectCounter increment both physical and logical object
 // counters.
 func (s *Shard) incObjectCounter() {
-	if s.cfg.metricsWriter != nil {
-		s.cfg.metricsWriter.IncObjectCounter(physical)
-		s.cfg.metricsWriter.IncObjectCounter(logical)
+	if s.metricsWriter != nil {
+		s.metricsWriter.IncObjectCounter(physical)
+		s.metricsWriter.IncObjectCounter(logical)
 	}
 }
 
 func (s *Shard) decObjectCounterBy(typ string, v uint64) {
-	if s.cfg.metricsWriter != nil {
-		s.cfg.metricsWriter.AddToObjectCounter(typ, -int(v))
+	if s.metricsWriter != nil {
+		s.metricsWriter.AddToObjectCounter(typ, -int(v))
 	}
 }
 
 func (s *Shard) addToContainerSize(cnr string, size int64) {
-	if s.cfg.metricsWriter != nil {
-		s.cfg.metricsWriter.AddToContainerSize(cnr, size)
+	if s.metricsWriter != nil {
+		s.metricsWriter.AddToContainerSize(cnr, size)
 	}
 }
 
 func (s *Shard) addToPayloadCounter(size int64) {
-	if s.cfg.metricsWriter != nil {
-		s.cfg.metricsWriter.AddToPayloadSize(size)
+	if s.metricsWriter != nil {
+		s.metricsWriter.AddToPayloadSize(size)
 	}
 }

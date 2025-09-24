@@ -62,16 +62,15 @@ func (exec *execCtx) writeIDList(ids []oid.ID) {
 		err = exec.prm.writer.WriteIDs(ids)
 	}
 
-	switch {
-	default:
+	if err == nil {
+		exec.status = statusOK
+		exec.err = nil
+	} else {
 		exec.status = statusUndefined
 		exec.err = err
 
 		exec.log.Debug("could not write object identifiers",
 			zap.Error(err),
 		)
-	case err == nil:
-		exec.status = statusOK
-		exec.err = nil
 	}
 }

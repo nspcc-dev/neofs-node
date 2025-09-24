@@ -349,13 +349,13 @@ func initCfg(appCfg *config.Config) *cfg {
 		wg:          new(sync.WaitGroup),
 		apiVersion:  version.Current(),
 	}
-	c.internals.healthStatus.Store(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
+	c.healthStatus.Store(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
 
-	c.internals.logLevel, err = zap.ParseAtomicLevel(c.appCfg.Logger.Level)
+	c.logLevel, err = zap.ParseAtomicLevel(c.appCfg.Logger.Level)
 	fatalOnErr(err)
 
 	logCfg := zap.NewProductionConfig()
-	logCfg.Level = c.internals.logLevel
+	logCfg.Level = c.logLevel
 	logCfg.Encoding = c.appCfg.Logger.Encoding
 	if !c.appCfg.Logger.Sampling.Enabled {
 		logCfg.Sampling = nil
@@ -367,7 +367,7 @@ func initCfg(appCfg *config.Config) *cfg {
 		logCfg.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
 	}
 
-	c.internals.log, err = logCfg.Build(
+	c.log, err = logCfg.Build(
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
 	)
 	fatalOnErr(err)
@@ -399,7 +399,7 @@ func initCfg(appCfg *config.Config) *cfg {
 		workerPool: containerWorkerPool,
 	}
 	c.cfgNetmap = cfgNetmap{
-		state:         c.basics.networkState,
+		state:         c.networkState,
 		workerPool:    netmapWorkerPool,
 		needBootstrap: !relayOnly,
 	}
@@ -420,7 +420,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.ownerIDFromKey = user.NewFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
 	c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
-	c.basics.networkState.metrics = c.metricsCollector
+	c.networkState.metrics = c.metricsCollector
 
 	c.veryLastClosers = make(map[string]func())
 
@@ -464,7 +464,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	}
 
 	cli, err := client.New(key,
-		client.WithContext(c.internals.ctx),
+		client.WithContext(c.ctx),
 		client.WithDialTimeout(c.appCfg.FSChain.DialTimeout),
 		client.WithLogger(c.log),
 		client.WithAutoFSChainScope(),
@@ -664,7 +664,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Logger
 
-			err = c.internals.logLevel.UnmarshalText([]byte(c.appCfg.Logger.Level))
+			err = c.logLevel.UnmarshalText([]byte(c.appCfg.Logger.Level))
 			if err != nil {
 				c.log.Error("invalid logger level configuration", zap.Error(err))
 				continue
@@ -672,7 +672,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Policer
 
-			c.shared.policer.Reload(c.policerOpts()...)
+			c.policer.Reload(c.policerOpts()...)
 
 			// Storage Engine
 
@@ -704,7 +704,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			var p meta.Parameters
 			p.NeoEnpoints = c.appCfg.FSChain.Endpoints
-			err = c.shared.metaService.Reload(p)
+			err = c.metaService.Reload(p)
 			if err != nil {
 				c.log.Error("failed to reload meta service configuration", zap.Error(err))
 				continue

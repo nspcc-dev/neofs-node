@@ -249,7 +249,7 @@ func initNetmapService(c *cfg) {
 		l := c.log.With(zap.Uint64("epoch", epoch))
 		l.Info("new epoch event, requesting new network map to sync SN connection caches...")
 
-		nm, err := c.shared.netMapSource.GetNetMapByEpoch(epoch)
+		nm, err := c.netMapSource.GetNetMapByEpoch(epoch)
 		if err != nil {
 			l.Info("failed to get network map by new epoch from event to sync SN connection cache", zap.Error(err))
 			return

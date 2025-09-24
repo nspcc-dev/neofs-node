@@ -11,7 +11,7 @@ func initAccountingService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	balanceMorphWrapper, err := balance.NewFromMorph(c.cfgMorph.client, c.shared.basics.balanceSH)
+	balanceMorphWrapper, err := balance.NewFromMorph(c.cfgMorph.client, c.balanceSH)
 	fatalOnErr(err)
 
 	server := accountingService.New(&c.key.PrivateKey, c.networkState, balanceMorphWrapper)

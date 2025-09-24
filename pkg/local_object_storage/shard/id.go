@@ -43,8 +43,8 @@ func (s *Shard) UpdateID() (err error) {
 	if len(id) != 0 {
 		s.info.ID = NewIDFromBytes(id)
 
-		if s.cfg.metricsWriter != nil {
-			s.cfg.metricsWriter.SetShardID(s.info.ID.String())
+		if s.metricsWriter != nil {
+			s.metricsWriter.SetShardID(s.info.ID.String())
 		}
 	}
 

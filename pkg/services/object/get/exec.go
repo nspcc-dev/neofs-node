@@ -242,18 +242,7 @@ func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 
 	err := exec.svc.Head(exec.context(), prm)
 
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not get child object header",
-			zap.Stringer("child ID", id),
-			zap.Error(err),
-		)
-
-		return nil, false
-	case err == nil:
+	if err == nil {
 		child := w.Object()
 
 		if !exec.isChild(child) {
@@ -267,21 +256,26 @@ func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 
 		return child, true
 	}
+	exec.status = statusUndefined
+	exec.err = err
+
+	exec.log.Debug("could not get child object header",
+		zap.Stringer("child ID", id),
+		zap.Error(err),
+	)
+
+	return nil, false
 }
 
 func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
 	c, err := exec.svc.clientCache.get(info)
 
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not construct remote node client")
-	case err == nil:
+	if err == nil {
 		return c, true
 	}
-
+	exec.status = statusUndefined
+	exec.err = err
+	exec.log.Debug("could not construct remote node client")
 	return nil, false
 }
 
@@ -312,17 +306,16 @@ func (exec *execCtx) writeCollectedHeader() bool {
 		exec.collectedHeader.CutPayload(),
 	)
 
-	switch {
-	default:
+	if err == nil {
+		exec.status = statusOK
+		exec.err = nil
+	} else {
 		exec.status = statusUndefined
 		exec.err = err
 
 		exec.log.Debug("could not write header",
 			zap.Error(err),
 		)
-	case err == nil:
-		exec.status = statusOK
-		exec.err = nil
 	}
 
 	return exec.status == statusOK
@@ -350,17 +343,16 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadClo
 		err = exec.prm.objWriter.WriteChunk(obj.Payload())
 	}
 
-	switch {
-	default:
+	if err == nil {
+		exec.status = statusOK
+		exec.err = nil
+	} else {
 		exec.status = statusUndefined
 		exec.err = err
 
 		exec.log.Debug("could not write payload chunk",
 			zap.Error(err),
 		)
-	case err == nil:
-		exec.status = statusOK
-		exec.err = nil
 	}
 
 	return err == nil

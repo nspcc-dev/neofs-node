@@ -70,8 +70,8 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 		return nil, fmt.Errorf("could not add %s shard: %w", sh.ID().String(), err)
 	}
 
-	if e.cfg.metrics != nil {
-		e.cfg.metrics.SetReadonly(sh.ID().String(), sh.GetMode() != mode.ReadWrite)
+	if e.metrics != nil {
+		e.metrics.SetReadonly(sh.ID().String(), sh.GetMode() != mode.ReadWrite)
 	}
 
 	return sh.ID(), nil

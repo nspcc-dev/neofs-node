@@ -13,8 +13,8 @@ func (p *Policer) Reload(opts ...Option) {
 		o(cfg)
 	}
 
-	p.cfg.mtx.Lock()
-	defer p.cfg.mtx.Unlock()
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
 
 	p.headTimeout = cfg.headTimeout
 	p.repCooldown = cfg.repCooldown

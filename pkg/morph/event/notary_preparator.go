@@ -406,8 +406,8 @@ func (p preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.Pu
 
 	// the last one must be a placeholder for notary contract witness
 	last := len(w) - 1
-	if !(len(w[last].InvocationScript) == 0 || // https://github.com/nspcc-dev/neo-go/pull/2981
-		bytes.Equal(w[last].InvocationScript, p.dummyInvocationScript)) || // compatibility with old version
+	if len(w[last].InvocationScript) != 0 && // https://github.com/nspcc-dev/neo-go/pull/2981
+		!bytes.Equal(w[last].InvocationScript, p.dummyInvocationScript) || // compatibility with old version
 		len(w[last].VerificationScript) != 0 {
 		return errIncorrectNotaryPlaceholder
 	}

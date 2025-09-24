@@ -472,7 +472,7 @@ func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrN
 
 		cluster.nodeSessions[i] = mockNodeSession{
 			signer:    neofscryptotest.Signer(),
-			expiresAt: cluster.nodeNetworks[i].mockNodeState.epoch + 1,
+			expiresAt: cluster.nodeNetworks[i].epoch + 1,
 		}
 
 		cluster.nodeServices[i] = NewService(cluster.nodeServices, &cluster.nodeNetworks[i], nil,

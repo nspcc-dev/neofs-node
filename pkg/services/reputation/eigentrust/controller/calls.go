@@ -42,7 +42,7 @@ func (c *Controller) Continue(prm ContinuePrm) {
 			c.mCtx[prm.Epoch] = iterCtx
 
 			iterCtx.Context, iterCtx.cancel = context.WithCancel(context.Background())
-			iterCtx.EpochIteration.SetEpoch(prm.Epoch)
+			iterCtx.SetEpoch(prm.Epoch)
 
 			iterations, err := c.prm.IterationsProvider.EigenTrustIterations()
 			if err != nil {

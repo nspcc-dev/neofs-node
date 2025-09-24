@@ -22,7 +22,7 @@ func ExitOnErr(err error) {
 		if !errors.As(err, &e) {
 			e.Code = 1
 		}
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(e.Code)
 	}
 }

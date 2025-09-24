@@ -197,9 +197,9 @@ func printContractInfo(cmd *cobra.Command, infos []contractDumpInfo) {
 		if info.version == "" {
 			info.version = "unknown"
 		}
-		_, _ = tw.Write([]byte(fmt.Sprintf("%s\t(%s):\t%s\t%s\n",
+		_, _ = fmt.Fprintf(tw, "%s\t(%s):\t%s\t%s\n",
 			info.name, info.version, info.hash.StringLE(),
-			timeStr)))
+			timeStr)
 	}
 	_ = tw.Flush()
 
@@ -221,7 +221,7 @@ func fillContractVersion(cmd *cobra.Command, c Client, infos []contractDumpInfo)
 
 			script := sub.Bytes()
 			emit.Instruction(bw.BinWriter, opcode.TRY, []byte{byte(3 + len(script) + 2), 0})
-			bw.BinWriter.WriteBytes(script)
+			bw.WriteBytes(script)
 			emit.Instruction(bw.BinWriter, opcode.ENDTRY, []byte{2 + 1})
 			emit.Opcodes(bw.BinWriter, opcode.PUSH0)
 		}
