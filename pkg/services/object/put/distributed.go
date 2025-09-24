@@ -232,7 +232,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 		return err
 	}
 
-	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+	if !t.localOnly && t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		t.metaMtx.RLock()
 		defer t.metaMtx.RUnlock()
 
