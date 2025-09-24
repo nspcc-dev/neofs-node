@@ -388,20 +388,28 @@ func copyObjectStream(w ObjectWriter, h objectSDK.Object, r io.Reader) error {
 
 // copyPayloadStream writes payload from stream to writer.
 func copyPayloadStream(w ChunkWriter, r io.Reader, bufSize uint64) error {
-	buf := make([]byte, bufSize)
-	for {
+	_, err := copyPayloadStreamBuffer(w, r, make([]byte, bufSize))
+	return err
+}
+
+var errWriteChunk = errors.New("write next payload chunk")
+
+// returns number of written bytes. Returns errWriteChunk on w failure.
+func copyPayloadStreamBuffer(w ChunkWriter, r io.Reader, buf []byte) (uint64, error) {
+	for done := uint64(0); ; {
 		n, err := r.Read(buf)
 		if n > 0 {
 			if writeErr := w.WriteChunk(buf[:n]); writeErr != nil {
-				return fmt.Errorf("write next payload chunk: %w", writeErr)
+				return done, fmt.Errorf("%w: %w", errWriteChunk, writeErr)
 			}
+			done += uint64(n)
 		}
 
 		if errors.Is(err, io.EOF) {
-			return nil
+			return done, nil
 		}
 		if err != nil {
-			return fmt.Errorf("read next payload chunk: %w", err)
+			return done, fmt.Errorf("read next payload chunk: %w", err)
 		}
 	}
 }

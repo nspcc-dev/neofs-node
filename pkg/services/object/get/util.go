@@ -358,7 +358,7 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 }
 
 func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, off, ln uint64, sTok *session.Object, bTok *bearer.Token, local bool, xs []string) (io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, off, ln uint64, sTok *session.Object, bTok *bearer.Token, xs []string) (io.ReadCloser, error) {
 	conn, err := c.connectToNode(node)
 	if err != nil {
 		return nil, err
@@ -366,9 +366,7 @@ func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node 
 
 	var opts client.PrmObjectRange
 	opts.WithXHeaders(xs...)
-	if local {
-		opts.MarkLocal()
-	}
+	opts.MarkLocal()
 	if bTok != nil {
 		opts.WithBearerToken(*bTok)
 	}
@@ -382,6 +380,30 @@ func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node 
 	}
 
 	return rc, nil
+}
+
+func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+	sTok *session.Object, bTok *bearer.Token) (object.Object, error) {
+	conn, err := c.connectToNode(node)
+	if err != nil {
+		return object.Object{}, err
+	}
+
+	var opts client.PrmObjectHead
+	opts.MarkLocal()
+	if bTok != nil {
+		opts.WithBearerToken(*bTok)
+	}
+	if sTok != nil {
+		opts.WithinSession(*sTok)
+	}
+
+	hdr, err := conn.ObjectHead(ctx, cnr, id, user.NewAutoIDSigner(pk), opts)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("call HEAD API: %w", err)
+	}
+
+	return *hdr, nil
 }
 
 func (c *clientCacheWrapper) connectToNode(node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
