@@ -20,7 +20,6 @@ func (c *cache) openStore(readOnly bool) error {
 		fstree.WithPath(c.path),
 		fstree.WithPerm(os.ModePerm),
 		fstree.WithDepth(1),
-		fstree.WithDirNameLen(1),
 		fstree.WithNoSync(c.noSync),
 		fstree.WithCombinedCountLimit(1))
 	c.fsTree.SetLogger(c.log)

@@ -35,8 +35,7 @@ func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
 
 	fsTree := fstree.New(
 		fstree.WithPath(filepath.Join(dir, "fstree")),
-		fstree.WithDepth(0),
-		fstree.WithDirNameLen(1))
+		fstree.WithDepth(0))
 
 	comp := &compression.Config{
 		Enabled: true,

@@ -13,12 +13,6 @@ func WithDepth(d uint64) Option {
 	}
 }
 
-func WithDirNameLen(l int) Option {
-	return func(f *FSTree) {
-		f.DirNameLen = l
-	}
-}
-
 func WithPerm(p fs.FileMode) Option {
 	return func(f *FSTree) {
 		f.Permissions = p

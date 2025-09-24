@@ -201,8 +201,7 @@ func TestFlushErrorRetry(t *testing.T) {
 
 			fsTree := fstree.New(
 				fstree.WithPath(filepath.Join(dir, "fstree")),
-				fstree.WithDepth(0),
-				fstree.WithDirNameLen(1))
+				fstree.WithDepth(0))
 
 			s := &mockWriter{full: true, Storage: NewModeAwareStorage(fsTree)}
 			comp := &compression.Config{

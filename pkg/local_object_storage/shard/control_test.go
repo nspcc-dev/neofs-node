@@ -42,7 +42,6 @@ func TestShardOpen(t *testing.T) {
 		return New(
 			WithLogger(zaptest.NewLogger(t)),
 			WithBlobstor(fstree.New(
-				fstree.WithDirNameLen(2),
 				fstree.WithPath(filepath.Join(dir, "fstree")),
 				fstree.WithDepth(1)),
 			),
@@ -81,7 +80,6 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	dir := t.TempDir()
 
 	fsTree := fstree.New(
-		fstree.WithDirNameLen(2),
 		fstree.WithPath(filepath.Join(dir, "fstree")),
 		fstree.WithDepth(1))
 
