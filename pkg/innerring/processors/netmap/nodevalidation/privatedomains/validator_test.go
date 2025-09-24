@@ -3,6 +3,7 @@ package privatedomains
 import (
 	"encoding/hex"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -63,10 +64,8 @@ func (x *testNNS) CheckDomainRecord(domainName string, record string) error {
 		return errors.New("missing domain")
 	}
 
-	for i := range recs {
-		if recs[i] == record {
-			return nil
-		}
+	if slices.Contains(recs, record) {
+		return nil
 	}
 
 	return ErrMissingDomainRecord

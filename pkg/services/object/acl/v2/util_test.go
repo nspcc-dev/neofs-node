@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"slices"
 	"testing"
 
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -42,14 +43,7 @@ func TestIsVerbCompatible(t *testing.T) {
 
 	for op, list := range table {
 		for _, verb := range verbs {
-			var contains bool
-			for _, v := range list {
-				if v == verb {
-					contains = true
-					break
-				}
-			}
-
+			var contains = slices.Contains(list, verb)
 			tok.ForVerb(verb)
 
 			require.Equal(t, contains, assertVerb(tok, op),

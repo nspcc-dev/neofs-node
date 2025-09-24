@@ -3,6 +3,7 @@ package innerring
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep11"
@@ -48,10 +49,8 @@ func (x *neoFSNNS) CheckDomainRecord(domain string, record string) error {
 		return fmt.Errorf("get all text records of the NNS domain %q: %w", domain, err)
 	}
 
-	for i := range records {
-		if records[i] == record {
-			return nil
-		}
+	if slices.Contains(records, record) {
+		return nil
 	}
 
 	return privatedomains.ErrMissingDomainRecord

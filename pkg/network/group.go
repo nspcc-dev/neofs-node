@@ -136,10 +136,8 @@ func WriteToNodeInfo(g AddressGroup, ni *netmap.NodeInfo) {
 // at least one common address.
 func (x AddressGroup) Intersects(x2 AddressGroup) bool {
 	for i := range x {
-		for j := range x2 {
-			if x[i].equal(x2[j]) {
-				return true
-			}
+		if slices.ContainsFunc(x2, x[i].equal) {
+			return true
 		}
 	}
 
