@@ -83,6 +83,29 @@ func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
 	return ConcatDataParts(rule, dataLen, parts), nil
 }
 
+// DecodeSome decodes specified range of EC parts obtained by applying specified rule.
+// If no error, parts[from:to+1] contains recovered data.
+// TODO: unit tests.
+func DecodeRange(rule Rule, from, to int, parts [][]byte) error {
+	// TODO: used multiple times, worth sharing
+	dec, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
+	if err != nil { // should never happen with correct rule
+		return fmt.Errorf("init Reed-Solomon decoder: %w", err)
+	}
+
+	required := make([]bool, rule.DataPartNum+rule.ParityPartNum)
+	for i := from; i <= to; i++ {
+		required[i] = true
+	}
+
+	// TODO: seems like Decode may use ReconstructData
+	if err := dec.ReconstructSome(parts, required); err != nil {
+		return fmt.Errorf("restore Reed-Solomon: %w", err)
+	}
+
+	return nil
+}
+
 // ConcatDataParts returns a new slice of dataLen bytes originating given EC
 // parts according to rule.
 //

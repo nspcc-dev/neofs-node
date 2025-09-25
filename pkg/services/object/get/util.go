@@ -428,10 +428,23 @@ func (c *clientCacheWrapper) connectToNode(node netmap.NodeInfo) (coreclient.Mul
 
 // TODO: share.
 // see also https://github.com/nspcc-dev/neofs-sdk-go/issues/624.
-func convertContextCanceledStatus(err error) error {
+func convertContextStatus(err error) error {
 	st, ok := status.FromError(err)
-	if ok && st.Code() == codes.Canceled {
-		return context.Canceled
+	if ok {
+		switch st.Code() {
+		case codes.Canceled:
+			return context.Canceled
+		case codes.DeadlineExceeded:
+			return context.DeadlineExceeded
+		}
 	}
 	return err
+}
+
+func isRangeContextAbortError(ctx context.Context, err error) bool {
+	return isRangeAbortError(err) || errors.Is(err, ctx.Err())
+}
+
+func isRangeAbortError(err error) bool {
+	return errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange)
 }
