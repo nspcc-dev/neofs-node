@@ -327,12 +327,27 @@ func TestDB_Lock_Expired(t *testing.T) {
 		_, err := metaGet(db, addr, false)
 		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
+		// put a lock object
+		lock := generateObjectWithCID(t, addr.Container())
+		lock.SetType(object.TypeLock)
+		addAttribute(lock, object.AttributeExpirationEpoch, "125")
+
+		require.NoError(t, putBig(db, lock))
+
 		// lock the obj
-		require.NoError(t, db.Lock(addr.Container(), oidtest.ID(), []oid.ID{addr.Object()}))
+		require.NoError(t, db.Lock(addr.Container(), lock.GetID(), []oid.ID{addr.Object()}))
 
 		// object is expired but locked, thus, must be available
 		_, err = metaGet(db, addr, false)
 		require.NoError(t, err)
+
+		// expire the lock
+		es.e = 126
+
+		// now both lock and locked object are expired, thus, locked object
+		// must be unavailable
+		_, err = metaGet(db, addr, false)
+		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 	})
 	t.Run("after API v2.18", func(t *testing.T) {
 		es := &epochState{e: 123}

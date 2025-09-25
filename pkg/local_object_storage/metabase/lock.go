@@ -219,7 +219,20 @@ func objectLocked(tx *bbolt.Tx, currEpoch uint64, metaCursor *bbolt.Cursor, idCn
 		key := idCnr[:]
 		bucketLockedContainer := bucketLocked.Bucket(key)
 		if bucketLockedContainer != nil {
-			return bucketLockedContainer.Get(objectKey(idObj, key)) != nil
+			v := bucketLockedContainer.Get(objectKey(idObj, key))
+			lockers, err := decodeList(v)
+			if err != nil {
+				return true
+			}
+			for _, lock := range lockers {
+				var lockID oid.ID
+				if err = lockID.Decode(lock); err != nil {
+					return true
+				}
+				if !isExpired(metaCursor, lockID, currEpoch) {
+					return true
+				}
+			}
 		}
 	}
 
