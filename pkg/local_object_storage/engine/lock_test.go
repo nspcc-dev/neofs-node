@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -44,7 +43,6 @@ func TestLockUserScenario(t *testing.T) {
 
 	t.Cleanup(func() {
 		_ = e.Close()
-		_ = os.RemoveAll(t.Name())
 	})
 
 	lockerID := oidtest.ID()
@@ -132,7 +130,6 @@ func TestLockExpiration(t *testing.T) {
 
 	t.Cleanup(func() {
 		_ = e.Close()
-		_ = os.RemoveAll(t.Name())
 	})
 
 	const lockerExpiresAfter = 13
@@ -195,7 +192,6 @@ func TestLockForceRemoval(t *testing.T) {
 
 	t.Cleanup(func() {
 		_ = e.Close()
-		_ = os.RemoveAll(t.Name())
 	})
 
 	cnr := cidtest.ID()
