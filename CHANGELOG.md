@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Negative logic object counters in metabase (#3555)
 - Inability to list 2K+ containers via API (#3558)
 - Not using the IR `fee.main_chain` config parameter (#3584)
+- Metadata signatures submission (#3591)
 
 ### Changed
 - Stream payload without buffering to reduce memory usage in CLI `Get/Put` operations (#3535)

@@ -43,7 +43,7 @@ type distributedTarget struct {
 	metaMtx             sync.RWMutex
 	metaSigner          neofscrypto.Signer
 	objSharedMeta       []byte
-	collectedSignatures [][]byte
+	collectedSignatures [][][]byte
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
@@ -72,9 +72,9 @@ type distributedTarget struct {
 }
 
 type nodeDesc struct {
-	local bool
-
-	info client.NodeInfo
+	local           bool
+	placementVector int
+	info            client.NodeInfo
 }
 
 // errIncompletePut is returned if processing on a container fails.
@@ -201,7 +201,12 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject,
 	placementFn func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error) error {
 	defer func() {
-		t.collectedSignatures = nil
+		// this field is reused for sliced objects of the same container with
+		// the same placement policy; placement's len must be kept the same, do
+		// not nil the slice, keep it initialized
+		for i := range t.collectedSignatures {
+			clear(t.collectedSignatures[i])
+		}
 	}()
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
@@ -226,13 +231,9 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 		return err
 	}
 
-	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+	if !t.localOnly && t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		t.metaMtx.RLock()
 		defer t.metaMtx.RUnlock()
-
-		if len(t.collectedSignatures) == 0 {
-			return fmt.Errorf("skip metadata chain submit for %s object: no signatures were collected", id)
-		}
 
 		var await bool
 		switch t.metainfoConsistencyAttr {
@@ -306,6 +307,23 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 		if err := t.writeObjectLocally(obj, objMeta, encObj); err != nil {
 			return fmt.Errorf("write object locally: %w", err)
 		}
+
+		if node.placementVector < 0 {
+			// additional broadcast
+			return nil
+		}
+
+		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+			sig, err := t.metaSigner.Sign(t.objSharedMeta)
+			if err != nil {
+				return fmt.Errorf("failed to sign object metadata: %w", err)
+			}
+
+			t.metaMtx.Lock()
+			t.collectedSignatures[node.placementVector] = append(t.collectedSignatures[node.placementVector], sig)
+			t.metaMtx.Unlock()
+		}
+
 		return nil
 	}
 
@@ -328,6 +346,11 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 	}
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		if node.placementVector < 0 {
+			// additional broadcast
+			return nil
+		}
+
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()),
@@ -349,7 +372,7 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 			}
 
 			t.metaMtx.Lock()
-			t.collectedSignatures = append(t.collectedSignatures, sig.Value())
+			t.collectedSignatures[node.placementVector] = append(t.collectedSignatures[node.placementVector], sig.Value())
 			t.metaMtx.Unlock()
 
 			return nil
@@ -364,17 +387,6 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
 	if err := putObjectLocally(t.localStorage, &obj, objMeta, &encObj); err != nil {
 		return err
-	}
-
-	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		sig, err := t.metaSigner.Sign(t.objSharedMeta)
-		if err != nil {
-			return fmt.Errorf("failed to sign object metadata: %w", err)
-		}
-
-		t.metaMtx.Lock()
-		t.collectedSignatures = append(t.collectedSignatures, sig)
-		t.metaMtx.Unlock()
 	}
 
 	return nil
@@ -461,6 +473,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 
 	processNode := func(pubKeyStr string, listInd int, nr nodeResult, wg *sync.WaitGroup) {
 		defer wg.Done()
+		nr.desc.placementVector = listInd
 		err := f(nr.desc)
 		processedNodesMtx.Lock()
 		if listInd >= 0 {
