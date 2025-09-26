@@ -110,29 +110,11 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, er
 
 func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
 	var (
-		expired bool
-		oID     = addr.Object()
-		cID     = addr.Container()
+		oID = addr.Object()
+		cID = addr.Container()
 	)
 
-	if metaCursor != nil {
-		var expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
-
-		expPrefix[0] = metaPrefixIDAttr
-		copy(expPrefix[1:], oID[:])
-		copy(expPrefix[1+len(oID):], objectSDK.AttributeExpirationEpoch)
-
-		expKey, _ := metaCursor.Seek(expPrefix)
-		if bytes.HasPrefix(expKey, expPrefix) {
-			// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
-			var val = expKey[len(expPrefix):]
-
-			objExpiration, err := strconv.ParseUint(string(val), 10, 64)
-			expired = (err == nil) && (currEpoch > objExpiration)
-		}
-	}
-
-	if expired {
+	if isExpired(metaCursor, oID, currEpoch) {
 		if objectLocked(tx, currEpoch, metaCursor, cID, oID) {
 			return statusAvailable
 		}
@@ -146,6 +128,31 @@ func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, curr
 	}
 
 	return graveyardStatus
+}
+
+// isExpired checks if the object expired at the current epoch.
+// If metaCursor is nil, it always returns false.
+func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
+	if metaCursor == nil {
+		return false
+	}
+
+	var expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
+
+	expPrefix[0] = metaPrefixIDAttr
+	copy(expPrefix[1:], idObj[:])
+	copy(expPrefix[1+len(idObj):], objectSDK.AttributeExpirationEpoch)
+
+	expKey, _ := metaCursor.Seek(expPrefix)
+	if bytes.HasPrefix(expKey, expPrefix) {
+		// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
+		var val = expKey[len(expPrefix):]
+
+		objExpiration, err := strconv.ParseUint(string(val), 10, 64)
+		return (err == nil) && (currEpoch > objExpiration)
+	}
+
+	return false
 }
 
 // inGraveyard is an easier to use version of inGraveyardWithKey for cases
