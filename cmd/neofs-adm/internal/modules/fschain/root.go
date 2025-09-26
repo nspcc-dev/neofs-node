@@ -461,9 +461,9 @@ func init() {
 
 	ff := quotaContainerCmd.Flags()
 	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-	_ = cmd.MarkFlagRequired(endpointFlag)
+	_ = quotaContainerCmd.MarkFlagRequired(endpointFlag)
 	ff.String(containerIDFlag, "", "Inspected container, base58 encoded")
-	_ = cmd.MarkFlagRequired(containerIDFlag)
+	_ = quotaContainerCmd.MarkFlagRequired(containerIDFlag)
 	ff.StringP(walletFlag, "w", "", "Wallet that signs transaction (must own the container)")
 	ff.StringP(walletAccountFlag, "a", "", "Wallet account address")
 	ff.BoolP(quotasSoftLimitFlag, "s", false, "Set soft quota limit (omit if hard limit is required)")
@@ -471,10 +471,10 @@ func init() {
 
 	ff = quotaUserCmd.Flags()
 	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-	_ = cmd.MarkFlagRequired(endpointFlag)
+	_ = quotaUserCmd.MarkFlagRequired(endpointFlag)
 	ff.StringP(walletFlag, "w", "", "Wallet that signs transaction (must have user's key)")
 	ff.StringP(walletAccountFlag, "a", "", "Inspected user account, base58 encoded")
-	_ = cmd.MarkFlagRequired(walletAccountFlag)
+	_ = quotaUserCmd.MarkFlagRequired(walletAccountFlag)
 	ff.BoolP(quotasSoftLimitFlag, "s", false, "Set soft quota limit (omit if hard limit is required)")
 	quotaCmd.AddCommand(quotaUserCmd)
 
@@ -482,9 +482,9 @@ func init() {
 
 	ff = nodesCmd.Flags()
 	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-	_ = cmd.MarkFlagRequired(endpointFlag)
+	_ = nodesCmd.MarkFlagRequired(endpointFlag)
 	ff.String(containerIDFlag, "", "Inspected container, base58 encoded")
-	_ = cmd.MarkFlagRequired(containerIDFlag)
+	_ = nodesCmd.MarkFlagRequired(containerIDFlag)
 
 	RootCmd.AddCommand(nodesCmd)
 }
