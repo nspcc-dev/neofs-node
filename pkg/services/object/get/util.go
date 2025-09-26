@@ -440,11 +440,3 @@ func convertContextStatus(err error) error {
 	}
 	return err
 }
-
-func isRangeContextAbortError(ctx context.Context, err error) bool {
-	return isRangeAbortError(err) || errors.Is(err, ctx.Err())
-}
-
-func isRangeAbortError(err error) bool {
-	return errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange)
-}

@@ -379,7 +379,8 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 	// TODO: limit per-rule context https://github.com/nspcc-dev/neofs-node/issues/3560
 	for i := range ecRules {
 		err := s.copyECObjectRangeByRule(ctx, dst, cnr, parent, sTok, bTok, ecRules[i], i, sortedNodeLists[i], off, ln)
-		if err == nil || isRangeContextAbortError(ctx, err) {
+		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
+			errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
 			return err
 		}
 
@@ -389,131 +390,212 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 			zap.Uint64("len", ln), zap.Error(err))
 	}
 
-	return apistatus.ErrObjectNotFound
+	return fmt.Errorf("%w: failed processing of all %d EC rules", apistatus.ErrObjectNotFound, len(ecRules))
 }
 
 // TODO: docs.
 func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	bTok *bearer.Token, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, off, ln uint64) error {
 	// TODO: too big func, try to split
-	// TODO: ctx may be done on Read(). Abort in this case
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
 		return fmt.Errorf("get local SN private key: %w", err)
 	}
 
-	// resolve full parent and part len
-	var stageCtx context.Context
-	if deadline, ok := ctx.Deadline(); ok {
-		timeout := time.Until(deadline) / 10
-		if timeout > 0 {
-			var cancel context.CancelFunc
-			stageCtx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
-		} else {
-			stageCtx = ctx
+	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
+	deadline, deadlineSet := ctx.Deadline()
+	var stageTimeout time.Duration
+
+	// Resolve full parent and all parts' len. Since this op should go fast, limit it to 10% of remaining context.
+	if deadlineSet {
+		if stageTimeout = time.Until(deadline) / 10; stageTimeout <= 0 {
+			return context.DeadlineExceeded
 		}
 	} else {
-		var cancel context.CancelFunc
-		stageCtx, cancel = context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
+		stageTimeout = 10 * time.Second
 	}
+	stageCtx, cancel := context.WithTimeout(ctx, stageTimeout)
+	defer cancel()
 
-	var pldLen uint64
-	for i := range sortedNodes {
-		if s.neoFSNet.IsLocalNodePublicKey(sortedNodes[i].PublicKey()) {
-			var hdr *object.Object
-			hdr, err = s.localStorage.(*storageEngineWrapper).engine.Head(oid.NewAddress(cnr, parent), false)
-			if err == nil {
-				pldLen = hdr.PayloadSize()
-				break
-			}
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
-				return err
-			}
-			if !errors.Is(err, apistatus.ErrObjectNotFound) {
-				s.log.Info("failed to HEAD EC parent from local storage, continue...",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Error(err))
-			}
-			continue
-		}
-
-		// TODO: parallel? Or limit per-node context (https://github.com/nspcc-dev/neofs-node/issues/3560)
-		var hdr object.Object
-		hdr, err = s.conns.Head(stageCtx, sortedNodes[i], *localNodeKey, cnr, parent, sTok, bTok)
-		if err == nil {
-			pldLen = hdr.PayloadSize()
-			break
-		}
-
-		err = convertContextStatus(err)
-
-		if isRangeContextAbortError(ctx, err) {
-			return err
-		}
-		// TODO: consider caching failed nodes to not call them twice
-		if !errors.Is(err, apistatus.ErrObjectNotFound) {
-			s.log.Info("failed to HEAD EC parent from remote SN, continue...",
-				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Error(err))
-		}
-	}
+	pldLen, err := s.getECParentPayloadLen(stageCtx, *localNodeKey, cnr, parent, sTok, bTok, totalParts, sortedNodes)
 	if err != nil {
-		return apistatus.ErrObjectNotFound
+		return fmt.Errorf("resolve parent payload length: %w", err)
 	}
 
-	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
 	fullPartLen := (pldLen + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
 
-	// mark part ranges
-	var firstIdx, lastIdx int
-	var firstOff, lastTo uint64
+	// Mark ranges of EC parts.
+	var firstPartIdx, lastPartIdx int
+	var firstPartOff, lastPartTo uint64
 	if ln == 0 && off == 0 { // full range request
 		if pldLen == 0 {
 			return nil
 		}
 
-		lastIdx = int(rule.DataPartNum) - 1
-		if lastTo = pldLen % fullPartLen; lastTo == 0 {
-			lastTo = fullPartLen
+		lastPartIdx = int(rule.DataPartNum) - 1
+		if lastPartTo = pldLen % fullPartLen; lastPartTo == 0 {
+			lastPartTo = fullPartLen
 		}
 	} else {
 		if off >= pldLen || pldLen-off < ln {
 			return apistatus.ErrObjectOutOfRange
 		}
 
-		firstIdx, firstOff, lastIdx, lastTo = requiredChildrenIter(off, ln, nEqualSizeIter(totalParts, fullPartLen))
+		firstPartIdx, firstPartOff, lastPartIdx, lastPartTo = requiredChildrenIter(off, ln, nEqualSizeIter(totalParts, fullPartLen))
 	}
 
-	// fetch requested data parts one-by-one while no failure
-	var bufLen uint64
-	switch lastIdx - firstIdx {
-	case 0:
-		bufLen = lastTo - firstOff
-	case 1:
-		bufLen = max(fullPartLen-firstOff, lastTo)
-	default:
-		bufLen = fullPartLen
-	}
-	bufLen = min(bufLen, streamChunkSize)
-
-	if deadline, ok := ctx.Deadline(); ok {
-		timeout := time.Until(deadline) * 4 / 5
-		if timeout > 0 {
-			var cancel context.CancelFunc
-			stageCtx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
-		} else {
-			stageCtx = ctx
+	// Fetch requested data parts one-by-one. Main part of the entire operation, but
+	// 20% of the remaining context is reserved for possible necessary recovery.
+	// The recovery consumes more and is slower, but happen quire less frequently.
+	if deadlineSet {
+		if stageTimeout = time.Until(deadline) * 4 / 5; stageTimeout <= 0 {
+			return context.DeadlineExceeded
 		}
 	} else {
-		var cancel context.CancelFunc
-		stageCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
+		stageTimeout = 30 * time.Second
+	}
+	stageCtx, cancel = context.WithTimeout(ctx, stageTimeout)
+	defer cancel()
+
+	// TODO: We could open as many streams in parallel as we need. However, since GetRange
+	//  stream is server-side, so the server sends data without processing ACK (this
+	//  is only possible in bidirectional streams). This way, background buffering of
+	//  data from all streams will start immediately. Explore gRPC abilities of
+	//  buffer control for parallelism potential.
+
+	failedPartIdx, failedPartWritten, err := s.copyECPartsRanges(stageCtx, dst, *localNodeKey, cnr, parent, sTok, bTok, rule, ruleIdx, sortedNodes,
+		fullPartLen, firstPartIdx, firstPartOff, lastPartIdx, lastPartTo)
+	if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
+		errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
+		return err
+	}
+
+	s.log.Info("copying EC part ranges failed, trying recovery...",
+		zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule), zap.Uint64("off", off),
+		zap.Uint64("len", ln), zap.Int("failedPartIdx", failedPartIdx), zap.Uint64("failedPartWritten", failedPartWritten), zap.Error(err),
+	)
+
+	if failedPartIdx != firstPartIdx {
+		firstPartOff = 0
+	}
+	firstPartIdx = failedPartIdx
+	firstPartOff += failedPartWritten
+
+	// Recover failed part. To do this, we need to fetch all other data parts (some
+	// of them may be requested too) and at least 1 parity part. Also, reserve 10%
+	// of the remaining context for maths.
+	//
+	// Note: we reread the parts that were successfully read at the previous stage. This is done to favor best case
+	// (as most expected), so as not to retain too much data in memory. Anyway, recovery requires obtaining
+	// ranges that were not originally requested.
+	if deadlineSet {
+		if stageTimeout = time.Until(deadline) * 9 / 10; stageTimeout <= 0 {
+			return context.DeadlineExceeded
+		}
+	} // else keep the same
+	stageCtx, cancel = context.WithTimeout(ctx, stageTimeout)
+	defer cancel()
+
+	parts, err := s.getRecoveryECPartRanges(ctx, *localNodeKey, cnr, parent, sTok, bTok, rule, ruleIdx, sortedNodes, fullPartLen, failedPartIdx)
+	if err != nil {
+		return fmt.Errorf("get recovery EC part ranges: %w", err)
+	}
+
+	if err := iec.DecodeRange(rule, firstPartIdx, lastPartIdx, parts); err != nil { // should never happen if we count parts correctly
+		return fmt.Errorf("recover EC part range from=%d to=%d using single parity part: %w", err)
+	}
+
+	for partIdx := firstPartIdx; partIdx <= lastPartIdx; partIdx++ {
+		from, to := uint64(0), fullPartLen
+		if partIdx == firstPartIdx {
+			from = firstPartOff
+		}
+		if partIdx == lastPartIdx {
+			to = lastPartTo
+		}
+
+		if err := dst.WriteChunk(parts[partIdx][from:to]); err != nil {
+			return fmt.Errorf("write [%d:%d] range of EC part #%d: %w", from, to, partIdx, err)
+		}
+	}
+
+	return nil
+}
+
+// TODO: docs.
+func (s *Service) getECParentPayloadLen(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, id oid.ID, sTok *session.Object,
+	bTok *bearer.Token, totalParts int, sortedNodes []netmap.NodeInfo) (uint64, error) {
+	var pldLenAtomic atomic.Value // uint64
+
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(totalParts)
+	for i := range sortedNodes {
+		node := sortedNodes[i]
+		eg.Go(func() error {
+			if err := ctx.Err(); err != nil {
+				// errgroup call the function even when context is done. Routines for backup
+				// nodes should catch this asap to do nothing.
+				return err
+			}
+
+			if s.neoFSNet.IsLocalNodePublicKey(node.PublicKey()) {
+				// TODO: it'd be more efficient to get payload len only, not a full header
+				hdr, err := s.localStorage.(*storageEngineWrapper).engine.Head(oid.NewAddress(cnr, id), false)
+				if err == nil {
+					pldLenAtomic.Store(hdr.PayloadSize())
+					return errInterrupt // break
+				}
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+					return err // abort
+				}
+
+				s.log.Info("failed to HEAD object from local storage",
+					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Error(err))
+				return nil // continue
+			}
+
+			// the most lightweight method in the current protocol
+			hdr, err := s.conns.Head(ctx, sortedNodes[i], localNodeKey, cnr, id, sTok, bTok)
+			if err == nil {
+				pldLenAtomic.Store(hdr.PayloadSize())
+				return errInterrupt // break
+			}
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
+				return err // abort
+			}
+
+			s.log.Info("failed to HEAD object from remote node",
+				zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Error(err))
+			return nil // continue
+		})
+	}
+	if err := eg.Wait(); err != nil && !errors.Is(err, errInterrupt) {
+		return 0, err
+	}
+
+	pldLen := pldLenAtomic.Load()
+	if pldLen == nil {
+		return 0, errors.New("all nodes failed")
+	}
+
+	return pldLen.(uint64), nil
+}
+
+func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID,
+	sTok *session.Object, bTok *bearer.Token, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo,
+	fullPartLen uint64, firstIdx int, firstOff uint64, lastIdx int, lastTo uint64) (int, uint64, error) {
+	var callTimeout time.Duration
+	if deadline, ok := ctx.Deadline(); ok {
+		// don't take into account that first/last range may be tiny
+		if callTimeout = time.Until(deadline) / time.Duration(lastIdx-firstIdx+1); callTimeout <= 0 {
+			return 0, 0, context.DeadlineExceeded
+		}
+	} else {
+		callTimeout = 30 * time.Second
 	}
 
 	var buf []byte
-	var curIdx int
-	for curIdx = firstIdx; curIdx <= lastIdx; curIdx++ {
+	for curIdx := firstIdx; curIdx <= lastIdx; curIdx++ {
 		partOff, partLen := uint64(0), fullPartLen
 		if curIdx == firstIdx {
 			partOff = firstOff
@@ -523,260 +605,67 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 		}
 		partLen -= partOff
 
-		// TODO: We could open as many streams in parallel as we need. However, since GetRange
-		//  stream is server-side, so the server sends data without processing ACK (this
-		//  is only possible in bidirectional streams). This way, background buffering of
-		//  data from all streams will start immediately. Explore gRPC abilities of
-		//  buffer control for potential parallelism.
-
-		var callCtx context.Context
-		var callCtxCancel func()
-		// TODO: timeout is static, do outside the loop
-		if deadline, ok := stageCtx.Deadline(); ok {
-			timeout := time.Until(deadline) / time.Duration(lastIdx-firstIdx+1)
-			if timeout > 0 {
-				callCtx, callCtxCancel = context.WithTimeout(stageCtx, timeout)
-			} else {
-				callCtx = stageCtx
-			}
-		} else {
-			callCtx, callCtxCancel = context.WithTimeout(ctx, 30*time.Second)
-		}
-
-		rc, err := s.getECPartRangeStream(callCtx, cnr, parent, partOff, partLen, sTok, bTok, rule, ruleIdx, sortedNodes, curIdx, *localNodeKey)
+		callCtx, cancel := context.WithTimeout(ctx, callTimeout)
+		rc, err := s.getECPartRangeStream(callCtx, cnr, parent, partOff, partLen, sTok, bTok, rule, ruleIdx, sortedNodes, curIdx, localNodeKey)
 		if err != nil {
-			if callCtxCancel != nil {
-				callCtxCancel()
-			}
-			if isRangeContextAbortError(ctx, err) {
-				return err
-			}
-
-			if !errors.Is(err, callCtx.Err()) {
-				s.log.Info("failed to open RANGE stream for next EC data part chunk, going to recovery...",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", curIdx), zap.Uint64("off", partOff),
-					zap.Uint64("len", partLen), zap.Error(err),
-				)
-			}
-
-			if curIdx != firstIdx {
-				firstIdx = curIdx
-				firstOff = 0
-			}
-			break
+			cancel()
+			return curIdx, 0, fmt.Errorf("open stream: %w", err)
 		}
 
 		if buf == nil {
+			bufLen := calcECRangeBufferLen(fullPartLen, firstIdx, firstOff, lastIdx, lastTo)
 			buf = make([]byte, bufLen)
 		}
 
 		n, err := copyPayloadStreamBuffer(dst, rc, buf)
 		rc.Close()
-		if callCtxCancel != nil {
-			callCtxCancel()
-		}
+		cancel()
 		if err != nil {
-			if errors.Is(err, errWriteChunk) || errors.Is(err, ctx.Err()) {
-				return err
+			if n == partLen { // should never happen
+				return 0, 0, fmt.Errorf("%w: received needed range with error for EC part #%d: %w", errStreamFailure, n, partLen, curIdx, err)
 			}
-
-			if !errors.Is(err, callCtx.Err()) {
-				s.log.Info("reading RANGE stream with next EC data part chunk aborted, going to recovery...",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", curIdx), zap.Uint64("off", partOff),
-					zap.Uint64("len", partLen), zap.Uint64("bytesRead", n), zap.Error(err),
-				)
-			}
-
-			if curIdx == firstIdx {
-				firstOff += n
-			} else {
-				firstIdx = curIdx
-				firstOff = n
-			}
-			break
-		}
-
-		if curIdx == lastIdx {
-			return nil
+			return curIdx, n, err
 		}
 	}
 
-	// recovery required. At this moment one requested data part is unavailable (its index is curIdx).
-	// First, fetch full payloads of all data parts except failed one and 1 parity part.
-	// TODO: share func.
-	if deadline, ok := ctx.Deadline(); ok {
-		timeout := time.Until(deadline) / 2
-		if timeout > 0 {
-			var cancel context.CancelFunc
-			stageCtx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
-		} else {
-			stageCtx = ctx
-		}
-	} else {
-		var cancel context.CancelFunc
-		stageCtx, cancel = context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-	}
+	return 0, 0, nil
+}
 
+func (s *Service) getRecoveryECPartRanges(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID,
+	sTok *session.Object, bTok *bearer.Token, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, fullPartLen uint64, failedPartIdx int) ([][]byte, error) {
+	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
 	parts := make([][]byte, totalParts)
 
-	// TODO: same as in restoreFromECPartsByRule about recv extra parity part in the same routine
-	eg, gCtx := errgroup.WithContext(stageCtx)
-	failCounter := uint32(1) // failed data part
-	for i := range int(rule.DataPartNum) + 1 {
-		if i == curIdx { // failed
+	rem := uint32(rule.DataPartNum)
+	var failCounter, okCounter atomic.Uint32
+	failCounter.Store(1)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.SetLimit(int(rem))
+	for i := range totalParts {
+		if i == failedPartIdx {
 			continue
 		}
 
-		// Note: we reread the parts that were successfully read at the previous stage. This is done to favor best case
-		// (as most expected), so as not to retain too much data in memory. Anyway, recovery requires obtaining
-		// ranges that were not originally requested.
-
 		partIdx := i
 		eg.Go(func() error {
-			rc, err := s.getECPartRangeStream(gCtx, cnr, parent, 0, 0, sTok, bTok, rule, ruleIdx, sortedNodes, partIdx, *localNodeKey)
+			part, err := s.readFullECPartRange(egCtx, cnr, parent, sTok, bTok, rule, ruleIdx, sortedNodes, partIdx, localNodeKey, fullPartLen)
 			if err != nil {
-				if isRangeContextAbortError(gCtx, err) {
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
 					return err
 				}
 
-				s.log.Info("failed to open RANGE stream for EC part full payload (recovery)",
+				s.log.Info("failed to get full EC part payload",
 					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Error(err),
-				)
+					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Error(err))
 
-				if failed := atomic.AddUint32(&failCounter, 1); failed > uint32(rule.ParityPartNum) {
+				if failed := failCounter.Add(1); failed > uint32(rule.ParityPartNum) {
 					return tooManyPartsUnavailableError(failed)
 				}
 				return nil
 			}
 
-			defer rc.Close()
-
-			buf := make([]byte, fullPartLen)
-			if _, err := io.ReadFull(rc, buf); err != nil {
-				err = convertContextStatus(err)
-				if errors.Is(err, gCtx.Err()) {
-					return err
-				}
-
-				if errors.Is(err, io.EOF) { // part must not be empty
-					err = io.ErrUnexpectedEOF
-				}
-
-				s.log.Info("reading RANGE stream with EC data part full payload aborted (recovery)",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Error(err),
-				)
-
-				if failed := atomic.AddUint32(&failCounter, 1); failed > uint32(rule.ParityPartNum) {
-					return tooManyPartsUnavailableError(failed)
-				}
-				return nil
-			}
-
-			// note that partially read part is not saved as required by the decoding func
-			parts[partIdx] = buf
-
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
-	if failCounter == 1 { // no failures in the loop, fetch succeeded
-		if err := iec.DecodeRange(rule, firstIdx, lastIdx, parts); err != nil { // should never happen if we count parts correctly
-			return fmt.Errorf("recover EC part range from=%d to=%d using single parity part: %w", err)
-		}
-
-		for partIdx := firstIdx; partIdx <= lastIdx; partIdx++ {
-			from, to := uint64(0), fullPartLen
-			if partIdx == firstIdx {
-				from = firstOff
-			}
-			if partIdx == lastIdx {
-				to = lastTo
-			}
-
-			if err := dst.WriteChunk(parts[partIdx][from:to]); err != nil {
-				return fmt.Errorf("write range [%d,%d] of EC part #%d: %w", from, to, partIdx, err)
-			}
-		}
-
-		return nil
-	}
-
-	// need more parity parts, fetch their payloads the same
-	if deadline, ok := ctx.Deadline(); ok {
-		timeout := time.Until(deadline) * 4 / 5
-		if timeout > 0 {
-			var cancel context.CancelFunc
-			stageCtx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
-		} else {
-			stageCtx = ctx
-		}
-	} else {
-		var cancel context.CancelFunc
-		stageCtx, cancel = context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-	}
-
-	eg, gCtx = errgroup.WithContext(stageCtx)
-	rem := failCounter
-	failCounter = 0
-	var okCounter atomic.Uint32
-	for i := int(rule.ParityPartNum + 1); i < totalParts; i++ {
-		partIdx := i
-		eg.Go(func() error {
-			rc, err := s.getECPartRangeStream(gCtx, cnr, parent, 0, 0, sTok, bTok, rule, ruleIdx, sortedNodes, partIdx, *localNodeKey)
-			if err != nil {
-				if isRangeContextAbortError(gCtx, err) {
-					return err
-				}
-
-				s.log.Info("failed to open RANGE stream for EC part full payload (recovery)",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Error(err),
-				)
-
-				if failed := atomic.AddUint32(&failCounter, 1); failed+rem > uint32(rule.ParityPartNum) {
-					return tooManyPartsUnavailableError(failed)
-				}
-				return nil
-			}
-
-			defer rc.Close()
-
-			buf := make([]byte, fullPartLen)
-			if _, err := io.ReadFull(rc, buf); err != nil {
-				err = convertContextStatus(err)
-				if errors.Is(err, gCtx.Err()) {
-					return err
-				}
-
-				if errors.Is(err, io.EOF) { // part must not be empty
-					err = io.ErrUnexpectedEOF
-				}
-
-				s.log.Info("reading RANGE stream with EC data part full payload aborted (recovery)",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Error(err),
-				)
-
-				if failed := atomic.AddUint32(&failCounter, 1); failed+rem > uint32(rule.ParityPartNum) {
-					return tooManyPartsUnavailableError(failed)
-				}
-				return nil
-			}
-
-			// note that partially read part is not saved as required by the decoding func
-			parts[partIdx] = buf
-
+			parts[partIdx] = part
 			if okCounter.Add(1) >= rem {
 				return errInterrupt
 			}
@@ -784,29 +673,32 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 		})
 	}
 	if err := eg.Wait(); err != nil && !errors.Is(err, errInterrupt) {
-		return err
+		return nil, err
 	}
 
-	// TODO: copied from above, share
-	if err := iec.DecodeRange(rule, firstIdx, lastIdx, parts); err != nil { // should never happen if we count parts correctly
-		return fmt.Errorf("recover EC part range from=%d to=%d using single parity part: %w", err)
+	return parts, nil
+}
+
+func (s *Service) readFullECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
+	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int, localNodeKey ecdsa.PrivateKey, fullPartLen uint64) ([]byte, error) {
+	rc, err := s.getECPartRangeStream(ctx, cnr, parent, 0, 0, sTok, bTok, rule, ruleIdx, sortedNodes, partIdx, localNodeKey)
+	if err != nil {
+		return nil, fmt.Errorf("open stream: %w", err)
 	}
 
-	for partIdx := firstIdx; partIdx <= lastIdx; partIdx++ {
-		from, to := uint64(0), fullPartLen
-		if partIdx == firstIdx {
-			from = firstOff
-		}
-		if partIdx == lastIdx {
-			to = lastTo
-		}
+	defer rc.Close()
 
-		if err := dst.WriteChunk(parts[partIdx][from:to]); err != nil {
-			return fmt.Errorf("write range [%d,%d] of EC part #%d: %w", from, to, partIdx, err)
+	buf := make([]byte, fullPartLen)
+	if _, err := io.ReadFull(rc, buf); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
+		} else {
+			err = convertContextStatus(err)
 		}
+		return nil, fmt.Errorf("read stream: %w", err)
 	}
 
-	return nil
+	return buf, nil
 }
 
 // TODO: docs.
@@ -830,7 +722,8 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 
 		if local {
 			_, rc, err = s.localObjects.GetECPartRange(cnr, parent, pi, off, ln)
-			if err == nil || isRangeAbortError(err) {
+			// TODO: BAD_REQUEST https://github.com/nspcc-dev/neofs-api/issues/269
+			if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) {
 				return rc, err
 			}
 			if !errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -844,11 +737,11 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 
 		rc, err = s.getECPartRangeFromNode(ctx, cnr, parent, off, ln, sTok, bTok, pi, localNodeKey, sortedNodes[i])
 		if err != nil {
-			if isRangeContextAbortError(ctx, err) {
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
 				return nil, err
 			}
 			if !errors.Is(err, apistatus.ErrObjectNotFound) {
-				s.log.Info("failed to get EC part payload range from remote SN, continue...",
+				s.log.Info("failed to get EC part payload range from remote node, continue...",
 					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln),
 					zap.Stringer("rule", rule), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index),
 					zap.Error(err))
@@ -946,7 +839,7 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 	})
 	if err != nil {
 		err = convertContextStatus(err)
-		return nil, fmt.Errorf("get range from remote SN: %w", err)
+		return nil, fmt.Errorf("get range from remote node: %w", err)
 	}
 
 	return rc, nil
@@ -1021,4 +914,18 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 	}
 
 	return fmt.Errorf("not all EC attributes received: requested %d, got %d", expected, found)
+}
+
+func calcECRangeBufferLen(fullPartLen uint64, firstIdx int, firstOff uint64, lastIdx int, lastTo uint64) uint64 {
+	var bufLen uint64
+	switch lastIdx - firstIdx {
+	case 0:
+		bufLen = lastTo - firstOff
+	case 1:
+		bufLen = max(fullPartLen-firstOff, lastTo)
+	default:
+		bufLen = fullPartLen
+	}
+
+	return min(bufLen, streamChunkSize)
 }
