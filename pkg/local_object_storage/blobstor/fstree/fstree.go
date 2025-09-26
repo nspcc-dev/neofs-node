@@ -29,13 +29,13 @@ type FSTree struct {
 	Info
 
 	*compression.Config
-	log        *zap.Logger
-	Depth      uint64
-	DirNameLen int
-	writer     writer
+	log    *zap.Logger
+	Depth  uint64
+	writer writer
 
 	noSync   bool
 	readOnly bool
+	shardID  string
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
@@ -100,9 +100,8 @@ func New(opts ...Option) *FSTree {
 			Permissions: 0700,
 			RootPath:    "./",
 		},
-		Config:     nil,
-		Depth:      4,
-		DirNameLen: DirNameLen,
+		Config: nil,
+		Depth:  4,
 
 		combinedCountLimit:    128,
 		combinedSizeLimit:     8 * 1024 * 1024,
@@ -268,8 +267,8 @@ func (t *FSTree) treePath(addr oid.Address) string {
 	dirs = append(dirs, t.RootPath)
 
 	for i := 0; uint64(i) < t.Depth; i++ {
-		dirs = append(dirs, sAddr[:t.DirNameLen])
-		sAddr = sAddr[t.DirNameLen:]
+		dirs = append(dirs, sAddr[:DirNameLen])
+		sAddr = sAddr[DirNameLen:]
 	}
 
 	dirs = append(dirs, sAddr)

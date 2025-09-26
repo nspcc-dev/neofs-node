@@ -13,12 +13,6 @@ func WithDepth(d uint64) Option {
 	}
 }
 
-func WithDirNameLen(l int) Option {
-	return func(f *FSTree) {
-		f.DirNameLen = l
-	}
-}
-
 func WithPerm(p fs.FileMode) Option {
 	return func(f *FSTree) {
 		f.Permissions = p
@@ -34,6 +28,12 @@ func WithPath(p string) Option {
 func WithNoSync(noSync bool) Option {
 	return func(f *FSTree) {
 		f.noSync = noSync
+	}
+}
+
+func WithShardID(id string) Option {
+	return func(f *FSTree) {
+		f.shardID = id
 	}
 }
 

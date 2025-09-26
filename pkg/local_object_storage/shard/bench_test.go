@@ -34,7 +34,6 @@ func newTestFSTree(tb testing.TB) common.Storage {
 	return fstree.New(
 		fstree.WithDepth(4), // Default.
 		fstree.WithPath(tb.TempDir()),
-		fstree.WithDirNameLen(1), // Default.
 		fstree.WithNoSync(false), // Default.
 	)
 }

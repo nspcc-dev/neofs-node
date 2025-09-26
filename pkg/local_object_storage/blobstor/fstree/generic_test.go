@@ -16,8 +16,7 @@ func TestGeneric(t *testing.T) {
 	helper := func(t *testing.T, dir string) common.Storage {
 		return New(
 			WithPath(dir),
-			WithDepth(2),
-			WithDirNameLen(2))
+			WithDepth(2))
 	}
 
 	var n int
@@ -44,8 +43,7 @@ func TestControl(t *testing.T) {
 		dir := filepath.Join(t.Name(), strconv.Itoa(n))
 		return New(
 			WithPath(dir),
-			WithDepth(2),
-			WithDirNameLen(2))
+			WithDepth(2))
 	}
 
 	storagetest.TestControl(t, newTree, 2048, 2048)

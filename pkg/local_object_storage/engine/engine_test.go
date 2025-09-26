@@ -132,13 +132,14 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 
 func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *StorageEngine {
 	engine := New()
+	dir := t.TempDir()
 	for i := range num {
 		_, err := engine.AddShard(append([]shard.Option{
 			shard.WithBlobstor(
-				newStorage(filepath.Join(t.Name(), fmt.Sprintf("fstree%d", i))),
+				newStorage(filepath.Join(dir, fmt.Sprintf("fstree%d", i))),
 			),
 			shard.WithMetaBaseOptions(
-				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("metabase%d", i))),
+				meta.WithPath(filepath.Join(dir, fmt.Sprintf("metabase%d", i))),
 				meta.WithPermissions(0700),
 				meta.WithEpochState(epochState{}),
 			),

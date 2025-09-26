@@ -292,7 +292,6 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 
 	sh := shard.New(
 		shard.WithBlobstor(fstree.New(
-			fstree.WithDirNameLen(2),
 			fstree.WithPath(filepath.Join(path, "fstree")),
 			fstree.WithDepth(1)),
 		),
