@@ -481,7 +481,12 @@ func (b Service) findRequestInfo(req interface {
 	var reqAuthor user.ID
 	var reqAuthorPub []byte
 	if sTok != nil {
-		reqAuthor, reqAuthorPub = sTok.Issuer(), sTok.IssuerPublicKeyBytes()
+		reqAuthor = sTok.Issuer()
+		sig, ok := sTok.Signature()
+		if !ok {
+			return info, errors.New("missing signature in session token")
+		}
+		reqAuthorPub = sig.PublicKeyBytes()
 	} else {
 		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
 			return info, fmt.Errorf("get request author: %w", err)

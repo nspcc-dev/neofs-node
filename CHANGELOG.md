@@ -33,9 +33,10 @@ Changelog for NeoFS Node
 - `neofs-cli object head --main-only` no-op flag (#3509)
 - IR's estimations timer management (#3539)
 - `neofs-adm fschain estimations` command (#3572)
+- `--oid` flag from CLI object search commands (#3606)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.14.0.20250909131532-07fa82695f26` (#3569)
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.15` (#3569, #3606)
 - Minimum required Go version to 1.24 (#3135)
 - `github.com/cenkalti/backoff/v4` dependency from v4.2.1 to v4.3.0 (#3589)
 - `github.com/klauspost/compress` dependency from v1.17.11 to v1.18.0 (#3589)

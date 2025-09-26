@@ -70,8 +70,6 @@ func initObjectSearchCmd() {
 	flags2.Bool("root", false, "Search for user objects")
 	flags.Bool("phy", false, "Search physically stored objects")
 	flags2.Bool("phy", false, "Search physically stored objects")
-	flags.String(commonflags.OIDFlag, "", "Search object by identifier")
-	flags2.String(commonflags.OIDFlag, "", "Search object by identifier")
 
 	flags2.StringSliceVar(&searchAttributesFlag.v, searchAttributesFlag.f, nil, "Additional attributes to display for suitable objects")
 	flags2.Uint16Var(&searchCountFlag.v, searchCountFlag.f, 0, "Max number of resulting items. Must not exceed 1000")
@@ -201,16 +199,6 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 	phy, _ := cmd.Flags().GetBool("phy")
 	if phy {
 		fs.AddPhyFilter()
-	}
-
-	oid, _ := cmd.Flags().GetString(commonflags.OIDFlag)
-	if oid != "" {
-		var id oidSDK.ID
-		if err := id.DecodeString(oid); err != nil {
-			return nil, fmt.Errorf("could not parse object ID: %w", err)
-		}
-
-		fs.AddObjectIDFilter(object.MatchStringEqual, id)
 	}
 
 	return fs, nil

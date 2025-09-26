@@ -115,8 +115,7 @@ func (c *neofsNetwork) isMineWithMeta(cnr containerSDK.Container, networkMap *ne
 		return false, nil
 	}
 
-	var id cid.ID
-	cnr.CalculateID(&id)
+	var id = cid.NewFromMarshalledContainer(cnr.Marshal())
 
 	nodeSets, err := networkMap.ContainerNodes(cnr.PlacementPolicy(), id)
 	if err != nil {
