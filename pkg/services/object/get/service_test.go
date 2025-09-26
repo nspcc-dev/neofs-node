@@ -49,12 +49,6 @@ func newCommonParameters(local bool, sTok *session.Object, bTok *bearer.Token, x
 }
 
 // TODO: share.
-type ioReadCloser struct {
-	io.Reader
-	io.Closer
-}
-
-// TODO: share.
 type mockIOCloser struct {
 	count atomic.Uint32
 }

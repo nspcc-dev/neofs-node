@@ -63,6 +63,31 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 	return *hdr, rdr, nil
 }
 
+// GetECPartRange looks up for object that carries EC part produced within cnr
+// for parent object and indexed by pi in the underlying metabase, checks its
+// availability and reads it from the underlying BLOB storage. Returns full
+// payload len along with range-cut payload stream that must be closed by caller
+// after processing.
+//
+// If object is missing, GetECPartRange returns [apistatus.ErrObjectNotFound].
+//
+// If object is found in the metabase but unreadable from the BLOB storage,
+// GetECPartRange wraps [ierrors.ObjectID] with the object ID along with the
+// failure cause.
+//
+// If object has expired, GetECPartRange returns [meta.ErrObjectIsExpired].
+//
+// If object exists but tombstoned (e.g. via [Shard.Inhume] or stored tombstone
+// object), GetECPartRange returns [apistatus.ErrObjectAlreadyRemoved].
+//
+// If object is marked as garbage (e.g. via [Shard.MarkGarbage]), GetECPartRange
+// returns [apistatus.ErrObjectNotFound].
+//
+// If object is locked (e.g. via [Shard.Lock] or stored locker object),
+// GetECPartRange ignores expiration, tombstone and garbage marks.
+//
+// If the range is out of payload bounds, GetECPartRange returns
+// [apistatus.ErrObjectOutOfRange].
 func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
 	var partID oid.ID
 	if part, err := s.metaBaseIface.ResolveECPartWithPayloadLen(cnr, parent, pi); err != nil {
@@ -70,8 +95,8 @@ func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, 
 			return 0, nil, fmt.Errorf("resolve part ID and payload len in metabase: %w", err)
 		}
 
-		s.log.Warn("failed to get payload len for object from metabase",
-			zap.Stringer("container", cnr), zap.Error(err)) // error includes OID
+		s.log.Warn("object for EC part exists in metabase but payload len is unreachable",
+			zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("partID", partID), zap.Error(err))
 	} else {
 		if ln == 0 && off == 0 {
 			if part.PayloadLen == 0 {

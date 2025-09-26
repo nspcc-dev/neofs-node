@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -118,13 +119,7 @@ func (f *fallbackRangeReader) Read(p []byte) (int, error) {
 		}
 	}
 
-	f.ReadCloser = struct {
-		io.Reader
-		io.Closer
-	}{
-		Reader: io.LimitReader(rdr, int64(to-from)),
-		Closer: rdr,
-	}
+	f.ReadCloser = iio.LimitReadCloser(rdr, int64(to-from))
 
 	// attempt to read again immediately to fill p.
 	return f.Read(p)

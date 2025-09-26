@@ -104,9 +104,31 @@ loop:
 	return object.Object{}, nil, apistatus.ErrObjectNotFound
 }
 
-// TODO: docs.
+// GetECPartRange looks up for object that carries EC part produced within cnr
+// for parent object and indexed by pi in the underlying shards, checks its
+// availability and payload len along with range-cut payload stream that must be
+// closed by caller after processing.
+//
+// If write-cache is enabled, GetECPartRange tries to get the object from it
+// first.
+//
+// If object has expired, GetECPartRange returns [meta.ErrObjectIsExpired].
+//
+// If object exists but tombstoned (e.g. via [StorageEngine.Inhume] or stored
+// tombstone object), GetECPartRange returns
+// [apistatus.ErrObjectAlreadyRemoved].
+//
+// If object is marked as garbage (e.g. via [StorageEngine.Delete]),
+// GetECPartRange returns [apistatus.ErrObjectNotFound].
+//
+// If object is locked (e.g. via [StorageEngine.Lock] or stored locker object),
+// GetECPartRange ignores expiration, tombstone and garbage marks.
+//
+// If the range is out of payload bounds, GetECPartRange returns
+// [apistatus.ErrObjectOutOfRange].
+//
+// Range bounds are limited by int64.
 func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
-	// TODO: mention limit in docs.
 	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
 		return 0, nil, fmt.Errorf("range overlowing int64 is not supported by this server: off=%d,len=%d", off, ln)
 	}
@@ -141,18 +163,16 @@ loop:
 			}
 
 			e.log.Info("EC part's object ID and payload len resolved in shard but reading failed, continue bypassing metabase",
-				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
-				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
-				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Int("ecRule", pi.RuleIndex),
+				zap.Int("partIdx", pi.Index), zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
 
 			s = s[i+1:]
 			break loop
 		case errors.Is(err, apistatus.ErrObjectNotFound):
 		default:
-			e.log.Info("failed to get payload range of EC part from shard, ignore error",
-				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
-				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
-				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+			e.log.Info("failed to RANGE EC part in shard, ignore error",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Int("ecRule", pi.RuleIndex),
+				zap.Int("partIdx", pi.Index), zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
 		}
 	}
 
@@ -170,10 +190,9 @@ loop:
 			return 0, nil, err
 		case errors.Is(err, apistatus.ErrObjectNotFound):
 		default:
-			e.log.Info("failed to get payload range of EC part from shard bypassing metabase, ignore error",
-				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
-				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
-				zap.Stringer("partID", partID),
+			e.log.Info("failed to RANGE EC part in shard bypassing metabase, ignore error",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Int("ecRule", pi.RuleIndex),
+				zap.Int("partIdx", pi.Index), zap.Stringer("partID", partID),
 				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
 		}
 	}

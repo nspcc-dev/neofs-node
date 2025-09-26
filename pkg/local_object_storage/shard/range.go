@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -83,11 +84,26 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 	return obj, err
 }
 
-// TODO: docs.
+// GetRangeStream reads specified range of payload of the referenced object from
+// the underlying BLOB storage. First return is object's full payload length. If
+// zero, GetRangeStream returns (0, nil, nil). Otherwise, range-cut payload
+// stream is also returned. The stream must be finally closed by the caller.
+//
+// If write-cache is enabled, GetRangeStream looks up there first. Its errors
+// are logged and never returned.
+//
+// If object is missing, GetECPartRange returns [apistatus.ErrObjectNotFound].
+//
+// If the range is out of payload bounds, GetRangeStream returns
+// [apistatus.ErrObjectOutOfRange].
 func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error) {
+	if off < 0 || ln < 0 {
+		return 0, nil, fmt.Errorf("invalid range: off=%d,len=%d", off, ln)
+	}
+
 	addr := oid.NewAddress(cnr, id)
 	if s.hasWriteCache() {
-		// TODO: support GetRangeStream in write-cache. https://github.com/nspcc-dev/neofs-node/issues/3593
+		// TODO: support GetRangeStream https://github.com/nspcc-dev/neofs-node/issues/3593
 		hdr, rc, err := s.writeCache.GetStream(addr)
 		if err == nil {
 			pldLen := hdr.PayloadSize()
@@ -95,12 +111,16 @@ func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io
 			return pldLen, rc, err
 		}
 
-		if !errors.Is(err, apistatus.ErrObjectNotFound) {
-			s.log.Info("failed to get object payload range from write-cache, fallback to BLOB storage",
-				zap.Stringer("partAddr", addr), zap.Error(err))
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			s.log.Debug("object is missing in write-cache, fallback to BLOB storage",
+				zap.Stringer("object", addr), zap.Error(err))
+		} else {
+			s.log.Info("failed to get object from write-cache, fallback to BLOB storage",
+				zap.Stringer("object", addr), zap.Error(err))
 		}
 	}
 
+	// TODO: support GetRangeStream https://github.com/nspcc-dev/neofs-node/issues/3593
 	hdr, rc, err := s.blobStor.GetStream(oid.NewAddress(cnr, id))
 	if err != nil {
 		return 0, nil, fmt.Errorf("get from BLOB storage: %w", err)
@@ -138,5 +158,5 @@ func slicePayloadReader(rc io.ReadCloser, pldLen uint64, off, ln int64) (io.Read
 		}
 	}
 
-	return limitReadCloser(rc, ln), nil
+	return iio.LimitReadCloser(rc, ln), nil
 }

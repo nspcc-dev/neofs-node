@@ -12,6 +12,7 @@ import (
 	"testing/iotest"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
@@ -219,7 +220,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 			getECPart: map[getECPartKey]getECPartValue{
 				{cnr: cnr, parent: parentID, pi: pi}: {
 					hdr: partHdr,
-					rdr: ioReadCloser{
+					rdr: iio.ReadCloser{
 						Reader: io.MultiReader(bytes.NewReader(okData), iotest.ErrReader(readErr)),
 						Closer: &closer,
 					},
@@ -258,7 +259,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 			getECPart: map[getECPartKey]getECPartValue{
 				{cnr: cnr, parent: parentID, pi: pi}: {
 					hdr: partHdr,
-					rdr: ioReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
+					rdr: iio.ReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
 				},
 			},
 		}
@@ -295,7 +296,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 			getECPart: map[getECPartKey]getECPartValue{
 				{cnr: cnr, parent: parentID, pi: pi}: {
 					hdr: partHdr,
-					rdr: ioReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
+					rdr: iio.ReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
 				},
 			},
 		}
@@ -329,7 +330,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 		getECPart: map[getECPartKey]getECPartValue{
 			{cnr: cnr, parent: parentID, pi: pi}: {
 				hdr: partHdr,
-				rdr: ioReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
+				rdr: iio.ReadCloser{Reader: bytes.NewReader(partData), Closer: &closer},
 			},
 		},
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -50,21 +51,57 @@ func (db *DB) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID,
 	return res, err
 }
 
-// TODO: docs.
-func (db *DB) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (OIDWithPayloadLen, error) {
+// ResolveECPartWithPayloadLen is like [DB.ResolveECPart] but also returns
+// payload length.
+func (db *DB) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (iobject.OIDWithPayloadLen, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 	if db.mode.NoMetabase() {
-		return OIDWithPayloadLen{}, ErrDegradedMode
+		return iobject.OIDWithPayloadLen{}, ErrDegradedMode
 	}
 
-	var res OIDWithPayloadLen
+	var res iobject.OIDWithPayloadLen
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
 		res, err = db.resolveECPartWithPayloadLenTx(tx, cnr, parent, pi)
 		return err
 	})
 	return res, err
+}
+
+func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (iobject.OIDWithPayloadLen, error) {
+	metaBkt := tx.Bucket(metaBucketKey(cnr))
+	if metaBkt == nil {
+		return iobject.OIDWithPayloadLen{}, apistatus.ErrObjectNotFound
+	}
+
+	metaBktCrs := metaBkt.Cursor()
+
+	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi)
+	if err != nil {
+		return iobject.OIDWithPayloadLen{}, err
+	}
+
+	lnAttrPref := slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPayloadSize), objectcore.MetaAttributeDelimiter)
+	k, _ := metaBktCrs.Seek(lnAttrPref)
+	lnAttr, ok := bytes.CutPrefix(k, lnAttrPref)
+	if !ok {
+		return iobject.OIDWithPayloadLen{}, fmt.Errorf("missing index for payload len attribute of object %w", ierrors.ObjectID(id))
+	}
+
+	ln, err := strconv.ParseUint(string(lnAttr), 10, 64)
+	if err != nil {
+		var ne *strconv.NumError
+		if !errors.As(err, &ne) { // must never happen
+			return iobject.OIDWithPayloadLen{}, fmt.Errorf("invalid payload len attribute of object %w", ierrors.ObjectID(id))
+		}
+		return iobject.OIDWithPayloadLen{}, fmt.Errorf("invalid payload len attribute of object %w: parse to uint64: %w", ierrors.ObjectID(id), ne.Err)
+	}
+
+	return iobject.OIDWithPayloadLen{
+		ID:         id,
+		PayloadLen: ln,
+	}, nil
 }
 
 func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
@@ -74,41 +111,6 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 	}
 
 	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi)
-}
-
-// TODO: docs.
-func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (OIDWithPayloadLen, error) {
-	metaBkt := tx.Bucket(metaBucketKey(cnr))
-	if metaBkt == nil {
-		return OIDWithPayloadLen{}, apistatus.ErrObjectNotFound
-	}
-
-	metaBktCrs := metaBkt.Cursor()
-
-	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi)
-	if err != nil {
-		return OIDWithPayloadLen{}, err
-	}
-
-	lnAttrPref := slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPayloadSize), objectcore.MetaAttributeDelimiter)
-	k, _ := metaBktCrs.Seek(lnAttrPref)
-	lnAttr, ok := bytes.CutPrefix(k, lnAttrPref)
-	if !ok {
-		return OIDWithPayloadLen{}, fmt.Errorf("missing payload index for object %w", ierrors.ObjectID(id))
-	}
-	ln, err := strconv.ParseUint(string(lnAttr), 10, 64)
-	if err != nil {
-		var ne *strconv.NumError
-		if !errors.As(err, &ne) { // must never happen
-			return OIDWithPayloadLen{}, fmt.Errorf("invalid payload len attribute of object %w", ierrors.ObjectID(id))
-		}
-		return OIDWithPayloadLen{}, fmt.Errorf("invalid payload len attribute of object %w: parse to uint64: %w", ierrors.ObjectID(id), ne.Err)
-	}
-
-	return OIDWithPayloadLen{
-		ID:         id,
-		PayloadLen: ln,
-	}, nil
 }
 
 func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {

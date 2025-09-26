@@ -5,6 +5,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -19,7 +20,7 @@ import (
 // interface of [meta.DB] used by [Shard] for overriding in tests.
 type metabase interface {
 	ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error)
-	ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (meta.OIDWithPayloadLen, error)
+	ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (iobject.OIDWithPayloadLen, error)
 }
 
 // Shard represents single shard of NeoFS Local Storage Engine.
