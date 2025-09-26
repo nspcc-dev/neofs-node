@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -40,6 +41,7 @@ type resolveECPartValue struct {
 }
 
 type mockMetabase struct {
+	unimplementedMetabase
 	resolveECPart map[resolveECPartKey]resolveECPartValue
 }
 
@@ -57,6 +59,7 @@ func (x *mockMetabase) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo)
 
 type getStreamValue struct {
 	obj object.Object
+	rc  io.ReadCloser
 	err error
 }
 
@@ -70,6 +73,9 @@ func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 	if !ok {
 		return nil, nil, errors.New("[test] unexpected object requested")
 	}
+	if val.rc != nil {
+		return val.obj.CutPayload(), val.rc, nil
+	}
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
@@ -82,6 +88,9 @@ func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadClo
 	val, ok := x.getStream[addr]
 	if !ok {
 		return nil, nil, errors.New("[test] unexpected object requested")
+	}
+	if val.rc != nil {
+		return val.obj.CutPayload(), val.rc, nil
 	}
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
@@ -224,4 +233,31 @@ func (unimplementedWriteCache) Close() error {
 
 func (unimplementedWriteCache) ObjectStatus(oid.Address) (writecache.ObjectStatus, error) {
 	panic("unimplemented")
+}
+
+type unimplementedMetabase struct{}
+
+func (unimplementedMetabase) ResolveECPart(cid.ID, oid.ID, iec.PartInfo) (oid.ID, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetabase) ResolveECPartWithPayloadLen(cid.ID, oid.ID, iec.PartInfo) (iobject.OIDWithPayloadLen, error) {
+	panic("unimplemented")
+}
+
+type closeFlag bool
+
+func (x *closeFlag) Close() error {
+	*x = true
+	return nil
+}
+
+// [iotest.ErrReader] analogue.
+type errSeeker struct {
+	io.ReadCloser
+	err error
+}
+
+func (x errSeeker) Seek(int64, int) (int64, error) {
+	return 0, x.err
 }
