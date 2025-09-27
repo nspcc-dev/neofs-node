@@ -205,7 +205,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 		// the same placement policy; placement's len must be kept the same, do
 		// not nil the slice, keep it initialized
 		for i := range t.collectedSignatures {
-			clear(t.collectedSignatures[i])
+			t.collectedSignatures[i] = t.collectedSignatures[i][:0]
 		}
 	}()
 
