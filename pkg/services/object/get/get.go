@@ -25,9 +25,9 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	if pi.RuleIndex >= 0 {
-		if len(ecRules) == 0 {
+		if err := checkPartRequestAgainstPolicy(ecRules, pi); err != nil {
 			// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
-			return errors.New("invalid request: EC part requested in container without EC policy")
+			return fmt.Errorf("invalid request: %w", err)
 		}
 		// TODO: deny if node is not in the container?
 		return s.copyLocalECPart(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)

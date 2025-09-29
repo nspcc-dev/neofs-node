@@ -130,6 +130,10 @@ func TestService_Get_EC_Part(t *testing.T) {
 		Index:     34,
 	}
 
+	ecRules := make([]iec.Rule, pi.RuleIndex+1)
+	ecRules[pi.RuleIndex].DataPartNum = 30
+	ecRules[pi.RuleIndex].ParityPartNum = 5
+
 	t.Run("container policy application failure", func(t *testing.T) {
 		policyErr := errors.New("some policy error")
 
@@ -170,7 +174,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 		svc := New(&mockNeoFSNet{
 			getNodesForObject: map[oid.Address]getNodesForObjectValue{
-				parentAddr: {ecRules: []iec.Rule{{}}},
+				parentAddr: {ecRules: ecRules},
 			},
 		})
 		svc.localObjects = &mockLocalObjects{
@@ -209,7 +213,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 		svc := New(&mockNeoFSNet{
 			getNodesForObject: map[oid.Address]getNodesForObjectValue{
-				parentAddr: {ecRules: []iec.Rule{{}}},
+				parentAddr: {ecRules: ecRules},
 			},
 		})
 
@@ -248,7 +252,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 		svc := New(&mockNeoFSNet{
 			getNodesForObject: map[oid.Address]getNodesForObjectValue{
-				parentAddr: {ecRules: []iec.Rule{{}}},
+				parentAddr: {ecRules: ecRules},
 			},
 		})
 
@@ -285,7 +289,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 		svc := New(&mockNeoFSNet{
 			getNodesForObject: map[oid.Address]getNodesForObjectValue{
-				parentAddr: {ecRules: []iec.Rule{{}}},
+				parentAddr: {ecRules: ecRules},
 			},
 		})
 
@@ -319,7 +323,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 	svc := New(&mockNeoFSNet{
 		getNodesForObject: map[oid.Address]getNodesForObjectValue{
-			parentAddr: {ecRules: []iec.Rule{{}}},
+			parentAddr: {ecRules: ecRules},
 		},
 	})
 
