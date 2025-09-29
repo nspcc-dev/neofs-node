@@ -431,7 +431,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 		iec.AttributePartIdx, partIdxAttr,
 	})
 	if err != nil {
-		err = convertContextCanceledStatus(err)
+		err = convertContextStatus(err)
 		return object.Object{}, nil, fmt.Errorf("get object from remote SN: %w", err)
 	}
 

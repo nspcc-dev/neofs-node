@@ -396,14 +396,6 @@ func (c *clientCacheWrapper) connect(node netmap.NodeInfo) (coreclient.MultiAddr
 
 // TODO: share.
 // see also https://github.com/nspcc-dev/neofs-sdk-go/issues/624.
-func convertContextCanceledStatus(err error) error {
-	st, ok := status.FromError(err)
-	if ok && st.Code() == codes.Canceled {
-		return context.Canceled
-	}
-	return err
-}
-
 func convertContextStatus(err error) error {
 	switch st, _ := status.FromError(err); st.Code() {
 	default:
