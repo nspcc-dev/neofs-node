@@ -79,7 +79,7 @@ func (p *Processor) HandleBasicIncomeEvent(e event.Event) {
 
 	l.Info("start basic income calculation...")
 
-	payments := p.calculatePayments(l, rate, epoch, cnrs)
+	payments := p.calculatePayments(l, rate, cnrs)
 
 	l.Info("basic income calculated, transfer tokens...", zap.Int("numberOfRecievers", len(payments.nodes)))
 
@@ -88,7 +88,7 @@ func (p *Processor) HandleBasicIncomeEvent(e event.Event) {
 	l.Debug("finished basic income distribution")
 }
 
-func (p *Processor) calculatePayments(l *zap.Logger, paymentRate, epoch uint64, cnrs []cid.ID) *incomeReceivers {
+func (p *Processor) calculatePayments(l *zap.Logger, paymentRate uint64, cnrs []cid.ID) *incomeReceivers {
 	var (
 		wg            errgroup.Group
 		transferTable = incomeReceivers{nodes: make(map[string][]payment)}
@@ -104,7 +104,7 @@ func (p *Processor) calculatePayments(l *zap.Logger, paymentRate, epoch uint64, 
 			}
 			owner := cnr.Owner()
 
-			reports, err := p.cnrClient.NodeReports(epoch, cID)
+			reports, err := p.cnrClient.NodeReports(cID)
 			if err != nil {
 				l.Warn("failed to get container reports, container will be skipped", zap.Stringer("cID", cID), zap.Error(err))
 				return nil

@@ -70,11 +70,10 @@ func (c *Client) PutReport(cID cid.ID, storageSize, objsNumber uint64, key []byt
 	return nil
 }
 
-// NodeReports returns a list of container load reports for to the
-// specified epoch.
+// NodeReports returns a list of container load reports.
 // The list is composed through Container contract call.
-func (c *Client) NodeReports(epoch uint64, cID cid.ID) ([]Report, error) {
-	rr, err := c.client.TestInvokeIterator(fschaincontracts.IterateContainerReportsMethod, iteratorPrefetchNumber, epoch, cID[:])
+func (c *Client) NodeReports(cID cid.ID) ([]Report, error) {
+	rr, err := c.client.TestInvokeIterator(fschaincontracts.IterateContainerReportsMethod, iteratorPrefetchNumber, cID[:])
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", fschaincontracts.IterateContainerReportsMethod, err)
 	}
@@ -128,10 +127,10 @@ func (s *Summary) FromStackItem(item stackitem.Item) error {
 
 // GetReportsSummary returns summary report based on preceding [PutReport]
 // calls made by storage nodes.
-func (c *Client) GetReportsSummary(epoch uint64, cID cid.ID) (Summary, error) {
+func (c *Client) GetReportsSummary(cID cid.ID) (Summary, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(fschaincontracts.GetReportsSummaryMethod)
-	prm.SetArgs(epoch, cID[:])
+	prm.SetArgs(cID[:])
 
 	res, err := c.client.TestInvoke(prm)
 	if err != nil {
