@@ -240,7 +240,7 @@ func initObjectService(c *cfg) {
 
 	os := &objectSource{get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
-		initQuotas(c.cCli, c.nCli, c.cfgObject.quotasTTL),
+		initQuotas(c.cCli, c.cfgObject.quotasTTL),
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
@@ -786,13 +786,12 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 	}, nil
 }
 
-func initQuotas(cnrCli *containerClient.Client, nmCli *netmapClient.Client, ttl time.Duration) *quotas {
+func initQuotas(cnrCli *containerClient.Client, ttl time.Duration) *quotas {
 	return &quotas{
-		cnrCli:    cnrCli,
-		netmapCli: nmCli,
-		ttl:       ttl,
-		cnrs:      make(map[cid.ID]cachedQuotaState),
-		users:     make(map[user.ID]cachedQuotaState),
+		cnrCli: cnrCli,
+		ttl:    ttl,
+		cnrs:   make(map[cid.ID]cachedQuotaState),
+		users:  make(map[user.ID]cachedQuotaState),
 	}
 }
 
@@ -802,8 +801,7 @@ type cachedQuotaState struct {
 }
 
 type quotas struct {
-	cnrCli    *containerClient.Client
-	netmapCli *netmapClient.Client
+	cnrCli *containerClient.Client
 
 	m          sync.RWMutex
 	ttl        time.Duration
@@ -822,16 +820,11 @@ func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64,
 	q.m.RUnlock()
 
 	if !cnrOk || needRefresh {
-		epoch, err := q.netmapCli.Epoch()
-		if err != nil {
-			return 0, 0, fmt.Errorf("get current epoch: %w", err)
-		}
-
 		cnrQ, err := q.cnrCli.GetContainerQuota(cID)
 		if err != nil {
 			return 0, 0, fmt.Errorf("get container quota: %w", err)
 		}
-		cnrState, err := q.cnrCli.GetReportsSummary(epoch, cID)
+		cnrState, err := q.cnrCli.GetReportsSummary(cID)
 		if err != nil {
 			return 0, 0, fmt.Errorf("get report summary: %w", err)
 		}
