@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Metadata signatures submission (#3591)
 - Expired lock still locked the object (#3601)
 - Empty storage and error-free startup when changing layout parameters (#3594)
+- Flaky storage evacuation unit test (#3605)
 
 ### Changed
 - Stream payload without buffering to reduce memory usage in CLI `Get/Put` operations (#3535)
