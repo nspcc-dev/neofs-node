@@ -527,3 +527,19 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 
 	return fmt.Errorf("not all EC attributes received: requested %d, got %d", expected, found)
 }
+
+func checkPartRequestAgainstPolicy(ecRules []iec.Rule, pi iec.PartInfo) error {
+	if len(ecRules) == 0 {
+		return errors.New("EC part requested in container without EC policy")
+	}
+
+	if pi.RuleIndex >= len(ecRules) {
+		return fmt.Errorf("EC rule index overflows container policy: idx=%d,rules=%d", pi.RuleIndex, len(ecRules))
+	}
+
+	if total := ecRules[pi.RuleIndex].DataPartNum + ecRules[pi.RuleIndex].ParityPartNum; pi.Index >= int(total) {
+		return fmt.Errorf("EC part index overflows container policy: idx=%d,parts=%d", pi.Index, total)
+	}
+
+	return nil
+}
