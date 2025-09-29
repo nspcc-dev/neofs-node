@@ -395,6 +395,8 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 	if _, err := io.ReadFull(rc, buf); err != nil {
 		if errors.Is(err, io.EOF) { // empty payload is caught above
 			err = io.ErrUnexpectedEOF
+		} else {
+			err = convertContextStatus(err)
 		}
 		return object.Object{}, nil, fmt.Errorf("read full payload: %w", err)
 	}
