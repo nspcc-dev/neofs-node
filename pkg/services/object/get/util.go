@@ -370,10 +370,14 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 
 // TODO: share.
 // see also https://github.com/nspcc-dev/neofs-sdk-go/issues/624.
-func convertContextCanceledStatus(err error) error {
+func convertContextStatus(err error) error {
 	st, ok := status.FromError(err)
-	if ok && st.Code() == codes.Canceled {
-		return context.Canceled
+	if ok {
+		if code := st.Code(); code == codes.Canceled {
+			return context.Canceled
+		} else if code == codes.DeadlineExceeded {
+			return context.DeadlineExceeded
+		}
 	}
 	return err
 }
