@@ -12,6 +12,7 @@ import (
 	"hash"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -1966,9 +1967,12 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	default:
 	}
 
-	var res []sdkclient.SearchResultItem
-	var newCursor []byte
-	count := uint16(body.Count) // legit according to the limit
+	var (
+		count      = uint16(body.Count) // legit according to the limit
+		incomplete atomic.Value
+		newCursor  []byte
+		res        []sdkclient.SearchResultItem
+	)
 	switch {
 	case ttl == 1:
 		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err != nil {
@@ -2022,7 +2026,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				defer wg.Done()
 				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
 					add(set, more)
-				} // TODO: else log error
+				} else {
+					var inc = new(apistatus.Incomplete)
+					inc.SetMessage(fmt.Sprintf("last error: %s", err.Error()))
+					incomplete.Store(inc)
+				}
 			}); resErr != nil {
 				wg.Done()
 			}
@@ -2073,6 +2081,10 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		for i := range res {
 			res[i].Attributes = nil
 		}
+	}
+	var incValue = incomplete.Load()
+	if incValue != nil {
+		return res, newCursor, incValue.(error)
 	}
 
 	return res, newCursor, nil
