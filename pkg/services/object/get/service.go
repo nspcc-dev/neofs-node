@@ -96,8 +96,6 @@ type cfg struct {
 			st *session.Object, bt *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
 		InitGetObjectRangeStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			off, ln uint64, st *session.Object, bt *bearer.Token, xs []string) (io.ReadCloser, error)
-		Head(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-			st *session.Object, bt *bearer.Token) (object.Object, error)
 	}
 
 	keyStore interface {

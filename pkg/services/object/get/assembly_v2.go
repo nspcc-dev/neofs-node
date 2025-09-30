@@ -128,7 +128,8 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 
 func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 	children := link.Objects()
-	first, firstOffset, last, lastBound := requiredChildren(exec.ctxRange(), children)
+	rng := exec.ctxRange()
+	first, firstOffset, last, lastBound := requiredChildren(rng.GetOffset(), rng.GetLength(), children)
 
 	for i := first; i <= last; i++ {
 		child := children[i]
@@ -160,8 +161,8 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 // it is required for ranges to be in the bounds of the all objects' payload;
 // it must be checked on higher levels; returns (firstObject, firstObjectOffset,
 // lastObject, lastObjectRightBound).
-func requiredChildren(rng *objectSDK.Range, children []objectSDK.MeasuredObject) (int, uint64, int, uint64) {
-	return requiredChildrenIter(rng.GetOffset(), rng.GetLength(), func(yield func(int, uint64) bool) {
+func requiredChildren(off, ln uint64, children []objectSDK.MeasuredObject) (int, uint64, int, uint64) {
+	return requiredChildrenIter(off, ln, func(yield func(int, uint64) bool) {
 		for i := range children {
 			if !yield(i, uint64(children[i].ObjectSize())) {
 				return
