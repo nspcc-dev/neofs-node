@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Switched to local BoltDB fork based on go.etcd.io/bbolt version 1.4.3 (#3576)
 - Move processing of expired objects from the epoch event handler to the regular GC cycle (#3582)
 - More compact EACL table representation in neofs-cli acl extended print command (#3597)
+- Storage node returns new Busy/Incomplete/BadRequest status codes when appropriate (#3606)
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)

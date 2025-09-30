@@ -344,7 +344,7 @@ func TestServer_Replicate(t *testing.T) {
 			{
 				name:         "missing object signature field",
 				fSig:         func() *refs.Signature { return nil },
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "missing object signature field",
 			},
 			{
@@ -356,7 +356,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_SHA512, // any supported
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "public key field is missing/empty in the object signature field",
 			},
 			{
@@ -368,7 +368,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_SHA512, // any supported
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "signature value is missing/empty in the object signature field",
 			},
 			{
@@ -380,7 +380,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: 3,
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "unsupported scheme in the object signature field",
 			},
 		} {
@@ -410,7 +410,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_SHA512,
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "invalid ECDSA public key in the object signature field",
 			},
 			{
@@ -422,7 +422,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_SHA512,
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "signature mismatch in the object signature field",
 			},
 			{
@@ -434,7 +434,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256,
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "invalid ECDSA public key in the object signature field",
 			},
 			{
@@ -446,7 +446,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256,
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "signature mismatch in the object signature field",
 			},
 			{
@@ -458,7 +458,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT,
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "invalid ECDSA public key in the object signature field",
 			},
 			{
@@ -470,7 +470,7 @@ func TestServer_Replicate(t *testing.T) {
 						Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT,
 					}
 				},
-				expectedCode: 1024,
+				expectedCode: 1028,
 				expectedMsg:  "signature mismatch in the object signature field",
 			},
 		} {
