@@ -167,11 +167,11 @@ func TestEvacuateNetwork(t *testing.T) {
 	})
 	t.Run("multiple shards, evacuate many", func(t *testing.T) {
 		e, ids, objects := newEngineEvacuate(t, 4, 5)
-		evacuateIDs := ids[0:3]
+		evacuateIDs := ids[1:4]
 
 		var totalCount int
-		for i := range evacuateIDs {
-			res, err := e.shards[ids[i].String()].List()
+		for _, id := range evacuateIDs {
+			res, err := e.shards[id.String()].List()
 			require.NoError(t, err)
 
 			totalCount += len(res)
