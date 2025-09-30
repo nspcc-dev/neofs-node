@@ -178,7 +178,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 
 	repRules := t.containerNodes.PrimaryCounts()
 	ecRules := t.containerNodes.ECRules()
-	if typ := obj.Type(); len(repRules) > 0 || typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLock {
+	if typ := obj.Type(); len(repRules) > 0 || typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLock || typ == objectSDK.TypeLink {
 		broadcast := typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLink || (!t.localOnly && typ == objectSDK.TypeLock) || len(obj.Children()) > 0
 
 		useRepRules := repRules
