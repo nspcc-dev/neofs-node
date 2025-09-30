@@ -29,6 +29,12 @@ var errInterrupt = errors.New("interrupt")
 
 var errInvalidSizeSplitLinker = errors.New("invalid size-split linker")
 
+type sizeSplitinkerError object.Object
+
+func (x sizeSplitinkerError) Error() string {
+	return "object is size-split linker"
+}
+
 type SimpleObjectWriter struct {
 	obj *object.Object
 
