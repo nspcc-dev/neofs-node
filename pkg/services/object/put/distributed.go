@@ -155,6 +155,9 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	err := t.saveObject(*t.obj, objMeta, t.encodedObject)
 	if err != nil {
+		if errors.Is(err, apistatus.ErrIncomplete) {
+			return t.obj.GetID(), err
+		}
 		return oid.ID{}, err
 	}
 
@@ -517,12 +520,17 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 					err = fmt.Errorf("%w (last node error: %w)", err, e)
 				}
 				var retErr = errIncompletePut{singleErr: err}
-				if nodesCounters[listInd].stored == 0 && overloaded {
+				if nodesCounters[listInd].stored == 0 {
+					if !overloaded {
+						return retErr
+					}
 					var busy = new(apistatus.Busy)
 					busy.SetMessage(retErr.Error())
 					return busy
 				}
-				return retErr
+				var inc = new(apistatus.Incomplete)
+				inc.SetMessage(retErr.Error())
+				return inc
 			}
 			nextNodeGroupKeys = slices.Grow(nextNodeGroupKeys, int(replRem))[:0]
 			for ; nodesCounters[listInd].processed < listLen && uint(len(nextNodeGroupKeys)) < replRem; nodesCounters[listInd].processed++ {
