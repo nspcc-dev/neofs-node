@@ -132,14 +132,16 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 	)
 
 	var partCrs *bbolt.Cursor
-	var rulePref, partPref []byte
+	var rulePref, partPref, typePref []byte
 	isParent := false
 	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
 		partID, ok := bytes.CutPrefix(k, pref)
 		if !ok {
 			if !isParent { // neither tombstone nor lock can be a parent
-				typePref := make([]byte, metaIDTypePrefixSize)
-				fillIDTypePrefix(typePref)
+				if typePref == nil {
+					typePref = make([]byte, metaIDTypePrefixSize)
+					fillIDTypePrefix(typePref)
+				}
 				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock) {
 					return parent, nil
 				}
@@ -167,6 +169,13 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 			copy(rulePref[1:], partID)
 		}
 		if k, _ = partCrs.Seek(rulePref); !bytes.Equal(k, rulePref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
+			if typePref == nil {
+				typePref = make([]byte, metaIDTypePrefixSize)
+				fillIDTypePrefix(typePref)
+			}
+			if typ, err := fetchTypeForID(partCrs, typePref, oid.ID(partID)); err == nil && typ == object.TypeLink {
+				return oid.ID(partID), nil
+			}
 			continue
 		}
 

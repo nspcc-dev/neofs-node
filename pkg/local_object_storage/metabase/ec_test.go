@@ -257,15 +257,19 @@ func TestDB_ResolveECPart(t *testing.T) {
 	}
 
 	// OK cases
-	checkOK := func(t *testing.T, db *meta.DB, pi iec.PartInfo, exp oid.ID) {
+	checkOKWithLen := func(t *testing.T, db *meta.DB, pi iec.PartInfo, expID oid.ID, expLen int) {
 		res, err := db.ResolveECPart(cnr, parentID, pi)
 		require.NoError(t, err)
-		require.Equal(t, exp, res)
+		require.Equal(t, expID, res)
 
 		id, ln, err := db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
 		require.NoError(t, err)
-		require.Equal(t, exp, id)
-		require.EqualValues(t, 1000+pi.Index, ln)
+		require.Equal(t, expID, id)
+		require.EqualValues(t, expLen, ln)
+	}
+
+	checkOK := func(t *testing.T, db *meta.DB, pi iec.PartInfo, exp oid.ID) {
+		checkOKWithLen(t, db, pi, exp, 1000+pi.Index)
 	}
 
 	for _, tc := range []testcase{
@@ -357,6 +361,21 @@ func TestDB_ResolveECPart(t *testing.T) {
 			require.EqualValues(t, sysObj.PayloadSize(), ln)
 		})
 	}
+
+	t.Run("LINK", func(t *testing.T) {
+		db := newDB(t)
+		linkerID := oidtest.OtherID(parentID)
+		const linkerPayloadLen = 1234 // any
+
+		linker := newBlankObject(cnr, linkerID)
+		linker.SetParent(&parentObj)
+		linker.SetType(object.TypeLink)
+		linker.SetPayloadSize(linkerPayloadLen)
+
+		require.NoError(t, db.Put(&linker))
+
+		checkOKWithLen(t, db, pi, linkerID, linkerPayloadLen)
+	})
 
 	db := newDB(t)
 	require.NoError(t, db.Put(&partObj))
