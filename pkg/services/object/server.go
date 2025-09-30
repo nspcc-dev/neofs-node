@@ -1776,6 +1776,9 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 
 	err = s.storage.VerifyAndStoreObjectLocally(*obj)
 	if err != nil {
+		if errors.Is(err, apistatus.ErrBusy) {
+			return &protoobject.ReplicateResponse{Status: apistatus.FromError(err)}, nil
+		}
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code:    codeInternal,
 			Message: fmt.Sprintf("failed to verify and store object locally: %v", err),
@@ -2027,7 +2030,13 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		})
 		wg.Wait()
 		if err == nil {
-			err = resErr
+			if errors.Is(resErr, ants.ErrPoolOverload) {
+				var busy = new(apistatus.Busy)
+				busy.SetMessage(resErr.Error())
+				err = busy
+			} else {
+				err = resErr
+			}
 		}
 		if err != nil {
 			return nil, nil, err

@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
@@ -77,8 +78,11 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 	default:
 	}
 
-	var bestShard shardWrapper
-	var bestPool util.WorkerPool
+	var (
+		bestPool   util.WorkerPool
+		bestShard  shardWrapper
+		overloaded bool
+	)
 
 	for i, sh := range e.sortedShards(addr) {
 		e.mtx.RLock()
@@ -93,17 +97,32 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 			continue
 		}
 
-		putDone, exists, _ := e.putToShard(sh, i, pool, addr, obj, objBin)
+		putDone, exists, over := e.putToShard(sh, i, pool, addr, obj, objBin)
 		if putDone || exists {
 			return nil
+		}
+		if over {
+			overloaded = true
 		}
 	}
 
 	e.log.Debug("failed to put object to shards, trying the best one more",
 		zap.Stringer("addr", addr), zap.Stringer("best shard", bestShard.ID()))
 
-	if e.objectPutTimeout > 0 && e.putToShardWithDeadLine(bestShard, 0, bestPool, addr, obj, objBin) {
-		return nil
+	if e.objectPutTimeout > 0 {
+		success, over := e.putToShardWithDeadLine(bestShard, 0, bestPool, addr, obj, objBin)
+		if success {
+			return nil
+		}
+		if over {
+			overloaded = true
+		}
+	}
+
+	if overloaded {
+		var busy = new(apistatus.Busy)
+		busy.SetMessage(errPutShard.Error())
+		return busy
 	}
 
 	return errPutShard
@@ -188,25 +207,28 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 	return putSuccess, alreadyExists, overloaded
 }
 
-func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) bool {
-	timer := time.NewTimer(e.objectPutTimeout)
-
+func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) (bool, bool) {
 	const putCooldown = 100 * time.Millisecond
-	ticker := time.NewTicker(putCooldown)
+	var (
+		overloaded bool
+		ticker     = time.NewTicker(putCooldown)
+		timer      = time.NewTimer(e.objectPutTimeout)
+	)
 
 	for {
 		select {
 		case <-timer.C:
 			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.objectPutTimeout))
-			return false
+			return false, overloaded
 		case <-ticker.C:
-			putDone, exists, overloaded := e.putToShard(sh, ind, pool, addr, obj, objBin)
-			if overloaded {
+			putDone, exists, over := e.putToShard(sh, ind, pool, addr, obj, objBin)
+			if over {
+				overloaded = true
 				ticker.Reset(putCooldown)
 				continue
 			}
 
-			return putDone || exists
+			return putDone || exists, false
 		}
 	}
 }
