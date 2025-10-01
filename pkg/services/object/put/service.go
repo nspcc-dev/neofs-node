@@ -148,7 +148,7 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q Quot
 		fmtValidatorChain = c.cnrClient.Morph()
 	}
 
-	c.fmtValidator = object.NewFormatValidator(fmtValidatorChain, neoFSNet, c.fmtValidatorOpts...)
+	c.fmtValidator = object.NewFormatValidator(fmtValidatorChain, neoFSNet, c.cnrSrc, c.fmtValidatorOpts...)
 	c.metaSvc = m
 	c.quotaLimiter = q
 
