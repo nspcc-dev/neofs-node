@@ -27,6 +27,16 @@ type PartInfo struct {
 // set too. If both are missing, GetPartInfo returns [PartInfo.RuleIndex] = -1
 // without error.
 func GetPartInfo(obj object.Object) (PartInfo, error) {
+	return getPartInfo(obj, false)
+}
+
+// GetRequiredPartInfo is like [GetPartInfo] but fails when object does not
+// contain EC part attributes.
+func GetRequiredPartInfo(obj object.Object) (PartInfo, error) {
+	return getPartInfo(obj, true)
+}
+
+func getPartInfo(obj object.Object, require bool) (PartInfo, error) {
 	ruleIdx, err := iobject.GetIndexAttribute(obj, AttributeRuleIdx)
 	if err != nil {
 		return PartInfo{}, fmt.Errorf("invalid index attribute %s: %w", AttributeRuleIdx, err)
@@ -40,6 +50,9 @@ func GetPartInfo(obj object.Object) (PartInfo, error) {
 	if ruleIdx < 0 {
 		if partIdx >= 0 {
 			return PartInfo{}, fmt.Errorf("%s attribute is set while %s is not", AttributePartIdx, AttributeRuleIdx)
+		}
+		if require {
+			return PartInfo{}, fmt.Errorf("missing %s attribute", AttributeRuleIdx)
 		}
 	} else if partIdx < 0 {
 		return PartInfo{}, fmt.Errorf("%s attribute is set while %s is not", AttributeRuleIdx, AttributePartIdx)
