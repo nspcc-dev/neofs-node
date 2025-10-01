@@ -88,6 +88,7 @@ func listenMorphNotifications(c *cfg) {
 	lis.RegisterHeaderHandler(func(block *block.Header) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))
 
+		c.cfgMorph.epochTimers.UpdateTime(block.Timestamp)
 		c.networkState.block.Store(block.Index)
 
 		err = c.persistate.SetUInt32(persistateFSChainLastBlockKey, block.Index)
