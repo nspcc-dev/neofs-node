@@ -2,11 +2,18 @@ package getsvc
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"sync/atomic"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func (exec *execCtx) executeOnContainer() {
@@ -21,9 +28,10 @@ func (exec *execCtx) executeOnContainer() {
 
 	nodeLists := exec.nodeLists
 	primaryCounts := exec.repRules
+	var ecRules []iec.Rule
 	if nodeLists == nil {
 		var err error
-		nodeLists, primaryCounts, _, err = exec.svc.neoFSNet.GetNodesForObject(addr)
+		nodeLists, primaryCounts, ecRules, err = exec.svc.neoFSNet.GetNodesForObject(addr)
 		if err != nil {
 			exec.status = statusUndefined
 			exec.err = err
@@ -94,4 +102,74 @@ func (exec *execCtx) executeOnContainer() {
 			i = -1
 		}
 	}
+
+	if len(ecRules) == 0 {
+		return
+	}
+
+	localNodeKey, err := exec.svc.keyStore.GetKey(nil)
+	if err != nil {
+		exec.err = fmt.Errorf("get local SN private key: %w", err)
+		return
+	}
+
+	cnr := addr.Container()
+	id := addr.Object()
+	sTok := exec.prm.common.SessionToken()
+	bTok := exec.prm.common.BearerToken()
+
+	var hdrAtomic atomic.Value // object.Object
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	for i := range ecRules {
+		totalParts := int(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
+		eg.SetLimit(min(totalParts, 3))
+
+		nodeList := nodeLists[len(primaryCounts)+i]
+		for j := range nodeList {
+			node := nodeList[j]
+			eg.Go(func() error {
+				// errgroup call the function even when context is done. Routines for backup
+				// nodes should catch this asap to do nothing.
+				if err := egCtx.Err(); err != nil {
+					return err
+				}
+
+				hdr, err := exec.svc.conns.Head(egCtx, node, *localNodeKey, cnr, id, sTok, bTok)
+				if err == nil {
+					hdrAtomic.CompareAndSwap(nil, hdr)
+					return errInterrupt
+				}
+
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, egCtx.Err()) {
+					return err
+				}
+
+				if !errors.Is(err, apistatus.ErrObjectNotFound) {
+					exec.log.Debug("failed to HEAD object from remote node",
+						zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Error(err))
+				}
+
+				return nil
+			})
+		}
+
+		err := eg.Wait()
+		if err != nil {
+			if !errors.Is(err, errInterrupt) {
+				exec.err = err
+				return
+			}
+			break
+		}
+	}
+
+	hdrVal := hdrAtomic.Load()
+	if hdrVal == nil {
+		return
+	}
+
+	hdr := hdrVal.(object.Object)
+	exec.collectedHeader = &hdr
+	exec.writeCollectedHeader()
 }
