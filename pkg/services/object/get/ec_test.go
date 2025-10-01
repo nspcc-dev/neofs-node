@@ -543,6 +543,7 @@ func parameterizePartInfoString(t testing.TB, p *Prm, ruleIdx, partIdx string) {
 }
 
 type testECServiceConn struct {
+	unimplementedServiceConns
 	mockKeyStorage
 	sTok *session.Object
 

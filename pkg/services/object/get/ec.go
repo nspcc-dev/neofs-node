@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -57,6 +59,107 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 	}
 
 	return nil
+}
+
+func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID,
+	sTok *session.Object, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) error {
+	hdr, err := s.getECObjectHeader(ctx, cnr, parent, sTok, ecRules, sortedNodeLists)
+	if err != nil {
+		return err
+	}
+
+	if err := dst.WriteHeader(&hdr); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, sTok *session.Object,
+	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) (object.Object, error) {
+	localNodeKey, err := s.keyStore.GetKey(nil)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("get local SN private key: %w", err)
+	}
+
+	// TODO: limit per-rule context? https://github.com/nspcc-dev/neofs-node/issues/3560
+	var firstErr error
+	for i := range ecRules {
+		hdr, err := s.getECObjectHeaderByRule(ctx, *localNodeKey, cnr, id, sTok, sortedNodeLists[i])
+		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+			return hdr, err
+		}
+
+		if i == 0 {
+			firstErr = err
+		}
+
+		s.log.Debug("failed to fetch object header by EC rule",
+			zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Stringer("rule", ecRules[i]),
+			zap.Int("rulesLeft", len(ecRules)-i-1), zap.Error(err))
+	}
+
+	return object.Object{}, fmt.Errorf("%w: failed processing of all %d EC rules, first error: %w",
+		apistatus.ErrObjectNotFound, len(ecRules), firstErr)
+}
+
+func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, id oid.ID, sTok *session.Object,
+	sortedNodes []netmap.NodeInfo) (object.Object, error) {
+	var firstErr error
+
+	for i := range sortedNodes {
+		if s.neoFSNet.IsLocalNodePublicKey(sortedNodes[i].PublicKey()) {
+			hdr, err := s.localStorage.(*storageEngineWrapper).engine.Head(oid.NewAddress(cnr, id), false)
+			if err == nil {
+				return *hdr, nil
+			}
+
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+				return object.Object{}, err
+			}
+
+			if errors.Is(err, apistatus.ErrObjectNotFound) {
+				continue
+			}
+
+			if firstErr == nil {
+				firstErr = err
+			}
+
+			s.log.Info("failed to HEAD object from local storage",
+				zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Error(err))
+
+			continue
+		}
+
+		hdr, err := s.conns.Head(ctx, sortedNodes[i], localNodeKey, cnr, id, sTok)
+		if err == nil {
+			return hdr, nil
+		}
+
+		err = convertContextStatus(err)
+
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+			return object.Object{}, err
+		}
+
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			continue
+		}
+
+		if firstErr == nil {
+			firstErr = err
+		}
+
+		s.log.Info("failed to HEAD object from remote node",
+			zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Error(err))
+	}
+
+	if firstErr != nil {
+		return object.Object{}, fmt.Errorf("all %d nodes failed, one of errors: %w", len(sortedNodes), firstErr)
+	}
+
+	return object.Object{}, fmt.Errorf("not found on all %d nodes", len(sortedNodes))
 }
 
 // reads object by (cnr, id) which should be partitioned across specified nodes
