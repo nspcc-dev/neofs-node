@@ -146,9 +146,6 @@ timers:
   collect_basic_income:
     mul: 1 # Multiplier in x/y relation of when to start basic income asset collection within the epoch
     div: 2 # Divider in x/y relation of when to start basic income asset collecting within the epoch
-  distribute_basic_income:
-    mul: 3 # Multiplier in x/y relation of when to start basic income asset distribution within the epoch
-    div: 4 # Divider in x/y relation of when to start basic income asset distribution within the epoch
 
 emit:
   storage:
