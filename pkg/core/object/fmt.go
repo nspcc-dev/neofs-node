@@ -11,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -23,6 +25,7 @@ type FormatValidator struct {
 	*cfg
 	fsChain        FSChain
 	netmapContract NetmapContract
+	containers     container.Source
 }
 
 // FormatValidatorOption represents a FormatValidator constructor option.
@@ -114,7 +117,7 @@ func defaultCfg() *cfg {
 }
 
 // NewFormatValidator creates, initializes and returns FormatValidator instance.
-func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...FormatValidatorOption) *FormatValidator {
+func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containers container.Source, opts ...FormatValidatorOption) *FormatValidator {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -125,6 +128,7 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...
 		cfg:            cfg,
 		fsChain:        fsChain,
 		netmapContract: netmapContract,
+		containers:     containers,
 	}
 }
 
@@ -135,11 +139,17 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...
 //
 // Returns nil error if the object has valid structure.
 func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
+	return v.validate(obj, unprepared, false)
+}
+
+func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool) error {
 	if obj == nil {
 		return errNilObject
 	}
 
-	switch obj.Type() {
+	typ := obj.Type()
+
+	switch typ {
 	case object.TypeStorageGroup: //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
 		return fmt.Errorf("strorage group type is no longer supported")
 	case object.TypeLock, object.TypeTombstone:
@@ -163,6 +173,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilID
 	}
 
+	cnrID := obj.GetContainerID()
 	if obj.GetContainerID().IsZero() {
 		return errNilCID
 	}
@@ -175,8 +186,59 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	splitID := obj.SplitID()
 	par := obj.Parent()
 
+	cnr, err := v.containers.Get(cnrID)
+	if err != nil {
+		return fmt.Errorf("read container by ID=%s: %w", cnrID, err)
+	}
+	policy := cnr.PlacementPolicy()
+	ecRules := policy.ECRules()
+
+	attrs := obj.Attributes()
+
+	// TODO: func out
+	ecAttrInd := -1
+	for i := range attrs {
+		key := attrs[i].Key()
+		if !strings.HasPrefix(key, iec.AttributePrefix) {
+			if ecAttrInd >= 0 {
+				return fmt.Errorf("unexpected attribute %q along with %q one", key, attrs[ecAttrInd].Key())
+			}
+			continue
+		}
+		if i > 0 && ecAttrInd < 0 {
+			return fmt.Errorf("unexpected attribute %q along with %q one", attrs[0].Key(), key)
+		}
+		ecAttrInd = i
+	}
+
+	if len(ecRules) > 0 {
+		switch typ {
+		default:
+			return fmt.Errorf("unsupported object type %v", typ)
+		case object.TypeRegular:
+			if !unprepared {
+				if isParent {
+					if ecAttrInd >= 0 {
+						return fmt.Errorf("parent object contains %q-prefixed attribute", typ, iec.AttributePrefix)
+					}
+				} else {
+					if ecAttrInd < 0 {
+						return fmt.Errorf("object of type %s does not contain %q-prefixed attributes in EC container", typ, iec.AttributePrefix)
+					}
+					if err := verifyRegularECPart(*obj, ecRules); err != nil {
+						return fmt.Errorf("invalid regular EC part object: %w", err)
+					}
+				}
+			}
+		case object.TypeTombstone, object.TypeLock, object.TypeLink:
+			if ecAttrInd >= 0 {
+				return fmt.Errorf("object of type %s contains %q attribute", typ, attrs[ecAttrInd].Key())
+			}
+		}
+	}
+
 	if obj.HasParent() {
-		if par != nil && par.HasParent() {
+		if par != nil && ecAttrInd < 0 && par.HasParent() {
 			return errors.New("parent object has a parent itself")
 		}
 
@@ -190,8 +252,6 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 
 			if firstSet {
 				// 2nd+ parts
-
-				typ := obj.Type()
 
 				// link object only
 				if typ == object.TypeLink && (par == nil || par.Signature() == nil) {
