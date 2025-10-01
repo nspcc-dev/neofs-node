@@ -82,11 +82,13 @@ type cfg struct {
 		get(client.NodeInfo) (getClient, error)
 	}
 	// TODO: merge with clientCache
-	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client.ObjectGetInit
+	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client
 	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
 	conns interface {
 		InitGetObjectStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			st *session.Object, bt *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
+		Head(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+			st *session.Object, bt *bearer.Token) (object.Object, error)
 	}
 
 	keyStore interface {
