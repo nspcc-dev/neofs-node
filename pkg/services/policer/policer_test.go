@@ -853,6 +853,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	for _, typ := range []object.Type{
 		object.TypeTombstone,
 		object.TypeLock,
+		object.TypeLink,
 	} {
 		t.Run(typ.String(), func(t *testing.T) {
 			localObj := localObj
