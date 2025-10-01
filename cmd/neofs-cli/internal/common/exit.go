@@ -30,6 +30,8 @@ func WrapError(err error) error {
 		aclDenied
 		awaitTimeout
 		alreadyRemoved
+		incomplete
+		busy
 	)
 
 	var code int
@@ -45,6 +47,10 @@ func WrapError(err error) error {
 		code = awaitTimeout
 	case errors.Is(err, sdkstatus.ErrObjectAlreadyRemoved):
 		code = alreadyRemoved
+	case errors.Is(err, sdkstatus.ErrIncomplete):
+		code = incomplete
+	case errors.Is(err, sdkstatus.ErrBusy):
+		code = busy
 	default:
 		code = internal
 	}
