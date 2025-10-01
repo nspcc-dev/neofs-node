@@ -1,14 +1,12 @@
 package netmap
 
 import (
-	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
 )
 
-func (np *Processor) HandleNewEpochTick(ev event.Event) {
-	_ = ev.(timerEvent.NewEpochTick)
+func (np *Processor) HandleNewEpochTick() {
 	np.log.Info("tick", zap.String("type", "epoch"))
 
 	// send an event to the worker pool

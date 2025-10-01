@@ -30,7 +30,6 @@ import (
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/structure"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
-	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
@@ -1023,7 +1022,7 @@ func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 func (s *Server) newEpochTickHandlers() []timers.Tick {
 	newEpochHandlers := []timers.Tick{
 		func() {
-			s.netmapProcessor.HandleNewEpochTick(timerEvent.NewEpochTick{})
+			s.netmapProcessor.HandleNewEpochTick()
 		},
 	}
 
