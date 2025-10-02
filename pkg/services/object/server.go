@@ -12,6 +12,7 @@ import (
 	"hash"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,6 +66,7 @@ type Handlers interface {
 // Various NeoFS protocol status codes.
 const (
 	codeInternal          = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_INTERNAL)
+	codeBadRequest        = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_BAD_REQUEST)
 	codeAccessDenied      = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_ACCESS_DENIED)
 	codeContainerNotFound = uint32(1024*protostatus.Section_SECTION_CONTAINER) + uint32(protostatus.Container_CONTAINER_NOT_FOUND)
 )
@@ -446,11 +448,19 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 		}
 
 		if req.Body == nil {
-			return errors.New("malformed request: empty body")
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage("malformed request: empty body")
+			err = bad // defer
+			return err
 		}
 
 		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
+				if !errors.Is(err, apistatus.Error) {
+					var bad = new(apistatus.BadRequest)
+					bad.SetMessage(err.Error())
+					err = bad // defer
+				}
 				return s.sendStatusPutResponse(gStream, err)
 			}
 		} else {
@@ -506,6 +516,11 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 
 	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.makeStatusDeleteResponse(err), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
@@ -520,16 +535,25 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 
 	ma := req.GetBody().GetAddress()
 	if ma == nil {
-		return s.makeStatusDeleteResponse(errors.New("missing object address")), nil
+		var bad = new(apistatus.BadRequest)
+		bad.SetMessage("malformed request: missing object address")
+		err = bad // defer
+		return s.makeStatusDeleteResponse(err), nil
 	}
 	var addr oid.Address
 	err = addr.FromProtoMessage(ma)
 	if err != nil {
-		return s.makeStatusDeleteResponse(fmt.Errorf("invalid object address: %w", err)), nil
+		var bad = new(apistatus.BadRequest)
+		bad.SetMessage(fmt.Sprintf("invalid object address: %s", err.Error()))
+		err = bad // defer
+		return s.makeStatusDeleteResponse(err), nil
 	}
 
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
+		var bad = new(apistatus.BadRequest)
+		bad.SetMessage(fmt.Sprintf("invalid object address: %s", err.Error()))
+		err = bad // defer
 		return s.makeStatusDeleteResponse(err), nil
 	}
 
@@ -590,6 +614,11 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 
 	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
@@ -608,6 +637,11 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	var resp protoobject.HeadResponse
 	p, err := convertHeadPrm(s.signer, req, &resp)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 	err = s.handlers.Head(ctx, p)
@@ -788,6 +822,11 @@ func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 
 	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.makeStatusHashResponse(err), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
@@ -802,6 +841,11 @@ func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 
 	p, err := convertHashPrm(s.signer, s.storage, req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.makeStatusHashResponse(err), nil
 	}
 	res, err := s.handlers.GetRangeHash(ctx, p)
@@ -1013,6 +1057,11 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
@@ -1036,6 +1085,11 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		signResponse: needSignResp,
 	})
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 	err = s.handlers.Get(gStream.Context(), p)
@@ -1287,6 +1341,11 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 
 	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
@@ -1304,6 +1363,11 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		srv:  s,
 	})
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 	err = s.handlers.GetRange(gStream.Context(), p)
@@ -1497,6 +1561,11 @@ func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 
 	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
@@ -1514,6 +1583,11 @@ func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		srv:  s,
 	})
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 	err = s.handlers.Search(gStream.Context(), p)
@@ -1630,38 +1704,38 @@ func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []by
 func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
 	if req.Object == nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeInternal, Message: "binary object field is missing/empty",
+			Code: codeBadRequest, Message: "binary object field is missing/empty",
 		}}, nil
 	}
 
 	if req.Object.ObjectId == nil || len(req.Object.ObjectId.Value) == 0 {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeInternal, Message: "ID field is missing/empty in the object field",
+			Code: codeBadRequest, Message: "ID field is missing/empty in the object field",
 		}}, nil
 	}
 
 	if req.Signature == nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeInternal, Message: "missing object signature field",
+			Code: codeBadRequest, Message: "missing object signature field",
 		}}, nil
 	}
 
 	if len(req.Signature.Key) == 0 {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeInternal, Message: "public key field is missing/empty in the object signature field",
+			Code: codeBadRequest, Message: "public key field is missing/empty in the object signature field",
 		}}, nil
 	}
 
 	if len(req.Signature.Sign) == 0 {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeInternal, Message: "signature value is missing/empty in the object signature field",
+			Code: codeBadRequest, Message: "signature value is missing/empty in the object signature field",
 		}}, nil
 	}
 
 	switch scheme := req.Signature.Scheme; scheme {
 	default:
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
+			Code:    codeBadRequest,
 			Message: "unsupported scheme in the object signature field",
 		}}, nil
 	case
@@ -1673,7 +1747,7 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	hdr := req.Object.GetHeader()
 	if hdr == nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
+			Code:    codeBadRequest,
 			Message: "missing header field in the object field",
 		}}, nil
 	}
@@ -1681,7 +1755,7 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	gCnrMsg := hdr.GetContainerId()
 	if gCnrMsg == nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
+			Code:    codeBadRequest,
 			Message: "missing container ID field in the object header field",
 		}}, nil
 	}
@@ -1690,7 +1764,7 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	err := cnr.FromProtoMessage(gCnrMsg)
 	if err != nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
+			Code:    codeBadRequest,
 			Message: fmt.Sprintf("invalid container ID in the object header field: %v", err),
 		}}, nil
 	}
@@ -1703,7 +1777,7 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		err = pubKey.Decode(req.Signature.Key)
 		if err != nil {
 			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
+				Code:    codeBadRequest,
 				Message: "invalid ECDSA public key in the object signature field",
 			}}, nil
 		}
@@ -1712,7 +1786,7 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		err = pubKey.Decode(req.Signature.Key)
 		if err != nil {
 			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
+				Code:    codeBadRequest,
 				Message: "invalid ECDSA public key in the object signature field",
 			}}, nil
 		}
@@ -1721,14 +1795,14 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		err = pubKey.Decode(req.Signature.Key)
 		if err != nil {
 			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
+				Code:    codeBadRequest,
 				Message: "invalid ECDSA public key in the object signature field",
 			}}, nil
 		}
 	}
 	if !pubKey.Verify(req.Object.ObjectId.Value, req.Signature.Sign) {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
+			Code:    codeBadRequest,
 			Message: "signature mismatch in the object signature field",
 		}}, nil
 	}
@@ -1769,13 +1843,16 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	obj, err := objectFromMessage(req.Object)
 	if err != nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
+			Code:    codeBadRequest,
 			Message: fmt.Sprintf("invalid object field: %v", err),
 		}}, nil
 	}
 
 	err = s.storage.VerifyAndStoreObjectLocally(*obj)
 	if err != nil {
+		if errors.Is(err, apistatus.ErrBusy) {
+			return &protoobject.ReplicateResponse{Status: apistatus.FromError(err)}, nil
+		}
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code:    codeInternal,
 			Message: fmt.Sprintf("failed to verify and store object locally: %v", err),
@@ -1823,6 +1900,11 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 
 	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
 	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
 		return s.makeStatusSearchResponse(err), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
@@ -1963,9 +2045,12 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	default:
 	}
 
-	var res []sdkclient.SearchResultItem
-	var newCursor []byte
-	count := uint16(body.Count) // legit according to the limit
+	var (
+		count      = uint16(body.Count) // legit according to the limit
+		incomplete atomic.Value
+		newCursor  []byte
+		res        []sdkclient.SearchResultItem
+	)
 	switch {
 	case ttl == 1:
 		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err != nil {
@@ -2019,7 +2104,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				defer wg.Done()
 				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
 					add(set, more)
-				} // TODO: else log error
+				} else {
+					var inc = new(apistatus.Incomplete)
+					inc.SetMessage(fmt.Sprintf("last error: %s", err.Error()))
+					incomplete.Store(inc)
+				}
 			}); resErr != nil {
 				wg.Done()
 			}
@@ -2027,7 +2116,13 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		})
 		wg.Wait()
 		if err == nil {
-			err = resErr
+			if errors.Is(resErr, ants.ErrPoolOverload) {
+				var busy = new(apistatus.Busy)
+				busy.SetMessage(resErr.Error())
+				err = busy
+			} else {
+				err = resErr
+			}
 		}
 		if err != nil {
 			return nil, nil, err
@@ -2064,6 +2159,10 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		for i := range res {
 			res[i].Attributes = nil
 		}
+	}
+	var incValue = incomplete.Load()
+	if incValue != nil {
+		return res, newCursor, incValue.(error)
 	}
 
 	return res, newCursor, nil

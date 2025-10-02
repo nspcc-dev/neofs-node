@@ -471,8 +471,11 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 func (b Service) findRequestInfo(req interface {
 	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
-}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, obj oid.ID) (info RequestInfo, err error) {
-	metaHdr := req.GetMetaHeader()
+}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, obj oid.ID) (RequestInfo, error) {
+	var (
+		info    RequestInfo
+		metaHdr = req.GetMetaHeader()
+	)
 	sTok, err := b.getVerifiedSessionToken(metaHdr, verb, idCnr, obj)
 	if err != nil {
 		return info, err
@@ -481,7 +484,12 @@ func (b Service) findRequestInfo(req interface {
 	var reqAuthor user.ID
 	var reqAuthorPub []byte
 	if sTok != nil {
-		reqAuthor, reqAuthorPub = sTok.Issuer(), sTok.IssuerPublicKeyBytes()
+		reqAuthor = sTok.Issuer()
+		sig, ok := sTok.Signature()
+		if !ok {
+			return info, errors.New("missing signature in session token")
+		}
+		reqAuthorPub = sig.PublicKeyBytes()
 	} else {
 		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
 			return info, fmt.Errorf("get request author: %w", err)

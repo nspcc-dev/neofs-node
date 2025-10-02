@@ -20,10 +20,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -153,6 +155,9 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	err := t.saveObject(*t.obj, objMeta, t.encodedObject)
 	if err != nil {
+		if errors.Is(err, apistatus.ErrIncomplete) {
+			return t.obj.GetID(), err
+		}
 		return oid.ID{}, err
 	}
 
@@ -499,7 +504,10 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 	//  the failure of any of the nodes the ability to comply with the policy
 	//  requirements may be lost.
 	for i := range replCounts {
-		listInd := i
+		var (
+			listInd    = i
+			overloaded bool
+		)
 		for {
 			replRem := replCounts[listInd] - nodesCounters[listInd].stored
 			if replRem == 0 {
@@ -511,7 +519,18 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 				if e, _ := lastRespErr.Load().(error); e != nil {
 					err = fmt.Errorf("%w (last node error: %w)", err, e)
 				}
-				return errIncompletePut{singleErr: err}
+				var retErr = errIncompletePut{singleErr: err}
+				if nodesCounters[listInd].stored == 0 {
+					if !overloaded {
+						return retErr
+					}
+					var busy = new(apistatus.Busy)
+					busy.SetMessage(retErr.Error())
+					return busy
+				}
+				var inc = new(apistatus.Incomplete)
+				inc.SetMessage(retErr.Error())
+				return inc
 			}
 			nextNodeGroupKeys = slices.Grow(nextNodeGroupKeys, int(replRem))[:0]
 			for ; nodesCounters[listInd].processed < listLen && uint(len(nextNodeGroupKeys)) < replRem; nodesCounters[listInd].processed++ {
@@ -564,6 +583,9 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 					processNode(pks, listInd, nr, &wg)
 				}); err != nil {
 					wg.Done()
+					if errors.Is(err, ants.ErrPoolOverload) {
+						overloaded = true
+					}
 					err = fmt.Errorf("submit next job to save an object to the worker pool: %w", err)
 					svcutil.LogWorkerPoolError(l, "PUT", err)
 				}

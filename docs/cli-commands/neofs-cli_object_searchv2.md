@@ -22,7 +22,6 @@ neofs-cli object searchv2 [flags]
   -f, --filters strings       Repeated filter expressions or files with protobuf JSON
   -g, --generate-key          Generate new private key
   -h, --help                  help for searchv2
-      --oid string            Search object by identifier
       --phy                   Search physically stored objects
       --root                  Search for user objects
   -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')

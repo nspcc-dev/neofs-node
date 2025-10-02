@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -257,7 +258,8 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, handlerCalls[2:], [][]byte{
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
-		require.EqualError(t, err, "incomplete object PUT by placement: "+
+		require.ErrorIs(t, err, apistatus.ErrIncomplete)
+		require.EqualError(t, err, "status: code = 1 message = incomplete object PUT by placement: "+
 			"number of replicas cannot be met for list #1: 1 required, 0 nodes remaining (last node error: any node error)")
 	})
 	t.Run("not enough nodes a priori", func(t *testing.T) {
@@ -388,7 +390,9 @@ func TestIterateNodesForObject(t *testing.T) {
 				<-blockCh
 				return nil
 			})
-			require.EqualError(t, err, "incomplete object PUT by placement: number of replicas cannot be met for list #0: 1 required, 0 nodes remaining")
+			require.ErrorIs(t, err, apistatus.ErrIncomplete)
+			require.EqualError(t, err, "status: code = 1 message = incomplete object PUT by placement: "+
+				"number of replicas cannot be met for list #0: 1 required, 0 nodes remaining")
 			close(returnCh)
 		}()
 		select {

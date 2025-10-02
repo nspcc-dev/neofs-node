@@ -12,6 +12,8 @@ The NeoFS CLI returns specific exit codes to indicate the outcome of command exe
 | 2         | Object access denied or unauthorized.          |
 | 3         | Await timeout expired for a certain condition. |
 | 4         | Object already removed.                        |
+| 5         | Incomplete success (like partial PUT or SEARCH).|
+| 6         | Busy (can be retried in future).               |
 
 
 
