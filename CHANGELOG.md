@@ -60,7 +60,7 @@ Changelog for NeoFS Node
 
 ### Updating from v0.48.3
 Drop `--main-only` flag from all `neofs-cli object head` commands.
-Drop IR's `timers.stop_estimation.*` configuration values, they are not used anymore.
+Drop IR's `timers.stop_estimation.*` and `timers.distribute_basic_income` configuration values, they are not used anymore.
 `neofs-adm fschain estimations` was removed.
 
 ## [0.48.3] - 2025-08-14

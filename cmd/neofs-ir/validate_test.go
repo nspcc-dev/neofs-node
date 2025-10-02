@@ -279,8 +279,7 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 			MainChain: 50000000,
 		},
 		Timers: config.Timers{
-			CollectBasicIncome:    config.BasicTimer{Mul: 1, Div: 2},
-			DistributeBasicIncome: config.BasicTimer{Mul: 3, Div: 4},
+			CollectBasicIncome: config.BasicTimer{Mul: 1, Div: 2},
 		},
 		Emit: config.Emit{
 			Storage: config.EmitStorage{

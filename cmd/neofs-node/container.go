@@ -3,17 +3,23 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"slices"
+	"sync"
+	"time"
 
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
-	netmapEv "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
+	timer "github.com/nspcc-dev/neofs-node/pkg/timers"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -79,11 +85,129 @@ func initContainerService(c *cfg) {
 		})
 	}
 
-	// TODO: report more often than once: https://github.com/nspcc-dev/neofs-node/issues/3543.
-	addNewEpochAsyncNotificationHandler(c, func(e event.Event) {
-		ev := e.(netmapEv.NewEpoch)
+	initSizeLoadReports(c)
+
+	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli)
+	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
+		cnrSrv.ResetSessionTokenCheckCache()
+	})
+
+	for _, srv := range c.cfgGRPC.servers {
+		protocontainer.RegisterContainerServiceServer(srv, cnrSrv)
+	}
+}
+
+func initSizeLoadReports(c *cfg) {
+	l := c.log.With(zap.String("component", "containerReports"))
+
+	// hardcoded in neofs-contracts as of 957152c7da6eb0a20745cfa1c4513b3c3512db6e
+	const maxReportsPerEpoch = 3
+
+	nm, err := c.nCli.NetMap()
+	if err != nil {
+		fatalOnErr(fmt.Errorf("failed to get netmap to initialize container service: %w", err))
+	}
+	durSec, err := c.nCli.EpochDuration()
+	if err != nil {
+		fatalOnErr(fmt.Errorf("failed to get epoch duration to initialize container service: %w", err))
+	}
+	dur := time.Duration(durSec) * time.Second
+
+	var nmLen = len(nm.Nodes())
+	indexInNM := slices.IndexFunc(nm.Nodes(), func(node netmapsdk.NodeInfo) bool {
+		return bytes.Equal(node.PublicKey(), c.binPublicKey)
+	})
+	if indexInNM == -1 {
+		indexInNM = nmLen
+	}
+
+	var stepsInEpoch uint32
+	if nmLen != 0 {
+		// likely there is no need to report less often than once per second
+		reportStep := min(time.Second, dur/maxReportsPerEpoch/time.Duration(nmLen))
+		stepsInEpoch = uint32(dur / reportStep)
+	}
+
+	var (
+		ticks      timer.EpochTicks
+		reportTick = reportHandler(c, l)
+	)
+	for i := range maxReportsPerEpoch {
+		var mul, div uint32
+		if stepsInEpoch == 0 {
+			mul = uint32(i)
+			div = maxReportsPerEpoch
+		} else {
+			mul = uint32(i)*(stepsInEpoch/maxReportsPerEpoch) + uint32(indexInNM)
+			div = stepsInEpoch
+		}
+
+		l.Debug("add space load reporter", zap.Uint32("multiplicator", mul), zap.Uint32("divisor", div))
+
+		ticks.DeltaTicks = append(ticks.DeltaTicks, timer.SubEpochTick{
+			Tick:     reportTick,
+			EpochMul: mul,
+			EpochDiv: div,
+		})
+	}
+
+	c.cfgMorph.epochTimers = timer.NewTimers(ticks)
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+		txHash := ev.(netmap.NewEpoch).TxHash()
+		txHeight, err := c.nCli.Morph().TxHeight(txHash)
+		if err != nil {
+			l.Warn("can't get transaction height", zap.String("hash", txHash.StringLE()), zap.Error(err))
+			return
+		}
+		epochDuration, err := c.nCli.EpochDuration()
+		if err != nil {
+			l.Warn("failed to get the epoch duration to reset epoch timer", zap.Error(err))
+			return
+		}
+		lastTick := txHeight
+		if lastTick == 0 {
+			lastTick, err = c.nCli.LastEpochBlock()
+			if err != nil {
+				l.Warn("failed to get the last epoch block number to reset epoch timer", zap.Error(err))
+				return
+			}
+		}
+		lastTickH, err := c.cli.GetBlockHeader(lastTick)
+		if err != nil {
+			l.Warn("failed to get the last epoch block to reset epoch timer",
+				zap.Uint32("lastTickHeight", lastTick), zap.Error(err))
+
+			return
+		}
+		height, err := c.cli.GetBlockCount()
+		if err != nil {
+			l.Warn("failed to get the current height to reset epoch timer", zap.Error(err))
+			return
+		}
+		currH, err := c.cli.GetBlockHeader(height - 1)
+		if err != nil {
+			l.Warn("failed to get the current block to reset epoch timer", zap.Error(err))
+			return
+		}
+
+		const msInS = 1000
+		c.cfgMorph.epochTimers.Reset(lastTickH.Timestamp, currH.Timestamp, epochDuration*msInS)
+	})
+}
+
+func reportHandler(c *cfg, l *zap.Logger) timer.Tick {
+	type report struct {
+		size, objsNum uint64
+	}
+	var (
+		m     sync.RWMutex
+		cache = make(map[cid.ID]report)
+	)
+
+	return func() {
+		epoch := c.CurrentEpoch()
 		st := c.cfgObject.cfgLocalStorage.localStorage
-		l := c.log.With(zap.String("component", "containerReports"), zap.Uint64("epoch", ev.EpochNumber()))
+		l = l.With(zap.Uint64("epoch", epoch))
 
 		l.Debug("sending container report to contract...")
 
@@ -100,11 +224,28 @@ func initContainerService(c *cfg) {
 				return
 			}
 
+			m.RLock()
+			reportedBefore, ok := cache[cnr]
+			m.RUnlock()
+
+			if ok && reportedBefore.size == size && reportedBefore.objsNum == objsNum {
+				l.Debug("skip reporting disk load for the container, as values are the same",
+					zap.Uint64("size", size), zap.Uint64("objsNum", objsNum), zap.Stringer("cid", cnr))
+
+				continue
+			}
+
 			err = c.cCli.PutReport(cnr, size, objsNum, c.PublicKey())
 			if err != nil {
 				l.Warn("put report to contract error", zap.Stringer("cid", cnr), zap.Error(err))
 				continue
 			}
+
+			m.Lock()
+			reportedBefore.size = size
+			reportedBefore.objsNum = objsNum
+			cache[cnr] = reportedBefore
+			m.Unlock()
 
 			l.Debug("successfully put container report to contract",
 				zap.Stringer("cid", cnr), zap.Uint64("size", size), zap.Uint64("objectsNum", objsNum))
@@ -112,15 +253,6 @@ func initContainerService(c *cfg) {
 
 		l.Debug("sent container reports",
 			zap.Int("numOfSuccessReports", len(idList)))
-	})
-
-	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli)
-	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
-		cnrSrv.ResetSessionTokenCheckCache()
-	})
-
-	for _, srv := range c.cfgGRPC.servers {
-		protocontainer.RegisterContainerServiceServer(srv, cnrSrv)
 	}
 }
 

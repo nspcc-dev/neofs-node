@@ -38,6 +38,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -234,6 +235,7 @@ type cfgMeta struct {
 type cfgMorph struct {
 	client *client.Client
 
+	epochTimers      *timers.EpochTimers
 	eigenTrustTicker *eigenTrustTickers // timers for EigenTrust iterations
 
 	proxyScriptHash neogoutil.Uint160

@@ -30,7 +30,6 @@ import (
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/structure"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
-	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
@@ -42,6 +41,7 @@ import (
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	"github.com/nspcc-dev/neofs-node/pkg/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"go.uber.org/zap"
@@ -59,7 +59,7 @@ type (
 		// event producers
 		fsChainListener event.Listener
 		mainnetListener event.Listener
-		epochTimer      *epochTimer
+		epochTimers     *timers.EpochTimers
 
 		fsChainClient *client.Client
 		mainnetClient *client.Client
@@ -199,7 +199,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 			zap.Uint32("index", b.Index),
 		)
 
-		s.epochTimer.updateTime(b.Timestamp)
+		s.epochTimers.UpdateTime(b.Timestamp)
 
 		err = s.persistate.SetUInt32(persistateFSChainLastBlockKey, b.Index)
 		if err != nil {
@@ -264,7 +264,7 @@ func (s *Server) resetEpochTimer(lastTickHeight uint32) (uint64, error) {
 	}
 
 	const msInS = 1000
-	s.epochTimer.reset(lastTickH.Timestamp, currH.Timestamp, epochDuration*msInS)
+	s.epochTimers.Reset(lastTickH.Timestamp, currH.Timestamp, epochDuration*msInS)
 
 	return lastTickH.Timestamp + epochDuration*msInS, nil
 }
@@ -891,19 +891,33 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	// initialize epoch timers
-	server.epochTimer = newEpochTimer(&epochTimerArgs{
-		l:                server.log,
-		newEpochHandlers: server.newEpochTickHandlers(),
-		epoch:            server,
-		basicIncome: subEpochEventHandler{
-			handler:     settlementProcessor.HandleBasicIncomeEvent,
-			durationMul: cfg.Timers.CollectBasicIncome.Mul,
-			durationDiv: cfg.Timers.CollectBasicIncome.Div,
-		},
-	})
+	initTimers(server, cfg, settlementProcessor)
 
 	return server, nil
+}
+
+func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement.Processor) {
+	basicIncomeTick := func() {
+		epochN := server.EpochCounter()
+		if epochN == 0 { // estimates are invalid in genesis epoch
+			return
+		}
+
+		paymentProcessor.HandleBasicIncomeEvent(settlement.NewBasicIncomeEvent(epochN - 1))
+	}
+
+	ticks := timers.EpochTicks{
+		NewEpochTicks: server.newEpochTickHandlers(),
+		DeltaTicks: []timers.SubEpochTick{
+			{
+				Tick:     basicIncomeTick,
+				EpochMul: cfg.Timers.CollectBasicIncome.Mul,
+				EpochDiv: cfg.Timers.CollectBasicIncome.Div,
+			},
+		},
+	}
+
+	server.epochTimers = timers.NewTimers(ticks)
 }
 
 func createListener(cli *client.Client, p chainParams) (event.Listener, error) {
@@ -1005,10 +1019,10 @@ func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 	}
 }
 
-func (s *Server) newEpochTickHandlers() []newEpochHandler {
-	newEpochHandlers := []newEpochHandler{
+func (s *Server) newEpochTickHandlers() []timers.Tick {
+	newEpochHandlers := []timers.Tick{
 		func() {
-			s.netmapProcessor.HandleNewEpochTick(timerEvent.NewEpochTick{})
+			s.netmapProcessor.HandleNewEpochTick()
 		},
 	}
 
