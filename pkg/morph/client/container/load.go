@@ -12,10 +12,11 @@ import (
 
 // Report is a structure of single container load reported by a storage node.
 type Report struct {
-	StorageSize   int64
-	ObjectsNumber int64
-	ReportsNumber int64
-	Reporter      []byte
+	StorageSize     int64
+	ObjectsNumber   int64
+	ReportsNumber   int64
+	Reporter        []byte
+	LastUpdateEpoch int64
 }
 
 // FromStackItem implements stackitem.Convertible.
@@ -25,7 +26,7 @@ func (r *Report) FromStackItem(item stackitem.Item) error {
 		return fmt.Errorf("incorrect array from stack item: %w", err)
 	}
 
-	if len(v) != 4 { // 4 field resulting struct
+	if len(v) != 5 { // 5 fields resulting struct
 		return fmt.Errorf("incorrect report struct size: %d", len(v))
 	}
 
@@ -44,6 +45,10 @@ func (r *Report) FromStackItem(item stackitem.Item) error {
 	r.ReportsNumber, err = client.IntFromStackItem(v[3])
 	if err != nil {
 		return fmt.Errorf("incorrect number of reports: %w", err)
+	}
+	r.LastUpdateEpoch, err = client.IntFromStackItem(v[4])
+	if err != nil {
+		return fmt.Errorf("incorrect last update's epoch: %w", err)
 	}
 
 	return nil
