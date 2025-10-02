@@ -198,9 +198,11 @@ func (x *Clients) initConnections(pub []byte, as network.AddressGroup) (*connect
 		l.Info("connection to the SN successfully initialized", zap.String("address", cacheKey))
 		m[cacheKey] = c
 	}
+	var hexKey = hex.EncodeToString(pub)
 	return &connections{
-		log: x.log.With(zap.String("SN public key", hex.EncodeToString(pub))),
-		m:   m,
+		log:    x.log.With(zap.String("SN public key", hexKey)),
+		nodeID: hexKey,
+		m:      m,
 	}, nil
 }
 
@@ -245,7 +247,8 @@ func (x *Clients) initConnection(pub []byte, uri string) (*client.Client, error)
 }
 
 type connections struct {
-	log *zap.Logger
+	log    *zap.Logger
+	nodeID string
 
 	mtx sync.RWMutex
 	m   map[string]*client.Client // keys are multiaddrs
@@ -281,7 +284,7 @@ func (x *connections) forEach(ctx context.Context, f func(context.Context, *clie
 			firstErr = newEndpointError(ma, err)
 		}
 	}
-	return newMultiEndpointError(firstErr)
+	return newMultiEndpointError(x.nodeID, firstErr)
 }
 
 func (x *connections) ForEachGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
@@ -317,7 +320,7 @@ func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 			firstErr = newEndpointError(ma, err)
 		}
 	}
-	return nil, newMultiEndpointError(firstErr)
+	return nil, newMultiEndpointError(x.nodeID, firstErr)
 }
 
 func (x *connections) ObjectDelete(ctx context.Context, cnr cid.ID, obj oid.ID, signer user.Signer, opts client.PrmObjectDelete) (oid.ID, error) {
@@ -407,6 +410,6 @@ func newEndpointError(addr string, err error) error {
 	return fmt.Errorf("%s: %w", addr, err)
 }
 
-func newMultiEndpointError(first error) error {
-	return fmt.Errorf("all endpoints failed, first error: %w", first)
+func newMultiEndpointError(nodeID string, first error) error {
+	return fmt.Errorf("all %s endpoints failed, first error: %w", nodeID, first)
 }

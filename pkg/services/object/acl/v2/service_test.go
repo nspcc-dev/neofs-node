@@ -126,7 +126,10 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 
 	t.Run("not a container owner", func(t *testing.T) {
 		err := call(t, otherCnrID)
-		require.EqualError(t, err, "bearer token issuer differs from the container owner")
+		require.EqualError(t, err, "status: code = 2048 message = access to object operation denied")
+		var accessDenied apistatus.ObjectAccessDenied
+		require.ErrorAs(t, err, &accessDenied)
+		require.Equal(t, "bearer token issuer differs from the container owner", accessDenied.Reason())
 	})
 
 	err = call(t, cnrID)

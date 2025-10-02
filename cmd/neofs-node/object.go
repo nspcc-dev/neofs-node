@@ -40,6 +40,8 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -238,7 +240,7 @@ func initObjectService(c *cfg) {
 	mNumber, err := c.cli.MagicNumber()
 	fatalOnErr(err)
 
-	os := &objectSource{get: sGet}
+	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
 		initQuotas(c.cCli, c.cfgObject.quotasTTL),
 		putsvc.WithNetworkMagic(mNumber),
@@ -650,6 +652,7 @@ func (x storageForObjectService) GetSessionPrivateKey(usr user.ID, uid uuid.UUID
 
 type objectSource struct {
 	get    *getsvc.Service
+	signer neofscrypto.Signer
 	server interface {
 		ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]client.SearchResultItem, []byte, error)
 	}
@@ -669,21 +672,31 @@ func (o objectSource) Head(ctx context.Context, addr oid.Address) (*objectSDK.Ob
 }
 
 func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters objectSDK.SearchFilters) (oid.ID, error) {
-	var id oid.ID
-	res, _, err := o.server.ProcessSearch(ctx, &protoobject.SearchV2Request{
-		Body: &protoobject.SearchV2Request_Body{
-			ContainerId: cnr.ProtoMessage(),
-			Version:     1,
-			Filters:     filters.ProtoMessage(),
-			Cursor:      "",
-			Count:       1,
-			Attributes:  nil,
-		},
-		MetaHeader: &protosession.RequestMetaHeader{
-			Version: version.Current().ProtoMessage(),
-			Ttl:     2,
-		},
-	})
+	var (
+		err error
+		id  oid.ID
+		req = &protoobject.SearchV2Request{
+			Body: &protoobject.SearchV2Request_Body{
+				ContainerId: cnr.ProtoMessage(),
+				Version:     1,
+				Filters:     filters.ProtoMessage(),
+				Cursor:      "",
+				Count:       1,
+				Attributes:  nil,
+			},
+			MetaHeader: &protosession.RequestMetaHeader{
+				Version: version.Current().ProtoMessage(),
+				Ttl:     2,
+			},
+		}
+	)
+
+	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](o.signer, req, nil)
+	if err != nil {
+		return id, err
+	}
+
+	res, _, err := o.server.ProcessSearch(ctx, req)
 	if err != nil {
 		return id, err
 	}
