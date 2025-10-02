@@ -177,16 +177,27 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 	// TODO: handle rules in parallel. https://github.com/nspcc-dev/neofs-node/issues/3503
 
 	repRules := t.containerNodes.PrimaryCounts()
+	ecRules := t.containerNodes.ECRules()
 	if typ := obj.Type(); len(repRules) > 0 || typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLock {
 		broadcast := typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLink || (!t.localOnly && typ == objectSDK.TypeLock) || len(obj.Children()) > 0
+
+		useRepRules := repRules
+		if broadcast && len(ecRules) > 0 {
+			useRepRules = make([]uint, len(repRules)+len(ecRules))
+			copy(useRepRules, repRules)
+			for i := range ecRules {
+				useRepRules[len(repRules)+i] = 1
+			}
+		}
+
 		return t.distributeObject(obj, objMeta, encObj, func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
-			return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, objNodeLists, broadcast, func(node nodeDesc) error {
+			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
 				return t.sendObject(obj, objMeta, encObj, node)
 			})
 		})
 	}
 
-	if ecRules := t.containerNodes.ECRules(); len(ecRules) > 0 {
+	if len(ecRules) > 0 {
 		if t.ecPart.RuleIndex >= 0 { // already encoded EC part
 			total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
 			nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
