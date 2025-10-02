@@ -226,7 +226,9 @@ func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqC
 	}
 
 	if err := b.verifyBearerTokenAgainstRequest(res.token, reqCnr, ownerCnr, usrSender); err != nil {
-		return nil, err
+		var errAccessDenied apistatus.ObjectAccessDenied
+		errAccessDenied.WriteReason(err.Error())
+		return nil, errAccessDenied
 	}
 
 	return &res.token, nil
@@ -240,17 +242,23 @@ func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken) (bear
 
 	currentEpoch, err := b.nm.Epoch()
 	if err != nil {
-		return token, fmt.Errorf("get current epoch: %w", err)
+		var errInternal apistatus.ServerInternal
+		errInternal.SetMessage(fmt.Sprintf("get current epoch: %s", err))
+		return token, errInternal
 	}
 	if !token.ValidAt(currentEpoch) {
-		return token, errors.New("bearer token has expired")
+		var errAccessDenied apistatus.ObjectAccessDenied
+		errAccessDenied.WriteReason("bearer token has expired")
+		return token, errAccessDenied
 	}
 
 	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
 		FSChain:   b.c.fsChain,
 		Netmapper: b.nm,
 	}); err != nil {
-		return token, fmt.Errorf("authenticate bearer token: %w", err)
+		var errAccessDenied apistatus.ObjectAccessDenied
+		errAccessDenied.WriteReason(fmt.Sprintf("authenticate bearer token: %s", err))
+		return token, errAccessDenied
 	}
 
 	return token, nil
