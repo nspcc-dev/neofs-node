@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -118,13 +119,7 @@ func (f *fallbackRangeReader) Read(p []byte) (int, error) {
 		}
 	}
 
-	f.ReadCloser = struct {
-		io.Reader
-		io.Closer
-	}{
-		Reader: io.LimitReader(rdr, int64(to-from)),
-		Closer: rdr,
-	}
+	f.ReadCloser = iio.LimitReadCloser(rdr, int64(to-from))
 
 	// attempt to read again immediately to fill p.
 	return f.Read(p)
@@ -326,20 +321,9 @@ func (w *directChildWriter) WriteHeader(obj *object.Object) error {
 
 func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
 	cnr cid.ID, id oid.ID, sTok *session.Object, bTok *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
-	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
-	// TODO: we may waste resources doing this per request. Make once on network map change instead.
-	var ag network.AddressGroup
-	if err := ag.FromIterator(network.NodeEndpointsIterator(node)); err != nil {
-		return object.Object{}, nil, fmt.Errorf("decode SN network addresses: %w", err)
-	}
-
-	var ni coreclient.NodeInfo
-	ni.SetAddressGroup(ag)
-	ni.SetPublicKey(node.PublicKey())
-
-	conn, err := c.cache.Get(ni)
+	conn, err := c.connectToNode(node)
 	if err != nil {
-		return object.Object{}, nil, fmt.Errorf("get conn: %w", err)
+		return object.Object{}, nil, err
 	}
 
 	var opts client.PrmObjectGet
@@ -368,12 +352,85 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 	return hdr, rc, nil
 }
 
+func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
+	cnr cid.ID, id oid.ID, off, ln uint64, sTok *session.Object, bTok *bearer.Token, xs []string) (io.ReadCloser, error) {
+	conn, err := c.connectToNode(node)
+	if err != nil {
+		return nil, err
+	}
+
+	var opts client.PrmObjectRange
+	opts.WithXHeaders(xs...)
+	opts.MarkLocal()
+	if bTok != nil {
+		opts.WithBearerToken(*bTok)
+	}
+	if sTok != nil {
+		opts.WithinSession(*sTok)
+	}
+
+	rc, err := conn.ObjectRangeInit(ctx, cnr, id, off, ln, user.NewAutoIDSigner(pk), opts)
+	if err != nil {
+		return nil, fmt.Errorf("open GetRange stream: %w", err)
+	}
+
+	return rc, nil
+}
+
+func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+	sTok *session.Object, bTok *bearer.Token) (object.Object, error) {
+	conn, err := c.connectToNode(node)
+	if err != nil {
+		return object.Object{}, err
+	}
+
+	var opts client.PrmObjectHead
+	opts.MarkLocal()
+	if bTok != nil {
+		opts.WithBearerToken(*bTok)
+	}
+	if sTok != nil {
+		opts.WithinSession(*sTok)
+	}
+
+	hdr, err := conn.ObjectHead(ctx, cnr, id, user.NewAutoIDSigner(pk), opts)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("call HEAD API: %w", err)
+	}
+
+	return *hdr, nil
+}
+
+func (c *clientCacheWrapper) connectToNode(node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
+	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
+	// TODO: we may waste resources doing this per request. Make once on network map change instead.
+	var ag network.AddressGroup
+	if err := ag.FromIterator(network.NodeEndpointsIterator(node)); err != nil {
+		return nil, fmt.Errorf("decode SN network addresses: %w", err)
+	}
+
+	var ni coreclient.NodeInfo
+	ni.SetAddressGroup(ag)
+	ni.SetPublicKey(node.PublicKey())
+
+	conn, err := c.cache.Get(ni)
+	if err != nil {
+		return nil, fmt.Errorf("get conn: %w", err)
+	}
+
+	return conn, nil
+}
+
 // TODO: share.
 // see also https://github.com/nspcc-dev/neofs-sdk-go/issues/624.
-func convertContextCanceledStatus(err error) error {
+func convertContextStatus(err error) error {
 	st, ok := status.FromError(err)
-	if ok && st.Code() == codes.Canceled {
-		return context.Canceled
+	if ok {
+		if code := st.Code(); code == codes.Canceled {
+			return context.Canceled
+		} else if code == codes.DeadlineExceeded {
+			return context.DeadlineExceeded
+		}
 	}
 	return err
 }

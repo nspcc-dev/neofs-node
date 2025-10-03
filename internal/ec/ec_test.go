@@ -117,3 +117,40 @@ func TestConcatDataParts(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeRange(t *testing.T) {
+	const dataLen = 4 << 10
+	data := testutil.RandByteSlice(dataLen)
+
+	rule := iec.Rule{
+		DataPartNum:   12,
+		ParityPartNum: 4,
+	}
+
+	parts, err := iec.Encode(rule, data)
+	require.NoError(t, err)
+
+	t.Run("unsupported rule", func(t *testing.T) {
+		err := iec.DecodeRange(iec.Rule{}, 0, 1, nil)
+		require.EqualError(t, err, "init Reed-Solomon decoder: cannot create Encoder with less than one data shard or less than zero parity shards")
+	})
+
+	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
+	idx := islices.Indexes(totalParts)
+
+	for fromIdx := range idx {
+		for toIdx := fromIdx + 1; toIdx-fromIdx <= int(rule.ParityPartNum) && toIdx < totalParts; toIdx++ {
+			s := islices.NilTwoDimSliceElements(parts, idx[fromIdx:toIdx])
+			err := iec.DecodeRange(rule, fromIdx, toIdx, s)
+			require.NoError(t, err)
+			require.Equal(t, parts[fromIdx:toIdx], s[fromIdx:toIdx])
+		}
+
+		for toIdx := fromIdx + 1 + int(rule.ParityPartNum); toIdx < totalParts; toIdx++ {
+			s := islices.NilTwoDimSliceElements(parts, idx[fromIdx:toIdx])
+			err = iec.DecodeRange(rule, fromIdx, toIdx, s)
+			require.ErrorContains(t, err, "restore Reed-Solomon")
+			require.ErrorIs(t, err, reedsolomon.ErrTooFewShards)
+		}
+	}
+}
