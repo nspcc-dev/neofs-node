@@ -154,6 +154,16 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 		return false, false, 0, fmt.Errorf("can't remove metadata indexes: %w", err)
 	}
 
+	// if object is not available, counters have already been handled in
+	// `Inhume` call, but if we are removing an available object, this is
+	// either a force removal or GC work, and counters must be kept up-to-date
+	if removeAvailableObject {
+		err = changeContainerInfo(tx, cID, -int(payloadSize), -1)
+		if err != nil {
+			return false, false, 0, fmt.Errorf("can't update container info: %w", err)
+		}
+	}
+
 	return true, removeAvailableObject, payloadSize, nil
 }
 
