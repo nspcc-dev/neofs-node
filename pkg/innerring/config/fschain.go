@@ -8,9 +8,10 @@ import (
 
 // Chain configures settings of FS chain.
 type Chain struct {
-	BasicChain `mapstructure:",squash"`
-	Validators keys.PublicKeys `mapstructure:"validators"`
-	Consensus  Consensus       `mapstructure:"consensus"`
+	BasicChain        `mapstructure:",squash"`
+	Validators        keys.PublicKeys `mapstructure:"validators"`
+	Consensus         Consensus       `mapstructure:"consensus"`
+	DisableAutodeploy bool            `mapstructure:"disable_autodeploy"`
 }
 
 // Consensus configures Blockchain. All required fields must be set. Specified
