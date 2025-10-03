@@ -27,7 +27,7 @@ func Get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	return pk, nil
 }
 
-var errMissingFlag = errors.New("missing key flag")
+var ErrMissingFlag = errors.New("missing key flag")
 
 // get decodes ecdsa.PrivateKey from the wallet file located in the path
 // stored by commonflags.WalletPath viper key. Returns errMissingFlag
@@ -35,7 +35,7 @@ var errMissingFlag = errors.New("missing key flag")
 func get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	keyDesc := viper.GetString(commonflags.WalletPath)
 	if keyDesc == "" {
-		return nil, errMissingFlag
+		return nil, ErrMissingFlag
 	}
 	w, err := wallet.NewWalletFromFile(keyDesc)
 	if err != nil {
@@ -60,7 +60,7 @@ func GetOrGenerate(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 func getOrGenerate(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	if !viper.GetBool(commonflags.GenerateKey) {
 		key, err := get(cmd)
-		if !errors.Is(err, errMissingFlag) {
+		if !errors.Is(err, ErrMissingFlag) {
 			if err == nil {
 				common.PrintVerbose(cmd, "Configured wallet will be used for the command.")
 			}

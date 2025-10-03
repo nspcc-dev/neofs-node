@@ -371,6 +371,9 @@ func (x *containersInChain) GetEACL(id cid.ID) (eacl.Table, error) {
 }
 
 func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
+	if id.IsZero() {
+		return x.cnrLst.List(nil)
+	}
 	return x.cnrLst.List(&id)
 }
 
