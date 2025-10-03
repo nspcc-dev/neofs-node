@@ -2,12 +2,15 @@ package meta
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -51,15 +54,72 @@ func (db *DB) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID,
 	return res, err
 }
 
+// ResolveECPartWithPayloadLen is like [DB.ResolveECPart] but also returns
+// payload length.
+func (db *DB) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (iobject.OIDWithPayloadLen, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+	if db.mode.NoMetabase() {
+		return iobject.OIDWithPayloadLen{}, ErrDegradedMode
+	}
+
+	var res iobject.OIDWithPayloadLen
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		var err error
+		res, err = db.resolveECPartWithPayloadLenTx(tx, cnr, parent, pi)
+		return err
+	})
+	return res, err
+}
+
+func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (iobject.OIDWithPayloadLen, error) {
+	metaBkt := tx.Bucket(metaBucketKey(cnr))
+	if metaBkt == nil {
+		return iobject.OIDWithPayloadLen{}, apistatus.ErrObjectNotFound
+	}
+
+	metaBktCrs := metaBkt.Cursor()
+
+	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi)
+	if err != nil {
+		return iobject.OIDWithPayloadLen{}, err
+	}
+
+	lnAttrPref := slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPayloadSize), objectcore.MetaAttributeDelimiter)
+	k, _ := metaBktCrs.Seek(lnAttrPref)
+	lnAttr, ok := bytes.CutPrefix(k, lnAttrPref)
+	if !ok {
+		return iobject.OIDWithPayloadLen{}, fmt.Errorf("missing index for payload len attribute of object %w", ierrors.ObjectID(id))
+	}
+
+	ln, err := strconv.ParseUint(string(lnAttr), 10, 64)
+	if err != nil {
+		var ne *strconv.NumError
+		if !errors.As(err, &ne) { // must never happen
+			return iobject.OIDWithPayloadLen{}, fmt.Errorf("invalid payload len attribute of object %w", ierrors.ObjectID(id))
+		}
+		return iobject.OIDWithPayloadLen{}, fmt.Errorf("invalid payload len attribute of object %w: parse to uint64: %w", ierrors.ObjectID(id), ne.Err)
+	}
+
+	return iobject.OIDWithPayloadLen{
+		ID:         id,
+		PayloadLen: ln,
+	}, nil
+}
+
 func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	}
 
-	metaBktCursor := metaBkt.Cursor()
+	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi)
+}
 
-	switch objectStatus(tx, metaBktCursor, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
+func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
+	metaBkt := crs.Bucket()
+
+	switch objectStatus(metaBkt.Tx(), crs, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
 	case statusGCMarked:
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	case statusTombstoned:
@@ -68,28 +128,21 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 		return oid.ID{}, ErrObjectIsExpired
 	}
 
-	id, err := db.resolveECPartInMetaBucket(metaBktCursor, parent, pi)
-	if err != nil {
-		return oid.ID{}, err
-	}
-
-	return id, nil
-}
-
-func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
 	pref := slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(object.FilterParentID), objectcore.MetaAttributeDelimiter,
 		parent[:], objectcore.MetaAttributeDelimiter,
 	)
 
 	var partCrs *bbolt.Cursor
-	var rulePref, partPref []byte
+	var rulePref, partPref, typePref []byte
 	isParent := false
 	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
 		partID, ok := bytes.CutPrefix(k, pref)
 		if !ok {
 			if !isParent { // neither tombstone nor lock can be a parent
-				typePref := make([]byte, metaIDTypePrefixSize)
-				fillIDTypePrefix(typePref)
+				if typePref == nil {
+					typePref = make([]byte, metaIDTypePrefixSize)
+					fillIDTypePrefix(typePref)
+				}
 				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock) {
 					return parent, nil
 				}
@@ -107,7 +160,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		isParent = true
 
 		if partCrs == nil {
-			partCrs = crs.Bucket().Cursor()
+			partCrs = metaBkt.Cursor()
 		}
 
 		if rulePref == nil {
@@ -117,6 +170,13 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 			copy(rulePref[1:], partID)
 		}
 		if k, _ = partCrs.Seek(rulePref); !bytes.Equal(k, rulePref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
+			if typePref == nil {
+				typePref = make([]byte, metaIDTypePrefixSize)
+				fillIDTypePrefix(typePref)
+			}
+			if typ, err := fetchTypeForID(partCrs, typePref, oid.ID(partID)); err == nil && typ == object.TypeLink {
+				return oid.ID(partID), nil
+			}
 			continue
 		}
 

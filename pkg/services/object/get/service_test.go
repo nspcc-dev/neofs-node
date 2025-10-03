@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"io"
@@ -46,12 +47,6 @@ func newCommonParameters(local bool, sTok *session.Object, bTok *bearer.Token, x
 	}
 
 	return util.CommonPrmFromRequest(req)
-}
-
-// TODO: share.
-type ioReadCloser struct {
-	io.Reader
-	io.Closer
 }
 
 // TODO: share.
@@ -125,6 +120,7 @@ type getECPartValue struct {
 }
 
 type mockLocalObjects struct {
+	unimplementedLocalStorage
 	getECPart map[getECPartKey]getECPartValue
 }
 
@@ -165,5 +161,23 @@ func (unimplementedObjectWriter) WriteHeader(*object.Object) error {
 }
 
 func (unimplementedObjectWriter) WriteChunk([]byte) error {
+	panic("unimplemented")
+}
+
+type unimplementedLocalStorage struct{}
+
+func (x unimplementedLocalStorage) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64) (uint64, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+type unimplementedServiceConns struct{}
+
+func (x unimplementedServiceConns) InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+	off, ln uint64, st *session.Object, bt *bearer.Token, xs []string) (io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (x unimplementedServiceConns) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+	st *session.Object, bt *bearer.Token) (object.Object, error) {
 	panic("unimplemented")
 }

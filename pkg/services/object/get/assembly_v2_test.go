@@ -57,17 +57,13 @@ func Test_RequiredChildren(t *testing.T) {
 				children = append(children, child)
 			}
 
-			var rng object.Range
-			rng.SetOffset(test.rngFrom)
-			rng.SetLength(test.rngLength)
-
-			firstChild, firstChildOffset, lastChild, lastChildBound := requiredChildren(&rng, children)
+			firstChild, firstChildOffset, lastChild, lastChildBound := requiredChildren(test.rngFrom, test.rngLength, children)
 
 			// collect payload
 			var res []byte
 			for i := firstChild; i <= lastChild; i++ {
-				var leftBound int
-				var rightBound = int(children[i].ObjectSize())
+				var leftBound uint64
+				var rightBound = uint64(children[i].ObjectSize())
 
 				if i == firstChild {
 					leftBound = firstChildOffset
