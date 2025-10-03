@@ -14,7 +14,7 @@ Changelog for NeoFS Node
 - Inability to list 2K+ containers via API (#3558)
 - Not using the IR `fee.main_chain` config parameter (#3584)
 - Metadata signatures submission (#3591)
-- Expired lock still locked the object (#3601)
+- Expired lock still locked the object (#3601, #3616)
 - Empty storage and error-free startup when changing layout parameters (#3594)
 - Flaky storage evacuation unit test (#3605)
 - Incorrect search request from SN when processing tombstones (#3610)
