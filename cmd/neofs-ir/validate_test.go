@@ -192,7 +192,8 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 					"wss://sidechain2.fs.neo.org:30333/ws",
 				},
 			},
-			Validators: validators,
+			DisableAutodeploy: true,
+			Validators:        validators,
 			Consensus: config.Consensus{
 				Magic:     15405,
 				Committee: committee,
@@ -248,7 +249,6 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 				RemoveUntraceableBlocks:         false,
 				P2PNotaryRequestPayloadPoolSize: 100,
 			}},
-		FSChainAutodeploy: true,
 		NNS: config.NNS{
 			SystemEmail: "usr@domain.io",
 		},

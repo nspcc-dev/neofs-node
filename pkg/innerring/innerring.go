@@ -418,6 +418,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	serveMetrics(server, cfg)
 
+	// TODO: remove deprecated 'fschain_autodeploy' config option in future release
+	if cfg.IsSet("fschain_autodeploy") {
+		log.Warn("configuration option 'fschain_autodeploy' is deprecated, use 'fschain.disable_autodeploy' with the opposite value instead")
+		if cfg.IsSet("fschain.disable_autodeploy") {
+			return nil, fmt.Errorf("'fschain_autodeploy' and 'fschain.disable_autodeploy' set simultaneously")
+		}
+		cfg.FSChain.DisableAutodeploy = !cfg.FSChainAutodeploy
+	}
+
 	var localWSClient *rpcclient.WSClient // set if isLocalConsensus only
 
 	// create FS chain client
@@ -472,7 +481,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		fsChainOpts[1] = client.WithLogger(log)
 		fsChainOpts[2] = client.WithSingleClient(localWSClient)
 
-		if !cfg.FSChainAutodeploy {
+		if cfg.FSChain.DisableAutodeploy {
 			fsChainOpts = append(fsChainOpts, client.WithAutoFSChainScope())
 		}
 
@@ -488,7 +497,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		// fallback to the pure RPC architecture
 
 		fsChainParams.key = server.key
-		fsChainParams.withAutoFSChainScope = !cfg.FSChainAutodeploy
+		fsChainParams.withAutoFSChainScope = cfg.FSChain.DisableAutodeploy
 
 		server.fsChainClient, err = server.createClient(ctx, fsChainParams, errChan)
 		if err != nil {
@@ -496,7 +505,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		}
 	}
 
-	if cfg.FSChainAutodeploy {
+	if !cfg.FSChain.DisableAutodeploy {
 		log.Info("auto-deployment configured, initializing FS chain...")
 
 		var fschain *fsChain

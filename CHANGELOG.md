@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)
 
 ### Removed
 
@@ -18,6 +19,11 @@ Changelog for NeoFS Node
 ### Updating from v0.49.1
 Erasure coding is available in experimental mode. To enable it, set
 `experimental.allow_ec` flag in IR config.
+
+Use IR configuration option:
+- `fschain.disable_autodeploy` instead of deprecated `fschain_autodeploy` with reverted value,
+by default autodeploy is enabled now;
+Old option is still supported but will be removed in future releases.
 
 ## [0.49.1] - 2025-10-15
 
