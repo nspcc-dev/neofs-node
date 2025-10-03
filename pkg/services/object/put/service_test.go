@@ -437,6 +437,26 @@ func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnr
 	for i := range cnrNodeNum + outCnrNodeNum {
 		testThroughNode(t, i)
 	}
+
+	t.Run("all nodes failed", func(t *testing.T) {
+		for i := range cnrNodeNum {
+			cluster.nodeLocalStorages[i].err = errors.New("some error")
+		}
+
+		for i := range cnrNodeNum {
+			sessionToken.SetAuthKey(cluster.nodeSessions[i].signer.Public())
+			require.NoError(t, sessionToken.Sign(usertest.User()))
+
+			err := putObjectWithSession(cluster.nodeServices[i], srcObj, sessionToken)
+			require.ErrorContains(t, err, "incomplete object PUT by placement: number of replicas cannot be met for list #0")
+			require.ErrorContains(t, err, "some error")
+			require.NotErrorIs(t, err, apistatus.ErrIncomplete)
+		}
+
+		for i := range cnrNodeNum {
+			cluster.nodeLocalStorages[i].err = nil
+		}
+	})
 }
 
 func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrNodes uint) *testCluster {
@@ -591,9 +611,14 @@ func (x mockNodeState) CurrentEpoch() uint64 {
 type inMemLocalStorage struct {
 	mtx  sync.RWMutex
 	objs []object.Object
+	err  error
 }
 
 func (x *inMemLocalStorage) Put(obj *object.Object, objBin []byte) error {
+	if x.err != nil {
+		return x.err
+	}
+
 	if objBin != nil {
 		got := obj.Marshal()
 		if len(obj.Payload()) == 0 && len(objBin) == len(got)+2 {
@@ -792,8 +817,14 @@ func (x *testCluster) resetAllStoredObjects() {
 }
 
 func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st session.Object) {
+	require.NoError(t, putObjectWithSession(svc, obj, st))
+}
+
+func putObjectWithSession(svc *Service, obj object.Object, st session.Object) error {
 	stream, err := svc.Put(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("init stream: %w", err)
+	}
 
 	req := &protoobject.PutRequest{
 		MetaHeader: &protosession.RequestMetaHeader{
@@ -803,19 +834,28 @@ func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st se
 	}
 
 	commonPrm, err := objutil.CommonPrmFromRequest(req)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("prepare common parameters: %w", err)
+	}
 
 	ip := new(PutInitPrm).
 		WithObject(obj.CutPayload()).
 		WithCommonPrm(commonPrm)
-	require.NoError(t, stream.Init(ip))
+	if err = stream.Init(ip); err != nil {
+		return fmt.Errorf("put header: %w", err)
+	}
 
 	cp := new(PutChunkPrm).
 		WithChunk(obj.Payload())
-	require.NoError(t, stream.SendChunk(cp))
+	if err = stream.SendChunk(cp); err != nil {
+		return fmt.Errorf("put header: %w", err)
+	}
 
-	_, err = stream.Close()
-	require.NoError(t, err)
+	if _, err = stream.Close(); err != nil {
+		return fmt.Errorf("close stream: %w", err)
+	}
+
+	return nil
 }
 
 func assertSplitChain(t *testing.T, limit, ln uint64, sessionToken session.Object, members []object.Object) object.Object {
