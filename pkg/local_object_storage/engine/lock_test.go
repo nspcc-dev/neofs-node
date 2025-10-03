@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -355,4 +356,157 @@ func testLockRemoved(t *testing.T, shardNum int) {
 			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		})
 	}
+}
+
+func TestSplitObjectLockExpiration(t *testing.T) {
+	const numOfShards = 3
+
+	dir := t.TempDir()
+	es := &asyncEpochState{e: 10}
+	e := New()
+
+	for i := range numOfShards {
+		_, err := e.AddShard(
+			shard.WithBlobstor(
+				newStorage(filepath.Join(dir, fmt.Sprintf("fstree%d", i))),
+			),
+			shard.WithMetaBaseOptions(
+				meta.WithPath(filepath.Join(dir, fmt.Sprintf("metabase%d", i))),
+				meta.WithPermissions(0700),
+				meta.WithEpochState(es),
+			),
+		)
+		require.NoError(t, err)
+	}
+	require.NoError(t, e.Open())
+	require.NoError(t, e.Init())
+	t.Cleanup(func() { _ = e.Close() })
+
+	cnr := cidtest.ID()
+	parentID := oidtest.ID()
+	splitID := object.NewSplitID()
+
+	parent := generateObjectWithCID(cnr)
+	parent.SetID(parentID)
+	parent.SetPayload(nil)
+	parentAddr := objectcore.AddressOf(parent)
+
+	const childCount = 3
+	children := make([]*object.Object, childCount)
+	childIDs := make([]oid.ID, childCount)
+	childAddrs := make([]oid.Address, childCount)
+
+	for i := range children {
+		children[i] = generateObjectWithCID(cnr)
+		if i != 0 {
+			children[i].SetPreviousID(childIDs[i-1])
+		}
+		if i == len(children)-1 {
+			children[i].SetParent(parent)
+		}
+		children[i].SetSplitID(splitID)
+		children[i].SetPayload([]byte{byte(i), byte(i + 1), byte(i + 2)})
+		children[i].SetPayloadSize(3)
+		childIDs[i] = children[i].GetID()
+		childAddrs[i] = objectcore.AddressOf(children[i])
+	}
+
+	link := generateObjectWithCID(cnr)
+	link.SetParent(parent)
+	link.SetParentID(parentID)
+	link.SetSplitID(splitID)
+	link.SetChildren(childIDs...)
+
+	for i := range children {
+		require.NoError(t, e.Put(children[i], nil))
+	}
+	require.NoError(t, e.Put(link, nil))
+
+	_, err := e.Get(parentAddr)
+	var splitErr *object.SplitInfoError
+	require.ErrorAs(t, err, &splitErr)
+	require.Equal(t, splitID, splitErr.SplitInfo().SplitID())
+
+	t.Run("split object lock with expiring locker", func(t *testing.T) {
+		lockObj := generateObjectWithCID(cnr)
+		lockObj.SetType(object.TypeLock)
+		addExpirationAttribute(lockObj, es.CurrentEpoch()+1)
+
+		lockObj.AssociateLocked(parentID)
+
+		require.NoError(t, e.Put(lockObj, nil))
+
+		l, err := e.IsLocked(parentAddr)
+		require.NoError(t, err)
+		require.True(t, l)
+
+		// Advance epoch but keep lock valid
+		tickEpoch(es, e)
+
+		l, err = e.IsLocked(parentAddr)
+		require.NoError(t, err)
+		require.True(t, l)
+
+		// Advance epoch again - now lock should expire
+		tickEpoch(es, e)
+
+		l, err = e.IsLocked(parentAddr)
+		require.NoError(t, err)
+		require.False(t, l)
+	})
+}
+
+func TestSimpleLockExpiration(t *testing.T) {
+	const numOfShards = 2
+	dir := t.TempDir()
+	es := &asyncEpochState{e: 10}
+	e := New()
+
+	for i := range numOfShards {
+		_, err := e.AddShard(
+			shard.WithBlobstor(
+				newStorage(filepath.Join(dir, fmt.Sprintf("fstree%d", i))),
+			),
+			shard.WithMetaBaseOptions(
+				meta.WithPath(filepath.Join(dir, fmt.Sprintf("metabase%d", i))),
+				meta.WithPermissions(0700),
+				meta.WithEpochState(es),
+			),
+		)
+		require.NoError(t, err)
+	}
+	require.NoError(t, e.Open())
+	require.NoError(t, e.Init())
+	t.Cleanup(func() { _ = e.Close() })
+
+	cnr := cidtest.ID()
+	obj := generateObjectWithCID(cnr)
+	objID := obj.GetID()
+	objAddr := objectcore.AddressOf(obj)
+
+	lock := generateObjectWithCID(cnr)
+	lock.SetType(object.TypeLock)
+	lock.AssociateLocked(objID)
+	addExpirationAttribute(lock, es.CurrentEpoch()+1)
+
+	require.NoError(t, e.Put(obj, nil))
+	require.NoError(t, e.Put(lock, nil))
+
+	locked, err := e.IsLocked(objAddr)
+	require.NoError(t, err)
+	require.True(t, locked)
+
+	// Advance epoch but keep lock valid
+	tickEpoch(es, e)
+
+	locked, err = e.IsLocked(objAddr)
+	require.NoError(t, err)
+	require.True(t, locked)
+
+	// Advance epoch again - now lock should expire
+	tickEpoch(es, e)
+
+	locked, err = e.IsLocked(objAddr)
+	require.NoError(t, err)
+	require.False(t, locked)
 }
