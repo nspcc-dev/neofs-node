@@ -72,6 +72,39 @@ func TestDB_Delete(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestContainerInfo(t *testing.T) {
+	db := newDB(t)
+
+	cID := cidtest.ID()
+	obj := generateObjectWithCID(t, cID)
+	obj.ResetRelations()
+
+	payloadSize := obj.PayloadSize()
+
+	err := putBig(db, obj)
+	require.NoError(t, err)
+
+	info, err := db.GetContainerInfo(cID)
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(1), info.ObjectsNumber)
+	require.Equal(t, payloadSize, info.StorageSize)
+
+	res, err := db.Delete([]oid.Address{object.AddressOf(obj)})
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(1), res.AvailableRemoved)
+	require.Equal(t, uint64(1), res.RawRemoved)
+	require.Len(t, res.Sizes, 1)
+	require.Equal(t, payloadSize, res.Sizes[0])
+
+	info, err = db.GetContainerInfo(cID)
+	require.NoError(t, err)
+
+	require.Zero(t, info.ObjectsNumber)
+	require.Zero(t, info.StorageSize)
+}
+
 func TestDeleteAllChildren(t *testing.T) {
 	db := newDB(t)
 
