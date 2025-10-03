@@ -70,15 +70,13 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 // removed number: objects that were available (without Tombstones, GCMarks
 // non-expired, etc.)
 func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (uint64, uint64, error) {
-	currEpoch := db.epochState.CurrentEpoch()
-
 	var rawDeleted uint64
 	var availableDeleted uint64
 	var errorCount int
 	var firstErr error
 
 	for i := range addrs {
-		removed, available, size, err := db.delete(tx, addrs[i], currEpoch)
+		removed, available, size, err := db.delete(tx, addrs[i])
 		if err != nil {
 			errorCount++
 			db.log.Warn("failed to delete object", zap.Stringer("addr", addrs[i]), zap.Error(err))
@@ -127,7 +125,7 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 // non-exist object is error-free). The second return value indicates if an
 // object was available before the removal (for calculating the logical object
 // counter). The third return value is removed object payload size.
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bool, uint64, error) {
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error) {
 	key := make([]byte, addressKeySize)
 	cID := addr.Container()
 	addrKey := addressKey(addr, key)
