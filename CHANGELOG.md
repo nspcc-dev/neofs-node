@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Empty storage and error-free startup when changing layout parameters (#3594)
 - Flaky storage evacuation unit test (#3605)
 - Incorrect search request from SN when processing tombstones (#3610)
+- `neofs-cli container list` lists nothing if there are no flags (#3613)
 
 ### Changed
 - Stream payload without buffering to reduce memory usage in CLI `Get/Put` operations (#3535)

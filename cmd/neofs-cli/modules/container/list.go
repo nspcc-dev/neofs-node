@@ -1,6 +1,7 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -31,18 +32,18 @@ var listContainersCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		var idUser user.ID
 
-		pk, err := key.GetOrGenerate(cmd)
-		if err != nil {
+		pk, err := key.Get(cmd)
+		if err != nil && !errors.Is(err, key.ErrMissingFlag) {
 			return err
 		}
 
-		if flagVarListContainerOwner == "" {
-			idUser = user.NewFromECDSAPublicKey(pk.PublicKey)
-		} else {
+		if flagVarListContainerOwner != "" {
 			err := idUser.DecodeString(flagVarListContainerOwner)
 			if err != nil {
 				return fmt.Errorf("invalid user ID: %w", err)
 			}
+		} else if pk != nil {
+			idUser = user.NewFromECDSAPublicKey(pk.PublicKey)
 		}
 
 		ctx, cancel := commonflags.GetCommandContext(cmd)
@@ -83,7 +84,7 @@ func initContainerListContainersCmd() {
 	flags := listContainersCmd.Flags()
 
 	flags.StringVar(&flagVarListContainerOwner, flagListContainerOwner, "",
-		"Owner of containers (omit to use owner from private key)",
+		"Owner of containers (omit to use owner from private key or if no key provided - list all containers)",
 	)
 	flags.BoolVar(&flagVarListPrintAttr, flagListPrintAttr, false,
 		"Request and print attributes of each container",

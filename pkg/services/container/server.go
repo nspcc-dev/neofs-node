@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -430,8 +431,10 @@ func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*prot
 	}
 
 	var id user.ID
-	if err := id.FromProtoMessage(mID); err != nil {
-		return s.makeFailedListResponse(fmt.Errorf("invalid user: %w", err))
+	if len(mID.Value) != user.IDSize || !islices.AllZeros(mID.Value) {
+		if err := id.FromProtoMessage(mID); err != nil {
+			return s.makeFailedListResponse(fmt.Errorf("invalid user: %w", err))
+		}
 	}
 
 	cs, err := s.contract.List(id)
