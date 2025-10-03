@@ -31,13 +31,13 @@ var listContainersCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		var idUser user.ID
 
-		key, err := key.GetOrGenerate(cmd)
+		pk, err := key.GetOrGenerate(cmd)
 		if err != nil {
 			return err
 		}
 
 		if flagVarListContainerOwner == "" {
-			idUser = user.NewFromECDSAPublicKey(key.PublicKey)
+			idUser = user.NewFromECDSAPublicKey(pk.PublicKey)
 		} else {
 			err := idUser.DecodeString(flagVarListContainerOwner)
 			if err != nil {
