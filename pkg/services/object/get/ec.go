@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -58,6 +60,129 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 	}
 
 	return nil
+}
+
+func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID,
+	sTok *session.Object, bTok *bearer.Token, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) error {
+	hdr, err := s.getECObjectHeader(ctx, cnr, parent, sTok, bTok, ecRules, sortedNodeLists)
+	if err != nil {
+		return err
+	}
+
+	if err := dst.WriteHeader(&hdr); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, sTok *session.Object, bTok *bearer.Token,
+	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) (object.Object, error) {
+	localNodeKey, err := s.keyStore.GetKey(nil)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("get local SN private key: %w", err)
+	}
+
+	// TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
+	//  https://github.com/nspcc-dev/neofs-node/issues/3563
+	// TODO: limit per-rule context? https://github.com/nspcc-dev/neofs-node/issues/3560
+	var firstErr error
+	for i := range ecRules {
+		hdr, err := s.getECObjectHeaderByRule(ctx, *localNodeKey, cnr, id, sTok, bTok, ecRules[i], sortedNodeLists[i])
+		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+			return hdr, err
+		}
+
+		if i == 0 {
+			firstErr = err
+		}
+
+		s.log.Info("failed to fetch object header by EC rule",
+			zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Stringer("rule", ecRules[i]),
+			zap.Int("rulesLeft", len(ecRules)-i-1), zap.Error(err))
+	}
+
+	return object.Object{}, fmt.Errorf("%w: failed processing of all %d EC rules, first error: %w",
+		apistatus.ErrObjectNotFound, len(ecRules), firstErr)
+}
+
+func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+	sTok *session.Object, bTok *bearer.Token, rule iec.Rule, sortedNodes []netmap.NodeInfo) (object.Object, error) {
+	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
+
+	var hdrTarget atomic.Value
+	var firstErrTarget atomic.Value
+
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(min(totalParts, 3))
+
+	for i := range sortedNodes {
+		node := sortedNodes[i]
+		eg.Go(func() error {
+			if err := ctx.Err(); err != nil {
+				// errgroup call the function even when context is done. Routines for backup
+				// nodes should catch this asap to do nothing.
+				return err
+			}
+
+			if s.neoFSNet.IsLocalNodePublicKey(node.PublicKey()) {
+				// TODO: it'd be more efficient to get payload len only, not a full header
+				hdr, err := s.localStorage.(*storageEngineWrapper).engine.Head(oid.NewAddress(cnr, id), false)
+				if err == nil {
+					hdrTarget.Store(*hdr)
+					return errInterrupt // break
+				}
+
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+					return err // abort
+				}
+
+				if !errors.Is(err, apistatus.ErrObjectNotFound) {
+					firstErrTarget.CompareAndSwap(nil, err)
+					s.log.Info("failed to HEAD object from local storage",
+						zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Error(err))
+				}
+
+				return nil // continue
+			}
+
+			// the most lightweight method in the current protocol
+			hdr, err := s.conns.Head(ctx, node, localNodeKey, cnr, id, sTok, bTok)
+			if err == nil {
+				hdrTarget.Store(hdr)
+				return errInterrupt // break
+			}
+
+			err = convertContextStatus(err)
+
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+				return err // abort
+			}
+
+			if !errors.Is(err, apistatus.ErrObjectNotFound) {
+				firstErrTarget.CompareAndSwap(nil, err)
+				s.log.Info("failed to HEAD object from remote node",
+					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Error(err))
+			}
+
+			return nil // continue
+		})
+	}
+
+	if err := eg.Wait(); err != nil && !errors.Is(err, errInterrupt) {
+		return object.Object{}, err
+	}
+
+	hdr := hdrTarget.Load()
+	if hdr == nil {
+		if firstErr := firstErrTarget.Load(); firstErr != nil {
+			return object.Object{}, fmt.Errorf("%w: all %d nodes failed, one of errors: %w",
+				apistatus.ErrObjectNotFound, len(sortedNodes), firstErr.(error))
+		}
+		return object.Object{}, fmt.Errorf("%w: not found on all %d nodes", apistatus.ErrObjectNotFound, len(sortedNodes))
+	}
+
+	return hdr.(object.Object), nil
 }
 
 // reads object by (cnr, id) which should be partitioned across specified nodes
