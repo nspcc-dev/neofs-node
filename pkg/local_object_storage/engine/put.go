@@ -71,9 +71,11 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 	case objectSDK.TypeLock:
 		locked := obj.AssociatedObject()
 		if !locked.IsZero() {
-			if err := e.lock(addr.Container(), addr.Object(), locked); err != nil {
+			if err := e.lockWithObject(addr.Container(), addr.Object(), locked, obj, objBin); err != nil {
 				return err
 			}
+			// lock object has been stored, no need to continue with normal Put flow
+			return nil
 		}
 	default:
 	}

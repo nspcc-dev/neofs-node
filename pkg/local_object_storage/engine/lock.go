@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -40,9 +41,9 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 }
 
 func (e *StorageEngine) lock(idCnr cid.ID, locker, locked oid.ID) error {
-	err := e.lockSingle(idCnr, locker, locked, true)
+	err := e.lockSingle(idCnr, locker, locked, true, nil, nil)
 	if errors.Is(err, errLockFailed) {
-		err = e.lockSingle(idCnr, locker, locked, false)
+		err = e.lockSingle(idCnr, locker, locked, false, nil, nil)
 	}
 	if err != nil {
 		return logicerr.Wrap(err)
@@ -51,7 +52,20 @@ func (e *StorageEngine) lock(idCnr cid.ID, locker, locked oid.ID) error {
 	return nil
 }
 
-func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) error {
+// lockWithObject creates lock metadata and stores the lock object in the same shard
+func (e *StorageEngine) lockWithObject(idCnr cid.ID, locker, locked oid.ID, lockObj *objectSDK.Object, objBin []byte) error {
+	err := e.lockSingle(idCnr, locker, locked, true, lockObj, objBin)
+	if errors.Is(err, errLockFailed) {
+		err = e.lockSingle(idCnr, locker, locked, false, lockObj, objBin)
+	}
+	if err != nil {
+		return logicerr.Wrap(err)
+	}
+
+	return nil
+}
+
+func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool, lockObj *objectSDK.Object, objBin []byte) error {
 	// code is pretty similar to inhumeAddr, maybe unify?
 	var (
 		addrLocked oid.Address
@@ -61,7 +75,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 	addrLocked.SetContainer(idCnr)
 	addrLocked.SetObject(locked)
 
-	for _, sh := range e.sortedShards(addrLocked) {
+	for i, sh := range e.sortedShards(addrLocked) {
 		if checkExists {
 			exists, err := sh.Exists(addrLocked, false)
 			if err != nil {
@@ -107,6 +121,24 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 			}
 		} else {
 			status = nil
+
+			// if we have a lock object, store it immediately after successful lock
+			if lockObj != nil {
+				e.mtx.RLock()
+				pool, ok := e.shardPools[sh.ID().String()]
+				e.mtx.RUnlock()
+				if !ok {
+					// Shard was concurrently removed, skip.
+					continue
+				}
+
+				lockAddr := object.AddressOf(lockObj)
+
+				putDone, exists, _ := e.putToShard(sh, i, pool, lockAddr, lockObj, objBin)
+				if putDone || exists {
+					return nil
+				}
+			}
 		}
 
 		// if object is root we continue since information about it
