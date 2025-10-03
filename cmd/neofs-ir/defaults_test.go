@@ -26,9 +26,10 @@ func TestValidateDefaultConfig(t *testing.T) {
 				ReconnectionsNumber: 5,
 				ReconnectionsDelay:  5000000000,
 			},
-			Validators: keys.PublicKeys{},
+			DisableAutodeploy: false,
+			Validators:        keys.PublicKeys{},
 		},
-		FSChainAutodeploy: false,
+		FSChainAutodeploy: true,
 		NNS:               config.NNS{SystemEmail: ""},
 		Mainnet: config.BasicChain{
 			DialTimeout:         60000000000,

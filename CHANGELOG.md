@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 - Move processing of expired objects from the epoch event handler to the regular GC cycle (#3582)
 - More compact EACL table representation in neofs-cli acl extended print command (#3597)
 - Storage node returns new Busy/Incomplete/BadRequest status codes when appropriate (#3606)
+- New `fschain.disable_autodeploy` configuration option for IR instead of `fschain_autodeploy` (#3619)
 
 ### Removed
 - `neofs-cli object head --main-only` no-op flag (#3509)
@@ -63,6 +64,9 @@ Changelog for NeoFS Node
 Drop `--main-only` flag from all `neofs-cli object head` commands.
 Drop IR's `timers.stop_estimation.*` and `timers.distribute_basic_income` configuration values, they are not used anymore.
 `neofs-adm fschain estimations` was removed.
+
+Use new `fschain.disable_autodeploy` IR configuration option instead of deprecated `fschain_autodeploy`,
+that was removed in next release.
 
 ## [0.48.3] - 2025-08-14
 
