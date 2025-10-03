@@ -186,7 +186,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 			useRepRules = make([]uint, len(repRules)+len(ecRules))
 			copy(useRepRules, repRules)
 			for i := range ecRules {
-				useRepRules[len(repRules)+i] = 1
+				useRepRules[len(repRules)+i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 			}
 		}
 
