@@ -68,6 +68,9 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 				return fmt.Errorf("cannot inhume %s object on %s TS put: %w", deleted, addr, err)
 			}
 		}
+
+		// Broadcast tombstone object to ALL shards to ensure availability everywhere
+		return e.broadcastObject(obj, objBin)
 	case objectSDK.TypeLock:
 		locked := obj.AssociatedObject()
 		if !locked.IsZero() {
@@ -75,6 +78,9 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 				return err
 			}
 		}
+
+		// Broadcast lock object to ALL shards to ensure availability everywhere
+		return e.broadcastObject(obj, objBin)
 	default:
 	}
 
@@ -231,4 +237,71 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool ut
 			return putDone || exists, false
 		}
 	}
+}
+
+// broadcastObject stores object on ALL shards to ensure it's available everywhere.
+func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) error {
+	var (
+		successCount int
+		pool         util.WorkerPool
+		ok           bool
+		allShards    = e.unsortedShards()
+		addr         = object.AddressOf(obj)
+	)
+
+	e.log.Debug("broadcasting object to all shards",
+		zap.Stringer("type", obj.Type()),
+		zap.Stringer("addr", addr),
+		zap.Stringer("associated", obj.AssociatedObject()),
+		zap.Int("shard_count", len(allShards)))
+
+	for i, sh := range allShards {
+		e.mtx.RLock()
+		pool, ok = e.shardPools[sh.ID().String()]
+		e.mtx.RUnlock()
+
+		if !ok {
+			// Shard was concurrently removed, skip.
+			continue
+		}
+
+		putDone, exists, overloaded := e.putToShard(sh, i, pool, addr, obj, objBin)
+		if putDone || exists {
+			successCount++
+			if exists {
+				e.log.Debug("object already exists on shard during broadcast",
+					zap.Stringer("type", obj.Type()),
+					zap.Stringer("associated", obj.AssociatedObject()),
+					zap.Stringer("shard", sh.ID()),
+					zap.Stringer("addr", addr))
+			} else {
+				e.log.Debug("successfully put object on shard during broadcast",
+					zap.Stringer("type", obj.Type()),
+					zap.Stringer("associated", obj.AssociatedObject()),
+					zap.Stringer("shard", sh.ID()),
+					zap.Stringer("addr", addr))
+			}
+			continue
+		}
+
+		e.log.Warn("failed to put object on shard during broadcast",
+			zap.Stringer("type", obj.Type()),
+			zap.Stringer("shard", sh.ID()),
+			zap.Stringer("addr", addr),
+			zap.Stringer("associated", obj.AssociatedObject()),
+			zap.Bool("overloaded", overloaded))
+	}
+
+	e.log.Debug("object broadcast completed",
+		zap.Stringer("type", obj.Type()),
+		zap.Stringer("addr", addr),
+		zap.Stringer("associated", obj.AssociatedObject()),
+		zap.Int("success_count", successCount),
+		zap.Int("total_shards", len(allShards)))
+
+	if successCount == 0 {
+		return fmt.Errorf("failed to broadcast %s object to any shard", obj.Type())
+	}
+
+	return nil
 }
