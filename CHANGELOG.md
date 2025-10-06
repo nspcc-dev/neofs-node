@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.49.0
+
+## [0.49.0] - 2025-10-06 - Dochodo
+
+### Added
 - `object.search.pool_size` configuration option for SN (#3583)
 - Used payload quotas (#3520)
 
@@ -2670,7 +2684,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...master
+[0.49.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...v0.49.0
 [0.48.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...v0.48.3
 [0.48.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...v0.48.2
 [0.48.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.0...v0.48.1
