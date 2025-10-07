@@ -689,8 +689,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
+	// TODO: remove deprecated 'fee.main_chain' config option in future release
+	if cfg.IsSet("fee.main_chain") {
+		log.Warn("configuration option 'fee.main_chain' is deprecated, use 'mainnet.extra_fee' with the same value instead")
+		if cfg.IsSet("mainnet.extra_fee") {
+			return nil, fmt.Errorf("'fee.main_chain' and 'mainnet.extra_fee' set simultaneously")
+		}
+		cfg.Mainnet.ExtraFee = cfg.Fee.MainChain
+	}
+
 	neofsCli, err := neofsClient.NewFromMorph(server.mainnetClient, server.contracts.neofs,
-		fixedn.Fixed8(cfg.Fee.MainChain), neofsClient.TryNotary(), neofsClient.AsAlphabet())
+		fixedn.Fixed8(cfg.Mainnet.ExtraFee), neofsClient.TryNotary(), neofsClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}

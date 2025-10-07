@@ -92,6 +92,9 @@ func applyDefaults(cfg *irconfig.Config) {
 	}
 
 	// Mainnet defaults
+	if cfg.Mainnet.ExtraFee == 0 {
+		cfg.Mainnet.ExtraFee = 5000_0000 // 0.5 Fixed8
+	}
 	if cfg.Mainnet.DialTimeout == 0 {
 		cfg.Mainnet.DialTimeout = time.Minute
 	}
@@ -144,11 +147,6 @@ func applyDefaults(cfg *irconfig.Config) {
 	// Indexer defaults
 	if cfg.Indexer.CacheTimeout == 0 {
 		cfg.Indexer.CacheTimeout = 15 * time.Second
-	}
-
-	// Fee defaults
-	if cfg.Fee.MainChain == 0 {
-		cfg.Fee.MainChain = 5000_0000 // 0.5 Fixed8
 	}
 
 	// Control defaults
