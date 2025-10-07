@@ -10,7 +10,6 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -46,9 +45,9 @@ func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, p
 	return nil
 }
 
-func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
+func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter) error {
-	obj, err := s.restoreFromECParts(ctx, cnr, parent, sTok, bTok, ecRules, sortedNodeLists)
+	obj, err := s.restoreFromECParts(ctx, cnr, parent, sTok, ecRules, sortedNodeLists)
 	if err != nil {
 		return err
 	}
@@ -69,11 +68,11 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal. Returns [apistatus.ErrObjectNotFound] otherwise.
-func (s *Service) restoreFromECParts(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
+func (s *Service) restoreFromECParts(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) (object.Object, error) {
 	// TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
 	for i := range rules {
-		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, sTok, bTok, rules[i], i, sortedNodeLists[i])
+		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, sTok, rules[i], i, sortedNodeLists[i])
 		if err == nil {
 			return obj, nil
 		}
@@ -98,7 +97,7 @@ func (s *Service) restoreFromECParts(ctx context.Context, cnr cid.ID, parent oid
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal.
-func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
+func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) (object.Object, error) {
 	var hdr object.Object
 	var gotHdr atomic.Bool
@@ -115,7 +114,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 	for i := range int(rule.DataPartNum) {
 		partIdx := i
 		eg.Go(func() error {
-			parentHdr, partPayload, err := s.getECPart(gCtx, cnr, parent, sTok, bTok, rule, ruleIdx, sortedNodes, partIdx)
+			parentHdr, partPayload, err := s.getECPart(gCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx)
 			if err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, gCtx.Err()) {
 					return err
@@ -172,7 +171,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 	for i := range rule.ParityPartNum {
 		partIdx := int(rule.DataPartNum + i)
 		eg.Go(func() error {
-			_, part, err := s.getECPart(gCtx, cnr, parent, sTok, bTok, rule, ruleIdx, sortedNodes, partIdx)
+			_, part, err := s.getECPart(gCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx)
 			if err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, gCtx.Err()) {
 					return err
@@ -224,7 +223,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 // removal.
 //
 // Can return [context.Canceled] from the passed ctx only.
-func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
+func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) (object.Object, []byte, error) {
 	var partHdr object.Object
 	var rc io.ReadCloser
@@ -245,7 +244,7 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 		if local {
 			partHdr, rc, err = s.localObjects.GetECPart(cnr, parent, pi)
 		} else {
-			partHdr, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, bTok, pi, sortedNodes[i])
+			partHdr, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
 		}
 		if err == nil {
 			break
@@ -313,7 +312,7 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 // Can return [context.Canceled] from the passed ctx only.
 //
 // RPC errors include network addresses.
-func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, bTok *bearer.Token,
+func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	pi iec.PartInfo, node netmap.NodeInfo) (object.Object, io.ReadCloser, error) {
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
@@ -324,7 +323,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 	partIdxAttr := strconv.Itoa(pi.Index)
 
 	// TODO: this must be stated in https://github.com/nspcc-dev/neofs-api
-	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, sTok, bTok, true, false, []string{
+	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, sTok, true, false, []string{
 		iec.AttributeRuleIdx, ruleIdxAttr,
 		iec.AttributePartIdx, partIdxAttr,
 	})

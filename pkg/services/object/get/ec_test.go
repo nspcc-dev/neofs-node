@@ -13,8 +13,6 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
-	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -402,8 +400,6 @@ func TestService_Get_EC(t *testing.T) {
 	}
 
 	sTok := sessiontest.ObjectSigned(signer)
-	bTok := bearertest.Token()
-	require.NoError(t, bTok.Sign(signer))
 
 	nodeLists, _ := testNodeMatrix(t, []int{int(rule.DataPartNum + rule.ParityPartNum)})
 
@@ -434,14 +430,13 @@ func TestService_Get_EC(t *testing.T) {
 			privKey: nodeKey,
 		},
 		sTok:  &sTok,
-		bTok:  &bTok,
 		nodes: make(map[string]*Service),
 	}
 	for i := range nodeSvcs {
 		tc.nodes[string(nodeLists[0][i].Marshal())] = nodeSvcs[i]
 	}
 
-	cp, err := newCommonParameters(false, &sTok, &bTok, nil)
+	cp, err := newCommonParameters(false, &sTok, nil)
 	require.NoError(t, err)
 
 	var prm Prm
@@ -550,13 +545,12 @@ func parameterizePartInfoString(t testing.TB, p *Prm, ruleIdx, partIdx string) {
 type testECServiceConn struct {
 	mockKeyStorage
 	sTok *session.Object
-	bTok *bearer.Token
 
 	nodes map[string]*Service
 }
 
 func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, sTok *session.Object, bTok *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
 	if ctx == nil {
 		return object.Object{}, nil, errors.New("[test] missing context")
 	}
@@ -572,16 +566,13 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 	if !assert.ObjectsAreEqual(sTok, x.sTok) {
 		return object.Object{}, nil, errors.New("[test] unexpected session token")
 	}
-	if !assert.ObjectsAreEqual(bTok, x.bTok) {
-		return object.Object{}, nil, errors.New("[test] unexpected bearer token")
-	}
 
 	v, ok := x.nodes[string(node.Marshal())]
 	if !ok {
 		return object.Object{}, nil, errors.New("[test] unexpected node")
 	}
 
-	cp, err := newCommonParameters(local, sTok, bTok, xs)
+	cp, err := newCommonParameters(local, sTok, xs)
 	if err != nil {
 		return object.Object{}, nil, fmt.Errorf("newCommonParameters: %w", err)
 	}
