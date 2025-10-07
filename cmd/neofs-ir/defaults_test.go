@@ -33,6 +33,7 @@ func TestValidateDefaultConfig(t *testing.T) {
 		Mainnet: config.Mainnet{
 			Enabled:               false,
 			DisableGovernanceSync: false,
+			ExtraFee:              50000000,
 			BasicChain: config.BasicChain{
 				DialTimeout:         60000000000,
 				ReconnectionsNumber: 5,
@@ -49,7 +50,6 @@ func TestValidateDefaultConfig(t *testing.T) {
 				Path: ".neofs-ir-state",
 			},
 		},
-		Fee: config.Fee{MainChain: 50000000},
 		Timers: config.Timers{
 			CollectBasicIncome: config.BasicTimer{Mul: 1, Div: 2},
 		},

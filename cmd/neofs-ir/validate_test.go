@@ -255,6 +255,7 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 		Mainnet: config.Mainnet{
 			Enabled:               false,
 			DisableGovernanceSync: false,
+			ExtraFee:              50000000,
 			BasicChain: config.BasicChain{
 				DialTimeout:         time.Minute,
 				ReconnectionsNumber: 5,
