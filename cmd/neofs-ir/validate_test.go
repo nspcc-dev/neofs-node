@@ -256,6 +256,10 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 			Enabled:               false,
 			DisableGovernanceSync: false,
 			ExtraFee:              50000000,
+			Contracts: config.Contracts{
+				NeoFS:      "ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62",
+				Processing: "597f5894867113a41e192801709c02497f611de8",
+			},
 			BasicChain: config.BasicChain{
 				DialTimeout:         time.Minute,
 				ReconnectionsNumber: 5,

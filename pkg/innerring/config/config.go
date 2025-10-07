@@ -134,9 +134,10 @@ type Experimental struct {
 
 // Mainnet configures mainnet chain settings.
 type Mainnet struct {
-	Enabled               bool  `mapstructure:"enabled"`
-	DisableGovernanceSync bool  `mapstructure:"disable_governance_sync"`
-	ExtraFee              int64 `mapstructure:"extra_fee"`
+	Enabled               bool      `mapstructure:"enabled"`
+	DisableGovernanceSync bool      `mapstructure:"disable_governance_sync"`
+	ExtraFee              int64     `mapstructure:"extra_fee"`
+	Contracts             Contracts `mapstructure:"contracts"`
 	BasicChain            `mapstructure:",squash"`
 }
 

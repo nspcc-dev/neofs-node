@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Move `without_mainnet` into `mainnet.enabled` in IR config (#3619)
 - Move `governance.disable` into `mainnet.disable_governance_sync` in IR config (#3619)
 - Move `fee.main_chain` into `mainnet.extra_fee` in IR config (#3619)
+- Move `contracts` into `mainnet.contracts` in IR config (#3619)
 
 ### Removed
 
@@ -30,6 +31,7 @@ by default autodeploy is enabled now;
 by default mainnet is disabled now;
 - `mainnet.disable_governance_sync` instead of deprecated `governance.disable`;
 - `mainnet.extra_fee` instead of deprecated `fee.main_chain`;
+- `mainnet.contracts` instead of deprecated `contracts`;
 Old options are still supported but will be removed in future releases.
 
 ## [0.49.1] - 2025-10-15
