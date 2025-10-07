@@ -252,13 +252,16 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 		NNS: config.NNS{
 			SystemEmail: "usr@domain.io",
 		},
-		Mainnet: config.BasicChain{
-			DialTimeout:         time.Minute,
-			ReconnectionsNumber: 5,
-			ReconnectionsDelay:  5 * time.Second,
-			Endpoints: []string{
-				"wss://mainchain1.fs.neo.org:30333/ws",
-				"wss://mainchain.fs.neo.org:30333/ws",
+		Mainnet: config.Mainnet{
+			Enabled: false,
+			BasicChain: config.BasicChain{
+				DialTimeout:         time.Minute,
+				ReconnectionsNumber: 5,
+				ReconnectionsDelay:  5 * time.Second,
+				Endpoints: []string{
+					"wss://mainchain1.fs.neo.org:30333/ws",
+					"wss://mainchain.fs.neo.org:30333/ws",
+				},
 			},
 		},
 		Control: config.Control{

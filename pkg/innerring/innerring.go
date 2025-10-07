@@ -582,7 +582,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	server.withoutMainNet = cfg.WithoutMainnet
+	// TODO: remove deprecated 'without_mainnet' config option in future release
+	if cfg.IsSet("without_mainnet") {
+		log.Warn("configuration option 'without_mainnet' is deprecated, use 'mainnet.enabled' with the reverted value instead")
+		if cfg.IsSet("mainnet.enabled") {
+			return nil, fmt.Errorf("'without_mainnet' and 'mainnet.enabled' set simultaneously")
+		}
+		cfg.Mainnet.Enabled = !cfg.WithoutMainnet
+	}
+	server.withoutMainNet = !cfg.Mainnet.Enabled
 
 	if server.withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
@@ -594,7 +602,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		mainnetChain := fsChainParams
 		mainnetChain.withAutoFSChainScope = false
 		mainnetChain.name = mainnetPrefix
-		mainnetChain.cfg = &cfg.Mainnet
+		mainnetChain.cfg = &cfg.Mainnet.BasicChain
 
 		mainnetChain.from, err = server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
