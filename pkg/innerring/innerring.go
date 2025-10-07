@@ -629,9 +629,18 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		zap.Bool("mainchain_enabled", !server.mainNotaryConfig.disabled),
 	)
 
+	// TODO: remove deprecated 'contracts' config option in future release
+	if cfg.IsSet("contracts") {
+		log.Warn("configuration option 'contracts' is deprecated, use 'mainnet.contracts' with the same values instead")
+		if cfg.IsSet("mainnet.contracts") {
+			return nil, fmt.Errorf("'contracts' and 'mainnet.contracts' set simultaneously")
+		}
+		cfg.Mainnet.Contracts = cfg.Contracts
+	}
+
 	// get all script hashes of contracts
 	server.contracts, err = initContracts(ctx, log,
-		&cfg.Contracts,
+		&cfg.Mainnet.Contracts,
 		server.fsChainClient,
 		server.withoutMainNet,
 		server.mainNotaryConfig.disabled,

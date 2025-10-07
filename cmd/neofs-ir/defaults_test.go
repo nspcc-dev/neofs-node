@@ -34,6 +34,10 @@ func TestValidateDefaultConfig(t *testing.T) {
 			Enabled:               false,
 			DisableGovernanceSync: false,
 			ExtraFee:              50000000,
+			Contracts: config.Contracts{
+				NeoFS:      "",
+				Processing: "",
+			},
 			BasicChain: config.BasicChain{
 				DialTimeout:         60000000000,
 				ReconnectionsNumber: 5,

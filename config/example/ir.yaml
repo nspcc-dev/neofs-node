@@ -124,6 +124,9 @@ mainnet:
     # ignore if mainchain is disabled; same as 'governance.disable'
   extra_fee: 50000000 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain;
     # same as 'fee.main_chain'
+  contracts: # same as 'contracts'
+    neofs: ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62      # Address of NeoFS contract in mainchain; ignore if mainchain is disabled
+    processing: 597f5894867113a41e192801709c02497f611de8 # Address of processing contract in mainchain; ignore if mainchain is disabled
   dial_timeout: 1m # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
   reconnections_number: 5  # number of reconnection attempts
   reconnections_delay: 5s  # time delay b/w reconnection attempts
