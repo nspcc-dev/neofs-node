@@ -253,7 +253,8 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 			SystemEmail: "usr@domain.io",
 		},
 		Mainnet: config.Mainnet{
-			Enabled: false,
+			Enabled:               false,
+			DisableGovernanceSync: false,
 			BasicChain: config.BasicChain{
 				DialTimeout:         time.Minute,
 				ReconnectionsNumber: 5,

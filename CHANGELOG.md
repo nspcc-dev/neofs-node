@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)
 - Move `without_mainnet` into `mainnet.enabled` in IR config (#3619)
+- Move `governance.disable` into `mainnet.disable_governance_sync` in IR config (#3619)
 
 ### Removed
 
@@ -26,6 +27,7 @@ Use IR configuration options:
 by default autodeploy is enabled now;
 - `mainnet.enabled` instead of deprecated `without_mainnet` with reverted value,
 by default mainnet is disabled now;
+- `mainnet.disable_governance_sync` instead of deprecated `governance.disable`;
 Old options are still supported but will be removed in future releases.
 
 ## [0.49.1] - 2025-10-15
