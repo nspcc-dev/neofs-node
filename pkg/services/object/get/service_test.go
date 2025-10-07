@@ -9,7 +9,6 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -19,7 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
-func newCommonParameters(local bool, sTok *session.Object, bTok *bearer.Token, xs []string) (*util.CommonPrm, error) {
+func newCommonParameters(local bool, sTok *session.Object, xs []string) (*util.CommonPrm, error) {
 	// TODO: see pkg/services/object/put/service_test.go:494
 	var mxs []*protosession.XHeader
 	for i := 0; i < len(xs); i += 2 {
@@ -37,9 +36,6 @@ func newCommonParameters(local bool, sTok *session.Object, bTok *bearer.Token, x
 	}
 	if sTok != nil {
 		req.MetaHeader.SessionToken = sTok.ProtoMessage()
-	}
-	if bTok != nil {
-		req.MetaHeader.BearerToken = bTok.ProtoMessage()
 	}
 	if local {
 		req.MetaHeader.Ttl = 1

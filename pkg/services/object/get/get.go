@@ -40,7 +40,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		}
 	}
 
-	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), prm.common.BearerToken(),
+	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
 		ecRules, nodeLists[len(repRules):], prm.objWriter)
 }
 

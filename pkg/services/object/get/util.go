@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -325,7 +324,7 @@ func (w *directChildWriter) WriteHeader(obj *object.Object) error {
 }
 
 func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, sTok *session.Object, bTok *bearer.Token, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
 	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
 	// TODO: we may waste resources doing this per request. Make once on network map change instead.
 	var ag network.AddressGroup
@@ -349,9 +348,6 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 	}
 	if !verifyID {
 		opts.SkipChecksumVerification()
-	}
-	if bTok != nil {
-		opts.WithBearerToken(*bTok)
 	}
 	if sTok != nil {
 		opts.WithinSession(*sTok)
