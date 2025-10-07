@@ -730,7 +730,16 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	var alphaSync event.Handler
 
-	if server.withoutMainNet || cfg.Governance.Disable {
+	// TODO: remove deprecated 'governance.disable' config option in future release
+	if cfg.IsSet("governance.disable") {
+		log.Warn("configuration option 'governance.disable' is deprecated, use 'mainnet.disable_governance_sync' with the same value instead")
+		if cfg.IsSet("mainnet.disable_governance_sync") {
+			return nil, fmt.Errorf("'governance.disable' and 'mainnet.disable_governance_sync' set simultaneously")
+		}
+		cfg.Mainnet.DisableGovernanceSync = cfg.Governance.Disable
+	}
+
+	if server.withoutMainNet || cfg.Mainnet.DisableGovernanceSync {
 		alphaSync = func(event.Event) {
 			log.Debug("alphabet keys sync is disabled")
 		}

@@ -133,8 +133,9 @@ type Experimental struct {
 
 // Mainnet configures mainnet chain settings.
 type Mainnet struct {
-	Enabled    bool `mapstructure:"enabled"`
-	BasicChain `mapstructure:",squash"`
+	Enabled               bool `mapstructure:"enabled"`
+	DisableGovernanceSync bool `mapstructure:"disable_governance_sync"`
+	BasicChain            `mapstructure:",squash"`
 }
 
 // IsSet checks if the key is set in the config.

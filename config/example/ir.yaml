@@ -120,6 +120,8 @@ nns: # Optional configuration of the NNS domains processed during the FS chain d
 mainnet:
   enabled: false # Enable connection to mainchain; by default, 'false', run application in single chain environment
     # without mainchain; value revert deprecated 'without_mainnet'
+  disable_governance_sync: false # Disable synchronization of sidechain committee and mainchain role management contract;
+    # ignore if mainchain is disabled; same as 'governance.disable'
   dial_timeout: 1m # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
   reconnections_number: 5  # number of reconnection attempts
   reconnections_delay: 5s  # time delay b/w reconnection attempts
