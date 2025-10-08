@@ -96,3 +96,15 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		}
 	}
 }
+
+// TODO: docs.
+func (p *Replicator) PutObjectToNode(ctx context.Context, obj object.Object, node netmap.NodeInfo) error {
+	ctx, cancel := context.WithTimeout(ctx, p.putTimeout)
+	defer cancel()
+
+	var pp putsvc.RemotePutPrm
+	pp.WithObject(&obj)
+	pp.WithNodeInfo(node)
+
+	return p.remoteSender.PutObject(ctx, &pp)
+}

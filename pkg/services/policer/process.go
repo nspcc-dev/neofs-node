@@ -19,6 +19,8 @@ func (p *Policer) Run(ctx context.Context) {
 	}()
 
 	go p.poolCapacityWorker(ctx)
+	go p.listenCheckECPartsTasks(ctx)
+	go p.listenRecreateECPartsTasks(ctx)
 	p.shardPolicyWorker(ctx)
 }
 
