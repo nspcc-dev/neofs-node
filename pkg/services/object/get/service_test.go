@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"io"
@@ -161,5 +162,16 @@ func (unimplementedObjectWriter) WriteHeader(*object.Object) error {
 }
 
 func (unimplementedObjectWriter) WriteChunk([]byte) error {
+	panic("unimplemented")
+}
+
+type unimplementedServiceConns struct{}
+
+func (x unimplementedServiceConns) InitGetObjectRangeStream(context.Context, netmap.NodeInfo, ecdsa.PrivateKey, cid.ID, oid.ID,
+	uint64, uint64, *session.Object, []string) (io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (x unimplementedServiceConns) Head(context.Context, netmap.NodeInfo, ecdsa.PrivateKey, cid.ID, oid.ID, *session.Object) (object.Object, error) {
 	panic("unimplemented")
 }
