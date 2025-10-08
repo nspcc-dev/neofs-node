@@ -120,7 +120,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 
 	if ecp.RuleIndex >= 0 {
 		if len(ecRules) > 0 {
-			p.processECPart(ctx, addr, ecp, ecRules, nn[len(repRules):])
+			p.processECPart(ctx, addr, selectNodesAddr.Object(), ecp, ecRules, nn[len(repRules):])
 			return
 		}
 		p.log.Info("object with EC attributes in container without EC rules detected, deleting",
@@ -300,7 +300,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 
 			callCtx, cancel := context.WithTimeout(ctx, headTimeout)
 
-			_, err := p.apiConns.headObject(callCtx, nodes[i], plc.object.Address)
+			_, err := p.apiConns.headObject(callCtx, nodes[i], plc.object.Address, true, nil)
 
 			cancel()
 

@@ -118,3 +118,32 @@ func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, 
 
 	return pldLen, rc, nil
 }
+
+// HeadECPart is similar to [Shard.GetECPart] but returns only the header.
+func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
+	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("resolve part ID in metabase: %w", err)
+	}
+
+	partAddr := oid.NewAddress(cnr, partID)
+	if s.hasWriteCache() {
+		hdr, err := s.writeCache.Head(partAddr)
+		if err == nil {
+			return *hdr, nil
+		}
+
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			s.log.Debug("EC part object is missing in write-cache, fallback to BLOB storage", zap.Stringer("partAddr", partAddr), zap.Error(err))
+		} else {
+			s.log.Info("failed to get EC part object header from write-cache, fallback to BLOB storage", zap.Stringer("partAddr", partAddr), zap.Error(err))
+		}
+	}
+
+	hdr, err := s.blobStor.Head(partAddr)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("get header from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
+	}
+
+	return *hdr, nil
+}

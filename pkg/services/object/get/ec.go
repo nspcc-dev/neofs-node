@@ -50,6 +50,20 @@ func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, p
 	return nil
 }
 
+// similar to copyLocalECPart but returns only the header.
+func (s *Service) copyLocalECPartHeader(dst internal.HeaderWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+	hdr, err := s.localObjects.HeadECPart(cnr, parent, pi)
+	if err != nil {
+		return fmt.Errorf("get object header from local storage: %w", err)
+	}
+
+	if err := dst.WriteHeader(&hdr); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID,
 	sTok *session.Object, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) error {
 	hdr, err := s.getECObjectHeader(ctx, cnr, parent, sTok, ecRules, sortedNodeLists)

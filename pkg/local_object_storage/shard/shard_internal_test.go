@@ -80,9 +80,15 @@ type getStreamValue struct {
 	err error
 }
 
+type headValue struct {
+	hdr object.Object
+	err error
+}
+
 type mockBLOBStore struct {
 	unimplementedBLOBStore
 	getStream map[oid.Address]getStreamValue
+	head      map[oid.Address]headValue
 }
 
 func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
@@ -96,9 +102,18 @@ func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
+func (x *mockBLOBStore) Head(addr oid.Address) (*object.Object, error) {
+	val, ok := x.head[addr]
+	if !ok {
+		return nil, errors.New("[test] unexpected object requested")
+	}
+	return &val.hdr, val.err
+}
+
 type mockWriteCache struct {
 	unimplementedWriteCache
 	getStream map[oid.Address]getStreamValue
+	head      map[oid.Address]headValue
 }
 
 func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
@@ -110,6 +125,14 @@ func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadClo
 		return val.obj.CutPayload(), val.rc, nil
 	}
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
+}
+
+func (x *mockWriteCache) Head(addr oid.Address) (*object.Object, error) {
+	val, ok := x.head[addr]
+	if !ok {
+		return nil, errors.New("[test] unexpected object requested")
+	}
+	return &val.hdr, val.err
 }
 
 type unimplementedBLOBStore struct{}

@@ -459,6 +459,190 @@ func TestShard_GetECPartRange(t *testing.T) {
 	testGetECPartRangeStream(t, partObj, parentID, pi, s)
 }
 
+func TestShard_HeadECPart(t *testing.T) {
+	cnr := cidtest.ID()
+	parentID := oidtest.ID()
+	pi := iec.PartInfo{
+		RuleIndex: 123,
+		Index:     456,
+	}
+
+	var parentObj object.Object
+	parentObj.SetContainerID(cnr)
+	parentObj.SetID(parentID)
+
+	partObj, err := iec.FormObjectForECPart(neofscryptotest.Signer(), parentObj, testutil.RandByteSlice(32), pi)
+	require.NoError(t, err)
+
+	partHdr := *partObj.CutPayload()
+
+	partID := partObj.GetID()
+	partAddr := oid.NewAddress(cnr, partID)
+
+	mb := mockMetabase{
+		resolveECPart: map[resolveECPartKey]resolveECPartValue{
+			{cnr: cnr, parent: parentID, pi: pi}: {id: partID},
+		},
+	}
+	bs := mockBLOBStore{
+		head: map[oid.Address]headValue{
+			partAddr: {hdr: partHdr},
+		},
+	}
+
+	// metabase errors
+	for _, tc := range []struct {
+		name      string
+		err       error
+		assertErr func(t *testing.T, err error)
+	}{
+		{name: "internal error", err: errors.New("internal error"), assertErr: func(t *testing.T, err error) {
+			require.ErrorContains(t, err, "internal error")
+		}},
+		{name: "object not found", err: apistatus.ErrObjectNotFound, assertErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		}},
+		{name: "object already removed", err: apistatus.ErrObjectAlreadyRemoved, assertErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		}},
+		{name: "object expired", err: meta.ErrObjectIsExpired, assertErr: func(t *testing.T, err error) {
+			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+		}},
+	} {
+		t.Run("metabase/"+tc.name, func(t *testing.T) {
+			mdb := mockMetabase{
+				resolveECPart: map[resolveECPartKey]resolveECPartValue{
+					{cnr: cnr, parent: parentID, pi: pi}: {err: tc.err},
+				},
+			}
+
+			s := newSimpleTestShard(t, unimplementedBLOBStore{}, &mdb, unimplementedWriteCache{})
+
+			_, err := s.HeadECPart(cnr, parentID, pi)
+			require.ErrorContains(t, err, "resolve part ID in metabase")
+			tc.assertErr(t, err)
+		})
+	}
+
+	// BLOB storage errors
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{name: "internal error", err: errors.New("internal error")},
+		{name: "object not found", err: apistatus.ErrObjectNotFound},
+	} {
+		t.Run("BLOB storage/"+tc.name, func(t *testing.T) {
+			bs := mockBLOBStore{
+				head: map[oid.Address]headValue{
+					partAddr: {err: tc.err},
+				},
+			}
+
+			s := newSimpleTestShard(t, &bs, &mb, nil)
+
+			_, err := s.HeadECPart(cnr, parentID, pi)
+			require.ErrorIs(t, err, tc.err)
+			require.ErrorContains(t, err, fmt.Sprintf("get header from BLOB storage by ID %s", partID))
+
+			var oidErr ierrors.ObjectID
+			require.ErrorAs(t, err, &oidErr)
+			require.EqualValues(t, partID, oidErr)
+		})
+	}
+
+	t.Run("writecache", func(t *testing.T) {
+		// errors
+		for _, tc := range []struct {
+			name   string
+			err    error
+			logMsg testutil.LogEntry
+		}{
+			{name: "internal error", err: errors.New("internal error"), logMsg: testutil.LogEntry{Fields: map[string]any{
+				"partAddr": partAddr.String(),
+				"error":    "internal error",
+			}, Level: zap.InfoLevel, Message: "failed to get EC part object header from write-cache, fallback to BLOB storage"}},
+			{name: "object not found", err: fmt.Errorf("wrapped: %w", apistatus.ErrObjectNotFound), logMsg: testutil.LogEntry{Fields: map[string]any{
+				"partAddr": partAddr.String(),
+				"error":    "wrapped: " + apistatus.ErrObjectNotFound.Error(),
+			}, Level: zap.DebugLevel, Message: "EC part object is missing in write-cache, fallback to BLOB storage"}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+				wc := mockWriteCache{
+					head: map[oid.Address]headValue{
+						partAddr: {err: tc.err},
+					},
+				}
+
+				s := newSimpleTestShard(t, &bs, &mb, &wc)
+				s.log = l
+
+				hdr, err := s.HeadECPart(cnr, parentID, pi)
+				require.NoError(t, err)
+				require.Equal(t, partHdr, hdr)
+
+				lb.AssertSingle(tc.logMsg)
+			})
+		}
+
+		wc := mockWriteCache{
+			head: map[oid.Address]headValue{
+				partAddr: {hdr: partHdr},
+			},
+		}
+
+		s := newSimpleTestShard(t, unimplementedBLOBStore{}, &mb, &wc)
+
+		hdr, err := s.HeadECPart(cnr, parentID, pi)
+		require.NoError(t, err)
+		require.Equal(t, partHdr, hdr)
+	})
+
+	for _, tc := range []struct {
+		typ       object.Type
+		associate func(*object.Object, oid.ID)
+	}{
+		{typ: object.TypeTombstone, associate: (*object.Object).AssociateDeleted},
+		{typ: object.TypeLock, associate: (*object.Object).AssociateLocked},
+	} {
+		t.Run(tc.typ.String(), func(t *testing.T) {
+			mb := meta.New(
+				meta.WithPath(filepath.Join(t.TempDir(), "meta")),
+				meta.WithEpochState(epochState{}),
+				meta.WithLogger(zaptest.NewLogger(t)),
+			)
+			require.NoError(t, mb.Open(false))
+			t.Cleanup(func() { _ = mb.Close() })
+			require.NoError(t, mb.Init())
+
+			sysObj := *newObject(t)
+			sysObj.SetContainerID(cnr)
+			tc.associate(&sysObj, oidtest.ID())
+			require.NoError(t, mb.Put(&sysObj))
+
+			bs := mockBLOBStore{
+				head: map[oid.Address]headValue{
+					objectcore.AddressOf(&sysObj): {hdr: sysObj},
+				},
+			}
+
+			s := newSimpleTestShard(t, &bs, mb, nil)
+
+			hdr, err := s.HeadECPart(cnr, sysObj.GetID(), pi)
+			require.NoError(t, err)
+			require.Equal(t, sysObj, hdr)
+		})
+	}
+
+	s := newSimpleTestShard(t, &bs, &mb, nil)
+
+	hdr, err := s.HeadECPart(cnr, parentID, pi)
+	require.NoError(t, err)
+	require.Equal(t, partHdr, hdr)
+}
+
 func testGetECPartRangeStream(t *testing.T, obj object.Object, parent oid.ID, pi iec.PartInfo, s *Shard) {
 	full := int64(obj.PayloadSize())
 	for _, rng := range [][2]int64{

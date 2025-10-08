@@ -237,6 +237,14 @@ func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, int64, in
 	panic("unimplemented")
 }
 
+func (unimplementedShard) Head(oid.Address, bool) (*object.Object, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
+	panic("unimplemented")
+}
+
 type getECPartKey struct {
 	cnr    cid.ID
 	parent oid.ID
@@ -283,13 +291,29 @@ type getStreamValue struct {
 	err error
 }
 
+type headKey struct {
+	addr oid.Address
+	raw  bool
+}
+
+type headValue struct {
+	hdr object.Object
+	err error
+}
+
+type headECPartKey = getECPartKey
+
+type headECPartValue = headValue
+
 type mockShard struct {
 	i              int
-	getECPartSleep time.Duration
+	eCPartSleep    time.Duration
 	getECPart      map[getECPartKey]getECPartValue
 	getRangeStream map[getRangeStreamKey]getRangeStreamValue
 	getECPartRange map[getECPartRangeKey]getECPartRangeValue
 	getStream      map[getStreamKey]getStreamValue
+	head           map[headKey]headValue
+	headECPart     map[headECPartKey]headECPartValue
 }
 
 func (x *mockShard) ID() *shard.ID {
@@ -335,7 +359,7 @@ func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64
 }
 
 func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
-	time.Sleep(x.getECPartSleep)
+	time.Sleep(x.eCPartSleep)
 	val, ok := x.getECPart[getECPartKey{
 		cnr:    cnr,
 		parent: parent,
@@ -348,7 +372,7 @@ func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (objec
 }
 
 func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
-	time.Sleep(x.getECPartSleep)
+	time.Sleep(x.eCPartSleep)
 	val, ok := x.getECPartRange[getECPartRangeKey{
 		cnr:    cnr,
 		parent: parent,
@@ -373,6 +397,30 @@ func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, o
 	}
 
 	return val.obj.PayloadSize(), io.NopCloser(bytes.NewReader(pld[off:][:ln])), nil
+}
+
+func (x *mockShard) Head(addr oid.Address, raw bool) (*object.Object, error) {
+	val, ok := x.head[headKey{
+		addr: addr,
+		raw:  raw,
+	}]
+	if !ok {
+		return nil, errors.New("[test] unexpected object requested")
+	}
+	return &val.hdr, val.err
+}
+
+func (x *mockShard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
+	time.Sleep(x.eCPartSleep)
+	val, ok := x.headECPart[headECPartKey{
+		cnr:    cnr,
+		parent: parent,
+		pi:     pi,
+	}]
+	if !ok {
+		return object.Object{}, errors.New("[test] unexpected object requested")
+	}
+	return val.hdr, val.err
 }
 
 type unimplementedMetrics struct{}
@@ -433,6 +481,10 @@ func (x unimplementedMetrics) AddGetECPartRangeDuration(d time.Duration) {
 	panic("unimplemented")
 }
 
+func (x unimplementedMetrics) AddHeadECPartDuration(time.Duration) {
+	panic("unimplemented")
+}
+
 func (x unimplementedMetrics) SetObjectCounter(string, string, uint64) {
 	panic("unimplemented")
 }
@@ -457,6 +509,7 @@ type testMetrics struct {
 	unimplementedMetrics
 	getECPart      atomic.Int64
 	getECPartRange atomic.Int64
+	headECPart     atomic.Int64
 }
 
 func (x *testMetrics) AddGetECPartDuration(d time.Duration) {
@@ -465,4 +518,8 @@ func (x *testMetrics) AddGetECPartDuration(d time.Duration) {
 
 func (x *testMetrics) AddGetECPartRangeDuration(d time.Duration) {
 	x.getECPartRange.Add(int64(d))
+}
+
+func (x *testMetrics) AddHeadECPartDuration(d time.Duration) {
+	x.headECPart.Add(int64(d))
 }

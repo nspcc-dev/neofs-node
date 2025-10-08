@@ -203,3 +203,75 @@ loop:
 
 	return 0, nil, apistatus.ErrObjectNotFound
 }
+
+// HeadECPart is similar to [StorageEngine.GetECPart] but returns only the header.
+func (e *StorageEngine) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddHeadECPartDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+	if e.blockErr != nil {
+		return object.Object{}, e.blockErr
+	}
+
+	// TODO: sync placement with PUT. They should sort shards equally, but now PUT sorts by part ID.
+	//  https://github.com/nspcc-dev/neofs-node/issues/3537
+	s := e.sortShardsFn(e, oid.NewAddress(cnr, parent))
+
+	var partID oid.ID
+loop:
+	for i := range s {
+		hdr, err := s[i].shardIface.HeadECPart(cnr, parent, pi)
+		switch {
+		case err == nil:
+			return hdr, nil
+		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved):
+			return object.Object{}, err
+		case errors.Is(err, meta.ErrObjectIsExpired):
+			return object.Object{}, apistatus.ErrObjectNotFound // like Get
+		case errors.As(err, (*ierrors.ObjectID)(&partID)):
+			if partID.IsZero() {
+				panic("zero object ID returned as error")
+			}
+
+			e.log.Info("EC part's object ID resolved in shard but reading failed, continue by ID",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
+				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
+				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+			// TODO: need report error? Same for other places. https://github.com/nspcc-dev/neofs-node/issues/3538
+
+			s = s[i+1:]
+			break loop
+		case errors.Is(err, apistatus.ErrObjectNotFound):
+		default:
+			e.log.Info("failed to get EC part header from shard, ignore error",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
+				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
+				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+		}
+	}
+
+	if partID.IsZero() {
+		return object.Object{}, apistatus.ErrObjectNotFound
+	}
+
+	for i := range s {
+		// get an object bypassing the metabase. We can miss deletion or expiration mark. Get behaves like this, so here too.
+		hdr, err := s[i].shardIface.Head(oid.NewAddress(cnr, partID), true)
+		switch {
+		case err == nil:
+			return *hdr, nil
+		case errors.Is(err, apistatus.ErrObjectNotFound):
+		default:
+			e.log.Info("failed to get EC part header from shard bypassing metabase, ignore error",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
+				zap.Int("ecRule", pi.RuleIndex), zap.Int("partIdx", pi.Index),
+				zap.Stringer("partID", partID),
+				zap.Stringer("shardID", s[i].shardIface.ID()), zap.Error(err))
+		}
+	}
+
+	return object.Object{}, apistatus.ErrObjectNotFound
+}

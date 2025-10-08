@@ -199,7 +199,7 @@ func initObjectService(c *cfg) {
 		),
 	)
 
-	c.policer = policer.New(
+	c.policer = policer.New(neofsecdsa.Signer(c.key.PrivateKey),
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
 		policer.WithRemoteHeader(
