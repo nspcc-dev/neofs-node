@@ -72,6 +72,13 @@ type cfg struct {
 		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 		GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error)
+		// GetECPartRange reads specified payload ranage of stored object that carries
+		// EC part produced within cnr for parent object and indexed by pi.
+		//
+		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
+		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
+		// Returns [apistatus.ErrObjectNotFound] if the range is out of payload bounds.
+		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error)
 	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)
@@ -88,6 +95,8 @@ type cfg struct {
 			st *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
 		Head(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			st *session.Object) (object.Object, error)
+		InitGetObjectRangeStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+			off, ln uint64, st *session.Object, xs []string) (io.ReadCloser, error)
 	}
 
 	keyStore interface {
