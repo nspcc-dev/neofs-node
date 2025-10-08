@@ -2,6 +2,7 @@ package ec
 
 import (
 	"fmt"
+	"iter"
 	"slices"
 	"strconv"
 
@@ -40,10 +41,9 @@ func Encode(rule Rule, data []byte) ([][]byte, error) {
 		return make([][]byte, rule.DataPartNum+rule.ParityPartNum), nil
 	}
 
-	// TODO: Explore reedsolomon.Option for performance improvement. https://github.com/nspcc-dev/neofs-node/issues/3501
-	enc, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
-	if err != nil { // should never happen with correct rule
-		return nil, fmt.Errorf("init Reed-Solomon encoder: %w", err)
+	enc, err := newCoderForRule(rule)
+	if err != nil {
+		return nil, err
 	}
 
 	parts, err := enc.Split(data)
@@ -61,19 +61,14 @@ func Encode(rule Rule, data []byte) ([][]byte, error) {
 // Decode decodes source data of known len from EC parts obtained by applying
 // specified rule.
 func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
-	// TODO: Explore reedsolomon.Option for performance improvement. https://github.com/nspcc-dev/neofs-node/issues/3501
-	dec, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
-	if err != nil { // should never happen with correct rule
-		return nil, fmt.Errorf("init Reed-Solomon decoder: %w", err)
-	}
-
-	required := make([]bool, rule.DataPartNum+rule.ParityPartNum)
-	for i := range rule.DataPartNum {
-		required[i] = true
-	}
-
-	if err := dec.ReconstructSome(parts, required); err != nil {
-		return nil, fmt.Errorf("restore Reed-Solomon: %w", err)
+	if err := decodeIndex(rule, parts, func(yield func(int) bool) {
+		for i := range int(rule.DataPartNum) {
+			if !yield(i) {
+				return
+			}
+		}
+	}); err != nil {
+		return nil, err
 	}
 
 	if got := islices.TwoDimSliceElementCount(parts[:rule.DataPartNum]); uint64(got) < dataLen {
@@ -83,6 +78,29 @@ func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
 	return ConcatDataParts(rule, dataLen, parts), nil
 }
 
+// DecodeIndexes decodes specified EC parts obtained by applying specified rule.
+func DecodeIndexes(rule Rule, parts [][]byte, idxs []int) error {
+	return decodeIndex(rule, parts, slices.Values(idxs))
+}
+
+func decodeIndex(rule Rule, parts [][]byte, idxs iter.Seq[int]) error {
+	rs, err := newCoderForRule(rule)
+	if err != nil {
+		return err
+	}
+
+	required := make([]bool, rule.DataPartNum+rule.ParityPartNum)
+	for idx := range idxs {
+		required[idx] = true
+	}
+
+	if err := rs.ReconstructSome(parts, required); err != nil {
+		return fmt.Errorf("restore Reed-Solomon: %w", err)
+	}
+
+	return nil
+}
+
 // ConcatDataParts returns a new slice of dataLen bytes originating given EC
 // parts according to rule.
 //
@@ -90,4 +108,14 @@ func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
 func ConcatDataParts(rule Rule, dataLen uint64, parts [][]byte) []byte {
 	// TODO: last part may be shorter, do not overallocate buffer.
 	return slices.Concat(parts[:rule.DataPartNum]...)[:dataLen]
+}
+
+func newCoderForRule(rule Rule) (reedsolomon.Encoder, error) {
+	// TODO: Explore reedsolomon.Option for performance improvement. https://github.com/nspcc-dev/neofs-node/issues/3501
+	enc, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
+	if err != nil { // should never happen with correct rule
+		return nil, fmt.Errorf("init Reed-Solomon decoder: %w", err)
+	}
+
+	return enc, nil
 }

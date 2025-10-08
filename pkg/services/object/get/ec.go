@@ -47,6 +47,20 @@ func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, p
 	return nil
 }
 
+// similar to copyLocalECPart but returns only the header.
+func (s *Service) copyLocalECPartHeader(dst internal.HeaderWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+	hdr, err := s.localObjects.HeadECPart(cnr, parent, pi)
+	if err != nil {
+		return fmt.Errorf("get object header from local storage: %w", err)
+	}
+
+	if err := dst.WriteHeader(&hdr); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter) error {
 	obj, err := s.restoreFromECParts(ctx, cnr, parent, sTok, ecRules, sortedNodeLists)
@@ -526,4 +540,20 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 	}
 
 	return fmt.Errorf("not all EC attributes received: requested %d, got %d", expected, found)
+}
+
+func checkPartRequestAgainstPolicy(ecRules []iec.Rule, pi iec.PartInfo) error {
+	if len(ecRules) == 0 {
+		return errors.New("EC part requested in container without EC policy")
+	}
+
+	if pi.RuleIndex >= len(ecRules) {
+		return fmt.Errorf("EC rule index overflows container policy: idx=%d,rules=%d", pi.RuleIndex, len(ecRules))
+	}
+
+	if total := ecRules[pi.RuleIndex].DataPartNum + ecRules[pi.RuleIndex].ParityPartNum; pi.Index >= int(total) {
+		return fmt.Errorf("EC part index overflows container policy: idx=%d,parts=%d", pi.Index, total)
+	}
+
+	return nil
 }
