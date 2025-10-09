@@ -1,4 +1,4 @@
-package persistent
+package state
 
 import (
 	"bytes"
@@ -14,10 +14,7 @@ import (
 )
 
 func TestTokenStore(t *testing.T) {
-	ts, err := NewTokenStore(filepath.Join(t.TempDir(), ".storage"))
-	require.NoError(t, err)
-
-	defer ts.Close()
+	ts := newStorageWithSession(t, filepath.Join(t.TempDir(), ".storage"))
 
 	const tokenNumber = 5
 
@@ -45,7 +42,7 @@ func TestTokenStore(t *testing.T) {
 	}
 
 	for i, token := range tokens {
-		savedToken := ts.Get(token.owner, token.id)
+		savedToken := ts.GetToken(token.owner, token.id)
 
 		require.Equal(t, uint64(i), savedToken.ExpiredAt())
 		require.NotNil(t, savedToken.SessionKey())
@@ -55,27 +52,22 @@ func TestTokenStore(t *testing.T) {
 
 func TestTokenStore_Persistent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".storage")
-
-	ts, err := NewTokenStore(path)
-	require.NoError(t, err)
+	ts := newStorageWithSession(t, path)
 
 	sessionID := make([]byte, 64) // any len
 	owner := usertest.User()
 	const exp = 12345
 
-	err = ts.Store(owner.ECDSAPrivateKey, owner.ID, sessionID, exp)
+	err := ts.Store(owner.ECDSAPrivateKey, owner.ID, sessionID, exp)
 	require.NoError(t, err)
 
 	// close db (stop the node)
 	require.NoError(t, ts.Close())
 
 	// open persistent storage again
-	ts, err = NewTokenStore(path)
-	require.NoError(t, err)
+	ts = newStorageWithSession(t, path)
 
-	defer ts.Close()
-
-	savedToken := ts.Get(owner.ID, sessionID)
+	savedToken := ts.GetToken(owner.ID, sessionID)
 
 	require.EqualValues(t, exp, savedToken.ExpiredAt())
 	require.NotNil(t, savedToken.SessionKey())
@@ -109,10 +101,7 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 		},
 	}
 
-	ts, err := NewTokenStore(filepath.Join(t.TempDir(), ".storage"))
-	require.NoError(t, err)
-
-	defer ts.Close()
+	ts := newStorageWithSession(t, filepath.Join(t.TempDir(), ".storage"))
 
 	for _, test := range tests {
 		test.id = make([]byte, 32) // any len
@@ -128,10 +117,10 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 
 	const currEpoch = 3
 
-	ts.RemoveOld(currEpoch)
+	ts.RemoveOldTokens(currEpoch)
 
 	for _, test := range tests {
-		token := ts.Get(test.owner, test.id)
+		token := ts.GetToken(test.owner, test.id)
 
 		if test.epoch <= currEpoch {
 			require.Nil(t, token)

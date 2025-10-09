@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
+	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/util/state/session/temporary"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/session"

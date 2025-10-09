@@ -202,7 +202,7 @@ func (s *Server) HealthStatus() control.HealthStatus {
 }
 
 func initPersistentStateStorage(cfg *config.Config) (*state.PersistentStorage, error) {
-	persistStorage, err := state.NewPersistentStorage(cfg.Node.PersistentState.Path)
+	persistStorage, err := state.NewPersistentStorage(cfg.Node.PersistentState.Path, false)
 	if err != nil {
 		return nil, fmt.Errorf("persistent state init error: %w", err)
 	}
