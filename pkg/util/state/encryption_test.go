@@ -1,4 +1,4 @@
-package persistent
+package state
 
 import (
 	"bytes"
@@ -13,8 +13,7 @@ func TestTokenStore_Encryption(t *testing.T) {
 	pk, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 
-	ts, err := NewTokenStore(filepath.Join(t.TempDir(), ".storage"), WithEncryptionKey(&pk.PrivateKey))
-	require.NoError(t, err)
+	ts := newStorageWithSession(t, filepath.Join(t.TempDir(), ".storage"), WithEncryptionKey(&pk.PrivateKey))
 
 	data := []byte("nice encryption, awesome tests")
 
@@ -26,4 +25,15 @@ func TestTokenStore_Encryption(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, data, decryptedData)
+}
+
+func newStorageWithSession(tb testing.TB, path string, opts ...Option) *PersistentStorage {
+	storage, err := NewPersistentStorage(path, true, opts...)
+	require.NoError(tb, err)
+
+	tb.Cleanup(func() {
+		_ = storage.Close()
+	})
+
+	return storage
 }

@@ -282,6 +282,7 @@ node:
     - "key:value"
   relay: false
   persistent_sessions:
+    enabled: true
     path: /sessions
   persistent_state:
     path: /state
@@ -310,9 +311,10 @@ N3 wallet configuration.
 
 Contains persistent session token store configuration. By default sessions do not persist between restarts.
 
-| Parameter | Type     | Default value | Description           |
-|-----------|----------|---------------|-----------------------|
-| `path`    | `string` |               | Path to the database. |
+| Parameter | Type     | Default value | Description                            |
+|-----------|----------|---------------|----------------------------------------|
+| `enabled` | `bool`   | `false`       | Enable persistent session token store. |
+| `path`    | `string` |               | Path to the database.                  |
 
 ## `persistent_state` subsection
 Configures persistent storage for auxiliary information, such as last seen block height.

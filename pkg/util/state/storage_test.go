@@ -9,7 +9,7 @@ import (
 )
 
 func newStorage(tb testing.TB) *state.PersistentStorage {
-	storage, err := state.NewPersistentStorage(filepath.Join(tb.TempDir(), ".storage"))
+	storage, err := state.NewPersistentStorage(filepath.Join(tb.TempDir(), ".storage"), false)
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
