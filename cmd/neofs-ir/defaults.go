@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/internal/configutil"
 	irconfig "github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/spf13/viper"
@@ -21,8 +22,6 @@ func newConfig(path string) (*irconfig.Config, error) {
 	v.SetEnvPrefix(innerRingPrefix)
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	defaultConfiguration(v)
 
 	if path != "" {
 		v.SetConfigFile(path)
@@ -43,61 +42,117 @@ func newConfig(path string) (*irconfig.Config, error) {
 		return nil, fmt.Errorf("unable to decode config: %w", err)
 	}
 
+	applyDefaults(&cfg)
+
 	return &cfg, nil
 }
 
-func defaultConfiguration(cfg *viper.Viper) {
-	cfg.SetDefault("logger.level", "info")
-	cfg.SetDefault("logger.encoding", "console")
+func applyDefaults(cfg *irconfig.Config) {
+	// Logger defaults
+	if cfg.Logger.Level == "" {
+		cfg.Logger.Level = "info"
+	}
+	if cfg.Logger.Encoding == "" {
+		cfg.Logger.Encoding = "console"
+	}
 
-	cfg.SetDefault("pprof.address", "localhost:6060")
-	cfg.SetDefault("pprof.shutdown_timeout", "30s")
+	// Pprof defaults
+	if cfg.Pprof.Address == "" {
+		cfg.Pprof.Address = "localhost:6060"
+	}
+	if cfg.Pprof.ShutdownTimeout == 0 {
+		cfg.Pprof.ShutdownTimeout = 30 * time.Second
+	}
 
-	cfg.SetDefault("prometheus.address", "localhost:9090")
-	cfg.SetDefault("prometheus.shutdown_timeout", "30s")
+	// Prometheus defaults
+	if cfg.Prometheus.Address == "" {
+		cfg.Prometheus.Address = "localhost:9090"
+	}
+	if cfg.Prometheus.ShutdownTimeout == 0 {
+		cfg.Prometheus.ShutdownTimeout = 30 * time.Second
+	}
 
-	cfg.SetDefault("without_mainnet", false)
+	// Node defaults
+	if cfg.Node.PersistentState.Path == "" {
+		cfg.Node.PersistentState.Path = ".neofs-ir-state"
+	}
 
-	cfg.SetDefault("node.persistent_state.path", ".neofs-ir-state")
+	// FSChain defaults
+	if cfg.FSChain.DialTimeout == 0 {
+		cfg.FSChain.DialTimeout = time.Minute
+	}
+	if cfg.FSChain.ReconnectionsNumber == 0 {
+		cfg.FSChain.ReconnectionsNumber = 5
+	}
+	if cfg.FSChain.ReconnectionsDelay == 0 {
+		cfg.FSChain.ReconnectionsDelay = 5 * time.Second
+	}
+	if cfg.FSChain.Validators == nil {
+		cfg.FSChain.Validators = keys.PublicKeys{}
+	}
 
-	cfg.SetDefault("fschain.dial_timeout", time.Minute)
-	cfg.SetDefault("fschain.reconnections_number", 5)
-	cfg.SetDefault("fschain.reconnections_delay", 5*time.Second)
-	cfg.SetDefault("fschain.validators", []string{})
+	// Mainnet defaults
+	if cfg.Mainnet.DialTimeout == 0 {
+		cfg.Mainnet.DialTimeout = time.Minute
+	}
+	if cfg.Mainnet.ReconnectionsNumber == 0 {
+		cfg.Mainnet.ReconnectionsNumber = 5
+	}
+	if cfg.Mainnet.ReconnectionsDelay == 0 {
+		cfg.Mainnet.ReconnectionsDelay = 5 * time.Second
+	}
 
-	cfg.SetDefault("mainnet.dial_timeout", time.Minute)
-	cfg.SetDefault("mainnet.reconnections_number", 5)
-	cfg.SetDefault("mainnet.reconnections_delay", 5*time.Second)
+	// Timers defaults
+	if cfg.Timers.CollectBasicIncome.Mul == 0 {
+		cfg.Timers.CollectBasicIncome.Mul = 1
+	}
+	if cfg.Timers.CollectBasicIncome.Div == 0 {
+		cfg.Timers.CollectBasicIncome.Div = 2
+	}
 
-	cfg.SetDefault("wallet.path", "")     // inner ring node NEP-6 wallet
-	cfg.SetDefault("wallet.address", "")  // account address
-	cfg.SetDefault("wallet.password", "") // password
+	// Workers defaults
+	if cfg.Workers.Netmap == 0 {
+		cfg.Workers.Netmap = 10
+	}
+	if cfg.Workers.Balance == 0 {
+		cfg.Workers.Balance = 10
+	}
+	if cfg.Workers.NeoFS == 0 {
+		cfg.Workers.NeoFS = 10
+	}
+	if cfg.Workers.Container == 0 {
+		cfg.Workers.Container = 10
+	}
+	if cfg.Workers.Alphabet == 0 {
+		cfg.Workers.Alphabet = 10
+	}
+	if cfg.Workers.Reputation == 0 {
+		cfg.Workers.Reputation = 10
+	}
 
-	cfg.SetDefault("timers.collect_basic_income.mul", 1)
-	cfg.SetDefault("timers.collect_basic_income.div", 2)
+	// Emit defaults
+	if cfg.Emit.Mint.CacheSize == 0 {
+		cfg.Emit.Mint.CacheSize = 1000
+	}
+	if cfg.Emit.Mint.Threshold == 0 {
+		cfg.Emit.Mint.Threshold = 1
+	}
+	if cfg.Emit.Mint.Value == 0 {
+		cfg.Emit.Mint.Value = 20000000 // 0.2 Fixed8
+	}
 
-	cfg.SetDefault("workers.netmap", "10")
-	cfg.SetDefault("workers.balance", "10")
-	cfg.SetDefault("workers.neofs", "10")
-	cfg.SetDefault("workers.container", "10")
-	cfg.SetDefault("workers.alphabet", "10")
-	cfg.SetDefault("workers.reputation", "10")
+	// Indexer defaults
+	if cfg.Indexer.CacheTimeout == 0 {
+		cfg.Indexer.CacheTimeout = 15 * time.Second
+	}
 
-	cfg.SetDefault("emit.storage.amount", 0)
-	cfg.SetDefault("emit.mint.cache_size", 1000)
-	cfg.SetDefault("emit.mint.threshold", 1)
-	cfg.SetDefault("emit.mint.value", 20000000) // 0.2 Fixed8
-	cfg.SetDefault("emit.gas.balance_threshold", 0)
+	// Fee defaults
+	if cfg.Fee.MainChain == 0 {
+		cfg.Fee.MainChain = 5000_0000 // 0.5 Fixed8
+	}
 
-	cfg.SetDefault("settlement.basic_income_rate", 0)
-
-	cfg.SetDefault("indexer.cache_timeout", 15*time.Second)
-
-	// extra fee values for working mode without notary contract
-	cfg.SetDefault("fee.main_chain", 5000_0000) // 0.5 Fixed8
-
-	cfg.SetDefault("control.authorized_keys", []string{})
-	cfg.SetDefault("control.grpc.endpoint", "")
-
-	cfg.SetDefault("governance.disable", false)
+	// Control defaults
+	if cfg.Control.AuthorizedKeys == nil {
+		cfg.Control.AuthorizedKeys = keys.PublicKeys{}
+	}
 }
