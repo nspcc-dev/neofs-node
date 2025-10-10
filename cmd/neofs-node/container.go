@@ -195,7 +195,7 @@ func initSizeLoadReports(c *cfg) {
 	})
 }
 
-func reportHandler(c *cfg, l *zap.Logger) timer.Tick {
+func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 	type report struct {
 		size, objsNum uint64
 	}
@@ -207,13 +207,19 @@ func reportHandler(c *cfg, l *zap.Logger) timer.Tick {
 	return func() {
 		epoch := c.CurrentEpoch()
 		st := c.cfgObject.cfgLocalStorage.localStorage
-		l = l.With(zap.Uint64("epoch", epoch))
+		l := logger.With(zap.Uint64("epoch", epoch))
 
 		l.Debug("sending container report to contract...")
 
 		idList, err := st.ListContainers()
 		if err != nil {
 			l.Warn("engine's list containers failure", zap.Error(err))
+			return
+		}
+
+		networkMap, err := c.netMapSource.GetNetMapByEpoch(epoch)
+		if err != nil {
+			l.Warn("unable to fetch network map", zap.Error(err))
 			return
 		}
 
@@ -232,6 +238,17 @@ func reportHandler(c *cfg, l *zap.Logger) timer.Tick {
 				l.Debug("skip reporting disk load for the container, as values are the same",
 					zap.Uint64("size", size), zap.Uint64("objsNum", objsNum), zap.Stringer("cid", cnr))
 
+				continue
+			}
+
+			cont, err := c.cnrSrc.Get(cnr)
+			if err != nil {
+				l.Warn("unable to fetch container data", zap.Stringer("cid", cnr), zap.Error(err))
+				continue
+			}
+
+			if !isContainerMine(cont, networkMap, c.binPublicKey) {
+				l.Debug("got usage data for alien container, can't report", zap.Stringer("cid", cnr))
 				continue
 			}
 
