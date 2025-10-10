@@ -195,7 +195,7 @@ func initSizeLoadReports(c *cfg) {
 	})
 }
 
-func reportHandler(c *cfg, l *zap.Logger) timer.Tick {
+func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 	type report struct {
 		size, objsNum uint64
 	}
@@ -207,7 +207,7 @@ func reportHandler(c *cfg, l *zap.Logger) timer.Tick {
 	return func() {
 		epoch := c.CurrentEpoch()
 		st := c.cfgObject.cfgLocalStorage.localStorage
-		l = l.With(zap.Uint64("epoch", epoch))
+		l := logger.With(zap.Uint64("epoch", epoch))
 
 		l.Debug("sending container report to contract...")
 
