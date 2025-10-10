@@ -418,6 +418,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	serveMetrics(server, cfg)
 
+	// TODO: remove deprecated 'fschain_autodeploy' config option in future release
+	if cfg.IsSet("fschain_autodeploy") {
+		log.Warn("configuration option 'fschain_autodeploy' is deprecated, use 'fschain.disable_autodeploy' with the opposite value instead")
+		if cfg.IsSet("fschain.disable_autodeploy") {
+			return nil, fmt.Errorf("'fschain_autodeploy' and 'fschain.disable_autodeploy' set simultaneously")
+		}
+		cfg.FSChain.DisableAutodeploy = !cfg.FSChainAutodeploy
+	}
+
 	var localWSClient *rpcclient.WSClient // set if isLocalConsensus only
 
 	// create FS chain client
@@ -472,7 +481,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		fsChainOpts[1] = client.WithLogger(log)
 		fsChainOpts[2] = client.WithSingleClient(localWSClient)
 
-		if !cfg.FSChainAutodeploy {
+		if cfg.FSChain.DisableAutodeploy {
 			fsChainOpts = append(fsChainOpts, client.WithAutoFSChainScope())
 		}
 
@@ -488,7 +497,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		// fallback to the pure RPC architecture
 
 		fsChainParams.key = server.key
-		fsChainParams.withAutoFSChainScope = !cfg.FSChainAutodeploy
+		fsChainParams.withAutoFSChainScope = cfg.FSChain.DisableAutodeploy
 
 		server.fsChainClient, err = server.createClient(ctx, fsChainParams, errChan)
 		if err != nil {
@@ -496,7 +505,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		}
 	}
 
-	if cfg.FSChainAutodeploy {
+	if !cfg.FSChain.DisableAutodeploy {
 		log.Info("auto-deployment configured, initializing FS chain...")
 
 		var fschain *fsChain
@@ -573,7 +582,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	server.withoutMainNet = cfg.WithoutMainnet
+	// TODO: remove deprecated 'without_mainnet' config option in future release
+	if cfg.IsSet("without_mainnet") {
+		log.Warn("configuration option 'without_mainnet' is deprecated, use 'mainnet.enabled' with the reverted value instead")
+		if cfg.IsSet("mainnet.enabled") {
+			return nil, fmt.Errorf("'without_mainnet' and 'mainnet.enabled' set simultaneously")
+		}
+		cfg.Mainnet.Enabled = !cfg.WithoutMainnet
+	}
+	server.withoutMainNet = !cfg.Mainnet.Enabled
 
 	if server.withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
@@ -585,7 +602,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		mainnetChain := fsChainParams
 		mainnetChain.withAutoFSChainScope = false
 		mainnetChain.name = mainnetPrefix
-		mainnetChain.cfg = &cfg.Mainnet
+		mainnetChain.cfg = &cfg.Mainnet.BasicChain
 
 		mainnetChain.from, err = server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
@@ -612,9 +629,18 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		zap.Bool("mainchain_enabled", !server.mainNotaryConfig.disabled),
 	)
 
+	// TODO: remove deprecated 'contracts' config option in future release
+	if cfg.IsSet("contracts") {
+		log.Warn("configuration option 'contracts' is deprecated, use 'mainnet.contracts' with the same values instead")
+		if cfg.IsSet("mainnet.contracts") {
+			return nil, fmt.Errorf("'contracts' and 'mainnet.contracts' set simultaneously")
+		}
+		cfg.Mainnet.Contracts = cfg.Contracts
+	}
+
 	// get all script hashes of contracts
 	server.contracts, err = initContracts(ctx, log,
-		&cfg.Contracts,
+		&cfg.Mainnet.Contracts,
 		server.fsChainClient,
 		server.withoutMainNet,
 		server.mainNotaryConfig.disabled,
@@ -672,8 +698,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
+	// TODO: remove deprecated 'fee.main_chain' config option in future release
+	if cfg.IsSet("fee.main_chain") {
+		log.Warn("configuration option 'fee.main_chain' is deprecated, use 'mainnet.extra_fee' with the same value instead")
+		if cfg.IsSet("mainnet.extra_fee") {
+			return nil, fmt.Errorf("'fee.main_chain' and 'mainnet.extra_fee' set simultaneously")
+		}
+		cfg.Mainnet.ExtraFee = cfg.Fee.MainChain
+	}
+
 	neofsCli, err := neofsClient.NewFromMorph(server.mainnetClient, server.contracts.neofs,
-		fixedn.Fixed8(cfg.Fee.MainChain), neofsClient.TryNotary(), neofsClient.AsAlphabet())
+		fixedn.Fixed8(cfg.Mainnet.ExtraFee), neofsClient.TryNotary(), neofsClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -713,7 +748,16 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	var alphaSync event.Handler
 
-	if server.withoutMainNet || cfg.Governance.Disable {
+	// TODO: remove deprecated 'governance.disable' config option in future release
+	if cfg.IsSet("governance.disable") {
+		log.Warn("configuration option 'governance.disable' is deprecated, use 'mainnet.disable_governance_sync' with the same value instead")
+		if cfg.IsSet("mainnet.disable_governance_sync") {
+			return nil, fmt.Errorf("'governance.disable' and 'mainnet.disable_governance_sync' set simultaneously")
+		}
+		cfg.Mainnet.DisableGovernanceSync = cfg.Governance.Disable
+	}
+
+	if server.withoutMainNet || cfg.Mainnet.DisableGovernanceSync {
 		alphaSync = func(event.Event) {
 			log.Debug("alphabet keys sync is disabled")
 		}
