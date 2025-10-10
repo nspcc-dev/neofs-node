@@ -247,12 +247,7 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 				continue
 			}
 
-			mine, err := isContainerMine(cont, networkMap, c.binPublicKey)
-			if err != nil {
-				l.Info("unable to check node relation to container", zap.Stringer("cid", cnr), zap.Error(err))
-				continue
-			}
-			if !mine {
+			if !isContainerMine(cont, networkMap, c.binPublicKey) {
 				l.Debug("got usage data for alien container, can't report", zap.Stringer("cid", cnr))
 				continue
 			}

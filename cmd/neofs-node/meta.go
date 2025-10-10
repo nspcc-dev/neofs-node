@@ -104,37 +104,37 @@ func (c *neofsNetwork) IsMineWithMeta(cData []byte) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("unmarshal container: %w", err)
 	}
-	return c.isMineWithMeta(cnr, networkMap)
+	return c.isMineWithMeta(cnr, networkMap), nil
 }
 
-func (c *neofsNetwork) isMineWithMeta(cnr containerSDK.Container, networkMap *netmapsdk.NetMap) (bool, error) {
+func (c *neofsNetwork) isMineWithMeta(cnr containerSDK.Container, networkMap *netmapsdk.NetMap) bool {
 	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
 	switch cnr.Attribute(metaOnChainAttr) {
 	case "optimistic", "strict":
 	default:
-		return false, nil
+		return false
 	}
 
 	return isContainerMine(cnr, networkMap, c.key)
 }
 
-func isContainerMine(cnr containerSDK.Container, networkMap *netmapsdk.NetMap, myKey []byte) (bool, error) {
+func isContainerMine(cnr containerSDK.Container, networkMap *netmapsdk.NetMap, myKey []byte) bool {
 	var id = cid.NewFromMarshalledContainer(cnr.Marshal())
 
 	nodeSets, err := networkMap.ContainerNodes(cnr.PlacementPolicy(), id)
 	if err != nil {
-		return false, fmt.Errorf("apply container storage policy to %s container: %w", id, err)
+		return false
 	}
 
 	for _, nodeSet := range nodeSets {
 		for _, node := range nodeSet {
 			if bytes.Equal(node.PublicKey(), myKey) {
-				return true, nil
+				return true
 			}
 		}
 	}
 
-	return false, nil
+	return false
 }
 
 func (c *neofsNetwork) List(e uint64) (map[cid.ID]struct{}, error) {
@@ -169,14 +169,11 @@ func (c *neofsNetwork) List(e uint64) (map[cid.ID]struct{}, error) {
 				return err
 			}
 
-			ok, err := c.isMineWithMeta(cnr, networkMap)
-			if err != nil || !ok {
-				return err
+			if c.isMineWithMeta(cnr, networkMap) {
+				locM.Lock()
+				res[cID] = struct{}{}
+				locM.Unlock()
 			}
-
-			locM.Lock()
-			res[cID] = struct{}{}
-			locM.Unlock()
 
 			return nil
 		})
