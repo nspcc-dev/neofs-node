@@ -115,6 +115,10 @@ func (c *neofsNetwork) isMineWithMeta(cnr containerSDK.Container, networkMap *ne
 		return false, nil
 	}
 
+	return isContainerMine(cnr, networkMap, c.key)
+}
+
+func isContainerMine(cnr containerSDK.Container, networkMap *netmapsdk.NetMap, myKey []byte) (bool, error) {
 	var id = cid.NewFromMarshalledContainer(cnr.Marshal())
 
 	nodeSets, err := networkMap.ContainerNodes(cnr.PlacementPolicy(), id)
@@ -124,7 +128,7 @@ func (c *neofsNetwork) isMineWithMeta(cnr containerSDK.Container, networkMap *ne
 
 	for _, nodeSet := range nodeSets {
 		for _, node := range nodeSet {
-			if bytes.Equal(node.PublicKey(), c.key) {
+			if bytes.Equal(node.PublicKey(), myKey) {
 				return true, nil
 			}
 		}

@@ -217,6 +217,12 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 			return
 		}
 
+		networkMap, err := c.netMapSource.GetNetMapByEpoch(epoch)
+		if err != nil {
+			l.Warn("unable to fetch network map", zap.Error(err))
+			return
+		}
+
 		for _, cnr := range idList {
 			size, objsNum, err := st.ContainerInfo(cnr)
 			if err != nil {
@@ -232,6 +238,22 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 				l.Debug("skip reporting disk load for the container, as values are the same",
 					zap.Uint64("size", size), zap.Uint64("objsNum", objsNum), zap.Stringer("cid", cnr))
 
+				continue
+			}
+
+			cont, err := c.cnrSrc.Get(cnr)
+			if err != nil {
+				l.Warn("unable to fetch container data", zap.Stringer("cid", cnr), zap.Error(err))
+				continue
+			}
+
+			mine, err := isContainerMine(cont, networkMap, c.binPublicKey)
+			if err != nil {
+				l.Info("unable to check node relation to container", zap.Stringer("cid", cnr), zap.Error(err))
+				continue
+			}
+			if !mine {
+				l.Debug("got usage data for alien container, can't report", zap.Stringer("cid", cnr))
 				continue
 			}
 
