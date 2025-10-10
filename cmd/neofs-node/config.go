@@ -41,6 +41,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state/session/temporary"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -332,9 +333,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		netAddr = appCfg.Node.BootstrapAddresses()
 	}
 
-	persistate, err := state.NewPersistentStorage(appCfg.Node.PersistentState.Path)
-	fatalOnErr(err)
-
 	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
@@ -380,6 +378,32 @@ func initCfg(appCfg *config.Config) *cfg {
 		return &b
 	}
 
+	// TODO: drop deprecated 'node.persistent_sessions.path' in future releases
+	persistentSessionPath := c.appCfg.Node.PersistentSessions.Path
+	if persistentSessionPath != "" && !c.appCfg.Node.PersistentSessions.Enabled {
+		fatalOnErr(errors.New("path for persistent sessions is set, but persistent sessions are disabled, please enable it in config to migrate existing sessions"))
+	}
+
+	persistate, err := state.NewPersistentStorage(appCfg.Node.PersistentState.Path, c.appCfg.Node.PersistentSessions.Enabled,
+		state.WithLogger(c.log),
+		state.WithTimeout(time.Second),
+		state.WithEncryptionKey(&key.PrivateKey),
+	)
+	fatalOnErr(err)
+
+	if persistentSessionPath != "" && c.appCfg.Node.PersistentSessions.Enabled {
+		c.log.Warn("'node.persistent_sessions.path' is deprecated, now you can enable persistent sessions by setting 'node.persistent_sessions.enabled' instead")
+		err = persistate.MigrateOldTokenStorage(persistentSessionPath)
+		fatalOnErr(err)
+	}
+
+	var privateTokenStore sessionStorage
+	if c.appCfg.Node.PersistentSessions.Enabled {
+		privateTokenStore = persistate
+	} else {
+		privateTokenStore = temporary.NewTokenStore()
+	}
+
 	basicSharedConfig := initBasics(c, key, persistate)
 	streamTimeout := appCfg.APIClient.StreamTimeout
 	minConnTimeout := appCfg.APIClient.MinConnectionTime
@@ -390,12 +414,13 @@ func initCfg(appCfg *config.Config) *cfg {
 			minConnTimeout, pingInterval, pingTimeout)
 	}
 	c.shared = shared{
-		basics:         basicSharedConfig,
-		localAddr:      netAddr,
-		clientCache:    newClientCache("read"),
-		bgClientCache:  newClientCache("background"),
-		putClientCache: newClientCache("put"),
-		persistate:     persistate,
+		basics:            basicSharedConfig,
+		localAddr:         netAddr,
+		clientCache:       newClientCache("read"),
+		bgClientCache:     newClientCache("background"),
+		putClientCache:    newClientCache("put"),
+		persistate:        persistate,
+		privateTokenStore: privateTokenStore,
 	}
 	c.cfgContainer = cfgContainer{
 		workerPool: containerWorkerPool,

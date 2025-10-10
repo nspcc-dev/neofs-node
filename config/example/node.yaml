@@ -35,6 +35,7 @@ node:
     - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true  # start Storage node in relay mode without bootstrapping into the Network map
   persistent_sessions:
+    enabled: true  # enable persistent session tokens (default: false, in-memory sessions)
     path: /sessions  # path to persistent session tokens file of Storage node (default: in-memory sessions)
   persistent_state:
     path: /state  # path to persistent state file of Storage node

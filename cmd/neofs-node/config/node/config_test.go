@@ -25,6 +25,7 @@ func TestNodeSection(t *testing.T) {
 		require.Empty(t, empty.Node.Attributes)
 		require.Equal(t, false, empty.Node.Relay)
 		require.Equal(t, "", empty.Node.PersistentSessions.Path)
+		require.False(t, empty.Node.PersistentSessions.Enabled)
 		require.Equal(t, nodeconfig.PersistentStatePathDefault, empty.Node.PersistentState.Path)
 	})
 
@@ -84,6 +85,7 @@ func TestNodeSection(t *testing.T) {
 			address.Uint160ToString(wKey.GetScriptHash()))
 
 		require.Equal(t, "/sessions", persisessionsPath)
+		require.True(t, c.Node.PersistentSessions.Enabled)
 		require.Equal(t, "/state", persistatePath)
 	}
 

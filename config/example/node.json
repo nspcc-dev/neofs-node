@@ -36,6 +36,7 @@
     ],
     "relay": true,
     "persistent_sessions": {
+      "enabled": true,
       "path": "/sessions"
     },
     "persistent_state": {

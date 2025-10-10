@@ -26,7 +26,8 @@ type Node struct {
 	Relay     bool     `mapstructure:"relay"`
 
 	PersistentSessions struct {
-		Path string `mapstructure:"path"`
+		Path    string `mapstructure:"path"`
+		Enabled bool   `mapstructure:"enabled"`
 	} `mapstructure:"persistent_sessions"`
 
 	PersistentState struct {

@@ -8,12 +8,16 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- Move `persistent_sessions` data to `persistent_state` in SN (#3630)
+- Change `node.persistent_sessions.path` to `node.persistent_sessions.enabled` in SN config (#3630)
 
 ### Removed
 
 ### Updated
 
 ### Updating from v0.49.0
+SN config option `node.persistent_sessions.path` now is deprecated and replaced by
+`node.persistent_sessions.enabled` boolean option, because sessions are stored in state DB.
 
 ## [0.49.0] - 2025-10-06 - Dochodo
 
