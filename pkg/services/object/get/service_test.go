@@ -182,3 +182,11 @@ type unimplementedLocalStorage struct{}
 func (x unimplementedLocalStorage) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64) (uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
+
+func (unimplementedLocalStorage) GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedLocalStorage) Head(oid.Address, bool) (*object.Object, error) {
+	panic("unimplemented")
+}

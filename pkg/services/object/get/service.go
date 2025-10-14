@@ -79,6 +79,7 @@ type cfg struct {
 		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 		// Returns [apistatus.ErrObjectNotFound] if the range is out of payload bounds.
 		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error)
+		Head(oid.Address, bool) (*object.Object, error)
 	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)
