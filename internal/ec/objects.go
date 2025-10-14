@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -53,13 +54,25 @@ func GetPartInfo(obj object.Object) (PartInfo, error) {
 
 // FormObjectForECPart forms object for EC part produced from given parent object.
 func FormObjectForECPart(signer neofscrypto.Signer, parent object.Object, part []byte, partInfo PartInfo) (object.Object, error) {
+	return formObjectForECPart(signer, parent, part, partInfo, true)
+}
+
+// FormObjectForECPartWithoutSession is similar to [FormObjectForECPart] but
+// leaves session token unset.
+func FormObjectForECPartWithoutSession(signer user.Signer, parent object.Object, part []byte, partInfo PartInfo) (object.Object, error) {
+	return formObjectForECPart(signer, parent, part, partInfo, false)
+}
+
+func formObjectForECPart(signer neofscrypto.Signer, parent object.Object, part []byte, partInfo PartInfo, withSession bool) (object.Object, error) {
 	var obj object.Object
 	obj.SetVersion(parent.Version())
 	obj.SetContainerID(parent.GetContainerID())
 	obj.SetOwner(parent.Owner())
 	obj.SetCreationEpoch(parent.CreationEpoch())
 	obj.SetType(object.TypeRegular)
-	obj.SetSessionToken(parent.SessionToken())
+	if withSession {
+		obj.SetSessionToken(parent.SessionToken())
+	}
 
 	obj.SetParent(&parent)
 	iobject.SetIntAttribute(&obj, AttributeRuleIdx, partInfo.RuleIndex)

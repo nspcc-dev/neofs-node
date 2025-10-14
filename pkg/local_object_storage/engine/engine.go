@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -47,6 +48,8 @@ type shardInterface interface {
 	ID() *shard.ID
 	GetStream(oid.Address, bool) (*object.Object, io.ReadCloser, error)
 	GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error)
+	Head(oid.Address, bool) (*objectSDK.Object, error)
+	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 }
 
 type shardWrapper struct {
