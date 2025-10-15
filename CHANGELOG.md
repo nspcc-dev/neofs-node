@@ -6,7 +6,6 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Split object stuck in GC cycle (#3633)
 
 ### Changed
 
@@ -14,7 +13,14 @@ Changelog for NeoFS Node
 
 ### Updated
 
-### Updating from v0.49.0
+### Updating from v0.49.1
+
+## [0.49.1] - 2025-10-15
+
+### Fixed
+- Excessive duplicating fields in container report logs (#3631)
+- Attempts to put container reports for alien containers (#3631)
+- Split object stuck in GC cycle (#3633)
 
 ## [0.49.0] - 2025-10-06 - Dochodo
 
@@ -2685,7 +2691,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...master
+[0.49.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...v0.49.0
 [0.48.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...v0.48.3
 [0.48.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...v0.48.2
