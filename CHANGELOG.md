@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Split object stuck in GC cycle (#3633)
 
 ### Changed
 
