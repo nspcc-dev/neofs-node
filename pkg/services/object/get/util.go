@@ -374,6 +374,28 @@ func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk 
 	return *hdr, nil
 }
 
+func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
+	cnr cid.ID, id oid.ID, off, ln uint64, sTok *session.Object, xs []string) (io.ReadCloser, error) {
+	conn, err := c.connect(node)
+	if err != nil {
+		return nil, err
+	}
+
+	var opts client.PrmObjectRange
+	opts.WithXHeaders(xs...)
+	opts.MarkLocal()
+	if sTok != nil {
+		opts.WithinSession(*sTok)
+	}
+
+	rc, err := conn.ObjectRangeInit(ctx, cnr, id, off, ln, user.NewAutoIDSigner(pk), opts)
+	if err != nil {
+		return nil, fmt.Errorf("open GetRange stream: %w", err)
+	}
+
+	return rc, nil
+}
+
 func (c *clientCacheWrapper) connect(node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
 	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
 	// TODO: we may waste resources doing this per request. Make once on network map change instead.
@@ -396,14 +418,6 @@ func (c *clientCacheWrapper) connect(node netmap.NodeInfo) (coreclient.MultiAddr
 
 // TODO: share.
 // see also https://github.com/nspcc-dev/neofs-sdk-go/issues/624.
-func convertContextCanceledStatus(err error) error {
-	st, ok := status.FromError(err)
-	if ok && st.Code() == codes.Canceled {
-		return context.Canceled
-	}
-	return err
-}
-
 func convertContextStatus(err error) error {
 	switch st, _ := status.FromError(err); st.Code() {
 	default:

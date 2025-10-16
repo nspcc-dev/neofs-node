@@ -41,9 +41,9 @@ func Encode(rule Rule, data []byte) ([][]byte, error) {
 	}
 
 	// TODO: Explore reedsolomon.Option for performance improvement. https://github.com/nspcc-dev/neofs-node/issues/3501
-	enc, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
-	if err != nil { // should never happen with correct rule
-		return nil, fmt.Errorf("init Reed-Solomon encoder: %w", err)
+	enc, err := newCoderForRule(rule)
+	if err != nil {
+		return nil, err
 	}
 
 	parts, err := enc.Split(data)
@@ -62,9 +62,9 @@ func Encode(rule Rule, data []byte) ([][]byte, error) {
 // specified rule.
 func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
 	// TODO: Explore reedsolomon.Option for performance improvement. https://github.com/nspcc-dev/neofs-node/issues/3501
-	dec, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
-	if err != nil { // should never happen with correct rule
-		return nil, fmt.Errorf("init Reed-Solomon decoder: %w", err)
+	dec, err := newCoderForRule(rule)
+	if err != nil {
+		return nil, err
 	}
 
 	required := make([]bool, rule.DataPartNum+rule.ParityPartNum)
@@ -90,4 +90,33 @@ func Decode(rule Rule, dataLen uint64, parts [][]byte) ([]byte, error) {
 func ConcatDataParts(rule Rule, dataLen uint64, parts [][]byte) []byte {
 	// TODO: last part may be shorter, do not overallocate buffer.
 	return slices.Concat(parts[:rule.DataPartNum]...)[:dataLen]
+}
+
+// DecodeSome decodes specified range of EC parts obtained by applying specified rule.
+// If no error, parts[from:to+1] contains recovered data.
+func DecodeRange(rule Rule, fromIdx, toIdx int, parts [][]byte) error {
+	rs, err := newCoderForRule(rule)
+	if err != nil {
+		return err
+	}
+
+	required := make([]bool, rule.DataPartNum+rule.ParityPartNum)
+	for i := fromIdx; i <= toIdx; i++ {
+		required[i] = true
+	}
+
+	if err := rs.ReconstructSome(parts, required); err != nil {
+		return fmt.Errorf("restore Reed-Solomon: %w", err)
+	}
+
+	return nil
+}
+
+func newCoderForRule(rule Rule) (reedsolomon.Encoder, error) {
+	enc, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
+	if err != nil { // should never happen with correct rule
+		return nil, fmt.Errorf("init Reed-Solomon decoder: %w", err)
+	}
+
+	return enc, nil
 }

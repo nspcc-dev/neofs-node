@@ -1,6 +1,8 @@
 package meta_test
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"testing"
@@ -43,6 +45,29 @@ func BenchmarkDB_ResolveECPart(b *testing.B) {
 	}
 }
 
+func BenchmarkDB_ResolveECPartWithPayloadLen(b *testing.B) {
+	signer := neofscryptotest.Signer()
+	cnr := cidtest.ID()
+	parentID := oidtest.ID()
+	pi := iec.PartInfo{
+		RuleIndex: 123,
+		Index:     456,
+	}
+
+	parentObj := newBlankObject(cnr, parentID)
+
+	partObj, err := iec.FormObjectForECPart(signer, parentObj, testutil.RandByteSlice(32), pi)
+	require.NoError(b, err)
+
+	db := newDB(b)
+	require.NoError(b, db.Put(&partObj))
+
+	for b.Loop() {
+		_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+		require.NoError(b, err)
+	}
+}
+
 func TestDB_ResolveECPart(t *testing.T) {
 	const currentEpoch = 123
 	cnr := cidtest.ID()
@@ -58,7 +83,9 @@ func TestDB_ResolveECPart(t *testing.T) {
 	parentAddr := objectcore.AddressOf(&parentObj)
 
 	newPart := func(t *testing.T, pi iec.PartInfo) object.Object {
-		obj, err := iec.FormObjectForECPart(signer, parentObj, testutil.RandByteSlice(32), pi)
+		// artificially make parts of diff len, in reality they are the same
+		payloadLen := 1000 + pi.Index
+		obj, err := iec.FormObjectForECPart(signer, parentObj, testutil.RandByteSlice(payloadLen), pi)
 		require.NoError(t, err)
 		return obj
 	}
@@ -224,6 +251,8 @@ func TestDB_ResolveECPart(t *testing.T) {
 
 			_, err := db.ResolveECPart(cnr, parentID, pi)
 			tc.assertErr(t, err)
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			tc.assertErr(t, err)
 		})
 	}
 
@@ -232,6 +261,11 @@ func TestDB_ResolveECPart(t *testing.T) {
 		res, err := db.ResolveECPart(cnr, parentID, pi)
 		require.NoError(t, err)
 		require.Equal(t, exp, res)
+
+		id, ln, err := db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+		require.NoError(t, err)
+		require.Equal(t, exp, id)
+		require.EqualValues(t, 1000+pi.Index, ln)
 	}
 
 	for _, tc := range []testcase{
@@ -316,12 +350,80 @@ func TestDB_ResolveECPart(t *testing.T) {
 			id, err := db.ResolveECPart(cnr, sysObj.GetID(), pi)
 			require.NoError(t, err)
 			require.Equal(t, sysObj.GetID(), id)
+
+			id, ln, err := db.ResolveECPartWithPayloadLen(cnr, sysObj.GetID(), pi)
+			require.NoError(t, err)
+			require.Equal(t, sysObj.GetID(), id)
+			require.EqualValues(t, sysObj.PayloadSize(), ln)
 		})
 	}
 
 	db := newDB(t)
 	require.NoError(t, db.Put(&partObj))
 	checkOK(t, db, pi, partID)
+}
+
+// mostly tested by TestDB_ResolveECPart.
+func TestDB_ResolveECPartWithPayloadLen(t *testing.T) {
+	cnr := cidtest.ID()
+	parentID := oidtest.ID()
+	signer := neofscryptotest.Signer()
+	pi := iec.PartInfo{
+		RuleIndex: 12,
+		Index:     34,
+	}
+
+	parentObj := newBlankObject(cnr, parentID)
+
+	const partPayloadLen = 32
+	partObj, err := iec.FormObjectForECPart(signer, parentObj, testutil.RandByteSlice(partPayloadLen), pi)
+	require.NoError(t, err)
+	partID := partObj.GetID()
+
+	db := newDB(t)
+	require.NoError(t, db.Put(&partObj))
+
+	t.Run("broken payload len index", func(t *testing.T) {
+		t.Run("missing", func(t *testing.T) {
+			db := newDB(t)
+			require.NoError(t, db.Put(&partObj))
+
+			corruptDB(t, db, func(tx *bbolt.Tx) error {
+				b := tx.Bucket(slices.Concat([]byte{0xFF}, cnr[:]))
+				if b == nil {
+					return errors.New("[test] missing meta bucket")
+				}
+				key := slices.Concat([]byte{0x03}, partID[:], []byte("$Object:payloadLength"), []byte{0x00}, []byte(strconv.Itoa(partPayloadLen)))
+				return b.Delete(key)
+			})
+
+			_, _, err := db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			var id ierrors.ObjectID
+			require.ErrorAs(t, err, &id)
+			require.EqualValues(t, partID, id)
+			require.EqualError(t, err, fmt.Sprintf("missing index for payload len attribute of object %s", partID))
+		})
+
+		t.Run("wrong format", func(t *testing.T) {
+			db := newDB(t)
+			require.NoError(t, db.Put(&partObj))
+
+			corruptDB(t, db, func(tx *bbolt.Tx) error {
+				b := tx.Bucket(slices.Concat([]byte{0xFF}, cnr[:]))
+				if b == nil {
+					return errors.New("[test] missing meta bucket")
+				}
+				key := slices.Concat([]byte{0x03}, partID[:], []byte("$Object:payloadLength"), []byte{0x00}, []byte("-1"))
+				return b.Put(key, nil)
+			})
+
+			_, _, err := db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			var id ierrors.ObjectID
+			require.ErrorAs(t, err, &id)
+			require.EqualValues(t, partID, id)
+			require.EqualError(t, err, fmt.Sprintf("invalid payload len attribute of object %s: parse to uint64: invalid syntax", partID))
+		})
+	})
 }
 
 func testExistsEC(t *testing.T) {

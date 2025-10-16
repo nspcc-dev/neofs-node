@@ -66,8 +66,8 @@ func Test_RequiredChildren(t *testing.T) {
 			// collect payload
 			var res []byte
 			for i := firstChild; i <= lastChild; i++ {
-				var leftBound int
-				var rightBound = int(children[i].ObjectSize())
+				var leftBound uint64
+				var rightBound = uint64(children[i].ObjectSize())
 
 				if i == firstChild {
 					leftBound = firstChildOffset
