@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -49,8 +50,22 @@ var containerNodesCmd = &cobra.Command{
 			return fmt.Errorf("could not build container nodes for given container: %w", err)
 		}
 
-		for i := range cnrNodes {
+		repRuleNum := policy.NumberOfReplicas()
+		for i := range repRuleNum {
 			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
+			for j := range cnrNodes[i] {
+				cmdprinter.PrettyPrintNodeInfo(cmd, cnrNodes[i][j], j, "\t", short)
+			}
+		}
+
+		cnrNodes = cnrNodes[repRuleNum:]
+
+		ecRules := policy.ECRules()
+		for i := range ecRules {
+			cmd.Printf("EC descriptor #%d, EC %s:\n", i+1, iec.Rule{
+				DataPartNum:   uint8(ecRules[i].DataPartNum()), // FIXME: do not cast to smaller integer
+				ParityPartNum: uint8(ecRules[i].ParityPartNum()),
+			})
 			for j := range cnrNodes[i] {
 				cmdprinter.PrettyPrintNodeInfo(cmd, cnrNodes[i][j], j, "\t", short)
 			}

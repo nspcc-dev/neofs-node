@@ -90,6 +90,14 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		}
 	}
 
+	ecRules := ctx.cnr.PlacementPolicy().ECRules()
+	if !cp.allowEC && len(ecRules) > 0 {
+		return errors.New("EC rules are not supported yet")
+	}
+	if len(ecRules) > 0 && ctx.cnr.PlacementPolicy().NumberOfReplicas() > 0 {
+		return errors.New("REP+EC rules are not supported yet")
+	}
+
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  ctx.cnr.Owner(),
 		verb:            session.VerbContainerPut,
@@ -151,9 +159,13 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		return
 	}
 
-	replicas := make([]uint32, 0, policy.NumberOfReplicas())
-	for i := range vectors {
-		replicas = append(replicas, policy.ReplicaNumberByIndex(i))
+	repRuleNum := policy.NumberOfReplicas()
+	replicas := make([]uint32, len(vectors))
+	for i := range repRuleNum {
+		replicas[i] = policy.ReplicaNumberByIndex(i)
+	}
+	for i := repRuleNum; i < len(vectors); i++ { // EC rules
+		replicas[i] = 1 // each EC part is stored in a single copy
 	}
 
 	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)

@@ -28,6 +28,7 @@ type (
 		cnrClient     *container.Client // notary must be enabled
 		netState      NetworkState
 		metaEnabled   bool
+		allowEC       bool
 	}
 
 	// Params of the processor constructor.
@@ -38,6 +39,7 @@ type (
 		ContainerClient *container.Client
 		NetworkState    NetworkState
 		MetaEnabled     bool
+		AllowEC         bool
 	}
 )
 
@@ -96,6 +98,7 @@ func New(p *Params) (*Processor, error) {
 		cnrClient:     p.ContainerClient,
 		netState:      p.NetworkState,
 		metaEnabled:   p.MetaEnabled,
+		allowEC:       p.AllowEC,
 	}, nil
 }
 

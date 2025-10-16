@@ -24,7 +24,7 @@ func initControlService(c *cfg) {
 		rawPubs = append(rawPubs, pubs[i].Bytes())
 	}
 
-	c.control = controlSvc.New(&c.key.PrivateKey, rawPubs, c)
+	c.control = controlSvc.New(&c.key.PrivateKey, rawPubs, c, c.log)
 
 	lis, err := net.Listen("tcp", endpoint)
 	if err != nil {
