@@ -61,9 +61,9 @@ $ neofs-adm fschain verified-nodes-domain set-access-list -r https://rpc1.morph.
 -d nodes.some-org.neofs -w path-to-org-wallet.json \
 --neo-addresses NZ1czz5gkEDamTg6Tiw6cxqp9Me1KLs8ae \
 --neo-addresses NfMvD6WmBiCr4erfEnFFLs7jdj4Y5CM7nN
-$ Enter password for NTFWBaa1NxhJR1VjAqvLpkZidXgc3oefmj >
-$ Waiting for transactions to persist...
-$ Access list has been successfully updated.
+Enter password for NTFWBaa1NxhJR1VjAqvLpkZidXgc3oefmj >
+Waiting for transactions to persist...
+Access list has been successfully updated.
 ```
 where `path-to-org-wallet.json` is a `some-org.neofs` domain admin wallet.
 
@@ -73,9 +73,9 @@ $ neofs-adm fschain verified-nodes-domain set-access-list -r https://rpc1.morph.
 -d nodes.some-org.neofs -w path-to-org-wallet.json \
 --public-keys 02b3622bf4017bdfe317c58aed5f4c753f206b7db896046fa7d774bbc4bf7f8dc2 \
 --public-keys 02103a7f7dd016558597f7960d27c516a4394fd968b9e65155eb4b013e4040406e
-$ Enter password for NTFWBaa1NxhJR1VjAqvLpkZidXgc3oefmj >
-$ Waiting for transactions to persist...
-$ Access list has been successfully updated.
+Enter password for NTFWBaa1NxhJR1VjAqvLpkZidXgc3oefmj >
+Waiting for transactions to persist...
+Access list has been successfully updated.
 ```
 
 See command help for details:
