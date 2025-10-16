@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -23,6 +24,7 @@ type FormatValidator struct {
 	*cfg
 	fsChain        FSChain
 	netmapContract NetmapContract
+	containers     container.Source
 }
 
 // FormatValidatorOption represents a FormatValidator constructor option.
@@ -114,7 +116,7 @@ func defaultCfg() *cfg {
 }
 
 // NewFormatValidator creates, initializes and returns FormatValidator instance.
-func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...FormatValidatorOption) *FormatValidator {
+func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containers container.Source, opts ...FormatValidatorOption) *FormatValidator {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -125,6 +127,7 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...
 		cfg:            cfg,
 		fsChain:        fsChain,
 		netmapContract: netmapContract,
+		containers:     containers,
 	}
 }
 
@@ -135,6 +138,10 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...
 //
 // Returns nil error if the object has valid structure.
 func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
+	return v.validate(obj, unprepared, false)
+}
+
+func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool) error {
 	if obj == nil {
 		return errNilObject
 	}
@@ -163,11 +170,22 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilID
 	}
 
-	if obj.GetContainerID().IsZero() {
+	cnrID := obj.GetContainerID()
+	if cnrID.IsZero() {
 		return errNilCID
 	}
 
 	if err := v.checkOwner(obj); err != nil {
+		return err
+	}
+
+	cnr, err := v.containers.Get(cnrID)
+	if err != nil {
+		return fmt.Errorf("read container by ID=%s: %w", cnrID, err)
+	}
+
+	isEC, err := checkEC(*obj, cnr.PlacementPolicy().ECRules(), unprepared, isParent)
+	if err != nil {
 		return err
 	}
 
@@ -226,9 +244,9 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		}
 	}
 
-	if par != nil && (firstSet || splitID != nil) {
+	if par != nil && (firstSet || splitID != nil || isEC) {
 		// Parent object already exists.
-		return v.Validate(par, false)
+		return v.validate(par, false, true)
 	}
 
 	return nil
