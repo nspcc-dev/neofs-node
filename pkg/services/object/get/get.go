@@ -130,6 +130,10 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
+	if prm.common.LocalOnly() {
+		return s.copyLocalObjectHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.raw)
+	}
+
 	if len(repRules) > 0 {
 		err := s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {

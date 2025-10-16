@@ -30,6 +30,8 @@ import (
 )
 
 type testStorage struct {
+	unimplementedLocalStorage
+
 	inhumed map[oid.Address]struct{}
 
 	virtual map[oid.Address]*objectSDK.SplitInfo
@@ -160,6 +162,17 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, io.ReadCloser, erro
 	return nil, nil, errNotFound
 }
 
+func (s *testStorage) Head(addr oid.Address, _ bool) (*objectSDK.Object, error) {
+	hdr, _, err := s.get(&execCtx{
+		prm: RangePrm{
+			commonPrm: commonPrm{
+				addr: addr,
+			},
+		},
+	})
+	return hdr, err
+}
+
 func cutToRange(o *objectSDK.Object, rng *objectSDK.Range) *objectSDK.Object {
 	if rng == nil {
 		return o
@@ -210,6 +223,7 @@ func TestGetLocalOnly(t *testing.T) {
 	newSvc := func(storage *testStorage) *Service {
 		svc := &Service{cfg: new(cfg)}
 		svc.log = test.NewLogger(false)
+		svc.localObjects = storage
 		svc.localStorage = storage
 		svc.neoFSNet = &testNeoFS{
 			vectors: map[oid.Address][][]netmap.NodeInfo{
