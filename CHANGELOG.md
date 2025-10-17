@@ -2715,7 +2715,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...master
+[0.49.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...v0.49.0
 [0.48.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...v0.48.3
 [0.48.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...v0.48.2
