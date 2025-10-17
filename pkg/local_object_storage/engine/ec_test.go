@@ -429,9 +429,9 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		s := newEngineWithFixedShardOrder([]shardInterface{unimplementedShard{}}) // to ensure shards are not accessed
 
 		_, _, err := s.GetECPartRange(cnr, parentID, pi, math.MaxInt64+1, 1)
-		require.EqualError(t, err, "range overlowing int64 is not supported by this server: off=9223372036854775808,len=1")
+		require.EqualError(t, err, "range overflowing int64 is not supported by this server: off=9223372036854775808,len=1")
 		_, _, err = s.GetECPartRange(cnr, parentID, pi, 1, math.MaxInt64+1)
-		require.EqualError(t, err, "range overlowing int64 is not supported by this server: off=1,len=9223372036854775808")
+		require.EqualError(t, err, "range overflowing int64 is not supported by this server: off=1,len=9223372036854775808")
 	})
 
 	t.Run("blocked", func(t *testing.T) {

@@ -106,7 +106,7 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 	}
 
 	if err := t.fmt.Validate(obj, t.unpreparedObject); err != nil {
-		return fmt.Errorf("(%T) coult not validate object format: %w", t, err)
+		return fmt.Errorf("(%T) could not validate object format: %w", t, err)
 	}
 
 	err := t.checkQuotaLimits(obj, t.payloadSz)

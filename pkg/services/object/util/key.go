@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-// SessionSource is an interface tha provides
+// SessionSource is an interface that provides
 // access to node's actual (not expired) session
 // tokens.
 type SessionSource interface {
