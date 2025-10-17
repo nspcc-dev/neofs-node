@@ -134,7 +134,7 @@ loop:
 // Range bounds are limited by int64.
 func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
 	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
-		return 0, nil, fmt.Errorf("range overlowing int64 is not supported by this server: off=%d,len=%d", off, ln)
+		return 0, nil, fmt.Errorf("range overflowing int64 is not supported by this server: off=%d,len=%d", off, ln)
 	}
 
 	if e.metrics != nil {

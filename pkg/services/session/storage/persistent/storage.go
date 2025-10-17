@@ -72,7 +72,7 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 
 		gcm, err := cipher.NewGCM(c)
 		if err != nil {
-			return nil, fmt.Errorf("could not wrapp cipher block in Galois Counter Mode: %w", err)
+			return nil, fmt.Errorf("could not wrap cipher block in Galois Counter Mode: %w", err)
 		}
 
 		ts.gcm = gcm
