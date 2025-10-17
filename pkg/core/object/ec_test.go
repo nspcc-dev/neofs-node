@@ -232,6 +232,19 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		}
 	})
 
+	t.Run("non-EC container", func(t *testing.T) {
+		cnr := cidtest.ID()
+		cnrs.setContainer(cnr, container.Container{}) // any
+
+		v := NewFormatValidator(nil, nil, cnrs)
+
+		cp := corruptPart(t, func(obj *object.Object) {
+			obj.SetContainerID(cnr)
+		})
+
+		require.EqualError(t, v.Validate(&cp, false), "object with EC attributes __NEOFS__EC_RULE_IDX in container without EC rules")
+	})
+
 	for i := range ecParts {
 		require.NoError(t, v.Validate(&ecParts[i], false))
 	}

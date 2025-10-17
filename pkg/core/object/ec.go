@@ -32,6 +32,9 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 	}
 
 	if len(rules) == 0 {
+		if ecAttr != "" {
+			return false, fmt.Errorf("object with EC attributes %s in container without EC rules", ecAttr)
+		}
 		return false, nil
 	}
 
