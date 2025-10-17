@@ -54,7 +54,10 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 		}
 
 		if blank {
-			return false, errors.New("blank object with EC attributes")
+			if ecAttr != "" {
+				return false, errors.New("blank object with EC attributes")
+			}
+			break
 		}
 
 		if ecAttr == "" {
