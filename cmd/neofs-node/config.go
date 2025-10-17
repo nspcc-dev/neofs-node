@@ -332,9 +332,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		netAddr = appCfg.Node.BootstrapAddresses()
 	}
 
-	persistate, err := state.NewPersistentStorage(appCfg.Node.PersistentState.Path)
-	fatalOnErr(err)
-
 	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
@@ -380,6 +377,21 @@ func initCfg(appCfg *config.Config) *cfg {
 		return &b
 	}
 
+	persistate, err := state.NewPersistentStorage(appCfg.Node.PersistentState.Path, true,
+		state.WithLogger(c.log),
+		state.WithTimeout(time.Second),
+		state.WithEncryptionKey(&key.PrivateKey),
+	)
+	fatalOnErr(err)
+
+	// TODO: drop deprecated 'node.persistent_sessions.path' in future releases
+	persistentSessionPath := c.appCfg.Node.PersistentSessions.Path
+	if persistentSessionPath != "" {
+		c.log.Warn("'node.persistent_sessions.path' is deprecated, now it is located in 'node.persistent_state.path'")
+		err = persistate.MigrateOldTokenStorage(persistentSessionPath)
+		fatalOnErr(err)
+	}
+
 	basicSharedConfig := initBasics(c, key, persistate)
 	streamTimeout := appCfg.APIClient.StreamTimeout
 	minConnTimeout := appCfg.APIClient.MinConnectionTime
@@ -390,12 +402,13 @@ func initCfg(appCfg *config.Config) *cfg {
 			minConnTimeout, pingInterval, pingTimeout)
 	}
 	c.shared = shared{
-		basics:         basicSharedConfig,
-		localAddr:      netAddr,
-		clientCache:    newClientCache("read"),
-		bgClientCache:  newClientCache("background"),
-		putClientCache: newClientCache("put"),
-		persistate:     persistate,
+		basics:            basicSharedConfig,
+		localAddr:         netAddr,
+		clientCache:       newClientCache("read"),
+		bgClientCache:     newClientCache("background"),
+		putClientCache:    newClientCache("put"),
+		persistate:        persistate,
+		privateTokenStore: persistate,
 	}
 	c.cfgContainer = cfgContainer{
 		workerPool: containerWorkerPool,

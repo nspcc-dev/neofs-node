@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - Move `governance.disable` into `mainnet.disable_governance_sync` in IR config (#3619)
 - Move `fee.main_chain` into `mainnet.extra_fee` in IR config (#3619)
 - Move `contracts` into `mainnet.contracts` in IR config (#3619)
+- Move `persistent_sessions` data to `persistent_state` in SN (#3630)
 
 ### Removed
 
@@ -33,6 +34,10 @@ by default mainnet is disabled now;
 - `mainnet.extra_fee` instead of deprecated `fee.main_chain`;
 - `mainnet.contracts` instead of deprecated `contracts`;
 Old options are still supported but will be removed in future releases.
+
+SN config option `node.persistent_sessions.path` now is deprecated and
+used only for migration. Sessions are stored in `node.persistent_state.path`
+option now.
 
 ## [0.49.1] - 2025-10-15
 
@@ -2710,7 +2715,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...master
+[0.49.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...v0.49.0
 [0.48.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...v0.48.3
 [0.48.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.1...v0.48.2

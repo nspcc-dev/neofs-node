@@ -4,7 +4,7 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/mr-tron/base58"
-	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -14,7 +14,7 @@ func (s *TokenStore) Store(sk ecdsa.PrivateKey, usr user.ID, id []byte, exp uint
 	s.tokens[key{
 		tokenID: base58.Encode(id),
 		ownerID: base58.Encode(usr[:]),
-	}] = storage.NewPrivateToken(&sk, exp)
+	}] = session.NewPrivateToken(&sk, exp)
 	s.mtx.Unlock()
 	return nil
 }

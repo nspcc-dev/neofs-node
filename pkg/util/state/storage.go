@@ -2,29 +2,54 @@ package state
 
 import (
 	"bytes"
+	"crypto/cipher"
 	"encoding/binary"
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
+	"go.uber.org/zap"
 )
 
 // PersistentStorage is a wrapper around persistent K:V db that
 // provides thread safe functions to set and fetch state variables
-// of the Inner Ring and Storage applications.
+// of the Inner Ring and Storage applications and optionally
+// allows creating (storing), retrieving and expiring
+// (removing) session tokens.
 type PersistentStorage struct {
 	db *bbolt.DB
+
+	l *zap.Logger
+
+	// optional AES-256 algorithm
+	// encryption in Galois/Counter
+	// Mode
+	gcm cipher.AEAD
 }
 
 var stateBucket = []byte("state")
 
 // NewPersistentStorage creates a new instance of a storage with 0o600 rights.
-func NewPersistentStorage(path string) (*PersistentStorage, error) {
-	db, err := bbolt.Open(path, 0o600, &bbolt.Options{NoStatistics: true})
+func NewPersistentStorage(path string, withSessionStorage bool, opts ...Option) (*PersistentStorage, error) {
+	cfg := defaultCfg()
+
+	for _, o := range opts {
+		o(cfg)
+	}
+
+	db, err := bbolt.Open(path, 0o600, &bbolt.Options{NoStatistics: true, Timeout: cfg.timeout})
 	if err != nil {
 		return nil, fmt.Errorf("can't open bbolt at %s: %w", path, err)
 	}
 
-	return &PersistentStorage{db: db}, nil
+	ps := &PersistentStorage{db: db, l: cfg.l}
+	if withSessionStorage {
+		err = ps.initTokenStore(*cfg)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("can't create session storage: %w", err)
+		}
+	}
+	return ps, nil
 }
 
 // saves given KV in the storage.

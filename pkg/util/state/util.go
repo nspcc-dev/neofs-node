@@ -1,4 +1,4 @@
-package persistent
+package state
 
 import (
 	"crypto/ecdsa"
@@ -7,19 +7,19 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
-	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 )
 
 const keyOffset = 8
 
-func (s *TokenStore) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error) {
+func (p PersistentStorage) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error) {
 	rawKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal private key: %w", err)
 	}
 
-	if s.gcm != nil {
-		rawKey, err = s.encrypt(rawKey)
+	if p.gcm != nil {
+		rawKey, err = p.encrypt(rawKey)
 		if err != nil {
 			return nil, fmt.Errorf("could not encrypt session key: %w", err)
 		}
@@ -33,14 +33,14 @@ func (s *TokenStore) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error
 	return res, nil
 }
 
-func (s *TokenStore) unpackToken(raw []byte) (*storage.PrivateToken, error) {
+func (p PersistentStorage) unpackToken(raw []byte) (*session.PrivateToken, error) {
 	var err error
 
 	epoch := epochFromToken(raw)
 	rawKey := raw[keyOffset:]
 
-	if s.gcm != nil {
-		rawKey, err = s.decrypt(rawKey)
+	if p.gcm != nil {
+		rawKey, err = p.decrypt(rawKey)
 		if err != nil {
 			return nil, fmt.Errorf("could not decrypt session key: %w", err)
 		}
@@ -51,7 +51,7 @@ func (s *TokenStore) unpackToken(raw []byte) (*storage.PrivateToken, error) {
 		return nil, fmt.Errorf("could not unmarshal private key: %w", err)
 	}
 
-	return storage.NewPrivateToken(key, epoch), nil
+	return session.NewPrivateToken(key, epoch), nil
 }
 
 func epochFromToken(rawToken []byte) uint64 {

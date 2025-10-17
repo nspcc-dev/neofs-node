@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -15,12 +15,12 @@ import (
 // access to node's actual (not expired) session
 // tokens.
 type SessionSource interface {
-	// Get must return non-expired private token that
+	// GetToken must return non-expired private token that
 	// corresponds with passed owner and tokenID. If
 	// token has not been created, has been expired
 	// of it is impossible to get information about the
 	// token Get must return nil.
-	Get(owner user.ID, tokenID []byte) *storage.PrivateToken
+	GetToken(owner user.ID, tokenID []byte) *session.PrivateToken
 }
 
 // KeyStorage represents private key storage of the local node.
@@ -65,7 +65,7 @@ func (s *KeyStorage) GetKey(info *SessionInfo) (*ecdsa.PrivateKey, error) {
 			return nil, fmt.Errorf("marshal ID: %w", err)
 		}
 
-		pToken := s.tokenStore.Get(info.Owner, binID)
+		pToken := s.tokenStore.GetToken(info.Owner, binID)
 		if pToken != nil {
 			if pToken.ExpiredAt() <= s.networkState.CurrentEpoch() {
 				var errExpired apistatus.SessionTokenExpired
