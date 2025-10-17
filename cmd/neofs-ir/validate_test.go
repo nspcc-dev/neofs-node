@@ -192,7 +192,8 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 					"wss://sidechain2.fs.neo.org:30333/ws",
 				},
 			},
-			Validators: validators,
+			DisableAutodeploy: true,
+			Validators:        validators,
 			Consensus: config.Consensus{
 				Magic:     15405,
 				Committee: committee,
@@ -248,17 +249,25 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 				RemoveUntraceableBlocks:         false,
 				P2PNotaryRequestPayloadPoolSize: 100,
 			}},
-		FSChainAutodeploy: true,
 		NNS: config.NNS{
 			SystemEmail: "usr@domain.io",
 		},
-		Mainnet: config.BasicChain{
-			DialTimeout:         time.Minute,
-			ReconnectionsNumber: 5,
-			ReconnectionsDelay:  5 * time.Second,
-			Endpoints: []string{
-				"wss://mainchain1.fs.neo.org:30333/ws",
-				"wss://mainchain.fs.neo.org:30333/ws",
+		Mainnet: config.Mainnet{
+			Enabled:               false,
+			DisableGovernanceSync: false,
+			ExtraFee:              50000000,
+			Contracts: config.Contracts{
+				NeoFS:      "ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62",
+				Processing: "597f5894867113a41e192801709c02497f611de8",
+			},
+			BasicChain: config.BasicChain{
+				DialTimeout:         time.Minute,
+				ReconnectionsNumber: 5,
+				ReconnectionsDelay:  5 * time.Second,
+				Endpoints: []string{
+					"wss://mainchain1.fs.neo.org:30333/ws",
+					"wss://mainchain.fs.neo.org:30333/ws",
+				},
 			},
 		},
 		Control: config.Control{

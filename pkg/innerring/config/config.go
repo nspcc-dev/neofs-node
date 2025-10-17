@@ -22,7 +22,7 @@ type Config struct {
 
 	NNS NNS `mapstructure:"nns"`
 
-	Mainnet BasicChain `mapstructure:"mainnet"`
+	Mainnet Mainnet `mapstructure:"mainnet"`
 
 	Control Control `mapstructure:"control"`
 
@@ -130,6 +130,15 @@ type Settlement struct {
 type Experimental struct {
 	ChainMetaData bool `mapstructure:"chain_meta_data"`
 	AllowEC       bool `mapstructure:"allow_ec"`
+}
+
+// Mainnet configures mainnet chain settings.
+type Mainnet struct {
+	Enabled               bool      `mapstructure:"enabled"`
+	DisableGovernanceSync bool      `mapstructure:"disable_governance_sync"`
+	ExtraFee              int64     `mapstructure:"extra_fee"`
+	Contracts             Contracts `mapstructure:"contracts"`
+	BasicChain            `mapstructure:",squash"`
 }
 
 // IsSet checks if the key is set in the config.
