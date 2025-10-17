@@ -226,10 +226,14 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		require.NoError(t, v.Validate(&cp, false))
 	})
 
-	t.Run("blank part", func(t *testing.T) {
+	t.Run("blank", func(t *testing.T) {
 		for i := range ecParts {
 			require.EqualError(t, v.Validate(&ecParts[i], true), "blank object with EC attributes")
 		}
+
+		obj := blankValidObject(creator)
+		obj.SetContainerID(cnrID)
+		require.NoError(t, v.Validate(obj, true))
 	})
 
 	t.Run("non-EC container", func(t *testing.T) {
