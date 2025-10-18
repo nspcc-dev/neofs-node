@@ -209,7 +209,17 @@ func Test_Slicing_EC(t *testing.T) {
 	const cnrReserveNodes = 2
 	const outCnrNodes = 2
 
-	cluster := newTestClusterForRepPolicy(t, uint(maxTotalParts), cnrReserveNodes, outCnrNodes)
+	var cnr container.Container
+	var policy netmap.PlacementPolicy
+	ecRules := make([]netmap.ECRule, len(rules))
+	for i := range rules {
+		ecRules[i].SetDataPartNum(uint32(rules[i].DataPartNum))
+		ecRules[i].SetParityPartNum(uint32(rules[i].ParityPartNum))
+	}
+	policy.SetECRules(ecRules)
+	cnr.SetPlacementPolicy(policy)
+
+	cluster := newTestClusterForRepPolicyWithContainer(t, uint(maxTotalParts), cnrReserveNodes, outCnrNodes, cnr)
 	for i := range cluster.nodeNetworks {
 		// TODO: add alternative to newTestClusterForRepPolicy for EC instead
 		cluster.nodeNetworks[i].cnrNodes.repCounts = nil
@@ -460,6 +470,10 @@ func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnr
 }
 
 func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrNodes uint) *testCluster {
+	return newTestClusterForRepPolicyWithContainer(t, repNodes, cnrReserveNodes, outCnrNodes, container.Container{})
+}
+
+func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveNodes, outCnrNodes uint, cnr container.Container) *testCluster {
 	allNodes := allocNodes([]uint{repNodes + cnrReserveNodes + outCnrNodes})[0]
 	cnrNodes := allNodes[:repNodes+cnrReserveNodes]
 
@@ -501,7 +515,7 @@ func newTestClusterForRepPolicy(t *testing.T, repNodes, cnrReserveNodes, outCnrN
 			WithKeyStorage(objutil.NewKeyStorage(&nodeKey, cluster.nodeSessions[i], &cluster.nodeNetworks[i])),
 			WithObjectStorage(&cluster.nodeLocalStorages[i]),
 			WithMaxSizeSource(mockMaxSize(maxObjectSize)),
-			WithContainerSource(mockContainer{}),
+			WithContainerSource(mockContainer(cnr)),
 			WithNetworkState(&cluster.nodeNetworks[i]),
 			WithClientConstructor(cluster.nodeServices),
 			WithSplitChainVerifier(mockSplitVerifier{}),

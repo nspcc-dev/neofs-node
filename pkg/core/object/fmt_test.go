@@ -9,6 +9,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -75,11 +77,16 @@ func (t2 tombstoneVerifier) VerifyTomb(_ context.Context, _ cid.ID, _ object.Tom
 func TestFormatValidator_Validate(t *testing.T) {
 	const curEpoch = 13
 
+	cnrs := newMockContainers()
+	registerContainer := func(id cid.ID) {
+		cnrs.setContainer(id, container.Container{}) // any
+	}
+
 	ls := testLockSource{
 		m: make(map[oid.Address]bool),
 	}
 
-	v := NewFormatValidator(nil, nil,
+	v := NewFormatValidator(nil, nil, cnrs,
 		WithNetState(testNetState{
 			epoch: curEpoch,
 		}),
@@ -110,6 +117,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.ErrorIs(t, v.Validate(&obj, false), errNilID)
 		})
 		t.Run("wrong", func(t *testing.T) {
+			registerContainer(wrongIDECDSASHA512.GetContainerID())
 			require.EqualError(t, v.Validate(&wrongIDECDSASHA512, false), "could not validate header fields: invalid identifier: incorrect object identifier")
 		})
 	})
@@ -124,6 +132,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("invalid signature", func(t *testing.T) {
 		t.Run("unsigned", func(t *testing.T) {
 			obj, _ := minUnsignedObject(t)
+			registerContainer(obj.GetContainerID())
 			require.EqualError(t, v.Validate(&obj, false), "authenticate: missing signature")
 		})
 		t.Run("unsupported scheme", func(t *testing.T) {
@@ -134,6 +143,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignature(4, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
+			registerContainer(obj.GetContainerID())
+
 			require.EqualError(t, v.Validate(&obj, false), "authenticate: unsupported scheme 4")
 		})
 		t.Run("wrong scheme", func(t *testing.T) {
@@ -143,6 +154,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, err)
 			sig := neofscrypto.NewSignature(neofscrypto.ECDSA_WALLETCONNECT, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
+
+			registerContainer(obj.GetContainerID())
 
 			require.EqualError(t, v.Validate(&obj, false), "authenticate: scheme ECDSA_RFC6979_SHA256_WALLET_CONNECT: signature mismatch")
 		})
@@ -169,6 +182,9 @@ func TestFormatValidator_Validate(t *testing.T) {
 					pub := slices.Clone(signer.PublicKeyBytes)
 					sig.SetPublicKeyBytes(tc.changePub(pub))
 					obj.SetSignature(&sig)
+
+					registerContainer(obj.GetContainerID())
+
 					require.EqualError(t, v.Validate(&obj, false), "authenticate: scheme ECDSA_SHA512: decode public key: "+tc.err)
 				})
 			}
@@ -210,6 +226,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetOwner(signer.UserID())
 
 		require.NoError(t, obj.SetIDWithSignature(signer))
+
+		registerContainer(obj.GetContainerID())
 
 		require.NoError(t, v.Validate(obj, false))
 	})
@@ -264,6 +282,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, obj.CalculateAndSetID())
 			require.NoError(t, obj.Sign(sessionSubj))
 
+			registerContainer(obj.GetContainerID())
+
 			err = v.Validate(obj, false)
 			require.EqualError(t, err, "authenticate: session token: issuer mismatches signature")
 		})
@@ -274,6 +294,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj := blankValidObject(signer)
 
 		require.NoError(t, obj.SetIDWithSignature(signer))
+
+		registerContainer(obj.GetContainerID())
 
 		require.NoError(t, v.Validate(obj, false))
 	})
@@ -335,6 +357,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 			obj.SetAttributes(a)
 
 			require.NoError(t, obj.SetIDWithSignature(signer))
+
+			registerContainer(obj.GetContainerID())
 
 			return obj
 		}
@@ -420,6 +444,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 					object.NewAttribute("valid key", "valid value"),
 					object.NewAttribute(k, v),
 				)
+				registerContainer(obj.GetContainerID())
 				return obj
 			}
 			t.Run("in key", func(t *testing.T) {
@@ -459,8 +484,12 @@ func (t *testSplitVerifier) VerifySplit(ctx context.Context, cID cid.ID, firstID
 
 func TestLinkObjectSplitV2(t *testing.T) {
 	verifier := new(testSplitVerifier)
+	cnrID := cidtest.ID()
 
-	v := NewFormatValidator(nil, nil,
+	cnrs := newMockContainers()
+	cnrs.setContainer(cnrID, container.Container{}) // any
+
+	v := NewFormatValidator(nil, nil, cnrs,
 		WithSplitVerifier(verifier),
 	)
 
@@ -469,6 +498,7 @@ func TestLinkObjectSplitV2(t *testing.T) {
 
 	signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
 	obj := blankValidObject(signer)
+	obj.SetContainerID(cnrID)
 	obj.SetParent(object.New())
 	obj.SetSplitID(object.NewSplitID())
 	obj.SetFirstID(oidtest.ID())
@@ -592,4 +622,27 @@ func init() {
 		12, 176, 88, 229, 163, 246, 39, 240, 109,
 	})
 	wrongIDECDSASHA512.SetSignature(&wrongIDECDSASHA512Sig)
+}
+
+type mockContainers struct {
+	m map[cid.ID]container.Container
+}
+
+func newMockContainers() *mockContainers {
+	return &mockContainers{
+		m: make(map[cid.ID]container.Container),
+	}
+}
+
+func (x *mockContainers) setContainer(id cid.ID, cnr container.Container) {
+	x.m[id] = cnr
+}
+
+func (x *mockContainers) Get(id cid.ID) (container.Container, error) {
+	cnr, ok := x.m[id]
+	if !ok {
+		return container.Container{}, apistatus.ErrContainerNotFound
+	}
+
+	return cnr, nil
 }
