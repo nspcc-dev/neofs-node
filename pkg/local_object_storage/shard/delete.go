@@ -24,6 +24,10 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 		return ErrDegradedMode
 	}
 
+	if len(addrs) == 0 {
+		return nil
+	}
+
 	for _, addr := range addrs {
 		if s.hasWriteCache() {
 			err := s.writeCache.Delete(addr)
