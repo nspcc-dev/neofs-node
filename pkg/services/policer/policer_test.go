@@ -638,9 +638,9 @@ func TestPolicer_Run_EC(t *testing.T) {
 		mockNet := newMockNetwork()
 		mockNet.setObjectNodesRepResult(localObj.Address.Container(), parentOID, nodes, 3)
 
-		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, false, nil, false)
+		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, true, nil, false)
 		logBuf.AssertContains(testutil.LogEntry{
-			Level: zap.InfoLevel, Message: "object with EC attributes in container without EC rules detected, process according to REP rules",
+			Level: zap.InfoLevel, Message: "object with EC attributes in container without EC rules detected, deleting",
 			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(),
 				"ruleIdx": json.Number(localObj.Attributes[0]), "partIdx": json.Number(localObj.Attributes[1])},
 		})

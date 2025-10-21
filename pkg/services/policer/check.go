@@ -123,9 +123,12 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			p.processECPart(ctx, addr, ecp, ecRules, nn[len(repRules):])
 			return
 		}
-		// TODO: forbid to PUT such objects and drop this one?
-		p.log.Info("object with EC attributes in container without EC rules detected, process according to REP rules",
+		p.log.Info("object with EC attributes in container without EC rules detected, deleting",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", ecp.RuleIndex), zap.Int("partIdx", ecp.Index))
+		if err := p.localStorage.Delete(addr); err != nil {
+			p.log.Error("failed to delete local object with excessive EC attributes",
+				zap.Stringer("object", addr), zap.Error(err))
+		}
 	} else if len(ecRules) > 0 {
 		if addrWithAttrs.Type == object.TypeTombstone || addrWithAttrs.Type == object.TypeLock {
 			// LOCK is broadcast across all container SN. TOMBSTONE is broadcast across EC
