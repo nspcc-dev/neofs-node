@@ -1,6 +1,7 @@
 package object
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -247,6 +248,92 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		})
 
 		require.EqualError(t, v.Validate(&cp, false), "object with EC attributes __NEOFS__EC_RULE_IDX in container without EC rules")
+	})
+
+	t.Run("split", func(t *testing.T) {
+		const parentPldLen = 4 << 10
+		const splitPartPldLimit = parentPldLen / 4
+		parentPld := testutil.RandByteSlice(parentPldLen)
+
+		var parent object.Object
+		parent.SetContainerID(cnrID)
+		parent.SetOwner(owner)
+		parent.SetPayloadSize(parentPldLen)
+		parent.SetAttributes(
+			object.NewAttribute("attr1", "val1"),
+			object.NewAttribute("attr2", "val2"),
+		)
+
+		var splitParts []object.Object
+		var linkItems []object.MeasuredObject
+		for buf := bytes.NewBuffer(parentPld); buf.Len() > 0; {
+			partPld := buf.Next(splitPartPldLimit)
+
+			var part object.Object
+			part.SetContainerID(cnrID)
+			part.SetOwner(owner)
+			part.SetPayload(partPld)
+			part.SetPayloadSize(uint64(len(partPld)))
+
+			if len(splitParts) == 0 {
+				var cp object.Object
+				parent.CopyTo(&cp)
+
+				part.SetParent(&cp)
+			} else {
+				part.SetFirstID(splitParts[0].GetID())
+				part.SetPreviousID(splitParts[len(splitParts)-1].GetID())
+			}
+
+			if buf.Len() > 0 {
+				require.NoError(t, part.SetVerificationFields(creator))
+
+				var linkItem object.MeasuredObject
+				linkItem.SetObjectSize(uint32(part.PayloadSize()))
+				linkItem.SetObjectID(part.GetID())
+
+				linkItems = append(linkItems, linkItem)
+			}
+
+			splitParts = append(splitParts, part)
+		}
+
+		require.NoError(t, parent.SetVerificationFields(creator))
+
+		last := &splitParts[len(splitParts)-1]
+		last.SetParent(&parent)
+		require.NoError(t, last.SetVerificationFields(creator))
+
+		var lastLinkItem object.MeasuredObject
+		lastLinkItem.SetObjectSize(uint32(last.PayloadSize()))
+		lastLinkItem.SetObjectID(last.GetID())
+
+		var linker object.Object
+		linker.SetContainerID(cnrID)
+		linker.SetOwner(owner)
+		linker.SetType(object.TypeLink)
+		var link object.Link
+		link.SetObjects(linkItems)
+		linker.WriteLink(link)
+
+		require.NoError(t, linker.SetVerificationFields(creator))
+
+		require.NoError(t, v.Validate(&linker, false))
+
+		for i := range splitParts {
+			parts, err := iec.Encode(irule, splitParts[i].Payload())
+			require.NoError(t, err)
+
+			for j := range parts {
+				ecPart, err := iec.FormObjectForECPart(creator, splitParts[i], parts[j], iec.PartInfo{
+					RuleIndex: ruleIdx,
+					Index:     j,
+				})
+				require.NoError(t, err)
+
+				require.NoError(t, v.Validate(&ecPart, false))
+			}
+		}
 	})
 
 	for i := range ecParts {
