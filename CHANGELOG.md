@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Move `persistent_sessions` data to `persistent_state` in SN (#3630)
 
 ### Removed
+- Pre-0.46.0 write cache format migration (#3647)
 
 ### Updated
 
@@ -38,6 +39,9 @@ Old options are still supported but will be removed in future releases.
 SN config option `node.persistent_sessions.path` now is deprecated and
 used only for migration. Sessions are stored in `node.persistent_state.path`
 option now.
+
+Write cache migration from pre-0.46.0 format is no longer supported, use some
+earlier version if you still have write cache database with objects.
 
 ## [0.49.1] - 2025-10-15
 
