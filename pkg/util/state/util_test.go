@@ -1,4 +1,4 @@
-package persistent
+package state
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ func TestPack(t *testing.T) {
 	key, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 
-	ts := new(TokenStore)
+	ts := new(PersistentStorage)
 
 	const exp = 12345
 

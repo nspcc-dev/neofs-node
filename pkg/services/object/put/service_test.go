@@ -22,7 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	storage "github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -610,7 +610,7 @@ type mockNodeSession struct {
 	expiresAt uint64
 }
 
-func (x mockNodeSession) Get(user.ID, []byte) *storage.PrivateToken {
+func (x mockNodeSession) GetToken(user.ID, []byte) *storage.PrivateToken {
 	return storage.NewPrivateToken(&x.signer.ECDSAPrivateKey, x.expiresAt)
 }
 

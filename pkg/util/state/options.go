@@ -1,4 +1,4 @@
-package persistent
+package state
 
 import (
 	"crypto/ecdsa"
