@@ -60,8 +60,8 @@ type cache struct {
 
 	// flushCh is a channel with objects to flush.
 	flushCh chan oid.Address
-	// processingBigObjs is a map with big objects that are currently being processed.
-	processingBigObjs sync.Map
+	// flushObjs is a map with objects that are currently being processed by flusher.
+	flushObjs sync.Map
 	// closeCh is close channel.
 	closeCh chan struct{}
 	// wg is a wait group for flush workers.
