@@ -147,6 +147,7 @@ func (c *cache) flushScheduler() {
 			default:
 			}
 
+			c.flushObjs.Store(as.addr, struct{}{})
 			if as.size > c.maxFlushBatchThreshold {
 				select {
 				case <-c.flushErrCh:
@@ -154,26 +155,24 @@ func (c *cache) flushScheduler() {
 					case c.flushErrCh <- struct{}{}:
 					default:
 					}
+					c.flushObjs.Delete(as.addr)
 					break addrLoop
 				case c.flushCh <- as.addr:
-					c.flushObjs.Store(as.addr, struct{}{})
-					continue
 				case <-c.closeCh:
 					return
 				}
-			}
-
-			var added, done bool
-			for !added {
-				if b == nil {
-					b = c.newBatch()
+			} else {
+				var added, done bool
+				for !added {
+					if b == nil {
+						b = c.newBatch()
+					}
+					added, done = b.addObject(as.addr, as.size)
+					if done {
+						b = nil
+					}
 				}
-				added, done = b.addObject(as.addr, as.size)
-				if done {
-					b = nil
-				}
 			}
-			c.flushObjs.Store(as.addr, struct{}{})
 		}
 	}
 }
