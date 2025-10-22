@@ -59,9 +59,7 @@ type cache struct {
 	flushErrCh chan struct{}
 
 	// flushCh is a channel with objects to flush.
-	flushCh chan oid.Address
-	// flushBatchCh is a channel with object batches to flush.
-	flushBatchCh chan []oid.Address
+	flushCh chan []oid.Address
 	// flushObjs is a map with objects that are currently being processed by flusher.
 	flushObjs sync.Map
 	// closeCh is close channel.
@@ -88,10 +86,9 @@ const (
 // New creates new writecache instance.
 func New(opts ...Option) Cache {
 	c := &cache{
-		flushCh:      make(chan oid.Address),
-		flushBatchCh: make(chan []oid.Address),
-		flushErrCh:   make(chan struct{}, 1),
-		mode:         mode.ReadWrite,
+		flushCh:    make(chan []oid.Address),
+		flushErrCh: make(chan struct{}, 1),
+		mode:       mode.ReadWrite,
 
 		options: options{
 			log:          zap.NewNop(),

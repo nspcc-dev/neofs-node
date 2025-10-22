@@ -1,10 +1,10 @@
 package writecache
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
+	"slices"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -28,60 +28,6 @@ const (
 	defaultMaxBatchTreshold = 128 * 1024
 )
 
-// batch is a set of object to write in a batch, writing is triggered
-// by size/count overflow or timer.
-type batch struct {
-	c     *cache
-	timer *time.Timer
-
-	m     sync.Mutex
-	addrs []oid.Address
-	done  bool
-	size  uint64
-}
-
-func (c *cache) newBatch() *batch {
-	var b = &batch{c: c}
-
-	b.timer = time.AfterFunc(defaultMaxBatchDelay, b.flush)
-	return b
-}
-
-func (b *batch) flush() {
-	b.m.Lock()
-	defer b.m.Unlock()
-	if b.done {
-		return
-	}
-
-	// Can be triggered by timer or via other means,
-	// but timer is irrelevant now anyway.
-	_ = b.timer.Stop()
-	b.done = true
-
-	b.c.flushBatchCh <- b.addrs
-}
-
-// addObject add an object to batch if batch is active, returns success
-// (added or not) and batch completion status (true if this batch no longer
-// accepts objects).
-func (b *batch) addObject(a oid.Address, s uint64) (bool, bool) {
-	b.m.Lock()
-	defer b.m.Unlock()
-
-	if b.done {
-		return false, true
-	}
-
-	b.addrs = append(b.addrs, a)
-	b.size += s
-	if b.size >= b.c.maxFlushBatchSize || len(b.addrs) > b.c.maxFlushBatchCount {
-		go b.flush()
-		return true, true
-	}
-	return true, false
-}
-
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
 	for i := range c.workersCount {
@@ -96,7 +42,7 @@ func (c *cache) runFlushLoop() {
 func (c *cache) flushScheduler() {
 	defer c.wg.Done()
 
-	var b *batch
+	var tick = time.NewTicker(defaultMaxBatchDelay)
 
 	for {
 		select {
@@ -108,8 +54,7 @@ func (c *cache) flushScheduler() {
 			}
 		case <-c.closeCh:
 			return
-		default:
-			time.Sleep(100 * time.Millisecond)
+		case <-tick.C:
 		}
 
 		if c.objCounters.Size() == 0 {
@@ -124,37 +69,50 @@ func (c *cache) flushScheduler() {
 			}
 			sortedAddrs = append(sortedAddrs, addr)
 		}
-		sort.Slice(sortedAddrs, func(i, j int) bool {
-			return addrs[sortedAddrs[i]] > addrs[sortedAddrs[j]]
+		slices.SortFunc(sortedAddrs, func(a, b oid.Address) int {
+			return cmp.Compare(addrs[a], addrs[b])
 		})
 
+		var (
+			b  = sortedAddrs[:0]
+			bs uint64
+		)
 	addrLoop:
-		for _, addr := range sortedAddrs {
+		for i, addr := range sortedAddrs {
+			var (
+				handledAddr bool
+				flushB      bool
+			)
+
 			c.flushObjs.Store(addr, struct{}{})
-			if addrs[addr] > c.maxFlushBatchThreshold {
-				select {
-				case <-c.flushErrCh:
+
+			flushB = addrs[addr] > c.maxFlushBatchThreshold && len(b) != 0
+			for !handledAddr || flushB {
+				if flushB {
 					select {
-					case c.flushErrCh <- struct{}{}:
-					default:
+					case <-c.flushErrCh:
+						select {
+						case c.flushErrCh <- struct{}{}:
+						default:
+						}
+						for _, queued := range b {
+							c.flushObjs.Delete(queued)
+						}
+						break addrLoop
+					case c.flushCh <- b:
+					case <-c.closeCh:
+						return
 					}
-					c.flushObjs.Delete(addr)
-					break addrLoop
-				case c.flushCh <- addr:
-				case <-c.closeCh:
-					return
+					b = sortedAddrs[i:i]
+					bs = 0
 				}
-			} else {
-				var added, done bool
-				for !added {
-					if b == nil {
-						b = c.newBatch()
-					}
-					added, done = b.addObject(addr, addrs[addr])
-					if done {
-						b = nil
-					}
+				if handledAddr {
+					break
 				}
+				b = b[:len(b)+1]
+				bs += addrs[addr]
+				handledAddr = true
+				flushB = addrs[addr] > c.maxFlushBatchThreshold || len(b) >= c.maxFlushBatchCount || bs > c.maxFlushBatchSize || i == len(sortedAddrs)-1
 			}
 		}
 	}
@@ -164,10 +122,9 @@ func (c *cache) flushWorker(id int) {
 	defer c.wg.Done()
 
 	var (
-		addrs           []oid.Address
-		err             error
-		ok              bool
-		singleAddrSlice = make([]oid.Address, 1)
+		addrs []oid.Address
+		err   error
+		ok    bool
 	)
 	for {
 		// Previous set of addresses if any, important wrt modeMtx.
@@ -177,18 +134,13 @@ func (c *cache) flushWorker(id int) {
 		addrs = nil
 
 		select {
-		case singleAddrSlice[0], ok = <-c.flushCh:
-			addrs = singleAddrSlice
-		case addrs, ok = <-c.flushBatchCh:
+		case addrs, ok = <-c.flushCh:
 		case <-c.closeCh:
 			return
 		}
 
 		if !ok {
 			return
-		}
-		if len(addrs) == 0 {
-			continue
 		}
 
 		c.modeMtx.RLock()
