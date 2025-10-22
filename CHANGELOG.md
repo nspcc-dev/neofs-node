@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - IR `experimental.allow_ec` config option (#3570)
 
 ### Fixed
+- Write cache using too much CPU (#3642)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)

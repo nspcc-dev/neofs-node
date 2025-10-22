@@ -101,10 +101,10 @@ func (c *cache) flushScheduler() {
 		case <-c.closeCh:
 			return
 		default:
+			time.Sleep(100 * time.Millisecond)
 		}
 
 		if c.objCounters.Size() == 0 {
-			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 
