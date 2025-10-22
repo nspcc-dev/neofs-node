@@ -59,18 +59,7 @@ func (b *batch) flush() {
 	_ = b.timer.Stop()
 	b.done = true
 
-	if len(b.addrs) == 0 {
-		return
-	}
-
-	err := b.c.flushBatch(b.addrs)
-	if err != nil {
-		b.c.log.Error("can't flush batch of objects", zap.Error(err))
-		select {
-		case b.c.flushErrCh <- struct{}{}:
-		default:
-		}
-	}
+	b.c.flushBatchCh <- b.addrs
 }
 
 // addObject add an object to batch if batch is active, returns success
@@ -191,33 +180,60 @@ func (c *cache) flushScheduler() {
 
 func (c *cache) flushWorker(id int) {
 	defer c.wg.Done()
-	for {
-		select {
-		case addr, ok := <-c.flushCh:
-			if !ok {
-				return
-			}
-			c.modeMtx.RLock()
-			if c.readOnly() {
-				c.modeMtx.RUnlock()
-				continue
-			}
-			err := c.flushSingle(addr, true)
-			c.modeMtx.RUnlock()
 
+	var (
+		addrs           []oid.Address
+		err             error
+		ok              bool
+		singleAddrSlice = make([]oid.Address, 1)
+	)
+	for {
+		// Previous set of addresses if any, important wrt modeMtx.
+		for _, addr := range addrs {
 			c.flushObjs.Delete(addr)
-			if err != nil {
-				select {
-				case c.flushErrCh <- struct{}{}:
-				default:
-				}
-				c.log.Error("worker can't flush an object due to error",
-					zap.Int("worker", id),
-					zap.Stringer("addr", addr),
-					zap.Error(err))
-			}
+		}
+		addrs = nil
+
+		select {
+		case singleAddrSlice[0], ok = <-c.flushCh:
+			addrs = singleAddrSlice
+		case addrs, ok = <-c.flushBatchCh:
 		case <-c.closeCh:
 			return
+		}
+
+		if !ok {
+			return
+		}
+		if len(addrs) == 0 {
+			continue
+		}
+
+		c.modeMtx.RLock()
+		if c.readOnly() {
+			c.modeMtx.RUnlock()
+			continue
+		}
+		if len(addrs) == 1 {
+			err = c.flushSingle(addrs[0], true)
+		} else {
+			err = c.flushBatch(addrs)
+		}
+		c.modeMtx.RUnlock()
+
+		// Irrespective of the outcome these objects are no longer being processed.
+		for _, addr := range addrs {
+			c.flushObjs.Delete(addr)
+		}
+		if err != nil {
+			select {
+			case c.flushErrCh <- struct{}{}:
+			default:
+			}
+			c.log.Error("can't flush objects",
+				zap.Int("worker", id),
+				zap.Stringer("first_object", addrs[0]),
+				zap.Error(err))
 		}
 	}
 }
@@ -262,20 +278,6 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 }
 
 func (c *cache) flushBatch(addrs []oid.Address) error {
-	c.modeMtx.RLock()
-	defer c.modeMtx.RUnlock()
-
-	defer func() {
-		// Irrespective of the outcome these objects are no longer being processed.
-		for _, addr := range addrs {
-			c.flushObjs.Delete(addr)
-		}
-	}()
-
-	if c.readOnly() {
-		return nil
-	}
-
 	if c.metrics.mr != nil {
 		defer elapsed(c.metrics.AddWCFlushBatchDuration)()
 	}

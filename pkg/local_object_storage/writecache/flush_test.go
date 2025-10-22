@@ -255,14 +255,7 @@ func TestFlushErrorRetry(t *testing.T) {
 					"delay":     json.Number("10"),
 				},
 			})
-			logBuf.AssertContains(testutil.LogEntry{
-				Level:   zap.ErrorLevel,
-				Message: "can't flush batch of objects",
-				Fields: map[string]any{
-					"component": "WriteCache",
-					"error":     common.ErrNoSpace.Error(),
-				},
-			})
+			logBuf.AssertContainsMsg(zap.ErrorLevel, "can't flush objects")
 
 			require.Equal(t, uint64(0), wc.(*cache).objCounters.Size())
 			t.Logf("Flush completed in %v after retrying", duration)

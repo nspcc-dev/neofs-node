@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Move `fee.main_chain` into `mainnet.extra_fee` in IR config (#3619)
 - Move `contracts` into `mainnet.contracts` in IR config (#3619)
 - Move `persistent_sessions` data to `persistent_state` in SN (#3630)
+- More efficient write cache batching for small objects (#3414)
 
 ### Removed
 - Pre-0.46.0 write cache format migration (#3647)
