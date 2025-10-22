@@ -63,7 +63,7 @@ func (b *batch) flush() {
 		return
 	}
 
-	err := b.c.flushBatch(b.addrs, true)
+	err := b.c.flushBatch(b.addrs)
 	if err != nil {
 		b.c.log.Error("can't flush batch of objects", zap.Error(err))
 		select {
@@ -261,7 +261,7 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 	return nil
 }
 
-func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
+func (c *cache) flushBatch(addrs []oid.Address) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 
@@ -284,10 +284,8 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 	for _, addr := range addrs {
 		data, err := c.getObject(addr)
 		if err != nil {
-			if ignoreErrors {
-				continue
-			}
-			return err
+			// Continue flushing other objects.
+			continue
 		}
 
 		objs[addr] = data
