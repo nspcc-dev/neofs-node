@@ -135,18 +135,6 @@ func (c *cache) flushScheduler() {
 
 	addrLoop:
 		for _, as := range sortedAddrs {
-			select {
-			case <-c.flushErrCh:
-				select {
-				case c.flushErrCh <- struct{}{}:
-				default:
-				}
-				break addrLoop
-			case <-c.closeCh:
-				return
-			default:
-			}
-
 			c.flushObjs.Store(as.addr, struct{}{})
 			if as.size > c.maxFlushBatchThreshold {
 				select {
