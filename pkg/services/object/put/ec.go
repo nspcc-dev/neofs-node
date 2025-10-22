@@ -87,23 +87,23 @@ func (t *distributedTarget) formAndSaveObjectForECPart(signer neofscrypto.Signer
 		encObj.b = append(encObj.b, partObj.Payload()...)
 	}
 
-	if err := t.saveECPart(partObj, objectcore.ContentMeta{}, encObj, partIdx, len(payloadParts), nodeList); err != nil {
+	if err := t.saveECPart(partObj, objectcore.ContentMeta{}, encObj, ruleIdx, partIdx, len(payloadParts), nodeList); err != nil {
 		return fmt.Errorf("save part object: %w", err)
 	}
 
 	return nil
 }
 
-func (t *distributedTarget) saveECPart(part object.Object, objMeta objectcore.ContentMeta, encObj encodedObject, idx, total int, nodeList []netmap.NodeInfo) error {
+func (t *distributedTarget) saveECPart(part object.Object, objMeta objectcore.ContentMeta, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo) error {
 	return t.distributeObject(part, objMeta, encObj, func(obj object.Object, objMeta objectcore.ContentMeta, encObj encodedObject) error {
-		return t.distributeECPart(obj, objMeta, encObj, idx, total, nodeList)
+		return t.distributeECPart(obj, objMeta, encObj, ruleIdx, partIdx, totalParts, nodeList)
 	})
 }
 
-func (t *distributedTarget) distributeECPart(part object.Object, objMeta objectcore.ContentMeta, enc encodedObject, partIdx, totalParts int, nodeList []netmap.NodeInfo) error {
+func (t *distributedTarget) distributeECPart(part object.Object, objMeta objectcore.ContentMeta, enc encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo) error {
 	var firstErr error
 	for i := range iec.NodeSequenceForPart(partIdx, totalParts, len(nodeList)) {
-		err := t.saveECPartOnNode(part, objMeta, enc, nodeList[i])
+		err := t.saveECPartOnNode(ruleIdx, part, objMeta, enc, nodeList[i])
 		if err == nil {
 			return nil
 		}
@@ -119,7 +119,7 @@ func (t *distributedTarget) distributeECPart(part object.Object, objMeta objectc
 	return errIncompletePut{singleErr: firstErr}
 }
 
-func (t *distributedTarget) saveECPartOnNode(obj object.Object, objMeta objectcore.ContentMeta, enc encodedObject, node netmap.NodeInfo) error {
+func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, objMeta objectcore.ContentMeta, enc encodedObject, node netmap.NodeInfo) error {
 	var n nodeDesc
 	n.local = t.placementIterator.neoFSNet.IsLocalNodePublicKey(node.PublicKey())
 	if !n.local {
@@ -128,6 +128,8 @@ func (t *distributedTarget) saveECPartOnNode(obj object.Object, objMeta objectco
 			return fmt.Errorf("convert node info: %w", err)
 		}
 	}
+
+	n.placementVector = len(t.containerNodes.PrimaryCounts()) + ruleIdx
 
 	return t.sendObject(obj, objMeta, enc, n)
 }

@@ -201,7 +201,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 		if t.ecPart.RuleIndex >= 0 { // already encoded EC part
 			total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
 			nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
-			return t.saveECPart(obj, objMeta, encObj, t.ecPart.Index, total, nodes)
+			return t.saveECPart(obj, objMeta, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes)
 		}
 
 		if t.sessionSigner != nil {
