@@ -116,36 +116,31 @@ func (c *cache) flushScheduler() {
 			continue
 		}
 
-		type addrSize struct {
-			addr oid.Address
-			size uint64
-		}
-		var sortedAddrs []addrSize
-
+		var sortedAddrs []oid.Address
 		addrs := c.objCounters.Map()
-		for addr, size := range addrs {
+		for addr := range addrs {
 			if _, loaded := c.flushObjs.Load(addr); loaded {
 				continue
 			}
-			sortedAddrs = append(sortedAddrs, addrSize{addr, size})
+			sortedAddrs = append(sortedAddrs, addr)
 		}
 		sort.Slice(sortedAddrs, func(i, j int) bool {
-			return sortedAddrs[i].size > sortedAddrs[j].size
+			return addrs[sortedAddrs[i]] > addrs[sortedAddrs[j]]
 		})
 
 	addrLoop:
-		for _, as := range sortedAddrs {
-			c.flushObjs.Store(as.addr, struct{}{})
-			if as.size > c.maxFlushBatchThreshold {
+		for _, addr := range sortedAddrs {
+			c.flushObjs.Store(addr, struct{}{})
+			if addrs[addr] > c.maxFlushBatchThreshold {
 				select {
 				case <-c.flushErrCh:
 					select {
 					case c.flushErrCh <- struct{}{}:
 					default:
 					}
-					c.flushObjs.Delete(as.addr)
+					c.flushObjs.Delete(addr)
 					break addrLoop
-				case c.flushCh <- as.addr:
+				case c.flushCh <- addr:
 				case <-c.closeCh:
 					return
 				}
@@ -155,7 +150,7 @@ func (c *cache) flushScheduler() {
 					if b == nil {
 						b = c.newBatch()
 					}
-					added, done = b.addObject(as.addr, as.size)
+					added, done = b.addObject(addr, addrs[addr])
 					if done {
 						b = nil
 					}
