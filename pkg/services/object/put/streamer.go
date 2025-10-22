@@ -81,6 +81,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			fmt:          p.fmtValidator,
 			quotaLimiter: p.quotaLimiter,
 			cachedCnr:    prm.cnr,
+			isECPart:     prm.ecPart.RuleIndex >= 0,
 			maxPayloadSz: p.maxPayloadSz,
 
 			homomorphicChecksumRequired: homomorphicChecksumRequired,
@@ -133,6 +134,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		unpreparedObject: true,
 		quotaLimiter:     p.quotaLimiter,
 		cachedCnr:        prm.cnr,
+		isECPart:         prm.ecPart.RuleIndex >= 0,
 		nextTarget: newSlicingTarget(
 			p.ctx,
 			p.maxPayloadSz,
