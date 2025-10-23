@@ -84,6 +84,7 @@ func listenMorphNotifications(c *cfg) {
 	})
 	registerNotificationHandlers(c.netmapSH, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
 	registerNotificationHandlers(c.containerSH, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
+	registerNotificationHandlers(c.balanceSH, lis, c.cfgBalance.parsers, c.cfgBalance.subscribers)
 
 	lis.RegisterHeaderHandler(func(block *block.Header) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))

@@ -14,6 +14,7 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"go.uber.org/zap"
 )
 
 type Streamer struct {
@@ -165,6 +166,17 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	idCnr := prm.hdr.GetContainerID()
 	if idCnr.IsZero() {
 		return errors.New("missing container ID")
+	}
+
+	unpaidSinceEpoch, err := p.payments.UnpaidSince(idCnr)
+	if err != nil {
+		p.log.Warn("cannot check container payment status, allow object PUT",
+			zap.Stringer("cID", idCnr),
+			zap.Error(err))
+	} else {
+		if unpaidSinceEpoch >= 0 {
+			return fmt.Errorf("container is unpaid since epoch %d", unpaidSinceEpoch)
+		}
 	}
 
 	// get container to store the object

@@ -19,6 +19,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// PaymentChecker defines interface that must keep container's payment status
+// up-to-date.
+type PaymentChecker interface {
+	// IsPaid returns -1 epoch if container is paid and any non-negative epoch
+	// if container was unpaid starting from that epoch.
+	// It must return any error that does not allow ensure payment status.
+	UnpaidSince(cID cid.ID) (unpaidFromEpoch int64, err error)
+}
+
 // QuotaLimiter describes limits for used space.
 type QuotaLimiter interface {
 	// AvailableQuotasLeft must return (soft limit, hard limit) pair for
@@ -127,6 +136,7 @@ type cfg struct {
 	metaSvc *meta.Meta
 
 	quotaLimiter QuotaLimiter
+	payments     PaymentChecker
 }
 
 func defaultCfg() *cfg {
@@ -136,7 +146,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, opts ...Option) *Service {
+func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -151,6 +161,7 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q Quot
 	c.fmtValidator = object.NewFormatValidator(fmtValidatorChain, neoFSNet, c.cnrSrc, c.fmtValidatorOpts...)
 	c.metaSvc = m
 	c.quotaLimiter = q
+	c.payments = p
 
 	return &Service{
 		cfg:       c,
