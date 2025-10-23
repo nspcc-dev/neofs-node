@@ -2,6 +2,8 @@ package fschaincontracts
 
 // Various methods of FS chain Container contract.
 const (
+	PayBalanceMethod              = "settleContainerPayment"
+	UnpaidBalanceMethod           = "getUnpaidContainerEpoch"
 	CreateContainerMethod         = "create"
 	RemoveContainerMethod         = "remove"
 	PutContainerEACLMethod        = "putEACL"
