@@ -2,6 +2,7 @@ package tombstone
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -211,6 +212,21 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 				require.ErrorContains(t, err, "found link object")
 			})
 		})
+
+		t.Run("EC", func(t *testing.T) {
+			var partHdr object.Object
+			partHdr.SetParent(new(object.Object)) // any
+			partHdr.SetAttributes(
+				object.NewAttribute("__NEOFS__EC_ANY", "any"),
+			)
+
+			os.head = map[oid.Address]headRes{
+				oid.NewAddress(cnr, childID): {h: &partHdr},
+			}
+
+			err := v.VerifyTomb(ctx, cnr, tomb)
+			require.EqualError(t, err, fmt.Sprintf("verifying %s member: object has EC attributes", childID))
+		})
 	})
 
 	t.Run("tomb with parent", func(t *testing.T) {
@@ -289,6 +305,30 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			o.AssociateDeleted(oid.ID{})
 
 			require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
+		})
+
+		t.Run("EC", func(t *testing.T) {
+			cnr := cidtest.ID()
+			ver := versionSDK.New(2, 18)
+			partID := oidtest.ID()
+
+			var partHdr object.Object
+			partHdr.SetParent(new(object.Object)) // any
+			partHdr.SetAttributes(
+				object.NewAttribute("__NEOFS__EC_ANY", "any"),
+			)
+
+			var tomb object.Object
+			tomb.SetVersion(&ver)
+			tomb.SetContainerID(cnr)
+			tomb.AssociateDeleted(partID)
+
+			os.head = map[oid.Address]headRes{
+				oid.NewAddress(cnr, partID): {h: &partHdr},
+			}
+
+			err := v.VerifyTombStoneWithoutPayload(ctx, tomb)
+			require.EqualError(t, err, "object has EC attributes")
 		})
 
 		t.Run("ok", func(t *testing.T) {
