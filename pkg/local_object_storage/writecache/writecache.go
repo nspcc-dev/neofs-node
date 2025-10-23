@@ -1,15 +1,10 @@
 package writecache
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"sync"
-	"time"
 
-	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -64,9 +59,9 @@ type cache struct {
 	flushErrCh chan struct{}
 
 	// flushCh is a channel with objects to flush.
-	flushCh chan oid.Address
-	// processingBigObjs is a map with big objects that are currently being processed.
-	processingBigObjs sync.Map
+	flushCh chan []oid.Address
+	// flushObjs is a map with objects that are currently being processed by flusher.
+	flushObjs sync.Map
 	// closeCh is close channel.
 	closeCh chan struct{}
 	// wg is a wait group for flush workers.
@@ -88,14 +83,10 @@ const (
 	defaultMaxCacheSize = 1 << 30 // 1 GiB
 )
 
-var (
-	defaultBucket = []byte{0}
-)
-
 // New creates new writecache instance.
 func New(opts ...Option) Cache {
 	c := &cache{
-		flushCh:    make(chan oid.Address),
+		flushCh:    make(chan []oid.Address),
 		flushErrCh: make(chan struct{}, 1),
 		mode:       mode.ReadWrite,
 
@@ -168,18 +159,7 @@ func (c *cache) Init() error {
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
 
-	// Migration part
-	if c.readOnly() {
-		c.log.Error("could not migrate cache because it's opened in read-only mode, " +
-			"some objects can be unavailable")
-	} else {
-		err := c.migrate()
-		if err != nil {
-			c.log.Error("could not migrate cache", zap.Error(err))
-			return err
-		}
-
-		// Flush part
+	if !c.readOnly() {
 		c.runFlushLoop()
 	}
 	return nil
@@ -200,65 +180,5 @@ func (c *cache) Close() error {
 		c.closeCh = nil
 	}
 
-	return nil
-}
-
-func (c *cache) migrate() error {
-	path := filepath.Join(c.path, dbName)
-	_, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		c.log.Debug("no migration needed, there is no database file")
-		return nil
-	}
-
-	c.log.Info("migrating database", zap.String("path", path))
-	db, err := bbolt.Open(path, os.ModePerm, &bbolt.Options{
-		NoFreelistSync: true,
-		NoStatistics:   true,
-		ReadOnly:       true,
-		Timeout:        time.Second,
-	})
-	if err != nil {
-		return fmt.Errorf("could not open database: %w", err)
-	}
-
-	err = db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		if b == nil {
-			return errors.New("no default bucket")
-		}
-
-		var addr oid.Address
-		return b.ForEach(func(k, v []byte) error {
-			sa := string(k)
-
-			if err := addr.DecodeString(sa); err != nil {
-				c.reportFlushError("can't decode object address from the DB", sa, err)
-				return nil
-			}
-
-			if err := c.flushObject(addr, v); err != nil {
-				return err
-			}
-
-			return nil
-		})
-	})
-	if err != nil {
-		db.Close()
-		return fmt.Errorf("could not migrate default bucket: %w", err)
-	}
-
-	err = db.Close()
-	if err != nil {
-		return fmt.Errorf("could not close database: %w", err)
-	}
-
-	err = os.Remove(path)
-	if err != nil {
-		return fmt.Errorf("could not remove database file: %w", err)
-	}
-
-	c.log.Info("successfully migrated and removed database file")
 	return nil
 }

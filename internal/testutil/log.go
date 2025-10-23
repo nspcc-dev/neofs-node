@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -78,9 +79,16 @@ func (x *LogBuffer) AssertEqual(es []LogEntry) {
 	}
 }
 
-// AssertContains asserts that log contains at least one entry with given message.
+// AssertContains asserts that log contains at least one given entry.
 func (x *LogBuffer) AssertContains(e LogEntry) {
 	require.Contains(x.t, x.collectEntries(), e)
+}
+
+// AssertContainsMsg asserts that log contains at least one entry with given message and severity.
+func (x *LogBuffer) AssertContainsMsg(lvl zapcore.Level, msg string) {
+	require.True(x.t, slices.ContainsFunc(x.collectEntries(), func(e LogEntry) bool {
+		return e.Level == lvl && e.Message == msg
+	}))
 }
 
 func (x *LogBuffer) collectEntries() []LogEntry {

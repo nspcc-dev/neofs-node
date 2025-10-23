@@ -8,8 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
 
-const dbName = "small.bolt"
-
 func (c *cache) openStore(readOnly bool) error {
 	err := util.MkdirAllX(c.path, os.ModePerm)
 	if err != nil {

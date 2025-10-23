@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - IR `experimental.allow_ec` config option (#3570)
 
 ### Fixed
+- Write cache using too much CPU (#3642)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)
@@ -16,8 +17,10 @@ Changelog for NeoFS Node
 - Move `fee.main_chain` into `mainnet.extra_fee` in IR config (#3619)
 - Move `contracts` into `mainnet.contracts` in IR config (#3619)
 - Move `persistent_sessions` data to `persistent_state` in SN (#3630)
+- More efficient write cache batching for small objects (#3414)
 
 ### Removed
+- Pre-0.46.0 write cache format migration (#3647)
 
 ### Updated
 
@@ -38,6 +41,9 @@ Old options are still supported but will be removed in future releases.
 SN config option `node.persistent_sessions.path` now is deprecated and
 used only for migration. Sessions are stored in `node.persistent_state.path`
 option now.
+
+Write cache migration from pre-0.46.0 format is no longer supported, use some
+earlier version if you still have write cache database with objects.
 
 ## [0.49.1] - 2025-10-15
 

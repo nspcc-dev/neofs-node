@@ -1,9 +1,10 @@
 package writecache
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -41,54 +42,7 @@ func (c *cache) runFlushLoop() {
 func (c *cache) flushScheduler() {
 	defer c.wg.Done()
 
-	var (
-		batch      []oid.Address
-		batchSize  uint64
-		batchTimer *time.Timer
-	)
-
-	flushBatch := func() error {
-		if len(batch) == 0 {
-			return nil
-		}
-		if batchTimer != nil {
-			batchTimer.Stop()
-			batchTimer = nil
-		}
-		err := c.flushBatch(batch, true)
-		if err != nil {
-			c.log.Error("can't flush batch of objects", zap.Error(err))
-			select {
-			case c.flushErrCh <- struct{}{}:
-			default:
-			}
-		}
-		batch = nil
-		batchSize = 0
-		return err
-	}
-
-	checkForBatch := func() error {
-		if batchTimer != nil {
-			select {
-			case <-batchTimer.C:
-				err := flushBatch()
-				if err != nil {
-					return err
-				}
-			default:
-			}
-		}
-
-		if batchSize >= c.maxFlushBatchSize || len(batch) > c.maxFlushBatchCount {
-			err := flushBatch()
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}
+	var tick = time.NewTicker(defaultMaxBatchDelay)
 
 	for {
 		select {
@@ -100,84 +54,65 @@ func (c *cache) flushScheduler() {
 			}
 		case <-c.closeCh:
 			return
-		default:
+		case <-tick.C:
 		}
 
 		if c.objCounters.Size() == 0 {
-			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 
-		err := checkForBatch()
-		if err != nil {
-			continue
-		}
-
-		type addrSize struct {
-			addr oid.Address
-			size uint64
-		}
-		var sortedAddrs []addrSize
-
-		batchSet := make(map[oid.Address]struct{}, len(batch))
-		for _, bAddr := range batch {
-			batchSet[bAddr] = struct{}{}
-		}
-
+		var sortedAddrs []oid.Address
 		addrs := c.objCounters.Map()
-		for addr, size := range addrs {
-			if _, exists := batchSet[addr]; exists {
+		for addr := range addrs {
+			if _, loaded := c.flushObjs.Load(addr); loaded {
 				continue
 			}
-			if _, loaded := c.processingBigObjs.Load(addr); loaded {
-				continue
-			}
-			sortedAddrs = append(sortedAddrs, addrSize{addr, size})
+			sortedAddrs = append(sortedAddrs, addr)
 		}
-		sort.Slice(sortedAddrs, func(i, j int) bool {
-			return sortedAddrs[i].size > sortedAddrs[j].size
+		slices.SortFunc(sortedAddrs, func(a, b oid.Address) int {
+			return cmp.Compare(addrs[a], addrs[b])
 		})
 
+		var (
+			b  = sortedAddrs[:0]
+			bs uint64
+		)
 	addrLoop:
-		for _, as := range sortedAddrs {
-			select {
-			case <-c.flushErrCh:
-				select {
-				case c.flushErrCh <- struct{}{}:
-				default:
-				}
-				break addrLoop
-			case <-c.closeCh:
-				return
-			default:
-			}
+		for i, addr := range sortedAddrs {
+			var (
+				handledAddr bool
+				flushB      bool
+			)
 
-			if as.size > c.maxFlushBatchThreshold {
-				select {
-				case <-c.flushErrCh:
+			c.flushObjs.Store(addr, struct{}{})
+
+			flushB = addrs[addr] > c.maxFlushBatchThreshold && len(b) != 0
+			for !handledAddr || flushB {
+				if flushB {
 					select {
-					case c.flushErrCh <- struct{}{}:
-					default:
+					case <-c.flushErrCh:
+						select {
+						case c.flushErrCh <- struct{}{}:
+						default:
+						}
+						for _, queued := range b {
+							c.flushObjs.Delete(queued)
+						}
+						break addrLoop
+					case c.flushCh <- b:
+					case <-c.closeCh:
+						return
 					}
-					break addrLoop
-				case c.flushCh <- as.addr:
-					c.processingBigObjs.Store(as.addr, struct{}{})
-					continue
-				case <-c.closeCh:
-					return
+					b = sortedAddrs[i:i]
+					bs = 0
 				}
-			}
-
-			batch = append(batch, as.addr)
-			batchSize += uint64(as.size)
-
-			if batchTimer == nil {
-				batchTimer = time.NewTimer(defaultMaxBatchDelay)
-			}
-
-			err = checkForBatch()
-			if err != nil {
-				continue
+				if handledAddr {
+					break
+				}
+				b = b[:len(b)+1]
+				bs += addrs[addr]
+				handledAddr = true
+				flushB = addrs[addr] > c.maxFlushBatchThreshold || len(b) >= c.maxFlushBatchCount || bs > c.maxFlushBatchSize || i == len(sortedAddrs)-1
 			}
 		}
 	}
@@ -185,33 +120,54 @@ func (c *cache) flushScheduler() {
 
 func (c *cache) flushWorker(id int) {
 	defer c.wg.Done()
-	for {
-		select {
-		case addr, ok := <-c.flushCh:
-			if !ok {
-				return
-			}
-			c.modeMtx.RLock()
-			if c.readOnly() {
-				c.modeMtx.RUnlock()
-				continue
-			}
-			err := c.flushSingle(addr, true)
-			c.modeMtx.RUnlock()
 
-			c.processingBigObjs.Delete(addr)
-			if err != nil {
-				select {
-				case c.flushErrCh <- struct{}{}:
-				default:
-				}
-				c.log.Error("worker can't flush an object due to error",
-					zap.Int("worker", id),
-					zap.Stringer("addr", addr),
-					zap.Error(err))
-			}
+	var (
+		addrs []oid.Address
+		err   error
+		ok    bool
+	)
+	for {
+		// Previous set of addresses if any, important wrt modeMtx.
+		for _, addr := range addrs {
+			c.flushObjs.Delete(addr)
+		}
+		addrs = nil
+
+		select {
+		case addrs, ok = <-c.flushCh:
 		case <-c.closeCh:
 			return
+		}
+
+		if !ok {
+			return
+		}
+
+		c.modeMtx.RLock()
+		if c.readOnly() {
+			c.modeMtx.RUnlock()
+			continue
+		}
+		if len(addrs) == 1 {
+			err = c.flushSingle(addrs[0], true)
+		} else {
+			err = c.flushBatch(addrs)
+		}
+		c.modeMtx.RUnlock()
+
+		// Irrespective of the outcome these objects are no longer being processed.
+		for _, addr := range addrs {
+			c.flushObjs.Delete(addr)
+		}
+		if err != nil {
+			select {
+			case c.flushErrCh <- struct{}{}:
+			default:
+			}
+			c.log.Error("can't flush objects",
+				zap.Int("worker", id),
+				zap.Stringer("first_object", addrs[0]),
+				zap.Error(err))
 		}
 	}
 }
@@ -238,8 +194,12 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 		return err
 	}
 
-	err = c.flushObject(addr, data)
+	err = c.storage.Put(addr, data)
 	if err != nil {
+		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
+			c.reportFlushError("can't flush an object to blobstor",
+				addr.EncodeToString(), err)
+		}
 		return err
 	}
 
@@ -251,28 +211,7 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 	return nil
 }
 
-// flushObject is used to write object directly to the main storage.
-func (c *cache) flushObject(addr oid.Address, data []byte) error {
-	err := c.storage.Put(addr, data)
-	if err != nil {
-		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
-			c.reportFlushError("can't flush an object to blobstor",
-				addr.EncodeToString(), err)
-		}
-		return err
-	}
-
-	return err
-}
-
-func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
-	c.modeMtx.RLock()
-	defer c.modeMtx.RUnlock()
-
-	if c.readOnly() {
-		return nil
-	}
-
+func (c *cache) flushBatch(addrs []oid.Address) error {
 	if c.metrics.mr != nil {
 		defer elapsed(c.metrics.AddWCFlushBatchDuration)()
 	}
@@ -281,10 +220,8 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 	for _, addr := range addrs {
 		data, err := c.getObject(addr)
 		if err != nil {
-			if ignoreErrors {
-				continue
-			}
-			return err
+			// Continue flushing other objects.
+			continue
 		}
 
 		objs[addr] = data
