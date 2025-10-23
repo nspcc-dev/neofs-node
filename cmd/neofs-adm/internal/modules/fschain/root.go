@@ -487,4 +487,12 @@ func init() {
 	_ = nodesCmd.MarkFlagRequired(containerIDFlag)
 
 	RootCmd.AddCommand(nodesCmd)
+
+	ff = reportsCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = reportsCmd.MarkFlagRequired(endpointFlag)
+	ff.String(containerIDFlag, "", "Inspected container, base58 encoded")
+	_ = reportsCmd.MarkFlagRequired(containerIDFlag)
+
+	RootCmd.AddCommand(reportsCmd)
 }
