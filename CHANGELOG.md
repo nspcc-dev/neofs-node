@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Incompatibility with wallets using non-standard scrypt parameters (#3675)
 - Improper handling of Incomplete status in CLI commands (#3679)
 - Incomplete status response missing data for SEARCH/PUT/DELETE operations (#3679, #3683, #3684)
+- Basic income payments (#3357)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)
