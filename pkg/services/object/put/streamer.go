@@ -250,7 +250,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		sessionSigner:           prm.sessionSigner,
 		cnrClient:               p.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
-		collectedSignatures:     make([][][]byte, len(prm.containerNodes.PrimaryCounts())),
+		collectedSignatures:     make([][][]byte, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
 		metaSigner:              prm.localSignerRFC6979,
 		localOnly:               prm.common.LocalOnly(),
 	}
