@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -66,7 +67,8 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 			exists, err := sh.Exists(addrLocked, false)
 			if err != nil {
 				var siErr *objectSDK.SplitInfoError
-				if !errors.As(err, &siErr) {
+				var ecErr iec.ErrParts
+				if !errors.As(err, &siErr) && !errors.As(err, &ecErr) {
 					if shard.IsErrObjectExpired(err) {
 						// object is already expired =>
 						// do not lock it

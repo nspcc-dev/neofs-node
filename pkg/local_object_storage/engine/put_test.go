@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -16,6 +17,7 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestStorageEngine_PutBinary(t *testing.T) {
@@ -116,6 +118,56 @@ func testPutLock(t *testing.T, shardNum int) {
 			_, err = s.Get(lockAddr)
 			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		}
+	})
+
+	t.Run("EC", func(t *testing.T) {
+		l, logBuf := testutil.NewBufferedLogger(t, zap.InfoLevel)
+
+		s := testNewEngineWithShardNum(t, shardNum)
+		s.log = l
+
+		const partNum = 4
+		creator := usertest.User()
+		cnr := cidtest.ID()
+
+		var parentObj objectSDK.Object
+		parentObj.SetContainerID(cnr)
+		parentObj.SetOwner(creator.UserID())
+
+		require.NoError(t, parentObj.SetVerificationFields(creator))
+
+		parentID := parentObj.GetID()
+		parentAddr := oid.NewAddress(cnr, parentID)
+
+		for i := range partNum {
+			partObj, err := iec.FormObjectForECPart(creator, parentObj, testutil.RandByteSlice(32), iec.PartInfo{
+				RuleIndex: 1,
+				Index:     i,
+			})
+			require.NoError(t, err)
+			require.NoError(t, s.Put(&partObj, nil))
+		}
+
+		var lock objectSDK.Object
+		lock.SetContainerID(parentObj.GetContainerID())
+		lock.SetOwner(parentObj.Owner())
+		lock.AssociateLocked(parentID)
+
+		require.NoError(t, lock.SetVerificationFields(creator))
+
+		require.NoError(t, s.Put(&lock, nil))
+
+		locked, err := s.IsLocked(parentAddr)
+		require.NoError(t, err)
+		require.True(t, locked)
+
+		for _, sh := range s.unsortedShards() {
+			locked, err := sh.IsLocked(parentAddr)
+			require.NoError(t, err)
+			require.True(t, locked)
+		}
+
+		logBuf.AssertEmpty()
 	})
 
 	for _, tc := range []struct {

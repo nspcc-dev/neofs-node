@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -133,6 +134,10 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 			return fmt.Errorf("verify V1 split: %w", err)
 		}
 	} else {
+		if iec.ObjectWithAttributes(*header) {
+			return errors.New("object has EC attributes")
+		}
+
 		if !firstSet {
 			// checks above say that this is a (non-V1) split object and also
 			// a first object is the only part that does not have a first object
