@@ -73,6 +73,10 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 }
 
 func checkECPart(part object.Object, rules []netmap.ECRule) error {
+	if part.SessionToken() != nil {
+		return errors.New("session token detected")
+	}
+
 	parent := part.Parent()
 	if parent == nil {
 		return errors.New("missing parent header")

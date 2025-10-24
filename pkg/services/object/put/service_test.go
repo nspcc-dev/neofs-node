@@ -977,8 +977,6 @@ func assertObjectIntegrity(t *testing.T, obj object.Object) {
 
 	require.NotZero(t, obj.Owner())
 
-	require.NotZero(t, obj.SessionToken())
-
 	payload := obj.Payload()
 	require.EqualValues(t, obj.PayloadSize(), len(payload))
 
@@ -1004,6 +1002,7 @@ func checkAndGetObjectFromECParts(t *testing.T, limit uint64, rule iec.Rule, par
 
 	for _, part := range parts {
 		assertObjectIntegrity(t, part)
+		require.Zero(t, part.SessionToken())
 		require.LessOrEqual(t, part.PayloadSize(), limit)
 	}
 
@@ -1080,7 +1079,7 @@ func checkAndCutParentHeaderFromECPart(t *testing.T, part object.Object) object.
 	require.Equal(t, par.Owner(), part.Owner())
 	require.Equal(t, par.CreationEpoch(), part.CreationEpoch())
 	require.Equal(t, object.TypeRegular, part.Type())
-	require.Equal(t, par.SessionToken(), part.SessionToken())
+	require.NotZero(t, par.SessionToken())
 
 	return *par
 }

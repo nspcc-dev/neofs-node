@@ -12,6 +12,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -194,6 +195,9 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		{name: "wrong payload len", err: "invalid regular EC part object: wrong part payload len: expected 342, got 343, parent 4096", corruptPart: func(obj *object.Object) {
 			obj.SetPayloadSize(343)
 		}},
+		{name: "session token in part", err: "invalid regular EC part object: session token detected", corruptPart: func(obj *object.Object) {
+			obj.SetSessionToken(new(session.Object))
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.corruptParent != nil {
@@ -333,6 +337,19 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 
 				require.NoError(t, v.Validate(&ecPart, false))
 			}
+		}
+	})
+
+	t.Run("part created by 3rd party", func(t *testing.T) {
+		otherCreator := usertest.User()
+		for i := range parts {
+			obj, err := iec.FormObjectForECPart(otherCreator, parent, parts[i], iec.PartInfo{
+				RuleIndex: ruleIdx,
+				Index:     i,
+			})
+			require.NoError(t, err)
+
+			require.NoError(t, v.Validate(&obj, false))
 		}
 	})
 

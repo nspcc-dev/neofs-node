@@ -149,7 +149,7 @@ func TestFormObjectForECPart(t *testing.T) {
 	require.Equal(t, parent.Owner(), obj.Owner())
 	require.Equal(t, parent.CreationEpoch(), obj.CreationEpoch())
 	require.Equal(t, object.TypeRegular, obj.Type())
-	require.Equal(t, parent.SessionToken(), obj.SessionToken())
+	require.Zero(t, obj.SessionToken())
 
 	_, ok = obj.PayloadHomomorphicHash()
 	require.False(t, ok)
