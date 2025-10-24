@@ -72,7 +72,6 @@ func FormObjectForECPart(signer neofscrypto.Signer, parent object.Object, part [
 	obj.SetOwner(parent.Owner())
 	obj.SetCreationEpoch(parent.CreationEpoch())
 	obj.SetType(object.TypeRegular)
-	obj.SetSessionToken(parent.SessionToken())
 
 	obj.SetParent(&parent)
 	iobject.SetIntAttribute(&obj, AttributeRuleIdx, partInfo.RuleIndex)

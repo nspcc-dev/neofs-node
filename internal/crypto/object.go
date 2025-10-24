@@ -13,7 +13,7 @@ import (
 )
 
 // AuthenticateObject checks whether obj is signed correctly by its owner.
-func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner) error {
+func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPart bool) error {
 	sig := obj.Signature()
 	if sig == nil {
 		return errMissingSignature
@@ -57,7 +57,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner) error
 		if !verifyECDSAFns[scheme](*ecdsaPub, sig.Value(), obj.GetID().Marshal()) {
 			return schemeError(scheme, errSignatureMismatch)
 		}
-		if sessionToken == nil && user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() {
+		if sessionToken == nil && !ecPart && user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() {
 			return errors.New("owner mismatches signature")
 		}
 	case neofscrypto.N3:

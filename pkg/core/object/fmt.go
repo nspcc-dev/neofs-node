@@ -235,7 +235,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 		if err := icrypto.AuthenticateObject(*obj, historicN3ScriptRunner{
 			FSChain:        v.fsChain,
 			NetmapContract: v.netmapContract,
-		}); err != nil {
+		}, isEC); err != nil {
 			return fmt.Errorf("authenticate: %w", err)
 		}
 
