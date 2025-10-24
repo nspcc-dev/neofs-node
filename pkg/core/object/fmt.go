@@ -193,7 +193,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 	splitID := obj.SplitID()
 	par := obj.Parent()
 
-	if obj.HasParent() {
+	if !isEC && obj.HasParent() {
 		if par != nil && par.HasParent() {
 			return errors.New("parent object has a parent itself")
 		}

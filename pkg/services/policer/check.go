@@ -130,14 +130,14 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 				zap.Stringer("object", addr), zap.Error(err))
 		}
 	} else if len(ecRules) > 0 {
-		if addrWithAttrs.Type == object.TypeTombstone || addrWithAttrs.Type == object.TypeLock {
-			// LOCK is broadcast across all container SN. TOMBSTONE is broadcast across EC
+		if addrWithAttrs.Type == object.TypeTombstone || addrWithAttrs.Type == object.TypeLock || addrWithAttrs.Type == object.TypeLink {
+			// LOCK/LINK is broadcast across all container SN. TOMBSTONE is broadcast across EC
 			// SN. This increases efficiency of removing REGULAR objects' EC parts which are
 			// evenly distributed across EC SN. Note that TOMBSTONE is not broadcast across
 			// REP SN but behaves the same as REGULAR objects.
 			newRepRules := make([]uint, len(repRules)+len(ecRules))
 			copy(newRepRules, repRules)
-			if addrWithAttrs.Type != object.TypeLock { // processNodes() already does the same for LOCK
+			if addrWithAttrs.Type == object.TypeTombstone { // processNodes() already does the same for LOCK/LINK
 				for i := range ecRules {
 					newRepRules[len(repRules)+i] = uint(len(nn[len(repRules)+i]))
 				}
