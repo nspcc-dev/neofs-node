@@ -75,7 +75,7 @@ func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, 
 	var firstErr error
 	for i := range ecRules {
 		hdr, err := s.getECObjectHeaderByRule(ctx, *localNodeKey, cnr, id, sTok, sortedNodeLists[i])
-		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 			return hdr, err
 		}
 
@@ -128,7 +128,7 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 
 		err = convertContextStatus(err)
 
-		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 			return object.Object{}, err
 		}
 
@@ -174,7 +174,7 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 			}
 			return nil
 		}
-		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 			return err
 		}
 
@@ -224,7 +224,7 @@ nextPart:
 				continue nextPart
 			}
 
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ctx.Err()) {
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 				return err
 			}
 
@@ -270,7 +270,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 		eg.Go(func() error {
 			parentHdr, partPayload, err := s.getECPart(gCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx)
 			if err != nil {
-				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, gCtx.Err()) {
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, gCtx.Err()) {
 					return err
 				}
 				if failed := failCounter.Add(1); failed > uint32(rule.ParityPartNum) {
@@ -332,7 +332,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 		eg.Go(func() error {
 			_, part, err := s.getECPart(gCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx)
 			if err != nil {
-				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, gCtx.Err()) {
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, gCtx.Err()) {
 					return err
 				}
 				if failed := failCounter.Add(1); failed+uint32(rem) > uint32(rule.ParityPartNum) {
@@ -408,7 +408,7 @@ func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID
 		if err == nil {
 			return partHdr, rc, nil
 		}
-		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) {
 			return object.Object{}, nil, err
 		}
 		if errors.Is(err, ctx.Err()) {
@@ -598,7 +598,7 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 	for i := range ecRules {
 		written, err := s.copyECObjectRangeByRule(ctx, dst, *localNodeKey, cnr, parent, sTok, ecRules[i], i, sortedNodeLists[i], off, ln)
 		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
-			errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
+			errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
 			return err
 		}
 
@@ -815,7 +815,7 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 	failedPartIdx, failedPartWritten, written, err := s.copyECPartsRanges(stageCtx, dst, localNodeKey, cnr, parent, sTok, rule, ruleIdx, sortedNodes,
 		fullPartLen, firstPartIdx, firstPartOff, lastPartIdx, lastPartTo, firstPartStream)
 	if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
-		errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
+		errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
 		return written, err
 	}
 
@@ -959,7 +959,8 @@ func (s *Service) getRecoveryECPartRanges(ctx context.Context, localNodeKey ecds
 		eg.Go(func() error {
 			part, err := s.readFullECPartRange(egCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx, localNodeKey, fullPartLen)
 			if err != nil {
-				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, egCtx.Err()) {
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
+					errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, egCtx.Err()) {
 					return err
 				}
 
@@ -1041,7 +1042,8 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 
 		rc, err = s.getECPartRangeFromNode(ctx, cnr, parent, off, ln, sTok, pi, localNodeKey, sortedNodes[i])
 		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
+				errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 				return nil, err
 			}
 			if !errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -1078,7 +1080,7 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 		_, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
 		if err != nil {
 			err = convertContextStatus(err)
-			if errors.Is(err, ctx.Err()) {
+			if errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 				return nil, err
 			}
 			if !errors.Is(err, apistatus.ErrObjectNotFound) {
