@@ -156,14 +156,14 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 
 			linkObj, err := e.Get(linkAddr)
 			if err != nil {
-				e.log.Error("inhuming root object but no link object is found",
+				e.log.Debug("inhuming root object but no link object is found",
 					zap.Stringer("linkAddr", linkAddr),
 					zap.Stringer("addrBeingInhumed", addr),
 					zap.Error(err))
 
-				// nothing can be done here, so just returning ok
-				// to continue handling other addresses
-				return nil
+				// link object not found, but we still need to try to delete the root object
+				siNoLink = siErr.SplitInfo()
+				break
 			}
 
 			// v2 split
@@ -171,14 +171,14 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 				var link objectSDK.Link
 				err := linkObj.ReadLink(&link)
 				if err != nil {
-					e.log.Error("inhuming root object but link object cannot be read",
+					e.log.Debug("inhuming root object but link object cannot be read",
 						zap.Stringer("linkAddr", linkAddr),
 						zap.Stringer("addrBeingInhumed", addr),
 						zap.Error(err))
 
-					// nothing can be done here, so just returning ok
-					// to continue handling other addresses
-					return nil
+					// link object cannot be read, but we still need to try to delete the root object
+					siNoLink = siErr.SplitInfo()
+					break
 				}
 
 				children = measuredObjsToAddresses(addr.Container(), link.Objects())
