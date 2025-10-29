@@ -909,7 +909,17 @@ func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localN
 				return 0, 0, 0, fmt.Errorf("discard first %d bytes from first part payload stream: %w", partOff, err)
 			}
 
-			rc = fullFirstPart
+			if lastIdx == 0 && partOff+partLen < fullPartLen {
+				rc = struct {
+					io.Reader
+					io.Closer
+				}{
+					Reader: io.LimitReader(fullFirstPart, int64(partLen)),
+					Closer: fullFirstPart,
+				}
+			} else {
+				rc = fullFirstPart
+			}
 		} else {
 			callCtx, cancel := context.WithTimeout(ctx, callTimeout)
 			defer cancel()
