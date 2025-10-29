@@ -178,7 +178,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 	cnrNodes := prm.containerNodes.Unsorted()
 	ecRulesN := len(prm.containerNodes.ECRules())
-	if typ := prm.hdr.Type(); ecRulesN > 0 && typ != object.TypeTombstone && typ != object.TypeLock {
+	if typ := prm.hdr.Type(); ecRulesN > 0 && typ != object.TypeTombstone && typ != object.TypeLock && typ != object.TypeLink {
 		ecPart, err := iec.GetPartInfo(*prm.hdr)
 		if err != nil {
 			return fmt.Errorf("get EC part info from object header: %w", err)
