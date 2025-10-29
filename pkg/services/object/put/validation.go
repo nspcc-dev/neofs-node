@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
@@ -38,7 +39,9 @@ type validatingTarget struct {
 	writtenPayload  uint64 // number of already written payload bytes
 	cachedHeader    *objectSDK.Object
 	cachedCnr       container.Container
+	isECPart        bool
 	cachedRepNumber uint64
+	cachedECRules   []netmap.ECRule
 
 	homomorphicChecksumRequired bool
 }
@@ -62,6 +65,7 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 		// caching, this is an acceptable prediction
 		t.cachedRepNumber += uint64(p.ReplicaNumberByIndex(i))
 	}
+	t.cachedECRules = p.ECRules()
 
 	if !t.unpreparedObject {
 		// check chunk size
@@ -179,14 +183,29 @@ func (t *validatingTarget) checkQuotaLimits(obj *objectSDK.Object, written uint6
 			zap.Stringer("owner", owner),
 			zap.Error(err))
 	} else {
-		if written*t.cachedRepNumber > softLeft {
+		var needed uint64
+		if t.isECPart {
+			needed = written
+		} else {
+			needed = written * t.cachedRepNumber
+
+			if t.unpreparedObject {
+				for i := range t.cachedECRules {
+					dataPartNum := uint64(t.cachedECRules[i].DataPartNum())
+					partLen := (written + dataPartNum - 1) / dataPartNum
+					needed += (dataPartNum + uint64(t.cachedECRules[i].ParityPartNum())) * partLen
+				}
+			}
+		}
+
+		if needed > softLeft {
 			t.l.Warn("soft quota limit has been reached",
 				zap.Stringer("cID", cID),
 				zap.Stringer("owner", owner),
 				zap.Error(apistatus.ErrQuotaExceeded))
 		}
 
-		if written*t.cachedRepNumber > hardLeft {
+		if needed > hardLeft {
 			return apistatus.ErrQuotaExceeded
 		}
 	}
