@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -405,11 +406,16 @@ func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node 
 }
 
 func (c *clientCacheWrapper) connect(node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
+	conn, _, err := c._connect(node)
+	return conn, err
+}
+
+func (c *clientCacheWrapper) _connect(node netmap.NodeInfo) (coreclient.MultiAddressClient, coreclient.NodeInfo, error) {
 	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
 	// TODO: we may waste resources doing this per request. Make once on network map change instead.
 	var ag network.AddressGroup
 	if err := ag.FromIterator(network.NodeEndpointsIterator(node)); err != nil {
-		return nil, fmt.Errorf("decode SN network addresses: %w", err)
+		return nil, coreclient.NodeInfo{}, fmt.Errorf("decode SN network addresses: %w", err)
 	}
 
 	var ni coreclient.NodeInfo
@@ -418,10 +424,10 @@ func (c *clientCacheWrapper) connect(node netmap.NodeInfo) (coreclient.MultiAddr
 
 	conn, err := c.cache.Get(ni)
 	if err != nil {
-		return nil, fmt.Errorf("get conn: %w", err)
+		return nil, coreclient.NodeInfo{}, fmt.Errorf("get conn: %w", err)
 	}
 
-	return conn, nil
+	return conn, ni, nil
 }
 
 // TODO: share.
@@ -435,4 +441,16 @@ func convertContextStatus(err error) error {
 	case codes.DeadlineExceeded:
 		return context.DeadlineExceeded
 	}
+}
+
+func localNodeInSets(n NeoFSNetwork, nodeSets [][]netmap.NodeInfo) bool {
+	return slices.ContainsFunc(nodeSets, func(nodeSet []netmap.NodeInfo) bool {
+		return localNodeInSet(n, nodeSet)
+	})
+}
+
+func localNodeInSet(n NeoFSNetwork, nodes []netmap.NodeInfo) bool {
+	return slices.ContainsFunc(nodes, func(node netmap.NodeInfo) bool {
+		return n.IsLocalNodePublicKey(node.PublicKey())
+	})
 }

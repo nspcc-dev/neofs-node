@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -40,8 +43,45 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		}
 	}
 
+	ecNodeLists := nodeLists[len(repRules):]
+	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
+		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "GET", nil)
+	}
+
 	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, nodeLists[len(repRules):], prm.objWriter)
+		ecRules, ecNodeLists, prm.objWriter)
+}
+
+func (s *Service) proxyGetRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, proxyFn RequestForwarder,
+	req string, headWriter internal.HeaderWriter) error {
+	for i := range sortedNodeLists {
+		for j := range sortedNodeLists[i] {
+			conn, node, err := s.conns.(*clientCacheWrapper)._connect(sortedNodeLists[i][j])
+			if err != nil {
+				// TODO: implement address list stringer for lazy encoding
+				s.log.Debug("get conn to remote node",
+					zap.String("addresses", network.StringifyGroup(node.AddressGroup())), zap.Error(err))
+				continue
+			}
+
+			hdr, err := proxyFn(ctx, node, conn)
+			if err == nil {
+				if headWriter != nil {
+					return headWriter.WriteHeader(hdr)
+				}
+				return nil
+			}
+
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) ||
+				errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
+				return err
+			}
+
+			s.log.Info("request proxy failed", zap.String("request", req), zap.Error(err))
+		}
+	}
+
+	return apistatus.ErrObjectNotFound
 }
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
@@ -73,8 +113,13 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		}
 	}
 
+	ecNodeLists := nodeLists[len(repRules):]
+	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
+		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "RANGE", nil)
+	}
+
 	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, nodeLists[len(repRules):], prm.rng.GetOffset(), prm.rng.GetLength())
+		ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 }
 
 func (s *Service) getRange(ctx context.Context, prm RangePrm, opts ...execOption) error {
@@ -141,8 +186,13 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		}
 	}
 
+	ecNodeLists := nodeLists[len(repRules):]
+	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
+		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "HEAD", prm.objWriter)
+	}
+
 	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, nodeLists[len(repRules):])
+		ecRules, ecNodeLists)
 }
 
 func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) statusError {
