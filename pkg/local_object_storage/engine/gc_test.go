@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -19,6 +20,7 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -382,6 +384,114 @@ func TestSplitObjectExpirationWithoutLink(t *testing.T) {
 		}
 		return false
 	}, 1*time.Second, 100*time.Millisecond)
+}
+
+func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
+	dir := t.TempDir()
+	es := &asyncEpochState{e: 10}
+	l, logBuf := testutil.NewBufferedLogger(t, zap.DebugLevel)
+	e := New(WithLogger(l))
+	_, err := e.AddShard(
+		shard.WithLogger(l),
+		shard.WithBlobstor(
+			newStorage(filepath.Join(dir, "fstree")),
+		),
+		shard.WithMetaBaseOptions(
+			meta.WithLogger(l),
+			meta.WithPath(filepath.Join(dir, "metabase")),
+			meta.WithPermissions(0700),
+			meta.WithEpochState(es),
+		),
+		shard.WithExpiredObjectsCallback(e.processExpiredObjects),
+		shard.WithGCRemoverSleepInterval(100*time.Millisecond),
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, e.Open())
+	require.NoError(t, e.Init())
+	t.Cleanup(func() { _ = e.Close() })
+
+	cnr := cidtest.ID()
+	parentID := oidtest.ID()
+
+	parent := generateObjectWithCID(cnr)
+	parent.SetID(parentID)
+	parent.SetPayload(nil)
+	addExpirationAttribute(parent, es.CurrentEpoch())
+	parentAddr := object.AddressOf(parent)
+
+	const childCount = 3
+	children := make([]*objectSDK.Object, childCount)
+	childIDs := make([]oid.ID, childCount)
+
+	var firstID oid.ID
+	for i := range children {
+		children[i] = generateObjectWithCID(cnr)
+		if i == 0 {
+			firstID = children[i].GetID()
+		}
+		if i != 0 {
+			children[i].SetPreviousID(childIDs[i-1])
+			children[i].SetFirstID(firstID)
+		}
+		if i == len(children)-1 {
+			children[i].SetParent(parent)
+		}
+		children[i].SetPayload([]byte{byte(i), byte(i + 1), byte(i + 2)})
+		children[i].SetPayloadSize(3)
+		childIDs[i] = children[i].GetID()
+	}
+
+	var linkObj objectSDK.Object
+	linkObj.WriteLink(objectSDK.Link{})
+	linkObj.SetContainerID(cnr)
+	linkObj.SetParent(parent)
+	linkObj.SetParentID(parentID)
+	linkObj.SetFirstID(firstID)
+	linkObj.SetOwner(usertest.ID())
+	linkObj.CalculateAndSetPayloadChecksum()
+	require.NoError(t, linkObj.CalculateAndSetID())
+
+	linkAddr := object.AddressOf(&linkObj)
+
+	// Put link object and all children
+	require.NoError(t, e.Put(&linkObj, nil))
+	for i := range children {
+		require.NoError(t, e.Put(children[i], nil))
+	}
+
+	_, err = e.Get(linkAddr)
+	require.NoError(t, err)
+
+	_, err = e.Get(parentAddr)
+	var splitErr *objectSDK.SplitInfoError
+	require.ErrorAs(t, err, &splitErr)
+	require.Equal(t, linkObj.GetID(), splitErr.SplitInfo().GetLink())
+
+	// Now delete the link object to simulate missing link scenario
+	tomb := generateObjectWithCID(cnr)
+	tomb.SetType(objectSDK.TypeTombstone)
+	tombAddr := object.AddressOf(tomb)
+	require.NoError(t, e.Inhume(tombAddr, 1, linkAddr))
+
+	_, err = e.Get(linkAddr)
+	require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
+
+	tickEpoch(es, e)
+
+	require.Eventually(t, func() bool {
+		// Check this way because Get returns ErrObjectNotFound for expired error
+		for _, sh := range e.sortedShards(parentAddr) {
+			_, err = sh.Get(parentAddr, false)
+			if errors.Is(err, statusSDK.ErrObjectNotFound) {
+				return true
+			}
+		}
+		return false
+	}, 1*time.Second, 100*time.Millisecond)
+
+	logBuf.AssertContainsMsg(zap.DebugLevel, "inhuming root object but no link object is found")
+	logBuf.AssertContainsMsg(zap.InfoLevel, "root object has no link object in split upload")
 }
 
 func addExpirationAttribute(obj *objectSDK.Object, epoch uint64) {
