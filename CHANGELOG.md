@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Quotas TTL (#3665)
 
 ### Changed
 

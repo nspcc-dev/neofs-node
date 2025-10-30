@@ -809,6 +809,7 @@ func initQuotas(cnrCli *containerClient.Client, ttl time.Duration) *quotas {
 }
 
 type cachedQuotaState struct {
+	updTime    time.Time
 	takenSpace uint64
 	q          containerClient.Quota
 }
@@ -816,11 +817,10 @@ type cachedQuotaState struct {
 type quotas struct {
 	cnrCli *containerClient.Client
 
-	m          sync.RWMutex
-	ttl        time.Duration
-	lastUpdate time.Time
-	cnrs       map[cid.ID]cachedQuotaState
-	users      map[user.ID]cachedQuotaState
+	m     sync.RWMutex
+	ttl   time.Duration
+	cnrs  map[cid.ID]cachedQuotaState
+	users map[user.ID]cachedQuotaState
 }
 
 func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64, error) {
@@ -828,11 +828,10 @@ func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64,
 	var (
 		cachedCnr, cnrOk = q.cnrs[cID]
 		cachedUsr, usrOk = q.users[owner]
-		needRefresh      = time.Since(q.lastUpdate) > q.ttl
 	)
 	q.m.RUnlock()
 
-	if !cnrOk || needRefresh {
+	if !cnrOk || time.Since(cachedCnr.updTime) > q.ttl {
 		cnrQ, err := q.cnrCli.GetContainerQuota(cID)
 		if err != nil {
 			return 0, 0, fmt.Errorf("get container quota: %w", err)
@@ -843,6 +842,7 @@ func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64,
 		}
 
 		cachedCnr = cachedQuotaState{
+			updTime:    time.Now(),
 			takenSpace: cnrState.Size,
 			q:          cnrQ,
 		}
@@ -852,7 +852,7 @@ func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64,
 		q.m.Unlock()
 	}
 
-	if !usrOk || needRefresh {
+	if !usrOk || time.Since(cachedUsr.updTime) > q.ttl {
 		userQ, err := q.cnrCli.GetUserQuota(owner)
 		if err != nil {
 			return 0, 0, fmt.Errorf("get user quota: %w", err)
@@ -863,6 +863,7 @@ func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64,
 		}
 
 		cachedUsr = cachedQuotaState{
+			updTime:    time.Now(),
 			takenSpace: ownerTakenSpace,
 			q:          userQ,
 		}
