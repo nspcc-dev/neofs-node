@@ -122,10 +122,6 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 }
 
-func (s *Service) getRange(ctx context.Context, prm RangePrm, opts ...execOption) error {
-	return s.get(ctx, prm.commonPrm, append(opts, withPayloadRange(prm.rng))...).err
-}
-
 func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHashRes, error) {
 	hashes := make([][]byte, 0, len(prm.rngs))
 
@@ -146,7 +142,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 			hash: util.NewSaltingWriter(h, prm.salt),
 		})
 
-		if err := s.getRange(ctx, rngPrm, withHash(&prm)); err != nil {
+		if err := s.get(ctx, rngPrm.commonPrm, withHash(&prm), withPayloadRange(rngPrm.rng)).err; err != nil {
 			return nil, err
 		}
 
