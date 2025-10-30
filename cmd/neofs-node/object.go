@@ -800,81 +800,74 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 	}, nil
 }
 
-func initQuotas(cnrCli *containerClient.Client, ttl time.Duration) *quotas {
-	return &quotas{
-		cnrCli: cnrCli,
-		ttl:    ttl,
-		cnrs:   make(map[cid.ID]cachedQuotaState),
-		users:  make(map[user.ID]cachedQuotaState),
-	}
+type cidAndOwner struct {
+	cid   cid.ID
+	owner user.ID
 }
 
 type cachedQuotaState struct {
-	takenSpace uint64
-	q          containerClient.Quota
+	takenByUser      uint64
+	userQuota        containerClient.Quota
+	takenByContainer uint64
+	containerQuota   containerClient.Quota
+}
+
+func newQuotaTTLcache(size int, ttl time.Duration, netRdr netValueReader[cidAndOwner, cachedQuotaState]) ttlNetCache[cidAndOwner, cachedQuotaState] {
+	cache, err := lru.New[cidAndOwner, *valueWithTime[cachedQuotaState]](size)
+	fatalOnErr(err)
+
+	return ttlNetCache[cidAndOwner, cachedQuotaState]{
+		ttl:     ttl,
+		cache:   cache,
+		netRdr:  netRdr,
+		m:       &sync.RWMutex{},
+		progMap: make(map[cidAndOwner]*valueInProgress[cachedQuotaState]),
+	}
+}
+
+func initQuotas(cnrCli *containerClient.Client, ttl time.Duration) *quotas {
+	const quotaCacheLimits = 1024
+
+	return &quotas{
+		cache: newQuotaTTLcache(quotaCacheLimits, ttl, func(cIDAndOwner cidAndOwner) (cachedQuotaState, error) {
+			cnrQ, err := cnrCli.GetContainerQuota(cIDAndOwner.cid)
+			if err != nil {
+				return cachedQuotaState{}, fmt.Errorf("fetching container quota: %w", err)
+			}
+			cnrState, err := cnrCli.GetReportsSummary(cIDAndOwner.cid)
+			if err != nil {
+				return cachedQuotaState{}, fmt.Errorf("fetching report summary: %w", err)
+			}
+			userQ, err := cnrCli.GetUserQuota(cIDAndOwner.owner)
+			if err != nil {
+				return cachedQuotaState{}, fmt.Errorf("fetching user quota: %w", err)
+			}
+			ownerTakenSpace, err := cnrCli.GetTakenSpaceByUser(cIDAndOwner.owner)
+			if err != nil {
+				return cachedQuotaState{}, fmt.Errorf("fetching total space taken by user summary: %w", err)
+			}
+			return cachedQuotaState{
+				takenByContainer: cnrState.Size,
+				containerQuota:   cnrQ,
+				takenByUser:      ownerTakenSpace,
+				userQuota:        userQ,
+			}, nil
+		}),
+	}
 }
 
 type quotas struct {
-	cnrCli *containerClient.Client
-
-	m          sync.RWMutex
-	ttl        time.Duration
-	lastUpdate time.Time
-	cnrs       map[cid.ID]cachedQuotaState
-	users      map[user.ID]cachedQuotaState
+	cache ttlNetCache[cidAndOwner, cachedQuotaState]
 }
 
 func (q *quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64, error) {
-	q.m.RLock()
-	var (
-		cachedCnr, cnrOk = q.cnrs[cID]
-		cachedUsr, usrOk = q.users[owner]
-		needRefresh      = time.Since(q.lastUpdate) > q.ttl
-	)
-	q.m.RUnlock()
-
-	if !cnrOk || needRefresh {
-		cnrQ, err := q.cnrCli.GetContainerQuota(cID)
-		if err != nil {
-			return 0, 0, fmt.Errorf("get container quota: %w", err)
-		}
-		cnrState, err := q.cnrCli.GetReportsSummary(cID)
-		if err != nil {
-			return 0, 0, fmt.Errorf("get report summary: %w", err)
-		}
-
-		cachedCnr = cachedQuotaState{
-			takenSpace: cnrState.Size,
-			q:          cnrQ,
-		}
-
-		q.m.Lock()
-		q.cnrs[cID] = cachedCnr
-		q.m.Unlock()
+	cachedV, err := q.cache.get(cidAndOwner{cID, owner})
+	if err != nil {
+		return 0, 0, err
 	}
 
-	if !usrOk || needRefresh {
-		userQ, err := q.cnrCli.GetUserQuota(owner)
-		if err != nil {
-			return 0, 0, fmt.Errorf("get user quota: %w", err)
-		}
-		ownerTakenSpace, err := q.cnrCli.GetTakenSpaceByUser(owner)
-		if err != nil {
-			return 0, 0, fmt.Errorf("get total space taken by user summary: %w", err)
-		}
-
-		cachedUsr = cachedQuotaState{
-			takenSpace: ownerTakenSpace,
-			q:          userQ,
-		}
-
-		q.m.Lock()
-		q.users[owner] = cachedUsr
-		q.m.Unlock()
-	}
-
-	softLeft := leftLimit(cachedCnr.q.SoftLimit, cachedCnr.takenSpace, cachedUsr.q.SoftLimit, cachedUsr.takenSpace)
-	hardLeft := leftLimit(cachedCnr.q.HardLimit, cachedCnr.takenSpace, cachedUsr.q.HardLimit, cachedUsr.takenSpace)
+	softLeft := leftLimit(cachedV.containerQuota.SoftLimit, cachedV.takenByContainer, cachedV.userQuota.SoftLimit, cachedV.takenByUser)
+	hardLeft := leftLimit(cachedV.containerQuota.HardLimit, cachedV.takenByContainer, cachedV.userQuota.HardLimit, cachedV.takenByUser)
 
 	return softLeft, hardLeft, nil
 }
