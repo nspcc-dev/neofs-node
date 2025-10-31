@@ -133,8 +133,8 @@ func (c *Client) ProbeNotary() (res bool) {
 		return false
 	}
 
-	keys, err := conn.roleList(noderoles.P2PNotary)
-	return err == nil && len(keys) > 0
+	pubs, err := conn.roleList(noderoles.P2PNotary)
+	return err == nil && len(pubs) > 0
 }
 
 // DepositNotary calls notary deposit method. Deposit is required to operate
