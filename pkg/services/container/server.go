@@ -79,7 +79,8 @@ type sessionTokenCommonCheckResult struct {
 	err   error
 }
 
-type server struct {
+// Server provides NeoFS API Container service.
+type Server struct {
 	protocontainer.UnimplementedContainerServiceServer
 	signer   *ecdsa.PrivateKey
 	net      netmap.State
@@ -94,12 +95,12 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc NetmapContract) *server {
+func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc NetmapContract) *Server {
 	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
 	}
-	return &server{
+	return &Server{
 		signer:   s,
 		net:      net,
 		contract: c,
@@ -111,7 +112,7 @@ func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc 
 	}
 }
 
-func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
 	return &protosession.ResponseMetaHeader{
 		Version: version.Current().ProtoMessage(),
 		Epoch:   s.net.CurrentEpoch(),
@@ -120,14 +121,14 @@ func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.Re
 }
 
 // ResetSessionTokenCheckCache resets cache of session token check results.
-func (s *server) ResetSessionTokenCheckCache() {
+func (s *Server) ResetSessionTokenCheckCache() {
 	s.sessionTokenCommonCheckCache.Purge()
 }
 
 // decodes the container session token from the request and checks its
 // signature, lifetime and applicability to this operation as per request.
 // Returns both nil if token is not attached to the request.
-func (s *server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb session.ContainerVerb, reqCnr cid.ID) (*session.Container, error) {
+func (s *Server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb session.ContainerVerb, reqCnr cid.ID) (*session.Container, error) {
 	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
 		mh = omh
 	}
@@ -157,7 +158,7 @@ func (s *server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	return &res.token, nil
 }
 
-func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (session.Container, error) {
+func (s *Server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (session.Container, error) {
 	var token session.Container
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("decode: %w", err)
@@ -182,7 +183,7 @@ func (s *server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken)
 	return token, nil
 }
 
-func (s *server) verifySessionTokenAgainstRequest(token session.Container, reqVerb session.ContainerVerb, reqCnr cid.ID) error {
+func (s *Server) verifySessionTokenAgainstRequest(token session.Container, reqVerb session.ContainerVerb, reqCnr cid.ID) error {
 	if !token.AssertVerb(reqVerb) {
 		return errors.New("wrong container session operation")
 	}
@@ -202,7 +203,7 @@ func (s *server) verifySessionTokenAgainstRequest(token session.Container, reqVe
 	return nil
 }
 
-func (s *server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
+func (s *Server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	cnr, err := s.contract.Get(id)
 	if err != nil {
 		return fmt.Errorf("get container by ID: %w", err)
@@ -215,7 +216,7 @@ func (s *server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	return nil
 }
 
-func (s *server) makePutResponse(body *protocontainer.PutResponse_Body, st *protostatus.Status) (*protocontainer.PutResponse, error) {
+func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, st *protostatus.Status) (*protocontainer.PutResponse, error) {
 	resp := &protocontainer.PutResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
@@ -224,7 +225,7 @@ func (s *server) makePutResponse(body *protocontainer.PutResponse_Body, st *prot
 	return resp, nil
 }
 
-func (s *server) makeFailedPutResponse(err error) (*protocontainer.PutResponse, error) {
+func (s *Server) makeFailedPutResponse(err error) (*protocontainer.PutResponse, error) {
 	return s.makePutResponse(nil, util.ToStatus(err))
 }
 
@@ -279,7 +280,7 @@ func verifyStoragePolicy(policy *protonetmap.PlacementPolicy) error {
 // Put forwards container creation request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified. Returns ID
 // to check request status in the response.
-func (s *server) Put(_ context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
+func (s *Server) Put(_ context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedPutResponse(err)
 	}
@@ -322,7 +323,7 @@ func (s *server) Put(_ context.Context, req *protocontainer.PutRequest) (*protoc
 	return s.makePutResponse(respBody, util.StatusOK)
 }
 
-func (s *server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, error) {
+func (s *Server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, error) {
 	resp := &protocontainer.DeleteResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
@@ -332,7 +333,7 @@ func (s *server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, 
 
 // Delete forwards container removal request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified.
-func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
+func (s *Server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeDeleteResponse(err)
 	}
@@ -364,7 +365,7 @@ func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*
 	return s.makeDeleteResponse(util.StatusOKErr)
 }
 
-func (s *server) makeGetResponse(body *protocontainer.GetResponse_Body, st *protostatus.Status) (*protocontainer.GetResponse, error) {
+func (s *Server) makeGetResponse(body *protocontainer.GetResponse_Body, st *protostatus.Status) (*protocontainer.GetResponse, error) {
 	resp := &protocontainer.GetResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
@@ -373,13 +374,13 @@ func (s *server) makeGetResponse(body *protocontainer.GetResponse_Body, st *prot
 	return resp, nil
 }
 
-func (s *server) makeFailedGetResponse(err error) (*protocontainer.GetResponse, error) {
+func (s *Server) makeFailedGetResponse(err error) (*protocontainer.GetResponse, error) {
 	return s.makeGetResponse(nil, util.ToStatus(err))
 }
 
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
-func (s *server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
+func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedGetResponse(err)
 	}
@@ -405,7 +406,7 @@ func (s *server) Get(_ context.Context, req *protocontainer.GetRequest) (*protoc
 	return s.makeGetResponse(body, nil)
 }
 
-func (s *server) makeListResponse(body *protocontainer.ListResponse_Body, st *protostatus.Status) (*protocontainer.ListResponse, error) {
+func (s *Server) makeListResponse(body *protocontainer.ListResponse_Body, st *protostatus.Status) (*protocontainer.ListResponse, error) {
 	resp := &protocontainer.ListResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
@@ -414,13 +415,13 @@ func (s *server) makeListResponse(body *protocontainer.ListResponse_Body, st *pr
 	return resp, nil
 }
 
-func (s *server) makeFailedListResponse(err error) (*protocontainer.ListResponse, error) {
+func (s *Server) makeFailedListResponse(err error) (*protocontainer.ListResponse, error) {
 	return s.makeListResponse(nil, util.ToStatus(err))
 }
 
 // List lists user containers from the underlying [Contract] and returns their
 // IDs in the response.
-func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
+func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedListResponse(err)
 	}
@@ -455,7 +456,7 @@ func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*prot
 	return s.makeListResponse(body, util.StatusOK)
 }
 
-func (s *server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLResponse, error) {
+func (s *Server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLResponse, error) {
 	resp := &protocontainer.SetExtendedACLResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
@@ -465,7 +466,7 @@ func (s *server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLR
 
 // SetExtendedACL forwards eACL setting request to the underlying [Contract]
 // for further processing. If session token is attached, it's verified.
-func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
+func (s *Server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeSetEACLResponse(err)
 	}
@@ -502,7 +503,7 @@ func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtend
 	return s.makeSetEACLResponse(util.StatusOKErr)
 }
 
-func (s *server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse_Body, st *protostatus.Status) (*protocontainer.GetExtendedACLResponse, error) {
+func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse_Body, st *protostatus.Status) (*protocontainer.GetExtendedACLResponse, error) {
 	resp := &protocontainer.GetExtendedACLResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
@@ -511,13 +512,13 @@ func (s *server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse
 	return resp, nil
 }
 
-func (s *server) makeFailedGetEACLResponse(err error) (*protocontainer.GetExtendedACLResponse, error) {
+func (s *Server) makeFailedGetEACLResponse(err error) (*protocontainer.GetExtendedACLResponse, error) {
 	return s.makeGetEACLResponse(nil, util.ToStatus(err))
 }
 
 // GetExtendedACL read eACL of the requested container from the underlying
 // [Contract] and returns the result in the response.
-func (s *server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
+func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedGetEACLResponse(err)
 	}
