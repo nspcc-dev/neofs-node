@@ -1,9 +1,11 @@
 package main
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	pprofconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/pprof"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 )
 
@@ -23,6 +25,8 @@ func initProfiler(c *cfg) *httputil.Server {
 			c.appCfg.Pprof.ShutdownTimeout,
 		),
 	)
+
+	tuneProfiles(c.appCfg.Pprof)
 
 	return srv
 }
@@ -45,4 +49,18 @@ func (m1 profilerConfig) isUpdated(c *config.Config) bool {
 	return m1.enabled != c.Pprof.Enabled ||
 		m1.shutdownTimeout != c.Pprof.ShutdownTimeout ||
 		m1.address != c.Pprof.Address
+}
+
+func tuneProfiles(cfg pprofconfig.Pprof) {
+	if cfg.EnableBlock {
+		runtime.SetBlockProfileRate(1)
+	} else {
+		runtime.SetBlockProfileRate(0)
+	}
+
+	if cfg.EnableMutex {
+		runtime.SetMutexProfileFraction(1)
+	} else {
+		runtime.SetMutexProfileFraction(0)
+	}
 }

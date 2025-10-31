@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Erasure coding in containers' storage policies (#3570)
 - IR `experimental.allow_ec` config option (#3570)
+- SN `pprof.enable_block` and `pprof.enable_mutex` options (#3655)
 
 ### Fixed
 - Write cache using too much CPU (#3642)

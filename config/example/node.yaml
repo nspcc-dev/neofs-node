@@ -10,6 +10,10 @@ pprof:
   enabled: true
   address: localhost:6060  # endpoint for Node profiling
   shutdown_timeout: 15s  # timeout for profiling HTTP server graceful shutdown
+  # Caution! Enabling following options can introduce a significant performance penalty.
+  # It is recommended to enable it only for tests and disable it afterwards.
+  enable_block: true # toggles goroutine block profiling. Disabled by default. May be updated in runtime.
+  enable_mutex: true # toggles mutex contention profiling. Disabled by default. May be updated in runtime.
 
 prometheus:
   enabled: true

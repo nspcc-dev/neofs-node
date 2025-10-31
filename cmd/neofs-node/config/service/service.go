@@ -5,8 +5,6 @@ import "time"
 const (
 	// ShutdownTimeoutDefault is the default value for HTTP service timeout.
 	ShutdownTimeoutDefault = 30 * time.Second
-	// ProfilerAddressDefault is the default value for profiler HTTP service endpoint.
-	ProfilerAddressDefault = "localhost:6060"
 	// MetricsAddressDefault is the default value for metrics HTTP service endpoint.
 	MetricsAddressDefault = "localhost:9090"
 )

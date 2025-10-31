@@ -10,7 +10,9 @@
   "pprof": {
     "enabled": true,
     "address": "localhost:6060",
-    "shutdown_timeout": "15s"
+    "shutdown_timeout": "15s",
+    "enable_block": true,
+    "enable_mutex": true
   },
   "prometheus": {
     "enabled": true,

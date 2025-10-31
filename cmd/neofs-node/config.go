@@ -802,4 +802,6 @@ func (c *cfg) reloadMetricsAndPprof(oldMetrics metricConfig, oldProfiler profile
 
 		preRunAndLog(c, profilerName, initProfiler(c))
 	}
+
+	tuneProfiles(c.appCfg.Pprof)
 }
