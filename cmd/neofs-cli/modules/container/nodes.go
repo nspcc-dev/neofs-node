@@ -24,7 +24,7 @@ var containerNodesCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cnr, err := getContainer(ctx, cmd)
+		cnr, err := getContainer(ctx)
 		if err != nil {
 			return err
 		}

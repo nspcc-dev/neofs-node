@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/bbolt"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -172,7 +171,7 @@ func delBucketKey(tx *bbolt.Tx, bucket []byte, key []byte) {
 	}
 }
 
-func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID, typ objectSDK.Type, isParent bool) error {
+func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID) error {
 	addr := oid.NewAddress(cnr, oID)
 
 	addrKey := addressKey(addr, make([]byte, addressKeySize))

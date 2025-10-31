@@ -37,7 +37,7 @@ var getContainerInfoCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cnr, err := getContainer(ctx, cmd)
+		cnr, err := getContainer(ctx)
 		if err != nil {
 			return err
 		}
@@ -150,7 +150,7 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
 	util.PrettyPrintTableBACL(cmd, &basicACL)
 }
 
-func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container, error) {
+func getContainer(ctx context.Context) (container.Container, error) {
 	var cnr container.Container
 	if containerPathFrom != "" {
 		data, err := os.ReadFile(containerPathFrom)

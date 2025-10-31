@@ -100,7 +100,7 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 		}
 	}
 	var err error
-	conn.rpcProxyActor, err = newProxyActor(conn.client, cfg.proxy, c.acc, c.cfg)
+	conn.rpcProxyActor, err = newProxyActor(conn.client, cfg.proxy)
 	if err != nil {
 		return fmt.Errorf("RPC proxy actor creation: %w", err)
 	}

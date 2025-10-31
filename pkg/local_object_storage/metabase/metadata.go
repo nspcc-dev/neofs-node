@@ -164,7 +164,7 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 		case object.FilterType:
 			var typ object.Type
 			if !isParent && typ.DecodeString(string(attrV)) {
-				err := delUniqueIndexes(tx, cnr, id, typ, isParent)
+				err := delUniqueIndexes(tx, cnr, id)
 				if err != nil {
 					return 0, err
 				}

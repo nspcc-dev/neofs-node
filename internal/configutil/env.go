@@ -53,7 +53,7 @@ func processStruct(v *viper.Viper, val reflect.Value, prefix, envPrefix string) 
 		case isStruct(fieldVal):
 			processStruct(v, fieldVal, viperKey, envPrefix)
 		case fieldVal.Kind() == reflect.Slice && !isStruct(reflect.New(fieldVal.Type().Elem()).Elem()):
-			updated := processPrimitiveSlice(v, fieldVal.Type().Elem(), viperKey, envPrefix)
+			updated := processPrimitiveSlice(v, viperKey, envPrefix)
 			if updated != nil {
 				v.Set(viperKey, updated)
 			}
@@ -186,7 +186,7 @@ func collectStructFields(v *viper.Viper, val reflect.Value, envPrefix string) (m
 	return result, found
 }
 
-func processPrimitiveSlice(v *viper.Viper, elemType reflect.Type, key, envPrefix string) []any {
+func processPrimitiveSlice(v *viper.Viper, key, envPrefix string) []any {
 	raw := v.Get(key)
 	existing, _ := raw.([]any)
 
