@@ -100,7 +100,7 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, fsChain *clien
 		alpha = append(alpha, contractHash)
 	}
 
-	if len(alpha) != int(num) {
+	if len(alpha) != num {
 		return nil, fmt.Errorf("could not read all contracts: required %d, read %d", num, len(alpha))
 	}
 
