@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -106,14 +107,27 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
 
+	return s.getRange(ctx, prm, nodeLists, repRules, ecRules, nil)
+}
+
+func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule,
+	hashPrm *RangeHashPrm) error {
 	if len(repRules) > 0 { // REP format does not require encoding
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng)).err
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm)).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
+	if hashPrm != nil && prm.rangeForwarder != nil && !localNodeInSets(s.neoFSNet, nodeLists) {
+		hashes, err := s.proxyHashRequest(ctx, ecNodeLists, prm.rangeForwarder)
+		if err == nil {
+			hashPrm.forwardedRangeHashResponse = hashes
+		}
+		return err
+	}
+
 	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
 		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "RANGE", nil)
 	}
@@ -122,11 +136,12 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 }
 
-func (s *Service) getRange(ctx context.Context, prm RangePrm, opts ...execOption) error {
-	return s.get(ctx, prm.commonPrm, append(opts, withPayloadRange(prm.rng))...).err
-}
-
 func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHashRes, error) {
+	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
+	if err != nil {
+		return nil, fmt.Errorf("get nodes for object: %w", err)
+	}
+
 	hashes := make([][]byte, 0, len(prm.rngs))
 
 	for _, rng := range prm.rngs {
@@ -146,7 +161,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 			hash: util.NewSaltingWriter(h, prm.salt),
 		})
 
-		if err := s.getRange(ctx, rngPrm, withHash(&prm)); err != nil {
+		if err := s.getRange(ctx, rngPrm, nodeLists, repRules, ecRules, &prm); err != nil {
 			return nil, err
 		}
 
@@ -163,6 +178,34 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 	return &RangeHashRes{
 		hashes: hashes,
 	}, nil
+}
+
+func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, proxyFn RangeRequestForwarder) ([][]byte, error) {
+	for i := range sortedNodeLists {
+		for j := range sortedNodeLists[i] {
+			conn, node, err := s.conns.(*clientCacheWrapper)._connect(sortedNodeLists[i][j])
+			if err != nil {
+				// TODO: implement address list stringer for lazy encoding
+				s.log.Debug("get conn to remote node",
+					zap.String("addresses", network.StringifyGroup(node.AddressGroup())), zap.Error(err))
+				continue
+			}
+
+			hashes, err := proxyFn(ctx, node, conn)
+			if err == nil {
+				return hashes, nil
+			}
+
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) ||
+				errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
+				return nil, err
+			}
+
+			s.log.Info("request proxy failed", zap.String("request", "HASH"), zap.Error(err))
+		}
+	}
+
+	return nil, apistatus.ErrObjectNotFound
 }
 
 // Head reads object header from container.
