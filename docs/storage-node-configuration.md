@@ -82,6 +82,8 @@ Contains configuration for the `pprof` profiler.
 | `enabled`          | `bool`     | `false`       | Flag to enable the service.             |
 | `address`          | `string`   |               | Address that service listener binds to. |
 | `shutdown_timeout` | `duration` | `30s`         | Time to wait for a graceful shutdown.   |
+| `enable_block` | `bool` | `false` | Flag to enable goroutine block profiling. |
+| `enable_mutex` | `bool` | `false` | Flag to enable mutex contention profiling. |
 
 
 # `prometheus` section

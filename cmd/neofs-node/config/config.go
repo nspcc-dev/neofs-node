@@ -13,6 +13,7 @@ import (
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
+	pprofconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/pprof"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	serviceconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/service"
 )
@@ -20,7 +21,7 @@ import (
 // Config contains all configuration parameters of the node.
 type Config struct {
 	Logger     loggerconfig.Logger         `mapstructure:"logger"`
-	Pprof      serviceconfig.Service       `mapstructure:"pprof"`
+	Pprof      pprofconfig.Pprof           `mapstructure:"pprof"`
 	Prometheus serviceconfig.Service       `mapstructure:"prometheus"`
 	Meta       metaconfig.Meta             `mapstructure:"metadata"`
 	Node       nodeconfig.Node             `mapstructure:"node"`
@@ -53,12 +54,12 @@ func (c *Config) Normalize() {
 		&c.Object,
 		&c.Policer,
 		&c.Replicator,
+		&c.Pprof,
 	}
 	for _, field := range fields {
 		field.Normalize()
 	}
 	c.Prometheus.Normalize(serviceconfig.MetricsAddressDefault)
-	c.Pprof.Normalize(serviceconfig.ProfilerAddressDefault)
 	for i := range c.GRPC {
 		c.GRPC[i].Normalize()
 	}

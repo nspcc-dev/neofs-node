@@ -9,12 +9,14 @@
   },
   "pprof": {
     "enabled": true,
-    "address": "localhost:6060",
-    "shutdown_timeout": "15s"
+    "address": "localhost:6161",
+    "shutdown_timeout": "15s",
+    "enable_block": true,
+    "enable_mutex": true
   },
   "prometheus": {
     "enabled": true,
-    "address": "localhost:9090",
+    "address": "localhost:9191",
     "shutdown_timeout": "15s"
   },
   "node": {

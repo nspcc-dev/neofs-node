@@ -23,7 +23,7 @@ func TestMetricsSection(t *testing.T) {
 
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, 15*time.Second, c.Prometheus.ShutdownTimeout)
-		require.Equal(t, "localhost:9090", c.Prometheus.Address)
+		require.Equal(t, "localhost:9191", c.Prometheus.Address)
 		require.True(t, c.Prometheus.Enabled)
 	}
 
