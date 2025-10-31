@@ -8,7 +8,7 @@ logger:
 
 pprof:
   enabled: true
-  address: localhost:6060  # endpoint for Node profiling
+  address: localhost:6161  # endpoint for Node profiling
   shutdown_timeout: 15s  # timeout for profiling HTTP server graceful shutdown
   # Caution! Enabling following options can introduce a significant performance penalty.
   # It is recommended to enable it only for tests and disable it afterwards.
@@ -17,7 +17,7 @@ pprof:
 
 prometheus:
   enabled: true
-  address: localhost:9090  # endpoint for Node metrics
+  address: localhost:9191  # endpoint for Node metrics
   shutdown_timeout: 15s  # timeout for metrics HTTP server graceful shutdown
 
 node:

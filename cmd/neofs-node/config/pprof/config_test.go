@@ -31,7 +31,7 @@ func TestPprof(t *testing.T) {
 		require.Equal(t, pprofconfig.Pprof{
 			Service: serviceconfig.Service{
 				Enabled:         true,
-				Address:         "localhost:6060",
+				Address:         "localhost:6161",
 				ShutdownTimeout: 15 * time.Second,
 			},
 			EnableBlock: true,
