@@ -49,6 +49,8 @@ type shardInterface interface {
 	GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error)
 	GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error)
 	GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error)
+	Head(oid.Address, bool) (*object.Object, error)
+	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 }
 
 type shardWrapper struct {

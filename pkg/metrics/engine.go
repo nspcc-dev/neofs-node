@@ -22,6 +22,7 @@ type (
 		listObjectsDuration           prometheus.Histogram
 		getECPartDuration             prometheus.Histogram
 		getECPartRangeDuration        prometheus.Histogram
+		headECPartDuration            prometheus.Histogram
 
 		containerSize prometheus.GaugeVec
 		payloadSize   prometheus.GaugeVec
@@ -130,6 +131,13 @@ func newEngineMetrics() engineMetrics {
 			Name:      "get_ec_part__range_time",
 			Help:      "Engine 'get EC part range' operations handling time",
 		})
+
+		headECPartDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "head_ec_part_time",
+			Help:      "Engine 'head EC part' operations handling time",
+		})
 	)
 
 	var (
@@ -170,6 +178,7 @@ func newEngineMetrics() engineMetrics {
 		listObjectsDuration:           listObjectsDuration,
 		getECPartDuration:             getECPartDuration,
 		getECPartRangeDuration:        getECPartRangeDuration,
+		headECPartDuration:            headECPartDuration,
 		containerSize:                 *containerSize,
 		payloadSize:                   *payloadSize,
 		capacitySize:                  *capacitySize,
@@ -191,6 +200,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.listObjectsDuration)
 	prometheus.MustRegister(m.getECPartDuration)
 	prometheus.MustRegister(m.getECPartRangeDuration)
+	prometheus.MustRegister(m.headECPartDuration)
 	prometheus.MustRegister(m.containerSize)
 	prometheus.MustRegister(m.payloadSize)
 	prometheus.MustRegister(m.capacitySize)
@@ -250,6 +260,10 @@ func (m engineMetrics) AddGetECPartDuration(d time.Duration) {
 
 func (m engineMetrics) AddGetECPartRangeDuration(d time.Duration) {
 	m.getECPartRangeDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddHeadECPartDuration(d time.Duration) {
+	m.headECPartDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddToContainerSize(cnrID string, size int64) {

@@ -213,9 +213,24 @@ func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netm
 // Returns ErrNotFound if the header was not received for the call.
 // Returns SplitInfoError if object is virtual and raw flag is set.
 func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
+	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
+	if err != nil {
+		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
+		return fmt.Errorf("invalid request: %w", err)
+	}
+
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
 	if err != nil {
 		return fmt.Errorf("get nodes for object: %w", err)
+	}
+
+	if pi.RuleIndex >= 0 {
+		if err := checkPartRequestAgainstPolicy(ecRules, pi); err != nil {
+			// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
+			return fmt.Errorf("invalid request: %w", err)
+		}
+		// TODO: deny if node is not in the container?
+		return s.copyLocalECPartHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 
 	if prm.common.LocalOnly() {

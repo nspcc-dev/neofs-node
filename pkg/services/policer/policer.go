@@ -2,6 +2,8 @@ package policer
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -10,6 +12,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -26,17 +30,22 @@ type nodeLoader interface {
 // interface of [replicator.Replicator] used by [Policer] for overriding in tests.
 type replicatorIface interface {
 	HandleTask(context.Context, replicator.Task, replicator.TaskResult)
+	PutObjectToNode(context.Context, object.Object, netmapsdk.NodeInfo) error
 }
 
 // interface of [engine.StorageEngine] used by [Policer] for overriding in tests.
 type localStorage interface {
 	ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
 	Delete(oid.Address) error
+	Put(*object.Object, []byte) error
+	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
+	GetRange(oid.Address, uint64, uint64) ([]byte, error)
 }
 
 // interface of [headsvc.RemoteHeader] used by [Policer] for overriding in tests.
 type apiConnections interface {
-	headObject(context.Context, netmapsdk.NodeInfo, oid.Address) (object.Object, error)
+	headObject(context.Context, netmapsdk.NodeInfo, oid.Address, bool, []string) (object.Object, error)
+	GetRange(ctx context.Context, node netmapsdk.NodeInfo, cnr cid.ID, id oid.ID, ln, off uint64, xs []string) (io.ReadCloser, error)
 }
 
 type objectsInWork struct {
@@ -70,6 +79,12 @@ type Policer struct {
 	*cfg
 
 	objsInWork *objectsInWork
+
+	signer neofscrypto.Signer
+
+	checkECPartsProgressMtx sync.Mutex
+	checkECPartsProgressMap map[oid.Address]struct{}
+	checkECPartsWorkerPool  *ants.Pool
 }
 
 // Option is an option for Policer constructor.
@@ -144,7 +159,12 @@ func defaultCfg() *cfg {
 }
 
 // New creates, initializes and returns Policer instance.
-func New(opts ...Option) *Policer {
+func New(signer neofscrypto.Signer, opts ...Option) *Policer {
+	checkECPartsWorkerPool, err := ants.NewPool(100, ants.WithNonblocking(true))
+	if err != nil {
+		panic(fmt.Errorf("ants.NewPool: %w", err))
+	}
+
 	c := defaultCfg()
 
 	for i := range opts {
@@ -158,6 +178,9 @@ func New(opts ...Option) *Policer {
 		objsInWork: &objectsInWork{
 			objs: make(map[oid.Address]struct{}, c.maxCapacity),
 		},
+		signer:                  signer,
+		checkECPartsProgressMap: make(map[oid.Address]struct{}, checkECPartsWorkerPool.Cap()),
+		checkECPartsWorkerPool:  checkECPartsWorkerPool,
 	}
 }
 
@@ -189,13 +212,17 @@ func WithLocalStorage(v *engine.StorageEngine) Option {
 	}
 }
 
-type remoteHeader headsvc.RemoteHeader
+type remoteHeader struct {
+	*headsvc.RemoteHeader
+}
 
-func (x *remoteHeader) headObject(ctx context.Context, node netmapsdk.NodeInfo, addr oid.Address) (object.Object, error) {
+func (x *remoteHeader) headObject(ctx context.Context, node netmapsdk.NodeInfo, addr oid.Address, checkOID bool, xs []string) (object.Object, error) {
 	var p headsvc.RemoteHeadPrm
 	p.WithNodeInfo(node)
 	p.WithObjectAddress(addr)
-	hdr, err := (*headsvc.RemoteHeader)(x).Head(ctx, &p)
+	p.WithXHeaders(xs)
+	p.WithIDVerification(checkOID)
+	hdr, err := x.Head(ctx, &p)
 	if err != nil {
 		return object.Object{}, err
 	}
@@ -206,7 +233,7 @@ func (x *remoteHeader) headObject(ctx context.Context, node netmapsdk.NodeInfo, 
 // WithRemoteHeader returns option to set object header receiver of Policer.
 func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 	return func(c *cfg) {
-		c.apiConns = (*remoteHeader)(v)
+		c.apiConns = &remoteHeader{v}
 	}
 }
 

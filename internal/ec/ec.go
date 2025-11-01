@@ -112,6 +112,25 @@ func DecodeRange(rule Rule, fromIdx, toIdx int, parts [][]byte) error {
 	return nil
 }
 
+// DecodeIndexes decodes specified EC parts obtained by applying specified rule.
+func DecodeIndexes(rule Rule, parts [][]byte, idxs []int) error {
+	rs, err := newCoderForRule(rule)
+	if err != nil {
+		return err
+	}
+
+	required := make([]bool, rule.DataPartNum+rule.ParityPartNum)
+	for i := range idxs {
+		required[idxs[i]] = true
+	}
+
+	if err := rs.ReconstructSome(parts, required); err != nil {
+		return fmt.Errorf("restore Reed-Solomon: %w", err)
+	}
+
+	return nil
+}
+
 func newCoderForRule(rule Rule) (reedsolomon.Encoder, error) {
 	enc, err := reedsolomon.New(int(rule.DataPartNum), int(rule.ParityPartNum))
 	if err != nil { // should never happen with correct rule

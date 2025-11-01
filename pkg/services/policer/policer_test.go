@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"maps"
 	"slices"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -506,7 +508,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	}
 
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
-	p := New(
+	p := New(neofscryptotest.Signer(),
 		WithPool(wp),
 		WithReplicationCooldown(time.Hour), // any huge time to cancel process repeat
 		WithNodeLoader(nopNodeLoader{}),
@@ -941,7 +943,7 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	}
 
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
-	p := New(
+	p := New(neofscryptotest.Signer(),
 		WithPool(wp),
 		WithReplicationCooldown(time.Hour), // any huge time to cancel process repeat
 		WithNodeLoader(nopNodeLoader{}),
@@ -1013,6 +1015,10 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 	close(x.gotTaskCh)
 }
 
+func (x *testReplicator) PutObjectToNode(context.Context, object.Object, netmap.NodeInfo) error {
+	panic("unimplemented")
+}
+
 type testLocalNode struct {
 	objList []objectcore.AddressWithAttributes
 
@@ -1064,6 +1070,18 @@ func (x *testLocalNode) Delete(addr oid.Address) error {
 	x.del[addr] = struct{}{}
 	x.delMtx.Unlock()
 	return nil
+}
+
+func (x *testLocalNode) Put(*object.Object, []byte) error {
+	panic("unimplemented")
+}
+
+func (x *testLocalNode) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
+	panic("unimplemented")
+}
+
+func (x *testLocalNode) GetRange(oid.Address, uint64, uint64) ([]byte, error) {
+	panic("unimplemented")
 }
 
 type getNodesKey struct {
@@ -1133,12 +1151,16 @@ func (x *mockAPIConnections) setHeadResult(node netmap.NodeInfo, addr oid.Addres
 	x.head[newConnKey(node, addr)] = err
 }
 
-func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo, addr oid.Address) (object.Object, error) {
+func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo, addr oid.Address, _ bool, _ []string) (object.Object, error) {
 	v, ok := x.head[newConnKey(node, addr)]
 	if !ok {
 		return object.Object{}, errors.New("[test] unexpected conn/object accessed")
 	}
 	return object.Object{}, v
+}
+
+func (x *mockAPIConnections) GetRange(context.Context, netmap.NodeInfo, cid.ID, oid.ID, uint64, uint64, []string) (io.ReadCloser, error) {
+	panic("unimplemented")
 }
 
 func newMockAPIConnections() *mockAPIConnections {

@@ -66,7 +66,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		const sleepTime = 50 * time.Millisecond // pretty big for test, pretty fast IRL
 		var m testMetrics
 
-		shardOK.getECPartSleep = sleepTime
+		shardOK.eCPartSleep = sleepTime
 
 		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
 		s.metrics = &m
@@ -468,7 +468,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		const sleepTime = 50 * time.Millisecond // pretty big for test, pretty fast IRL
 		var m testMetrics
 
-		shardOK.getECPartSleep = sleepTime
+		shardOK.eCPartSleep = sleepTime
 
 		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
 		s.metrics = &m
@@ -839,6 +839,396 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 
 			_, _, err = s.GetECPartRange(cnr, sysObj.GetID(), pi, 0, 1)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
+		})
+	}
+
+	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+	s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
+	s.log = l
+
+	checkOK(t, s)
+
+	lb.AssertEmpty()
+}
+
+func TestStorageEngine_HeadECPart(t *testing.T) {
+	cnr := cidtest.ID()
+	parentID := oidtest.ID()
+	pi := iec.PartInfo{
+		RuleIndex: 123,
+		Index:     456,
+	}
+
+	t.Run("blocked", func(t *testing.T) {
+		s := newEngineWithFixedShardOrder([]shardInterface{unimplementedShard{}}) // to ensure shards are not accessed
+
+		e := errors.New("any error")
+		require.NoError(t, s.BlockExecution(e))
+
+		_, err := s.HeadECPart(cnr, parentID, pi)
+		require.Equal(t, e, err)
+	})
+
+	var parentObj object.Object
+	parentObj.SetContainerID(cnr)
+	parentObj.SetID(parentID)
+
+	partObj, err := iec.FormObjectForECPart(neofscryptotest.Signer(), parentObj, testutil.RandByteSlice(32), pi)
+	require.NoError(t, err)
+
+	partHdr := *partObj.CutPayload()
+
+	partID := partObj.GetID()
+	partAddr := oid.NewAddress(cnr, partID)
+
+	shardOK := &mockShard{
+		headECPart: map[headECPartKey]headECPartValue{
+			{cnr: cnr, parent: parentID, pi: pi}: {hdr: partHdr},
+		},
+	}
+
+	t.Run("metric", func(t *testing.T) {
+		const sleepTime = 50 * time.Millisecond // pretty big for test, pretty fast IRL
+		var m testMetrics
+
+		shardOK.eCPartSleep = sleepTime
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
+		s.metrics = &m
+
+		_, _ = s.HeadECPart(cnr, parentID, pi)
+		require.GreaterOrEqual(t, time.Duration(m.headECPart.Load()), sleepTime)
+	})
+
+	t.Run("zero OID error", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{&mockShard{
+			headECPart: map[headECPartKey]headECPartValue{
+				{cnr: cnr, parent: parentID, pi: pi}: {err: fmt.Errorf("some error: %w", ierrors.ObjectID{})},
+			},
+		}, unimplementedShard{}}) // to ensure 2nd shard is not accessed
+		s.log = l
+
+		require.PanicsWithValue(t, "zero object ID returned as error", func() {
+			_, _ = s.HeadECPart(cnr, parentID, pi)
+		})
+
+		lb.AssertEmpty()
+	})
+
+	shardAlreadyRemoved := &mockShard{
+		headECPart: map[headECPartKey]headECPartValue{
+			{cnr: cnr, parent: parentID, pi: pi}: {err: apistatus.ErrObjectAlreadyRemoved},
+		},
+	}
+	shardExpired := &mockShard{
+		headECPart: map[headECPartKey]headECPartValue{
+			{cnr: cnr, parent: parentID, pi: pi}: {err: meta.ErrObjectIsExpired},
+		},
+	}
+	shard500 := &mockShard{
+		i: 0,
+		headECPart: map[headECPartKey]headECPartValue{
+			{cnr: cnr, parent: parentID, pi: pi}: {err: errors.New("some shard error")},
+		},
+	}
+	shard404 := &mockShard{
+		headECPart: map[headECPartKey]headECPartValue{
+			{cnr: cnr, parent: parentID, pi: pi}: {err: apistatus.ErrObjectNotFound},
+		},
+		head: map[headKey]headValue{
+			{addr: partAddr, raw: true}: {err: apistatus.ErrObjectNotFound},
+		},
+	}
+
+	checkOK := func(t *testing.T, s *StorageEngine) {
+		hdr, err := s.HeadECPart(cnr, parentID, pi)
+		require.NoError(t, err)
+		require.Equal(t, partHdr, hdr)
+	}
+	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
+		_, err := s.HeadECPart(cnr, parentID, pi)
+		require.ErrorIs(t, err, e)
+	}
+
+	t.Run("404,OK", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard404, shardOK})
+		s.log = l
+
+		checkOK(t, s)
+
+		lb.AssertEmpty()
+	})
+
+	t.Run("404,already removed", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard404, shardAlreadyRemoved})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectAlreadyRemoved)
+
+		lb.AssertEmpty()
+	})
+
+	t.Run("404,expired", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard404, shardExpired})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertEmpty()
+	})
+
+	t.Run("404,404", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard404, shard404})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertEmpty()
+	})
+
+	t.Run("internal,OK", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard500, shardOK})
+		s.log = l
+
+		checkOK(t, s)
+
+		lb.AssertSingle(testutil.LogEntry{
+			Level:   zap.InfoLevel,
+			Message: "failed to get EC part header from shard, ignore error",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"shardID":   base58.Encode([]byte("0")),
+				"error":     "some shard error",
+			},
+		})
+	})
+
+	t.Run("internal,already removed", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard500, shardAlreadyRemoved})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectAlreadyRemoved)
+
+		lb.AssertSingle(testutil.LogEntry{
+			Level:   zap.InfoLevel,
+			Message: "failed to get EC part header from shard, ignore error",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"shardID":   base58.Encode([]byte("0")),
+				"error":     "some shard error",
+			},
+		})
+	})
+
+	t.Run("internal,expired", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard500, shardExpired})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertSingle(testutil.LogEntry{
+			Level:   zap.InfoLevel,
+			Message: "failed to get EC part header from shard, ignore error",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"shardID":   base58.Encode([]byte("0")),
+				"error":     "some shard error",
+			},
+		})
+	})
+
+	t.Run("internal,404", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard500, shard404})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertSingle(testutil.LogEntry{
+			Level:   zap.InfoLevel,
+			Message: "failed to get EC part header from shard, ignore error",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"shardID":   base58.Encode([]byte("0")),
+				"error":     "some shard error",
+			},
+		})
+	})
+
+	t.Run("404,OID,OK", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard404, &mockShard{
+			i: 1,
+			headECPart: map[headECPartKey]headECPartValue{
+				{cnr: cnr, parent: parentID, pi: pi}: {err: fmt.Errorf("some error: %w", ierrors.ObjectID(partID))},
+			},
+		}, &mockShard{
+			head: map[headKey]headValue{
+				{addr: partAddr, raw: true}: {hdr: partHdr},
+			},
+		}})
+		s.log = l
+
+		checkOK(t, s)
+
+		lb.AssertSingle(testutil.LogEntry{
+			Level:   zap.InfoLevel,
+			Message: "EC part's object ID resolved in shard but reading failed, continue by ID",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"shardID":   base58.Encode([]byte("1")),
+				"error":     "some error: " + partID.String(),
+			},
+		})
+	})
+
+	t.Run("404,OID,404", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard404, &mockShard{
+			i: 1,
+			headECPart: map[headECPartKey]headECPartValue{
+				{cnr: cnr, parent: parentID, pi: pi}: {err: fmt.Errorf("some error: %w", ierrors.ObjectID(partID))},
+			},
+		}, shard404})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertSingle(testutil.LogEntry{
+			Level:   zap.InfoLevel,
+			Message: "EC part's object ID resolved in shard but reading failed, continue by ID",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"shardID":   base58.Encode([]byte("1")),
+				"error":     "some error: " + partID.String(),
+			},
+		})
+	})
+
+	t.Run("404,OID,internal", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shard404, &mockShard{
+			i: 1,
+			headECPart: map[headECPartKey]headECPartValue{
+				{cnr: cnr, parent: parentID, pi: pi}: {err: fmt.Errorf("some error: %w", ierrors.ObjectID(partID))},
+			},
+		}, &mockShard{
+			i: 2,
+			head: map[headKey]headValue{
+				{addr: partAddr, raw: true}: {err: errors.New("some shard error")},
+			},
+		}})
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertEqual([]testutil.LogEntry{{
+			Level:   zap.InfoLevel,
+			Message: "EC part's object ID resolved in shard but reading failed, continue by ID",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"shardID":   base58.Encode([]byte("1")),
+				"error":     "some error: " + partID.String(),
+			},
+		}, {
+			Level:   zap.InfoLevel,
+			Message: "failed to get EC part header from shard bypassing metabase, ignore error",
+			Fields: map[string]any{
+				"container": cnr.String(),
+				"parent":    parentID.String(),
+				"ecRule":    json.Number("123"),
+				"partIdx":   json.Number("456"),
+				"partID":    partID.String(),
+				"shardID":   base58.Encode([]byte("2")),
+				"error":     "some shard error",
+			},
+		}})
+	})
+
+	t.Run("already removed", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shardAlreadyRemoved, unimplementedShard{}}) // to ensure 2nd shard is not accessed
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectAlreadyRemoved)
+
+		lb.AssertEmpty()
+	})
+
+	t.Run("expired", func(t *testing.T) {
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		s := newEngineWithFixedShardOrder([]shardInterface{shardExpired, unimplementedShard{}}) // to ensure 2nd shard is not accessed
+		s.log = l
+
+		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertEmpty()
+	})
+
+	for _, tc := range []struct {
+		typ       object.Type
+		associate func(*object.Object, oid.ID)
+	}{
+		{typ: object.TypeTombstone, associate: (*object.Object).AssociateDeleted},
+		{typ: object.TypeLock, associate: (*object.Object).AssociateLocked},
+	} {
+		t.Run(tc.typ.String(), func(t *testing.T) {
+			const shardNum = 5
+			s := testNewEngineWithShardNum(t, shardNum)
+
+			sysObj := *generateObjectWithCID(cnr)
+			tc.associate(&sysObj, oidtest.ID())
+			addAttribute(&sysObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(123))
+
+			require.NoError(t, s.Put(&sysObj, nil))
+
+			hdr, err := s.HeadECPart(cnr, sysObj.GetID(), pi)
+			require.NoError(t, err)
+			require.Equal(t, sysObj, hdr)
 		})
 	}
 
