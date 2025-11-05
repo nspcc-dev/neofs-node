@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Write cache using too much CPU (#3642)
 - Split object with link not found stuck in GC cycle (#3653)
 - Quotas TTL (#3665)
+- SN load reporting race (#3652)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)

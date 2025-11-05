@@ -75,9 +75,8 @@ func (et *EpochTimers) UpdateTime(curr uint64) {
 
 // Reset must be called every time [EpochTimers] user receives information
 // about new epoch event. lastTick must be block's timestamp that contains new
-// epoch event; curr must be the last known block's timestamp; dur is an actual
-// epoch duration in milliseconds.
-func (et *EpochTimers) Reset(lastTick, curr, dur uint64) {
+// epoch event; dur is an actual epoch duration in milliseconds.
+func (et *EpochTimers) Reset(lastTick, dur uint64) {
 	et.m.Lock()
 	defer et.m.Unlock()
 
@@ -86,7 +85,7 @@ func (et *EpochTimers) Reset(lastTick, curr, dur uint64) {
 
 	for _, dh := range et.deltaHandlers {
 		dh.nextTickAt = lastTick + dur*dh.mul/dh.div
-		dh.done = dh.nextTickAt < curr
+		dh.done = false
 	}
 }
 
