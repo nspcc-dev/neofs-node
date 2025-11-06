@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
 // PutPrm groups parameters of Put operation.
@@ -60,9 +61,9 @@ func (p *PutPrm) EnableMeta() {
 //
 // Returns calculated container identifier and any error
 // encountered that caused the saving to interrupt.
-func (c *Client) Put(p PutPrm) error {
+func (c *Client) Put(p PutPrm) (cid.ID, error) {
 	if len(p.sig) == 0 || len(p.key) == 0 {
-		return errNilArgument
+		return cid.ID{}, errNilArgument
 	}
 
 	var prm client.InvokePrm
@@ -80,11 +81,11 @@ func (c *Client) Put(p PutPrm) error {
 		if isMethodNotFoundError(err, fschaincontracts.CreateContainerMethod) {
 			prm.SetMethod(putMethod)
 			if err = c.client.Invoke(prm); err != nil {
-				return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
+				return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
 			}
-			return nil
+			return cid.NewFromMarshalledContainer(p.cnr), nil
 		}
-		return fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerMethod, err)
+		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerMethod, err)
 	}
-	return nil
+	return cid.NewFromMarshalledContainer(p.cnr), nil
 }
