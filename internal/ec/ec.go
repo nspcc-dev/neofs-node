@@ -92,7 +92,7 @@ func ConcatDataParts(rule Rule, dataLen uint64, parts [][]byte) []byte {
 	return slices.Concat(parts[:rule.DataPartNum]...)[:dataLen]
 }
 
-// DecodeSome decodes specified range of EC parts obtained by applying specified rule.
+// DecodeRange decodes specified range of EC parts obtained by applying specified rule.
 // If no error, parts[from:to+1] contains recovered data.
 func DecodeRange(rule Rule, fromIdx, toIdx int, parts [][]byte) error {
 	rs, err := newCoderForRule(rule)

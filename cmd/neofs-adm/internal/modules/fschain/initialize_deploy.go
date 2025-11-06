@@ -13,7 +13,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	io2 "github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
@@ -189,21 +188,15 @@ func (c *initializeContext) updateContracts() error {
 	for _, ctrName := range contractList {
 		cs := c.getContract(ctrName)
 
-		method := updateMethodName
 		ctrHash, err := nnsReader.ResolveFSContract(ctrName)
 		if err != nil {
 			return fmt.Errorf("can't resolve hash for contract update: %w", err)
 		}
 
-		invokeHash := management.Hash
-		if method == updateMethodName {
-			invokeHash = ctrHash
-		}
-
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrHash, ctrName, keysParam))
-		res, err := c.CommitteeAct.MakeCall(invokeHash, method, params...)
+		res, err := c.CommitteeAct.MakeCall(ctrHash, updateMethodName, params...)
 		if err != nil {
-			if method != updateMethodName || !strings.Contains(err.Error(), common.ErrAlreadyUpdated) {
+			if !strings.Contains(err.Error(), common.ErrAlreadyUpdated) {
 				return fmt.Errorf("deploy contract: %w", err)
 			}
 			c.Command.Printf("%s contract is already updated.\n", ctrName)
@@ -211,24 +204,6 @@ func (c *initializeContext) updateContracts() error {
 		}
 
 		w.WriteBytes(res.Script)
-
-		if method == deployMethodName {
-			// same actions are done in initializeContext.setNNS, can be unified
-			domain := ctrName + ".neofs"
-			script, ok, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				w.WriteBytes(script)
-				emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, nns.TXT)
-				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-					domain, nns.TXT, cs.Hash.StringLE())
-				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-					domain, nns.TXT, address.Uint160ToString(cs.Hash))
-			}
-			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
-		}
 	}
 
 	emit.Opcodes(w.BinWriter, opcode.LDSFLD0)

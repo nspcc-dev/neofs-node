@@ -73,12 +73,12 @@ func notaryRequest(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("invalid number of args provided for 'removeNode', expected 1, got %d", len(args))
 		}
-		key, err := keys.NewPublicKeyFromString(args[0])
+		pub, err := keys.NewPublicKeyFromString(args[0])
 		if err != nil {
 			return err
 		}
 
-		body.SetArgs([][]byte{key.Bytes()})
+		body.SetArgs([][]byte{pub.Bytes()})
 	}
 
 	err = ircontrolsrv.SignMessage(pk, req)

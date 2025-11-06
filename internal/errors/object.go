@@ -28,7 +28,7 @@ func NewParentObjectError(cause error) ParentObjectError {
 // Unwrap implements interface for [errors] package funcs.
 func (x ParentObjectError) Unwrap() error { return x.error }
 
-// Unwrap implements interface for [errors.Is].
+// Is implements interface for [errors.Is].
 func (x ParentObjectError) Is(target error) bool {
 	if _, ok := target.(ParentObjectError); ok {
 		return true

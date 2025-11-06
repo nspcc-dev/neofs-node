@@ -612,7 +612,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx, parentOIDAttr}
 
-				logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, false, nil, false)
+				logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, false, nil)
 				logBuf.AssertContains(testutil.LogEntry{
 					Level: zap.ErrorLevel, Message: "failed to decode EC part info from attributes, skip object",
 					Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "error": tc.err},
@@ -629,7 +629,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 		mockNet := newMockNetwork()
 		mockNet.setObjectNodesECResult(cnr, parentOID, nodes, rule)
 
-		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, false, nil, false)
+		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, false, nil)
 		logBuf.AssertContains(testutil.LogEntry{
 			Level: zap.ErrorLevel, Message: "received EC parent OID with unexpected len from local storage, skip object",
 			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "len": json.Number("31")},
@@ -640,7 +640,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 		mockNet := newMockNetwork()
 		mockNet.setObjectNodesRepResult(localObj.Address.Container(), parentOID, nodes, 3)
 
-		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, true, nil, false)
+		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, true, nil)
 		logBuf.AssertContains(testutil.LogEntry{
 			Level: zap.InfoLevel, Message: "object with EC attributes in container without EC rules detected, deleting",
 			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(),
@@ -653,7 +653,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			localObj := localObj
 			localObj.Attributes = []string{"", "", parentOIDAttr}
 
-			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil, false)
+			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil)
 			logBuf.AssertContains(testutil.LogEntry{
 				Level: zap.InfoLevel, Message: "object with lacking EC attributes detected, deleting",
 				Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String()},
@@ -664,7 +664,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			localObj.Attributes = slices.Clone(localObj.Attributes)
 			localObj.Attributes[0] = "1"
 
-			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil, false)
+			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil)
 			logBuf.AssertContains(testutil.LogEntry{
 				Level: zap.WarnLevel, Message: "local object with invalid EC rule index detected, deleting",
 				Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(),
@@ -677,7 +677,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			localObj.Attributes = slices.Clone(localObj.Attributes)
 			localObj.Attributes[1] = "21"
 
-			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil, false)
+			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil)
 			logBuf.AssertContains(testutil.LogEntry{
 				Level: zap.WarnLevel, Message: "local object with invalid EC part index detected, deleting",
 				Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "rule": "17/4",
@@ -687,7 +687,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	})
 
 	t.Run("local node is optimal", func(t *testing.T) {
-		logBuf := testECCheck(t, rule, localObj, nodes, 5, all404, false, nil, false)
+		logBuf := testECCheck(t, rule, localObj, nodes, 5, all404, false, nil)
 		logBuf.AssertContains(testutil.LogEntry{
 			Level: zap.DebugLevel, Message: "local node is optimal for EC part, hold",
 			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
@@ -699,7 +699,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 		errs := slices.Clone(all404)
 		errs[5] = nil
 
-		logBuf := testECCheck(t, rule, localObj, nodes, 6, errs, true, nil, false)
+		logBuf := testECCheck(t, rule, localObj, nodes, 6, errs, true, nil)
 		logBuf.AssertContains(testutil.LogEntry{
 			Level: zap.InfoLevel, Message: "EC part header successfully received from more optimal node, drop",
 			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
@@ -711,7 +711,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 		candidates := islices.CollectIndex(nodes, optimalOrder[:len(optimalOrder)-1]...)
 
 		t.Run("move failure", func(t *testing.T) {
-			logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], all404, false, candidates, false)
+			logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], all404, false, candidates)
 			logBuf.AssertContains(testutil.LogEntry{
 				Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
 				Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
@@ -724,7 +724,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			})
 		})
 
-		logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], all404, true, candidates, true)
+		logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], all404, true, candidates)
 		logBuf.AssertContains(testutil.LogEntry{
 			Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
 			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(), "rule": "6/3",
@@ -745,7 +745,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			errs := slices.Clone(errs)
 			errs[optimalOrder[len(optimalOrder)-2]] = nil
 
-			logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], errs, true, nil, false)
+			logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], errs, true, nil)
 			logBuf.AssertContains(testutil.LogEntry{
 				Level: zap.InfoLevel, Message: "failed to receive EC part header from more optimal node due to its maintenance, continue",
 				Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
@@ -753,7 +753,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			})
 		})
 
-		logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], errs, false, nil, false)
+		logBuf := testECCheck(t, rule, localObj, nodes, optimalOrder[len(optimalOrder)-1], errs, false, nil)
 		logBuf.AssertContains(testutil.LogEntry{
 			Level: zap.InfoLevel, Message: "failed to receive EC part header from more optimal node due to its maintenance, continue",
 			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
@@ -806,7 +806,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 				errs := slices.Clone(errs)
 				errs[optimalOrder[len(otherErrs)]] = nil
 
-				logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, true, nil, false)
+				logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, true, nil)
 				checkErrsLog(logBuf)
 				logBuf.AssertContains(testutil.LogEntry{
 					Level: zap.InfoLevel, Message: "EC part header successfully received from more optimal node, drop",
@@ -816,7 +816,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			})
 
 			t.Run("move failure", func(t *testing.T) {
-				logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, false, candidates, false)
+				logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, false, candidates)
 				checkErrsLog(logBuf)
 				logBuf.AssertContains(testutil.LogEntry{
 					Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
@@ -830,7 +830,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 				})
 			})
 
-			logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, true, candidates, true)
+			logBuf := testECCheck(t, rule, localObj, nodes, localIdx, errs, true, candidates)
 			checkErrsLog(logBuf)
 			logBuf.AssertContains(testutil.LogEntry{
 				Level: zap.InfoLevel, Message: "local node is suboptimal for EC part, moving to more optimal node...",
@@ -892,7 +892,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	}
 }
 
-func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool) *testutil.LogBuffer {
+func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo) *testutil.LogBuffer {
 	require.Len(t, localObj.Attributes, 3)
 
 	var sortOID oid.ID
@@ -909,11 +909,11 @@ func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAtt
 		mockNet.pubKey = nodes[localIdx].PublicKey()
 	}
 
-	return testECCheckWithNetwork(t, mockNet, localObj, nodes, localIdx, headErrs, expRedundant, expCandidates, repSuccess)
+	return testECCheckWithNetwork(t, mockNet, localObj, nodes, localIdx, headErrs, expRedundant, expCandidates)
 }
 
 func testECCheckWithNetwork(t *testing.T, mockNet *mockNetwork, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo,
-	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool) *testutil.LogBuffer {
+	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo) *testutil.LogBuffer {
 	expShortage := uint32(0)
 	if len(expCandidates) > 0 {
 		expShortage = 1

@@ -123,7 +123,7 @@ func (db *DB) updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool
 //
 // Does nothing if counters are not empty and force is false. If force is
 // true, updates the counters anyway.
-func syncCounter(tx *bbolt.Tx, currEpoch uint64, force bool) error {
+func syncCounter(tx *bbolt.Tx, force bool) error {
 	b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
 	if err != nil {
 		return fmt.Errorf("could not get shard info bucket: %w", err)

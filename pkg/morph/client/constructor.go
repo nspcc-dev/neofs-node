@@ -227,7 +227,7 @@ func (c *Client) newConnectionWS(cli *rpcclient.WSClient) (*connection, error) {
 
 	var proxyAct *actor.Actor
 	if c.notary != nil {
-		proxyAct, err = newProxyActor(cli, c.notary.proxy, c.acc, c.cfg)
+		proxyAct, err = newProxyActor(cli, c.notary.proxy)
 		if err != nil {
 			return nil, fmt.Errorf("RPC proxy actor creation: %w", err)
 		}
@@ -259,7 +259,7 @@ func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Acto
 	}})
 }
 
-func newProxyActor(ws *rpcclient.WSClient, proxy util.Uint160, acc *wallet.Account, cfg cfg) (*actor.Actor, error) {
+func newProxyActor(ws *rpcclient.WSClient, proxy util.Uint160) (*actor.Actor, error) {
 	return actor.New(ws, []actor.SignerAccount{
 		{
 			Signer: transaction.Signer{

@@ -49,7 +49,7 @@ func TestGRPCSection(t *testing.T) {
 		require.Equal(t, 3, num)
 	}
 
-	//configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
 		configtest.ForEnvFileType(path, fileConfigTest)

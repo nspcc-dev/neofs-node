@@ -101,8 +101,6 @@ func (db *DB) init(reset bool) error {
 		}
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
-
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var err error
 		for k := range mStaticBuckets {
@@ -141,7 +139,7 @@ func (db *DB) init(reset bool) error {
 				return err
 			}
 		} else {
-			err = syncCounter(tx, currEpoch, false)
+			err = syncCounter(tx, false)
 			if err != nil {
 				return fmt.Errorf("could not sync object counter: %w", err)
 			}
@@ -164,10 +162,8 @@ func (db *DB) SyncCounters() error {
 		return ErrReadOnlyMode
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
-
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		return syncCounter(tx, currEpoch, true)
+		return syncCounter(tx, true)
 	})
 }
 
