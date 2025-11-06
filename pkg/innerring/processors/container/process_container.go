@@ -30,7 +30,6 @@ type putContainerContext struct {
 	// must be filled when verifying raw data from e
 	cID cid.ID
 	cnr containerSDK.Container
-	d   containerSDK.Domain
 }
 
 // Process a new container from the user by checking the container sanity
@@ -120,10 +119,11 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		return fmt.Errorf("incorrect homomorphic hashing setting: %w", err)
 	}
 
-	// check native name and zone
-	err = checkNNS(ctx, ctx.cnr)
-	if err != nil {
-		return fmt.Errorf("NNS: %w", err)
+	if ctx.e.DomainName != "" { // if PutNamed event => check if values in-container domain name and zone correspond to args
+		err = checkNNS(ctx.cnr, ctx.e.DomainName, ctx.e.DomainZone)
+		if err != nil {
+			return fmt.Errorf("NNS: %w", err)
+		}
 	}
 
 	return nil
@@ -238,19 +238,16 @@ func (cp *Processor) approveDeleteContainer(e containerEvent.RemoveContainerRequ
 	}
 }
 
-func checkNNS(ctx *putContainerContext, cnr containerSDK.Container) error {
+func checkNNS(cnr containerSDK.Container, name, zone string) error {
 	// fetch domain info
-	ctx.d = cnr.ReadDomain()
+	d := cnr.ReadDomain()
 
-	// if PutNamed event => check if values in container correspond to args
-	if ctx.e.DomainName != "" {
-		if ctx.e.DomainName != ctx.d.Name() {
-			return fmt.Errorf("names differ %s/%s", ctx.e.DomainName, ctx.d.Name())
-		}
+	if name != d.Name() {
+		return fmt.Errorf("names differ %s/%s", name, d.Name())
+	}
 
-		if ctx.e.DomainZone != ctx.d.Zone() {
-			return fmt.Errorf("zones differ %s/%s", ctx.e.DomainZone, ctx.d.Zone())
-		}
+	if zone != d.Zone() {
+		return fmt.Errorf("zones differ %s/%s", zone, d.Zone())
 	}
 
 	return nil
