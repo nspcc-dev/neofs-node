@@ -3,6 +3,7 @@ package fschaincontracts
 // Various methods of FS chain Container contract.
 const (
 	CreateContainerMethod         = "create"
+	CreateContainerV2Method       = "createV2"
 	RemoveContainerMethod         = "remove"
 	PutContainerEACLMethod        = "putEACL"
 	PutContainerReportMethod      = "putReport"

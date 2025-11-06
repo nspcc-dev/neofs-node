@@ -3,6 +3,7 @@ package fschaincontracts
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
@@ -85,4 +86,27 @@ func containerVersionFromStruct(src *containerrpc.ContainerAPIVersion) (uint32, 
 	}
 
 	return mjr, mnr, nil
+}
+
+// ContainerToStackItem encodes container to instance convertible to stack item.
+func ContainerToStackItem(cnr container.Container) stackitem.Convertible {
+	ver := cnr.Version()
+	owner := cnr.Owner()
+
+	var attrs []*containerrpc.ContainerAttribute
+	for k, v := range cnr.Attributes() {
+		attrs = append(attrs, &containerrpc.ContainerAttribute{Key: k, Value: v})
+	}
+
+	return &containerrpc.ContainerInfo{
+		Version: &containerrpc.ContainerAPIVersion{
+			Major: big.NewInt(int64(ver.Major())),
+			Minor: big.NewInt(int64(ver.Minor())),
+		},
+		Owner:         owner.ScriptHash(),
+		Nonce:         cnr.ProtoMessage().Nonce, // TODO: provide and use nonce getter
+		BasicACL:      big.NewInt(int64(cnr.BasicACL().Bits())),
+		Attributes:    attrs,
+		StoragePolicy: cnr.PlacementPolicy().Marshal(),
+	}
 }
