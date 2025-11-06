@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - IR `experimental.allow_ec` config option (#3570)
 - SN `pprof.enable_block` and `pprof.enable_mutex` options (#3655)
 - `neofs-adm fschain load-report` command (#3649)
+- SN now supports new `getInfo` method of the Container contract (#3670)
 
 ### Fixed
 - Write cache using too much CPU (#3642)
