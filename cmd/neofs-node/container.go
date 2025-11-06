@@ -179,19 +179,9 @@ func initSizeLoadReports(c *cfg) {
 
 			return
 		}
-		height, err := c.cli.GetBlockCount()
-		if err != nil {
-			l.Warn("failed to get the current height to reset epoch timer", zap.Error(err))
-			return
-		}
-		currH, err := c.cli.GetBlockHeader(height - 1)
-		if err != nil {
-			l.Warn("failed to get the current block to reset epoch timer", zap.Error(err))
-			return
-		}
 
 		const msInS = 1000
-		c.cfgMorph.epochTimers.Reset(lastTickH.Timestamp, currH.Timestamp, epochDuration*msInS)
+		c.cfgMorph.epochTimers.Reset(lastTickH.Timestamp, epochDuration*msInS)
 	})
 }
 

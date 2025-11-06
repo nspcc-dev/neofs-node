@@ -254,17 +254,8 @@ func (s *Server) resetEpochTimer(lastTickHeight uint32) (uint64, error) {
 		return 0, fmt.Errorf("can't read last tick's block header (#%d): %w", lastTick, err)
 	}
 
-	height, err := s.fsChainClient.GetBlockCount()
-	if err != nil {
-		return 0, fmt.Errorf("can't read current chain height: %w", err)
-	}
-	currH, err := s.fsChainClient.GetBlockHeader(height - 1)
-	if err != nil {
-		return 0, fmt.Errorf("can't read current block (#%d): %w", height-1, err)
-	}
-
 	const msInS = 1000
-	s.epochTimers.Reset(lastTickH.Timestamp, currH.Timestamp, epochDuration*msInS)
+	s.epochTimers.Reset(lastTickH.Timestamp, epochDuration*msInS)
 
 	return lastTickH.Timestamp + epochDuration*msInS, nil
 }
