@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Pre-0.46.0 write cache format migration (#3647)
 
 ### Updated
+- `github.com/nspcc-dev/neofs-contract` dependency to `XXX` (#3670)
 
 ### Updating from v0.49.1
 Erasure coding is available in experimental mode. To enable it, set
