@@ -28,13 +28,12 @@ type putContainerContext struct {
 	e containerEvent.CreateContainerRequest
 
 	// must be filled when verifying raw data from e
-	cID cid.ID
 	cnr containerSDK.Container
 }
 
 // Process a new container from the user by checking the container sanity
 // and sending approve tx back to the FS chain.
-func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest) {
+func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest, id cid.ID) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container put")
 		return
@@ -53,7 +52,7 @@ func (cp *Processor) processContainerPut(req containerEvent.CreateContainerReque
 		return
 	}
 
-	cp.approvePutContainer(ctx)
+	cp.approvePutContainer(ctx, id)
 }
 
 const (
@@ -70,7 +69,6 @@ var allowedSystemAttributes = map[string]struct{}{
 
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	binCnr := ctx.e.Container
-	ctx.cID = cid.NewFromMarshalledContainer(binCnr)
 
 	err := ctx.cnr.Unmarshal(binCnr)
 	if err != nil {
@@ -129,8 +127,8 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	return nil
 }
 
-func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
-	l := cp.log.With(zap.Stringer("cID", ctx.cID))
+func (cp *Processor) approvePutContainer(ctx *putContainerContext, id cid.ID) {
+	l := cp.log.With(zap.Stringer("cID", id))
 	l.Debug("approving new container...")
 
 	e := ctx.e
@@ -153,7 +151,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 	}
 
 	policy := ctx.cnr.PlacementPolicy()
-	vectors, err := nm.ContainerNodes(policy, ctx.cID)
+	vectors, err := nm.ContainerNodes(policy, id)
 	if err != nil {
 		l.Error("could not build placement for Container contract update", zap.Error(err))
 		return
@@ -168,7 +166,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		replicas[i] = 1 // each EC part is stored in a single copy
 	}
 
-	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)
+	err = cp.cnrClient.UpdateContainerPlacement(id, vectors, replicas)
 	if err != nil {
 		l.Error("could not update Container contract", zap.Error(err))
 		return
