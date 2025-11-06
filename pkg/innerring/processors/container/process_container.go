@@ -41,7 +41,7 @@ func (cp *Processor) processContainerPut(req containerEvent.CreateContainerReque
 		return
 	}
 
-	err := cp.checkPutContainer(req, cnr)
+	err := cp.checkPutContainer(cnr, req.Container, req.SessionToken, req.InvocationScript, req.VerificationScript, req.DomainName, req.DomainZone)
 	if err != nil {
 		cp.log.Error("put container check failed",
 			zap.Error(err),
@@ -65,7 +65,7 @@ var allowedSystemAttributes = map[string]struct{}{
 	sysAttrChainMeta:                              {},
 }
 
-func (cp *Processor) checkPutContainer(req containerEvent.CreateContainerRequest, cnr containerSDK.Container) error {
+func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
 	for k := range cnr.Attributes() {
 		if strings.HasPrefix(k, sysAttrPrefix) {
 			if _, ok := allowedSystemAttributes[k]; !ok {
@@ -89,10 +89,10 @@ func (cp *Processor) checkPutContainer(req containerEvent.CreateContainerRequest
 	err := cp.verifySignature(signatureVerificationData{
 		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerPut,
-		binTokenSession: req.SessionToken,
-		verifScript:     req.VerificationScript,
-		invocScript:     req.InvocationScript,
-		signedData:      req.Container,
+		binTokenSession: sessionToken,
+		verifScript:     verifScript,
+		invocScript:     invocScript,
+		signedData:      cnrBytes,
 	})
 	if err != nil {
 		return fmt.Errorf("auth container creation: %w", err)
@@ -108,8 +108,8 @@ func (cp *Processor) checkPutContainer(req containerEvent.CreateContainerRequest
 		return fmt.Errorf("incorrect homomorphic hashing setting: %w", err)
 	}
 
-	if req.DomainName != "" { // if PutNamed event => check if values in-container domain name and zone correspond to args
-		err = checkNNS(cnr, req.DomainName, req.DomainZone)
+	if domainZone != "" { // if PutNamed event => check if values in-container domain name and zone correspond to args
+		err = checkNNS(cnr, domainName, domainZone)
 		if err != nil {
 			return fmt.Errorf("NNS: %w", err)
 		}
