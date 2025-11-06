@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
+	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -14,6 +15,31 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 )
+
+func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateContainerV2Request) {
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Info("non alphabet mode, ignore container creation request")
+		return
+	}
+
+	cnr, err := fschaincontracts.ContainerFromStruct(req.Container)
+	if err != nil {
+		cp.log.Error("invalid container struct in creation request", zap.Error(err))
+		return
+	}
+
+	cnrBytes := cnr.Marshal()
+	id := cid.NewFromMarshalledContainer(cnrBytes)
+
+	err = cp.checkPutContainer(cnr, cnrBytes, req.SessionToken, req.InvocationScript, req.VerificationScript, "", "")
+	if err != nil {
+		cp.log.Error("container creation request failed check",
+			zap.Stringer("container", id), zap.Error(err))
+		return
+	}
+
+	cp.approvePutContainer(req.MainTransaction, cnr, id)
+}
 
 // putEvent is a common interface of Put and PutNamed event.
 type putEvent interface {
