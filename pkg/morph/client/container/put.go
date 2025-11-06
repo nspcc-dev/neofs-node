@@ -50,14 +50,9 @@ func (c *Client) Put(p PutPrm) (cid.ID, error) {
 	}
 
 	var prm client.InvokePrm
-	prm.SetMethod(fschaincontracts.CreateContainerMethod)
+	prm.SetMethod(fschaincontracts.CreateContainerV2Method)
 	prm.InvokePrmOptional = p.InvokePrmOptional
-
-	domain := p.cnr.ReadDomain()
-	metaAttr := p.cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY")
-	metaEnabled := metaAttr == "optimistic" || metaAttr == "strict"
-	cnrBytes := p.cnr.Marshal()
-	prm.SetArgs(cnrBytes, p.sig, p.key, p.token, domain.Name(), domain.Zone(), metaEnabled)
+	prm.SetArgs(containerToStackItem(p.cnr), p.sig, p.key, p.token)
 
 	// no magic bugs with notary requests anymore, this operation should
 	// _always_ be notary signed so make it one more time even if it is
@@ -65,6 +60,22 @@ func (c *Client) Put(p PutPrm) (cid.ID, error) {
 	prm.RequireAlphabetSignature()
 
 	err := c.client.Invoke(prm)
+	if err == nil {
+		return cid.NewFromMarshalledContainer(p.cnr.Marshal()), nil
+	}
+	if !isMethodNotFoundError(err, fschaincontracts.CreateContainerV2Method) {
+		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerV2Method, err)
+	}
+
+	prm.SetMethod(fschaincontracts.CreateContainerMethod)
+
+	domain := p.cnr.ReadDomain()
+	metaAttr := p.cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY")
+	metaEnabled := metaAttr == "optimistic" || metaAttr == "strict"
+	cnrBytes := p.cnr.Marshal()
+	prm.SetArgs(cnrBytes, p.sig, p.key, p.token, domain.Name(), domain.Zone(), metaEnabled)
+
+	err = c.client.Invoke(prm)
 	if err != nil {
 		if isMethodNotFoundError(err, fschaincontracts.CreateContainerMethod) {
 			prm.SetMethod(putMethod)
