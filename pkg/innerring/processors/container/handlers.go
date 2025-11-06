@@ -36,7 +36,7 @@ func (cp *Processor) handlePut(ev event.Event) {
 
 	// send an event to the worker pool
 
-	err := cp.pool.Submit(func() { cp.processContainerPut(req) })
+	err := cp.pool.Submit(func() { cp.processContainerPut(req, id) })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",
