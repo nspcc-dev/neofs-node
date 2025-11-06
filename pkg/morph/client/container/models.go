@@ -21,6 +21,11 @@ func containerFromStackItem(item stackitem.Item) (container.Container, error) {
 		return container.Container{}, err
 	}
 
+	return ContainerFromStruct(contractStruct)
+}
+
+// ContainerFromStruct decodes container from contract structure.
+func ContainerFromStruct(contractStruct containerrpc.ContainerInfo) (container.Container, error) {
 	mjr, mnr, err := containerVersionFromStruct(contractStruct.Version)
 	if err != nil {
 		return container.Container{}, err

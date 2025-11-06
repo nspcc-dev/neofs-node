@@ -11,6 +11,15 @@ import (
 	"go.uber.org/zap"
 )
 
+func (cp *Processor) handleCreationRequest(ev event.Event) {
+	err := cp.pool.Submit(func() { cp.processCreateContainerRequest(ev.(containerEvent.CreateContainerV2Request)) })
+	if err != nil {
+		// there system can be moved into controlled degradation stage
+		cp.log.Warn("container processor worker pool drained",
+			zap.Int("capacity", cp.pool.Cap()))
+	}
+}
+
 func (cp *Processor) handlePut(ev event.Event) {
 	req, ok := ev.(containerEvent.CreateContainerRequest)
 	if !ok {

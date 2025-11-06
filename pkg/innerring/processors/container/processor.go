@@ -137,6 +137,10 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetParser(containerEvent.RestoreCreateContainerRequest)
 	pp = append(pp, p)
 
+	p.SetRequestType(fschaincontracts.CreateContainerV2Method)
+	p.SetParser(containerEvent.RestoreCreateContainerV2Request)
+	pp = append(pp, p)
+
 	// container delete
 	p.SetRequestType(containerEvent.DeleteNotaryEvent)
 	p.SetParser(containerEvent.ParseDeleteNotary)
@@ -192,6 +196,10 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// create container
 	h.SetRequestType(fschaincontracts.CreateContainerMethod)
 	h.SetHandler(cp.handlePut)
+	hh = append(hh, h)
+
+	h.SetRequestType(fschaincontracts.CreateContainerV2Method)
+	h.SetHandler(cp.handleCreationRequest)
 	hh = append(hh, h)
 
 	// container delete
