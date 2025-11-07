@@ -3,12 +3,15 @@ package object
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	internal "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -146,6 +149,7 @@ func readOID(cmd *cobra.Command, id *oid.ID) error {
 // sessions.
 type SessionPrm interface {
 	WithinSession(session.Object)
+	WithinSessionV2(session.TokenV2)
 }
 
 // forwards all parameters to _readVerifiedSession and object as nil.
@@ -191,6 +195,9 @@ func getSession(cmd *cobra.Command) (*session.Object, error) {
 //   - relation to the given private key used within the command
 //   - session signature
 //
+// Supports both V1 (session.Object) and V2 (session.TokenV2) tokens.
+// V2 tokens are tried first, then falls back to V1 for backward compatibility.
+//
 // SessionPrm MUST be one of:
 //
 //	*internal.GetObjectPrm
@@ -199,6 +206,16 @@ func getSession(cmd *cobra.Command) (*session.Object, error) {
 //	*internal.PayloadRangePrm
 //	*internal.HashPayloadRangesPrm
 func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) error {
+	isV2, err := tryReadSessionV2(cmd, dst, key, cnr, obj)
+	if err != nil {
+		return fmt.Errorf("v2 session validation failed: %w", err)
+	}
+	if isV2 {
+		common.PrintVerbose(cmd, "Using V2 session token")
+		return nil
+	}
+
+	// Fall back to V1 token
 	var cmdVerb session.ObjectVerb
 
 	switch dst.(type) {
@@ -221,13 +238,13 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 		return err
 	}
 
-	common.PrintVerbose(cmd, "Checking session correctness...")
+	common.PrintVerbose(cmd, "Checking V1 session correctness...")
 
 	if obj != nil && !tok.AssertObject(*obj) {
 		return errors.New("unrelated object in the session")
 	}
 
-	common.PrintVerbose(cmd, "Session is correct.")
+	common.PrintVerbose(cmd, "V1 session is correct.")
 
 	dst.WithinSession(*tok)
 	return nil
@@ -256,24 +273,30 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 	return tok, nil
 }
 
-// ReadOrOpenSessionViaClient tries to read session from the file specified in
-// commonflags.SessionToken flag, finalizes structures of the decoded token
-// and write the result into provided SessionPrm. If file is missing,
-// ReadOrOpenSessionViaClient calls OpenSessionViaClient.
+// ReadOrOpenSessionViaClient tries to read session from file (V2 first, then V1).
+// If no file provided, creates V2 token locally (no SessionCreate RPC needed).
+// cli parameter kept for backward compatibility but not used for V2 tokens.
 func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
-	tok, err := getSession(cmd)
-	if err != nil {
-		return err
-	}
-	if tok == nil {
-		err = OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
+	path, _ := cmd.Flags().GetString(commonflags.SessionToken)
+
+	if path != "" {
+		tokV2, err := getSessionV2(cmd)
+		if err == nil && tokV2 != nil {
+			return finalizeSessionV2(cmd, dst, tokV2, key, cnr, objs...)
+		}
+
+		// Fall back to V1 token from file
+		tok, err := getSession(cmd)
 		if err != nil {
 			return err
 		}
-		return nil
+		if tok != nil {
+			return finalizeSession(cmd, dst, tok, key, cnr, objs...)
+		}
 	}
 
-	err = finalizeSession(cmd, dst, tok, key, cnr, objs...)
+	// No token file provided - create V2 token locally (no RPC)
+	err := CreateSessionV2Local(ctx, cmd, dst, key, cnr, objs...)
 	if err != nil {
 		return err
 	}
@@ -355,6 +378,158 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 	common.PrintVerbose(cmd, "Session token successfully formed and attached to the request.")
 
 	dst.WithinSession(*tok)
+	return nil
+}
+
+// CreateSessionV2Local creates V2 token locally without SessionCreate RPC.
+func CreateSessionV2Local(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
+	const sessionLifetime = 10
+
+	common.PrintVerbose(cmd, "Creating V2 session token locally...")
+
+	endpoint := viper.GetString(commonflags.RPC)
+	currEpoch, err := internal.GetCurrentEpoch(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("can't fetch current epoch: %w", err)
+	}
+
+	common.PrintVerbose(cmd, "Fetching NetMap to get node public keys...")
+	cli, err := internal.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return fmt.Errorf("can't create SDK client: %w", err)
+	}
+	defer func() { _ = cli.Close() }()
+
+	nm, err := cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
+	if err != nil {
+		return fmt.Errorf("can't get NetMap snapshot: %w", err)
+	}
+
+	common.PrintVerbose(cmd, "Getting container info...")
+	cnrObj, err := cli.ContainerGet(ctx, cnr, client.PrmContainerGet{})
+	if err != nil {
+		return fmt.Errorf("can't get container: %w", err)
+	}
+
+	policy := cnrObj.PlacementPolicy()
+
+	common.PrintVerbose(cmd, "Getting container nodes from NetMap...")
+	nodes, err := nm.ContainerNodes(policy, cnr)
+	if err != nil {
+		return fmt.Errorf("can't get container nodes: %w", err)
+	}
+
+	var subjects []session.Target
+	nodeCount := 0
+	seenKeys := make(map[string]bool) // To avoid duplicates
+
+	for _, replica := range nodes {
+		for _, node := range replica {
+			pubKeyBytes := node.PublicKey()
+			keyStr := string(pubKeyBytes)
+			if seenKeys[keyStr] {
+				continue
+			}
+			seenKeys[keyStr] = true
+
+			neoPubKey, err := keys.NewPublicKeyFromBytes(pubKeyBytes, elliptic.P256())
+			if err != nil {
+				common.PrintVerbose(cmd, "Warning: failed to parse node public key: %v", err)
+				continue
+			}
+
+			ecdsaPubKey := (*ecdsa.PublicKey)(neoPubKey)
+
+			userID := user.NewFromECDSAPublicKey(*ecdsaPubKey)
+
+			subjects = append(subjects, session.NewTarget(userID))
+			nodeCount++
+		}
+	}
+
+	common.PrintVerbose(cmd, "Added %d unique node public keys as subjects", nodeCount)
+
+	var tokV2 session.TokenV2
+	signer := user.NewAutoIDSigner(*key)
+
+	tokV2.SetVersion(session.TokenV2CurrentVersion)
+	tokV2.SetID(uuid.New())
+	tokV2.SetIat(currEpoch)
+	tokV2.SetNbf(currEpoch)
+	tokV2.SetExp(currEpoch + sessionLifetime)
+	tokV2.SetIssuer(session.NewTarget(signer.UserID()))
+	tokV2.SetSubjects(subjects)
+
+	var verb session.VerbV2
+	switch dst.(type) {
+	case *client.PrmObjectPutInit:
+		verb = session.VerbV2ObjectPut
+	case *client.PrmObjectDelete:
+		verb = session.VerbV2ObjectDelete
+	default:
+		return fmt.Errorf("unsupported operation type for V2 session: %T", dst)
+	}
+
+	ctx2 := session.NewContextV2(cnr, []session.VerbV2{verb})
+	if len(objs) > 0 {
+		ctx2.SetObjects(objs)
+	}
+	tokV2.SetContexts([]session.ContextV2{ctx2})
+
+	if err := tokV2.Sign(signer); err != nil {
+		return fmt.Errorf("sign V2 session: %w", err)
+	}
+
+	common.PrintVerbose(cmd, "V2 session token successfully created locally and attached to the request.")
+
+	dst.WithinSessionV2(tokV2)
+	common.PrettyPrintJSON(cmd, tokV2, "V2 session token JSON")
+	return nil
+}
+
+// finalizeSessionV2 validates and attaches V2 token to the request.
+func finalizeSessionV2(cmd *cobra.Command, dst SessionPrm, tok *session.TokenV2, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
+	common.PrintVerbose(cmd, "Finalizing V2 session token...")
+
+	if err := tok.Validate(); err != nil {
+		return fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if !tok.VerifySignature() {
+		return errors.New("v2 session token signature verification failed")
+	}
+
+	signer := user.NewAutoIDSigner(*key)
+	target := session.NewTarget(signer.UserID())
+	if !tok.AssertAuthority(target) {
+		return fmt.Errorf("user %s is not authorized by V2 session token", signer.UserID().String())
+	}
+
+	var verb session.VerbV2
+	switch dst.(type) {
+	case *client.PrmObjectPutInit:
+		verb = session.VerbV2ObjectPut
+	case *client.PrmObjectDelete:
+		verb = session.VerbV2ObjectDelete
+	default:
+		return fmt.Errorf("unsupported operation type: %T", dst)
+	}
+
+	if !tok.AssertVerb(verb, cnr) {
+		return fmt.Errorf("v2 session token does not authorize verb for container %s", cnr.String())
+	}
+
+	if len(objs) > 0 {
+		for _, obj := range objs {
+			if !tok.AssertObject(verb, cnr, obj) {
+				return fmt.Errorf("v2 session token does not authorize access to object %s", obj.String())
+			}
+		}
+	}
+
+	common.PrintVerbose(cmd, "V2 session token successfully validated and attached to the request.")
+
+	dst.WithinSessionV2(*tok)
 	return nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
@@ -35,7 +36,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			return err
 		}
 
-		tok, err := getSession(cmd)
+		tokAny, err := getSessionAnyVersion(cmd)
 		if err != nil {
 			return err
 		}
@@ -73,11 +74,25 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 			owner := cnr.Owner()
 
-			if tok != nil {
+			if tokAny != nil {
 				common.PrintVerbose(cmd, "Checking session issuer...")
 
-				if tok.Issuer() != owner {
-					return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
+				switch tok := tokAny.(type) {
+				case *session.TokenV2:
+					issuer := tok.Issuer()
+					var issuerID user.ID
+					if issuer.IsOwnerID() {
+						issuerID = issuer.OwnerID()
+					} else {
+						return errors.New("v2 session issuer must be OwnerID")
+					}
+					if issuerID != owner {
+						return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, issuerID)
+					}
+				case *session.Container:
+					if tok.Issuer() != owner {
+						return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
+					}
 				}
 			} else {
 				common.PrintVerbose(cmd, "Checking provided account...")
@@ -112,8 +127,16 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		}
 
 		var setEACLPrm client.PrmContainerSetEACL
-		if tok != nil {
-			setEACLPrm.WithinSession(*tok)
+		if tokAny != nil {
+			switch tok := tokAny.(type) {
+			case *session.TokenV2:
+				if err := validateSessionV2ForContainer(cmd, tok, pk, id, session.VerbV2ContainerSetEACL); err != nil {
+					return err
+				}
+				setEACLPrm.WithinSessionV2(*tok)
+			case *session.Container:
+				setEACLPrm.WithinSession(*tok)
+			}
 		}
 		err = actor.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
 		if err != nil {
