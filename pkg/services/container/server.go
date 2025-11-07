@@ -79,6 +79,11 @@ type sessionTokenCommonCheckResult struct {
 	err   error
 }
 
+type sessionTokenV2CommonCheckResult struct {
+	token session.TokenV2
+	err   error
+}
+
 // Server provides NeoFS API Container service.
 type Server struct {
 	protocontainer.UnimplementedContainerServiceServer
@@ -87,7 +92,8 @@ type Server struct {
 	contract Contract
 	historicN3ScriptRunner
 
-	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	sessionTokenCommonCheckCache   *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	sessionTokenV2CommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenV2CommonCheckResult]
 }
 
 // New provides protocontainer.ContainerServiceServer based on specified
@@ -100,6 +106,10 @@ func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc 
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
 	}
+	sessionTokenV2CheckCache, err := lru.New[[sha256.Size]byte, sessionTokenV2CommonCheckResult](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New for v2: %w", err))
+	}
 	return &Server{
 		signer:   s,
 		net:      net,
@@ -108,7 +118,8 @@ func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc 
 			FSChain:        fsChain,
 			NetmapContract: nc,
 		},
-		sessionTokenCommonCheckCache: sessionTokenCheckCache,
+		sessionTokenCommonCheckCache:   sessionTokenCheckCache,
+		sessionTokenV2CommonCheckCache: sessionTokenV2CheckCache,
 	}
 }
 
@@ -216,6 +227,102 @@ func (s *Server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	return nil
 }
 
+func (s *Server) getVerifiedSessionTokenV2(mh *protosession.RequestMetaHeader, reqVerb session.ContainerVerb, reqCnr cid.ID) (*session.TokenV2, error) {
+	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
+		mh = omh
+	}
+	m := mh.GetSessionTokenV2()
+	if m == nil {
+		return nil, nil
+	}
+
+	b := make([]byte, m.MarshaledSize())
+	m.MarshalStable(b)
+
+	cacheKey := sha256.Sum256(b)
+	res, ok := s.sessionTokenV2CommonCheckCache.Get(cacheKey)
+	if !ok {
+		res.token, res.err = s.decodeAndVerifySessionTokenV2Common(m)
+		s.sessionTokenV2CommonCheckCache.Add(cacheKey, res)
+	}
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	if err := s.verifySessionTokenV2AgainstRequest(res.token, reqVerb, reqCnr); err != nil {
+		return nil, err
+	}
+
+	return &res.token, nil
+}
+
+func (s *Server) decodeAndVerifySessionTokenV2Common(m *protosession.SessionTokenV2) (session.TokenV2, error) {
+	var token session.TokenV2
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("decode v2: %w", err)
+	}
+
+	if err := token.Validate(); err != nil {
+		return token, fmt.Errorf("invalid v2 token: %w", err)
+	}
+
+	if !token.VerifySignature() {
+		return token, errors.New("v2 session token signature verification failed")
+	}
+
+	serverTarget := session.NewTarget(user.NewFromECDSAPublicKey(s.signer.PublicKey))
+	if !token.AssertAuthority(serverTarget) {
+		return token, errors.New("v2 token doesn't authorize this node")
+	}
+
+	cur := s.net.CurrentEpoch()
+	if !token.ValidAt(cur) {
+		return token, fmt.Errorf("v2 token is invalid at epoch %d", cur)
+	}
+
+	return token, nil
+}
+
+func (s *Server) verifySessionTokenV2AgainstRequest(token session.TokenV2, reqVerb session.ContainerVerb, reqCnr cid.ID) error {
+	verbV2 := containerVerbToVerbV2(reqVerb)
+	if verbV2 == 0 {
+		return fmt.Errorf("unsupported container verb for V2: %v", reqVerb)
+	}
+
+	if !token.AssertContainer(verbV2, reqCnr) {
+		return errors.New("v2 session token does not authorize this container operation")
+	}
+
+	if reqCnr.IsZero() {
+		return nil
+	}
+
+	issuer := token.Issuer()
+	if !issuer.IsOwnerID() {
+		return errors.New("v2 session token issuer must be OwnerID for container operations")
+	}
+	// TODO: make for NNS
+
+	if err := s.checkSessionIssuer(reqCnr, issuer.OwnerID()); err != nil {
+		return fmt.Errorf("verify v2 session issuer: %w", err)
+	}
+
+	return nil
+}
+
+func containerVerbToVerbV2(verb session.ContainerVerb) session.VerbV2 {
+	switch verb {
+	case session.VerbContainerPut:
+		return session.VerbV2ContainerPut
+	case session.VerbContainerDelete:
+		return session.VerbV2ContainerDelete
+	case session.VerbContainerSetEACL:
+		return session.VerbV2ContainerSetEACL
+	default:
+		return session.VerbV2Unspecified
+	}
+}
+
 func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, st *protostatus.Status) (*protocontainer.PutResponse, error) {
 	resp := &protocontainer.PutResponse{
 		Body:       body,
@@ -307,9 +414,17 @@ func (s *Server) Put(_ context.Context, req *protocontainer.PutRequest) (*protoc
 		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err))
 	}
 
-	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerPut, cid.ID{})
+	stV2, err := s.getVerifiedSessionTokenV2(req.GetMetaHeader(), session.VerbContainerPut, cid.ID{})
 	if err != nil {
-		return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err))
+		return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	var st *session.Container
+	if stV2 == nil {
+		st, err = s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerPut, cid.ID{})
+		if err != nil {
+			return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err))
+		}
 	}
 
 	id, err := s.contract.Put(cnr, mSig.Key, mSig.Sign, st)
@@ -353,9 +468,17 @@ func (s *Server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*
 		return s.makeDeleteResponse(fmt.Errorf("invalid ID: %w", err))
 	}
 
-	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerDelete, id)
+	stV2, err := s.getVerifiedSessionTokenV2(req.GetMetaHeader(), session.VerbContainerDelete, id)
 	if err != nil {
-		return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
+		return s.makeDeleteResponse(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	var st *session.Container
+	if stV2 == nil {
+		st, err = s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerDelete, id)
+		if err != nil {
+			return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
+		}
 	}
 
 	if err := s.contract.Delete(id, mSig.Key, mSig.Sign, st); err != nil {
@@ -491,9 +614,17 @@ func (s *Server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtend
 		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"))
 	}
 
-	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
+	stV2, err := s.getVerifiedSessionTokenV2(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
 	if err != nil {
-		return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err))
+		return s.makeSetEACLResponse(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	var st *session.Container
+	if stV2 == nil {
+		st, err = s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
+		if err != nil {
+			return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err))
+		}
 	}
 
 	if err := s.contract.PutEACL(eACL, mSig.Key, mSig.Sign, st); err != nil {

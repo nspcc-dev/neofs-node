@@ -35,7 +35,15 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 	keyStorage *util.KeyStorage, clientConstructor ClientConstructor, commonPrm *util.CommonPrm) error {
 	var sessionInfo *util.SessionInfo
 
-	if tok := commonPrm.SessionToken(); tok != nil {
+	if tokV2 := commonPrm.SessionTokenV2(); tokV2 != nil {
+		issuer := tokV2.Issuer()
+		if issuer.IsOwnerID() {
+			sessionInfo = &util.SessionInfo{
+				ID:    tokV2.ID(),
+				Owner: issuer.OwnerID(),
+			}
+		}
+	} else if tok := commonPrm.SessionToken(); tok != nil {
 		sessionInfo = &util.SessionInfo{
 			ID:    tok.ID(),
 			Owner: tok.Issuer(),
@@ -54,7 +62,9 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 
 	var opts client.PrmObjectPutInit
 	opts.MarkLocal()
-	if st := commonPrm.SessionToken(); st != nil {
+	if stV2 := commonPrm.SessionTokenV2(); stV2 != nil {
+		opts.WithinSessionV2(*stV2)
+	} else if st := commonPrm.SessionToken(); st != nil {
 		opts.WithinSession(*st)
 	}
 	if bt := commonPrm.BearerToken(); bt != nil {
