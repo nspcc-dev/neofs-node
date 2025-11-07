@@ -153,7 +153,7 @@ var reqMetaHdr = &protosession.RequestMetaHeader{
 		Body: &protosession.SessionToken_Body{
 			Id:      []byte("any_ID"),
 			OwnerId: &refs.OwnerID{Value: []byte("any_session_owner")},
-			Lifetime: &protosession.SessionToken_Body_TokenLifetime{
+			Lifetime: &protosession.TokenLifetime{
 				Exp: 9296388864757340046, Nbf: 7616299382059580946, Iat: 7881369180031591601,
 			},
 			SessionKey: []byte("any_session_key"),
