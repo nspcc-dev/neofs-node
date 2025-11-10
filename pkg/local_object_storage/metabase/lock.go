@@ -156,10 +156,11 @@ func (db *DB) FreeLockedBy(lockers []oid.Address) ([]oid.Address, error) {
 
 // associatedWithTypedObject checks if an object is associated with a typed
 // object and typed object has not expired yet. If expiration is unimportant
-// zero currEpoch skips expiration check.
-func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) bool {
+// zero currEpoch skips expiration check. Returns associated object ID if it's
+// present.
+func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) (bool, oid.ID) {
 	if metaCursor == nil {
-		return false
+		return false, oid.ID{}
 	}
 
 	var (
@@ -201,17 +202,20 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 				}
 			}
 
-			return true
+			var associateID oid.ID
+			copy(associateID[:], mainObj)
+			return true, associateID
 		}
 	}
 
-	return false
+	return false, oid.ID{}
 }
 
 // checks if specified object is locked in the specified container.
 func objectLocked(tx *bbolt.Tx, currEpoch uint64, metaCursor *bbolt.Cursor, idCnr cid.ID, idObj oid.ID) bool {
-	if associatedWithTypedObject(currEpoch, metaCursor, idObj, object.TypeLock) {
-		return true
+	locked, lockID := associatedWithTypedObject(currEpoch, metaCursor, idObj, object.TypeLock)
+	if locked {
+		return inGraveyard(tx, metaCursor, oid.NewAddress(idCnr, lockID)) == statusAvailable
 	}
 
 	bucketLocked := tx.Bucket(bucketNameLocked)
