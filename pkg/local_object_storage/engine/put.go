@@ -81,6 +81,9 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 
 		// Broadcast lock object to ALL shards to ensure availability everywhere
 		return e.broadcastObject(obj, objBin)
+	case objectSDK.TypeLink:
+		// Broadcast object to ALL shards to ensure availability everywhere.
+		return e.broadcastObject(obj, objBin)
 	default:
 	}
 
