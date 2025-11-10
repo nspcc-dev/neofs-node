@@ -201,12 +201,15 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 			if !errors.Is(err, logicerr.Error) {
 				e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
 			}
+			return err
 		}
-
-		return err
 	}
 
-	if root && siNoLink != nil {
+	if !root {
+		return nil // Already deleted everywhere.
+	}
+
+	if siNoLink != nil {
 		children = e.collectChildrenWithoutLink(addr, siNoLink)
 	}
 
