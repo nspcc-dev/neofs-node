@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - More efficient write cache batching for small objects (#3414)
 - SN now indexes metadata for root objects nested twice (parents of parents) (#3674)
 - Optimized locking info in metabase (#3672)
+- Lock objects with API <2.18 are no longer accepted (#3672)
 
 ### Removed
 - Pre-0.46.0 write cache format migration (#3647)
