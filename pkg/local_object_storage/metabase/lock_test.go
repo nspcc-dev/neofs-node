@@ -19,390 +19,88 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDB_Lock(t *testing.T) {
-	cnr := cidtest.ID()
+func TestDB_IsLocked(t *testing.T) {
 	db := newDB(t)
 
-	t.Run("empty locked list", func(t *testing.T) {
-		require.Panics(t, func() { _ = db.Lock(cnr, oid.ID{}, nil) })
-		require.Panics(t, func() { _ = db.Lock(cnr, oid.ID{}, []oid.ID{}) })
-	})
+	// existing and locked objs
 
-	t.Run("(ir)regular", func(t *testing.T) {
-		for _, typ := range [...]object.Type{
-			object.TypeTombstone,
-			object.TypeLock,
-			object.TypeRegular,
-		} {
-			obj := objecttest.Object()
-			obj.SetType(typ)
-			obj.SetContainerID(cnr)
+	obj, _ := putObjAndLockIt(t, db)
 
-			// save irregular object
-			err := metaPut(db, &obj)
-			require.NoError(t, err, typ)
+	locked, err := db.IsLocked(objectcore.AddressOf(&obj))
+	require.NoError(t, err)
+	require.True(t, locked)
 
-			var e apistatus.LockNonRegularObject
+	// some rand obj
 
-			id := obj.GetID()
+	locked, err = db.IsLocked(oidtest.Address())
+	require.NoError(t, err)
+	require.False(t, locked)
 
-			t.Run("before API v2.18", func(t *testing.T) {
-				// try to lock it
-				err = db.Lock(cnr, oidtest.ID(), []oid.ID{id})
-				if typ == object.TypeRegular {
-					require.NoError(t, err, typ)
-				} else {
-					require.ErrorAs(t, err, &e, typ)
-				}
-			})
-			t.Run("after API v2.18", func(t *testing.T) {
-				lock := objecttest.Object()
-				lock.AssociateLocked(id)
-				lock.SetContainerID(cnr)
+	// existing but not locked obj
 
-				err = metaPut(db, &lock)
-				if typ == object.TypeRegular {
-					require.NoError(t, err, typ)
-				} else {
-					require.ErrorAs(t, err, &e, typ)
-				}
-			})
-		}
-	})
+	anotherObj := objecttest.Object()
 
-	t.Run("removing lock object", func(t *testing.T) {
-		t.Run("before API v2.18", func(t *testing.T) {
-			objs, lockObj := putAndLockObj(t, db, 1)
+	err = db.Put(&anotherObj)
+	require.NoError(t, err)
 
-			objAddr := objectcore.AddressOf(objs[0])
-			lockAddr := objectcore.AddressOf(lockObj)
+	locked, err = db.IsLocked(objectcore.AddressOf(&anotherObj))
+	require.NoError(t, err)
+	require.False(t, locked)
 
-			// check locking relation
+	t.Run("lock expiration", func(t *testing.T) {
+		es := &epochState{e: currEpoch}
+		db := newDB(t, meta.WithEpochState(es))
 
-			_, _, err := db.MarkGarbage(false, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
+		cnr := cidtest.ID()
 
-			_, _, err = db.Inhume(oidtest.Address(), 0, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
+		o := objecttest.Object()
+		o.SetContainerID(cnr)
+		o.SetType(object.TypeRegular)
+		l := objecttest.Object()
+		l.SetContainerID(cnr)
+		l.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, fmt.Sprintf("%d", currEpoch)))
+		l.AssociateLocked(o.GetID())
 
-			// try to remove lock object
-			_, _, err = db.MarkGarbage(false, false, lockAddr)
-			require.Error(t, err)
-
-			_, _, err = db.Inhume(oidtest.Address(), 0, false, lockAddr)
-			require.Error(t, err)
-
-			// check that locking relation has not been
-			// dropped
-
-			_, _, err = db.MarkGarbage(false, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
-			_, _, err = db.Inhume(oidtest.Address(), 0, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-		})
-		t.Run("after API v2.18", func(t *testing.T) {
-			o, l := putObjAndLockIt(t, db)
-
-			objAddr := objectcore.AddressOf(&o)
-			lockAddr := objectcore.AddressOf(&l)
-
-			// check locking relation
-
-			_, _, err := db.MarkGarbage(false, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
-			_, _, err = db.Inhume(oidtest.Address(), 0, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
-			// try to remove lock object
-			_, _, err = db.MarkGarbage(false, false, lockAddr)
-			require.Error(t, err)
-
-			_, _, err = db.Inhume(oidtest.Address(), 0, false, lockAddr)
-			require.Error(t, err)
-
-			// check that locking relation has not been
-			// dropped
-
-			_, _, err = db.MarkGarbage(false, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
-			_, _, err = db.Inhume(oidtest.Address(), 0, false, objAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-		})
-	})
-
-	t.Run("lock-unlock scenario", func(t *testing.T) {
-		t.Run("before API v2.18", func(t *testing.T) {
-			objs, lockObj := putAndLockObj(t, db, 1)
-
-			objAddr := objectcore.AddressOf(objs[0])
-			lockAddr := objectcore.AddressOf(lockObj)
-
-			// try to inhume locked object using tombstone
-			err := metaInhume(db, objAddr, lockAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
-			// free locked object
-			inhumed, deletedLocks, err := db.MarkGarbage(true, true, lockAddr)
-			require.NoError(t, err)
-			require.Equal(t, uint64(1), inhumed)
-			require.Len(t, deletedLocks, 1)
-			require.Equal(t, objectcore.AddressOf(lockObj), deletedLocks[0])
-
-			unlocked, err := db.FreeLockedBy([]oid.Address{lockAddr})
-			require.NoError(t, err)
-			require.ElementsMatch(t, objsToAddrs(objs), unlocked)
-
-			// now we can inhume the object
-			_, _, err = db.MarkGarbage(false, false, objAddr)
-			require.NoError(t, err)
-		})
-		t.Run("after API v2.18", func(t *testing.T) {
-			o, l := putObjAndLockIt(t, db)
-
-			objAddr := objectcore.AddressOf(&o)
-			lockAddr := objectcore.AddressOf(&l)
-
-			// try to inhume locked object using tombstone
-			err := metaInhume(db, objAddr, lockAddr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
-			// free locked object
-			_, err = db.Delete([]oid.Address{lockAddr})
-			require.NoError(t, err)
-
-			// now we can inhume the object
-			_, _, err = db.MarkGarbage(false, false, objAddr)
-			require.NoError(t, err)
-		})
-	})
-
-	t.Run("force removing lock objects", func(t *testing.T) {
-		const objsNum = 3
-
-		// put and lock `objsNum` objects
-		objs, lockObj := putAndLockObj(t, db, objsNum)
-
-		// force remove objects
-		inhumed, deletedLocks, err := db.MarkGarbage(true, true, objectcore.AddressOf(lockObj))
+		err := putBig(db, &o)
 		require.NoError(t, err)
-		require.Equal(t, uint64(1), inhumed)
-		require.Len(t, deletedLocks, 1)
-		require.Equal(t, objectcore.AddressOf(lockObj), deletedLocks[0])
-
-		// unlock just objects that were locked by
-		// just removed locker
-		unlocked, err := db.FreeLockedBy(deletedLocks)
-		require.NoError(t, err)
-		require.ElementsMatch(t, objsToAddrs(objs), unlocked)
-
-		// removing objects after unlock
-
-		for i := range objsNum {
-			inhumed, deletedLocks, err = db.MarkGarbage(false, true, objectcore.AddressOf(objs[i]))
-			require.NoError(t, err)
-			require.Equal(t, uint64(1), inhumed)
-			require.Len(t, deletedLocks, 0)
-		}
-	})
-
-	t.Run("skipping lock object handling", func(t *testing.T) {
-		_, lockObj := putAndLockObj(t, db, 1)
-
-		inhumed, deletedLocks, err := db.MarkGarbage(true, false, objectcore.AddressOf(lockObj))
-		require.NoError(t, err)
-		require.Equal(t, uint64(1), inhumed)
-		require.Len(t, deletedLocks, 0)
-	})
-}
-
-func TestDB_IsLocked(t *testing.T) {
-	t.Run("before API v2.18", func(t *testing.T) {
-		db := newDB(t)
-
-		// existing and locked objs
-
-		objs, _ := putAndLockObj(t, db, 5)
-
-		for _, obj := range objs {
-			locked, err := db.IsLocked(objectcore.AddressOf(obj))
-			require.NoError(t, err)
-
-			require.True(t, locked)
-		}
-
-		// some rand obj
-
-		locked, err := db.IsLocked(oidtest.Address())
+		err = putBig(db, &l)
 		require.NoError(t, err)
 
-		require.False(t, locked)
+		ts := objecttest.Object()
+		ts.SetContainerID(cnr)
+		ts.AssociateDeleted(o.GetID())
+		err = putBig(db, &ts)
+		require.ErrorIs(t, err, apistatus.ErrObjectLocked)
 
-		// existing but not locked obj
+		es.e = currEpoch + 1
 
-		obj := objecttest.Object()
-
-		err = db.Put(&obj)
+		err = putBig(db, &ts)
 		require.NoError(t, err)
-
-		locked, err = db.IsLocked(objectcore.AddressOf(&obj))
-		require.NoError(t, err)
-
-		require.False(t, locked)
-	})
-	t.Run("after API v2.18", func(t *testing.T) {
-		db := newDB(t)
-
-		// existing and locked objs
-
-		obj, _ := putObjAndLockIt(t, db)
-
-		locked, err := db.IsLocked(objectcore.AddressOf(&obj))
-		require.NoError(t, err)
-		require.True(t, locked)
-
-		// some rand obj
-
-		locked, err = db.IsLocked(oidtest.Address())
-		require.NoError(t, err)
-		require.False(t, locked)
-
-		// existing but not locked obj
-
-		anotherObj := objecttest.Object()
-
-		err = db.Put(&anotherObj)
-		require.NoError(t, err)
-
-		locked, err = db.IsLocked(objectcore.AddressOf(&anotherObj))
-		require.NoError(t, err)
-		require.False(t, locked)
-
-		t.Run("lock expiration", func(t *testing.T) {
-			es := &epochState{e: currEpoch}
-			db := newDB(t, meta.WithEpochState(es))
-
-			cnr := cidtest.ID()
-
-			o := objecttest.Object()
-			o.SetContainerID(cnr)
-			o.SetType(object.TypeRegular)
-			l := objecttest.Object()
-			l.SetContainerID(cnr)
-			l.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, fmt.Sprintf("%d", currEpoch)))
-			l.AssociateLocked(o.GetID())
-
-			err := putBig(db, &o)
-			require.NoError(t, err)
-			err = putBig(db, &l)
-			require.NoError(t, err)
-
-			ts := objecttest.Object()
-			ts.SetContainerID(cnr)
-			ts.AssociateDeleted(o.GetID())
-			err = putBig(db, &ts)
-			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
-
-			es.e = currEpoch + 1
-
-			err = putBig(db, &ts)
-			require.NoError(t, err)
-		})
 	})
 }
 
 func TestDB_Lock_Expired(t *testing.T) {
-	t.Run("before API v2.18", func(t *testing.T) {
-		es := &epochState{e: 123}
+	es := &epochState{e: 123}
 
-		db := newDB(t, meta.WithEpochState(es))
+	db := newDB(t, meta.WithEpochState(es))
 
-		// put an object
-		addr := putWithExpiration(t, db, object.TypeRegular, 124)
+	// put an object
+	addr := putWithExpiration(t, db, object.TypeRegular, 124)
 
-		// expire the obj
-		es.e = 125
-		_, err := metaGet(db, addr, false)
-		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+	// expire the obj
+	es.e = 125
+	_, err := metaGet(db, addr, false)
+	require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
-		// put a lock object
-		lock := generateObjectWithCID(t, addr.Container())
-		lock.SetType(object.TypeLock)
-		addAttribute(lock, object.AttributeExpirationEpoch, "125")
+	// lock the obj
+	l := objecttest.Object()
+	l.SetContainerID(addr.Container())
+	l.AssociateLocked(addr.Object())
+	require.NoError(t, metaPut(db, &l))
 
-		require.NoError(t, putBig(db, lock))
-
-		// lock the obj
-		require.NoError(t, db.Lock(addr.Container(), lock.GetID(), []oid.ID{addr.Object()}))
-
-		// object is expired but locked, thus, must be available
-		_, err = metaGet(db, addr, false)
-		require.NoError(t, err)
-
-		// expire the lock
-		es.e = 126
-
-		// now both lock and locked object are expired, thus, locked object
-		// must be unavailable
-		_, err = metaGet(db, addr, false)
-		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
-	})
-	t.Run("after API v2.18", func(t *testing.T) {
-		es := &epochState{e: 123}
-
-		db := newDB(t, meta.WithEpochState(es))
-
-		// put an object
-		addr := putWithExpiration(t, db, object.TypeRegular, 124)
-
-		// expire the obj
-		es.e = 125
-		_, err := metaGet(db, addr, false)
-		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
-
-		// lock the obj
-		l := objecttest.Object()
-		l.SetContainerID(addr.Container())
-		l.AssociateLocked(addr.Object())
-		require.NoError(t, metaPut(db, &l))
-
-		// object is expired but locked, thus, must be available
-		_, err = metaGet(db, addr, false)
-		require.NoError(t, err)
-	})
-}
-
-// putAndLockObj puts object, returns it and its locker.
-func putAndLockObj(t *testing.T, db *meta.DB, numOfLockedObjs int) ([]*object.Object, *object.Object) {
-	cnr := cidtest.ID()
-
-	lockedObjs := make([]*object.Object, 0, numOfLockedObjs)
-	lockedObjIDs := make([]oid.ID, 0, numOfLockedObjs)
-
-	for range numOfLockedObjs {
-		obj := generateObjectWithCID(t, cnr)
-		err := putBig(db, obj)
-		require.NoError(t, err)
-
-		id := obj.GetID()
-
-		lockedObjs = append(lockedObjs, obj)
-		lockedObjIDs = append(lockedObjIDs, id)
-	}
-
-	lockObj := generateObjectWithCID(t, cnr)
-	lockID := lockObj.GetID()
-	lockObj.SetType(object.TypeLock)
-
-	err := putBig(db, lockObj)
+	// object is expired but locked, thus, must be available
+	_, err = metaGet(db, addr, false)
 	require.NoError(t, err)
-
-	err = db.Lock(cnr, lockID, lockedObjIDs)
-	require.NoError(t, err)
-
-	return lockedObjs, lockObj
 }
 
 // putObjAndLockIt is like `putAndLockObj` but for v2.18+ objects. Returns
@@ -425,15 +123,6 @@ func putObjAndLockIt(t *testing.T, db *meta.DB) (object.Object, object.Object) {
 	return o, l
 }
 
-func objsToAddrs(oo []*object.Object) []oid.Address {
-	res := make([]oid.Address, 0, len(oo))
-	for _, o := range oo {
-		res = append(res, objectcore.AddressOf(o))
-	}
-
-	return res
-}
-
 func TestDB_Lock_Removed(t *testing.T) {
 	cnr := cidtest.ID()
 
@@ -448,8 +137,9 @@ func TestDB_Lock_Removed(t *testing.T) {
 	objID := obj.GetID()
 	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
 
-	lockID := oidtest.OtherID(objID)
-	lockAddr := oid.NewAddress(cnr, lockID)
+	lockObj := generateObjectWithCID(t, cnr)
+	lockObj.AssociateLocked(objID)
+	lockAddr := oid.NewAddress(cnr, lockObj.GetID())
 
 	tomb := obj
 	tomb.SetID(oidtest.OtherID(objID))
@@ -498,27 +188,27 @@ func TestDB_Lock_Removed(t *testing.T) {
 
 			tc.preset(t, db)
 
-			lockErr := db.Lock(cnr, lockID, []oid.ID{objID})
+			lockErr := db.Put(lockObj)
 			locked, lockedErr := db.IsLocked(objAddr)
+			lockExists, existsErr := db.Exists(lockAddr, false)
+			_, lockGetError := db.Get(lockAddr, false)
 
+			require.NoError(t, existsErr)
 			if tc.assertLockErr != nil {
 				tc.assertLockErr(t, lockErr)
 
 				require.NoError(t, lockedErr)
 				require.False(t, locked)
+				require.False(t, lockExists)
+				require.ErrorIs(t, lockGetError, apistatus.ErrObjectNotFound)
 			} else {
 				require.NoError(t, lockErr)
 
 				require.NoError(t, lockedErr)
+				require.NoError(t, lockGetError)
 				require.True(t, locked)
+				require.True(t, lockExists)
 			}
-
-			exists, err := db.Exists(lockAddr, false)
-			require.NoError(t, err)
-			require.False(t, exists)
-
-			_, err = db.Get(lockAddr, false)
-			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		})
 	}
 }

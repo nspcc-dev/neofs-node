@@ -95,7 +95,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 	var oldIndexes []BucketValue
 	var newIndexes []HeaderField
 	addr := slices.Concat(cID[:], oID[:])
-	cIDRaw := addr[:cid.Size]
 	objKey := addr[cid.Size:]
 
 	objectBuckets := [][]byte{
@@ -119,19 +118,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 			BucketIndex: int(bucketKey[0]), // the first byte is always a prefix
 			Value:       bytes.Clone(v),
 		})
-	}
-
-	if b := tx.Bucket(bucketNameLocked); b != nil {
-		b = b.Bucket(cIDRaw)
-		if b != nil {
-			v := b.Get(objKey)
-			if v != nil {
-				oldIndexes = append(oldIndexes, BucketValue{
-					BucketIndex: lockedPrefix,
-					Value:       bytes.Clone(v),
-				})
-			}
-		}
 	}
 
 	mBucket := tx.Bucket(metaBucketKey(cID))

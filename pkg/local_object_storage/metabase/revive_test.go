@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -90,10 +89,11 @@ func TestDB_ReviveObject(t *testing.T) {
 	t.Run("revive locked", func(t *testing.T) {
 		locked := oidtest.Address()
 
-		err := db.Lock(locked.Container(), oidtest.ID(), []oid.ID{locked.Object()})
-		require.NoError(t, err)
+		locker := generateObjectWithCID(t, locked.Container())
+		locker.AssociateLocked(locked.Object())
+		require.NoError(t, db.Put(locker))
 
-		_, _, err = db.MarkGarbage(false, false, locked)
+		_, _, err := db.MarkGarbage(false, false, locked)
 
 		require.ErrorIs(t, err, new(apistatus.ObjectLocked))
 

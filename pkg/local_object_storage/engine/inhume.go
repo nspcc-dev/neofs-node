@@ -358,38 +358,6 @@ func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 	}
 }
 
-func (e *StorageEngine) processExpiredLocks(lockers []oid.Address) {
-	var unlocked, expired []oid.Address
-	for _, sh := range e.unsortedShards() {
-		unlocked = sh.FreeLockedBy(lockers)
-		for _, sh2 := range e.unsortedShards() {
-			expired = append(expired, sh2.FilterExpired(unlocked)...)
-		}
-	}
-	expired = removeDuplicateAddresses(append(expired, lockers...))
-	e.log.Debug("expired objects after locks expired",
-		zap.Stringers("addrs", expired),
-		zap.Stringers("locks", lockers))
-
-	e.processExpiredObjects(expired)
-}
-
-func (e *StorageEngine) processDeletedLocks(lockers []oid.Address) {
-	var unlocked, expired []oid.Address
-	for _, sh := range e.unsortedShards() {
-		unlocked = sh.FreeLockedBy(lockers)
-		for _, sh2 := range e.unsortedShards() {
-			expired = append(expired, sh2.FilterExpired(unlocked)...)
-		}
-	}
-	expired = removeDuplicateAddresses(expired)
-	e.log.Debug("expired objects after locks are deleted",
-		zap.Stringers("addrs", expired),
-		zap.Stringers("locks", lockers))
-
-	e.processExpiredObjects(expired)
-}
-
 func measuredObjsToAddresses(cID cid.ID, mm []objectSDK.MeasuredObject) []oid.Address {
 	var addr oid.Address
 	addr.SetContainer(cID)
@@ -413,18 +381,5 @@ func oIDsToAddresses(cID cid.ID, oo []oid.ID) []oid.Address {
 		res = append(res, addr)
 	}
 
-	return res
-}
-
-func removeDuplicateAddresses(addrs []oid.Address) []oid.Address {
-	uniqueMap := make(map[oid.Address]struct{})
-	res := make([]oid.Address, 0, len(addrs))
-
-	for _, addr := range addrs {
-		if _, ok := uniqueMap[addr]; !ok {
-			uniqueMap[addr] = struct{}{}
-			res = append(res, addr)
-		}
-	}
 	return res
 }

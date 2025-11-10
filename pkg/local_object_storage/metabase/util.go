@@ -52,10 +52,8 @@ const (
 	//	Key: container ID
 	//  Value: container size in bytes as little-endian uint64
 	containerVolumePrefix
-	// lockedPrefix is used for storing locked objects information.
-	//  Key: container ID
-	//  Value: bucket mapping objects locked to the list of corresponding LOCK objects.
-	lockedPrefix
+	// unusedLockedPrefix was deleted in metabase version 9
+	unusedLockedPrefix
 	// shardInfoPrefix is used for storing shard ID. All keys are custom and are not connected to the container.
 	shardInfoPrefix
 

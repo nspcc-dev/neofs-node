@@ -34,9 +34,6 @@ func TestShard_Lock(t *testing.T) {
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
 		),
-		shard.WithDeletedLockCallback(func(addresses []oid.Address) {
-			sh.FreeLockedBy(addresses)
-		}),
 	}
 
 	sh = shard.New(opts...)
@@ -52,8 +49,7 @@ func TestShard_Lock(t *testing.T) {
 	objID := obj.GetID()
 
 	lock := generateObjectWithCID(cnr)
-	lock.SetType(object.TypeLock)
-	lockID := lock.GetID()
+	lock.AssociateLocked(objID)
 
 	// put the object
 
@@ -61,9 +57,6 @@ func TestShard_Lock(t *testing.T) {
 	require.NoError(t, err)
 
 	// lock the object
-
-	err = sh.Lock(cnr, lockID, []oid.ID{objID})
-	require.NoError(t, err)
 
 	err = sh.Put(lock, nil)
 	require.NoError(t, err)
@@ -113,7 +106,8 @@ func TestShard_IsLocked(t *testing.T) {
 	cnrID := obj.GetContainerID()
 	objID := obj.GetID()
 
-	lockID := oidtest.ID()
+	lock := generateObjectWithCID(cnrID)
+	lock.AssociateLocked(objID)
 
 	// put the object
 
@@ -129,7 +123,7 @@ func TestShard_IsLocked(t *testing.T) {
 
 	// locked object is locked
 
-	require.NoError(t, sh.Lock(cnrID, lockID, []oid.ID{objID}))
+	require.NoError(t, sh.Put(lock, nil))
 
 	locked, err = sh.IsLocked(objectcore.AddressOf(obj))
 	require.NoError(t, err)
@@ -171,8 +165,9 @@ func TestShard_Lock_Removed(t *testing.T) {
 	objID := obj.GetID()
 	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
 
-	lockID := oidtest.OtherID(objID)
-	lockAddr := oid.NewAddress(cnr, lockID)
+	lockObj := generateObjectWithCID(cnr)
+	lockObj.AssociateLocked(objID)
+	lockAddr := oid.NewAddress(cnr, lockObj.GetID())
 
 	tomb := obj
 	tomb.SetID(oidtest.OtherID(objID))
@@ -220,27 +215,27 @@ func TestShard_Lock_Removed(t *testing.T) {
 
 			tc.preset(t, sh)
 
-			lockErr := sh.Lock(cnr, oidtest.ID(), []oid.ID{objID})
+			lockErr := sh.Put(lockObj, nil)
 			locked, lockedErr := sh.IsLocked(objAddr)
+			lockExists, existsErr := sh.Exists(lockAddr, false)
+			_, lockGetError := sh.Get(lockAddr, false)
 
+			require.NoError(t, existsErr)
 			if tc.assertLockErr != nil {
 				tc.assertLockErr(t, lockErr)
 
 				require.NoError(t, lockedErr)
 				require.False(t, locked)
+				require.False(t, lockExists)
+				require.ErrorIs(t, lockGetError, apistatus.ErrObjectNotFound)
 			} else {
 				require.NoError(t, lockErr)
 
 				require.NoError(t, lockedErr)
+				require.NoError(t, lockGetError)
 				require.True(t, locked)
+				require.True(t, lockExists)
 			}
-
-			exists, err := sh.Exists(lockAddr, false)
-			require.NoError(t, err)
-			require.False(t, exists)
-
-			_, err = sh.Get(lockAddr, false)
-			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		})
 	}
 }

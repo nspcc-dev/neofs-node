@@ -27,6 +27,7 @@ Changelog for NeoFS Node
 - Move `persistent_sessions` data to `persistent_state` in SN (#3630)
 - More efficient write cache batching for small objects (#3414)
 - SN now indexes metadata for root objects nested twice (parents of parents) (#3674)
+- Optimized locking info in metabase (#3672)
 
 ### Removed
 - Pre-0.46.0 write cache format migration (#3647)

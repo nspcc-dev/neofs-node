@@ -168,9 +168,6 @@ func TestDB_ResolveECPart(t *testing.T) {
 		{name: "container garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.DeleteContainer(cnr))
 		}},
-		{name: "lock mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
-			require.NoError(t, db.Lock(cnr, locker.GetID(), []oid.ID{partID}))
-		}},
 		{name: "locker only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&locker))
 		}},
@@ -273,30 +270,12 @@ func TestDB_ResolveECPart(t *testing.T) {
 	}
 
 	for _, tc := range []testcase{
-		{name: "stored with garbage mark and lock mark", preset: func(t *testing.T) *meta.DB {
-			db := newDB(t)
-			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.MarkGarbage(false, false, partAddr)
-			require.NoError(t, err)
-			require.NoError(t, db.Lock(cnr, locker.GetID(), []oid.ID{partID}))
-			return db
-		}},
 		{name: "stored with garbage mark and locker", preset: func(t *testing.T) *meta.DB {
 			db := newDB(t)
 			require.NoError(t, db.Put(&partObj))
 			_, _, err := db.MarkGarbage(false, false, partAddr)
 			require.NoError(t, err)
 			require.NoError(t, db.Put(&locker))
-			return db
-		}},
-		{name: "expired with lock mark", preset: func(t *testing.T) *meta.DB {
-			partObj := partObj
-			addAttribute(&partObj, "__NEOFS__EXPIRATION_EPOCH", "123")
-
-			db := newDB(t, meta.WithEpochState(epochState{e: 124}))
-			require.NoError(t, db.Put(&partObj))
-			require.NoError(t, db.Lock(cnr, locker.GetID(), []oid.ID{partID}))
-
 			return db
 		}},
 		{name: "expired with locker", preset: func(t *testing.T) *meta.DB {

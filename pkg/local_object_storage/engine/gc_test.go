@@ -177,7 +177,6 @@ func TestGC(t *testing.T) {
 				meta.WithEpochState(es),
 			),
 			shard.WithExpiredObjectsCallback(e.processExpiredObjects),
-			shard.WithExpiredLocksCallback(e.processExpiredLocks),
 			shard.WithGCRemoverSleepInterval(100*time.Millisecond),
 		)
 		require.NoError(t, err)
