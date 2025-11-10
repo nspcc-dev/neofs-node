@@ -479,7 +479,9 @@ func testLockSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeN
 func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, typ object.Type, associate func(*object.Object, oid.ID)) {
 	target := oidtest.ID()
 
+	var verCur = version.Current()
 	var srcObj object.Object
+	srcObj.SetVersion(&verCur)
 	srcObj.SetContainerID(cidtest.ID())
 	srcObj.SetOwner(usertest.ID())
 	srcObj.SetAttributes(

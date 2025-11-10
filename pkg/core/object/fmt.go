@@ -149,8 +149,20 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 	switch obj.Type() {
 	case object.TypeStorageGroup: //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
 		return fmt.Errorf("strorage group type is no longer supported")
-	case object.TypeLock, object.TypeTombstone:
+	case object.TypeTombstone:
 		if !unprepared && version.SysObjTargetShouldBeInHeader(obj.Version()) {
+			if len(obj.Payload()) > 0 {
+				return errors.New("system object has payload")
+			}
+			if obj.AssociatedObject().IsZero() {
+				return errors.New("system object has zero associated object")
+			}
+		}
+	case object.TypeLock:
+		if !unprepared {
+			if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
+				return errors.New("obsolete LOCK object version")
+			}
 			if len(obj.Payload()) > 0 {
 				return errors.New("system object has payload")
 			}
@@ -349,38 +361,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
 		}
 
-		if version.SysObjTargetShouldBeInHeader(o.Version()) {
-			return ContentMeta{}, nil
+		if !version.SysObjTargetShouldBeInHeader(o.Version()) {
+			return ContentMeta{}, errors.New("pre-2.18 locks are no longer supported")
 		}
 
-		if len(o.Payload()) == 0 {
-			return ContentMeta{}, errors.New("empty payload in lock")
+		if len(o.Payload()) > 0 {
+			return ContentMeta{}, errors.New("non-empty payload in lock")
 		}
-
-		cnr := o.GetContainerID()
-		if cnr.IsZero() {
-			return ContentMeta{}, errors.New("missing container")
-		}
-
-		objID := o.GetID()
-		if objID.IsZero() {
-			return ContentMeta{}, errors.New("missing ID")
-		}
-
-		var lock object.Lock
-
-		err = lock.Unmarshal(o.Payload())
-		if err != nil {
-			return ContentMeta{}, fmt.Errorf("decode lock payload: %w", err)
-		}
-
-		num := lock.NumberOfMembers()
-		if num == 0 {
-			return ContentMeta{}, errors.New("missing locked members")
-		}
-
-		meta.objs = make([]oid.ID, num)
-		lock.ReadMembers(meta.objs)
 	default:
 		// ignore all other object types, they do not need payload formatting
 	}

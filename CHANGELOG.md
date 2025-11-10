@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Optimized locking info in metabase (#3672)
+- Lock objects with API <2.18 are no longer accepted (#3672)
 
 ### Removed
 
