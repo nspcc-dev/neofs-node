@@ -16,7 +16,12 @@ import (
 	"go.uber.org/zap"
 )
 
-var errPutShard = errors.New("could not put object to any shard")
+var (
+	errPutShard = errors.New("could not put object to any shard")
+
+	errOverloaded = ants.ErrPoolOverload
+	errExists     = errors.New("already exists")
+)
 
 // Put saves an object to local storage. objBin and hdrLen parameters are
 // optional and used to optimize out object marshaling, when used both must
@@ -106,11 +111,11 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 			continue
 		}
 
-		putDone, exists, over := e.putToShard(sh, i, pool, addr, obj, objBin)
-		if putDone || exists {
+		err = e.putToShard(sh, i, pool, addr, obj, objBin)
+		if err == nil || errors.Is(err, errExists) {
 			return nil
 		}
-		if over {
+		if errors.Is(err, errOverloaded) {
 			overloaded = true
 		}
 	}
@@ -138,17 +143,15 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 }
 
 // putToShard puts object to sh.
-// First return value is true iff put has been successfully done.
-// Second return value is true iff object already exists.
-// Third return value is true iff object cannot be put because of max concurrent load.
-func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) (bool, bool, bool) {
+// Returns error from shard put or errOverloaded (when shard pool can't accept
+// the task) or errExists (if object is already stored there).
+func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) error {
 	var (
 		alreadyExists bool
 		err           error
 		exitCh        = make(chan struct{})
 		id            = sh.ID()
-		overloaded    bool
-		putSuccess    bool
+		putError      error
 	)
 
 	err = pool.Submit(func() {
@@ -189,31 +192,33 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 			return
 		}
 
-		err = sh.Put(obj, objBin)
-		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
-				errors.Is(err, common.ErrNoSpace) {
+		putError = sh.Put(obj, objBin)
+		if putError != nil {
+			if errors.Is(putError, shard.ErrReadOnlyMode) || errors.Is(putError, common.ErrReadOnly) ||
+				errors.Is(putError, common.ErrNoSpace) {
 				e.log.Warn("could not put object to shard",
 					zap.Stringer("shard_id", id),
-					zap.Error(err))
+					zap.Error(putError))
 				return
 			}
 
-			e.reportShardError(sh, "could not put object to shard", err)
+			e.reportShardError(sh, "could not put object to shard", putError)
 			return
 		}
-
-		putSuccess = true
 	})
 	if err != nil {
 		e.log.Warn("object put: pool task submitting", zap.Stringer("shard", id), zap.Error(err))
-		overloaded = errors.Is(err, ants.ErrPoolOverload)
 		close(exitCh)
+		return err
 	}
 
 	<-exitCh
 
-	return putSuccess, alreadyExists, overloaded
+	if alreadyExists {
+		return errExists
+	}
+
+	return putError
 }
 
 func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) (bool, bool) {
@@ -230,14 +235,14 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool ut
 			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.objectPutTimeout))
 			return false, overloaded
 		case <-ticker.C:
-			putDone, exists, over := e.putToShard(sh, ind, pool, addr, obj, objBin)
-			if over {
+			err := e.putToShard(sh, ind, pool, addr, obj, objBin)
+			if errors.Is(err, errOverloaded) {
 				overloaded = true
 				ticker.Reset(putCooldown)
 				continue
 			}
 
-			return putDone || exists, false
+			return err == nil || errors.Is(err, errExists), false
 		}
 	}
 }
@@ -250,6 +255,7 @@ func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) er
 		ok           bool
 		allShards    = e.unsortedShards()
 		addr         = object.AddressOf(obj)
+		lastError    error
 	)
 
 	e.log.Debug("broadcasting object to all shards",
@@ -268,10 +274,10 @@ func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) er
 			continue
 		}
 
-		putDone, exists, overloaded := e.putToShard(sh, i, pool, addr, obj, objBin)
-		if putDone || exists {
+		err := e.putToShard(sh, i, pool, addr, obj, objBin)
+		if err == nil || errors.Is(err, errExists) {
 			successCount++
-			if exists {
+			if errors.Is(err, errExists) {
 				e.log.Debug("object already exists on shard during broadcast",
 					zap.Stringer("type", obj.Type()),
 					zap.Stringer("associated", obj.AssociatedObject()),
@@ -286,13 +292,19 @@ func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) er
 			}
 			continue
 		}
+		lastError = err
+		if errors.Is(err, apistatus.ErrLockNonRegularObject) ||
+			errors.Is(err, apistatus.ErrObjectLocked) ||
+			errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+			break
+		}
 
 		e.log.Warn("failed to put object on shard during broadcast",
 			zap.Stringer("type", obj.Type()),
 			zap.Stringer("shard", sh.ID()),
 			zap.Stringer("addr", addr),
 			zap.Stringer("associated", obj.AssociatedObject()),
-			zap.Bool("overloaded", overloaded))
+			zap.Error(err))
 	}
 
 	e.log.Debug("object broadcast completed",
@@ -303,7 +315,7 @@ func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) er
 		zap.Int("total_shards", len(allShards)))
 
 	if successCount == 0 {
-		return fmt.Errorf("failed to broadcast %s object to any shard", obj.Type())
+		return fmt.Errorf("failed to broadcast %s object to any shard, last error: %w", obj.Type(), lastError)
 	}
 
 	return nil
