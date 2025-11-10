@@ -224,19 +224,6 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 				}
 				return fmt.Errorf("could not inhume [%s] objects: %w", oidsToString(memberIDs), err)
 			}
-		case objectSDK.TypeLock:
-			var lock objectSDK.Lock
-			if err := lock.Unmarshal(obj.Payload()); err != nil {
-				return fmt.Errorf("could not unmarshal lock content: %w", err)
-			}
-
-			locked := make([]oid.ID, lock.NumberOfMembers())
-			lock.ReadMembers(locked)
-
-			err := s.metaBase.Lock(obj.GetContainerID(), obj.GetID(), locked)
-			if err != nil {
-				return fmt.Errorf("could not lock [%s] objects: %w", oidsToString(locked), err)
-			}
 		}
 	}
 

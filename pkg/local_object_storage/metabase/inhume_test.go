@@ -89,7 +89,9 @@ func TestInhumeLocked(t *testing.T) {
 
 	locked := oidtest.Address()
 
-	err := db.Lock(locked.Container(), oidtest.ID(), []oid.ID{locked.Object()})
+	locker := generateObjectWithCID(t, locked.Container())
+	locker.AssociateLocked(locked.Object())
+	err := db.Put(locker)
 	require.NoError(t, err)
 
 	_, _, err = db.MarkGarbage(false, false, locked)

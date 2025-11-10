@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/bbolt"
+	berrors "github.com/nspcc-dev/bbolt/errors"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -24,7 +26,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 8
+const currentMetaVersion = 9
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -54,6 +56,7 @@ var (
 		5: migrateFrom5Version,
 		6: migrateFrom6Version,
 		7: migrateFrom7Version,
+		8: migrateFrom8Version,
 	}
 
 	versionKey = []byte("version")
@@ -676,4 +679,19 @@ func fixGarbageBucketKeys(log *zap.Logger, tx *bbolt.Tx, garbageBkt *bbolt.Bucke
 	}
 
 	return nil
+}
+
+func migrateFrom8Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		var (
+			err            error
+			obsoleteBucket = []byte{unusedLockedPrefix}
+		)
+
+		err = tx.DeleteBucket(obsoleteBucket)
+		if err != nil && !errors.Is(err, berrors.ErrBucketNotFound) {
+			return fmt.Errorf("deleting locked bucket: %w", err)
+		}
+		return updateVersion(tx, 9)
+	})
 }

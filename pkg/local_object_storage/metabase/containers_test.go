@@ -9,7 +9,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -222,10 +221,6 @@ func TestDB_DeleteContainer(t *testing.T) {
 		o2 := objecttest.Object()
 		o2.SetContainerID(cID)
 		err = putBig(db, &o2)
-		require.NoError(t, err)
-
-		// lockers
-		err = db.Lock(cID, oidtest.ID(), []oid.ID{oidtest.ID()})
 		require.NoError(t, err)
 
 		// TS

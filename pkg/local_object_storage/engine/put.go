@@ -76,17 +76,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 
 		// Broadcast tombstone object to ALL shards to ensure availability everywhere
 		return e.broadcastObject(obj, objBin)
-	case objectSDK.TypeLock:
-		locked := obj.AssociatedObject()
-		if !locked.IsZero() {
-			if err := e.lock(addr.Container(), addr.Object(), locked); err != nil {
-				return err
-			}
-		}
-
-		// Broadcast lock object to ALL shards to ensure availability everywhere
-		return e.broadcastObject(obj, objBin)
-	case objectSDK.TypeLink:
+	case objectSDK.TypeLock, objectSDK.TypeLink:
 		// Broadcast object to ALL shards to ensure availability everywhere.
 		return e.broadcastObject(obj, objBin)
 	default:

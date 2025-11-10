@@ -234,17 +234,11 @@ func TestDB_GetContainer(t *testing.T) {
 	err = putBig(db, o3)
 	require.NoError(t, err)
 
-	o4 := generateObjectWithCID(t, cID) // 4, lock object
-	o4.SetType(objectSDK.TypeLock)
-	err = metaPut(db, o4)
-	require.NoError(t, err)
-
 	o5 := oidtest.ID()
-	o6 := oidtest.ID()
 
-	id4 := o4.GetID()
-
-	err = db.Lock(cID, id4, []oid.ID{o5, o6}) // locked object have not been put to meta, no new objects
+	o4 := generateObjectWithCID(t, cID) // 4, lock object
+	o4.AssociateLocked(o5)
+	err = metaPut(db, o4)
 	require.NoError(t, err)
 
 	// TS

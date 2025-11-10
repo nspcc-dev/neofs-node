@@ -46,7 +46,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	var sh *shard.Shard
 
 	epoch := &epochState{
-		Value: 10,
+		Value: 2,
 	}
 
 	rootPath := t.TempDir()
@@ -59,15 +59,8 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epoch),
 		),
-		shard.WithDeletedLockCallback(func(aa []oid.Address) {
-			unlocked := sh.FreeLockedBy(aa)
-			expired := sh.FilterExpired(unlocked)
-			require.NoError(t, sh.Delete(expired))
-		}),
-		shard.WithExpiredLocksCallback(func(aa []oid.Address) {
-			unlocked := sh.FreeLockedBy(aa)
-			expired := sh.FilterExpired(unlocked)
-			require.NoError(t, sh.Delete(append(aa, expired...)))
+		shard.WithExpiredObjectsCallback(func(aa []oid.Address) {
+			require.NoError(t, sh.Delete(aa))
 		}),
 		shard.WithGCRemoverSleepInterval(200 * time.Millisecond),
 		shard.WithContainerPayments(&testContainerPayments{}),
@@ -83,28 +76,28 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 
 	cnr := cidtest.ID()
 
-	var expAttr object.Attribute
-	expAttr.SetKey(object.AttributeExpirationEpoch)
-	expAttr.SetValue("1")
+	var expAttrObj, expAttrLocker object.Attribute
+	expAttrObj.SetKey(object.AttributeExpirationEpoch)
+	expAttrLocker.SetKey(object.AttributeExpirationEpoch)
+	expAttrObj.SetValue("1")
 
 	obj := generateObjectWithCID(cnr)
-	obj.SetAttributes(expAttr)
+	obj.SetAttributes(expAttrObj)
 	objID := obj.GetID()
 
-	expAttr.SetValue("3")
+	expAttrLocker.SetValue("3")
 
 	lock := generateObjectWithCID(cnr)
-	lock.SetType(object.TypeLock)
-	lock.SetAttributes(expAttr)
-	lockID := lock.GetID()
+	lock.SetAttributes(expAttrLocker)
+	lock.AssociateLocked(objID)
 
 	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
-	err = sh.Lock(cnr, lockID, []oid.ID{objID})
+	err = sh.Put(lock, nil)
 	require.NoError(t, err)
 
-	err = sh.Put(lock, nil)
+	_, err = sh.Get(objectCore.AddressOf(obj), false)
 	require.NoError(t, err)
 
 	epoch.Value = 5
@@ -112,8 +105,16 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		_, err = sh.Get(objectCore.AddressOf(obj), false)
+		return shard.IsErrObjectExpired(err)
+	}, 3*time.Second, 1*time.Second, "lock expiration should make the object expired")
+
+	epoch.Value = 6
+	sh.NotificationChannel() <- shard.EventNewEpoch(epoch.Value)
+
+	require.Eventually(t, func() bool {
+		_, err = sh.Get(objectCore.AddressOf(obj), false)
 		return shard.IsErrNotFound(err)
-	}, 3*time.Second, 1*time.Second, "lock expiration should free object removal")
+	}, 3*time.Second, 1*time.Second, "expired object should eventually be deleted")
 }
 
 func TestGC_ContainerCleanup(t *testing.T) {

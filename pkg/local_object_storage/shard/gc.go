@@ -197,7 +197,6 @@ func (s *Shard) collectExpiredObjects() {
 
 	var (
 		toDeleteTombstones []oid.Address
-		expiredLocks       []oid.Address
 		expiredObjects     []oid.Address
 	)
 	log := s.log.With(zap.Uint64("epoch", epoch))
@@ -214,8 +213,6 @@ func (s *Shard) collectExpiredObjects() {
 		switch expiredObject.Type() {
 		case object.TypeTombstone:
 			toDeleteTombstones = append(toDeleteTombstones, expiredObject.Address())
-		case object.TypeLock:
-			expiredLocks = append(expiredLocks, expiredObject.Address())
 		default:
 			expiredObjects = append(expiredObjects, expiredObject.Address())
 		}
@@ -230,11 +227,6 @@ func (s *Shard) collectExpiredObjects() {
 	}
 	if collected == 0 {
 		s.gc.processedEpoch.Store(epoch)
-	}
-
-	log.Debug("collected expired locks", zap.Int("num", len(expiredLocks)))
-	if len(expiredLocks) > 0 && s.expiredLocksCallback != nil {
-		s.expiredLocksCallback(expiredLocks)
 	}
 
 	log.Debug("collected expired tombstones", zap.Int("num", len(toDeleteTombstones)))
@@ -252,25 +244,6 @@ func (s *Shard) collectExpiredObjects() {
 		s.expiredObjectsCallback(expiredObjects)
 	}
 	log.Debug("finished expired objects handling")
-}
-
-// FreeLockedBy unlocks all objects which were locked by lockers.
-// Returns every object that is unlocked.
-func (s *Shard) FreeLockedBy(lockers []oid.Address) []oid.Address {
-	if s.GetMode().NoMetabase() {
-		return nil
-	}
-
-	unlocked, err := s.metaBase.FreeLockedBy(lockers)
-	if err != nil {
-		s.log.Warn("failure to unlock objects",
-			zap.Error(err),
-		)
-
-		return nil
-	}
-
-	return unlocked
 }
 
 // FilterExpired filters expired objects by address through the metabase and returns them.

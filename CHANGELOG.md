@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - IR using netmap contract to store IR node list instead of RoleManagement (#3707)
 
 ### Changed
+- Optimized locking info in metabase (#3672)
 
 ### Removed
 

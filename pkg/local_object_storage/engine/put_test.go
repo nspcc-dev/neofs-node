@@ -94,8 +94,6 @@ func testPutLock(t *testing.T, shardNum int) {
 	)
 	tomb.AssociateDeleted(objID)
 
-	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
-
 	t.Run("non-regular target", func(t *testing.T) {
 		for _, typ := range []objectSDK.Type{
 			objectSDK.TypeTombstone,
@@ -190,19 +188,6 @@ func testPutLock(t *testing.T, shardNum int) {
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
-		{name: "with target and tombstone mark", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
-			err := s.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
-		{name: "tombstone mark without target", preset: func(t *testing.T, s *StorageEngine) {
-			err := s.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
 
@@ -292,19 +277,6 @@ func testPutTombstone(t *testing.T, shardNum int) {
 		}},
 		{name: "lock without target", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&lock, nil))
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
-		}},
-		{name: "with target and lock mark", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
-			err := s.Lock(obj.GetContainerID(), lock.GetID(), []oid.ID{objID})
-			require.NoError(t, err)
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
-		}},
-		{name: "lock mark without target", preset: func(t *testing.T, s *StorageEngine) {
-			err := s.Lock(obj.GetContainerID(), lock.GetID(), []oid.ID{objID})
-			require.NoError(t, err)
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
 		}},
