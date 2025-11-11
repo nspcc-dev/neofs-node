@@ -173,9 +173,7 @@ func TestLockForceRemoval(t *testing.T) {
 	//   3. try to remove lock object and get error
 	//   4. force lock object removal
 	//   5. the object is not locked anymore
-	var e *StorageEngine
-
-	e = testEngineFromShardOpts(t, 2, []shard.Option{
+	var e = testEngineFromShardOpts(t, 2, []shard.Option{
 		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
 
