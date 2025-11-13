@@ -43,7 +43,7 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, obj, nil, currEpoch)
+		return db.put(tx, obj, false, currEpoch)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -56,12 +56,10 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 
 func (db *DB) put(
 	tx *bbolt.Tx, obj *objectSDK.Object,
-	si *objectSDK.SplitInfo, currEpoch uint64) error {
+	isParent bool, currEpoch uint64) error {
 	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
-
-	isParent := si != nil
 
 	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch)
 
@@ -78,12 +76,12 @@ func (db *DB) put(
 		var par = obj.Parent()
 
 		if par != nil && !par.GetID().IsZero() { // skip the first object without useful info
-			parentSI, err := splitInfoFromObject(obj)
+			_, err := splitInfoFromObject(obj)
 			if err != nil {
 				return err
 			}
 
-			err = db.put(tx, par, parentSI, currEpoch)
+			err = db.put(tx, par, true, currEpoch)
 			if err != nil {
 				return err
 			}
