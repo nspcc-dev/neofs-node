@@ -51,9 +51,7 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 	return err
 }
 
-func (db *DB) put(
-	tx *bbolt.Tx, obj *objectSDK.Object,
-	nestingLevel int, currEpoch uint64) error {
+func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, nestingLevel int, currEpoch uint64) error {
 	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
