@@ -6,6 +6,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -65,5 +67,19 @@ func TestDB_Put_Nested(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, exists)
 		}
+	}
+
+	_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), 0, false, oid.NewAddress(cnr, ids[0]))
+	require.NoError(t, err)
+
+	for i := range ids {
+		var filters object.SearchFilters
+		assertSearchResultWithLimit(t, db, cnr, filters, []string{}, []client.SearchResultItem{}, 1000)
+
+		filters.AddFilter(nestingLevelAttribute, strconv.Itoa(i), object.MatchStringEqual)
+		assertSearchResultWithLimit(t, db, cnr, filters, []string{}, []client.SearchResultItem{}, 1000)
+
+		_, err := db.Exists(oid.NewAddress(cnr, ids[i]), false)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	}
 }

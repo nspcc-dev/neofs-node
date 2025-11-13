@@ -189,36 +189,3 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 		}
 	}
 }
-
-func collectECParts(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, parentID oid.ID) ([]oid.ID, error) {
-	var res []oid.ID
-
-	parentPrefix := getParentMetaOwnersPrefix(parentID)
-
-	ecAttrPrefix := make([]byte, 1+oid.Size+len(iec.AttributePrefix))
-	ecAttrPrefix[0] = metaPrefixIDAttr
-	copy(ecAttrPrefix[1+oid.Size:], iec.AttributePrefix)
-
-	var partCrs *bbolt.Cursor
-	for k, _ := cnrMetaCrs.Seek(parentPrefix); ; k, _ = cnrMetaCrs.Next() {
-		partID, ok := bytes.CutPrefix(k, parentPrefix)
-		if !ok {
-			break
-		}
-		if len(partID) != oid.Size {
-			return nil, invalidMetaBucketKeyErr(k, fmt.Errorf("invalid OID len %d", len(partID)))
-		}
-
-		if partCrs == nil {
-			partCrs = cnrMetaBkt.Cursor()
-		}
-
-		copy(ecAttrPrefix[1:], partID)
-
-		if k, _ := partCrs.Seek(ecAttrPrefix); bytes.HasPrefix(k, ecAttrPrefix) {
-			res = append(res, oid.ID(partID))
-		}
-	}
-
-	return res, nil
-}
