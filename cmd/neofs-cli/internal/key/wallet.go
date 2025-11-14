@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -52,7 +51,7 @@ func FromWallet(cmd *cobra.Command, w *wallet.Wallet, addrStr string) (*ecdsa.Pr
 		return nil, ErrInvalidPassword
 	}
 
-	if err := acc.Decrypt(pass, keys.NEP2ScryptParams()); err != nil {
+	if err := acc.Decrypt(pass, w.Scrypt); err != nil {
 		common.PrintVerbose(cmd, "Can't decrypt account: %v", err)
 		return nil, ErrInvalidPassword
 	}

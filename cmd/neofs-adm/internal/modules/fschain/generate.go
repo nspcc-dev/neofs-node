@@ -119,7 +119,7 @@ func addMultisigAccount(w *wallet.Wallet, m int, name, password string, pubs key
 	if err := acc.ConvertMultisig(m, pubs); err != nil {
 		return err
 	}
-	if err := acc.Encrypt(password, keys.NEP2ScryptParams()); err != nil {
+	if err := acc.Encrypt(password, w.Scrypt); err != nil {
 		return err
 	}
 	w.AddAccount(acc)

@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
@@ -263,7 +262,7 @@ func unlockWallet(w *wallet.Wallet, accAddr util.Uint160) (*wallet.Account, erro
 		return nil, fmt.Errorf("failed to read account password: %w", err)
 	}
 
-	err = acc.Decrypt(pass, keys.NEP2ScryptParams())
+	err = acc.Decrypt(pass, w.Scrypt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unlock the account with password: %w", err)
 	}

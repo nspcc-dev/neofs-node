@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
@@ -54,7 +53,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't get password: %w", err)
 	}
 
-	err = acc.Decrypt(pass, keys.NEP2ScryptParams())
+	err = acc.Decrypt(pass, w.Scrypt)
 	if err != nil {
 		return fmt.Errorf("can't unlock account: %w", err)
 	}

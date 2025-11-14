@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -34,7 +33,7 @@ func LoadAccount(path, addr, password string) (*wallet.Account, error) {
 		return nil, errors.New("account is missing")
 	}
 
-	if err := acc.Decrypt(password, keys.NEP2ScryptParams()); err != nil {
+	if err := acc.Decrypt(password, w.Scrypt); err != nil {
 		return nil, err
 	}
 

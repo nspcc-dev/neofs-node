@@ -370,7 +370,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	var consensusAcc *wallet.Account
 
 	for i := range wlt.Accounts {
-		err = wlt.Accounts[i].Decrypt(walletPass, keys.NEP2ScryptParams())
+		err = wlt.Accounts[i].Decrypt(walletPass, wlt.Scrypt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt account '%s' (%s) in wallet '%s': %w", wlt.Accounts[i].Label, cfg.Wallet.Address, walletPath, err)
 		}
