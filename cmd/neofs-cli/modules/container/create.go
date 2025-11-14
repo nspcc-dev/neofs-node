@@ -213,27 +213,27 @@ func parseContainerPolicy(cmd *cobra.Command, policyString string) (*netmap.Plac
 
 func parseAttributes(dst *container.Container, attributes []string) error {
 	for i := range attributes {
-		kvPair := strings.Split(attributes[i], attributeDelimiter)
-		if len(kvPair) != 2 {
+		k, v, found := strings.Cut(attributes[i], attributeDelimiter)
+		if !found {
 			return errors.New("invalid container attribute")
 		}
 
-		if kvPair[0] == "Timestamp" && !containerNoTimestamp {
+		if k == "Timestamp" && !containerNoTimestamp {
 			return errors.New("can't override default timestamp attribute, use '--disable-timestamp' flag")
 		}
 
-		if kvPair[0] == "Name" && containerName != "" && kvPair[1] != containerName {
+		if k == "Name" && containerName != "" && v != containerName {
 			return errors.New("name from the '--name' flag and the 'Name' attribute are not equal, " +
 				"you need to use one of them or make them equal")
 		}
 
-		if kvPair[0] == "" {
+		if k == "" {
 			return errors.New("empty attribute key")
-		} else if kvPair[1] == "" {
-			return fmt.Errorf("empty attribute value for key %s", kvPair[0])
+		} else if v == "" {
+			return fmt.Errorf("empty attribute value for key %s", k)
 		}
 
-		dst.SetAttribute(kvPair[0], kvPair[1])
+		dst.SetAttribute(k, v)
 	}
 
 	if !containerNoTimestamp {

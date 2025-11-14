@@ -63,12 +63,12 @@ func notaryRequest(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid number of args provided for 'setConfig', expected 1, got %d", len(args))
 		}
 
-		kv := strings.SplitN(args[0], "=", 2)
-		if len(kv) != 2 {
+		k, v, found := strings.Cut(args[0], "=")
+		if !found {
 			return fmt.Errorf("invalid parameter format: must be 'key=val', got: %s", args[0])
 		}
 
-		body.SetArgs([][]byte{[]byte(kv[0]), []byte(kv[1])})
+		body.SetArgs([][]byte{[]byte(k), []byte(v)})
 	case "removeNode":
 		if len(args) != 1 {
 			return fmt.Errorf("invalid number of args provided for 'removeNode', expected 1, got %d", len(args))

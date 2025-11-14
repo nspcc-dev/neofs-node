@@ -82,12 +82,12 @@ func ParseXHeaders(cmd *cobra.Command) []string {
 	xs := make([]string, 0, 2*len(xHeaders))
 
 	for i := range xHeaders {
-		kv := strings.SplitN(xHeaders[i], "=", 2)
-		if len(kv) != 2 {
+		k, v, found := strings.Cut(xHeaders[i], "=")
+		if !found {
 			panic(fmt.Errorf("invalid X-Header format: %s", xHeaders[i]))
 		}
 
-		xs = append(xs, kv[0], kv[1])
+		xs = append(xs, k, v)
 	}
 
 	return xs

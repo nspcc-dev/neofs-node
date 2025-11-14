@@ -238,21 +238,22 @@ func parseEACLRecord(args []string) (eacl.Record, error) {
 	var targets []eacl.Target
 
 	for i := range args {
-		ss := strings.SplitN(args[i], ":", 2)
+		prefix, arg, hasArg := strings.Cut(args[i], ":")
+		prefix = strings.ToLower(prefix)
 
-		switch prefix := strings.ToLower(ss[0]); prefix {
+		switch prefix {
 		case "req", "obj": // filters
-			if len(ss) != 2 {
+			if !hasArg {
 				return eacl.Record{}, fmt.Errorf("invalid filter or target: %s", args[i])
 			}
 
-			key, value, op, err := parseKVWithOp(ss[1])
+			key, value, op, err := parseKVWithOp(arg)
 			if err != nil {
-				return eacl.Record{}, fmt.Errorf("invalid filter key-value pair %s: %w", ss[1], err)
+				return eacl.Record{}, fmt.Errorf("invalid filter key-value pair %s: %w", arg, err)
 			}
 
 			typ := eacl.HeaderFromRequest
-			if ss[0] == "obj" {
+			if prefix == "obj" {
 				typ = eacl.HeaderFromObject
 			}
 
@@ -270,18 +271,18 @@ func parseEACLRecord(args []string) (eacl.Record, error) {
 				accounts []user.ID
 			)
 
-			if len(ss) != 2 {
+			if !hasArg {
 				return eacl.Record{}, fmt.Errorf("invalid address: %s", args[i])
 			}
 
-			accounts, err = parseAccountList(ss[1])
+			accounts, err = parseAccountList(arg)
 			if err != nil {
 				return eacl.Record{}, err
 			}
 
 			targets = append(targets, eacl.NewTargetByAccounts(accounts))
 		default:
-			return eacl.Record{}, fmt.Errorf("invalid prefix: %s", ss[0])
+			return eacl.Record{}, fmt.Errorf("invalid prefix: %s", prefix)
 		}
 	}
 

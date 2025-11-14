@@ -26,23 +26,23 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 
 	b := smartcontract.NewBuilder()
 	for i := range args {
-		kv := strings.SplitN(args[i], "=", 2)
-		if len(kv) != 2 {
+		k, v, found := strings.Cut(args[i], "=")
+		if !found {
 			return errors.New("invalid parameter format, must be Parameter=Value")
 		}
 
-		switch kv[0] {
+		switch k {
 		case execFeeParam, storagePriceParam, setFeeParam:
 		default:
 			return fmt.Errorf("parameter must be one of %s, %s and %s", execFeeParam, storagePriceParam, setFeeParam)
 		}
 
-		value, err := strconv.ParseUint(kv[1], 10, 32)
+		value, err := strconv.ParseUint(v, 10, 32)
 		if err != nil {
-			return fmt.Errorf("can't parse parameter value '%s': %w", args[1], err)
+			return fmt.Errorf("can't parse parameter value '%s': %w", v, err)
 		}
 
-		b.InvokeMethod(policy.Hash, "set"+kv[0], int64(value))
+		b.InvokeMethod(policy.Hash, "set"+k, int64(value))
 	}
 
 	script, err := b.Script()
