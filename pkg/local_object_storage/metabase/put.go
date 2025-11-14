@@ -9,7 +9,6 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -18,9 +17,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-var (
-	ErrIncorrectRootObject = errors.New("invalid root object")
-)
+const maxObjectNestingLevel = 2
 
 // Put updates metabase indexes for the given object.
 //
@@ -43,7 +40,7 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, obj, nil, currEpoch)
+		return db.put(tx, obj, 0, currEpoch)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -54,19 +51,15 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 	return err
 }
 
-func (db *DB) put(
-	tx *bbolt.Tx, obj *objectSDK.Object,
-	si *objectSDK.SplitInfo, currEpoch uint64) error {
+func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, nestingLevel int, currEpoch uint64) error {
 	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
 
-	isParent := si != nil
-
-	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch)
+	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch, false)
 
 	switch {
-	case exists || errors.Is(err, ierrors.ErrParentObject):
+	case exists:
 		return nil
 	case errors.As(err, &apistatus.ObjectNotFound{}):
 		// OK, we're putting here.
@@ -74,21 +67,20 @@ func (db *DB) put(
 		return err // return any other errors
 	}
 
-	if !isParent {
-		var par = obj.Parent()
+	var par = obj.Parent()
 
-		if par != nil && !par.GetID().IsZero() { // skip the first object without useful info
-			parentSI, err := splitInfoFromObject(obj)
-			if err != nil {
-				return err
-			}
-
-			err = db.put(tx, par, parentSI, currEpoch)
-			if err != nil {
-				return err
-			}
+	if par != nil && !par.GetID().IsZero() { // skip the first object without useful info
+		if nestingLevel == maxObjectNestingLevel {
+			return fmt.Errorf("max object nesting level %d overflow", maxObjectNestingLevel)
 		}
 
+		err = db.put(tx, par, nestingLevel+1, currEpoch)
+		if err != nil {
+			return err
+		}
+	}
+
+	if nestingLevel == 0 {
 		// update container volume size estimation
 		if obj.Type() == objectSDK.TypeRegular {
 			err = changeContainerInfo(tx, obj.GetContainerID(), int(obj.PayloadSize()), 1)
@@ -115,7 +107,7 @@ func (db *DB) put(
 		return err
 	}
 
-	if err := PutMetadataForObject(tx, *obj, !isParent); err != nil {
+	if err := PutMetadataForObject(tx, *obj, nestingLevel == 0); err != nil {
 		return fmt.Errorf("put metadata: %w", err)
 	}
 
@@ -251,74 +243,4 @@ func getVarUint(data []byte) (uint64, int, error) {
 	default:
 		return uint64(b), 1, nil
 	}
-}
-
-// splitInfoFromObject returns split info based on last or linkin object.
-// Otherwise, returns nil, nil.
-func splitInfoFromObject(obj *objectSDK.Object) (*objectSDK.SplitInfo, error) {
-	if obj.Parent() == nil {
-		return nil, nil
-	}
-
-	info := objectSDK.NewSplitInfo()
-	info.SetSplitID(obj.SplitID())
-
-	if firstID, set := obj.FirstID(); set {
-		info.SetFirstPart(firstID)
-	}
-
-	switch {
-	case isLinkObject(obj):
-		id := obj.GetID()
-		if id.IsZero() {
-			return nil, errors.New("missing object ID")
-		}
-
-		info.SetLink(id)
-	case isLastObject(obj):
-		id := obj.GetID()
-		if id.IsZero() {
-			return nil, errors.New("missing object ID")
-		}
-
-		info.SetLastPart(id)
-	default:
-		return nil, ErrIncorrectRootObject // should never happen
-	}
-
-	return info, nil
-}
-
-// isLinkObject returns true if
-// V1: object contains parent header and list
-// of children
-// V2: object is LINK typed.
-func isLinkObject(obj *objectSDK.Object) bool {
-	// V2 split
-	if obj.Type() == objectSDK.TypeLink {
-		return true
-	}
-
-	// V1 split
-	return len(obj.Children()) > 0 && obj.Parent() != nil
-}
-
-// isLastObject returns true if an object has parent and
-// V1: object has children in the object's header
-// V2: there is no split ID, object's type is LINK, and it has first part's ID.
-func isLastObject(obj *objectSDK.Object) bool {
-	par := obj.Parent()
-	if par == nil {
-		return false
-	}
-
-	_, hasFirstObjID := obj.FirstID()
-
-	// V2 split
-	if obj.SplitID() == nil && (obj.Type() != objectSDK.TypeLink && hasFirstObjID) {
-		return true
-	}
-
-	// V1 split
-	return len(obj.Children()) == 0
 }

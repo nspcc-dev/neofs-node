@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - Move `contracts` into `mainnet.contracts` in IR config (#3619)
 - Move `persistent_sessions` data to `persistent_state` in SN (#3630)
 - More efficient write cache batching for small objects (#3414)
+- SN now indexes metadata for root objects nested twice (parents of parents) (#3674)
 
 ### Removed
 - Pre-0.46.0 write cache format migration (#3647)

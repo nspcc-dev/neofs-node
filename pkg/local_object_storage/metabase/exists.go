@@ -54,7 +54,7 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		exists, err = db.exists(tx, addr, currEpoch)
+		exists, err = db.exists(tx, addr, currEpoch, true)
 
 		return err
 	})
@@ -62,10 +62,10 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	return exists, err
 }
 
-// If referenced object is a parent of some stored objects, exists returns [ParentError] wrapping:
+// If checkParent is set and referenced object is a parent of some stored objects, exists returns [ParentError] wrapping:
 // - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
 // - [ErrParts] if object is EC.
-func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, error) {
+func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkParent bool) (bool, error) {
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
@@ -95,16 +95,18 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, er
 		id        = addr.Object()
 	)
 
-	err := getParentInfo(metaBucket, metaCursor, cnr, id)
-	if err != nil {
-		if errors.Is(err, ierrors.ErrParentObject) {
-			return false, logicerr.Wrap(err)
+	if checkParent {
+		err := getParentInfo(metaBucket, metaCursor, cnr, id)
+		if err != nil {
+			if errors.Is(err, ierrors.ErrParentObject) {
+				return false, logicerr.Wrap(err)
+			}
+			return false, err
 		}
-		return false, err
 	}
 
 	fillIDTypePrefix(objKeyBuf)
-	_, err = fetchTypeForID(metaCursor, objKeyBuf, id)
+	_, err := fetchTypeForID(metaCursor, objKeyBuf, id)
 	return err == nil, nil
 }
 

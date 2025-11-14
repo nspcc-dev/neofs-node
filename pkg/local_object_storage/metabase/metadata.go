@@ -446,3 +446,36 @@ func resolveContainerByOID(tx *bbolt.Tx, metaOIDKey []byte) (cid.ID, error) {
 
 	return res, err
 }
+
+func collectChildren(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, parentID oid.ID) ([]oid.ID, error) {
+	var res []oid.ID
+
+	parentPrefix := getParentMetaOwnersPrefix(parentID)
+
+	var partCrs *bbolt.Cursor
+	for k, _ := cnrMetaCrs.Seek(parentPrefix); ; k, _ = cnrMetaCrs.Next() {
+		partID, ok := bytes.CutPrefix(k, parentPrefix)
+		if !ok {
+			break
+		}
+		if len(partID) != oid.Size {
+			return nil, invalidMetaBucketKeyErr(k, fmt.Errorf("invalid OID len %d", len(partID)))
+		}
+
+		if partCrs == nil {
+			partCrs = cnrMetaBkt.Cursor()
+		}
+
+		id := oid.ID(partID)
+
+		parts, err := collectChildren(cnrMetaBkt, partCrs, id)
+		if err != nil {
+			return nil, fmt.Errorf("collect for child %s: %w", id, err)
+		}
+
+		res = append(res, parts...)
+		res = append(res, id)
+	}
+
+	return res, nil
+}
