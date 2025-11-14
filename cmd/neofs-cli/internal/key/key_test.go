@@ -35,12 +35,12 @@ func Test_getOrGenerate(t *testing.T) {
 
 	acc1, err := wallet.NewAccount()
 	require.NoError(t, err)
-	require.NoError(t, acc1.Encrypt("pass", keys.NEP2ScryptParams()))
+	require.NoError(t, acc1.Encrypt("pass", w.Scrypt))
 	w.AddAccount(acc1)
 
 	acc2, err := wallet.NewAccount()
 	require.NoError(t, err)
-	require.NoError(t, acc2.Encrypt("pass", keys.NEP2ScryptParams()))
+	require.NoError(t, acc2.Encrypt("pass", w.Scrypt))
 	acc2.Default = true
 	w.AddAccount(acc2)
 	require.NoError(t, w.Save())

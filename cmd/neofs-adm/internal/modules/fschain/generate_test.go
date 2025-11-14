@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -67,7 +66,7 @@ func TestGenerateAlphabet(t *testing.T) {
 		require.NoError(t, err, "wallet doesn't exist")
 		require.Equal(t, 3, len(w.Accounts), "not all accounts were created")
 		for _, a := range w.Accounts {
-			err := a.Decrypt(strconv.FormatUint(i, 10), keys.NEP2ScryptParams())
+			err := a.Decrypt(strconv.FormatUint(i, 10), w.Scrypt)
 			require.NoError(t, err, "can't decrypt account")
 			switch a.Label {
 			case consensusAccountName:
@@ -118,7 +117,7 @@ func TestCreateWallets(t *testing.T) {
 		require.NoError(t, err)
 
 		acc := w.GetAccount(hashes[i])
-		require.NoError(t, acc.Decrypt(password, keys.NEP2ScryptParams()))
+		require.NoError(t, acc.Decrypt(password, w.Scrypt))
 
 		require.Equal(t, label, acc.Label)
 	}

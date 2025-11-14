@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
@@ -145,7 +144,7 @@ func openAlphabetWallets(v *viper.Viper, walletDir string) ([]*wallet.Wallet, er
 		}
 
 		for i := range w.Accounts {
-			if err := w.Accounts[i].Decrypt(password, keys.NEP2ScryptParams()); err != nil {
+			if err := w.Accounts[i].Decrypt(password, w.Scrypt); err != nil {
 				return nil, fmt.Errorf("can't unlock wallet: %w", err)
 			}
 		}

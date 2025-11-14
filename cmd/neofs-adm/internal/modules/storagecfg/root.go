@@ -19,7 +19,6 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
@@ -140,7 +139,7 @@ func storageConfig(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = acc.Decrypt(c.Wallet.Password, keys.NEP2ScryptParams())
+	err = acc.Decrypt(c.Wallet.Password, w.Scrypt)
 	if err != nil {
 		return err
 	}

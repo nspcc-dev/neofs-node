@@ -145,7 +145,7 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to read account password: %w", err)
 	}
 
-	err = acc.Decrypt(pass, keys.NEP2ScryptParams())
+	err = acc.Decrypt(pass, w.Scrypt)
 	if err != nil {
 		return fmt.Errorf("failed to unlock the account with password: %w", err)
 	}

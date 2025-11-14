@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Split object with link not found stuck in GC cycle (#3653)
 - Quotas TTL (#3665)
 - SN load reporting race (#3652)
+- Incompatibility with wallets using non-standard scrypt parameters (#3675)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)
