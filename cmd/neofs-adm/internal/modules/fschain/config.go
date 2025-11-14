@@ -142,13 +142,10 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 }
 
 func parseConfigPair(kvStr string, force bool) (key string, val any, err error) {
-	kv := strings.SplitN(kvStr, "=", 2)
-	if len(kv) != 2 {
+	key, valRaw, found := strings.Cut(kvStr, "=")
+	if !found {
 		return "", nil, fmt.Errorf("invalid parameter format: must be 'key=val', got: %s", kvStr)
 	}
-
-	key = kv[0]
-	valRaw := kv[1]
 
 	switch key {
 	case netmapBasicIncomeRateKey,
@@ -163,7 +160,7 @@ func parseConfigPair(kvStr string, force bool) (key string, val any, err error) 
 	case netmapEigenTrustAlphaKey:
 		// just check that it could
 		// be parsed correctly
-		_, err = strconv.ParseFloat(kv[1], 64)
+		_, err = strconv.ParseFloat(valRaw, 64)
 		if err != nil {
 			err = fmt.Errorf("invalid value for %s key, expected float, got '%s'", key, valRaw)
 		}

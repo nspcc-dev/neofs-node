@@ -218,36 +218,36 @@ func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribu
 
 	attrs := make([]object.Attribute, len(rawAttrs), len(rawAttrs)+3) // name + timestamp + expiration epoch attributes
 	for i := range rawAttrs {
-		kv := strings.SplitN(rawAttrs[i], "=", 2)
-		if len(kv) != 2 {
+		k, v, found := strings.Cut(rawAttrs[i], "=")
+		if !found {
 			return nil, fmt.Errorf("invalid attribute format: %s", rawAttrs[i])
 		}
 
-		if kv[0] == object.AttributeTimestamp && !disableTime {
+		if k == object.AttributeTimestamp && !disableTime {
 			return nil, errors.New("can't override default timestamp attribute, use '--disable-timestamp' flag")
 		}
 
-		if kv[0] == object.AttributeFileName && !disableFilename {
+		if k == object.AttributeFileName && !disableFilename {
 			return nil, errors.New("can't override default filename attribute, use '--disable-filename' flag")
 		}
 
-		if kv[0] == object.AttributeExpirationEpoch {
+		if k == object.AttributeExpirationEpoch {
 			expAttrFound = true
 
-			if expiresOn > 0 && kv[1] != expAttrValue {
+			if expiresOn > 0 && v != expAttrValue {
 				return nil, errors.New("the value of the expiration attribute and the value from '--expire-at' or '--lifetime' flags are not equal, " +
 					"you need to use one of them or make them equal")
 			}
 		}
 
-		if kv[0] == "" {
+		if k == "" {
 			return nil, errors.New("empty attribute key")
-		} else if kv[1] == "" {
-			return nil, fmt.Errorf("empty attribute value for key %s", kv[0])
+		} else if v == "" {
+			return nil, fmt.Errorf("empty attribute value for key %s", k)
 		}
 
-		attrs[i].SetKey(kv[0])
-		attrs[i].SetValue(kv[1])
+		attrs[i].SetKey(k)
+		attrs[i].SetValue(v)
 	}
 
 	if !disableFilename {

@@ -122,19 +122,19 @@ func stringifyAddress(addr oid.Address) string {
 }
 
 func addressFromString(s string) (*oid.Address, error) {
-	ss := strings.SplitN(s, ".", 2)
-	if len(ss) != 2 {
+	objString, cnrString, found := strings.Cut(s, ".")
+	if !found {
 		return nil, errors.New("invalid address")
 	}
 
 	var obj oid.ID
-	if err := obj.DecodeString(ss[0]); err != nil {
-		return nil, fmt.Errorf("decode object ID from string %q: %w", ss[0], err)
+	if err := obj.DecodeString(objString); err != nil {
+		return nil, fmt.Errorf("decode object ID from string %q: %w", objString, err)
 	}
 
 	var cnr cid.ID
-	if err := cnr.DecodeString(ss[1]); err != nil {
-		return nil, fmt.Errorf("decode container ID from string %q: %w", ss[1], err)
+	if err := cnr.DecodeString(cnrString); err != nil {
+		return nil, fmt.Errorf("decode container ID from string %q: %w", cnrString, err)
 	}
 
 	var addr oid.Address

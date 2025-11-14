@@ -19,29 +19,29 @@ func ReadNodeAttributes(dst *netmap.NodeInfo, attrs []string) error {
 	for i := range attrs {
 		line := replaceEscaping(attrs[i], false) // replaced escaped symbols with non-printable symbols
 
-		words := strings.Split(line, keyValueSeparator)
-		if len(words) != 2 {
+		key, value, found := strings.Cut(line, keyValueSeparator)
+		if !found {
 			return errors.New("missing attribute key and/or value")
 		}
 
-		_, ok := cache[words[0]]
+		_, ok := cache[key]
 		if ok {
-			return fmt.Errorf("duplicated keys %s", words[0])
+			return fmt.Errorf("duplicated keys %s", key)
 		}
 
-		cache[words[0]] = struct{}{}
+		cache[key] = struct{}{}
 
 		// replace non-printable symbols with escaped symbols without escape character
-		words[0] = replaceEscaping(words[0], true)
-		words[1] = replaceEscaping(words[1], true)
+		key = replaceEscaping(key, true)
+		value = replaceEscaping(value, true)
 
-		if words[0] == "" {
+		if key == "" {
 			return errors.New("empty key")
-		} else if words[1] == "" {
+		} else if value == "" {
 			return errors.New("empty value")
 		}
 
-		dst.SetAttribute(words[0], words[1])
+		dst.SetAttribute(key, value)
 	}
 
 	return nil
