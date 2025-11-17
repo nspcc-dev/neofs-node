@@ -28,7 +28,7 @@ func (s *Size) Check(def, defConst Size) {
 // SizeHook returns a mapstructure decode hook func that converts a string to a Size.
 func SizeHook() mapstructure.DecodeHookFuncType {
 	return func(_ reflect.Type, t reflect.Type, data any) (any, error) {
-		if t != reflect.TypeOf(Size(0)) {
+		if t != reflect.TypeFor[Size]() {
 			return data, nil
 		}
 
