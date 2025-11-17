@@ -47,7 +47,7 @@ func Unmarshal(v *viper.Viper, cfg config, envPrefix string, decodeFuncs ...maps
 // publicKeyHook returns a mapstructure decode hook func that converts a string to a keys.PublicKey.
 func publicKeyHook() mapstructure.DecodeHookFuncType {
 	return func(_ reflect.Type, t reflect.Type, data any) (any, error) {
-		if t != reflect.TypeOf(keys.PublicKey{}) {
+		if t != reflect.TypeFor[keys.PublicKey]() {
 			return data, nil
 		}
 
@@ -68,7 +68,7 @@ func publicKeyHook() mapstructure.DecodeHookFuncType {
 // that converts int and int64 to uint32, ensuring they are within the valid range.
 func uint32StrictHook() mapstructure.DecodeHookFuncType {
 	return func(_ reflect.Type, t reflect.Type, data any) (any, error) {
-		if t != reflect.TypeOf(uint32(0)) {
+		if t != reflect.TypeFor[uint32]() {
 			return data, nil
 		}
 
@@ -97,7 +97,7 @@ func uint32StrictHook() mapstructure.DecodeHookFuncType {
 // uint160Hook returns a mapstructure decode hook func that converts a string to a util.Uint160.
 func uint160Hook() mapstructure.DecodeHookFuncType {
 	return func(_ reflect.Type, t reflect.Type, data any) (any, error) {
-		if t != reflect.TypeOf(util.Uint160{}) {
+		if t != reflect.TypeFor[util.Uint160]() {
 			return data, nil
 		}
 

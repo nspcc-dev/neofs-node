@@ -12,7 +12,7 @@ import (
 // ModeHook returns a mapstructure decode hook func that converts a string to a mode.Mode.
 func ModeHook() mapstructure.DecodeHookFuncType {
 	return func(_ reflect.Type, t reflect.Type, data any) (any, error) {
-		if t != reflect.TypeOf(mode.Mode(0)) {
+		if t != reflect.TypeFor[mode.Mode]() {
 			return data, nil
 		}
 
