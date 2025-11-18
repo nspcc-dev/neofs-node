@@ -129,6 +129,9 @@ func (gc *gc) stop() {
 
 	gc.log.Info("waiting for GC workers to stop...")
 	gc.wg.Wait()
+	for _, h := range gc.mEventHandler {
+		h.prevGroup.Wait()
+	}
 }
 
 // iterates over metabase and deletes objects
