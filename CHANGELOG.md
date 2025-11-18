@@ -30,6 +30,8 @@ Changelog for NeoFS Node
 - Pre-0.46.0 write cache format migration (#3647)
 
 ### Updated
+- NeoGo dependency to 0.114.0 (#3679)
+- NeoFS SDK dependency to RC16+ (#3679)
 
 ### Updating from v0.49.1
 Erasure coding is available in experimental mode. To enable it, set
