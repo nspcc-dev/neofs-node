@@ -16,7 +16,7 @@ Changelog for NeoFS Node
 - SN load reporting race (#3652)
 - Incompatibility with wallets using non-standard scrypt parameters (#3675)
 - Improper handling of Incomplete status in CLI commands (#3679)
-- Incomplete response missing data for SEARCH operation (#3679)
+- Incomplete response missing data for SEARCH and PUT operations (#3679)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)

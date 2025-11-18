@@ -231,15 +231,17 @@ func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.Re
 	}
 }
 
-func (s *Server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse) error {
+func (s *Server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse, err error) error {
+	if err != nil {
+		resp.MetaHeader = s.makeResponseMetaHeader(util.ToStatus(err))
+	}
+
 	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return stream.SendAndClose(resp)
 }
 
 func (s *Server) sendStatusPutResponse(stream protoobject.ObjectService_PutServer, err error) error {
-	return s.sendPutResponse(stream, &protoobject.PutResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	return s.sendPutResponse(stream, new(protoobject.PutResponse), err)
 }
 
 type putStream struct {
@@ -424,11 +426,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
 				resp, err = ps.close()
-				if err != nil {
-					return s.sendStatusPutResponse(gStream, err)
-				}
-
-				err = s.sendPutResponse(gStream, resp)
+				err = s.sendPutResponse(gStream, resp, err)
 				return err
 			}
 			return err
