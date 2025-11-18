@@ -15,6 +15,8 @@ Changelog for NeoFS Node
 - Quotas TTL (#3665)
 - SN load reporting race (#3652)
 - Incompatibility with wallets using non-standard scrypt parameters (#3675)
+- Improper handling of Incomplete status in CLI commands (#3679)
+- Incomplete status response missing data for SEARCH/PUT/DELETE operations (#3679)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)
@@ -30,6 +32,8 @@ Changelog for NeoFS Node
 - Pre-0.46.0 write cache format migration (#3647)
 
 ### Updated
+- NeoGo dependency to 0.114.0 (#3679)
+- NeoFS SDK dependency to RC16+ (#3679)
 
 ### Updating from v0.49.1
 Erasure coding is available in experimental mode. To enable it, set

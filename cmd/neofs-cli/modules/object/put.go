@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -180,14 +181,19 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if p != nil {
 		p.Finish()
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return fmt.Errorf("rpc error: %w", err)
 	}
 
-	cmd.Printf("[%s] Object successfully stored\n", filename)
+	var statusString = "successfully"
+	if errors.Is(err, apistatus.ErrIncomplete) {
+		statusString = "partially (incomplete status)"
+	}
+
+	cmd.Printf("[%s] Object %s stored\n", filename, statusString)
 	cmd.Printf("  OID: %s\n  CID: %s\n", wrt.GetResult().StoredObjectID(), cnr)
 
-	return nil
+	return err
 }
 
 func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribute, error) {

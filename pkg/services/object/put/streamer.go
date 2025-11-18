@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -276,13 +277,13 @@ func (p *Streamer) Close() (*PutResponse, error) {
 	}
 
 	id, err := p.target.Close()
-	if err != nil {
+	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, fmt.Errorf("(%T) could not close object target: %w", p, err)
 	}
 
 	return &PutResponse{
 		id: id,
-	}, nil
+	}, err
 }
 
 func metaAttribute(cnr container.Container) string {

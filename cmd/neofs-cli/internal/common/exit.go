@@ -34,8 +34,11 @@ func WrapError(err error) error {
 		busy
 	)
 
-	var code int
-	var accessErr = new(sdkstatus.ObjectAccessDenied)
+	var (
+		accessErr = new(sdkstatus.ObjectAccessDenied)
+		code      int
+		hide      bool
+	)
 
 	switch {
 	case errors.Is(err, sdkstatus.ErrServerInternal):
@@ -49,11 +52,12 @@ func WrapError(err error) error {
 		code = alreadyRemoved
 	case errors.Is(err, sdkstatus.ErrIncomplete):
 		code = incomplete
+		hide = true // Everything relevant is printed by commands already.
 	case errors.Is(err, sdkstatus.ErrBusy):
 		code = busy
 	default:
 		code = internal
 	}
 
-	return cmderr.ExitErr{Code: code, Cause: err}
+	return cmderr.ExitErr{Code: code, Cause: err, Hide: hide}
 }

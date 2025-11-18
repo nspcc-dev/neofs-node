@@ -10,6 +10,7 @@ import (
 type ExitErr struct {
 	Code  int
 	Cause error
+	Hide  bool
 }
 
 func (x ExitErr) Error() string { return x.Cause.Error() }
@@ -22,7 +23,9 @@ func ExitOnErr(err error) {
 		if !errors.As(err, &e) {
 			e.Code = 1
 		}
-		fmt.Fprintln(os.Stderr, "Error:", err)
+		if !e.Hide {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+		}
 		os.Exit(e.Code)
 	}
 }
