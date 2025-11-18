@@ -12,6 +12,7 @@ const (
 	GetTakenSpaceByUserMethod     = "getTakenSpaceByUser"
 	GetContainerQuotaMethod       = "containerQuota"
 	GetUserQuotaMethod            = "userQuota"
+	AddContainerStructsMethod     = "addStructs"
 )
 
 // CreateContainerParams are parameters of [CreateContainerMethod].

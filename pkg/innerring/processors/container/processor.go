@@ -1,9 +1,13 @@
 package container
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -171,6 +175,10 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetParser(containerEvent.ParseObjectPut)
 	pp = append(pp, p)
 
+	// migrate protobuf->struct
+	p.SetRequestType(fschaincontracts.AddContainerStructsMethod)
+	p.SetParser(containerEvent.RestoreAddStructsRequest)
+
 	return pp
 }
 
@@ -232,10 +240,69 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	h.SetHandler(cp.handleObjectPut)
 	hh = append(hh, h)
 
+	// migrate protobuf->struct
+	h.SetRequestType(fschaincontracts.AddContainerStructsMethod)
+	h.SetHandler(func(ev event.Event) {
+		cp.log.Info("received notary tx migrating containers' protobuf->struct, signing...")
+
+		req := ev.(containerEvent.AddStructsRequest)
+		err := cp.cnrClient.Morph().NotarySignAndInvokeTX(&req.MainTransaction, false)
+		if err != nil {
+			cp.log.Error("failed to sign notary tx migrating containers' protobuf->struct", zap.Error(err))
+			return
+		}
+
+		cp.log.Info("notary tx migrating containers' protobuf->struct signed successfully")
+	})
+
 	return hh
 }
 
 // TimersHandlers for the 'Timers' event producer.
 func (cp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
+}
+
+// AddContainerStructs iteratively calls the contract to add structured storage
+// items for containers.
+func (cp *Processor) AddContainerStructs(ctx context.Context) error {
+	cp.log.Info("structuring containers in the contract...")
+
+	cnrContract := cp.cnrClient.ContractAddress()
+	fsChain := cp.cnrClient.Morph()
+	for ; ; time.Sleep(5 * time.Second) {
+		txRes, err := fsChain.CallNotary(ctx, cnrContract, fschaincontracts.AddContainerStructsMethod)
+		if err != nil {
+			if !errors.Is(err, neorpc.ErrInsufficientFunds) {
+				return fmt.Errorf("notary call %s contract method: %w", fschaincontracts.AddContainerStructsMethod, err)
+			}
+
+			cp.log.Warn("not enough GAS for notary call, will try again later",
+				zap.String("method", fschaincontracts.AddContainerStructsMethod), zap.Error(err))
+			continue
+		}
+
+		if !txRes.VMState.HasFlag(vmstate.Halt) {
+			cp.log.Warn("non-HALT VM state, will try again later",
+				zap.String("method", fschaincontracts.AddContainerStructsMethod), zap.Stringer("state", txRes.VMState),
+				zap.String("expection", txRes.FaultException), zap.String("tx", txRes.Container.StringLE()))
+			continue
+		}
+
+		if len(txRes.Stack) == 0 {
+			return fmt.Errorf("empty stack in %s call result, tx %s", fschaincontracts.AddContainerStructsMethod, txRes.Container)
+		}
+
+		b, err := txRes.Stack[0].TryBool()
+		if err != nil {
+			return fmt.Errorf("convert stack item in %s call result to bool (tx %s); %w", fschaincontracts.AddContainerStructsMethod, txRes.Container, err)
+		}
+
+		if !b {
+			cp.log.Warn("all containers have benn successfully structured in the contract, interrupt")
+			return nil
+		}
+
+		cp.log.Info("more containers have been successfully structured in the contract, continue")
+	}
 }
