@@ -199,3 +199,23 @@ func RestorePutContainerEACLRequest(notaryReq event.NotaryEvent) (event.Event, e
 
 	return res, nil
 }
+
+// AddStructsRequest wraps container protobuf->struct migration request to
+// provide app-internal event.
+type AddStructsRequest struct {
+	event.Event
+	MainTransaction transaction.Transaction
+}
+
+// RestoreAddStructsRequest restores [AddStructsRequest] from the
+// notary one.
+func RestoreAddStructsRequest(notaryReq event.NotaryEvent) (event.Event, error) {
+	_, err := getArgsFromEvent(notaryReq, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return AddStructsRequest{
+		MainTransaction: *notaryReq.Raw().MainTransaction,
+	}, nil
+}

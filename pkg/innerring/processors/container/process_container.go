@@ -7,7 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -22,7 +22,7 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 		return
 	}
 
-	cnr, err := fschaincontracts.ContainerFromStruct(req.Container)
+	cnr, err := cntClient.ContainerFromStruct(req.Container)
 	if err != nil {
 		cp.log.Error("invalid container struct in creation request", zap.Error(err))
 		return
