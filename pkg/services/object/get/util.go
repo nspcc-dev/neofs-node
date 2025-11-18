@@ -195,7 +195,12 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		if exec.prm.common.TTL() < 2 {
 			opts.MarkLocal()
 		}
-		if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+		if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+			verbV2 := session.VerbV2ObjectHead
+			if stV2.AssertObject(verbV2, addr.Container(), id) {
+				opts.WithinSessionV2(*stV2)
+			}
+		} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
 			opts.WithinSession(*st)
 		}
 		if bt := exec.prm.common.BearerToken(); bt != nil {
@@ -230,7 +235,12 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		if exec.prm.common.TTL() < 2 {
 			opts.MarkLocal()
 		}
-		if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+		if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+			verbV2 := session.VerbV2ObjectRange
+			if stV2.AssertObject(verbV2, addr.Container(), id) {
+				opts.WithinSessionV2(*stV2)
+			}
+		} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
 			opts.WithinSession(*st)
 		}
 		if bt := exec.prm.common.BearerToken(); bt != nil {
@@ -260,7 +270,12 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
 	}
-	if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+		verbV2 := session.VerbV2ObjectGet
+		if stV2.AssertObject(verbV2, addr.Container(), id) {
+			opts.WithinSessionV2(*stV2)
+		}
+	} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
 		opts.WithinSession(*st)
 	}
 	if bt := exec.prm.common.BearerToken(); bt != nil {

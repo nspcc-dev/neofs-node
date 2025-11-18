@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -31,10 +32,38 @@ type sessionTokenCommonCheckResult struct {
 	err   error
 }
 
+type sessionTokenV2CommonCheckResult struct {
+	token sessionSDK.TokenV2
+	err   error
+}
+
 type bearerTokenCommonCheckResult struct {
 	token bearer.Token
 	err   error
 }
+
+type verifiedSession interface {
+	AuthorID() user.ID
+	AuthorKey() []byte
+}
+
+type verifiedObjectSessionV1 struct {
+	author user.ID
+	key    []byte
+}
+
+func (s verifiedObjectSessionV1) AuthorID() user.ID { return s.author }
+
+func (s verifiedObjectSessionV1) AuthorKey() []byte { return s.key }
+
+type verifiedObjectSessionV2 struct {
+	author user.ID
+	key    []byte
+}
+
+func (s verifiedObjectSessionV2) AuthorID() user.ID { return s.author }
+
+func (s verifiedObjectSessionV2) AuthorKey() []byte { return s.key }
 
 // Service checks basic ACL rules.
 type Service struct {
@@ -42,8 +71,9 @@ type Service struct {
 
 	c senderClassifier
 
-	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
-	bearerTokenCommonCheckCache  *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
+	sessionTokenCommonCheckCache   *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	sessionTokenV2CommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenV2CommonCheckResult]
+	bearerTokenCommonCheckCache    *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
 }
 
 // Option represents Service constructor option.
@@ -79,6 +109,8 @@ type cfg struct {
 	irFetcher InnerRingFetcher
 
 	nm Netmapper
+
+	nodeKey *ecdsa.PublicKey
 }
 
 func defaultCfg() *cfg {
@@ -114,6 +146,10 @@ func New(fsChain FSChain, opts ...Option) Service {
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
 	}
+	sessionTokenV2CheckCache, err := lru.New[[sha256.Size]byte, sessionTokenV2CommonCheckResult](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
 
 	return Service{
 		cfg: cfg,
@@ -122,8 +158,9 @@ func New(fsChain FSChain, opts ...Option) Service {
 			innerRing: cfg.irFetcher,
 			fsChain:   fsChain,
 		},
-		sessionTokenCommonCheckCache: sessionTokenCheckCache,
-		bearerTokenCommonCheckCache:  bearerTokenCheckCache,
+		sessionTokenCommonCheckCache:   sessionTokenCheckCache,
+		bearerTokenCommonCheckCache:    bearerTokenCheckCache,
+		sessionTokenV2CommonCheckCache: sessionTokenV2CheckCache,
 	}
 }
 
@@ -131,12 +168,21 @@ func New(fsChain FSChain, opts ...Option) Service {
 func (b Service) ResetTokenCheckCache() {
 	b.sessionTokenCommonCheckCache.Purge()
 	b.bearerTokenCommonCheckCache.Purge()
+	b.sessionTokenV2CommonCheckCache.Purge()
 }
 
-func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
+func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (verifiedSession, error) {
 	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
 		mh = omh
 	}
+
+	mV2 := mh.GetSessionTokenV2()
+	if mV2 != nil {
+		b.log.Debug("Verifying V2 session token")
+		return b.getVerifiedSessionTokenV2(mV2, reqVerb, reqCnr, reqObj)
+	}
+
+	// Fall back to V1 token
 	m := mh.GetSessionToken()
 	if m == nil {
 		return nil, nil
@@ -160,7 +206,15 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		return nil, err
 	}
 
-	return &res.token, nil
+	sig, ok := res.token.Signature()
+	if !ok {
+		return nil, errors.New("missing signature in session token")
+	}
+
+	return verifiedObjectSessionV1{
+		author: res.token.Issuer(),
+		key:    sig.PublicKeyBytes(),
+	}, nil
 }
 
 func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (sessionSDK.Object, error) {
@@ -200,6 +254,117 @@ func (b Service) verifySessionTokenAgainstRequest(token sessionSDK.Object, reqVe
 	}
 
 	return nil
+}
+
+// getVerifiedSessionTokenV2 validates and returns V2 session token info.
+func (b Service) getVerifiedSessionTokenV2(mV2 *protosession.SessionTokenV2, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (verifiedSession, error) {
+	mb := make([]byte, mV2.MarshaledSize())
+	mV2.MarshalStable(mb)
+
+	cacheKey := sha256.Sum256(mb)
+	res, ok := b.sessionTokenV2CommonCheckCache.Get(cacheKey)
+	if !ok {
+		res.token, res.err = b.decodeAndVerifySessionTokenV2Common(mV2)
+		b.sessionTokenV2CommonCheckCache.Add(cacheKey, res)
+	}
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	if err := b.verifySessionTokenV2AgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
+		return nil, err
+	}
+
+	sig, ok := res.token.Signature()
+	if !ok {
+		return nil, errors.New("missing signature in V2 session token")
+	}
+
+	issuer := res.token.Issuer()
+	if !issuer.IsOwnerID() {
+		return nil, errors.New("unsupported V2 token issuer type")
+	}
+	// TODO: make for NNS
+
+	return verifiedObjectSessionV2{
+		author: issuer.OwnerID(),
+		key:    sig.PublicKeyBytes(),
+	}, nil
+}
+
+func (b Service) decodeAndVerifySessionTokenV2Common(m *protosession.SessionTokenV2) (sessionSDK.TokenV2, error) {
+	b.log.Debug("Decoding V2 session token")
+	var token sessionSDK.TokenV2
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if err := token.Validate(); err != nil {
+		return token, fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if !token.VerifySignature() {
+		return token, errors.New("v2 session token signature verification failed")
+	}
+
+	if b.nodeKey != nil {
+		serverTarget := sessionSDK.NewTarget(user.NewFromECDSAPublicKey(*b.nodeKey))
+		if !token.AssertAuthority(serverTarget) {
+			return token, errors.New("v2 token doesn't authorize this node")
+		}
+	}
+
+	currentEpoch, err := b.nm.Epoch()
+	if err != nil {
+		return token, errors.New("can't fetch current epoch")
+	}
+
+	if !token.ValidAt(currentEpoch) {
+		return token, fmt.Errorf("%s: V2 token is invalid at %d epoch", invalidRequestMessage, currentEpoch)
+	}
+
+	return token, nil
+}
+
+func (b Service) verifySessionTokenV2AgainstRequest(token sessionSDK.TokenV2, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) error {
+	verbV2 := objectVerbToVerbV2(reqVerb)
+	if verbV2 == 0 {
+		return fmt.Errorf("unsupported object verb for V2: %v", reqVerb)
+	}
+
+	if !reqObj.IsZero() {
+		if !token.AssertObject(verbV2, reqCnr, reqObj) {
+			return errors.New("V2 session token does not authorize access to the object")
+		}
+	} else {
+		if !token.AssertVerb(verbV2, reqCnr) {
+			return errInvalidVerb
+		}
+	}
+
+	return nil
+}
+
+// objectVerbToVerbV2 converts V1 ObjectVerb to V2 VerbV2.
+func objectVerbToVerbV2(v1Verb sessionSDK.ObjectVerb) sessionSDK.VerbV2 {
+	switch v1Verb {
+	case sessionSDK.VerbObjectGet:
+		return sessionSDK.VerbV2ObjectGet
+	case sessionSDK.VerbObjectHead:
+		return sessionSDK.VerbV2ObjectHead
+	case sessionSDK.VerbObjectPut:
+		return sessionSDK.VerbV2ObjectPut
+	case sessionSDK.VerbObjectDelete:
+		return sessionSDK.VerbV2ObjectDelete
+	case sessionSDK.VerbObjectSearch:
+		return sessionSDK.VerbV2ObjectSearch
+	case sessionSDK.VerbObjectRange:
+		return sessionSDK.VerbV2ObjectRange
+	case sessionSDK.VerbObjectRangeHash:
+		return sessionSDK.VerbV2ObjectRangeHash
+	default:
+		return 0
+	}
 }
 
 func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) (*bearer.Token, error) {
@@ -481,8 +646,9 @@ func (b Service) findRequestInfo(req interface {
 	GetVerifyHeader() *protosession.RequestVerificationHeader
 }, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, obj oid.ID) (RequestInfo, error) {
 	var (
-		info    RequestInfo
-		metaHdr = req.GetMetaHeader()
+		info      RequestInfo
+		metaHdr   = req.GetMetaHeader()
+		verifyHdr = req.GetVerifyHeader()
 	)
 	sTok, err := b.getVerifiedSessionToken(metaHdr, verb, idCnr, obj)
 	if err != nil {
@@ -492,14 +658,10 @@ func (b Service) findRequestInfo(req interface {
 	var reqAuthor user.ID
 	var reqAuthorPub []byte
 	if sTok != nil {
-		reqAuthor = sTok.Issuer()
-		sig, ok := sTok.Signature()
-		if !ok {
-			return info, errors.New("missing signature in session token")
-		}
-		reqAuthorPub = sig.PublicKeyBytes()
+		reqAuthor = sTok.AuthorID()
+		reqAuthorPub = sTok.AuthorKey()
 	} else {
-		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
+		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(verifyHdr); err != nil {
 			return info, fmt.Errorf("get request author: %w", err)
 		}
 	}

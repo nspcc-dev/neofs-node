@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 
@@ -91,29 +92,44 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	}
 
 	sToken := prm.common.SessionToken()
+	sTokenV2 := prm.common.SessionTokenV2()
 
 	// prepare trusted-Put object target
 
-	// get private token from local storage
-	var sessionInfo *util.SessionInfo
+	var (
+		err         error
+		sessionKey  *ecdsa.PrivateKey
+		sessionInfo *util.SessionInfo
+	)
 
-	if sToken != nil {
+	if sTokenV2 != nil {
+		// V2 token: use node's own key
+		sessionKey, err = p.keyStorage.GetKey(nil)
+		if err != nil {
+			return fmt.Errorf("(%T) could not receive node key for V2 token: %w", p, err)
+		}
+	} else if sToken != nil {
 		sessionInfo = &util.SessionInfo{
 			ID:    sToken.ID(),
 			Owner: sToken.Issuer(),
 		}
-	}
-
-	sessionKey, err := p.keyStorage.GetKey(sessionInfo)
-	if err != nil {
-		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
+		sessionKey, err = p.keyStorage.GetKey(sessionInfo)
+		if err != nil {
+			return fmt.Errorf("(%T) could not receive session key: %w", p, err)
+		}
+	} else {
+		// No token: use node's own key
+		sessionKey, err = p.keyStorage.GetKey(nil)
+		if err != nil {
+			return fmt.Errorf("(%T) could not receive node key: %w", p, err)
+		}
 	}
 
 	signer := neofsecdsa.SignerRFC6979(*sessionKey)
 
 	// In case session token is missing, the line above returns the default key.
 	// If it isn't owner key, replication attempts will fail, thus this check.
-	if sToken == nil {
+	if sToken == nil && sTokenV2 == nil {
 		ownerObj := prm.hdr.Owner()
 		if ownerObj.IsZero() {
 			return errors.New("missing object owner")
