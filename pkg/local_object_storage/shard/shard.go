@@ -203,7 +203,7 @@ func WithWriteCacheOptions(opts ...writecache.Option) Option {
 func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
-		c.gcCfg.log = l
+		c.gcCfg.log = l.With(zap.String("component", "garbageCollector"))
 	}
 }
 
