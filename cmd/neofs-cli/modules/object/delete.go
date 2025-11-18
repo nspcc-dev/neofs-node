@@ -1,12 +1,14 @@
 package object
 
 import (
+	"errors"
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -99,6 +101,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	}
 	defer cli.Close()
 
+	var statusErr error
 	for _, addr := range objAddrs {
 		id := addr.Object()
 		err := ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr, id)
@@ -107,12 +110,18 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 		}
 
 		tomb, err := cli.ObjectDelete(ctx, addr.Container(), id, user.NewAutoIDSigner(*pk), prm)
-		if err != nil {
+		if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 			return fmt.Errorf("rpc error: deleting %s object: remove object via client: %w", id, err)
 		}
 
-		cmd.Printf("Object %s removed successfully.\n", id)
+		var statusString = "successfully"
+		if errors.Is(err, apistatus.ErrIncomplete) {
+			statusString = "partially (incomplete status)"
+			statusErr = err
+		}
+
+		cmd.Printf("Object %s removed %s.\n", id, statusString)
 		cmd.Printf("  ID: %s\n  CID: %s\n", tomb, cnr)
 	}
-	return nil
+	return statusErr
 }

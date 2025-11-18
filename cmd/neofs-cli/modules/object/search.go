@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -247,11 +248,16 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 		opts.WithSessionToken(*st)
 	}
 	res, cursor, err := cli.SearchObjects(ctx, cnr, fs, searchAttributesFlag.v, searchCursorFlag.v, neofsecdsa.Signer(*pk), opts)
-	if err != nil {
+	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return fmt.Errorf("rpc error: %w", err)
 	}
 
-	cmd.Printf("Found %d objects.\n", len(res))
+	var incompleteString string
+	if errors.Is(err, apistatus.ErrIncomplete) {
+		incompleteString = ", result may be incomplete (not all nodes responded)"
+	}
+
+	cmd.Printf("Found %d objects%s.\n", len(res), incompleteString)
 	for i := range res {
 		cmd.Println(res[i].ID)
 		for j := range searchAttributesFlag.v {
@@ -265,5 +271,5 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 	if cursor != "" {
 		cmd.Printf("Cursor: %s\n", cursor)
 	}
-	return nil
+	return err
 }
