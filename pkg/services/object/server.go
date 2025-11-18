@@ -1873,15 +1873,17 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	return resp, nil
 }
 
-func (s *Server) signSearchResponse(resp *protoobject.SearchV2Response) *protoobject.SearchV2Response {
+func (s *Server) signSearchResponse(body *protoobject.SearchV2Response_Body, err error) *protoobject.SearchV2Response {
+	var resp = new(protoobject.SearchV2Response)
+
+	if err != nil {
+		resp.MetaHeader = s.makeResponseMetaHeader(apistatus.FromError(err))
+	}
+	if err == nil || errors.Is(err, apistatus.ErrIncomplete) {
+		resp.Body = body
+	}
 	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return resp
-}
-
-func (s *Server) makeStatusSearchResponse(err error) *protoobject.SearchV2Response {
-	return s.signSearchResponse(&protoobject.SearchV2Response{
-		MetaHeader: s.makeResponseMetaHeader(apistatus.FromError(err)),
-	})
 }
 
 func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
@@ -1891,11 +1893,11 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusSearchResponse(err), nil
+		return s.signSearchResponse(nil, err), nil
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusSearchResponse(apistatus.ErrNodeUnderMaintenance), nil
+		return s.signSearchResponse(nil, apistatus.ErrNodeUnderMaintenance), nil
 	}
 
 	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
@@ -1905,23 +1907,19 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 			bad.SetMessage(err.Error())
 			err = bad // defer
 		}
-		return s.makeStatusSearchResponse(err), nil
+		return s.signSearchResponse(nil, err), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusSearchResponse(err), nil
+		return s.signSearchResponse(nil, err), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err)
-		return s.makeStatusSearchResponse(err), nil
+		return s.signSearchResponse(nil, err), nil
 	}
 
-	body, err := s.processSearchRequest(ctx, req)
-	if err != nil {
-		return s.makeStatusSearchResponse(err), nil
-	}
-	return s.signSearchResponse(&protoobject.SearchV2Response{Body: body}), nil
+	return s.signSearchResponse(s.processSearchRequest(ctx, req)), nil
 }
 
 func verifySearchFilter(f *protoobject.SearchFilter) error {
@@ -1981,7 +1979,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	}
 
 	res, newCursor, err := s.ProcessSearch(ctx, req)
-	if err != nil {
+	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, err
 	}
 
@@ -1997,7 +1995,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if newCursor != nil {
 		resBody.Cursor = base64.StdEncoding.EncodeToString(newCursor)
 	}
-	return resBody, nil
+	return resBody, err
 }
 
 func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, []byte, error) {
