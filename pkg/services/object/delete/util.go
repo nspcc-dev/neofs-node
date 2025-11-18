@@ -1,7 +1,10 @@
 package deletesvc
 
 import (
+	"errors"
+
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -30,11 +33,11 @@ func (w *putSvcWrapper) put(exec *execCtx) (*oid.ID, error) {
 	}
 
 	r, err := streamer.Close()
-	if err != nil {
+	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, err
 	}
 
 	id := r.ObjectID()
 
-	return &id, nil
+	return &id, err
 }

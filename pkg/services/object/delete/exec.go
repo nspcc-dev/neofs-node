@@ -2,8 +2,10 @@ package deletesvc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -75,18 +77,19 @@ func (exec *execCtx) newAddress(id oid.ID) oid.Address {
 func (exec *execCtx) saveTombstone() bool {
 	id, err := exec.svc.placer.put(exec)
 
-	if err == nil {
-		exec.status = statusOK
-		exec.err = nil
-
+	if err == nil || errors.Is(err, apistatus.ErrIncomplete) {
 		exec.prm.tombAddrWriter.
 			SetAddress(exec.newAddress(*id))
+	}
+
+	exec.err = err
+	if err == nil {
+		exec.status = statusOK
 
 		return true
 	}
 
 	exec.status = statusUndefined
-	exec.err = err
 
 	exec.log.Debug("could not save the tombstone",
 		zap.Error(err),

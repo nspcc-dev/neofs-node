@@ -480,15 +480,16 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 	}
 }
 
-func (s *Server) signDeleteResponse(resp *protoobject.DeleteResponse) *protoobject.DeleteResponse {
+func (s *Server) signDeleteResponse(resp *protoobject.DeleteResponse, err error) *protoobject.DeleteResponse {
+	if err != nil {
+		resp.MetaHeader = s.makeResponseMetaHeader(util.ToStatus(err))
+	}
 	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return resp
 }
 
 func (s *Server) makeStatusDeleteResponse(err error) *protoobject.DeleteResponse {
-	return s.signDeleteResponse(&protoobject.DeleteResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	return s.signDeleteResponse(new(protoobject.DeleteResponse), err)
 }
 
 type deleteResponseBody protoobject.DeleteResponse_Body
@@ -562,11 +563,11 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	p.WithAddress(addr)
 	p.WithTombstoneAddressTarget((*deleteResponseBody)(&rb))
 	err = s.handlers.Delete(ctx, p)
-	if err != nil {
+	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return s.makeStatusDeleteResponse(err), nil
 	}
 
-	return s.signDeleteResponse(&protoobject.DeleteResponse{Body: &rb}), nil
+	return s.signDeleteResponse(&protoobject.DeleteResponse{Body: &rb}, err), nil
 }
 
 func (s *Server) signHeadResponse(resp *protoobject.HeadResponse, sign bool) *protoobject.HeadResponse {
