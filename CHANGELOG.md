@@ -8,6 +8,9 @@ Changelog for NeoFS Node
 - IR `experimental.allow_ec` config option (#3570)
 - SN `pprof.enable_block` and `pprof.enable_mutex` options (#3655)
 - `neofs-adm fschain load-report` command (#3649)
+- SN now supports new `getInfo` and `createV2` methods of the Container contract (#3670)
+- IR now supports container creation requests submitted via new `createV2` contract method (#3670)
+- IR structures containers in the contract iteratively (#3670)
 
 ### Fixed
 - Write cache using too much CPU (#3642)
@@ -30,6 +33,7 @@ Changelog for NeoFS Node
 - Pre-0.46.0 write cache format migration (#3647)
 
 ### Updated
+- `github.com/nspcc-dev/neofs-contract` dependency to `XXX` (#3670)
 
 ### Updating from v0.49.1
 Erasure coding is available in experimental mode. To enable it, set

@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -17,12 +19,64 @@ func getArgsFromEvent(ne event.NotaryEvent, expectedNum int) ([]event.Op, error)
 	return args, nil
 }
 
+func wrapInvalidArgError(i int, typ stackitem.Type, desc string, err error) error {
+	return fmt.Errorf("arg#%d (%s, %s): %w", i, typ, desc, err)
+}
+
 func getValueFromArg[T any](args []event.Op, i int, desc string, typ stackitem.Type, f func(event.Op) (T, error)) (v T, err error) {
 	v, err = f(args[i])
 	if err != nil {
-		return v, fmt.Errorf("arg#%d (%s, %s): %w", i, typ, desc, err)
+		return v, wrapInvalidArgError(i, typ, desc, err)
 	}
 	return v, nil
+}
+
+// CreateContainerRequest wraps container creation request to provide
+// app-internal event.
+type CreateContainerV2Request struct {
+	event.Event
+	MainTransaction transaction.Transaction
+
+	Container          containerrpc.ContainerInfo
+	InvocationScript   []byte
+	VerificationScript []byte
+	SessionToken       []byte
+}
+
+// RestoreCreateContainerV2Request restores [CreateContainerV2Request] from the
+// notary one.
+func RestoreCreateContainerV2Request(notaryReq event.NotaryEvent) (event.Event, error) {
+	testVM := vm.New()
+	testVM.LoadScript(notaryReq.ArgumentScript())
+
+	if err := testVM.Run(); err != nil {
+		return nil, fmt.Errorf("exec script on test VM: %w", err)
+	}
+
+	stack := testVM.Estack()
+	const argNum = 4
+	if got := stack.Len(); got != argNum {
+		return nil, fmt.Errorf("wrong/unsupported arg num %d instead of %d", got, argNum) // TODO: share error
+	}
+
+	var res CreateContainerV2Request
+	var err error
+
+	if err = res.Container.FromStackItem(stack.Pop().Item()); err != nil {
+		return nil, wrapInvalidArgError(argNum-1, stackitem.StructT, "container", err)
+	}
+	if res.InvocationScript, err = stack.Pop().Item().TryBytes(); err != nil {
+		return nil, wrapInvalidArgError(argNum-2, stackitem.ByteArrayT, "invocation script", err)
+	}
+	if res.VerificationScript, err = stack.Pop().Item().TryBytes(); err != nil {
+		return nil, wrapInvalidArgError(argNum-3, stackitem.ByteArrayT, "verification script", err)
+	}
+	if res.SessionToken, err = stack.Pop().Item().TryBytes(); err != nil {
+		return nil, wrapInvalidArgError(argNum-4, stackitem.ByteArrayT, "session token", err)
+	}
+	res.MainTransaction = *notaryReq.Raw().MainTransaction
+
+	return res, nil
 }
 
 // CreateContainerRequest wraps container creation request to provide
@@ -140,4 +194,24 @@ func RestorePutContainerEACLRequest(notaryReq event.NotaryEvent) (event.Event, e
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
 
 	return res, nil
+}
+
+// AddStructsRequest wraps container protobuf->struct migration request to
+// provide app-internal event.
+type AddStructsRequest struct {
+	event.Event
+	MainTransaction transaction.Transaction
+}
+
+// RestoreAddStructsRequest restores [AddStructsRequest] from the
+// notary one.
+func RestoreAddStructsRequest(notaryReq event.NotaryEvent) (event.Event, error) {
+	_, err := getArgsFromEvent(notaryReq, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return AddStructsRequest{
+		MainTransaction: *notaryReq.Raw().MainTransaction,
+	}, nil
 }
