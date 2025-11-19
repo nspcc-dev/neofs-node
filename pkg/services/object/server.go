@@ -401,7 +401,10 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 
 	resp, err := x.base.Close()
 	if err != nil {
-		return nil, fmt.Errorf("could not object put stream: %w", err)
+		err = fmt.Errorf("close put stream: %w", err)
+		if !errors.Is(err, apistatus.ErrIncomplete) {
+			return nil, err
+		}
 	}
 
 	id := resp.ObjectID()
@@ -409,7 +412,7 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 		Body: &protoobject.PutResponse_Body{
 			ObjectId: id.ProtoMessage(),
 		},
-	}, nil
+	}, err
 }
 
 func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
