@@ -226,6 +226,9 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 	if err := v.checkAttributes(obj); err != nil {
 		return fmt.Errorf("invalid attributes: %w", err)
 	}
+	if err := v.checkExpiration(*obj); err != nil {
+		return fmt.Errorf("object did not pass expiration check: %w", err)
+	}
 
 	if !unprepared {
 		if err := obj.VerifyID(); err != nil {
@@ -237,10 +240,6 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 			NetmapContract: v.netmapContract,
 		}, isEC); err != nil {
 			return fmt.Errorf("authenticate: %w", err)
-		}
-
-		if err := v.checkExpiration(*obj); err != nil {
-			return fmt.Errorf("object did not pass expiration check: %w", err)
 		}
 	}
 
