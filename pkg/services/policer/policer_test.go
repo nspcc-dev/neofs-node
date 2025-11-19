@@ -1076,6 +1076,10 @@ func (x *testLocalNode) Put(*object.Object, []byte) error {
 	panic("unimplemented")
 }
 
+func (x *testLocalNode) Head(oid.Address, bool) (*object.Object, error) {
+	panic("unimplemented")
+}
+
 func (x *testLocalNode) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
 	panic("unimplemented")
 }
