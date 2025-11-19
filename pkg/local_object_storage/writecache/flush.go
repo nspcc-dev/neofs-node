@@ -121,17 +121,12 @@ func (c *cache) flushScheduler() {
 func (c *cache) flushWorker(id int) {
 	defer c.wg.Done()
 
-	var (
-		addrs []oid.Address
-		err   error
-		ok    bool
-	)
 	for {
-		// Previous set of addresses if any, important wrt modeMtx.
-		for _, addr := range addrs {
-			c.flushObjs.Delete(addr)
-		}
-		addrs = nil
+		var (
+			addrs []oid.Address
+			err   error
+			ok    bool
+		)
 
 		select {
 		case addrs, ok = <-c.flushCh:
@@ -144,14 +139,12 @@ func (c *cache) flushWorker(id int) {
 		}
 
 		c.modeMtx.RLock()
-		if c.readOnly() {
-			c.modeMtx.RUnlock()
-			continue
-		}
-		if len(addrs) == 1 {
-			err = c.flushSingle(addrs[0], true)
-		} else {
-			err = c.flushBatch(addrs)
+		if !c.readOnly() {
+			if len(addrs) == 1 {
+				err = c.flushSingle(addrs[0], true)
+			} else {
+				err = c.flushBatch(addrs)
+			}
 		}
 		c.modeMtx.RUnlock()
 
