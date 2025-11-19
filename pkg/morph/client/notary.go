@@ -440,7 +440,16 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 			if await {
 				_, err = nAct.Wait(mainH, fbH, untilActual, err)
 			}
-			if err != nil && !alreadyOnChainError(err) {
+			if err != nil {
+				if alreadyOnChainError(err) {
+					c.logger.Debug("skip notary transaction already on-chain",
+						zap.Uint32("nonce", mainTx.Nonce),
+						zap.Uint32("valid_until_block", untilActual),
+						zap.String("tx_hash", mainH.StringLE()),
+						zap.String("fallback_hash", fbH.StringLE()),
+					)
+					return nil
+				}
 				if errors.Is(err, neorpc.ErrMempoolCapReached) {
 					return err
 				}
@@ -525,7 +534,19 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 		_, err = nAct.WaitSuccess(mainH, fbH, untilActual, err)
 	}
 
-	if err != nil && !alreadyOnChainError(err) {
+	if err != nil {
+		if alreadyOnChainError(err) {
+			c.logger.Debug("skip notary invoke already on-chain",
+				zap.Uint32("nonce", nonce),
+				zap.String("method", method),
+				zap.Uint32("valid_until_block", untilActual),
+				zap.String("tx_hash", mainH.StringLE()),
+				zap.String("fallback_hash", fbH.StringLE()),
+			)
+
+			return util.Uint256{}, nil
+		}
+
 		return util.Uint256{}, err
 	}
 
@@ -578,7 +599,18 @@ func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {
 
 		return nil
 	}))
-	if err != nil && !alreadyOnChainError(err) {
+	if err != nil {
+		if alreadyOnChainError(err) {
+			c.logger.Debug("skip notary script already on-chain",
+				zap.Uint32("nonce", nonce),
+				zap.Uint32("valid_until_block", untilActual),
+				zap.String("tx_hash", mainH.StringLE()),
+				zap.String("fallback_hash", fbH.StringLE()),
+			)
+
+			return nil
+		}
+
 		return err
 	}
 
