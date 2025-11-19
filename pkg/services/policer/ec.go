@@ -176,7 +176,9 @@ func (p *Policer) tryScheduleCheckECPartsTask(ctx context.Context, cnr cid.ID, p
 }
 
 func (p *Policer) checkECParts(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx, localPartIdx int, localPartID oid.ID) {
-	sortedNodeLists, repRules, ecRules, err := p.network.GetNodesForObject(oid.NewAddress(cnr, parent))
+	parentAddr := oid.NewAddress(cnr, parent)
+
+	sortedNodeLists, repRules, ecRules, err := p.network.GetNodesForObject(parentAddr)
 	if err != nil {
 		p.log.Warn("failed to select nodes for EC parent to check its parts",
 			zap.Stringer("container", cnr), zap.Stringer("parent", parent),
@@ -291,6 +293,20 @@ headNextPart:
 
 	if len(missingIdx) == 0 {
 		return
+	}
+
+	if parentHdr.GetID().IsZero() {
+		// can only happen for 1/1 rule: local part is never HEADed in for-loop above and remote one is unreachable
+		hdr, err := p.localStorage.Head(parentAddr, false)
+		if err != nil {
+			p.log.Info("failed to get EC parent header locally",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
+				zap.Int("ruleIdx", ruleIdx), zap.Error(err))
+			return
+		}
+
+		parentHdr = *hdr
+		partLen = (parentHdr.PayloadSize() + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
 	}
 
 	parts := make([][]byte, totalParts)
