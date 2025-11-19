@@ -209,7 +209,7 @@ func (c *cfg) restartMorph() error {
 	c.log.Info("restarting internal services because of RPC connection loss...")
 
 	c.resetCaches()
-	c.cfgContainer.payments.resetCache()
+	c.containerPayments.resetCache()
 
 	epoch, ni, err := getNetworkState(c)
 	if err != nil {

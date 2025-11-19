@@ -259,6 +259,7 @@ func testLockRemoved(t *testing.T, shardNum int) {
 					meta.WithPath(filepath.Join(dir, "meta"+sIdx)),
 					meta.WithEpochState(epochState{}),
 				),
+				shard.WithContainerPayments(containerPaymantsStub{}),
 			)
 			require.NoError(t, err)
 		}
@@ -375,6 +376,7 @@ func TestSplitObjectLockExpiration(t *testing.T) {
 				meta.WithPermissions(0700),
 				meta.WithEpochState(es),
 			),
+			shard.WithContainerPayments(containerPaymantsStub{}),
 		)
 		require.NoError(t, err)
 	}
@@ -472,6 +474,7 @@ func TestSimpleLockExpiration(t *testing.T) {
 				meta.WithPermissions(0700),
 				meta.WithEpochState(es),
 			),
+			shard.WithContainerPayments(containerPaymantsStub{}),
 		)
 		require.NoError(t, err)
 	}

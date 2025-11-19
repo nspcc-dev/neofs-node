@@ -87,7 +87,6 @@ func initContainerService(c *cfg) {
 		})
 	}
 
-	initPaymentChecker(c)
 	initSizeLoadReports(c)
 
 	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli)
@@ -396,7 +395,7 @@ func initPaymentChecker(c *cfg) {
 		}
 	})
 
-	c.cfgContainer.payments = p
+	c.containerPayments = p
 }
 
 type paymentChecker struct {

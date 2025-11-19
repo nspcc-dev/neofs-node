@@ -63,7 +63,8 @@ type gc struct {
 }
 
 type gcCfg struct {
-	removerInterval time.Duration
+	removerInterval   time.Duration
+	containerPayments ContainerPayments
 
 	log *zap.Logger
 }
@@ -296,4 +297,48 @@ func (s *Shard) NotificationChannel() chan<- Event {
 func (s *Shard) setEpochEventHandler(e Event) {
 	ne := e.(newEpoch)
 	s.gc.currentEpoch.Store(ne.epoch)
+
+	l := s.log.With(zap.Uint64("epoch", ne.epoch))
+	l.Debug("handling new epoch event...")
+
+	cnrs, err := s.ListContainers()
+	if err != nil {
+		l.Warn("reading containers list failed", zap.Error(err))
+		return
+	}
+
+	// maxUnpaidEpochDelay is a maximum number of epoch GC does not delete unpaid
+	// containers.
+	const maxUnpaidEpochDelay = 3
+
+	for _, cID := range cnrs {
+		unpaidSince, err := s.gcCfg.containerPayments.UnpaidSince(cID)
+		if err != nil {
+			l.Warn("cannot check payment status for container", zap.Stringer("cID", cID), zap.Error(err))
+			continue
+		}
+
+		if unpaidSince < 0 {
+			continue
+		}
+
+		l.Warn("found unpaid container", zap.Stringer("cID", cID), zap.Int64("unpaidSince", unpaidSince))
+
+		if ne.epoch-uint64(unpaidSince) >= maxUnpaidEpochDelay {
+			// TODO: delete container after v0.50.0 release.
+
+			//l.Info("deleting unpaid container", zap.Stringer("cID", cID), zap.Int64("unpaidSince", unpaidSince))
+			//
+			//err := s.DeleteContainer(context.Background(), cID)
+			//if err != nil {
+			//	l.Warn("cannot delete unpaid container", zap.Stringer("cID", cID), zap.Error(err))
+			//	continue
+			//}
+
+			l.Info("WARNING: unpaid container will be deleted in the next release",
+				zap.Stringer("cID", cID), zap.Int64("unpaidSince", unpaidSince))
+		}
+	}
+
+	s.log.Debug("finished handling new epoch event")
 }

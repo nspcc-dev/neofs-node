@@ -172,6 +172,8 @@ type shared struct {
 	control *controlSvc.Server
 
 	metaService *meta.Meta
+
+	containerPayments *paymentChecker
 }
 
 func (s *shared) resetCaches() {
@@ -250,7 +252,6 @@ type cfgBalance struct {
 }
 
 type cfgContainer struct {
-	payments    *paymentChecker
 	parsers     map[event.Type]event.NotificationParser
 	subscribers map[event.Type][]event.Handler
 	workerPool  util.WorkerPool // pool for asynchronous handlers
@@ -456,6 +457,8 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.onShutdown(c.bgClientCache.CloseAll)  // clean up connections
 	c.onShutdown(c.putClientCache.CloseAll) // clean up connections
 	c.onShutdown(func() { _ = c.persistate.Close() })
+
+	initPaymentChecker(c)
 
 	return c
 }

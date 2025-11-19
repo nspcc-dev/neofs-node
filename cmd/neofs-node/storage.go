@@ -167,6 +167,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(int(shCfg.GC.RemoverBatchSize)),
 			shard.WithGCRemoverSleepInterval(shCfg.GC.RemoverSleepInterval),
+			shard.WithContainerPayments(c.containerPayments),
 		}
 
 		shards = append(shards, sh)

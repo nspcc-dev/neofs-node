@@ -73,6 +73,14 @@ type MetricsWriter interface {
 	SetReadonly(readonly bool)
 }
 
+// ContainerPayments defines containers' payment status checker.
+type ContainerPayments interface {
+	// UnpaidSince must return an epoch starting from which, container is
+	// considered as an unpaid one. Must return negative value if container
+	// has been paid.
+	UnpaidSince(cid.ID) (int64, error)
+}
+
 type cfg struct {
 	m sync.RWMutex
 
@@ -285,6 +293,14 @@ func WithDeletedLockCallback(v DeletedLockCallback) Option {
 func WithMetricsWriter(v MetricsWriter) Option {
 	return func(c *cfg) {
 		c.metricsWriter = v
+	}
+}
+
+// WithContainerPayments returns option to specify containers' payments
+// status checher.
+func WithContainerPayments(p ContainerPayments) Option {
+	return func(c *cfg) {
+		c.gcCfg.containerPayments = p
 	}
 }
 
