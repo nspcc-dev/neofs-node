@@ -91,6 +91,13 @@ func (x *LogBuffer) AssertContainsMsg(lvl zapcore.Level, msg string) {
 	}))
 }
 
+// AssertNotContainsMsg asserts that log does not contain entry with given message and severity.
+func (x *LogBuffer) AssertNotContainsMsg(lvl zapcore.Level, msg string) {
+	require.True(x.t, !slices.ContainsFunc(x.collectEntries(), func(e LogEntry) bool {
+		return e.Level == lvl && e.Message == msg
+	}))
+}
+
 func (x *LogBuffer) collectEntries() []LogEntry {
 	x.l.Lock()
 	lines := x.b.Lines()
