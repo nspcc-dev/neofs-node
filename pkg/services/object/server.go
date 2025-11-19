@@ -232,6 +232,9 @@ func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.Re
 }
 
 func (s *Server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse, err error) error {
+	if resp == nil {
+		resp = new(protoobject.PutResponse)
+	}
 	if err != nil {
 		resp.MetaHeader = s.makeResponseMetaHeader(util.ToStatus(err))
 	}
@@ -241,7 +244,7 @@ func (s *Server) sendPutResponse(stream protoobject.ObjectService_PutServer, res
 }
 
 func (s *Server) sendStatusPutResponse(stream protoobject.ObjectService_PutServer, err error) error {
-	return s.sendPutResponse(stream, new(protoobject.PutResponse), err)
+	return s.sendPutResponse(stream, nil, err)
 }
 
 type putStream struct {
