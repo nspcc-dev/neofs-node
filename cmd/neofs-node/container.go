@@ -202,11 +202,16 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 		st := c.cfgObject.cfgLocalStorage.localStorage
 		l := logger.With(zap.Uint64("epoch", epoch))
 
-		l.Debug("sending container report to contract...")
+		l.Debug("sending container reports to contract...")
 
 		idList, err := st.ListContainers()
 		if err != nil {
 			l.Warn("engine's list containers failure", zap.Error(err))
+			return
+		}
+
+		if len(idList) == 0 {
+			l.Debug("no containers found in storage to report")
 			return
 		}
 
@@ -216,6 +221,7 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 			return
 		}
 
+		var successes int
 		for _, cnr := range idList {
 			size, objsNum, err := st.ContainerInfo(cnr)
 			if err != nil {
@@ -257,12 +263,14 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 			cache[cnr] = reportedBefore
 			m.Unlock()
 
+			successes++
 			l.Debug("successfully put container report to contract",
 				zap.Stringer("cid", cnr), zap.Uint64("size", size), zap.Uint64("objectsNum", objsNum))
 		}
 
 		l.Debug("sent container reports",
-			zap.Int("numOfSuccessReports", len(idList)))
+			zap.Int("numOfSuccessReports", successes),
+			zap.Int("numOfContainers", len(idList)))
 	}
 }
 
