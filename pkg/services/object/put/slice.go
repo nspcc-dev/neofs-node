@@ -2,11 +2,13 @@ package putsvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object/slicer"
@@ -85,11 +87,11 @@ func (x *slicingTarget) Write(p []byte) (n int, err error) {
 
 func (x *slicingTarget) Close() (oid.ID, error) {
 	err := x.payloadWriter.Close()
-	if err != nil {
+	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return oid.ID{}, fmt.Errorf("finish object slicing: %w", err)
 	}
 
-	return x.payloadWriter.ID(), nil
+	return x.payloadWriter.ID(), err
 }
 
 // implements slicer.ObjectWriter for ready child objects.
