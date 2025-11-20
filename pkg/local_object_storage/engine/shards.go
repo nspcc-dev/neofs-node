@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -116,21 +115,23 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
 
-	pool, err := ants.NewPool(int(e.shardPoolSize), ants.WithNonblocking(true))
-	if err != nil {
-		return fmt.Errorf("could not create pool: %w", err)
-	}
-
 	strID := sh.ID().String()
 	if _, ok := e.shards[strID]; ok {
 		return fmt.Errorf("shard with id %s was already added", strID)
 	}
 
-	e.shards[strID] = shardWrapper{
+	var shw = shardWrapper{
 		errorCount: new(atomic.Uint32),
-		pool:       pool,
 		Shard:      sh,
+		putCh:      make(chan putTask),
+		engine:     e,
 	}
+
+	for range e.shardPoolSize {
+		go shw.shardPutThread()
+	}
+
+	e.shards[strID] = shw
 
 	return nil
 }
@@ -154,8 +155,6 @@ func (e *StorageEngine) removeShards(ids ...string) {
 		ss = append(ss, sh)
 		delete(e.shards, id)
 
-		sh.pool.Release()
-
 		e.log.Info("shard has been removed",
 			zap.String("id", id))
 	}
@@ -169,6 +168,7 @@ func (e *StorageEngine) removeShards(ids ...string) {
 				zap.Error(err),
 			)
 		}
+		close(sh.putCh)
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -51,11 +50,19 @@ type shardInterface interface {
 	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 }
 
+type putTask struct {
+	addr   oid.Address
+	obj    *object.Object
+	objBin []byte
+	retCh  chan error
+}
+
 type shardWrapper struct {
 	errorCount *atomic.Uint32
-	pool       util.WorkerPool
 	*shard.Shard
 	shardIface shardInterface // TODO: make Shard a shardInterface
+	putCh      chan putTask
+	engine     *StorageEngine
 }
 
 type setModeRequest struct {

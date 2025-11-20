@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -11,14 +12,13 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
 var (
 	errPutShard = errors.New("could not put object to any shard")
 
-	errOverloaded = ants.ErrPoolOverload
+	errOverloaded = errors.New("overloaded")
 	errExists     = errors.New("already exists")
 )
 
@@ -66,7 +66,6 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	var (
-		bestShard  shardWrapper
 		overloaded bool
 		shs        []shardWrapper
 	)
@@ -77,29 +76,16 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 		shs = e.sortedShards(addr)
 	}
 
-	for _, sh := range shs {
-		if bestShard.pool == nil {
-			bestShard = sh
-		}
+	if len(shs) == 0 {
+		return fmt.Errorf("%w: no shards", errPutShard)
+	}
 
+	for _, sh := range shs {
 		err = e.putToShard(sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			return nil
 		}
 		if errors.Is(err, errOverloaded) {
-			overloaded = true
-		}
-	}
-
-	e.log.Debug("failed to put object to shards, trying the best one more",
-		zap.Stringer("addr", addr), zap.Stringer("best shard", bestShard.ID()))
-
-	if e.objectPutTimeout > 0 {
-		success, over := e.putToShardWithDeadLine(bestShard, addr, obj, objBin)
-		if success {
-			return nil
-		}
-		if over {
 			overloaded = true
 		}
 	}
@@ -110,7 +96,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 		return busy
 	}
 
-	return errPutShard
+	return fmt.Errorf("%w: %w", errPutShard, err)
 }
 
 // putToShard puts object to sh.
@@ -118,93 +104,58 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 // the task) or errExists (if object is already stored there).
 func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
 	var (
-		alreadyExists bool
-		err           error
-		exitCh        = make(chan struct{})
-		id            = sh.ID()
-		putError      error
+		exitCh      = make(chan error)
+		ctx, cancel = context.WithTimeout(context.TODO(), e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
 	)
+	defer cancel()
 
-	err = sh.pool.Submit(func() {
-		defer close(exitCh)
+	select {
+	case sh.putCh <- putTask{addr: addr, obj: obj, objBin: objBin, retCh: exitCh}:
+	case <-ctx.Done():
+		return errOverloaded
+	}
 
-		exists, err := sh.Exists(addr, false)
+	err := <-exitCh
+	return err
+}
+
+func (sh *shardWrapper) shardPutThread() {
+	var id = sh.ID().String()
+
+	for t := range sh.putCh {
+		exists, err := sh.Exists(t.addr, false)
 		if err != nil {
-			e.log.Warn("object put: check object existence",
-				zap.Stringer("addr", addr),
-				zap.Stringer("shard", id),
+			sh.engine.log.Warn("object put: check object existence",
+				zap.Stringer("addr", t.addr),
+				zap.String("shard", id),
 				zap.Error(err))
 
 			if shard.IsErrObjectExpired(err) {
 				// object is already found but
 				// expired => do nothing with it
-				alreadyExists = true
+				err = errExists
 			}
-
-			return // this is not ErrAlreadyRemoved error so we can go to the next shard
+			t.retCh <- err
+			continue // this is not ErrAlreadyRemoved error so we can go to the next task
 		}
 
-		alreadyExists = exists
-		if alreadyExists {
-			e.log.Debug("object put: object already exists",
-				zap.Stringer("shard", id),
-				zap.Stringer("addr", addr))
-
-			return
+		if exists {
+			t.retCh <- errExists
+			continue
 		}
 
-		putError = sh.Put(obj, objBin)
-		if putError != nil {
-			if errors.Is(putError, shard.ErrReadOnlyMode) || errors.Is(putError, common.ErrReadOnly) ||
-				errors.Is(putError, common.ErrNoSpace) {
-				e.log.Warn("could not put object to shard",
-					zap.Stringer("shard_id", id),
-					zap.Error(putError))
-				return
+		err = sh.Put(t.obj, t.objBin)
+		if err != nil {
+			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
+				errors.Is(err, common.ErrNoSpace) {
+				sh.engine.log.Warn("could not put object to shard",
+					zap.String("shard_id", id),
+					zap.Error(err))
+			} else {
+				sh.engine.reportShardError(*sh, "could not put object to shard", err)
 			}
-
-			e.reportShardError(sh, "could not put object to shard", putError)
-			return
 		}
-	})
-	if err != nil {
-		e.log.Warn("object put: pool task submitting", zap.Stringer("shard", id), zap.Error(err))
-		close(exitCh)
-		return err
-	}
-
-	<-exitCh
-
-	if alreadyExists {
-		return errExists
-	}
-
-	return putError
-}
-
-func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) (bool, bool) {
-	const putCooldown = 100 * time.Millisecond
-	var (
-		overloaded bool
-		ticker     = time.NewTicker(putCooldown)
-		timer      = time.NewTimer(e.objectPutTimeout)
-	)
-
-	for {
-		select {
-		case <-timer.C:
-			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.objectPutTimeout))
-			return false, overloaded
-		case <-ticker.C:
-			err := e.putToShard(sh, addr, obj, objBin)
-			if errors.Is(err, errOverloaded) {
-				overloaded = true
-				ticker.Reset(putCooldown)
-				continue
-			}
-
-			return err == nil || errors.Is(err, errExists), false
-		}
+		t.retCh <- err
 	}
 }
 
