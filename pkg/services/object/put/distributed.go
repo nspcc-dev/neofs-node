@@ -238,7 +238,6 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 		if err != nil {
 			err = fmt.Errorf("write object locally: %w", err)
 			svcutil.LogServiceError(l, "PUT", nil, err)
-			err = errIncompletePut{singleErr: fmt.Errorf("%w (last node error: %w)", errNotEnoughNodes{required: 1}, err)}
 		}
 	} else {
 		err = placementFn(obj, objMeta, encObj)
