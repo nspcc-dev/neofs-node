@@ -32,12 +32,10 @@ func (w *putSvcWrapper) put(exec *execCtx) (*oid.ID, error) {
 		return nil, err
 	}
 
-	r, err := streamer.Close()
+	id, err := streamer.Close()
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, err
 	}
-
-	id := r.ObjectID()
 
 	return &id, err
 }
