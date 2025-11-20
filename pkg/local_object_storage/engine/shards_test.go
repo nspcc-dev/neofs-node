@@ -16,7 +16,6 @@ func TestRemoveShard(t *testing.T) {
 		os.RemoveAll(t.Name())
 	})
 
-	require.Equal(t, numOfShards, len(e.shardPools))
 	require.Equal(t, numOfShards, len(e.shards))
 
 	removedNum := numOfShards / 2
@@ -36,7 +35,6 @@ func TestRemoveShard(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, numOfShards-removedNum, len(e.shardPools))
 	require.Equal(t, numOfShards-removedNum, len(e.shards))
 
 	for id, removed := range mSh {
