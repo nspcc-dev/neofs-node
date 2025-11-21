@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.50.0
+
+## [0.50.0] - 2025-11-24 - Jawoldo
+
+### Added
 - Erasure coding in containers' storage policies (#3570)
 - IR `experimental.allow_ec` config option (#3570)
 - SN `pprof.enable_block` and `pprof.enable_mutex` options (#3655)
@@ -17,7 +31,7 @@ Changelog for NeoFS Node
 - SN load reporting race (#3652)
 - Incompatibility with wallets using non-standard scrypt parameters (#3675)
 - Improper handling of Incomplete status in CLI commands (#3679)
-- Incomplete status response missing data for SEARCH/PUT/DELETE operations (#3679, #3683, #3684)
+- Incomplete status response missing data for SEARCH/PUT/DELETE operations (#3679, #3683, #3684, #3686)
 - Basic income payments (#3357)
 
 ### Changed
@@ -27,7 +41,7 @@ Changelog for NeoFS Node
 - Move `fee.main_chain` into `mainnet.extra_fee` in IR config (#3619)
 - Move `contracts` into `mainnet.contracts` in IR config (#3619)
 - Move `persistent_sessions` data to `persistent_state` in SN (#3630)
-- More efficient write cache batching for small objects (#3414)
+- More efficient write cache batching for small objects (#3414, #3682)
 - SN now indexes metadata for root objects nested twice (parents of parents) (#3674)
 - Storage nodes do not serve unpaid containers (#774)
 - IR logs public keys in HEX encoding, not base64 (#3690)
@@ -38,16 +52,16 @@ Changelog for NeoFS Node
 ### Updated
 - NeoGo dependency to 0.114.0 (#3679)
 - NeoFS SDK dependency to RC16+ (#3679)
+- golang.org/x/crypto dependency from 0.42.0 to 0.45.0 (#3685)
+- neofs-contract from 0.24.0 to 0.25.1 (#3650)
 
 ### Updating from v0.49.1
 Erasure coding is available in experimental mode. To enable it, set
 `experimental.allow_ec` flag in IR config.
 
 Use IR configuration options:
-- `fschain.disable_autodeploy` instead of deprecated `fschain_autodeploy` with reverted value,
-by default autodeploy is enabled now;
-- `mainnet.enabled` instead of deprecated `without_mainnet` with reverted value,
-by default mainnet is disabled now;
+- `fschain.disable_autodeploy` instead of deprecated `fschain_autodeploy` with reverted value, by default autodeploy is enabled now;
+- `mainnet.enabled` instead of deprecated `without_mainnet` with reverted value, by default mainnet is disabled now;
 - `mainnet.disable_governance_sync` instead of deprecated `governance.disable`;
 - `mainnet.extra_fee` instead of deprecated `fee.main_chain`;
 - `mainnet.contracts` instead of deprecated `contracts`;
@@ -59,6 +73,10 @@ option now.
 
 Write cache migration from pre-0.46.0 format is no longer supported, use some
 earlier version if you still have write cache database with objects.
+
+Contracts autoupdate doesn't support pre-0.20.0 contract versions
+corresponding to NeoFS 0.43.0 release. Update from earlier versions using
+0.49.1 first.
 
 ## [0.49.1] - 2025-10-15
 
@@ -2736,7 +2754,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.0...master
+[0.50.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...v0.50.0
 [0.49.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...v0.49.0
 [0.48.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.2...v0.48.3
