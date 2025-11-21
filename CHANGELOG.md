@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs-adm balance container-status` command (#3693)
 
 ### Fixed
 
