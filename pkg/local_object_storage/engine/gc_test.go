@@ -24,6 +24,10 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+type containerPaymantsStub struct{}
+
+func (p containerPaymantsStub) UnpaidSince(id cid.ID) (int64, error) { return -1, nil }
+
 func TestChildrenExpiration(t *testing.T) {
 	const numOfShards = 5
 	es := &asyncEpochState{e: 10}
@@ -40,6 +44,7 @@ func TestChildrenExpiration(t *testing.T) {
 			),
 			shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 			shard.WithGCRemoverSleepInterval(100*time.Millisecond),
+			shard.WithContainerPayments(containerPaymantsStub{}),
 		)
 		require.NoError(t, err)
 	}
@@ -179,6 +184,7 @@ func TestGC(t *testing.T) {
 			shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 			shard.WithExpiredLocksCallback(e.processExpiredLocks),
 			shard.WithGCRemoverSleepInterval(100*time.Millisecond),
+			shard.WithContainerPayments(containerPaymantsStub{}),
 		)
 		require.NoError(t, err)
 	}
@@ -320,6 +326,7 @@ func TestSplitObjectExpirationWithoutLink(t *testing.T) {
 		),
 		shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 		shard.WithGCRemoverSleepInterval(100*time.Millisecond),
+		shard.WithContainerPayments(containerPaymantsStub{}),
 	)
 	require.NoError(t, err)
 
@@ -404,6 +411,7 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 		),
 		shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 		shard.WithGCRemoverSleepInterval(100*time.Millisecond),
+		shard.WithContainerPayments(containerPaymantsStub{}),
 	)
 	require.NoError(t, err)
 

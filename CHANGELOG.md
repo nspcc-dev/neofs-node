@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Incompatibility with wallets using non-standard scrypt parameters (#3675)
 - Improper handling of Incomplete status in CLI commands (#3679)
 - Incomplete status response missing data for SEARCH/PUT/DELETE operations (#3679, #3683, #3684)
+- Basic income payments (#3357)
 
 ### Changed
 - Move `fschain_autodeploy` into `fschain.disable_autodeploy` in IR config (#3619)
@@ -27,6 +28,7 @@ Changelog for NeoFS Node
 - Move `persistent_sessions` data to `persistent_state` in SN (#3630)
 - More efficient write cache batching for small objects (#3414)
 - SN now indexes metadata for root objects nested twice (parents of parents) (#3674)
+- Storage nodes do not serve unpaid containers (#774)
 
 ### Removed
 - Pre-0.46.0 write cache format migration (#3647)

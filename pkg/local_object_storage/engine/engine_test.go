@@ -145,6 +145,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 				meta.WithEpochState(epochState{}),
 			),
 			shard.WithExpiredObjectsCallback(engine.processExpiredObjects),
+			shard.WithContainerPayments(containerPaymantsStub{}),
 		}, extraOpts...)...)
 		require.NoError(t, err)
 	}

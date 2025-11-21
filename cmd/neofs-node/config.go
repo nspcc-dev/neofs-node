@@ -25,6 +25,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -116,6 +117,7 @@ type basics struct {
 	cli  *client.Client
 	nCli *nmClient.Client
 	cCli *cntClient.Client
+	bCli *balanceClient.Client
 
 	// all caches are non-nil iff caching is enabled in config
 	containerCache     *ttlContainerStorage
@@ -170,6 +172,8 @@ type shared struct {
 	control *controlSvc.Server
 
 	metaService *meta.Meta
+
+	containerPayments *paymentChecker
 }
 
 func (s *shared) resetCaches() {
@@ -198,6 +202,7 @@ type cfg struct {
 	cfgGRPC           cfgGRPC
 	cfgMeta           cfgMeta
 	cfgMorph          cfgMorph
+	cfgBalance        cfgBalance
 	cfgContainer      cfgContainer
 	cfgNodeInfo       cfgNodeInfo
 	cfgNetmap         cfgNetmap
@@ -239,6 +244,11 @@ type cfgMorph struct {
 	eigenTrustTicker *eigenTrustTickers // timers for EigenTrust iterations
 
 	proxyScriptHash neogoutil.Uint160
+}
+
+type cfgBalance struct {
+	parsers     map[event.Type]event.NotificationParser
+	subscribers map[event.Type][]event.Handler
 }
 
 type cfgContainer struct {
@@ -410,6 +420,10 @@ func initCfg(appCfg *config.Config) *cfg {
 		persistate:        persistate,
 		privateTokenStore: persistate,
 	}
+	c.cfgBalance = cfgBalance{
+		parsers:     make(map[event.Type]event.NotificationParser),
+		subscribers: make(map[event.Type][]event.Handler),
+	}
 	c.cfgContainer = cfgContainer{
 		workerPool: containerWorkerPool,
 	}
@@ -443,6 +457,8 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.onShutdown(c.bgClientCache.CloseAll)  // clean up connections
 	c.onShutdown(c.putClientCache.CloseAll) // clean up connections
 	c.onShutdown(func() { _ = c.persistate.Close() })
+
+	initPaymentChecker(c)
 
 	return c
 }
@@ -509,6 +525,9 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	currBlock, err := cli.BlockCount()
 	fatalOnErr(err)
 	nState.block.Store(currBlock)
+
+	b.bCli, err = balanceClient.NewFromMorph(cli, b.balanceSH)
+	fatalOnErr(err)
 
 	b.cCli, err = cntClient.NewFromMorph(cli, b.containerSH)
 	fatalOnErr(err)

@@ -9,8 +9,10 @@ import (
 	"time"
 
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
@@ -199,11 +201,16 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 		st := c.cfgObject.cfgLocalStorage.localStorage
 		l := logger.With(zap.Uint64("epoch", epoch))
 
-		l.Debug("sending container report to contract...")
+		l.Debug("sending container reports to contract...")
 
 		idList, err := st.ListContainers()
 		if err != nil {
 			l.Warn("engine's list containers failure", zap.Error(err))
+			return
+		}
+
+		if len(idList) == 0 {
+			l.Debug("no containers found in storage to report")
 			return
 		}
 
@@ -213,6 +220,7 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 			return
 		}
 
+		var successes int
 		for _, cnr := range idList {
 			size, objsNum, err := st.ContainerInfo(cnr)
 			if err != nil {
@@ -254,12 +262,14 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 			cache[cnr] = reportedBefore
 			m.Unlock()
 
+			successes++
 			l.Debug("successfully put container report to contract",
 				zap.Stringer("cid", cnr), zap.Uint64("size", size), zap.Uint64("objectsNum", objsNum))
 		}
 
 		l.Debug("sent container reports",
-			zap.Int("numOfSuccessReports", len(idList)))
+			zap.Int("numOfSuccessReports", successes),
+			zap.Int("numOfContainers", len(idList)))
 	}
 }
 
@@ -349,6 +359,82 @@ func setContainerNotificationParser(c *cfg, sTyp string, p event.NotificationPar
 	}
 
 	c.cfgContainer.parsers[typ] = p
+}
+
+func initPaymentChecker(c *cfg) {
+	var (
+		l = c.log.With(zap.String("component", "paymentChecker"))
+		p = &paymentChecker{
+			m:          sync.RWMutex{},
+			statuses:   make(map[cid.ID]int64),
+			balanceCli: c.bCli,
+		}
+	)
+
+	const changeUnpaidStatusEventName = "ChangePaymentStatus"
+	typ := event.TypeFromString(changeUnpaidStatusEventName)
+	c.cfgBalance.parsers[typ] = balanceEvent.ParseChangePaymentStatus
+	c.cfgBalance.subscribers[typ] = append(c.cfgBalance.subscribers[typ], func(e event.Event) {
+		ev := e.(balanceEvent.ChangePaymentStatus)
+		p.m.Lock()
+		defer p.m.Unlock()
+
+		cID := cid.ID(ev.ContainerID)
+		if ev.Unpaid {
+			l.Info("container status has changed to unpaid",
+				zap.Stringer("cID", cID),
+				zap.Uint64("epoch", ev.Epoch))
+
+			p.statuses[cID] = int64(ev.Epoch)
+		} else {
+			l.Info("container status has changed to paid",
+				zap.Stringer("cID", cID),
+				zap.Uint64("epoch", ev.Epoch))
+
+			p.statuses[cID] = -1
+		}
+	})
+
+	c.containerPayments = p
+}
+
+type paymentChecker struct {
+	m        sync.RWMutex
+	statuses map[cid.ID]int64
+
+	balanceCli *balanceClient.Client
+}
+
+func (p *paymentChecker) resetCache() {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	clear(p.statuses)
+}
+
+func (p *paymentChecker) UnpaidSince(cID cid.ID) (int64, error) {
+	p.m.RLock()
+	epoch, ok := p.statuses[cID]
+	p.m.RUnlock()
+
+	if ok {
+		return epoch, nil
+	}
+
+	p.m.Lock()
+	defer p.m.Unlock()
+	epoch, ok = p.statuses[cID]
+	if ok {
+		return epoch, nil
+	}
+
+	epoch, err := p.balanceCli.GetUnpaidContainerEpoch(cID)
+	if err != nil {
+		return 0, fmt.Errorf("FS chain RPC call: %w", err)
+	}
+	p.statuses[cID] = epoch
+
+	return epoch, nil
 }
 
 func (c *cfg) PublicKey() []byte {

@@ -1,22 +1,14 @@
 package settlement
 
 import (
-	"math/big"
-
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"go.uber.org/zap"
 )
 
-var (
-	bigGB  = big.NewInt(1 << 30)
-	bigOne = big.NewInt(1)
-)
-
-// parallelFactor is a max parallel routines number doing settlement
-// calculations/handlings.
-const parallelFactor = 10
+// parallelFactor is a max parallel routines number sending payment transactions.
+const parallelFactor = 20
 
 type (
 	// AlphabetState is a callback interface for inner ring global state.

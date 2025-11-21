@@ -68,6 +68,90 @@ func (q quotas) AvailableQuotasLeft(cID cid.ID, owner user.ID) (uint64, uint64, 
 	return q.soft, q.hard, nil
 }
 
+type payments struct {
+	m map[cid.ID]int64
+}
+
+func (p *payments) UnpaidSince(cID cid.ID) (unpaidFromEpoch int64, err error) {
+	if p.m == nil {
+		return -1, nil
+	}
+
+	e, ok := p.m[cID]
+	if !ok {
+		return -1, nil
+	}
+
+	return e, nil
+}
+
+func TestPayments(t *testing.T) {
+	var (
+		cluster           = newTestClusterForRepPolicy(t, 1, 1, 1)
+		nodeKey           = neofscryptotest.ECDSAPrivateKey()
+		cnr               = containertest.Container()
+		rep               = netmap.ReplicaDescriptor{}
+		p                 = netmaptest.PlacementPolicy()
+		nodeWorkerPool, _ = ants.NewPool(1, ants.WithNonblocking(true))
+		cID               = cidtest.ID()
+		owner             = usertest.User()
+		payments          = &payments{map[cid.ID]int64{cID: 123}}
+	)
+
+	rep.SetNumberOfObjects(1)
+	p.SetReplicas([]netmap.ReplicaDescriptor{rep})
+	cnr.SetPlacementPolicy(p)
+
+	s := NewService(cluster.nodeServices, &cluster.nodeNetworks[0], nil,
+		quotas{math.MaxUint64, math.MaxUint64},
+		payments,
+		WithLogger(zaptest.NewLogger(t)),
+		WithKeyStorage(objutil.NewKeyStorage(&nodeKey, cluster.nodeSessions[0], &cluster.nodeNetworks[0])),
+		WithObjectStorage(&cluster.nodeLocalStorages[0]),
+		WithMaxSizeSource(mockMaxSize(maxObjectSize)),
+		WithContainerSource(mockContainer(cnr)),
+		WithNetworkState(&cluster.nodeNetworks[0]),
+		WithClientConstructor(cluster.nodeServices),
+		WithSplitChainVerifier(mockSplitVerifier{}),
+		WithRemoteWorkerPool(nodeWorkerPool),
+	)
+
+	stream, err := s.Put(context.Background())
+	require.NoError(t, err)
+
+	var sessionToken session.Object
+	sessionToken.SetID(uuid.New())
+	sessionToken.SetExp(1)
+	sessionToken.BindContainer(cID)
+	sessionToken.SetAuthKey(cluster.nodeSessions[0].signer.Public())
+	require.NoError(t, sessionToken.Sign(owner))
+
+	req := &protoobject.PutRequest{
+		MetaHeader: &protosession.RequestMetaHeader{
+			Ttl:          2,
+			SessionToken: sessionToken.ProtoMessage(),
+		},
+	}
+	commonPrm, err := objutil.CommonPrmFromRequest(req)
+	if err != nil {
+		panic(err)
+	}
+
+	o := objecttest.Object()
+	o.SetContainerID(cID)
+	o.ResetRelations()
+	ip := new(PutInitPrm).
+		WithObject(&o).
+		WithCommonPrm(commonPrm)
+
+	err = stream.Init(ip)
+	require.ErrorContains(t, err, "container is unpaid")
+
+	payments.m[cID] = -1
+
+	require.NoError(t, stream.Init(ip))
+}
+
 func TestQuotas(t *testing.T) {
 	const hardLimit = 2
 	var (
@@ -87,6 +171,7 @@ func TestQuotas(t *testing.T) {
 
 	s := NewService(cluster.nodeServices, &cluster.nodeNetworks[0], nil,
 		quotas{hard: hardLimit},
+		&payments{},
 		WithLogger(zaptest.NewLogger(t)),
 		WithKeyStorage(objutil.NewKeyStorage(&nodeKey, cluster.nodeSessions[0], &cluster.nodeNetworks[0])),
 		WithObjectStorage(&cluster.nodeLocalStorages[0]),
@@ -511,6 +596,7 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 
 		cluster.nodeServices[i] = NewService(cluster.nodeServices, &cluster.nodeNetworks[i], nil,
 			quotas{math.MaxUint64, math.MaxUint64},
+			&payments{},
 			WithLogger(zaptest.NewLogger(t).With(zap.Int("node", i))),
 			WithKeyStorage(objutil.NewKeyStorage(&nodeKey, cluster.nodeSessions[i], &cluster.nodeNetworks[i])),
 			WithObjectStorage(&cluster.nodeLocalStorages[i]),

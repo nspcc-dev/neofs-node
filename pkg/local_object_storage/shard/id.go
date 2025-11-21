@@ -48,12 +48,17 @@ func (s *Shard) UpdateID() (err error) {
 		}
 	}
 
-	s.log = s.log.With(zap.String("shard_id", s.info.ID.String()))
-	s.metaBase.SetLogger(s.log)
-	s.blobStor.SetLogger(s.log)
+	var (
+		sID = s.info.ID.String()
+		l   = s.log.With(zap.String("shard_id", sID))
+	)
+	s.log = l
+	s.gcCfg.log = s.gcCfg.log.With(zap.String("shard_id", sID))
+	s.metaBase.SetLogger(l)
+	s.blobStor.SetLogger(l)
 	if s.hasWriteCache() {
-		s.writeCache.SetLogger(s.log)
-		s.writeCache.SetShardIDMetrics(s.info.ID.String())
+		s.writeCache.SetLogger(l)
+		s.writeCache.SetShardIDMetrics(sID)
 	}
 
 	if len(id) != 0 {

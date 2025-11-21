@@ -105,6 +105,8 @@ type InvokePrmOptional struct {
 	hash *util.Uint256
 
 	signByAlphabet bool
+
+	nonce *uint32
 }
 
 // SetHash sets optional hash of the transaction.
@@ -121,6 +123,11 @@ func (i *InvokePrmOptional) SetHash(hash util.Uint256) {
 // chain.
 func (i *InvokePrmOptional) RequireAlphabetSignature() {
 	i.signByAlphabet = true
+}
+
+// SetNonce sets optional nonce only for notary request's main transaction.
+func (i *InvokePrmOptional) SetNonce(nonce uint32) {
+	i.nonce = &nonce
 }
 
 // Invoke calls Invoke method of Client with static internal script hash and fee.
@@ -150,6 +157,9 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 				}
 
 				vubP = &vub
+			}
+			if prm.nonce != nil {
+				nonce = *prm.nonce
 			}
 
 			invokeFunc = func() error {
