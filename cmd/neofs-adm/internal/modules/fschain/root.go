@@ -495,4 +495,10 @@ func init() {
 	_ = reportsCmd.MarkFlagRequired(containerIDFlag)
 
 	RootCmd.AddCommand(reportsCmd)
+
+	ff = loadSummaryCmd.Flags()
+	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = loadSummaryCmd.MarkFlagRequired(endpointFlag)
+
+	RootCmd.AddCommand(loadSummaryCmd)
 }
