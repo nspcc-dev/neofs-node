@@ -107,7 +107,6 @@ func TestEvacuateShard(t *testing.T) {
 
 	e.mtx.Lock()
 	delete(e.shards, evacuateShardID)
-	delete(e.shardPools, evacuateShardID)
 	e.mtx.Unlock()
 
 	checkHasObjects(t)

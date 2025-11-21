@@ -208,7 +208,6 @@ func TestReload(t *testing.T) {
 
 		// no new paths => no new shards
 		require.Equal(t, shardNum, len(e.shards))
-		require.Equal(t, shardNum, len(e.shardPools))
 
 		newMeta := filepath.Join(addPath, fmt.Sprintf("%d.metabase", shardNum))
 
@@ -222,7 +221,6 @@ func TestReload(t *testing.T) {
 		require.NoError(t, e.Reload(rcfg))
 
 		require.Equal(t, shardNum+1, len(e.shards))
-		require.Equal(t, shardNum+1, len(e.shardPools))
 	})
 
 	t.Run("remove shards", func(t *testing.T) {
@@ -240,7 +238,6 @@ func TestReload(t *testing.T) {
 
 		// removed one
 		require.Equal(t, shardNum-1, len(e.shards))
-		require.Equal(t, shardNum-1, len(e.shardPools))
 	})
 }
 
@@ -268,7 +265,6 @@ func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []str
 	}
 
 	require.Equal(t, num, len(e.shards))
-	require.Equal(t, num, len(e.shardPools))
 
 	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())

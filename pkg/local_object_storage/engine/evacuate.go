@@ -3,22 +3,18 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/nspcc-dev/hrw/v2"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 const defaultEvacuateBatchSize = 100
-
-type pooledShard struct {
-	shardWrapper
-	pool util.WorkerPool
-}
 
 var errMustHaveTwoShards = errors.New("must have at least 1 spare shard")
 
@@ -60,13 +56,7 @@ func (e *StorageEngine) Evacuate(shardIDs []*shard.ID, ignoreErrors bool, faultH
 	// We must have all shards, to have correct information about their
 	// indexes in a sorted slice and set appropriate marks in the metabase.
 	// Evacuated shard is skipped during put.
-	shards := make([]pooledShard, 0, len(e.shards))
-	for id := range e.shards {
-		shards = append(shards, pooledShard{
-			shardWrapper: e.shards[id],
-			pool:         e.shardPools[id],
-		})
-	}
+	shards := slices.Collect(maps.Values(e.shards))
 	e.mtx.RUnlock()
 
 	shardMap := make(map[string]*shard.Shard)
@@ -115,9 +105,9 @@ mainLoop:
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					putDone, exists, _ := e.putToShard(shards[j].shardWrapper, j, shards[j].pool, addr, obj, nil)
-					if putDone || exists {
-						if putDone {
+					err = e.putToShard(shards[j], j, addr, obj, nil)
+					if err == nil || errors.Is(err, errExists) {
+						if !errors.Is(err, errExists) {
 							e.log.Debug("object is moved to another shard",
 								zap.String("from", sidList[n]),
 								zap.Stringer("to", shards[j].ID()),

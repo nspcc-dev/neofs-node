@@ -81,18 +81,15 @@ func (e *StorageEngine) close(releasePools bool) error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
-	if releasePools {
-		for _, p := range e.shardPools {
-			p.Release()
-		}
-	}
-
 	for id, sh := range e.shards {
 		if err := sh.Close(); err != nil {
 			e.log.Debug("could not close shard",
 				zap.String("id", id),
 				zap.Error(err),
 			)
+		}
+		if releasePools {
+			close(sh.putCh)
 		}
 	}
 
@@ -201,9 +198,6 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 	}
 
 	e.mtx.RLock()
-	for _, pool := range e.shardPools {
-		pool.Tune(int(e.shardPoolSize))
-	}
 
 	var shardsToRemove []string // shards IDs
 	var shardsToAdd []string    // shard config identifiers (blobstor paths concatenation)
