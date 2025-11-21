@@ -211,19 +211,14 @@ func TestResyncMetabase(t *testing.T) {
 	require.NoError(t, err)
 
 	// LOCK object handling
-	var lock objectSDK.Lock
-	lock.WriteMembers(locked)
+	for _, lockedObj := range locked {
+		lockObj := objecttest.Object()
+		lockObj.SetContainerID(cnrLocked)
+		lockObj.AssociateLocked(lockedObj)
 
-	lockObj := objecttest.Object()
-	lockObj.SetVersion(&oldVersion)
-	lockObj.SetContainerID(cnrLocked)
-	lockObj.WriteLock(lock)
-
-	err = sh.Put(&lockObj, nil)
-	require.NoError(t, err)
-
-	lockID := lockObj.GetID()
-	require.NoError(t, sh.Lock(cnrLocked, lockID, locked))
+		err = sh.Put(&lockObj, nil)
+		require.NoError(t, err)
+	}
 
 	err = sh.Inhume(object.AddressOf(&tombObj), 0, tombMembers...)
 	require.NoError(t, err)

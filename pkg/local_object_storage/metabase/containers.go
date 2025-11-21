@@ -193,13 +193,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			return fmt.Errorf("estimations bucket cleanup: %w", err)
 		}
 
-		// Locked objects
-		bktLocked := tx.Bucket(bucketNameLocked)
-		err = bktLocked.DeleteBucket(cIDRaw)
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("locked bucket cleanup: %w", err)
-		}
-
 		// Metadata
 		if err = tx.DeleteBucket(metaBucketKey(cID)); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("metadata bucket cleanup: %w", err)

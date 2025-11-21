@@ -409,19 +409,6 @@ func TestDB_Put_Tombstone(t *testing.T) {
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
 		}},
-		{name: "with target and lock mark", preset: func(t *testing.T, db *meta.DB) {
-			require.NoError(t, db.Put(&obj))
-			err := db.Lock(obj.GetContainerID(), lock.GetID(), []oid.ID{objID})
-			require.NoError(t, err)
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
-		}},
-		{name: "lock mark without target", preset: func(t *testing.T, db *meta.DB) {
-			err := db.Lock(obj.GetContainerID(), lock.GetID(), []oid.ID{objID})
-			require.NoError(t, err)
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
-		}},
 		{name: "target is lock", preset: func(t *testing.T, db *meta.DB) {
 			obj := obj
 			obj.SetType(objectSDK.TypeLock)

@@ -638,10 +638,11 @@ func TestRemovedObjects(t *testing.T) {
 
 	// Expired (== removed) but locked
 
-	l := generateObject(t)
-	require.NoError(t, db.Lock(cnr, object.AddressOf(l).Object(), []oid.ID{object.AddressOf(o3).Object()}))
+	locker := generateObjectWithCID(t, object.AddressOf(o3).Container())
+	locker.AssociateLocked(object.AddressOf(o3).Object())
+	require.NoError(t, db.Put(locker))
 
-	testSelect(t, db, cnr, fAll, object.AddressOf(o2), object.AddressOf(o3))
+	testSelect(t, db, cnr, fAll, object.AddressOf(o2), object.AddressOf(o3), object.AddressOf(locker))
 }
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {

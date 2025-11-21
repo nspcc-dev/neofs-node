@@ -91,7 +91,6 @@ func (db *DB) init(reset bool) error {
 		string(toMoveItBucketName):        {},
 		string(garbageObjectsBucketName):  {},
 		string(shardInfoBucket):           {},
-		string(bucketNameLocked):          {},
 	}
 
 	if !reset {

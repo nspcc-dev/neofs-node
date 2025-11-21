@@ -115,9 +115,9 @@ mainLoop:
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					putDone, exists, _ := e.putToShard(shards[j].shardWrapper, j, shards[j].pool, addr, obj, nil)
-					if putDone || exists {
-						if putDone {
+					err = e.putToShard(shards[j].shardWrapper, j, shards[j].pool, addr, obj, nil)
+					if err == nil || errors.Is(err, errExists) {
+						if !errors.Is(err, errExists) {
 							e.log.Debug("object is moved to another shard",
 								zap.String("from", sidList[n]),
 								zap.Stringer("to", shards[j].ID()),
