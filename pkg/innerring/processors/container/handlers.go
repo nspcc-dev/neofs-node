@@ -2,6 +2,7 @@ package container
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -104,7 +105,7 @@ func (cp *Processor) handleAnnounceLoad(ev event.Event) {
 		zap.Stringer("cid", cid.ID(e.CID)),
 		zap.Int64("storage size", e.StorageSize),
 		zap.Int64("objects number", e.ObjectsNumber),
-		zap.Binary("reporter", e.NodeKey),
+		zap.String("reporter", hex.EncodeToString(e.NodeKey)),
 	)
 
 	// send an event to the worker pool

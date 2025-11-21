@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - More efficient write cache batching for small objects (#3414)
 - SN now indexes metadata for root objects nested twice (parents of parents) (#3674)
 - Storage nodes do not serve unpaid containers (#774)
+- IR logs public keys in HEX encoding, not base64 (#3690)
 
 ### Removed
 - Pre-0.46.0 write cache format migration (#3647)
