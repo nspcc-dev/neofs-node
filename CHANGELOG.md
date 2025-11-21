@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - SN `pprof.enable_block` and `pprof.enable_mutex` options (#3655)
 - `neofs-adm fschain load-report` command (#3649)
 - `neofs-adm fschain load-summary` command (#3687)
+- `neofs-adm balance container-status` command (#3693)
 
 ### Fixed
 - Write cache using too much CPU (#3642)
