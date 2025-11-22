@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- Session iterator expansion is enabled for internal SN RPC (#3695)
 
 ### Removed
 
