@@ -6,16 +6,22 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Container and Balance contract updates for 7 Alphabet nodes networks (#3696)
 
 ### Changed
-- Session iterator expansion is enabled for internal SN RPC (#3695)
 
 ### Removed
 
 ### Updated
 
-### Updating from v0.50.0
+### Updating from v0.50.1
+
+## [0.50.1] - 2025-11-24
+
+### Changed
+- Session iterator expansion is enabled for internal SN RPC (#3695)
+
+### Fixed
+- Container and Balance contract updates for 7 Alphabet nodes networks (#3696)
 
 ## [0.50.0] - 2025-11-24 - Jawoldo
 
@@ -2756,7 +2762,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.1...master
+[0.50.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...v0.50.0
 [0.49.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.48.3...v0.49.0
