@@ -200,7 +200,9 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	cfgBaseApp.P2PNotary.UnlockWallet = neowallet
 	cfgBaseApp.RPC.StartWhenSynchronized = true
 	cfgBaseApp.RPC.MaxGasInvoke = fixedn.Fixed8FromInt64(int64(cfg.RPC.MaxGasInvoke))
+	cfgBaseApp.RPC.MaxIteratorResultItems = 100
 	cfgBaseApp.RPC.SessionEnabled = true
+	cfgBaseApp.RPC.SessionExpansionEnabled = true
 	cfgBaseApp.P2P.Addresses = cfg.P2P.Listen
 	cfgBaseApp.P2P.DialTimeout = cfg.P2P.DialTimeout
 	cfgBaseApp.P2P.ProtoTickInterval = cfg.P2P.ProtoTickInterval
