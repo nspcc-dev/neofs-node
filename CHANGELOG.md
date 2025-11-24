@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Container and Balance contract updates for 7 Alphabet nodes networks (#3696)
 
 ### Changed
 - Session iterator expansion is enabled for internal SN RPC (#3695)
