@@ -501,4 +501,10 @@ func init() {
 	_ = loadSummaryCmd.MarkFlagRequired(endpointFlag)
 
 	RootCmd.AddCommand(loadSummaryCmd)
+
+	balanceContainerStatusCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	_ = balanceContainerStatusCmd.MarkFlagRequired(endpointFlag)
+	balanceSubcommand.AddCommand(balanceContainerStatusCmd)
+
+	RootCmd.AddCommand(balanceSubcommand)
 }
