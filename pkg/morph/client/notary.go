@@ -22,8 +22,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
@@ -384,7 +384,7 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 		if len(script) == 0 {
 			acc = notary.FakeContractAccount(mainTx.Signers[2].Account)
 		} else {
-			pubBytes, ok := vm.ParseSignatureContract(script)
+			pubBytes, ok := scparser.ParseSignatureContract(script)
 			if ok {
 				pub, err := keys.NewPublicKeyFromBytes(pubBytes, elliptic.P256())
 				if err != nil {
@@ -392,7 +392,7 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 				}
 				acc = notary.FakeSimpleAccount(pub)
 			} else {
-				m, pubsBytes, ok := vm.ParseMultiSigContract(script)
+				m, pubsBytes, ok := scparser.ParseMultiSigContract(script)
 				if !ok {
 					return errors.New("failed to parse verification script of signer #2: unknown witness type")
 				}
