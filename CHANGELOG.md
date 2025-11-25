@@ -6,8 +6,10 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- IR deadlock in basic income routine (#3700)
 
 ### Changed
+- SN announces load reports in a separate single routine (#3703)
 
 ### Removed
 

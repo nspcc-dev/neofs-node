@@ -42,6 +42,7 @@ import (
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/timers"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"go.uber.org/zap"
@@ -933,17 +934,21 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 }
 
 func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement.Processor) {
-	basicIncomeTick := func() {
+	basicIncomeTick, stopFunc := util.SingleAsyncExecutingInstance(func() {
 		epochN := server.EpochCounter()
 		if epochN == 0 { // estimates are invalid in genesis epoch
 			return
 		}
 
 		paymentProcessor.HandleBasicIncomeEvent(settlement.NewBasicIncomeEvent(epochN - 1))
-	}
+	})
+	server.closers = append(server.closers, func() error { stopFunc(); return nil })
+
+	epochH, stopFunc := util.SingleAsyncExecutingInstance(server.netmapProcessor.HandleNewEpochTick)
+	server.closers = append(server.closers, func() error { stopFunc(); return nil })
 
 	ticks := timers.EpochTicks{
-		NewEpochTicks: server.newEpochTickHandlers(),
+		NewEpochTicks: []timers.Tick{epochH},
 		DeltaTicks: []timers.SubEpochTick{
 			{
 				Tick:     basicIncomeTick,
@@ -1053,16 +1058,6 @@ func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 			f(ev)
 		}
 	}
-}
-
-func (s *Server) newEpochTickHandlers() []timers.Tick {
-	newEpochHandlers := []timers.Tick{
-		func() {
-			s.netmapProcessor.HandleNewEpochTick()
-		},
-	}
-
-	return newEpochHandlers
 }
 
 func (s *Server) restartFSChain() error {
