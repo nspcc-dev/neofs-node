@@ -77,6 +77,17 @@ func initContainerService(c *cfg) {
 			c.log.Info("successfully updated cache of the removed container",
 				zap.Stringer("id", id))
 		})
+
+		subscribeToContainerOwnerChange(c, func(id cid.ID, from, to user.ID) {
+			c.log.Info("caught container transfer, updating cache...",
+				zap.Stringer("id", id), zap.Stringer("from", from), zap.Stringer("to", to))
+
+			c.containerListCache.update(from, id, false)
+			c.containerListCache.update(to, id, true)
+			c.containerCache.resetContainer(id)
+
+			c.log.Info("successfully updated cache for transferred container", zap.Stringer("id", id))
+		})
 	}
 	if c.eaclCache != nil {
 		subscribeToContainerEACLChange(c, func(cnr cid.ID) {
@@ -326,6 +337,11 @@ func subscribeToContainerCreation(c *cfg, h func(id cid.ID, owner user.ID)) {
 		created := e.(containerEvent.Created)
 		h(created.ID, created.Owner)
 	})
+	subscribeToContainerTransfer(c, func(id cid.ID, from, to user.ID) {
+		if from.IsZero() {
+			h(id, to)
+		}
+	})
 }
 
 // like subscribeToContainerCreation but for removal. Owner may be zero.
@@ -341,6 +357,11 @@ func subscribeToContainerRemoval(c *cfg, h func(id cid.ID, owner user.ID)) {
 		removed := e.(containerEvent.Removed)
 		h(removed.ID, removed.Owner)
 	})
+	subscribeToContainerTransfer(c, func(id cid.ID, from, to user.ID) {
+		if to.IsZero() {
+			h(id, from)
+		}
+	})
 }
 
 // like subscribeToContainerCreation but for eACL setting.
@@ -350,6 +371,39 @@ func subscribeToContainerEACLChange(c *cfg, h func(cnr cid.ID)) {
 	addContainerAsyncNotificationHandler(c, eventNameEACLChanged, func(e event.Event) {
 		eACLChanged := e.(containerEvent.EACLChanged)
 		h(eACLChanged.Container)
+	})
+}
+
+// subscribes to successful container ownership transfer. Provided handler is
+// called asynchronously on corresponding routine pool. MUST NOT be called
+// concurrently with itself and other similar functions.
+func subscribeToContainerOwnerChange(c *cfg, h func(id cid.ID, from, to user.ID)) {
+	subscribeToContainerTransfer(c, func(id cid.ID, from, to user.ID) {
+		if !from.IsZero() && !to.IsZero() && from != to {
+			h(id, from, to)
+		}
+	})
+}
+
+// subscribes to container NEP-11 transfer. Zero from means creation, zero to -
+// removal. Provided handler is called asynchronously on corresponding routine
+// pool. MUST NOT be called concurrently with itself and other similar
+// functions.
+func subscribeToContainerTransfer(c *cfg, h func(id cid.ID, from, to user.ID)) {
+	const eventName = "Transfer"
+	registerEventParserOnceContainer(c, eventName, containerEvent.RestoreTransfer)
+	addContainerAsyncNotificationHandler(c, eventName, func(e event.Event) {
+		transfer := e.(containerEvent.Transfer)
+
+		var usrFrom, usrTo user.ID
+		if transfer.From != nil {
+			usrFrom = user.NewFromScriptHash(*transfer.From)
+		}
+		if transfer.To != nil {
+			usrTo = user.NewFromScriptHash(*transfer.To)
+		}
+
+		h(transfer.Container, usrFrom, usrTo)
 	})
 }
 

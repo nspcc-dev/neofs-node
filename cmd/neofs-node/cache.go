@@ -217,6 +217,10 @@ func (s *ttlContainerStorage) reset() {
 	s.tc.reset()
 }
 
+func (s *ttlContainerStorage) resetContainer(id cid.ID) {
+	s.tc.remove(id)
+}
+
 type ttlEACLStorage struct {
 	tc ttlNetCache[cid.ID, eacl.Table]
 }
