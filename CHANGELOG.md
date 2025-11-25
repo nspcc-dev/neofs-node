@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- SN now supports new `getInfo` method of the Container contract (#3670)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)

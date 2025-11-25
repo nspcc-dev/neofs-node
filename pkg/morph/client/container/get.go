@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -37,16 +38,20 @@ func Get(c *Client, cnr cid.ID) (container.Container, error) {
 func (c *Client) Get(cid []byte) (container.Container, error) {
 	var cnr container.Container
 	prm := client.TestInvokePrm{}
-	method := getDataMethod
+	method := getInfoMethod
 	prm.SetMethod(method)
 	prm.SetArgs(cid)
 
 	arr, err := c.client.TestInvoke(prm)
-	old := err != nil && isMethodNotFoundError(err, method)
-	if old {
-		method = getMethod
+	if err != nil && isMethodNotFoundError(err, method) {
+		method = getDataMethod
 		prm.SetMethod(method)
 		arr, err = c.client.TestInvoke(prm)
+		if err != nil && isMethodNotFoundError(err, method) {
+			method = getMethod
+			prm.SetMethod(method)
+			arr, err = c.client.TestInvoke(prm)
+		}
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
@@ -59,7 +64,23 @@ func (c *Client) Get(cid []byte) (container.Container, error) {
 		return cnr, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
-	if old {
+	if method != getInfoMethod {
+		return decodeOldGetResponse(arr, method)
+	}
+
+	cnr, err = containerFromStackItem(arr[0])
+	if err != nil {
+		return cnr, fmt.Errorf("invalid %q method result: invalid stack item: %w", method, err)
+	}
+
+	return cnr, nil
+}
+
+func decodeOldGetResponse(arr []stackitem.Item, method string) (container.Container, error) {
+	var cnr container.Container
+
+	if method == getMethod {
+		var err error
 		arr, err = client.ArrayFromStackItem(arr[0])
 		if err != nil {
 			return cnr, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
