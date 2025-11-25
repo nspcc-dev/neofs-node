@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - SN now supports new `getInfo` and `createV2` methods of the Container contract (#3670)
 - IR now supports container creation requests submitted via new `createV2` contract method (#3670)
 - IR structures containers in the contract iteratively (#3670)
+- SN tries new NEP-11 methods `tokens` and `tokensOf` of Container contract (#3701)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
