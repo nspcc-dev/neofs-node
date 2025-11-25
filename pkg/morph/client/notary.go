@@ -544,7 +544,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 				zap.String("fallback_hash", fbH.StringLE()),
 			)
 
-			return util.Uint256{}, nil
+			return mainH, nil
 		}
 
 		return util.Uint256{}, err
