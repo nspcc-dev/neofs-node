@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
 
 ### Updating from v0.50.2
 
