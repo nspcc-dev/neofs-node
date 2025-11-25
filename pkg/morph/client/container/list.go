@@ -15,21 +15,34 @@ import (
 // Returns the identifiers of all NeoFS containers if pointer
 // to user identifier is nil.
 func (c *Client) List(idUser *user.ID) ([]cid.ID, error) {
-	var rawIdUser []byte
+	var mtd string
+	var args []any
 	if idUser != nil {
-		rawIdUser = idUser[:]
+		mtd = tokensOfMethod
+		args = []any{idUser.ScriptHash()}
+	} else {
+		mtd = tokensMethod
 	}
 
-	res, err := c.client.TestInvokeIterator(listMethod, iteratorPrefetchNumber, rawIdUser)
+	res, err := c.client.TestInvokeIterator(mtd, iteratorPrefetchNumber, args...)
+	if err != nil && isMethodNotFoundError(err, mtd) {
+		var rawIdUser []byte
+		if idUser != nil {
+			rawIdUser = idUser[:]
+		}
+
+		res, err = c.client.TestInvokeIterator(listMethod, iteratorPrefetchNumber, rawIdUser)
+		mtd = listMethod
+	}
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", mtd, err)
 	}
 
 	cidList := make([]cid.ID, 0, len(res))
 	for i := range res {
 		rawID, err := client.BytesFromStackItem(res[i])
 		if err != nil {
-			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", listMethod, err)
+			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", mtd, err)
 		}
 
 		var id cid.ID

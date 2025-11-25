@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- SN tries new NEP-11 methods `tokens` and `tokensOf` of Container contract (#3701)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
