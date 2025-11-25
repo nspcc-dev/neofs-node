@@ -27,6 +27,7 @@ const (
 	deleteMethod   = "delete"
 	getMethod      = "get"
 	getDataMethod  = "getContainerData"
+	getInfoMethod  = "getInfo"
 	listMethod     = "containersOf"
 	eaclMethod     = "eACL"
 	eaclDataMethod = "getEACLData"
