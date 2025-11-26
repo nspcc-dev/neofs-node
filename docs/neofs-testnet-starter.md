@@ -4,10 +4,10 @@ Follow the steps below to upload and manage files on NeoFS using the Neo CLI and
 
 ## 1. Download the Neo CLI
 
-Download the latest Neo CLI (v3.8.2) from the official release page and extract it locally.[^neo-cli]
+Download the latest Neo CLI from the official release page and extract it locally.[^neo-cli]
 
 ```text
-https://github.com/neo-project/neo/releases/tag/v3.8.2
+https://github.com/nspcc-dev/neo-go/releases
 ```
 
 ## 2. Create a Wallet
@@ -15,7 +15,8 @@ https://github.com/neo-project/neo/releases/tag/v3.8.2
 Launch the Neo CLI executable and create a wallet file:
 
 ```shell
-create wallet wallet.json
+./neo-go wallet init wallet.json
+./neo-go wallet create -w wallet.json
 ```
 
 Remember the password—you will need it whenever the wallet is accessed.
@@ -67,10 +68,10 @@ Replace `<YOUR_N3_ADDRESS>` with the address from step 2 (e.g., `NfrMnAzQUB9N5ka
 Create a NeoFS container with public read/write ACLs:
 
 ```shell
-./neofs-cli -r st2.storage.fs.neo.org:8080 \
+./neofs-cli -r grpcs://st4.t5.fs.neo.org:8082 \
   --wallet wallet.json \
   container create \
-  --policy 'REP 1' \
+  --policy 'REP 3' \
   --basic-acl eacl-public-read-write \
   --await
 ```
@@ -97,13 +98,13 @@ Record the **Object ID** from the command output.
 Access the file through a public gateway, substituting your container and object IDs:
 
 ```text
-https://filesend.ngd.network/gate/get/<CONTAINER_ID>/<OBJECT_ID>
+https://rest.fs.neo.org/v1/objects/<CONTAINER_ID>/by_id/<OBJECT_ID>
 ```
 
 Example:
 
 ```text
-https://filesend.ngd.network/gate/get/CeeroywT8ppGE4HGjhpzocJkdb2yu3wD5qCGFTjkw1Cc/45cmFDEAnB9TEgp6Gh433HHCP1NvK4hXQhzAh2to3EaJ
+https://rest.fs.neo.org/v1/objects/CeeroywT8ppGE4HGjhpzocJkdb2yu3wD5qCGFTjkw1Cc/by_id/45cmFDEAnB9TEgp6Gh433HHCP1NvK4hXQhzAh2to3EaJ
 ```
 
 ## 11. Delete the Object
