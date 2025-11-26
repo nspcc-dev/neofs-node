@@ -419,7 +419,7 @@ func init() {
 	mintBalanceCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
 	mintBalanceCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	mintBalanceCmd.Flags().String(walletAddressFlag, "", "Address of recipient")
-	mintBalanceCmd.Flags().String(mintNeofsAmountFlag, "", "Amount of NEOFS token to issue (fixed12, GAS * 10000)")
+	mintBalanceCmd.Flags().String(mintNeofsAmountFlag, "", "Amount of NEOFS token to issue (GAS with 12 decimals, like 10.123456789)")
 	mintBalanceCmd.Flags().String(mintTxHashFlag, "", "Deposit transaction hash")
 
 	RootCmd.AddCommand(depositNotaryCmd)
