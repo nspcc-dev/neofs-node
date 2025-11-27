@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- IR panics at graceful shutdown (#3706)
 
 ### Changed
 
