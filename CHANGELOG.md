@@ -13,7 +13,15 @@ Changelog for NeoFS Node
 
 ### Updated
 
-### Updating from v0.50.1
+### Updating from v0.50.2
+
+## [0.50.2] - 2025-11-27
+
+### Changed
+- SN announces load reports in a separate single routine (#3703)
+
+### Fixed
+- IR deadlock in basic income routine (#3700)
 
 ## [0.50.1] - 2025-11-24
 
@@ -2762,7 +2770,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...master
+[0.50.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.1...v0.50.2
 [0.50.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...v0.50.0
 [0.49.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.0...v0.49.1

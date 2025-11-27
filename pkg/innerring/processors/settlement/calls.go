@@ -40,7 +40,7 @@ func (p *Processor) HandleBasicIncomeEvent(e event.Event) {
 
 	p.sendPaymentTXs(l, epoch, cnrs)
 
-	l.Debug("finished basic income distribution")
+	l.Info("finished basic income distribution")
 }
 
 func (p *Processor) sendPaymentTXs(l *zap.Logger, epoch uint64, cnrs []cid.ID) {

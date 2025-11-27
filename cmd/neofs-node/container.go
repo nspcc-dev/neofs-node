@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	timer "github.com/nspcc-dev/neofs-node/pkg/timers"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -131,9 +132,10 @@ func initSizeLoadReports(c *cfg) {
 	}
 
 	var (
-		ticks      timer.EpochTicks
-		reportTick = reportHandler(c, l)
+		ticks             timer.EpochTicks
+		reportTick, stopF = util.SingleAsyncExecutingInstance(reportHandler(c, l))
 	)
+	c.closers = append(c.closers, stopF)
 	for i := range maxReportsPerEpoch {
 		var mul, div uint32
 		if stepsInEpoch == 0 {

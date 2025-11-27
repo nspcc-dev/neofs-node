@@ -59,3 +59,45 @@ func (p *pseudoWorkerPool) Release() {
 
 // Tune implements the WorkerPool interface.
 func (p *pseudoWorkerPool) Tune(_ int) {}
+
+// SingleAsyncExecutingInstance returns func that works the same as f, but
+// calling it is non-blocking and not more than a single routine is being
+// executed at a time. The second return value is a blocking stop function
+// that disallows f execution after calling it. Stop function blocks until
+// f execution is finished (if any).
+func SingleAsyncExecutingInstance(f func()) (func(), func()) {
+	var (
+		execQueue = make(chan struct{}, 1)
+
+		stopCh     = make(chan struct{})
+		finishedCh = make(chan struct{})
+		stopFunc   = func() {
+			close(stopCh)
+			<-finishedCh
+		}
+	)
+	go func() {
+		for {
+			select {
+			case <-stopCh:
+				close(finishedCh)
+				return
+			case <-execQueue:
+				f()
+			}
+		}
+	}()
+
+	return func() {
+		select {
+		case <-stopCh:
+			return
+		default:
+		}
+
+		select {
+		case execQueue <- struct{}{}:
+		default:
+		}
+	}, stopFunc
+}
