@@ -12,9 +12,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -29,8 +29,6 @@ type StorageEngine struct {
 	mtx *sync.RWMutex
 
 	shards map[string]shardWrapper
-
-	shardPools map[string]util.WorkerPool
 
 	closeCh   chan struct{}
 	setModeCh chan setModeRequest
@@ -53,10 +51,19 @@ type shardInterface interface {
 	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 }
 
+type putTask struct {
+	addr   oid.Address
+	obj    *objectSDK.Object
+	objBin []byte
+	retCh  chan error
+}
+
 type shardWrapper struct {
 	errorCount *atomic.Uint32
 	*shard.Shard
 	shardIface shardInterface // TODO: make Shard a shardInterface
+	putCh      chan putTask
+	engine     *StorageEngine
 }
 
 type setModeRequest struct {
@@ -242,12 +249,11 @@ func New(opts ...Option) *StorageEngine {
 	}
 
 	return &StorageEngine{
-		cfg:        c,
-		mtx:        new(sync.RWMutex),
-		shards:     make(map[string]shardWrapper),
-		shardPools: make(map[string]util.WorkerPool),
-		closeCh:    make(chan struct{}),
-		setModeCh:  make(chan setModeRequest),
+		cfg:       c,
+		mtx:       new(sync.RWMutex),
+		shards:    make(map[string]shardWrapper),
+		closeCh:   make(chan struct{}),
+		setModeCh: make(chan setModeRequest),
 
 		sortShardsFn: (*StorageEngine).sortedShards,
 	}
