@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
@@ -19,13 +20,13 @@ type AddressGroup []Address
 //
 // The result is order-dependent.
 func StringifyGroup(x AddressGroup) string {
-	var s string
+	var s strings.Builder
 
 	for addr := range slices.Values(x) {
-		s += addr.String()
+		s.WriteString(addr.String())
 	}
 
-	return s
+	return s.String()
 }
 
 // Len returns number of addresses in AddressGroup.
