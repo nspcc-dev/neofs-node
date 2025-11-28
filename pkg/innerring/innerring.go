@@ -705,15 +705,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	var irf irFetcher
-
-	if server.withoutMainNet {
-		// if mainchain is disabled we should use NeoFSAlphabetList client method according to its docs
-		// (naming `...WithNotary` will not always be correct)
-		irf = NewIRFetcherWithNotary(server.fsChainClient)
-	} else {
-		irf = NewIRFetcherWithoutNotary(server.netmapClient)
-	}
+	var irf = NewIRFetcherWithNotary(server.fsChainClient)
 
 	server.statusIndex = newInnerRingIndexer(
 		server.fsChainClient,
