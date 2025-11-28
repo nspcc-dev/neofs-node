@@ -89,7 +89,8 @@ type (
 		withoutMainNet       bool
 
 		// runtime processors
-		netmapProcessor *netmap.Processor
+		netmapProcessor    *netmap.Processor
+		containerProcessor *container.Processor
 
 		workers []func(context.Context)
 
@@ -229,6 +230,12 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 
 	go s.fsChainListener.ListenWithError(ctx, fsChainErr)  // listen for neo:fs events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
+
+	go func() {
+		if err := s.containerProcessor.AddContainerStructs(ctx); err != nil {
+			fsChainErr <- fmt.Errorf("structurize containers in the contract: %w", err)
+		}
+	}()
 
 	s.startWorkers(ctx)
 
@@ -813,7 +820,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	}
 
 	// container processor
-	containerProcessor, err := container.New(&container.Params{
+	server.containerProcessor, err = container.New(&container.Params{
 		Log:             log,
 		PoolSize:        cfg.Workers.Container,
 		AlphabetState:   server,
@@ -826,7 +833,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	err = bindFSChainProcessor(containerProcessor, server)
+	err = bindFSChainProcessor(server.containerProcessor, server)
 	if err != nil {
 		return nil, err
 	}

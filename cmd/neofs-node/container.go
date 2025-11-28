@@ -473,26 +473,15 @@ func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
 }
 
 func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st *session.Container) (cid.ID, error) {
-	data := cnr.Marshal()
-	d := cnr.ReadDomain()
-
 	var prm cntClient.PutPrm
-	prm.SetContainer(data)
-	prm.SetName(d.Name())
-	prm.SetZone(d.Zone())
+	prm.SetContainer(cnr)
 	prm.SetKey(pub)
 	prm.SetSignature(sig)
 	if st != nil {
 		prm.SetToken(st.Marshal())
 	}
-	if v := cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY"); v == "optimistic" || v == "strict" {
-		prm.EnableMeta()
-	}
-	if err := x.cCli.Put(prm); err != nil {
-		return cid.ID{}, err
-	}
 
-	return cid.NewFromMarshalledContainer(data), nil
+	return x.cCli.Put(prm)
 }
 
 func (x *containersInChain) Delete(id cid.ID, pub, sig []byte, st *session.Container) error {
