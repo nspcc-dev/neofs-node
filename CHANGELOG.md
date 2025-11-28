@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
+- IR using netmap contract to store IR node list instead of RoleManagement (#3707)
 
 ### Changed
 
