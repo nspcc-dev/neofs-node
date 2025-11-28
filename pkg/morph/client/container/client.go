@@ -31,6 +31,8 @@ const (
 	eaclMethod     = "eACL"
 	eaclDataMethod = "getEACLData"
 	setEACLMethod  = "setEACL"
+	tokensOfMethod = "tokensOf"
+	tokensMethod   = "tokens"
 
 	addNextEpochNodes         = "addNextEpochNodes"
 	commitContainerListUpdate = "commitContainerListUpdate"
