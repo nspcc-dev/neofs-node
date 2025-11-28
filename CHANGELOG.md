@@ -4,6 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- IR accepts `__NEOFS__LOCK_UNTIL` container attributes now (#XXX)
+- Containers can be locked in corresponding contract now (#XXX)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
@@ -13,6 +15,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251128163911-8be2e2677eef` (#XXX)
 
 ### Updating from v0.50.2
 
