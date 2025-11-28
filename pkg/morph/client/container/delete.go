@@ -2,9 +2,12 @@ package container
 
 import (
 	"fmt"
+	"strings"
 
+	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
 // DeletePrm groups parameters of Delete client operation.
@@ -42,6 +45,8 @@ func (d *DeletePrm) SetToken(token []byte) {
 //
 // Returns any error encountered that caused
 // the removal to interrupt.
+//
+// Returns [apistatus.ContainerLocked] if container is locked.
 func (c *Client) Delete(p DeletePrm) error {
 	if len(p.signature) == 0 {
 		return errNilArgument
@@ -63,9 +68,15 @@ func (c *Client) Delete(p DeletePrm) error {
 			prm.SetMethod(deleteMethod)
 			prm.SetArgs(p.cnr, p.signature, p.token)
 			if err = c.client.Invoke(prm); err != nil {
+				if e := err.Error(); strings.Contains(e, containerrpc.ErrorLocked) {
+					return apistatus.NewContainerLocked(e)
+				}
 				return fmt.Errorf("could not invoke method (%s): %w", deleteMethod, err)
 			}
 			return nil
+		}
+		if e := err.Error(); strings.Contains(e, containerrpc.ErrorLocked) {
+			return apistatus.NewContainerLocked(e)
 		}
 		return fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.RemoveContainerMethod, err)
 	}
