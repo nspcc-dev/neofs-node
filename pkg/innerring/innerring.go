@@ -934,7 +934,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 }
 
 func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement.Processor) {
-	basicIncomeTick, stopFunc := util.SingleAsyncExecutingInstance(func() {
+	basicIncomeTick, stopBasicIncomeFunc := util.SingleAsyncExecutingInstance(func() {
 		epochN := server.EpochCounter()
 		if epochN == 0 { // estimates are invalid in genesis epoch
 			return
@@ -942,10 +942,10 @@ func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement
 
 		paymentProcessor.HandleBasicIncomeEvent(settlement.NewBasicIncomeEvent(epochN - 1))
 	})
-	server.closers = append(server.closers, func() error { stopFunc(); return nil })
+	server.closers = append(server.closers, func() error { stopBasicIncomeFunc(); return nil })
 
-	epochH, stopFunc := util.SingleAsyncExecutingInstance(server.netmapProcessor.HandleNewEpochTick)
-	server.closers = append(server.closers, func() error { stopFunc(); return nil })
+	epochH, stopEpochHandlerFunc := util.SingleAsyncExecutingInstance(server.netmapProcessor.HandleNewEpochTick)
+	server.closers = append(server.closers, func() error { stopEpochHandlerFunc(); return nil })
 
 	ticks := timers.EpochTicks{
 		NewEpochTicks: []timers.Tick{epochH},
