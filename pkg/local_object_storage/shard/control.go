@@ -3,6 +3,7 @@ package shard
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
@@ -249,15 +250,15 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 }
 
 func oidsToString(ids []oid.ID) string {
-	var res string
+	var res strings.Builder
 	for i, id := range ids {
-		res += id.String()
+		res.WriteString(id.String())
 		if i != len(ids)-1 {
-			res += ", "
+			res.WriteString(", ")
 		}
 	}
 
-	return res
+	return res.String()
 }
 
 // Close releases all Shard's components.
