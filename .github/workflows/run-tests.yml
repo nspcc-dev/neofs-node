@@ -74,6 +74,5 @@ jobs:
       os: >
         [{"runner": "ubuntu-latest", "binary": "linux-amd64"},
          {"runner": "macos-14", "binary": "darwin-arm64", "shard": 0},
-         {"runner": "macos-14", "binary": "darwin-arm64", "shard": 1},
-         {"runner": "macos-14", "binary": "darwin-arm64", "shard": 2}]
+         {"runner": "macos-14", "binary": "darwin-arm64", "shard": 1}]
     secrets: inherit
