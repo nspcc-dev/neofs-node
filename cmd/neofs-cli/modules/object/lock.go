@@ -15,6 +15,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
 
@@ -93,6 +94,8 @@ var objectLockCmd = &cobra.Command{
 		}
 
 		obj := objectSDK.New()
+		curV := version.Current()
+		obj.SetVersion(&curV)
 		obj.SetContainerID(cnr)
 		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
 
