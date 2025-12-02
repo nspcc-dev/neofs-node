@@ -39,7 +39,7 @@ func TestDB_ObjectStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, st.Error)
 	require.Equal(t, db.DumpInfo().Path, st.Path)
-	require.EqualValues(t, 8, st.Version)
+	require.EqualValues(t, 9, st.Version)
 	require.Equal(t, []string{"AVAILABLE"}, st.State)
 
 	require.Len(t, st.HeaderIndex, 8)
@@ -60,7 +60,9 @@ func TestDB_ObjectStatus(t *testing.T) {
 	}
 
 	t.Run("locked", func(t *testing.T) {
-		require.NoError(t, db.Lock(obj.GetContainerID(), oidtest.ID(), []oid.ID{obj.GetID()}))
+		locker := generateObjectWithCID(t, obj.GetContainerID())
+		locker.AssociateLocked(obj.GetID())
+		require.NoError(t, db.Put(locker))
 
 		st, err := db.ObjectStatus(addr)
 		require.NoError(t, err)

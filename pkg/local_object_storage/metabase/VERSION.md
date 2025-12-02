@@ -27,10 +27,6 @@ The lowest not used bucket index: 20.
   - Value: bucket with container metrics:
             - `0` -> container size in bytes as little-endian uint64
             - `1` -> container's objects number as little-endian uint64
-- Bucket for storing locked objects information
-        - Name: `4`
-  - Key: container ID
-  - Value: bucket mapping objects locked to the list of corresponding LOCK objects
 - Bucket containing auxiliary information. All keys are custom and are not connected to the container
   - Name: `5`
   - Keys and values
@@ -51,6 +47,10 @@ The lowest not used bucket index: 20.
       Presence means the whole container is scheduled for garbage collection.
 
 # History
+
+## Version 9
+
+Dropped lockedPrefix bucket (4).
 
 ## Version 8
 

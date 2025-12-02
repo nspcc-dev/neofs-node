@@ -25,9 +25,6 @@ type ObjectStorage interface {
 	// Delete must delete passed objects
 	// and return any appeared error.
 	Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error
-	// Lock must lock passed objects
-	// and return any appeared error.
-	Lock(locker oid.Address, toLock []oid.ID) error
 	// IsLocked must clarify object's lock status.
 	IsLocked(oid.Address) (bool, error)
 }
@@ -44,11 +41,6 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 			err = storage.Delete(objectCore.AddressOf(obj), exp, meta.Objects())
 			if err != nil {
 				return fmt.Errorf("could not delete objects from tombstone locally: %w", err)
-			}
-		case object.TypeLock:
-			err := storage.Lock(objectCore.AddressOf(obj), meta.Objects())
-			if err != nil {
-				return fmt.Errorf("could not lock object from lock objects locally: %w", err)
 			}
 		default:
 			// objects that do not change meta storage

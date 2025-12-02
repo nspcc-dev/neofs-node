@@ -173,7 +173,8 @@ func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, gar
 		return statusGCMarked
 	}
 
-	if associatedWithTypedObject(0, metaCursor, oid.ID(addrKey[cid.Size:]), objectSDK.TypeTombstone) {
+	deleted, _ := associatedWithTypedObject(0, metaCursor, oid.ID(addrKey[cid.Size:]), objectSDK.TypeTombstone)
+	if deleted {
 		return statusTombstoned
 	}
 

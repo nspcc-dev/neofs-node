@@ -223,14 +223,6 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		require.NoError(t, v.Validate(&cp, false))
 	})
 
-	t.Run("lock", func(t *testing.T) {
-		cp := corruptPart(t, func(obj *object.Object) { obj.SetType(object.TypeLock) })
-		require.EqualError(t, v.Validate(&cp, false), "LOCK object with EC attribute __NEOFS__EC_RULE_IDX")
-
-		cp = corruptParent(t, parent, func(obj *object.Object) { obj.SetType(object.TypeLock) })
-		require.NoError(t, v.Validate(&cp, false))
-	})
-
 	t.Run("blank", func(t *testing.T) {
 		for i := range ecParts {
 			require.EqualError(t, v.Validate(&ecParts[i], true), "blank object with EC attributes")

@@ -46,15 +46,14 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 	}
 
 	var (
-		deletedLockObjs []oid.Address
-		err             error
-		inhumed         uint64
+		err     error
+		inhumed uint64
 	)
 
 	if tombstone != nil {
-		inhumed, deletedLockObjs, err = s.metaBase.Inhume(*tombstone, tombExpiration, true, addrs...)
+		inhumed, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, true, addrs...)
 	} else {
-		inhumed, deletedLockObjs, err = s.metaBase.MarkGarbage(force, true, addrs...)
+		inhumed, _, err = s.metaBase.MarkGarbage(force, true, addrs...)
 	}
 
 	if err != nil {
@@ -81,10 +80,6 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 	s.m.RUnlock()
 
 	s.decObjectCounterBy(logical, inhumed)
-
-	if len(deletedLockObjs) != 0 {
-		s.deletedLockCallBack(deletedLockObjs)
-	}
 
 	return nil
 }

@@ -83,14 +83,9 @@ func TestLockUserScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	// 2.
-	var locker object.Lock
-	locker.WriteMembers([]oid.ID{id})
-	lockerObj.WriteLock(locker)
+	lockerObj.AssociateLocked(id)
 
 	err = e.Put(lockerObj, nil)
-	require.NoError(t, err)
-
-	err = e.Lock(cnr, lockerID, []oid.ID{id})
 	require.NoError(t, err)
 
 	// 3.
@@ -150,16 +145,10 @@ func TestLockExpiration(t *testing.T) {
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
 	lock := generateObjectWithCID(cnr)
-	lock.SetType(object.TypeLock)
 	lock.SetAttributes(a)
+	lock.AssociateLocked(obj.GetID())
 
 	err = e.Put(lock, nil)
-	require.NoError(t, err)
-
-	id := obj.GetID()
-	idLock := lock.GetID()
-
-	err = e.Lock(cnr, idLock, []oid.ID{id})
 	require.NoError(t, err)
 
 	err = e.Inhume(oidtest.Address(), 0, objectcore.AddressOf(obj))
@@ -184,10 +173,7 @@ func TestLockForceRemoval(t *testing.T) {
 	//   3. try to remove lock object and get error
 	//   4. force lock object removal
 	//   5. the object is not locked anymore
-	var e *StorageEngine
-
-	e = testEngineFromShardOpts(t, 2, []shard.Option{
-		shard.WithDeletedLockCallback(e.processDeletedLocks),
+	var e = testEngineFromShardOpts(t, 2, []shard.Option{
 		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
 
@@ -206,15 +192,9 @@ func TestLockForceRemoval(t *testing.T) {
 
 	// 2.
 	lock := generateObjectWithCID(cnr)
-	lock.SetType(object.TypeLock)
+	lock.AssociateLocked(obj.GetID())
 
 	err = e.Put(lock, nil)
-	require.NoError(t, err)
-
-	id := obj.GetID()
-	idLock := lock.GetID()
-
-	err = e.Lock(cnr, idLock, []oid.ID{id})
 	require.NoError(t, err)
 
 	// 3.
@@ -283,8 +263,9 @@ func testLockRemoved(t *testing.T, shardNum int) {
 	objID := obj.GetID()
 	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
 
-	lockID := oidtest.OtherID(objID)
-	lockAddr := oid.NewAddress(cnr, lockID)
+	lockObj := generateObjectWithCID(cnr)
+	lockObj.AssociateLocked(objID)
+	lockAddr := oid.NewAddress(cnr, lockObj.GetID())
 
 	tomb := obj
 	tomb.SetID(oidtest.OtherID(objID))
@@ -292,8 +273,6 @@ func testLockRemoved(t *testing.T, shardNum int) {
 		object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 	)
 	tomb.AssociateDeleted(objID)
-
-	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
 
 	for _, tc := range []struct {
 		name          string
@@ -311,15 +290,15 @@ func testLockRemoved(t *testing.T, shardNum int) {
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
-		{name: "with target and tombstone mark", preset: func(t *testing.T, s *StorageEngine) {
+		{name: "with target and tombstone", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(&obj, nil))
-			err := s.Inhume(tombAddr, 0, objAddr)
+			err := s.Put(&tomb, nil)
 			require.NoError(t, err)
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
-		{name: "tombstone mark without target", preset: func(t *testing.T, s *StorageEngine) {
-			err := s.Inhume(tombAddr, 0, objAddr)
+		{name: "tombstone without target", preset: func(t *testing.T, s *StorageEngine) {
+			err := s.Put(&tomb, nil)
 			require.NoError(t, err)
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
@@ -335,26 +314,26 @@ func testLockRemoved(t *testing.T, shardNum int) {
 
 			tc.preset(t, s)
 
-			lockErr := s.Lock(cnr, oidtest.ID(), []oid.ID{objID})
+			lockErr := s.Put(lockObj, nil)
 			locked, lockedErr := s.IsLocked(objAddr)
+			_, lockHeadErr := s.Head(lockAddr, false)
+			_, lockGetErr := s.Get(lockAddr)
 
 			if tc.assertLockErr != nil {
 				tc.assertLockErr(t, lockErr)
 
 				require.NoError(t, lockedErr)
 				require.False(t, locked)
+				require.ErrorIs(t, lockHeadErr, apistatus.ErrObjectNotFound)
+				require.ErrorIs(t, lockGetErr, apistatus.ErrObjectNotFound)
 			} else {
 				require.NoError(t, lockErr)
 
 				require.NoError(t, lockedErr)
 				require.True(t, locked)
+				require.NoError(t, lockHeadErr)
+				require.NoError(t, lockGetErr)
 			}
-
-			_, err := s.Head(lockAddr, false)
-			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-
-			_, err = s.Get(lockAddr)
-			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		})
 	}
 }

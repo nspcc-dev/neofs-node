@@ -465,10 +465,6 @@ func (e storageEngine) Delete(tombstone oid.Address, tombExpiration uint64, toDe
 	return e.engine.Inhume(tombstone, tombExpiration, addrs...)
 }
 
-func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
-	return e.engine.Lock(locker.Container(), locker.Object(), toLock)
-}
-
 func (e storageEngine) Put(o *objectSDK.Object, objBin []byte) error {
 	return e.engine.Put(o, objBin)
 }
