@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -147,6 +148,9 @@ It will be stored in FS chain when inner ring will accepts it.`,
 
 		id, err := actor.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
 		if err != nil {
+			if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
+				err = waiter.ErrConfirmationTimeout
+			}
 			return fmt.Errorf("put container rpc error: %w", err)
 		}
 

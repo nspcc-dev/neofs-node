@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - IR structures containers in the contract iteratively (#3670)
 - SN tries new NEP-11 methods `tokens` and `tokensOf` of Container contract (#3701)
 - SN now listens to NEP-11 `transfer` events of Container contract (#3701)
+- CLI supports `CONTAINER_AWAIT_TIMEOUT` status now (#3711)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
