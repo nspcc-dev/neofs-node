@@ -5,6 +5,7 @@ const (
 	PayBalanceMethod              = "settleContainerPayment"
 	UnpaidBalanceMethod           = "getUnpaidContainerEpoch"
 	CreateContainerMethod         = "create"
+	CreateContainerV2Method       = "createV2"
 	RemoveContainerMethod         = "remove"
 	PutContainerEACLMethod        = "putEACL"
 	PutContainerReportMethod      = "putReport"
@@ -13,6 +14,7 @@ const (
 	GetTakenSpaceByUserMethod     = "getTakenSpaceByUser"
 	GetContainerQuotaMethod       = "containerQuota"
 	GetUserQuotaMethod            = "userQuota"
+	AddContainerStructsMethod     = "addStructs"
 )
 
 // CreateContainerParams are parameters of [CreateContainerMethod].

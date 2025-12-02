@@ -4,6 +4,9 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- SN now supports new `getInfo` and `createV2` methods of the Container contract (#3670)
+- IR now supports container creation requests submitted via new `createV2` contract method (#3670)
+- IR structures containers in the contract iteratively (#3670)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
@@ -14,6 +17,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
 
 ### Updating from v0.50.2
 

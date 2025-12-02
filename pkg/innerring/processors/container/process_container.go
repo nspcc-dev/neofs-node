@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -13,6 +15,31 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 )
+
+func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateContainerV2Request) {
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Info("non alphabet mode, ignore container creation request")
+		return
+	}
+
+	cnr, err := cntClient.ContainerFromStruct(req.Container)
+	if err != nil {
+		cp.log.Error("invalid container struct in creation request", zap.Error(err))
+		return
+	}
+
+	cnrBytes := cnr.Marshal()
+	id := cid.NewFromMarshalledContainer(cnrBytes)
+
+	err = cp.checkPutContainer(cnr, cnrBytes, req.SessionToken, req.InvocationScript, req.VerificationScript, "", "")
+	if err != nil {
+		cp.log.Error("container creation request failed check",
+			zap.Stringer("container", id), zap.Error(err))
+		return
+	}
+
+	cp.approvePutContainer(req.MainTransaction, cnr, id)
+}
 
 // putEvent is a common interface of Put and PutNamed event.
 type putEvent interface {
@@ -24,28 +51,23 @@ type putEvent interface {
 	NotaryRequest() *payload.P2PNotaryRequest
 }
 
-type putContainerContext struct {
-	e containerEvent.CreateContainerRequest
-
-	// must be filled when verifying raw data from e
-	cID cid.ID
-	cnr containerSDK.Container
-	d   containerSDK.Domain
-}
-
 // Process a new container from the user by checking the container sanity
 // and sending approve tx back to the FS chain.
-func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest) {
+func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest, id cid.ID) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container put")
 		return
 	}
 
-	ctx := &putContainerContext{
-		e: req,
+	var cnr containerSDK.Container
+	if err := cnr.Unmarshal(req.Container); err != nil {
+		cp.log.Error("put container check failed",
+			zap.Error(fmt.Errorf("invalid binary container: %w", err)),
+		)
+		return
 	}
 
-	err := cp.checkPutContainer(ctx)
+	err := cp.checkPutContainer(cnr, req.Container, req.SessionToken, req.InvocationScript, req.VerificationScript, req.DomainName, req.DomainZone)
 	if err != nil {
 		cp.log.Error("put container check failed",
 			zap.Error(err),
@@ -54,7 +76,7 @@ func (cp *Processor) processContainerPut(req containerEvent.CreateContainerReque
 		return
 	}
 
-	cp.approvePutContainer(ctx)
+	cp.approvePutContainer(req.MainTransaction, cnr, id)
 }
 
 const (
@@ -69,16 +91,8 @@ var allowedSystemAttributes = map[string]struct{}{
 	sysAttrChainMeta:                              {},
 }
 
-func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
-	binCnr := ctx.e.Container
-	ctx.cID = cid.NewFromMarshalledContainer(binCnr)
-
-	err := ctx.cnr.Unmarshal(binCnr)
-	if err != nil {
-		return fmt.Errorf("invalid binary container: %w", err)
-	}
-
-	for k := range ctx.cnr.Attributes() {
+func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
+	for k := range cnr.Attributes() {
 		if strings.HasPrefix(k, sysAttrPrefix) {
 			if _, ok := allowedSystemAttributes[k]; !ok {
 				return fmt.Errorf("system attribute %s is not allowed", k)
@@ -90,54 +104,53 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		}
 	}
 
-	ecRules := ctx.cnr.PlacementPolicy().ECRules()
+	ecRules := cnr.PlacementPolicy().ECRules()
 	if !cp.allowEC && len(ecRules) > 0 {
 		return errors.New("EC rules are not supported yet")
 	}
-	if len(ecRules) > 0 && ctx.cnr.PlacementPolicy().NumberOfReplicas() > 0 {
+	if len(ecRules) > 0 && cnr.PlacementPolicy().NumberOfReplicas() > 0 {
 		return errors.New("REP+EC rules are not supported yet")
 	}
 
-	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  ctx.cnr.Owner(),
+	err := cp.verifySignature(signatureVerificationData{
+		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerPut,
-		binTokenSession: ctx.e.SessionToken,
-		verifScript:     ctx.e.VerificationScript,
-		invocScript:     ctx.e.InvocationScript,
-		signedData:      binCnr,
+		binTokenSession: sessionToken,
+		verifScript:     verifScript,
+		invocScript:     invocScript,
+		signedData:      cnrBytes,
 	})
 	if err != nil {
 		return fmt.Errorf("auth container creation: %w", err)
 	}
 
-	if err = ctx.cnr.PlacementPolicy().Verify(); err != nil {
+	if err = cnr.PlacementPolicy().Verify(); err != nil {
 		return fmt.Errorf("invalid storage policy: %w", err)
 	}
 
 	// check homomorphic hashing setting
-	err = checkHomomorphicHashing(cp.netState, ctx.cnr)
+	err = checkHomomorphicHashing(cp.netState, cnr)
 	if err != nil {
 		return fmt.Errorf("incorrect homomorphic hashing setting: %w", err)
 	}
 
-	// check native name and zone
-	err = checkNNS(ctx, ctx.cnr)
-	if err != nil {
-		return fmt.Errorf("NNS: %w", err)
+	if domainZone != "" { // if PutNamed event => check if values in-container domain name and zone correspond to args
+		err = checkNNS(cnr, domainName, domainZone)
+		if err != nil {
+			return fmt.Errorf("NNS: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
-	l := cp.log.With(zap.Stringer("cID", ctx.cID))
+func (cp *Processor) approvePutContainer(mainTx transaction.Transaction, cnr containerSDK.Container, id cid.ID) {
+	l := cp.log.With(zap.Stringer("cID", id))
 	l.Debug("approving new container...")
-
-	e := ctx.e
 
 	var err error
 
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(&e.MainTransaction, true)
+	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(&mainTx, true)
 
 	if err != nil {
 		l.Error("could not approve put container",
@@ -152,8 +165,8 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		return
 	}
 
-	policy := ctx.cnr.PlacementPolicy()
-	vectors, err := nm.ContainerNodes(policy, ctx.cID)
+	policy := cnr.PlacementPolicy()
+	vectors, err := nm.ContainerNodes(policy, id)
 	if err != nil {
 		l.Error("could not build placement for Container contract update", zap.Error(err))
 		return
@@ -168,7 +181,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		replicas[i] = 1 // each EC part is stored in a single copy
 	}
 
-	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)
+	err = cp.cnrClient.UpdateContainerPlacement(id, vectors, replicas)
 	if err != nil {
 		l.Error("could not update Container contract", zap.Error(err))
 		return
@@ -238,19 +251,16 @@ func (cp *Processor) approveDeleteContainer(e containerEvent.RemoveContainerRequ
 	}
 }
 
-func checkNNS(ctx *putContainerContext, cnr containerSDK.Container) error {
+func checkNNS(cnr containerSDK.Container, name, zone string) error {
 	// fetch domain info
-	ctx.d = cnr.ReadDomain()
+	d := cnr.ReadDomain()
 
-	// if PutNamed event => check if values in container correspond to args
-	if ctx.e.DomainName != "" {
-		if ctx.e.DomainName != ctx.d.Name() {
-			return fmt.Errorf("names differ %s/%s", ctx.e.DomainName, ctx.d.Name())
-		}
+	if name != d.Name() {
+		return fmt.Errorf("names differ %s/%s", name, d.Name())
+	}
 
-		if ctx.e.DomainZone != ctx.d.Zone() {
-			return fmt.Errorf("zones differ %s/%s", ctx.e.DomainZone, ctx.d.Zone())
-		}
+	if zone != d.Zone() {
+		return fmt.Errorf("zones differ %s/%s", zone, d.Zone())
 	}
 
 	return nil
