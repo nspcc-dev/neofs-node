@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Policer logs when it reaches the end of its cycle (#3720)
 - Support for GET of LINK objects in EC containers (#3722)
 - Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
+- SN can respond with `CONTAINER_LOCKED` status now (#3708)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
