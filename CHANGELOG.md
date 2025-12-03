@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - SN now listens to NEP-11 `transfer` events of Container contract (#3701)
 - CLI supports `CONTAINER_AWAIT_TIMEOUT` status now (#3711)
 - Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
+- SN can respond with `CONTAINER_LOCKED` status now (#3708)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
