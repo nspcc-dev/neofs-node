@@ -13,8 +13,6 @@ wallet:
   address: NUHtW3eM6a4mmFCgyyr4rj4wygsTKB88XX # Account address in the wallet; ignore to use default address
   password: secret                            # Account password in the wallet
 
-without_mainnet: false # Run application in single chain environment without mainchain
-
 fschain:
   disable_autodeploy: true # Optional flag to disable auto-deployment procedure of the FS chain; defaults to 'false'
   dial_timeout: 1m # Timeout for RPC client connection to sidechain
@@ -110,21 +108,17 @@ fschain:
     p2p_notary_request_payload_pool_size: 100 # Optional size of the node's P2P Notary request payloads memory pool.
     # Defaults to 1000. Must be unsigned integer in range [1:2147483647].
 
-fschain_autodeploy: false # Optional flag to run auto-deployment procedure of the FS chain. By default, 'true'.
-  # If set, must be 'true' or 'false'.
-
 nns: # Optional configuration of the NNS domains processed during the FS chain deployment
   system_email: usr@domain.io # Optional e-mail to be assigned to the registered NNS domains.
     # Defaults to 'nonexistent@nspcc.io'
 
 mainnet:
   enabled: false # Enable connection to mainchain; by default, 'false', run application in single chain environment
-    # without mainchain; value revert deprecated 'without_mainnet'
+    # without mainchain
   disable_governance_sync: false # Disable synchronization of sidechain committee and mainchain role management contract;
-    # ignore if mainchain is disabled; same as 'governance.disable'
+    # ignore if mainchain is disabled
   extra_fee: 50000000 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain;
-    # same as 'fee.main_chain'
-  contracts: # same as 'contracts'
+  contracts:
     neofs: ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62      # Address of NeoFS contract in mainchain; ignore if mainchain is disabled
     processing: 597f5894867113a41e192801709c02497f611de8 # Address of processing contract in mainchain; ignore if mainchain is disabled
   dial_timeout: 1m # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
@@ -141,15 +135,9 @@ control:
   grpc:
     endpoint: localhost:8090  # Endpoint that is listened by the control service; disabled by default
 
-governance:
-  disable: false # Disable synchronization of sidechain committee and mainchain role management contract; ignore if mainchain is disabled
-
 node:
   persistent_state:
     path: .neofs-ir-state # Path to application state file
-
-fee:
-  main_chain: 50000000                 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain
 
 timers:
   collect_basic_income:
@@ -176,10 +164,6 @@ workers:
 
 indexer:
   cache_timeout: 15s # Duration between internal state update about current list of inner ring nodes
-
-contracts:
-  neofs: ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62      # Address of NeoFS contract in mainchain; ignore if mainchain is disabled
-  processing: 597f5894867113a41e192801709c02497f611de8 # Address of processing contract in mainchain; ignore if mainchain is disabled
 
 pprof:
   enabled: true

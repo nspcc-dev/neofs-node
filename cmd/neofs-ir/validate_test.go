@@ -181,7 +181,6 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 			Address:  "NUHtW3eM6a4mmFCgyyr4rj4wygsTKB88XX",
 			Password: "secret",
 		},
-		WithoutMainnet: false,
 		FSChain: config.Chain{
 			BasicChain: config.BasicChain{
 				DialTimeout:         time.Minute,
@@ -276,16 +275,10 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 				Endpoint: "localhost:8090",
 			},
 		},
-		Governance: config.Governance{
-			Disable: false,
-		},
 		Node: config.Node{
 			PersistentState: config.PersistentState{
 				Path: ".neofs-ir-state",
 			},
-		},
-		Fee: config.Fee{
-			MainChain: 50000000,
 		},
 		Timers: config.Timers{
 			CollectBasicIncome: config.BasicTimer{Mul: 1, Div: 2},
@@ -313,10 +306,6 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 		},
 		Indexer: config.Indexer{
 			CacheTimeout: 15 * time.Second,
-		},
-		Contracts: config.Contracts{
-			NeoFS:      "ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62",
-			Processing: "597f5894867113a41e192801709c02497f611de8",
 		},
 		Pprof: config.BasicService{
 			Enabled:         true,

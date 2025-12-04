@@ -14,11 +14,7 @@ type Config struct {
 	// Required.
 	Wallet Wallet `mapstructure:"wallet"`
 
-	WithoutMainnet bool `mapstructure:"without_mainnet"`
-
 	FSChain Chain `mapstructure:"fschain"`
-
-	FSChainAutodeploy bool `mapstructure:"fschain_autodeploy"`
 
 	NNS NNS `mapstructure:"nns"`
 
@@ -26,13 +22,7 @@ type Config struct {
 
 	Control Control `mapstructure:"control"`
 
-	Governance Governance `mapstructure:"governance"`
-
 	Node Node `mapstructure:"node"`
-
-	// Fee is an instance that returns extra fee values for contract
-	// invocations without notary support.
-	Fee Fee `mapstructure:"fee"`
 
 	Timers Timers `mapstructure:"timers"`
 
@@ -41,8 +31,6 @@ type Config struct {
 	Workers Workers `mapstructure:"workers"`
 
 	Indexer Indexer `mapstructure:"indexer"`
-
-	Contracts Contracts `mapstructure:"contracts"`
 
 	Pprof BasicService `mapstructure:"pprof"`
 
@@ -80,16 +68,6 @@ type Wallet struct {
 // NNS configures NNS domains processed during the FS chain deployment.
 type NNS struct {
 	SystemEmail string `mapstructure:"system_email"`
-}
-
-// Governance configures synchronization of sidechain committee and mainchain role management contract.
-type Governance struct {
-	Disable bool `mapstructure:"disable"`
-}
-
-// Fee configures extra GAS fee for mainchain contract invocation.
-type Fee struct {
-	MainChain int64 `mapstructure:"main_chain"`
 }
 
 // Workers configures number of workers to process events from contracts in parallel.
