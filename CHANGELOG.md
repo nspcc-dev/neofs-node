@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251203135706-86667929fbb8` (#3711)
 
 ### Updating from v0.50.2
 
