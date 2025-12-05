@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/waiter"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -31,6 +32,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"go.uber.org/zap"
 )
+
+// ErrTxAwaitTimeout is returned when transaction awaiting timed out.
+var ErrTxAwaitTimeout = waiter.ErrContextDone
 
 // Client is a wrapper over web socket neo-go client
 // that provides smart-contract invocation interface

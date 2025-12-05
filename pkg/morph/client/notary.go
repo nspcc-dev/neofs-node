@@ -22,6 +22,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/waiter"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
@@ -347,6 +348,43 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, await bool, fee fix
 	return err
 }
 
+// CallWithAlphabetWitness sends transaction calling given method of specified
+// contract that requires Alphabet witness. If transaction is accepted for
+// processing, CallWithAlphabetWitness waits for it to be successfully executed.
+// Waiting is done within ctx, [ErrTxAwaitTimeout] is returned when it is done.
+func (c *Client) CallWithAlphabetWitness(ctx context.Context, contract util.Uint160, method string, args []any) error {
+	nonce := rand.Uint32()
+
+	notaryActor, mainTx, fbTx, vub, err := c.sendNotaryRequest(false, false, contract, nonce, nil, method, args...)
+	if err != nil {
+		if alreadyOnChainError(err) {
+			c.logNotaryCallAlreadyOnChain(method, nonce, vub, mainTx, fbTx)
+			return nil
+		}
+		return err
+	}
+
+	c.logNotaryCall(method, vub, mainTx, fbTx)
+
+	aer, err := notaryActor.WaitAny(ctx, vub, mainTx, mainTx)
+	if err != nil {
+		if errors.Is(err, waiter.ErrContextDone) {
+			return ErrTxAwaitTimeout
+		}
+		return fmt.Errorf("wait: %w", err)
+	}
+
+	if aer.Container == fbTx {
+		return notary.ErrFallbackAccepted
+	}
+
+	if !aer.VMState.HasFlag(vmstate.Halt) {
+		return fmt.Errorf("%w: %s", actor.ErrExecFailed, aer.FaultException)
+	}
+
+	return nil
+}
+
 // NotarySignAndInvokeTX signs and sends notary request that was received from
 // Notary service.
 // NOTE:
@@ -491,21 +529,16 @@ func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args 
 	return err
 }
 
-func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
-	txHash, _, err := c._notaryInvoke(committee, invokedByAlpha, contract, await, nonce, vub, method, args...)
-	return txHash, err
-}
-
-func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, *state.AppExecResult, error) {
+func (c *Client) sendNotaryRequest(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...any) (*notary.Actor, util.Uint256, util.Uint256, uint32, error) {
 	var conn = c.conn.Load()
 
 	if conn == nil {
-		return util.Uint256{}, nil, ErrConnectionLost
+		return nil, util.Uint256{}, util.Uint256{}, 0, ErrConnectionLost
 	}
 
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
-		return util.Uint256{}, nil, err
+		return nil, util.Uint256{}, util.Uint256{}, 0, err
 	}
 
 	var until uint32
@@ -515,18 +548,18 @@ func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uin
 	} else {
 		until, err = c.notaryTxValidationLimit(conn)
 		if err != nil {
-			return util.Uint256{}, nil, err
+			return nil, util.Uint256{}, util.Uint256{}, 0, err
 		}
 	}
 
 	cosigners, err := c.notaryCosigners(invokedByAlpha, alphabetList, committee)
 	if err != nil {
-		return util.Uint256{}, nil, err
+		return nil, util.Uint256{}, util.Uint256{}, 0, err
 	}
 
 	nAct, err := notary.NewActor(conn.client, cosigners, c.acc)
 	if err != nil {
-		return util.Uint256{}, nil, err
+		return nil, util.Uint256{}, util.Uint256{}, 0, err
 	}
 
 	mainH, fbH, untilActual, err := nAct.Notarize(nAct.MakeTunedCall(contract, method, nil, func(r *result.Invoke, t *transaction.Transaction) error {
@@ -543,6 +576,16 @@ func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uin
 
 		return nil
 	}, args...))
+	return nAct, mainH, fbH, untilActual, err
+}
+
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
+	txHash, _, err := c._notaryInvoke(committee, invokedByAlpha, contract, await, nonce, vub, method, args...)
+	return txHash, err
+}
+
+func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, *state.AppExecResult, error) {
+	nAct, mainH, fbH, untilActual, err := c.sendNotaryRequest(committee, invokedByAlpha, contract, nonce, vub, method, args...)
 
 	var res *state.AppExecResult
 	if await {
@@ -551,13 +594,7 @@ func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uin
 
 	if err != nil {
 		if alreadyOnChainError(err) {
-			c.logger.Debug("skip notary invoke already on-chain",
-				zap.Uint32("nonce", nonce),
-				zap.String("method", method),
-				zap.Uint32("valid_until_block", untilActual),
-				zap.String("tx_hash", mainH.StringLE()),
-				zap.String("fallback_hash", fbH.StringLE()),
-			)
+			c.logNotaryCallAlreadyOnChain(method, nonce, untilActual, mainH, fbH)
 
 			return mainH, res, nil
 		}
@@ -565,13 +602,26 @@ func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uin
 		return util.Uint256{}, nil, err
 	}
 
-	c.logger.Debug("notary request invoked",
-		zap.String("method", method),
-		zap.Uint32("valid_until_block", untilActual),
-		zap.String("tx_hash", mainH.StringLE()),
-		zap.String("fallback_hash", fbH.StringLE()))
+	c.logNotaryCall(method, untilActual, mainH, fbH)
 
 	return mainH, res, nil
+}
+
+func (c *Client) logNotaryCallAlreadyOnChain(method string, nonce uint32, vub uint32, mainTx util.Uint256, fbTx util.Uint256) {
+	c.logger.Debug("skip notary invoke already on-chain",
+		zap.Uint32("nonce", nonce),
+		zap.String("method", method),
+		zap.Uint32("valid_until_block", vub),
+		zap.String("tx_hash", mainTx.StringLE()),
+		zap.String("fallback_hash", fbTx.StringLE()))
+}
+
+func (c *Client) logNotaryCall(method string, vub uint32, mainTx util.Uint256, fbTx util.Uint256) {
+	c.logger.Debug("notary request invoked",
+		zap.String("method", method),
+		zap.Uint32("valid_until_block", vub),
+		zap.String("tx_hash", mainTx.StringLE()),
+		zap.String("fallback_hash", fbTx.StringLE()))
 }
 
 func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -31,6 +32,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
+// declared in API https://github.com/nspcc-dev/neofs-api/pull/358.
+const defaultTxAwaitTimeout = 15 * time.Second
+
 // FSChain provides base non-contract functionality of the FS chain required to
 // serve NeoFS API Container service.
 type FSChain interface {
@@ -41,9 +45,10 @@ type FSChain interface {
 // required to serve NeoFS API Container service.
 type Contract interface {
 	// Put sends transaction creating container with provided credentials. If
-	// accepted, transaction is processed async. Returns container ID to check the
-	// creation status.
-	Put(_ container.Container, pub, sig []byte, _ *session.Container) (cid.ID, error)
+	// transaction is accepted for processing, Put waits for it to be successfully
+	// executed. Waiting is performed within ctx,
+	// [apistatus.ErrContainerAwaitTimeout] is returned on when it is done.
+	Put(ctx context.Context, _ container.Container, pub, sig []byte, _ *session.Container) (cid.ID, error)
 	// Get returns container by its ID. Returns [apistatus.ErrContainerNotFound]
 	// error if container is missing.
 	Get(cid.ID) (container.Container, error)
@@ -51,15 +56,19 @@ type Contract interface {
 	//
 	// Callers do not modify the result.
 	List(user.ID) ([]cid.ID, error)
-	// PutEACL sends transaction setting container's eACL with provided credentials.
-	// If accepted, transaction is processed async.
-	PutEACL(_ eacl.Table, pub, sig []byte, _ *session.Container) error
+	// PutEACL sends transaction setting container's extended ACL with provided
+	// credentials. If transaction is accepted for processing, PutEACL waits for it
+	// to be successfully executed. Waiting is performed within ctx,
+	// [apistatus.ErrContainerAwaitTimeout] is when it is done.
+	PutEACL(ctx context.Context, _ eacl.Table, pub, sig []byte, _ *session.Container) error
 	// GetEACL returns eACL of the container by its ID. Returns
 	// [apistatus.ErrEACLNotFound] error if eACL is missing.
 	GetEACL(cid.ID) (eacl.Table, error)
-	// Delete sends transaction removing referenced container with provided
-	// credentials. If accepted, transaction is processed async.
-	Delete(_ cid.ID, pub, sig []byte, _ *session.Container) error
+	// Delete sends transaction deleting container with provided credentials. If
+	// transaction is accepted for processing, Delete waits for it to be
+	// successfully executed. Waiting is performed within ctx,
+	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
+	Delete(ctx context.Context, _ cid.ID, pub, sig []byte, _ *session.Container) error
 }
 
 // NetmapContract represents Netmap contract deployed in the FS chain required
@@ -216,17 +225,17 @@ func (s *Server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	return nil
 }
 
-func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, st *protostatus.Status) (*protocontainer.PutResponse, error) {
+func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, err error) (*protocontainer.PutResponse, error) {
 	resp := &protocontainer.PutResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(st),
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
 	resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
 func (s *Server) makeFailedPutResponse(err error) (*protocontainer.PutResponse, error) {
-	return s.makePutResponse(nil, util.ToStatus(err))
+	return s.makePutResponse(nil, err)
 }
 
 const (
@@ -280,7 +289,7 @@ func verifyStoragePolicy(policy *protonetmap.PlacementPolicy) error {
 // Put forwards container creation request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified. Returns ID
 // to check request status in the response.
-func (s *Server) Put(_ context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
+func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedPutResponse(err)
 	}
@@ -312,15 +321,18 @@ func (s *Server) Put(_ context.Context, req *protocontainer.PutRequest) (*protoc
 		return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err))
 	}
 
-	id, err := s.contract.Put(cnr, mSig.Key, mSig.Sign, st)
-	if err != nil {
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
+
+	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, st)
+	if err != nil && !errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
 		return s.makeFailedPutResponse(err)
 	}
 
 	respBody := &protocontainer.PutResponse_Body{
 		ContainerId: id.ProtoMessage(),
 	}
-	return s.makePutResponse(respBody, util.StatusOK)
+	return s.makePutResponse(respBody, err)
 }
 
 func (s *Server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, error) {
@@ -333,7 +345,7 @@ func (s *Server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, 
 
 // Delete forwards container removal request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified.
-func (s *Server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
+func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeDeleteResponse(err)
 	}
@@ -358,11 +370,12 @@ func (s *Server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*
 		return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
 	}
 
-	if err := s.contract.Delete(id, mSig.Key, mSig.Sign, st); err != nil {
-		return s.makeDeleteResponse(err)
-	}
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
 
-	return s.makeDeleteResponse(util.StatusOKErr)
+	err = s.contract.Delete(ctx, id, mSig.Key, mSig.Sign, st)
+
+	return s.makeDeleteResponse(err)
 }
 
 func (s *Server) makeGetResponse(body *protocontainer.GetResponse_Body, st *protostatus.Status) (*protocontainer.GetResponse, error) {
@@ -466,7 +479,7 @@ func (s *Server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLR
 
 // SetExtendedACL forwards eACL setting request to the underlying [Contract]
 // for further processing. If session token is attached, it's verified.
-func (s *Server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
+func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeSetEACLResponse(err)
 	}
@@ -496,11 +509,12 @@ func (s *Server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtend
 		return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err))
 	}
 
-	if err := s.contract.PutEACL(eACL, mSig.Key, mSig.Sign, st); err != nil {
-		return s.makeSetEACLResponse(err)
-	}
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
 
-	return s.makeSetEACLResponse(util.StatusOKErr)
+	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, st)
+
+	return s.makeSetEACLResponse(err)
 }
 
 func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse_Body, st *protostatus.Status) (*protocontainer.GetExtendedACLResponse, error) {

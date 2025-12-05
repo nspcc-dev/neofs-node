@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - IR structures containers in the contract iteratively (#3670)
 - SN tries new NEP-11 methods `tokens` and `tokensOf` of Container contract (#3701)
 - SN now listens to NEP-11 `transfer` events of Container contract (#3701)
+- CLI supports `CONTAINER_AWAIT_TIMEOUT` status now (#3711)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
@@ -17,11 +18,13 @@ Changelog for NeoFS Node
 ### Changed
 - Optimized locking info in metabase (#3672)
 - Lock objects with API <2.18 are no longer accepted (#3672)
+- SN handles `ContainerService`'s `Put`, `Delete` and `SetExtendedACL` requests in sync manner (#3711)
 
 ### Removed
 
 ### Updated
 - `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251203135706-86667929fbb8` (#3711)
 
 ### Updating from v0.50.2
 

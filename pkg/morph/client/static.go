@@ -130,6 +130,16 @@ func (i *InvokePrmOptional) SetNonce(nonce uint32) {
 	i.nonce = &nonce
 }
 
+// CallWithAlphabetWitness sends transaction calling given method of underlying
+// contract that requires Alphabet witness. If transaction is accepted for
+// processing, CallWithAlphabetWitness waits for it to be successfully executed.
+// Waiting is done within ctx, [ErrTxAwaitTimeout] is returned when it is done.
+func (s StaticClient) CallWithAlphabetWitness(ctx context.Context, method string, args []any) error {
+	return s.execWithBackoff(func() error {
+		return s.client.CallWithAlphabetWitness(ctx, s.scScriptHash, method, args)
+	})
+}
+
 // Invoke calls Invoke method of Client with static internal script hash and fee.
 // Supported args types are the same as in Client.
 //
@@ -185,22 +195,22 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 		}
 	}
 
-	expBackoff := backoff.NewExponentialBackOff()
-	return backoff.RetryNotify(
-		func() error {
-			err = invokeFunc()
-			if err != nil {
-				if errors.Is(err, neorpc.ErrMempoolCapReached) {
-					return err
-				}
-				return backoff.Permanent(err)
+	return s.execWithBackoff(invokeFunc)
+}
+
+func (s StaticClient) execWithBackoff(invokeFunc func() error) error {
+	return backoff.RetryNotify(func() error {
+		err := invokeFunc()
+		if err != nil {
+			if errors.Is(err, neorpc.ErrMempoolCapReached) {
+				return err
 			}
-			return nil
-		},
-		expBackoff,
-		func(err error, d time.Duration) {
-			s.client.logger.Debug("retrying due to error", zap.Error(err), zap.Duration("retry-after", d))
-		})
+			return backoff.Permanent(err)
+		}
+		return nil
+	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
+		s.client.logger.Debug("retrying due to error", zap.Error(err), zap.Duration("retry-after", d))
+	})
 }
 
 // RunAlphabetNotaryScript invokes script by sending tx to notary contract in
