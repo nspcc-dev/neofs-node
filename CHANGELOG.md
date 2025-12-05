@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 ### Changed
 - Optimized locking info in metabase (#3672)
 - Lock objects with API <2.18 are no longer accepted (#3672)
+- SN handles `ContainerService`'s `Put`, `Delete` and `SetExtendedACL` requests in sync manner (#3711)
 
 ### Removed
 

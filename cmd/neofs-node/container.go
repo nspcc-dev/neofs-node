@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -526,7 +528,7 @@ func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
 	return x.cnrLst.List(&id)
 }
 
-func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st *session.Container) (cid.ID, error) {
+func (x *containersInChain) Put(ctx context.Context, cnr containerSDK.Container, pub, sig []byte, st *session.Container) (cid.ID, error) {
 	var prm cntClient.PutPrm
 	prm.SetContainer(cnr)
 	prm.SetKey(pub)
@@ -535,35 +537,46 @@ func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st 
 		prm.SetToken(st.Marshal())
 	}
 
-	return x.cCli.Put(prm)
+	id, err := x.cCli.Put(ctx, prm)
+	if errors.Is(err, client.ErrTxAwaitTimeout) {
+		err = apistatus.ErrContainerAwaitTimeout
+	}
+
+	return id, err
 }
 
-func (x *containersInChain) Delete(id cid.ID, pub, sig []byte, st *session.Container) error {
+func (x *containersInChain) Delete(ctx context.Context, id cid.ID, pub, sig []byte, st *session.Container) error {
 	var prm cntClient.DeletePrm
 	prm.SetCID(id[:])
 	prm.SetSignature(sig)
 	prm.SetKey(pub)
-	prm.RequireAlphabetSignature()
 	if st != nil {
 		prm.SetToken(st.Marshal())
 	}
-	return x.cCli.Delete(prm)
+
+	err := x.cCli.Delete(ctx, prm)
+	if errors.Is(err, client.ErrTxAwaitTimeout) {
+		err = apistatus.ErrContainerAwaitTimeout
+	}
+
+	return err
 }
 
-func (x *containersInChain) PutEACL(eACL eacl.Table, pub, sig []byte, st *session.Container) error {
+func (x *containersInChain) PutEACL(ctx context.Context, eACL eacl.Table, pub, sig []byte, st *session.Container) error {
 	var prm cntClient.PutEACLPrm
 	prm.SetTable(eACL.Marshal())
 	prm.SetKey(pub)
 	prm.SetSignature(sig)
-	prm.RequireAlphabetSignature()
 	if st != nil {
 		prm.SetToken(st.Marshal())
 	}
-	if err := x.cCli.PutEACL(prm); err != nil {
-		return err
+
+	err := x.cCli.PutEACL(ctx, prm)
+	if errors.Is(err, client.ErrTxAwaitTimeout) {
+		err = apistatus.ErrContainerAwaitTimeout
 	}
 
-	return nil
+	return err
 }
 
 type containerPresenceChecker struct{ src containerCore.Source }

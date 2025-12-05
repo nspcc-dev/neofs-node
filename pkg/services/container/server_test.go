@@ -41,7 +41,7 @@ func (unimplementedFSChain) InvokeContainedScript(*transaction.Transaction, *blo
 
 type unimplementedContainerContract struct{}
 
-func (unimplementedContainerContract) Put(container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
+func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
 	panic("implement me")
 }
 
@@ -53,7 +53,7 @@ func (unimplementedContainerContract) List(user.ID) ([]cid.ID, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) PutEACL(eacl.Table, []byte, []byte, *session.Container) error {
+func (unimplementedContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, *session.Container) error {
 	panic("unimplemented")
 }
 
@@ -61,7 +61,7 @@ func (unimplementedContainerContract) GetEACL(cid.ID) (eacl.Table, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) Delete(cid.ID, []byte, []byte, *session.Container) error {
+func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []byte, *session.Container) error {
 	panic("unimplemented")
 }
 
@@ -83,7 +83,7 @@ type testFSChain struct {
 	cnrs   map[cid.ID]container.Container
 }
 
-func (testFSChain) Put(container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
+func (testFSChain) Put(context.Context, container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
 	return cid.ID{}, errors.New("unimplemented")
 }
 
@@ -102,7 +102,7 @@ func (testFSChain) List(user.ID) ([]cid.ID, error) {
 	return nil, errors.New("unimplemented")
 }
 
-func (testFSChain) PutEACL(eacl.Table, []byte, []byte, *session.Container) error {
+func (testFSChain) PutEACL(context.Context, eacl.Table, []byte, []byte, *session.Container) error {
 	return nil
 }
 
@@ -110,7 +110,7 @@ func (testFSChain) GetEACL(cid.ID) (eacl.Table, error) {
 	return eacl.Table{}, errors.New("unimplemented")
 }
 
-func (testFSChain) Delete(cid.ID, []byte, []byte, *session.Container) error {
+func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, *session.Container) error {
 	return nil
 }
 

@@ -1,9 +1,9 @@
 package container
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 )
 
@@ -13,8 +13,6 @@ type DeletePrm struct {
 	signature []byte
 	key       []byte
 	token     []byte
-
-	client.InvokePrmOptional
 }
 
 // SetCID sets container ID.
@@ -37,32 +35,27 @@ func (d *DeletePrm) SetToken(token []byte) {
 	d.token = token
 }
 
-// Delete removes the container from NeoFS system
-// through Container contract call.
+// Delete calls Container contract to delete container with parameterized
+// credentials. If transaction is accepted for processing, Delete waits for it
+// to be successfully executed. Waiting is performed within ctx,
+// [client.ErrTxAwaitTimeout] is returned when it is done.
 //
 // Returns any error encountered that caused
 // the removal to interrupt.
-func (c *Client) Delete(p DeletePrm) error {
+func (c *Client) Delete(ctx context.Context, p DeletePrm) error {
 	if len(p.signature) == 0 {
 		return errNilArgument
 	}
 
-	prm := client.InvokePrm{}
-	prm.SetMethod(fschaincontracts.RemoveContainerMethod)
-	prm.SetArgs(p.cnr, p.signature, p.key, p.token)
-	prm.InvokePrmOptional = p.InvokePrmOptional
-
-	// no magic bugs with notary requests anymore, this operation should
-	// _always_ be notary signed so make it one more time even if it is
-	// a repeated flag setting
-	prm.RequireAlphabetSignature()
-
-	err := c.client.Invoke(prm)
+	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.RemoveContainerMethod, []any{
+		p.cnr, p.signature, p.key, p.token,
+	})
 	if err != nil {
 		if isMethodNotFoundError(err, fschaincontracts.RemoveContainerMethod) {
-			prm.SetMethod(deleteMethod)
-			prm.SetArgs(p.cnr, p.signature, p.token)
-			if err = c.client.Invoke(prm); err != nil {
+			err = c.client.CallWithAlphabetWitness(ctx, deleteMethod, []any{
+				p.cnr, p.signature, p.key, p.token,
+			})
+			if err != nil {
 				return fmt.Errorf("could not invoke method (%s): %w", deleteMethod, err)
 			}
 			return nil
