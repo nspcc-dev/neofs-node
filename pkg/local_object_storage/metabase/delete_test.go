@@ -90,13 +90,15 @@ func TestContainerInfo(t *testing.T) {
 	require.Equal(t, uint64(1), info.ObjectsNumber)
 	require.Equal(t, payloadSize, info.StorageSize)
 
-	res, err := db.Delete([]oid.Address{object.AddressOf(obj)})
+	addr := object.AddressOf(obj)
+
+	res, err := db.Delete([]oid.Address{addr})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1), res.AvailableRemoved)
 	require.Equal(t, uint64(1), res.RawRemoved)
 	require.Len(t, res.Sizes, 1)
-	require.Equal(t, payloadSize, res.Sizes[0])
+	require.Equal(t, payloadSize, res.Sizes[addr])
 
 	info, err = db.GetContainerInfo(cID)
 	require.NoError(t, err)
