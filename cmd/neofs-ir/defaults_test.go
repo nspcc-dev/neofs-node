@@ -19,7 +19,6 @@ func TestValidateDefaultConfig(t *testing.T) {
 			Level:    "info",
 			Encoding: "console",
 		},
-		WithoutMainnet: false,
 		FSChain: config.Chain{
 			BasicChain: config.BasicChain{
 				DialTimeout:         60000000000,
@@ -48,7 +47,6 @@ func TestValidateDefaultConfig(t *testing.T) {
 			AuthorizedKeys: keys.PublicKeys{},
 			GRPC:           config.GRPC{Endpoint: ""},
 		},
-		Governance: config.Governance{Disable: false},
 		Node: config.Node{
 			PersistentState: config.PersistentState{
 				Path: ".neofs-ir-state",
