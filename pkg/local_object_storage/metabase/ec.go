@@ -189,3 +189,99 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 		}
 	}
 }
+
+// collects all EC parts of all objects in addrs list. The parts which are
+// already in addrs list are not included.
+func collectMissingECParts(tx *bbolt.Tx, addrs []oid.Address) (map[oid.Address][]oid.ID, error) {
+	var res map[oid.Address][]oid.ID
+
+	cnrMetaBktKey := make([]byte, 1+cid.Size)
+	cnrMetaBktKey[0] = metadataPrefix
+
+	for i := range addrs {
+		cnr := addrs[i].Container()
+		if slices.ContainsFunc(addrs[:i], func(a oid.Address) bool { return a.Container() == cnr }) {
+			continue // already handled in nested loop
+		}
+
+		copy(cnrMetaBktKey[1:], cnr[:])
+
+		cnrMetaBkt := tx.Bucket(cnrMetaBktKey)
+		if cnrMetaBkt == nil {
+			continue
+		}
+		cnrMetaCrs := cnrMetaBkt.Cursor()
+
+		for j := range addrs[i:] {
+			idx := i + j
+			if j != 0 && addrs[idx].Container() != cnr { // another container, handled in other upper loop's iteration
+				continue
+			}
+
+			ecParts, err := _collectMissingECParts(cnrMetaBkt, cnrMetaCrs, addrs, idx)
+			if err != nil {
+				return nil, fmt.Errorf("collect EC parts for %s: %w", addrs[idx], err)
+			}
+
+			if len(ecParts) == 0 {
+				continue
+			}
+
+			if res == nil {
+				res = make(map[oid.Address][]oid.ID, 1)
+			}
+
+			res[addrs[idx]] = ecParts
+		}
+	}
+
+	return res, nil
+}
+
+func _collectMissingECParts(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, addrs []oid.Address, idx int) ([]oid.ID, error) {
+	var res []oid.ID
+
+	parent := addrs[idx].Object()
+	pref := slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(object.FilterParentID), objectcore.MetaAttributeDelimiter,
+		parent[:], objectcore.MetaAttributeDelimiter,
+	)
+
+	var partCrs *bbolt.Cursor
+	var ecPref []byte
+	for k, _ := cnrMetaCrs.Seek(pref); ; k, _ = cnrMetaCrs.Next() {
+		partID, ok := bytes.CutPrefix(k, pref)
+		if !ok {
+			break
+		}
+		if len(partID) != oid.Size {
+			return nil, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
+		}
+		if islices.AllZeros(partID) {
+			return nil, invalidMetaBucketKeyErr(k, oid.ErrZero)
+		}
+
+		if partCrs == nil {
+			partCrs = cnrMetaBkt.Cursor()
+		}
+
+		if ecPref == nil {
+			ecPref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributePrefix)) // any of EC attributes
+		} else {
+			copy(ecPref[1:], partID)
+		}
+
+		if k, _ = partCrs.Seek(ecPref); !bytes.HasPrefix(k, ecPref) {
+			continue
+		}
+
+		id := oid.ID(partID)
+
+		if !slices.ContainsFunc(addrs, func(addr oid.Address) bool {
+			return addr.Container() == addrs[idx].Container() && addr.Object() == id
+		}) {
+			res = append(res, id)
+		}
+	}
+
+	return res, nil
+}

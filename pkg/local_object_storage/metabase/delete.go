@@ -12,22 +12,25 @@ import (
 
 // DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct {
+	// Objects that were hardly linked to objects passed to [DB.Delete] and that
+	// were deleted along with them.
+	AdditionalObjects map[oid.Address][]oid.ID
 	// RawRemoved contains the number of removed raw objects.
 	RawRemoved uint64
 	// AvailableRemoved contains the number of removed available objects.
 	AvailableRemoved uint64
-	// Sizes contains the sizes of removed objects.
-	// The order of the sizes is the same as in addresses'
-	// slice that was provided in the [DB.Delete] address list,
-	// meaning that i-th size equals the number of freed up bytes
-	// after removing an object by i-th address. A zero size is
-	// allowed, it claims a missing object.
-	Sizes []uint64
+	// Sizes contains the sizes of removed objects. Includes both [DB.Delete] input
+	// and AdditionalObjects. A zero size is allowed, it claims a missing object.
+	Sizes map[oid.Address]uint64
 }
 
 // Delete removes object records from metabase indexes.
 // Does not stop on an error if there are more objects to handle requested;
 // returns the first error appeared with a number of deleted objects wrapped.
+//
+// Delete also looks up for objects that are hardly linked with elements of
+// addrs list but not in the list themselves. If there are any, they are also
+// deleted.
 func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -41,11 +44,12 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 	var rawRemoved uint64
 	var availableRemoved uint64
 	var err error
-	var sizes = make([]uint64, len(addrs))
+	var sizes map[oid.Address]uint64
+	var add map[oid.Address][]oid.ID
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		// We need to clear slice because tx can try to execute multiple times.
-		rawRemoved, availableRemoved, err = db.deleteGroup(tx, addrs, sizes)
+		rawRemoved, availableRemoved, add, sizes, err = db.deleteGroup(tx, addrs)
 		return err
 	})
 	if err == nil {
@@ -56,67 +60,11 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 		}
 	}
 	return DeleteRes{
-		RawRemoved:       rawRemoved,
-		AvailableRemoved: availableRemoved,
-		Sizes:            sizes,
+		AdditionalObjects: add,
+		RawRemoved:        rawRemoved,
+		AvailableRemoved:  availableRemoved,
+		Sizes:             sizes,
 	}, err
-}
-
-// deleteGroup deletes object from the metabase. Handles removal of the
-// references of the split objects.
-// The first return value is a physical objects removed number: physical
-// objects that were stored. The second return value is a logical objects
-// removed number: objects that were available (without Tombstones, GCMarks
-// non-expired, etc.)
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (uint64, uint64, error) {
-	var rawDeleted uint64
-	var availableDeleted uint64
-	var errorCount int
-	var firstErr error
-
-	for i := range addrs {
-		removed, available, size, err := db.delete(tx, addrs[i])
-		if err != nil {
-			errorCount++
-			db.log.Warn("failed to delete object", zap.Stringer("addr", addrs[i]), zap.Error(err))
-			if firstErr == nil {
-				firstErr = fmt.Errorf("%s object delete fail: %w", addrs[i], err)
-			}
-
-			continue
-		}
-
-		if removed {
-			rawDeleted++
-			sizes[i] = size
-		}
-
-		if available {
-			availableDeleted++
-		}
-	}
-
-	if firstErr != nil {
-		all := len(addrs)
-		success := all - errorCount
-		return 0, 0, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
-	}
-
-	if rawDeleted > 0 {
-		err := db.updateCounter(tx, phy, rawDeleted, false)
-		if err != nil {
-			return 0, 0, fmt.Errorf("could not decrease phy object counter: %w", err)
-		}
-	}
-
-	if availableDeleted > 0 {
-		err := db.updateCounter(tx, logical, availableDeleted, false)
-		if err != nil {
-			return 0, 0, fmt.Errorf("could not decrease logical object counter: %w", err)
-		}
-	}
-
-	return rawDeleted, availableDeleted, nil
 }
 
 // delete removes object indexes from the metabase.
@@ -162,6 +110,97 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error)
 	}
 
 	return true, removeAvailableObject, payloadSize, nil
+}
+
+// deleteGroup deletes object from the metabase. Handles removal of the
+// references of the split objects.
+// The first return value is a physical objects removed number: physical
+// objects that were stored. The second return value is a logical objects
+// removed number: objects that were available (without Tombstones, GCMarks
+// non-expired, etc.)
+//
+// The third return contains objects that are hardly linked with elements of
+// addrs list but not in the list themselves. If there are any, they are also
+// deleted.
+//
+// The fourth return contains payload len of deleted objects. See
+// [DeleteRes.Sizes] for details.
+func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, map[oid.Address][]oid.ID, map[oid.Address]uint64, error) {
+	var rawDeleted uint64
+	var availableDeleted uint64
+	var errorCount int
+	var firstErr error
+	var err error
+
+	ecParts, err := collectMissingECParts(tx, addrs)
+	if err != nil {
+		return 0, 0, nil, nil, fmt.Errorf("collect EC parts outside input object list: %w", err)
+	}
+
+	all := len(addrs)
+	for _, ids := range ecParts {
+		all += len(ids)
+	}
+
+	sizes := make(map[oid.Address]uint64, all)
+
+	iterAll := func(yield func(oid.Address) bool) {
+		for i := range addrs {
+			if !yield(addrs[i]) {
+				return
+			}
+		}
+		for parent, ids := range ecParts {
+			for i := range ids {
+				if !yield(oid.NewAddress(parent.Container(), ids[i])) {
+					return
+				}
+			}
+		}
+	}
+
+	for addr := range iterAll {
+		removed, available, size, err := db.delete(tx, addr)
+		if err != nil {
+			errorCount++
+			db.log.Warn("failed to delete object", zap.Stringer("addr", addr), zap.Error(err))
+			if firstErr == nil {
+				firstErr = fmt.Errorf("%s object delete fail: %w", addr, err)
+			}
+
+			continue
+		}
+
+		if removed {
+			rawDeleted++
+			sizes[addr] = size
+		}
+
+		if available {
+			availableDeleted++
+		}
+	}
+
+	if firstErr != nil {
+		success := all - errorCount
+		return 0, 0, nil, nil, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
+	}
+
+	if rawDeleted > 0 {
+		err := db.updateCounter(tx, phy, rawDeleted, false)
+		if err != nil {
+			return 0, 0, nil, nil, fmt.Errorf("could not decrease phy object counter: %w", err)
+		}
+	}
+
+	if availableDeleted > 0 {
+		err := db.updateCounter(tx, logical, availableDeleted, false)
+		if err != nil {
+			return 0, 0, nil, nil, fmt.Errorf("could not decrease logical object counter: %w", err)
+		}
+	}
+
+	return rawDeleted, availableDeleted, ecParts, sizes, nil
 }
 
 func delBucketKey(tx *bbolt.Tx, bucket []byte, key []byte) {
