@@ -31,6 +31,13 @@ func TestDB_Delete(t *testing.T) {
 	err := putBig(db, child)
 	require.NoError(t, err)
 
+	// try to delete parent
+	res, err := db.Delete([]oid.Address{object.AddressOf(parent)})
+	require.NoError(t, err)
+	require.Zero(t, res.RawRemoved)
+	require.Zero(t, res.AvailableRemoved)
+	require.Equal(t, []uint64{0}, res.Sizes)
+
 	// fill ToMoveIt index
 	err = metaToMoveIt(db, object.AddressOf(child))
 	require.NoError(t, err)

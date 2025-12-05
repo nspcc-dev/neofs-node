@@ -141,12 +141,6 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 	var err error
 	var parent oid.ID
 	var size uint64
-	if !isParent {
-		v := metaBkt.Get(slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPhysical), objectcore.MetaAttributeDelimiter, []byte(binPropMarker)))
-		if v == nil {
-			return 0, nil
-		}
-	}
 	pref := slices.Concat([]byte{metaPrefixID}, id[:])
 	if err := metaBkt.Delete(pref); err != nil {
 		return 0, err

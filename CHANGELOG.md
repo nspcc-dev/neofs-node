@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 ### Fixed
 - IR panics at graceful shutdown (#3706)
 - IR using netmap contract to store IR node list instead of RoleManagement (#3707)
+- Updating SN metrics on split objects' expiration (#3717)
 
 ### Changed
 - Optimized locking info in metabase (#3672)

@@ -2,10 +2,13 @@ package meta
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/bbolt"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -127,12 +130,18 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error) {
 	key := make([]byte, addressKeySize)
 	cID := addr.Container()
+	oID := addr.Object()
 	addrKey := addressKey(addr, key)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 	graveyardBKT := tx.Bucket(graveyardBucketName)
 	metaBucket := tx.Bucket(metaBucketKey(cID))
 	var metaCursor *bbolt.Cursor
 	if metaBucket != nil {
+		phyKey := slices.Concat([]byte{metaPrefixIDAttr}, oID[:], []byte(object.FilterPhysical), objectcore.MetaAttributeDelimiter, []byte(binPropMarker))
+		if metaBucket.Get(phyKey) == nil {
+			return false, false, 0, nil
+		}
+
 		metaCursor = metaBucket.Cursor()
 	}
 
@@ -146,7 +155,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error)
 		}
 	}
 
-	payloadSize, err := deleteMetadata(tx, db.log, addr.Container(), addr.Object(), false)
+	payloadSize, err := deleteMetadata(tx, db.log, addr.Container(), oID, false)
 	if err != nil {
 		return false, false, 0, fmt.Errorf("can't remove metadata indexes: %w", err)
 	}
