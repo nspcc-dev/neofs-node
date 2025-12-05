@@ -10,6 +10,8 @@ Changelog for NeoFS Node
 - SN tries new NEP-11 methods `tokens` and `tokensOf` of Container contract (#3701)
 - SN now listens to NEP-11 `transfer` events of Container contract (#3701)
 - CLI supports `CONTAINER_AWAIT_TIMEOUT` status now (#3711)
+- Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
+- SN can respond with `CONTAINER_LOCKED` status now (#3708)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
@@ -24,7 +26,7 @@ Changelog for NeoFS Node
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251205135906-a62baeafe648` (#3670, #3708)
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251203135706-86667929fbb8` (#3711)
 
 ### Updating from v0.50.2
