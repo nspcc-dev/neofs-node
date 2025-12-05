@@ -37,7 +37,7 @@ jobs:
     runs-on: ${{matrix.os.name}}
     strategy:
       matrix:
-        os: [{ name: ubuntu-latest, bin-name: linux }, { name: macos-14, bin-name: darwin }] # { name: windows-2022, bin-name: windows }
+        os: [{ name: ubuntu-latest, bin-name: linux }, { name: macos-14, bin-name: darwin }] # { name: windows-latest, bin-name: windows }
         arch: [amd64, arm64]
 
     steps:
