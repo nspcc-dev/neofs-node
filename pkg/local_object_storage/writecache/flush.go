@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -232,6 +233,11 @@ func (c *cache) flushBatch(addrs []oid.Address) error {
 	}
 
 	for addr := range objs {
+		storagelog.Write(c.log,
+			storagelog.AddressField(addr),
+			storagelog.StorageTypeField(c.storage.Type()),
+			storagelog.OpField("PUT"),
+		)
 		err = c.delete(addr)
 		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
 			c.log.Error("can't remove object from write-cache", zap.Error(err))

@@ -14,6 +14,7 @@ type stor interface {
 	Put(oid.Address, []byte) error
 	PutBatch(map[oid.Address][]byte) error
 	Exists(oid.Address) (bool, error)
+	Type() string
 }
 
 type options struct {
