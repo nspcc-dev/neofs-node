@@ -47,6 +47,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				time.Sleep(repCooldown) // finished whole cycle, sleep a bit
+				p.log.Info("finished local storage cycle")
 				continue
 			}
 			err = fmt.Errorf("cannot list objects in engine: %w", err)
