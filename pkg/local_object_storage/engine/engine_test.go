@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
@@ -62,7 +61,6 @@ func benchmarkExists(b *testing.B, shardNum int) {
 	e := testNewEngineWithShards(shards...)
 	b.Cleanup(func() {
 		_ = e.Close()
-		_ = os.RemoveAll(b.Name())
 	})
 
 	addr := oidtest.Address()

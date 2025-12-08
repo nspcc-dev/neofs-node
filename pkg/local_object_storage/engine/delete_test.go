@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -15,8 +14,6 @@ import (
 )
 
 func TestDeleteBigObject(t *testing.T) {
-	defer os.RemoveAll(t.Name())
-
 	cnr := cidtest.ID()
 	parentID := oidtest.ID()
 	splitID := objectSDK.NewSplitID()

@@ -126,9 +126,6 @@ func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s [
 
 func TestExecBlocks(t *testing.T) {
 	e := testNewEngineWithShardNum(t, 2) // number doesn't matter in this test, 2 is several but not many
-	t.Cleanup(func() {
-		os.RemoveAll(t.Name())
-	})
 
 	// put some object
 	obj := generateObjectWithCID(cidtest.ID())
