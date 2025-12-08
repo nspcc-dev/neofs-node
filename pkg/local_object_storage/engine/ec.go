@@ -21,8 +21,8 @@ import (
 // availability and reads it from the underlying BLOB storage. The result is a
 // header and a payload stream that must be closed by caller after processing.
 //
-// If the object is not EC part but of [object.TypeTombstone] or
-// [object.TypeLock] type, GetECPart returns this object instead.
+// If the object is not EC part but of [object.TypeTombstone], [object.TypeLock]
+// or [object.TypeLink] type, GetECPart returns this object instead.
 //
 // If write-cache is enabled, GetECPart tries to get the object from it first.
 //

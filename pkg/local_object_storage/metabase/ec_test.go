@@ -254,7 +254,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 	}
 
 	// OK cases
-	checkOKWithLen := func(t *testing.T, db *meta.DB, pi iec.PartInfo, expID oid.ID, expLen int) {
+	checkOKWithLenAndParent := func(t *testing.T, db *meta.DB, pi iec.PartInfo, parentID oid.ID, expID oid.ID, expLen int) {
 		res, err := db.ResolveECPart(cnr, parentID, pi)
 		require.NoError(t, err)
 		require.Equal(t, expID, res)
@@ -263,6 +263,10 @@ func TestDB_ResolveECPart(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expID, id)
 		require.EqualValues(t, expLen, ln)
+	}
+
+	checkOKWithLen := func(t *testing.T, db *meta.DB, pi iec.PartInfo, expID oid.ID, expLen int) {
+		checkOKWithLenAndParent(t, db, pi, parentID, expID, expLen)
 	}
 
 	checkOK := func(t *testing.T, db *meta.DB, pi iec.PartInfo, exp oid.ID) {
@@ -353,7 +357,8 @@ func TestDB_ResolveECPart(t *testing.T) {
 
 		require.NoError(t, db.Put(&linker))
 
-		checkOKWithLen(t, db, pi, linkerID, linkerPayloadLen)
+		checkOKWithLenAndParent(t, db, pi, parentID, linkerID, linkerPayloadLen)
+		checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
 	})
 
 	db := newDB(t)

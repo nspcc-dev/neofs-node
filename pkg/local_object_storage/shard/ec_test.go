@@ -200,6 +200,42 @@ func TestShard_GetECPart(t *testing.T) {
 		})
 	}
 
+	t.Run("LINK", func(t *testing.T) {
+		mb := meta.New(
+			meta.WithPath(filepath.Join(t.TempDir(), "meta")),
+			meta.WithEpochState(epochState{}),
+			meta.WithLogger(zaptest.NewLogger(t)),
+		)
+		require.NoError(t, mb.Open(false))
+		t.Cleanup(func() { _ = mb.Close() })
+		require.NoError(t, mb.Init())
+
+		payload := testutil.RandByteSlice(32) // any
+
+		linker := *newObject(t)
+		linker.SetContainerID(cnr)
+		linker.SetParentID(parentID)
+		linker.SetType(object.TypeLink)
+		linker.SetPayload(payload)
+		require.NoError(t, mb.Put(&linker))
+
+		bs := mockBLOBStore{
+			getStream: map[oid.Address]getStreamValue{
+				objectcore.AddressOf(&linker): {obj: linker},
+			},
+		}
+
+		s := newSimpleTestShard(t, &bs, mb, nil)
+
+		hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
+		require.NoError(t, err)
+		assertGetECPartOK(t, linker, hdr, rdr)
+
+		hdr, rdr, err = s.GetECPart(cnr, linker.GetID(), pi)
+		require.NoError(t, err)
+		assertGetECPartOK(t, linker, hdr, rdr)
+	})
+
 	s := newSimpleTestShard(t, &bs, &mb, nil)
 
 	hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
