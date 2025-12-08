@@ -4,10 +4,11 @@ Follow the steps below to upload and manage files on NeoFS using the Neo CLI and
 
 ## 1. Download the Neo CLI
 
-Download the latest Neo CLI from the official release page and extract it locally.[^neo-cli]
+Download the latest NeoGo or Neo CLI from the official release page and extract it locally.[^neo-cli]
 
 ```text
 https://github.com/nspcc-dev/neo-go/releases
+https://github.com/neo-project/neo/releases/
 ```
 
 ## 2. Create a Wallet
@@ -43,12 +44,15 @@ Copy `wallet.json` into the root directory of the extracted `neofs-cli` bundle s
 
 ## 6. Deposit GAS to the NeoFS Contract
 
-Use a Neo wallet (for example, NeoLine Chrome extension) to deposit **1 GAS** on N3 testnet into the NeoFS contract address:
+Use a node or Neo wallet (for example, neo-go or neoline) to deposit **1 GAS** on N3 testnet into the NeoFS contract address:
 
 ```text
 NZAUkYbJ1Cb2HrNmwZ1pg9xYHBhm2FgtKV
 ```
-
+Command can be:
+```shell
+./neo-go wallet nep17 transfer --token GAS --amount 1 --to NZAUkYbJ1Cb2HrNmwZ1pg9xYHBhm2FgtKV -r grpcs://st4.t5.fs.neo.org:8082
+```
 Wait for the transaction to confirm on-chain.
 
 ## 7. Check NeoFS Balance
@@ -98,7 +102,7 @@ Record the **Object ID** from the command output.
 Access the file through a public gateway, substituting your container and object IDs:
 
 ```text
-https://rest.fs.neo.org/v1/objects/<CONTAINER_ID>/by_id/<OBJECT_ID>
+https://rest.t5.fs.neo.org/v1/objects/<CONTAINER_ID>/by_id/<OBJECT_ID>
 ```
 
 Example:
