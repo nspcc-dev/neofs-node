@@ -56,7 +56,7 @@ var dropObjectsCmd = &cobra.Command{
 			return err
 		}
 
-		cmd.Println("Objects were successfully marked to be removed.")
+		cmd.Println("Objects were successfully removed.")
 		return nil
 	},
 }

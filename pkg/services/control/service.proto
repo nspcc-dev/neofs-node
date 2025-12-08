@@ -14,7 +14,7 @@ service ControlService {
     // Sets status of the storage node in NeoFS network map.
     rpc SetNetmapStatus (SetNetmapStatusRequest) returns (SetNetmapStatusResponse);
 
-    // Mark objects to be removed from node's local object storage.
+    // Immediately remove objects from node's local object storage.
     rpc DropObjects (DropObjectsRequest) returns (DropObjectsResponse);
 
     // Returns list that contains information about all shards of a node.

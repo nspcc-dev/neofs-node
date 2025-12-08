@@ -8,6 +8,7 @@ type MetricRegister interface {
 	AddListContainersDuration(d time.Duration)
 	AddEstimateContainerSizeDuration(d time.Duration)
 	AddDeleteDuration(d time.Duration)
+	AddDropDuration(d time.Duration)
 	AddExistsDuration(d time.Duration)
 	AddGetDuration(d time.Duration)
 	AddHeadDuration(d time.Duration)

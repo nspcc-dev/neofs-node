@@ -436,6 +436,10 @@ func (x unimplementedMetrics) AddDeleteDuration(time.Duration) {
 	panic("unimplemented")
 }
 
+func (x unimplementedMetrics) AddDropDuration(time.Duration) {
+	panic("unimplemented")
+}
+
 func (x unimplementedMetrics) AddExistsDuration(time.Duration) {
 	panic("unimplemented")
 }
