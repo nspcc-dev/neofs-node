@@ -180,7 +180,7 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 	for i := range rules {
 		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, sTok, rules[i], i, sortedNodeLists[i])
 		if err == nil {
-			if obj.Type() == object.TypeLink {
+			if obj.Type() == object.TypeLink && obj.GetID() != parent {
 				return s.copySplitECObject(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, i, obj)
 			}
 			if err := copyObject(dst, obj); err != nil {

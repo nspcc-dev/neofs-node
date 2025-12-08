@@ -407,6 +407,28 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		})
 	}
 
+	t.Run("LINK", func(t *testing.T) {
+		const shardNum = 5
+		s := testNewEngineWithShardNum(t, shardNum)
+
+		payload := testutil.RandByteSlice(32) // any
+
+		linker := *generateObjectWithCID(cnr)
+		linker.SetType(object.TypeLink)
+		linker.SetParentID(parentID)
+		linker.SetPayload(payload)
+
+		require.NoError(t, s.Put(&linker, nil))
+
+		hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
+		require.NoError(t, err)
+		assertGetECPartOK(t, linker, hdr, rdr)
+
+		hdr, rdr, err = s.GetECPart(cnr, linker.GetID(), pi)
+		require.NoError(t, err)
+		assertGetECPartOK(t, linker, hdr, rdr)
+	})
+
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 
 	s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed

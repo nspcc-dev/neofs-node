@@ -21,8 +21,8 @@ import (
 // ResolveECPart resolves object that carries EC part produced within cnr for
 // parent object and indexed by pi, checks its availability and returns its ID.
 //
-// If the object is not EC part but of [object.TypeTombstone] or
-// [object.TypeLock] type, ResolveECPart returns its ID instead.
+// If the object is not EC part but of [object.TypeTombstone], [object.TypeLock]
+// or [object.TypeLink] type, ResolveECPart returns its ID instead.
 //
 // If DB is disabled by mode (e.g. [DB.SetMode]), ResolveECPart returns
 // [ErrDegradedMode].
@@ -142,7 +142,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 					typePref = make([]byte, metaIDTypePrefixSize)
 					fillIDTypePrefix(typePref)
 				}
-				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock) {
+				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink) {
 					return parent, nil
 				}
 			}

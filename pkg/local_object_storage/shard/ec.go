@@ -19,8 +19,8 @@ import (
 // availability and reads it from the underlying BLOB storage. The result is a
 // header and a payload stream that must be closed by caller after processing.
 //
-// If the object is not EC part but of [object.TypeTombstone] or
-// [object.TypeLock] type, GetECPart this object instead.
+// If the object is not EC part but of [object.TypeTombstone], [object.TypeLock]
+// or [object.TypeLink] type, GetECPart this object instead.
 //
 // If object is found in the metabase but unreadable from the BLOB storage,
 // GetECPart wraps [ierrors.ObjectID] with the object ID along with the failure
