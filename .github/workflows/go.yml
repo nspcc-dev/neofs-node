@@ -45,14 +45,14 @@ jobs:
     name: Unit tests
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-14]
+        os: [ubuntu-latest, macos-latest]
         go: [ '1.24', '1.25' ]
         exclude:
           # Only the latest Go version MacOS.
-          - os: macos-14
+          - os: macos-latest
             go: '1.24'
           # Exclude the latest Go version for Ubuntu as Coverage uses it.
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             go: '1.25'
 
     steps:
