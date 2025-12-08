@@ -46,7 +46,8 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor, iec.AttributeRuleIdx, iec.AttributePartIdx, object.FilterParentID)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
-				time.Sleep(time.Second) // finished whole cycle, sleep a bit
+				time.Sleep(repCooldown) // finished whole cycle, sleep a bit
+				p.log.Info("finished local storage cycle")
 				continue
 			}
 			err = fmt.Errorf("cannot list objects in engine: %w", err)

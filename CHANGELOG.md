@@ -10,10 +10,12 @@ Changelog for NeoFS Node
 - SN tries new NEP-11 methods `tokens` and `tokensOf` of Container contract (#3701)
 - SN now listens to NEP-11 `transfer` events of Container contract (#3701)
 - CLI supports `CONTAINER_AWAIT_TIMEOUT` status now (#3711)
+- Policer logs when it reaches the end of its cycle (#3720)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
 - IR using netmap contract to store IR node list instead of RoleManagement (#3707)
+- Missing PUT local storage operation log when flushing objects from write cache to underlying blobstor (#3720)
 
 ### Changed
 - Optimized locking info in metabase (#3672)
