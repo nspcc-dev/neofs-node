@@ -88,6 +88,7 @@ var allowedSystemAttributes = map[string]struct{}{
 	sysAttrPrefix + "NAME":                        {},
 	sysAttrPrefix + "ZONE":                        {},
 	sysAttrPrefix + "DISABLE_HOMOMORPHIC_HASHING": {},
+	sysAttrPrefix + "LOCK_UNTIL":                  {},
 	sysAttrChainMeta:                              {},
 }
 
