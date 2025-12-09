@@ -157,7 +157,7 @@ func initSizeLoadReports(c *cfg) {
 		mul := uint32((timeForReport*time.Duration(i) + reportOffset).Milliseconds())
 		div := uint32(dur.Milliseconds())
 
-		l.Debug("add space load reporter", zap.Uint32("multiplicator", mul), zap.Uint32("divisor", div))
+		l.Info("add space load reporter", zap.Uint32("multiplicator", mul), zap.Uint32("divisor", div))
 
 		ticks.DeltaTicks = append(ticks.DeltaTicks, timer.SubEpochTick{
 			Tick:     reportTick,
