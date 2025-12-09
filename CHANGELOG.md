@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - IR panics at graceful shutdown (#3706)
 - IR using netmap contract to store IR node list instead of RoleManagement (#3707)
 - Missing PUT local storage operation log when flushing objects from write cache to underlying blobstor (#3720)
+- EC parts of expired object no longer remain on SN (#3718)
 
 ### Changed
 - Optimized locking info in metabase (#3672)
