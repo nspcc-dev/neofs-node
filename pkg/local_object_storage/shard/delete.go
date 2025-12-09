@@ -61,11 +61,7 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 		removedPayload := res.RemovedObjects[i].PayloadLen
 		totalRemovedPayload += removedPayload
 		s.addToContainerSize(res.RemovedObjects[i].Address.Container().EncodeToString(), -int64(removedPayload))
-	}
 
-	s.addToPayloadCounter(-int64(totalRemovedPayload))
-
-	for i := range res.RemovedObjects {
 		err = s.blobStor.Delete(res.RemovedObjects[i].Address)
 		if err == nil {
 			logOp(s.log, deleteOp, res.RemovedObjects[i].Address)
@@ -79,6 +75,8 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 				zap.Error(err))
 		}
 	}
+
+	s.addToPayloadCounter(-int64(totalRemovedPayload))
 
 	return nil
 }
