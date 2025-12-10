@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"slices"
 	"sync"
 	"time"
@@ -133,15 +135,17 @@ func initSizeLoadReports(c *cfg) {
 	indexInNM := slices.IndexFunc(nm.Nodes(), func(node netmapsdk.NodeInfo) bool {
 		return bytes.Equal(node.PublicKey(), c.binPublicKey)
 	})
-	if indexInNM == -1 {
-		indexInNM = nmLen
-	}
 
-	var stepsInEpoch uint32
-	if nmLen != 0 {
-		// likely there is no need to report less often than once per second
-		reportStep := min(time.Second, dur/maxReportsPerEpoch/time.Duration(nmLen))
-		stepsInEpoch = uint32(dur / reportStep)
+	var (
+		reportOffset  time.Duration
+		timeForReport = dur / maxReportsPerEpoch
+		reportWithin  = max(time.Second, timeForReport/5) // 20% of 1/3 epoch, but not less than a second
+	)
+	if nmLen == 0 || indexInNM == -1 {
+		offBig, _ := rand.Int(rand.Reader, big.NewInt(int64(reportWithin)))
+		reportOffset = time.Duration(offBig.Int64())
+	} else {
+		reportOffset = reportWithin / time.Duration(nmLen) * time.Duration(indexInNM)
 	}
 
 	var (
@@ -150,16 +154,10 @@ func initSizeLoadReports(c *cfg) {
 	)
 	c.closers = append(c.closers, stopF)
 	for i := range maxReportsPerEpoch {
-		var mul, div uint32
-		if stepsInEpoch == 0 {
-			mul = uint32(i)
-			div = maxReportsPerEpoch
-		} else {
-			mul = uint32(i)*(stepsInEpoch/maxReportsPerEpoch) + uint32(indexInNM)
-			div = stepsInEpoch
-		}
+		mul := uint32((timeForReport*time.Duration(i) + reportOffset).Milliseconds())
+		div := uint32(dur.Milliseconds())
 
-		l.Debug("add space load reporter", zap.Uint32("multiplicator", mul), zap.Uint32("divisor", div))
+		l.Info("add space load reporter", zap.Uint32("multiplicator", mul), zap.Uint32("divisor", div))
 
 		ticks.DeltaTicks = append(ticks.DeltaTicks, timer.SubEpochTick{
 			Tick:     reportTick,
