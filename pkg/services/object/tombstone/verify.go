@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -47,12 +46,6 @@ func NewVerifier(objSource ObjectSource) *Verifier {
 // objects without a link object are acceptable for partial removal (as a
 // garbage collection routine). Return any error that does not allow verification.
 func (v *Verifier) VerifyTombStoneWithoutPayload(ctx context.Context, t object.Object) error {
-	if t.Type() != object.TypeTombstone {
-		return fmt.Errorf("not a tombstone object: %s", t.Type())
-	}
-	if !version.SysObjTargetShouldBeInHeader(t.Version()) {
-		return fmt.Errorf("old tombstone with payload expected (version: %s)", t.Version())
-	}
 	deleted := t.AssociatedObject()
 	if deleted.IsZero() {
 		return errors.New("tombstone object with no target object")
