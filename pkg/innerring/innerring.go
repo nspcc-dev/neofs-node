@@ -231,11 +231,13 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	go s.fsChainListener.ListenWithError(ctx, fsChainErr)  // listen for neo:fs events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
-	go func() {
-		if err := s.containerProcessor.AddContainerStructs(ctx); err != nil {
-			fsChainErr <- fmt.Errorf("structurize containers in the contract: %w", err)
-		}
-	}()
+	if s.IsAlphabet() {
+		go func() {
+			if err := s.containerProcessor.AddContainerStructs(ctx); err != nil {
+				fsChainErr <- fmt.Errorf("structurize containers in the contract: %w", err)
+			}
+		}()
+	}
 
 	s.startWorkers(ctx)
 
