@@ -142,6 +142,8 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 		return errNilObject
 	}
 
+	var expirationRequired bool
+
 	switch obj.Type() {
 	case object.TypeStorageGroup: //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
 		return fmt.Errorf("strorage group type is no longer supported")
@@ -157,6 +159,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 				return fmt.Errorf("%s object has zero associated object", obj.Type())
 			}
 		}
+		expirationRequired = true
 	default:
 	}
 
@@ -225,7 +228,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 	if err := v.checkAttributes(obj); err != nil {
 		return fmt.Errorf("invalid attributes: %w", err)
 	}
-	if err := v.checkExpiration(*obj); err != nil {
+	if err := v.checkExpiration(*obj, expirationRequired); err != nil {
 		return fmt.Errorf("object did not pass expiration check: %w", err)
 	}
 
@@ -308,23 +311,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		if len(o.Payload()) > 0 {
 			return ContentMeta{}, errors.New("non-empty payload in tombstone")
 		}
-
-		// check that TS has correct expiration epoch
-		_, err := Expiration(*o)
-		if err != nil {
-			return ContentMeta{}, err
-		}
 	case object.TypeLock:
-		// check that LOCK object has correct expiration epoch
-		lockExp, err := Expiration(*o)
-		if err != nil {
-			return ContentMeta{}, fmt.Errorf("lock object expiration epoch: %w", err)
-		}
-
-		if currEpoch := v.netState.CurrentEpoch(); lockExp < currEpoch {
-			return ContentMeta{}, fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
-		}
-
 		if !version.SysObjTargetShouldBeInHeader(o.Version()) {
 			return ContentMeta{}, errors.New("pre-2.18 locks are no longer supported")
 		}
@@ -341,10 +328,10 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 
 var errExpired = errors.New("object has expired")
 
-func (v *FormatValidator) checkExpiration(obj object.Object) error {
+func (v *FormatValidator) checkExpiration(obj object.Object, expirationRequired bool) error {
 	exp, err := Expiration(obj)
 	if err != nil {
-		if errors.Is(err, ErrNoExpiration) {
+		if errors.Is(err, ErrNoExpiration) && !expirationRequired {
 			return nil // objects without expiration attribute are valid
 		}
 
