@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -29,24 +27,7 @@ type ObjectStorage interface {
 	IsLocked(oid.Address) (bool, error)
 }
 
-func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, enc *encodedObject) error {
-	if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
-		switch obj.Type() {
-		case object.TypeTombstone:
-			exp, err := objectCore.Expiration(*obj)
-			if err != nil && !errors.Is(err, objectCore.ErrNoExpiration) {
-				return fmt.Errorf("reading tombstone expiration: %w", err)
-			}
-
-			err = storage.Delete(objectCore.AddressOf(obj), exp, meta.Objects())
-			if err != nil {
-				return fmt.Errorf("could not delete objects from tombstone locally: %w", err)
-			}
-		default:
-			// objects that do not change meta storage
-		}
-	}
-
+func putObjectLocally(storage ObjectStorage, obj *object.Object, enc *encodedObject) error {
 	var objBin []byte
 	if enc != nil && enc.pldOff > 0 {
 		objBin = enc.b[enc.hdrOff:]
@@ -119,7 +100,7 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return fmt.Errorf("validate object format: %w", err)
 	}
 
-	objMeta, err := p.fmtValidator.ValidateContent(&obj)
+	err = p.fmtValidator.ValidateContent(&obj)
 	if err != nil {
 		return fmt.Errorf("validate payload content: %w", err)
 	}
@@ -138,5 +119,5 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		}
 	}
 
-	return putObjectLocally(p.localStore, &obj, objMeta, nil)
+	return putObjectLocally(p.localStore, &obj, nil)
 }

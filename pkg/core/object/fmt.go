@@ -271,55 +271,52 @@ func (i ContentMeta) Objects() []oid.ID {
 // ValidateContent validates payload content according to the object type.
 // Since it operates on a finalized object it also checks for some attributes
 // that can be omitted by [FormatValidator.Validate] for unprepared objects.
-func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error) {
-	var meta ContentMeta
-
+func (v *FormatValidator) ValidateContent(o *object.Object) error {
 	switch o.Type() {
 	case object.TypeRegular:
 		// ignore regular objects, they do not need payload formatting
 	case object.TypeLink:
 		if len(o.Payload()) == 0 {
-			return ContentMeta{}, errors.New("empty payload in the link object")
+			return errors.New("empty payload in the link object")
 		}
 
 		firstObjID, set := o.FirstID()
 		if !set {
-			return ContentMeta{}, errors.New("link object does not have first object ID")
+			return errors.New("link object does not have first object ID")
 		}
 
 		cnr := o.GetContainerID()
 		if cnr.IsZero() {
-			return ContentMeta{}, errors.New("link object does not have container ID")
+			return errors.New("link object does not have container ID")
 		}
 
 		var testLink object.Link
 
 		err := o.ReadLink(&testLink)
 		if err != nil {
-			return ContentMeta{}, fmt.Errorf("reading link object's payload: %w", err)
+			return fmt.Errorf("reading link object's payload: %w", err)
 		}
 
 		err = v.sv.VerifySplit(context.Background(), cnr, firstObjID, testLink.Objects())
 		if err != nil {
-			return ContentMeta{}, fmt.Errorf("link object's split chain verification: %w", err)
+			return fmt.Errorf("link object's split chain verification: %w", err)
 		}
 	case object.TypeTombstone, object.TypeLock:
 		if !version.SysObjTargetShouldBeInHeader(o.Version()) {
-			return ContentMeta{}, fmt.Errorf("pre-2.18 %s is not supported", o.Type())
+			return fmt.Errorf("pre-2.18 %s is not supported", o.Type())
 		}
 
 		if len(o.Payload()) > 0 {
-			return ContentMeta{}, fmt.Errorf("non-empty payload in %s", o.Type())
+			return fmt.Errorf("non-empty payload in %s", o.Type())
 		}
 
 		if o.Type() == object.TypeTombstone {
-			return ContentMeta{}, v.tv.VerifyTombStoneWithoutPayload(context.Background(), *o)
+			return v.tv.VerifyTombStoneWithoutPayload(context.Background(), *o)
 		}
 	default:
 		// ignore all other object types, they do not need payload formatting
 	}
-
-	return meta, nil
+	return nil
 }
 
 var errExpired = errors.New("object has expired")
