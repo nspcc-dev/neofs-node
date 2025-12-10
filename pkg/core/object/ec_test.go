@@ -12,6 +12,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -216,11 +217,13 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 	}
 
 	t.Run("tombstone", func(t *testing.T) {
-		cp := corruptPart(t, func(obj *object.Object) { obj.SetType(object.TypeTombstone) })
-		require.EqualError(t, v.Validate(&cp, false), "TOMBSTONE object with EC attribute __NEOFS__EC_RULE_IDX")
-
-		cp = corruptParent(t, parent, func(obj *object.Object) { obj.SetType(object.TypeTombstone) })
-		require.NoError(t, v.Validate(&cp, false))
+		cp := corruptPart(t, func(obj *object.Object) {
+			ver218 := version.New(2, 18)
+			obj.SetVersion(&ver218)
+			obj.SetPayload(nil)
+			obj.AssociateDeleted(oidtest.ID())
+		})
+		require.EqualError(t, v.Validate(&cp, false), "mix of EC (__NEOFS__EC_RULE_IDX) and non-EC (__NEOFS__ASSOCIATE) attributes")
 	})
 
 	t.Run("blank", func(t *testing.T) {

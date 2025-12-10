@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 - SN handles `ContainerService`'s `Put`, `Delete` and `SetExtendedACL` requests in sync manner (#3711)
 - SNs report storage statistics with random time offset if netmap is empty (#3714)
 - SN removes objects immediately when requested via control service now instead of just marking them to be deleted by GC (#3727)
+- Tombstone objects with API <2.18 are no longer accepted (#3731)
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
