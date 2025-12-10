@@ -76,6 +76,13 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 		return fmt.Errorf("heading object: %w", err)
 	}
 
+	switch header.Type() {
+	case object.TypeLink, object.TypeTombstone, object.TypeLock:
+		return fmt.Errorf("tombstone target is %s", header.Type())
+	default:
+		// Regular one, OK.
+	}
+
 	firstChild, firstSet := header.FirstID()
 	parent := header.Parent()
 	sID := header.SplitID()

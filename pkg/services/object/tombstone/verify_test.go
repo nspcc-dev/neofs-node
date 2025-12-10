@@ -2,6 +2,7 @@ package tombstone
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -301,15 +302,32 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		require.EqualError(t, err, "object has EC attributes")
 	})
 
+	for _, typ := range []object.Type{object.TypeLink, object.TypeTombstone, object.TypeLock} {
+		t.Run(fmt.Sprintf("target %s", typ), func(t *testing.T) {
+			ts := objecttest.Object()
+			deleted := objectWithCnr(ts.GetContainerID(), false)
+
+			deleted.SetType(typ)
+			ts.AssociateDeleted(objectcore.AddressOf(&deleted).Object())
+
+			*os = testObjectSource{
+				head: map[oid.Address]headRes{
+					objectcore.AddressOf(&deleted): {h: &deleted},
+				},
+			}
+
+			err := v.VerifyTombStoneWithoutPayload(ctx, ts)
+			require.EqualError(t, err, fmt.Sprintf("tombstone target is %s", typ))
+		})
+	}
+
 	t.Run("ok", func(t *testing.T) {
 		cnr := cidtest.ID()
 
 		ts := objecttest.Object()
-		ts.SetContainerID(cnr)
-		deleted := objecttest.Object()
-		deleted.SetContainerID(cnr)
+		deleted := objectWithCnr(cnr, false)
 
-		deleted.ResetRelations()
+		ts.SetContainerID(cnr)
 		ts.AssociateDeleted(objectcore.AddressOf(&deleted).Object())
 
 		*os = testObjectSource{
@@ -324,6 +342,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 
 func objectWithCnr(cnr cid.ID, hasParent bool) object.Object {
 	obj := objecttest.Object()
+	obj.SetType(object.TypeRegular)
 	obj.SetContainerID(cnr)
 
 	if !hasParent {
