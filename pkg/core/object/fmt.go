@@ -271,6 +271,8 @@ func (i ContentMeta) Objects() []oid.ID {
 }
 
 // ValidateContent validates payload content according to the object type.
+// Since it operates on a finalized object It also checks for some attributes
+// that can be ommitted by [FormatValidator.Validate] for unprepared objects.
 func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error) {
 	var meta ContentMeta
 
@@ -303,21 +305,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		if err != nil {
 			return ContentMeta{}, fmt.Errorf("link object's split chain verification: %w", err)
 		}
-	case object.TypeTombstone:
+	case object.TypeTombstone, object.TypeLock:
 		if !version.SysObjTargetShouldBeInHeader(o.Version()) {
-			return ContentMeta{}, errors.New("pre-2.18 tombstones are no longer supported")
+			return ContentMeta{}, fmt.Errorf("pre-2.18 %s is not supported", o.Type())
 		}
 
 		if len(o.Payload()) > 0 {
-			return ContentMeta{}, errors.New("non-empty payload in tombstone")
-		}
-	case object.TypeLock:
-		if !version.SysObjTargetShouldBeInHeader(o.Version()) {
-			return ContentMeta{}, errors.New("pre-2.18 locks are no longer supported")
-		}
-
-		if len(o.Payload()) > 0 {
-			return ContentMeta{}, errors.New("non-empty payload in lock")
+			return ContentMeta{}, fmt.Errorf("non-empty payload in %s", o.Type())
 		}
 	default:
 		// ignore all other object types, they do not need payload formatting
