@@ -140,6 +140,7 @@ func TestPayments(t *testing.T) {
 	o := objecttest.Object()
 	o.SetContainerID(cID)
 	o.ResetRelations()
+	o.SetType(object.TypeRegular)
 	ip := new(PutInitPrm).
 		WithObject(&o).
 		WithCommonPrm(commonPrm)
@@ -213,6 +214,7 @@ func TestQuotas(t *testing.T) {
 		o.SetContainerID(cID)
 		o.SetOwner(owner.ID)
 		o.ResetRelations()
+		o.SetType(object.TypeRegular)
 
 		ip := new(PutInitPrm).
 			WithObject(&o).
@@ -231,6 +233,7 @@ func TestQuotas(t *testing.T) {
 		o.SetContainerID(cID)
 		o.SetOwner(owner.ID)
 		o.ResetRelations()
+		o.SetType(object.TypeRegular)
 
 		ip := new(PutInitPrm).
 			WithObject(&o).
