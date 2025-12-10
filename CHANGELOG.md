@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Support for GET of LINK objects in EC containers (#3722)
 - Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
 - SN can respond with `CONTAINER_LOCKED` status now (#3708)
+- IR now supports `setAttrbibute` method to Container contract (#3728)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)

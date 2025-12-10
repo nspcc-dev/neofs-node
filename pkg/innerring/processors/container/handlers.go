@@ -158,3 +158,30 @@ func (cp *Processor) handleObjectPut(ev event.Event) {
 		cp.log.Warn("object pool submission failed", zap.Error(err))
 	}
 }
+
+func (cp *Processor) handleSetAttribute(ev event.Event) {
+	e := ev.(containerEvent.SetAttribute)
+
+	cp.log.Debug("notification",
+		zap.String("type", "set attribute"),
+		zap.String("cID", base58.Encode(e.CID)),
+	)
+
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Debug("non alphabet mode, ignore set attribute")
+		return
+	}
+
+	err := cp.objectPool.Submit(func() {
+		err := cp.cnrClient.Morph().NotarySignAndInvokeTX(e.NotaryRequest.MainTransaction, false)
+		if err != nil {
+			cp.log.Error("could not approve set attribute",
+				zap.String("cID", base58.Encode(e.CID)),
+				zap.Error(err),
+			)
+		}
+	})
+	if err != nil {
+		cp.log.Warn("object pool submission failed", zap.Error(err))
+	}
+}
