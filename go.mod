@@ -18,7 +18,7 @@ require (
 	github.com/mxschmitt/golang-combinations v1.2.0
 	github.com/nspcc-dev/bbolt v0.0.0-20250911202005-807225ebb0c8
 	github.com/nspcc-dev/hrw/v2 v2.0.4
-	github.com/nspcc-dev/locode-db v0.8.1
+	github.com/nspcc-dev/locode-db v0.8.2
 	github.com/nspcc-dev/neo-go v0.114.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.25.2-0.20251208151418-d34e3802d8c3
