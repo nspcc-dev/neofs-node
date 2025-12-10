@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Optimized locking info in metabase (#3672)
 - Lock objects with API <2.18 are no longer accepted (#3672)
 - SN handles `ContainerService`'s `Put`, `Delete` and `SetExtendedACL` requests in sync manner (#3711)
+- Tombstone objects with API <2.18 are no longer accepted (#3730)
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
