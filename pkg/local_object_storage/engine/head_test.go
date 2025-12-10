@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"os"
 	"testing"
 
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -11,8 +10,6 @@ import (
 )
 
 func TestHeadRaw(t *testing.T) {
-	defer os.RemoveAll(t.Name())
-
 	cnr := cidtest.ID()
 	splitID := object.NewSplitID()
 

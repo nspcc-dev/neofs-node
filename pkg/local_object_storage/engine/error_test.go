@@ -22,11 +22,7 @@ const errSmallSize = 256
 
 func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string, [2]*shard.ID) {
 	if dir == "" {
-		var err error
-
-		dir, err = os.MkdirTemp("", "*")
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = os.RemoveAll(dir) })
+		dir = t.TempDir()
 	}
 
 	e := New(append([]Option{WithShardPoolSize(1)}, opts...)...)
@@ -74,6 +70,7 @@ func TestErrorReporting(t *testing.T) {
 		checkShardState(t, e, id[1], 0, mode.ReadWrite)
 
 		corruptSubDir(t, filepath.Join(dir, "0"))
+		t.Cleanup(func() { fixSubDir(t, filepath.Join(dir, "0")) })
 
 		for i := uint32(1); i < 3; i++ {
 			_, err = e.Get(object.AddressOf(obj))
@@ -102,6 +99,7 @@ func TestErrorReporting(t *testing.T) {
 		checkShardState(t, e, id[1], 0, mode.ReadWrite)
 
 		corruptSubDir(t, filepath.Join(dir, "0"))
+		t.Cleanup(func() { fixSubDir(t, filepath.Join(dir, "0")) })
 
 		for i := uint32(1); i < errThreshold; i++ {
 			_, err = e.Get(object.AddressOf(obj))
@@ -127,9 +125,7 @@ func TestErrorReporting(t *testing.T) {
 
 // Issue #1186.
 func TestBlobstorFailback(t *testing.T) {
-	dir, err := os.MkdirTemp("", "*")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, os.RemoveAll(dir)) })
+	dir := t.TempDir()
 
 	e, _, id := newEngineWithErrorThreshold(t, dir, 1)
 
@@ -140,7 +136,7 @@ func TestBlobstorFailback(t *testing.T) {
 		obj.SetPayloadSize(uint64(size))
 
 		e.mtx.RLock()
-		err = e.shards[id[0].String()].Put(obj, nil)
+		err := e.shards[id[0].String()].Put(obj, nil)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 		objs = append(objs, obj)
@@ -148,7 +144,7 @@ func TestBlobstorFailback(t *testing.T) {
 
 	for i := range objs {
 		addr := object.AddressOf(objs[i])
-		_, err = e.Get(addr)
+		_, err := e.Get(addr)
 		require.NoError(t, err)
 		_, err = e.GetRange(addr, 0, 0)
 		require.NoError(t, err)
@@ -202,6 +198,17 @@ func corruptSubDir(t *testing.T, dir string) {
 		if de[i].IsDir() {
 			require.NoError(t, os.Chmod(filepath.Join(dir, de[i].Name()), 0))
 			return
+		}
+	}
+}
+
+func fixSubDir(t *testing.T, dir string) {
+	de, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	for i := range de {
+		if de[i].IsDir() {
+			require.NoError(t, os.Chmod(filepath.Join(dir, de[i].Name()), 0777))
 		}
 	}
 }

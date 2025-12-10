@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
@@ -62,7 +61,6 @@ func benchmarkExists(b *testing.B, shardNum int) {
 	e := testNewEngineWithShards(shards...)
 	b.Cleanup(func() {
 		_ = e.Close()
-		_ = os.RemoveAll(b.Name())
 	})
 
 	addr := oidtest.Address()
@@ -435,6 +433,10 @@ func (x unimplementedMetrics) AddEstimateContainerSizeDuration(time.Duration) {
 }
 
 func (x unimplementedMetrics) AddDeleteDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddDropDuration(time.Duration) {
 	panic("unimplemented")
 }
 

@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +12,6 @@ func TestRemoveShard(t *testing.T) {
 	e := testNewEngineWithShardNum(t, numOfShards)
 	t.Cleanup(func() {
 		e.Close()
-		os.RemoveAll(t.Name())
 	})
 
 	require.Equal(t, numOfShards, len(e.shardPools))

@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -15,8 +14,15 @@ import (
 )
 
 func TestDeleteBigObject(t *testing.T) {
-	defer os.RemoveAll(t.Name())
-
+	funcs := map[string]func(*StorageEngine, oid.Address) error{
+		"delete": (*StorageEngine).Delete,
+		"drop":   (*StorageEngine).Drop,
+	}
+	for name, fun := range funcs {
+		t.Run(name, func(t *testing.T) { testDeleteBigObject(t, fun) })
+	}
+}
+func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) error) {
 	cnr := cidtest.ID()
 	parentID := oidtest.ID()
 	splitID := objectSDK.NewSplitID()
@@ -73,7 +79,7 @@ func TestDeleteBigObject(t *testing.T) {
 		checkGetError(t, e, object.AddressOf(children[i]), nil)
 	}
 
-	err := e.Delete(addrParent)
+	err := fun(e, addrParent)
 	require.NoError(t, err)
 
 	checkGetError(t, e, addrParent, &apistatus.ObjectNotFound{})

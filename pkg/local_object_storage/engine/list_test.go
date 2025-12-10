@@ -3,7 +3,6 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"testing"
@@ -22,7 +21,6 @@ func TestListWithCursor(t *testing.T) {
 
 	t.Cleanup(func() {
 		e.Close()
-		os.RemoveAll(t.Name())
 	})
 
 	const total = 20

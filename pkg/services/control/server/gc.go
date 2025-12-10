@@ -42,7 +42,7 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 
 	var firstErr error
 	for i := range addrList {
-		err := s.storage.Delete(addrList[i])
+		err := s.storage.Drop(addrList[i])
 		if err != nil && firstErr == nil {
 			firstErr = err
 		}

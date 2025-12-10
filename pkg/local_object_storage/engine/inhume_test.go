@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -14,8 +13,6 @@ import (
 )
 
 func TestStorageEngine_Inhume(t *testing.T) {
-	defer os.RemoveAll(t.Name())
-
 	cnr := cidtest.ID()
 	splitID := objectSDK.NewSplitID()
 

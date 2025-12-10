@@ -3,7 +3,6 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -21,15 +20,14 @@ import (
 )
 
 func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*objectSDK.Object) {
-	dir, err := os.MkdirTemp("", "*")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-
-	e := New(
-		WithLogger(zaptest.NewLogger(t)),
-		WithShardPoolSize(uint32(objPerShard)))
-
-	ids := make([]*shard.ID, shardNum)
+	var (
+		dir = t.TempDir()
+		e   = New(
+			WithLogger(zaptest.NewLogger(t)),
+			WithShardPoolSize(uint32(objPerShard)))
+		err error
+		ids = make([]*shard.ID, shardNum)
+	)
 
 	for i := range ids {
 		ids[i], err = e.AddShard(
