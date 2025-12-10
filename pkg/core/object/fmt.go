@@ -76,10 +76,6 @@ type SplitVerifier interface {
 // TombVerifier represents tombstone validation unit. It verifies tombstone
 // object received by the node.
 type TombVerifier interface {
-	// VerifyTomb must verify tombstone payload. Must break (if possible) any internal
-	// computations if context is done.
-	VerifyTomb(ctx context.Context, cnr cid.ID, t object.Tombstone) error
-
 	// VerifyTombStoneWithoutPayload must verify API 2.18+ tombstones without
 	// payload.
 	VerifyTombStoneWithoutPayload(ctx context.Context, t object.Object) error
@@ -149,25 +145,16 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 	switch obj.Type() {
 	case object.TypeStorageGroup: //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
 		return fmt.Errorf("strorage group type is no longer supported")
-	case object.TypeTombstone:
-		if !unprepared && version.SysObjTargetShouldBeInHeader(obj.Version()) {
-			if len(obj.Payload()) > 0 {
-				return errors.New("system object has payload")
-			}
-			if obj.AssociatedObject().IsZero() {
-				return errors.New("system object has zero associated object")
-			}
-		}
-	case object.TypeLock:
+	case object.TypeLock, object.TypeTombstone:
 		if !unprepared {
 			if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
-				return errors.New("obsolete LOCK object version")
+				return fmt.Errorf("obsolete %s object version", obj.Type())
 			}
 			if len(obj.Payload()) > 0 {
-				return errors.New("system object has payload")
+				return fmt.Errorf("%s object has payload", obj.Type())
 			}
 			if obj.AssociatedObject().IsZero() {
-				return errors.New("system object has zero associated object")
+				return fmt.Errorf("%s object has zero associated object", obj.Type())
 			}
 		}
 	default:
@@ -314,42 +301,19 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, fmt.Errorf("link object's split chain verification: %w", err)
 		}
 	case object.TypeTombstone:
-		if version.SysObjTargetShouldBeInHeader(o.Version()) {
-			return ContentMeta{}, v.tv.VerifyTombStoneWithoutPayload(context.Background(), *o)
+		if !version.SysObjTargetShouldBeInHeader(o.Version()) {
+			return ContentMeta{}, errors.New("pre-2.18 tombstones are no longer supported")
 		}
 
-		if len(o.Payload()) == 0 {
-			return ContentMeta{}, errors.New("empty payload in tombstone")
+		if len(o.Payload()) > 0 {
+			return ContentMeta{}, errors.New("non-empty payload in tombstone")
 		}
 
-		tombstone := object.NewTombstone()
-
-		if err := tombstone.Unmarshal(o.Payload()); err != nil {
-			return ContentMeta{}, fmt.Errorf("could not unmarshal tombstone content: %w", err)
-		}
-
-		// check if the tombstone has the same expiration in the body and the header
-		exp, err := Expiration(*o)
+		// check that TS has correct expiration epoch
+		_, err := Expiration(*o)
 		if err != nil {
 			return ContentMeta{}, err
 		}
-
-		if exp != tombstone.ExpirationEpoch() {
-			return ContentMeta{}, errTombstoneExpiration
-		}
-
-		cnr := o.GetContainerID()
-		if cnr.IsZero() {
-			return ContentMeta{}, errors.New("missing container ID")
-		}
-
-		err = v.tv.VerifyTomb(context.Background(), cnr, *tombstone)
-		if err != nil {
-			return ContentMeta{}, fmt.Errorf("tombstone verification: %w", err)
-		}
-
-		idList := tombstone.Members()
-		meta.objs = idList
 	case object.TypeLock:
 		// check that LOCK object has correct expiration epoch
 		lockExp, err := Expiration(*o)

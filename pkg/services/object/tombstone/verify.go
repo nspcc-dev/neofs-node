@@ -11,7 +11,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"golang.org/x/sync/errgroup"
 )
 
 // maxConcurrentChecks defines now many tombstone members can be checked simultaneously.
@@ -63,35 +62,6 @@ func (v *Verifier) VerifyTombStoneWithoutPayload(ctx context.Context, t object.O
 	}
 
 	return v.verifyMember(ctx, t.GetContainerID(), deleted)
-}
-
-// VerifyTomb verifies tombstone. Checks that it does not store child object of a
-// finished root (user's) object. Only child objects without a link object are acceptable
-// for partial removal (as a garbage collection routine).
-// Return any error that does not allow verification.
-func (v *Verifier) VerifyTomb(ctx context.Context, cnr cid.ID, t object.Tombstone) error {
-	// this code is written when there is the V2 split scheme already,
-	// so no split ID is expected, moreover, what is it for tombs
-	// is not cleat at all
-	if t.SplitID() != nil {
-		return fmt.Errorf("unexpected split ID: %s", t.SplitID())
-	}
-
-	var wg errgroup.Group
-	wg.SetLimit(maxConcurrentChecks)
-
-	for _, member := range t.Members() {
-		wg.Go(func() error {
-			err := v.verifyMember(ctx, cnr, member)
-			if err != nil {
-				err = fmt.Errorf("verifying %s member: %w", member, err)
-			}
-
-			return err
-		})
-	}
-
-	return wg.Wait()
 }
 
 func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) error {

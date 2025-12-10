@@ -300,51 +300,6 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.NoError(t, v.Validate(obj, false))
 	})
 
-	t.Run("tombstone content", func(t *testing.T) {
-		obj := object.New()
-		obj.SetType(object.TypeTombstone)
-		obj.SetContainerID(cidtest.ID())
-
-		_, err := v.ValidateContent(obj)
-		require.Error(t, err) // no tombstone content
-
-		content := object.NewTombstone()
-		content.SetMembers([]oid.ID{oidtest.ID()})
-
-		obj.SetPayload(content.Marshal())
-
-		_, err = v.ValidateContent(obj)
-		require.Error(t, err) // no members in tombstone
-
-		content.SetMembers([]oid.ID{oidtest.ID()})
-
-		obj.SetPayload(content.Marshal())
-
-		_, err = v.ValidateContent(obj)
-		require.Error(t, err) // no expiration epoch in tombstone
-
-		var expirationAttribute object.Attribute
-		expirationAttribute.SetKey(object.AttributeExpirationEpoch)
-		expirationAttribute.SetValue(strconv.Itoa(10))
-
-		obj.SetAttributes(expirationAttribute)
-
-		_, err = v.ValidateContent(obj)
-		require.Error(t, err) // different expiration values
-
-		id := oidtest.ID()
-
-		content.SetExpirationEpoch(10)
-		content.SetMembers([]oid.ID{id})
-
-		obj.SetPayload(content.Marshal())
-
-		contentGot, err := v.ValidateContent(obj)
-		require.NoError(t, err) // all good
-
-		require.EqualValues(t, []oid.ID{id}, contentGot.Objects())
-	})
-
 	t.Run("expiration", func(t *testing.T) {
 		fn := func(val string) *object.Object {
 			signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
