@@ -150,12 +150,12 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 			if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
 				return fmt.Errorf("obsolete %s object version", obj.Type())
 			}
-			if len(obj.Payload()) > 0 {
-				return fmt.Errorf("%s object has payload", obj.Type())
-			}
-			if obj.AssociatedObject().IsZero() {
-				return fmt.Errorf("%s object has zero associated object", obj.Type())
-			}
+		}
+		if len(obj.Payload()) > 0 {
+			return fmt.Errorf("%s object has payload", obj.Type())
+		}
+		if obj.AssociatedObject().IsZero() {
+			return fmt.Errorf("%s object has zero associated object", obj.Type())
 		}
 		expirationRequired = true
 	default:
