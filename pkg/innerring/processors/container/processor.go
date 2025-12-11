@@ -178,6 +178,7 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	// migrate protobuf->struct
 	p.SetRequestType(fschaincontracts.AddContainerStructsMethod)
 	p.SetParser(containerEvent.RestoreAddStructsRequest)
+	pp = append(pp, p)
 
 	return pp
 }
@@ -254,6 +255,7 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 
 		cp.log.Info("notary tx migrating containers' protobuf->struct signed successfully")
 	})
+	hh = append(hh, h)
 
 	return hh
 }
