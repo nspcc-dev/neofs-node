@@ -18,13 +18,12 @@ func (s *Server) HealthCheck(_ context.Context, req *control.HealthCheckRequest)
 	}
 
 	// create and fill response
-	resp := new(control.HealthCheckResponse)
-
-	body := new(control.HealthCheckResponse_Body)
-	resp.SetBody(body)
-
-	body.SetNetmapStatus(s.healthChecker.NetmapStatus())
-	body.SetHealthStatus(s.healthChecker.HealthStatus())
+	var resp = &control.HealthCheckResponse{
+		Body: &control.HealthCheckResponse_Body{
+			HealthStatus: s.healthChecker.HealthStatus(),
+			NetmapStatus: s.healthChecker.NetmapStatus(),
+		},
+	}
 
 	// sign the response
 	if err := SignMessage(s.key, resp); err != nil {

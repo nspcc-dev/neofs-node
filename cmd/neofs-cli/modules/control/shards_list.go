@@ -34,8 +34,7 @@ func listShards(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	req := new(control.ListShardsRequest)
-	req.SetBody(new(control.ListShardsRequest_Body))
+	var req = &control.ListShardsRequest{Body: new(control.ListShardsRequest_Body)}
 
 	err = signRequest(pk, req)
 	if err != nil {

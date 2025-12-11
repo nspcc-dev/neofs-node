@@ -28,21 +28,21 @@ func restoreShard(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	body := new(control.RestoreShardRequest_Body)
 	id, err := getShardID(cmd)
 	if err != nil {
 		return err
 	}
-	body.SetShardID(id)
 
 	p, _ := cmd.Flags().GetString(restoreFilepathFlag)
-	body.SetFilepath(p)
-
 	ignore, _ := cmd.Flags().GetBool(restoreIgnoreErrorsFlag)
-	body.SetIgnoreErrors(ignore)
 
-	req := new(control.RestoreShardRequest)
-	req.SetBody(body)
+	var req = &control.RestoreShardRequest{
+		Body: &control.RestoreShardRequest_Body{
+			Filepath:     p,
+			IgnoreErrors: ignore,
+			Shard_ID:     id,
+		},
+	}
 
 	err = signRequest(pk, req)
 	if err != nil {

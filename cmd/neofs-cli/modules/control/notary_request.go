@@ -46,12 +46,13 @@ func notaryRequest(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	req := new(ircontrol.NotaryRequestRequest)
-	body := new(ircontrol.NotaryRequestRequest_Body)
-	req.SetBody(body)
-
 	method, _ := cmd.Flags().GetString(notaryMethodFlag)
-	body.SetMethod(method)
+
+	var req = &ircontrol.NotaryRequestRequest{
+		Body: &ircontrol.NotaryRequestRequest_Body{
+			Method: method,
+		},
+	}
 
 	switch method {
 	case "newEpoch":
@@ -68,7 +69,7 @@ func notaryRequest(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid parameter format: must be 'key=val', got: %s", args[0])
 		}
 
-		body.SetArgs([][]byte{[]byte(k), []byte(v)})
+		req.Body.Args = [][]byte{[]byte(k), []byte(v)}
 	case "removeNode":
 		if len(args) != 1 {
 			return fmt.Errorf("invalid number of args provided for 'removeNode', expected 1, got %d", len(args))
@@ -78,7 +79,7 @@ func notaryRequest(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		body.SetArgs([][]byte{pub.Bytes()})
+		req.Body.Args = [][]byte{pub.Bytes()}
 	}
 
 	err = ircontrolsrv.SignMessage(pk, req)

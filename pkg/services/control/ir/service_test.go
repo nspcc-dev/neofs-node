@@ -33,10 +33,9 @@ func TestHealthCheckResponse_Body_StableMarshal(t *testing.T) {
 }
 
 func generateHealthCheckResponseBody() *control.HealthCheckResponse_Body {
-	body := new(control.HealthCheckResponse_Body)
-	body.SetHealthStatus(control.HealthStatus_SHUTTING_DOWN)
-
-	return body
+	return &control.HealthCheckResponse_Body{
+		HealthStatus: control.HealthStatus_SHUTTING_DOWN,
+	}
 }
 
 func equalHealthCheckResponseBodies(b1, b2 *control.HealthCheckResponse_Body) bool {

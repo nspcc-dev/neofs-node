@@ -35,8 +35,7 @@ func (s *Server) RestoreShard(_ context.Context, req *control.RestoreShardReques
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	resp := new(control.RestoreShardResponse)
-	resp.SetBody(new(control.RestoreShardResponse_Body))
+	var resp = &control.RestoreShardResponse{Body: new(control.RestoreShardResponse_Body)}
 
 	err = SignMessage(s.key, resp)
 	if err != nil {
