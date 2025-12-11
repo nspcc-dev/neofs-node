@@ -19,4 +19,5 @@ Operations with session token
 
 * [neofs-cli](neofs-cli.md)	 - Command Line Tool to work with NeoFS
 * [neofs-cli session create](neofs-cli_session_create.md)	 - Create session token
+* [neofs-cli session create-v2](neofs-cli_session_create-v2.md)	 - Create V2 session token
 
