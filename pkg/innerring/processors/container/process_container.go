@@ -119,6 +119,7 @@ func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, ses
 	err := cp.verifySignature(signatureVerificationData{
 		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerPut,
+		verbV2:          sessionv2.VerbContainerPut,
 		binTokenSession: sessionToken,
 		verifScript:     verifScript,
 		invocScript:     invocScript,
@@ -231,6 +232,7 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerDelete,
+		verbV2:          sessionv2.VerbContainerDelete,
 		idContainerSet:  true,
 		idContainer:     idCnr,
 		verifScript:     req.VerificationScript,
