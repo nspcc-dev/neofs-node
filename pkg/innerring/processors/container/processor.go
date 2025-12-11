@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -33,6 +34,7 @@ type (
 		netState      NetworkState
 		metaEnabled   bool
 		allowEC       bool
+		chainTime     chaintime.TimeProvider
 	}
 
 	// Params of the processor constructor.
@@ -44,6 +46,7 @@ type (
 		NetworkState    NetworkState
 		MetaEnabled     bool
 		AllowEC         bool
+		ChainTime       chaintime.TimeProvider
 	}
 )
 
@@ -103,6 +106,7 @@ func New(p *Params) (*Processor, error) {
 		netState:      p.NetworkState,
 		metaEnabled:   p.MetaEnabled,
 		allowEC:       p.AllowEC,
+		chainTime:     p.ChainTime,
 	}, nil
 }
 
