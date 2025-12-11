@@ -6,16 +6,11 @@ import (
 	"fmt"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"golang.org/x/sync/errgroup"
 )
-
-// maxConcurrentChecks defines now many tombstone members can be checked simultaneously.
-const maxConcurrentChecks = 16
 
 // ObjectSource describes objects available in the NeoFS.
 type ObjectSource interface {
@@ -51,47 +46,12 @@ func NewVerifier(objSource ObjectSource) *Verifier {
 // objects without a link object are acceptable for partial removal (as a
 // garbage collection routine). Return any error that does not allow verification.
 func (v *Verifier) VerifyTombStoneWithoutPayload(ctx context.Context, t object.Object) error {
-	if t.Type() != object.TypeTombstone {
-		return fmt.Errorf("not a tombstone object: %s", t.Type())
-	}
-	if !version.SysObjTargetShouldBeInHeader(t.Version()) {
-		return fmt.Errorf("old tombstone with payload expected (version: %s)", t.Version())
-	}
 	deleted := t.AssociatedObject()
 	if deleted.IsZero() {
 		return errors.New("tombstone object with no target object")
 	}
 
 	return v.verifyMember(ctx, t.GetContainerID(), deleted)
-}
-
-// VerifyTomb verifies tombstone. Checks that it does not store child object of a
-// finished root (user's) object. Only child objects without a link object are acceptable
-// for partial removal (as a garbage collection routine).
-// Return any error that does not allow verification.
-func (v *Verifier) VerifyTomb(ctx context.Context, cnr cid.ID, t object.Tombstone) error {
-	// this code is written when there is the V2 split scheme already,
-	// so no split ID is expected, moreover, what is it for tombs
-	// is not cleat at all
-	if t.SplitID() != nil {
-		return fmt.Errorf("unexpected split ID: %s", t.SplitID())
-	}
-
-	var wg errgroup.Group
-	wg.SetLimit(maxConcurrentChecks)
-
-	for _, member := range t.Members() {
-		wg.Go(func() error {
-			err := v.verifyMember(ctx, cnr, member)
-			if err != nil {
-				err = fmt.Errorf("verifying %s member: %w", member, err)
-			}
-
-			return err
-		})
-	}
-
-	return wg.Wait()
 }
 
 func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) error {
@@ -114,6 +74,13 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 		}
 
 		return fmt.Errorf("heading object: %w", err)
+	}
+
+	switch header.Type() {
+	case object.TypeLink, object.TypeTombstone, object.TypeLock:
+		return fmt.Errorf("tombstone target is %s", header.Type())
+	default:
+		// Regular one, OK.
 	}
 
 	firstChild, firstSet := header.FirstID()

@@ -145,15 +145,14 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	// and are useless if the node does not belong to the container, since
 	// another node is responsible for the validation and may decline it,
 	// does not matter what this node thinks about it
-	var objMeta object.ContentMeta
 	if !tombOrLink || t.localNodeInContainer {
 		var err error
-		if objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
+		if err = t.fmt.ValidateContent(t.obj); err != nil {
 			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 		}
 	}
 
-	err := t.saveObject(*t.obj, objMeta, t.encodedObject)
+	err := t.saveObject(*t.obj, t.encodedObject)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrIncomplete) {
 			return t.obj.GetID(), err
@@ -164,9 +163,9 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	return t.obj.GetID(), nil
 }
 
-func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
+func (t *distributedTarget) saveObject(obj objectSDK.Object, encObj encodedObject) error {
 	if t.localOnly && t.sessionSigner == nil {
-		return t.distributeObject(obj, objMeta, encObj, nil)
+		return t.distributeObject(obj, encObj, nil)
 	}
 
 	objNodeLists, err := t.containerNodes.SortForObject(t.obj.GetID())
@@ -190,9 +189,9 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 			}
 		}
 
-		return t.distributeObject(obj, objMeta, encObj, func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
+		return t.distributeObject(obj, encObj, func(obj objectSDK.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
-				return t.sendObject(obj, objMeta, encObj, node)
+				return t.sendObject(obj, encObj, node)
 			})
 		})
 	}
@@ -201,7 +200,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 		if t.ecPart.RuleIndex >= 0 { // already encoded EC part
 			total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
 			nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
-			return t.saveECPart(obj, objMeta, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes)
+			return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes)
 		}
 
 		if t.sessionSigner != nil {
@@ -214,8 +213,8 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, objMeta object.Cont
 	return nil
 }
 
-func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject,
-	placementFn func(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error) error {
+func (t *distributedTarget) distributeObject(obj objectSDK.Object, encObj encodedObject,
+	placementFn func(obj objectSDK.Object, encObj encodedObject) error) error {
 	defer func() {
 		// this field is reused for sliced objects of the same container with
 		// the same placement policy; placement's len must be kept the same, do
@@ -234,13 +233,13 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, objMeta objec
 	if t.localOnly {
 		var l = t.placementIterator.log.With(zap.Stringer("oid", id))
 
-		err = t.writeObjectLocally(obj, objMeta, encObj)
+		err = t.writeObjectLocally(obj, encObj)
 		if err != nil {
 			err = fmt.Errorf("write object locally: %w", err)
 			svcutil.LogServiceError(l, "PUT", nil, err)
 		}
 	} else {
-		err = placementFn(obj, objMeta, encObj)
+		err = placementFn(obj, encObj)
 	}
 	if err != nil {
 		return err
@@ -317,9 +316,9 @@ func (t *distributedTarget) encodeObjectMetadata(obj objectSDK.Object) []byte {
 		obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.networkMagicNumber)
 }
 
-func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject, node nodeDesc) error {
+func (t *distributedTarget) sendObject(obj objectSDK.Object, encObj encodedObject, node nodeDesc) error {
 	if node.local {
-		if err := t.writeObjectLocally(obj, objMeta, encObj); err != nil {
+		if err := t.writeObjectLocally(obj, encObj); err != nil {
 			return fmt.Errorf("write object locally: %w", err)
 		}
 
@@ -399,8 +398,8 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, objMeta object.Cont
 	return nil
 }
 
-func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, objMeta object.ContentMeta, encObj encodedObject) error {
-	if err := putObjectLocally(t.localStorage, &obj, objMeta, &encObj); err != nil {
+func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, encObj encodedObject) error {
+	if err := putObjectLocally(t.localStorage, &obj, &encObj); err != nil {
 		return err
 	}
 

@@ -79,36 +79,8 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 
 	v := NewVerifier(os)
 
-	t.Run("with splitID", func(t *testing.T) {
-		var tomb object.Tombstone
-		tomb.SetSplitID(object.NewSplitID())
-
-		err := v.VerifyTomb(ctx, cid.ID{}, tomb)
-		require.ErrorContains(t, err, "unexpected split")
-	})
-
-	t.Run("tombs with small objects", func(t *testing.T) {
-		var tomb object.Tombstone
-
-		cnr := cidtest.ID()
-		children := []object.Object{
-			objectWithCnr(cnr, false),
-			objectWithCnr(cnr, false),
-			objectWithCnr(cnr, false),
-		}
-
-		*os = testObjectSource{
-			head: childrenResMap(cnr, children),
-		}
-
-		tomb.SetMembers(objectsToOIDs(children))
-
-		require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
-	})
-
-	t.Run("tomb with children", func(t *testing.T) {
-		var tomb object.Tombstone
-
+	t.Run("tombstone with children", func(t *testing.T) {
+		ts := objecttest.Object()
 		cnr := cidtest.ID()
 		child := objectWithCnr(cnr, true)
 		childID := child.GetID()
@@ -118,7 +90,8 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		addr.SetContainer(cnr)
 		addr.SetObject(childID)
 
-		tomb.SetMembers([]oid.ID{childID})
+		ts.SetContainerID(cnr)
+		ts.AssociateDeleted(childID)
 
 		t.Run("V1", func(t *testing.T) {
 			t.Run("LINKs can not be found", func(t *testing.T) {
@@ -130,7 +103,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 					},
 				}
 
-				require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
+				require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
 			})
 
 			t.Run("LINKs can be found", func(t *testing.T) {
@@ -154,7 +127,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 					},
 				}
 
-				err := v.VerifyTomb(ctx, cnr, tomb)
+				err := v.VerifyTombStoneWithoutPayload(ctx, ts)
 				require.ErrorContains(t, err, "V1")
 				require.ErrorContains(t, err, "found link object")
 			})
@@ -175,7 +148,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 					},
 				}
 
-				err := v.VerifyTomb(ctx, cnr, tomb)
+				err := v.VerifyTombStoneWithoutPayload(ctx, ts)
 				require.ErrorContains(t, err, "V2")
 				require.ErrorContains(t, err, "found link object")
 			})
@@ -192,7 +165,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 					},
 				}
 
-				require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
+				require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
 			})
 
 			t.Run("LINKs can be found", func(t *testing.T) {
@@ -207,7 +180,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 					},
 				}
 
-				err := v.VerifyTomb(ctx, cnr, tomb)
+				err := v.VerifyTombStoneWithoutPayload(ctx, ts)
 				require.ErrorContains(t, err, "V2")
 				require.ErrorContains(t, err, "found link object")
 			})
@@ -224,8 +197,8 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 				oid.NewAddress(cnr, childID): {h: &partHdr},
 			}
 
-			err := v.VerifyTomb(ctx, cnr, tomb)
-			require.EqualError(t, err, fmt.Sprintf("verifying %s member: object has EC attributes", childID))
+			err := v.VerifyTombStoneWithoutPayload(ctx, ts)
+			require.EqualError(t, err, "object has EC attributes")
 		})
 	})
 
@@ -234,8 +207,9 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		si := object.NewSplitInfo()
 		siErr := object.NewSplitInfoError(si)
 
-		var tomb object.Tombstone
-		tomb.SetMembers([]oid.ID{addr.Object()})
+		ts := objecttest.Object()
+		ts.SetContainerID(addr.Container())
+		ts.AssociateDeleted(addr.Object())
 
 		*os = testObjectSource{
 			head: map[oid.Address]headRes{
@@ -245,22 +219,20 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, v.VerifyTomb(ctx, addr.Container(), tomb))
+		require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
 	})
 
-	t.Run("members already removed", func(t *testing.T) {
+	t.Run("already removed", func(t *testing.T) {
 		cnr := cidtest.ID()
-		ids := oidtest.IDs(3)
-
-		var tomb object.Tombstone
-		tomb.SetMembers(ids)
+		id := oidtest.ID()
+		ts := objecttest.Object()
+		ts.SetContainerID(cnr)
+		ts.AssociateDeleted(id)
 
 		os.head = make(map[oid.Address]headRes)
-		for i := range ids {
-			os.head[oid.NewAddress(cnr, ids[i])] = headRes{err: apistatus.ErrObjectAlreadyRemoved}
-		}
+		os.head[oid.NewAddress(cnr, id)] = headRes{err: apistatus.ErrObjectAlreadyRemoved}
 
-		require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
+		require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
 
 		t.Run("V1", func(t *testing.T) {
 			rootV1ID := oidtest.ID()
@@ -268,7 +240,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			var rootV1Hdr object.Object
 			rootV1Hdr.SetSplitID(&splitID)
 
-			tomb.SetMembers([]oid.ID{rootV1ID})
+			ts.AssociateDeleted(rootV1ID)
 
 			os.head[oid.NewAddress(cnr, rootV1ID)] = headRes{h: &rootV1Hdr}
 
@@ -280,66 +252,62 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			os.searchV1 = make(map[object.SplitID][]oid.ID)
 			os.searchV1[splitID] = v1Children
 
-			require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
+			require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
 		})
 	})
 
-	t.Run("API V2.18+ tombstones", func(t *testing.T) {
-		t.Run("not a TS", func(t *testing.T) {
-			o := objecttest.Object()
-			o.SetType(object.TypeRegular)
+	t.Run("not a TS", func(t *testing.T) {
+		o := objecttest.Object()
+		o.SetType(object.TypeRegular)
 
-			require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
-		})
+		require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
+	})
 
-		t.Run("incorrect version", func(t *testing.T) {
-			o := objecttest.Object()
-			ver := versionSDK.New(1, 17)
-			o.SetVersion(&ver)
+	t.Run("incorrect version", func(t *testing.T) {
+		o := objecttest.Object()
+		ver := versionSDK.New(1, 17)
+		o.SetVersion(&ver)
 
-			require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
-		})
+		require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
+	})
 
-		t.Run("empty target", func(t *testing.T) {
-			o := objecttest.Object()
-			o.AssociateDeleted(oid.ID{})
+	t.Run("empty target", func(t *testing.T) {
+		o := objecttest.Object()
+		o.AssociateDeleted(oid.ID{})
 
-			require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
-		})
+		require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
+	})
 
-		t.Run("EC", func(t *testing.T) {
-			cnr := cidtest.ID()
-			ver := versionSDK.New(2, 18)
-			partID := oidtest.ID()
+	t.Run("EC", func(t *testing.T) {
+		cnr := cidtest.ID()
+		ver := versionSDK.New(2, 18)
+		partID := oidtest.ID()
 
-			var partHdr object.Object
-			partHdr.SetParent(new(object.Object)) // any
-			partHdr.SetAttributes(
-				object.NewAttribute("__NEOFS__EC_ANY", "any"),
-			)
+		var partHdr object.Object
+		partHdr.SetParent(new(object.Object)) // any
+		partHdr.SetAttributes(
+			object.NewAttribute("__NEOFS__EC_ANY", "any"),
+		)
 
-			var tomb object.Object
-			tomb.SetVersion(&ver)
-			tomb.SetContainerID(cnr)
-			tomb.AssociateDeleted(partID)
+		var tomb object.Object
+		tomb.SetVersion(&ver)
+		tomb.SetContainerID(cnr)
+		tomb.AssociateDeleted(partID)
 
-			os.head = map[oid.Address]headRes{
-				oid.NewAddress(cnr, partID): {h: &partHdr},
-			}
+		os.head = map[oid.Address]headRes{
+			oid.NewAddress(cnr, partID): {h: &partHdr},
+		}
 
-			err := v.VerifyTombStoneWithoutPayload(ctx, tomb)
-			require.EqualError(t, err, "object has EC attributes")
-		})
+		err := v.VerifyTombStoneWithoutPayload(ctx, tomb)
+		require.EqualError(t, err, "object has EC attributes")
+	})
 
-		t.Run("ok", func(t *testing.T) {
-			cnr := cidtest.ID()
-
+	for _, typ := range []object.Type{object.TypeLink, object.TypeTombstone, object.TypeLock} {
+		t.Run(fmt.Sprintf("target %s", typ), func(t *testing.T) {
 			ts := objecttest.Object()
-			ts.SetContainerID(cnr)
-			deleted := objecttest.Object()
-			deleted.SetContainerID(cnr)
+			deleted := objectWithCnr(ts.GetContainerID(), false)
 
-			deleted.ResetRelations()
+			deleted.SetType(typ)
 			ts.AssociateDeleted(objectcore.AddressOf(&deleted).Object())
 
 			*os = testObjectSource{
@@ -348,44 +316,33 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 				},
 			}
 
-			require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
+			err := v.VerifyTombStoneWithoutPayload(ctx, ts)
+			require.EqualError(t, err, fmt.Sprintf("tombstone target is %s", typ))
 		})
-	})
-}
+	}
 
-func childrenResMap(cnr cid.ID, heads []object.Object) map[oid.Address]headRes {
-	res := make(map[oid.Address]headRes)
+	t.Run("ok", func(t *testing.T) {
+		cnr := cidtest.ID()
 
-	var addr oid.Address
-	addr.SetContainer(cnr)
+		ts := objecttest.Object()
+		deleted := objectWithCnr(cnr, false)
 
-	for _, obj := range heads {
-		oID := obj.GetID()
-		addr.SetObject(oID)
+		ts.SetContainerID(cnr)
+		ts.AssociateDeleted(objectcore.AddressOf(&deleted).Object())
 
-		obj.SetContainerID(cnr)
-
-		res[addr] = headRes{
-			h:   &obj,
-			err: nil,
+		*os = testObjectSource{
+			head: map[oid.Address]headRes{
+				objectcore.AddressOf(&deleted): {h: &deleted},
+			},
 		}
-	}
 
-	return res
-}
-
-func objectsToOIDs(oo []object.Object) []oid.ID {
-	res := make([]oid.ID, 0, len(oo))
-	for _, obj := range oo {
-		oID := obj.GetID()
-		res = append(res, oID)
-	}
-
-	return res
+		require.NoError(t, v.VerifyTombStoneWithoutPayload(ctx, ts))
+	})
 }
 
 func objectWithCnr(cnr cid.ID, hasParent bool) object.Object {
 	obj := objecttest.Object()
+	obj.SetType(object.TypeRegular)
 	obj.SetContainerID(cnr)
 
 	if !hasParent {
