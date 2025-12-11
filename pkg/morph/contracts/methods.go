@@ -2,19 +2,21 @@ package fschaincontracts
 
 // Various methods of FS chain Container contract.
 const (
-	PayBalanceMethod              = "settleContainerPayment"
-	UnpaidBalanceMethod           = "getUnpaidContainerEpoch"
-	CreateContainerMethod         = "create"
-	CreateContainerV2Method       = "createV2"
-	RemoveContainerMethod         = "remove"
-	PutContainerEACLMethod        = "putEACL"
-	PutContainerReportMethod      = "putReport"
-	GetReportsSummaryMethod       = "getNodeReportSummary"
-	IterateContainerReportsMethod = "iterateReports"
-	GetTakenSpaceByUserMethod     = "getTakenSpaceByUser"
-	GetContainerQuotaMethod       = "containerQuota"
-	GetUserQuotaMethod            = "userQuota"
-	AddContainerStructsMethod     = "addStructs"
+	PayBalanceMethod               = "settleContainerPayment"
+	UnpaidBalanceMethod            = "getUnpaidContainerEpoch"
+	CreateContainerMethod          = "create"
+	CreateContainerV2Method        = "createV2"
+	RemoveContainerMethod          = "remove"
+	PutContainerEACLMethod         = "putEACL"
+	PutContainerReportMethod       = "putReport"
+	GetReportsSummaryMethod        = "getNodeReportSummary"
+	IterateContainerReportsMethod  = "iterateReports"
+	GetTakenSpaceByUserMethod      = "getTakenSpaceByUser"
+	GetContainerQuotaMethod        = "containerQuota"
+	GetUserQuotaMethod             = "userQuota"
+	AddContainerStructsMethod      = "addStructs"
+	SetContainerAttributeMethod    = "setAttribute"
+	RemoveContainerAttributeMethod = "removeAttribute"
 )
 
 // CreateContainerParams are parameters of [CreateContainerMethod].

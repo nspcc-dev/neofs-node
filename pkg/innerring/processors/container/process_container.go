@@ -4,15 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"go.uber.org/zap"
 )
 
@@ -249,6 +252,149 @@ func (cp *Processor) approveDeleteContainer(e containerEvent.RemoveContainerRequ
 		cp.log.Error("could not approve delete container",
 			zap.Error(err),
 		)
+	}
+}
+
+func (cp *Processor) processSetAttributeRequest(req containerEvent.SetAttributeRequest) {
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Info("non alphabet mode, ignore attribute setting")
+		return
+	}
+
+	id, err := cid.DecodeBytes(req.ID)
+	if err != nil {
+		cp.log.Error("attribute setting check failed",
+			zap.Error(fmt.Errorf("invalid container ID: %w", err)))
+		return
+	}
+	if id.IsZero() {
+		cp.log.Error("attribute setting check failed",
+			zap.Error(cid.ErrZero))
+		return
+	}
+
+	err = cp.checkSetAttributeRequest(req, id)
+	if err != nil {
+		cp.log.Error("attribute setting check failed",
+			zap.Stringer("container", id), zap.Error(err))
+		return
+	}
+
+	cp.approveSetAttributeRequest(req, id)
+}
+
+func (cp *Processor) checkSetAttributeRequest(req containerEvent.SetAttributeRequest, id cid.ID) error {
+	now := time.Now()
+	if nowUnix := now.Unix(); nowUnix > req.ValidUntil {
+		return fmt.Errorf("request is valid until %d (%s), now %d (%s)", req.ValidUntil, time.Unix(req.ValidUntil, 0).UTC(), nowUnix, now.UTC())
+	}
+
+	cnr, err := cp.cnrClient.Get(req.ID)
+	if err != nil {
+		return fmt.Errorf("get container by ID: %w", err)
+	}
+
+	signedData := client.GetSignedSetContainerAttributeParameters(client.SetContainerAttributeParameters{
+		ID:         id,
+		Attribute:  req.Attribute,
+		Value:      req.Value,
+		ValidUntil: time.Unix(req.ValidUntil, 0),
+	})
+
+	err = cp.verifySignature(signatureVerificationData{
+		ownerContainer:  cnr.Owner(),
+		verb:            session.VerbContainerSetAttribute,
+		verbV2:          sessionv2.VerbContainerSetAttribute,
+		idContainerSet:  true,
+		idContainer:     id,
+		verifScript:     req.VerificationScript,
+		binTokenSession: req.SessionToken,
+		invocScript:     req.InvocationScript,
+		signedData:      signedData,
+	})
+	if err != nil {
+		return fmt.Errorf("authenticate client: %w", err)
+	}
+
+	return nil
+}
+
+func (cp *Processor) approveSetAttributeRequest(req containerEvent.SetAttributeRequest, id cid.ID) {
+	err := cp.cnrClient.Morph().NotarySignAndInvokeTX(&req.MainTransaction, false)
+	if err != nil {
+		cp.log.Error("could not approve attribute setting",
+			zap.Stringer("container", id), zap.Error(err))
+	}
+}
+
+func (cp *Processor) processRemoveAttributeRequest(req containerEvent.RemoveAttributeRequest) {
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Info("non alphabet mode, ignore attribute removal")
+		return
+	}
+
+	id, err := cid.DecodeBytes(req.ID)
+	if err != nil {
+		cp.log.Error("attribute removal check failed",
+			zap.Error(fmt.Errorf("invalid container ID: %w", err)))
+		return
+	}
+	if id.IsZero() {
+		cp.log.Error("attribute removal check failed",
+			zap.Error(cid.ErrZero))
+		return
+	}
+
+	err = cp.checkRemoveAttributeRequest(req, id)
+	if err != nil {
+		cp.log.Error("attribute removal check failed",
+			zap.Stringer("container", id), zap.Error(err))
+		return
+	}
+
+	cp.approveRemoveAttributeRequest(req, id)
+}
+
+func (cp *Processor) checkRemoveAttributeRequest(req containerEvent.RemoveAttributeRequest, id cid.ID) error {
+	now := time.Now()
+	if nowUnix := now.Unix(); nowUnix > req.ValidUntil {
+		return fmt.Errorf("request is valid until %d (%s), now %d (%s)", req.ValidUntil, time.Unix(req.ValidUntil, 0), nowUnix, now)
+	}
+
+	cnr, err := cp.cnrClient.Get(req.ID)
+	if err != nil {
+		return fmt.Errorf("get container by ID: %w", err)
+	}
+
+	signedData := client.GetSignedRemoveContainerAttributeParameters(client.RemoveContainerAttributeParameters{
+		ID:         id,
+		Attribute:  req.Attribute,
+		ValidUntil: time.Unix(req.ValidUntil, 0),
+	})
+
+	err = cp.verifySignature(signatureVerificationData{
+		ownerContainer:  cnr.Owner(),
+		verb:            session.VerbContainerRemoveAttribute,
+		verbV2:          sessionv2.VerbContainerRemoveAttribute,
+		idContainerSet:  true,
+		idContainer:     id,
+		verifScript:     req.VerificationScript,
+		binTokenSession: req.SessionToken,
+		invocScript:     req.InvocationScript,
+		signedData:      signedData,
+	})
+	if err != nil {
+		return fmt.Errorf("authenticate client: %w", err)
+	}
+
+	return nil
+}
+
+func (cp *Processor) approveRemoveAttributeRequest(req containerEvent.RemoveAttributeRequest, id cid.ID) {
+	err := cp.cnrClient.Morph().NotarySignAndInvokeTX(&req.MainTransaction, false)
+	if err != nil {
+		cp.log.Error("could not approve attribute removal",
+			zap.Stringer("container", id), zap.Error(err))
 	}
 }
 
