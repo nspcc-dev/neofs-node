@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - IR now serves `setAttribute` and `removeAttribute` methods of Container contract (#3733)
 - SN now serves `ContainerService`'s `SetAttribute` and `RemoveAttribute` RPC (#3733)
 - CLI `set-attribute` and `remove-attribute commands to `container` section (#3733)
+- IR supports new session token v2 (#3671)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
@@ -37,7 +38,6 @@ Changelog for NeoFS Node
 - SNs report storage statistics with random time offset if netmap is empty (#3714)
 - SN removes objects immediately when requested via control service now instead of just marking them to be deleted by GC (#3727)
 - Tombstone objects with API <2.18 are no longer accepted (#3731)
-- Garbage marking scheme in metabase (#3753)
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
@@ -47,10 +47,9 @@ Changelog for NeoFS Node
 - Graveyard from metabase (#3744)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251223162726-c0cf83ca5e42` (#3670, #3746, #3733)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251224112927-a50d7e9c925a` (#3711, #3750, #3733)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251219150129-498a820b9d6b` (#3670, #3746)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251222201515-923817fd7d13` (#3711, #3750)
 - `github.com/nspcc-dev/locode-db` module to `v0.8.2` (#3729)
-- `github.com/nspcc-dev/neo-go` module to `v0.114.1-0.20251222145711-e174185e133e` (#3733)
 
 ### Updating from v0.50.2
 Please remove the following deprecated configuration options from IR config:
