@@ -3,6 +3,7 @@ package container
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -44,7 +45,7 @@ type historicN3ScriptRunner struct {
 //   - operation data is witnessed by container owner or trusted party
 //
 // (*) includes:
-//   - session token decodes correctly
+//   - session token decodes correctly (V2 or V1)
 //   - session issued and witnessed by the container owner
 //   - session context corresponds to the container and verb in v
 //   - session is "alive"
@@ -55,10 +56,10 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		var tokV2 sessionv2.Token
 		err = tokV2.Unmarshal(v.binTokenSession)
 		if err == nil {
-			// TODO
-			return errors.New("sessions V2 are not supported yet")
+			return cp.verifySessionV2(tokV2, v)
 		}
 
+		// Fall back to V1 token
 		var tok session.Container
 
 		err = tok.Unmarshal(v.binTokenSession)
@@ -108,6 +109,37 @@ func (cp *Processor) checkTokenLifetime(token session.Container) error {
 
 	if !token.ValidAt(curEpoch) {
 		return fmt.Errorf("token is not valid at %d", curEpoch)
+	}
+
+	return nil
+}
+
+// verifySessionV2 validates V2 session token for container operations.
+func (cp *Processor) verifySessionV2(tok sessionv2.Token, v signatureVerificationData) error {
+	if err := tok.Validate(cp.resolver); err != nil {
+		return fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if err := icrypto.AuthenticateTokenV2(&tok, historicN3ScriptRunner{
+		Client:       cp.cnrClient.Morph(),
+		NetworkState: cp.netState,
+	}); err != nil {
+		return fmt.Errorf("authenticate session token: %w", err)
+	}
+
+	if v.idContainerSet {
+		if !tok.AssertContainer(v.verbV2, v.idContainer) {
+			return errWrongCID
+		}
+	}
+
+	if tok.OriginalIssuer() != v.ownerContainer {
+		return errors.New("owner differs with original token issuer")
+	}
+
+	currentTime := cp.chainTime.Now().Round(time.Second)
+	if !tok.ValidAt(currentTime) {
+		return fmt.Errorf("v2 token is not valid at %s", currentTime)
 	}
 
 	return nil
