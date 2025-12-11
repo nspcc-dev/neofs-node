@@ -13,6 +13,7 @@ import (
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"go.uber.org/zap"
 )
 
@@ -116,6 +117,7 @@ func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, ses
 	err := cp.verifySignature(signatureVerificationData{
 		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerPut,
+		verbV2:          sessionv2.VerbContainerPut,
 		binTokenSession: sessionToken,
 		verifScript:     verifScript,
 		invocScript:     invocScript,
@@ -228,6 +230,7 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerDelete,
+		verbV2:          sessionv2.VerbContainerDelete,
 		idContainerSet:  true,
 		idContainer:     idCnr,
 		verifScript:     req.VerificationScript,
