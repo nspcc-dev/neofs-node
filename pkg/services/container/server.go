@@ -21,6 +21,8 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
@@ -69,6 +71,16 @@ type Contract interface {
 	// successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
 	Delete(ctx context.Context, _ cid.ID, pub, sig []byte, _ *session.Container) error
+	// SetAttribute sends transaction setting container attribute with provided
+	// credentials. If transaction is accepted for processing, SetAttribute waits
+	// for it to be successfully executed. Waiting is performed within ctx,
+	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
+	SetAttribute(ctx context.Context, _ cid.ID, attr, val string, validUntil uint64, pub, sig, sessionToken []byte) error
+	// RemoveAttribute sends transaction removing container attribute with provided
+	// credentials. If transaction is accepted for processing, RemoveAttribute waits
+	// for it to be successfully executed. Waiting is performed within ctx,
+	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
+	RemoveAttribute(ctx context.Context, _ cid.ID, attr string, validUntil uint64, pub, sig, sessionToken []byte) error
 }
 
 // NetmapContract represents Netmap contract deployed in the FS chain required
@@ -146,6 +158,11 @@ func (s *Server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		return nil, nil
 	}
 
+	st, _, err := s.getVerifiedSessionTokenWithBinary(m, reqVerb, reqCnr)
+	return st, err
+}
+
+func (s *Server) getVerifiedSessionTokenWithBinary(m *protosession.SessionToken, reqVerb session.ContainerVerb, reqCnr cid.ID) (*session.Container, []byte, error) {
 	b := make([]byte, m.MarshaledSize())
 	m.MarshalStable(b)
 
@@ -157,14 +174,14 @@ func (s *Server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		s.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
-		return nil, res.err
+		return nil, nil, res.err
 	}
 
 	if err := s.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &res.token, nil
+	return &res.token, b, nil
 }
 
 func (s *Server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (session.Container, error) {
@@ -556,4 +573,191 @@ func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtend
 		Eacl: eACL.ProtoMessage(),
 	}
 	return s.makeGetEACLResponse(body, util.StatusOK)
+}
+
+func (s *Server) makeSetAttributeResponse(err error) (*protocontainer.SetAttributeResponse, error) {
+	resp := &protocontainer.SetAttributeResponse{
+		Body: &protocontainer.SetAttributeResponse_Body{
+			Status: apistatus.FromError(err),
+		},
+	}
+
+	b := make([]byte, resp.Body.MarshaledSize())
+	resp.Body.MarshalStable(b)
+
+	signer := (*neofsecdsa.Signer)(s.signer)
+
+	sig, err := signer.Sign(b)
+	if err != nil { // same as util.SignResponse
+		panic(err)
+	}
+
+	resp.BodySignature = &refs.Signature{
+		Key:    neofscrypto.PublicKeyBytes(signer.Public()),
+		Sign:   sig,
+		Scheme: refs.SignatureScheme_ECDSA_SHA512,
+	}
+
+	return resp, nil
+}
+
+func verifySetAttributeRequestBody(body *protocontainer.SetAttributeRequest_Body) error {
+	switch {
+	case body == nil:
+		return errors.New("missing request body")
+	case body.Parameters == nil:
+		return errors.New("missing parameters")
+	case body.Parameters.ContainerId == nil:
+		return errors.New("missing container ID")
+	case body.Parameters.Attribute == "":
+		return errors.New("missing attribute name")
+	case body.Parameters.Value == "":
+		return errors.New("missing attribute value")
+	case body.Signature == nil:
+		return errors.New("missing parameters' signature")
+	case body.SessionToken != nil && body.SessionTokenV1 != nil:
+		return errors.New("both session V1 and V2 tokens set")
+	}
+
+	return nil
+}
+
+func parseSetAttributeRequestBody(body *protocontainer.SetAttributeRequest_Body) (cid.ID, error) {
+	if err := verifySetAttributeRequestBody(body); err != nil {
+		return cid.ID{}, err
+	}
+
+	var id cid.ID
+	if err := id.FromProtoMessage(body.Parameters.ContainerId); err != nil {
+		return cid.ID{}, fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	return id, nil
+}
+
+// SetAttribute forwards attribute setting request to the underlying [Contract]
+// for further processing. If session token is attached, it's verified.
+func (s *Server) SetAttribute(ctx context.Context, req *protocontainer.SetAttributeRequest) (*protocontainer.SetAttributeResponse, error) {
+	if err := neofscrypto.VerifyMessageSignature(req.Body, req.BodySignature, nil); err != nil {
+		var e apistatus.SignatureVerification
+		e.SetMessage("invalid request signature: " + err.Error())
+		return s.makeSetAttributeResponse(e)
+	}
+
+	id, err := parseSetAttributeRequestBody(req.Body)
+	if err != nil {
+		var e apistatus.BadRequest
+		e.SetMessage(err.Error())
+		return s.makeSetAttributeResponse(e)
+	}
+
+	var sessionToken []byte
+	if req.Body.SessionToken != nil {
+		// TODO
+		return s.makeSetAttributeResponse(errors.New("sessions V2 are not supported yet"))
+	} else if req.Body.SessionTokenV1 != nil {
+		_, sessionToken, err = s.getVerifiedSessionTokenWithBinary(req.Body.SessionTokenV1, session.VerbContainerSetAttribute, id)
+		if err != nil {
+			return s.makeSetAttributeResponse(fmt.Errorf("verify session token V1: %w", err))
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
+
+	err = s.contract.SetAttribute(ctx, id, req.Body.Parameters.Attribute, req.Body.Parameters.Value, req.Body.Parameters.ValidUntil,
+		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken)
+
+	return s.makeSetAttributeResponse(err)
+}
+
+func (s *Server) makeRemoveAttributeResponse(err error) (*protocontainer.RemoveAttributeResponse, error) {
+	resp := &protocontainer.RemoveAttributeResponse{
+		Body: &protocontainer.RemoveAttributeResponse_Body{
+			Status: util.ToStatus(err),
+		},
+	}
+
+	b := make([]byte, resp.Body.MarshaledSize())
+	resp.Body.MarshalStable(b)
+
+	sig, err := (*neofsecdsa.Signer)(s.signer).Sign(b)
+	if err != nil { // same as util.SignResponse
+		panic(err)
+	}
+
+	resp.BodySignature = &refs.Signature{
+		Key:    neofscrypto.PublicKeyBytes((*neofsecdsa.Signer)(s.signer).Public()),
+		Sign:   sig,
+		Scheme: refs.SignatureScheme_ECDSA_SHA512,
+	}
+
+	return resp, nil
+}
+
+func verifyRemoveAttributeRequestBody(body *protocontainer.RemoveAttributeRequest_Body) error {
+	switch {
+	case body == nil:
+		return errors.New("missing request body")
+	case body.Parameters == nil:
+		return errors.New("missing parameters")
+	case body.Parameters.ContainerId == nil:
+		return errors.New("missing container ID")
+	case body.Parameters.Attribute == "":
+		return errors.New("missing attribute name")
+	case body.Signature == nil:
+		return errors.New("missing parameters' signature")
+	case body.SessionToken != nil && body.SessionTokenV1 != nil:
+		return errors.New("both session V1 and V2 tokens set")
+	}
+
+	return nil
+}
+
+func parseRemoveAttributeRequestBody(body *protocontainer.RemoveAttributeRequest_Body) (cid.ID, error) {
+	if err := verifyRemoveAttributeRequestBody(body); err != nil {
+		return cid.ID{}, err
+	}
+
+	var id cid.ID
+	if err := id.FromProtoMessage(body.Parameters.ContainerId); err != nil {
+		return cid.ID{}, fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	return id, nil
+}
+
+// RemoveAttribute forwards attribute removal request to the underlying
+// [Contract] for further processing. If session token is attached, it's
+// verified.
+func (s *Server) RemoveAttribute(ctx context.Context, req *protocontainer.RemoveAttributeRequest) (*protocontainer.RemoveAttributeResponse, error) {
+	if err := neofscrypto.VerifyMessageSignature(req.Body, req.BodySignature, nil); err != nil {
+		return s.makeRemoveAttributeResponse(err)
+	}
+
+	id, err := parseRemoveAttributeRequestBody(req.Body)
+	if err != nil {
+		var e apistatus.BadRequest
+		e.SetMessage(err.Error())
+		return s.makeRemoveAttributeResponse(e)
+	}
+
+	var sessionToken []byte
+	if req.Body.SessionToken != nil {
+		// TODO
+		return s.makeRemoveAttributeResponse(errors.New("sessions V2 are not supported yet"))
+	} else if req.Body.SessionTokenV1 != nil {
+		_, sessionToken, err = s.getVerifiedSessionTokenWithBinary(req.Body.SessionTokenV1, session.VerbContainerRemoveAttribute, id)
+		if err != nil {
+			return s.makeRemoveAttributeResponse(fmt.Errorf("verify session token V1: %w", err))
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
+
+	err = s.contract.RemoveAttribute(ctx, id, req.Body.Parameters.Attribute, req.Body.Parameters.ValidUntil,
+		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken)
+
+	return s.makeRemoveAttributeResponse(err)
 }

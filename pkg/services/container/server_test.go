@@ -65,6 +65,14 @@ func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []
 	panic("unimplemented")
 }
 
+func (unimplementedContainerContract) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte) error {
+	panic("unimplemented")
+}
+
+func (unimplementedContainerContract) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte) error {
+	panic("unimplemented")
+}
+
 type unimplementedNetmapContract struct{}
 
 func (unimplementedNetmapContract) GetEpochBlock(uint64) (uint32, error) {
@@ -118,6 +126,14 @@ func (x testFSChain) GetEpochBlock(uint64) (uint32, error) { panic("unimplemente
 
 func (x testFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
 	panic("unimplemented")
+}
+
+func (testFSChain) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte) error {
+	return errors.New("unimplemented")
+}
+
+func (testFSChain) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte) error {
+	return errors.New("unimplemented")
 }
 
 func makeDeleteRequestWithSession(t testing.TB, usr usertest.UserSigner, cnr cid.ID, st interface {

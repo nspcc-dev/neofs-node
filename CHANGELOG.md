@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - `session create-v2` cli command to create new session token v2 (#3750)
 - SN now support raw GET/HEAD/RANGE requests in EC containers (#3756)
 - IR now serves `setAttribute` and `removeAttribute` methods of Container contract (#3733)
+- SN now serves `ContainerService`'s `SetAttribute` and `RemoveAttribute` RPC (#3733)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
