@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
 - SN can respond with `CONTAINER_LOCKED` status now (#3708)
 - IR now serves `setAttribute` and `removeAttribute` methods of Container contract (#xxx)
+- SN now serves `ContainerService`'s `SetAttribute` and `RemoveAttribute` RPC (#xxx)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)

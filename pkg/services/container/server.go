@@ -21,6 +21,8 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
@@ -69,6 +71,16 @@ type Contract interface {
 	// successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
 	Delete(ctx context.Context, _ cid.ID, pub, sig []byte, _ *session.Container) error
+	// SetAttribute sends transaction setting container attribute with provided
+	// credentials. If transaction is accepted for processing, SetAttribute waits
+	// for it to be successfully executed. Waiting is performed within ctx,
+	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
+	SetAttribute(ctx context.Context, _ cid.ID, attr, val string, pub, sig, sessionToken []byte) error
+	// RemoveAttribute sends transaction removing container attribute with provided
+	// credentials. If transaction is accepted for processing, RemoveAttribute waits
+	// for it to be successfully executed. Waiting is performed within ctx,
+	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
+	RemoveAttribute(ctx context.Context, _ cid.ID, attr string, pub, sig, sessionToken []byte) error
 }
 
 // NetmapContract represents Netmap contract deployed in the FS chain required
@@ -146,6 +158,12 @@ func (s *Server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		return nil, nil
 	}
 
+	st, _, err := s._getVerifiedSessionToken(m, reqVerb, reqCnr)
+	return st, err
+}
+
+// TODO: better name
+func (s *Server) _getVerifiedSessionToken(m *protosession.SessionToken, reqVerb session.ContainerVerb, reqCnr cid.ID) (*session.Container, []byte, error) {
 	b := make([]byte, m.MarshaledSize())
 	m.MarshalStable(b)
 
@@ -157,14 +175,14 @@ func (s *Server) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		s.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
-		return nil, res.err
+		return nil, nil, res.err
 	}
 
 	if err := s.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &res.token, nil
+	return &res.token, b, nil
 }
 
 func (s *Server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (session.Container, error) {
@@ -556,4 +574,184 @@ func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtend
 		Eacl: eACL.ProtoMessage(),
 	}
 	return s.makeGetEACLResponse(body, util.StatusOK)
+}
+
+func (s *Server) makeSetAttributeResponse(err error) (*protocontainer.SetAttributeResponse, error) {
+	resp := &protocontainer.SetAttributeResponse{
+		Body: &protocontainer.SetAttributeResponse_Body{
+			Status: util.ToStatus(err),
+		},
+	}
+
+	b := make([]byte, resp.Body.MarshaledSize())
+	resp.Body.MarshalStable(b)
+
+	sig, err := (*neofsecdsa.Signer)(s.signer).Sign(b)
+	if err != nil { // same as util.SignResponse
+		// We can't pass this error as NeoFS status code since response will be unsigned.
+		// Isn't expected in practice, so panic is ok here.
+		panic(err)
+	}
+
+	resp.BodySignature = &refs.Signature{
+		Key:    neofscrypto.PublicKeyBytes((*neofsecdsa.Signer)(s.signer).Public()),
+		Sign:   sig,
+		Scheme: refs.SignatureScheme_ECDSA_SHA512,
+	}
+
+	return resp, nil
+}
+
+// SetAttribute forwards attribute setting request to the underlying [Contract]
+// for further processing. If session token is attached, it's verified.
+func (s *Server) SetAttribute(ctx context.Context, req *protocontainer.SetAttributeRequest) (*protocontainer.SetAttributeResponse, error) {
+	if err := neofscrypto.VerifyMessageSignature(req.Body, req.BodySignature, nil); err != nil {
+		return s.makeSetAttributeResponse(err)
+	}
+
+	// TODO: switch
+	if req.Body == nil {
+		var e apistatus.BadRequest
+		e.SetMessage("missing request body")
+		return s.makeSetAttributeResponse(e)
+	}
+	if req.Body.Parameters == nil {
+		var e apistatus.BadRequest
+		e.SetMessage("missing parameters")
+		return s.makeSetAttributeResponse(e)
+	}
+	if req.Body.Parameters.ContainerId == nil {
+		var e apistatus.BadRequest
+		e.SetMessage("missing container ID")
+		return s.makeSetAttributeResponse(e)
+	}
+	if req.Body.Parameters.Attribute == "" {
+		var e apistatus.BadRequest
+		e.SetMessage("empty attribute name")
+		return s.makeSetAttributeResponse(e)
+	}
+	if req.Body.Parameters.Value == "" {
+		var e apistatus.BadRequest
+		e.SetMessage("empty attribute value")
+		return s.makeSetAttributeResponse(e)
+	}
+	if req.Body.SessionToken != nil && req.Body.SessionTokenV1 != nil {
+		var e apistatus.BadRequest
+		e.SetMessage("both session tokens V1 and V2 set")
+		return s.makeSetAttributeResponse(e)
+	}
+	// TODO: other verifications
+
+	var cnrID cid.ID
+	if err := cnrID.FromProtoMessage(req.Body.Parameters.ContainerId); err != nil {
+		var e apistatus.BadRequest
+		e.SetMessage(fmt.Sprintf("decode container ID: %v", err))
+		return s.makeSetAttributeResponse(e)
+	}
+
+	var st []byte
+	// TODO: session V2
+	if req.Body.SessionTokenV1 != nil {
+		var err error
+		_, st, err = s._getVerifiedSessionToken(req.Body.SessionTokenV1, session.VerbContainerSetAttribute, cnrID)
+		if err != nil {
+			return s.makeSetAttributeResponse(fmt.Errorf("verify session token V1: %w", err))
+		}
+
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
+
+	err := s.contract.SetAttribute(ctx, cnrID, req.Body.Parameters.Attribute, req.Body.Parameters.Value, req.BodySignature.Key, req.BodySignature.Sign, st)
+
+	return s.makeSetAttributeResponse(err)
+}
+
+func (s *Server) makeRemoveAttributeResponse(err error) (*protocontainer.RemoveAttributeResponse, error) {
+	resp := &protocontainer.RemoveAttributeResponse{
+		Body: &protocontainer.RemoveAttributeResponse_Body{
+			Status: util.ToStatus(err),
+		},
+	}
+
+	b := make([]byte, resp.Body.MarshaledSize())
+	resp.Body.MarshalStable(b)
+
+	sig, err := (*neofsecdsa.Signer)(s.signer).Sign(b)
+	if err != nil { // same as util.SignResponse
+		// We can't pass this error as NeoFS status code since response will be unsigned.
+		// Isn't expected in practice, so panic is ok here.
+		panic(err)
+	}
+
+	resp.BodySignature = &refs.Signature{
+		Key:    neofscrypto.PublicKeyBytes((*neofsecdsa.Signer)(s.signer).Public()),
+		Sign:   sig,
+		Scheme: refs.SignatureScheme_ECDSA_SHA512,
+	}
+
+	return resp, nil
+}
+
+// RemoveAttribute forwards attribute removal request to the underlying
+// [Contract] for further processing. If session token is attached, it's
+// verified.
+func (s *Server) RemoveAttribute(ctx context.Context, req *protocontainer.RemoveAttributeRequest) (*protocontainer.RemoveAttributeResponse, error) {
+	if err := neofscrypto.VerifyMessageSignature(req.Body, req.BodySignature, nil); err != nil {
+		return s.makeRemoveAttributeResponse(err)
+	}
+
+	// TODO: switch
+	if req.Body == nil {
+		var e apistatus.BadRequest
+		e.SetMessage("missing request body")
+		return s.makeRemoveAttributeResponse(e)
+	}
+	if req.Body.Parameters == nil {
+		var e apistatus.BadRequest
+		e.SetMessage("missing parameters")
+		return s.makeRemoveAttributeResponse(e)
+	}
+	if req.Body.Parameters.ContainerId == nil {
+		var e apistatus.BadRequest
+		e.SetMessage("missing container ID")
+		return s.makeRemoveAttributeResponse(e)
+	}
+	if req.Body.Parameters.Attribute == "" {
+		var e apistatus.BadRequest
+		e.SetMessage("empty attribute name")
+		return s.makeRemoveAttributeResponse(e)
+	}
+	if req.Body.SessionToken != nil && req.Body.SessionTokenV1 != nil {
+		var e apistatus.BadRequest
+		e.SetMessage("both session tokens V1 and V2 set")
+		return s.makeRemoveAttributeResponse(e)
+	}
+	// TODO: other verifications
+
+	var cnrID cid.ID
+	if err := cnrID.FromProtoMessage(req.Body.Parameters.ContainerId); err != nil {
+		var e apistatus.BadRequest
+		e.SetMessage(fmt.Sprintf("decode container ID: %v", err))
+		return s.makeRemoveAttributeResponse(e)
+	}
+
+	var st []byte
+	// TODO: session V2
+	if req.Body.SessionTokenV1 != nil {
+		var err error
+		_, st, err = s._getVerifiedSessionToken(req.Body.SessionTokenV1, session.VerbContainerRemoveAttribute, cnrID)
+		if err != nil {
+			return s.makeRemoveAttributeResponse(fmt.Errorf("verify session token V1: %w", err))
+		}
+
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
+
+	err := s.contract.RemoveAttribute(ctx, cnrID, req.Body.Parameters.Attribute, req.BodySignature.Key, req.BodySignature.Sign, st)
+
+	return s.makeRemoveAttributeResponse(err)
 }
