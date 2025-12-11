@@ -11,4 +11,6 @@ var Cmd = &cobra.Command{
 
 func init() {
 	Cmd.AddCommand(createCmd)
+	Cmd.AddCommand(createV2Cmd)
+	Cmd.AddCommand(inspectCmd)
 }
