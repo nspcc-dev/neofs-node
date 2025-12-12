@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"strings"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -17,6 +19,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // FormatValidator represents an object format validator.
@@ -25,6 +28,26 @@ type FormatValidator struct {
 	fsChain        FSChain
 	netmapContract NetmapContract
 	containers     container.Source
+	resolver       nnsResolver
+}
+
+type nnsResolver struct {
+	fsChain  FSChain
+	nnsCache *lru.Cache[string, bool]
+}
+
+func (r nnsResolver) HasUser(name string, userID user.ID) (bool, error) {
+	cacheKey := name + userID.String()
+	hasUser, ok := r.nnsCache.Get(cacheKey)
+	if ok {
+		return hasUser, nil
+	}
+	hasUser, err := r.fsChain.HasUserInNNS(name, userID.ScriptHash())
+	if err != nil {
+		return false, err
+	}
+	r.nnsCache.Add(cacheKey, hasUser)
+	return hasUser, nil
 }
 
 // FormatValidatorOption represents a FormatValidator constructor option.
@@ -85,6 +108,7 @@ type TombVerifier interface {
 // [FormatValidator] to work.
 type FSChain interface {
 	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
+	HasUserInNNS(name string, addr util.Uint160) (bool, error)
 }
 
 // NetmapContract represents Netmap contract deployed in the FS chain required
@@ -97,6 +121,7 @@ type NetmapContract interface {
 type historicN3ScriptRunner struct {
 	FSChain
 	NetmapContract
+	nnsResolver
 }
 
 var errNilObject = errors.New("object is nil")
@@ -117,11 +142,20 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containe
 		opts[i](cfg)
 	}
 
+	nnsCache, err := lru.New[string, bool](100)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
+
 	return &FormatValidator{
 		cfg:            cfg,
 		fsChain:        fsChain,
 		netmapContract: netmapContract,
 		containers:     containers,
+		resolver: nnsResolver{
+			fsChain:  fsChain,
+			nnsCache: nnsCache,
+		},
 	}
 }
 
@@ -238,7 +272,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 		if err := icrypto.AuthenticateObject(*obj, historicN3ScriptRunner{
 			FSChain:        v.fsChain,
 			NetmapContract: v.netmapContract,
-		}, isEC); err != nil {
+		}, isEC, v.resolver); err != nil {
 			return fmt.Errorf("authenticate: %w", err)
 		}
 	}

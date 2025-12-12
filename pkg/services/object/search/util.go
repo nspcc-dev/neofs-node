@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	sessionsdkv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -94,7 +95,12 @@ func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info c
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
 	}
-	if st := exec.prm.common.SessionToken(); st != nil {
+	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+		verbV2 := sessionsdkv2.VerbObjectSearch
+		if stV2.AssertVerb(verbV2, exec.containerID()) {
+			opts.WithinSessionV2(*stV2)
+		}
+	} else if st := exec.prm.common.SessionToken(); st != nil {
 		opts.WithinSession(*st)
 	}
 	if bt := exec.prm.common.BearerToken(); bt != nil {

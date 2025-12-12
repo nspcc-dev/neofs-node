@@ -893,7 +893,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 		p.SetHashGenerator(tz.New)
 	}
 
-	if tok := cp.SessionToken(); tok != nil {
+	if tok := cp.SessionToken(); tok != nil && cp.SessionTokenV2() == nil {
 		signerKey, err := ss.GetSessionPrivateKey(tok.Issuer(), tok.ID())
 		if err != nil {
 			if !errors.Is(err, apistatus.ErrSessionTokenNotFound) {
@@ -903,6 +903,9 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 			signerKey = signer
 		}
 		p.WithCachedSignerKey(&signerKey)
+	} else if cp.SessionTokenV2() != nil {
+		// V2 tokens don't use server-side session keys, use node's own key
+		p.WithCachedSignerKey(&signer)
 	}
 
 	mr := body.GetRanges()
