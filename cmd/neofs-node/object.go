@@ -293,6 +293,7 @@ func initObjectService(c *cfg) {
 			fsChain:        fsChain,
 			netmapContract: c.nCli,
 		}),
+		v2.WithNodeKey(&c.key.PrivateKey.PublicKey),
 		v2.WithContainerSource(c.cnrSrc),
 	)
 	addNewEpochAsyncNotificationHandler(c, func(event.Event) {

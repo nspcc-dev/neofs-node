@@ -11,7 +11,7 @@ import (
 func (s *Service) Delete(ctx context.Context, prm Prm) error {
 	// If session token is not found we will fail during tombstone PUT.
 	// Here we fail immediately to ensure no unnecessary network communication is done.
-	if tok := prm.common.SessionToken(); tok != nil {
+	if tok := prm.common.SessionToken(); tok != nil && prm.common.SessionTokenV2() == nil {
 		_, err := s.keyStorage.GetKey(&util.SessionInfo{
 			ID:    tok.ID(),
 			Owner: tok.Issuer(),
