@@ -63,8 +63,8 @@ Only owner of the container has a permission to remove container.`,
 
 				switch tok := tokAny.(type) {
 				case *sessionv2.Token:
-					if tok.Issuer() != owner {
-						return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
+					if tok.OriginalIssuer() != owner {
+						return fmt.Errorf("session original issuer differs with the container owner: expected %s, has %s", owner, tok.OriginalIssuer())
 					}
 				case *session.Container:
 					if tok.Issuer() != owner {

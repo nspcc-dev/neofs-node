@@ -91,6 +91,7 @@ func listenMorphNotifications(c *cfg) {
 
 		c.cfgMorph.epochTimers.UpdateTime(block.Timestamp)
 		c.networkState.block.Store(block.Index)
+		c.chainTime.Set(block.Timestamp)
 
 		err = c.persistate.SetUInt32(persistateFSChainLastBlockKey, block.Index)
 		if err != nil {
