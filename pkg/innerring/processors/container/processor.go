@@ -180,6 +180,10 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetParser(containerEvent.RestoreAddStructsRequest)
 	pp = append(pp, p)
 
+	// set attribute
+	p.SetRequestType(containerEvent.SetAttributeNotaryEvent)
+	p.SetParser(containerEvent.ParseSetAttribute)
+
 	return pp
 }
 
@@ -239,6 +243,11 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// object put meta data
 	h.SetRequestType(containerEvent.ObjectPutNotaryEvent)
 	h.SetHandler(cp.handleObjectPut)
+	hh = append(hh, h)
+
+	// container setAttribute
+	h.SetRequestType(containerEvent.SetAttributeNotaryEvent)
+	h.SetHandler(cp.handleSetAttribute)
 	hh = append(hh, h)
 
 	// migrate protobuf->struct
