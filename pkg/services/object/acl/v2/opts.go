@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"go.uber.org/zap"
 )
@@ -31,5 +33,12 @@ func WithContainerSource(v container.Source) Option {
 func WithIRFetcher(v InnerRingFetcher) Option {
 	return func(c *cfg) {
 		c.irFetcher = v
+	}
+}
+
+// WithNodeKey returns option to set node's public key for SessionTokenV2 authority checks.
+func WithNodeKey(v *ecdsa.PublicKey) Option {
+	return func(c *cfg) {
+		c.nodeKey = v
 	}
 }

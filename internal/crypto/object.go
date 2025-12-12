@@ -22,6 +22,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 	var ecdsaPub *ecdsa.PublicKey
 	scheme := sig.Scheme()
 	sessionToken := obj.SessionToken()
+	sessionTokenV2 := obj.SessionTokenV2()
 	switch scheme {
 	default:
 		return fmt.Errorf("unsupported scheme %v", scheme)
@@ -31,7 +32,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 			return schemeError(scheme, fmt.Errorf("decode public key: %w", err))
 		}
 	case neofscrypto.N3:
-		if sessionToken != nil {
+		if sessionToken != nil || sessionTokenV2 != nil {
 			// https://github.com/nspcc-dev/neofs-api/issues/305#issuecomment-2775087206
 			return fmt.Errorf("%s scheme is not supported for objects created with session", scheme)
 		}
@@ -49,6 +50,20 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 			return errors.New("different object owner and session issuer")
 		}
 	}
+	if sessionTokenV2 != nil {
+		// NOTE: update this place for non-ECDSA schemes
+		nodeUser := user.NewFromECDSAPublicKey(*ecdsaPub)
+		ok, err := sessionTokenV2.AssertAuthority(nodeUser, nil)
+		if err != nil {
+			return fmt.Errorf("assert session v2 authority: %w", err)
+		}
+		if !ok { // same format for all ECDSA schemes
+			return errors.New("session v2 token is not for object's signer")
+		}
+		if sessionTokenV2.OriginalIssuer() != obj.Owner() {
+			return errors.New("different object owner and session v2 issuer")
+		}
+	}
 
 	switch scheme {
 	default:
@@ -57,7 +72,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		if !verifyECDSAFns[scheme](*ecdsaPub, sig.Value(), obj.GetID().Marshal()) {
 			return schemeError(scheme, errSignatureMismatch)
 		}
-		if sessionToken == nil && !ecPart && user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() {
+		if sessionToken == nil && sessionTokenV2 == nil && !ecPart && user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() {
 			return errors.New("owner mismatches signature")
 		}
 	case neofscrypto.N3:
