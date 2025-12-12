@@ -9,7 +9,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"go.uber.org/zap"
 )
@@ -101,9 +100,9 @@ func (s *Server) RequestNotary(method string, args ...[]byte) (util.Uint256, err
 
 		hash, err = s.netmapClient.Morph().NotaryInvoke(context.TODO(),
 			s.netmapClient.ContractAddress(), false, 0, 1, nil,
-			"updateStateIR", netmap.NodeStateOffline, nodePubKey.Bytes())
+			"deleteNode", nodePubKey.Bytes())
 		if err != nil {
-			s.log.Warn("external request: can't invoke updateSateIR method in netmap",
+			s.log.Warn("external request: can't invoke deleteNode method in netmap",
 				zap.String("node pub key", nodePubKey.String()),
 				zap.Error(err))
 		}
