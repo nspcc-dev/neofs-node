@@ -1,14 +1,20 @@
 package meta_test
 
 import (
+	"bytes"
 	"errors"
+	"math/rand/v2"
+	"slices"
 	"testing"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -70,6 +76,58 @@ func TestDB_Delete(t *testing.T) {
 	ok, err = metaExists(db, object.AddressOf(parent))
 	require.NoError(t, err)
 	require.False(t, ok)
+
+	t.Run("EC", func(t *testing.T) {
+		cnr1 := cidtest.ID()
+		cnr2 := cidtest.ID()
+		const anyRuleIdx = 1
+		anySigner := neofscryptotest.Signer()
+
+		newGroup := func(cnr cid.ID, partNum int) (objectSDK.Object, []objectSDK.Object) {
+			parent := *generateObjectWithCID(t, cnr)
+			parent.SetPayloadSize(rand.Uint64())
+
+			var ecParts []objectSDK.Object
+			for i := range partNum {
+				partObj, err := iec.FormObjectForECPart(anySigner, parent, nil, iec.PartInfo{
+					RuleIndex: anyRuleIdx,
+					Index:     i,
+				})
+				require.NoError(t, err)
+				partObj.SetPayloadSize(rand.Uint64())
+				require.NoError(t, db.Put(&partObj))
+
+				ecParts = append(ecParts, partObj)
+			}
+
+			return parent, ecParts
+		}
+
+		parent1, ecParts1 := newGroup(cnr1, 3)
+		parent2, ecParts2 := newGroup(cnr2, 5)
+
+		parent1Addr := object.AddressOf(&parent1)
+		parent2Addr := object.AddressOf(&parent2)
+
+		res, err := db.Delete([]oid.Address{parent1Addr, parent2Addr})
+		require.NoError(t, err)
+
+		all := 2 + len(ecParts1) + len(ecParts2)
+		require.EqualValues(t, all, res.AvailableRemoved)
+		require.EqualValues(t, all, res.RawRemoved)
+		require.Len(t, res.RemovedObjects, all)
+
+		require.ElementsMatch(t, res.RemovedObjects[:2], []meta.RemovedObject{
+			{Address: parent1Addr, PayloadLen: 0},
+			{Address: parent2Addr, PayloadLen: 0},
+		})
+		for _, partObj := range slices.Concat(ecParts1, ecParts2) {
+			require.Contains(t, res.RemovedObjects, meta.RemovedObject{
+				Address:    object.AddressOf(&partObj),
+				PayloadLen: partObj.PayloadSize(),
+			})
+		}
+	})
 }
 
 func TestContainerInfo(t *testing.T) {
@@ -90,13 +148,16 @@ func TestContainerInfo(t *testing.T) {
 	require.Equal(t, uint64(1), info.ObjectsNumber)
 	require.Equal(t, payloadSize, info.StorageSize)
 
-	res, err := db.Delete([]oid.Address{object.AddressOf(obj)})
+	addr := object.AddressOf(obj)
+
+	res, err := db.Delete([]oid.Address{addr})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1), res.AvailableRemoved)
 	require.Equal(t, uint64(1), res.RawRemoved)
-	require.Len(t, res.Sizes, 1)
-	require.Equal(t, payloadSize, res.Sizes[0])
+	require.Len(t, res.RemovedObjects, 1)
+	require.Equal(t, payloadSize, res.RemovedObjects[0].PayloadLen)
+	require.Equal(t, addr, res.RemovedObjects[0].Address)
 
 	info, err = db.GetContainerInfo(cID)
 	require.NoError(t, err)
@@ -169,4 +230,62 @@ func TestExpiredObject(t *testing.T) {
 func metaDelete(db *meta.DB, addrs ...oid.Address) error {
 	_, err := db.Delete(addrs)
 	return err
+}
+
+func BenchmarkDB_Delete(b *testing.B) {
+	db := newDB(b)
+	const containerNum = 100
+	const objectsPerContainer = 100
+	const totalObjects = containerNum * objectsPerContainer
+
+	bench := func(b *testing.B, addrs []oid.Address) {
+		for b.Loop() {
+			_, err := db.Delete(addrs)
+			require.NoError(b, err)
+		}
+	}
+
+	b.Run("grouped", func(b *testing.B) {
+		bench := func(b *testing.B, sortFn func(a, b cid.ID) int) {
+			cnrs := cidtest.IDs(containerNum)
+			slices.SortFunc(cnrs, sortFn)
+
+			addrs := make([]oid.Address, 0, totalObjects)
+			for i := range cnrs {
+				for range objectsPerContainer {
+					addrs = append(addrs, oid.NewAddress(cnrs[i], oidtest.ID()))
+				}
+			}
+
+			bench(b, addrs)
+		}
+		b.Run("sorted", func(b *testing.B) {
+			bench(b, func(a, b cid.ID) int { return bytes.Compare(a[:], b[:]) })
+		})
+		b.Run("reverse", func(b *testing.B) {
+			bench(b, func(a, b cid.ID) int { return -bytes.Compare(a[:], b[:]) })
+		})
+	})
+
+	b.Run("mixed", func(b *testing.B) {
+		bench := func(b *testing.B, sortFn func(a, b cid.ID) int) {
+			cnrs := cidtest.IDs(containerNum)
+			slices.SortFunc(cnrs, sortFn)
+
+			addrs := make([]oid.Address, 0, totalObjects)
+			for range objectsPerContainer {
+				for i := range cnrs {
+					addrs = append(addrs, oid.NewAddress(cnrs[i], oidtest.ID()))
+				}
+			}
+
+			bench(b, addrs)
+		}
+		b.Run("sorted", func(b *testing.B) {
+			bench(b, func(a, b cid.ID) int { return bytes.Compare(a[:], b[:]) })
+		})
+		b.Run("reverse", func(b *testing.B) {
+			bench(b, func(a, b cid.ID) int { return -bytes.Compare(a[:], b[:]) })
+		})
+	})
 }

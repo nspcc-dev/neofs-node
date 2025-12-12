@@ -28,8 +28,9 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 		return nil
 	}
 
-	for _, addr := range addrs {
-		if s.hasWriteCache() {
+	hasWriteCache := s.hasWriteCache()
+	if hasWriteCache {
+		for _, addr := range addrs {
 			err := s.writeCache.Delete(addr)
 			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
 				s.log.Warn("can't delete object from write cache", zap.Error(err))
@@ -42,33 +43,40 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 		return err // stop on metabase error ?
 	}
 
+	if hasWriteCache {
+		for i := range res.RemovedObjects[len(addrs):] { // the rest are addrs, removed above
+			err := s.writeCache.Delete(res.RemovedObjects[i].Address)
+			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
+				s.log.Warn("can't delete object from write cache", zap.Error(err))
+			}
+		}
+	}
+
 	s.decObjectCounterBy(physical, res.RawRemoved)
 	s.decObjectCounterBy(logical, res.AvailableRemoved)
 
 	var totalRemovedPayload uint64
 
-	for i := range addrs {
-		removedPayload := res.Sizes[i]
+	for i := range res.RemovedObjects {
+		removedPayload := res.RemovedObjects[i].PayloadLen
 		totalRemovedPayload += removedPayload
-		s.addToContainerSize(addrs[i].Container().EncodeToString(), -int64(removedPayload))
-	}
+		s.addToContainerSize(res.RemovedObjects[i].Address.Container().EncodeToString(), -int64(removedPayload))
 
-	s.addToPayloadCounter(-int64(totalRemovedPayload))
-
-	for _, addr := range addrs {
-		err = s.blobStor.Delete(addr)
+		err = s.blobStor.Delete(res.RemovedObjects[i].Address)
 		if err == nil {
-			logOp(s.log, deleteOp, addr)
+			logOp(s.log, deleteOp, res.RemovedObjects[i].Address)
 		} else {
 			if IsErrNotFound(err) {
 				continue
 			}
 
 			s.log.Debug("can't remove object from blobStor",
-				zap.Stringer("object_address", addr),
+				zap.Stringer("object_address", res.RemovedObjects[i].Address),
 				zap.Error(err))
 		}
 	}
+
+	s.addToPayloadCounter(-int64(totalRemovedPayload))
 
 	return nil
 }
