@@ -577,6 +577,24 @@ func (x *containersInChain) PutEACL(ctx context.Context, eACL eacl.Table, pub, s
 	return err
 }
 
+func (x *containersInChain) SetAttribute(ctx context.Context, cnr cid.ID, attr, val string, pub, sig, sessionToken []byte) error {
+	err := x.cCli.SetAttribute(ctx, cnr, attr, val, pub, sig, sessionToken)
+	if errors.Is(err, client.ErrTxAwaitTimeout) {
+		err = apistatus.ErrContainerAwaitTimeout
+	}
+
+	return err
+}
+
+func (x *containersInChain) RemoveAttribute(ctx context.Context, cnr cid.ID, attr string, pub, sig, sessionToken []byte) error {
+	err := x.cCli.RemoveAttribute(ctx, cnr, attr, pub, sig, sessionToken)
+	if errors.Is(err, client.ErrTxAwaitTimeout) {
+		err = apistatus.ErrContainerAwaitTimeout
+	}
+
+	return err
+}
+
 type containerPresenceChecker struct{ src containerCore.Source }
 
 // Exists implements [meta.Containers].

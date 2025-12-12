@@ -219,3 +219,97 @@ func RestoreAddStructsRequest(notaryReq event.NotaryEvent) (event.Event, error) 
 		MainTransaction: *notaryReq.Raw().MainTransaction,
 	}, nil
 }
+
+// SetAttributeRequest wraps attribute setting request to provide app-internal
+// event.
+type SetAttributeRequest struct {
+	event.Event
+	MainTransaction transaction.Transaction
+
+	ID                 []byte
+	Attribute          string
+	Value              string
+	InvocationScript   []byte
+	VerificationScript []byte
+	SessionToken       []byte
+}
+
+// RestoreSetAttributeRequest restores [SetAttributeRequest] from the notary
+// one.
+func RestoreSetAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error) {
+	const argNum = 6
+	args, err := getArgsFromEvent(notaryReq, argNum)
+	if err != nil {
+		return nil, err
+	}
+
+	var res SetAttributeRequest
+
+	if res.ID, err = getValueFromArg(args, argNum-1, "ID", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.Attribute, err = getValueFromArg(args, argNum-2, "attribute", stackitem.ByteArrayT, event.StringFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.Value, err = getValueFromArg(args, argNum-3, "value", stackitem.ByteArrayT, event.StringFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.InvocationScript, err = getValueFromArg(args, argNum-4, "invocation script", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.VerificationScript, err = getValueFromArg(args, argNum-5, "verification script", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.SessionToken, err = getValueFromArg(args, argNum-6, "session token", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+
+	res.MainTransaction = *notaryReq.Raw().MainTransaction
+
+	return res, nil
+}
+
+// RemoveAttributeRequest wraps attribute removal request to provide
+// app-internal event.
+type RemoveAttributeRequest struct {
+	event.Event
+	MainTransaction transaction.Transaction
+
+	ID                 []byte
+	Attribute          string
+	InvocationScript   []byte
+	VerificationScript []byte
+	SessionToken       []byte
+}
+
+// RestoreRemoveAttributeRequest restores [RemoveAttributeRequest] from the
+// notary one.
+func RestoreRemoveAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error) {
+	const argNum = 5
+	args, err := getArgsFromEvent(notaryReq, argNum)
+	if err != nil {
+		return nil, err
+	}
+
+	var res RemoveAttributeRequest
+
+	if res.ID, err = getValueFromArg(args, argNum-1, "ID", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.Attribute, err = getValueFromArg(args, argNum-2, "attribute", stackitem.ByteArrayT, event.StringFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.InvocationScript, err = getValueFromArg(args, argNum-3, "invocation script", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.VerificationScript, err = getValueFromArg(args, argNum-4, "verification script", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+	if res.SessionToken, err = getValueFromArg(args, argNum-5, "session token", stackitem.ByteArrayT, event.BytesFromOpcode); err != nil {
+		return nil, err
+	}
+
+	res.MainTransaction = *notaryReq.Raw().MainTransaction
+
+	return res, nil
+}

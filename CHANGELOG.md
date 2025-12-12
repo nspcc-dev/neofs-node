@@ -14,6 +14,8 @@ Changelog for NeoFS Node
 - Support for GET of LINK objects in EC containers (#3722)
 - Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
 - SN can respond with `CONTAINER_LOCKED` status now (#3708)
+- IR now serves `setAttribute` and `removeAttribute` methods of Container contract (#xxx)
+- SN now serves `ContainerService`'s `SetAttribute` and `RemoveAttribute` RPC (#xxx)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
@@ -35,8 +37,8 @@ Changelog for NeoFS Node
 - Metabase v4 to v5 migration (#3735)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251203135706-86667929fbb8` (#3711)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251211121118-2e114499a28d` (#3670, #XXX)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251211130229-5f07783f7472` (#3711, #XXX)
 - `github.com/nspcc-dev/locode-db` module to `v0.8.2` (#3729)
 
 ### Updating from v0.50.2
