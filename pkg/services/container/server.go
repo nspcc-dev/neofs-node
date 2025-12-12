@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	neoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -28,6 +29,7 @@ import (
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
@@ -39,6 +41,10 @@ const defaultTxAwaitTimeout = 15 * time.Second
 // serve NeoFS API Container service.
 type FSChain interface {
 	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
+
+	// HasUserInNNS checks whether user with given address is registered in NNS
+	// under the given name.
+	HasUserInNNS(name string, addr neoutil.Uint160) (bool, error)
 }
 
 // Contract groups ops of the Container contract deployed in the FS chain
@@ -48,7 +54,7 @@ type Contract interface {
 	// transaction is accepted for processing, Put waits for it to be successfully
 	// executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned on when it is done.
-	Put(ctx context.Context, _ container.Container, pub, sig []byte, _ *session.Container) (cid.ID, error)
+	Put(ctx context.Context, _ container.Container, pub, sig []byte, st []byte) (cid.ID, error)
 	// Get returns container by its ID. Returns [apistatus.ErrContainerNotFound]
 	// error if container is missing.
 	Get(cid.ID) (container.Container, error)
@@ -60,7 +66,7 @@ type Contract interface {
 	// credentials. If transaction is accepted for processing, PutEACL waits for it
 	// to be successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is when it is done.
-	PutEACL(ctx context.Context, _ eacl.Table, pub, sig []byte, _ *session.Container) error
+	PutEACL(ctx context.Context, _ eacl.Table, pub, sig []byte, st []byte) error
 	// GetEACL returns eACL of the container by its ID. Returns
 	// [apistatus.ErrEACLNotFound] error if eACL is missing.
 	GetEACL(cid.ID) (eacl.Table, error)
@@ -68,7 +74,7 @@ type Contract interface {
 	// transaction is accepted for processing, Delete waits for it to be
 	// successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
-	Delete(ctx context.Context, _ cid.ID, pub, sig []byte, _ *session.Container) error
+	Delete(ctx context.Context, _ cid.ID, pub, sig []byte, st []byte) error
 }
 
 // NetmapContract represents Netmap contract deployed in the FS chain required
@@ -88,6 +94,11 @@ type sessionTokenCommonCheckResult struct {
 	err   error
 }
 
+type sessionTokenV2CommonCheckResult struct {
+	token sessionv2.Token
+	err   error
+}
+
 // Server provides NeoFS API Container service.
 type Server struct {
 	protocontainer.UnimplementedContainerServiceServer
@@ -96,7 +107,8 @@ type Server struct {
 	contract Contract
 	historicN3ScriptRunner
 
-	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	sessionTokenCommonCheckCache   *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	sessionTokenV2CommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenV2CommonCheckResult]
 }
 
 // New provides protocontainer.ContainerServiceServer based on specified
@@ -109,6 +121,10 @@ func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc 
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
 	}
+	sessionTokenV2CheckCache, err := lru.New[[sha256.Size]byte, sessionTokenV2CommonCheckResult](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New for v2: %w", err))
+	}
 	return &Server{
 		signer:   s,
 		net:      net,
@@ -117,7 +133,8 @@ func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc 
 			FSChain:        fsChain,
 			NetmapContract: nc,
 		},
-		sessionTokenCommonCheckCache: sessionTokenCheckCache,
+		sessionTokenCommonCheckCache:   sessionTokenCheckCache,
+		sessionTokenV2CommonCheckCache: sessionTokenV2CheckCache,
 	}
 }
 
@@ -225,6 +242,89 @@ func (s *Server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	return nil
 }
 
+func (s *Server) getVerifiedSessionTokenV2(mh *protosession.RequestMetaHeader, reqVerb sessionv2.Verb, reqCnr cid.ID) (*sessionv2.Token, error) {
+	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
+		mh = omh
+	}
+	m := mh.GetSessionTokenV2()
+	if m == nil {
+		return nil, nil
+	}
+
+	b := make([]byte, m.MarshaledSize())
+	m.MarshalStable(b)
+
+	cacheKey := sha256.Sum256(b)
+	res, ok := s.sessionTokenV2CommonCheckCache.Get(cacheKey)
+	if !ok {
+		res.token, res.err = s.decodeAndVerifySessionTokenV2Common(m)
+		s.sessionTokenV2CommonCheckCache.Add(cacheKey, res)
+	}
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	if err := s.verifySessionTokenV2AgainstRequest(res.token, reqVerb, reqCnr); err != nil {
+		return nil, err
+	}
+
+	return &res.token, nil
+}
+
+func (s *Server) decodeAndVerifySessionTokenV2Common(m *protosession.SessionTokenV2) (sessionv2.Token, error) {
+	var token sessionv2.Token
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("decode v2: %w", err)
+	}
+
+	var authErr error
+	hasUserInNNS := func(name string, userID user.ID) bool {
+		ok, err := s.HasUserInNNS(name, userID.ScriptHash())
+		if err != nil {
+			authErr = fmt.Errorf("checking user in NNS %q: %w", name, err)
+			return false
+		}
+		return ok
+	}
+
+	if err := token.ValidateWithNNS(hasUserInNNS); err != nil {
+		if authErr != nil {
+			return token, authErr
+		}
+		return token, fmt.Errorf("invalid v2 token: %w", err)
+	}
+
+	if !token.AssertAuthority(user.NewFromECDSAPublicKey(s.signer.PublicKey), hasUserInNNS) {
+		if authErr != nil {
+			return token, authErr
+		}
+		return token, errors.New("v2 token doesn't authorize this node")
+	}
+
+	currentTime := uint64(time.Now().Unix())
+	if !token.ValidAt(currentTime) {
+		return token, fmt.Errorf("v2 token is invalid at that time %d", currentTime)
+	}
+
+	return token, nil
+}
+
+func (s *Server) verifySessionTokenV2AgainstRequest(token sessionv2.Token, reqVerb sessionv2.Verb, reqCnr cid.ID) error {
+	if !token.AssertContainer(reqVerb, reqCnr) {
+		return errors.New("v2 session token does not authorize this container operation")
+	}
+
+	if reqCnr.IsZero() {
+		return nil
+	}
+
+	if err := s.checkSessionIssuer(reqCnr, token.OriginalIssuer()); err != nil {
+		return fmt.Errorf("verify v2 session issuer: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, err error) (*protocontainer.PutResponse, error) {
 	resp := &protocontainer.PutResponse{
 		Body:       body,
@@ -316,15 +416,28 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err))
 	}
 
-	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerPut, cid.ID{})
+	stV2, err := s.getVerifiedSessionTokenV2(req.GetMetaHeader(), sessionv2.VerbContainerPut, cid.ID{})
 	if err != nil {
-		return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err))
+		return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	var tokenBytes []byte
+	if stV2 == nil {
+		st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerPut, cid.ID{})
+		if err != nil {
+			return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err))
+		}
+		if st != nil {
+			tokenBytes = st.Marshal()
+		}
+	} else {
+		tokenBytes = stV2.Marshal()
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, st)
+	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, tokenBytes)
 	if err != nil && !errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
 		return s.makeFailedPutResponse(err)
 	}
@@ -365,15 +478,28 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 		return s.makeDeleteResponse(fmt.Errorf("invalid ID: %w", err))
 	}
 
-	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerDelete, id)
+	stV2, err := s.getVerifiedSessionTokenV2(req.GetMetaHeader(), sessionv2.VerbContainerDelete, id)
 	if err != nil {
-		return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
+		return s.makeDeleteResponse(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	var tokenBytes []byte
+	if stV2 == nil {
+		st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerDelete, id)
+		if err != nil {
+			return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
+		}
+		if st != nil {
+			tokenBytes = st.Marshal()
+		}
+	} else {
+		tokenBytes = stV2.Marshal()
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	err = s.contract.Delete(ctx, id, mSig.Key, mSig.Sign, st)
+	err = s.contract.Delete(ctx, id, mSig.Key, mSig.Sign, tokenBytes)
 
 	return s.makeDeleteResponse(err)
 }
@@ -504,15 +630,28 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"))
 	}
 
-	st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
+	stV2, err := s.getVerifiedSessionTokenV2(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cnrID)
 	if err != nil {
-		return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err))
+		return s.makeSetEACLResponse(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	var tokenBytes []byte
+	if stV2 == nil {
+		st, err := s.getVerifiedSessionToken(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
+		if err != nil {
+			return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err))
+		}
+		if st != nil {
+			tokenBytes = st.Marshal()
+		}
+	} else {
+		tokenBytes = stV2.Marshal()
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, st)
+	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, tokenBytes)
 
 	return s.makeSetEACLResponse(err)
 }
