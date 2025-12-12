@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	neoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -39,9 +40,13 @@ func (unimplementedFSChain) InvokeContainedScript(*transaction.Transaction, *blo
 	panic("unimplemented")
 }
 
+func (unimplementedFSChain) HasUserInNNS(string, neoutil.Uint160) (bool, error) {
+	panic("unimplemented")
+}
+
 type unimplementedContainerContract struct{}
 
-func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
+func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte) (cid.ID, error) {
 	panic("implement me")
 }
 
@@ -53,7 +58,7 @@ func (unimplementedContainerContract) List(user.ID) ([]cid.ID, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, *session.Container) error {
+func (unimplementedContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -61,7 +66,7 @@ func (unimplementedContainerContract) GetEACL(cid.ID) (eacl.Table, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []byte, *session.Container) error {
+func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -83,7 +88,7 @@ type testFSChain struct {
 	cnrs   map[cid.ID]container.Container
 }
 
-func (testFSChain) Put(context.Context, container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
+func (testFSChain) Put(context.Context, container.Container, []byte, []byte, []byte) (cid.ID, error) {
 	return cid.ID{}, errors.New("unimplemented")
 }
 
@@ -102,7 +107,7 @@ func (testFSChain) List(user.ID) ([]cid.ID, error) {
 	return nil, errors.New("unimplemented")
 }
 
-func (testFSChain) PutEACL(context.Context, eacl.Table, []byte, []byte, *session.Container) error {
+func (testFSChain) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte) error {
 	return nil
 }
 
@@ -110,13 +115,17 @@ func (testFSChain) GetEACL(cid.ID) (eacl.Table, error) {
 	return eacl.Table{}, errors.New("unimplemented")
 }
 
-func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, *session.Container) error {
+func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, []byte) error {
 	return nil
 }
 
 func (x testFSChain) GetEpochBlock(uint64) (uint32, error) { panic("unimplemented") }
 
 func (x testFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
+	panic("unimplemented")
+}
+
+func (testFSChain) HasUserInNNS(string, neoutil.Uint160) (bool, error) {
 	panic("unimplemented")
 }
 

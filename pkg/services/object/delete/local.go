@@ -43,10 +43,14 @@ func (exec *execCtx) formTombstone() (ok bool) {
 	exec.tombstoneObj.AssociateDeleted(exec.address().Object())
 
 	tokenSession := exec.commonParameters().SessionToken()
-	if tokenSession != nil {
+	tokenSessionV2 := exec.commonParameters().SessionTokenV2()
+
+	if tokenSessionV2 != nil {
+		exec.tombstoneObj.SetOwner(tokenSessionV2.OriginalIssuer())
+	} else if tokenSession != nil {
 		exec.tombstoneObj.SetOwner(tokenSession.Issuer())
 	} else {
-		// make local node a tombstone object owner
+		// No token: make local node a tombstone object owner
 		exec.tombstoneObj.SetOwner(exec.svc.netInfo.LocalNodeID())
 	}
 
