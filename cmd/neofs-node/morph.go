@@ -99,6 +99,10 @@ func listenMorphNotifications(c *cfg) {
 				zap.Uint32("block_index", block.Index))
 		}
 
+		if c.chainTime != nil {
+			c.chainTime.Set(block.Timestamp)
+		}
+
 		tickBlockTimers(c)
 	})
 }
