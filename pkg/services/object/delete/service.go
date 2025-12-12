@@ -5,6 +5,7 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -40,6 +41,8 @@ type cfg struct {
 	netInfo NetworkInfo
 
 	keyStorage *util.KeyStorage
+
+	nnsResolver session.NNSResolver
 }
 
 func defaultCfg() *cfg {
@@ -87,5 +90,12 @@ func WithNetworkInfo(netInfo NetworkInfo) Option {
 func WithKeyStorage(ks *util.KeyStorage) Option {
 	return func(c *cfg) {
 		c.keyStorage = ks
+	}
+}
+
+// WithNNSResolver returns option to set NNS resolver for checking session token subjects.
+func WithNNSResolver(resolver session.NNSResolver) Option {
+	return func(c *cfg) {
+		c.nnsResolver = resolver
 	}
 }

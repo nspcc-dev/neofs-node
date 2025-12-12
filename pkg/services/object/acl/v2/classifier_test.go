@@ -3,6 +3,7 @@ package v2
 import (
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -24,6 +25,10 @@ type nopFSChain struct {
 
 func (nopFSChain) InContainerInLastTwoEpochs(cid.ID, []byte) (bool, error) {
 	return false, nil
+}
+
+func (nopFSChain) HasUserInNNS(string, util.Uint160) (bool, error) {
+	panic("not implemented")
 }
 
 func BenchmarkClassifierLoggerProduction(b *testing.B) {

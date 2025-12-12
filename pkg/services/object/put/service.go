@@ -15,6 +15,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -140,6 +141,8 @@ type cfg struct {
 
 	quotaLimiter QuotaLimiter
 	payments     PaymentChecker
+
+	nnsResolver session.NNSResolver
 }
 
 func defaultCfg() *cfg {
@@ -253,5 +256,11 @@ func WithLogger(l *zap.Logger) Option {
 func WithNetworkMagic(m uint32) Option {
 	return func(c *cfg) {
 		c.networkMagic = m
+	}
+}
+
+func WithNNSResolver(resolver session.NNSResolver) Option {
+	return func(c *cfg) {
+		c.nnsResolver = resolver
 	}
 }

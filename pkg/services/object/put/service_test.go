@@ -13,9 +13,11 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/klauspost/reedsolomon"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
@@ -42,6 +44,7 @@ import (
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -116,41 +119,78 @@ func TestPayments(t *testing.T) {
 		WithRemoteWorkerPool(nodeWorkerPool),
 	)
 
-	stream, err := s.Put(context.Background())
-	require.NoError(t, err)
+	t.Run("session v1", func(t *testing.T) {
+		stream, err := s.Put(context.Background())
+		require.NoError(t, err)
 
-	var sessionToken session.Object
-	sessionToken.SetID(uuid.New())
-	sessionToken.SetExp(1)
-	sessionToken.BindContainer(cID)
-	sessionToken.SetAuthKey(cluster.nodeSessions[0].signer.Public())
-	require.NoError(t, sessionToken.Sign(owner))
+		var sessionToken session.Object
+		sessionToken.SetID(uuid.New())
+		sessionToken.SetExp(1)
+		sessionToken.BindContainer(cID)
+		sessionToken.SetAuthKey(cluster.nodeSessions[0].signer.Public())
+		require.NoError(t, sessionToken.Sign(owner))
 
-	req := &protoobject.PutRequest{
-		MetaHeader: &protosession.RequestMetaHeader{
-			Ttl:          2,
-			SessionToken: sessionToken.ProtoMessage(),
-		},
-	}
-	commonPrm, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		panic(err)
-	}
+		req := &protoobject.PutRequest{
+			MetaHeader: &protosession.RequestMetaHeader{
+				Ttl:          2,
+				SessionToken: sessionToken.ProtoMessage(),
+			},
+		}
+		commonPrm, err := objutil.CommonPrmFromRequest(req)
+		if err != nil {
+			panic(err)
+		}
 
-	o := objecttest.Object()
-	o.SetContainerID(cID)
-	o.ResetRelations()
-	o.SetType(object.TypeRegular)
-	ip := new(PutInitPrm).
-		WithObject(&o).
-		WithCommonPrm(commonPrm)
+		o := objecttest.Object()
+		o.SetContainerID(cID)
+		o.ResetRelations()
+		o.SetType(object.TypeRegular)
+		ip := new(PutInitPrm).
+			WithObject(&o).
+			WithCommonPrm(commonPrm)
 
-	err = stream.Init(ip)
-	require.ErrorContains(t, err, "container is unpaid")
+		err = stream.Init(ip)
+		require.ErrorContains(t, err, "container is unpaid")
 
-	payments.m[cID] = -1
+		payments.m[cID] = -1
 
-	require.NoError(t, stream.Init(ip))
+		require.NoError(t, stream.Init(ip))
+
+		payments.m[cID] = 123 // reset for next test
+	})
+
+	t.Run("session v2", func(t *testing.T) {
+		stream, err := s.Put(context.Background())
+		require.NoError(t, err)
+
+		sessionTokenV2 := newSessionTokenV2(t, cID, owner, cluster.nodeSessions, []sessionv2.Verb{sessionv2.VerbObjectPut})
+
+		req := &protoobject.PutRequest{
+			MetaHeader: &protosession.RequestMetaHeader{
+				Ttl:            2,
+				SessionTokenV2: sessionTokenV2.ProtoMessage(),
+			},
+		}
+		commonPrm, err := objutil.CommonPrmFromRequest(req)
+		if err != nil {
+			panic(err)
+		}
+
+		o := objecttest.Object()
+		o.SetContainerID(cID)
+		o.ResetRelations()
+		o.SetType(object.TypeRegular)
+		ip := new(PutInitPrm).
+			WithObject(&o).
+			WithCommonPrm(commonPrm)
+
+		err = stream.Init(ip)
+		require.ErrorContains(t, err, "container is unpaid")
+
+		payments.m[cID] = -1
+
+		require.NoError(t, stream.Init(ip))
+	})
 }
 
 func TestQuotas(t *testing.T) {
@@ -205,6 +245,19 @@ func TestQuotas(t *testing.T) {
 		panic(err)
 	}
 
+	sessionTokenV2 := newSessionTokenV2(t, cID, owner, cluster.nodeSessions, []sessionv2.Verb{sessionv2.VerbObjectPut})
+
+	reqV2 := &protoobject.PutRequest{
+		MetaHeader: &protosession.RequestMetaHeader{
+			Ttl:            2,
+			SessionTokenV2: sessionTokenV2.ProtoMessage(),
+		},
+	}
+	commonPrmV2, err := objutil.CommonPrmFromRequest(reqV2)
+	if err != nil {
+		panic(err)
+	}
+
 	t.Run("known size before streaming", func(t *testing.T) {
 		stream, err := s.Put(context.Background())
 		require.NoError(t, err)
@@ -224,6 +277,25 @@ func TestQuotas(t *testing.T) {
 		require.ErrorIs(t, err, apistatus.QuotaExceeded{})
 	})
 
+	t.Run("known size before streaming/sessionv2", func(t *testing.T) {
+		stream, err := s.Put(context.Background())
+		require.NoError(t, err)
+
+		o := objecttest.Object()
+		o.SetPayloadSize(hardLimit + 1)
+		o.SetContainerID(cID)
+		o.SetOwner(owner.ID)
+		o.ResetRelations()
+		o.SetType(object.TypeRegular)
+
+		ip := new(PutInitPrm).
+			WithObject(&o).
+			WithCommonPrm(commonPrmV2)
+
+		err = stream.Init(ip)
+		require.ErrorIs(t, err, apistatus.QuotaExceeded{})
+	})
+
 	t.Run("payload exceeded", func(t *testing.T) {
 		stream, err := s.Put(context.Background())
 		require.NoError(t, err)
@@ -238,6 +310,28 @@ func TestQuotas(t *testing.T) {
 		ip := new(PutInitPrm).
 			WithObject(&o).
 			WithCommonPrm(commonPrm)
+		err = stream.Init(ip)
+		require.NoError(t, err)
+
+		sendPrm := PutChunkPrm{make([]byte, hardLimit+1)}
+		err = stream.SendChunk(&sendPrm)
+		require.ErrorIs(t, err, apistatus.ErrQuotaExceeded)
+	})
+
+	t.Run("payload exceeded/sessionv2", func(t *testing.T) {
+		stream, err := s.Put(context.Background())
+		require.NoError(t, err)
+
+		o := objecttest.Object()
+		o.SetPayloadSize(hardLimit - 1)
+		o.SetContainerID(cID)
+		o.SetOwner(owner.ID)
+		o.ResetRelations()
+		o.SetType(object.TypeRegular)
+
+		ip := new(PutInitPrm).
+			WithObject(&o).
+			WithCommonPrm(commonPrmV2)
 		err = stream.Init(ip)
 		require.NoError(t, err)
 
@@ -268,16 +362,25 @@ func Test_Slicing_REP3(t *testing.T) {
 		{name: "limitX5", ln: maxObjectSize * 5},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testSlicingREP3(t, cluster, tc.ln, repNodes, cnrReserveNodes, outCnrNodes)
+			testSlicingREP3(t, cluster, tc.ln, repNodes, cnrReserveNodes, outCnrNodes, false)
+			t.Run("sessionv2", func(t *testing.T) {
+				testSlicingREP3(t, cluster, tc.ln, repNodes, cnrReserveNodes, outCnrNodes, true)
+			})
 		})
 	}
 
 	t.Run("tombstone", func(t *testing.T) {
-		testTombstoneSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes)
+		testTombstoneSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes, false)
+		t.Run("sessionv2", func(t *testing.T) {
+			testTombstoneSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes, true)
+		})
 	})
 
 	t.Run("lock", func(t *testing.T) {
-		testLockSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes)
+		testLockSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes, false)
+		t.Run("sessionv2", func(t *testing.T) {
+			testLockSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes, true)
+		})
 	})
 }
 
@@ -336,45 +439,68 @@ func Test_Slicing_EC(t *testing.T) {
 			if tc.skip != "" {
 				t.Skip(tc.skip)
 			}
-			testSlicingECRules(t, cluster, tc.ln, rules, maxTotalParts, cnrReserveNodes, outCnrNodes)
+			testSlicingECRules(t, cluster, tc.ln, rules, maxTotalParts, cnrReserveNodes, outCnrNodes, false)
+			t.Run("sessionv2", func(t *testing.T) {
+				testSlicingECRules(t, cluster, tc.ln, rules, maxTotalParts, cnrReserveNodes, outCnrNodes, true)
+			})
 		})
 	}
 
 	t.Run("tombstone", func(t *testing.T) {
-		testTombstoneSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes)
+		testTombstoneSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, false)
+		t.Run("sessionv2", func(t *testing.T) {
+			testTombstoneSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, true)
+		})
 	})
 
 	t.Run("lock", func(t *testing.T) {
-		testLockSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes)
+		testLockSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, false)
+		t.Run("sessionv2", func(t *testing.T) {
+			testLockSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, true)
+		})
 	})
 }
 
-func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cnrReserveNodes, outCnrNodes int) {
+func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cnrReserveNodes, outCnrNodes int, isSessionTokenV2 bool) {
+	owner := usertest.User()
+
 	var srcObj object.Object
 	srcObj.SetContainerID(cidtest.ID())
-	srcObj.SetOwner(usertest.ID())
+	srcObj.SetOwner(owner.UserID())
 	srcObj.SetAttributes(
 		object.NewAttribute("attr1", "val1"),
 		object.NewAttribute("attr2", "val2"),
 	)
 	srcObj.SetPayload(testutil.RandByteSlice(ln))
 
-	var sessionToken session.Object
-	sessionToken.SetID(uuid.New())
-	sessionToken.SetExp(1)
-	sessionToken.BindContainer(cidtest.ID())
+	var (
+		sessionToken   *session.Object
+		sessionTokenV2 *sessionv2.Token
+	)
+	if isSessionTokenV2 {
+		sessionTokenV2 = newSessionTokenV2(t, cidtest.ID(), owner, cluster.nodeSessions, []sessionv2.Verb{sessionv2.VerbObjectPut})
+	} else {
+		sessionToken = &session.Object{}
+		sessionToken.SetID(uuid.New())
+		sessionToken.SetExp(1)
+		sessionToken.BindContainer(cidtest.ID())
+	}
 
 	testThroughNode := func(t *testing.T, idx int) {
-		sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
-		require.NoError(t, sessionToken.Sign(usertest.User()))
+		if isSessionTokenV2 {
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, nil, sessionTokenV2)
+		} else {
+			sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
+			require.NoError(t, sessionToken.Sign(owner))
 
-		storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken)
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken, nil)
+		}
 
 		nodeObjLists := cluster.allStoredObjects()
 
 		var restoredObj object.Object
 		if ln > maxObjectSize {
-			restoredObj = assertSplitChain(t, maxObjectSize, ln, sessionToken, nodeObjLists[0])
+			restoredObj = assertSplitChain(t, maxObjectSize, ln, sessionToken, sessionTokenV2, nodeObjLists[0])
 
 			for i := 1; i < repNodes; i++ {
 				require.Equal(t, nodeObjLists[0], nodeObjLists[i], i)
@@ -405,9 +531,14 @@ func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cn
 
 		assertObjectIntegrity(t, restoredObj)
 		require.True(t, bytes.Equal(srcObj.Payload(), restoredObj.Payload()))
-		require.Equal(t, sessionToken, *restoredObj.SessionToken())
 		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
-		require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		if isSessionTokenV2 {
+			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
+			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
+		} else {
+			require.Equal(t, sessionToken, restoredObj.SessionToken())
+			require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		}
 		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
 		require.Equal(t, object.TypeRegular, restoredObj.Type())
 		require.Equal(t, srcObj.Attributes(), restoredObj.Attributes())
@@ -421,32 +552,50 @@ func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cn
 	}
 }
 
-func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []iec.Rule, maxTotalParts, cnrReserveNodes, outCnrNodes int) {
+func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []iec.Rule, maxTotalParts, cnrReserveNodes, outCnrNodes int, isSessionV2 bool) {
+	owner := usertest.User()
 	var srcObj object.Object
 	srcObj.SetContainerID(cidtest.ID())
-	srcObj.SetOwner(usertest.ID())
+	srcObj.SetOwner(owner.UserID())
 	srcObj.SetAttributes(
 		object.NewAttribute("attr1", "val1"),
 		object.NewAttribute("attr2", "val2"),
 	)
 
-	var sessionToken session.Object
-	sessionToken.SetID(uuid.New())
-	sessionToken.SetExp(1)
-	sessionToken.BindContainer(cidtest.ID())
-	srcObj.SetPayload(testutil.RandByteSlice(ln))
+	var (
+		sessionTokenV2 *sessionv2.Token
+		sessionToken   *session.Object
+	)
+
+	if isSessionV2 {
+		sessionTokenV2 = newSessionTokenV2(t, cidtest.ID(), owner, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+	} else {
+		sessionToken = &session.Object{}
+		sessionToken.SetID(uuid.New())
+		sessionToken.SetExp(1)
+		sessionToken.BindContainer(cidtest.ID())
+		srcObj.SetPayload(testutil.RandByteSlice(ln))
+	}
 
 	testThroughNode := func(t *testing.T, idx int) {
-		sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
-		require.NoError(t, sessionToken.Sign(usertest.User()))
+		if isSessionV2 {
+			pk := cluster.nodeSessions[idx].signer.ECDSAPrivateKey.PublicKey
+			require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
 
-		storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken)
+			require.NoError(t, sessionTokenV2.Sign(owner))
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, nil, sessionTokenV2)
+		} else {
+			sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
+			require.NoError(t, sessionToken.Sign(owner))
+
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken, nil)
+		}
 
 		nodeObjLists := cluster.allStoredObjects()
 
 		var restoredObj object.Object
 		if ln > maxObjectSize {
-			restoredObj = checkAndCutSplitECObject(t, ln, sessionToken, rules, nodeObjLists)
+			restoredObj = checkAndCutSplitECObject(t, ln, sessionToken, sessionTokenV2, rules, nodeObjLists)
 		} else {
 			restoredObj = checkAndCutUnsplitECObject(t, rules, nodeObjLists)
 		}
@@ -454,9 +603,14 @@ func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []i
 		require.Zero(t, islices.TwoDimSliceElementCount(nodeObjLists))
 
 		assertObjectIntegrity(t, restoredObj)
-		require.Equal(t, sessionToken, *restoredObj.SessionToken())
 		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
-		require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		if isSessionV2 {
+			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
+			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
+		} else {
+			require.Equal(t, sessionToken, restoredObj.SessionToken())
+			require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		}
 		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
 		require.Equal(t, object.TypeRegular, restoredObj.Type())
 		require.Equal(t, srcObj.Attributes(), restoredObj.Attributes())
@@ -471,37 +625,55 @@ func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []i
 	}
 }
 
-func testTombstoneSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int) {
-	testSysObjectSlicing(t, cluster, cnrNodeNum, outCnrNodeNum, object.TypeTombstone, (*object.Object).AssociateDeleted)
+func testTombstoneSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, isSessionV2 bool) {
+	testSysObjectSlicing(t, cluster, cnrNodeNum, outCnrNodeNum, object.TypeTombstone, (*object.Object).AssociateDeleted, isSessionV2)
 }
 
-func testLockSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int) {
-	testSysObjectSlicing(t, cluster, cnrNodeNum, outCnrNodeNum, object.TypeLock, (*object.Object).AssociateLocked)
+func testLockSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, isSessionV2 bool) {
+	testSysObjectSlicing(t, cluster, cnrNodeNum, outCnrNodeNum, object.TypeLock, (*object.Object).AssociateLocked, isSessionV2)
 }
 
-func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, typ object.Type, associate func(*object.Object, oid.ID)) {
+func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, typ object.Type, associate func(*object.Object, oid.ID), isSessionV2 bool) {
 	target := oidtest.ID()
+	owner := usertest.User()
 
 	var verCur = version.Current()
 	var srcObj object.Object
 	srcObj.SetVersion(&verCur)
 	srcObj.SetContainerID(cidtest.ID())
-	srcObj.SetOwner(usertest.ID())
+	srcObj.SetOwner(owner.UserID())
 	srcObj.SetAttributes(
 		object.NewAttribute(object.AttributeExpirationEpoch, "123"),
 	)
 	associate(&srcObj, target)
 
-	var sessionToken session.Object
-	sessionToken.SetID(uuid.New())
-	sessionToken.SetExp(1)
-	sessionToken.BindContainer(cidtest.ID())
+	var (
+		sessionToken   *session.Object
+		sessionTokenV2 *sessionv2.Token
+	)
+	if isSessionV2 {
+		sessionTokenV2 = newSessionTokenV2(t, cidtest.ID(), owner, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+	} else {
+		sessionToken = &session.Object{}
+		sessionToken.SetID(uuid.New())
+		sessionToken.SetExp(1)
+		sessionToken.BindContainer(cidtest.ID())
+	}
 
 	testThroughNode := func(t *testing.T, idx int) {
-		sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
-		require.NoError(t, sessionToken.Sign(usertest.User()))
+		if isSessionV2 {
+			pk := cluster.nodeSessions[idx].signer.ECDSAPrivateKey.PublicKey
+			require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
 
-		storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken)
+			require.NoError(t, sessionTokenV2.Sign(owner))
+
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, nil, sessionTokenV2)
+		} else {
+			sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
+			require.NoError(t, sessionToken.Sign(usertest.User()))
+
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken, nil)
+		}
 
 		nodeObjLists := cluster.allStoredObjects()
 
@@ -522,9 +694,14 @@ func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnr
 
 		assertObjectIntegrity(t, restoredObj)
 		require.Empty(t, restoredObj.Payload())
-		require.Equal(t, sessionToken, *restoredObj.SessionToken())
 		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
-		require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		if isSessionV2 {
+			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
+			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
+		} else {
+			require.Equal(t, sessionToken, restoredObj.SessionToken())
+			require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		}
 		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
 		require.Equal(t, typ, restoredObj.Type())
 		require.Equal(t, target, restoredObj.AssociatedObject())
@@ -544,10 +721,19 @@ func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnr
 		}
 
 		for i := range cnrNodeNum {
-			sessionToken.SetAuthKey(cluster.nodeSessions[i].signer.Public())
-			require.NoError(t, sessionToken.Sign(usertest.User()))
+			var err error
+			if isSessionV2 {
+				pk := cluster.nodeSessions[i].signer.ECDSAPrivateKey.PublicKey
+				require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
 
-			err := putObjectWithSession(cluster.nodeServices[i], srcObj, sessionToken)
+				require.NoError(t, sessionTokenV2.Sign(owner))
+				err = putObjectWithSession(cluster.nodeServices[i], srcObj, nil, sessionTokenV2)
+			} else {
+				sessionToken.SetAuthKey(cluster.nodeSessions[i].signer.Public())
+				require.NoError(t, sessionToken.Sign(owner))
+
+				err = putObjectWithSession(cluster.nodeServices[i], srcObj, sessionToken, nil)
+			}
 			require.ErrorContains(t, err, "incomplete object PUT by placement: number of replicas cannot be met for list #0")
 			require.ErrorContains(t, err, "some error")
 			require.NotErrorIs(t, err, apistatus.ErrIncomplete)
@@ -581,7 +767,9 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 	}
 
 	for i := range allNodes {
-		nodeKey := neofscryptotest.ECDSAPrivateKey()
+		nodeKey, err := keys.NewPrivateKey()
+		require.NoError(t, err)
+		allNodes[i].SetPublicKey(nodeKey.PublicKey().Bytes())
 
 		nodeWorkerPool, err := ants.NewPool(len(cnrNodes), ants.WithNonblocking(true))
 		require.NoError(t, err)
@@ -603,7 +791,7 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 			quotas{math.MaxUint64, math.MaxUint64},
 			&payments{},
 			WithLogger(zaptest.NewLogger(t).With(zap.Int("node", i))),
-			WithKeyStorage(objutil.NewKeyStorage(&nodeKey, cluster.nodeSessions[i], &cluster.nodeNetworks[i])),
+			WithKeyStorage(objutil.NewKeyStorage(&nodeKey.PrivateKey, cluster.nodeSessions[i], &cluster.nodeNetworks[i])),
 			WithObjectStorage(&cluster.nodeLocalStorages[i]),
 			WithMaxSizeSource(mockMaxSize(maxObjectSize)),
 			WithContainerSource(mockContainer(cnr)),
@@ -703,6 +891,10 @@ func (x mockMaxSize) MaxObjectSize() uint64 {
 type mockNodeSession struct {
 	signer    neofscryptotest.VariableSigner
 	expiresAt uint64
+}
+
+func (x mockNodeSession) FindTokenBySubjects(user.ID, []sessionv2.Target) *storage.PrivateToken {
+	return storage.NewPrivateToken(&x.signer.ECDSAPrivateKey, x.expiresAt)
 }
 
 func (x mockNodeSession) GetToken(user.ID, []byte) *storage.PrivateToken {
@@ -925,11 +1117,11 @@ func (x *testCluster) resetAllStoredObjects() {
 	}
 }
 
-func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st session.Object) {
-	require.NoError(t, putObjectWithSession(svc, obj, st))
+func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st *session.Object, st2 *sessionv2.Token) {
+	require.NoError(t, putObjectWithSession(svc, obj, st, st2))
 }
 
-func putObjectWithSession(svc *Service, obj object.Object, st session.Object) error {
+func putObjectWithSession(svc *Service, obj object.Object, st *session.Object, st2 *sessionv2.Token) error {
 	stream, err := svc.Put(context.Background())
 	if err != nil {
 		return fmt.Errorf("init stream: %w", err)
@@ -937,9 +1129,13 @@ func putObjectWithSession(svc *Service, obj object.Object, st session.Object) er
 
 	req := &protoobject.PutRequest{
 		MetaHeader: &protosession.RequestMetaHeader{
-			Ttl:          2,
-			SessionToken: st.ProtoMessage(),
+			Ttl: 2,
 		},
+	}
+	if st2 != nil {
+		req.MetaHeader.SessionTokenV2 = st2.ProtoMessage()
+	} else if st != nil {
+		req.MetaHeader.SessionToken = st.ProtoMessage()
 	}
 
 	commonPrm, err := objutil.CommonPrmFromRequest(req)
@@ -967,15 +1163,21 @@ func putObjectWithSession(svc *Service, obj object.Object, st session.Object) er
 	return nil
 }
 
-func assertSplitChain(t *testing.T, limit, ln uint64, sessionToken session.Object, members []object.Object) object.Object {
+func assertSplitChain(t *testing.T, limit, ln uint64, sessionToken *session.Object, sessionTokenV2 *sessionv2.Token, members []object.Object) object.Object {
 	require.Len(t, members, splitMembersCount(limit, ln))
 
 	// all
 	for _, member := range members {
 		assertObjectIntegrity(t, member)
 		require.LessOrEqual(t, member.PayloadSize(), limit)
-		require.Equal(t, sessionToken, *member.SessionToken())
-		require.Equal(t, sessionToken.Issuer(), member.Owner())
+		if sessionToken != nil {
+			require.Equal(t, sessionToken, member.SessionToken())
+			require.Equal(t, sessionToken.Issuer(), member.Owner())
+		}
+		if sessionTokenV2 != nil {
+			require.Equal(t, sessionTokenV2, member.SessionTokenV2())
+			require.Equal(t, sessionTokenV2.OriginalIssuer(), member.Owner())
+		}
 		require.EqualValues(t, currentEpoch, member.CreationEpoch())
 		require.Empty(t, member.Attributes())
 		require.True(t, member.HasParent())
@@ -1174,7 +1376,7 @@ func checkAndCutParentHeaderFromECPart(t *testing.T, part object.Object) object.
 	require.Equal(t, par.Owner(), part.Owner())
 	require.Equal(t, par.CreationEpoch(), part.CreationEpoch())
 	require.Equal(t, object.TypeRegular, part.Type())
-	require.NotZero(t, par.SessionToken())
+	require.True(t, par.SessionToken() != nil || par.SessionTokenV2() != nil)
 
 	return *par
 }
@@ -1195,7 +1397,7 @@ func checkAndGetECPartInfo(t testing.TB, part object.Object) (int, int) {
 	return ruleIdx, partIdx
 }
 
-func checkAndCutSplitECObject(t *testing.T, ln uint64, sessionToken session.Object, rules []iec.Rule, nodeObjLists [][]object.Object) object.Object {
+func checkAndCutSplitECObject(t *testing.T, ln uint64, sessionToken *session.Object, sessionTokenV2 *sessionv2.Token, rules []iec.Rule, nodeObjLists [][]object.Object) object.Object {
 	splitPartCount := splitMembersCount(maxObjectSize, ln)
 
 	var expectedCount int
@@ -1211,7 +1413,7 @@ func checkAndCutSplitECObject(t *testing.T, ln uint64, sessionToken session.Obje
 		splitParts = append(splitParts, splitPart)
 	}
 
-	restoredObj := assertSplitChain(t, maxObjectSize, ln, sessionToken, splitParts)
+	restoredObj := assertSplitChain(t, maxObjectSize, ln, sessionToken, sessionTokenV2, splitParts)
 
 	return restoredObj
 }
@@ -1242,4 +1444,28 @@ func checkAndCutECPartsForRule(t *testing.T, ruleIdx int, rule iec.Rule, nodeObj
 	}
 
 	return parts
+}
+
+func newSessionTokenV2(t *testing.T, cnrID cid.ID, owner user.Signer, nodes []mockNodeSession, verbs []sessionv2.Verb) *sessionv2.Token {
+	var sessionTokenV2 sessionv2.Token
+	sessionTokenV2.SetVersion(sessionv2.TokenCurrentVersion)
+	sessionTokenV2.SetNonce(sessionv2.RandomNonce())
+
+	currentTime := time.Now()
+	sessionTokenV2.SetIat(currentTime)
+	sessionTokenV2.SetNbf(currentTime)
+	sessionTokenV2.SetExp(currentTime.Add(10 * time.Hour))
+	ctx, err := sessionv2.NewContext(cnrID, verbs)
+	require.NoError(t, err)
+	require.NoError(t, sessionTokenV2.SetContexts([]sessionv2.Context{ctx}))
+
+	if nodes != nil {
+		for _, s := range nodes {
+			require.NoError(t, sessionTokenV2.AddSubject(sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(s.signer.ECDSAPrivateKey.PublicKey))))
+		}
+
+		require.NoError(t, sessionTokenV2.Sign(owner))
+	}
+
+	return &sessionTokenV2
 }
