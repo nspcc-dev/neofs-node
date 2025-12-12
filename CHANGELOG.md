@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Container IDs to JSON output of ADM `fschain dump-containers` command (#3789)
 - Support for IDs from JSON to ADM `fschain restore-containers` command (#3789)
 - IR supports new session token v2 (#3671)
+- SN supports new session token v2 for container operations (#3671)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
