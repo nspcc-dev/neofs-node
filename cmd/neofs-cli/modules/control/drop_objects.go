@@ -27,11 +27,11 @@ var dropObjectsCmd = &cobra.Command{
 			binAddrList[i] = []byte(dropObjectsList[i])
 		}
 
-		body := new(control.DropObjectsRequest_Body)
-		body.SetAddressList(binAddrList)
-
-		req := new(control.DropObjectsRequest)
-		req.SetBody(body)
+		var req = &control.DropObjectsRequest{
+			Body: &control.DropObjectsRequest_Body{
+				AddressList: binAddrList,
+			},
+		}
 
 		err = signRequest(pk, req)
 		if err != nil {

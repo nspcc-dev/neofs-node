@@ -36,8 +36,7 @@ func (s *Server) DumpShard(_ context.Context, req *control.DumpShardRequest) (*c
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	resp := new(control.DumpShardResponse)
-	resp.SetBody(new(control.DumpShardResponse_Body))
+	var resp = &control.DumpShardResponse{Body: new(control.DumpShardResponse_Body)}
 
 	err = SignMessage(s.key, resp)
 	if err != nil {

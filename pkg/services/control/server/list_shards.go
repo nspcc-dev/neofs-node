@@ -20,11 +20,6 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 	if err != nil {
 		return nil, err
 	}
-	// create and fill response
-	resp := new(control.ListShardsResponse)
-
-	body := new(control.ListShardsResponse_Body)
-	resp.SetBody(body)
 
 	info := s.storage.DumpInfo()
 
@@ -62,7 +57,12 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 		shardInfos = append(shardInfos, si)
 	}
 
-	body.SetShards(shardInfos)
+	// create and fill response
+	var resp = &control.ListShardsResponse{
+		Body: &control.ListShardsResponse_Body{
+			Shards: shardInfos,
+		},
+	}
 
 	// sign the response
 	if err := SignMessage(s.key, resp); err != nil {

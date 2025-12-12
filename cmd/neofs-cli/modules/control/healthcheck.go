@@ -51,8 +51,7 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return healthCheckIR(ctx, cmd, pk, ircontrol.NewControlServiceClient(conn))
 	}
 
-	req := new(control.HealthCheckRequest)
-	req.SetBody(new(control.HealthCheckRequest_Body))
+	var req = &control.HealthCheckRequest{Body: new(control.HealthCheckRequest_Body)}
 
 	err = signRequest(pk, req)
 	if err != nil {
@@ -81,9 +80,7 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 }
 
 func healthCheckIR(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, c ircontrol.ControlServiceClient) error {
-	req := new(ircontrol.HealthCheckRequest)
-
-	req.SetBody(new(ircontrol.HealthCheckRequest_Body))
+	var req = &ircontrol.HealthCheckRequest{Body: new(ircontrol.HealthCheckRequest_Body)}
 
 	err := ircontrolsrv.SignMessage(key, req)
 	if err != nil {

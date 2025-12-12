@@ -21,11 +21,10 @@ func TestHealthCheckResponse_Body_StableMarshal(t *testing.T) {
 }
 
 func generateHealthCheckResponseBody() *control.HealthCheckResponse_Body {
-	body := new(control.HealthCheckResponse_Body)
-	body.SetNetmapStatus(control.NetmapStatus_ONLINE)
-	body.SetHealthStatus(control.HealthStatus_SHUTTING_DOWN)
-
-	return body
+	return &control.HealthCheckResponse_Body{
+		HealthStatus: control.HealthStatus_SHUTTING_DOWN,
+		NetmapStatus: control.NetmapStatus_ONLINE,
+	}
 }
 
 func equalHealthCheckResponseBodies(b1, b2 *control.HealthCheckResponse_Body) bool {
@@ -47,10 +46,9 @@ func TestSetNetmapStatusRequest_Body_StableMarshal(t *testing.T) {
 }
 
 func generateSetNetmapStatusRequestBody() *control.SetNetmapStatusRequest_Body {
-	body := new(control.SetNetmapStatusRequest_Body)
-	body.SetStatus(control.NetmapStatus_ONLINE)
-
-	return body
+	return &control.SetNetmapStatusRequest_Body{
+		Status: control.NetmapStatus_ONLINE,
+	}
 }
 
 func equalSetnetmapStatusRequestBodies(b1, b2 *control.SetNetmapStatusRequest_Body) bool {
@@ -109,13 +107,12 @@ func compareBlobstorInfo(a, b *control.BlobstorInfo) bool {
 }
 
 func generateListShardsResponseBody() *control.ListShardsResponse_Body {
-	body := new(control.ListShardsResponse_Body)
-	body.SetShards([]*control.ShardInfo{
-		generateShardInfo(0),
-		generateShardInfo(1),
-	})
-
-	return body
+	return &control.ListShardsResponse_Body{
+		Shards: []*control.ShardInfo{
+			generateShardInfo(0),
+			generateShardInfo(1),
+		},
+	}
 }
 
 func TestSetShardModeRequest_Body_StableMarshal(t *testing.T) {
@@ -132,11 +129,10 @@ func TestSetShardModeRequest_Body_StableMarshal(t *testing.T) {
 }
 
 func generateSetShardModeRequestBody() *control.SetShardModeRequest_Body {
-	body := new(control.SetShardModeRequest_Body)
-	body.SetShardIDList([][]byte{{0, 1, 2, 3, 4}})
-	body.SetMode(control.ShardMode_READ_WRITE)
-
-	return body
+	return &control.SetShardModeRequest_Body{
+		Mode:     control.ShardMode_READ_WRITE,
+		Shard_ID: [][]byte{{0, 1, 2, 3, 4}},
+	}
 }
 
 func equalSetShardModeRequestBodies(b1, b2 *control.SetShardModeRequest_Body) bool {

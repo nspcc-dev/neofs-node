@@ -50,10 +50,7 @@ func (s *Server) SetShardMode(_ context.Context, req *control.SetShardModeReques
 	}
 
 	// create and fill response
-	resp := new(control.SetShardModeResponse)
-
-	body := new(control.SetShardModeResponse_Body)
-	resp.SetBody(body)
+	var resp = &control.SetShardModeResponse{Body: new(control.SetShardModeResponse_Body)}
 
 	// sign the response
 	err = SignMessage(s.key, resp)

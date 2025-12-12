@@ -53,10 +53,7 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 	}
 
 	// create and fill response
-	resp := new(control.DropObjectsResponse)
-
-	body := new(control.DropObjectsResponse_Body)
-	resp.SetBody(body)
+	var resp = &control.DropObjectsResponse{Body: new(control.DropObjectsResponse_Body)}
 
 	// sign the response
 	if err := SignMessage(s.key, resp); err != nil {

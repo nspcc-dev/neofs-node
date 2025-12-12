@@ -42,14 +42,16 @@ func notarySign(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	req := new(ircontrol.NotarySignRequest)
-	body := new(ircontrol.NotarySignRequest_Body)
-	req.SetBody(body)
 	hash, err := util.Uint256DecodeStringBE(notarySignHashFlag)
 	if err != nil {
 		return fmt.Errorf("failed to decode hash: %w", err)
 	}
-	body.SetHash(hash.BytesBE())
+
+	var req = &ircontrol.NotarySignRequest{
+		Body: &ircontrol.NotarySignRequest_Body{
+			Hash: hash.BytesBE(),
+		},
+	}
 
 	err = ircontrolsrv.SignMessage(pk, req)
 	if err != nil {

@@ -45,21 +45,18 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	body := new(control.SetNetmapStatusRequest_Body)
+	req := &control.SetNetmapStatusRequest{Body: new(control.SetNetmapStatusRequest_Body)}
 
 	switch st, _ := cmd.Flags().GetString(netmapStatusFlag); st {
 	default:
 		return fmt.Errorf("unsupported status %s", st)
 	case netmapStatusOnline:
-		body.SetStatus(control.NetmapStatus_ONLINE)
+		req.Body.Status = control.NetmapStatus_ONLINE
 	case netmapStatusOffline:
-		body.SetStatus(control.NetmapStatus_OFFLINE)
+		req.Body.Status = control.NetmapStatus_OFFLINE
 	case netmapStatusMaintenance:
-		body.SetStatus(control.NetmapStatus_MAINTENANCE)
+		req.Body.Status = control.NetmapStatus_MAINTENANCE
 	}
-
-	req := new(control.SetNetmapStatusRequest)
-	req.SetBody(body)
 
 	err = signRequest(pk, req)
 	if err != nil {

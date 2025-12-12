@@ -32,10 +32,7 @@ func (s *Server) SetNetmapStatus(_ context.Context, req *control.SetNetmapStatus
 	}
 
 	// create and fill response
-	resp := new(control.SetNetmapStatusResponse)
-
-	body := new(control.SetNetmapStatusResponse_Body)
-	resp.SetBody(body)
+	var resp = &control.SetNetmapStatusResponse{Body: new(control.SetNetmapStatusResponse_Body)}
 
 	// sign the response
 	if err := SignMessage(s.key, resp); err != nil {

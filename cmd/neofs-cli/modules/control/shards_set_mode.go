@@ -114,21 +114,20 @@ func setShardMode(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("%w: setting %s mode", errors.ErrUnsupported, strMode)
 	}
 
-	req := new(control.SetShardModeRequest)
-
-	body := new(control.SetShardModeRequest_Body)
-	req.SetBody(body)
-
-	body.SetMode(mode)
-
 	list, err := getShardIDList(cmd)
 	if err != nil {
 		return err
 	}
-	body.SetShardIDList(list)
 
 	reset, _ := cmd.Flags().GetBool(shardClearErrorsFlag)
-	body.ClearErrorCounter(reset)
+
+	var req = &control.SetShardModeRequest{
+		Body: &control.SetShardModeRequest_Body{
+			Mode:              mode,
+			ResetErrorCounter: reset,
+			Shard_ID:          list,
+		},
+	}
 
 	err = signRequest(pk, req)
 	if err != nil {

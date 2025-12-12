@@ -37,9 +37,7 @@ func listNotary(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	req := new(ircontrol.NotaryListRequest)
-
-	req.SetBody(new(ircontrol.NotaryListRequest_Body))
+	var req = &ircontrol.NotaryListRequest{Body: new(ircontrol.NotaryListRequest_Body)}
 
 	err = ircontrolsrv.SignMessage(pk, req)
 	if err != nil {

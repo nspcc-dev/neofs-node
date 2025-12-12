@@ -28,21 +28,21 @@ func dumpShard(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	body := new(control.DumpShardRequest_Body)
 	id, err := getShardID(cmd)
 	if err != nil {
 		return err
 	}
-	body.SetShardID(id)
 
 	p, _ := cmd.Flags().GetString(dumpFilepathFlag)
-	body.SetFilepath(p)
-
 	ignore, _ := cmd.Flags().GetBool(dumpIgnoreErrorsFlag)
-	body.SetIgnoreErrors(ignore)
 
-	req := new(control.DumpShardRequest)
-	req.SetBody(body)
+	req := &control.DumpShardRequest{
+		Body: &control.DumpShardRequest_Body{
+			Filepath:     p,
+			IgnoreErrors: ignore,
+			Shard_ID:     id,
+		},
+	}
 
 	err = signRequest(pk, req)
 	if err != nil {
