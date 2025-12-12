@@ -31,6 +31,8 @@ Changelog for NeoFS Node
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
+- Metabase v3 to v4 migration (#3735)
+- Metabase v4 to v5 migration (#3735)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
@@ -45,6 +47,10 @@ Please remove the following deprecated configuration options from IR config:
 - `fee.main_chain`
 - `contracts`
 They were removed in this version and using them will lead to failure to start the node.
+
+Storage nodes no longer automatically migrate metabases from version 3
+(NeoFS 0.44.0) to 4 (NeoFS 0.45.0) and from version 4 to version 5 (NeoFS
+0.46.0), resynchronize or migrate using SN 0.50.2 if needed.
 
 ## [0.50.2] - 2025-11-27
 

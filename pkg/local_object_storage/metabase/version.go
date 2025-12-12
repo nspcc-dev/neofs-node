@@ -11,11 +11,8 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/bbolt"
 	berrors "github.com/nspcc-dev/bbolt/errors"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -51,8 +48,6 @@ var (
 	// and it's hardly acceptable, so in general it's better to log and
 	// continue rather than return an error.
 	migrateFrom = map[uint64]func(*DB) error{
-		3: migrateFrom3Version,
-		4: migrateFrom4Version,
 		5: migrateFrom5Version,
 		6: migrateFrom6Version,
 		7: migrateFrom7Version,
@@ -126,16 +121,7 @@ func getVersion(tx *bbolt.Tx) (uint64, bool) {
 	return 0, false
 }
 
-func migrateFrom3Version(db *DB) error {
-	var validPrefixes = []byte{unusedPrimaryPrefix, unusedTombstonePrefix, unusedStorageGroupPrefix, unusedLockersPrefix, unusedLinkObjectsPrefix}
-
-	err := updateContainersInterruptable(db, validPrefixes, migrateContainerToMetaBucket)
-	if err != nil {
-		return err
-	}
-	return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, 4) })
-}
-
+// nolint:unused
 func updateContainersInterruptable(db *DB, validPrefixes []byte, migrationFunc func(*zap.Logger, *bbolt.Tx, *bbolt.Bucket, cid.ID, []byte, uint) (uint, []byte, error)) error {
 	var fromBkt, afterObj []byte
 	for {
@@ -161,6 +147,7 @@ func updateContainersInterruptable(db *DB, validPrefixes []byte, migrationFunc f
 	}
 }
 
+// nolint:unused
 func iterateContainerBuckets(l *zap.Logger, cs Containers, tx *bbolt.Tx, fromBkt []byte, afterObj []byte, validPrefixes []byte,
 	migrationFunc func(*zap.Logger, *bbolt.Tx, *bbolt.Bucket, cid.ID, []byte, uint) (uint, []byte, error)) ([]byte, []byte, error) {
 	c := tx.Cursor()
@@ -197,297 +184,6 @@ func iterateContainerBuckets(l *zap.Logger, cs Containers, tx *bbolt.Tx, fromBkt
 		rem -= done
 	}
 	return name, afterObj, nil
-}
-
-func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.ID, after []byte, limit uint) (uint, []byte, error) {
-	var (
-		k, v []byte
-		c    = b.Cursor()
-	)
-	if after != nil {
-		if k, v = c.Seek(after); bytes.Equal(k, after) {
-			k, v = c.Next()
-		}
-	} else {
-		k, v = c.First()
-	}
-	metaBkt := tx.Bucket(metaBucketKey(cnr)) // may be nil
-	var done uint
-	for ; k != nil; k, v = c.Next() {
-		ok, err := migrateObjectToMetaBucket(l, tx, metaBkt, cnr, k, v)
-		if err != nil {
-			return 0, nil, err
-		}
-		if ok {
-			done++
-			if done == limit {
-				break
-			}
-		}
-	}
-	return done, k, nil
-}
-
-func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucket, cnr cid.ID, id, bin []byte) (bool, error) {
-	if len(id) != oid.Size {
-		return false, fmt.Errorf("wrong OID key len %d", len(id))
-	}
-	var hdr object.Object
-	if err := hdr.Unmarshal(bin); err != nil {
-		l.Info("invalid object binary in the container bucket's value, ignoring", zap.Error(err),
-			zap.Stringer("container", cnr), zap.Stringer("object", oid.ID(id)), zap.Binary("data", bin))
-		return false, nil
-	}
-	if err := objectcore.VerifyHeaderForMetadata(hdr); err != nil {
-		l.Info("invalid header in the container bucket, ignoring", zap.Error(err),
-			zap.Stringer("container", cnr), zap.Stringer("object", oid.ID(id)), zap.Binary("data", bin))
-		return false, nil
-	}
-	if metaBkt != nil {
-		key := [1 + oid.Size]byte{metaPrefixID}
-		copy(key[1:], id)
-		if metaBkt.Get(key[:]) != nil {
-			return false, nil
-		}
-	}
-	par := hdr.Parent()
-	if err := PutMetadataForObject(tx, hdr, true); err != nil {
-		return false, fmt.Errorf("put metadata for object %s: %w", oid.ID(id), err)
-	}
-	if par != nil && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
-		if err := objectcore.VerifyHeaderForMetadata(hdr); err != nil {
-			l.Info("invalid parent header in the container bucket, ignoring", zap.Error(err),
-				zap.Stringer("container", cnr), zap.Stringer("child", oid.ID(id)),
-				zap.Stringer("parent", par.GetID()), zap.Binary("data", bin))
-			return false, nil
-		}
-		if err := PutMetadataForObject(tx, *par, false); err != nil {
-			return false, fmt.Errorf("put metadata for parent of object %s: %w", oid.ID(id), err)
-		}
-	}
-	return true, nil
-}
-
-func migrateFrom4Version(db *DB) error {
-	err := updateContainersInterruptable(db, []byte{metadataPrefix}, fixMiddleObjectRoots)
-	if err != nil {
-		return err
-	}
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		var (
-			buckets          [][]byte
-			obsoletePrefixes = []byte{unusedSmallPrefix, unusedOwnerPrefix,
-				unusedUserAttributePrefix, unusedPayloadHashPrefix,
-				unusedSplitPrefix, unusedFirstObjectIDPrefix,
-				unusedParentPrefix, unusedRootPrefix}
-		)
-		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
-			if slices.Contains(obsoletePrefixes, name[0]) {
-				buckets = append(buckets, slices.Clone(name))
-			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("iterating buckets: %w", err)
-		}
-		for _, name := range buckets {
-			err := tx.DeleteBucket(name)
-			if err != nil {
-				return fmt.Errorf("deleting %v bucket: %w", name, err)
-			}
-		}
-		return updateVersion(tx, 5)
-	})
-}
-
-// fixMiddleObjectRoots removes root object marks for middle split objects, they
-// were erroneously treated as root ones before the fix.
-func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.ID, after []byte, limit uint) (uint, []byte, error) {
-	var (
-		c            = b.Cursor()
-		k            []byte
-		oidKey       = make([]byte, addressKeySize)
-		attrIDPrefix = []byte{metaPrefixAttrIDPlain}
-		queue        = make([]oid.ID, 0, limit)
-	)
-	attrIDPrefix = append(attrIDPrefix, object.FilterRoot...)
-	attrIDPrefix = append(attrIDPrefix, objectcore.MetaAttributeDelimiter...)
-	attrIDPrefix = append(attrIDPrefix, binPropMarker...)
-	attrIDPrefix = append(attrIDPrefix, objectcore.MetaAttributeDelimiter...)
-	if after == nil {
-		after = attrIDPrefix
-	}
-
-	k, _ = c.Seek(after)
-	if bytes.Equal(k, after) {
-		k, _ = c.Next()
-	}
-
-	for ; bytes.HasPrefix(k, attrIDPrefix); k, _ = c.Next() {
-		id, err := oid.DecodeBytes(k[len(attrIDPrefix):])
-		if err != nil {
-			return 0, nil, fmt.Errorf("wrong OID: %w", err)
-		}
-
-		var addr = oid.NewAddress(cnr, id)
-		hdr, err := getCompat(tx, addr, oidKey)
-		if err != nil {
-			return 0, nil, fmt.Errorf("header error for %s: %w", addr, err)
-		}
-
-		if hdr.HasParent() {
-			queue = append(queue, id)
-			if len(queue) == int(limit) {
-				break
-			}
-		}
-	}
-	for _, id := range queue {
-		err := b.Delete(slices.Concat(attrIDPrefix, id[:]))
-		if err != nil {
-			l.Warn("failed to delete root attrID key", zap.Stringer("container", cnr), zap.Stringer("object", id))
-		}
-		idAttrKey := prepareMetaIDAttrKey(&keyBuffer{}, id, object.FilterRoot, len(binPropMarker))
-		copy(idAttrKey[len(idAttrKey)-len(binPropMarker):], binPropMarker)
-		err = b.Delete(idAttrKey)
-		if err != nil {
-			l.Warn("failed to delete root IDattr key", zap.Stringer("container", cnr), zap.Stringer("object", id))
-		}
-	}
-	if len(queue) < int(limit) {
-		k = nil // End of iteration for this bucket.
-	}
-	return uint(len(queue)), k, nil
-}
-
-// getCompat is used for migrations only, it retrieves full headers from
-// respective buckets.
-func getCompat(tx *bbolt.Tx, addr oid.Address, key []byte) (*object.Object, error) {
-	key = objectKey(addr.Object(), key)
-	cnr := addr.Container()
-	obj := object.New()
-	bucketName := make([]byte, bucketKeySize)
-
-	// check in primary index
-	data := getFromBucket(tx, primaryBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in tombstone index
-	data = getFromBucket(tx, tombstoneBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in storage group index
-	data = getFromBucket(tx, storageGroupBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in locker index
-	data = getFromBucket(tx, bucketNameLockers(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	// if not found then check in link objects index
-	data = getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
-	}
-
-	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
-}
-
-func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return nil
-	}
-
-	return bkt.Get(key)
-}
-
-func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID) oid.ID {
-	var (
-		childOID     oid.ID
-		metaBucket   = tx.Bucket(metaBucketKey(cnr))
-		parentPrefix = getParentMetaOwnersPrefix(parentID)
-	)
-
-	if metaBucket == nil {
-		return childOID
-	}
-
-	var cur = metaBucket.Cursor()
-	k, _ := cur.Seek(parentPrefix)
-
-	if bytes.HasPrefix(k, parentPrefix) {
-		// Error will lead to zero oid which is ~the same as missing child.
-		childOID, _ = oid.DecodeBytes(k[len(parentPrefix):])
-	}
-	return childOID
-}
-
-func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*object.Object, error) {
-	var childOID = getChildForParent(tx, cnr, parentID)
-
-	if childOID.IsZero() {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	// we should have a link object
-	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), childOID[:])
-	if len(data) == 0 {
-		// no link object, so we may have the last object with parent header
-		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), childOID[:])
-	}
-
-	if len(data) == 0 {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	child := object.New()
-
-	err := child.Unmarshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", childOID, parentID, err)
-	}
-
-	par := child.Parent()
-
-	if par == nil { // this should never happen though
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	return par, nil
-}
-
-// primaryBucketName returns <CID>.
-func primaryBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, unusedPrimaryPrefix, key)
-}
-
-// returns name of the bucket with objects of type LOCK for specified container.
-func bucketNameLockers(idCnr cid.ID, key []byte) []byte {
-	return bucketName(idCnr, unusedLockersPrefix, key)
-}
-
-// tombstoneBucketName returns <CID>_TS.
-func tombstoneBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, unusedTombstonePrefix, key)
-}
-
-// linkObjectsBucketName returns link objects bucket key (`18<CID>`).
-func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, unusedLinkObjectsPrefix, key)
-}
-
-// storageGroupBucketName returns <CID>_SG.
-func storageGroupBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, unusedStorageGroupPrefix, key)
 }
 
 func migrateFrom5Version(db *DB) error {

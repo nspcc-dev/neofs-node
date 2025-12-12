@@ -70,29 +70,29 @@ const (
 	// unusedTombstonePrefix was deleted in metabase version 6
 	unusedTombstonePrefix
 	// unusedSmallPrefix was deleted in metabase version 5
-	unusedSmallPrefix
+	unusedSmallPrefix //nolint:unused
 	// unusedRootPrefix was deleted in metabase version 5
-	unusedRootPrefix
+	unusedRootPrefix //nolint:unused
 
 	// ====================
 	// FKBT index buckets.
 	// ====================
 
 	// unusedOwnerPrefix was deleted in metabase version 5
-	unusedOwnerPrefix
+	unusedOwnerPrefix //nolint:unused
 	// unusedUserAttributePrefix was deleted in metabase version 5
-	unusedUserAttributePrefix
+	unusedUserAttributePrefix //nolint:unused
 
 	// ====================
 	// List index buckets.
 	// ====================
 
 	// unusedPayloadHashPrefix was deleted in metabase version 5
-	unusedPayloadHashPrefix
+	unusedPayloadHashPrefix //nolint:unused
 	// unusedParentPrefix was deleted in metabase version 5
-	unusedParentPrefix
+	unusedParentPrefix //nolint:unused
 	// unusedSplitPrefix was deleted in metabase version 5
-	unusedSplitPrefix
+	unusedSplitPrefix //nolint:unused
 
 	// unusedGarbageContainersPrefix was deleted in metabase version 8
 	unusedGarbageContainersPrefix
@@ -101,7 +101,7 @@ const (
 	unusedLinkObjectsPrefix
 
 	// unusedFirstObjectIDPrefix was deleted in metabase version 5
-	unusedFirstObjectIDPrefix
+	unusedFirstObjectIDPrefix //nolint:unused
 )
 
 // key prefix for per-container buckets storing objects' metadata required to
@@ -115,12 +115,6 @@ const (
 	objectKeySize  = sha256.Size
 	addressKeySize = cidSize + objectKeySize
 )
-
-func bucketName(cnr cid.ID, prefix byte, key []byte) []byte {
-	key[0] = prefix
-	copy(key[1:], cnr[:])
-	return key[:bucketKeySize]
-}
 
 // addressKey returns key for K-V tables when key is a whole address.
 func addressKey(addr oid.Address, key []byte) []byte {
@@ -150,12 +144,6 @@ func decodeAddressFromKey(dst *oid.Address, k []byte) error {
 	dst.SetObject(obj)
 	dst.SetContainer(cnr)
 	return nil
-}
-
-// objectKey returns key for K-V tables when key is an object id.
-func objectKey(obj oid.ID, key []byte) []byte {
-	copy(key, obj[:])
-	return key[:objectKeySize]
 }
 
 // return true if provided object is of LOCK type.
