@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -118,4 +119,54 @@ func (p PersistentStorage) RemoveOldTokens(epoch uint64) {
 			zap.Uint64("epoch", epoch),
 		)
 	}
+}
+
+// FindTokenBySubjects searches for a private token whose public key
+// matches any of the given user ID Targets.
+// Returns nil if no matching non-expired token is found.
+func (p PersistentStorage) FindTokenBySubjects(ownerID user.ID, subjects []sessionv2.Target) (result *session.PrivateToken) {
+	err := p.db.View(func(tx *bbolt.Tx) error {
+		rootBucket := tx.Bucket(sessionsBucket)
+		if rootBucket == nil {
+			return nil
+		}
+
+		ownerBucket := rootBucket.Bucket(ownerID[:])
+		if ownerBucket == nil {
+			return nil
+		}
+
+		c := ownerBucket.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			token, err := p.unpackToken(v)
+			if err != nil {
+				p.l.Warn("could not unpack token during UserID search",
+					zap.String("tokenID", hex.EncodeToString(k)),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			tokenUserID := user.NewFromECDSAPublicKey(token.SessionKey().PublicKey)
+
+			for _, subject := range subjects {
+				if tokenUserID == subject.UserID() {
+					result = token
+					return nil
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		p.l.Error("could not search for any subject in persistent storage",
+			zap.Error(err),
+			zap.Stringer("ownerID", ownerID),
+			zap.Stringers("subjects", subjects),
+		)
+	}
+
+	return result
 }

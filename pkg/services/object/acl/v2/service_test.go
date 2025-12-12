@@ -2,11 +2,13 @@ package v2_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -26,6 +28,10 @@ import (
 
 type mockFSChain struct{}
 
+func (x *mockFSChain) MsPerBlock() (res int64, err error) {
+	panic("unimplemented")
+}
+
 func (x *mockFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
 	panic("unimplemented")
 }
@@ -34,11 +40,21 @@ func (x *mockFSChain) InContainerInLastTwoEpochs(cid.ID, []byte) (bool, error) {
 	return false, nil
 }
 
+func (x *mockFSChain) HasUserInNNS(string, util.Uint160) (bool, error) {
+	panic("unimplemented")
+}
+
 type mockIR struct {
 }
 
 func (x *mockIR) InnerRingKeys() ([][]byte, error) {
 	return nil, nil
+}
+
+type mockTimeProvider struct{}
+
+func (mockTimeProvider) Now() time.Time {
+	return time.Now()
 }
 
 type mockContainers struct {
@@ -106,10 +122,12 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 	var fsChain mockFSChain
 	var nm mockNetmapper
 	var ir mockIR
+	var tp mockTimeProvider
 	svc := aclsvc.New(&fsChain,
 		aclsvc.WithContainerSource(&cnrs),
 		aclsvc.WithNetmapper(&nm),
 		aclsvc.WithIRFetcher(&ir),
+		aclsvc.WithTimeProvider(&tp),
 	)
 
 	var bt bearer.Token
