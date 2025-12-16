@@ -249,7 +249,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithContainerClient(c.cCli),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
-		putsvc.WithObjectStorage(storageEngine{engine: ls}),
+		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithRemoteWorkerPool(c.cfgObject.pool.putRemote),
@@ -445,28 +445,6 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 	}
 
 	return cl, nil
-}
-
-type storageEngine struct {
-	engine *engine.StorageEngine
-}
-
-func (e storageEngine) IsLocked(address oid.Address) (bool, error) {
-	return e.engine.IsLocked(address)
-}
-
-func (e storageEngine) Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error {
-	addrs := make([]oid.Address, len(toDelete))
-	for i := range addrs {
-		addrs[i].SetContainer(tombstone.Container())
-		addrs[i].SetObject(toDelete[i])
-	}
-
-	return e.engine.Inhume(tombstone, tombExpiration, addrs...)
-}
-
-func (e storageEngine) Put(o *objectSDK.Object, objBin []byte) error {
-	return e.engine.Put(o, objBin)
 }
 
 func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int, l *zap.Logger) headerSource {
