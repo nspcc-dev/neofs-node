@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -245,12 +246,16 @@ func TestGC(t *testing.T) {
 		obj := generateObjectWithCID(cnr)
 		require.NoError(t, e.Put(obj, nil))
 		tomb := generateObjectWithCID(cnr)
-		tomb.SetType(objectSDK.TypeTombstone)
+
+		var a objectSDK.Attribute
+		a.SetKey(objectSDK.AttributeExpirationEpoch)
+		a.SetValue(strconv.Itoa(int(es.e)))
+		tomb.SetAttributes(a)
 
 		objAddr := object.AddressOf(obj)
-		tombAddr := object.AddressOf(tomb)
+		tomb.AssociateDeleted(obj.GetID())
 
-		require.NoError(t, e.Inhume(tombAddr, 1, objAddr))
+		require.NoError(t, e.Put(tomb, nil))
 
 		_, err := e.Get(objAddr)
 		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
@@ -477,9 +482,13 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 
 	// Now delete the link object to simulate missing link scenario
 	tomb := generateObjectWithCID(cnr)
-	tomb.SetType(objectSDK.TypeTombstone)
-	tombAddr := object.AddressOf(tomb)
-	require.NoError(t, e.Inhume(tombAddr, 1, linkAddr))
+	var a objectSDK.Attribute
+	a.SetKey(objectSDK.AttributeExpirationEpoch)
+	a.SetValue(strconv.Itoa(int(es.e)))
+	tomb.SetAttributes(a)
+	tomb.AssociateDeleted(linkObj.GetID())
+
+	require.NoError(t, e.Put(tomb, nil))
 
 	_, err = e.Get(linkAddr)
 	require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)

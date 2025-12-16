@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -19,7 +20,6 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	fs := objectSDK.SearchFilters{}
 	fs.AddRootFilter()
 
-	tombstoneID := object.AddressOf(generateObjectWithCID(cnr))
 	parent := generateObjectWithCID(cnr)
 
 	child := generateObjectWithCID(cnr)
@@ -43,7 +43,15 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err := e.Put(parent, nil)
 		require.NoError(t, err)
 
-		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
+		tomb := generateObjectWithCID(parent.GetContainerID())
+
+		var a objectSDK.Attribute
+		a.SetKey(objectSDK.AttributeExpirationEpoch)
+		a.SetValue(strconv.Itoa(100500))
+		tomb.SetAttributes(a)
+		tomb.AssociateDeleted(idParent)
+
+		err = e.Put(tomb, nil)
 		require.NoError(t, err)
 
 		addrs, err := e.Select(cnr, fs)
@@ -64,13 +72,21 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err = s2.Put(link, nil)
 		require.NoError(t, err)
 
-		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
+		tomb := generateObjectWithCID(parent.GetContainerID())
+
+		var a objectSDK.Attribute
+		a.SetKey(objectSDK.AttributeExpirationEpoch)
+		a.SetValue(strconv.Itoa(100500))
+		tomb.SetAttributes(a)
+		tomb.AssociateDeleted(idParent)
+
+		err = e.Put(tomb, nil)
 		require.NoError(t, err)
 
-		t.Run("empty search should fail", func(t *testing.T) {
+		t.Run("empty search should return ts", func(t *testing.T) {
 			addrs, err := e.Select(cnr, objectSDK.SearchFilters{})
 			require.NoError(t, err)
-			require.Empty(t, addrs)
+			require.Equal(t, []oid.Address{object.AddressOf(tomb)}, addrs)
 		})
 
 		t.Run("root search should fail", func(t *testing.T) {

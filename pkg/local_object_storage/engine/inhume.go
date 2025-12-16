@@ -19,28 +19,6 @@ import (
 
 var errInhumeFailure = errors.New("inhume operation failed")
 
-// Inhume calls [metabase.Inhume] method to mark an object as removed following
-// tombstone data. It won't be removed physically from the shard until GC cycle
-// does it.
-//
-// Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
-// if at least one object is locked.
-//
-// Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddInhumeDuration)()
-	}
-
-	e.blockMtx.RLock()
-	defer e.blockMtx.RUnlock()
-
-	if e.blockErr != nil {
-		return e.blockErr
-	}
-	return e.inhume(addrs, false, &tombstone, tombExpiration)
-}
-
 func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
 	for i := range addrs {
 		if !force {
