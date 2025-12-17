@@ -83,6 +83,15 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err = e.Put(tomb, nil)
 		require.NoError(t, err)
 
+		_, err = e.Get(object.AddressOf(parent))
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+
+		_, err = e.Get(object.AddressOf(child))
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+
+		_, err = e.Get(object.AddressOf(link))
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+
 		t.Run("empty search should return ts", func(t *testing.T) {
 			addrs, err := e.Select(cnr, objectSDK.SearchFilters{})
 			require.NoError(t, err)

@@ -111,6 +111,19 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 }
 
 func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
+	var status = objectStatusDirect(tx, metaCursor, addr, currEpoch)
+
+	if status == statusAvailable && metaCursor != nil {
+		var parent = findParent(metaCursor, addr.Object())
+		if !parent.IsZero() {
+			addr.SetObject(parent)
+			status = objectStatusDirect(tx, metaCursor, addr, currEpoch)
+		}
+	}
+	return status
+}
+
+func objectStatusDirect(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
 	var (
 		oID = addr.Object()
 		cID = addr.Container()
@@ -132,6 +145,75 @@ func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, curr
 	return graveyardStatus
 }
 
+// getObjAttribute returns given attribute of the object if it's present, nil otherwise.
+func getObjAttribute(metaCursor *bbolt.Cursor, objID oid.ID, attr string) []byte {
+	var objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:], []byte(attr), objectcore.MetaAttributeDelimiter)
+
+	k, _ := metaCursor.Seek(objPrefix)
+	if bytes.HasPrefix(k, objPrefix) {
+		return k[len(objPrefix):]
+	}
+	return nil
+}
+
+// getObjIDAttribute returns OID from the given attribute of the object if
+// it's present, zero value otherwise.
+func getObjIDAttribute(metaCursor *bbolt.Cursor, objID oid.ID, attr string) oid.ID {
+	var (
+		res oid.ID
+		val = getObjAttribute(metaCursor, objID, attr)
+	)
+	if val != nil {
+		res, _ = oid.DecodeBytes(val) // Errors can't help us here.
+	}
+	return res
+}
+
+// getParentID returns parent address if it exists for the object.
+func getParentID(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
+	return getObjIDAttribute(metaCursor, objID, objectSDK.FilterParentID)
+}
+
+// seekForParentViaAttribute tries to find a parent of a set of objects with
+// the same attribute and value. Obviously this only makes sense if the parent
+// is the same, that is attribute is either a first object ID or a split ID.
+func seekForParentViaAttribute(metaCursor *bbolt.Cursor, attr string, val []byte) oid.ID {
+	var (
+		idCursor = metaCursor.Bucket().Cursor()
+		pref     = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
+			objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
+	)
+
+	for k, _ := metaCursor.Seek(pref); bytes.HasPrefix(k, pref); k, _ = metaCursor.Next() {
+		child, err := oid.DecodeBytes(k[len(pref):])
+		if err != nil {
+			continue
+		}
+		parent := getParentID(idCursor, child)
+		if !parent.IsZero() {
+			return parent
+		}
+	}
+	return oid.ID{}
+}
+
+// findParent resolves parent ID if objID is somehow a part of a split chain.
+func findParent(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
+	var parent = getParentID(metaCursor, objID)
+
+	if !parent.IsZero() {
+		return parent
+	}
+
+	for _, attr := range []string{objectSDK.FilterFirstSplitObject, objectSDK.FilterSplitID} {
+		var val = getObjAttribute(metaCursor, objID, attr)
+		if val != nil {
+			return seekForParentViaAttribute(metaCursor, attr, val)
+		}
+	}
+	return parent
+}
+
 // isExpired checks if the object expired at the current epoch.
 // If metaCursor is nil, it always returns false.
 func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
@@ -139,17 +221,9 @@ func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
 		return false
 	}
 
-	var expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
+	var val = getObjAttribute(metaCursor, idObj, objectSDK.AttributeExpirationEpoch)
 
-	expPrefix[0] = metaPrefixIDAttr
-	copy(expPrefix[1:], idObj[:])
-	copy(expPrefix[1+len(idObj):], objectSDK.AttributeExpirationEpoch)
-
-	expKey, _ := metaCursor.Seek(expPrefix)
-	if bytes.HasPrefix(expKey, expPrefix) {
-		// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
-		var val = expKey[len(expPrefix):]
-
+	if val != nil {
 		objExpiration, err := strconv.ParseUint(string(val), 10, 64)
 		return (err == nil) && (currEpoch > objExpiration)
 	}
