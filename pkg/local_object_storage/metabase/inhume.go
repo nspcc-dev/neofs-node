@@ -97,7 +97,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				if j != 0 && addrs[i+j].Container() != cnr {
 					continue
 				}
-				partIDs, err := collectChildren(metaBucket, metaCursor, addrs[i+j].Object())
+				partIDs, err := collectChildren(metaBucket, metaCursor, cnr, addrs[i+j].Object())
 				if err != nil {
 					return fmt.Errorf("collect EC parts: %w", err)
 				}

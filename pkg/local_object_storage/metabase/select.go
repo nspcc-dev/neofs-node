@@ -164,22 +164,29 @@ func (db *DB) CollectRawWithAttribute(cnr cid.ID, attr string, val []byte) ([]oi
 		if metaBkt == nil {
 			return nil
 		}
-		var (
-			cur  = metaBkt.Cursor()
-			pref = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
-				objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
-		)
-		for k, _ := cur.Seek(pref); bytes.HasPrefix(k, pref); k, _ = cur.Next() {
-			child, err := oid.DecodeBytes(k[len(pref):])
-			if err != nil {
-				continue
-			}
-			res = append(res, child)
-		}
+		var cur = metaBkt.Cursor()
+		res = collectRawWithAttribute(cur, attr, val)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return res, err
+}
+
+func collectRawWithAttribute(cur *bbolt.Cursor, attr string, val []byte) []oid.ID {
+	var (
+		pref = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
+			objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
+		res []oid.ID
+	)
+
+	for k, _ := cur.Seek(pref); bytes.HasPrefix(k, pref); k, _ = cur.Next() {
+		child, err := oid.DecodeBytes(k[len(pref):])
+		if err != nil {
+			continue
+		}
+		res = append(res, child)
+	}
+	return res
 }
