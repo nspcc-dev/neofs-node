@@ -16,21 +16,19 @@ import (
 
 var errInhumeFailure = errors.New("inhume operation failed")
 
-func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
+func (e *StorageEngine) inhume(addrs []oid.Address, tombstone *oid.Address, tombExpiration uint64) error {
 	for i := range addrs {
-		if !force {
-			locked, err := e.IsLocked(addrs[i])
-			if err != nil {
-				e.log.Warn("removing an object without full locking check",
-					zap.Error(err),
-					zap.Stringer("addr", addrs[i]))
-			} else if locked {
-				var lockedErr apistatus.ObjectLocked
-				return lockedErr
-			}
+		locked, err := e.IsLocked(addrs[i])
+		if err != nil {
+			e.log.Warn("removing an object without full locking check",
+				zap.Error(err),
+				zap.Stringer("addr", addrs[i]))
+		} else if locked {
+			var lockedErr apistatus.ObjectLocked
+			return lockedErr
 		}
 
-		err := e.inhumeAddr(addrs[i], force, tombstone, tombExpiration)
+		err = e.inhumeAddr(addrs[i], tombstone, tombExpiration)
 		if err != nil {
 			return err
 		}
@@ -66,12 +64,9 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 }
 
 // Returns ok if object was inhumed during this invocation or before.
-func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
+func (e *StorageEngine) inhumeAddr(addr oid.Address, tombstone *oid.Address, tombExpiration uint64) error {
 	return e.processAddrDelete(addr, func(sh *shard.Shard, addrs []oid.Address) error {
-		if tombstone != nil {
-			return sh.Inhume(*tombstone, tombExpiration, addrs...)
-		}
-		return sh.MarkGarbage(force, addrs...)
+		return sh.Inhume(*tombstone, tombExpiration, addrs...)
 	})
 }
 

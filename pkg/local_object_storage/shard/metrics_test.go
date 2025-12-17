@@ -125,7 +125,7 @@ func TestCounters(t *testing.T) {
 		inhumedNumber := objNumber / 4
 
 		for i := range inhumedNumber {
-			err := sh.MarkGarbage(false, objectcore.AddressOf(oo[i]))
+			err := sh.MarkGarbage(objectcore.AddressOf(oo[i]))
 			require.NoError(t, err)
 		}
 

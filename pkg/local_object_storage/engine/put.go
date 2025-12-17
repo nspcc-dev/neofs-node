@@ -68,7 +68,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 				return fmt.Errorf("cannot parse %s TS's expiration: %w", addr, err)
 			}
 
-			err = e.inhume([]oid.Address{oid.NewAddress(addr.Container(), deleted)}, false, &addr, tsExp)
+			err = e.inhume([]oid.Address{oid.NewAddress(addr.Container(), deleted)}, &addr, tsExp)
 			if err != nil {
 				return fmt.Errorf("cannot inhume %s object on %s TS put: %w", deleted, addr, err)
 			}

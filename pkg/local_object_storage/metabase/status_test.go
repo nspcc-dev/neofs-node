@@ -91,7 +91,7 @@ func TestDB_ObjectStatus(t *testing.T) {
 
 		addr := oid.NewAddress(obj.GetContainerID(), obj.GetID())
 
-		n, _, err := db.MarkGarbage(false, addr)
+		n, _, err := db.MarkGarbage(addr)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, n)
 

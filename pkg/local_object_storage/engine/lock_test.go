@@ -187,9 +187,6 @@ func TestLockForceRemoval(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3.
-	err = e.inhume([]oid.Address{objectcore.AddressOf(obj)}, false, nil, 0)
-	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
 	var (
 		a              object.Attribute
 		tombForLockObj = generateObjectWithCID(cnr)
@@ -207,7 +204,7 @@ func TestLockForceRemoval(t *testing.T) {
 	require.NoError(t, err)
 
 	// 5.
-	err = e.inhume([]oid.Address{objectcore.AddressOf(obj)}, false, nil, 0)
+	err = e.Put(tombForLockObj, nil)
 	require.NoError(t, err)
 }
 

@@ -94,7 +94,7 @@ func TestInhumeLocked(t *testing.T) {
 	err := db.Put(locker)
 	require.NoError(t, err)
 
-	_, _, err = db.MarkGarbage(false, locked)
+	_, _, err = db.Inhume(oidtest.Address(), 100500, locked)
 
 	var e apistatus.ObjectLocked
 	require.ErrorAs(t, err, &e)

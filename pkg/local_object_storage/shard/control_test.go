@@ -243,7 +243,7 @@ func TestResyncMetabase(t *testing.T) {
 		for i := range locked {
 			addr.SetObject(locked[i])
 
-			err := sh.MarkGarbage(false, addr)
+			err := sh.Inhume(object.AddressOf(&tombObj), 100500, addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectLocked),
 				"object %s should be locked", locked[i])
 		}

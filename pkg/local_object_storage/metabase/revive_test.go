@@ -63,7 +63,7 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.True(t, exists)
 
 		// inhume with GC mark
-		_, _, err = db.MarkGarbage(false, object.AddressOf(raw))
+		_, _, err = db.MarkGarbage(object.AddressOf(raw))
 		require.NoError(t, err)
 
 		_, err = metaExists(db, object.AddressOf(raw))
@@ -93,7 +93,7 @@ func TestDB_ReviveObject(t *testing.T) {
 		locker.AssociateLocked(locked.Object())
 		require.NoError(t, db.Put(locker))
 
-		_, _, err := db.MarkGarbage(false, locked)
+		_, _, err := db.Inhume(oidtest.Address(), 100500, locked)
 
 		require.ErrorIs(t, err, new(apistatus.ObjectLocked))
 

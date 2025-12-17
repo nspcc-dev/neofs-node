@@ -23,18 +23,18 @@ var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
-	return s.inhume(&tombstone, tombExpiration, false, addrs...)
+	return s.inhume(&tombstone, tombExpiration, addrs...)
 }
 
-// MarkGarbage marks objects to be physically removed from shard. force flag
-// allows to override any restrictions imposed on object deletion (to be used
+// MarkGarbage marks objects to be physically removed from shard. It's a forced
+// mark that overrides any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
 // to [Shard.Inhume], but doesn't need a tombstone.
-func (s *Shard) MarkGarbage(force bool, addrs ...oid.Address) error {
-	return s.inhume(nil, 0, force, addrs...)
+func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
+	return s.inhume(nil, 0, addrs...)
 }
 
-func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, addrs ...oid.Address) error {
+func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
 	s.m.RLock()
 
 	if s.info.Mode.ReadOnly() {
@@ -53,7 +53,7 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 	if tombstone != nil {
 		inhumed, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, addrs...)
 	} else {
-		inhumed, _, err = s.metaBase.MarkGarbage(force, addrs...)
+		inhumed, _, err = s.metaBase.MarkGarbage(addrs...)
 	}
 
 	if err != nil {

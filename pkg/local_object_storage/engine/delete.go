@@ -22,7 +22,9 @@ func (e *StorageEngine) Delete(addr oid.Address) error {
 	if e.blockErr != nil {
 		return e.blockErr
 	}
-	return e.inhume([]oid.Address{addr}, true, nil, 0)
+	return e.processAddrDelete(addr, func(sh *shard.Shard, addrs []oid.Address) error {
+		return sh.MarkGarbage(addrs...)
+	})
 }
 
 // Drop removes an object from the storage engine from all shards. This

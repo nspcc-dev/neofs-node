@@ -476,7 +476,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		// all available
 		check(t, ids)
 		t.Run("garbage mark", func(t *testing.T) {
-			_, _, err := db.MarkGarbage(false, oid.NewAddress(cnr, ids[1]))
+			_, _, err := db.MarkGarbage(oid.NewAddress(cnr, ids[1]))
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:1], ids[2:]))
 			// resurrect the object

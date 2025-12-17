@@ -204,7 +204,7 @@ func TestCounters_Expired(t *testing.T) {
 	// the GC do) should decrease the logic counter despite the
 	// expiration fact
 
-	inhumed, deleted, err := db.MarkGarbage(false, oo[0])
+	inhumed, deleted, err := db.MarkGarbage(oo[0])
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), inhumed)
 	require.Nil(t, deleted)

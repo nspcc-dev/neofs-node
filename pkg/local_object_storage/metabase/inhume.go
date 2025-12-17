@@ -37,8 +37,8 @@ func (db *DB) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.
 // allows to override any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
 // to [DB.Inhume], but doesn't need a tombstone.
-func (db *DB) MarkGarbage(force bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
-	return db.inhume(nil, 0, force, addrs...)
+func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
+	return db.inhume(nil, 0, true, addrs...)
 }
 
 func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, addrs ...oid.Address) (uint64, []oid.Address, error) {

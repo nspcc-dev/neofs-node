@@ -157,12 +157,12 @@ func TestDB_ResolveECPart(t *testing.T) {
 			require.NoError(t, db.Put(&tomb))
 		}},
 		{name: "garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
-			_, _, err := db.MarkGarbage(false, partAddr)
+			_, _, err := db.MarkGarbage(partAddr)
 			require.NoError(t, err)
 		}},
 		{name: "stored with garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.MarkGarbage(false, parentAddr)
+			_, _, err := db.MarkGarbage(parentAddr)
 			require.NoError(t, err)
 		}},
 		{name: "container garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -185,7 +185,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "expired with garbage mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
-			_, _, err := db.MarkGarbage(false, partAddr)
+			_, _, err := db.MarkGarbage(partAddr)
 			require.NoError(t, err)
 		}},
 		{name: "expired with container garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -277,7 +277,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		{name: "stored with garbage mark and locker", preset: func(t *testing.T) *meta.DB {
 			db := newDB(t)
 			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.MarkGarbage(false, partAddr)
+			_, _, err := db.MarkGarbage(partAddr)
 			require.NoError(t, err)
 			require.NoError(t, db.Put(&locker))
 			return db
@@ -658,7 +658,7 @@ func testMarkGarbageEC(t *testing.T) {
 
 	assertECGroupAvailable(t, db, parent, parts)
 
-	inhumed, _, err := db.MarkGarbage(false, parentAddr)
+	inhumed, _, err := db.MarkGarbage(parentAddr)
 	require.NoError(t, err)
 
 	allAddrs := append(partAddrs, parentAddr)
