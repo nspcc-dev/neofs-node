@@ -1,15 +1,12 @@
 package engine
 
 import (
-	"encoding/base64"
 	"errors"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -230,59 +227,28 @@ func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *objectS
 	e.log.Info("root object has no link object in split upload",
 		zap.Stringer("addrBeingInhumed", addr))
 
-	var (
-		children  []oid.Address
-		fs        objectSDK.SearchFilters
-		newCursor []byte
-		res       []client.SearchResultItem
-		cnr       = addr.Container()
-		tmpAddr   oid.Address
-	)
-	tmpAddr.SetContainer(cnr)
-
 	firstID := si.GetFirstPart()
 	splitID := si.SplitID()
 	switch {
 	case !firstID.IsZero():
-		fs.AddFirstSplitObjectFilter(objectSDK.MatchStringEqual, firstID)
-		tmpAddr.SetObject(firstID)
-		children = append(children, tmpAddr)
+		res, err := e.collectRawWithAttribute(addr.Container(), objectSDK.FilterFirstSplitObject, firstID[:])
+		if err == nil {
+			res = append(res, oid.NewAddress(addr.Container(), firstID))
+			return res
+		}
+		e.log.Warn("failed to collect objects with first ID", zap.Stringer("addrBeingInhumed", addr), zap.Error(err))
 	case splitID != nil:
-		fs.AddSplitIDFilter(objectSDK.MatchStringEqual, *splitID)
+		res, err := e.collectRawWithAttribute(addr.Container(), objectSDK.FilterSplitID, splitID.ToV2())
+		if err == nil {
+			return res
+		}
+		e.log.Warn("failed to collect objects with split ID", zap.Stringer("addrBeingInhumed", addr), zap.Error(err))
 	default:
 		e.log.Warn("no first ID and split ID found in split",
 			zap.Stringer("addrBeingInhumed", addr))
-
-		return nil
 	}
 
-	for {
-		fss, cursor, err := objectcore.PreprocessSearchQuery(fs, nil, base64.StdEncoding.EncodeToString(newCursor))
-		if err != nil {
-			e.log.Error("cannot preprocess search query for split-chain",
-				zap.Stringer("addrBeingInhumed", addr),
-				zap.Error(err))
-			break
-		}
-		res, newCursor, err = e.Search(cnr, fss, nil, cursor, uint16(1000))
-		if err != nil {
-			e.log.Error("cannot search for children in split-chain",
-				zap.String("searchBy", fss[0].Value()),
-				zap.Stringer("addrBeingInhumed", addr),
-				zap.Error(err))
-			break
-		}
-
-		for _, item := range res {
-			tmpAddr.SetObject(item.ID)
-			children = append(children, tmpAddr)
-		}
-		if newCursor == nil {
-			break
-		}
-	}
-
-	return children
+	return nil
 }
 
 // IsLocked checks whether an object is locked according to StorageEngine's state.
