@@ -209,19 +209,12 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 			case errors.Is(err, shard.ErrLockObjectRemoval):
 				return meta.ErrLockObjectRemoval // Always a final error if returned.
 			case errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode):
-				if root {
-					retErr = err
-					continue
-				}
-				return err
+				retErr = err
+				continue
 			}
 
 			e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
 			continue
-		}
-
-		if !root {
-			return nil
 		}
 
 		ok = true
