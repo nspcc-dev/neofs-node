@@ -53,7 +53,6 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 	}
 
 	s.decObjectCounterBy(physical, res.RawRemoved)
-	s.decObjectCounterBy(logical, res.AvailableRemoved)
 
 	var totalRemovedPayload uint64
 

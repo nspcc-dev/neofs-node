@@ -45,15 +45,12 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...o
 		return ErrDegradedMode
 	}
 
-	var (
-		err     error
-		inhumed uint64
-	)
+	var err error
 
 	if tombstone != nil {
-		inhumed, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, addrs...)
+		_, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, addrs...)
 	} else {
-		inhumed, _, err = s.metaBase.MarkGarbage(addrs...)
+		_, _, err = s.metaBase.MarkGarbage(addrs...)
 	}
 
 	if err != nil {
@@ -79,8 +76,6 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...o
 
 	s.m.RUnlock()
 
-	s.decObjectCounterBy(logical, inhumed)
-
 	return nil
 }
 
@@ -101,12 +96,10 @@ func (s *Shard) InhumeContainer(cID cid.ID) error {
 		return ErrDegradedMode
 	}
 
-	removedObjects, err := s.metaBase.InhumeContainer(cID)
+	_, err := s.metaBase.InhumeContainer(cID)
 	if err != nil {
 		return fmt.Errorf("mark container as inhumed in metabase: %w", err)
 	}
-
-	s.decObjectCounterBy(logical, removedObjects)
 
 	return nil
 }
