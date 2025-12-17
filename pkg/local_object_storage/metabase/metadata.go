@@ -199,7 +199,7 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 		}
 	}
 
-	if !parent.IsZero() {
+	if !parent.IsZero() && getParentInfo(metaBkt, c, cnr, parent) == nil {
 		_, err = deleteMetadata(tx, l, cnr, parent, true)
 		if err != nil {
 			l.Warn("parent removal",
