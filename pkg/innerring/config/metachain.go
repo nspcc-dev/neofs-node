@@ -1,13 +1,12 @@
-package metaconfig
+package config
 
-import (
-	"time"
+import "time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-)
+// TODO
+type MetaChain struct {
+	// Swith experimental meta-on-chain support.
+	Enabled bool `mapstructure:"enabled"`
 
-// Meta contains configuration for Meta service.
-type Meta struct {
 	// List of nodes' addresses to communicate with over Neo P2P protocol in
 	// 'host:port' format.
 	//
@@ -17,7 +16,7 @@ type Meta struct {
 	// Storage configuration. Must be set using one of constructors like BoltDB.
 	//
 	// Required.
-	Storage config.Storage `mapstructure:"storage"`
+	Storage Storage `mapstructure:"storage"`
 
 	// Maximum time period (approximate) between two adjacent blocks,
 	// if used enables dynamic block time (contrary to TimePerBlock
@@ -30,10 +29,10 @@ type Meta struct {
 	// Neo RPC service configuration.
 	//
 	// Optional: see RPC defaults.
-	RPC config.RPC `mapstructure:"rpc"`
+	RPC RPC `mapstructure:"rpc"`
 
 	// P2P settings.
 	//
 	// Required.
-	P2P config.P2P `mapstructure:"p2p"`
+	P2P P2P `mapstructure:"p2p"`
 }
