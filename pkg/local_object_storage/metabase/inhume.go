@@ -29,19 +29,19 @@ var ErrLockObjectRemoval = logicerr.New("lock object removal")
 //
 // Returns the number of available objects that were inhumed and a list of
 // deleted LOCK objects (if handleLocks parameter is set).
-func (db *DB) Inhume(tombstone oid.Address, tombExpiration uint64, handleLocks bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
-	return db.inhume(&tombstone, tombExpiration, false, handleLocks, addrs...)
+func (db *DB) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) (uint64, []oid.Address, error) {
+	return db.inhume(&tombstone, tombExpiration, false, addrs...)
 }
 
 // MarkGarbage marks objects to be physically removed from shard. force flag
 // allows to override any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
 // to [DB.Inhume], but doesn't need a tombstone.
-func (db *DB) MarkGarbage(force bool, handleLocks bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
-	return db.inhume(nil, 0, force, handleLocks, addrs...)
+func (db *DB) MarkGarbage(force bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
+	return db.inhume(nil, 0, force, addrs...)
 }
 
-func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, handleLocks bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
+func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -189,7 +189,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				return err
 			}
 
-			if handleLocks && force && isLockObject(tx, cnr, id) { // if !force object cannot be LOCK, see above
+			if force && isLockObject(tx, cnr, id) { // if !force object cannot be LOCK, see above
 				deletedLockObjs = append(deletedLockObjs, addr)
 			}
 		}

@@ -76,7 +76,7 @@ func TestDB_ObjectStatus(t *testing.T) {
 		tombAddr := oid.NewAddress(obj.GetContainerID(), oidtest.ID())
 		addr := oid.NewAddress(obj.GetContainerID(), obj.GetID())
 
-		n, _, err := db.Inhume(tombAddr, 0, false, addr)
+		n, _, err := db.Inhume(tombAddr, 0, addr)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, n)
 
@@ -91,7 +91,7 @@ func TestDB_ObjectStatus(t *testing.T) {
 
 		addr := oid.NewAddress(obj.GetContainerID(), obj.GetID())
 
-		n, _, err := db.MarkGarbage(false, false, addr)
+		n, _, err := db.MarkGarbage(false, addr)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, n)
 

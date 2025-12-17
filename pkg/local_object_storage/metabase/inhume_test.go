@@ -51,7 +51,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	addr3.SetContainer(addr1.Container())
 
 	// inhume addr1 via addr2
-	_, _, err = db.Inhume(addr2, 0, false, addr1)
+	_, _, err = db.Inhume(addr2, 0, addr1)
 	require.NoError(t, err)
 
 	// addr1 should become inhumed {addr1:addr2}
@@ -59,7 +59,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	// try to inhume addr3 via addr1
-	_, _, err = db.Inhume(addr1, 0, false, addr3)
+	_, _, err = db.Inhume(addr1, 0, addr3)
 	require.NoError(t, err)
 
 	// record with {addr1:addr2} should be removed from graveyard
@@ -74,7 +74,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	// try to inhume addr1 (which is already a tombstone in graveyard)
-	_, _, err = db.Inhume(oidtest.Address(), 0, false, addr1)
+	_, _, err = db.Inhume(oidtest.Address(), 0, addr1)
 	require.NoError(t, err)
 
 	// record with addr1 key should not appear in graveyard
@@ -94,7 +94,7 @@ func TestInhumeLocked(t *testing.T) {
 	err := db.Put(locker)
 	require.NoError(t, err)
 
-	_, _, err = db.MarkGarbage(false, false, locked)
+	_, _, err = db.MarkGarbage(false, locked)
 
 	var e apistatus.ObjectLocked
 	require.ErrorAs(t, err, &e)
@@ -150,6 +150,6 @@ func TestDB_MarkGarbage(t *testing.T) {
 }
 
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {
-	_, _, err := db.Inhume(tomb, 0, false, target)
+	_, _, err := db.Inhume(tomb, 0, target)
 	return err
 }

@@ -51,9 +51,9 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 	)
 
 	if tombstone != nil {
-		inhumed, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, true, addrs...)
+		inhumed, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, addrs...)
 	} else {
-		inhumed, _, err = s.metaBase.MarkGarbage(force, true, addrs...)
+		inhumed, _, err = s.metaBase.MarkGarbage(force, addrs...)
 	}
 
 	if err != nil {

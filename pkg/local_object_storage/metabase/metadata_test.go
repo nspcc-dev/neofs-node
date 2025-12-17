@@ -476,7 +476,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		// all available
 		check(t, ids)
 		t.Run("garbage mark", func(t *testing.T) {
-			_, _, err := db.MarkGarbage(false, false, oid.NewAddress(cnr, ids[1]))
+			_, _, err := db.MarkGarbage(false, oid.NewAddress(cnr, ids[1]))
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:1], ids[2:]))
 			// resurrect the object
@@ -485,7 +485,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			check(t, ids)
 		})
 		t.Run("tombstone", func(t *testing.T) {
-			_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), math.MaxUint64, false, oid.NewAddress(cnr, ids[2]))
+			_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), math.MaxUint64, oid.NewAddress(cnr, ids[2]))
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:2], ids[3:]))
 			// resurrect the object
