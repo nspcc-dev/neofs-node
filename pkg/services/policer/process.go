@@ -3,7 +3,6 @@ package policer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -46,12 +45,12 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor, iec.AttributeRuleIdx, iec.AttributePartIdx, object.FilterParentID)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
-				time.Sleep(repCooldown) // finished whole cycle, sleep a bit
 				p.log.Info("finished local storage cycle")
-				continue
+			} else {
+				p.log.Warn("failure at object select for replication", zap.Error(err))
 			}
-			err = fmt.Errorf("cannot list objects in engine: %w", err)
-			p.log.Warn("failure at object select for replication", zap.Error(err))
+			time.Sleep(repCooldown)
+			continue
 		}
 
 		for i := range addrs {
