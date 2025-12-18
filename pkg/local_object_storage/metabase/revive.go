@@ -106,17 +106,31 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 			}
 		}
 
-		val := graveyardBKT.Get(targetKey)
+		var (
+			val         = graveyardBKT.Get(targetKey)
+			tombAddress oid.Address
+		)
 		if val != nil {
 			// object in the graveyard
 			if err := graveyardBKT.Delete(targetKey); err != nil {
 				return err
 			}
 
-			var tombAddress oid.Address
 			if err := decodeAddressFromKey(&tombAddress, val[:addressKeySize]); err != nil {
 				return err
 			}
+		} else if metaCursor != nil {
+			deleted, tombOID := associatedWithTypedObject(0, metaCursor, addr.Object(), object.TypeTombstone)
+			if deleted {
+				tombAddress.SetContainer(cnr)
+				tombAddress.SetObject(tombOID)
+				_, _, _, err := db.delete(tx, tombAddress)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if !tombAddress.Object().IsZero() {
 			res.setStatusGraveyard(tombAddress.EncodeToString())
 			res.tombstoneAddr = tombAddress
 		} else {
