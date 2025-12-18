@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -245,12 +246,16 @@ func TestGC(t *testing.T) {
 		obj := generateObjectWithCID(cnr)
 		require.NoError(t, e.Put(obj, nil))
 		tomb := generateObjectWithCID(cnr)
-		tomb.SetType(objectSDK.TypeTombstone)
+
+		var a objectSDK.Attribute
+		a.SetKey(objectSDK.AttributeExpirationEpoch)
+		a.SetValue(strconv.Itoa(int(es.e)))
+		tomb.SetAttributes(a)
 
 		objAddr := object.AddressOf(obj)
-		tombAddr := object.AddressOf(tomb)
+		tomb.AssociateDeleted(obj.GetID())
 
-		require.NoError(t, e.Inhume(tombAddr, 1, objAddr))
+		require.NoError(t, e.Put(tomb, nil))
 
 		_, err := e.Get(objAddr)
 		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
@@ -397,11 +402,10 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 	es := &asyncEpochState{e: 10}
 	l, logBuf := testutil.NewBufferedLogger(t, zap.DebugLevel)
 	e := New(WithLogger(l))
+	fstr := newStorage(filepath.Join(dir, "fstree"))
 	_, err := e.AddShard(
 		shard.WithLogger(l),
-		shard.WithBlobstor(
-			newStorage(filepath.Join(dir, "fstree")),
-		),
+		shard.WithBlobstor(fstr),
 		shard.WithMetaBaseOptions(
 			meta.WithLogger(l),
 			meta.WithPath(filepath.Join(dir, "metabase")),
@@ -474,15 +478,20 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 	var splitErr *objectSDK.SplitInfoError
 	require.ErrorAs(t, err, &splitErr)
 	require.Equal(t, linkObj.GetID(), splitErr.SplitInfo().GetLink())
+	require.Equal(t, childIDs[len(childIDs)-1], splitErr.SplitInfo().GetLastPart())
+	require.Equal(t, childIDs[0], splitErr.SplitInfo().GetFirstPart())
 
 	// Now delete the link object to simulate missing link scenario
-	tomb := generateObjectWithCID(cnr)
-	tomb.SetType(objectSDK.TypeTombstone)
-	tombAddr := object.AddressOf(tomb)
-	require.NoError(t, e.Inhume(tombAddr, 1, linkAddr))
+	require.NoError(t, fstr.Delete(linkAddr))
 
 	_, err = e.Get(linkAddr)
-	require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
+	require.ErrorIs(t, err, statusSDK.ErrObjectNotFound)
+
+	_, err = e.Get(parentAddr)
+	require.ErrorAs(t, err, &splitErr)
+	require.Equal(t, linkObj.GetID(), splitErr.SplitInfo().GetLink()) // Pretends to be here, but not in fact.
+	require.Equal(t, childIDs[len(childIDs)-1], splitErr.SplitInfo().GetLastPart())
+	require.Equal(t, childIDs[0], splitErr.SplitInfo().GetFirstPart())
 
 	tickEpoch(es, e)
 

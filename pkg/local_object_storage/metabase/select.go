@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
@@ -140,4 +141,52 @@ func (db *DB) FilterExpired(addresses []oid.Address) ([]oid.Address, error) {
 	}
 
 	return res, nil
+}
+
+// CollectRawWithAttribute allows to fetch the list of objects precisely
+// matching given attribute and value. No expiration/lock/tombstone checks
+// are made.
+func (db *DB) CollectRawWithAttribute(cnr cid.ID, attr string, val []byte) ([]oid.ID, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
+	var (
+		metaBktKey = metaBucketKey(cnr)
+		res        []oid.ID
+	)
+
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		var metaBkt = tx.Bucket(metaBktKey)
+		if metaBkt == nil {
+			return nil
+		}
+		var cur = metaBkt.Cursor()
+		res = collectRawWithAttribute(cur, attr, val)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, err
+}
+
+func collectRawWithAttribute(cur *bbolt.Cursor, attr string, val []byte) []oid.ID {
+	var (
+		pref = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
+			objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
+		res []oid.ID
+	)
+
+	for k, _ := cur.Seek(pref); bytes.HasPrefix(k, pref); k, _ = cur.Next() {
+		child, err := oid.DecodeBytes(k[len(pref):])
+		if err != nil {
+			continue
+		}
+		res = append(res, child)
+	}
+	return res
 }

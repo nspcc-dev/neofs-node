@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -199,7 +200,7 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 		}
 	}
 
-	if !parent.IsZero() {
+	if !parent.IsZero() && getParentInfo(metaBkt, c, cnr, parent) == nil {
 		_, err = deleteMetadata(tx, l, cnr, parent, true)
 		if err != nil {
 			l.Warn("parent removal",
@@ -447,35 +448,55 @@ func resolveContainerByOID(tx *bbolt.Tx, metaOIDKey []byte) (cid.ID, error) {
 	return res, err
 }
 
-func collectChildren(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, parentID oid.ID) ([]oid.ID, error) {
-	var res []oid.ID
+func collectChildren(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, cnr cid.ID, parentID oid.ID) ([]oid.ID, error) {
+	var (
+		errECParts iec.ErrParts
+		siErr      *object.SplitInfoError
+		parInfo    = getParentInfo(cnrMetaBkt, cnrMetaCrs, cnr, parentID)
+	)
 
-	parentPrefix := getParentMetaOwnersPrefix(parentID)
-
-	var partCrs *bbolt.Cursor
-	for k, _ := cnrMetaCrs.Seek(parentPrefix); ; k, _ = cnrMetaCrs.Next() {
-		partID, ok := bytes.CutPrefix(k, parentPrefix)
-		if !ok {
-			break
-		}
-		if len(partID) != oid.Size {
-			return nil, invalidMetaBucketKeyErr(k, fmt.Errorf("invalid OID len %d", len(partID)))
-		}
-
-		if partCrs == nil {
-			partCrs = cnrMetaBkt.Cursor()
-		}
-
-		id := oid.ID(partID)
-
-		parts, err := collectChildren(cnrMetaBkt, partCrs, id)
-		if err != nil {
-			return nil, fmt.Errorf("collect for child %s: %w", id, err)
-		}
-
-		res = append(res, parts...)
-		res = append(res, id)
+	if parInfo == nil {
+		return nil, nil
 	}
-
-	return res, nil
+	if errors.As(parInfo, &errECParts) {
+		return []oid.ID(errECParts), nil
+	}
+	if errors.As(parInfo, &siErr) {
+		var (
+			si       = siErr.SplitInfo()
+			firstID  = si.GetFirstPart()
+			splitID  = si.SplitID()
+			res      []oid.ID
+			children []oid.ID
+		)
+		switch {
+		case !firstID.IsZero():
+			children = collectRawWithAttribute(cnrMetaCrs, object.FilterFirstSplitObject, firstID[:])
+			children = append(children, firstID)
+		case splitID != nil:
+			children = collectRawWithAttribute(cnrMetaCrs, object.FilterSplitID, splitID.ToV2())
+		default:
+			// Shouldn't happen, but try to extract at least something.
+			var (
+				link = si.GetLink()
+				last = si.GetLastPart()
+			)
+			if !link.IsZero() {
+				children = append(children, link)
+			}
+			if !last.IsZero() {
+				children = append(children, last)
+			}
+		}
+		res = append(res, children...)
+		for _, id := range children {
+			grandchildren, err := collectChildren(cnrMetaBkt, cnrMetaCrs, cnr, id)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, grandchildren...)
+		}
+		return res, nil
+	}
+	return nil, parInfo
 }

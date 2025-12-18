@@ -18,7 +18,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -149,7 +148,6 @@ func TestResyncMetabase(t *testing.T) {
 	require.NoError(t, sh.Init())
 
 	const objNum = 10
-	oldVersion := version.New(2, 17)
 
 	mObjs := make(map[oid.Address]objAddr)
 	locked := make([]oid.ID, 1, 2)
@@ -180,27 +178,10 @@ func TestResyncMetabase(t *testing.T) {
 		}
 	}
 
+	tombedID := oidtest.ID()
 	tombObj := objecttest.Object()
-	tombObj.SetType(objectSDK.TypeTombstone)
-	tombObj.SetVersion(&oldVersion)
-
-	tombstone := objecttest.Tombstone()
-
-	tombData := tombstone.Marshal()
-
-	tombObj.SetPayload(tombData)
-
-	tombMembers := make([]oid.Address, 0, len(tombstone.Members()))
-
-	members := tombstone.Members()
-	for i := range tombstone.Members() {
-		var a oid.Address
-		a.SetObject(members[i])
-		cnr := tombObj.GetContainerID()
-		a.SetContainer(cnr)
-
-		tombMembers = append(tombMembers, a)
-	}
+	tombObj.AssociateDeleted(tombedID)
+	tombedAddress := oid.NewAddress(tombObj.GetContainerID(), tombedID)
 
 	for _, v := range mObjs {
 		err := sh.Put(v.obj, nil)
@@ -220,7 +201,7 @@ func TestResyncMetabase(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = sh.Inhume(object.AddressOf(&tombObj), 0, tombMembers...)
+	err = sh.Inhume(object.AddressOf(&tombObj), 0, tombedAddress)
 	require.NoError(t, err)
 
 	checkObj := func(addr oid.Address, expObj *objectSDK.Object) {
@@ -246,14 +227,12 @@ func TestResyncMetabase(t *testing.T) {
 	}
 
 	checkTombMembers := func(exists bool) {
-		for _, member := range tombMembers {
-			_, err := sh.Head(member, false)
+		_, err := sh.Head(tombedAddress, false)
 
-			if exists {
-				require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
-			} else {
-				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-			}
+		if exists {
+			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
+		} else {
+			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 		}
 	}
 
@@ -264,7 +243,7 @@ func TestResyncMetabase(t *testing.T) {
 		for i := range locked {
 			addr.SetObject(locked[i])
 
-			err := sh.MarkGarbage(false, addr)
+			err := sh.Inhume(object.AddressOf(&tombObj), 100500, addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectLocked),
 				"object %s should be locked", locked[i])
 		}

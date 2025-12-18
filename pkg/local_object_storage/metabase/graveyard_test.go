@@ -61,7 +61,7 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	err = putBig(db, obj1)
 	require.NoError(t, err)
 
-	_, _, err = db.MarkGarbage(false, false, object.AddressOf(obj1))
+	_, _, err = db.MarkGarbage(object.AddressOf(obj1))
 	require.NoError(t, err)
 
 	var (
@@ -122,11 +122,11 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	// inhume with tombstone
 	addrTombstone := oidtest.Address()
 
-	_, _, err = db.Inhume(addrTombstone, 0, false, object.AddressOf(obj1), object.AddressOf(obj2))
+	_, _, err = db.Inhume(addrTombstone, 0, object.AddressOf(obj1), object.AddressOf(obj2))
 	require.NoError(t, err)
 
 	// inhume with GC mark
-	_, _, err = db.MarkGarbage(false, false, object.AddressOf(obj3), object.AddressOf(obj4))
+	_, _, err = db.MarkGarbage(object.AddressOf(obj3), object.AddressOf(obj4))
 	require.NoError(t, err)
 
 	var (
@@ -194,7 +194,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	// inhume with tombstone
 	addrTombstone := oidtest.Address()
 
-	_, _, err = db.Inhume(addrTombstone, 0, false, object.AddressOf(obj1), object.AddressOf(obj2),
+	_, _, err = db.Inhume(addrTombstone, 0, object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4))
 
 	require.NoError(t, err)
@@ -278,7 +278,7 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	err = putBig(db, obj4)
 	require.NoError(t, err)
 
-	_, _, err = db.MarkGarbage(false, false, object.AddressOf(obj1), object.AddressOf(obj2),
+	_, _, err = db.MarkGarbage(object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4))
 
 	require.NoError(t, err)
@@ -389,10 +389,10 @@ func TestDropExpiredTSMarks(t *testing.T) {
 		droppedObjects[i].SetContainer(tombstone.Container())
 	}
 
-	_, _, err := db.Inhume(tombstone, epoch, false, droppedObjects[:len(droppedObjects)/2]...)
+	_, _, err := db.Inhume(tombstone, epoch, droppedObjects[:len(droppedObjects)/2]...)
 	require.NoError(t, err)
 
-	_, _, err = db.Inhume(tombstone, epoch+1, false, droppedObjects[len(droppedObjects)/2:]...)
+	_, _, err = db.Inhume(tombstone, epoch+1, droppedObjects[len(droppedObjects)/2:]...)
 	require.NoError(t, err)
 
 	for _, o := range droppedObjects {

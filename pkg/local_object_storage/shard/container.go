@@ -33,12 +33,10 @@ func (s *Shard) DeleteContainer(_ context.Context, cID cid.ID) error {
 		return ErrReadOnlyMode
 	}
 
-	inhumedAvailable, err := s.metaBase.InhumeContainer(cID)
+	_, err := s.metaBase.InhumeContainer(cID)
 	if err != nil {
 		return fmt.Errorf("inhuming container in metabase: %w", err)
 	}
-
-	s.decObjectCounterBy(logical, inhumedAvailable)
 
 	return nil
 }

@@ -165,21 +165,21 @@ func TestDB_Lock_Removed(t *testing.T) {
 		}},
 		{name: "with target and tombstone mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
-			n, _, err := db.Inhume(tombAddr, 0, false, objAddr)
+			n, _, err := db.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n)
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone mark without target", preset: func(t *testing.T, db *meta.DB) {
-			_, _, err := db.Inhume(tombAddr, 0, false, objAddr)
+			_, _, err := db.Inhume(tombAddr, 0, objAddr)
 			require.NoError(t, err)
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
-			_, _, err := db.MarkGarbage(false, false, objAddr)
+			_, _, err := db.MarkGarbage(objAddr)
 			require.NoError(t, err)
 		}},
 	} {

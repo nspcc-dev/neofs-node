@@ -141,12 +141,12 @@ func TestDB_ResolveECPart(t *testing.T) {
 			addPart(t, db, iec.PartInfo{RuleIndex: pi.RuleIndex + 1, Index: pi.Index + 1})
 		}},
 		{name: "tombstone mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
-			_, _, err := db.Inhume(tombAddr, 0, false, partAddr)
+			_, _, err := db.Inhume(tombAddr, 0, partAddr)
 			require.NoError(t, err)
 		}},
 		{name: "stored with tombstone mark", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.Inhume(tombAddr, 0, false, parentAddr)
+			_, _, err := db.Inhume(tombAddr, 0, parentAddr)
 			require.NoError(t, err)
 		}},
 		{name: "tombstone only", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
@@ -157,12 +157,12 @@ func TestDB_ResolveECPart(t *testing.T) {
 			require.NoError(t, db.Put(&tomb))
 		}},
 		{name: "garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
-			_, _, err := db.MarkGarbage(false, false, partAddr)
+			_, _, err := db.MarkGarbage(partAddr)
 			require.NoError(t, err)
 		}},
 		{name: "stored with garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.MarkGarbage(false, false, parentAddr)
+			_, _, err := db.MarkGarbage(parentAddr)
 			require.NoError(t, err)
 		}},
 		{name: "container garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -176,7 +176,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "expired with tombstone mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
-			_, _, err := db.Inhume(tombAddr, 0, false, partAddr)
+			_, _, err := db.Inhume(tombAddr, 0, partAddr)
 			require.NoError(t, err)
 		}},
 		{name: "expired with tombstone", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
@@ -185,7 +185,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "expired with garbage mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
-			_, _, err := db.MarkGarbage(false, false, partAddr)
+			_, _, err := db.MarkGarbage(partAddr)
 			require.NoError(t, err)
 		}},
 		{name: "expired with container garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -277,7 +277,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		{name: "stored with garbage mark and locker", preset: func(t *testing.T) *meta.DB {
 			db := newDB(t)
 			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.MarkGarbage(false, false, partAddr)
+			_, _, err := db.MarkGarbage(partAddr)
 			require.NoError(t, err)
 			require.NoError(t, db.Put(&locker))
 			return db
@@ -457,11 +457,16 @@ func testExistsEC(t *testing.T) {
 		partIDs = append(partIDs, part.GetID())
 	}
 
-	assertChildrenAvailable := func(t *testing.T) {
+	assertChildrenAvailable := func(t *testing.T, expired bool) {
 		for i := range partIDs {
 			exists, err := db.Exists(oid.NewAddress(cnr, partIDs[i]), false)
-			require.NoError(t, err)
-			require.True(t, exists)
+			if expired {
+				require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+				require.False(t, exists)
+			} else {
+				require.NoError(t, err)
+				require.True(t, exists)
+			}
 			exists, err = db.Exists(oid.NewAddress(cnr, partIDs[i]), true)
 			require.NoError(t, err)
 			require.True(t, exists)
@@ -477,7 +482,7 @@ func testExistsEC(t *testing.T) {
 		_, err = db.Exists(parentAddr, true)
 		assertECPartsError(t, err, partIDs)
 
-		assertChildrenAvailable(t)
+		assertChildrenAvailable(t, true)
 
 		state.e--
 	})
@@ -487,7 +492,7 @@ func testExistsEC(t *testing.T) {
 	_, err = db.Exists(parentAddr, true)
 	assertECPartsError(t, err, partIDs)
 
-	assertChildrenAvailable(t)
+	assertChildrenAvailable(t, false)
 }
 
 func testGetEC(t *testing.T) {
@@ -520,12 +525,17 @@ func testGetEC(t *testing.T) {
 		partIDs = append(partIDs, part.GetID())
 	}
 
-	assertChildrenAvailable := func(t *testing.T) {
+	assertChildrenAvailable := func(t *testing.T, expired bool) {
 		for i := range parts {
-			_, err := db.Get(oid.NewAddress(cnr, parts[i].GetID()), false)
-			require.NoError(t, err)
-			_, err = db.Get(oid.NewAddress(cnr, parts[i].GetID()), true)
-			require.NoError(t, err)
+			_, err1 := db.Get(oid.NewAddress(cnr, parts[i].GetID()), false)
+			_, err2 := db.Get(oid.NewAddress(cnr, parts[i].GetID()), true)
+			if expired {
+				require.ErrorIs(t, err1, meta.ErrObjectIsExpired)
+				require.ErrorIs(t, err2, meta.ErrObjectIsExpired)
+			} else {
+				require.NoError(t, err1)
+				require.NoError(t, err2)
+			}
 		}
 	}
 
@@ -537,7 +547,7 @@ func testGetEC(t *testing.T) {
 		_, err = db.Get(parentAddr, true)
 		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
-		assertChildrenAvailable(t)
+		assertChildrenAvailable(t, true)
 
 		state.e--
 	})
@@ -552,7 +562,7 @@ func testGetEC(t *testing.T) {
 	require.ErrorAs(t, err, &ecParts)
 	require.ElementsMatch(t, partIDs, ecParts)
 
-	assertChildrenAvailable(t)
+	assertChildrenAvailable(t, false)
 }
 
 func testInhumeEC(t *testing.T) {
@@ -584,7 +594,7 @@ func testInhumeEC(t *testing.T) {
 
 	tombAddr := oid.NewAddress(cnr, oidtest.ID())
 
-	inhumed, _, err := db.Inhume(tombAddr, 0, false, parentAddr)
+	inhumed, _, err := db.Inhume(tombAddr, 0, parentAddr)
 	require.NoError(t, err)
 
 	allAddrs := append(partAddrs, parentAddr)
@@ -648,7 +658,7 @@ func testMarkGarbageEC(t *testing.T) {
 
 	assertECGroupAvailable(t, db, parent, parts)
 
-	inhumed, _, err := db.MarkGarbage(false, false, parentAddr)
+	inhumed, _, err := db.MarkGarbage(parentAddr)
 	require.NoError(t, err)
 
 	allAddrs := append(partAddrs, parentAddr)

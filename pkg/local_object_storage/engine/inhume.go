@@ -1,15 +1,12 @@
 package engine
 
 import (
-	"encoding/base64"
 	"errors"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -19,43 +16,19 @@ import (
 
 var errInhumeFailure = errors.New("inhume operation failed")
 
-// Inhume calls [metabase.Inhume] method to mark an object as removed following
-// tombstone data. It won't be removed physically from the shard until GC cycle
-// does it.
-//
-// Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
-// if at least one object is locked.
-//
-// Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddInhumeDuration)()
-	}
-
-	e.blockMtx.RLock()
-	defer e.blockMtx.RUnlock()
-
-	if e.blockErr != nil {
-		return e.blockErr
-	}
-	return e.inhume(addrs, false, &tombstone, tombExpiration)
-}
-
-func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
+func (e *StorageEngine) inhume(addrs []oid.Address, tombstone *oid.Address, tombExpiration uint64) error {
 	for i := range addrs {
-		if !force {
-			locked, err := e.IsLocked(addrs[i])
-			if err != nil {
-				e.log.Warn("removing an object without full locking check",
-					zap.Error(err),
-					zap.Stringer("addr", addrs[i]))
-			} else if locked {
-				var lockedErr apistatus.ObjectLocked
-				return lockedErr
-			}
+		locked, err := e.IsLocked(addrs[i])
+		if err != nil {
+			e.log.Warn("removing an object without full locking check",
+				zap.Error(err),
+				zap.Stringer("addr", addrs[i]))
+		} else if locked {
+			var lockedErr apistatus.ObjectLocked
+			return lockedErr
 		}
 
-		err := e.inhumeAddr(addrs[i], force, tombstone, tombExpiration)
+		err = e.inhumeAddr(addrs[i], tombstone, tombExpiration)
 		if err != nil {
 			return err
 		}
@@ -91,12 +64,9 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 }
 
 // Returns ok if object was inhumed during this invocation or before.
-func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
+func (e *StorageEngine) inhumeAddr(addr oid.Address, tombstone *oid.Address, tombExpiration uint64) error {
 	return e.processAddrDelete(addr, func(sh *shard.Shard, addrs []oid.Address) error {
-		if tombstone != nil {
-			return sh.Inhume(*tombstone, tombExpiration, addrs...)
-		}
-		return sh.MarkGarbage(force, addrs...)
+		return sh.Inhume(*tombstone, tombExpiration, addrs...)
 	})
 }
 
@@ -231,19 +201,12 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 			case errors.Is(err, shard.ErrLockObjectRemoval):
 				return meta.ErrLockObjectRemoval // Always a final error if returned.
 			case errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode):
-				if root {
-					retErr = err
-					continue
-				}
-				return err
+				retErr = err
+				continue
 			}
 
 			e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
 			continue
-		}
-
-		if !root {
-			return nil
 		}
 
 		ok = true
@@ -259,59 +222,28 @@ func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *objectS
 	e.log.Info("root object has no link object in split upload",
 		zap.Stringer("addrBeingInhumed", addr))
 
-	var (
-		children  []oid.Address
-		fs        objectSDK.SearchFilters
-		newCursor []byte
-		res       []client.SearchResultItem
-		cnr       = addr.Container()
-		tmpAddr   oid.Address
-	)
-	tmpAddr.SetContainer(cnr)
-
 	firstID := si.GetFirstPart()
 	splitID := si.SplitID()
 	switch {
 	case !firstID.IsZero():
-		fs.AddFirstSplitObjectFilter(objectSDK.MatchStringEqual, firstID)
-		tmpAddr.SetObject(firstID)
-		children = append(children, tmpAddr)
+		res, err := e.collectRawWithAttribute(addr.Container(), objectSDK.FilterFirstSplitObject, firstID[:])
+		if err == nil {
+			res = append(res, oid.NewAddress(addr.Container(), firstID))
+			return res
+		}
+		e.log.Warn("failed to collect objects with first ID", zap.Stringer("addrBeingInhumed", addr), zap.Error(err))
 	case splitID != nil:
-		fs.AddSplitIDFilter(objectSDK.MatchStringEqual, *splitID)
+		res, err := e.collectRawWithAttribute(addr.Container(), objectSDK.FilterSplitID, splitID.ToV2())
+		if err == nil {
+			return res
+		}
+		e.log.Warn("failed to collect objects with split ID", zap.Stringer("addrBeingInhumed", addr), zap.Error(err))
 	default:
 		e.log.Warn("no first ID and split ID found in split",
 			zap.Stringer("addrBeingInhumed", addr))
-
-		return nil
 	}
 
-	for {
-		fss, cursor, err := objectcore.PreprocessSearchQuery(fs, nil, base64.StdEncoding.EncodeToString(newCursor))
-		if err != nil {
-			e.log.Error("cannot preprocess search query for split-chain",
-				zap.Stringer("addrBeingInhumed", addr),
-				zap.Error(err))
-			break
-		}
-		res, newCursor, err = e.Search(cnr, fss, nil, cursor, uint16(1000))
-		if err != nil {
-			e.log.Error("cannot search for children in split-chain",
-				zap.String("searchBy", fss[0].Value()),
-				zap.Stringer("addrBeingInhumed", addr),
-				zap.Error(err))
-			break
-		}
-
-		for _, item := range res {
-			tmpAddr.SetObject(item.ID)
-			children = append(children, tmpAddr)
-		}
-		if newCursor == nil {
-			break
-		}
-	}
-
-	return children
+	return nil
 }
 
 // IsLocked checks whether an object is locked according to StorageEngine's state.

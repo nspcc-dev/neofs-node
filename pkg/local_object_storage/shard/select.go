@@ -45,3 +45,14 @@ func (s *Shard) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string,
 	}
 	return res, newCursor, nil
 }
+
+// CollectRawWithAttribute looks up for raw objects with the given attribute
+// and value.
+func (s *Shard) CollectRawWithAttribute(cnr cid.ID, attr string, val []byte) ([]oid.ID, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+	if s.info.Mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+	return s.metaBase.CollectRawWithAttribute(cnr, attr, val)
+}

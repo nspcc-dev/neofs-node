@@ -154,7 +154,7 @@ func TestShard_Put_Lock(t *testing.T) {
 		{name: "with target and GC mark", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&obj, nil))
 
-			err := sh.MarkGarbage(false, objAddr)
+			err := sh.MarkGarbage(objAddr)
 			require.NoError(t, err)
 		}},
 	} {

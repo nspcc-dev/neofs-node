@@ -3,10 +3,7 @@ package shard
 import (
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -187,46 +184,6 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 		return nil
 	}
 
-	if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
-		// nolint: exhaustive
-		switch obj.Type() {
-		case objectSDK.TypeTombstone:
-			tombstone := objectSDK.NewTombstone()
-			exp, err := object.Expiration(*obj)
-			if err != nil && !errors.Is(err, object.ErrNoExpiration) {
-				return fmt.Errorf("tombstone's expiration: %w", err)
-			}
-
-			if err := tombstone.Unmarshal(obj.Payload()); err != nil {
-				return fmt.Errorf("could not unmarshal tombstone content: %w", err)
-			}
-
-			tombAddr := object.AddressOf(obj)
-			memberIDs := tombstone.Members()
-			tombMembers := make([]oid.Address, 0, len(memberIDs))
-
-			for i := range memberIDs {
-				a := tombAddr
-				a.SetObject(memberIDs[i])
-
-				tombMembers = append(tombMembers, a)
-			}
-
-			_, _, err = s.metaBase.Inhume(tombAddr, exp, false, tombMembers...)
-			if err != nil {
-				if errors.Is(err, apistatus.ErrObjectLocked) {
-					// if we are trying to inhume locked object, likely we are doing
-					// something wrong and it should not stop resynchronisation
-					s.log.Warn("inhuming locked objects",
-						zap.Stringer("TS_address", tombAddr),
-						zap.Stringers("targets", memberIDs))
-					return nil
-				}
-				return fmt.Errorf("could not inhume [%s] objects: %w", oidsToString(memberIDs), err)
-			}
-		}
-	}
-
 	err := s.metaBase.Put(obj)
 	if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) &&
 		!errors.Is(err, apistatus.ErrObjectLocked) {
@@ -234,18 +191,6 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 	}
 
 	return nil
-}
-
-func oidsToString(ids []oid.ID) string {
-	var res strings.Builder
-	for i, id := range ids {
-		res.WriteString(id.String())
-		if i != len(ids)-1 {
-			res.WriteString(", ")
-		}
-	}
-
-	return res.String()
 }
 
 // Close releases all Shard's components.

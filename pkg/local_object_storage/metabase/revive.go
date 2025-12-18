@@ -177,15 +177,11 @@ func getTombstoneByAssociatedObject(metaCursor *bbolt.Cursor, idObj oid.ID) (oid
 	}
 
 	var (
-		typString        = object.TypeTombstone.String()
-		idStr            = idObj.EncodeToString()
-		accPrefix        = make([]byte, 1+len(object.AttributeAssociatedObject)+1+len(idStr)+1)
-		typeKey          = make([]byte, metaIDTypePrefixSize+len(typString))
-		expirationPrefix = make([]byte, attrIDFixedLen+len(object.AttributeExpirationEpoch))
+		typString = object.TypeTombstone.String()
+		idStr     = idObj.EncodeToString()
+		accPrefix = make([]byte, 1+len(object.AttributeAssociatedObject)+1+len(idStr)+1)
+		typeKey   = make([]byte, metaIDTypePrefixSize+len(typString))
 	)
-
-	expirationPrefix[0] = metaPrefixIDAttr
-	copy(expirationPrefix[1+oid.Size:], object.AttributeExpirationEpoch)
 
 	accPrefix[0] = metaPrefixAttrIDPlain
 	copy(accPrefix[1:], object.AttributeAssociatedObject)

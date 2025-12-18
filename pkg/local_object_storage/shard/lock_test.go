@@ -66,9 +66,6 @@ func TestShard_Lock(t *testing.T) {
 
 		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
-
-		err = sh.MarkGarbage(false, objectcore.AddressOf(obj))
-		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 	})
 
 	t.Run("inhuming lock objects", func(t *testing.T) {
@@ -76,25 +73,23 @@ func TestShard_Lock(t *testing.T) {
 
 		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(lock))
 		require.Error(t, err)
-
-		err = sh.MarkGarbage(false, objectcore.AddressOf(lock))
-		require.Error(t, err)
 	})
 
 	t.Run("force objects inhuming", func(t *testing.T) {
-		err = sh.MarkGarbage(true, objectcore.AddressOf(lock))
+		err = sh.MarkGarbage(objectcore.AddressOf(lock))
 		require.NoError(t, err)
 
 		// it should be possible to remove
 		// lock object now
 
-		err = sh.MarkGarbage(false, objectcore.AddressOf(obj))
+		ts := generateObjectWithCID(cnr)
+		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
 		require.NoError(t, err)
 
 		// check that object has been removed
 
 		_, err = sh.Get(objectcore.AddressOf(obj), false)
-		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 	})
 }
 
@@ -206,7 +201,7 @@ func TestShard_Lock_Removed(t *testing.T) {
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&obj, nil))
-			err := sh.MarkGarbage(false, objAddr)
+			err := sh.MarkGarbage(objAddr)
 			require.NoError(t, err)
 		}},
 	} {

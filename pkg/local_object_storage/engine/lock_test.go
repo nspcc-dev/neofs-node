@@ -34,10 +34,6 @@ func TestLockUserScenario(t *testing.T) {
 	const lockerExpiresAfter = 13
 
 	cnr := cidtest.ID()
-	tombObj := generateObjectWithCID(cnr)
-	tombForLockID := oidtest.ID()
-	tombObj.SetID(tombForLockID)
-
 	e := testEngineFromShardOpts(t, 2, []shard.Option{
 		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
 	})
@@ -47,15 +43,12 @@ func TestLockUserScenario(t *testing.T) {
 	})
 
 	lockerID := oidtest.ID()
-	tombID := oidtest.ID()
 	var err error
 
-	var objAddr oid.Address
-	objAddr.SetContainer(cnr)
-
-	var tombAddr oid.Address
-	tombAddr.SetContainer(cnr)
-	tombAddr.SetObject(tombID)
+	var (
+		obj = generateObjectWithCID(cnr)
+		id  = obj.GetID()
+	)
 
 	var lockerAddr oid.Address
 	lockerAddr.SetContainer(cnr)
@@ -69,16 +62,15 @@ func TestLockUserScenario(t *testing.T) {
 	lockerObj.SetID(lockerID)
 	lockerObj.SetAttributes(a)
 
-	var tombForLockAddr oid.Address
-	tombForLockAddr.SetContainer(cnr)
-	tombForLockAddr.SetObject(tombForLockID)
+	var tombObj = generateObjectWithCID(cnr)
+	tombObj.SetAttributes(a)
+	tombObj.AssociateDeleted(id)
+
+	var tombForLockObj = generateObjectWithCID(cnr)
+	tombForLockObj.SetAttributes(a)
+	tombForLockObj.AssociateDeleted(lockerID)
 
 	// 1.
-	obj := generateObjectWithCID(cnr)
-
-	id := obj.GetID()
-	objAddr.SetObject(id)
-
 	err = e.Put(obj, nil)
 	require.NoError(t, err)
 
@@ -89,18 +81,11 @@ func TestLockUserScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3.
-	err = e.Inhume(tombAddr, 0, objAddr)
+	err = e.Put(tombObj, nil)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	tombObj.SetType(object.TypeTombstone)
-	tombObj.SetID(tombForLockID)
-	tombObj.SetAttributes(a)
-
-	err = e.Put(tombObj, nil)
-	require.NoError(t, err)
-
-	err = e.Inhume(tombForLockAddr, 0, lockerAddr)
+	err = e.Put(tombForLockObj, nil)
 	require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
 
 	// 5.
@@ -109,7 +94,7 @@ func TestLockUserScenario(t *testing.T) {
 	// delay for GC
 	time.Sleep(time.Second)
 
-	err = e.Inhume(tombAddr, 0, objAddr)
+	err = e.Put(tombObj, nil)
 	require.NoError(t, err)
 }
 
@@ -151,7 +136,11 @@ func TestLockExpiration(t *testing.T) {
 	err = e.Put(lock, nil)
 	require.NoError(t, err)
 
-	err = e.Inhume(oidtest.Address(), 0, objectcore.AddressOf(obj))
+	var tombForObj = generateObjectWithCID(cnr)
+	tombForObj.SetAttributes(a)
+	tombForObj.AssociateDeleted(obj.GetID())
+
+	err = e.Put(tombForObj, nil)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 3.
@@ -162,7 +151,7 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	err = e.Inhume(oidtest.Address(), 0, objectcore.AddressOf(obj))
+	err = e.Put(tombForObj, nil)
 	require.NoError(t, err)
 }
 
@@ -198,10 +187,16 @@ func TestLockForceRemoval(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3.
-	err = e.inhume([]oid.Address{objectcore.AddressOf(obj)}, false, nil, 0)
-	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
+	var (
+		a              object.Attribute
+		tombForLockObj = generateObjectWithCID(cnr)
+	)
+	a.SetKey(object.AttributeExpirationEpoch)
+	a.SetValue(strconv.Itoa(100500))
+	tombForLockObj.SetAttributes(a)
+	tombForLockObj.AssociateDeleted(obj.GetID())
 
-	err = e.Inhume(oidtest.Address(), 0, objectcore.AddressOf(obj))
+	err = e.Put(tombForLockObj, nil)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
@@ -209,7 +204,7 @@ func TestLockForceRemoval(t *testing.T) {
 	require.NoError(t, err)
 
 	// 5.
-	err = e.inhume([]oid.Address{objectcore.AddressOf(obj)}, false, nil, 0)
+	err = e.Put(tombForLockObj, nil)
 	require.NoError(t, err)
 }
 

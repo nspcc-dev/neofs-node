@@ -69,7 +69,7 @@ func TestDB_Put_Nested(t *testing.T) {
 		}
 	}
 
-	_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), 0, false, oid.NewAddress(cnr, ids[0]))
+	_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), 0, oid.NewAddress(cnr, ids[0]))
 	require.NoError(t, err)
 
 	for i := range ids {

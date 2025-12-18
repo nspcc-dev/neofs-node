@@ -23,18 +23,18 @@ var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
-	return s.inhume(&tombstone, tombExpiration, false, addrs...)
+	return s.inhume(&tombstone, tombExpiration, addrs...)
 }
 
-// MarkGarbage marks objects to be physically removed from shard. force flag
-// allows to override any restrictions imposed on object deletion (to be used
+// MarkGarbage marks objects to be physically removed from shard. It's a forced
+// mark that overrides any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
 // to [Shard.Inhume], but doesn't need a tombstone.
-func (s *Shard) MarkGarbage(force bool, addrs ...oid.Address) error {
-	return s.inhume(nil, 0, force, addrs...)
+func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
+	return s.inhume(nil, 0, addrs...)
 }
 
-func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, addrs ...oid.Address) error {
+func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
 	s.m.RLock()
 
 	if s.info.Mode.ReadOnly() {
@@ -45,15 +45,12 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 		return ErrDegradedMode
 	}
 
-	var (
-		err     error
-		inhumed uint64
-	)
+	var err error
 
 	if tombstone != nil {
-		inhumed, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, true, addrs...)
+		_, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, addrs...)
 	} else {
-		inhumed, _, err = s.metaBase.MarkGarbage(force, true, addrs...)
+		_, _, err = s.metaBase.MarkGarbage(addrs...)
 	}
 
 	if err != nil {
@@ -79,8 +76,6 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 
 	s.m.RUnlock()
 
-	s.decObjectCounterBy(logical, inhumed)
-
 	return nil
 }
 
@@ -101,12 +96,10 @@ func (s *Shard) InhumeContainer(cID cid.ID) error {
 		return ErrDegradedMode
 	}
 
-	removedObjects, err := s.metaBase.InhumeContainer(cID)
+	_, err := s.metaBase.InhumeContainer(cID)
 	if err != nil {
 		return fmt.Errorf("mark container as inhumed in metabase: %w", err)
 	}
-
-	s.decObjectCounterBy(logical, removedObjects)
 
 	return nil
 }

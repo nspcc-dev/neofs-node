@@ -333,6 +333,7 @@ const (
 	// logical is a logically stored object
 	// counter type (excludes objects that are
 	// stored but unavailable).
+	// nolint:unused // see https://github.com/nspcc-dev/neofs-node/issues/3740
 	logical = "logic"
 )
 
@@ -348,7 +349,6 @@ func (s *Shard) initMetrics() {
 		}
 
 		s.metricsWriter.SetObjectCounter(physical, cc.Phy())
-		s.metricsWriter.SetObjectCounter(logical, cc.Logic())
 
 		cnrList, err := s.metaBase.Containers()
 		if err != nil {
@@ -379,7 +379,6 @@ func (s *Shard) initMetrics() {
 func (s *Shard) incObjectCounter() {
 	if s.metricsWriter != nil {
 		s.metricsWriter.IncObjectCounter(physical)
-		s.metricsWriter.IncObjectCounter(logical)
 	}
 }
 

@@ -18,7 +18,7 @@ func (x ObjectID) Error() string {
 type ParentObjectError struct{ error }
 
 // ErrParentObject allows to check whether error is [ParentObjectError] via [errors.Is].
-var ErrParentObject ParentObjectError
+var ErrParentObject = ParentObjectError{error: errors.New("parent object error")}
 
 // NewParentObjectError constructs ParentObjectError from given cause.
 func NewParentObjectError(cause error) ParentObjectError {

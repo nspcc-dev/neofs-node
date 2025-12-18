@@ -20,9 +20,6 @@ type ObjectStorage interface {
 	// Optional objBin parameter carries object encoded in a canonical NeoFS binary
 	// format.
 	Put(obj *object.Object, objBin []byte) error
-	// Delete must delete passed objects
-	// and return any appeared error.
-	Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error
 	// IsLocked must clarify object's lock status.
 	IsLocked(oid.Address) (bool, error)
 }
