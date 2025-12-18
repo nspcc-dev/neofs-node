@@ -113,11 +113,12 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
 	var status = objectStatusDirect(tx, metaCursor, addr, currEpoch)
 
-	if status == statusAvailable && metaCursor != nil {
+	if (status == statusAvailable || status == statusGCMarked) && metaCursor != nil {
 		var parent = findParent(metaCursor, addr.Object())
 		if !parent.IsZero() {
 			addr.SetObject(parent)
-			status = objectStatusDirect(tx, metaCursor, addr, currEpoch)
+			parentStatus := objectStatus(tx, metaCursor, addr, currEpoch)
+			status = max(parentStatus, status)
 		}
 	}
 	return status
