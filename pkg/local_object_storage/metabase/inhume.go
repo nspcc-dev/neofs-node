@@ -39,7 +39,6 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 	)
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-		graveyardBKT := tx.Bucket(graveyardBucketName)
 
 		// collect children
 		// TODO: Do not extend addrs, do in the main loop. This likely would be more efficient regarding memory.
@@ -84,7 +83,7 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 			obj, err := get(tx, addr, false, true, currEpoch)
 			targetKey := addressKey(addr, buf)
 			if err == nil {
-				if inGraveyardWithKey(metaCursor, targetKey, graveyardBKT, garbageObjectsBKT) == statusAvailable {
+				if inGarbageWithKey(metaCursor, targetKey, garbageObjectsBKT) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++

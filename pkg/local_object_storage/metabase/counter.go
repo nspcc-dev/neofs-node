@@ -139,7 +139,6 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 	var phyCounter uint64
 	var logicCounter uint64
 
-	graveyardBKT := tx.Bucket(graveyardBucketName)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 	key := make([]byte, addressKeySize)
 
@@ -161,7 +160,7 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 			typ, err := fetchTypeForID(metaCursor, typPrefix, obj)
 			// check if an object is available: not with GCMark
 			// and not covered with a tombstone
-			if inGraveyardWithKey(metaCursor, addressKey(addr, key), graveyardBKT, garbageObjectsBKT) == statusAvailable && err == nil && typ == object.TypeRegular {
+			if inGarbageWithKey(metaCursor, addressKey(addr, key), garbageObjectsBKT) == statusAvailable && err == nil && typ == object.TypeRegular {
 				logicCounter++
 			}
 		}

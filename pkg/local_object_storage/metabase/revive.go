@@ -10,8 +10,8 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// ErrObjectWasNotRemoved is returned when object neither in the graveyard nor was marked with GC mark.
-var ErrObjectWasNotRemoved = logicerr.New("object neither in the graveyard nor was marked with GC mark")
+// ErrObjectWasNotRemoved is returned when object neither has tombstone nor was marked with GC mark.
+var ErrObjectWasNotRemoved = logicerr.New("object neither has tombstone nor was marked with GC mark")
 
 // ErrReviveFromContainerGarbage is returned when the object is in the container that marked with GC mark.
 var ErrReviveFromContainerGarbage = logicerr.New("revive from container marked with GC mark")
@@ -19,7 +19,7 @@ var ErrReviveFromContainerGarbage = logicerr.New("revive from container marked w
 type reviveStatusType int
 
 const (
-	// ReviveStatusGraveyard is the type of revival status of an object from a graveyard.
+	// ReviveStatusGraveyard is the type of revival status of an object from tombstone.
 	ReviveStatusGraveyard reviveStatusType = iota
 	// ReviveStatusGarbage is the type of revival status of an object from the garbage bucket.
 	ReviveStatusGarbage
@@ -85,13 +85,12 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-		graveyardBKT := tx.Bucket(graveyardBucketName)
 
 		buf := make([]byte, addressKeySize)
 
 		targetKey := addressKey(addr, buf)
 
-		if graveyardBKT == nil || garbageObjectsBKT == nil {
+		if garbageObjectsBKT == nil {
 			// incorrect metabase state, does not make
 			// sense to check garbage bucket
 			return ErrObjectWasNotRemoved
@@ -104,42 +103,26 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 			if containerMarkedGC(metaCursor) {
 				return ErrReviveFromContainerGarbage
 			}
-		}
 
-		var (
-			val         = graveyardBKT.Get(targetKey)
-			tombAddress oid.Address
-		)
-		if val != nil {
-			// object in the graveyard
-			if err := graveyardBKT.Delete(targetKey); err != nil {
-				return err
-			}
-
-			if err := decodeAddressFromKey(&tombAddress, val[:addressKeySize]); err != nil {
-				return err
-			}
-		} else if metaCursor != nil {
 			deleted, tombOID := associatedWithTypedObject(0, metaCursor, addr.Object(), object.TypeTombstone)
 			if deleted {
-				tombAddress.SetContainer(cnr)
-				tombAddress.SetObject(tombOID)
+				var tombAddress = oid.NewAddress(cnr, tombOID)
 				_, _, _, err := db.delete(tx, tombAddress)
 				if err != nil {
 					return err
 				}
+
+				res.setStatusGraveyard(tombAddress.EncodeToString())
+				res.tombstoneAddr = tombAddress
 			}
 		}
-		if !tombAddress.Object().IsZero() {
-			res.setStatusGraveyard(tombAddress.EncodeToString())
-			res.tombstoneAddr = tombAddress
-		} else {
-			val = garbageObjectsBKT.Get(targetKey)
+		if res.tombstoneAddr.Object().IsZero() {
+			val := garbageObjectsBKT.Get(targetKey)
 			if val != nil {
 				// object marked with GC mark
 				res.setStatusGarbage()
 			} else {
-				// neither in the graveyard
+				// neither has tombstone
 				// nor was marked with GC mark
 				return ErrObjectWasNotRemoved
 			}

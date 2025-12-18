@@ -8,10 +8,6 @@ Numbers stand for a single byte value unless otherwise stated.
 The lowest not used bucket index: 20.
 
 ### Primary buckets
-- Graveyard bucket
-  - Name: `0`
-  - Key: object address
-  - Value: tombstone address + little-endian uint64 tombstone expiration epoch
 - Garbage objects bucket
   - Name: `1`
   - Key: object address
@@ -50,7 +46,7 @@ The lowest not used bucket index: 20.
 
 ## Version 9
 
-Dropped lockedPrefix bucket (4).
+Dropped lockedPrefix and graveyard buckets (4 and 0).
 
 ## Version 8
 

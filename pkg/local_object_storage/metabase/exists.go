@@ -19,7 +19,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// objectStatus(), inGraveyard() and inGraveyardWithKey() return codes.
+// objectStatus(), inGarbage() and inGarbageWithKey() return codes.
 const (
 	statusAvailable = iota
 	statusGCMarked
@@ -30,7 +30,8 @@ const (
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
 //
-// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if there is a tombstone
+// associated with this object.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 //
 // If referenced object is a parent of some stored objects, Exists returns [ParentError] wrapping:
@@ -76,7 +77,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		metaCursor = metaBucket.Cursor()
 	}
 
-	// check graveyard and object expiration first
+	// check tombstones, garbage and object expiration first
 	switch objectStatus(tx, metaCursor, addr, currEpoch) {
 	case statusGCMarked:
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
@@ -138,12 +139,12 @@ func objectStatusDirect(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address
 		return statusExpired
 	}
 
-	graveyardStatus := inGraveyard(tx, metaCursor, addr)
-	if graveyardStatus != statusAvailable && objectLocked(tx, currEpoch, metaCursor, cID, oID) {
+	garbageStatus := inGarbage(tx, metaCursor, addr)
+	if garbageStatus != statusAvailable && objectLocked(tx, currEpoch, metaCursor, cID, oID) {
 		return statusAvailable
 	}
 
-	return graveyardStatus
+	return garbageStatus
 }
 
 // getObjAttribute returns given attribute of the object if it's present, nil otherwise.
@@ -232,18 +233,17 @@ func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
 	return false
 }
 
-// inGraveyard is an easier to use version of inGraveyardWithKey for cases
+// inGarbage is an easier to use version of inGarbageWithKey for cases
 // where a single address needs to be checked.
-func inGraveyard(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address) uint8 {
+func inGarbage(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address) uint8 {
 	var (
 		addrKey           = addressKey(addr, make([]byte, addressKeySize))
 		garbageObjectsBkt = tx.Bucket(garbageObjectsBucketName)
-		graveyardBkt      = tx.Bucket(graveyardBucketName)
 	)
-	return inGraveyardWithKey(metaCursor, addrKey, graveyardBkt, garbageObjectsBkt)
+	return inGarbageWithKey(metaCursor, addrKey, garbageObjectsBkt)
 }
 
-func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, garbageObjectsBCK *bbolt.Bucket) uint8 {
+func inGarbageWithKey(metaCursor *bbolt.Cursor, addrKey []byte, garbageObjectsBCK *bbolt.Bucket) uint8 {
 	if metaCursor != nil && containerMarkedGC(metaCursor) {
 		return statusGCMarked
 	}
@@ -253,32 +253,21 @@ func inGraveyardWithKey(metaCursor *bbolt.Cursor, addrKey []byte, graveyard, gar
 		return statusTombstoned
 	}
 
-	if graveyard == nil {
+	if garbageObjectsBCK == nil {
 		// incorrect metabase state, does not make
 		// sense to check garbage bucket
 		return statusAvailable
 	}
 
-	val := graveyard.Get(addrKey)
-	if val == nil {
-		if garbageObjectsBCK == nil {
-			// incorrect node state
-			return statusAvailable
-		}
-
-		val = garbageObjectsBCK.Get(addrKey)
-		if val != nil {
-			// object has been marked with GC
-			return statusGCMarked
-		}
-
-		// neither in the graveyard
-		// nor was marked with GC mark
-		return statusAvailable
+	var val = garbageObjectsBCK.Get(addrKey)
+	if val != nil {
+		// object has been marked with GC
+		return statusGCMarked
 	}
 
-	// object in the graveyard
-	return statusTombstoned
+	// neither has a tombstone
+	// nor marked with GC mark
+	return statusAvailable
 }
 
 // getParentInfo checks whether referenced object is a parent of some stored

@@ -16,14 +16,7 @@ func TestDB_IterateDeletedObjects_EmptyDB(t *testing.T) {
 
 	var counter int
 
-	err := db.IterateOverGraveyard(func(garbage meta.TombstonedObject) error {
-		counter++
-		return nil
-	}, nil)
-	require.NoError(t, err)
-	require.Zero(t, counter)
-
-	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
+	err := db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		counter++
 		return nil
 	}, nil)

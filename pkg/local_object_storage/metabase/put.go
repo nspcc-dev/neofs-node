@@ -147,7 +147,6 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 					addr              oid.Address
 					garbageKey        = make([]byte, addressKeySize)
 					garbageObjectsBKT = tx.Bucket(garbageObjectsBucketName)
-					graveyardBKT      = tx.Bucket(graveyardBucketName)
 					inhumed           int
 				)
 				addr.SetContainer(cID)
@@ -181,7 +180,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 					// Garbage mark should be put irrespective of errors,
 					// especially if the error is SplitInfo.
 					if err == nil {
-						if inGraveyardWithKey(metaCursor, garbageKey, graveyardBKT, garbageObjectsBKT) == statusAvailable {
+						if inGarbageWithKey(metaCursor, garbageKey, garbageObjectsBKT) == statusAvailable {
 							// object is available, decrement the
 							// logical counter
 							inhumed++

@@ -380,13 +380,15 @@ func fixGarbageBucketKeys(log *zap.Logger, tx *bbolt.Tx, garbageBkt *bbolt.Bucke
 func migrateFrom8Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var (
-			err            error
-			obsoleteBucket = []byte{unusedLockedPrefix}
+			err             error
+			obsoleteBuckets = [][]byte{{unusedLockedPrefix}, {unusedGraveyardPrefix}}
 		)
 
-		err = tx.DeleteBucket(obsoleteBucket)
-		if err != nil && !errors.Is(err, berrors.ErrBucketNotFound) {
-			return fmt.Errorf("deleting locked bucket: %w", err)
+		for _, name := range obsoleteBuckets {
+			err = tx.DeleteBucket(name)
+			if err != nil && !errors.Is(err, berrors.ErrBucketNotFound) {
+				return fmt.Errorf("deleting %v bucket: %w", name, err)
+			}
 		}
 		return updateVersion(tx, 9)
 	})

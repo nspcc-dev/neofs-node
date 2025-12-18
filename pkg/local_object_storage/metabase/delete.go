@@ -146,14 +146,13 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error)
 	cID := addr.Container()
 	addrKey := addressKey(addr, key)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-	graveyardBKT := tx.Bucket(graveyardBucketName)
 	metaBucket := tx.Bucket(metaBucketKey(cID))
 	var metaCursor *bbolt.Cursor
 	if metaBucket != nil {
 		metaCursor = metaBucket.Cursor()
 	}
 
-	removeAvailableObject := inGraveyardWithKey(metaCursor, addrKey, graveyardBKT, garbageObjectsBKT) == statusAvailable
+	removeAvailableObject := inGarbageWithKey(metaCursor, addrKey, garbageObjectsBKT) == statusAvailable
 
 	// remove record from the garbage bucket
 	if garbageObjectsBKT != nil {
