@@ -36,12 +36,11 @@ func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
 
 func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
 	s.m.RLock()
+	defer s.m.RUnlock()
 
 	if s.info.Mode.ReadOnly() {
-		s.m.RUnlock()
 		return ErrReadOnlyMode
 	} else if s.info.Mode.NoMetabase() {
-		s.m.RUnlock()
 		return ErrDegradedMode
 	}
 
@@ -55,15 +54,12 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...o
 
 	if err != nil {
 		if errors.Is(err, meta.ErrLockObjectRemoval) {
-			s.m.RUnlock()
 			return ErrLockObjectRemoval
 		}
 
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.Error(err),
 		)
-
-		s.m.RUnlock()
 
 		return fmt.Errorf("metabase inhume: %w", err)
 	}
@@ -73,8 +69,6 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...o
 			_ = s.writeCache.Delete(addrs[i])
 		}
 	}
-
-	s.m.RUnlock()
 
 	return nil
 }
