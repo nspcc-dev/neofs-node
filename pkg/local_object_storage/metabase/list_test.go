@@ -131,12 +131,9 @@ func BenchmarkDB_ListWithCursor_Attributes(b *testing.B) {
 func TestLisObjectsWithCursor(t *testing.T) {
 	db := newDB(t)
 
-	const (
-		containers = 5
-		total      = containers * 4 // regular + ts + child + lock
-	)
+	const containers = 5
 
-	expected := make([]object.AddressWithAttributes, 0, total)
+	var expected []object.AddressWithAttributes
 
 	// fill metabase with objects
 	for range containers {
@@ -168,9 +165,9 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		obj.SetType(objectSDK.TypeRegular)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		ts := generateObjectWithCID(t, containerID)
-		err = metaInhume(db, object.AddressOf(obj), object.AddressOf(ts))
-		require.NoError(t, err)
+		ts := createTSForObject(containerID, obj.GetID())
+		require.NoError(t, db.Put(ts))
+		expected = append(expected, object.AddressWithAttributes{Address: object.AddressOf(ts), Type: objectSDK.TypeTombstone})
 
 		// add one child object (do not include parent into expected)
 		splitID := objectSDK.NewSplitID()
@@ -187,6 +184,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 	}
 
 	expected = sortAddresses(expected)
+	total := len(expected)
 
 	t.Run("success with various count", func(t *testing.T) {
 		for countPerReq := 1; countPerReq <= total; countPerReq++ {

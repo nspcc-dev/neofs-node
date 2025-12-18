@@ -485,8 +485,9 @@ func TestDB_SearchObjects(t *testing.T) {
 			check(t, ids)
 		})
 		t.Run("tombstone", func(t *testing.T) {
-			_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), math.MaxUint64, oid.NewAddress(cnr, ids[2]))
+			err := db.Put(createTSForObject(cnr, ids[2]))
 			require.NoError(t, err)
+
 			check(t, slices.Concat(ids[:2], ids[3:]))
 			// resurrect the object
 			_, err = db.ReviveObject(oid.NewAddress(cnr, ids[2]))

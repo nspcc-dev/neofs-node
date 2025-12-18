@@ -224,7 +224,7 @@ func TestDB_Put_Tombstone(t *testing.T) {
 
 		rs, err := sh.ReviveObject(objAddr)
 		require.NoError(t, err)
-		require.Equal(t, meta.ReviveStatusGarbage, rs.StatusType())
+		require.Equal(t, meta.ReviveStatusGraveyard, rs.StatusType())
 		require.Equal(t, tombAddr, rs.TombstoneAddress())
 
 		exist, err = sh.Exists(objAddr, false)

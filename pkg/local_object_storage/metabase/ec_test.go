@@ -109,7 +109,6 @@ func TestDB_ResolveECPart(t *testing.T) {
 	tomb.AssociateDeleted(parentID)
 
 	partAddr := oid.NewAddress(cnr, partID)
-	tombAddr := oid.NewAddress(cnr, tomb.GetID())
 
 	type testcase struct {
 		name      string
@@ -140,15 +139,6 @@ func TestDB_ResolveECPart(t *testing.T) {
 		{name: "another rule and part", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			addPart(t, db, iec.PartInfo{RuleIndex: pi.RuleIndex + 1, Index: pi.Index + 1})
 		}},
-		{name: "tombstone mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
-			_, _, err := db.Inhume(tombAddr, 0, partAddr)
-			require.NoError(t, err)
-		}},
-		{name: "stored with tombstone mark", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
-			require.NoError(t, db.Put(&partObj))
-			_, _, err := db.Inhume(tombAddr, 0, parentAddr)
-			require.NoError(t, err)
-		}},
 		{name: "tombstone only", assertErr: assertObjectAlreadyRemovedError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&tomb))
 		}},
@@ -173,11 +163,6 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "expired", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
-		}},
-		{name: "expired with tombstone mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
-			require.NoError(t, db.Put(&expiredObj))
-			_, _, err := db.Inhume(tombAddr, 0, partAddr)
-			require.NoError(t, err)
 		}},
 		{name: "expired with tombstone", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
@@ -592,9 +577,7 @@ func testInhumeEC(t *testing.T) {
 
 	assertECGroupAvailable(t, db, parent, parts)
 
-	tombAddr := oid.NewAddress(cnr, oidtest.ID())
-
-	inhumed, _, err := db.Inhume(tombAddr, 0, parentAddr)
+	err := db.Put(createTSForObject(cnr, parent.GetID()))
 	require.NoError(t, err)
 
 	allAddrs := append(partAddrs, parentAddr)
@@ -619,16 +602,6 @@ func testInhumeEC(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
-
-	g = g[:0]
-	err = db.IterateOverGraveyard(func(item meta.TombstonedObject) error {
-		g = append(g, item.Address())
-		return nil
-	}, nil)
-	require.NoError(t, err)
-	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
-
-	require.EqualValues(t, len(parts), inhumed) // parent is virtual so it doesn't count
 }
 
 func testMarkGarbageEC(t *testing.T) {

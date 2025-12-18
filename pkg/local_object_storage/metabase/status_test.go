@@ -73,12 +73,10 @@ func TestDB_ObjectStatus(t *testing.T) {
 		obj.SetID(oidtest.OtherID(obj.GetID()))
 		require.NoError(t, db.Put(&obj))
 
-		tombAddr := oid.NewAddress(obj.GetContainerID(), oidtest.ID())
 		addr := oid.NewAddress(obj.GetContainerID(), obj.GetID())
 
-		n, _, err := db.Inhume(tombAddr, 0, addr)
+		err := db.Put(createTSForObject(obj.GetContainerID(), obj.GetID()))
 		require.NoError(t, err)
-		require.EqualValues(t, 1, n)
 
 		st, err := db.ObjectStatus(addr)
 		require.NoError(t, err)

@@ -86,18 +86,18 @@ func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, nestingLevel int, currEpo
 			if err != nil {
 				return err
 			}
+
+			// it is expected that putting an unavailable object is
+			// impossible and should be handled on the higher levels
+			err = updateCounter(tx, logical, 1, true)
+			if err != nil {
+				return fmt.Errorf("could not increase logical object counter: %w", err)
+			}
 		}
 
 		err = updateCounter(tx, phy, 1, true)
 		if err != nil {
 			return fmt.Errorf("could not increase phy object counter: %w", err)
-		}
-
-		// it is expected that putting an unavailable object is
-		// impossible and should be handled on the higher levels
-		err = updateCounter(tx, logical, 1, true)
-		if err != nil {
-			return fmt.Errorf("could not increase logical object counter: %w", err)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"crypto/sha256"
 	"runtime"
 	"slices"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -164,12 +166,12 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 
 	rs, err := db.ReviveObject(addr)
 	require.NoError(t, err)
-	require.Equal(t, meta.ReviveStatusGarbage, rs.StatusType())
-	require.Equal(t, "successful revival from garbage bucket", rs.Message())
+	require.Equal(t, meta.ReviveStatusGraveyard, rs.StatusType())
+	require.Contains(t, rs.Message(), "successful revival from graveyard")
 	require.Equal(t, tsAddr, rs.TombstoneAddress())
 
 	t.Run("after revival", func(t *testing.T) {
-		// tombstone is still there, but the garbage was cleared
+		// tombstone is deleted and the garbage was cleared
 		t.Run("get garbage", func(t *testing.T) {
 			gObjs, _, err := db.GetGarbage(100)
 			require.NoError(t, err)
@@ -259,8 +261,6 @@ func TestDB_Put_Lock(t *testing.T) {
 	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
 	tomb.AssociateDeleted(objID)
 
-	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
-
 	t.Run("non-regular target", func(t *testing.T) {
 		for _, typ := range []objectSDK.Type{
 			objectSDK.TypeTombstone,
@@ -306,20 +306,6 @@ func TestDB_Put_Lock(t *testing.T) {
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&tomb))
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
-		{name: "with target and tombstone mark", preset: func(t *testing.T, db *meta.DB) {
-			require.NoError(t, db.Put(&obj))
-			n, _, err := db.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
-			require.EqualValues(t, 1, n)
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
-		{name: "tombstone mark without target", preset: func(t *testing.T, db *meta.DB) {
-			_, _, err := db.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
@@ -462,4 +448,14 @@ func TestDB_Put_Tombstone(t *testing.T) {
 			}
 		})
 	}
+}
+
+func createTSForObject(cnr cid.ID, id oid.ID) *objectSDK.Object {
+	var ts = &objectSDK.Object{}
+	ts.SetContainerID(cnr)
+	ts.SetOwner(usertest.ID())
+	ts.SetID(oidtest.ID())
+	ts.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(ts.Payload())))
+	ts.AssociateDeleted(id)
+	return ts
 }
