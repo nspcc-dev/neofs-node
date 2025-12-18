@@ -80,8 +80,6 @@ func TestShard_Put_Lock(t *testing.T) {
 	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
 	tomb.AssociateDeleted(objID)
 
-	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
-
 	t.Run("non-regular target", func(t *testing.T) {
 		for _, typ := range []objectSDK.Type{
 			objectSDK.TypeTombstone,
@@ -135,19 +133,6 @@ func TestShard_Put_Lock(t *testing.T) {
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&tomb, nil))
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
-		{name: "with target and tombstone mark", preset: func(t *testing.T, sh *shard.Shard) {
-			require.NoError(t, sh.Put(&obj, nil))
-			err := sh.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
-		}, assertPutErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
-		{name: "tombstone mark without target", preset: func(t *testing.T, sh *shard.Shard) {
-			err := sh.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},

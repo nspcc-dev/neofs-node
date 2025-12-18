@@ -15,6 +15,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -136,14 +137,21 @@ func TestCounters(t *testing.T) {
 	})
 
 	t.Run("inhume_TS", func(t *testing.T) {
-		ts := objectcore.AddressOf(generateObject())
+		tombObj := objecttest.Object()
+		tombObj.SetPayload(nil)
+		tombObj.SetPayloadSize(0)
+		tombObj.SetContainerID(oo[0].GetContainerID())
+		tombObj.AssociateDeleted(oo[0].GetID())
 
 		phy := mm.objectCounters[physical]
 
-		inhumedNumber := int(phy / 4)
+		inhumedNumber := 1
 
-		err := sh.Inhume(ts, 0, addrFromObjs(oo[:inhumedNumber])...)
+		err := sh.Put(&tombObj, nil)
 		require.NoError(t, err)
+
+		// Tomb is an object too.
+		phy++
 
 		require.Equal(t, phy, mm.objectCounters[physical])
 		require.Equal(t, expectedSizes, mm.containerSize)

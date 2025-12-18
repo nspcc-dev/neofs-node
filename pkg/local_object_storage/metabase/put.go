@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	gio "io"
-	"slices"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neo-go/pkg/io"
@@ -144,6 +143,14 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
 				}
 			} else { // TS case
+				var (
+					addr              oid.Address
+					garbageKey        = make([]byte, addressKeySize)
+					garbageObjectsBKT = tx.Bucket(garbageObjectsBucketName)
+					graveyardBKT      = tx.Bucket(graveyardBucketName)
+					inhumed           int
+				)
+				addr.SetContainer(cID)
 				if targetTypErr == nil {
 					if targetTyp == objectSDK.TypeTombstone {
 						return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
@@ -161,11 +168,41 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
 				}
 
-				garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-				garbageKey := slices.Concat(cID[:], target[:])
-				err := garbageObjectsBKT.Put(garbageKey, zeroValue)
+				children, err := collectChildren(metaBkt, metaCursor, cID, target)
 				if err != nil {
-					return fmt.Errorf("put %s object to garbage bucket: %w", target, targetTypErr)
+					return fmt.Errorf("collect children: %w", err)
+				}
+				children = append(children, target)
+				for _, id := range children {
+					addr.SetObject(id)
+					garbageKey = addressKey(addr, garbageKey)
+
+					obj, err := get(tx, addr, false, true, currEpoch)
+					// Garbage mark should be put irrespective of errors,
+					// especially if the error is SplitInfo.
+					if err == nil {
+						if inGraveyardWithKey(metaCursor, garbageKey, graveyardBKT, garbageObjectsBKT) == statusAvailable {
+							// object is available, decrement the
+							// logical counter
+							inhumed++
+						}
+						// if object is stored, and it is regular object then update bucket
+						// with container size estimations
+						if obj.Type() == objectSDK.TypeRegular {
+							err = changeContainerInfo(tx, cID, -int(obj.PayloadSize()), -1)
+							if err != nil {
+								return err
+							}
+						}
+					}
+					err = garbageObjectsBKT.Put(garbageKey, zeroValue)
+					if err != nil {
+						return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
+					}
+				}
+				err = updateCounter(tx, logical, uint64(inhumed), false)
+				if err != nil {
+					return fmt.Errorf("could not increase logical object counter: %w", err)
 				}
 			}
 		}

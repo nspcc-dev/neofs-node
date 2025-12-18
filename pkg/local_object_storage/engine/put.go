@@ -60,23 +60,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 
 	// API 2.18+ system objects handling
 	switch obj.Type() {
-	case objectSDK.TypeTombstone:
-		deleted := obj.AssociatedObject()
-		if !deleted.IsZero() {
-			tsExp, err := object.Expiration(*obj)
-			if err != nil {
-				return fmt.Errorf("cannot parse %s TS's expiration: %w", addr, err)
-			}
-
-			err = e.inhume([]oid.Address{oid.NewAddress(addr.Container(), deleted)}, &addr, tsExp)
-			if err != nil {
-				return fmt.Errorf("cannot inhume %s object on %s TS put: %w", deleted, addr, err)
-			}
-		}
-
-		// Broadcast tombstone object to ALL shards to ensure availability everywhere
-		return e.broadcastObject(obj, objBin)
-	case objectSDK.TypeLock, objectSDK.TypeLink:
+	case objectSDK.TypeTombstone, objectSDK.TypeLock, objectSDK.TypeLink:
 		// Broadcast object to ALL shards to ensure availability everywhere.
 		return e.broadcastObject(obj, objBin)
 	default:

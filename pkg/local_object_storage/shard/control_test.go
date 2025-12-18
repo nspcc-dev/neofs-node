@@ -201,9 +201,6 @@ func TestResyncMetabase(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = sh.Inhume(object.AddressOf(&tombObj), 0, tombedAddress)
-	require.NoError(t, err)
-
 	checkObj := func(addr oid.Address, expObj *objectSDK.Object) {
 		res, err := sh.Head(addr, false)
 
@@ -243,9 +240,9 @@ func TestResyncMetabase(t *testing.T) {
 		for i := range locked {
 			addr.SetObject(locked[i])
 
-			err := sh.Inhume(object.AddressOf(&tombObj), 100500, addr)
-			require.ErrorAs(t, err, new(apistatus.ObjectLocked),
-				"object %s should be locked", locked[i])
+			locked, err := sh.IsLocked(addr)
+			require.NoError(t, err)
+			require.True(t, locked)
 		}
 	}
 
