@@ -80,7 +80,7 @@ func getCounters(tx *bbolt.Tx) (uint64, uint64) {
 
 // updateCounter updates the object counter. Tx MUST be writable.
 // If inc == `true`, increases the counter, decreases otherwise.
-func (db *DB) updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
+func updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
 	b := tx.Bucket(shardInfoBucket)
 	if b == nil {
 		return nil

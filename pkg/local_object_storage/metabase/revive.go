@@ -167,7 +167,7 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 			}
 
 			// also need to restore logical counter
-			if err := db.updateCounter(tx, logical, 1, true); err != nil {
+			if err := updateCounter(tx, logical, 1, true); err != nil {
 				return err
 			}
 		}

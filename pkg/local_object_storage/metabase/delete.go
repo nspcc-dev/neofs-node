@@ -120,14 +120,14 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, []
 	}
 
 	if rawDeleted > 0 {
-		err := db.updateCounter(tx, phy, rawDeleted, false)
+		err := updateCounter(tx, phy, rawDeleted, false)
 		if err != nil {
 			return 0, 0, nil, fmt.Errorf("could not decrease phy object counter: %w", err)
 		}
 	}
 
 	if availableDeleted > 0 {
-		err := db.updateCounter(tx, logical, availableDeleted, false)
+		err := updateCounter(tx, logical, availableDeleted, false)
 		if err != nil {
 			return 0, 0, nil, fmt.Errorf("could not decrease logical object counter: %w", err)
 		}

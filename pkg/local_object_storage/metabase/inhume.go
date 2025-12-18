@@ -194,7 +194,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			}
 		}
 
-		return db.updateCounter(tx, logical, inhumed, false)
+		return updateCounter(tx, logical, inhumed, false)
 	})
 
 	return inhumed, deletedLockObjs, err
@@ -230,7 +230,7 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 		info := db.containerInfo(tx, cID)
 		removedAvailable = info.ObjectsNumber
 
-		err = db.updateCounter(tx, logical, removedAvailable, false)
+		err = updateCounter(tx, logical, removedAvailable, false)
 		if err != nil {
 			return fmt.Errorf("logical counter update: %w", err)
 		}

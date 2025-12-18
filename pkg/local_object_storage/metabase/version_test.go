@@ -223,8 +223,8 @@ func TestMigrate7to8(t *testing.T) {
 			o.SetContainerID(cnr)
 			totalSize += o.PayloadSize()
 
-			require.NoError(t, db.updateCounter(tx, phy, 1, true))
-			require.NoError(t, db.updateCounter(tx, logical, 1, true))
+			require.NoError(t, updateCounter(tx, phy, 1, true))
+			require.NoError(t, updateCounter(tx, logical, 1, true))
 
 			return PutMetadataForObject(tx, o, true)
 		})
@@ -238,7 +238,7 @@ func TestMigrate7to8(t *testing.T) {
 			o := objecttest.Object()
 			o.SetContainerID(inhumeCnr)
 
-			require.NoError(t, db.updateCounter(tx, phy, 1, true))
+			require.NoError(t, updateCounter(tx, phy, 1, true))
 
 			return PutMetadataForObject(tx, o, true)
 		})
