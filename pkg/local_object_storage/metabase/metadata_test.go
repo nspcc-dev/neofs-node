@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"math"
@@ -15,7 +16,6 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	metatest "github.com/nspcc-dev/neofs-node/pkg/util/meta/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -405,8 +405,8 @@ func TestDB_SearchObjects(t *testing.T) {
 		for i := range objs {
 			objs[i].SetContainerID(cnr)
 			objs[i].SetID(ids[i])
-			objs[i].SetOwner(usertest.ID())                     // required to Put
-			objs[i].SetPayloadChecksum(checksumtest.Checksum()) // required to Put
+			objs[i].SetOwner(usertest.ID())                                                  // required to Put
+			objs[i].SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(objs[i].Payload()))) // required to Put
 
 			err := db.Put(&objs[i])
 			require.NoError(t, err, i)
@@ -463,8 +463,8 @@ func TestDB_SearchObjects(t *testing.T) {
 			if i == 3 {
 				appendAttribute(&objs[i], object.AttributeExpirationEpoch, "11")
 			}
-			objs[i].SetOwner(usertest.ID())                     // Put requires
-			objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
+			objs[i].SetOwner(usertest.ID())                                                  // Put requires
+			objs[i].SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(objs[i].Payload()))) // Put requires
 			require.NoError(t, db.Put(&objs[i]))
 		}
 

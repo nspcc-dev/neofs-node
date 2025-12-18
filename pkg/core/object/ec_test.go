@@ -7,7 +7,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -148,7 +149,7 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		}},
 		{name: "homomorphic hash mismatch", err: fmt.Sprintf("invalid regular EC part object: diff homomorphic hash presence in parent (%t) and part (%t)",
 			true, false), corruptParent: func(obj *object.Object) {
-			obj.SetPayloadHomomorphicHash(checksumtest.Checksum())
+			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload())))
 		}, corruptPart: func(obj *object.Object) {}},
 		{name: "missing EC attributes", err: "missing EC attributes in regular object", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes()

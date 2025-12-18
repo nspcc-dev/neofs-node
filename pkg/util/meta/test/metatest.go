@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -487,8 +486,8 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 				for i := range objs {
 					objs[i].SetContainerID(cnr)
 					objs[i].SetID(ids[i])
-					objs[i].SetOwner(usertest.ID())                     // Put requires
-					objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
+					objs[i].SetOwner(usertest.ID())                                                  // Put requires
+					objs[i].SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(objs[i].Payload()))) // Put requires
 					require.NoError(t, db.Put(&objs[i]))
 				}
 				fullRes := searchResultForIDs(ids)
@@ -746,8 +745,8 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			cnr := cidtest.ID()
 			for i := range objs {
 				objs[i].SetContainerID(cnr)
-				objs[i].SetOwner(usertest.ID())                     // Put requires
-				objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
+				objs[i].SetOwner(usertest.ID())                                                  // Put requires
+				objs[i].SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(objs[i].Payload()))) // Put requires
 				require.NoError(t, db.Put(&objs[i]))
 			}
 			t.Run("none", func(t *testing.T) {
@@ -821,8 +820,8 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			for i := range objs {
 				objs[i].SetID(ids[i])
 				objs[i].SetContainerID(cnr)
-				objs[i].SetOwner(usertest.ID())                     // Put requires
-				objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
+				objs[i].SetOwner(usertest.ID())                                                  // Put requires
+				objs[i].SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(objs[i].Payload()))) // Put requires
 				require.NoError(t, db.Put(&objs[i]))
 			}
 			t.Run("none", func(t *testing.T) {
@@ -880,8 +879,8 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			for i := range objs {
 				objs[i].SetID(ids[len(ids)-i-1])
 				objs[i].SetContainerID(cnr)
-				objs[i].SetOwner(usertest.ID())                     // Put requires
-				objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
+				objs[i].SetOwner(usertest.ID())                                                  // Put requires
+				objs[i].SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(objs[i].Payload()))) // Put requires
 				require.NoError(t, db.Put(&objs[i]))
 			}
 

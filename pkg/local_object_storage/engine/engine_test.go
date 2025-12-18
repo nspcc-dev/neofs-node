@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -159,19 +159,15 @@ func generateObjectWithCID(cnr cid.ID) *object.Object {
 	ver.SetMajor(2)
 	ver.SetMinor(1)
 
-	csum := checksumtest.Checksum()
-
-	csumTZ := checksum.NewTillichZemor(tz.Sum(csum.Value()))
-
 	obj := object.New()
 	obj.SetID(oidtest.ID())
 	owner := usertest.ID()
 	obj.SetOwner(owner)
 	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
-	obj.SetPayloadChecksum(csum)
-	obj.SetPayloadHomomorphicHash(csumTZ)
 	obj.SetPayload([]byte{1, 2, 3, 4, 5})
+	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload())))
 
 	return obj
 }
