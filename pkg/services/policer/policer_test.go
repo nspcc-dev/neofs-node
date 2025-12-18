@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -510,7 +511,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 	p := New(neofscryptotest.Signer(),
 		WithPool(wp),
-		WithReplicationCooldown(time.Hour), // any huge time to cancel process repeat
+		WithReplicationCooldown(50*time.Millisecond),
 		WithNodeLoader(nopNodeLoader{}),
 		WithNetwork(mockNet),
 		WithLogger(l),
@@ -523,24 +524,24 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	t.Cleanup(cancel)
 	go p.Run(ctx)
 
-	repTaskSubmitted := func() bool {
-		select {
-		case <-r.gotTaskCh:
-			return true
-		default:
-			return false
-		}
-	}
+	require.Eventually(t, func() bool {
+		return lb.Contains(testutil.LogEntry{
+			Level: zap.InfoLevel, Message: "finished local storage cycle", Fields: map[string]any{
+				"component": "Object Policer",
+			}})
+	}, 3*time.Second, 50*time.Millisecond)
+
+	var taskV = r.task.Load()
 	if expShortage > 0 {
-		require.Eventually(t, repTaskSubmitted, 3*time.Second, 30*time.Millisecond)
+		require.NotNil(t, taskV)
 
 		var exp replicator.Task
 		exp.SetObjectAddress(localObj.Address)
 		exp.SetCopiesNumber(expShortage)
 		exp.SetNodes(expCandidates)
-		require.Equal(t, exp, r.task)
+		require.Equal(t, exp, taskV.(replicator.Task))
 	} else {
-		require.Never(t, repTaskSubmitted, 3*time.Second, 30*time.Millisecond)
+		require.Nil(t, taskV)
 	}
 
 	if expRedundant {
@@ -945,7 +946,7 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 	p := New(neofscryptotest.Signer(),
 		WithPool(wp),
-		WithReplicationCooldown(time.Hour), // any huge time to cancel process repeat
+		WithReplicationCooldown(50*time.Millisecond), // any huge time to cancel process repeat
 		WithNodeLoader(nopNodeLoader{}),
 		WithNetwork(mockNet),
 		WithLogger(l),
@@ -958,24 +959,24 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	t.Cleanup(cancel)
 	go p.Run(ctx)
 
-	repTaskSubmitted := func() bool {
-		select {
-		case <-r.gotTaskCh:
-			return true
-		default:
-			return false
-		}
-	}
+	require.Eventually(t, func() bool {
+		return lb.Contains(testutil.LogEntry{
+			Level: zap.InfoLevel, Message: "finished local storage cycle", Fields: map[string]any{
+				"component": "Object Policer",
+			}})
+	}, 3*time.Second, 50*time.Millisecond)
+
+	var taskV = r.task.Load()
 	if len(expCandidates) > 0 {
-		require.Eventually(t, repTaskSubmitted, 3*time.Second, 30*time.Millisecond)
+		require.NotNil(t, taskV)
 
 		var exp replicator.Task
 		exp.SetObjectAddress(localObj.Address)
 		exp.SetCopiesNumber(expShortage)
 		exp.SetNodes(expCandidates)
-		require.Equal(t, exp, r.task)
+		require.Equal(t, exp, taskV.(replicator.Task))
 	} else {
-		require.Never(t, repTaskSubmitted, 3*time.Second, 30*time.Millisecond)
+		require.Nil(t, taskV)
 	}
 
 	if expRedundant {
@@ -988,16 +989,14 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 }
 
 type testReplicator struct {
-	t         *testing.T
-	task      replicator.Task
-	gotTaskCh chan struct{}
-	success   bool
+	t       *testing.T
+	task    atomic.Value
+	success bool
 }
 
 func newTestReplicator(t *testing.T) *testReplicator {
 	return &testReplicator{
-		t:         t,
-		gotTaskCh: make(chan struct{}),
+		t: t,
 	}
 }
 
@@ -1011,12 +1010,12 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 		r.SubmitSuccessfulReplication(nodes[0])
 	}
 
-	x.task = task
-	close(x.gotTaskCh)
+	// Prevent collisions on subsequent iterations
+	_ = x.task.CompareAndSwap(nil, task)
 }
 
 func (x *testReplicator) PutObjectToNode(context.Context, object.Object, netmap.NodeInfo) error {
-	panic("unimplemented")
+	return nil
 }
 
 type testLocalNode struct {
@@ -1054,8 +1053,12 @@ func (x *mockNetwork) IsLocalNodeInNetmap() bool {
 	return x.inNetmap
 }
 
-func (x *testLocalNode) ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
-	return x.objList, nil, nil
+func (x *testLocalNode) ListWithCursor(_ uint32, c *engine.Cursor, _ ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
+	if c == nil {
+		return x.objList, new(engine.Cursor), nil
+	} else {
+		return nil, c, engine.ErrEndOfListing
+	}
 }
 
 func (x *testLocalNode) deletedObjects() []oid.Address {
@@ -1073,15 +1076,15 @@ func (x *testLocalNode) Delete(addr oid.Address) error {
 }
 
 func (x *testLocalNode) Put(*object.Object, []byte) error {
-	panic("unimplemented")
+	return nil
 }
 
 func (x *testLocalNode) Head(oid.Address, bool) (*object.Object, error) {
-	panic("unimplemented")
+	return &object.Object{}, nil
 }
 
 func (x *testLocalNode) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
-	panic("unimplemented")
+	return object.Object{}, nil
 }
 
 func (x *testLocalNode) GetRange(oid.Address, uint64, uint64) ([]byte, error) {

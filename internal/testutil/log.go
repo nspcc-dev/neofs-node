@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -96,6 +97,13 @@ func (x *LogBuffer) AssertNotContainsMsg(lvl zapcore.Level, msg string) {
 	require.True(x.t, !slices.ContainsFunc(x.collectEntries(), func(e LogEntry) bool {
 		return e.Level == lvl && e.Message == msg
 	}))
+}
+
+// Contains is similar to AssertContains, but returns status to the caller.
+func (x *LogBuffer) Contains(e LogEntry) bool {
+	return slices.ContainsFunc(x.collectEntries(), func(l LogEntry) bool {
+		return l.Level == e.Level && l.Message == e.Message && maps.Equal(l.Fields, e.Fields)
+	})
 }
 
 func (x *LogBuffer) collectEntries() []LogEntry {
