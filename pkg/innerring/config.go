@@ -212,7 +212,6 @@ func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.EigenTrustIterations = 4
 	netCfg.EigenTrustAlpha = 0.1
 	netCfg.HomomorphicHashingDisabled = false
-	netCfg.MaintenanceModeAllowed = false
 }
 
 func checkDurationPositive(val time.Duration, key string) error {

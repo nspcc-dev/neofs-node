@@ -41,7 +41,7 @@ Changelog for NeoFS Node
 - Graveyard from metabase (#3744)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251219150129-498a820b9d6b` (#3670, #3746)
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251203135706-86667929fbb8` (#3711)
 - `github.com/nspcc-dev/locode-db` module to `v0.8.2` (#3729)
 
