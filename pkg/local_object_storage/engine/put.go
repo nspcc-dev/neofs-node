@@ -224,12 +224,13 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool ut
 // broadcastObject stores object on ALL shards to ensure it's available everywhere.
 func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) error {
 	var (
-		successCount int
-		pool         util.WorkerPool
-		ok           bool
-		allShards    = e.unsortedShards()
-		addr         = object.AddressOf(obj)
-		lastError    error
+		pool       util.WorkerPool
+		ok         bool
+		allShards  = e.unsortedShards()
+		addr       = object.AddressOf(obj)
+		goodShards = make([]shardWrapper, 0, len(allShards))
+		lastError  error
+		isFatal    bool
 	)
 
 	e.log.Debug("broadcasting object to all shards",
@@ -250,7 +251,7 @@ func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) er
 
 		err := e.putToShard(sh, i, pool, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
-			successCount++
+			goodShards = append(goodShards, sh)
 			if errors.Is(err, errExists) {
 				e.log.Debug("object already exists on shard during broadcast",
 					zap.Stringer("type", obj.Type()),
@@ -270,6 +271,7 @@ func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) er
 		if errors.Is(err, apistatus.ErrLockNonRegularObject) ||
 			errors.Is(err, apistatus.ErrObjectLocked) ||
 			errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+			isFatal = true
 			break
 		}
 
@@ -285,10 +287,26 @@ func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) er
 		zap.Stringer("type", obj.Type()),
 		zap.Stringer("addr", addr),
 		zap.Stringer("associated", obj.AssociatedObject()),
-		zap.Int("success_count", successCount),
+		zap.Error(lastError),
+		zap.Bool("isFatal", isFatal),
+		zap.Int("success_count", len(goodShards)),
 		zap.Int("total_shards", len(allShards)))
 
-	if successCount == 0 {
+	if isFatal && len(goodShards) > 0 {
+		// Revert potential damage.
+		var addrs = []oid.Address{addr}
+		for _, sh := range goodShards {
+			var err = sh.Delete(addrs)
+			if err != nil {
+				e.log.Warn("failed to rollback incorrect put",
+					zap.Stringer("shard", sh.ID()),
+					zap.Stringer("addr", addr),
+					zap.Error(err))
+			}
+		}
+	}
+
+	if isFatal || len(goodShards) == 0 {
 		return fmt.Errorf("failed to broadcast %s object to any shard, last error: %w", obj.Type(), lastError)
 	}
 
