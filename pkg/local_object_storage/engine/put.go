@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -37,7 +37,7 @@ var (
 // Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [object.TypeLock]
 // type and there is an object of [object.TypeTombstone] type associated with
 // the same target.
-func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
+func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
@@ -49,7 +49,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 		return e.blockErr
 	}
 
-	addr := object.AddressOf(obj)
+	addr := objectcore.AddressOf(obj)
 
 	// In #1146 this check was parallelized, however, it became
 	// much slower on fast machines for 4 shards.
@@ -60,7 +60,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 
 	// API 2.18+ system objects handling
 	switch obj.Type() {
-	case objectSDK.TypeTombstone, objectSDK.TypeLock, objectSDK.TypeLink:
+	case object.TypeTombstone, object.TypeLock, object.TypeLink:
 		// Broadcast object to ALL shards to ensure availability everywhere.
 		return e.broadcastObject(obj, objBin)
 	default:
@@ -119,7 +119,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte) error {
 // putToShard puts object to sh.
 // Returns error from shard put or errOverloaded (when shard pool can't accept
 // the task) or errExists (if object is already stored there).
-func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) error {
+func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) error {
 	var (
 		alreadyExists bool
 		err           error
@@ -195,7 +195,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 	return putError
 }
 
-func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte) (bool, bool) {
+func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) (bool, bool) {
 	const putCooldown = 100 * time.Millisecond
 	var (
 		overloaded bool
@@ -222,12 +222,12 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool ut
 }
 
 // broadcastObject stores object on ALL shards to ensure it's available everywhere.
-func (e *StorageEngine) broadcastObject(obj *objectSDK.Object, objBin []byte) error {
+func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error {
 	var (
 		pool       util.WorkerPool
 		ok         bool
 		allShards  = e.unsortedShards()
-		addr       = object.AddressOf(obj)
+		addr       = objectcore.AddressOf(obj)
 		goodShards = make([]shardWrapper, 0, len(allShards))
 		lastError  error
 		isFatal    bool

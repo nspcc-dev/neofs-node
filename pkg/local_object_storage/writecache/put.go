@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -14,7 +14,7 @@ var (
 )
 
 // Put puts object to write-cache.
-func (c *cache) Put(addr oid.Address, obj *objectSDK.Object, data []byte) error {
+func (c *cache) Put(addr oid.Address, obj *object.Object, data []byte) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.readOnly() {

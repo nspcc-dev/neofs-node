@@ -5,10 +5,10 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -64,7 +64,7 @@ func TestDB_Containers(t *testing.T) {
 
 		assertContains(cnrs, cnr)
 
-		require.NoError(t, metaInhume(db, object.AddressOf(obj), oidtest.Address()))
+		require.NoError(t, metaInhume(db, objectcore.AddressOf(obj), oidtest.Address()))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestDB_Containers(t *testing.T) {
 		cnr := obj.GetContainerID()
 		assertContains(cnrs, cnr)
 
-		require.NoError(t, metaToMoveIt(db, object.AddressOf(obj)))
+		require.NoError(t, metaToMoveIt(db, objectcore.AddressOf(obj)))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -96,11 +96,11 @@ func TestDB_ContainersCount(t *testing.T) {
 
 	uploadObjects := [...]struct {
 		amount int
-		typ    objectSDK.Type
+		typ    object.Type
 	}{
-		{R, objectSDK.TypeRegular},
-		{T, objectSDK.TypeTombstone},
-		{L, objectSDK.TypeLock},
+		{R, object.TypeRegular},
+		{T, object.TypeTombstone},
+		{L, object.TypeLock},
 	}
 
 	expected := make([]cid.ID, 0, R+T+L)
@@ -141,7 +141,7 @@ func TestDB_ContainerSize(t *testing.T) {
 	)
 
 	cids := make(map[cid.ID]int, C)
-	objs := make(map[cid.ID][]*objectSDK.Object, C*N)
+	objs := make(map[cid.ID][]*object.Object, C*N)
 
 	for range C {
 		cnr := cidtest.ID()
@@ -181,7 +181,7 @@ func TestDB_ContainerSize(t *testing.T) {
 			for i, obj := range list {
 				require.NoError(t, metaInhume(
 					db,
-					object.AddressOf(obj),
+					objectcore.AddressOf(obj),
 					oidtest.Address(),
 				))
 
@@ -206,7 +206,7 @@ func TestDB_DeleteContainer(t *testing.T) {
 	})
 
 	t.Run("exist", func(t *testing.T) {
-		var attr objectSDK.Attribute
+		var attr object.Attribute
 		attr.SetKey("test")
 		attr.SetValue("test")
 
@@ -226,14 +226,14 @@ func TestDB_DeleteContainer(t *testing.T) {
 		// TS
 		o4 := objecttest.Object()
 		o4.SetContainerID(cID)
-		o4.SetType(objectSDK.TypeTombstone)
-		err = metaInhume(db, object.AddressOf(o1), object.AddressOf(&o4))
+		o4.SetType(object.TypeTombstone)
+		err = metaInhume(db, objectcore.AddressOf(o1), objectcore.AddressOf(&o4))
 		require.NoError(t, err)
 
 		err = db.DeleteContainer(cID)
 		require.NoError(t, err)
 
-		objs, err := db.Select(cID, objectSDK.SearchFilters{})
+		objs, err := db.Select(cID, object.SearchFilters{})
 		require.NoError(t, err)
 
 		require.Len(t, objs, 0)

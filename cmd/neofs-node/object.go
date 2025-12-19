@@ -44,7 +44,7 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -359,7 +359,7 @@ func (c *reputationClient) submitResult(err error) {
 	c.cons.trustStorage.Update(prm)
 }
 
-func (c *reputationClient) ObjectPutInit(ctx context.Context, hdr objectSDK.Object, signer user.Signer, prm client.PrmObjectPutInit) (client.ObjectWriter, error) {
+func (c *reputationClient) ObjectPutInit(ctx context.Context, hdr object.Object, signer user.Signer, prm client.PrmObjectPutInit) (client.ObjectWriter, error) {
 	res, err := c.MultiAddressClient.ObjectPutInit(ctx, hdr, signer, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, writing errors are not processed
@@ -377,7 +377,7 @@ func (c *reputationClient) ObjectDelete(ctx context.Context, containerID cid.ID,
 	return res, err
 }
 
-func (c *reputationClient) ObjectGetInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectGet) (objectSDK.Object, *client.PayloadReader, error) {
+func (c *reputationClient) ObjectGetInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectGet) (object.Object, *client.PayloadReader, error) {
 	hdr, rdr, err := c.MultiAddressClient.ObjectGetInit(ctx, containerID, objectID, signer, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
@@ -386,7 +386,7 @@ func (c *reputationClient) ObjectGetInit(ctx context.Context, containerID cid.ID
 	return hdr, rdr, err
 }
 
-func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (*objectSDK.Object, error) {
+func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (*object.Object, error) {
 	res, err := c.MultiAddressClient.ObjectHead(ctx, containerID, objectID, signer, prm)
 
 	c.submitResult(err)
@@ -455,7 +455,7 @@ func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int, l *zap.Logger) he
 
 	if cacheSize > 0 {
 		var err error
-		hs.cache, err = lru.New[oid.Address, *objectSDK.Object](cacheSize)
+		hs.cache, err = lru.New[oid.Address, *object.Object](cacheSize)
 		if err != nil {
 			panic(fmt.Errorf("unexpected error in lru.New: %w", err))
 		}
@@ -466,20 +466,20 @@ func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int, l *zap.Logger) he
 
 type headerSource struct {
 	getsvc *getsvc.Service
-	cache  *lru.Cache[oid.Address, *objectSDK.Object]
+	cache  *lru.Cache[oid.Address, *object.Object]
 	l      *zap.Logger
 }
 
 type headerWriter struct {
-	h *objectSDK.Object
+	h *object.Object
 }
 
-func (h *headerWriter) WriteHeader(o *objectSDK.Object) error {
+func (h *headerWriter) WriteHeader(o *object.Object) error {
 	h.h = o
 	return nil
 }
 
-func (h headerSource) Head(address oid.Address) (*objectSDK.Object, error) {
+func (h headerSource) Head(address oid.Address) (*object.Object, error) {
 	l := h.l.With(zap.Stringer("address", address))
 	l.Debug("requesting header")
 
@@ -613,7 +613,7 @@ func (x storageForObjectService) SearchObjects(cID cid.ID, fs []objectcore.Searc
 	return x.local.Search(cID, fs, attrs, cursor, count)
 }
 
-func (x storageForObjectService) VerifyAndStoreObjectLocally(obj objectSDK.Object) error {
+func (x storageForObjectService) VerifyAndStoreObjectLocally(obj object.Object) error {
 	return x.putSvc.ValidateAndStoreObjectLocally(obj)
 }
 
@@ -633,7 +633,7 @@ type objectSource struct {
 	}
 }
 
-func (o objectSource) Head(ctx context.Context, addr oid.Address) (*objectSDK.Object, error) {
+func (o objectSource) Head(ctx context.Context, addr oid.Address) (*object.Object, error) {
 	var hw headerWriter
 
 	var hPrm getsvc.HeadPrm
@@ -646,7 +646,7 @@ func (o objectSource) Head(ctx context.Context, addr oid.Address) (*objectSDK.Ob
 	return hw.h, err
 }
 
-func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters objectSDK.SearchFilters) (oid.ID, error) {
+func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters object.SearchFilters) (oid.ID, error) {
 	var (
 		err error
 		id  oid.ID

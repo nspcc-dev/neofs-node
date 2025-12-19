@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,11 +30,11 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 		hasErr      bool
 		name        string
 		payloadSize int
-		rng         *objectSDK.Range
+		rng         *object.Range
 	}
 
-	newRange := func(off, ln uint64) *objectSDK.Range {
-		rng := objectSDK.NewRange()
+	newRange := func(off, ln uint64) *object.Range {
+		rng := object.NewRange()
 		rng.SetOffset(off)
 		rng.SetLength(ln)
 		return rng
@@ -69,7 +69,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			addAttribute(obj, "foo", "bar")
 			addPayload(obj, tc.payloadSize)
 
-			addr := object.AddressOf(obj)
+			addr := objectcore.AddressOf(obj)
 			payload := bytes.Clone(obj.Payload())
 
 			err := sh.Put(obj, nil)

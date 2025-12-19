@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +19,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 
 	obj, reader, err := remoteClient.getObject(exec, info)
 
-	var errSplitInfo *objectSDK.SplitInfoError
+	var errSplitInfo *object.SplitInfoError
 
 	switch {
 	default:
@@ -49,7 +49,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 	case errors.As(err, &errSplitInfo):
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
-		exec.err = objectSDK.NewSplitInfoError(exec.infoSplit)
+		exec.err = object.NewSplitInfoError(exec.infoSplit)
 	}
 
 	return exec.status != statusUndefined

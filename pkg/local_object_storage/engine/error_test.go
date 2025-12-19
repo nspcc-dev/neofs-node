@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -63,7 +63,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(object.AddressOf(obj))
+		_, err = e.Get(objectcore.AddressOf(obj))
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, mode.ReadWrite)
@@ -73,7 +73,7 @@ func TestErrorReporting(t *testing.T) {
 		t.Cleanup(func() { fixSubDir(t, filepath.Join(dir, "0")) })
 
 		for i := uint32(1); i < 3; i++ {
-			_, err = e.Get(object.AddressOf(obj))
+			_, err = e.Get(objectcore.AddressOf(obj))
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, mode.ReadWrite)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
@@ -92,7 +92,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(object.AddressOf(obj))
+		_, err = e.Get(objectcore.AddressOf(obj))
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, mode.ReadWrite)
@@ -102,14 +102,14 @@ func TestErrorReporting(t *testing.T) {
 		t.Cleanup(func() { fixSubDir(t, filepath.Join(dir, "0")) })
 
 		for i := uint32(1); i < errThreshold; i++ {
-			_, err = e.Get(object.AddressOf(obj))
+			_, err = e.Get(objectcore.AddressOf(obj))
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, mode.ReadWrite)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 
 		for i := range uint32(2) {
-			_, err = e.Get(object.AddressOf(obj))
+			_, err = e.Get(objectcore.AddressOf(obj))
 			require.Error(t, err)
 			checkShardState(t, e, id[0], errThreshold+i, mode.DegradedReadOnly)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
@@ -129,7 +129,7 @@ func TestBlobstorFailback(t *testing.T) {
 
 	e, _, id := newEngineWithErrorThreshold(t, dir, 1)
 
-	objs := make([]*objectSDK.Object, 0, 2)
+	objs := make([]*object.Object, 0, 2)
 	for _, size := range []int{15, errSmallSize + 1} {
 		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, size))
@@ -143,7 +143,7 @@ func TestBlobstorFailback(t *testing.T) {
 	}
 
 	for i := range objs {
-		addr := object.AddressOf(objs[i])
+		addr := objectcore.AddressOf(objs[i])
 		_, err := e.Get(addr)
 		require.NoError(t, err)
 		_, err = e.GetRange(addr, 0, 0)
@@ -163,7 +163,7 @@ func TestBlobstorFailback(t *testing.T) {
 	e, _, id = newEngineWithErrorThreshold(t, dir, 1)
 
 	for i := range objs {
-		addr := object.AddressOf(objs[i])
+		addr := objectcore.AddressOf(objs[i])
 		getObj, err := e.Get(addr)
 		require.NoError(t, err)
 		require.Equal(t, objs[i], getObj)

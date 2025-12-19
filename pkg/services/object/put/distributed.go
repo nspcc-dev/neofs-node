@@ -14,7 +14,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
@@ -23,7 +23,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -34,7 +34,7 @@ type distributedTarget struct {
 
 	placementIterator placementIterator
 
-	obj                *objectSDK.Object
+	obj                *object.Object
 	networkMagicNumber uint32
 	fsState            netmapcore.StateDetailed
 
@@ -58,7 +58,7 @@ type distributedTarget struct {
 
 	relay func(nodeDesc) error
 
-	fmt *object.FormatValidator
+	fmt *objectcore.FormatValidator
 
 	localStorage      ObjectStorage
 	clientConstructor ClientConstructor
@@ -94,7 +94,7 @@ func (x errIncompletePut) Error() string {
 	return commonMsg
 }
 
-func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
+func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
 	payloadLen := hdr.PayloadSize()
 	if payloadLen > math.MaxInt {
 		return fmt.Errorf("too big payload of physically stored for this server %d > %d", payloadLen, math.MaxInt)
@@ -139,7 +139,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
 
 	typ := t.obj.Type()
-	tombOrLink := typ == objectSDK.TypeLink || typ == objectSDK.TypeTombstone
+	tombOrLink := typ == object.TypeLink || typ == object.TypeTombstone
 
 	// v2 split link object and tombstone validations are expensive routines
 	// and are useless if the node does not belong to the container, since
@@ -163,7 +163,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	return t.obj.GetID(), nil
 }
 
-func (t *distributedTarget) saveObject(obj objectSDK.Object, encObj encodedObject) error {
+func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) error {
 	if t.localOnly && t.sessionSigner == nil {
 		return t.distributeObject(obj, encObj, nil)
 	}
@@ -177,8 +177,8 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, encObj encodedObjec
 
 	repRules := t.containerNodes.PrimaryCounts()
 	ecRules := t.containerNodes.ECRules()
-	if typ := obj.Type(); len(repRules) > 0 || typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLock || typ == objectSDK.TypeLink {
-		broadcast := typ == objectSDK.TypeTombstone || typ == objectSDK.TypeLink || (!t.localOnly && typ == objectSDK.TypeLock) || len(obj.Children()) > 0
+	if typ := obj.Type(); len(repRules) > 0 || typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink {
+		broadcast := typ == object.TypeTombstone || typ == object.TypeLink || (!t.localOnly && typ == object.TypeLock) || len(obj.Children()) > 0
 
 		useRepRules := repRules
 		if broadcast && len(ecRules) > 0 {
@@ -189,7 +189,7 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, encObj encodedObjec
 			}
 		}
 
-		return t.distributeObject(obj, encObj, func(obj objectSDK.Object, encObj encodedObject) error {
+		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
 				return t.sendObject(obj, encObj, node)
 			})
@@ -213,8 +213,8 @@ func (t *distributedTarget) saveObject(obj objectSDK.Object, encObj encodedObjec
 	return nil
 }
 
-func (t *distributedTarget) distributeObject(obj objectSDK.Object, encObj encodedObject,
-	placementFn func(obj objectSDK.Object, encObj encodedObject) error) error {
+func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedObject,
+	placementFn func(obj object.Object, encObj encodedObject) error) error {
 	defer func() {
 		// this field is reused for sliced objects of the same container with
 		// the same placement policy; placement's len must be kept the same, do
@@ -260,7 +260,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, encObj encode
 			return nil
 		}
 
-		addr := object.AddressOf(&obj)
+		addr := objectcore.AddressOf(&obj)
 		var objAccepted chan struct{}
 		if await {
 			objAccepted = make(chan struct{}, 1)
@@ -290,7 +290,7 @@ func (t *distributedTarget) distributeObject(obj objectSDK.Object, encObj encode
 	return nil
 }
 
-func (t *distributedTarget) encodeObjectMetadata(obj objectSDK.Object) []byte {
+func (t *distributedTarget) encodeObjectMetadata(obj object.Object) []byte {
 	currBlock := t.fsState.CurrentBlock()
 	currEpochDuration := t.fsState.CurrentEpochDuration()
 	expectedVUB := (uint64(currBlock)/currEpochDuration + 2) * currEpochDuration
@@ -305,18 +305,18 @@ func (t *distributedTarget) encodeObjectMetadata(obj objectSDK.Object) []byte {
 	var lockedObjs []oid.ID
 	typ := obj.Type()
 	switch typ {
-	case objectSDK.TypeTombstone:
+	case object.TypeTombstone:
 		deletedObjs = append(deletedObjs, obj.AssociatedObject())
-	case objectSDK.TypeLock:
+	case object.TypeLock:
 		lockedObjs = append(lockedObjs, obj.AssociatedObject())
 	default:
 	}
 
-	return object.EncodeReplicationMetaInfo(obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
+	return objectcore.EncodeReplicationMetaInfo(obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
 		obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.networkMagicNumber)
 }
 
-func (t *distributedTarget) sendObject(obj objectSDK.Object, encObj encodedObject, node nodeDesc) error {
+func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc) error {
 	if node.local {
 		if err := t.writeObjectLocally(obj, encObj); err != nil {
 			return fmt.Errorf("write object locally: %w", err)
@@ -398,7 +398,7 @@ func (t *distributedTarget) sendObject(obj objectSDK.Object, encObj encodedObjec
 	return nil
 }
 
-func (t *distributedTarget) writeObjectLocally(obj objectSDK.Object, encObj encodedObject) error {
+func (t *distributedTarget) writeObjectLocally(obj object.Object, encObj encodedObject) error {
 	if err := putObjectLocally(t.localStorage, &obj, &encObj); err != nil {
 		return err
 	}

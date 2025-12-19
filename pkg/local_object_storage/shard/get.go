@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -28,13 +28,13 @@ var ErrMetaWithNoObject = errors.New("got meta, but no object")
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 //
 // If referenced object is a parent of some stored objects, Get returns [ierrors.ErrParentObject] wrapping:
-// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [*object.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
 // - [iec.ErrParts] if referenced object is EC.
-func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) {
+func (s *Shard) Get(addr oid.Address, skipMeta bool) (*object.Object, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	var res *objectSDK.Object
+	var res *object.Object
 
 	cb := func(stor common.Storage) error {
 		obj, err := stor.Get(addr)
@@ -124,7 +124,7 @@ func (s *Shard) GetBytes(addr oid.Address) ([]byte, error) {
 // the metabase, GetBytesWithMetadataLookup returns an error.
 //
 // If referenced object is a parent of some stored objects, GetBytesWithMetadataLookup returns [ierrors.ErrParentObject] wrapping:
-// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [*object.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
 // - [iec.ErrParts] if referenced object is EC.
 func (s *Shard) GetBytesWithMetadataLookup(addr oid.Address) ([]byte, error) {
 	return s.getBytesWithMetadataLookup(addr, false)
@@ -163,14 +163,14 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 // Returns the object.ErrObjectIsExpired if the object is present but already expired.
 //
 // If referenced object is a parent of some stored objects, GetStream returns [ierrors.ErrParentObject] wrapping:
-// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [*object.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
 // - [iec.ErrParts] if referenced object is EC.
-func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*objectSDK.Object, io.ReadCloser, error) {
+func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	var (
-		res    *objectSDK.Object
+		res    *object.Object
 		reader io.ReadCloser
 	)
 

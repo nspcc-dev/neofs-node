@@ -8,7 +8,7 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -20,7 +20,7 @@ type Constructor = func(t *testing.T) common.Storage
 
 // objectDesc is a helper structure to avoid multiple `Marshal` invokes during tests.
 type objectDesc struct {
-	obj  *objectSDK.Object
+	obj  *object.Object
 	addr oid.Address
 	raw  []byte
 }
@@ -85,8 +85,8 @@ func prepareBatch(t *testing.T, count int, s common.Storage, minSize, maxSize ui
 }
 
 // NewObject creates a regular object of specified size with a random payload.
-func NewObject(sz uint64) *objectSDK.Object {
-	raw := objectSDK.New()
+func NewObject(sz uint64) *object.Object {
+	raw := object.New()
 
 	raw.SetID(oidtest.ID())
 	raw.SetContainerID(cidtest.ID())

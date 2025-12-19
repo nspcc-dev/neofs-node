@@ -15,7 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -36,9 +36,9 @@ import (
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 //
 // If raw and the object is a parent of some stored objects, Get returns:
-// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [iec.ErrPartitionedObject] if object is EC.
-func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
+func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -47,7 +47,7 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	}
 	var (
 		err       error
-		hdr       *objectSDK.Object
+		hdr       *object.Object
 		currEpoch = db.epochState.CurrentEpoch()
 	)
 
@@ -61,9 +61,9 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 }
 
 // If raw and the object is a parent of some stored objects, get returns:
-// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [iec.ErrPartitionedObject] if object is EC.
-func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
+func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
@@ -101,8 +101,8 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 
 	// Reconstruct header from available data.
 	var (
-		attrs     []objectSDK.Attribute
-		obj       = objectSDK.New()
+		attrs     []object.Attribute
+		obj       = object.New()
 		objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
 	)
 	for ak, _ := metaCursor.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = metaCursor.Next() {
@@ -115,73 +115,73 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 			return nil, fmt.Errorf("empty attribute or value in meta of %s/%s", cnr, objID)
 		}
 		switch string(attrKey) {
-		case objectSDK.FilterVersion:
+		case object.FilterVersion:
 			var v version.Version
 			err := v.DecodeString(string(attrVal))
 			if err != nil {
 				return nil, fmt.Errorf("invalid version in meta of %s/%s: %w", cnr, objID, err)
 			}
 			obj.SetVersion(&v)
-		case objectSDK.FilterOwnerID:
+		case object.FilterOwnerID:
 			var u user.ID
 			if len(u) != len(attrVal) {
 				return nil, fmt.Errorf("invalid owner in meta of %s/%s: length %d", cnr, objID, len(attrVal))
 			}
 			copy(u[:], attrVal)
 			obj.SetOwner(u)
-		case objectSDK.FilterType:
-			var t objectSDK.Type
+		case object.FilterType:
+			var t object.Type
 
 			if !t.DecodeString(string(attrVal)) {
 				return nil, fmt.Errorf("invalid type in meta of %s/%s: garbage value", cnr, objID)
 			}
 			obj.SetType(t)
-		case objectSDK.FilterCreationEpoch:
+		case object.FilterCreationEpoch:
 			s, err := strconv.ParseUint(string(attrVal), 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid epoch in meta of %s/%s: %w", cnr, objID, err)
 			}
 			obj.SetCreationEpoch(s)
-		case objectSDK.FilterPayloadSize:
+		case object.FilterPayloadSize:
 			s, err := strconv.ParseUint(string(attrVal), 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid size in meta of %s/%s: %w", cnr, objID, err)
 			}
 			obj.SetPayloadSize(s)
-		case objectSDK.FilterPayloadChecksum:
+		case object.FilterPayloadChecksum:
 			if len(attrVal) != sha256.Size {
 				return nil, fmt.Errorf("invalid checksum in meta of %s/%s: length %d", cnr, objID, len(attrVal))
 			}
 			var ch = checksum.NewSHA256([sha256.Size]byte(attrVal))
 			obj.SetPayloadChecksum(ch)
-		case objectSDK.FilterPayloadHomomorphicHash:
+		case object.FilterPayloadHomomorphicHash:
 			if len(attrVal) != tz.Size {
 				return nil, fmt.Errorf("invalid homo checksum in meta of %s/%s: length %d", cnr, objID, len(attrVal))
 			}
 			var ch = checksum.NewTillichZemor([tz.Size]byte(attrVal))
 			obj.SetPayloadHomomorphicHash(ch)
-		case objectSDK.FilterSplitID:
-			id := objectSDK.NewSplitIDFromV2(attrVal)
+		case object.FilterSplitID:
+			id := object.NewSplitIDFromV2(attrVal)
 			if id == nil {
 				return nil, fmt.Errorf("invalid split ID in meta of %s/%s: garbage value", cnr, objID)
 			}
 			obj.SetSplitID(id)
-		case objectSDK.FilterFirstSplitObject:
+		case object.FilterFirstSplitObject:
 			id, err := oid.DecodeBytes(attrVal)
 			if err != nil {
 				return nil, fmt.Errorf("invalid first split ID in meta of %s/%s: %w", cnr, objID, err)
 			}
 			obj.SetFirstID(id)
-		case objectSDK.FilterParentID:
+		case object.FilterParentID:
 			id, err := oid.DecodeBytes(attrVal)
 			if err != nil {
 				return nil, fmt.Errorf("invalid parent ID in meta of %s/%s: %w", cnr, objID, err)
 			}
 			obj.SetParentID(id)
-		case objectSDK.FilterPhysical, objectSDK.FilterRoot:
+		case object.FilterPhysical, object.FilterRoot:
 			// Not real attributes, ignored.
 		default:
-			attrs = append(attrs, objectSDK.NewAttribute(string(attrKey), string(attrVal)))
+			attrs = append(attrs, object.NewAttribute(string(attrKey), string(attrVal)))
 		}
 	}
 	// Any valid object has an owner.
@@ -195,9 +195,9 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 }
 
 func getParentMetaOwnersPrefix(parentID oid.ID) []byte {
-	var parentPrefix = make([]byte, 1+len(objectSDK.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
+	var parentPrefix = make([]byte, 1+len(object.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
 	parentPrefix[0] = metaPrefixAttrIDPlain
-	off := 1 + copy(parentPrefix[1:], objectSDK.FilterParentID)
+	off := 1 + copy(parentPrefix[1:], object.FilterParentID)
 	off += copy(parentPrefix[off:], objectcore.MetaAttributeDelimiter)
 	copy(parentPrefix[off:], parentID[:])
 

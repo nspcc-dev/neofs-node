@@ -8,7 +8,7 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +24,7 @@ func TestExists(t *testing.T) {
 		shard.WithMode(mode.Degraded),
 	)
 
-	objects := []*objectSDK.Object{
+	objects := []*object.Object{
 		testObject(smallSizeLimit / 2),
 		testObject(smallSizeLimit + 1),
 	}

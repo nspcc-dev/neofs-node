@@ -15,7 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -35,7 +35,7 @@ const (
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 //
 // If referenced object is a parent of some stored objects, Exists returns [ParentError] wrapping:
-// - [*objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from stored parts;
+// - [*object.SplitInfoError] wrapping [object.SplitInfo] collected from stored parts;
 // - [ErrParts] if referenced object is EC.
 func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	db.modeMtx.RLock()
@@ -64,7 +64,7 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 }
 
 // If checkParent is set and referenced object is a parent of some stored objects, exists returns [ParentError] wrapping:
-// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [ErrParts] if object is EC.
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkParent bool) (bool, error) {
 	var (
@@ -173,7 +173,7 @@ func getObjIDAttribute(metaCursor *bbolt.Cursor, objID oid.ID, attr string) oid.
 
 // getParentID returns parent address if it exists for the object.
 func getParentID(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
-	return getObjIDAttribute(metaCursor, objID, objectSDK.FilterParentID)
+	return getObjIDAttribute(metaCursor, objID, object.FilterParentID)
 }
 
 // seekForParentViaAttribute tries to find a parent of a set of objects with
@@ -207,7 +207,7 @@ func findParent(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
 		return parent
 	}
 
-	for _, attr := range []string{objectSDK.FilterFirstSplitObject, objectSDK.FilterSplitID} {
+	for _, attr := range []string{object.FilterFirstSplitObject, object.FilterSplitID} {
 		var val = getObjAttribute(metaCursor, objID, attr)
 		if val != nil {
 			return seekForParentViaAttribute(metaCursor, attr, val)
@@ -223,7 +223,7 @@ func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
 		return false
 	}
 
-	var val = getObjAttribute(metaCursor, idObj, objectSDK.AttributeExpirationEpoch)
+	var val = getObjAttribute(metaCursor, idObj, object.AttributeExpirationEpoch)
 
 	if val != nil {
 		objExpiration, err := strconv.ParseUint(string(val), 10, 64)
@@ -248,7 +248,7 @@ func inGarbageWithKey(metaCursor *bbolt.Cursor, addrKey []byte, garbageObjectsBC
 		return statusGCMarked
 	}
 
-	deleted, _ := associatedWithTypedObject(0, metaCursor, oid.ID(addrKey[cid.Size:]), objectSDK.TypeTombstone)
+	deleted, _ := associatedWithTypedObject(0, metaCursor, oid.ID(addrKey[cid.Size:]), object.TypeTombstone)
 	if deleted {
 		return statusTombstoned
 	}
@@ -273,11 +273,11 @@ func inGarbageWithKey(metaCursor *bbolt.Cursor, addrKey []byte, garbageObjectsBC
 // getParentInfo checks whether referenced object is a parent of some stored
 // objects. If not, getParentInfo returns (nil, nil). If yes, getParentInfo
 // returns [ParentError] wrapping:
-// - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
+// - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [ErrParts] if object is EC.
 func getParentInfo(metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) error {
 	var (
-		splitInfo    *objectSDK.SplitInfo
+		splitInfo    *object.SplitInfo
 		ecParts      []oid.ID
 		parentPrefix = getParentMetaOwnersPrefix(parentID)
 	)
@@ -296,7 +296,7 @@ loop:
 			isEmpty   bool
 		)
 		if splitInfo == nil {
-			splitInfo = objectSDK.NewSplitInfo()
+			splitInfo = object.NewSplitInfo()
 		}
 		for ak, _ := objCur.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = objCur.Next() {
 			attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
@@ -308,17 +308,17 @@ loop:
 				ecParts = append(ecParts, objID)
 				continue loop
 			}
-			if string(attrKey) == objectSDK.FilterType && string(attrVal) == objectSDK.TypeLink.String() {
+			if string(attrKey) == object.FilterType && string(attrVal) == object.TypeLink.String() {
 				isLink = true
 			}
-			if string(attrKey) == objectSDK.FilterSplitID {
+			if string(attrKey) == object.FilterSplitID {
 				isV1 = true
-				splitInfo.SetSplitID(objectSDK.NewSplitIDFromV2(attrVal))
+				splitInfo.SetSplitID(object.NewSplitIDFromV2(attrVal))
 			}
-			if string(attrKey) == objectSDK.FilterPayloadSize && string(attrVal) == "0" {
+			if string(attrKey) == object.FilterPayloadSize && string(attrVal) == "0" {
 				isEmpty = true
 			}
-			if string(attrKey) == objectSDK.FilterFirstSplitObject {
+			if string(attrKey) == object.FilterFirstSplitObject {
 				firstID, err := oid.DecodeBytes(attrVal)
 				if err != nil {
 					return fmt.Errorf("invalid first ID attribute in %s/%s: %w", cnr, objID, err)
@@ -343,7 +343,7 @@ loop:
 		return ierrors.NewParentObjectError(iec.ErrParts(ecParts))
 	}
 	if splitInfo != nil {
-		return ierrors.NewParentObjectError(objectSDK.NewSplitInfoError(splitInfo))
+		return ierrors.NewParentObjectError(object.NewSplitInfoError(splitInfo))
 	}
 	return nil
 }

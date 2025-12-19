@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
@@ -52,7 +52,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 			obj.SetParentID(idParent)
 			obj.SetParent(parent)
 
-			objs[object.AddressOf(obj)] = 0
+			objs[objectcore.AddressOf(obj)] = 0
 
 			err := sh.Put(obj, nil)
 			require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestShard_ListWithCursor(t *testing.T) {
 		s := newShard(t, true)
 		defer releaseShard(s, t)
 
-		var exp []object.AddressWithAttributes
+		var exp []objectcore.AddressWithAttributes
 		for i := range containerNum {
 			cnr := cidtest.ID()
 			for j := range objectsPerContainer {
@@ -92,10 +92,10 @@ func TestShard_ListWithCursor(t *testing.T) {
 
 				obj := generateObjectWithCID(cnr)
 				obj.SetOwner(owner)
-				obj.SetType(objectSDK.TypeRegular)
+				obj.SetType(object.TypeRegular)
 				obj.SetAttributes(
-					objectSDK.NewAttribute(staticAttr, staticVal),
-					objectSDK.NewAttribute(commonAttr, commonVal),
+					object.NewAttribute(staticAttr, staticVal),
+					object.NewAttribute(commonAttr, commonVal),
 				)
 
 				var groupVal string
@@ -106,9 +106,9 @@ func TestShard_ListWithCursor(t *testing.T) {
 
 				require.NoError(t, s.Put(obj, nil))
 
-				exp = append(exp, object.AddressWithAttributes{
-					Address:    object.AddressOf(obj),
-					Type:       objectSDK.TypeRegular,
+				exp = append(exp, objectcore.AddressWithAttributes{
+					Address:    objectcore.AddressOf(obj),
+					Type:       object.TypeRegular,
 					Attributes: []string{staticVal, commonVal, groupVal, string(owner[:])},
 				})
 			}
@@ -130,8 +130,8 @@ func TestShard_ListWithCursor(t *testing.T) {
 	})
 }
 
-func collectListWithCursor(t *testing.T, s *shard.Shard, count int, attrs ...string) []object.AddressWithAttributes {
-	var next, collected []object.AddressWithAttributes
+func collectListWithCursor(t *testing.T, s *shard.Shard, count int, attrs ...string) []objectcore.AddressWithAttributes {
+	var next, collected []objectcore.AddressWithAttributes
 	var crs *shard.Cursor
 	var err error
 	for {

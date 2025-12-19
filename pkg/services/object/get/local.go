@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -17,7 +17,7 @@ func (exec *execCtx) executeLocal() {
 
 	exec.collectedHeader, exec.collectedReader, err = exec.svc.localStorage.get(exec)
 
-	var errSplitInfo *objectSDK.SplitInfoError
+	var errSplitInfo *object.SplitInfoError
 
 	switch {
 	default:
@@ -44,7 +44,7 @@ func (exec *execCtx) executeLocal() {
 	case errors.As(err, &errSplitInfo):
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
-		exec.err = objectSDK.NewSplitInfoError(exec.infoSplit)
+		exec.err = object.NewSplitInfoError(exec.infoSplit)
 	}
 }
 

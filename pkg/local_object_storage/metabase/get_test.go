@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -28,7 +28,7 @@ func TestDB_Get(t *testing.T) {
 	addAttribute(raw, "foo", "bar")
 
 	t.Run("object not found", func(t *testing.T) {
-		_, err := metaGet(db, object.AddressOf(raw), false)
+		_, err := metaGet(db, objectcore.AddressOf(raw), false)
 		require.Error(t, err)
 	})
 
@@ -36,38 +36,38 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, object.AddressOf(raw), false)
+		newObj, err := metaGet(db, objectcore.AddressOf(raw), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
 	t.Run("put tombstone object", func(t *testing.T) {
-		raw.SetType(objectSDK.TypeTombstone)
+		raw.SetType(object.TypeTombstone)
 		raw.SetID(oidtest.ID())
 
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, object.AddressOf(raw), false)
+		newObj, err := metaGet(db, objectcore.AddressOf(raw), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
 	t.Run("put lock object", func(t *testing.T) {
-		raw.SetType(objectSDK.TypeLock)
+		raw.SetType(object.TypeLock)
 		raw.SetID(oidtest.ID())
 
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, object.AddressOf(raw), false)
+		newObj, err := metaGet(db, objectcore.AddressOf(raw), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
 	t.Run("put virtual object", func(t *testing.T) {
 		cnr := cidtest.ID()
-		splitID := objectSDK.NewSplitID()
+		splitID := object.NewSplitID()
 
 		parent := generateObjectWithCID(t, cnr)
 		addAttribute(parent, "foo", "bar")
@@ -82,10 +82,10 @@ func TestDB_Get(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("raw is true", func(t *testing.T) {
-			_, err = metaGet(db, object.AddressOf(parent), true)
+			_, err = metaGet(db, objectcore.AddressOf(parent), true)
 			require.Error(t, err)
 
-			var siErr *objectSDK.SplitInfoError
+			var siErr *object.SplitInfoError
 			require.ErrorAs(t, err, &siErr)
 			require.Equal(t, splitID, siErr.SplitInfo().SplitID())
 
@@ -97,11 +97,11 @@ func TestDB_Get(t *testing.T) {
 			require.True(t, link.IsZero())
 		})
 
-		newParent, err := metaGet(db, object.AddressOf(parent), false)
+		newParent, err := metaGet(db, objectcore.AddressOf(parent), false)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(parent.CutPayload(), newParent))
 
-		newChild, err := metaGet(db, object.AddressOf(child), true)
+		newChild, err := metaGet(db, objectcore.AddressOf(child), true)
 		require.NoError(t, err)
 		// newChild doesn't have parent header, so for ease of
 		// comparison re-add it
@@ -127,12 +127,12 @@ func TestDB_Get(t *testing.T) {
 	})
 
 	t.Run("expired object", func(t *testing.T) {
-		checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
-			gotExp, err := metaGet(db, object.AddressOf(exp), false)
+		checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
+			gotExp, err := metaGet(db, objectcore.AddressOf(exp), false)
 			require.Nil(t, gotExp)
 			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
-			gotNonExp, err := metaGet(db, object.AddressOf(nonExp), false)
+			gotNonExp, err := metaGet(db, objectcore.AddressOf(nonExp), false)
 			require.NoError(t, err)
 			require.True(t, binaryEqual(gotNonExp, nonExp.CutPayload()))
 		})
@@ -143,7 +143,7 @@ func TestDB_Get(t *testing.T) {
 
 // binary equal is used when object contains empty lists in the structure and
 // require.Equal fails on comparing <nil> and []{} lists.
-func binaryEqual(a, b *objectSDK.Object) bool {
+func binaryEqual(a, b *object.Object) bool {
 	return bytes.Equal(a.Marshal(), b.Marshal())
 }
 
@@ -165,7 +165,7 @@ func BenchmarkGet(b *testing.B) {
 	}
 }
 
-var obj *objectSDK.Object
+var obj *object.Object
 
 func benchmarkGet(b *testing.B, numOfObj int) {
 	prepareDb := func(batchSize int) (*meta.DB, []oid.Address) {
@@ -177,7 +177,7 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 
 		for range numOfObj {
 			raw := generateObject(b)
-			addrs = append(addrs, object.AddressOf(raw))
+			addrs = append(addrs, objectcore.AddressOf(raw))
 
 			err := putBig(db, raw)
 			require.NoError(b, err)
@@ -243,19 +243,19 @@ func TestDB_GetContainer(t *testing.T) {
 
 	// TS
 	o8 := generateObjectWithCID(t, cID) // 5
-	o8.SetType(objectSDK.TypeTombstone)
+	o8.SetType(object.TypeTombstone)
 	err = metaPut(db, o8)
 	require.NoError(t, err)
 
-	err = metaInhume(db, object.AddressOf(o1), object.AddressOf(o8))
+	err = metaInhume(db, objectcore.AddressOf(o1), objectcore.AddressOf(o8))
 	require.NoError(t, err)
 
-	objs, err := db.Select(cID, objectSDK.SearchFilters{})
+	objs, err := db.Select(cID, object.SearchFilters{})
 	require.NoError(t, err)
 
 	require.Len(t, objs, 5) // Tombstone is returned as well.
 }
 
-func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
+func metaGet(db *meta.DB, addr oid.Address, raw bool) (*object.Object, error) {
 	return db.Get(addr, raw)
 }

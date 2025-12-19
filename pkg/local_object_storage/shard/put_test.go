@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -59,7 +59,7 @@ func TestShard_PutBinary(t *testing.T) {
 }
 
 func TestShard_Put_Lock(t *testing.T) {
-	var obj objectSDK.Object
+	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -81,10 +81,10 @@ func TestShard_Put_Lock(t *testing.T) {
 	tomb.AssociateDeleted(objID)
 
 	t.Run("non-regular target", func(t *testing.T) {
-		for _, typ := range []objectSDK.Type{
-			objectSDK.TypeTombstone,
-			objectSDK.TypeLock,
-			objectSDK.TypeLink,
+		for _, typ := range []object.Type{
+			object.TypeTombstone,
+			object.TypeLock,
+			object.TypeLink,
 		} {
 			sh, fst := newShardWithFSTree(t)
 
@@ -192,7 +192,7 @@ func TestShard_Put_Lock(t *testing.T) {
 }
 
 func TestDB_Put_Tombstone(t *testing.T) {
-	var obj objectSDK.Object
+	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -276,7 +276,7 @@ func TestDB_Put_Tombstone(t *testing.T) {
 		}},
 		{name: "target is lock", preset: func(t *testing.T, sh *shard.Shard) {
 			obj := obj
-			obj.SetType(objectSDK.TypeLock)
+			obj.SetType(object.TypeLock)
 			require.NoError(t, sh.Put(&obj, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
@@ -284,7 +284,7 @@ func TestDB_Put_Tombstone(t *testing.T) {
 		{name: "target is tombstone", preset: func(t *testing.T, sh *shard.Shard) {
 			obj := obj
 			obj.SetAttributes(
-				objectSDK.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+				object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 			)
 			obj.AssociateDeleted(oidtest.ID())
 			require.NoError(t, sh.Put(&obj, nil))

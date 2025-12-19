@@ -13,13 +13,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*objectSDK.Object) {
+func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*object.Object) {
 	var (
 		dir = t.TempDir()
 		e   = New(
@@ -46,7 +46,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 
-	objects := make([]*objectSDK.Object, 0, objPerShard*len(ids))
+	objects := make([]*object.Object, 0, objPerShard*len(ids))
 	for i := 0; ; i++ {
 		objects = append(objects, generateObjectWithCID(cidtest.ID()))
 
@@ -114,9 +114,9 @@ func TestEvacuateShard(t *testing.T) {
 func TestEvacuateNetwork(t *testing.T) {
 	var errReplication = errors.New("handler error")
 
-	acceptOneOf := func(objects []*objectSDK.Object, maxIter int) func(oid.Address, *objectSDK.Object) error {
+	acceptOneOf := func(objects []*object.Object, maxIter int) func(oid.Address, *object.Object) error {
 		var n int
-		return func(addr oid.Address, obj *objectSDK.Object) error {
+		return func(addr oid.Address, obj *object.Object) error {
 			if n == maxIter {
 				return errReplication
 			}

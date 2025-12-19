@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -14,7 +14,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -29,7 +29,7 @@ func (s epochState) CurrentEpoch() uint64 {
 }
 
 type objAddr struct {
-	obj  *objectSDK.Object
+	obj  *object.Object
 	addr oid.Address
 }
 
@@ -89,14 +89,14 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Init())
 
 	obj := objecttest.Object()
-	obj.SetType(objectSDK.TypeRegular)
+	obj.SetType(object.TypeRegular)
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
 	err := sh.Put(&obj, nil)
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
 
-	addr := object.AddressOf(&obj)
+	addr := objectcore.AddressOf(&obj)
 	// https://github.com/nspcc-dev/neofs-node/issues/2563
 	err = fsTree.Delete(addr)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestResyncMetabase(t *testing.T) {
 	cnrLocked := cidtest.ID()
 	for i := range uint64(objNum) {
 		obj := objecttest.Object()
-		obj.SetType(objectSDK.TypeRegular)
+		obj.SetType(object.TypeRegular)
 
 		if i < objNum/2 {
 			payload := make([]byte, 1024)
@@ -170,7 +170,7 @@ func TestResyncMetabase(t *testing.T) {
 			locked = append(locked, id)
 		}
 
-		addr := object.AddressOf(&obj)
+		addr := objectcore.AddressOf(&obj)
 
 		mObjs[addr] = objAddr{
 			obj:  &obj,
@@ -201,7 +201,7 @@ func TestResyncMetabase(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	checkObj := func(addr oid.Address, expObj *objectSDK.Object) {
+	checkObj := func(addr oid.Address, expObj *object.Object) {
 		res, err := sh.Head(addr, false)
 
 		if expObj == nil {
@@ -247,7 +247,7 @@ func TestResyncMetabase(t *testing.T) {
 	}
 
 	checkAllObjs(true)
-	checkObj(object.AddressOf(&tombObj), &tombObj)
+	checkObj(objectcore.AddressOf(&tombObj), &tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 
@@ -289,7 +289,7 @@ func TestResyncMetabase(t *testing.T) {
 	defer sh.Close()
 
 	checkAllObjs(false)
-	checkObj(object.AddressOf(&tombObj), nil)
+	checkObj(objectcore.AddressOf(&tombObj), nil)
 	checkTombMembers(false)
 
 	err = sh.resyncMetabase()
@@ -302,7 +302,7 @@ func TestResyncMetabase(t *testing.T) {
 	require.Equal(t, logicalBefore, c.Logic())
 
 	checkAllObjs(true)
-	checkObj(object.AddressOf(&tombObj), &tombObj)
+	checkObj(objectcore.AddressOf(&tombObj), &tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 }

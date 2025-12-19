@@ -11,7 +11,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -114,8 +114,8 @@ func TestShardReload(t *testing.T) {
 	})
 }
 
-func newObject(t testing.TB) *objectSDK.Object {
-	x := objectSDK.New()
+func newObject(t testing.TB) *object.Object {
+	x := object.New()
 	ver := version.Current()
 
 	x.SetID(oidtest.ID())
@@ -123,7 +123,7 @@ func newObject(t testing.TB) *objectSDK.Object {
 	x.SetPayloadSize(3)
 	x.SetOwner(usertest.ID())
 	x.SetContainerID(cidtest.ID())
-	x.SetType(objectSDK.TypeRegular)
+	x.SetType(object.TypeRegular)
 	x.SetVersion(&ver)
 	x.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(x.Payload())))
 	x.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(x.Payload())))

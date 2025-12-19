@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -25,10 +25,10 @@ type Storage interface {
 	// GetBytes reads object by address into memory buffer in a canonical NeoFS
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.
 	GetBytes(oid.Address) ([]byte, error)
-	Get(oid.Address) (*objectSDK.Object, error)
+	Get(oid.Address) (*object.Object, error)
 	GetRange(oid.Address, uint64, uint64) ([]byte, error)
-	GetStream(oid.Address) (*objectSDK.Object, io.ReadCloser, error)
-	Head(oid.Address) (*objectSDK.Object, error)
+	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
+	Head(oid.Address) (*object.Object, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
 	PutBatch(map[oid.Address][]byte) error

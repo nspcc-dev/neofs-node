@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -48,7 +48,7 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 		children []oid.Address
 		err      error
 		root     bool
-		siNoLink *objectSDK.SplitInfo
+		siNoLink *object.SplitInfo
 		shards   = e.sortedShards(addr)
 	)
 
@@ -72,7 +72,7 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 				break
 			}
 
-			var siErr *objectSDK.SplitInfoError
+			var siErr *object.SplitInfoError
 			if !errors.As(err, &siErr) {
 				e.reportShardError(sh, "could not check for presence in shard", err, zap.Stringer("addr", addr))
 				continue
@@ -109,8 +109,8 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 			}
 
 			// v2 split
-			if linkObj.Type() == objectSDK.TypeLink {
-				var link objectSDK.Link
+			if linkObj.Type() == object.TypeLink {
+				var link object.Link
 				err := linkObj.ReadLink(&link)
 				if err != nil {
 					e.log.Debug("inhuming root object but link object cannot be read",
@@ -190,7 +190,7 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 	return retErr
 }
 
-func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *objectSDK.SplitInfo) []oid.Address {
+func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *object.SplitInfo) []oid.Address {
 	e.log.Info("root object has no link object in split upload",
 		zap.Stringer("addrBeingInhumed", addr))
 
@@ -198,14 +198,14 @@ func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *objectS
 	splitID := si.SplitID()
 	switch {
 	case !firstID.IsZero():
-		res, err := e.collectRawWithAttribute(addr.Container(), objectSDK.FilterFirstSplitObject, firstID[:])
+		res, err := e.collectRawWithAttribute(addr.Container(), object.FilterFirstSplitObject, firstID[:])
 		if err == nil {
 			res = append(res, oid.NewAddress(addr.Container(), firstID))
 			return res
 		}
 		e.log.Warn("failed to collect objects with first ID", zap.Stringer("addrBeingInhumed", addr), zap.Error(err))
 	case splitID != nil:
-		res, err := e.collectRawWithAttribute(addr.Container(), objectSDK.FilterSplitID, splitID.ToV2())
+		res, err := e.collectRawWithAttribute(addr.Container(), object.FilterSplitID, splitID.ToV2())
 		if err == nil {
 			return res
 		}
@@ -273,7 +273,7 @@ func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 	}
 }
 
-func measuredObjsToAddresses(cID cid.ID, mm []objectSDK.MeasuredObject) []oid.Address {
+func measuredObjsToAddresses(cID cid.ID, mm []object.MeasuredObject) []oid.Address {
 	var addr oid.Address
 	addr.SetContainer(cID)
 

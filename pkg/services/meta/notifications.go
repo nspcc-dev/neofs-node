@@ -17,7 +17,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-contract/rpc/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -317,7 +317,7 @@ type objEvent struct {
 	prevObject     []byte
 	deletedObjects []byte
 	lockedObjects  []byte
-	typ            objectsdk.Type
+	typ            object.Type
 }
 
 func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error) {
@@ -395,10 +395,10 @@ func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error)
 		if !ok {
 			return res, fmt.Errorf("unexpected object type field: %T", v.Value())
 		}
-		res.typ = objectsdk.Type(typ.Uint64())
+		res.typ = object.Type(typ.Uint64())
 
 		switch res.typ {
-		case objectsdk.TypeTombstone:
+		case object.TypeTombstone:
 			v = getFromMap(meta, deletedKey)
 			if v == nil {
 				return res, fmt.Errorf("missing '%s' key for %s object type", deletedKey, res.typ)
@@ -411,7 +411,7 @@ func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error)
 				}
 				res.deletedObjects = append(res.deletedObjects, rawDeleted...)
 			}
-		case objectsdk.TypeLock:
+		case object.TypeLock:
 			v = getFromMap(meta, lockedKey)
 			if v == nil {
 				return res, fmt.Errorf("missing '%s' key for %s object type", lockedKey, res.typ)
@@ -424,7 +424,7 @@ func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error)
 				}
 				res.lockedObjects = append(res.deletedObjects, rawLocked...)
 			}
-		case objectsdk.TypeLink, objectsdk.TypeRegular:
+		case object.TypeLink, object.TypeRegular:
 		default:
 			return res, fmt.Errorf("unknown '%s' object type", res.typ)
 		}

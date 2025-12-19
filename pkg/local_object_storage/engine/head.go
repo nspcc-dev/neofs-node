@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -22,7 +22,7 @@ import (
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
+func (e *StorageEngine) Head(addr oid.Address, raw bool) (*object.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
@@ -34,26 +34,26 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 		return nil, e.blockErr
 	}
 
-	var splitInfo *objectSDK.SplitInfo
+	var splitInfo *object.SplitInfo
 
 	for _, sh := range e.sortedShards(addr) {
 		res, err := sh.Head(addr, raw)
 		if err != nil {
-			var siErr *objectSDK.SplitInfoError
+			var siErr *object.SplitInfoError
 
 			switch {
 			case shard.IsErrNotFound(err):
 				continue // ignore, go to next shard
 			case errors.As(err, &siErr):
 				if splitInfo == nil {
-					splitInfo = objectSDK.NewSplitInfo()
+					splitInfo = object.NewSplitInfo()
 				}
 
 				util.MergeSplitInfo(siErr.SplitInfo(), splitInfo)
 
 				// stop iterating over shards if SplitInfo structure is complete
 				if !splitInfo.GetLink().IsZero() && !splitInfo.GetLastPart().IsZero() {
-					return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+					return nil, logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 				}
 				continue
 			case shard.IsErrRemoved(err):
@@ -72,7 +72,7 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 	}
 
 	if splitInfo != nil {
-		return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+		return nil, logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 	}
 
 	return nil, apistatus.ObjectNotFound{}

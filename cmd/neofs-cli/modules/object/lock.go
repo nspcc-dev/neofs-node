@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -68,8 +68,8 @@ var objectLockCmd = &cobra.Command{
 
 		common.PrintVerbose(cmd, "Lock object will expire after %d epoch", exp)
 
-		var expirationAttr objectSDK.Attribute
-		expirationAttr.SetKey(objectSDK.AttributeExpirationEpoch)
+		var expirationAttr object.Attribute
+		expirationAttr.SetKey(object.AttributeExpirationEpoch)
 		expirationAttr.SetValue(strconv.FormatUint(exp, 10))
 
 		var prm client.PrmObjectPutInit
@@ -93,7 +93,7 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		obj := objectSDK.New()
+		obj := object.New()
 		curV := version.Current()
 		obj.SetVersion(&curV)
 		obj.SetContainerID(cnr)

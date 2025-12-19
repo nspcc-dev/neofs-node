@@ -7,7 +7,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -175,7 +175,7 @@ func (s *Shard) resyncMetabase() error {
 }
 
 func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
-	obj := objectSDK.New()
+	obj := object.New()
 
 	if err := obj.Unmarshal(data); err != nil {
 		s.log.Warn("could not unmarshal object",

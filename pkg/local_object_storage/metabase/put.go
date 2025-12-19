@@ -9,7 +9,7 @@ import (
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -20,10 +20,10 @@ const maxObjectNestingLevel = 2
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 //
-// Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [objectSDK.TypeLock]
-// type and there is an object of [objectSDK.TypeTombstone] type associated with
+// Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [object.TypeLock]
+// type and there is an object of [object.TypeTombstone] type associated with
 // the same target.
-func (db *DB) Put(obj *objectSDK.Object) error {
+func (db *DB) Put(obj *object.Object) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -47,7 +47,7 @@ func (db *DB) Put(obj *objectSDK.Object) error {
 	return err
 }
 
-func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, nestingLevel int, currEpoch uint64) error {
+func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch uint64) error {
 	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, nestingLevel int, currEpo
 
 	if nestingLevel == 0 {
 		// update container volume size estimation
-		if obj.Type() == objectSDK.TypeRegular {
+		if obj.Type() == object.TypeRegular {
 			err = changeContainerInfo(tx, obj.GetContainerID(), int(obj.PayloadSize()), 1)
 			if err != nil {
 				return err
@@ -110,7 +110,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, nestingLevel int, currEpo
 	return nil
 }
 
-func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object) error {
+func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) error {
 	cID := obj.GetContainerID()
 	oID := obj.GetID()
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
@@ -120,14 +120,14 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 	metaCursor := metaBkt.Cursor()
 	typ := obj.Type()
 	switch typ {
-	case objectSDK.TypeLock, objectSDK.TypeTombstone:
+	case object.TypeLock, object.TypeTombstone:
 		if target := obj.AssociatedObject(); !target.IsZero() {
 			typPrefix := make([]byte, metaIDTypePrefixSize)
 			fillIDTypePrefix(typPrefix)
 			targetTyp, targetTypErr := fetchTypeForID(metaCursor, typPrefix, target)
 
-			if typ == objectSDK.TypeLock {
-				if targetTypErr == nil && targetTyp != objectSDK.TypeRegular {
+			if typ == object.TypeLock {
+				if targetTypErr == nil && targetTyp != object.TypeRegular {
 					return logicerr.Wrap(apistatus.LockNonRegularObject{})
 				}
 
@@ -148,10 +148,10 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 				)
 				addr.SetContainer(cID)
 				if targetTypErr == nil {
-					if targetTyp == objectSDK.TypeTombstone {
+					if targetTyp == object.TypeTombstone {
 						return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
 					}
-					if targetTyp == objectSDK.TypeLock {
+					if targetTyp == object.TypeLock {
 						return ErrLockObjectRemoval
 					}
 				}
@@ -184,7 +184,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 						}
 						// if object is stored, and it is regular object then update bucket
 						// with container size estimations
-						if obj.Type() == objectSDK.TypeRegular {
+						if obj.Type() == object.TypeRegular {
 							err = changeContainerInfo(tx, cID, -int(obj.PayloadSize()), -1)
 							if err != nil {
 								return err

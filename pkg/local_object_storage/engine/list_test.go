@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
@@ -25,8 +25,8 @@ func TestListWithCursor(t *testing.T) {
 
 	const total = 20
 
-	expected := make([]object.AddressWithAttributes, 0, total)
-	got := make([]object.AddressWithAttributes, 0, total)
+	expected := make([]objectcore.AddressWithAttributes, 0, total)
+	got := make([]objectcore.AddressWithAttributes, 0, total)
 
 	for range total {
 		containerID := cidtest.ID()
@@ -34,7 +34,7 @@ func TestListWithCursor(t *testing.T) {
 
 		err := e.Put(obj, nil)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressWithAttributes{Type: objectSDK.TypeRegular, Address: object.AddressOf(obj)})
+		expected = append(expected, objectcore.AddressWithAttributes{Type: object.TypeRegular, Address: objectcore.AddressOf(obj)})
 	}
 
 	expected = sortAddresses(expected)
@@ -66,8 +66,8 @@ func TestListWithCursor(t *testing.T) {
 		const commonAttr = "attr_common"
 		const groupAttr = "attr_group"
 
-		var exp []object.AddressWithAttributes
-		var objs []objectSDK.Object
+		var exp []objectcore.AddressWithAttributes
+		var objs []object.Object
 		for i := range containerNum {
 			cnr := cidtest.ID()
 			for j := range objectsPerContainer {
@@ -76,10 +76,10 @@ func TestListWithCursor(t *testing.T) {
 
 				obj := generateObjectWithCID(cnr)
 				obj.SetOwner(owner)
-				obj.SetType(objectSDK.TypeRegular)
+				obj.SetType(object.TypeRegular)
 				obj.SetAttributes(
-					objectSDK.NewAttribute(staticAttr, staticVal),
-					objectSDK.NewAttribute(commonAttr, commonVal),
+					object.NewAttribute(staticAttr, staticVal),
+					object.NewAttribute(commonAttr, commonVal),
 				)
 
 				var groupVal string
@@ -89,9 +89,9 @@ func TestListWithCursor(t *testing.T) {
 				}
 
 				objs = append(objs, *obj)
-				exp = append(exp, object.AddressWithAttributes{
-					Address:    object.AddressOf(obj),
-					Type:       objectSDK.TypeRegular,
+				exp = append(exp, objectcore.AddressWithAttributes{
+					Address:    objectcore.AddressOf(obj),
+					Type:       object.TypeRegular,
 					Attributes: []string{staticVal, commonVal, groupVal, string(owner[:])},
 				})
 			}
@@ -122,15 +122,15 @@ func TestListWithCursor(t *testing.T) {
 	})
 }
 
-func sortAddresses(addrWithType []object.AddressWithAttributes) []object.AddressWithAttributes {
+func sortAddresses(addrWithType []objectcore.AddressWithAttributes) []objectcore.AddressWithAttributes {
 	sort.Slice(addrWithType, func(i, j int) bool {
 		return addrWithType[i].Address.EncodeToString() < addrWithType[j].Address.EncodeToString()
 	})
 	return addrWithType
 }
 
-func collectListWithCursor(t *testing.T, s *StorageEngine, count uint32, attrs ...string) []object.AddressWithAttributes {
-	var next, collected []object.AddressWithAttributes
+func collectListWithCursor(t *testing.T, s *StorageEngine, count uint32, attrs ...string) []objectcore.AddressWithAttributes {
+	var next, collected []objectcore.AddressWithAttributes
 	var crs *Cursor
 	var err error
 	for {

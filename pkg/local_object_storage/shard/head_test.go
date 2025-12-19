@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
@@ -34,14 +34,14 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		res, err := testHead(t, sh, object.AddressOf(obj), false, hasWriteCache)
+		res, err := testHead(t, sh, objectcore.AddressOf(obj), false, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj.CutPayload(), res)
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
 		cnr := cidtest.ID()
-		splitID := objectSDK.NewSplitID()
+		splitID := object.NewSplitID()
 
 		parent := generateObjectWithCID(cnr)
 		addAttribute(parent, "foo", "bar")
@@ -55,18 +55,18 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(child, nil)
 		require.NoError(t, err)
 
-		var siErr *objectSDK.SplitInfoError
+		var siErr *object.SplitInfoError
 
-		_, err = testHead(t, sh, object.AddressOf(parent), true, hasWriteCache)
+		_, err = testHead(t, sh, objectcore.AddressOf(parent), true, hasWriteCache)
 		require.True(t, errors.As(err, &siErr))
 
-		head, err := sh.Head(object.AddressOf(parent), false)
+		head, err := sh.Head(objectcore.AddressOf(parent), false)
 		require.NoError(t, err)
 		require.Equal(t, parent.CutPayload(), head)
 	})
 }
 
-func testHead(t *testing.T, sh *shard.Shard, addr oid.Address, raw bool, hasWriteCache bool) (*objectSDK.Object, error) {
+func testHead(t *testing.T, sh *shard.Shard, addr oid.Address, raw bool, hasWriteCache bool) (*object.Object, error) {
 	res, err := sh.Head(addr, raw)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {
