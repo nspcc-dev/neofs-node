@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"crypto/sha256"
 	"strconv"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -69,12 +71,13 @@ func TestDB_Put_Nested(t *testing.T) {
 		}
 	}
 
-	_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), 0, oid.NewAddress(cnr, ids[0]))
+	tsObj := createTSForObject(cnr, ids[0])
+	err := db.Put(tsObj)
 	require.NoError(t, err)
 
 	for i := range ids {
 		var filters object.SearchFilters
-		assertSearchResultWithLimit(t, db, cnr, filters, []string{}, []client.SearchResultItem{}, 1000)
+		assertSearchResultWithLimit(t, db, cnr, filters, []string{}, []client.SearchResultItem{{ID: tsObj.GetID()}}, 1000)
 
 		filters.AddFilter(nestingLevelAttribute, strconv.Itoa(i), object.MatchStringEqual)
 		assertSearchResultWithLimit(t, db, cnr, filters, []string{}, []client.SearchResultItem{}, 1000)
@@ -82,4 +85,14 @@ func TestDB_Put_Nested(t *testing.T) {
 		_, err := db.Exists(oid.NewAddress(cnr, ids[i]), false)
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	}
+}
+
+func createTSForObject(cnr cid.ID, id oid.ID) *object.Object {
+	var ts = &object.Object{}
+	ts.SetContainerID(cnr)
+	ts.SetOwner(usertest.ID())
+	ts.SetID(oidtest.ID())
+	ts.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(ts.Payload())))
+	ts.AssociateDeleted(id)
+	return ts
 }

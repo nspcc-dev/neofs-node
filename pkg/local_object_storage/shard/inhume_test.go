@@ -29,6 +29,7 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	addAttribute(obj, "foo", "bar")
 
 	ts := generateObjectWithCID(cnr)
+	ts.AssociateDeleted(obj.GetID())
 
 	err := sh.Put(obj, nil)
 	require.NoError(t, err)
@@ -36,7 +37,7 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)
 	require.NoError(t, err)
 
-	err = sh.Inhume(object.AddressOf(ts), 0, object.AddressOf(obj))
+	err = sh.Put(ts, nil)
 	require.NoError(t, err)
 
 	_, err = sh.Get(object.AddressOf(obj), false)

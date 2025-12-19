@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
@@ -87,7 +88,6 @@ func (db *DB) init(reset bool) error {
 
 	mStaticBuckets := map[string]struct{}{
 		string(containerVolumeBucketName): {},
-		string(graveyardBucketName):       {},
 		string(toMoveItBucketName):        {},
 		string(garbageObjectsBucketName):  {},
 		string(shardInfoBucket):           {},
@@ -118,15 +118,22 @@ func (db *DB) init(reset bool) error {
 		}
 
 		if reset {
+			var buckets [][]byte
 			err = tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
 				if _, ok := mStaticBuckets[string(name)]; !ok {
-					return tx.DeleteBucket(name)
+					buckets = append(buckets, slices.Clone(name))
 				}
 
 				return nil
 			})
 			if err != nil {
 				return err
+			}
+			for _, name := range buckets {
+				err := tx.DeleteBucket(name)
+				if err != nil {
+					return fmt.Errorf("deleting %v bucket: %w", name, err)
+				}
 			}
 
 			err = updateLastResyncEpoch(tx, db.epochState.CurrentEpoch())

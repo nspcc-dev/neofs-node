@@ -43,45 +43,22 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	var (
 		err error
 
-		addr1 = oidtest.Address()
-		addr2 = oidtest.Address()
 		addr3 = oidtest.Address()
+		obj1  = createTSForObject(addr3.Container(), addr3.Object())
+		obj2  = createTSForObject(obj1.GetContainerID(), obj1.GetID())
 	)
-	addr2.SetContainer(addr1.Container())
-	addr3.SetContainer(addr1.Container())
 
-	// inhume addr1 via addr2
-	_, _, err = db.Inhume(addr2, 0, addr1)
+	// inhume addr1 via obj2
+	err = db.Put(obj2)
 	require.NoError(t, err)
 
-	// addr1 should become inhumed {addr1:addr2}
-	_, err = db.Exists(addr1, false)
+	// obj1 should become inhumed {obj1:obj2}
+	_, err = db.Exists(object.AddressOf(obj1), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	// try to inhume addr3 via addr1
-	_, _, err = db.Inhume(addr1, 0, addr3)
-	require.NoError(t, err)
-
-	// record with {addr1:addr2} should be removed from graveyard
-	// as a tomb-on-tomb; metabase should return ObjectNotFound
-	// NOT ObjectAlreadyRemoved since that record has been removed
-	// from graveyard but addr1 is still marked with GC
-	_, err = db.Exists(addr1, false)
-	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-
-	// addr3 should be inhumed {addr3: addr1}
-	_, err = db.Exists(addr3, false)
+	// try to inhume addr3 via obj1
+	err = db.Put(obj1)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
-
-	// try to inhume addr1 (which is already a tombstone in graveyard)
-	_, _, err = db.Inhume(oidtest.Address(), 0, addr1)
-	require.NoError(t, err)
-
-	// record with addr1 key should not appear in graveyard
-	// (tomb can not be inhumed) but should be kept as object
-	// with GC mark
-	_, err = db.Exists(addr1, false)
-	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 }
 
 func TestInhumeLocked(t *testing.T) {
@@ -94,7 +71,7 @@ func TestInhumeLocked(t *testing.T) {
 	err := db.Put(locker)
 	require.NoError(t, err)
 
-	_, _, err = db.Inhume(oidtest.Address(), 100500, locked)
+	err = db.Put(createTSForObject(locked.Container(), locked.Object()))
 
 	var e apistatus.ObjectLocked
 	require.ErrorAs(t, err, &e)
@@ -150,6 +127,5 @@ func TestDB_MarkGarbage(t *testing.T) {
 }
 
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {
-	_, _, err := db.Inhume(tomb, 0, target)
-	return err
+	return db.Put(createTSForObject(target.Container(), target.Object()))
 }

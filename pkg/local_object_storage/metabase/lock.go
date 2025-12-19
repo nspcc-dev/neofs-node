@@ -73,7 +73,7 @@ func objectLocked(tx *bbolt.Tx, currEpoch uint64, metaCursor *bbolt.Cursor, idCn
 	if !locked {
 		return false
 	}
-	return inGraveyard(tx, metaCursor, oid.NewAddress(idCnr, lockID)) == statusAvailable
+	return inGarbage(tx, metaCursor, oid.NewAddress(idCnr, lockID)) == statusAvailable
 }
 
 // IsLocked checks is the provided object is locked by any `LOCK`. Not found

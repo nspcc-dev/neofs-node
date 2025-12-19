@@ -61,17 +61,19 @@ func TestShard_Lock(t *testing.T) {
 	err = sh.Put(lock, nil)
 	require.NoError(t, err)
 
-	t.Run("inhuming locked objects", func(t *testing.T) {
+	t.Run("deleting locked objects", func(t *testing.T) {
 		ts := generateObjectWithCID(cnr)
+		ts.AssociateDeleted(objID)
 
-		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
+		err = sh.Put(ts, nil)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 	})
 
-	t.Run("inhuming lock objects", func(t *testing.T) {
+	t.Run("deleting lock objects", func(t *testing.T) {
 		ts := generateObjectWithCID(cnr)
+		ts.AssociateDeleted(lock.GetID())
 
-		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(lock))
+		err = sh.Put(ts, nil)
 		require.Error(t, err)
 	})
 
@@ -83,7 +85,8 @@ func TestShard_Lock(t *testing.T) {
 		// lock object now
 
 		ts := generateObjectWithCID(cnr)
-		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
+		ts.AssociateDeleted(objID)
+		err = sh.Put(ts, nil)
 		require.NoError(t, err)
 
 		// check that object has been removed
@@ -168,8 +171,6 @@ func TestShard_Lock_Removed(t *testing.T) {
 	tomb.SetID(oidtest.OtherID(objID))
 	tomb.AssociateDeleted(objID)
 
-	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
-
 	for _, tc := range []struct {
 		name          string
 		preset        func(*testing.T, *shard.Shard)
@@ -183,19 +184,6 @@ func TestShard_Lock_Removed(t *testing.T) {
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&tomb, nil))
-		}, assertLockErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
-		{name: "with target and tombstone mark", preset: func(t *testing.T, sh *shard.Shard) {
-			require.NoError(t, sh.Put(&obj, nil))
-			err := sh.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
-		}, assertLockErr: func(t *testing.T, err error) {
-			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
-		}},
-		{name: "tombstone mark without target", preset: func(t *testing.T, sh *shard.Shard) {
-			err := sh.Inhume(tombAddr, 0, objAddr)
-			require.NoError(t, err)
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},

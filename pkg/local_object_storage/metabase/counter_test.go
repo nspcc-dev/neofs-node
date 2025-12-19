@@ -7,7 +7,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -77,15 +76,15 @@ func TestCounters(t *testing.T) {
 			inhumedObjs[i] = objectcore.AddressOf(o)
 		}
 
-		inhumed, deleted, err := db.Inhume(oidtest.Address(), 0, inhumedObjs...)
-		require.NoError(t, err)
-		require.Equal(t, uint64(len(inhumedObjs)), inhumed)
-		require.Nil(t, deleted)
+		for _, addr := range inhumedObjs {
+			err := db.Put(createTSForObject(addr.Container(), addr.Object()))
+			require.NoError(t, err)
+		}
 
 		c, err = db.ObjectCounters()
 		require.NoError(t, err)
 
-		require.Equal(t, uint64(objCount), c.Phy())
+		require.Equal(t, uint64(objCount+len(inhumedObjs)), c.Phy())
 		require.Equal(t, uint64(objCount-len(inhumedObjs)), c.Logic())
 	})
 
@@ -144,13 +143,15 @@ func TestCounters(t *testing.T) {
 			inhumedObjs[i] = objectcore.AddressOf(o)
 		}
 
-		_, _, err = db.Inhume(oidtest.Address(), 0, inhumedObjs...)
-		require.NoError(t, err)
+		for _, addr := range inhumedObjs {
+			err := db.Put(createTSForObject(addr.Container(), addr.Object()))
+			require.NoError(t, err)
+		}
 
 		c, err = db.ObjectCounters()
 		require.NoError(t, err)
 
-		require.Equal(t, uint64(objCount), c.Phy())
+		require.Equal(t, uint64(objCount+len(inhumedObjs)), c.Phy())
 		require.Equal(t, uint64(objCount-len(inhumedObjs)), c.Logic())
 	})
 }

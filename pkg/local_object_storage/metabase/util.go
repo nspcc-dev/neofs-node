@@ -15,11 +15,6 @@ import (
 const attributeDelimiterLen = 1
 
 var (
-	// graveyardBucketName stores rows with the objects that have been
-	// covered with Tombstone objects. That objects should not be returned
-	// from the node and should not be accepted by the node from other
-	// nodes.
-	graveyardBucketName = []byte{graveyardPrefix}
 	// garbageObjectsBucketName stores rows with the objects that should be physically
 	// deleted by the node (Garbage Collector routine).
 	garbageObjectsBucketName  = []byte{garbageObjectsPrefix}
@@ -37,10 +32,8 @@ var (
 //
 //nolint:godot
 const (
-	// graveyardPrefix is used for the graveyard bucket.
-	// 	Key: object address
-	// 	Value: tombstone address
-	graveyardPrefix = iota
+	// unusedGraveyardPrefix was deleted in metabase version 9
+	unusedGraveyardPrefix = iota
 	// garbageObjectsPrefix is used for the garbage objects bucket.
 	// 	Key: object address
 	// 	Value: dummy value

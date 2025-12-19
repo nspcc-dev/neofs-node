@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -80,7 +81,7 @@ func getCounters(tx *bbolt.Tx) (uint64, uint64) {
 
 // updateCounter updates the object counter. Tx MUST be writable.
 // If inc == `true`, increases the counter, decreases otherwise.
-func (db *DB) updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
+func updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
 	b := tx.Bucket(shardInfoBucket)
 	if b == nil {
 		return nil
@@ -138,7 +139,6 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 	var phyCounter uint64
 	var logicCounter uint64
 
-	graveyardBKT := tx.Bucket(graveyardBucketName)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 	key := make([]byte, addressKeySize)
 
@@ -149,15 +149,20 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 		addr.SetObject(obj)
 
 		metaBucket := tx.Bucket(metaBucketKey(cnr))
-		var metaCursor *bbolt.Cursor
 		if metaBucket != nil {
-			metaCursor = metaBucket.Cursor()
-		}
+			var (
+				metaCursor = metaBucket.Cursor()
+				typPrefix  = make([]byte, metaIDTypePrefixSize)
+			)
 
-		// check if an object is available: not with GCMark
-		// and not covered with a tombstone
-		if inGraveyardWithKey(metaCursor, addressKey(addr, key), graveyardBKT, garbageObjectsBKT) == statusAvailable {
-			logicCounter++
+			fillIDTypePrefix(typPrefix)
+
+			typ, err := fetchTypeForID(metaCursor, typPrefix, obj)
+			// check if an object is available: not with GCMark
+			// and not covered with a tombstone
+			if inGarbageWithKey(metaCursor, addressKey(addr, key), garbageObjectsBKT) == statusAvailable && err == nil && typ == object.TypeRegular {
+				logicCounter++
+			}
 		}
 
 		return nil

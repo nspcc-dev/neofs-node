@@ -202,12 +202,6 @@ func (s *Shard) collectExpiredObjects() {
 	log := s.log.With(zap.Uint64("epoch", epoch))
 	log.Debug("started expired objects handling")
 
-	if dropped, err := s.metaBase.DropExpiredTSMarks(epoch); err != nil {
-		log.Warn("drop expired tombstone marks", zap.Error(err))
-	} else if dropped > 0 {
-		log.Debug("dropped expired tombstone marks", zap.Int("count", dropped))
-	}
-
 	collected := 0
 	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
 		switch expiredObject.Type() {

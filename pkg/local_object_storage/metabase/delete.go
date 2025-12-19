@@ -120,14 +120,14 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, []
 	}
 
 	if rawDeleted > 0 {
-		err := db.updateCounter(tx, phy, rawDeleted, false)
+		err := updateCounter(tx, phy, rawDeleted, false)
 		if err != nil {
 			return 0, 0, nil, fmt.Errorf("could not decrease phy object counter: %w", err)
 		}
 	}
 
 	if availableDeleted > 0 {
-		err := db.updateCounter(tx, logical, availableDeleted, false)
+		err := updateCounter(tx, logical, availableDeleted, false)
 		if err != nil {
 			return 0, 0, nil, fmt.Errorf("could not decrease logical object counter: %w", err)
 		}
@@ -146,14 +146,13 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error)
 	cID := addr.Container()
 	addrKey := addressKey(addr, key)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-	graveyardBKT := tx.Bucket(graveyardBucketName)
 	metaBucket := tx.Bucket(metaBucketKey(cID))
 	var metaCursor *bbolt.Cursor
 	if metaBucket != nil {
 		metaCursor = metaBucket.Cursor()
 	}
 
-	removeAvailableObject := inGraveyardWithKey(metaCursor, addrKey, graveyardBKT, garbageObjectsBKT) == statusAvailable
+	removeAvailableObject := inGarbageWithKey(metaCursor, addrKey, garbageObjectsBKT) == statusAvailable
 
 	// remove record from the garbage bucket
 	if garbageObjectsBKT != nil {

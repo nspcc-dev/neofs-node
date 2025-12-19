@@ -37,9 +37,6 @@ type Shard struct {
 // Option represents Shard's constructor option.
 type Option func(*cfg)
 
-// ExpiredTombstonesCallback is a callback handling list of expired tombstones.
-type ExpiredTombstonesCallback func([]meta.TombstonedObject)
-
 // ExpiredObjectsCallback is a callback handling list of expired objects.
 type ExpiredObjectsCallback func([]oid.Address)
 

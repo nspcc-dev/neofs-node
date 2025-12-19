@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"errors"
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -14,56 +13,28 @@ import (
 // performed on lock object, and it is not a forced object removal.
 var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 
-// Inhume marks objects as removed in metabase using provided tombstone data.
-// Objects won't be removed physically from blobStor and metabase until
-// `Delete` operation.
-//
-// Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
-// if at least one object is locked.
-//
-// Returns ErrReadOnlyMode error if shard is in "read-only" mode.
-func (s *Shard) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
-	return s.inhume(&tombstone, tombExpiration, addrs...)
-}
-
 // MarkGarbage marks objects to be physically removed from shard. It's a forced
 // mark that overrides any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
 // to [Shard.Inhume], but doesn't need a tombstone.
 func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
-	return s.inhume(nil, 0, addrs...)
-}
-
-func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
 	s.m.RLock()
+	defer s.m.RUnlock()
 
 	if s.info.Mode.ReadOnly() {
-		s.m.RUnlock()
 		return ErrReadOnlyMode
 	} else if s.info.Mode.NoMetabase() {
-		s.m.RUnlock()
 		return ErrDegradedMode
 	}
 
 	var err error
 
-	if tombstone != nil {
-		_, _, err = s.metaBase.Inhume(*tombstone, tombExpiration, addrs...)
-	} else {
-		_, _, err = s.metaBase.MarkGarbage(addrs...)
-	}
+	_, _, err = s.metaBase.MarkGarbage(addrs...)
 
 	if err != nil {
-		if errors.Is(err, meta.ErrLockObjectRemoval) {
-			s.m.RUnlock()
-			return ErrLockObjectRemoval
-		}
-
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.Error(err),
 		)
-
-		s.m.RUnlock()
 
 		return fmt.Errorf("metabase inhume: %w", err)
 	}
@@ -73,8 +44,6 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, addrs ...o
 			_ = s.writeCache.Delete(addrs[i])
 		}
 	}
-
-	s.m.RUnlock()
 
 	return nil
 }

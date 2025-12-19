@@ -1,15 +1,12 @@
 package meta
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -21,27 +18,10 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 // performed on lock object, and it is not a forced object removal.
 var ErrLockObjectRemoval = logicerr.New("lock object removal")
 
-// Inhume marks objects as removed but not removes it from metabase.
-//
-// Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
-// if at least one object is locked. Returns ErrLockObjectRemoval if inhuming
-// is being performed on lock (not locked) object.
-//
-// Returns the number of available objects that were inhumed and a list of
-// deleted LOCK objects (if handleLocks parameter is set).
-func (db *DB) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) (uint64, []oid.Address, error) {
-	return db.inhume(&tombstone, tombExpiration, false, addrs...)
-}
-
 // MarkGarbage marks objects to be physically removed from shard. force flag
 // allows to override any restrictions imposed on object deletion (to be used
-// by control service and other manual intervention cases). Otherwise similar
-// to [DB.Inhume], but doesn't need a tombstone.
+// by control service and other manual intervention cases).
 func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
-	return db.inhume(nil, 0, true, addrs...)
-}
-
-func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -59,25 +39,6 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 	)
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-		graveyardBKT := tx.Bucket(graveyardBucketName)
-
-		var graveyardValue []byte
-
-		if tombstone != nil {
-			tombKey := addressKey(*tombstone, make([]byte, addressKeySize+8))
-
-			// it is forbidden to have a tomb-on-tomb in NeoFS,
-			// so graveyard keys must not be addresses of tombstones
-			data := graveyardBKT.Get(tombKey)
-			if data != nil {
-				err := graveyardBKT.Delete(tombKey)
-				if err != nil {
-					return fmt.Errorf("could not remove grave with tombstone key: %w", err)
-				}
-			}
-
-			graveyardValue = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
-		}
 
 		// collect children
 		// TODO: Do not extend addrs, do in the main loop. This likely would be more efficient regarding memory.
@@ -119,19 +80,10 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				metaCursor = metaBucket.Cursor()
 			}
 
-			if !force {
-				if objectLocked(tx, currEpoch, metaCursor, cnr, id) {
-					return apistatus.ObjectLocked{}
-				}
-				if isLockObject(tx, cnr, id) {
-					return ErrLockObjectRemoval
-				}
-			}
-
 			obj, err := get(tx, addr, false, true, currEpoch)
 			targetKey := addressKey(addr, buf)
 			if err == nil {
-				if inGraveyardWithKey(metaCursor, targetKey, graveyardBKT, garbageObjectsBKT) == statusAvailable {
+				if inGarbageWithKey(metaCursor, targetKey, garbageObjectsBKT) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++
@@ -147,54 +99,17 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				}
 			}
 
-			if tombstone != nil {
-				targetIsTomb := false
-
-				// iterate over graveyard and check if target address
-				// is the address of tombstone in graveyard.
-				err = graveyardBKT.ForEach(func(k, v []byte) error {
-					// check if graveyard has record with key corresponding
-					// to tombstone address (at least one)
-					targetIsTomb = bytes.Equal(v[:addressKeySize], targetKey)
-
-					if targetIsTomb {
-						// break bucket iterator
-						return errBreakBucketForEach
-					}
-
-					return nil
-				})
-				if err != nil && !errors.Is(err, errBreakBucketForEach) {
-					return err
-				}
-
-				// do not add grave if target is a tombstone
-				if targetIsTomb {
-					continue
-				}
-
-				// if tombstone appears object must be
-				// additionally marked with GC
-				err = garbageObjectsBKT.Put(targetKey, zeroValue)
-				if err != nil {
-					return err
-				}
-
-				// consider checking if target is already in graveyard?
-				err = graveyardBKT.Put(targetKey, graveyardValue)
-			} else {
-				err = garbageObjectsBKT.Put(targetKey, zeroValue)
-			}
+			err = garbageObjectsBKT.Put(targetKey, zeroValue)
 			if err != nil {
 				return err
 			}
 
-			if force && isLockObject(tx, cnr, id) { // if !force object cannot be LOCK, see above
+			if isLockObject(tx, cnr, id) {
 				deletedLockObjs = append(deletedLockObjs, addr)
 			}
 		}
 
-		return db.updateCounter(tx, logical, inhumed, false)
+		return updateCounter(tx, logical, inhumed, false)
 	})
 
 	return inhumed, deletedLockObjs, err
@@ -230,7 +145,7 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 		info := db.containerInfo(tx, cID)
 		removedAvailable = info.ObjectsNumber
 
-		err = db.updateCounter(tx, logical, removedAvailable, false)
+		err = updateCounter(tx, logical, removedAvailable, false)
 		if err != nil {
 			return fmt.Errorf("logical counter update: %w", err)
 		}

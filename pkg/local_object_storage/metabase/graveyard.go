@@ -2,7 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -54,68 +53,6 @@ func (db *DB) IterateOverGarbage(h GarbageHandler, offset *oid.Address) error {
 	})
 }
 
-// TombstonedObject represents descriptor of the
-// object that has been covered with tombstone.
-type TombstonedObject struct {
-	addr           oid.Address
-	tomb           oid.Address
-	tombExpiration uint64
-}
-
-// Address returns tombstoned object address.
-func (g TombstonedObject) Address() oid.Address {
-	return g.addr
-}
-
-// Tombstone returns address of a tombstone that
-// covers object.
-func (g TombstonedObject) Tombstone() oid.Address {
-	return g.tomb
-}
-
-// TombstoneExpiration returns tombstone's expiration. It can be zero if
-// metabase version does not support expiration indexing or if TS does not
-// expire.
-func (g TombstonedObject) TombstoneExpiration() uint64 {
-	return g.tombExpiration
-}
-
-// TombstonedHandler is a TombstonedObject handling function.
-type TombstonedHandler func(object TombstonedObject) error
-
-// IterateOverGraveyard iterates over all graves in DB.
-//
-// The handler will be applied to the next after the
-// specified offset if any are left.
-//
-// Note: if offset is not found in db, iteration starts
-// from the element that WOULD BE the following after the
-// offset if offset was presented. That means that it is
-// safe to delete offset element and pass if to the
-// iteration once again: iteration would start from the
-// next element.
-//
-// Nil offset means start an integration from the beginning.
-//
-// If h returns ErrInterruptIterator, nil returns immediately.
-// Returns other errors of h directly.
-func (db *DB) IterateOverGraveyard(h TombstonedHandler, offset *oid.Address) error {
-	db.modeMtx.RLock()
-	defer db.modeMtx.RUnlock()
-
-	if db.mode.NoMetabase() {
-		return ErrDegradedMode
-	}
-
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateDeletedObj(tx, graveyardHandler{h}, offset)
-	})
-}
-
-type kvHandler interface {
-	handleKV(k, v []byte) error
-}
-
 type gcHandler struct {
 	h GarbageHandler
 }
@@ -129,29 +66,8 @@ func (g gcHandler) handleKV(k, _ []byte) error {
 	return g.h(o)
 }
 
-type graveyardHandler struct {
-	h TombstonedHandler
-}
-
-func (g graveyardHandler) handleKV(k, v []byte) error {
-	o, err := graveFromKV(k, v)
-	if err != nil {
-		return fmt.Errorf("could not parse grave: %w", err)
-	}
-
-	return g.h(o)
-}
-
-func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *oid.Address) error {
-	var bkt *bbolt.Bucket
-	switch t := h.(type) {
-	case graveyardHandler:
-		bkt = tx.Bucket(graveyardBucketName)
-	case gcHandler:
-		bkt = tx.Bucket(garbageObjectsBucketName)
-	default:
-		panic(fmt.Sprintf("metabase: unknown iteration object hadler: %T", t))
-	}
+func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h gcHandler, offset *oid.Address) error {
+	var bkt = tx.Bucket(garbageObjectsBucketName)
 
 	if bkt == nil {
 		return nil
@@ -194,75 +110,6 @@ func garbageFromKV(k []byte) (res GarbageObject, err error) {
 	}
 
 	return
-}
-
-func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
-	err = decodeAddressFromKey(&res.addr, k)
-	if err != nil {
-		return res, fmt.Errorf("decode tombstone target from key: %w", err)
-	}
-
-	err = decodeAddressFromKey(&res.tomb, v[:addressKeySize])
-	if err != nil {
-		return res, fmt.Errorf("decode tombstone address from value: %w", err)
-	}
-
-	switch l := len(v); l {
-	case addressKeySize:
-	case addressKeySize + 8:
-		res.tombExpiration = binary.LittleEndian.Uint64(v[addressKeySize:])
-		return
-	default:
-		err = fmt.Errorf("metabase: unexpected graveyard value size: %d", l)
-	}
-
-	return
-}
-
-// DropExpiredTSMarks run through the graveyard and drops tombstone marks with
-// tombstones whose expiration is _less_ than provided epoch.
-// Returns number of marks dropped.
-func (db *DB) DropExpiredTSMarks(epoch uint64) (int, error) {
-	db.modeMtx.RLock()
-	defer db.modeMtx.RUnlock()
-
-	if db.mode.NoMetabase() {
-		return 0, ErrDegradedMode
-	} else if db.mode.ReadOnly() {
-		return 0, ErrReadOnlyMode
-	}
-
-	var counter int
-
-	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
-		bkt := tx.Bucket(graveyardBucketName)
-		c := bkt.Cursor()
-		k, v := c.First()
-
-		for k != nil {
-			if binary.LittleEndian.Uint64(v[addressKeySize:]) < epoch {
-				err := c.Delete()
-				if err != nil {
-					return err
-				}
-
-				counter++
-
-				// see https://github.com/etcd-io/bbolt/pull/614; there is not
-				// much we can do with such an unfixed behavior
-				k, v = c.Seek(k)
-			} else {
-				k, v = c.Next()
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return 0, fmt.Errorf("cleared %d TS marks in %d epoch and got error: %w", counter, epoch, err)
-	}
-
-	return counter, nil
 }
 
 // GetGarbage returns garbage according to the metabase state. Garbage includes

@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,12 +9,13 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -123,7 +125,7 @@ func newObject(t testing.TB) *objectSDK.Object {
 	x.SetContainerID(cidtest.ID())
 	x.SetType(objectSDK.TypeRegular)
 	x.SetVersion(&ver)
-	x.SetPayloadChecksum(checksumtest.Checksum())
-	x.SetPayloadHomomorphicHash(checksumtest.Checksum())
+	x.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(x.Payload())))
+	x.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(x.Payload())))
 	return x
 }

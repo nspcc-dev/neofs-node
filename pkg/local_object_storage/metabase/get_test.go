@@ -253,7 +253,7 @@ func TestDB_GetContainer(t *testing.T) {
 	objs, err := db.Select(cID, objectSDK.SearchFilters{})
 	require.NoError(t, err)
 
-	require.Len(t, objs, 4) // Tombstone is not returned.
+	require.Len(t, objs, 5) // Tombstone is returned as well.
 }
 
 func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {

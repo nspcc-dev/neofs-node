@@ -20,6 +20,10 @@ Changelog for NeoFS Node
 - IR using netmap contract to store IR node list instead of RoleManagement (#3707)
 - Missing PUT local storage operation log when flushing objects from write cache to underlying blobstor (#3720)
 - EC parts of expired object no longer remain on SN (#3718)
+- Metabase reset not deleting old buckets in some cases (#3744)
+- Object left in the storage after unsuccessful meta PUT (#3744)
+- Object left in some shards on fatal broadcast failure (#3744)
+- Deadlock on SN exit in rare GC cases (#3744)
 
 ### Changed
 - Optimized locking info in metabase (#3672)
@@ -34,6 +38,7 @@ Changelog for NeoFS Node
 - Metabase v3 to v4 migration (#3735)
 - Metabase v4 to v5 migration (#3735)
 - Broken logical object metric from shards (#3741)
+- Graveyard from metabase (#3744)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251124180339-40ec608b4893` (#3670)

@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/bbolt"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -221,10 +222,11 @@ func TestMigrate7to8(t *testing.T) {
 		err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 			o := objecttest.Object()
 			o.SetContainerID(cnr)
+			o.SetType(object.TypeRegular)
 			totalSize += o.PayloadSize()
 
-			require.NoError(t, db.updateCounter(tx, phy, 1, true))
-			require.NoError(t, db.updateCounter(tx, logical, 1, true))
+			require.NoError(t, updateCounter(tx, phy, 1, true))
+			require.NoError(t, updateCounter(tx, logical, 1, true))
 
 			return PutMetadataForObject(tx, o, true)
 		})
@@ -238,7 +240,7 @@ func TestMigrate7to8(t *testing.T) {
 			o := objecttest.Object()
 			o.SetContainerID(inhumeCnr)
 
-			require.NoError(t, db.updateCounter(tx, phy, 1, true))
+			require.NoError(t, updateCounter(tx, phy, 1, true))
 
 			return PutMetadataForObject(tx, o, true)
 		})

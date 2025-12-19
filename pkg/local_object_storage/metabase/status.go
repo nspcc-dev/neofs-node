@@ -64,7 +64,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 			res.State = append(res.State, "LOCKED")
 		}
 
-		removedStatus := inGraveyard(tx, metaCursor, address)
+		removedStatus := inGarbage(tx, metaCursor, address)
 
 		var existsRegular bool
 		if metaBucket != nil {
@@ -98,7 +98,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 	objKey := addr[cid.Size:]
 
 	objectBuckets := [][]byte{
-		graveyardBucketName,
 		garbageObjectsBucketName,
 		toMoveItBucketName,
 	}

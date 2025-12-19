@@ -48,7 +48,7 @@ func TestReset(t *testing.T) {
 	require.NoError(t, err)
 
 	assertExists(addr, false, nil)
-	assertExists(addr, false, nil)
+	assertExists(addrToInhume, false, nil)
 }
 
 func TestOpenRO(t *testing.T) {

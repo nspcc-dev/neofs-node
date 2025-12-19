@@ -93,7 +93,7 @@ func TestDB_ReviveObject(t *testing.T) {
 		locker.AssociateLocked(locked.Object())
 		require.NoError(t, db.Put(locker))
 
-		_, _, err := db.Inhume(oidtest.Address(), 100500, locked)
+		err := db.Put(createTSForObject(locked.Container(), locked.Object()))
 
 		require.ErrorIs(t, err, new(apistatus.ObjectLocked))
 

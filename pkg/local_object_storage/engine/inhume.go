@@ -16,27 +16,6 @@ import (
 
 var errInhumeFailure = errors.New("inhume operation failed")
 
-func (e *StorageEngine) inhume(addrs []oid.Address, tombstone *oid.Address, tombExpiration uint64) error {
-	for i := range addrs {
-		locked, err := e.IsLocked(addrs[i])
-		if err != nil {
-			e.log.Warn("removing an object without full locking check",
-				zap.Error(err),
-				zap.Stringer("addr", addrs[i]))
-		} else if locked {
-			var lockedErr apistatus.ObjectLocked
-			return lockedErr
-		}
-
-		err = e.inhumeAddr(addrs[i], tombstone, tombExpiration)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // InhumeContainer marks every object in a container as removed.
 // Any further [StorageEngine.Get] calls will return [apistatus.ObjectNotFound]
 // errors.
@@ -61,13 +40,6 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 	}
 
 	return nil
-}
-
-// Returns ok if object was inhumed during this invocation or before.
-func (e *StorageEngine) inhumeAddr(addr oid.Address, tombstone *oid.Address, tombExpiration uint64) error {
-	return e.processAddrDelete(addr, func(sh *shard.Shard, addrs []oid.Address) error {
-		return sh.Inhume(*tombstone, tombExpiration, addrs...)
-	})
 }
 
 // processAddrDelete processes deletion (inhume or immediate delete) of an object by its address.
@@ -255,6 +227,10 @@ func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
 		return false, e.blockErr
 	}
 
+	return e.isLocked(addr)
+}
+
+func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 	for _, sh := range e.unsortedShards() {
 		locked, err := sh.IsLocked(addr)
 		if err != nil {
@@ -271,8 +247,15 @@ func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
+	var rLocked = e.blockMtx.TryRLock()
+
+	if !rLocked || e.blockErr != nil {
+		return
+	}
+	defer e.blockMtx.RUnlock()
+
 	for _, addr := range addrs {
-		locked, err := e.IsLocked(addr)
+		locked, err := e.isLocked(addr)
 		if err != nil {
 			e.log.Warn("removing an object without full locking check",
 				zap.Error(err),

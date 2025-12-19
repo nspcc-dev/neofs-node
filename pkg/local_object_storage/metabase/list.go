@@ -66,7 +66,6 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, result []objectcore.AddressWithAttrib
 
 	var containerID cid.ID
 	var offset []byte
-	graveyardBkt := tx.Bucket(graveyardBucketName)
 	garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
 
 	var rawAddr = make([]byte, cidSize, addressKeySize)
@@ -81,7 +80,7 @@ loop:
 		bkt := tx.Bucket(name)
 		if bkt != nil {
 			copy(rawAddr, cidRaw)
-			result, offset, cursor = selectNFromBucket(bkt, graveyardBkt, garbageObjectsBkt, rawAddr, containerID,
+			result, offset, cursor = selectNFromBucket(bkt, garbageObjectsBkt, rawAddr, containerID,
 				result, count, cursor, threshold, attrs...)
 		}
 		bucketName = name
@@ -114,7 +113,7 @@ loop:
 // selectNFromBucket similar to selectAllFromBucket but uses cursor to find
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
-	graveyardBkt, garbageObjectsBkt *bbolt.Bucket, // cached graveyard buckets
+	garbageObjectsBkt *bbolt.Bucket, // cached garbage bucket
 	cidRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID
 	to []objectcore.AddressWithAttributes, // listing result
@@ -165,7 +164,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 
 		mCursor := bkt.Cursor()
 		offset = k
-		if inGraveyardWithKey(mCursor, append(cidRaw, obj[:]...), graveyardBkt, garbageObjectsBkt) != statusAvailable {
+		if inGarbageWithKey(mCursor, append(cidRaw, obj[:]...), garbageObjectsBkt) != statusAvailable {
 			continue
 		}
 

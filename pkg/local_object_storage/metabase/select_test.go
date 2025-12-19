@@ -315,16 +315,13 @@ func TestDB_SelectInhume(t *testing.T) {
 		object.AddressOf(raw2),
 	)
 
-	var tombstone oid.Address
-	tombstone.SetContainer(cnr)
-	tombstone.SetObject(oidtest.ID())
-
-	err = metaInhume(db, object.AddressOf(raw2), tombstone)
-	require.NoError(t, err)
+	var ts = createTSForObject(cnr, raw2.GetID())
+	require.NoError(t, db.Put(ts))
 
 	fs = objectSDK.SearchFilters{}
 	testSelect(t, db, cnr, fs,
 		object.AddressOf(raw1),
+		object.AddressOf(ts),
 	)
 }
 
@@ -627,14 +624,14 @@ func TestRemovedObjects(t *testing.T) {
 
 	// Removed object
 
-	ts1 := generateObject(t)
-	require.NoError(t, metaInhume(db, object.AddressOf(o1), object.AddressOf(ts1)))
+	ts1 := createTSForObject(o1.GetContainerID(), o1.GetID())
+	require.NoError(t, db.Put(ts1))
 
 	oo, err := metaSelect(db, cnr, f1)
 	require.NoError(t, err)
 	require.Empty(t, oo)
 
-	testSelect(t, db, cnr, fAll, object.AddressOf(o2))
+	testSelect(t, db, cnr, fAll, object.AddressOf(o2), object.AddressOf(ts1))
 
 	// Expired (== removed) but locked
 
@@ -642,7 +639,7 @@ func TestRemovedObjects(t *testing.T) {
 	locker.AssociateLocked(object.AddressOf(o3).Object())
 	require.NoError(t, db.Put(locker))
 
-	testSelect(t, db, cnr, fAll, object.AddressOf(o2), object.AddressOf(o3), object.AddressOf(locker))
+	testSelect(t, db, cnr, fAll, object.AddressOf(o2), object.AddressOf(ts1), object.AddressOf(o3), object.AddressOf(locker))
 }
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
