@@ -1,13 +1,10 @@
 package meta
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
-	gio "io"
 
 	"github.com/nspcc-dev/bbolt"
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -209,74 +206,4 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 	}
 
 	return nil
-}
-
-// encodeList decodes list of bytes into a single blog for list bucket indexes.
-func encodeList(lst [][]byte) ([]byte, error) {
-	w := io.NewBufBinWriter()
-	w.WriteVarUint(uint64(len(lst)))
-	for i := range lst {
-		w.WriteVarBytes(lst[i])
-	}
-	if w.Err != nil {
-		return nil, w.Err
-	}
-	return w.Bytes(), nil
-}
-
-// decodeList decodes blob into the list of bytes from list bucket index.
-func decodeList(data []byte) (lst [][]byte, err error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-
-	var offset uint64
-	size, n, err := getVarUint(data)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += uint64(n)
-	lst = make([][]byte, size, size+1)
-	for i := range lst {
-		sz, n, err := getVarUint(data[offset:])
-		if err != nil {
-			return nil, err
-		}
-		offset += uint64(n)
-
-		next := offset + sz
-		if uint64(len(data)) < next {
-			return nil, gio.ErrUnexpectedEOF
-		}
-		lst[i] = data[offset:next]
-		offset = next
-	}
-	return lst, nil
-}
-
-func getVarUint(data []byte) (uint64, int, error) {
-	if len(data) == 0 {
-		return 0, 0, gio.ErrUnexpectedEOF
-	}
-
-	switch b := data[0]; b {
-	case 0xfd:
-		if len(data) < 3 {
-			return 0, 1, gio.ErrUnexpectedEOF
-		}
-		return uint64(binary.LittleEndian.Uint16(data[1:])), 3, nil
-	case 0xfe:
-		if len(data) < 5 {
-			return 0, 1, gio.ErrUnexpectedEOF
-		}
-		return uint64(binary.LittleEndian.Uint32(data[1:])), 5, nil
-	case 0xff:
-		if len(data) < 9 {
-			return 0, 1, gio.ErrUnexpectedEOF
-		}
-		return binary.LittleEndian.Uint64(data[1:]), 9, nil
-	default:
-		return uint64(b), 1, nil
-	}
 }
