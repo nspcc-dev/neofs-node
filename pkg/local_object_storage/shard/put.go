@@ -37,11 +37,10 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
-	tryCache := s.hasWriteCache() && !m.NoMetabase()
-	if tryCache {
+	if s.hasWriteCache() {
 		err = s.writeCache.Put(addr, obj, objBin)
 	}
-	if err != nil || !tryCache {
+	if err != nil || !s.hasWriteCache() {
 		if err != nil {
 			s.log.Debug("can't put object to the write-cache, trying blobstor",
 				zap.String("err", err.Error()))
