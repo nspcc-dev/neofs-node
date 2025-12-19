@@ -66,7 +66,7 @@ func (c *Controller) Continue(prm ContinuePrm) {
 		})
 		if err != nil {
 			c.opts.log.Debug("iteration submit failure",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 

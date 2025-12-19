@@ -231,7 +231,7 @@ func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObjec
 			continue
 		}
 
-		res, err = supplementRemovedECParts(res, cnrMetaBkt, cnrMetaCrs, addrs, res[i].Address)
+		res, err = supplementRemovedECParts(res, cnrMetaCrs, addrs, res[i].Address)
 		if err != nil {
 			return nil, fmt.Errorf("collect EC parts for %s: %w", res[i].Address, err)
 		}
@@ -241,7 +241,7 @@ func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObjec
 }
 
 // extends res with EC parts of addr which are not in addrs and returns updated res.
-func supplementRemovedECParts(res []RemovedObject, cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, addrs []oid.Address, addr oid.Address) ([]RemovedObject, error) {
+func supplementRemovedECParts(res []RemovedObject, cnrMetaCrs *bbolt.Cursor, addrs []oid.Address, addr oid.Address) ([]RemovedObject, error) {
 	cnr := addr.Container()
 	parent := addr.Object()
 	pref := slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(object.FilterParentID), objectcore.MetaAttributeDelimiter,
@@ -263,7 +263,7 @@ func supplementRemovedECParts(res []RemovedObject, cnrMetaBkt *bbolt.Bucket, cnr
 		}
 
 		if partCrs == nil {
-			partCrs = cnrMetaBkt.Cursor()
+			partCrs = cnrMetaCrs.Bucket().Cursor()
 		}
 
 		if ecPref == nil {

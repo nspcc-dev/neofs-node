@@ -87,10 +87,8 @@ func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid
 		return oid.ID{}, 0, err
 	}
 
-	lnAttrPref := slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPayloadSize), objectcore.MetaAttributeDelimiter)
-	k, _ := metaBktCrs.Seek(lnAttrPref)
-	lnAttr, ok := bytes.CutPrefix(k, lnAttrPref)
-	if !ok {
+	lnAttr := getObjAttribute(metaBktCrs, id, object.FilterPayloadSize)
+	if lnAttr == nil {
 		return oid.ID{}, 0, fmt.Errorf("missing index for payload len attribute of object %w", ierrors.ObjectID(id))
 	}
 

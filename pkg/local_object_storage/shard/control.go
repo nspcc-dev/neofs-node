@@ -157,7 +157,7 @@ func (s *Shard) resyncMetabase() error {
 	var errorHandler = func(addr oid.Address, err error) error {
 		s.log.Warn("error occurred during the iteration",
 			zap.Stringer("address", addr),
-			zap.String("err", err.Error()))
+			zap.Error(err))
 		return nil
 	}
 
@@ -180,7 +180,7 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 	if err := obj.Unmarshal(data); err != nil {
 		s.log.Warn("could not unmarshal object",
 			zap.Stringer("address", addr),
-			zap.String("err", err.Error()))
+			zap.Error(err))
 		return nil
 	}
 

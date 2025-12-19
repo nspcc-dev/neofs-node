@@ -108,7 +108,7 @@ func main() {
 	case <-ctx.Done():
 		log.Info("application is shutting down...", zap.String("cause", context.Cause(ctx).Error()))
 	case err = <-intErr:
-		log.Info("internal error", zap.String("msg", err.Error()))
+		log.Info("internal error", zap.Error(err))
 	}
 
 	innerRing.Stop()

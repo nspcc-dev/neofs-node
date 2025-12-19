@@ -34,18 +34,18 @@ func TestDB_IterateExpired(t *testing.T) {
 	locker.AssociateLocked(expiredLocked.Object())
 	require.NoError(t, db.Put(locker))
 
-	err := db.IterateExpired(epoch, func(exp *meta.ExpiredObject) error {
-		if addr, ok := mAlive[exp.Type()]; ok {
-			require.NotEqual(t, addr, exp.Address())
+	err := db.IterateExpired(epoch, func(addr oid.Address, typ object.Type) error {
+		if alive, ok := mAlive[typ]; ok {
+			require.NotEqual(t, alive, addr)
 		}
 
-		require.NotEqual(t, expiredLocked, exp.Address())
+		require.NotEqual(t, expiredLocked, addr)
 
-		addr, ok := mExpired[exp.Type()]
+		exp, ok := mExpired[typ]
 		require.True(t, ok)
-		require.Equal(t, addr, exp.Address())
+		require.Equal(t, exp, addr)
 
-		delete(mExpired, exp.Type())
+		delete(mExpired, typ)
 
 		return nil
 	})

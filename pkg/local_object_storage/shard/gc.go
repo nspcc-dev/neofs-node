@@ -203,12 +203,12 @@ func (s *Shard) collectExpiredObjects() {
 	log.Debug("started expired objects handling")
 
 	collected := 0
-	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
-		switch expiredObject.Type() {
+	err := s.metaBase.IterateExpired(epoch, func(addr oid.Address, typ object.Type) error {
+		switch typ {
 		case object.TypeTombstone:
-			toDeleteTombstones = append(toDeleteTombstones, expiredObject.Address())
+			toDeleteTombstones = append(toDeleteTombstones, addr)
 		default:
-			expiredObjects = append(expiredObjects, expiredObject.Address())
+			expiredObjects = append(expiredObjects, addr)
 		}
 		collected++
 		if collected >= s.rmBatchSize {
@@ -238,20 +238,6 @@ func (s *Shard) collectExpiredObjects() {
 		s.expiredObjectsCallback(expiredObjects)
 	}
 	log.Debug("finished expired objects handling")
-}
-
-// FilterExpired filters expired objects by address through the metabase and returns them.
-func (s *Shard) FilterExpired(addrs []oid.Address) []oid.Address {
-	expired, err := s.metaBase.FilterExpired(addrs)
-	if err != nil {
-		s.log.Warn("expired object filtering",
-			zap.Error(err),
-		)
-
-		return nil
-	}
-
-	return expired
 }
 
 // NotificationChannel returns channel for shard events.
