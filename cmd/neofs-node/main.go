@@ -181,7 +181,7 @@ func wait(c *cfg) {
 		c.ctxCancel()
 
 		c.log.Warn("internal application error",
-			zap.String("message", err.Error()))
+			zap.Error(err))
 	}
 }
 
