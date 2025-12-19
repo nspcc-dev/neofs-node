@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -78,69 +77,6 @@ func blindlyProcess(fs object.SearchFilters) bool {
 	}
 
 	return false
-}
-
-// FilterExpired filters expired object from `addresses` and return them.
-// Uses internal epoch state provided via the [WithEpochState] option.
-func (db *DB) FilterExpired(addresses []oid.Address) ([]oid.Address, error) {
-	db.modeMtx.RLock()
-	defer db.modeMtx.RUnlock()
-
-	if db.mode.NoMetabase() {
-		return nil, ErrDegradedMode
-	}
-
-	epoch := db.epochState.CurrentEpoch()
-	res := make([]oid.Address, 0)
-
-	err := db.boltDB.View(func(tx *bbolt.Tx) error {
-		var (
-			curCID     cid.ID
-			metaBkt    *bbolt.Bucket
-			metaBktKey = make([]byte, bucketKeySize)
-			expKey     = make([]byte, 1+objectKeySize+len(object.AttributeExpirationEpoch)+1)
-		)
-		metaBktKey[0] = metadataPrefix
-
-		expKey[0] = metaPrefixIDAttr
-		copy(expKey[1+objectKeySize:], object.AttributeExpirationEpoch)
-
-		for _, a := range addresses {
-			if metaBkt == nil || curCID != a.Container() {
-				curCID = a.Container()
-				copy(metaBktKey[1:], curCID[:])
-				metaBkt = tx.Bucket(metaBktKey)
-				if metaBkt == nil {
-					continue
-				}
-			}
-			var oID = a.Object()
-
-			copy(expKey[1:], oID[:])
-
-			var (
-				cur  = metaBkt.Cursor()
-				k, _ = cur.Seek(expKey)
-			)
-			if !bytes.HasPrefix(k, expKey) {
-				continue
-			}
-			expiration, err := strconv.ParseUint(string(k[len(expKey):]), 10, 64)
-			if err != nil {
-				continue
-			}
-			if expiration < epoch {
-				res = append(res, a)
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
 }
 
 // CollectRawWithAttribute allows to fetch the list of objects precisely

@@ -240,20 +240,6 @@ func (s *Shard) collectExpiredObjects() {
 	log.Debug("finished expired objects handling")
 }
 
-// FilterExpired filters expired objects by address through the metabase and returns them.
-func (s *Shard) FilterExpired(addrs []oid.Address) []oid.Address {
-	expired, err := s.metaBase.FilterExpired(addrs)
-	if err != nil {
-		s.log.Warn("expired object filtering",
-			zap.Error(err),
-		)
-
-		return nil
-	}
-
-	return expired
-}
-
 // NotificationChannel returns channel for shard events.
 func (s *Shard) NotificationChannel() chan<- Event {
 	return s.gc.eventChan
