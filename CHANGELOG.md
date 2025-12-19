@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - Metabase reset not deleting old buckets in some cases (#3744)
 - Object left in the storage after unsuccessful meta PUT (#3744)
 - Object left in some shards on fatal broadcast failure (#3744)
+- Deadlock on SN exit in rare GC cases (#3744)
 
 ### Changed
 - Optimized locking info in metabase (#3672)

@@ -227,6 +227,10 @@ func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
 		return false, e.blockErr
 	}
 
+	return e.isLocked(addr)
+}
+
+func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 	for _, sh := range e.unsortedShards() {
 		locked, err := sh.IsLocked(addr)
 		if err != nil {
@@ -243,8 +247,15 @@ func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
+	var rLocked = e.blockMtx.TryRLock()
+
+	if !rLocked || e.blockErr != nil {
+		return
+	}
+	defer e.blockMtx.RUnlock()
+
 	for _, addr := range addrs {
-		locked, err := e.IsLocked(addr)
+		locked, err := e.isLocked(addr)
 		if err != nil {
 			e.log.Warn("removing an object without full locking check",
 				zap.Error(err),
