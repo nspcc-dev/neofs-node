@@ -203,12 +203,12 @@ func (s *Shard) collectExpiredObjects() {
 	log.Debug("started expired objects handling")
 
 	collected := 0
-	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
-		switch expiredObject.Type() {
+	err := s.metaBase.IterateExpired(epoch, func(addr oid.Address, typ object.Type) error {
+		switch typ {
 		case object.TypeTombstone:
-			toDeleteTombstones = append(toDeleteTombstones, expiredObject.Address())
+			toDeleteTombstones = append(toDeleteTombstones, addr)
 		default:
-			expiredObjects = append(expiredObjects, expiredObject.Address())
+			expiredObjects = append(expiredObjects, addr)
 		}
 		collected++
 		if collected >= s.rmBatchSize {

@@ -18,25 +18,8 @@ import (
 
 const metaIDTypePrefixSize = 1 + objectKeySize + len(object.FilterType) + 1
 
-// ExpiredObject is a descriptor of expired object from DB.
-type ExpiredObject struct {
-	typ object.Type
-
-	addr oid.Address
-}
-
-// Type returns type of the expired object.
-func (e *ExpiredObject) Type() object.Type {
-	return e.typ
-}
-
-// Address returns address of the expired object.
-func (e *ExpiredObject) Address() oid.Address {
-	return e.addr
-}
-
-// ExpiredObjectHandler is an ExpiredObject handling function.
-type ExpiredObjectHandler func(*ExpiredObject) error
+// ExpiredObjectHandler is an expired object handling function.
+type ExpiredObjectHandler func(oid.Address, object.Type) error
 
 var errObjTypeNotFound = errors.New("object type not found")
 
@@ -166,10 +149,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 					zap.Stringer("object", addr), zap.Error(err))
 			}
 
-			err = h(&ExpiredObject{
-				typ:  typ,
-				addr: addr,
-			})
+			err = h(addr, typ)
 			if err != nil {
 				return err
 			}
