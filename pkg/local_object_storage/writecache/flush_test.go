@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -128,7 +128,7 @@ func TestFlush(t *testing.T) {
 		t.Run("fs, read error", func(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
 				obj, data := newObject(t, 1)
-				addr := objectCore.AddressOf(obj)
+				addr := objectcore.AddressOf(obj)
 
 				err := c.fsTree.Put(addr, data)
 				require.NoError(t, err)
@@ -332,10 +332,10 @@ func waitForFlush(t *testing.T, wc Cache, objects []objectPair) {
 func putObject(t *testing.T, c Cache, size int) objectPair {
 	obj, data := newObject(t, size)
 
-	err := c.Put(objectCore.AddressOf(obj), obj, data)
+	err := c.Put(objectcore.AddressOf(obj), obj, data)
 	require.NoError(t, err)
 
-	return objectPair{objectCore.AddressOf(obj), obj}
+	return objectPair{objectcore.AddressOf(obj), obj}
 }
 
 func newObject(t *testing.T, size int) (*object.Object, []byte) {

@@ -1,4 +1,4 @@
-package object
+package objectcore
 
 import (
 	"bytes"

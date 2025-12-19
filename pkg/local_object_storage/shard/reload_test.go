@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -46,7 +46,7 @@ func TestShardReload(t *testing.T) {
 	objects := make([]objAddr, 5)
 	for i := range objects {
 		objects[i].obj = newObject(t)
-		objects[i].addr = objectCore.AddressOf(objects[i].obj)
+		objects[i].addr = objectcore.AddressOf(objects[i].obj)
 		require.NoError(t, sh.Put(objects[i].obj, nil))
 	}
 
@@ -79,7 +79,7 @@ func TestShardReload(t *testing.T) {
 		t.Run("can put objects", func(t *testing.T) {
 			obj := newObject(t)
 			require.NoError(t, sh.Put(obj, nil))
-			objects = append(objects, objAddr{obj: obj, addr: objectCore.AddressOf(obj)})
+			objects = append(objects, objAddr{obj: obj, addr: objectcore.AddressOf(obj)})
 		})
 
 		newOpts = newShardOpts(filepath.Join(p, "meta2"), true)
@@ -108,7 +108,7 @@ func TestShardReload(t *testing.T) {
 			obj = newObject(t)
 			require.NoError(t, sh.Put(obj, nil))
 
-			objects = append(objects, objAddr{obj: obj, addr: objectCore.AddressOf(obj)})
+			objects = append(objects, objAddr{obj: obj, addr: objectcore.AddressOf(obj)})
 			checkHasObjects(t, true)
 		})
 	})

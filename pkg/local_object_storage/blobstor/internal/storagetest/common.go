@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -54,7 +54,7 @@ func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64)
 
 	for i := range objects {
 		objects[i].obj = NewObject(minSize + uint64(rand.IntN(int(maxSize-minSize+1)))) // not too large
-		objects[i].addr = objectCore.AddressOf(objects[i].obj)
+		objects[i].addr = objectcore.AddressOf(objects[i].obj)
 		objects[i].raw = objects[i].obj.Marshal()
 	}
 
@@ -72,7 +72,7 @@ func prepareBatch(t *testing.T, count int, s common.Storage, minSize, maxSize ui
 
 	for i := range objects {
 		objects[i].obj = NewObject(minSize + uint64(rand.IntN(int(maxSize-minSize+1)))) // not too large
-		objects[i].addr = objectCore.AddressOf(objects[i].obj)
+		objects[i].addr = objectcore.AddressOf(objects[i].obj)
 		objects[i].raw = objects[i].obj.Marshal()
 
 		mObj[objects[i].addr] = objects[i].raw

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/bbolt"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -130,7 +130,7 @@ func TestExecBlocks(t *testing.T) {
 	// put some object
 	obj := generateObjectWithCID(cidtest.ID())
 
-	addr := object.AddressOf(obj)
+	addr := objectcore.AddressOf(obj)
 
 	require.NoError(t, e.Put(obj, nil))
 

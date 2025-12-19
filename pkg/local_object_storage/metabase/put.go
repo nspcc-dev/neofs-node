@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -40,7 +40,7 @@ func (db *DB) Put(obj *object.Object) error {
 	})
 	if err == nil {
 		storagelog.Write(db.log,
-			storagelog.AddressField(objectCore.AddressOf(obj)),
+			storagelog.AddressField(objectcore.AddressOf(obj)),
 			storagelog.OpField("metabase PUT"))
 	}
 
@@ -48,11 +48,11 @@ func (db *DB) Put(obj *object.Object) error {
 }
 
 func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch uint64) error {
-	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
+	if err := objectcore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
 
-	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch, false)
+	exists, err := db.exists(tx, objectcore.AddressOf(obj), currEpoch, false)
 
 	switch {
 	case exists:

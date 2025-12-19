@@ -1,4 +1,4 @@
-package object
+package objectcore
 
 import "github.com/nspcc-dev/neofs-sdk-go/version"
 

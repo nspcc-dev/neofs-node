@@ -3,7 +3,7 @@ package shard_test
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
@@ -34,12 +34,12 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
-	_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)
+	_, err = testGet(t, sh, objectcore.AddressOf(obj), hasWriteCache)
 	require.NoError(t, err)
 
 	err = sh.Put(ts, nil)
 	require.NoError(t, err)
 
-	_, err = sh.Get(object.AddressOf(obj), false)
+	_, err = sh.Get(objectcore.AddressOf(obj), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 }

@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -34,14 +34,14 @@ func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Run("put fails", func(t *testing.T) {
 		var obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
 
-		err := s.Put(objectCore.AddressOf(obj), obj.Marshal())
+		err := s.Put(objectcore.AddressOf(obj), obj.Marshal())
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 	t.Run("put batch fails", func(t *testing.T) {
 		var obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
 
 		err := s.PutBatch(map[oid.Address][]byte{
-			objectCore.AddressOf(obj): obj.Marshal(),
+			objectcore.AddressOf(obj): obj.Marshal(),
 		})
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
