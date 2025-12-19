@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - Missing PUT local storage operation log when flushing objects from write cache to underlying blobstor (#3720)
 - EC parts of expired object no longer remain on SN (#3718)
 - Metabase reset not deleting old buckets in some cases (#3744)
+- Object left in the storage after unsuccessful meta PUT (#3744)
 
 ### Changed
 - Optimized locking info in metabase (#3672)

@@ -1,9 +1,11 @@
 package shard
 
 import (
+	"errors"
 	"fmt"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -28,25 +30,28 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 		return ErrReadOnlyMode
 	}
 
-	var err error
 	if objBin == nil {
 		objBin = obj.Marshal()
 	}
 
-	var addr = objectCore.AddressOf(obj)
+	var (
+		addr      = objectCore.AddressOf(obj)
+		cachedPut bool
+	)
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
 	if s.hasWriteCache() {
-		err = s.writeCache.Put(addr, obj, objBin)
-	}
-	if err != nil || !s.hasWriteCache() {
-		if err != nil {
+		var err = s.writeCache.Put(addr, obj, objBin)
+		cachedPut = err == nil
+		if !cachedPut {
 			s.log.Debug("can't put object to the write-cache, trying blobstor",
-				zap.String("err", err.Error()))
+				zap.Error(err))
+			// Consider returning an error if cache is full.
 		}
-
-		err = s.blobStor.Put(addr, objBin)
+	}
+	if !cachedPut {
+		var err = s.blobStor.Put(addr, objBin)
 		if err != nil {
 			return fmt.Errorf("could not put object to BLOB storage: %w", err)
 		}
@@ -54,10 +59,26 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	if !m.NoMetabase() {
-		if err := s.metaBase.Put(obj); err != nil {
+		var metaErr = s.metaBase.Put(obj)
+		if metaErr != nil {
+			if cachedPut {
+				var err = s.writeCache.Delete(addr)
+				if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) {
+					s.log.Warn("can't drop object from write cache on meta put failure",
+						zap.Stringer("addr", addr), zap.Error(err))
+				}
+			}
+			// Always delete from blobstor, write cache
+			// might have flushed it already.
+			var err = s.blobStor.Delete(addr)
+			if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) {
+				s.log.Warn("can't drop object from blobstor on meta put failure",
+					zap.Stringer("addr", addr), zap.Error(err))
+			}
+
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor
-			return fmt.Errorf("could not put object to metabase: %w", err)
+			return fmt.Errorf("could not put object to metabase: %w", metaErr)
 		}
 
 		s.incObjectCounter()
