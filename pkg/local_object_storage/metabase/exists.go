@@ -97,7 +97,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 	)
 
 	if checkParent {
-		err := getParentInfo(metaBucket, metaCursor, cnr, id)
+		err := getParentInfo(metaCursor, cnr, id)
 		if err != nil {
 			if errors.Is(err, ierrors.ErrParentObject) {
 				return false, logicerr.Wrap(err)
@@ -275,7 +275,7 @@ func inGarbageWithKey(metaCursor *bbolt.Cursor, addrKey []byte, garbageObjectsBC
 // returns [ParentError] wrapping:
 // - [objectSDK.SplitInfoError] wrapping [objectSDK.SplitInfo] collected from parts if object is split;
 // - [ErrParts] if object is EC.
-func getParentInfo(metaBucket *bbolt.Bucket, metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) error {
+func getParentInfo(metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) error {
 	var (
 		splitInfo    *objectSDK.SplitInfo
 		ecParts      []oid.ID
@@ -289,7 +289,7 @@ loop:
 			return fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)
 		}
 		var (
-			objCur    = metaBucket.Cursor()
+			objCur    = metaCursor.Bucket().Cursor()
 			objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
 			isLink    bool
 			isV1      bool

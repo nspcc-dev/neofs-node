@@ -164,7 +164,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj objectSDK.Object
 					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
 				}
 
-				children, err := collectChildren(metaBkt, metaCursor, cID, target)
+				children, err := collectChildren(metaCursor, cID, target)
 				if err != nil {
 					return fmt.Errorf("collect children: %w", err)
 				}

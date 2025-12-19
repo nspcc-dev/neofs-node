@@ -200,7 +200,7 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 		}
 	}
 
-	if !parent.IsZero() && getParentInfo(metaBkt, c, cnr, parent) == nil {
+	if !parent.IsZero() && getParentInfo(c, cnr, parent) == nil {
 		_, err = deleteMetadata(tx, l, cnr, parent, true)
 		if err != nil {
 			l.Warn("parent removal",
@@ -448,11 +448,11 @@ func resolveContainerByOID(tx *bbolt.Tx, metaOIDKey []byte) (cid.ID, error) {
 	return res, err
 }
 
-func collectChildren(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, cnr cid.ID, parentID oid.ID) ([]oid.ID, error) {
+func collectChildren(cnrMetaCrs *bbolt.Cursor, cnr cid.ID, parentID oid.ID) ([]oid.ID, error) {
 	var (
 		errECParts iec.ErrParts
 		siErr      *object.SplitInfoError
-		parInfo    = getParentInfo(cnrMetaBkt, cnrMetaCrs, cnr, parentID)
+		parInfo    = getParentInfo(cnrMetaCrs, cnr, parentID)
 	)
 
 	if parInfo == nil {
@@ -490,7 +490,7 @@ func collectChildren(cnrMetaBkt *bbolt.Bucket, cnrMetaCrs *bbolt.Cursor, cnr cid
 		}
 		res = append(res, children...)
 		for _, id := range children {
-			grandchildren, err := collectChildren(cnrMetaBkt, cnrMetaCrs, cnr, id)
+			grandchildren, err := collectChildren(cnrMetaCrs, cnr, id)
 			if err != nil {
 				return nil, err
 			}

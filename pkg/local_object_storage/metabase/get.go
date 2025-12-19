@@ -92,7 +92,7 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var objID = addr.Object()
 
 	if raw {
-		err := getParentInfo(metaBucket, metaCursor, cnr, objID)
+		err := getParentInfo(metaCursor, cnr, objID)
 		if errors.Is(err, ierrors.ErrParentObject) {
 			return nil, logicerr.Wrap(err)
 		}
