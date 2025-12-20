@@ -6,7 +6,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -19,9 +19,9 @@ import (
 // Returns an error of type apistatus.ObjectNotFound if object is missing in Shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (s *Shard) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
+func (s *Shard) Head(addr oid.Address, raw bool) (*object.Object, error) {
 	var (
-		errSplitInfo *objectSDK.SplitInfoError
+		errSplitInfo *object.SplitInfoError
 		children     []oid.Address
 	)
 	if !s.GetMode().NoMetabase() {

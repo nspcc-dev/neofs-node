@@ -9,13 +9,13 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// fill ToMoveIt index
-	err = metaToMoveIt(db, object.AddressOf(child))
+	err = metaToMoveIt(db, objectcore.AddressOf(child))
 	require.NoError(t, err)
 
 	// check if Movable list is not empty
@@ -47,17 +47,17 @@ func TestDB_Delete(t *testing.T) {
 	require.Len(t, l, 1)
 
 	// try to remove parent, should be no-op, error-free
-	err = metaDelete(db, object.AddressOf(parent))
+	err = metaDelete(db, objectcore.AddressOf(parent))
 	require.NoError(t, err)
 
 	// inhume child so it will be on graveyard
 	ts := generateObjectWithCID(t, cnr)
 
-	err = metaInhume(db, object.AddressOf(child), object.AddressOf(ts))
+	err = metaInhume(db, objectcore.AddressOf(child), objectcore.AddressOf(ts))
 	require.NoError(t, err)
 
 	// delete object
-	err = metaDelete(db, object.AddressOf(child))
+	err = metaDelete(db, objectcore.AddressOf(child))
 	require.NoError(t, err)
 
 	// check if there is no data in Movable index
@@ -69,11 +69,11 @@ func TestDB_Delete(t *testing.T) {
 	// TS status that should be kept for some epochs and be handled
 	// separately) and parent is not found
 
-	ok, err := metaExists(db, object.AddressOf(child))
+	ok, err := metaExists(db, objectcore.AddressOf(child))
 	require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	require.False(t, ok)
 
-	ok, err = metaExists(db, object.AddressOf(parent))
+	ok, err = metaExists(db, objectcore.AddressOf(parent))
 	require.NoError(t, err)
 	require.False(t, ok)
 
@@ -83,11 +83,11 @@ func TestDB_Delete(t *testing.T) {
 		const anyRuleIdx = 1
 		anySigner := neofscryptotest.Signer()
 
-		newGroup := func(cnr cid.ID, partNum int) (objectSDK.Object, []objectSDK.Object) {
+		newGroup := func(cnr cid.ID, partNum int) (object.Object, []object.Object) {
 			parent := *generateObjectWithCID(t, cnr)
 			parent.SetPayloadSize(rand.Uint64())
 
-			var ecParts []objectSDK.Object
+			var ecParts []object.Object
 			for i := range partNum {
 				partObj, err := iec.FormObjectForECPart(anySigner, parent, nil, iec.PartInfo{
 					RuleIndex: anyRuleIdx,
@@ -106,8 +106,8 @@ func TestDB_Delete(t *testing.T) {
 		parent1, ecParts1 := newGroup(cnr1, 3)
 		parent2, ecParts2 := newGroup(cnr2, 5)
 
-		parent1Addr := object.AddressOf(&parent1)
-		parent2Addr := object.AddressOf(&parent2)
+		parent1Addr := objectcore.AddressOf(&parent1)
+		parent2Addr := objectcore.AddressOf(&parent2)
 
 		res, err := db.Delete([]oid.Address{parent1Addr, parent2Addr})
 		require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestDB_Delete(t *testing.T) {
 		})
 		for _, partObj := range slices.Concat(ecParts1, ecParts2) {
 			require.Contains(t, res.RemovedObjects, meta.RemovedObject{
-				Address:    object.AddressOf(&partObj),
+				Address:    objectcore.AddressOf(&partObj),
 				PayloadLen: partObj.PayloadSize(),
 			})
 		}
@@ -148,7 +148,7 @@ func TestContainerInfo(t *testing.T) {
 	require.Equal(t, uint64(1), info.ObjectsNumber)
 	require.Equal(t, payloadSize, info.StorageSize)
 
-	addr := object.AddressOf(obj)
+	addr := objectcore.AddressOf(obj)
 
 	res, err := db.Delete([]oid.Address{addr})
 	require.NoError(t, err)
@@ -189,17 +189,17 @@ func TestDeleteAllChildren(t *testing.T) {
 	require.NoError(t, putBig(db, child2))
 
 	// Exists should return split info for parent
-	_, err := metaExists(db, object.AddressOf(parent))
-	siErr := objectSDK.NewSplitInfoError(nil)
+	_, err := metaExists(db, objectcore.AddressOf(parent))
+	siErr := object.NewSplitInfoError(nil)
 	require.ErrorIs(t, err, ierrors.ErrParentObject)
 	require.True(t, errors.As(err, &siErr))
 
 	// remove all children in single call
-	err = metaDelete(db, object.AddressOf(child1), object.AddressOf(child2))
+	err = metaDelete(db, objectcore.AddressOf(child1), objectcore.AddressOf(child2))
 	require.NoError(t, err)
 
 	// parent should not be found now
-	ex, err := metaExists(db, object.AddressOf(parent))
+	ex, err := metaExists(db, objectcore.AddressOf(parent))
 	require.NoError(t, err)
 	require.False(t, ex)
 }
@@ -219,11 +219,11 @@ func TestGraveOnlyDelete(t *testing.T) {
 func TestExpiredObject(t *testing.T) {
 	db := newDB(t, meta.WithEpochState(epochState{currEpoch}))
 
-	checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
+	checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
 		// removing expired object should be error-free
-		require.NoError(t, metaDelete(db, object.AddressOf(exp)))
+		require.NoError(t, metaDelete(db, objectcore.AddressOf(exp)))
 
-		require.NoError(t, metaDelete(db, object.AddressOf(nonExp)))
+		require.NoError(t, metaDelete(db, objectcore.AddressOf(nonExp)))
 	})
 }
 

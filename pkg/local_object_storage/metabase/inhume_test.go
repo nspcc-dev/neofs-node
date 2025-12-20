@@ -4,11 +4,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -25,13 +25,13 @@ func TestDB_Inhume(t *testing.T) {
 	err := putBig(db, raw)
 	require.NoError(t, err)
 
-	err = metaInhume(db, object.AddressOf(raw), tombstoneID)
+	err = metaInhume(db, objectcore.AddressOf(raw), tombstoneID)
 	require.NoError(t, err)
 
-	_, err = metaExists(db, object.AddressOf(raw))
+	_, err = metaExists(db, objectcore.AddressOf(raw))
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	_, err = metaGet(db, object.AddressOf(raw), false)
+	_, err = metaGet(db, objectcore.AddressOf(raw), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	t.Run("EC", testInhumeEC)
@@ -53,7 +53,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	require.NoError(t, err)
 
 	// obj1 should become inhumed {obj1:obj2}
-	_, err = db.Exists(object.AddressOf(obj1), false)
+	_, err = db.Exists(objectcore.AddressOf(obj1), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	// try to inhume addr3 via obj1
@@ -82,7 +82,7 @@ func TestInhumeContainer(t *testing.T) {
 
 	const numOfObjs = 5
 	cID := cidtest.ID()
-	var oo []*objectsdk.Object
+	var oo []*object.Object
 	var size uint64
 
 	for i := range numOfObjs {
@@ -117,7 +117,7 @@ func TestInhumeContainer(t *testing.T) {
 	require.Zero(t, containerSize)
 
 	for _, o := range oo {
-		_, err = metaGet(db, object.AddressOf(o), false)
+		_, err = metaGet(db, objectcore.AddressOf(o), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	}
 }

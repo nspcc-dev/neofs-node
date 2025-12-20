@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -119,9 +119,9 @@ type cfg struct {
 
 	remotePool util.WorkerPool
 
-	fmtValidator *object.FormatValidator
+	fmtValidator *objectcore.FormatValidator
 
-	fmtValidatorOpts []object.FormatValidatorOption
+	fmtValidatorOpts []objectcore.FormatValidatorOption
 
 	networkState netmap.StateDetailed
 
@@ -153,12 +153,12 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q Quot
 		opts[i](c)
 	}
 
-	var fmtValidatorChain object.FSChain
+	var fmtValidatorChain objectcore.FSChain
 	if c.cnrClient != nil {
 		fmtValidatorChain = c.cnrClient.Morph()
 	}
 
-	c.fmtValidator = object.NewFormatValidator(fmtValidatorChain, neoFSNet, c.cnrSrc, c.fmtValidatorOpts...)
+	c.fmtValidator = objectcore.NewFormatValidator(fmtValidatorChain, neoFSNet, c.cnrSrc, c.fmtValidatorOpts...)
 	c.metaSvc = m
 	c.quotaLimiter = q
 	c.payments = p
@@ -194,7 +194,7 @@ func WithMaxSizeSource(v MaxSizeSource) Option {
 func WithObjectStorage(v ObjectStorage) Option {
 	return func(c *cfg) {
 		c.localStore = v
-		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithLockSource(v))
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithLockSource(v))
 	}
 }
 
@@ -213,19 +213,19 @@ func WithRemoteWorkerPool(remote util.WorkerPool) Option {
 func WithNetworkState(v netmap.StateDetailed) Option {
 	return func(c *cfg) {
 		c.networkState = v
-		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithNetState(v))
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithNetState(v))
 	}
 }
 
-func WithSplitChainVerifier(sv object.SplitVerifier) Option {
+func WithSplitChainVerifier(sv objectcore.SplitVerifier) Option {
 	return func(c *cfg) {
-		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithSplitVerifier(sv))
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithSplitVerifier(sv))
 	}
 }
 
-func WithTombstoneVerifier(tv object.TombVerifier) Option {
+func WithTombstoneVerifier(tv objectcore.TombVerifier) Option {
 	return func(c *cfg) {
-		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithTombVerifier(tv))
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithTombVerifier(tv))
 	}
 }
 

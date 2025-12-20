@@ -3,11 +3,11 @@ package engine
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,13 +19,13 @@ func TestStorageEngine_ReviveObject(t *testing.T) {
 
 	obj := generateObjectWithCID(cnr)
 	require.NoError(t, e.Put(obj, nil))
-	addr := object.AddressOf(obj)
+	addr := objectcore.AddressOf(obj)
 
 	ts := generateObjectWithCID(cnr)
-	ts.SetType(objectSDK.TypeTombstone)
-	addAttribute(ts, objectSDK.AttributeAssociatedObject, obj.GetID().EncodeToString())
-	addAttribute(ts, objectSDK.AttributeExpirationEpoch, "0")
-	tsAddr := object.AddressOf(ts)
+	ts.SetType(object.TypeTombstone)
+	addAttribute(ts, object.AttributeAssociatedObject, obj.GetID().EncodeToString())
+	addAttribute(ts, object.AttributeExpirationEpoch, "0")
+	tsAddr := objectcore.AddressOf(ts)
 
 	require.NoError(t, e.Put(ts, nil))
 

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -18,7 +18,7 @@ func TestReset(t *testing.T) {
 	require.NoError(t, err)
 
 	obj := generateObject(t)
-	addr := object.AddressOf(obj)
+	addr := objectcore.AddressOf(obj)
 
 	addrToInhume := oidtest.Address()
 
@@ -64,7 +64,7 @@ func TestOpenRO(t *testing.T) {
 	require.NoError(t, db.Init())
 
 	obj := generateObject(t)
-	addr := object.AddressOf(obj)
+	addr := objectcore.AddressOf(obj)
 
 	require.NoError(t, putBig(db, obj))
 	exists, err := metaExists(db, addr)

@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"hash"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
@@ -25,7 +25,7 @@ type validatingTarget struct {
 
 	nextTarget internal.Target
 
-	fmt *object.FormatValidator
+	fmt *objectcore.FormatValidator
 
 	unpreparedObject bool
 
@@ -37,7 +37,7 @@ type validatingTarget struct {
 	maxPayloadSz    uint64 // network config
 	payloadSz       uint64 // payload size of the streaming object from header
 	writtenPayload  uint64 // number of already written payload bytes
-	cachedHeader    *objectSDK.Object
+	cachedHeader    *object.Object
 	cachedCnr       container.Container
 	isECPart        bool
 	cachedRepNumber uint64
@@ -53,7 +53,7 @@ var (
 	ErrWrongPayloadSize = errors.New("wrong payload size")
 )
 
-func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
+func (t *validatingTarget) WriteHeader(obj *object.Object) error {
 	t.cachedHeader = obj
 	t.payloadSz = obj.PayloadSize()
 	chunkLn := uint64(len(obj.Payload()))
@@ -172,7 +172,7 @@ func (t *validatingTarget) Close() (oid.ID, error) {
 	return t.nextTarget.Close()
 }
 
-func (t *validatingTarget) checkQuotaLimits(obj *objectSDK.Object, written uint64) error {
+func (t *validatingTarget) checkQuotaLimits(obj *object.Object, written uint64) error {
 	// header validation ensured values are non-zero before
 	cID := obj.GetContainerID()
 	owner := obj.Owner()

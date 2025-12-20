@@ -10,14 +10,14 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -264,14 +264,14 @@ func TestNumericFilters(t *testing.T) {
 	ctx := context.Background()
 	var prm Prm
 
-	for _, op := range []objectsdk.SearchMatchType{} {
-		var query objectsdk.SearchFilters
+	for _, op := range []object.SearchMatchType{} {
+		var query object.SearchFilters
 		query.AddFilter("any_key", "1.0", op)
 
 		prm.WithSearchFilters(query)
 
 		err := s.Search(ctx, prm)
-		require.ErrorIs(t, err, object.ErrInvalidSearchQuery, op)
+		require.ErrorIs(t, err, objectcore.ErrInvalidSearchQuery, op)
 		require.ErrorContains(t, err, "numeric filter with non-decimal value", op)
 	}
 }

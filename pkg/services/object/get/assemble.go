@@ -2,7 +2,7 @@ package getsvc
 
 import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -76,7 +76,7 @@ func (exec *execCtx) assemble() {
 			//  * else go right-to-left with GET and compose in single object before writing
 
 			if ok := exec.overtakePayloadInReverse(*prev); ok {
-				var rng *objectSDK.Range
+				var rng *object.Range
 				if exec.ctxRange() != nil {
 					rng = &exec.lastChildRange
 				}
@@ -166,11 +166,11 @@ func (exec *execCtx) initFromChild(obj oid.ID) (*oid.ID, []oid.ID) {
 	return nil, child.Children()
 }
 
-func (exec *execCtx) overtakePayloadDirectly(children []oid.ID, rngs []objectSDK.Range, checkRight bool) {
+func (exec *execCtx) overtakePayloadDirectly(children []oid.ID, rngs []object.Range, checkRight bool) {
 	withRng := len(rngs) > 0 && exec.ctxRange() != nil
 
 	for i := range children {
-		var r *objectSDK.Range
+		var r *object.Range
 		if withRng {
 			r = &rngs[i]
 		}
@@ -206,10 +206,10 @@ func (exec *execCtx) overtakePayloadInReverse(prev oid.ID) bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) buildChainInReverse(prev oid.ID) ([]oid.ID, []objectSDK.Range, bool) {
+func (exec *execCtx) buildChainInReverse(prev oid.ID) ([]oid.ID, []object.Range, bool) {
 	var (
 		chain   = make([]oid.ID, 0)
-		rngs    = make([]objectSDK.Range, 0)
+		rngs    = make([]object.Range, 0)
 		seekRng = exec.ctxRange()
 		from    uint64
 		to      uint64
@@ -251,7 +251,7 @@ func (exec *execCtx) buildChainInReverse(prev oid.ID) ([]oid.ID, []objectSDK.Ran
 				}
 
 				index := len(rngs)
-				rngs = append(rngs, objectSDK.Range{})
+				rngs = append(rngs, object.Range{})
 				rngs[index].SetOffset(off)
 				rngs[index].SetLength(sz)
 

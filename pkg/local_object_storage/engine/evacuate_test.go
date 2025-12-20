@@ -7,19 +7,19 @@ import (
 	"strconv"
 	"testing"
 
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*objectSDK.Object) {
+func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*object.Object) {
 	var (
 		dir = t.TempDir()
 		e   = New(
@@ -46,7 +46,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 
-	objects := make([]*objectSDK.Object, 0, objPerShard*len(ids))
+	objects := make([]*object.Object, 0, objPerShard*len(ids))
 	for i := 0; ; i++ {
 		objects = append(objects, generateObjectWithCID(cidtest.ID()))
 
@@ -71,7 +71,7 @@ func TestEvacuateShard(t *testing.T) {
 
 	checkHasObjects := func(t *testing.T) {
 		for i := range objects {
-			_, err := e.Get(objectCore.AddressOf(objects[i]))
+			_, err := e.Get(objectcore.AddressOf(objects[i]))
 			require.NoError(t, err)
 		}
 	}
@@ -114,16 +114,16 @@ func TestEvacuateShard(t *testing.T) {
 func TestEvacuateNetwork(t *testing.T) {
 	var errReplication = errors.New("handler error")
 
-	acceptOneOf := func(objects []*objectSDK.Object, maxIter int) func(oid.Address, *objectSDK.Object) error {
+	acceptOneOf := func(objects []*object.Object, maxIter int) func(oid.Address, *object.Object) error {
 		var n int
-		return func(addr oid.Address, obj *objectSDK.Object) error {
+		return func(addr oid.Address, obj *object.Object) error {
 			if n == maxIter {
 				return errReplication
 			}
 
 			n++
 			for i := range objects {
-				if addr == objectCore.AddressOf(objects[i]) {
+				if addr == objectcore.AddressOf(objects[i]) {
 					require.Equal(t, objects[i], obj)
 					return nil
 				}

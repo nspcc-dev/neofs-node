@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -41,13 +41,13 @@ func setupCompressor(tb testing.TB, fsTree *fstree.FSTree) {
 
 func prepareSingleObject(tb testing.TB, fsTree *fstree.FSTree, payloadSize int) oid.Address {
 	obj := generateTestObject(payloadSize)
-	addr := object.AddressOf(obj)
+	addr := objectcore.AddressOf(obj)
 	require.NoError(tb, fsTree.Put(addr, obj.Marshal()))
 	return addr
 }
 
-func addAttribute(obj *objectSDK.Object, key, value string) {
-	var attr objectSDK.Attribute
+func addAttribute(obj *object.Object, key, value string) {
+	var attr object.Attribute
 	attr.SetKey(key)
 	attr.SetValue(value)
 
@@ -56,7 +56,7 @@ func addAttribute(obj *objectSDK.Object, key, value string) {
 	obj.SetAttributes(attrs...)
 }
 
-func generateTestObject(payloadSize int) *objectSDK.Object {
+func generateTestObject(payloadSize int) *object.Object {
 	obj := objecttest.Object()
 	if payloadSize > 0 {
 		payload := make([]byte, payloadSize)
@@ -90,7 +90,7 @@ func prepareMultipleObjects(tb testing.TB, fsTree *fstree.FSTree, payloadSize in
 
 	for i := range numObjects {
 		obj := generateTestObject(payloadSize)
-		addr := object.AddressOf(obj)
+		addr := objectcore.AddressOf(obj)
 		objMap[addr] = obj.Marshal()
 		addrs[i] = addr
 	}

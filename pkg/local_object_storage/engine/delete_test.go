@@ -3,10 +3,10 @@ package engine
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -25,14 +25,14 @@ func TestDeleteBigObject(t *testing.T) {
 func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) error) {
 	cnr := cidtest.ID()
 	parentID := oidtest.ID()
-	splitID := objectSDK.NewSplitID()
+	splitID := object.NewSplitID()
 
 	parent := generateObjectWithCID(cnr)
 	parent.SetID(parentID)
 	parent.SetPayload(nil)
 
 	const childCount = 10
-	children := make([]*objectSDK.Object, childCount)
+	children := make([]*object.Object, childCount)
 	childIDs := make([]oid.ID, childCount)
 	for i := range children {
 		children[i] = generateObjectWithCID(cnr)
@@ -67,16 +67,16 @@ func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) err
 	}
 	require.NoError(t, e.Put(link, nil))
 
-	var splitErr *objectSDK.SplitInfoError
+	var splitErr *object.SplitInfoError
 
-	addrParent := object.AddressOf(parent)
+	addrParent := objectcore.AddressOf(parent)
 	checkGetError(t, e, addrParent, &splitErr)
 
-	addrLink := object.AddressOf(link)
+	addrLink := objectcore.AddressOf(link)
 	checkGetError(t, e, addrLink, nil)
 
 	for i := range children {
-		checkGetError(t, e, object.AddressOf(children[i]), nil)
+		checkGetError(t, e, objectcore.AddressOf(children[i]), nil)
 	}
 
 	err := fun(e, addrParent)
@@ -85,7 +85,7 @@ func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) err
 	checkGetError(t, e, addrParent, &apistatus.ObjectNotFound{})
 	checkGetError(t, e, addrLink, &apistatus.ObjectNotFound{})
 	for i := range children {
-		checkGetError(t, e, object.AddressOf(children[i]), &apistatus.ObjectNotFound{})
+		checkGetError(t, e, objectcore.AddressOf(children[i]), &apistatus.ObjectNotFound{})
 	}
 }
 

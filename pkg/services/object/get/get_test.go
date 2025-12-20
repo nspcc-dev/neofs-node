@@ -13,7 +13,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
@@ -21,7 +21,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -34,9 +34,9 @@ type testStorage struct {
 
 	inhumed map[oid.Address]struct{}
 
-	virtual map[oid.Address]*objectSDK.SplitInfo
+	virtual map[oid.Address]*object.SplitInfo
 
-	phy map[oid.Address]*objectSDK.Object
+	phy map[oid.Address]*object.Object
 }
 
 type testNeoFS struct {
@@ -49,7 +49,7 @@ type testClientCache struct {
 
 type testClient struct {
 	results map[oid.Address]struct {
-		obj *objectSDK.Object
+		obj *object.Object
 		err error
 	}
 }
@@ -57,8 +57,8 @@ type testClient struct {
 func newTestStorage() *testStorage {
 	return &testStorage{
 		inhumed: make(map[oid.Address]struct{}),
-		virtual: make(map[oid.Address]*objectSDK.SplitInfo),
-		phy:     make(map[oid.Address]*objectSDK.Object),
+		virtual: make(map[oid.Address]*object.SplitInfo),
+		phy:     make(map[oid.Address]*object.Object),
 	}
 }
 
@@ -90,13 +90,13 @@ func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {
 func newTestClient() *testClient {
 	return &testClient{
 		results: map[oid.Address]struct {
-			obj *objectSDK.Object
+			obj *object.Object
 			err error
 		}{},
 	}
 }
 
-func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, io.ReadCloser, error) {
+func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*object.Object, io.ReadCloser, error) {
 	v, ok := c.results[exec.address()]
 	if !ok {
 		var errNotFound apistatus.ObjectNotFound
@@ -120,17 +120,17 @@ func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Obj
 	return obj, nil, nil
 }
 
-func (c *testClient) addResult(addr oid.Address, obj *objectSDK.Object, err error) {
+func (c *testClient) addResult(addr oid.Address, obj *object.Object, err error) {
 	c.results[addr] = struct {
-		obj *objectSDK.Object
+		obj *object.Object
 		err error
 	}{obj: obj, err: err}
 }
 
-func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, io.ReadCloser, error) {
+func (s *testStorage) get(exec *execCtx) (*object.Object, io.ReadCloser, error) {
 	var (
 		ok    bool
-		obj   *objectSDK.Object
+		obj   *object.Object
 		sAddr = exec.address()
 	)
 
@@ -141,7 +141,7 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, io.ReadCloser, erro
 	}
 
 	if info, ok := s.virtual[sAddr]; ok {
-		return nil, nil, objectSDK.NewSplitInfoError(info)
+		return nil, nil, object.NewSplitInfoError(info)
 	}
 
 	if obj, ok = s.phy[sAddr]; ok {
@@ -162,7 +162,7 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, io.ReadCloser, erro
 	return nil, nil, errNotFound
 }
 
-func (s *testStorage) Head(addr oid.Address, _ bool) (*objectSDK.Object, error) {
+func (s *testStorage) Head(addr oid.Address, _ bool) (*object.Object, error) {
 	hdr, _, err := s.get(&execCtx{
 		prm: RangePrm{
 			commonPrm: commonPrm{
@@ -173,7 +173,7 @@ func (s *testStorage) Head(addr oid.Address, _ bool) (*objectSDK.Object, error) 
 	return hdr, err
 }
 
-func cutToRange(o *objectSDK.Object, rng *objectSDK.Range) *objectSDK.Object {
+func cutToRange(o *object.Object, rng *object.Range) *object.Object {
 	if rng == nil {
 		return o
 	}
@@ -189,11 +189,11 @@ func cutToRange(o *objectSDK.Object, rng *objectSDK.Range) *objectSDK.Object {
 	return o
 }
 
-func (s *testStorage) addPhy(addr oid.Address, obj *objectSDK.Object) {
+func (s *testStorage) addPhy(addr oid.Address, obj *object.Object) {
 	s.phy[addr] = obj
 }
 
-func (s *testStorage) addVirtual(addr oid.Address, info *objectSDK.SplitInfo) {
+func (s *testStorage) addVirtual(addr oid.Address, info *object.SplitInfo) {
 	s.virtual[addr] = info
 }
 
@@ -201,8 +201,8 @@ func (s *testStorage) inhume(addr oid.Address) {
 	s.inhumed[addr] = struct{}{}
 }
 
-func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *objectSDK.Object {
-	obj := objectSDK.New()
+func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *object.Object {
+	obj := object.New()
 	obj.SetContainerID(addr.Container())
 	obj.SetID(addr.Object())
 	obj.SetPayload(payload)
@@ -249,7 +249,7 @@ func TestGetLocalOnly(t *testing.T) {
 		p.WithRawFlag(raw)
 		p.common = new(util.CommonPrm).WithLocalOnly(true)
 
-		r := objectSDK.NewRange()
+		r := object.NewRange()
 		r.SetOffset(off)
 		r.SetLength(ln)
 
@@ -369,14 +369,14 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(true, nil)
 
-		testSplit := func(addr oid.Address, si *objectSDK.SplitInfo) {
+		testSplit := func(addr oid.Address, si *object.SplitInfo) {
 			p.WithAddress(addr)
 
 			storage.addVirtual(addr, si)
 
 			err := svc.Get(ctx, p)
 
-			errSplit := objectSDK.NewSplitInfoError(objectSDK.NewSplitInfo())
+			errSplit := object.NewSplitInfoError(object.NewSplitInfo())
 
 			require.True(t, errors.As(err, &errSplit))
 
@@ -398,8 +398,8 @@ func TestGetLocalOnly(t *testing.T) {
 		}
 
 		t.Run("V1 split", func(t *testing.T) {
-			splitInfo := objectSDK.NewSplitInfo()
-			splitInfo.SetSplitID(objectSDK.NewSplitID())
+			splitInfo := object.NewSplitInfo()
+			splitInfo.SetSplitID(object.NewSplitID())
 			splitInfo.SetLink(oidtest.ID())
 			splitInfo.SetLastPart(oidtest.ID())
 
@@ -407,7 +407,7 @@ func TestGetLocalOnly(t *testing.T) {
 		})
 
 		t.Run("V2 split", func(t *testing.T) {
-			splitInfo := objectSDK.NewSplitInfo()
+			splitInfo := object.NewSplitInfo()
 			splitInfo.SetLink(oidtest.ID())
 			splitInfo.SetLastPart(oidtest.ID())
 			splitInfo.SetFirstPart(oidtest.ID())
@@ -455,14 +455,14 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 	return mNodes, mAddr
 }
 
-func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
+func generateChain(ln int, cnr cid.ID) ([]*object.Object, []oid.ID, []byte) {
 	curID := oidtest.ID()
 	var prevID *oid.ID
 
 	var addr oid.Address
 	addr.SetContainer(cnr)
 
-	res := make([]*objectSDK.Object, 0, ln)
+	res := make([]*object.Object, 0, ln)
 	ids := make([]oid.ID, 0, ln)
 	payload := make([]byte, 0, ln*10)
 
@@ -523,7 +523,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		p.WithRawFlag(raw)
 		p.common = new(util.CommonPrm).WithLocalOnly(false)
 
-		r := objectSDK.NewRange()
+		r := object.NewRange()
 		r.SetOffset(off)
 		r.SetLength(ln)
 
@@ -687,11 +687,11 @@ func TestGetRemoteSmall(t *testing.T) {
 	})
 
 	t.Run("VIRTUAL", func(t *testing.T) {
-		testHeadVirtual := func(svc *Service, addr oid.Address, i *objectSDK.SplitInfo) {
+		testHeadVirtual := func(svc *Service, addr oid.Address, i *object.SplitInfo) {
 			headPrm := newHeadPrm(false, nil)
 			headPrm.WithAddress(addr)
 
-			errSplit := objectSDK.NewSplitInfoError(objectSDK.NewSplitInfo())
+			errSplit := object.NewSplitInfoError(object.NewSplitInfo())
 
 			err := svc.Head(ctx, headPrm)
 			require.True(t, errors.As(err, &errSplit))
@@ -706,9 +706,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				ns, as := testNodeMatrix(t, []int{2})
 
-				splitInfo := objectSDK.NewSplitInfo()
+				splitInfo := object.NewSplitInfo()
 				splitInfo.SetLink(oidtest.ID())
-				splitInfo.SetSplitID(objectSDK.NewSplitID())
+				splitInfo.SetSplitID(object.NewSplitID())
 
 				var splitAddr oid.Address
 				splitAddr.SetContainer(idCnr)
@@ -720,7 +720,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c1.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				c2 := newTestClient()
-				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
+				c2.addResult(addr, nil, object.NewSplitInfoError(splitInfo))
 				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				vectors := map[oid.Address][][]netmap.NodeInfo{
@@ -760,9 +760,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				ns, as := testNodeMatrix(t, []int{2})
 
-				splitInfo := objectSDK.NewSplitInfo()
+				splitInfo := object.NewSplitInfo()
 				splitInfo.SetLink(oidtest.ID())
-				splitInfo.SetSplitID(objectSDK.NewSplitID())
+				splitInfo.SetSplitID(object.NewSplitID())
 
 				children, childIDs, _ := generateChain(2, idCnr)
 
@@ -790,7 +790,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c1.addResult(child2Addr, nil, errors.New("any error"))
 
 				c2 := newTestClient()
-				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
+				c2.addResult(addr, nil, object.NewSplitInfoError(splitInfo))
 				c2.addResult(linkAddr, linkingObj, nil)
 				c2.addResult(child1Addr, children[0], nil)
 				c2.addResult(child2Addr, nil, apistatus.ObjectNotFound{})
@@ -833,9 +833,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				ns, as := testNodeMatrix(t, []int{2})
 
-				splitInfo := objectSDK.NewSplitInfo()
+				splitInfo := object.NewSplitInfo()
 				splitInfo.SetLink(oidtest.ID())
-				splitInfo.SetSplitID(objectSDK.NewSplitID())
+				splitInfo.SetSplitID(object.NewSplitID())
 
 				children, childIDs, payload := generateChain(2, idCnr)
 				srcObj.SetPayload(payload)
@@ -866,7 +866,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c1.addResult(child2Addr, nil, errors.New("any error"))
 
 				c2 := newTestClient()
-				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
+				c2.addResult(addr, nil, object.NewSplitInfoError(splitInfo))
 				c2.addResult(linkAddr, linkingObj, nil)
 				c2.addResult(child1Addr, children[0], nil)
 				c2.addResult(child2Addr, children[1], nil)
@@ -919,9 +919,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				ns, as := testNodeMatrix(t, []int{2})
 
-				splitInfo := objectSDK.NewSplitInfo()
+				splitInfo := object.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
-				splitInfo.SetSplitID(objectSDK.NewSplitID())
+				splitInfo.SetSplitID(object.NewSplitID())
 
 				var splitAddr oid.Address
 				splitAddr.SetContainer(idCnr)
@@ -933,7 +933,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c1.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				c2 := newTestClient()
-				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
+				c2.addResult(addr, nil, object.NewSplitInfoError(splitInfo))
 				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				vectors := map[oid.Address][][]netmap.NodeInfo{
@@ -973,9 +973,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				ns, as := testNodeMatrix(t, []int{2})
 
-				splitInfo := objectSDK.NewSplitInfo()
+				splitInfo := object.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
-				splitInfo.SetSplitID(objectSDK.NewSplitID())
+				splitInfo.SetSplitID(object.NewSplitID())
 
 				children, _, _ := generateChain(2, idCnr)
 
@@ -989,14 +989,14 @@ func TestGetRemoteSmall(t *testing.T) {
 				rightObj.SetParentID(addr.Object())
 				rightObj.SetParent(srcObj)
 
-				preRightAddr := object.AddressOf(children[len(children)-2])
+				preRightAddr := objectcore.AddressOf(children[len(children)-2])
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
 				c1.addResult(rightAddr, nil, errors.New("any error"))
 
 				c2 := newTestClient()
-				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
+				c2.addResult(addr, nil, object.NewSplitInfoError(splitInfo))
 				c2.addResult(rightAddr, rightObj, nil)
 
 				vectors := map[oid.Address][][]netmap.NodeInfo{
@@ -1039,9 +1039,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				ns, as := testNodeMatrix(t, []int{2})
 
-				splitInfo := objectSDK.NewSplitInfo()
+				splitInfo := object.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
-				splitInfo.SetSplitID(objectSDK.NewSplitID())
+				splitInfo.SetSplitID(object.NewSplitID())
 
 				children, _, payload := generateChain(2, idCnr)
 				srcObj.SetPayloadSize(uint64(len(payload)))
@@ -1058,14 +1058,14 @@ func TestGetRemoteSmall(t *testing.T) {
 				c1.addResult(addr, nil, errors.New("any error"))
 
 				for i := range children {
-					c1.addResult(object.AddressOf(children[i]), nil, errors.New("any error"))
+					c1.addResult(objectcore.AddressOf(children[i]), nil, errors.New("any error"))
 				}
 
 				c2 := newTestClient()
-				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
+				c2.addResult(addr, nil, object.NewSplitInfoError(splitInfo))
 
 				for i := range children {
-					c2.addResult(object.AddressOf(children[i]), children[i], nil)
+					c2.addResult(objectcore.AddressOf(children[i]), children[i], nil)
 				}
 
 				vectors := map[oid.Address][][]netmap.NodeInfo{}
@@ -1073,7 +1073,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				vectors[addr] = ns
 
 				for i := range children {
-					vectors[object.AddressOf(children[i])] = ns
+					vectors[objectcore.AddressOf(children[i])] = ns
 				}
 
 				svc := newSvc(vectors, &testClientCache{

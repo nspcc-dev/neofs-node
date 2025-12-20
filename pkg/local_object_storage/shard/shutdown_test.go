@@ -4,10 +4,10 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,7 +17,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 		objCount   = 100
 	)
 
-	objects := make([]*objectSDK.Object, objCount)
+	objects := make([]*object.Object, objCount)
 	for i := range objects {
 		data := make([]byte, objectSize)
 		_, _ = rand.Read(data)
@@ -40,7 +40,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	defer releaseShard(sh, t)
 
 	for i := range objects {
-		_, err := sh.Get(object.AddressOf(objects[i]), false)
+		_, err := sh.Get(objectcore.AddressOf(objects[i]), false)
 		require.NoError(t, err, i)
 	}
 }

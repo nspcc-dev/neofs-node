@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
@@ -77,8 +77,8 @@ Only owner of the container has a permission to remove container.`,
 			if tok != nil {
 				common.PrintVerbose(cmd, "Skip searching for LOCK objects - session provided.")
 			} else {
-				fs := objectSDK.NewSearchFilters()
-				fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
+				fs := object.NewSearchFilters()
+				fs.AddTypeFilter(object.MatchStringEqual, object.TypeLock)
 
 				var opts client.SearchObjectsOptions
 				opts.SetCount(1)

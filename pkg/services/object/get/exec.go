@@ -8,11 +8,11 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -40,12 +40,12 @@ type execCtx struct {
 
 	statusError
 
-	infoSplit *objectSDK.SplitInfo
+	infoSplit *object.SplitInfo
 
 	// If debug level is enabled, all messages also include info about processing request.
 	log *zap.Logger
 
-	collectedHeader *objectSDK.Object
+	collectedHeader *object.Object
 	collectedReader io.ReadCloser
 
 	curOff uint64
@@ -54,7 +54,7 @@ type execCtx struct {
 
 	// range assembly (V1 split) helpers
 	lastChildID    oid.ID
-	lastChildRange objectSDK.Range
+	lastChildRange object.Range
 
 	nodeLists [][]netmap.NodeInfo
 	repRules  []uint
@@ -76,7 +76,7 @@ func headOnly() execOption {
 	}
 }
 
-func withPayloadRange(r *objectSDK.Range) execOption {
+func withPayloadRange(r *object.Range) execOption {
 	return func(c *execCtx) {
 		c.prm.rng = r
 	}
@@ -149,9 +149,9 @@ func (exec execCtx) address() oid.Address {
 // Object without reference to the parent (only children with the parent header
 // have it) is automatically considered as child: this should be guaranteed by
 // upper level logic.
-func (exec execCtx) isChild(obj *objectSDK.Object) bool {
+func (exec execCtx) isChild(obj *object.Object) bool {
 	par := obj.Parent()
-	return par == nil || equalAddresses(exec.address(), object.AddressOf(par))
+	return par == nil || equalAddresses(exec.address(), objectcore.AddressOf(par))
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
@@ -177,7 +177,7 @@ func (exec *execCtx) canAssemble() bool {
 	return !exec.isRaw() && !exec.headOnly()
 }
 
-func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {
+func (exec *execCtx) splitInfo() *object.SplitInfo {
 	return exec.infoSplit
 }
 
@@ -185,7 +185,7 @@ func (exec *execCtx) containerID() cid.ID {
 	return exec.address().Container()
 }
 
-func (exec *execCtx) ctxRange() *objectSDK.Range {
+func (exec *execCtx) ctxRange() *object.Range {
 	return exec.prm.rng
 }
 
@@ -195,7 +195,7 @@ func (exec *execCtx) headOnly() bool {
 
 // copyChild fetches child object payload and streams it directly into current exec writer.
 // Returns true if full payload (or requested range) was successfully written and, if requested, header validated.
-func (exec *execCtx) copyChild(id oid.ID, rng *objectSDK.Range, withHdr bool) bool {
+func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool {
 	log := exec.log
 	if rng != nil {
 		log = log.With(zap.String("child range", prettyRange(rng)))
@@ -229,7 +229,7 @@ func (exec *execCtx) copyChild(id oid.ID, rng *objectSDK.Range, withHdr bool) bo
 	return ok
 }
 
-func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
+func (exec *execCtx) headChild(id oid.ID) (*object.Object, bool) {
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
 	p.addr.SetContainer(exec.containerID())
@@ -281,7 +281,7 @@ func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
 	return nil, false
 }
 
-func mergeSplitInfo(dst, src *objectSDK.SplitInfo) {
+func mergeSplitInfo(dst, src *object.SplitInfo) {
 	if last := src.GetLastPart(); !last.IsZero() {
 		dst.SetLastPart(last)
 	}
@@ -323,7 +323,7 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadCloser) bool {
+func (exec *execCtx) writeObjectPayload(obj *object.Object, reader io.ReadCloser) bool {
 	if exec.headOnly() {
 		return true
 	}
@@ -360,7 +360,7 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object, reader io.ReadClo
 	return err == nil
 }
 
-func copyObject(w ObjectWriter, obj objectSDK.Object) error {
+func copyObject(w ObjectWriter, obj object.Object) error {
 	if err := w.WriteHeader(&obj); err != nil {
 		return fmt.Errorf("write header: %w", err)
 	}
@@ -372,7 +372,7 @@ func copyObject(w ObjectWriter, obj objectSDK.Object) error {
 	return nil
 }
 
-func copyObjectStream(w ObjectWriter, h objectSDK.Object, r io.Reader) error {
+func copyObjectStream(w ObjectWriter, h object.Object, r io.Reader) error {
 	if err := w.WriteHeader(&h); err != nil {
 		return fmt.Errorf("write header: %w", err)
 	}

@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestDB_Exists(t *testing.T) {
 
 	t.Run("no object", func(t *testing.T) {
 		nonExist := generateObject(t)
-		exists, err := metaExists(db, object.AddressOf(nonExist))
+		exists, err := metaExists(db, objectcore.AddressOf(nonExist))
 		require.NoError(t, err)
 		require.False(t, exists)
 	})
@@ -33,15 +33,15 @@ func TestDB_Exists(t *testing.T) {
 		err := putBig(db, regular)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, object.AddressOf(regular))
+		exists, err := metaExists(db, objectcore.AddressOf(regular))
 		require.NoError(t, err)
 		require.True(t, exists)
 
 		t.Run("removed object", func(t *testing.T) {
-			err := metaInhume(db, object.AddressOf(regular), oidtest.Address())
+			err := metaInhume(db, objectcore.AddressOf(regular), oidtest.Address())
 			require.NoError(t, err)
 
-			exists, err := metaExists(db, object.AddressOf(regular))
+			exists, err := metaExists(db, objectcore.AddressOf(regular))
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 			require.False(t, exists)
 		})
@@ -49,24 +49,24 @@ func TestDB_Exists(t *testing.T) {
 
 	t.Run("tombstone object", func(t *testing.T) {
 		ts := generateObject(t)
-		ts.SetType(objectSDK.TypeTombstone)
+		ts.SetType(object.TypeTombstone)
 
 		err := putBig(db, ts)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, object.AddressOf(ts))
+		exists, err := metaExists(db, objectcore.AddressOf(ts))
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
 
 	t.Run("lock object", func(t *testing.T) {
 		lock := generateObject(t)
-		lock.SetType(objectSDK.TypeLock)
+		lock.SetType(object.TypeLock)
 
 		err := putBig(db, lock)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, object.AddressOf(lock))
+		exists, err := metaExists(db, objectcore.AddressOf(lock))
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -83,16 +83,16 @@ func TestDB_Exists(t *testing.T) {
 		err := putBig(db, child)
 		require.NoError(t, err)
 
-		_, err = metaExists(db, object.AddressOf(parent))
+		_, err = metaExists(db, objectcore.AddressOf(parent))
 
-		var expectedErr *objectSDK.SplitInfoError
+		var expectedErr *object.SplitInfoError
 		require.ErrorIs(t, err, ierrors.ErrParentObject)
 		require.True(t, errors.As(err, &expectedErr))
 	})
 
 	t.Run("merge split info", func(t *testing.T) {
 		cnr := cidtest.ID()
-		splitID := objectSDK.NewSplitID()
+		splitID := object.NewSplitID()
 
 		parent := generateObjectWithCID(t, cnr)
 		addAttribute(parent, "foo", "bar")
@@ -118,10 +118,10 @@ func TestDB_Exists(t *testing.T) {
 			err = putBig(db, link)
 			require.NoError(t, err)
 
-			_, err = metaExists(db, object.AddressOf(parent))
+			_, err = metaExists(db, objectcore.AddressOf(parent))
 			require.Error(t, err)
 
-			var si *objectSDK.SplitInfoError
+			var si *object.SplitInfoError
 			require.ErrorIs(t, err, ierrors.ErrParentObject)
 			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
@@ -142,10 +142,10 @@ func TestDB_Exists(t *testing.T) {
 			err = putBig(db, child)
 			require.NoError(t, err)
 
-			_, err = metaExists(db, object.AddressOf(parent))
+			_, err = metaExists(db, objectcore.AddressOf(parent))
 			require.Error(t, err)
 
-			var si *objectSDK.SplitInfoError
+			var si *object.SplitInfoError
 			require.ErrorIs(t, err, ierrors.ErrParentObject)
 			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
@@ -169,12 +169,12 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("expired object", func(t *testing.T) {
-		checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
-			gotObj, err := metaExists(db, object.AddressOf(exp))
+		checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
+			gotObj, err := metaExists(db, objectcore.AddressOf(exp))
 			require.False(t, gotObj)
 			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
-			gotObj, err = metaExists(db, object.AddressOf(nonExp))
+			gotObj, err = metaExists(db, objectcore.AddressOf(nonExp))
 			require.NoError(t, err)
 			require.True(t, gotObj)
 		})
@@ -194,7 +194,7 @@ func BenchmarkExists(b *testing.B) {
 
 	for range numOfObjects {
 		raw := generateObject(b)
-		addrs = append(addrs, object.AddressOf(raw))
+		addrs = append(addrs, objectcore.AddressOf(raw))
 
 		require.NoError(b, putBig(db, raw))
 	}

@@ -12,12 +12,12 @@ import (
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Head returns an object's header from the storage by address without reading the full payload.
-func (t *FSTree) Head(addr oid.Address) (*objectSDK.Object, error) {
+func (t *FSTree) Head(addr oid.Address) (*object.Object, error) {
 	obj, reader, err := t.getObjectStream(addr)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func (t *FSTree) Head(addr oid.Address) (*objectSDK.Object, error) {
 
 // getObjectStream reads an object from the storage by address as a stream.
 // It returns the object with header only, and a reader for the payload.
-func (t *FSTree) getObjectStream(addr oid.Address) (*objectSDK.Object, io.ReadSeekCloser, error) {
+func (t *FSTree) getObjectStream(addr oid.Address) (*object.Object, io.ReadSeekCloser, error) {
 	p := t.treePath(addr)
 
 	f, err := os.Open(p)
@@ -56,9 +56,9 @@ func (t *FSTree) getObjectStream(addr oid.Address) (*objectSDK.Object, io.ReadSe
 
 // extractHeaderAndStream reads the header of an object from a file.
 // The caller is responsible for closing the returned io.ReadCloser if it is not nil.
-func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Object, io.ReadSeekCloser, error) {
-	buf := make([]byte, 2*objectSDK.MaxHeaderLen)
-	n, err := io.ReadFull(f, buf[:objectSDK.MaxHeaderLen])
+func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, io.ReadSeekCloser, error) {
+	buf := make([]byte, 2*object.MaxHeaderLen)
+	n, err := io.ReadFull(f, buf[:object.MaxHeaderLen])
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, f, err
 	}
@@ -74,7 +74,7 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 	offset := combinedDataOff
 	for {
 		if bytes.Equal(thisOID, id[:]) {
-			size := min(offset+int(l), offset+objectSDK.MaxHeaderLen)
+			size := min(offset+int(l), offset+object.MaxHeaderLen)
 			if n < size {
 				_, err = io.ReadFull(f, buf[n:size])
 				if err != nil {
@@ -94,7 +94,7 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 			}
 			n = copy(buf, buf[min(offset, n):n])
 			offset = 0
-			k, err := io.ReadFull(f, buf[n:n+objectSDK.MaxHeaderLen])
+			k, err := io.ReadFull(f, buf[n:n+object.MaxHeaderLen])
 			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 				return nil, f, fmt.Errorf("read full: %w", err)
 			}
@@ -115,15 +115,15 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*objectSDK.Objec
 
 // readHeaderAndPayload reads an object header from the file and returns reader for payload.
 // This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
+func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*object.Object, io.ReadSeekCloser, error) {
 	var err error
-	if len(initial) < objectSDK.MaxHeaderLen {
+	if len(initial) < object.MaxHeaderLen {
 		_ = f.Close()
 		initial, err = t.Decompress(initial)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decompress initial data: %w", err)
 		}
-		var obj objectSDK.Object
+		var obj object.Object
 		err = obj.Unmarshal(initial)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unmarshal object: %w", err)
@@ -140,7 +140,7 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*objectS
 // readUntilPayload reads an object from the file until the payload field is reached
 // and returns the object along with a reader for the remaining data.
 // This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*objectSDK.Object, io.ReadSeekCloser, error) {
+func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*object.Object, io.ReadSeekCloser, error) {
 	reader := f
 
 	if t.IsCompressed(initial) {
@@ -150,7 +150,7 @@ func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*objectSDK.O
 		}
 		reader = decoder.IOReadCloser()
 
-		buf := make([]byte, objectSDK.MaxHeaderLen)
+		buf := make([]byte, object.MaxHeaderLen)
 		n, err := decoder.Read(buf)
 		if err != nil && !errors.Is(err, io.EOF) {
 			decoder.Close()

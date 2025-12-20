@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -70,7 +70,7 @@ func TestStorageEngine_Put_Lock(t *testing.T) {
 }
 
 func testPutLock(t *testing.T, shardNum int) {
-	var obj objectSDK.Object
+	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -90,15 +90,15 @@ func testPutLock(t *testing.T, shardNum int) {
 	tomb := obj
 	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
 	tomb.SetAttributes(
-		objectSDK.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+		object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 	)
 	tomb.AssociateDeleted(objID)
 
 	t.Run("non-regular target", func(t *testing.T) {
-		for _, typ := range []objectSDK.Type{
-			objectSDK.TypeTombstone,
-			objectSDK.TypeLock,
-			objectSDK.TypeLink,
+		for _, typ := range []object.Type{
+			object.TypeTombstone,
+			object.TypeLock,
+			object.TypeLink,
 		} {
 			s := testNewEngineWithShardNum(t, shardNum)
 
@@ -128,7 +128,7 @@ func testPutLock(t *testing.T, shardNum int) {
 		creator := usertest.User()
 		cnr := cidtest.ID()
 
-		var parentObj objectSDK.Object
+		var parentObj object.Object
 		parentObj.SetContainerID(cnr)
 		parentObj.SetOwner(creator.UserID())
 
@@ -146,7 +146,7 @@ func testPutLock(t *testing.T, shardNum int) {
 			require.NoError(t, s.Put(&partObj, nil))
 		}
 
-		var lock objectSDK.Object
+		var lock object.Object
 		lock.SetContainerID(parentObj.GetContainerID())
 		lock.SetOwner(parentObj.Owner())
 		lock.AssociateLocked(parentID)
@@ -235,7 +235,7 @@ func TestStorageEngine_Put_Tombstone(t *testing.T) {
 }
 
 func testPutTombstone(t *testing.T, shardNum int) {
-	var obj objectSDK.Object
+	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -253,7 +253,7 @@ func testPutTombstone(t *testing.T, shardNum int) {
 	tomb := obj
 	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
 	tomb.SetAttributes(
-		objectSDK.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+		object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 	)
 	tomb.AssociateDeleted(objID)
 
@@ -282,7 +282,7 @@ func testPutTombstone(t *testing.T, shardNum int) {
 		}},
 		{name: "target is lock", preset: func(t *testing.T, s *StorageEngine) {
 			obj := obj
-			obj.SetType(objectSDK.TypeLock)
+			obj.SetType(object.TypeLock)
 			require.NoError(t, s.Put(&obj, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
@@ -290,7 +290,7 @@ func testPutTombstone(t *testing.T, shardNum int) {
 		{name: "target is tombstone", preset: func(t *testing.T, s *StorageEngine) {
 			obj := obj
 			obj.SetAttributes(
-				objectSDK.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+				object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 			)
 			obj.AssociateDeleted(oidtest.ID())
 			require.NoError(t, s.Put(&obj, nil))

@@ -3,7 +3,7 @@ package meta_test
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -28,17 +28,17 @@ func TestDB_Movable(t *testing.T) {
 	require.Len(t, toMoveList, 0)
 
 	// mark to move object2
-	err = metaToMoveIt(db, object.AddressOf(raw2))
+	err = metaToMoveIt(db, objectcore.AddressOf(raw2))
 	require.NoError(t, err)
 
 	// check if toMoveIt index contains address of object 2
 	toMoveList, err = metaMovable(db)
 	require.NoError(t, err)
 	require.Len(t, toMoveList, 1)
-	require.Contains(t, toMoveList, object.AddressOf(raw2))
+	require.Contains(t, toMoveList, objectcore.AddressOf(raw2))
 
 	// remove from toMoveIt index non existing address
-	err = metaDoNotMove(db, object.AddressOf(raw1))
+	err = metaDoNotMove(db, objectcore.AddressOf(raw1))
 	require.NoError(t, err)
 
 	// check if toMoveIt index hasn't changed
@@ -47,7 +47,7 @@ func TestDB_Movable(t *testing.T) {
 	require.Len(t, toMoveList, 1)
 
 	// remove from toMoveIt index existing address
-	err = metaDoNotMove(db, object.AddressOf(raw2))
+	err = metaDoNotMove(db, objectcore.AddressOf(raw2))
 	require.NoError(t, err)
 
 	// check if toMoveIt index is empty now

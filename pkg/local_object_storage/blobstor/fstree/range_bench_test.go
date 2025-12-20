@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,7 +35,7 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 			generateSizeLabel(tc.objectSize), generateSizeLabel(int(tc.from)), generateSizeLabel(int(tc.length))),
 			func(b *testing.B) {
 				obj := generateTestObject(tc.objectSize)
-				addr := object.AddressOf(obj)
+				addr := objectcore.AddressOf(obj)
 
 				b.Run("regular", func(b *testing.B) {
 					fsTree := setupFSTree(b)

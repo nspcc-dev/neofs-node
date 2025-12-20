@@ -19,7 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -378,13 +378,13 @@ func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 }
 
 // Get returns an object from the storage by address.
-func (t *FSTree) Get(addr oid.Address) (*objectSDK.Object, error) {
+func (t *FSTree) Get(addr oid.Address) (*object.Object, error) {
 	data, err := t.getObjBytes(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	obj := objectSDK.New()
+	obj := object.New()
 	if err := obj.Unmarshal(data); err != nil {
 		return nil, fmt.Errorf("decode object: %w", err)
 	}
@@ -495,7 +495,7 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 // It returns the object with header only, and a reader for the payload.
 // On success, the reader is non-nil and must be closed;
 // a nil reader is only returned with a non‑nil error.
-func (t *FSTree) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
+func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
 	obj, reader, err := t.getObjectStream(addr)
 	if err != nil {
 		return nil, nil, err

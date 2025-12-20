@@ -4,12 +4,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -32,19 +32,19 @@ func TestCompression(t *testing.T) {
 		)
 	}
 
-	bigObj := make([]*objectSDK.Object, objCount)
-	smallObj := make([]*objectSDK.Object, objCount)
+	bigObj := make([]*object.Object, objCount)
+	smallObj := make([]*object.Object, objCount)
 	for i := range objCount {
 		bigObj[i] = testObject(smallSizeLimit * 2)
 		smallObj[i] = testObject(smallSizeLimit / 2)
 	}
 
 	testGet := func(t *testing.T, s *shard.Shard, i int) {
-		res1, err := s.Get(object.AddressOf(smallObj[i]), true)
+		res1, err := s.Get(objectcore.AddressOf(smallObj[i]), true)
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i], res1)
 
-		res2, err := s.Get(object.AddressOf(bigObj[i]), true)
+		res2, err := s.Get(objectcore.AddressOf(bigObj[i]), true)
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i], res2)
 	}
@@ -58,11 +58,11 @@ func TestCompression(t *testing.T) {
 	}
 
 	testHead := func(t *testing.T, s *shard.Shard, i int) {
-		res1, err := s.Head(object.AddressOf(smallObj[i]), false)
+		res1, err := s.Head(objectcore.AddressOf(smallObj[i]), false)
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i].CutPayload(), res1)
 
-		res2, err := s.Head(object.AddressOf(bigObj[i]), false)
+		res2, err := s.Head(objectcore.AddressOf(bigObj[i]), false)
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i].CutPayload(), res2)
 	}
@@ -106,11 +106,11 @@ func TestBlobstor_needsCompression(t *testing.T) {
 		)
 	}
 
-	newObjectWithCt := func(contentType string) *objectSDK.Object {
+	newObjectWithCt := func(contentType string) *object.Object {
 		obj := testObject(smallSizeLimit + 1)
 		if contentType != "" {
-			var a objectSDK.Attribute
-			a.SetKey(objectSDK.AttributeContentType)
+			var a object.Attribute
+			a.SetKey(object.AttributeContentType)
 			a.SetValue(contentType)
 			obj.SetAttributes(a)
 		}
@@ -151,8 +151,8 @@ func TestBlobstor_needsCompression(t *testing.T) {
 	})
 }
 
-func testObject(sz uint64) *objectSDK.Object {
-	raw := objectSDK.New()
+func testObject(sz uint64) *object.Object {
+	raw := object.New()
 
 	raw.SetID(oidtest.ID())
 	raw.SetContainerID(cidtest.ID())

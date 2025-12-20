@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +20,7 @@ func TestShard_DeleteContainer(t *testing.T) {
 	require.NoError(t, err)
 
 	o3 := generateObjectWithCID(cID)
-	o3.SetType(objectSDK.TypeLock)
+	o3.SetType(object.TypeLock)
 	err = sh.Put(o3, nil)
 	require.NoError(t, err)
 

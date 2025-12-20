@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/zstd"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -76,7 +76,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	// Approximate object header size.
 	const headerSize = 400
 
-	objects := make([]*objectSDK.Object, objCount)
+	objects := make([]*object.Object, objCount)
 	for i := range objCount {
 		cnr := cidtest.ID()
 		var size int
@@ -198,7 +198,7 @@ func TestStream(t *testing.T) {
 	defer releaseShard(sh2, t)
 
 	const objCount = 5
-	objects := make([]*objectSDK.Object, objCount)
+	objects := make([]*object.Object, objCount)
 	for i := range objCount {
 		cnr := cidtest.ID()
 		obj := generateObjectWithCID(cnr)
@@ -240,7 +240,7 @@ func restoreFile(t *testing.T, sh *shard.Shard, path string, ignoreErrors bool) 
 	return count, failed, err
 }
 
-func checkRestore(t *testing.T, sh *shard.Shard, path string, r io.Reader, objects []*objectSDK.Object) {
+func checkRestore(t *testing.T, sh *shard.Shard, path string, r io.Reader, objects []*object.Object) {
 	var (
 		count  int
 		err    error
@@ -257,7 +257,7 @@ func checkRestore(t *testing.T, sh *shard.Shard, path string, r io.Reader, objec
 	require.Equal(t, 0, failed)
 
 	for i := range objects {
-		res, err := sh.Get(object.AddressOf(objects[i]), false)
+		res, err := sh.Get(objectcore.AddressOf(objects[i]), false)
 		require.NoError(t, err)
 		require.Equal(t, objects[i], res)
 	}
@@ -288,7 +288,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	}
 	sh := newCustomShard(t, dir, true, wcOpts, sOpts(2)...)
 
-	objects := make([]*objectSDK.Object, objCount)
+	objects := make([]*object.Object, objCount)
 	for i := range objCount {
 		size := (wcSmallObjectSize << (i % 4)) - headerSize
 		obj := generateObjectWithPayload(cidtest.ID(), make([]byte, size))

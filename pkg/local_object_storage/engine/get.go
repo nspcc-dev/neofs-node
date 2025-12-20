@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -26,7 +26,7 @@ import (
 //
 // If referenced object is a parent of some stored EC parts, Get returns
 // [ierrors.ErrParentObject] wrapping [iec.ErrParts].
-func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
+func (e *StorageEngine) Get(addr oid.Address) (*object.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
 	}
@@ -40,7 +40,7 @@ func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 
 	var (
 		err error
-		obj *objectSDK.Object
+		obj *object.Object
 	)
 
 	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
@@ -54,7 +54,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 	var (
 		hasDegraded   bool
 		shardWithMeta shardWrapper
-		splitInfo     *objectSDK.SplitInfo
+		splitInfo     *object.SplitInfo
 		metaError     error
 	)
 
@@ -64,7 +64,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 
 		err := shardFunc(sh.Shard, noMeta)
 		if err != nil {
-			var siErr *objectSDK.SplitInfoError
+			var siErr *object.SplitInfoError
 
 			if errors.Is(err, shard.ErrMetaWithNoObject) {
 				shardWithMeta = sh
@@ -75,14 +75,14 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 				continue // ignore, go to next shard
 			case errors.As(err, &siErr):
 				if splitInfo == nil {
-					splitInfo = objectSDK.NewSplitInfo()
+					splitInfo = object.NewSplitInfo()
 				}
 
 				util.MergeSplitInfo(siErr.SplitInfo(), splitInfo)
 
 				// stop iterating over shards if SplitInfo structure is complete
 				if !splitInfo.GetLink().IsZero() && !splitInfo.GetLastPart().IsZero() {
-					return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+					return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 				}
 				continue
 			case
@@ -104,7 +104,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 	}
 
 	if splitInfo != nil {
-		return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+		return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 	}
 
 	if !hasDegraded && shardWithMeta.Shard == nil {
@@ -178,7 +178,7 @@ func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
 //
 // If referenced object is a parent of some stored EC parts, GetStream returns
 // [ierrors.ErrParentObject] wrapping [iec.ErrParts].
-func (e *StorageEngine) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadCloser, error) {
+func (e *StorageEngine) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetStreamDuration)()
 	}
@@ -192,7 +192,7 @@ func (e *StorageEngine) GetStream(addr oid.Address) (*objectSDK.Object, io.ReadC
 
 	var (
 		err    error
-		obj    *objectSDK.Object
+		obj    *object.Object
 		reader io.ReadCloser
 	)
 

@@ -5,14 +5,14 @@ import (
 	"iter"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 var errNoLinkNoLastPart = errors.New("no link and no last part in split info")
 
-func (exec *execCtx) processV2Split(si *objectSDK.SplitInfo) {
+func (exec *execCtx) processV2Split(si *object.SplitInfo) {
 	if si.GetFirstPart().IsZero() {
 		exec.log.Debug("no first ID found in V2 split")
 		exec.err = errors.New("v2 split without first object ID")
@@ -85,7 +85,7 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 		rng.SetLength(exec.collectedHeader.PayloadSize())
 	}
 
-	var link objectSDK.Link
+	var link object.Link
 	err := linkObj.ReadLink(&link)
 	if err != nil {
 		exec.log.Debug("failed to parse link object", zap.Error(err))
@@ -126,7 +126,7 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 	return exec.rangeFromLink(link)
 }
 
-func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
+func (exec *execCtx) rangeFromLink(link object.Link) bool {
 	children := link.Objects()
 	rng := exec.ctxRange()
 	first, firstOffset, last, lastBound := requiredChildren(rng.GetOffset(), rng.GetLength(), children)
@@ -134,9 +134,9 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 	for i := first; i <= last; i++ {
 		child := children[i]
 
-		var rngPerChild *objectSDK.Range
+		var rngPerChild *object.Range
 		if i == first || i == last {
-			rngPerChild = new(objectSDK.Range)
+			rngPerChild = new(object.Range)
 
 			if i == first {
 				rngPerChild.SetOffset(firstOffset)
@@ -161,7 +161,7 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 // it is required for ranges to be in the bounds of the all objects' payload;
 // it must be checked on higher levels; returns (firstObject, firstObjectOffset,
 // lastObject, lastObjectRightBound).
-func requiredChildren(off, ln uint64, children []objectSDK.MeasuredObject) (int, uint64, int, uint64) {
+func requiredChildren(off, ln uint64, children []object.MeasuredObject) (int, uint64, int, uint64) {
 	return requiredChildrenIter(off, ln, func(yield func(int, uint64) bool) {
 		for i := range children {
 			if !yield(i, uint64(children[i].ObjectSize())) {
@@ -214,7 +214,7 @@ func requiredChildrenIter(off, ln uint64, children iter.Seq2[int, uint64]) (int,
 	return firstChildIndex, firstChildOffset, lastChildIndex, lastChildRightBound
 }
 
-func measuredObjsToIDs(mm []objectSDK.MeasuredObject) []oid.ID {
+func measuredObjsToIDs(mm []object.MeasuredObject) []oid.ID {
 	res := make([]oid.ID, 0, len(mm))
 	for i := range mm {
 		res = append(res, mm[i].ObjectID())

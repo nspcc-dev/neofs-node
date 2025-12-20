@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -34,7 +34,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
-		addr := object.AddressOf(obj)
+		addr := objectcore.AddressOf(obj)
 
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
@@ -52,7 +52,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		addAttribute(obj, "foo", "bar")
 		obj.SetID(oidtest.ID())
 		addPayload(obj, 1<<20) // big obj
-		addr := object.AddressOf(obj)
+		addr := objectcore.AddressOf(obj)
 
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
@@ -67,11 +67,11 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 
 	t.Run("parent object", func(t *testing.T) {
 		cnr := cidtest.ID()
-		splitID := objectSDK.NewSplitID()
+		splitID := object.NewSplitID()
 
 		parent := generateObjectWithCID(cnr)
 		addAttribute(parent, "parent", "attribute")
-		parentAddr := object.AddressOf(parent)
+		parentAddr := objectcore.AddressOf(parent)
 
 		child := generateObjectWithCID(cnr)
 		child.SetParent(parent)
@@ -79,7 +79,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
-		childAddr := object.AddressOf(child)
+		childAddr := objectcore.AddressOf(child)
 
 		err := sh.Put(child, nil)
 		require.NoError(t, err)
@@ -95,7 +95,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		_, err = testGet(t, sh, parentAddr, hasWriteCache)
 		require.Equal(t, streamErr, err)
 
-		var si *objectSDK.SplitInfoError
+		var si *object.SplitInfoError
 		require.True(t, errors.As(err, &si))
 
 		link := si.SplitInfo().GetLink()
@@ -107,7 +107,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	})
 }
 
-func testGet(t *testing.T, sh *shard.Shard, addr oid.Address, hasWriteCache bool) (*objectSDK.Object, error) {
+func testGet(t *testing.T, sh *shard.Shard, addr oid.Address, hasWriteCache bool) (*object.Object, error) {
 	res, err := sh.Get(addr, false)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {
@@ -130,7 +130,7 @@ func testGetBytes(t testing.TB, sh *shard.Shard, addr oid.Address, objBin []byte
 	require.Equal(t, objBin, b)
 }
 
-func testGetStream(t testing.TB, sh *shard.Shard, addr oid.Address, obj *objectSDK.Object) {
+func testGetStream(t testing.TB, sh *shard.Shard, addr oid.Address, obj *object.Object) {
 	header, reader, err := sh.GetStream(addr, false)
 	require.NoError(t, err)
 	require.Equal(t, obj.CutPayload(), header)
@@ -144,6 +144,6 @@ func testGetStream(t testing.TB, sh *shard.Shard, addr oid.Address, obj *objectS
 
 // binary equal is used when object contains empty lists in the structure and
 // require.Equal fails on comparing <nil> and []{} lists.
-func binaryEqual(a, b *objectSDK.Object) bool {
+func binaryEqual(a, b *object.Object) bool {
 	return bytes.Equal(a.Marshal(), b.Marshal())
 }

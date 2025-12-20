@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/bbolt"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -50,7 +50,7 @@ func listWithCursorPrepareDB(b *testing.B) *meta.DB {
 
 func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
 	var (
-		addrs  []object.AddressWithAttributes
+		addrs  []objectcore.AddressWithAttributes
 		cursor *meta.Cursor
 		err    error
 	)
@@ -87,9 +87,9 @@ func BenchmarkDB_ListWithCursor_Attributes(b *testing.B) {
 		for range objectsPerContainer {
 			obj := generateObjectWithCID(b, cnr)
 
-			as := make([]objectSDK.Attribute, len(attrs))
+			as := make([]object.Attribute, len(attrs))
 			for i := range attrs {
-				as[i] = objectSDK.NewAttribute(attrs[i], strconv.Itoa(i))
+				as[i] = object.NewAttribute(attrs[i], strconv.Itoa(i))
 			}
 			obj.SetAttributes(as...)
 
@@ -133,7 +133,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	const containers = 5
 
-	var expected []object.AddressWithAttributes
+	var expected []objectcore.AddressWithAttributes
 
 	// fill metabase with objects
 	for range containers {
@@ -141,36 +141,36 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 		// add one regular object
 		obj := generateObjectWithCID(t, containerID)
-		obj.SetType(objectSDK.TypeRegular)
+		obj.SetType(object.TypeRegular)
 		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressWithAttributes{Address: object.AddressOf(obj), Type: objectSDK.TypeRegular})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(obj), Type: object.TypeRegular})
 
 		// add one tombstone
 		obj = generateObjectWithCID(t, containerID)
-		obj.SetType(objectSDK.TypeTombstone)
+		obj.SetType(object.TypeTombstone)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressWithAttributes{Address: object.AddressOf(obj), Type: objectSDK.TypeTombstone})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(obj), Type: object.TypeTombstone})
 
 		// add one lock
 		obj = generateObjectWithCID(t, containerID)
-		obj.SetType(objectSDK.TypeLock)
+		obj.SetType(object.TypeLock)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressWithAttributes{Address: object.AddressOf(obj), Type: objectSDK.TypeLock})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(obj), Type: object.TypeLock})
 
 		// add one inhumed (do not include into expected)
 		obj = generateObjectWithCID(t, containerID)
-		obj.SetType(objectSDK.TypeRegular)
+		obj.SetType(object.TypeRegular)
 		err = putBig(db, obj)
 		require.NoError(t, err)
 		ts := createTSForObject(containerID, obj.GetID())
 		require.NoError(t, db.Put(ts))
-		expected = append(expected, object.AddressWithAttributes{Address: object.AddressOf(ts), Type: objectSDK.TypeTombstone})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(ts), Type: object.TypeTombstone})
 
 		// add one child object (do not include parent into expected)
-		splitID := objectSDK.NewSplitID()
+		splitID := object.NewSplitID()
 		parent := generateObjectWithCID(t, containerID)
 		addAttribute(parent, "foo", "bar")
 		child := generateObjectWithCID(t, containerID)
@@ -180,7 +180,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		child.SetSplitID(splitID)
 		err = putBig(db, child)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressWithAttributes{Address: object.AddressOf(child), Type: objectSDK.TypeRegular})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(child), Type: object.TypeRegular})
 	}
 
 	expected = sortAddresses(expected)
@@ -188,7 +188,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	t.Run("success with various count", func(t *testing.T) {
 		for countPerReq := 1; countPerReq <= total; countPerReq++ {
-			got := make([]object.AddressWithAttributes, 0, total)
+			got := make([]objectcore.AddressWithAttributes, 0, total)
 
 			res, cursor, err := metaListWithCursor(db, uint32(countPerReq), nil)
 			require.NoError(t, err, "count:%d", countPerReq)
@@ -228,7 +228,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 		db := newDB(t)
 
-		var exp []object.AddressWithAttributes
+		var exp []objectcore.AddressWithAttributes
 		for i := range containerNum {
 			cnr := cidtest.ID()
 			for j := range objectsPerContainer {
@@ -237,10 +237,10 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 				obj := generateObjectWithCID(t, cnr)
 				obj.SetOwner(owner)
-				obj.SetType(objectSDK.TypeRegular)
+				obj.SetType(object.TypeRegular)
 				obj.SetAttributes(
-					objectSDK.NewAttribute(staticAttr, staticVal),
-					objectSDK.NewAttribute(commonAttr, commonVal),
+					object.NewAttribute(staticAttr, staticVal),
+					object.NewAttribute(commonAttr, commonVal),
 				)
 
 				var groupVal string
@@ -251,9 +251,9 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 				require.NoError(t, db.Put(obj))
 
-				exp = append(exp, object.AddressWithAttributes{
-					Address:    object.AddressOf(obj),
-					Type:       objectSDK.TypeRegular,
+				exp = append(exp, objectcore.AddressWithAttributes{
+					Address:    objectcore.AddressOf(obj),
+					Type:       object.TypeRegular,
 					Attributes: []string{staticVal, commonVal, groupVal, string(owner[:])},
 				})
 			}
@@ -287,7 +287,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 		obj := generateObject(t)
 		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected[object.AddressOf(obj)] = 0
+		expected[objectcore.AddressOf(obj)] = 0
 	}
 
 	// get half of the objects
@@ -325,19 +325,19 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	}
 }
 
-func sortAddresses(addrWithType []object.AddressWithAttributes) []object.AddressWithAttributes {
+func sortAddresses(addrWithType []objectcore.AddressWithAttributes) []objectcore.AddressWithAttributes {
 	sort.Slice(addrWithType, func(i, j int) bool {
 		return addrWithType[i].Address.EncodeToString() < addrWithType[j].Address.EncodeToString()
 	})
 	return addrWithType
 }
 
-func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]object.AddressWithAttributes, *meta.Cursor, error) {
+func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]objectcore.AddressWithAttributes, *meta.Cursor, error) {
 	return db.ListWithCursor(int(count), cursor)
 }
 
-func collectListWithCursor(t *testing.T, db *meta.DB, count int, attrs ...string) []object.AddressWithAttributes {
-	var next, collected []object.AddressWithAttributes
+func collectListWithCursor(t *testing.T, db *meta.DB, count int, attrs ...string) []objectcore.AddressWithAttributes {
+	var next, collected []objectcore.AddressWithAttributes
 	var crs *meta.Cursor
 	var err error
 	for {

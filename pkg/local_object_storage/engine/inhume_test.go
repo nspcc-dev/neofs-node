@@ -4,10 +4,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -15,9 +15,9 @@ import (
 
 func TestStorageEngine_Inhume(t *testing.T) {
 	cnr := cidtest.ID()
-	splitID := objectSDK.NewSplitID()
+	splitID := object.NewSplitID()
 
-	fs := objectSDK.SearchFilters{}
+	fs := object.SearchFilters{}
 	fs.AddRootFilter()
 
 	parent := generateObjectWithCID(cnr)
@@ -45,8 +45,8 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 		tomb := generateObjectWithCID(parent.GetContainerID())
 
-		var a objectSDK.Attribute
-		a.SetKey(objectSDK.AttributeExpirationEpoch)
+		var a object.Attribute
+		a.SetKey(object.AttributeExpirationEpoch)
 		a.SetValue(strconv.Itoa(100500))
 		tomb.SetAttributes(a)
 		tomb.AssociateDeleted(idParent)
@@ -74,8 +74,8 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 		tomb := generateObjectWithCID(parent.GetContainerID())
 
-		var a objectSDK.Attribute
-		a.SetKey(objectSDK.AttributeExpirationEpoch)
+		var a object.Attribute
+		a.SetKey(object.AttributeExpirationEpoch)
 		a.SetValue(strconv.Itoa(100500))
 		tomb.SetAttributes(a)
 		tomb.AssociateDeleted(idParent)
@@ -83,19 +83,19 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err = e.Put(tomb, nil)
 		require.NoError(t, err)
 
-		_, err = e.Get(object.AddressOf(parent))
+		_, err = e.Get(objectcore.AddressOf(parent))
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
-		_, err = e.Get(object.AddressOf(child))
+		_, err = e.Get(objectcore.AddressOf(child))
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
-		_, err = e.Get(object.AddressOf(link))
+		_, err = e.Get(objectcore.AddressOf(link))
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
 		t.Run("empty search should return ts", func(t *testing.T) {
-			addrs, err := e.Select(cnr, objectSDK.SearchFilters{})
+			addrs, err := e.Select(cnr, object.SearchFilters{})
 			require.NoError(t, err)
-			require.Equal(t, []oid.Address{object.AddressOf(tomb)}, addrs)
+			require.Equal(t, []oid.Address{objectcore.AddressOf(tomb)}, addrs)
 		})
 
 		t.Run("root search should fail", func(t *testing.T) {
@@ -120,14 +120,14 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		})
 
 		t.Run("parent get should claim deletion", func(t *testing.T) {
-			_, err = e.Get(object.AddressOf(parent))
+			_, err = e.Get(objectcore.AddressOf(parent))
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 		})
 	})
 
 	t.Run("object is on wrong shard", func(t *testing.T) {
 		obj := generateObjectWithCID(cnr)
-		addr := object.AddressOf(obj)
+		addr := objectcore.AddressOf(obj)
 
 		e := testNewEngineWithShardNum(t, 2)
 		defer e.Close()

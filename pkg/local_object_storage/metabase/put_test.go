@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -25,15 +25,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func prepareObjects(t testing.TB, n int) []*objectSDK.Object {
+func prepareObjects(t testing.TB, n int) []*object.Object {
 	cnr := cidtest.ID()
 	parentID := oidtest.ID()
-	objs := make([]*objectSDK.Object, n)
+	objs := make([]*object.Object, n)
 	for i := range objs {
 		objs[i] = generateObjectWithCID(t, cnr)
 
 		// FKBT indices.
-		attrs := make([]objectSDK.Attribute, 20)
+		attrs := make([]object.Attribute, 20)
 		for j := range attrs {
 			attrs[j].SetKey("abc" + strconv.FormatUint(rand.Uint64()%4, 16))
 			attrs[j].SetValue("xyz" + strconv.FormatUint(rand.Uint64()%4, 16))
@@ -85,14 +85,14 @@ func BenchmarkPut(b *testing.B) {
 	})
 }
 
-func metaPut(db *meta.DB, obj *objectSDK.Object) error {
+func metaPut(db *meta.DB, obj *object.Object) error {
 	return db.Put(obj)
 }
 
 func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 	db := newDB(t)
 
-	var obj objectSDK.Object
+	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -134,7 +134,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 		t.Run("list with cursor", func(t *testing.T) {
 			res, c, err := db.ListWithCursor(2, nil)
 			require.NoError(t, err)
-			require.Equal(t, []object.AddressWithAttributes{{Address: tsAddr, Type: objectSDK.TypeTombstone}}, res)
+			require.Equal(t, []objectcore.AddressWithAttributes{{Address: tsAddr, Type: object.TypeTombstone}}, res)
 
 			require.NotZero(t, c)
 			_, _, err = db.ListWithCursor(1, c)
@@ -194,7 +194,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 	})
 }
 
-func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj objectSDK.Object) {
+func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj object.Object) {
 	t.Run("get", func(t *testing.T) {
 		res, err := db.Get(addr, false)
 		require.NoError(t, err)
@@ -217,7 +217,7 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 	t.Run("list with cursor", func(t *testing.T) {
 		res, c, err := db.ListWithCursor(2, nil)
 		require.NoError(t, err)
-		require.Equal(t, []object.AddressWithAttributes{{Address: addr, Type: obj.Type()}}, res)
+		require.Equal(t, []objectcore.AddressWithAttributes{{Address: addr, Type: obj.Type()}}, res)
 
 		require.NotZero(t, c)
 		_, _, err = db.ListWithCursor(1, c)
@@ -240,7 +240,7 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 }
 
 func TestDB_Put_Lock(t *testing.T) {
-	var obj objectSDK.Object
+	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -262,10 +262,10 @@ func TestDB_Put_Lock(t *testing.T) {
 	tomb.AssociateDeleted(objID)
 
 	t.Run("non-regular target", func(t *testing.T) {
-		for _, typ := range []objectSDK.Type{
-			objectSDK.TypeTombstone,
-			objectSDK.TypeLock,
-			objectSDK.TypeLink,
+		for _, typ := range []object.Type{
+			object.TypeTombstone,
+			object.TypeLock,
+			object.TypeLink,
 		} {
 			db := newDB(t)
 
@@ -354,7 +354,7 @@ func TestDB_Put_Lock(t *testing.T) {
 }
 
 func TestDB_Put_Tombstone(t *testing.T) {
-	var obj objectSDK.Object
+	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -397,7 +397,7 @@ func TestDB_Put_Tombstone(t *testing.T) {
 		}},
 		{name: "target is lock", preset: func(t *testing.T, db *meta.DB) {
 			obj := obj
-			obj.SetType(objectSDK.TypeLock)
+			obj.SetType(object.TypeLock)
 			require.NoError(t, db.Put(&obj))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
@@ -405,7 +405,7 @@ func TestDB_Put_Tombstone(t *testing.T) {
 		{name: "target is tombstone", preset: func(t *testing.T, db *meta.DB) {
 			obj := obj
 			obj.SetAttributes(
-				objectSDK.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+				object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 			)
 			obj.AssociateDeleted(oidtest.ID())
 			require.NoError(t, db.Put(&obj))
@@ -450,8 +450,8 @@ func TestDB_Put_Tombstone(t *testing.T) {
 	}
 }
 
-func createTSForObject(cnr cid.ID, id oid.ID) *objectSDK.Object {
-	var ts = &objectSDK.Object{}
+func createTSForObject(cnr cid.ID, id oid.ID) *object.Object {
+	var ts = &object.Object{}
 	ts.SetContainerID(cnr)
 	ts.SetOwner(usertest.ID())
 	ts.SetID(oidtest.ID())

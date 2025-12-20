@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/klauspost/compress/zstd"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // Config represents common compression-related configuration.
@@ -44,13 +44,13 @@ func (c *Config) Init() error {
 // For an object to be compressed 2 conditions must hold:
 // 1. Compression is enabled in settings.
 // 2. Object MIME Content-Type is allowed for compression.
-func (c *Config) NeedsCompression(obj *objectSDK.Object) bool {
+func (c *Config) NeedsCompression(obj *object.Object) bool {
 	if !c.Enabled || len(c.UncompressableContentTypes) == 0 {
 		return c.Enabled
 	}
 
 	for _, attr := range obj.Attributes() {
-		if attr.Key() == objectSDK.AttributeContentType {
+		if attr.Key() == object.AttributeContentType {
 			for _, value := range c.UncompressableContentTypes {
 				match := false
 				switch {

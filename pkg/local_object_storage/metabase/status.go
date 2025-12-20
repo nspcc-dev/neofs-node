@@ -5,9 +5,9 @@ import (
 	"slices"
 
 	"github.com/nspcc-dev/bbolt"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -72,7 +72,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 
 			fillIDTypePrefix(typPrefix)
 			typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, oID)
-			existsRegular = (err == nil && typ == objectSDK.TypeRegular)
+			existsRegular = (err == nil && typ == object.TypeRegular)
 		}
 
 		if (removedStatus != statusAvailable && objLocked) || existsRegular {
@@ -129,7 +129,7 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 	k, _ := c.Seek(pref)
 	for ; bytes.HasPrefix(k, pref); k, _ = c.Next() {
 		kCut := k[len(pref):]
-		k, v, found := bytes.Cut(kCut, object.MetaAttributeDelimiter)
+		k, v, found := bytes.Cut(kCut, objectcore.MetaAttributeDelimiter)
 		if !found {
 			continue
 		}

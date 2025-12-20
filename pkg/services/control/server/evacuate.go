@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -49,7 +49,7 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 	return resp, nil
 }
 
-func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
+func (s *Server) replicate(addr oid.Address, obj *object.Object) error {
 	cid := obj.GetContainerID()
 	if cid.IsZero() {
 		// Return nil to prevent situations where a shard can't be evacuated
