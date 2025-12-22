@@ -56,6 +56,29 @@ func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
 	return nnsReader.ResolveFSContract(name)
 }
 
+// HasUserInNNS checks NNS for the given domain name and address,
+// returning true if such record exists.
+func (c *Client) HasUserInNNS(name string, addr util.Uint160) (bool, error) {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return false, ErrConnectionLost
+	}
+
+	nnsHash, err := c.NNSHash()
+	if err != nil {
+		return false, err
+	}
+
+	reader := nns.NewReader(invoker.New(conn.client, nil), nnsHash)
+	hasNeoRecord, err := reader.HasNeoRecord(name, addr)
+	if err != nil {
+		return false, fmt.Errorf("resolve users for %q in NNS: %w", name, err)
+	}
+
+	return hasNeoRecord, nil
+}
+
 // NNSHash returns NNS contract hash.
 func (c *Client) NNSHash() (util.Uint160, error) {
 	var conn = c.conn.Load()
