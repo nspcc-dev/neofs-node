@@ -43,14 +43,6 @@ S3](https://github.com/nspcc-dev/neofs-s3-gw),
 [sFTP](https://en.wikipedia.org/wiki/SSH_File_Transfer_Protocol) allowing
 developers to integrate applications without rewriting their code.
 
-# Supported platforms
-
-Now, we only support GNU/Linux on amd64 CPUs with AVX/AVX2 instructions. More
-platforms will be officially supported after release `1.0`.
-
-The latest version of neofs-node works with neofs-contract
-[v0.19.1](https://github.com/nspcc-dev/neofs-contract/releases/tag/v0.19.1).
-
 # Building
 
 To build all binaries you need modern Go (any officially supported version, see
