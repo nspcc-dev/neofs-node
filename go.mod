@@ -19,9 +19,9 @@ require (
 	github.com/nspcc-dev/bbolt v0.0.0-20250911202005-807225ebb0c8
 	github.com/nspcc-dev/hrw/v2 v2.0.4
 	github.com/nspcc-dev/locode-db v0.8.2
-	github.com/nspcc-dev/neo-go v0.114.0
+	github.com/nspcc-dev/neo-go v0.114.1-0.20251222145711-e174185e133e
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
-	github.com/nspcc-dev/neofs-contract v0.25.2-0.20251219150129-498a820b9d6b
+	github.com/nspcc-dev/neofs-contract v0.25.2-0.20251223154102-15c76da7ea19
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.16.0.20251203135706-86667929fbb8
 	github.com/nspcc-dev/tzhash v1.8.3
 	github.com/panjf2000/ants/v2 v2.11.3
@@ -70,7 +70,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nspcc-dev/dbft v0.4.0 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20250911084817-6fb4472993d1 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20251112080609-3c8e29c66609 // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20251217090505-857f951d81a9 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
@@ -93,7 +93,9 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250922171735-9219d122eba9 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
