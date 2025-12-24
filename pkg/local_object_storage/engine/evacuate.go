@@ -128,7 +128,7 @@ mainLoop:
 						continue loop
 					}
 
-					e.log.Debug("could not put to shard, trying another", zap.String("shard", shards[j].ID().String()))
+					e.log.Debug("could not put to shard, trying another", zap.Stringer("shard", shards[j].ID()))
 				}
 
 				if faultHandler == nil {

@@ -62,7 +62,7 @@ func parseAttributes(c *cfg) {
 	if fromUser != "" && fromUser != record.Cont.String() {
 		c.log.Warn("locode attribute mismatch, configuration value kept: continent",
 			zap.String("configuration_value", fromUser),
-			zap.String("database_value", record.Cont.String()))
+			zap.Stringer("database_value", record.Cont))
 	} else {
 		setIfNotEmpty(n.SetContinentName, record.Cont.String())
 	}

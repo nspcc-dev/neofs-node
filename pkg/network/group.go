@@ -15,11 +15,10 @@ import (
 // List is sorted by priority of use.
 type AddressGroup []Address
 
-// StringifyGroup returns concatenation of all addresses
-// from the AddressGroup.
-//
+// String implements fmt.Stringer for AddressGroup.
+// Returns concatenation of all addresses from the AddressGroup.
 // The result is order-dependent.
-func StringifyGroup(x AddressGroup) string {
+func (x AddressGroup) String() string {
 	var s strings.Builder
 
 	for addr := range slices.Values(x) {

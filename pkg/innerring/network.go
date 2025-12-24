@@ -103,7 +103,7 @@ func (s *Server) RequestNotary(method string, args ...[]byte) (util.Uint256, err
 			"deleteNode", nodePubKey.Bytes())
 		if err != nil {
 			s.log.Warn("external request: can't invoke deleteNode method in netmap",
-				zap.String("node pub key", nodePubKey.String()),
+				zap.Stringer("node pub key", nodePubKey),
 				zap.Error(err))
 		}
 	default:

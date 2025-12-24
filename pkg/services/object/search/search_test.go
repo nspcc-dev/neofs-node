@@ -71,7 +71,7 @@ func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netm
 }
 
 func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
-	v, ok := c.clients[network.StringifyGroup(info.AddressGroup())]
+	v, ok := c.clients[info.AddressGroup().String()]
 	if !ok {
 		return nil, errors.New("could not construct client")
 	}
@@ -182,7 +182,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 			err := na.FromIterator(netmapcore.Node(ni))
 			require.NoError(t, err)
 
-			as[j] = network.StringifyGroup(na)
+			as[j] = na.String()
 
 			ns[j] = ni
 		}

@@ -359,7 +359,7 @@ func (s *Shard) initMetrics() {
 			cnrInfo, err := s.metaBase.GetContainerInfo(cnrList[i])
 			if err != nil {
 				s.log.Warn("meta: can't read container size",
-					zap.String("cid", cnrList[i].EncodeToString()),
+					zap.Stringer("cid", cnrList[i]),
 					zap.Error(err))
 				continue
 			}
