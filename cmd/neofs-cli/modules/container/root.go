@@ -28,6 +28,8 @@ func init() {
 		getExtendedACLCmd,
 		setExtendedACLCmd,
 		containerNodesCmd,
+		setAttributeCmd,
+		removeAttributeCmd,
 	}
 
 	Cmd.AddCommand(containerChildCommand...)
@@ -40,6 +42,8 @@ func init() {
 	initContainerGetEACLCmd()
 	initContainerSetEACLCmd()
 	initContainerNodesCmd()
+	initSetAttributeCmd()
+	initRemoveAttributeCmd()
 
 	for _, containerCommand := range containerChildCommand {
 		commonflags.InitAPI(containerCommand)
@@ -52,6 +56,8 @@ func init() {
 		{createContainerCmd, "PUT"},
 		{deleteContainerCmd, "DELETE"},
 		{setExtendedACLCmd, "SETEACL"},
+		{setAttributeCmd, "SETATTRIBUTE"},
+		{removeAttributeCmd, "REMOVEATTRIBUTE"},
 	} {
 		commonflags.InitSession(el.cmd, "container "+el.verb)
 	}

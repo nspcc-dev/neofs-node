@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - SN now support raw GET/HEAD/RANGE requests in EC containers (#3756)
 - IR now serves `setAttribute` and `removeAttribute` methods of Container contract (#3733)
 - SN now serves `ContainerService`'s `SetAttribute` and `RemoveAttribute` RPC (#3733)
+- CLI `set-attribute` and `remove-attribute commands to `container` section (#3733)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
