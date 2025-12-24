@@ -104,10 +104,8 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-			var cnr cid.ID
-
-			cidRaw, prefix := parseContainerIDWithPrefix(&cnr, name)
-			if cidRaw == nil || prefix != metadataPrefix {
+			cnr, prefix := parseContainerIDWithPrefix(name)
+			if cnr.IsZero() || prefix != metadataPrefix {
 				return nil // continue bucket iteration
 			}
 			var (

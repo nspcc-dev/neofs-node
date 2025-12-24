@@ -34,14 +34,14 @@ func (db *DB) Containers() (list []cid.ID, err error) {
 
 func (db *DB) containers(tx *bbolt.Tx) ([]cid.ID, error) {
 	result := make([]cid.ID, 0)
-	unique := make(map[string]struct{})
-	var cnr cid.ID
 
 	err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
-		if parseContainerID(&cnr, name, unique) {
-			result = append(result, cnr)
-			unique[string(name[1:bucketKeySize])] = struct{}{}
+		cnr, prefix := parseContainerIDWithPrefix(name)
+		if cnr.IsZero() || prefix != metadataPrefix {
+			return nil
 		}
+
+		result = append(result, cnr)
 
 		return nil
 	})
@@ -107,16 +107,6 @@ func resetContainerSize(tx *bbolt.Tx, cID cid.ID) error {
 	}
 
 	return nil
-}
-
-func parseContainerID(dst *cid.ID, name []byte, ignore map[string]struct{}) bool {
-	if len(name) != bucketKeySize {
-		return false
-	}
-	if _, ok := ignore[string(name[1:bucketKeySize])]; ok {
-		return false
-	}
-	return dst.Decode(name[1:bucketKeySize]) == nil
 }
 
 func parseContainerCounter(v []byte) uint64 {
