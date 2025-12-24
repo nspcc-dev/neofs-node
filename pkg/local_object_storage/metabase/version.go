@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -213,6 +214,9 @@ func migrateFrom5Version(db *DB) error {
 	})
 }
 
+// garbageObjectsBucketName is pre-version-9 garbage bucket.
+var garbageObjectsBucketName = []byte{unusedGarbageObjectsPrefix}
+
 func migrateFrom6Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		if garbageBkt := tx.Bucket(garbageObjectsBucketName); garbageBkt != nil {
@@ -304,7 +308,7 @@ func migrateFrom7Version(db *DB) error {
 			for ; bytes.HasPrefix(k, phyPrefix); k, _ = metaCursor.Next() {
 				id := oid.ID(k[len(phyPrefix):])
 				addr.SetObject(id)
-				if objectStatus(tx, metaBkt.Cursor(), addr, currEpoch) == statusAvailable {
+				if objectStatus(metaBkt.Cursor(), addr, currEpoch) == statusAvailable {
 					objsNumber++
 				}
 			}
@@ -381,8 +385,13 @@ func migrateFrom8Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var (
 			err             error
-			obsoleteBuckets = [][]byte{{unusedLockedPrefix}, {unusedGraveyardPrefix}}
+			obsoleteBuckets = [][]byte{{unusedLockedPrefix}, {unusedGraveyardPrefix}, {unusedGarbageObjectsPrefix}}
 		)
+
+		err = moveGarbageToMeta(db.log, tx)
+		if err != nil {
+			return fmt.Errorf("move garbage bucket keys: %w", err)
+		}
 
 		for _, name := range obsoleteBuckets {
 			err = tx.DeleteBucket(name)
@@ -392,4 +401,40 @@ func migrateFrom8Version(db *DB) error {
 		}
 		return updateVersion(tx, 9)
 	})
+}
+
+func moveGarbageToMeta(log *zap.Logger, tx *bbolt.Tx) error {
+	var garbageBkt = tx.Bucket(garbageObjectsBucketName)
+
+	if garbageBkt == nil {
+		return nil
+	}
+
+	var garbageCursor = garbageBkt.Cursor()
+	for k, _ := garbageCursor.First(); k != nil; k, _ = garbageCursor.Next() {
+		if len(k) != addressKeySize {
+			if len(k) > 2*addressKeySize {
+				k = k[:2*addressKeySize] // don't spam in log
+			}
+			log.Warn("bad entry in garbage container", zap.String("k", hex.EncodeToString(k)))
+			continue
+		}
+
+		var (
+			bktKey  = append([]byte{metadataPrefix}, k[:cidSize]...)
+			objKey  = append([]byte{metaPrefixGarbage}, k[cidSize:]...)
+			metaBkt = tx.Bucket(bktKey)
+		)
+		if metaBkt == nil {
+			log.Warn("no meta bucket found", zap.String("k", hex.EncodeToString(k)))
+			continue
+		}
+
+		var err = metaBkt.Put(objKey, nil)
+		if err != nil {
+			return fmt.Errorf("put %s into %s: %w", hex.EncodeToString(objKey), hex.EncodeToString(bktKey), err)
+		}
+	}
+
+	return nil
 }

@@ -142,25 +142,14 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, []
 // object was available before the removal (for calculating the logical object
 // counter). The third return value is removed object payload size.
 func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error) {
-	key := make([]byte, addressKeySize)
 	cID := addr.Container()
-	addrKey := addressKey(addr, key)
-	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 	metaBucket := tx.Bucket(metaBucketKey(cID))
 	var metaCursor *bbolt.Cursor
 	if metaBucket != nil {
 		metaCursor = metaBucket.Cursor()
 	}
 
-	removeAvailableObject := inGarbageWithKey(metaCursor, addrKey, garbageObjectsBKT) == statusAvailable
-
-	// remove record from the garbage bucket
-	if garbageObjectsBKT != nil {
-		err := garbageObjectsBKT.Delete(addrKey)
-		if err != nil {
-			return false, false, 0, fmt.Errorf("could not remove from garbage bucket: %w", err)
-		}
-	}
+	removeAvailableObject := inGarbage(metaCursor, addr.Object()) == statusAvailable
 
 	payloadSize, err := deleteMetadata(tx, db.log, addr.Container(), addr.Object(), false)
 	if err != nil {

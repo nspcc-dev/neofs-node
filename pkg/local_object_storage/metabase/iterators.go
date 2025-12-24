@@ -133,7 +133,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 			//
 			// To slightly optimize performance we can check only REGULAR objects
 			// (only they can be locked), but it's more reliable.
-			if objectLocked(tx, curEpoch, curForLocked, cnrID, id) {
+			if objectLocked(curEpoch, curForLocked, cnrID, id) {
 				expKey, _ = cur.Next()
 				continue
 			}

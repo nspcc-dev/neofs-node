@@ -116,7 +116,7 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
 	metaBkt := crs.Bucket()
 
-	switch objectStatus(metaBkt.Tx(), crs, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
+	switch objectStatus(crs, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
 	case statusGCMarked:
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	case statusTombstoned:

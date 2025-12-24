@@ -58,13 +58,13 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 			metaCursor = metaBucket.Cursor()
 		}
 
-		var objLocked = objectLocked(tx, currEpoch, metaCursor, cID, oID)
+		var objLocked = objectLocked(currEpoch, metaCursor, cID, oID)
 
 		if objLocked {
 			res.State = append(res.State, "LOCKED")
 		}
 
-		removedStatus := inGarbage(tx, metaCursor, address)
+		removedStatus := inGarbage(metaCursor, oID)
 
 		var existsRegular bool
 		if metaBucket != nil {
@@ -98,7 +98,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 	objKey := addr[cid.Size:]
 
 	objectBuckets := [][]byte{
-		garbageObjectsBucketName,
 		toMoveItBucketName,
 	}
 

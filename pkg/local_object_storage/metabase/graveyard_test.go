@@ -12,14 +12,27 @@ import (
 )
 
 func TestDB_IterateDeletedObjects_EmptyDB(t *testing.T) {
-	db := newDB(t)
+	var (
+		db      = newDB(t)
+		counter int
+		cnr     = cidtest.ID()
+	)
 
-	var counter int
-
-	err := db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
+	err := db.IterateOverGarbage(func(_ oid.ID) error {
 		counter++
 		return nil
-	}, nil)
+	}, cnr, oid.ID{})
+	require.Error(t, err)
+	require.Zero(t, counter)
+
+	obj1 := generateObject(t)
+	obj1.SetContainerID(cnr)
+	require.NoError(t, db.Put(obj1))
+
+	err = db.IterateOverGarbage(func(_ oid.ID) error {
+		counter++
+		return nil
+	}, cnr, oid.ID{})
 	require.NoError(t, err)
 	require.Zero(t, counter)
 }
@@ -30,23 +43,23 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	obj1 := generateObject(t)
 	obj2 := generateObject(t)
 
-	var addr1 oid.Address
-	err := addr1.DecodeString("AUSF6rhReoAdPVKYUZWW9o2LbtTvekn54B3JXi7pdzmn/2daLhLB7yVXbjBaKkckkuvjX22BxRYuSHy9RPxuH9PZS")
+	cnr := obj1.GetContainerID()
+	obj2.SetContainerID(cnr) // Same container
+
+	var addr1 oid.ID
+	err := addr1.DecodeString("AUSF6rhReoAdPVKYUZWW9o2LbtTvekn54B3JXi7pdzmn")
 	require.NoError(t, err)
 
-	var addr2 oid.Address
-	err = addr2.DecodeString("CwYYr6sFLU1zK6DeBTVd8SReADUoxYobUhSrxgXYxCVn/ANYbnJoQqdjmU5Dhk3LkxYj5E9nJHQFf8LjTEcap9TxM")
+	var addr2 oid.ID
+	err = addr2.DecodeString("CwYYr6sFLU1zK6DeBTVd8SReADUoxYobUhSrxgXYxCVn")
 	require.NoError(t, err)
 
-	var addr3 oid.Address
-	err = addr3.DecodeString("6ay4GfhR9RgN28d5ufg63toPetkYHGcpcW7G3b7QWSek/ANYbnJoQqdjmU5Dhk3LkxYj5E9nJHQFf8LjTEcap9TxM")
+	var addr3 oid.ID
+	err = addr3.DecodeString("6ay4GfhR9RgN28d5ufg63toPetkYHGcpcW7G3b7QWSek")
 	require.NoError(t, err)
 
-	obj1.SetContainerID(addr1.Container())
-	obj1.SetID(addr1.Object())
-
-	obj2.SetContainerID(addr2.Container())
-	obj2.SetID(addr2.Object())
+	obj1.SetID(addr1)
+	obj2.SetID(addr2)
 
 	err = putBig(db, obj1)
 	require.NoError(t, err)
@@ -54,17 +67,14 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	_, _, err = db.MarkGarbage(objectcore.AddressOf(obj1))
 	require.NoError(t, err)
 
-	var (
-		counter int
-		o2addr  = objectcore.AddressOf(obj2)
-	)
+	var counter int
 
-	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
-		require.Equal(t, garbage.Address(), addr1)
+	err = db.IterateOverGarbage(func(id oid.ID) error {
+		require.Equal(t, addr1, id)
 		counter++
 
 		return nil
-	}, &o2addr)
+	}, cnr, addr2)
 	require.NoError(t, err)
 
 	// the second object would be put after the
@@ -72,12 +82,12 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	// will not receive the first object
 	require.Equal(t, 0, counter)
 
-	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
-		require.Equal(t, garbage.Address(), addr1)
+	err = db.IterateOverGarbage(func(id oid.ID) error {
+		require.Equal(t, addr1, id)
 		counter++
 
 		return nil
-	}, &addr3)
+	}, cnr, addr3)
 	require.NoError(t, err)
 
 	// the third object would be put before the
@@ -95,7 +105,13 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	obj3 := generateObject(t)
 	obj4 := generateObject(t)
 
-	var err error
+	var (
+		cnr = obj1.GetContainerID()
+		err error
+	)
+	obj2.SetContainerID(cnr)
+	obj3.SetContainerID(cnr)
+	obj4.SetContainerID(cnr)
 
 	err = putBig(db, obj1)
 	require.NoError(t, err)
@@ -121,11 +137,11 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 
 	var buriedGC []oid.Address
 
-	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
-		buriedGC = append(buriedGC, garbage.Address())
+	err = db.IterateOverGarbage(func(id oid.ID) error {
+		buriedGC = append(buriedGC, oid.NewAddress(cnr, id))
 
 		return nil
-	}, nil)
+	}, cnr, oid.ID{})
 	require.NoError(t, err)
 
 	// objects covered with a tombstone
@@ -147,7 +163,13 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	obj3 := generateObject(t)
 	obj4 := generateObject(t)
 
-	var err error
+	var (
+		cnr = obj1.GetContainerID()
+		err error
+	)
+	obj2.SetContainerID(cnr)
+	obj3.SetContainerID(cnr)
+	obj4.SetContainerID(cnr)
 
 	err = putBig(db, obj1)
 	require.NoError(t, err)
@@ -178,8 +200,8 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 		gotGarbage []oid.Address
 	)
 
-	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
-		gotGarbage = append(gotGarbage, garbage.Address())
+	err = db.IterateOverGarbage(func(id oid.ID) error {
+		gotGarbage = append(gotGarbage, oid.NewAddress(cnr, id))
 
 		counter++
 		if counter == firstIterationSize {
@@ -187,33 +209,34 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 		}
 
 		return nil
-	}, nil)
+	}, cnr, oid.ID{})
 	require.NoError(t, err)
 	require.Equal(t, firstIterationSize, counter)
 	require.Equal(t, firstIterationSize, len(gotGarbage))
 
 	// last received address is an offset
-	offset := gotGarbage[len(gotGarbage)-1]
+	offset := gotGarbage[len(gotGarbage)-1].Object()
 
-	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
-		gotGarbage = append(gotGarbage, garbage.Address())
+	err = db.IterateOverGarbage(func(id oid.ID) error {
+		gotGarbage = append(gotGarbage, oid.NewAddress(cnr, id))
+
 		counter++
 
 		return nil
-	}, &offset)
+	}, cnr, offset)
 	require.NoError(t, err)
 	require.Equal(t, len(expectedGarbage), counter)
 	require.ElementsMatch(t, gotGarbage, expectedGarbage)
 
 	// last received object (last in db) as offset
 	// should lead to no iteration at all
-	offset = gotGarbage[len(gotGarbage)-1]
+	offset = gotGarbage[len(gotGarbage)-1].Object()
 	iWasCalled := false
 
-	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
+	err = db.IterateOverGarbage(func(_ oid.ID) error {
 		iWasCalled = true
 		return nil
-	}, &offset)
+	}, cnr, offset)
 	require.NoError(t, err)
 	require.False(t, iWasCalled)
 }

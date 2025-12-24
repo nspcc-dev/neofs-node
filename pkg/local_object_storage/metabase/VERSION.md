@@ -8,10 +8,6 @@ Numbers stand for a single byte value unless otherwise stated.
 The lowest not used bucket index: 20.
 
 ### Primary buckets
-- Garbage objects bucket
-  - Name: `1`
-  - Key: object address
-  - Value: dummy value
 - Bucket containing IDs of objects that are candidates for moving
    to another shard.
   - Name: `2`
@@ -41,12 +37,15 @@ The lowest not used bucket index: 20.
     - `3` + object ID + attribute + `0x00` + value
     - `4` — container-level GC mark. \
       Presence means the whole container is scheduled for garbage collection.
+    - `5` + object ID \
+      Garbage mark for an object.
 
 # History
 
 ## Version 9
 
-Dropped lockedPrefix and graveyard buckets (4 and 0).
+Dropped lockedPrefix and graveyard buckets (4 and 0). Replaced garbage
+bucket (1) with meta prefix (5).
 
 ## Version 8
 
