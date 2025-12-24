@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/hex"
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -70,4 +71,9 @@ func (x *NodeInfo) SetPublicKey(v []byte) {
 // Result must not be mutated.
 func (x *NodeInfo) PublicKey() []byte {
 	return x.key
+}
+
+// String implements fmt.Stringer using the node public key.
+func (x NodeInfo) String() string {
+	return hex.EncodeToString(x.key)
 }
