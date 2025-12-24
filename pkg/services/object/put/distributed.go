@@ -368,7 +368,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()),
-			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
+			zap.Stringer("node", node.info.AddressGroup()))
 
 		sigs, err := decodeSignatures(sigsRaw)
 		if err != nil {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -59,9 +58,8 @@ func (s *Service) proxyGetRequest(ctx context.Context, sortedNodeLists [][]netma
 		for j := range sortedNodeLists[i] {
 			conn, node, err := s.conns.(*clientCacheWrapper)._connect(sortedNodeLists[i][j])
 			if err != nil {
-				// TODO: implement address list stringer for lazy encoding
 				s.log.Debug("get conn to remote node",
-					zap.String("addresses", network.StringifyGroup(node.AddressGroup())), zap.Error(err))
+					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
 				continue
 			}
 
@@ -185,9 +183,8 @@ func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netm
 		for j := range sortedNodeLists[i] {
 			conn, node, err := s.conns.(*clientCacheWrapper)._connect(sortedNodeLists[i][j])
 			if err != nil {
-				// TODO: implement address list stringer for lazy encoding
 				s.log.Debug("get conn to remote node",
-					zap.String("addresses", network.StringifyGroup(node.AddressGroup())), zap.Error(err))
+					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
 				continue
 			}
 

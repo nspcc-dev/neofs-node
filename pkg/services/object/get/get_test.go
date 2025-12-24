@@ -79,7 +79,7 @@ func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []
 }
 
 func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {
-	v, ok := c.clients[network.StringifyGroup(info.AddressGroup())]
+	v, ok := c.clients[info.AddressGroup().String()]
 	if !ok {
 		return nil, errors.New("could not construct client")
 	}
@@ -443,7 +443,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 			err := na.FromIterator(netmapcore.Node(ni))
 			require.NoError(t, err)
 
-			as[j] = network.StringifyGroup(na)
+			as[j] = na.String()
 
 			ns[j] = ni
 		}

@@ -8,7 +8,7 @@ import (
 // LogServiceError writes error message of object service to provided logger.
 func LogServiceError(l *zap.Logger, req string, node network.AddressGroup, err error) {
 	l.Error("object service error",
-		zap.String("node", network.StringifyGroup(node)),
+		zap.Stringer("node", node),
 		zap.String("request", req),
 		zap.Error(err),
 	)
