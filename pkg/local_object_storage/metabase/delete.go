@@ -144,10 +144,10 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, []
 func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error) {
 	cID := addr.Container()
 	metaBucket := tx.Bucket(metaBucketKey(cID))
-	var metaCursor *bbolt.Cursor
-	if metaBucket != nil {
-		metaCursor = metaBucket.Cursor()
+	if metaBucket == nil {
+		return true, false, 0, nil
 	}
+	var metaCursor = metaBucket.Cursor()
 
 	removeAvailableObject := inGarbage(metaCursor, addr.Object()) == statusAvailable
 

@@ -73,9 +73,11 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		metaCursor *bbolt.Cursor
 	)
 
-	if metaBucket != nil {
-		metaCursor = metaBucket.Cursor()
+	if metaBucket == nil {
+		return false, nil
 	}
+
+	metaCursor = metaBucket.Cursor()
 
 	// check tombstones, garbage and object expiration first
 	switch objectStatus(metaCursor, addr, currEpoch) {
@@ -85,10 +87,6 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		return false, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
 	case statusExpired:
 		return false, ErrObjectIsExpired
-	}
-
-	if metaBucket == nil {
-		return false, nil
 	}
 
 	var (
@@ -217,12 +215,7 @@ func findParent(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
 }
 
 // isExpired checks if the object expired at the current epoch.
-// If metaCursor is nil, it always returns false.
 func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
-	if metaCursor == nil {
-		return false
-	}
-
 	var val = getObjAttribute(metaCursor, idObj, object.AttributeExpirationEpoch)
 
 	if val != nil {
@@ -240,9 +233,6 @@ func mkGarbageKey(id oid.ID) []byte {
 // inGarbage checks for tombstone and garbage marks of the given ID using
 // the given meta bucket cursor.
 func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
-	if metaCursor == nil {
-		return statusAvailable
-	}
 	if containerMarkedGC(metaCursor) {
 		return statusGCMarked
 	}

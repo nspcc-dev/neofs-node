@@ -96,12 +96,11 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 	return locked, db.boltDB.View(func(tx *bbolt.Tx) error {
 		cID := addr.Container()
 		mBucket := tx.Bucket(metaBucketKey(cID))
-		var mCursor *bbolt.Cursor
-		if mBucket != nil {
-			mCursor = mBucket.Cursor()
+		if mBucket == nil {
+			return nil
 		}
 
-		locked = objectLocked(currEpoch, mCursor, cID, addr.Object())
+		locked = objectLocked(currEpoch, mBucket.Cursor(), cID, addr.Object())
 		return nil
 	})
 }

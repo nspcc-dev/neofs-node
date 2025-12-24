@@ -53,10 +53,10 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 
 		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, oID)
 		metaBucket := tx.Bucket(metaBucketKey(cID))
-		var metaCursor *bbolt.Cursor
-		if metaBucket != nil {
-			metaCursor = metaBucket.Cursor()
+		if metaBucket == nil {
+			return nil // No data.
 		}
+		var metaCursor = metaBucket.Cursor()
 
 		var objLocked = objectLocked(currEpoch, metaCursor, cID, oID)
 
@@ -67,13 +67,11 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		removedStatus := inGarbage(metaCursor, oID)
 
 		var existsRegular bool
-		if metaBucket != nil {
-			var typPrefix = make([]byte, metaIDTypePrefixSize)
+		var typPrefix = make([]byte, metaIDTypePrefixSize)
 
-			fillIDTypePrefix(typPrefix)
-			typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, oID)
-			existsRegular = (err == nil && typ == object.TypeRegular)
-		}
+		fillIDTypePrefix(typPrefix)
+		typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, oID)
+		existsRegular = (err == nil && typ == object.TypeRegular)
 
 		if (removedStatus != statusAvailable && objLocked) || existsRegular {
 			res.State = append(res.State, "AVAILABLE")

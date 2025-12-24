@@ -66,12 +66,13 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
-		metaCursor *bbolt.Cursor
 	)
 
-	if metaBucket != nil {
-		metaCursor = metaBucket.Cursor()
+	if metaBucket == nil {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
+
+	var metaCursor = metaBucket.Cursor()
 
 	if checkStatus {
 		switch objectStatus(metaCursor, addr, currEpoch) {
@@ -82,10 +83,6 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 		case statusExpired:
 			return nil, ErrObjectIsExpired
 		}
-	}
-
-	if metaBucket == nil {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	var objID = addr.Object()
