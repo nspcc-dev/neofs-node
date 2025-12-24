@@ -44,7 +44,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	val, ok := np.mintEmitCache.Get(receiver)
 	if ok && val+np.mintEmitThreshold >= curEpoch {
 		np.log.Warn("double mint emission declined",
-			zap.String("receiver", receiver.String()),
+			zap.Stringer("receiver", receiver),
 			zap.Uint64("last_emission", val),
 			zap.Uint64("current_epoch", curEpoch))
 

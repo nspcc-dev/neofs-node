@@ -31,8 +31,8 @@ func (e *StorageEngine) ReviveObject(address oid.Address) (ReviveStatus, error) 
 		})
 		if err != nil {
 			e.log.Warn("failed to revive object in shard",
-				zap.String("shard", id.String()),
-				zap.String("address", address.EncodeToString()),
+				zap.Stringer("shard", id),
+				zap.Stringer("address", address),
 				zap.Error(err),
 			)
 		}

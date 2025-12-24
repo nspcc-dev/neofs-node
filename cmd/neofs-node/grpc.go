@@ -123,14 +123,14 @@ func serveGRPC(c *cfg) {
 		go func() {
 			defer func() {
 				c.log.Info("stop listening gRPC endpoint",
-					zap.String("endpoint", lis.Addr().String()),
+					zap.Stringer("endpoint", lis.Addr()),
 				)
 
 				c.wg.Done()
 			}()
 
 			c.log.Info("start listening gRPC endpoint",
-				zap.String("endpoint", lis.Addr().String()),
+				zap.Stringer("endpoint", lis.Addr()),
 			)
 
 			if err := srv.Serve(lis); err != nil {
