@@ -18,7 +18,7 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestShard_Lock(t *testing.T) {
@@ -26,7 +26,7 @@ func TestShard_Lock(t *testing.T) {
 
 	rootPath := t.TempDir()
 	opts := []shard.Option{
-		shard.WithLogger(zap.NewNop()),
+		shard.WithLogger(zaptest.NewLogger(t)),
 		shard.WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(rootPath, "fstree"))),
 		),

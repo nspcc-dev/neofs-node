@@ -51,7 +51,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 
 	rootPath := t.TempDir()
 	opts := []shard.Option{
-		shard.WithLogger(zap.NewNop()),
+		shard.WithLogger(zaptest.NewLogger(t)),
 		shard.WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(rootPath, "fstree"))),
 		),
@@ -174,7 +174,7 @@ func TestExpiration(t *testing.T) {
 	var sh *shard.Shard
 
 	opts := []shard.Option{
-		shard.WithLogger(zap.NewNop()),
+		shard.WithLogger(zaptest.NewLogger(t)),
 		shard.WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(rootPath, "fstree"))),
 		),
