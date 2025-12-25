@@ -60,10 +60,6 @@ func (exec *execCtx) assemble() {
 				exec.overtakePayloadDirectly(children, nil, true)
 			}
 		} else {
-			// TODO: #1155 choose one-by-one restoring algorithm according to size
-			//  * if size > MAX => go right-to-left with HEAD and back with GET
-			//  * else go right-to-left with GET and compose in single object before writing
-
 			if ok := exec.overtakePayloadInReverse(children[len(children)-1]); ok {
 				// payload of all children except the last are written, write last payload
 				exec.copyChild(exec.lastChildID, &exec.lastChildRange, false)
@@ -71,10 +67,6 @@ func (exec *execCtx) assemble() {
 		}
 	} else if prev != nil {
 		if ok := exec.writeCollectedHeader(); ok {
-			// TODO: #1155 choose one-by-one restoring algorithm according to size
-			//  * if size > MAX => go right-to-left with HEAD and back with GET
-			//  * else go right-to-left with GET and compose in single object before writing
-
 			if ok := exec.overtakePayloadInReverse(*prev); ok {
 				var rng *object.Range
 				if exec.ctxRange() != nil {
