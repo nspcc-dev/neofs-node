@@ -24,6 +24,9 @@ import (
 // If the object is not EC part but of [object.TypeTombstone], [object.TypeLock]
 // or [object.TypeLink] type, ResolveECPart returns its ID instead.
 //
+// If the object is not EC part but DB contains its last size-split child,
+// ResolveECPart returns [object.SplitInfoError] with its ID.
+//
 // If DB is disabled by mode (e.g. [DB.SetMode]), ResolveECPart returns
 // [ErrDegradedMode].
 //
@@ -54,7 +57,7 @@ func (db *DB) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID,
 }
 
 // ResolveECPartWithPayloadLen is like [DB.ResolveECPart] but also returns
-// payload length.
+// payload length. It also does not check for size-split children.
 func (db *DB) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, uint64, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -82,7 +85,7 @@ func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid
 
 	metaBktCrs := metaBkt.Cursor()
 
-	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi)
+	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi, false)
 	if err != nil {
 		return oid.ID{}, 0, err
 	}
@@ -110,10 +113,10 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	}
 
-	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi)
+	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi, true)
 }
 
-func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
+func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo, checkSplitPart bool) (oid.ID, error) {
 	metaBkt := crs.Bucket()
 
 	switch objectStatus(crs, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
@@ -131,6 +134,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 
 	var partCrs *bbolt.Cursor
 	var rulePref, partPref, typePref []byte
+	var sizeSplitLastID []byte
 	isParent := false
 	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
 		partID, ok := bytes.CutPrefix(k, pref)
@@ -143,6 +147,13 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink) {
 					return parent, nil
 				}
+			}
+
+			if checkSplitPart && sizeSplitLastID != nil {
+				var s object.SplitInfo
+				s.SetLastPart(oid.ID(sizeSplitLastID))
+
+				return oid.ID{}, object.NewSplitInfoError(&s)
 			}
 
 			return oid.ID{}, apistatus.ErrObjectNotFound
@@ -174,6 +185,12 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 			if typ, err := fetchTypeForID(partCrs, typePref, oid.ID(partID)); err == nil && typ == object.TypeLink {
 				return oid.ID(partID), nil
 			}
+
+			if checkSplitPart && sizeSplitLastID == nil && getObjAttribute(partCrs, oid.ID(partID), object.FilterFirstSplitObject) != nil {
+				sizeSplitLastID = partID
+				// continue because next item may be a linker. If so, it's the most informative
+			}
+
 			continue
 		}
 

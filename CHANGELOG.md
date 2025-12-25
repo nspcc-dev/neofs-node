@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - IR now serves `setAttribute` and `removeAttribute` methods of Container contract (#3733)
 - SN now serves `ContainerService`'s `SetAttribute` and `RemoveAttribute` RPC (#3733)
 - CLI `set-attribute` and `remove-attribute commands to `container` section (#3733)
+- Size-split object is now available even when LINK is unavailable in EC container (#3754)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)

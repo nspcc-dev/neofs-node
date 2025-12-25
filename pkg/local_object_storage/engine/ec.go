@@ -76,6 +76,8 @@ loop:
 			s = s[i+1:]
 			break loop
 		case errors.Is(err, apistatus.ErrObjectNotFound):
+		case errors.As(err, new(*object.SplitInfoError)):
+			return object.Object{}, nil, err
 		default:
 			e.log.Info("failed to get EC part from shard, ignore error",
 				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
