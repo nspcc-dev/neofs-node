@@ -48,6 +48,14 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "GET", nil)
 	}
 
+	if prm.raw {
+		repRules = make([]uint, len(ecRules))
+		for i := range ecRules {
+			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
+		}
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules)).err
+	}
+
 	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
 		ecRules, ecNodeLists, prm.objWriter)
 }
@@ -128,6 +136,14 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 
 	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
 		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "RANGE", nil)
+	}
+
+	if prm.raw {
+		repRules = make([]uint, len(ecRules))
+		for i := range ecRules {
+			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
+		}
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng)).err
 	}
 
 	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
@@ -244,6 +260,14 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	ecNodeLists := nodeLists[len(repRules):]
 	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
 		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "HEAD", prm.objWriter)
+	}
+
+	if prm.raw {
+		repRules = make([]uint, len(ecRules))
+		for i := range ecRules {
+			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
+		}
+		return s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(ecNodeLists, repRules)).err
 	}
 
 	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
