@@ -10,6 +10,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
@@ -27,7 +29,7 @@ Only owner of the container has a permission to remove container.`,
 			return err
 		}
 
-		tok, err := getSession(cmd)
+		tokAny, err := getSessionAnyVersion(cmd)
 		if err != nil {
 			return err
 		}
@@ -56,11 +58,18 @@ Only owner of the container has a permission to remove container.`,
 
 			owner := cnr.Owner()
 
-			if tok != nil {
+			if tokAny != nil {
 				common.PrintVerbose(cmd, "Checking session issuer...")
 
-				if tok.Issuer() != owner {
-					return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
+				switch tok := tokAny.(type) {
+				case *sessionv2.Token:
+					if tok.Issuer() != owner {
+						return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
+					}
+				case *session.Container:
+					if tok.Issuer() != owner {
+						return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
+					}
 				}
 			} else {
 				common.PrintVerbose(cmd, "Checking provided account...")
@@ -74,7 +83,7 @@ Only owner of the container has a permission to remove container.`,
 
 			common.PrintVerbose(cmd, "Account matches the container owner.")
 
-			if tok != nil {
+			if tokAny != nil {
 				common.PrintVerbose(cmd, "Skip searching for LOCK objects - session provided.")
 			} else {
 				fs := object.NewSearchFilters()
@@ -108,8 +117,16 @@ Only owner of the container has a permission to remove container.`,
 		}
 
 		var delPrm client.PrmContainerDelete
-		if tok != nil {
-			delPrm.WithinSession(*tok)
+		if tokAny != nil {
+			switch tok := tokAny.(type) {
+			case *sessionv2.Token:
+				if err := validateSessionV2ForContainer(cmd, tok, pk, id, sessionv2.VerbContainerDelete); err != nil {
+					return err
+				}
+				delPrm.WithinSessionV2(*tok)
+			case *session.Container:
+				delPrm.WithinSession(*tok)
+			}
 		}
 
 		err = actor.ContainerDelete(ctx, id, user.NewAutoIDSignerRFC6979(*pk), delPrm)

@@ -17,6 +17,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
@@ -114,14 +116,20 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			return fmt.Errorf("decode basic ACL string: %w", err)
 		}
 
-		tok, err := getSession(cmd)
+		tokAny, err := getSessionAnyVersion(cmd)
 		if err != nil {
 			return err
 		}
 
-		if tok != nil {
-			issuer := tok.Issuer()
-			cnr.SetOwner(issuer)
+		if tokAny != nil {
+			switch tok := tokAny.(type) {
+			case *sessionv2.Token:
+				cnr.SetOwner(tok.Issuer())
+			case *session.Container:
+				cnr.SetOwner(tok.Issuer())
+			default:
+				return errors.New("unsupported session token type")
+			}
 		} else {
 			cnr.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
 		}
@@ -142,8 +150,16 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		}
 
 		var putPrm client.PrmContainerPut
-		if tok != nil {
-			putPrm.WithinSession(*tok)
+		if tokAny != nil {
+			switch tok := tokAny.(type) {
+			case *sessionv2.Token:
+				if err := validateSessionV2ForContainer(cmd, tok, key, cid.ID{}, sessionv2.VerbContainerPut); err != nil {
+					return err
+				}
+				putPrm.WithinSessionV2(*tok)
+			case *session.Container:
+				putPrm.WithinSession(*tok)
+			}
 		}
 
 		id, err := actor.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)

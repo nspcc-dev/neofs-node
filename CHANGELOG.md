@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Support for GET of LINK objects in EC containers (#3722)
 - Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
 - SN can respond with `CONTAINER_LOCKED` status now (#3708)
+- `session create-v2` cli command to create new session token v2 (#3750)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
@@ -42,7 +43,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251219150129-498a820b9d6b` (#3670, #3746)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251203135706-86667929fbb8` (#3711)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251222201515-923817fd7d13` (#3711, #3750)
 - `github.com/nspcc-dev/locode-db` module to `v0.8.2` (#3729)
 
 ### Updating from v0.50.2
