@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - Containers can now be locked for deletion via `__NEOFS__LOCK_UNTIL` attribute (#3708)
 - SN can respond with `CONTAINER_LOCKED` status now (#3708)
 - `session create-v2` cli command to create new session token v2 (#3750)
+- SN now support raw GET/HEAD/RANGE requests in EC containers (#3756)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
