@@ -131,7 +131,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 					return logicerr.Wrap(apistatus.LockNonRegularObject{})
 				}
 
-				st := objectStatus(tx, metaCursor, oid.NewAddress(cID, target), currEpoch)
+				st := objectStatus(metaCursor, oid.NewAddress(cID, target), currEpoch)
 				if st == statusTombstoned {
 					return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 				}
@@ -141,10 +141,8 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 				}
 			} else { // TS case
 				var (
-					addr              oid.Address
-					garbageKey        = make([]byte, addressKeySize)
-					garbageObjectsBKT = tx.Bucket(garbageObjectsBucketName)
-					inhumed           int
+					addr    oid.Address
+					inhumed int
 				)
 				addr.SetContainer(cID)
 				if targetTypErr == nil {
@@ -156,7 +154,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 					}
 				}
 
-				if objectLocked(tx, currEpoch, metaCursor, cID, target) {
+				if objectLocked(currEpoch, metaCursor, cID, target) {
 					return apistatus.ErrObjectLocked
 				}
 
@@ -171,13 +169,12 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 				children = append(children, target)
 				for _, id := range children {
 					addr.SetObject(id)
-					garbageKey = addressKey(addr, garbageKey)
 
 					obj, err := get(tx, addr, false, true, currEpoch)
 					// Garbage mark should be put irrespective of errors,
 					// especially if the error is SplitInfo.
 					if err == nil {
-						if inGarbageWithKey(metaCursor, garbageKey, garbageObjectsBKT) == statusAvailable {
+						if inGarbage(metaCursor, id) == statusAvailable {
 							// object is available, decrement the
 							// logical counter
 							inhumed++
@@ -191,7 +188,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 							}
 						}
 					}
-					err = garbageObjectsBKT.Put(garbageKey, zeroValue)
+					err = metaBkt.Put(mkGarbageKey(id), nil)
 					if err != nil {
 						return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
 					}

@@ -25,6 +25,7 @@ const (
 	metaPrefixAttrIDPlain
 	metaPrefixIDAttr
 	metaPrefixGC
+	metaPrefixGarbage
 )
 
 const (
@@ -152,6 +153,10 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 	if err := metaBkt.Delete(pref); err != nil {
 		return 0, err
 	}
+	pref[0] = metaPrefixGarbage
+	if err := metaBkt.Delete(pref); err != nil {
+		return 0, err
+	}
 	// removed keys must be pre-collected according to BoltDB docs.
 	var ks [][]byte
 	pref[0] = metaPrefixIDAttr
@@ -264,7 +269,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	curEpoch := db.epochState.CurrentEpoch()
 	var gcMetaCursor = metaBkt.Cursor()
 	var gcCheck objectcore.AdditionalObjectChecker = func(id oid.ID) (match bool) {
-		return objectStatus(tx, gcMetaCursor, oid.NewAddress(cnr, id), curEpoch) == statusAvailable
+		return objectStatus(gcMetaCursor, oid.NewAddress(cnr, id), curEpoch) == statusAvailable
 	}
 	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
@@ -304,7 +309,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 				return invalidMetaBucketKeyErr(k, fmt.Errorf("unexpected object key len %d", len(k)))
 			}
 			res[n].ID = oid.ID(k[1:])
-			if objectStatus(tx, mb.Cursor(), oid.NewAddress(cnr, res[n].ID), curEpoch) != statusAvailable { // GC-ed, expired, removed
+			if objectStatus(mb.Cursor(), oid.NewAddress(cnr, res[n].ID), curEpoch) != statusAvailable { // GC-ed, expired, removed
 				continue
 			}
 			n++

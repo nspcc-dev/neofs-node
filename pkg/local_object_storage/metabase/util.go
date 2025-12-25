@@ -15,9 +15,6 @@ import (
 const attributeDelimiterLen = 1
 
 var (
-	// garbageObjectsBucketName stores rows with the objects that should be physically
-	// deleted by the node (Garbage Collector routine).
-	garbageObjectsBucketName  = []byte{garbageObjectsPrefix}
 	toMoveItBucketName        = []byte{toMoveItPrefix}
 	containerVolumeBucketName = []byte{containerVolumePrefix}
 
@@ -34,10 +31,8 @@ var (
 const (
 	// unusedGraveyardPrefix was deleted in metabase version 9
 	unusedGraveyardPrefix = iota
-	// garbageObjectsPrefix is used for the garbage objects bucket.
-	// 	Key: object address
-	// 	Value: dummy value
-	garbageObjectsPrefix
+	// unusedGarbageObjectsPrefix was deleted in metabase version 9
+	unusedGarbageObjectsPrefix
 	// toMoveItPrefix is used for bucket containing IDs of objects that are candidates for moving
 	// to another shard.
 	toMoveItPrefix

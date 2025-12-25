@@ -19,7 +19,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// objectStatus(), inGarbage() and inGarbageWithKey() return codes.
+// objectStatus() and inGarbage() return codes.
 const (
 	statusAvailable = iota
 	statusGCMarked
@@ -73,22 +73,20 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		metaCursor *bbolt.Cursor
 	)
 
-	if metaBucket != nil {
-		metaCursor = metaBucket.Cursor()
+	if metaBucket == nil {
+		return false, nil
 	}
 
+	metaCursor = metaBucket.Cursor()
+
 	// check tombstones, garbage and object expiration first
-	switch objectStatus(tx, metaCursor, addr, currEpoch) {
+	switch objectStatus(metaCursor, addr, currEpoch) {
 	case statusGCMarked:
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	case statusTombstoned:
 		return false, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
 	case statusExpired:
 		return false, ErrObjectIsExpired
-	}
-
-	if metaBucket == nil {
-		return false, nil
 	}
 
 	var (
@@ -111,36 +109,36 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 	return err == nil, nil
 }
 
-func objectStatus(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
-	var status = objectStatusDirect(tx, metaCursor, addr, currEpoch)
+func objectStatus(metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
+	var status = objectStatusDirect(metaCursor, addr, currEpoch)
 
 	if (status == statusAvailable || status == statusGCMarked) && metaCursor != nil {
 		var parent = findParent(metaCursor, addr.Object())
 		if !parent.IsZero() {
 			addr.SetObject(parent)
-			parentStatus := objectStatus(tx, metaCursor, addr, currEpoch)
+			parentStatus := objectStatus(metaCursor, addr, currEpoch)
 			status = max(parentStatus, status)
 		}
 	}
 	return status
 }
 
-func objectStatusDirect(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
+func objectStatusDirect(metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
 	var (
 		oID = addr.Object()
 		cID = addr.Container()
 	)
 
 	if isExpired(metaCursor, oID, currEpoch) {
-		if objectLocked(tx, currEpoch, metaCursor, cID, oID) {
+		if objectLocked(currEpoch, metaCursor, cID, oID) {
 			return statusAvailable
 		}
 
 		return statusExpired
 	}
 
-	garbageStatus := inGarbage(tx, metaCursor, addr)
-	if garbageStatus != statusAvailable && objectLocked(tx, currEpoch, metaCursor, cID, oID) {
+	garbageStatus := inGarbage(metaCursor, oID)
+	if garbageStatus != statusAvailable && objectLocked(currEpoch, metaCursor, cID, oID) {
 		return statusAvailable
 	}
 
@@ -217,12 +215,7 @@ func findParent(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
 }
 
 // isExpired checks if the object expired at the current epoch.
-// If metaCursor is nil, it always returns false.
 func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
-	if metaCursor == nil {
-		return false
-	}
-
 	var val = getObjAttribute(metaCursor, idObj, object.AttributeExpirationEpoch)
 
 	if val != nil {
@@ -233,34 +226,26 @@ func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
 	return false
 }
 
-// inGarbage is an easier to use version of inGarbageWithKey for cases
-// where a single address needs to be checked.
-func inGarbage(tx *bbolt.Tx, metaCursor *bbolt.Cursor, addr oid.Address) uint8 {
-	var (
-		addrKey           = addressKey(addr, make([]byte, addressKeySize))
-		garbageObjectsBkt = tx.Bucket(garbageObjectsBucketName)
-	)
-	return inGarbageWithKey(metaCursor, addrKey, garbageObjectsBkt)
+func mkGarbageKey(id oid.ID) []byte {
+	return append([]byte{metaPrefixGarbage}, id[:]...)
 }
 
-func inGarbageWithKey(metaCursor *bbolt.Cursor, addrKey []byte, garbageObjectsBCK *bbolt.Bucket) uint8 {
-	if metaCursor != nil && containerMarkedGC(metaCursor) {
+// inGarbage checks for tombstone and garbage marks of the given ID using
+// the given meta bucket cursor.
+func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
+	if containerMarkedGC(metaCursor) {
 		return statusGCMarked
 	}
 
-	deleted, _ := associatedWithTypedObject(0, metaCursor, oid.ID(addrKey[cid.Size:]), object.TypeTombstone)
+	deleted, _ := associatedWithTypedObject(0, metaCursor, id, object.TypeTombstone)
 	if deleted {
 		return statusTombstoned
 	}
 
-	if garbageObjectsBCK == nil {
-		// incorrect metabase state, does not make
-		// sense to check garbage bucket
-		return statusAvailable
-	}
+	var garbageMark = mkGarbageKey(id)
+	k, _ := metaCursor.Seek(garbageMark)
 
-	var val = garbageObjectsBCK.Get(addrKey)
-	if val != nil {
+	if bytes.Equal(k, garbageMark) {
 		// object has been marked with GC
 		return statusGCMarked
 	}

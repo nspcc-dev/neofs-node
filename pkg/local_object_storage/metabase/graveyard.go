@@ -10,21 +10,8 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// GarbageObject represents descriptor of the
-// object that has been marked with GC.
-type GarbageObject struct {
-	addr oid.Address
-}
-
-// Address returns garbage object address.
-func (g GarbageObject) Address() oid.Address {
-	return g.addr
-}
-
-// GarbageHandler is a GarbageObject handling function.
-type GarbageHandler func(GarbageObject) error
-
-// IterateOverGarbage iterates over all objects marked with GC mark.
+// IterateOverGarbage iterates over all objects marked with GC mark in
+// the given container.
 //
 // The handler will be applied to the next after the
 // specified offset if any are left.
@@ -36,11 +23,11 @@ type GarbageHandler func(GarbageObject) error
 // iteration once again: iteration would start from the
 // next element.
 //
-// Nil offset means start an integration from the beginning.
+// Zero offset means start an iteration from the beginning.
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateOverGarbage(h GarbageHandler, offset *oid.Address) error {
+func (db *DB) IterateOverGarbage(h func(oid.ID) error, cnr cid.ID, offset oid.ID) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -49,48 +36,36 @@ func (db *DB) IterateOverGarbage(h GarbageHandler, offset *oid.Address) error {
 	}
 
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateDeletedObj(tx, gcHandler{h}, offset)
+		var metaBkt = tx.Bucket(metaBucketKey(cnr))
+		if metaBkt == nil {
+			return errors.New("no meta bucket found")
+		}
+		return db.iterateIDs(metaBkt.Cursor(), h, offset)
 	})
 }
 
-type gcHandler struct {
-	h GarbageHandler
-}
+func (db *DB) iterateIDs(c *bbolt.Cursor, h func(oid.ID) error, offset oid.ID) error {
+	var (
+		k    []byte
+		pref = []byte{metaPrefixGarbage}
+	)
 
-func (g gcHandler) handleKV(k, _ []byte) error {
-	o, err := garbageFromKV(k)
-	if err != nil {
-		return fmt.Errorf("could not parse garbage object: %w", err)
-	}
-
-	return g.h(o)
-}
-
-func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h gcHandler, offset *oid.Address) error {
-	var bkt = tx.Bucket(garbageObjectsBucketName)
-
-	if bkt == nil {
-		return nil
-	}
-
-	c := bkt.Cursor()
-	var k, v []byte
-
-	if offset == nil {
-		k, v = c.First()
+	if offset.IsZero() {
+		k, _ = c.Seek(pref)
 	} else {
-		rawAddr := addressKey(*offset, make([]byte, addressKeySize))
-
-		k, v = c.Seek(rawAddr)
-		if bytes.Equal(k, rawAddr) {
-			// offset was found, move
-			// cursor to the next element
-			k, v = c.Next()
+		pref = append(pref, offset[:]...)
+		k, _ = c.Seek(pref)
+		if bytes.Equal(k, pref) {
+			k, _ = c.Next()
 		}
 	}
 
-	for ; k != nil; k, v = c.Next() {
-		err := h.handleKV(k, v)
+	for ; len(k) > 0 && k[0] == metaPrefixGarbage; k, _ = c.Next() {
+		obj, err := oid.DecodeBytes(k[1:])
+		if err != nil {
+			return fmt.Errorf("garbage key of length %d: %w", len(k), err)
+		}
+		err = h(obj)
 		if err != nil {
 			if errors.Is(err, ErrInterruptIterator) {
 				return nil
@@ -99,17 +74,7 @@ func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h gcHandler, offset *oid.Address) 
 			return err
 		}
 	}
-
 	return nil
-}
-
-func garbageFromKV(k []byte) (res GarbageObject, err error) {
-	err = decodeAddressFromKey(&res.addr, k)
-	if err != nil {
-		err = fmt.Errorf("could not parse address: %w", err)
-	}
-
-	return
 }
 
 // GetGarbage returns garbage according to the metabase state. Garbage includes
@@ -134,75 +99,58 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 	const reasonableLimit = 1000
 	initCap := min(limit, reasonableLimit)
 
-	var addrBuff oid.Address
-	alreadyHandledContainers := make(map[cid.ID]struct{})
 	resObjects := make([]oid.Address, 0, initCap)
 	resContainers := make([]cid.ID, 0)
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
-		// start from the deleted containers since
-		// an object can be deleted manually but
-		// also be deleted as a part of non-existing
-		// container so no need to handle it twice
-
-		var inhumedCnrs []cid.ID
 		err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-			if name[0] == metadataPrefix && containerMarkedGC(b.Cursor()) {
-				var cnr cid.ID
-				cidRaw, prefix := parseContainerIDWithPrefix(&cnr, name)
-				if cidRaw == nil || prefix != metadataPrefix {
-					return nil
-				}
-				inhumedCnrs = append(inhumedCnrs, cnr)
+			cnr, prefix := parseContainerIDWithPrefix(name)
+			if cnr.IsZero() || prefix != metadataPrefix {
+				return nil // continue bucket iteration
 			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("scanning inhumed containers: %w", err)
-		}
+			var (
+				cur           = b.Cursor()
+				deadContainer bool
+				err           error
+				objPrefix     = metaPrefixGarbage
+			)
+			if containerMarkedGC(b.Cursor()) {
+				deadContainer = true
+				objPrefix = metaPrefixID
+			}
 
-		for _, cnr := range inhumedCnrs {
-			resObjects, err = listContainerObjects(tx, cnr, resObjects, limit)
+			resObjects, err = listGarbageObjects(cur, objPrefix, cnr, resObjects, limit)
 			if err != nil {
 				return fmt.Errorf("listing objects for %s container: %w", cnr, err)
 			}
-
-			alreadyHandledContainers[cnr] = struct{}{}
-
-			if len(resObjects) < limit {
+			if len(resObjects) >= limit {
+				return ErrInterruptIterator
+			} else if deadContainer {
 				// all the objects from the container were listed,
 				// container can be removed
 				resContainers = append(resContainers, cnr)
-			} else {
-				return nil
 			}
-		}
-
-		// deleted containers are not enough to reach the limit,
-		// check manually deleted objects then
-
-		bkt := tx.Bucket(garbageObjectsBucketName)
-		c := bkt.Cursor()
-
-		for k, _ := c.First(); k != nil; k, _ = c.Next() {
-			err := decodeAddressFromKey(&addrBuff, k)
-			if err != nil {
-				return fmt.Errorf("parsing deleted address: %w", err)
-			}
-
-			if _, handled := alreadyHandledContainers[addrBuff.Container()]; handled {
-				continue
-			}
-
-			resObjects = append(resObjects, addrBuff)
-
-			if len(resObjects) >= limit {
-				return nil
-			}
+			return nil
+		})
+		if err != nil && !errors.Is(err, ErrInterruptIterator) {
+			return fmt.Errorf("scanning containers: %w", err)
 		}
 
 		return nil
 	})
 
 	return resObjects, resContainers, err
+}
+
+func listGarbageObjects(cur *bbolt.Cursor, prefix byte, cnr cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {
+	k, _ := cur.Seek([]byte{prefix})
+	for ; len(k) > 0 && len(objs) < limit && k[0] == prefix; k, _ = cur.Next() {
+		obj, err := oid.DecodeBytes(k[1:])
+		if err != nil {
+			return objs, fmt.Errorf("bad key of length %d with prefix %d for container %s: %w", len(k), prefix, cnr, err)
+		}
+		objs = append(objs, oid.NewAddress(cnr, obj))
+	}
+
+	return objs, nil
 }

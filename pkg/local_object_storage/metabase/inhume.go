@@ -38,8 +38,6 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 		inhumed         uint64
 	)
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-
 		// collect children
 		// TODO: Do not extend addrs, do in the main loop. This likely would be more efficient regarding memory.
 		for i := range addrs {
@@ -69,21 +67,19 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 			}
 		}
 
-		buf := make([]byte, addressKeySize)
 		for _, addr := range addrs {
 			id := addr.Object()
 			cnr := addr.Container()
 
 			metaBucket := tx.Bucket(metaBucketKey(cnr))
-			var metaCursor *bbolt.Cursor
-			if metaBucket != nil {
-				metaCursor = metaBucket.Cursor()
+			if metaBucket == nil {
+				continue
 			}
+			var metaCursor = metaBucket.Cursor()
 
 			obj, err := get(tx, addr, false, true, currEpoch)
-			targetKey := addressKey(addr, buf)
 			if err == nil {
-				if inGarbageWithKey(metaCursor, targetKey, garbageObjectsBKT) == statusAvailable {
+				if inGarbage(metaCursor, id) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++
@@ -99,7 +95,7 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 				}
 			}
 
-			err = garbageObjectsBKT.Put(targetKey, zeroValue)
+			err = metaBucket.Put(mkGarbageKey(id), nil)
 			if err != nil {
 				return err
 			}

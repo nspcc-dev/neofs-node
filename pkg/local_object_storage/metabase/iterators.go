@@ -111,14 +111,8 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 	fillIDTypePrefix(typPrefix)
 
 	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		if len(name) != bucketKeySize || name[0] != metadataPrefix {
-			return nil
-		}
-
-		var cnrID cid.ID
-		err := cnrID.Decode(name[1:])
-		if err != nil {
-			db.log.Error("could not parse container ID of metadata bucket", zap.Error(err))
+		cnrID, prefix := parseContainerIDWithPrefix(name)
+		if cnrID.IsZero() || prefix != metadataPrefix {
 			return nil
 		}
 
@@ -133,7 +127,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 			//
 			// To slightly optimize performance we can check only REGULAR objects
 			// (only they can be locked), but it's more reliable.
-			if objectLocked(tx, curEpoch, curForLocked, cnrID, id) {
+			if objectLocked(curEpoch, curForLocked, cnrID, id) {
 				expKey, _ = cur.Next()
 				continue
 			}
@@ -176,12 +170,11 @@ func mkFilterPhysicalPrefix() []byte {
 }
 
 func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
-	var cID cid.ID
 	var oID oid.ID
 
 	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		rawCID, tablePrefix := parseContainerIDWithPrefix(&cID, name)
-		if len(rawCID) == 0 || tablePrefix != metadataPrefix {
+		cID, tablePrefix := parseContainerIDWithPrefix(name)
+		if cID.IsZero() || tablePrefix != metadataPrefix {
 			return nil
 		}
 

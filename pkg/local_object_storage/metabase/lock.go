@@ -68,12 +68,12 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 }
 
 // checks if specified object is locked in the specified container.
-func objectLocked(tx *bbolt.Tx, currEpoch uint64, metaCursor *bbolt.Cursor, idCnr cid.ID, idObj oid.ID) bool {
+func objectLocked(currEpoch uint64, metaCursor *bbolt.Cursor, idCnr cid.ID, idObj oid.ID) bool {
 	locked, lockID := associatedWithTypedObject(currEpoch, metaCursor, idObj, object.TypeLock)
 	if !locked {
 		return false
 	}
-	return inGarbage(tx, metaCursor, oid.NewAddress(idCnr, lockID)) == statusAvailable
+	return inGarbage(metaCursor, lockID) == statusAvailable
 }
 
 // IsLocked checks is the provided object is locked by any `LOCK`. Not found
@@ -96,12 +96,11 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 	return locked, db.boltDB.View(func(tx *bbolt.Tx) error {
 		cID := addr.Container()
 		mBucket := tx.Bucket(metaBucketKey(cID))
-		var mCursor *bbolt.Cursor
-		if mBucket != nil {
-			mCursor = mBucket.Cursor()
+		if mBucket == nil {
+			return nil
 		}
 
-		locked = objectLocked(tx, currEpoch, mCursor, cID, addr.Object())
+		locked = objectLocked(currEpoch, mBucket.Cursor(), cID, addr.Object())
 		return nil
 	})
 }

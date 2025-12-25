@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -67,15 +66,16 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
-		metaCursor *bbolt.Cursor
 	)
 
-	if metaBucket != nil {
-		metaCursor = metaBucket.Cursor()
+	if metaBucket == nil {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
+	var metaCursor = metaBucket.Cursor()
+
 	if checkStatus {
-		switch objectStatus(tx, metaCursor, addr, currEpoch) {
+		switch objectStatus(metaCursor, addr, currEpoch) {
 		case statusGCMarked:
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		case statusTombstoned:
@@ -83,10 +83,6 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 		case statusExpired:
 			return nil, ErrObjectIsExpired
 		}
-	}
-
-	if metaBucket == nil {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	var objID = addr.Object()
@@ -202,23 +198,4 @@ func getParentMetaOwnersPrefix(parentID oid.ID) []byte {
 	copy(parentPrefix[off:], parentID[:])
 
 	return parentPrefix
-}
-
-func listContainerObjects(tx *bbolt.Tx, cID cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {
-	var metaBkt = tx.Bucket(metaBucketKey(cID))
-	if metaBkt == nil {
-		return objs, nil
-	}
-
-	var cur = metaBkt.Cursor()
-	k, _ := cur.Seek([]byte{metaPrefixID})
-	for ; len(k) > 0 && len(objs) < limit && k[0] == metaPrefixID; k, _ = cur.Next() {
-		obj, err := oid.DecodeBytes(k[1:])
-		if err != nil {
-			return objs, fmt.Errorf("garbage prefixID key of length %d for container %s: %w", len(k), cID, err)
-		}
-		objs = append(objs, oid.NewAddress(cID, obj))
-	}
-
-	return objs, nil
 }

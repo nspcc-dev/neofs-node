@@ -1,7 +1,7 @@
 package meta
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
@@ -84,59 +84,42 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 	cnr := addr.Container()
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
-
-		buf := make([]byte, addressKeySize)
-
-		targetKey := addressKey(addr, buf)
-
-		if garbageObjectsBKT == nil {
-			// incorrect metabase state, does not make
-			// sense to check garbage bucket
+		metaBucket := tx.Bucket(metaBucketKey(cnr))
+		if metaBucket == nil {
+			// wrong container or incorrect metabase state
 			return ErrObjectWasNotRemoved
 		}
 
-		metaBucket := tx.Bucket(metaBucketKey(cnr))
-		var metaCursor *bbolt.Cursor
-		if metaBucket != nil {
-			metaCursor = metaBucket.Cursor()
-			if containerMarkedGC(metaCursor) {
-				return ErrReviveFromContainerGarbage
-			}
-
-			deleted, tombOID := associatedWithTypedObject(0, metaCursor, addr.Object(), object.TypeTombstone)
-			if deleted {
-				var tombAddress = oid.NewAddress(cnr, tombOID)
-				_, _, _, err := db.delete(tx, tombAddress)
-				if err != nil {
-					return err
-				}
-
-				res.setStatusGraveyard(tombAddress.EncodeToString())
-				res.tombstoneAddr = tombAddress
-			}
+		var metaCursor = metaBucket.Cursor()
+		if containerMarkedGC(metaCursor) {
+			return ErrReviveFromContainerGarbage
 		}
-		if res.tombstoneAddr.Object().IsZero() {
-			val := garbageObjectsBKT.Get(targetKey)
-			if val != nil {
-				// object marked with GC mark
-				res.setStatusGarbage()
-			} else {
-				// neither has tombstone
-				// nor was marked with GC mark
-				return ErrObjectWasNotRemoved
-			}
 
-			tombID, err := getTombstoneByAssociatedObject(metaCursor, addr.Object())
+		var status = inGarbage(metaCursor, addr.Object())
+		switch status {
+		case statusAvailable:
+			// neither has tombstone
+			// nor was marked with GC mark
+			return ErrObjectWasNotRemoved
+		case statusGCMarked:
+			// object marked with GC mark
+			res.setStatusGarbage()
+		case statusTombstoned:
+			_, tombOID := associatedWithTypedObject(0, metaCursor, addr.Object(), object.TypeTombstone)
+			if tombOID.IsZero() {
+				return errors.New("reported as deleted, but no tombstone found")
+			}
+			var tombAddress = oid.NewAddress(cnr, tombOID)
+			_, _, _, err := db.delete(tx, tombAddress)
 			if err != nil {
-				return fmt.Errorf("iterate covered by tombstones: %w", err)
+				return err
 			}
-			if !tombID.IsZero() {
-				res.tombstoneAddr = oid.NewAddress(cnr, tombID)
-			}
+			res.setStatusGraveyard(tombAddress.EncodeToString())
+			res.tombstoneAddr = tombAddress
 		}
 
-		if err := garbageObjectsBKT.Delete(targetKey); err != nil {
+		// Deleted objects are marked as garbage as well, so this mark is _always_ deleted.
+		if err := metaBucket.Delete(mkGarbageKey(addr.Object())); err != nil {
 			return err
 		}
 
@@ -162,39 +145,4 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 	}
 
 	return
-}
-
-// getTombstoneByAssociatedObject iterates meta index to find tombstone object
-// associated with the provided object ID. If found, returns its ID, otherwise
-// returns zero ID and nil error.
-func getTombstoneByAssociatedObject(metaCursor *bbolt.Cursor, idObj oid.ID) (oid.ID, error) {
-	var id oid.ID
-	if metaCursor == nil {
-		return id, fmt.Errorf("nil meta cursor")
-	}
-
-	var (
-		typString = object.TypeTombstone.String()
-		idStr     = idObj.EncodeToString()
-		accPrefix = make([]byte, 1+len(object.AttributeAssociatedObject)+1+len(idStr)+1)
-		typeKey   = make([]byte, metaIDTypePrefixSize+len(typString))
-	)
-
-	accPrefix[0] = metaPrefixAttrIDPlain
-	copy(accPrefix[1:], object.AttributeAssociatedObject)
-	copy(accPrefix[1+len(object.AttributeAssociatedObject)+1:], idStr)
-
-	fillIDTypePrefix(typeKey)
-	copy(typeKey[metaIDTypePrefixSize:], typString)
-
-	for k, _ := metaCursor.Seek(accPrefix); bytes.HasPrefix(k, accPrefix); k, _ = metaCursor.Next() {
-		mainObj := k[len(accPrefix):]
-		copy(typeKey[1:], mainObj)
-
-		if metaCursor.Bucket().Get(typeKey) != nil {
-			return id, id.Decode(mainObj)
-		}
-	}
-
-	return id, nil
 }

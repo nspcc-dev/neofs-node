@@ -95,7 +95,8 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 	var obj object.Object
 	ver := version.Current()
 	obj.SetVersion(&ver)
-	obj.SetContainerID(cidtest.ID())
+	var cnr = cidtest.ID()
+	obj.SetContainerID(cnr)
 	obj.SetID(oidtest.ID())
 	obj.SetOwner(usertest.ID())
 	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
@@ -129,7 +130,6 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, st.Error)
 			require.ElementsMatch(t, st.State, []string{"AVAILABLE", "IN GRAVEYARD"})
-			require.True(t, slices.ContainsFunc(st.Buckets, func(bv meta.BucketValue) bool { return bv.BucketIndex == 1 }))
 		})
 		t.Run("list with cursor", func(t *testing.T) {
 			res, c, err := db.ListWithCursor(2, nil)
@@ -148,10 +148,10 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 		})
 		t.Run("iterate garbage", func(t *testing.T) {
 			var collected []oid.Address
-			err := db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
-				collected = append(collected, gObj.Address())
+			err := db.IterateOverGarbage(func(id oid.ID) error {
+				collected = append(collected, oid.NewAddress(cnr, id))
 				return nil
-			}, nil)
+			}, cnr, oid.ID{})
 			require.NoError(t, err)
 			require.Equal(t, []oid.Address{addr}, collected)
 		})
@@ -179,14 +179,13 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 		})
 		t.Run("iterate garbage", func(t *testing.T) {
 			var collected []oid.Address
-			err := db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
-				collected = append(collected, gObj.Address())
+			err := db.IterateOverGarbage(func(id oid.ID) error {
+				collected = append(collected, oid.NewAddress(cnr, id))
 				return nil
-			}, nil)
+			}, cnr, oid.ID{})
 			require.NoError(t, err)
 			require.NotContains(t, collected, addr)
 		})
-
 		_, err = db.Delete([]oid.Address{tsAddr})
 		require.NoError(t, err)
 
@@ -230,10 +229,10 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 	})
 	t.Run("iterate garbage", func(t *testing.T) {
 		var collected []oid.Address
-		err := db.IterateOverGarbage(func(gObj meta.GarbageObject) error {
-			collected = append(collected, gObj.Address())
+		err := db.IterateOverGarbage(func(id oid.ID) error {
+			collected = append(collected, oid.NewAddress(obj.GetContainerID(), id))
 			return nil
-		}, nil)
+		}, obj.GetContainerID(), oid.ID{})
 		require.NoError(t, err)
 		require.NotContains(t, collected, addr)
 	})

@@ -596,10 +596,10 @@ func testInhumeEC(t *testing.T) {
 	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
 
 	g = g[:0]
-	err = db.IterateOverGarbage(func(item meta.GarbageObject) error {
-		g = append(g, item.Address())
+	err = db.IterateOverGarbage(func(id oid.ID) error {
+		g = append(g, oid.NewAddress(cnr, id))
 		return nil
-	}, nil)
+	}, cnr, oid.ID{})
 	require.NoError(t, err)
 	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
 }
@@ -650,10 +650,10 @@ func testMarkGarbageEC(t *testing.T) {
 	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
 
 	g = g[:0]
-	err = db.IterateOverGarbage(func(item meta.GarbageObject) error {
-		g = append(g, item.Address())
+	err = db.IterateOverGarbage(func(id oid.ID) error {
+		g = append(g, oid.NewAddress(cnr, id))
 		return nil
-	}, nil)
+	}, cnr, oid.ID{})
 	require.NoError(t, err)
 	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
 
