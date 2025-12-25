@@ -59,6 +59,8 @@ func initObjectPutCmd() {
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
+	flags.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
+	flags.StringSlice(commonflags.SessionSubjectNNSFlag, nil, commonflags.SessionSubjectNNSFlagUsage)
 	objectPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
@@ -129,7 +131,11 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	}
 	defer func() { _ = cli.Close() }()
 
-	err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr)
+	subjects, err := parseSessionSubjects(cmd, ctx, cli)
+	if err != nil {
+		return err
+	}
+	err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, subjects, cnr)
 	if err != nil {
 		return err
 	}

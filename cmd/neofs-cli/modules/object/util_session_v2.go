@@ -2,13 +2,15 @@ package object
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -43,7 +45,7 @@ func getVerifiedSessionV2(cmd *cobra.Command, cmdVerb session.Verb, key *ecdsa.P
 
 	common.PrintVerbose(cmd, "Validating V2 session token...")
 
-	if err := tok.Validate(); err != nil {
+	if err := tok.Validate(noopNNSResolver{}); err != nil {
 		return nil, fmt.Errorf("invalid V2 session token: %w", err)
 	}
 
@@ -56,11 +58,19 @@ func getVerifiedSessionV2(cmd *cobra.Command, cmdVerb session.Verb, key *ecdsa.P
 		return nil, fmt.Errorf("v2 session token issuer %v does not match provided key/wallet %s", tok.Issuer(), signer.UserID())
 	}
 
+	if err := icrypto.AuthenticateTokenV2(tok, nil); err != nil {
+		// CLI has no tool to verify N3 signature, so check is delegated to the server
+		var errScheme icrypto.ErrUnsupportedScheme
+		if !errors.As(err, &errScheme) || neofscrypto.Scheme(errScheme) != neofscrypto.N3 {
+			return nil, fmt.Errorf("verify session token signature: %w", err)
+		}
+	}
+
 	common.PrintVerbose(cmd, "V2 session token validated successfully")
 	return tok, nil
 }
 
-func _readVerifiedSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) error {
+func _readVerifiedSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) error {
 	var cmdVerb session.Verb
 
 	switch dst.(type) {
@@ -89,7 +99,7 @@ func _readVerifiedSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Priva
 	return nil
 }
 
-func tryReadSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) (bool, error) {
+func tryReadSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) (bool, error) {
 	path, _ := cmd.Flags().GetString(commonflags.SessionToken)
 	if path == "" {
 		return false, nil
@@ -103,7 +113,7 @@ func tryReadSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey,
 		return false, nil
 	}
 
-	err = _readVerifiedSessionV2(cmd, dst, key, cnr, obj)
+	err = _readVerifiedSessionV2(cmd, dst, key, cnr)
 	if err != nil {
 		return true, err
 	}

@@ -34,6 +34,8 @@ func initObjectDeleteCmd() {
 	flags.StringSlice(commonflags.OIDFlag, nil, commonflags.OIDFlagUsage)
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 	flags.String(fileFlag, "", "File with object payload")
+	flags.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
+	flags.StringSlice(commonflags.SessionSubjectNNSFlag, nil, commonflags.SessionSubjectNNSFlagUsage)
 
 	_ = objectDelCmd.MarkFlagRequired(commonflags.CIDFlag)
 	_ = objectDelCmd.MarkFlagRequired(commonflags.OIDFlag)
@@ -104,7 +106,12 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	var statusErr error
 	for _, addr := range objAddrs {
 		id := addr.Object()
-		err := ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr, id)
+		subjects, err := parseSessionSubjects(cmd, ctx, cli)
+		if err != nil {
+			return err
+		}
+
+		err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, subjects, cnr, id)
 		if err != nil {
 			return err
 		}
