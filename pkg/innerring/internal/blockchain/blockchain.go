@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/consensus"
 	"github.com/nspcc-dev/neo-go/pkg/core"
+	"github.com/nspcc-dev/neo-go/pkg/core/interop"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
@@ -48,7 +49,7 @@ type Blockchain struct {
 // New returns new Blockchain configured by the specified Config. New panics if
 // any required Config field is zero or unset. Resulting Blockchain is ready to
 // run. Launched Blockchain should be finally stopped.
-func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log *zap.Logger) (res *Blockchain, err error) {
+func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log *zap.Logger, customNatives ...func(cfg neogoconfig.ProtocolConfiguration) []interop.Contract) (res *Blockchain, err error) {
 	switch {
 	case cfg.Storage.Type == "":
 		panic("uninitialized storage config")
@@ -259,7 +260,7 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 		}
 	}()
 
-	bc, err := core.NewBlockchain(bcStorage, cfgBase.Blockchain(), log)
+	bc, err := core.NewBlockchain(bcStorage, cfgBase.Blockchain(), log, customNatives...)
 	if err != nil {
 		return nil, fmt.Errorf("init core blockchain component: %w", err)
 	}
