@@ -14,6 +14,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -342,7 +343,13 @@ func TestDB_ResolveECPart(t *testing.T) {
 
 		require.NoError(t, db.Put(&linker))
 
-		checkOKWithLenAndParent(t, db, pi, parentID, linkerID, linkerPayloadLen)
+		res, err := db.ResolveECPart(cnr, parentID, pi)
+		require.NoError(t, err)
+		require.Equal(t, linkerID, res)
+
+		_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
 		checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
 	})
 

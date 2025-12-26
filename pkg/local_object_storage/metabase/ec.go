@@ -116,7 +116,7 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi, true)
 }
 
-func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo, checkSplitPart bool) (oid.ID, error) {
+func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo, checkSplit bool) (oid.ID, error) {
 	metaBkt := crs.Bucket()
 
 	switch objectStatus(crs, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
@@ -149,7 +149,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 				}
 			}
 
-			if checkSplitPart && sizeSplitLastID != nil {
+			if checkSplit && sizeSplitLastID != nil {
 				var s object.SplitInfo
 				s.SetLastPart(oid.ID(sizeSplitLastID))
 
@@ -178,6 +178,10 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 			copy(rulePref[1:], partID)
 		}
 		if k, _ = partCrs.Seek(rulePref); !bytes.Equal(k, rulePref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
+			if !checkSplit {
+				continue
+			}
+
 			if typePref == nil {
 				typePref = make([]byte, metaIDTypePrefixSize)
 				fillIDTypePrefix(typePref)
@@ -186,7 +190,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 				return oid.ID(partID), nil
 			}
 
-			if checkSplitPart && sizeSplitLastID == nil && getObjAttribute(partCrs, oid.ID(partID), object.FilterFirstSplitObject) != nil {
+			if sizeSplitLastID == nil && getObjAttribute(partCrs, oid.ID(partID), object.FilterFirstSplitObject) != nil {
 				sizeSplitLastID = partID
 				// continue because next item may be a linker. If so, it's the most informative
 			}
