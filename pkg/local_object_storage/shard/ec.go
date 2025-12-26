@@ -41,7 +41,12 @@ import (
 func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
-		return object.Object{}, nil, fmt.Errorf("resolve part ID in metabase: %w", err)
+		var se *object.SplitInfoError
+		if !errors.As(err, &se) || se.SplitInfo().GetLink().IsZero() {
+			return object.Object{}, nil, fmt.Errorf("resolve part ID in metabase: %w", err)
+		}
+
+		partID = se.SplitInfo().GetLink()
 	}
 
 	partAddr := oid.NewAddress(cnr, partID)
@@ -123,7 +128,12 @@ func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, 
 func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
-		return object.Object{}, fmt.Errorf("resolve part ID in metabase: %w", err)
+		var se *object.SplitInfoError
+		if !errors.As(err, &se) || se.SplitInfo().GetLink().IsZero() {
+			return object.Object{}, fmt.Errorf("resolve part ID in metabase: %w", err)
+		}
+
+		partID = se.SplitInfo().GetLink()
 	}
 
 	partAddr := oid.NewAddress(cnr, partID)
