@@ -14,7 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 func allocNodes(n []uint) [][]netmap.NodeInfo {
@@ -70,7 +70,7 @@ func TestIterateNodesForObject(t *testing.T) {
 	cnrNodes[1][1].SetPublicKey(cnrNodes[0][2].PublicKey())
 	var rwp testWorkerPool
 	iter := placementIterator{
-		log: zap.NewNop(),
+		log: zaptest.NewLogger(t),
 		neoFSNet: testNetwork{
 			localPubKey: cnrNodes[0][2].PublicKey(),
 		},
@@ -158,7 +158,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{3, 3, 2})
 		cnrNodes[1][1].SetPublicKey(cnrNodes[0][1].PublicKey())
 		iter := placementIterator{
-			log:           zap.NewNop(),
+			log:           zaptest.NewLogger(t),
 			neoFSNet:      new(testNetwork),
 			remotePool:    new(testWorkerPool),
 			linearReplNum: 4,
@@ -194,7 +194,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{2, 3, 2})
 		cnrNodes[1][2].SetPublicKey(cnrNodes[0][1].PublicKey())
 		iter := placementIterator{
-			log:        zap.NewNop(),
+			log:        zaptest.NewLogger(t),
 			neoFSNet:   new(testNetwork),
 			remotePool: new(testWorkerPool),
 		}
@@ -236,7 +236,7 @@ func TestIterateNodesForObject(t *testing.T) {
 			err:   errors.New("any worker pool error"),
 		}
 		iter := placementIterator{
-			log:        zap.NewNop(),
+			log:        zaptest.NewLogger(t),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
 		}
@@ -276,7 +276,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{2, 3, 1})
 		var wp testWorkerPool
 		iter := placementIterator{
-			log:        zap.NewNop(),
+			log:        zaptest.NewLogger(t),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
 		}
@@ -309,7 +309,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes[1][2].SetNetworkEndpoints("definitely invalid network address")
 		var wp testWorkerPool
 		iter := placementIterator{
-			log:        zap.NewNop(),
+			log:        zaptest.NewLogger(t),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
 		}
@@ -345,7 +345,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{2, 3, 1})
 		var wp testWorkerPool
 		iter := placementIterator{
-			log:        zap.NewNop(),
+			log:        zaptest.NewLogger(t),
 			neoFSNet:   new(testNetwork),
 			remotePool: &wp,
 		}
@@ -376,7 +376,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		objID := oidtest.ID()
 		cnrNodes := allocNodes([]uint{2, 3, 1})
 		iter := placementIterator{
-			log:      zap.NewNop(),
+			log:      zaptest.NewLogger(t),
 			neoFSNet: new(testNetwork),
 			remotePool: &testWorkerPool{
 				err:   errors.New("pool err"),

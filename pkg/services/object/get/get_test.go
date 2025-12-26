@@ -16,7 +16,6 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -27,6 +26,7 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 type testStorage struct {
@@ -222,7 +222,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 	newSvc := func(storage *testStorage) *Service {
 		svc := &Service{cfg: new(cfg)}
-		svc.log = test.NewLogger(false)
+		svc.log = zaptest.NewLogger(t)
 		svc.localObjects = storage
 		svc.localStorage = storage
 		svc.neoFSNet = &testNeoFS{
@@ -497,7 +497,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	newSvc := func(vectors map[oid.Address][][]netmap.NodeInfo, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
-		svc.log = test.NewLogger(false)
+		svc.log = zaptest.NewLogger(t)
 		svc.localStorage = newTestStorage()
 
 		svc.neoFSNet = &testNeoFS{

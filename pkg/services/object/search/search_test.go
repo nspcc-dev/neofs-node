@@ -13,7 +13,6 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -21,6 +20,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 type idsErr struct {
@@ -109,7 +109,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 	newSvc := func(storage *testStorage) *Service {
 		svc := &Service{cfg: new(cfg)}
-		svc.log = test.NewLogger(false)
+		svc.log = zaptest.NewLogger(t)
 		svc.localStorage = storage
 
 		return svc
@@ -203,7 +203,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	newSvc := func(vectors map[cid.ID][][]netmap.NodeInfo, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
-		svc.log = test.NewLogger(false)
+		svc.log = zaptest.NewLogger(t)
 		svc.localStorage = newTestStorage()
 
 		svc.containers = &testContainers{
