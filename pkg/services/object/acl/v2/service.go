@@ -1,15 +1,20 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -22,6 +27,7 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionSDKv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -31,9 +37,57 @@ type sessionTokenCommonCheckResult struct {
 	err   error
 }
 
+type sessionTokenV2CommonCheckResult struct {
+	token sessionSDKv2.Token
+	err   error
+}
+
 type bearerTokenCommonCheckResult struct {
 	token bearer.Token
 	err   error
+}
+
+type verifiedSession interface {
+	AuthorID() user.ID
+	AuthorKey() []byte
+}
+
+type verifiedObjectSessionV1 struct {
+	author user.ID
+	key    []byte
+}
+
+func (s verifiedObjectSessionV1) AuthorID() user.ID { return s.author }
+
+func (s verifiedObjectSessionV1) AuthorKey() []byte { return s.key }
+
+type verifiedObjectSessionV2 struct {
+	author user.ID
+	key    []byte
+}
+
+func (s verifiedObjectSessionV2) AuthorID() user.ID { return s.author }
+
+func (s verifiedObjectSessionV2) AuthorKey() []byte { return s.key }
+
+type nnsResolver struct {
+	fsChain FSChain
+
+	nnsCache *lru.Cache[string, bool]
+}
+
+func (r nnsResolver) HasUser(name string, userID user.ID) (bool, error) {
+	cacheKey := fmt.Sprintf("%s|%s", name, userID.EncodeToString())
+	hasUser, ok := r.nnsCache.Get(cacheKey)
+	if ok {
+		return hasUser, nil
+	}
+	hasUser, err := r.fsChain.HasUserInNNS(name, userID.ScriptHash())
+	if err != nil {
+		return false, err
+	}
+	r.nnsCache.Add(cacheKey, hasUser)
+	return hasUser, nil
 }
 
 // Service checks basic ACL rules.
@@ -41,9 +95,11 @@ type Service struct {
 	*cfg
 
 	c senderClassifier
+	r nnsResolver
 
-	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
-	bearerTokenCommonCheckCache  *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
+	sessionTokenCommonCheckCache   *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	sessionTokenV2CommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenV2CommonCheckResult]
+	bearerTokenCommonCheckCache    *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
 }
 
 // Option represents Service constructor option.
@@ -58,6 +114,9 @@ type FSChain interface {
 	// from the referenced container either in the current or the previous NeoFS
 	// epoch.
 	InContainerInLastTwoEpochs(_ cid.ID, pub []byte) (bool, error)
+
+	// HasUserInNNS checks whether given user is listed in the NNS domain.
+	HasUserInNNS(name string, addr util.Uint160) (bool, error)
 }
 
 // Netmapper must provide network map information.
@@ -79,6 +138,8 @@ type cfg struct {
 	irFetcher InnerRingFetcher
 
 	nm Netmapper
+
+	nodeKey *ecdsa.PublicKey
 }
 
 func defaultCfg() *cfg {
@@ -114,6 +175,15 @@ func New(fsChain FSChain, opts ...Option) Service {
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
 	}
+	sessionTokenV2CheckCache, err := lru.New[[sha256.Size]byte, sessionTokenV2CommonCheckResult](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
+
+	nnsCache, err := lru.New[string, bool](100)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
 
 	return Service{
 		cfg: cfg,
@@ -122,8 +192,13 @@ func New(fsChain FSChain, opts ...Option) Service {
 			innerRing: cfg.irFetcher,
 			fsChain:   fsChain,
 		},
-		sessionTokenCommonCheckCache: sessionTokenCheckCache,
-		bearerTokenCommonCheckCache:  bearerTokenCheckCache,
+		r: nnsResolver{
+			fsChain:  fsChain,
+			nnsCache: nnsCache,
+		},
+		sessionTokenCommonCheckCache:   sessionTokenCheckCache,
+		bearerTokenCommonCheckCache:    bearerTokenCheckCache,
+		sessionTokenV2CommonCheckCache: sessionTokenV2CheckCache,
 	}
 }
 
@@ -131,12 +206,21 @@ func New(fsChain FSChain, opts ...Option) Service {
 func (b Service) ResetTokenCheckCache() {
 	b.sessionTokenCommonCheckCache.Purge()
 	b.bearerTokenCommonCheckCache.Purge()
+	b.sessionTokenV2CommonCheckCache.Purge()
 }
 
-func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
+func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb,
+	reqVerbV2 sessionSDKv2.Verb, reqCnr cid.ID, reqObj oid.ID) (verifiedSession, error) {
 	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
 		mh = omh
 	}
+
+	mV2 := mh.GetSessionTokenV2()
+	if mV2 != nil {
+		return b.getVerifiedSessionTokenV2(mV2, reqVerbV2, reqCnr, reqObj)
+	}
+
+	// Fall back to V1 token
 	m := mh.GetSessionToken()
 	if m == nil {
 		return nil, nil
@@ -160,7 +244,15 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		return nil, err
 	}
 
-	return &res.token, nil
+	sig, ok := res.token.Signature()
+	if !ok {
+		return nil, errors.New("missing signature in session token")
+	}
+
+	return verifiedObjectSessionV1{
+		author: res.token.Issuer(),
+		key:    sig.PublicKeyBytes(),
+	}, nil
 }
 
 func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (sessionSDK.Object, error) {
@@ -197,6 +289,95 @@ func (b Service) verifySessionTokenAgainstRequest(token sessionSDK.Object, reqVe
 
 	if !assertVerb(token, reqVerb) {
 		return errInvalidVerb
+	}
+
+	return nil
+}
+
+// getVerifiedSessionTokenV2 validates and returns V2 session token info.
+func (b Service) getVerifiedSessionTokenV2(mV2 *protosession.SessionTokenV2, reqVerb sessionSDKv2.Verb, reqCnr cid.ID, reqObj oid.ID) (verifiedSession, error) {
+	mb := make([]byte, mV2.MarshaledSize())
+	mV2.MarshalStable(mb)
+
+	cacheKey := sha256.Sum256(mb)
+	res, ok := b.sessionTokenV2CommonCheckCache.Get(cacheKey)
+	if !ok {
+		res.token, res.err = b.decodeAndVerifySessionTokenV2Common(mV2)
+		b.sessionTokenV2CommonCheckCache.Add(cacheKey, res)
+	}
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	if err := b.verifySessionTokenV2AgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
+		return nil, err
+	}
+
+	var key []byte
+	origin := &res.token
+	for origin != nil {
+		sig, ok := origin.Signature()
+		if !ok {
+			return nil, errors.New("missing signature in V2 session token")
+		}
+		key = sig.PublicKeyBytes()
+		origin = origin.Origin()
+	}
+
+	neoPub, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %w", err)
+	}
+
+	if res.token.OriginalIssuer() != user.NewFromECDSAPublicKey(ecdsa.PublicKey(*neoPub)) {
+		return nil, errors.New("invalid session token origin")
+	}
+
+	return verifiedObjectSessionV2{
+		author: res.token.OriginalIssuer(),
+		key:    key,
+	}, nil
+}
+
+func (b Service) decodeAndVerifySessionTokenV2Common(m *protosession.SessionTokenV2) (sessionSDKv2.Token, error) {
+	var token sessionSDKv2.Token
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if err := token.ValidateWithNNS(b.r); err != nil {
+		return token, fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if b.nodeKey != nil {
+		ok, err := token.AssertAuthority(user.NewFromECDSAPublicKey(*b.nodeKey), b.r)
+		if err != nil {
+			return token, fmt.Errorf("v2 token authority check failed: %w", err)
+		}
+		if !ok {
+			return token, errors.New("v2 token doesn't authorize this node")
+		}
+	}
+
+	currentTime := time.Now()
+	if !token.ValidAt(currentTime) {
+		return token, fmt.Errorf("%s: V2 token is invalid at %s Unix time", invalidRequestMessage, currentTime)
+	}
+
+	return token, nil
+}
+
+func (b Service) verifySessionTokenV2AgainstRequest(token sessionSDKv2.Token, reqVerb sessionSDKv2.Verb, reqCnr cid.ID, reqObj oid.ID) error {
+	// When we PUT a tombstone, the requested object is not zero,
+	// but the session is not bound to it because the user cannot predict its ID.
+	if !reqObj.IsZero() && reqVerb != sessionSDKv2.VerbObjectPut {
+		if !token.AssertObject(reqVerb, reqCnr, reqObj) {
+			return errors.New("v2 session token does not authorize access to the object")
+		}
+	} else {
+		if !token.AssertVerb(reqVerb, reqCnr) {
+			return errInvalidVerb
+		}
 	}
 
 	return nil
@@ -294,7 +475,7 @@ func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo,
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionSDKv2.VerbObjectGet, *obj)
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
@@ -310,7 +491,7 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionSDKv2.VerbObjectHead, *obj)
 }
 
 // SearchRequestToInfo resolves RequestInfo from the request to check it using
@@ -335,7 +516,7 @@ func (b Service) searchRequestToInfo(request interface {
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, oid.ID{})
+	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionSDKv2.VerbObjectSearch, oid.ID{})
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
@@ -351,7 +532,7 @@ func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (Reques
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionSDKv2.VerbObjectDelete, *obj)
 }
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
@@ -367,7 +548,7 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionSDKv2.VerbObjectRange, *obj)
 }
 
 // HashRequestToInfo resolves RequestInfo from the request to check it using
@@ -383,7 +564,7 @@ func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (Re
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectHash, sessionSDK.VerbObjectRangeHash, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectHash, sessionSDK.VerbObjectRangeHash, sessionSDKv2.VerbObjectRangeHash, *obj)
 }
 
 var ErrSkipRequest = errors.New("skip request")
@@ -450,7 +631,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		}
 	}
 
-	op, verb := acl.OpObjectPut, sessionSDK.VerbObjectPut
+	op, verb, verbv2 := acl.OpObjectPut, sessionSDK.VerbObjectPut, sessionSDKv2.VerbObjectPut
 	tombstone := header.GetObjectType() == protoobject.ObjectType_TOMBSTONE
 	if tombstone {
 		// such objects are specific - saving them is essentially the removal of other
@@ -458,7 +639,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		op, verb = acl.OpObjectDelete, sessionSDK.VerbObjectDelete
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cnr, op, verb, obj)
+	reqInfo, err := b.findRequestInfo(request, cnr, op, verb, verbv2, obj)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, err
 	}
@@ -479,12 +660,13 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 func (b Service) findRequestInfo(req interface {
 	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
-}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, obj oid.ID) (RequestInfo, error) {
+}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, verb2 sessionSDKv2.Verb, obj oid.ID) (RequestInfo, error) {
 	var (
-		info    RequestInfo
-		metaHdr = req.GetMetaHeader()
+		info      RequestInfo
+		metaHdr   = req.GetMetaHeader()
+		verifyHdr = req.GetVerifyHeader()
 	)
-	sTok, err := b.getVerifiedSessionToken(metaHdr, verb, idCnr, obj)
+	sTok, err := b.getVerifiedSessionToken(metaHdr, verb, verb2, idCnr, obj)
 	if err != nil {
 		return info, err
 	}
@@ -492,14 +674,10 @@ func (b Service) findRequestInfo(req interface {
 	var reqAuthor user.ID
 	var reqAuthorPub []byte
 	if sTok != nil {
-		reqAuthor = sTok.Issuer()
-		sig, ok := sTok.Signature()
-		if !ok {
-			return info, errors.New("missing signature in session token")
-		}
-		reqAuthorPub = sig.PublicKeyBytes()
+		reqAuthor = sTok.AuthorID()
+		reqAuthorPub = sTok.AuthorKey()
 	} else {
-		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
+		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(verifyHdr); err != nil {
 			return info, fmt.Errorf("get request author: %w", err)
 		}
 	}

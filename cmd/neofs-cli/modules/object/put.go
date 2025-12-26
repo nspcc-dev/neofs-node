@@ -59,6 +59,8 @@ func initObjectPutCmd() {
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
+	flags.StringSlice("session-subjects", nil, "Session subject user IDs (optional, defaults to all network nodes)")
+	flags.StringSlice("session-subjects-nns", nil, "Session subject NNS names (optional, defaults to all network nodes)")
 	objectPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
@@ -129,7 +131,11 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	}
 	defer func() { _ = cli.Close() }()
 
-	err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr)
+	subjects, err := parseSessionSubjects(cmd, ctx, cli)
+	if err != nil {
+		return err
+	}
+	err = ReadOrOpenSessionViaClient(cmd, &prm, pk, subjects, cnr)
 	if err != nil {
 		return err
 	}

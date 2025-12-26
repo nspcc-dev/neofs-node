@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -32,6 +33,10 @@ func (x *mockFSChain) InvokeContainedScript(*transaction.Transaction, *block.Hea
 
 func (x *mockFSChain) InContainerInLastTwoEpochs(cid.ID, []byte) (bool, error) {
 	return false, nil
+}
+
+func (x *mockFSChain) HasUserInNNS(string, util.Uint160) (bool, error) {
+	panic("unimplemented")
 }
 
 type mockIR struct {

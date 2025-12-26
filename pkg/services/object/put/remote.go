@@ -33,18 +33,26 @@ type RemotePutPrm struct {
 
 func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object,
 	keyStorage *util.KeyStorage, clientConstructor ClientConstructor, commonPrm *util.CommonPrm) error {
-	var sessionInfo *util.SessionInfo
+	var opts client.PrmObjectPutInit
+	opts.MarkLocal()
 
-	if tok := commonPrm.SessionToken(); tok != nil {
-		sessionInfo = &util.SessionInfo{
+	key, err := keyStorage.GetKey(nil)
+	if err != nil {
+		return fmt.Errorf("could not receive local node's private key: %w", err)
+	}
+
+	if tok2 := commonPrm.SessionTokenV2(); tok2 != nil {
+		opts.WithinSessionV2(*tok2)
+	} else if tok := commonPrm.SessionToken(); tok != nil {
+		sessionInfo := &util.SessionInfo{
 			ID:    tok.ID(),
 			Owner: tok.Issuer(),
 		}
-	}
-
-	key, err := keyStorage.GetKey(sessionInfo)
-	if err != nil {
-		return fmt.Errorf("could not receive private key: %w", err)
+		key, err = keyStorage.GetKey(sessionInfo)
+		if err != nil {
+			return fmt.Errorf("could not receive private key: %w", err)
+		}
+		opts.WithinSession(*tok)
 	}
 
 	c, err := clientConstructor.Get(nodeInfo)
@@ -52,11 +60,6 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 		return fmt.Errorf("could not create SDK client %s: %w", nodeInfo, err)
 	}
 
-	var opts client.PrmObjectPutInit
-	opts.MarkLocal()
-	if st := commonPrm.SessionToken(); st != nil {
-		opts.WithinSession(*st)
-	}
 	if bt := commonPrm.BearerToken(); bt != nil {
 		opts.WithBearerToken(*bt)
 	}

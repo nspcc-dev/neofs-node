@@ -3,6 +3,7 @@ package object
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	internal "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -276,8 +278,8 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 // ReadOrOpenSessionViaClient tries to read session from the file (V2 first, then V1),
 // specified in commonflags.SessionToken flag, finalizes structures of the decoded token
 // and write the result into provided SessionPrm.
-// If file is missing, ReadOrOpenSessionViaClient calls OpenSessionViaClient.
-func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
+// If file is missing, CreateSessionV2 is called to create V2 token locally.
+func ReadOrOpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, subjects []sessionv2.Target, cnr cid.ID, objs ...oid.ID) error {
 	path, _ := cmd.Flags().GetString(commonflags.SessionToken)
 
 	if path != "" {
@@ -296,7 +298,7 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 		}
 	}
 
-	err := OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
+	err := CreateSessionV2(cmd, dst, key, subjects, cnr, objs...)
 	if err != nil {
 		return err
 	}
@@ -406,26 +408,43 @@ func CreateSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, 
 	}
 
 	var verb sessionv2.Verb
+	var contexts []sessionv2.Context
+
 	switch dst.(type) {
 	case *client.PrmObjectPutInit:
 		verb = sessionv2.VerbObjectPut
+		ctx2, err := sessionv2.NewContext(cnr, []sessionv2.Verb{verb})
+		if err != nil {
+			return fmt.Errorf("create V2 session context: %w", err)
+		}
+		if len(objs) > 0 {
+			err = ctx2.SetObjects(objs)
+			if err != nil {
+				return fmt.Errorf("set V2 session objects: %w", err)
+			}
+		}
+		contexts = []sessionv2.Context{ctx2}
 	case *client.PrmObjectDelete:
-		verb = sessionv2.VerbObjectDelete
+		// For DELETE, create context with two verbs:
+		// 1. DELETE for the deleted object
+		// 2. PUT for the tombstone
+		ctx2, err := sessionv2.NewContext(cnr, []sessionv2.Verb{sessionv2.VerbObjectPut, sessionv2.VerbObjectDelete})
+		if err != nil {
+			return fmt.Errorf("create V2 session context: %w", err)
+		}
+		if len(objs) > 0 {
+			err = ctx2.SetObjects(objs)
+			if err != nil {
+				return fmt.Errorf("set V2 session objects: %w", err)
+			}
+		}
+
+		contexts = []sessionv2.Context{ctx2}
 	default:
 		panic(fmt.Errorf("unsupported operation type for V2 session: %T", dst))
 	}
 
-	ctx2, err := sessionv2.NewContext(cnr, []sessionv2.Verb{verb})
-	if err != nil {
-		return fmt.Errorf("create V2 session context: %w", err)
-	}
-	if len(objs) > 0 {
-		err = ctx2.SetObjects(objs)
-		if err != nil {
-			return fmt.Errorf("set V2 session objects: %w", err)
-		}
-	}
-	err = tok.SetContexts([]sessionv2.Context{ctx2})
+	err = tok.SetContexts(contexts)
 	if err != nil {
 		return fmt.Errorf("set V2 session contexts: %w", err)
 	}
@@ -500,4 +519,58 @@ func openFileForPayload(name string) (io.WriteCloser, error) {
 		return nil, fmt.Errorf("can't open file '%s': %w", name, err)
 	}
 	return f, nil
+}
+
+func getSessionSubjects(cmd *cobra.Command, ctx context.Context, cli *client.Client) ([]sessionv2.Target, error) {
+	var subjects []sessionv2.Target
+	nm, err := cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
+	if err != nil {
+		return nil, fmt.Errorf("get netmap snapshot: %w", err)
+	}
+
+	for _, node := range nm.Nodes() {
+		neoPubKey, err := keys.NewPublicKeyFromBytes(node.PublicKey(), elliptic.P256())
+		if err != nil {
+			common.PrintVerbose(cmd, "Warning: failed to parse node public key: %v", err)
+			continue
+		}
+
+		ecdsaPubKey := (*ecdsa.PublicKey)(neoPubKey)
+		userID := user.NewFromECDSAPublicKey(*ecdsaPubKey)
+
+		subjects = append(subjects, sessionv2.NewTargetUser(userID))
+	}
+	return subjects, nil
+}
+
+func parseSessionSubjects(cmd *cobra.Command, ctx context.Context, cli *client.Client) ([]sessionv2.Target, error) {
+	sessionSubjects, _ := cmd.Flags().GetStringSlice("session-subjects")
+	sessionSubjectsNNS, _ := cmd.Flags().GetStringSlice("session-subjects-nns")
+
+	if len(sessionSubjects) > 0 || len(sessionSubjectsNNS) > 0 {
+		common.PrintVerbose(cmd, "Using session subjects from command line flags")
+		subjects := make([]sessionv2.Target, 0, len(sessionSubjects)+len(sessionSubjectsNNS))
+
+		// Parse user IDs
+		for _, subj := range sessionSubjects {
+			var userID user.ID
+			if err := userID.DecodeString(subj); err != nil {
+				return nil, fmt.Errorf("failed to decode user ID '%s': %w", subj, err)
+			}
+			subjects = append(subjects, sessionv2.NewTargetUser(userID))
+		}
+
+		// Parse NNS names
+		for _, nnsName := range sessionSubjectsNNS {
+			if nnsName == "" {
+				return nil, fmt.Errorf("NNS name cannot be empty")
+			}
+			subjects = append(subjects, sessionv2.NewTargetNamed(nnsName))
+		}
+
+		return subjects, nil
+	}
+
+	common.PrintVerbose(cmd, "Using default session subjects (container nodes)")
+	return getSessionSubjects(cmd, ctx, cli)
 }
