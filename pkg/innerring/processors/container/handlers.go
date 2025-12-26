@@ -158,3 +158,33 @@ func (cp *Processor) handleObjectPut(ev event.Event) {
 		cp.log.Warn("object pool submission failed", zap.Error(err))
 	}
 }
+
+func (cp *Processor) handleSetAttribute(ev event.Event) {
+	req := ev.(containerEvent.SetAttributeRequest)
+
+	cp.log.Info("notification",
+		zap.String("type", "set attribute"),
+		zap.String("container", base58.Encode(req.ID)),
+		zap.String("attribute", req.Attribute))
+
+	err := cp.pool.Submit(func() { cp.processSetAttributeRequest(req) })
+	if err != nil {
+		cp.log.Warn("container processor worker pool drained",
+			zap.Int("capacity", cp.pool.Cap()))
+	}
+}
+
+func (cp *Processor) handleRemoveAttribute(ev event.Event) {
+	req := ev.(containerEvent.RemoveAttributeRequest)
+
+	cp.log.Info("notification",
+		zap.String("type", "remove attribute"),
+		zap.String("container", base58.Encode(req.ID)),
+		zap.String("attribute", req.Attribute))
+
+	err := cp.pool.Submit(func() { cp.processRemoveAttributeRequest(req) })
+	if err != nil {
+		cp.log.Warn("container processor worker pool drained",
+			zap.Int("capacity", cp.pool.Cap()))
+	}
+}

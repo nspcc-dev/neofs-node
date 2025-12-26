@@ -19,10 +19,10 @@ require (
 	github.com/nspcc-dev/bbolt v0.0.0-20250911202005-807225ebb0c8
 	github.com/nspcc-dev/hrw/v2 v2.0.4
 	github.com/nspcc-dev/locode-db v0.8.2
-	github.com/nspcc-dev/neo-go v0.114.0
+	github.com/nspcc-dev/neo-go v0.114.1-0.20251222145711-e174185e133e
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
-	github.com/nspcc-dev/neofs-contract v0.25.2-0.20251219150129-498a820b9d6b
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.16.0.20251222201515-923817fd7d13
+	github.com/nspcc-dev/neofs-contract v0.25.2-0.20251223162726-c0cf83ca5e42
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.16.0.20251224112927-a50d7e9c925a
 	github.com/nspcc-dev/tzhash v1.8.3
 	github.com/panjf2000/ants/v2 v2.11.3
 	github.com/prometheus/client_golang v1.23.2
@@ -70,7 +70,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nspcc-dev/dbft v0.4.0 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20250911084817-6fb4472993d1 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20251112080609-3c8e29c66609 // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20251217090505-857f951d81a9 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect

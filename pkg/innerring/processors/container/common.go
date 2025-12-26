@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -19,7 +20,8 @@ var (
 type signatureVerificationData struct {
 	ownerContainer user.ID
 
-	verb session.ContainerVerb
+	verb   session.ContainerVerb
+	verbV2 sessionv2.Verb
 
 	idContainerSet bool
 	idContainer    cid.ID
@@ -50,6 +52,13 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	var err error
 
 	if len(v.binTokenSession) > 0 {
+		var tokV2 sessionv2.Token
+		err = tokV2.Unmarshal(v.binTokenSession)
+		if err == nil {
+			// TODO
+			return errors.New("sessions V2 are not supported yet")
+		}
+
 		var tok session.Container
 
 		err = tok.Unmarshal(v.binTokenSession)
