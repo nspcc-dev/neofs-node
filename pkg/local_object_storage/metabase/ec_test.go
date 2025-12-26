@@ -14,6 +14,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -330,20 +331,173 @@ func TestDB_ResolveECPart(t *testing.T) {
 		})
 	}
 
-	t.Run("LINK", func(t *testing.T) {
-		db := newDB(t)
+	t.Run("size-split", func(t *testing.T) {
 		linkerID := oidtest.OtherID(parentID)
 		const linkerPayloadLen = 1234 // any
+		lastID := oidtest.OtherID(parentID)
 
 		linker := newBlankObject(cnr, linkerID)
 		linker.SetParent(&parentObj)
 		linker.SetType(object.TypeLink)
 		linker.SetPayloadSize(linkerPayloadLen)
 
-		require.NoError(t, db.Put(&linker))
+		last := newBlankObject(cnr, lastID)
+		last.SetParent(&parentObj)
+		last.SetFirstID(oidtest.ID()) // any
 
-		checkOKWithLenAndParent(t, db, pi, parentID, linkerID, linkerPayloadLen)
-		checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
+		t.Run("LINK only", func(t *testing.T) {
+			db := newDB(t)
+
+			require.NoError(t, db.Put(&linker))
+
+			_, err := db.ResolveECPart(cnr, parentID, pi)
+			var se *object.SplitInfoError
+			require.ErrorAs(t, err, &se)
+			require.NotNil(t, se)
+			si := se.SplitInfo()
+			require.NotNil(t, si)
+			require.Equal(t, linkerID, si.GetLink())
+			require.Zero(t, si.GetLastPart())
+			require.Zero(t, si.GetFirstPart())
+			require.Zero(t, si.SplitID())
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			require.ErrorAs(t, err, &se)
+			require.NotNil(t, se)
+			si = se.SplitInfo()
+			require.NotNil(t, si)
+			require.Equal(t, linkerID, si.GetLink())
+			require.Zero(t, si.GetLastPart())
+			require.Zero(t, si.GetFirstPart())
+			require.Zero(t, si.SplitID())
+
+			checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
+		})
+
+		t.Run("last child only", func(t *testing.T) {
+			db := newDB(t)
+
+			require.NoError(t, db.Put(&last))
+
+			_, err := db.ResolveECPart(cnr, parentID, pi)
+			var se *object.SplitInfoError
+			require.ErrorAs(t, err, &se)
+			require.NotNil(t, se)
+			si := se.SplitInfo()
+			require.NotNil(t, si)
+			require.Equal(t, lastID, si.GetLastPart())
+			require.Zero(t, si.GetLink())
+			require.Zero(t, si.GetFirstPart())
+			require.Zero(t, si.SplitID())
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			require.ErrorAs(t, err, &se)
+			require.NotNil(t, se)
+			si = se.SplitInfo()
+			require.NotNil(t, si)
+			require.Equal(t, lastID, si.GetLastPart())
+			require.Zero(t, si.GetLink())
+			require.Zero(t, si.GetFirstPart())
+			require.Zero(t, si.SplitID())
+
+			_, err = db.ResolveECPart(cnr, lastID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, lastID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		})
+
+		t.Run("LINK and last child", func(t *testing.T) {
+			t.Run("LINK before", func(t *testing.T) {
+				db := newDB(t)
+
+				linker, last := linker, last
+				linkerID, lastID := linkerID, lastID
+
+				// preserve order
+				linkerID[0], lastID[0] = 0, 1
+
+				linker.SetID(linkerID)
+				last.SetID(lastID)
+
+				require.NoError(t, db.Put(&linker))
+				require.NoError(t, db.Put(&last))
+
+				_, err := db.ResolveECPart(cnr, parentID, pi)
+				var se *object.SplitInfoError
+				require.ErrorAs(t, err, &se)
+				require.NotNil(t, se)
+				si := se.SplitInfo()
+				require.NotNil(t, si)
+				require.Equal(t, linkerID, si.GetLink())
+				require.Zero(t, si.GetLastPart())
+				require.Zero(t, si.GetFirstPart())
+				require.Zero(t, si.SplitID())
+
+				_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+				require.ErrorAs(t, err, &se)
+				require.NotNil(t, se)
+				si = se.SplitInfo()
+				require.NotNil(t, si)
+				require.Equal(t, linkerID, si.GetLink())
+				require.Zero(t, si.GetLastPart())
+				require.Zero(t, si.GetFirstPart())
+				require.Zero(t, si.SplitID())
+
+				checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
+
+				_, err = db.ResolveECPart(cnr, lastID, pi)
+				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+				_, _, err = db.ResolveECPartWithPayloadLen(cnr, lastID, pi)
+				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+			})
+
+			t.Run("LINK after", func(t *testing.T) {
+				db := newDB(t)
+
+				linker, last := linker, last
+				linkerID, lastID := linkerID, lastID
+
+				// preserve order
+				linkerID[0], lastID[0] = 1, 0
+
+				linker.SetID(linkerID)
+				last.SetID(lastID)
+
+				require.NoError(t, db.Put(&linker))
+				require.NoError(t, db.Put(&last))
+
+				_, err := db.ResolveECPart(cnr, parentID, pi)
+				var se *object.SplitInfoError
+				require.ErrorAs(t, err, &se)
+				require.NotNil(t, se)
+				si := se.SplitInfo()
+				require.NotNil(t, si)
+				require.Equal(t, linkerID, si.GetLink())
+				require.Equal(t, lastID, si.GetLastPart())
+				require.Zero(t, si.GetFirstPart())
+				require.Zero(t, si.SplitID())
+
+				_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+				require.ErrorAs(t, err, &se)
+				require.NotNil(t, se)
+				si = se.SplitInfo()
+				require.NotNil(t, si)
+				require.Equal(t, linkerID, si.GetLink())
+				require.Equal(t, lastID, si.GetLastPart())
+				require.Zero(t, si.GetFirstPart())
+				require.Zero(t, si.SplitID())
+
+				checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
+
+				_, err = db.ResolveECPart(cnr, lastID, pi)
+				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+				_, _, err = db.ResolveECPartWithPayloadLen(cnr, lastID, pi)
+				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+			})
+		})
 	})
 
 	db := newDB(t)

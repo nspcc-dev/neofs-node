@@ -24,6 +24,13 @@ import (
 // If the object is not EC part but of [object.TypeTombstone], [object.TypeLock]
 // or [object.TypeLink] type, ResolveECPart returns its ID instead.
 //
+// If the object is not EC part but it is size-split, ResolveECPart returns
+// [*object.SplitInfoError] with [object.SplitInfo] depending on stored
+// relatives. If DB contains the linker, its ID is attached. If DB contains only
+// the last child, its ID is attached. If DB contains both objects, linker ID is
+// always attached while last child's ID may or may not be attached depending on
+// object order.
+//
 // If DB is disabled by mode (e.g. [DB.SetMode]), ResolveECPart returns
 // [ErrDegradedMode].
 //
@@ -131,6 +138,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 
 	var partCrs *bbolt.Cursor
 	var rulePref, partPref, typePref []byte
+	var sizeSplitInfo *object.SplitInfo
 	isParent := false
 	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
 		partID, ok := bytes.CutPrefix(k, pref)
@@ -143,6 +151,10 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink) {
 					return parent, nil
 				}
+			}
+
+			if sizeSplitInfo != nil {
+				return oid.ID{}, object.NewSplitInfoError(sizeSplitInfo)
 			}
 
 			return oid.ID{}, apistatus.ErrObjectNotFound
@@ -172,8 +184,24 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 				fillIDTypePrefix(typePref)
 			}
 			if typ, err := fetchTypeForID(partCrs, typePref, oid.ID(partID)); err == nil && typ == object.TypeLink {
-				return oid.ID(partID), nil
+				if sizeSplitInfo == nil {
+					sizeSplitInfo = new(object.SplitInfo)
+				}
+
+				sizeSplitInfo.SetLink(oid.ID(partID))
+
+				return oid.ID{}, object.NewSplitInfoError(sizeSplitInfo)
 			}
+
+			if (sizeSplitInfo == nil || sizeSplitInfo.GetLastPart().IsZero()) && getObjAttribute(partCrs, oid.ID(partID), object.FilterFirstSplitObject) != nil {
+				if sizeSplitInfo == nil {
+					sizeSplitInfo = new(object.SplitInfo)
+				}
+
+				sizeSplitInfo.SetLastPart(oid.ID(partID))
+				// continue because next item may be a linker. If so, it's the most informative
+			}
+
 			continue
 		}
 

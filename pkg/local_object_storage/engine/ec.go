@@ -76,6 +76,8 @@ loop:
 			s = s[i+1:]
 			break loop
 		case errors.Is(err, apistatus.ErrObjectNotFound):
+		case errors.As(err, new(*object.SplitInfoError)):
+			return object.Object{}, nil, err
 		default:
 			e.log.Info("failed to get EC part from shard, ignore error",
 				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
@@ -156,7 +158,7 @@ loop:
 		switch {
 		case err == nil:
 			return pldLen, rc, nil
-		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved), errors.Is(err, apistatus.ErrObjectOutOfRange):
+		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved), errors.Is(err, apistatus.ErrObjectOutOfRange), errors.As(err, new(*object.SplitInfoError)):
 			return 0, nil, err
 		case errors.Is(err, meta.ErrObjectIsExpired):
 			return 0, nil, apistatus.ErrObjectNotFound
