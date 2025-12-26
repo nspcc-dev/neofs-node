@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -16,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
@@ -55,7 +57,8 @@ type (
 	Server struct {
 		log *zap.Logger
 
-		bc *blockchain.Blockchain
+		bc        *blockchain.Blockchain
+		metaChain *blockchain.Blockchain
 
 		// event producers
 		fsChainListener event.Listener
@@ -92,7 +95,7 @@ type (
 		netmapProcessor    *netmap.Processor
 		containerProcessor *container.Processor
 
-		workers []func(context.Context)
+		workers []func(context.Context) error
 
 		// Set of local resources that must be
 		// initialized at the very beginning of
@@ -784,7 +787,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		AlphabetState:   server,
 		ContainerClient: cnrClient,
 		NetworkState:    server.netmapClient,
-		MetaEnabled:     cfg.Experimental.ChainMetaData,
+		MetaEnabled:     cfg.Experimental.ChainMetaData.Enabled,
 		AllowEC:         cfg.Experimental.AllowEC,
 	})
 	if err != nil {
@@ -886,6 +889,40 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	}
 
 	initTimers(server, cfg, settlementProcessor)
+
+	if cfg.Experimental.ChainMetaData.Enabled {
+		v, err := server.fsChainClient.GetVersion()
+		if err != nil {
+			return nil, fmt.Errorf("fetchin FS chain version: %w", err)
+		}
+		fsChainProtocol := v.Protocol
+		metaChainCfg := config.Consensus{
+			Storage:         cfg.Experimental.ChainMetaData.Storage,
+			SeedNodes:       cfg.Experimental.ChainMetaData.SeedNodes,
+			RPC:             cfg.Experimental.ChainMetaData.RPC,
+			P2P:             cfg.Experimental.ChainMetaData.P2P,
+			MaxTimePerBlock: cfg.Experimental.ChainMetaData.MaxTimePerBlock,
+
+			Magic:                       uint32(fsChainProtocol.Network) + 1,
+			Committee:                   fsChainProtocol.StandbyCommittee,
+			TimePerBlock:                time.Duration(fsChainProtocol.MillisecondsPerBlock) * time.Millisecond,
+			MaxTraceableBlocks:          fsChainProtocol.MaxTraceableBlocks,
+			MaxValidUntilBlockIncrement: fsChainProtocol.MaxValidUntilBlockIncrement,
+
+			Hardforks:                       config.Hardforks{},
+			ValidatorsHistory:               config.ValidatorsHistory{},
+			SetRolesInGenesis:               true,
+			KeepOnlyLatestState:             false,
+			RemoveUntraceableBlocks:         false,
+			P2PNotaryRequestPayloadPoolSize: 1000, // default for blockchain.New()
+		}
+
+		server.metaChain, err = metachain.NewMetaChain(&metaChainCfg, &cfg.Wallet, errChan, log.With(zap.String("component", "metadata chain")))
+		if err != nil {
+			return nil, fmt.Errorf("init meta sidechain blockchain: %w", err)
+		}
+		server.workers = append(server.workers, server.metaChain.Run)
+	}
 
 	return server, nil
 }

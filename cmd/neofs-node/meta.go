@@ -10,52 +10,50 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 func initMeta(c *cfg) {
-	if c.cfgMorph.client == nil {
-		initMorphComponents(c)
-	}
-
-	c.cfgMeta.network = &neofsNetwork{
-		key:        c.binPublicKey,
-		cnrClient:  c.cCli,
-		containers: c.cnrSrc,
-		network:    c.netMapSource,
-		header:     c.cfgObject.getSvc,
-	}
-
-	var err error
-	p := meta.Parameters{
-		Logger:        c.log.With(zap.String("service", "meta data")),
-		Network:       c.cfgMeta.network,
-		Timeout:       c.appCfg.FSChain.DialTimeout,
-		NeoEnpoints:   c.appCfg.FSChain.Endpoints,
-		ContainerHash: c.containerSH,
-		NetmapHash:    c.netmapSH,
-		RootPath:      c.appCfg.Meta.Path,
-	}
-	if p.RootPath == "" {
-		p.RootPath = "metadata"
-	}
-	c.metaService, err = meta.New(p)
-	fatalOnErr(err)
-
-	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		err = c.metaService.Run(ctx)
-		if err != nil {
-			c.internalErr <- fmt.Errorf("meta data service error: %w", err)
-		}
-	}))
+	//if c.cfgMorph.client == nil {
+	//	initMorphComponents(c)
+	//}
+	//
+	//c.cfgMeta.network = &neofsNetwork{
+	//	key:        c.binPublicKey,
+	//	cnrClient:  c.cCli,
+	//	containers: c.cnrSrc,
+	//	network:    c.netMapSource,
+	//	header:     c.cfgObject.getSvc,
+	//}
+	//
+	//var err error
+	//p := meta.Parameters{
+	//	Logger:        c.log.With(zap.String("service", "metadata chain")),
+	//	Network:       c.cfgMeta.network,
+	//	Timeout:       c.appCfg.FSChain.DialTimeout,
+	//	NeoEnpoints:   c.appCfg.FSChain.Endpoints,
+	//	ContainerHash: c.containerSH,
+	//	NetmapHash:    c.netmapSH,
+	//	RootPath:      c.appCfg.Meta.Path,
+	//}
+	//if p.RootPath == "" {
+	//	p.RootPath = "metadata"
+	//}
+	//c.metaService, err = meta.New(p)
+	//fatalOnErr(err)
+	//
+	//c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
+	//	err = c.metaService.Run(ctx)
+	//	if err != nil {
+	//		c.internalErr <- fmt.Errorf("meta data service error: %w", err)
+	//	}
+	//}))
 }
 
 type neofsNetwork struct {

@@ -39,6 +39,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/services/sidechain"
 	"github.com/nspcc-dev/neofs-node/pkg/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
@@ -172,6 +173,7 @@ type shared struct {
 	control *controlSvc.Server
 
 	metaService *meta.Meta
+	sidechain   *sidechain.SideChain
 
 	containerPayments *paymentChecker
 }

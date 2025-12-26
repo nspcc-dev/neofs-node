@@ -106,8 +106,8 @@ type Settlement struct {
 
 // Experimental configures experimental features.
 type Experimental struct {
-	ChainMetaData bool `mapstructure:"chain_meta_data"`
-	AllowEC       bool `mapstructure:"allow_ec"`
+	ChainMetaData MetaChain `mapstructure:"chain_meta_data"`
+	AllowEC       bool      `mapstructure:"allow_ec"`
 }
 
 // Mainnet configures mainnet chain settings.
