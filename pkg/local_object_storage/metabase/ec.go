@@ -61,7 +61,7 @@ func (db *DB) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID,
 }
 
 // ResolveECPartWithPayloadLen is like [DB.ResolveECPart] but also returns
-// payload length. It also does not check for size-split children.
+// payload length.
 func (db *DB) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, uint64, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -89,7 +89,7 @@ func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid
 
 	metaBktCrs := metaBkt.Cursor()
 
-	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi, false)
+	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi)
 	if err != nil {
 		return oid.ID{}, 0, err
 	}
@@ -117,10 +117,10 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	}
 
-	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi, true)
+	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi)
 }
 
-func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo, checkSplit bool) (oid.ID, error) {
+func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
 	metaBkt := crs.Bucket()
 
 	switch objectStatus(crs, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
@@ -179,10 +179,6 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oi
 			copy(rulePref[1:], partID)
 		}
 		if k, _ = partCrs.Seek(rulePref); !bytes.Equal(k, rulePref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
-			if !checkSplit {
-				continue
-			}
-
 			if typePref == nil {
 				typePref = make([]byte, metaIDTypePrefixSize)
 				fillIDTypePrefix(typePref)

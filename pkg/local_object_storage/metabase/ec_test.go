@@ -362,7 +362,14 @@ func TestDB_ResolveECPart(t *testing.T) {
 			require.Zero(t, si.SplitID())
 
 			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
-			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+			require.ErrorAs(t, err, &se)
+			require.NotNil(t, se)
+			si = se.SplitInfo()
+			require.NotNil(t, si)
+			require.Equal(t, linkerID, si.GetLink())
+			require.Zero(t, si.GetLastPart())
+			require.Zero(t, si.GetFirstPart())
+			require.Zero(t, si.SplitID())
 
 			checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
 		})
@@ -384,7 +391,14 @@ func TestDB_ResolveECPart(t *testing.T) {
 			require.Zero(t, si.SplitID())
 
 			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
-			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+			require.ErrorAs(t, err, &se)
+			require.NotNil(t, se)
+			si = se.SplitInfo()
+			require.NotNil(t, si)
+			require.Equal(t, lastID, si.GetLastPart())
+			require.Zero(t, si.GetLink())
+			require.Zero(t, si.GetFirstPart())
+			require.Zero(t, si.SplitID())
 
 			_, err = db.ResolveECPart(cnr, lastID, pi)
 			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
@@ -421,7 +435,14 @@ func TestDB_ResolveECPart(t *testing.T) {
 				require.Zero(t, si.SplitID())
 
 				_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
-				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+				require.ErrorAs(t, err, &se)
+				require.NotNil(t, se)
+				si = se.SplitInfo()
+				require.NotNil(t, si)
+				require.Equal(t, linkerID, si.GetLink())
+				require.Zero(t, si.GetLastPart())
+				require.Zero(t, si.GetFirstPart())
+				require.Zero(t, si.SplitID())
 
 				checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
 
@@ -459,7 +480,14 @@ func TestDB_ResolveECPart(t *testing.T) {
 				require.Zero(t, si.SplitID())
 
 				_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
-				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+				require.ErrorAs(t, err, &se)
+				require.NotNil(t, se)
+				si = se.SplitInfo()
+				require.NotNil(t, si)
+				require.Equal(t, linkerID, si.GetLink())
+				require.Equal(t, lastID, si.GetLastPart())
+				require.Zero(t, si.GetFirstPart())
+				require.Zero(t, si.SplitID())
 
 				checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
 

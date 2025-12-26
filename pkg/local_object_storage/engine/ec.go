@@ -158,7 +158,7 @@ loop:
 		switch {
 		case err == nil:
 			return pldLen, rc, nil
-		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved), errors.Is(err, apistatus.ErrObjectOutOfRange):
+		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved), errors.Is(err, apistatus.ErrObjectOutOfRange), errors.As(err, new(*object.SplitInfoError)):
 			return 0, nil, err
 		case errors.Is(err, meta.ErrObjectIsExpired):
 			return 0, nil, apistatus.ErrObjectNotFound
