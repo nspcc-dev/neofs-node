@@ -331,26 +331,82 @@ func TestDB_ResolveECPart(t *testing.T) {
 		})
 	}
 
-	t.Run("LINK", func(t *testing.T) {
-		db := newDB(t)
+	t.Run("size-split", func(t *testing.T) {
 		linkerID := oidtest.OtherID(parentID)
 		const linkerPayloadLen = 1234 // any
+		lastID := oidtest.OtherID(parentID)
 
 		linker := newBlankObject(cnr, linkerID)
 		linker.SetParent(&parentObj)
 		linker.SetType(object.TypeLink)
 		linker.SetPayloadSize(linkerPayloadLen)
 
-		require.NoError(t, db.Put(&linker))
+		last := newBlankObject(cnr, lastID)
+		last.SetParent(&parentObj)
+		last.SetFirstID(oidtest.ID()) // any
 
-		res, err := db.ResolveECPart(cnr, parentID, pi)
-		require.NoError(t, err)
-		require.Equal(t, linkerID, res)
+		t.Run("LINK only", func(t *testing.T) {
+			db := newDB(t)
 
-		_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
-		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+			require.NoError(t, db.Put(&linker))
 
-		checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
+			res, err := db.ResolveECPart(cnr, parentID, pi)
+			require.NoError(t, err)
+			require.Equal(t, linkerID, res)
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
+		})
+
+		t.Run("last child only", func(t *testing.T) {
+			db := newDB(t)
+
+			require.NoError(t, db.Put(&last))
+
+			_, err := db.ResolveECPart(cnr, parentID, pi)
+			var se *object.SplitInfoError
+			require.ErrorAs(t, err, &se)
+			require.NotNil(t, se)
+			si := se.SplitInfo()
+			require.NotNil(t, si)
+			require.Equal(t, lastID, si.GetLastPart())
+			require.Zero(t, si.GetLink())
+			require.Zero(t, si.GetFirstPart())
+			require.Zero(t, si.SplitID())
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			_, err = db.ResolveECPart(cnr, lastID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, lastID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		})
+
+		t.Run("LINK and last child", func(t *testing.T) {
+			db := newDB(t)
+
+			require.NoError(t, db.Put(&linker))
+			require.NoError(t, db.Put(&last))
+
+			res, err := db.ResolveECPart(cnr, parentID, pi)
+			require.NoError(t, err)
+			require.Equal(t, linkerID, res)
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, parentID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			checkOKWithLenAndParent(t, db, pi, linkerID, linkerID, linkerPayloadLen)
+
+			_, err = db.ResolveECPart(cnr, lastID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+			_, _, err = db.ResolveECPartWithPayloadLen(cnr, lastID, pi)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		})
 	})
 
 	db := newDB(t)
