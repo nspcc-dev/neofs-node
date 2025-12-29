@@ -4,7 +4,7 @@ Remove container attribute
 
 ### Synopsis
 
-Remove contaier attribute
+Remove container attribute
 
 ```
 neofs-cli container remove-attribute [flags]
