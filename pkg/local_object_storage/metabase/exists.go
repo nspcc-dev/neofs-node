@@ -112,7 +112,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 func objectStatus(metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
 	var status = objectStatusDirect(metaCursor, addr, currEpoch)
 
-	if (status == statusAvailable || status == statusGCMarked) && metaCursor != nil {
+	if status == statusAvailable || status == statusGCMarked {
 		var parent = findParent(metaCursor, addr.Object())
 		if !parent.IsZero() {
 			addr.SetObject(parent)
