@@ -3,7 +3,6 @@ package meta_test
 import (
 	"crypto/sha256"
 	"runtime"
-	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -209,9 +208,6 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 		require.NoError(t, err)
 		require.NoError(t, st.Error)
 		require.ElementsMatch(t, st.State, []string{"AVAILABLE"})
-		require.False(t, slices.ContainsFunc(st.Buckets, func(bv meta.BucketValue) bool {
-			return bv.BucketIndex <= 1 // graveyard or garbage
-		}))
 	})
 	t.Run("list with cursor", func(t *testing.T) {
 		res, c, err := db.ListWithCursor(2, nil)

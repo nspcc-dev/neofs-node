@@ -37,15 +37,6 @@ func TestDB_Delete(t *testing.T) {
 	err := putBig(db, child)
 	require.NoError(t, err)
 
-	// fill ToMoveIt index
-	err = metaToMoveIt(db, objectcore.AddressOf(child))
-	require.NoError(t, err)
-
-	// check if Movable list is not empty
-	l, err := metaMovable(db)
-	require.NoError(t, err)
-	require.Len(t, l, 1)
-
 	// try to remove parent, should be no-op, error-free
 	err = metaDelete(db, objectcore.AddressOf(parent))
 	require.NoError(t, err)
@@ -59,11 +50,6 @@ func TestDB_Delete(t *testing.T) {
 	// delete object
 	err = metaDelete(db, objectcore.AddressOf(child))
 	require.NoError(t, err)
-
-	// check if there is no data in Movable index
-	l, err = metaMovable(db)
-	require.NoError(t, err)
-	require.Len(t, l, 0)
 
 	// check if the child is still inhumed (deletion should not affect
 	// TS status that should be kept for some epochs and be handled

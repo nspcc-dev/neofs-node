@@ -46,6 +46,7 @@ Changelog for NeoFS Node
 - Metabase v4 to v5 migration (#3735)
 - Broken logical object metric from shards (#3741)
 - Graveyard from metabase (#3744)
+- "ToMoveIt" bucket from the metabase (#3763)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251223162726-c0cf83ca5e42` (#3670, #3746, #3733)

@@ -41,20 +41,8 @@ func statusFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("reading object status: %w", err)
 	}
 
-	const emptyValPlaceholder = "<empty>"
-
 	cmd.Printf("Metabase version: %d\n", res.Version)
 	cmd.Printf("Object state: %s\n", res.State)
-	cmd.Println("Indexes:")
-	for _, bucket := range res.Buckets {
-		valStr := emptyValPlaceholder
-		if bucket.Value != nil {
-			valStr = fmt.Sprintf("%x", bucket.Value)
-		}
-
-		cmd.Printf("\tBucket: %d\n"+
-			"\tValue (HEX): %s\n", bucket.BucketIndex, valStr)
-	}
 	if len(res.HeaderIndex) > 0 {
 		cmd.Println("Header field indexes:")
 		for _, field := range res.HeaderIndex {

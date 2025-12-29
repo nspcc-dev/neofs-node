@@ -167,14 +167,6 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 			return 0, fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
 		}
 		switch kStr := string(attrK); kStr {
-		case object.FilterType:
-			var typ object.Type
-			if !isParent && typ.DecodeString(string(attrV)) {
-				err := delUniqueIndexes(tx, cnr, id)
-				if err != nil {
-					return 0, err
-				}
-			}
 		case object.FilterParentID:
 			if len(attrV) == oid.Size {
 				parent = oid.ID(attrV)

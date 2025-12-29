@@ -169,23 +169,6 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error)
 	return true, removeAvailableObject, payloadSize, nil
 }
 
-func delBucketKey(tx *bbolt.Tx, bucket []byte, key []byte) {
-	bkt := tx.Bucket(bucket)
-	if bkt != nil {
-		_ = bkt.Delete(key) // ignore error, best effort there
-	}
-}
-
-func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID) error {
-	addr := oid.NewAddress(cnr, oID)
-
-	addrKey := addressKey(addr, make([]byte, addressKeySize))
-
-	delBucketKey(tx, toMoveItBucketName, addrKey)
-
-	return nil
-}
-
 // forms list of objects from addrs and their missing parts.
 // [RemovedObject.PayloadLen] is not initialized.
 func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObject, error) {
