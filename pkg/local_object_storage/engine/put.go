@@ -72,7 +72,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 		overloaded bool
 	)
 
-	for i, sh := range e.sortedShards(addr) {
+	for _, sh := range e.sortedShards(addr) {
 		e.mtx.RLock()
 		pool, ok := e.shardPools[sh.ID().String()]
 		if ok && bestPool == nil {
@@ -85,7 +85,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 			continue
 		}
 
-		err = e.putToShard(sh, i, pool, addr, obj, objBin)
+		err = e.putToShard(sh, pool, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			return nil
 		}
@@ -98,7 +98,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 		zap.Stringer("addr", addr), zap.Stringer("best shard", bestShard.ID()))
 
 	if e.objectPutTimeout > 0 {
-		success, over := e.putToShardWithDeadLine(bestShard, 0, bestPool, addr, obj, objBin)
+		success, over := e.putToShardWithDeadLine(bestShard, bestPool, addr, obj, objBin)
 		if success {
 			return nil
 		}
@@ -119,7 +119,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 // putToShard puts object to sh.
 // Returns error from shard put or errOverloaded (when shard pool can't accept
 // the task) or errExists (if object is already stored there).
-func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) error {
+func (e *StorageEngine) putToShard(sh shardWrapper, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) error {
 	var (
 		alreadyExists bool
 		err           error
@@ -149,16 +149,6 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 
 		alreadyExists = exists
 		if alreadyExists {
-			if ind != 0 {
-				err = sh.ToMoveIt(addr)
-				if err != nil {
-					e.log.Warn("could not mark object for shard relocation",
-						zap.Stringer("shard", id),
-						zap.Error(err),
-					)
-				}
-			}
-
 			e.log.Debug("object put: object already exists",
 				zap.Stringer("shard", id),
 				zap.Stringer("addr", addr))
@@ -195,7 +185,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 	return putError
 }
 
-func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) (bool, bool) {
+func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) (bool, bool) {
 	const putCooldown = 100 * time.Millisecond
 	var (
 		overloaded bool
@@ -209,7 +199,7 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool ut
 			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.objectPutTimeout))
 			return false, overloaded
 		case <-ticker.C:
-			err := e.putToShard(sh, ind, pool, addr, obj, objBin)
+			err := e.putToShard(sh, pool, addr, obj, objBin)
 			if errors.Is(err, errOverloaded) {
 				overloaded = true
 				ticker.Reset(putCooldown)
@@ -239,7 +229,7 @@ func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error
 		zap.Stringer("associated", obj.AssociatedObject()),
 		zap.Int("shard_count", len(allShards)))
 
-	for i, sh := range allShards {
+	for _, sh := range allShards {
 		e.mtx.RLock()
 		pool, ok = e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
@@ -249,7 +239,7 @@ func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error
 			continue
 		}
 
-		err := e.putToShard(sh, i, pool, addr, obj, objBin)
+		err := e.putToShard(sh, pool, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			goodShards = append(goodShards, sh)
 			if errors.Is(err, errExists) {

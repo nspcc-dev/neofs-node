@@ -3,7 +3,6 @@ package meta
 import (
 	"bytes"
 	"crypto/sha256"
-	"errors"
 	"math/big"
 
 	"github.com/nspcc-dev/bbolt"
@@ -15,7 +14,6 @@ import (
 const attributeDelimiterLen = 1
 
 var (
-	toMoveItBucketName        = []byte{toMoveItPrefix}
 	containerVolumeBucketName = []byte{containerVolumePrefix}
 
 	// containerGCMarkKey marker key inside meta bucket designating whole container GC-marked.
@@ -33,9 +31,8 @@ const (
 	unusedGraveyardPrefix = iota
 	// unusedGarbageObjectsPrefix was deleted in metabase version 9
 	unusedGarbageObjectsPrefix
-	// toMoveItPrefix is used for bucket containing IDs of objects that are candidates for moving
-	// to another shard.
-	toMoveItPrefix
+	// unusedToMoveItPrefix was deleted in metabase version 9
+	unusedToMoveItPrefix
 	// containerVolumePrefix is used for storing container size estimations.
 	//	Key: container ID
 	//  Value: container size in bytes as little-endian uint64
@@ -103,36 +100,6 @@ const (
 	objectKeySize  = sha256.Size
 	addressKeySize = cidSize + objectKeySize
 )
-
-// addressKey returns key for K-V tables when key is a whole address.
-func addressKey(addr oid.Address, key []byte) []byte {
-	cnr := addr.Container()
-	obj := addr.Object()
-	n := copy(key, cnr[:])
-	copy(key[n:], obj[:])
-	return key[:addressKeySize]
-}
-
-// parses object address formed by addressKey.
-func decodeAddressFromKey(dst *oid.Address, k []byte) error {
-	if len(k) != addressKeySize {
-		return errors.New("invalid length")
-	}
-
-	var cnr cid.ID
-	if err := cnr.Decode(k[:cidSize]); err != nil {
-		return err
-	}
-
-	var obj oid.ID
-	if err := obj.Decode(k[cidSize:]); err != nil {
-		return err
-	}
-
-	dst.SetObject(obj)
-	dst.SetContainer(cnr)
-	return nil
-}
 
 // return true if provided object is of LOCK type.
 func isLockObject(tx *bbolt.Tx, idCnr cid.ID, obj oid.ID) bool {

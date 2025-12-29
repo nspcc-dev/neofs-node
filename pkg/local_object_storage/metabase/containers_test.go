@@ -70,23 +70,6 @@ func TestDB_Containers(t *testing.T) {
 		require.NoError(t, err)
 		assertContains(cnrs, cnr)
 	})
-
-	t.Run("ToMoveIt", func(t *testing.T) {
-		obj := generateObject(t)
-
-		require.NoError(t, putBig(db, obj))
-
-		cnrs, err := db.Containers()
-		require.NoError(t, err)
-		cnr := obj.GetContainerID()
-		assertContains(cnrs, cnr)
-
-		require.NoError(t, metaToMoveIt(db, objectcore.AddressOf(obj)))
-
-		cnrs, err = db.Containers()
-		require.NoError(t, err)
-		assertContains(cnrs, cnr)
-	})
 }
 
 func TestDB_ContainersCount(t *testing.T) {

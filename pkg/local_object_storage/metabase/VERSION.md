@@ -8,11 +8,6 @@ Numbers stand for a single byte value unless otherwise stated.
 The lowest not used bucket index: 20.
 
 ### Primary buckets
-- Bucket containing IDs of objects that are candidates for moving
-   to another shard.
-  - Name: `2`
-  - Key: object address
-  - Value: dummy value
 - Container volume bucket
   - Name: `3`
   - Key: container ID
@@ -44,8 +39,8 @@ The lowest not used bucket index: 20.
 
 ## Version 9
 
-Dropped lockedPrefix and graveyard buckets (4 and 0). Replaced garbage
-bucket (1) with meta prefix (5).
+Dropped lockedPrefix, graveyard and tomoveit buckets (4, 0 and 2). Replaced
+garbage bucket (1) with meta prefix (5).
 
 ## Version 8
 

@@ -6,17 +6,9 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
-
-// BucketValue pairs a bucket index and a value that relates
-// an object.
-type BucketValue struct {
-	BucketIndex int
-	Value       []byte
-}
 
 // HeaderField is object header's field index.
 type HeaderField struct {
@@ -27,7 +19,6 @@ type HeaderField struct {
 // ObjectStatus represents the status of the object in the Metabase.
 type ObjectStatus struct {
 	Version     uint64
-	Buckets     []BucketValue
 	HeaderIndex []HeaderField
 	State       []string
 	Path        string
@@ -51,12 +42,13 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		oID := address.Object()
 		cID := address.Container()
 
-		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, oID)
 		metaBucket := tx.Bucket(metaBucketKey(cID))
 		if metaBucket == nil {
 			return nil // No data.
 		}
 		var metaCursor = metaBucket.Cursor()
+
+		res.HeaderIndex = readAttributes(metaCursor, oID)
 
 		var objLocked = objectLocked(currEpoch, metaCursor, cID, oID)
 
@@ -89,40 +81,10 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	return res, err
 }
 
-func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderField) {
-	var oldIndexes []BucketValue
+func readAttributes(c *bbolt.Cursor, oID oid.ID) []HeaderField {
 	var newIndexes []HeaderField
-	addr := slices.Concat(cID[:], oID[:])
-	objKey := addr[cid.Size:]
 
-	objectBuckets := [][]byte{
-		toMoveItBucketName,
-	}
-
-	for _, bucketKey := range objectBuckets {
-		b := tx.Bucket(bucketKey)
-		if b == nil {
-			continue
-		}
-
-		v := b.Get(addr)
-		if v == nil {
-			continue
-		}
-
-		oldIndexes = append(oldIndexes, BucketValue{
-			BucketIndex: int(bucketKey[0]), // the first byte is always a prefix
-			Value:       bytes.Clone(v),
-		})
-	}
-
-	mBucket := tx.Bucket(metaBucketKey(cID))
-	if mBucket == nil {
-		return oldIndexes, nil
-	}
-
-	c := mBucket.Cursor()
-	pref := slices.Concat([]byte{metaPrefixIDAttr}, objKey)
+	pref := slices.Concat([]byte{metaPrefixIDAttr}, oID[:])
 	k, _ := c.Seek(pref)
 	for ; bytes.HasPrefix(k, pref); k, _ = c.Next() {
 		kCut := k[len(pref):]
@@ -134,5 +96,5 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, oID oid.ID) ([]BucketValue, []HeaderF
 		newIndexes = append(newIndexes, HeaderField{K: slices.Clone(k), V: slices.Clone(v)})
 	}
 
-	return oldIndexes, newIndexes
+	return newIndexes
 }

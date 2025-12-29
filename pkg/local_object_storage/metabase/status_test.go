@@ -111,15 +111,4 @@ func TestDB_ObjectStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.ElementsMatch(t, st.State, []string{"AVAILABLE", "GC MARKED"})
 	})
-
-	t.Run("moved", func(t *testing.T) {
-		require.NoError(t, db.ToMoveIt(addr))
-
-		st, err := db.ObjectStatus(addr)
-		require.NoError(t, err)
-		require.Contains(t, st.Buckets, meta.BucketValue{
-			BucketIndex: 2,
-			Value:       []byte{0xFF},
-		})
-	})
 }

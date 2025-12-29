@@ -385,7 +385,7 @@ func migrateFrom8Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var (
 			err             error
-			obsoleteBuckets = [][]byte{{unusedLockedPrefix}, {unusedGraveyardPrefix}, {unusedGarbageObjectsPrefix}}
+			obsoleteBuckets = [][]byte{{unusedLockedPrefix}, {unusedGraveyardPrefix}, {unusedGarbageObjectsPrefix}, {unusedToMoveItPrefix}}
 		)
 
 		err = moveGarbageToMeta(db.log, tx)
