@@ -587,13 +587,18 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, *state.AppExecResult, error) {
 	nAct, mainH, fbH, untilActual, err := c.sendNotaryRequest(committee, invokedByAlpha, contract, nonce, vub, method, args...)
 
+	alreadyOnChain := err != nil && alreadyOnChainError(err)
+
 	var res *state.AppExecResult
 	if await {
+		if alreadyOnChain {
+			err = neorpc.ErrAlreadyExists // force WaitSuccess to get the result
+		}
 		res, err = nAct.WaitSuccess(mainH, fbH, untilActual, err)
 	}
 
 	if err != nil {
-		if alreadyOnChainError(err) {
+		if alreadyOnChain {
 			c.logNotaryCallAlreadyOnChain(method, nonce, untilActual, mainH, fbH)
 
 			return mainH, res, nil
