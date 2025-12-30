@@ -59,10 +59,8 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		removedStatus := inGarbage(metaCursor, oID)
 
 		var existsRegular bool
-		var typPrefix = make([]byte, metaIDTypePrefixSize)
 
-		fillIDTypePrefix(typPrefix)
-		typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, oID)
+		typ, err := fetchTypeForID(metaCursor, oID)
 		existsRegular = (err == nil && typ == object.TypeRegular)
 
 		if (removedStatus != statusAvailable && objLocked) || existsRegular {

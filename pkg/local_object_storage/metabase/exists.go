@@ -90,8 +90,6 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		return false, ErrObjectIsExpired
 	}
 
-	var objKeyBuf = make([]byte, metaIDTypePrefixSize)
-
 	if checkParent {
 		err := getParentInfo(metaCursor, cnr, id)
 		if err != nil {
@@ -102,8 +100,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		}
 	}
 
-	fillIDTypePrefix(objKeyBuf)
-	_, err := fetchTypeForID(metaCursor, objKeyBuf, id)
+	_, err := fetchTypeForID(metaCursor, id)
 	return err == nil, nil
 }
 

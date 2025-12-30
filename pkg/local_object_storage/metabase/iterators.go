@@ -66,9 +66,9 @@ func keyToEpochOID(k []byte, expStart []byte) (uint64, oid.ID) {
 	return binary.BigEndian.Uint64(f256[32-8:]), id
 }
 
-// metaBucket is metadata bucket (0xff), typPrefix is the key for FilterType
-// object ID-Attribute key, id is the ID we're looking for.
-func fetchTypeForID(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (object.Type, error) {
+// fetchTypeForIDWBuf fetches object type using the given meta bucket cursor
+// and reusable key buffer.
+func fetchTypeForIDWBuf(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (object.Type, error) {
 	var typ object.Type
 
 	copy(typPrefix[1:], id[:])
@@ -81,6 +81,14 @@ func fetchTypeForID(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (obje
 		return typ, nil
 	}
 	return typ, errObjTypeNotFound
+}
+
+// fetchTypeForID is similar to fetchTypeForIDWBuf, but allocates a buffer internally.
+func fetchTypeForID(c *bbolt.Cursor, id oid.ID) (object.Type, error) {
+	var key = make([]byte, metaIDTypePrefixSize)
+
+	fillIDTypePrefix(key)
+	return fetchTypeForIDWBuf(c, key, id)
 }
 
 // fillIDTypePrefix puts metaPrefixIDAttr and FilterType properly into typPrefix
@@ -137,7 +145,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 			addr.SetContainer(cnrID)
 			addr.SetObject(id)
 
-			typ, err := fetchTypeForID(b.Cursor(), typPrefix, id)
+			typ, err := fetchTypeForIDWBuf(b.Cursor(), typPrefix, id)
 			if err != nil {
 				db.log.Warn("inconsistent DB in expired iterator",
 					zap.Stringer("object", addr), zap.Error(err))

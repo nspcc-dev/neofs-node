@@ -148,7 +148,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 					typePref = make([]byte, metaIDTypePrefixSize)
 					fillIDTypePrefix(typePref)
 				}
-				if typ, err := fetchTypeForID(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink) {
+				if typ, err := fetchTypeForIDWBuf(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink) {
 					return parent, nil
 				}
 			}
@@ -183,7 +183,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 				typePref = make([]byte, metaIDTypePrefixSize)
 				fillIDTypePrefix(typePref)
 			}
-			if typ, err := fetchTypeForID(partCrs, typePref, oid.ID(partID)); err == nil && typ == object.TypeLink {
+			if typ, err := fetchTypeForIDWBuf(partCrs, typePref, oid.ID(partID)); err == nil && typ == object.TypeLink {
 				if sizeSplitInfo == nil {
 					sizeSplitInfo = new(object.SplitInfo)
 				}

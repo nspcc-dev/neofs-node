@@ -161,7 +161,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 			continue
 		}
 
-		objType, err := fetchTypeForID(mCursor, typePrefix, obj)
+		objType, err := fetchTypeForIDWBuf(mCursor, typePrefix, obj)
 		if err != nil {
 			continue
 		}

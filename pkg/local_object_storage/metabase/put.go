@@ -122,9 +122,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 	switch typ {
 	case object.TypeLock, object.TypeTombstone:
 		if target := obj.AssociatedObject(); !target.IsZero() {
-			typPrefix := make([]byte, metaIDTypePrefixSize)
-			fillIDTypePrefix(typPrefix)
-			targetTyp, targetTypErr := fetchTypeForID(metaCursor, typPrefix, target)
+			targetTyp, targetTypErr := fetchTypeForID(metaCursor, target)
 
 			if typ == object.TypeLock {
 				if targetTypErr == nil && targetTyp != object.TypeRegular {

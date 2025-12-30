@@ -147,14 +147,9 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 
 		metaBucket := tx.Bucket(metaBucketKey(cnr))
 		if metaBucket != nil {
-			var (
-				metaCursor = metaBucket.Cursor()
-				typPrefix  = make([]byte, metaIDTypePrefixSize)
-			)
+			var metaCursor = metaBucket.Cursor()
 
-			fillIDTypePrefix(typPrefix)
-
-			typ, err := fetchTypeForID(metaCursor, typPrefix, obj)
+			typ, err := fetchTypeForID(metaCursor, obj)
 			// check if an object is available: not with GCMark
 			// and not covered with a tombstone
 			if inGarbage(metaCursor, obj) == statusAvailable && err == nil && typ == object.TypeRegular {
