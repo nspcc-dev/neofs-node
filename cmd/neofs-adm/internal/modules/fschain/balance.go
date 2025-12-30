@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/google/uuid"
+	"github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -22,10 +24,115 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/rpc/balance"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+// balanceSubcommand groups operations with balance contract, WIP.
+var balanceSubcommand = &cobra.Command{
+	Use:   "balance",
+	Short: "Operations with balance contract",
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+		_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+	},
+	Args: cobra.NoArgs,
+}
+
+var (
+	balanceContainerStatusCmd = &cobra.Command{
+		Use:     "container-status",
+		Example: "container-status -- [<cID>]",
+		Short:   "Check container billing status, if <value> is missing, checks every container",
+		RunE:    balanceContainerPayment,
+		Args:    cobra.RangeArgs(0, 1),
+	}
+)
+
+func balanceContainerPayment(cmd *cobra.Command, args []string) error {
+	var cID cid.ID
+	if len(args) > 0 {
+		err := cID.DecodeString(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid container ID: %w", err)
+		}
+	}
+
+	c, err := getN3Client(viper.GetViper())
+	if err != nil {
+		return fmt.Errorf("can't create N3 client: %w", err)
+	}
+
+	inv := invoker.New(c, nil)
+	nnsReader, err := nns.NewInferredReader(c, inv)
+	if err != nil {
+		return fmt.Errorf("can't find NNS contract: %w", err)
+	}
+	balanceHash, err := nnsReader.ResolveFSContract(nns.NameBalance)
+	if err != nil {
+		return fmt.Errorf("balance contract hash resolution: %w", err)
+	}
+	balanceReader := balance.NewReader(inv, balanceHash)
+
+	if cID.IsZero() {
+		sID, iter, err := balanceReader.IterateUnpaid()
+		if err != nil {
+			return fmt.Errorf("failed to open session: %w", err)
+		}
+		defer func() {
+			if sID != uuid.Nil {
+				_ = inv.TerminateSession(sID)
+			}
+		}()
+
+		for {
+			ii, err := inv.TraverseIterator(sID, &iter, config.DefaultMaxIteratorResultItems)
+			if err != nil {
+				return fmt.Errorf("iterator traversal; session: %s, error: %w", sID, err)
+			}
+			if len(ii) == 0 {
+				break
+			}
+
+			for _, i := range ii {
+				kv := i.Value().([]stackitem.Item)
+
+				cidRaw, err := kv[0].TryBytes()
+				if err != nil {
+					return fmt.Errorf("container ID is not bytes: %w", err)
+				}
+				cID, err = cid.DecodeBytes(cidRaw)
+				if err != nil {
+					return fmt.Errorf("invalid container ID in iterator: %w", err)
+				}
+
+				unpaidSince, err := kv[1].TryInteger()
+				if err != nil {
+					return fmt.Errorf("unpaid epoch is not an int: %w", err)
+				}
+
+				printContainerUnpaidStatus(cmd, cID, unpaidSince.Int64())
+			}
+		}
+	} else {
+		unpaidSince, err := balanceReader.GetUnpaidContainerEpoch(util.Uint256(cID))
+		if err != nil {
+			return fmt.Errorf("rpc call: %w", err)
+		}
+		printContainerUnpaidStatus(cmd, cID, unpaidSince.Int64())
+	}
+
+	return nil
+}
+
+func printContainerUnpaidStatus(cmd *cobra.Command, cID cid.ID, unpaidSince int64) {
+	if unpaidSince < 0 {
+		cmd.Printf("%s: container is paid\n", cID)
+	} else {
+		cmd.Printf("%s: container is unpaid since %d epoch\n", cID, unpaidSince)
+	}
+}
 
 type accBalancePair struct {
 	scriptHash util.Uint160
