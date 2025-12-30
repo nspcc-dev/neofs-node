@@ -10,7 +10,6 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -177,7 +176,7 @@ func mkFilterPhysicalPrefix() []byte {
 	return prefix
 }
 
-func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
+func iteratePhyObjects(tx *bbolt.Tx, f func(*bbolt.Cursor, oid.ID) error) error {
 	var oID oid.ID
 
 	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
@@ -192,7 +191,7 @@ func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
 		)
 		for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			if oID.Decode(k[len(prefix):]) == nil {
-				err := f(cID, oID)
+				err := f(b.Cursor(), oID)
 				if err != nil {
 					return err
 				}

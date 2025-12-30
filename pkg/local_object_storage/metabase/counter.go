@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -138,19 +137,14 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 	var phyCounter uint64
 	var logicCounter uint64
 
-	err = iteratePhyObjects(tx, func(cnr cid.ID, obj oid.ID) error {
+	err = iteratePhyObjects(tx, func(c *bbolt.Cursor, obj oid.ID) error {
 		phyCounter++
 
-		metaBucket := tx.Bucket(metaBucketKey(cnr))
-		if metaBucket != nil {
-			var metaCursor = metaBucket.Cursor()
-
-			typ, err := fetchTypeForID(metaCursor, obj)
-			// check if an object is available: not with GCMark
-			// and not covered with a tombstone
-			if inGarbage(metaCursor, obj) == statusAvailable && err == nil && typ == object.TypeRegular {
-				logicCounter++
-			}
+		typ, err := fetchTypeForID(c, obj)
+		// check if an object is available: not with GCMark
+		// and not covered with a tombstone
+		if inGarbage(c, obj) == statusAvailable && err == nil && typ == object.TypeRegular {
+			logicCounter++
 		}
 
 		return nil
