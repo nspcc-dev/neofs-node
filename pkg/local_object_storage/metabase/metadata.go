@@ -135,11 +135,8 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	return nil
 }
 
-func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
-	metaBkt := tx.Bucket(metaBucketKey(cnr))
-	if metaBkt == nil {
-		return 0, nil
-	}
+func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
+	var metaBkt = c.Bucket()
 	var err error
 	var parent oid.ID
 	var size uint64
@@ -160,7 +157,6 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 	// removed keys must be pre-collected according to BoltDB docs.
 	var ks [][]byte
 	pref[0] = metaPrefixIDAttr
-	c := metaBkt.Cursor()
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
 		attrK, attrV, found := bytes.Cut(kIDAttr[len(pref):], objectcore.MetaAttributeDelimiter)
 		if !found {
@@ -198,7 +194,7 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 	}
 
 	if !parent.IsZero() && getParentInfo(c, cnr, parent) == nil {
-		_, err = deleteMetadata(tx, l, cnr, parent, true)
+		_, err = deleteMetadata(c, l, cnr, parent, true)
 		if err != nil {
 			l.Warn("parent removal",
 				zap.Stringer("child", oid.NewAddress(cnr, id)),

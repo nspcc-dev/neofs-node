@@ -151,7 +151,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error)
 
 	removeAvailableObject := inGarbage(metaCursor, addr.Object()) == statusAvailable
 
-	payloadSize, err := deleteMetadata(tx, db.log, addr.Container(), addr.Object(), false)
+	payloadSize, err := deleteMetadata(metaCursor, db.log, addr.Container(), addr.Object(), false)
 	if err != nil {
 		return false, false, 0, fmt.Errorf("can't remove metadata indexes: %w", err)
 	}
