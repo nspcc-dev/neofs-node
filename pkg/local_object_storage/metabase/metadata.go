@@ -257,7 +257,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	curEpoch := db.epochState.CurrentEpoch()
 	var gcMetaCursor = metaBkt.Cursor()
 	var gcCheck objectcore.AdditionalObjectChecker = func(id oid.ID) (match bool) {
-		return objectStatus(gcMetaCursor, oid.NewAddress(cnr, id), curEpoch) == statusAvailable
+		return objectStatus(gcMetaCursor, id, curEpoch) == statusAvailable
 	}
 	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
@@ -297,7 +297,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 				return invalidMetaBucketKeyErr(k, fmt.Errorf("unexpected object key len %d", len(k)))
 			}
 			res[n].ID = oid.ID(k[1:])
-			if objectStatus(mb.Cursor(), oid.NewAddress(cnr, res[n].ID), curEpoch) != statusAvailable { // GC-ed, expired, removed
+			if objectStatus(mb.Cursor(), res[n].ID, curEpoch) != statusAvailable { // GC-ed, expired, removed
 				continue
 			}
 			n++

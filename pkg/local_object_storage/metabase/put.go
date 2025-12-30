@@ -131,7 +131,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 					return logicerr.Wrap(apistatus.LockNonRegularObject{})
 				}
 
-				st := objectStatus(metaCursor, oid.NewAddress(cID, target), currEpoch)
+				st := objectStatus(metaCursor, target, currEpoch)
 				if st == statusTombstoned {
 					return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 				}
@@ -154,7 +154,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 					}
 				}
 
-				if objectLocked(currEpoch, metaCursor, cID, target) {
+				if objectLocked(currEpoch, metaCursor, target) {
 					return apistatus.ErrObjectLocked
 				}
 

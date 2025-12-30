@@ -301,14 +301,12 @@ func migrateFrom7Version(db *DB) error {
 			}
 			var (
 				metaCursor = metaBkt.Cursor()
-				addr       = oid.NewAddress(cnrOld.cID, oid.ID{})
 				objsNumber uint64
 			)
 			k, _ := metaCursor.Seek(phyPrefix)
 			for ; bytes.HasPrefix(k, phyPrefix); k, _ = metaCursor.Next() {
 				id := oid.ID(k[len(phyPrefix):])
-				addr.SetObject(id)
-				if objectStatus(metaBkt.Cursor(), addr, currEpoch) == statusAvailable {
+				if objectStatus(metaBkt.Cursor(), id, currEpoch) == statusAvailable {
 					objsNumber++
 				}
 			}
