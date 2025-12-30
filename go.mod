@@ -19,7 +19,7 @@ require (
 	github.com/nspcc-dev/bbolt v0.0.0-20250911202005-807225ebb0c8
 	github.com/nspcc-dev/hrw/v2 v2.0.4
 	github.com/nspcc-dev/locode-db v0.8.2
-	github.com/nspcc-dev/neo-go v0.114.1-0.20251222145711-e174185e133e
+	github.com/nspcc-dev/neo-go v0.115.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.25.2-0.20251223162726-c0cf83ca5e42
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.16.0.20251224112927-a50d7e9c925a

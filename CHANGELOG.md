@@ -52,7 +52,7 @@ Changelog for NeoFS Node
 - `github.com/nspcc-dev/neofs-contract` module to `v0.25.2-0.20251223162726-c0cf83ca5e42` (#3670, #3746, #3733)
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20251224112927-a50d7e9c925a` (#3711, #3750, #3733)
 - `github.com/nspcc-dev/locode-db` module to `v0.8.2` (#3729)
-- `github.com/nspcc-dev/neo-go` module to `v0.114.1-0.20251222145711-e174185e133e` (#3733)
+- `github.com/nspcc-dev/neo-go` module to `v0.115.0` (#3733, #3769)
 
 ### Updating from v0.50.2
 Please remove the following deprecated configuration options from IR config:
