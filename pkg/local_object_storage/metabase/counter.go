@@ -135,15 +135,11 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 		return nil
 	}
 
-	var addr oid.Address
 	var phyCounter uint64
 	var logicCounter uint64
 
 	err = iteratePhyObjects(tx, func(cnr cid.ID, obj oid.ID) error {
 		phyCounter++
-
-		addr.SetContainer(cnr)
-		addr.SetObject(obj)
 
 		metaBucket := tx.Bucket(metaBucketKey(cnr))
 		if metaBucket != nil {
