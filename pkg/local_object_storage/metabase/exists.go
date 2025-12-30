@@ -69,6 +69,7 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkParent bool) (bool, error) {
 	var (
 		cnr        = addr.Container()
+		id         = addr.Object()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
 		metaCursor *bbolt.Cursor
 	)
@@ -80,7 +81,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 	metaCursor = metaBucket.Cursor()
 
 	// check tombstones, garbage and object expiration first
-	switch objectStatus(metaCursor, addr, currEpoch) {
+	switch objectStatus(metaCursor, id, currEpoch) {
 	case statusGCMarked:
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	case statusTombstoned:
@@ -89,10 +90,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		return false, ErrObjectIsExpired
 	}
 
-	var (
-		objKeyBuf = make([]byte, metaIDTypePrefixSize)
-		id        = addr.Object()
-	)
+	var objKeyBuf = make([]byte, metaIDTypePrefixSize)
 
 	if checkParent {
 		err := getParentInfo(metaCursor, cnr, id)
@@ -109,28 +107,22 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 	return err == nil, nil
 }
 
-func objectStatus(metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
-	var status = objectStatusDirect(metaCursor, addr, currEpoch)
+func objectStatus(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64) uint8 {
+	var status = objectStatusDirect(metaCursor, id, currEpoch)
 
-	if (status == statusAvailable || status == statusGCMarked) && metaCursor != nil {
-		var parent = findParent(metaCursor, addr.Object())
+	if status == statusAvailable || status == statusGCMarked {
+		var parent = findParent(metaCursor, id)
 		if !parent.IsZero() {
-			addr.SetObject(parent)
-			parentStatus := objectStatus(metaCursor, addr, currEpoch)
+			parentStatus := objectStatus(metaCursor, parent, currEpoch)
 			status = max(parentStatus, status)
 		}
 	}
 	return status
 }
 
-func objectStatusDirect(metaCursor *bbolt.Cursor, addr oid.Address, currEpoch uint64) uint8 {
-	var (
-		oID = addr.Object()
-		cID = addr.Container()
-	)
-
+func objectStatusDirect(metaCursor *bbolt.Cursor, oID oid.ID, currEpoch uint64) uint8 {
 	if isExpired(metaCursor, oID, currEpoch) {
-		if objectLocked(currEpoch, metaCursor, cID, oID) {
+		if objectLocked(currEpoch, metaCursor, oID) {
 			return statusAvailable
 		}
 
@@ -138,7 +130,7 @@ func objectStatusDirect(metaCursor *bbolt.Cursor, addr oid.Address, currEpoch ui
 	}
 
 	garbageStatus := inGarbage(metaCursor, oID)
-	if garbageStatus != statusAvailable && objectLocked(currEpoch, metaCursor, cID, oID) {
+	if garbageStatus != statusAvailable && objectLocked(currEpoch, metaCursor, oID) {
 		return statusAvailable
 	}
 

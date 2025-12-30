@@ -50,7 +50,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 
 		res.HeaderIndex = readAttributes(metaCursor, oID)
 
-		var objLocked = objectLocked(currEpoch, metaCursor, cID, oID)
+		var objLocked = objectLocked(currEpoch, metaCursor, oID)
 
 		if objLocked {
 			res.State = append(res.State, "LOCKED")

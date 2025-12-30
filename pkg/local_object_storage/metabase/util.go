@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/bbolt"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -102,19 +101,16 @@ const (
 )
 
 // return true if provided object is of LOCK type.
-func isLockObject(tx *bbolt.Tx, idCnr cid.ID, obj oid.ID) bool {
-	var bkt = tx.Bucket(metaBucketKey(idCnr))
-	if bkt == nil {
-		return false
-	}
-
+func isLockObject(cur *bbolt.Cursor, obj oid.ID) bool {
 	var typeKey = make([]byte, metaIDTypePrefixSize+len(object.TypeLock.String()))
 
 	fillIDTypePrefix(typeKey)
 	copy(typeKey[1:], obj[:])
 	copy(typeKey[metaIDTypePrefixSize:], object.TypeLock.String())
 
-	return bkt.Get(typeKey) != nil
+	k, _ := cur.Seek(typeKey)
+
+	return bytes.Equal(k, typeKey)
 }
 
 func parseInt(s string) (*big.Int, bool) { return new(big.Int).SetString(s, 10) }

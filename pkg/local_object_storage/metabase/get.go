@@ -66,6 +66,7 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var (
 		cnr        = addr.Container()
 		metaBucket = tx.Bucket(metaBucketKey(cnr))
+		objID      = addr.Object()
 	)
 
 	if metaBucket == nil {
@@ -75,7 +76,7 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	var metaCursor = metaBucket.Cursor()
 
 	if checkStatus {
-		switch objectStatus(metaCursor, addr, currEpoch) {
+		switch objectStatus(metaCursor, objID, currEpoch) {
 		case statusGCMarked:
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		case statusTombstoned:
@@ -84,8 +85,6 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 			return nil, ErrObjectIsExpired
 		}
 	}
-
-	var objID = addr.Object()
 
 	if raw {
 		err := getParentInfo(metaCursor, cnr, objID)

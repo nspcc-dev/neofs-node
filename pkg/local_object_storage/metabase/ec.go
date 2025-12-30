@@ -89,7 +89,7 @@ func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid
 
 	metaBktCrs := metaBkt.Cursor()
 
-	id, err := db.resolveECPartInMetaBucket(metaBktCrs, cnr, parent, pi)
+	id, err := db.resolveECPartInMetaBucket(metaBktCrs, parent, pi)
 	if err != nil {
 		return oid.ID{}, 0, err
 	}
@@ -117,13 +117,13 @@ func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.Pa
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	}
 
-	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), cnr, parent, pi)
+	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), parent, pi)
 }
 
-func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
+func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
 	metaBkt := crs.Bucket()
 
-	switch objectStatus(crs, oid.NewAddress(cnr, parent), db.epochState.CurrentEpoch()) {
+	switch objectStatus(crs, parent, db.epochState.CurrentEpoch()) {
 	case statusGCMarked:
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	case statusTombstoned:

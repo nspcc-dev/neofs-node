@@ -135,11 +135,8 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	return nil
 }
 
-func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
-	metaBkt := tx.Bucket(metaBucketKey(cnr))
-	if metaBkt == nil {
-		return 0, nil
-	}
+func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
+	var metaBkt = c.Bucket()
 	var err error
 	var parent oid.ID
 	var size uint64
@@ -160,7 +157,6 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 	// removed keys must be pre-collected according to BoltDB docs.
 	var ks [][]byte
 	pref[0] = metaPrefixIDAttr
-	c := metaBkt.Cursor()
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
 		attrK, attrV, found := bytes.Cut(kIDAttr[len(pref):], objectcore.MetaAttributeDelimiter)
 		if !found {
@@ -198,7 +194,7 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 	}
 
 	if !parent.IsZero() && getParentInfo(c, cnr, parent) == nil {
-		_, err = deleteMetadata(tx, l, cnr, parent, true)
+		_, err = deleteMetadata(c, l, cnr, parent, true)
 		if err != nil {
 			l.Warn("parent removal",
 				zap.Stringer("child", oid.NewAddress(cnr, id)),
@@ -261,7 +257,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	curEpoch := db.epochState.CurrentEpoch()
 	var gcMetaCursor = metaBkt.Cursor()
 	var gcCheck objectcore.AdditionalObjectChecker = func(id oid.ID) (match bool) {
-		return objectStatus(gcMetaCursor, oid.NewAddress(cnr, id), curEpoch) == statusAvailable
+		return objectStatus(gcMetaCursor, id, curEpoch) == statusAvailable
 	}
 	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
@@ -301,7 +297,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 				return invalidMetaBucketKeyErr(k, fmt.Errorf("unexpected object key len %d", len(k)))
 			}
 			res[n].ID = oid.ID(k[1:])
-			if objectStatus(mb.Cursor(), oid.NewAddress(cnr, res[n].ID), curEpoch) != statusAvailable { // GC-ed, expired, removed
+			if objectStatus(mb.Cursor(), res[n].ID, curEpoch) != statusAvailable { // GC-ed, expired, removed
 				continue
 			}
 			n++

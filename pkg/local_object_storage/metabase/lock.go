@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -68,7 +67,7 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 }
 
 // checks if specified object is locked in the specified container.
-func objectLocked(currEpoch uint64, metaCursor *bbolt.Cursor, idCnr cid.ID, idObj oid.ID) bool {
+func objectLocked(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID) bool {
 	locked, lockID := associatedWithTypedObject(currEpoch, metaCursor, idObj, object.TypeLock)
 	if !locked {
 		return false
@@ -94,13 +93,12 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 	)
 
 	return locked, db.boltDB.View(func(tx *bbolt.Tx) error {
-		cID := addr.Container()
-		mBucket := tx.Bucket(metaBucketKey(cID))
+		mBucket := tx.Bucket(metaBucketKey(addr.Container()))
 		if mBucket == nil {
 			return nil
 		}
 
-		locked = objectLocked(currEpoch, mBucket.Cursor(), cID, addr.Object())
+		locked = objectLocked(currEpoch, mBucket.Cursor(), addr.Object())
 		return nil
 	})
 }
