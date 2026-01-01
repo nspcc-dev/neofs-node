@@ -132,9 +132,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		return oid.ID{}, ErrObjectIsExpired
 	}
 
-	pref := slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(object.FilterParentID), objectcore.MetaAttributeDelimiter,
-		parent[:], objectcore.MetaAttributeDelimiter,
-	)
+	pref := getParentMetaOwnersPrefix(parent)
 
 	var partCrs *bbolt.Cursor
 	var rulePref, partPref, typePref []byte

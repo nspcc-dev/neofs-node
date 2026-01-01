@@ -8,10 +8,8 @@ import (
 	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -216,9 +214,7 @@ func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObjec
 func supplementRemovedECParts(res []RemovedObject, cnrMetaCrs *bbolt.Cursor, addrs []oid.Address, addr oid.Address) ([]RemovedObject, error) {
 	cnr := addr.Container()
 	parent := addr.Object()
-	pref := slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(object.FilterParentID), objectcore.MetaAttributeDelimiter,
-		parent[:], objectcore.MetaAttributeDelimiter,
-	)
+	pref := getParentMetaOwnersPrefix(parent)
 
 	var partCrs *bbolt.Cursor
 	var ecPref []byte
