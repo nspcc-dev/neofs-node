@@ -38,9 +38,10 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 
 		if metaCursor.Bucket().Get(typeKey) != nil {
 			if currEpoch > 0 {
+				var epochCursor = metaCursor.Bucket().Cursor()
 				copy(expirationPrefix[1:], mainObj)
 
-				expKey, _ := metaCursor.Seek(expirationPrefix)
+				expKey, _ := epochCursor.Seek(expirationPrefix)
 				if bytes.HasPrefix(expKey, expirationPrefix) {
 					// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
 					var val = expKey[len(expirationPrefix):]
