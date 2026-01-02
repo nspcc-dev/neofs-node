@@ -167,17 +167,9 @@ func getParentID(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
 // the same attribute and value. Obviously this only makes sense if the parent
 // is the same, that is attribute is either a first object ID or a split ID.
 func seekForParentViaAttribute(metaCursor *bbolt.Cursor, attr string, val []byte) oid.ID {
-	var (
-		idCursor = metaCursor.Bucket().Cursor()
-		pref     = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
-			objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
-	)
+	var idCursor = metaCursor.Bucket().Cursor()
 
-	for k, _ := metaCursor.Seek(pref); bytes.HasPrefix(k, pref); k, _ = metaCursor.Next() {
-		child, err := oid.DecodeBytes(k[len(pref):])
-		if err != nil {
-			continue
-		}
+	for child := range iterAttrVal(metaCursor, attr, val) {
 		parent := getParentID(idCursor, child)
 		if !parent.IsZero() {
 			return parent
