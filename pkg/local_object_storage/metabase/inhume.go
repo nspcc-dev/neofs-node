@@ -100,7 +100,7 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 				return err
 			}
 
-			if isLockObject(metaCursor, id) {
+			if isObjectType(metaCursor, id, object.TypeLock) {
 				deletedLockObjs = append(deletedLockObjs, addr)
 			}
 		}
