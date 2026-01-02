@@ -17,7 +17,6 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 	var (
 		typString        = typ.String()
 		idStr            = idObj.EncodeToString()
-		accPrefix        = make([]byte, 1+len(object.AttributeAssociatedObject)+1+len(idStr)+1)
 		typeKey          = make([]byte, metaIDTypePrefixSize+len(typString))
 		expirationPrefix = make([]byte, attrIDFixedLen+len(object.AttributeExpirationEpoch))
 	)
@@ -25,21 +24,16 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 	expirationPrefix[0] = metaPrefixIDAttr
 	copy(expirationPrefix[1+oid.Size:], object.AttributeExpirationEpoch)
 
-	accPrefix[0] = metaPrefixAttrIDPlain
-	copy(accPrefix[1:], object.AttributeAssociatedObject)
-	copy(accPrefix[1+len(object.AttributeAssociatedObject)+1:], idStr)
-
 	fillIDTypePrefix(typeKey)
 	copy(typeKey[metaIDTypePrefixSize:], typString)
 
-	for k, _ := metaCursor.Seek(accPrefix); bytes.HasPrefix(k, accPrefix); k, _ = metaCursor.Next() {
-		mainObj := k[len(accPrefix):]
-		copy(typeKey[1:], mainObj)
+	for associateID := range iterAttrVal(metaCursor, object.AttributeAssociatedObject, []byte(idStr)) {
+		copy(typeKey[1:], associateID[:])
 
 		if metaCursor.Bucket().Get(typeKey) != nil {
 			if currEpoch > 0 {
 				var epochCursor = metaCursor.Bucket().Cursor()
-				copy(expirationPrefix[1:], mainObj)
+				copy(expirationPrefix[1:], associateID[:])
 
 				expKey, _ := epochCursor.Seek(expirationPrefix)
 				if bytes.HasPrefix(expKey, expirationPrefix) {
@@ -54,8 +48,6 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 				}
 			}
 
-			var associateID oid.ID
-			copy(associateID[:], mainObj)
 			return true, associateID
 		}
 	}

@@ -456,18 +456,17 @@ func collectChildren(cnrMetaCrs *bbolt.Cursor, cnr cid.ID, parentID oid.ID) ([]o
 	}
 	if errors.As(parInfo, &siErr) {
 		var (
-			si       = siErr.SplitInfo()
-			firstID  = si.GetFirstPart()
-			splitID  = si.SplitID()
-			res      []oid.ID
-			children []oid.ID
+			si      = siErr.SplitInfo()
+			firstID = si.GetFirstPart()
+			splitID = si.SplitID()
+			res     []oid.ID
 		)
 		switch {
 		case !firstID.IsZero():
-			children = collectRawWithAttribute(cnrMetaCrs, object.FilterFirstSplitObject, firstID[:])
-			children = append(children, firstID)
+			res = append(res, firstID)
+			res = slices.AppendSeq(res, iterAttrVal(cnrMetaCrs, object.FilterFirstSplitObject, firstID[:]))
 		case splitID != nil:
-			children = collectRawWithAttribute(cnrMetaCrs, object.FilterSplitID, splitID.ToV2())
+			res = slices.AppendSeq(res, iterAttrVal(cnrMetaCrs, object.FilterSplitID, splitID.ToV2()))
 		default:
 			// Shouldn't happen, but try to extract at least something.
 			var (
@@ -475,14 +474,13 @@ func collectChildren(cnrMetaCrs *bbolt.Cursor, cnr cid.ID, parentID oid.ID) ([]o
 				last = si.GetLastPart()
 			)
 			if !link.IsZero() {
-				children = append(children, link)
+				res = append(res, link)
 			}
 			if !last.IsZero() {
-				children = append(children, last)
+				res = append(res, last)
 			}
 		}
-		res = append(res, children...)
-		for _, id := range children {
+		for _, id := range res {
 			grandchildren, err := collectChildren(cnrMetaCrs, cnr, id)
 			if err != nil {
 				return nil, err
