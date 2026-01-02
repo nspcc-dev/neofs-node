@@ -169,7 +169,7 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 		for _, id := range children {
 			addr.SetObject(id)
 
-			obj, err := get(tx, addr, false, true, currEpoch)
+			obj, err := get(metaCursor, addr, false, true, currEpoch)
 			// Garbage mark should be put irrespective of errors,
 			// especially if the error is SplitInfo.
 			if err == nil {
