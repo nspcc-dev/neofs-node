@@ -11,20 +11,13 @@ import (
 // zero currEpoch skips expiration check. Returns associated object ID if it's
 // present.
 func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) (bool, oid.ID) {
-	var (
-		typString = typ.String()
-		idStr     = idObj.EncodeToString()
-		typeKey   = make([]byte, metaIDTypePrefixSize+len(typString))
-	)
-
-	fillIDTypePrefix(typeKey)
-	copy(typeKey[metaIDTypePrefixSize:], typString)
+	var idStr = idObj.EncodeToString()
 
 	for associateID := range iterAttrVal(metaCursor, object.AttributeAssociatedObject, []byte(idStr)) {
-		copy(typeKey[1:], associateID[:])
+		var cur = metaCursor.Bucket().Cursor()
 
-		if metaCursor.Bucket().Get(typeKey) != nil {
-			if currEpoch > 0 && isExpired(metaCursor.Bucket().Cursor(), associateID, currEpoch) {
+		if isObjectType(cur, associateID, typ) {
+			if currEpoch > 0 && isExpired(cur, associateID, currEpoch) {
 				continue
 			}
 
