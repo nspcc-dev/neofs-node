@@ -187,13 +187,3 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 	obj.SetID(objID)
 	return obj, nil
 }
-
-func getParentMetaOwnersPrefix(parentID oid.ID) []byte {
-	var parentPrefix = make([]byte, 1+len(object.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
-	parentPrefix[0] = metaPrefixAttrIDPlain
-	off := 1 + copy(parentPrefix[1:], object.FilterParentID)
-	off += copy(parentPrefix[off:], objectcore.MetaAttributeDelimiter)
-	copy(parentPrefix[off:], parentID[:])
-
-	return parentPrefix
-}

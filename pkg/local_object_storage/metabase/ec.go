@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -132,36 +131,13 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		return oid.ID{}, ErrObjectIsExpired
 	}
 
-	pref := getParentMetaOwnersPrefix(parent)
-
 	var partCrs *bbolt.Cursor
 	var rulePref, partPref, typePref []byte
 	var sizeSplitInfo *object.SplitInfo
 	isParent := false
-	for k, _ := crs.Seek(pref); ; k, _ = crs.Next() {
-		partID, ok := bytes.CutPrefix(k, pref)
-		if !ok {
-			if !isParent { // neither tombstone nor lock can be a parent
-				if typePref == nil {
-					typePref = make([]byte, metaIDTypePrefixSize)
-					fillIDTypePrefix(typePref)
-				}
-				if typ, err := fetchTypeForIDWBuf(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink) {
-					return parent, nil
-				}
-			}
-
-			if sizeSplitInfo != nil {
-				return oid.ID{}, object.NewSplitInfoError(sizeSplitInfo)
-			}
-
-			return oid.ID{}, apistatus.ErrObjectNotFound
-		}
-		if len(partID) != oid.Size {
-			return oid.ID{}, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
-		}
-		if islices.AllZeros(partID) {
-			return oid.ID{}, invalidMetaBucketKeyErr(k, oid.ErrZero)
+	for id := range iterAttrVal(crs, object.FilterParentID, parent[:]) {
+		if id.IsZero() {
+			return oid.ID{}, fmt.Errorf("invalid child of %s parent: %w", parent, oid.ErrZero)
 		}
 
 		isParent = true
@@ -172,31 +148,32 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 
 		if rulePref == nil {
 			// TODO: make and reuse one buffer for all keys
-			rulePref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributeRuleIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.RuleIndex)))
+			rulePref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributeRuleIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.RuleIndex)))
 		} else {
-			copy(rulePref[1:], partID)
+			copy(rulePref[1:], id[:])
 		}
-		if k, _ = partCrs.Seek(rulePref); !bytes.Equal(k, rulePref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
+		k, _ := partCrs.Seek(rulePref)
+		if !bytes.Equal(k, rulePref) { // Cursor.Seek is more lightweight than Bucket.Get making cursor inside
 			if typePref == nil {
 				typePref = make([]byte, metaIDTypePrefixSize)
 				fillIDTypePrefix(typePref)
 			}
-			if typ, err := fetchTypeForIDWBuf(partCrs, typePref, oid.ID(partID)); err == nil && typ == object.TypeLink {
+			if typ, err := fetchTypeForIDWBuf(partCrs, typePref, id); err == nil && typ == object.TypeLink {
 				if sizeSplitInfo == nil {
 					sizeSplitInfo = new(object.SplitInfo)
 				}
 
-				sizeSplitInfo.SetLink(oid.ID(partID))
+				sizeSplitInfo.SetLink(id)
 
 				return oid.ID{}, object.NewSplitInfoError(sizeSplitInfo)
 			}
 
-			if (sizeSplitInfo == nil || sizeSplitInfo.GetLastPart().IsZero()) && getObjAttribute(partCrs, oid.ID(partID), object.FilterFirstSplitObject) != nil {
+			if (sizeSplitInfo == nil || sizeSplitInfo.GetLastPart().IsZero()) && getObjAttribute(partCrs, id, object.FilterFirstSplitObject) != nil {
 				if sizeSplitInfo == nil {
 					sizeSplitInfo = new(object.SplitInfo)
 				}
 
-				sizeSplitInfo.SetLastPart(oid.ID(partID))
+				sizeSplitInfo.SetLastPart(id)
 				// continue because next item may be a linker. If so, it's the most informative
 			}
 
@@ -204,12 +181,27 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		}
 
 		if partPref == nil {
-			partPref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.Index)))
+			partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.Index)))
 		} else {
-			copy(partPref[1:], partID)
+			copy(partPref[1:], id[:])
 		}
 		if k, _ = partCrs.Seek(partPref); bytes.Equal(k, partPref) {
-			return oid.ID(partID), nil
+			return id, nil
 		}
 	}
+	if !isParent { // neither tombstone nor lock can be a parent
+		if typePref == nil {
+			typePref = make([]byte, metaIDTypePrefixSize)
+			fillIDTypePrefix(typePref)
+		}
+		if typ, err := fetchTypeForIDWBuf(crs, typePref, parent); err == nil && (typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink) {
+			return parent, nil
+		}
+	}
+
+	if sizeSplitInfo != nil {
+		return oid.ID{}, object.NewSplitInfoError(sizeSplitInfo)
+	}
+
+	return oid.ID{}, apistatus.ErrObjectNotFound
 }

@@ -243,17 +243,12 @@ func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
 // - [ErrParts] if object is EC.
 func getParentInfo(metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) error {
 	var (
-		splitInfo    *object.SplitInfo
-		ecParts      []oid.ID
-		parentPrefix = getParentMetaOwnersPrefix(parentID)
+		splitInfo *object.SplitInfo
+		ecParts   []oid.ID
 	)
 
 loop:
-	for k, _ := metaCursor.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = metaCursor.Next() {
-		objID, err := oid.DecodeBytes(k[len(parentPrefix):])
-		if err != nil {
-			return fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)
-		}
+	for objID := range iterAttrVal(metaCursor, object.FilterParentID, parentID[:]) {
 		var (
 			objCur    = metaCursor.Bucket().Cursor()
 			objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
