@@ -95,19 +95,10 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 
 	// Reconstruct header from available data.
 	var (
-		attrs     []object.Attribute
-		obj       = object.New()
-		objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
+		attrs []object.Attribute
+		obj   = object.New()
 	)
-	for ak, _ := metaCursor.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = metaCursor.Next() {
-		attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
-		if !ok {
-			return nil, fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)
-		}
-		// Attribute must non-zero key and value.
-		if len(attrKey) == 0 || len(attrVal) == 0 {
-			return nil, fmt.Errorf("empty attribute or value in meta of %s/%s", cnr, objID)
-		}
+	for attrKey, attrVal := range iterIDAttrs(metaCursor, objID) {
 		switch string(attrKey) {
 		case object.FilterVersion:
 			var v version.Version
@@ -186,4 +177,21 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 	obj.SetContainerID(cnr)
 	obj.SetID(objID)
 	return obj, nil
+}
+
+func iterIDAttrs(cur *bbolt.Cursor, obj oid.ID) func(yield func(k, v []byte) bool) {
+	var pref = slices.Concat([]byte{metaPrefixIDAttr}, obj[:])
+
+	return func(yield func(k, v []byte) bool) {
+		for dbKey, _ := cur.Seek(pref); bytes.HasPrefix(dbKey, pref); dbKey, _ = cur.Next() {
+			kv := dbKey[len(pref):]
+			k, v, found := bytes.Cut(kv, objectcore.MetaAttributeDelimiter)
+			if !found || len(k) == 0 || len(v) == 0 {
+				continue
+			}
+			if !yield(k, v) {
+				break
+			}
+		}
+	}
 }

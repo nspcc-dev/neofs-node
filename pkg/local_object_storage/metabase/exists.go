@@ -249,22 +249,12 @@ func getParentInfo(metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) error 
 
 loop:
 	for objID := range iterAttrVal(metaCursor, object.FilterParentID, parentID[:]) {
-		var (
-			objCur    = metaCursor.Bucket().Cursor()
-			objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
-			isLink    bool
-			isV1      bool
-			isEmpty   bool
-		)
+		var isEmpty, isLink, isV1 bool
+
 		if splitInfo == nil {
 			splitInfo = object.NewSplitInfo()
 		}
-		for ak, _ := objCur.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = objCur.Next() {
-			attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
-			if !ok {
-				return fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)
-			}
-
+		for attrKey, attrVal := range iterIDAttrs(metaCursor.Bucket().Cursor(), objID) {
 			if strings.HasPrefix(string(attrKey), iec.AttributePrefix) {
 				ecParts = append(ecParts, objID)
 				continue loop
