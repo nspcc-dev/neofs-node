@@ -1,9 +1,6 @@
 package meta
 
 import (
-	"bytes"
-	"strconv"
-
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -15,14 +12,10 @@ import (
 // present.
 func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) (bool, oid.ID) {
 	var (
-		typString        = typ.String()
-		idStr            = idObj.EncodeToString()
-		typeKey          = make([]byte, metaIDTypePrefixSize+len(typString))
-		expirationPrefix = make([]byte, attrIDFixedLen+len(object.AttributeExpirationEpoch))
+		typString = typ.String()
+		idStr     = idObj.EncodeToString()
+		typeKey   = make([]byte, metaIDTypePrefixSize+len(typString))
 	)
-
-	expirationPrefix[0] = metaPrefixIDAttr
-	copy(expirationPrefix[1+oid.Size:], object.AttributeExpirationEpoch)
 
 	fillIDTypePrefix(typeKey)
 	copy(typeKey[metaIDTypePrefixSize:], typString)
@@ -31,21 +24,8 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 		copy(typeKey[1:], associateID[:])
 
 		if metaCursor.Bucket().Get(typeKey) != nil {
-			if currEpoch > 0 {
-				var epochCursor = metaCursor.Bucket().Cursor()
-				copy(expirationPrefix[1:], associateID[:])
-
-				expKey, _ := epochCursor.Seek(expirationPrefix)
-				if bytes.HasPrefix(expKey, expirationPrefix) {
-					// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
-					var val = expKey[len(expirationPrefix):]
-
-					objExpiration, err := strconv.ParseUint(string(val), 10, 64)
-					associationExpired := (err == nil) && (currEpoch > objExpiration)
-					if associationExpired {
-						continue
-					}
-				}
+			if currEpoch > 0 && isExpired(metaCursor.Bucket().Cursor(), associateID, currEpoch) {
+				continue
 			}
 
 			return true, associateID
