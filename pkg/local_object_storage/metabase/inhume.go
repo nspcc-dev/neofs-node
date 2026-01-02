@@ -77,7 +77,7 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 			}
 			var metaCursor = metaBucket.Cursor()
 
-			obj, err := get(tx, addr, false, true, currEpoch)
+			obj, err := get(metaCursor, addr, false, true, currEpoch)
 			if err == nil {
 				if inGarbage(metaCursor, id) == statusAvailable {
 					// object is available, decrement the

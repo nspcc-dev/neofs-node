@@ -51,7 +51,13 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 	)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		hdr, err = get(tx, addr, true, raw, currEpoch)
+		var metaBucket = tx.Bucket(metaBucketKey(addr.Container()))
+
+		if metaBucket == nil {
+			return logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
+
+		hdr, err = get(metaBucket.Cursor(), addr, true, raw, currEpoch)
 
 		return err
 	})
@@ -62,18 +68,11 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 // If raw and the object is a parent of some stored objects, get returns:
 // - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [iec.ErrPartitionedObject] if object is EC.
-func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
+func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
 	var (
-		cnr        = addr.Container()
-		metaBucket = tx.Bucket(metaBucketKey(cnr))
-		objID      = addr.Object()
+		cnr   = addr.Container()
+		objID = addr.Object()
 	)
-
-	if metaBucket == nil {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	var metaCursor = metaBucket.Cursor()
 
 	if checkStatus {
 		switch objectStatus(metaCursor, objID, currEpoch) {
