@@ -53,7 +53,13 @@ func (db *DB) ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID,
 	var res oid.ID
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
-		res, err = db.resolveECPartTx(tx, cnr, parent, pi)
+
+		metaBkt := tx.Bucket(metaBucketKey(cnr))
+		if metaBkt == nil {
+			return apistatus.ErrObjectNotFound
+		}
+
+		res, err = db.resolveECPartInMetaBucket(metaBkt.Cursor(), parent, pi)
 		return err
 	})
 	return res, err
@@ -73,21 +79,20 @@ func (db *DB) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.Part
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
-		id, ln, err = db.resolveECPartWithPayloadLenTx(tx, cnr, parent, pi)
+
+		metaBkt := tx.Bucket(metaBucketKey(cnr))
+		if metaBkt == nil {
+			return apistatus.ErrObjectNotFound
+		}
+
+		id, ln, err = db.resolveECPartWithPayloadLen(metaBkt.Cursor(), parent, pi)
 		return err
 	})
 
 	return id, ln, err
 }
 
-func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, uint64, error) {
-	metaBkt := tx.Bucket(metaBucketKey(cnr))
-	if metaBkt == nil {
-		return oid.ID{}, 0, apistatus.ErrObjectNotFound
-	}
-
-	metaBktCrs := metaBkt.Cursor()
-
+func (db *DB) resolveECPartWithPayloadLen(metaBktCrs *bbolt.Cursor, parent oid.ID, pi iec.PartInfo) (oid.ID, uint64, error) {
 	id, err := db.resolveECPartInMetaBucket(metaBktCrs, parent, pi)
 	if err != nil {
 		return oid.ID{}, 0, err
@@ -108,15 +113,6 @@ func (db *DB) resolveECPartWithPayloadLenTx(tx *bbolt.Tx, cnr cid.ID, parent oid
 	}
 
 	return id, ln, nil
-}
-
-func (db *DB) resolveECPartTx(tx *bbolt.Tx, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
-	metaBkt := tx.Bucket(metaBucketKey(cnr))
-	if metaBkt == nil {
-		return oid.ID{}, apistatus.ErrObjectNotFound
-	}
-
-	return db.resolveECPartInMetaBucket(metaBkt.Cursor(), parent, pi)
 }
 
 func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
