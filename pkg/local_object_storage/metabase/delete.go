@@ -7,8 +7,6 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	islices "github.com/nspcc-dev/neofs-node/internal/slices"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -216,22 +214,12 @@ func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObjec
 func supplementRemovedECParts(res []RemovedObject, cnrMetaCrs *bbolt.Cursor, addrs []oid.Address, addr oid.Address) ([]RemovedObject, error) {
 	cnr := addr.Container()
 	parent := addr.Object()
-	pref := slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(object.FilterParentID), objectcore.MetaAttributeDelimiter,
-		parent[:], objectcore.MetaAttributeDelimiter,
-	)
 
 	var partCrs *bbolt.Cursor
 	var ecPref []byte
-	for k, _ := cnrMetaCrs.Seek(pref); ; k, _ = cnrMetaCrs.Next() {
-		partID, ok := bytes.CutPrefix(k, pref)
-		if !ok {
-			break
-		}
-		if len(partID) != oid.Size {
-			return nil, invalidMetaBucketKeyErr(k, fmt.Errorf("wrong OID len %d", len(partID)))
-		}
-		if islices.AllZeros(partID) {
-			return nil, invalidMetaBucketKeyErr(k, oid.ErrZero)
+	for id := range iterAttrVal(cnrMetaCrs, object.FilterParentID, parent[:]) {
+		if id.IsZero() {
+			return nil, fmt.Errorf("invalid child of %s parent: %w", parent, oid.ErrZero)
 		}
 
 		if partCrs == nil {
@@ -239,16 +227,15 @@ func supplementRemovedECParts(res []RemovedObject, cnrMetaCrs *bbolt.Cursor, add
 		}
 
 		if ecPref == nil {
-			ecPref = slices.Concat([]byte{metaPrefixIDAttr}, partID, []byte(iec.AttributePrefix)) // any of EC attributes
+			ecPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePrefix)) // any of EC attributes
 		} else {
-			copy(ecPref[1:], partID)
+			copy(ecPref[1:], id[:])
 		}
 
-		if k, _ = partCrs.Seek(ecPref); !bytes.HasPrefix(k, ecPref) {
+		k, _ := partCrs.Seek(ecPref)
+		if !bytes.HasPrefix(k, ecPref) {
 			continue
 		}
-
-		id := oid.ID(partID)
 
 		if !slices.ContainsFunc(addrs, func(addr oid.Address) bool { return addr.Container() == cnr && addr.Object() == id }) {
 			res = append(res, RemovedObject{

@@ -10,7 +10,6 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -66,9 +65,9 @@ func keyToEpochOID(k []byte, expStart []byte) (uint64, oid.ID) {
 	return binary.BigEndian.Uint64(f256[32-8:]), id
 }
 
-// metaBucket is metadata bucket (0xff), typPrefix is the key for FilterType
-// object ID-Attribute key, id is the ID we're looking for.
-func fetchTypeForID(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (object.Type, error) {
+// fetchTypeForIDWBuf fetches object type using the given meta bucket cursor
+// and reusable key buffer.
+func fetchTypeForIDWBuf(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (object.Type, error) {
 	var typ object.Type
 
 	copy(typPrefix[1:], id[:])
@@ -81,6 +80,14 @@ func fetchTypeForID(metaCursor *bbolt.Cursor, typPrefix []byte, id oid.ID) (obje
 		return typ, nil
 	}
 	return typ, errObjTypeNotFound
+}
+
+// fetchTypeForID is similar to fetchTypeForIDWBuf, but allocates a buffer internally.
+func fetchTypeForID(c *bbolt.Cursor, id oid.ID) (object.Type, error) {
+	var key = make([]byte, metaIDTypePrefixSize)
+
+	fillIDTypePrefix(key)
+	return fetchTypeForIDWBuf(c, key, id)
 }
 
 // fillIDTypePrefix puts metaPrefixIDAttr and FilterType properly into typPrefix
@@ -137,7 +144,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 			addr.SetContainer(cnrID)
 			addr.SetObject(id)
 
-			typ, err := fetchTypeForID(b.Cursor(), typPrefix, id)
+			typ, err := fetchTypeForIDWBuf(b.Cursor(), typPrefix, id)
 			if err != nil {
 				db.log.Warn("inconsistent DB in expired iterator",
 					zap.Stringer("object", addr), zap.Error(err))
@@ -169,25 +176,17 @@ func mkFilterPhysicalPrefix() []byte {
 	return prefix
 }
 
-func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
-	var oID oid.ID
-
+func iteratePhyObjects(tx *bbolt.Tx, f func(*bbolt.Cursor, oid.ID) error) error {
 	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
 		cID, tablePrefix := parseContainerIDWithPrefix(name)
 		if cID.IsZero() || tablePrefix != metadataPrefix {
 			return nil
 		}
 
-		var (
-			c      = b.Cursor()
-			prefix = mkFilterPhysicalPrefix()
-		)
-		for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
-			if oID.Decode(k[len(prefix):]) == nil {
-				err := f(cID, oID)
-				if err != nil {
-					return err
-				}
+		for id := range iterAttrVal(b.Cursor(), object.FilterPhysical, []byte(binPropMarker)) {
+			err := f(b.Cursor(), id)
+			if err != nil {
+				return err
 			}
 		}
 		return nil
