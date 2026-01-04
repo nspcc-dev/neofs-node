@@ -111,12 +111,22 @@ func (db *DB) CollectRawWithAttribute(cnr cid.ID, attr string, val []byte) ([]oi
 	return res, err
 }
 
-func iterAttrVal(cur *bbolt.Cursor, attr string, val []byte) func(yield func(oid.ID) bool) {
-	var pref = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
-		objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
+func iterPrefixedIDs(cur *bbolt.Cursor, pref []byte, offset oid.ID) func(yield func(oid.ID) bool) {
+	var k []byte
+
+	if offset.IsZero() {
+		k, _ = cur.Seek(pref)
+	} else {
+		var seekPos = slices.Concat(pref, offset[:])
+
+		k, _ = cur.Seek(seekPos)
+		if bytes.Equal(k, seekPos) {
+			k, _ = cur.Next() // We are looking for objects _after_ the offset.
+		}
+	}
 
 	return func(yield func(oid.ID) bool) {
-		for k, _ := cur.Seek(pref); bytes.HasPrefix(k, pref); k, _ = cur.Next() {
+		for ; bytes.HasPrefix(k, pref); k, _ = cur.Next() {
 			id, err := oid.DecodeBytes(k[len(pref):])
 			if err != nil {
 				continue
@@ -126,4 +136,11 @@ func iterAttrVal(cur *bbolt.Cursor, attr string, val []byte) func(yield func(oid
 			}
 		}
 	}
+}
+
+func iterAttrVal(cur *bbolt.Cursor, attr string, val []byte) func(yield func(oid.ID) bool) {
+	var pref = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
+		objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
+
+	return iterPrefixedIDs(cur, pref, oid.ID{})
 }

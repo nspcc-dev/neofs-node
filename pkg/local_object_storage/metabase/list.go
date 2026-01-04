@@ -19,7 +19,7 @@ var ErrEndOfListing = logicerr.New("end of object listing")
 // Cursor is a type for continuous object listing.
 type Cursor struct {
 	bucketName     []byte
-	inBucketOffset []byte
+	inBucketOffset oid.ID
 	attrsPrefix    []byte
 }
 
@@ -54,17 +54,15 @@ func (db *DB) ListWithCursor(count int, cursor *Cursor, attrs ...string) ([]obje
 }
 
 func (db *DB) listWithCursor(tx *bbolt.Tx, result []objectcore.AddressWithAttributes, count int, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
-	threshold := cursor == nil // threshold is a flag to ignore cursor
+	var haveCur = cursor != nil
 	var bucketName []byte
 
 	c := tx.Cursor()
 	name, _ := c.First()
 
-	if !threshold {
+	if haveCur {
 		name, _ = c.Seek(cursor.bucketName)
 	}
-
-	var offset []byte
 
 loop:
 	for ; name != nil; name, _ = c.Next() {
@@ -75,23 +73,17 @@ loop:
 
 		bkt := tx.Bucket(name)
 		if bkt != nil {
-			result, offset, cursor = selectNFromBucket(bkt, containerID,
-				result, count, cursor, threshold, attrs...)
+			if !haveCur && cursor != nil {
+				cursor.inBucketOffset = oid.ID{} // Reset for the next bucket.
+			}
+			result, cursor = selectNFromBucket(bkt, containerID,
+				result, count, cursor, attrs...)
 		}
 		bucketName = name
 		if len(result) >= count {
 			break loop
 		}
-
-		// set threshold flag after first `selectNFromBucket` invocation
-		// first invocation must look for cursor object
-		threshold = true
-	}
-
-	if offset != nil {
-		// new slice is much faster but less memory efficient
-		// we need to copy, because offset exists during bbolt tx
-		cursor.inBucketOffset = bytes.Clone(offset)
+		haveCur = false
 	}
 
 	if len(result) == 0 {
@@ -112,9 +104,8 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 	to []objectcore.AddressWithAttributes, // listing result
 	limit int, // stop listing at `limit` items in result
 	cursor *Cursor, // start from cursor object
-	threshold bool, // ignore cursor and start immediately
 	attrs ...string,
-) ([]objectcore.AddressWithAttributes, []byte, *Cursor) {
+) ([]objectcore.AddressWithAttributes, *Cursor) {
 	if cursor == nil {
 		cursor = new(Cursor)
 	}
@@ -122,41 +113,23 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 	var (
 		c          = bkt.Cursor()
 		count      = len(to)
-		offset     []byte
-		phyPrefix  = mkFilterPhysicalPrefix()
 		typePrefix = make([]byte, metaIDTypePrefixSize)
 		gotAttrs   []string
 	)
 
 	if containerMarkedGC(c) {
-		return to, nil, cursor
+		return to, cursor
 	}
 
 	fillIDTypePrefix(typePrefix)
 
-	if threshold {
-		offset = phyPrefix
-	} else {
-		offset = cursor.inBucketOffset
-	}
-	k, _ := c.Seek(offset)
-
-	if !threshold {
-		k, _ = c.Next() // we are looking for objects _after_ the cursor
-	}
-
-	for ; bytes.HasPrefix(k, phyPrefix); k, _ = c.Next() {
+	for obj := range iterPrefixedIDs(c, mkFilterPhysicalPrefix(), cursor.inBucketOffset) {
 		if count >= limit {
 			break
 		}
 
-		var obj oid.ID
-		if err := obj.Decode(k[len(phyPrefix):]); err != nil {
-			break
-		}
-
 		mCursor := bkt.Cursor()
-		offset = k
+		cursor.inBucketOffset = obj
 		if inGarbage(mCursor, obj) != statusAvailable {
 			continue
 		}
@@ -188,7 +161,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		count++
 	}
 
-	return to, offset, cursor
+	return to, cursor
 }
 
 func parseContainerIDWithPrefix(name []byte) (cid.ID, byte) {
