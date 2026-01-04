@@ -18,9 +18,9 @@ var ErrEndOfListing = logicerr.New("end of object listing")
 
 // Cursor is a type for continuous object listing.
 type Cursor struct {
-	bucketName     []byte
-	inBucketOffset oid.ID
-	attrsPrefix    []byte
+	containerID  cid.ID
+	lastObjectID oid.ID
+	attrsPrefix  []byte
 }
 
 // ListWithCursor lists physical objects available in metabase starting from
@@ -54,45 +54,40 @@ func (db *DB) ListWithCursor(count int, cursor *Cursor, attrs ...string) ([]obje
 }
 
 func (db *DB) listWithCursor(tx *bbolt.Tx, result []objectcore.AddressWithAttributes, count int, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
-	var haveCur = cursor != nil
-	var bucketName []byte
+	var (
+		c    = tx.Cursor()
+		name []byte
+	)
 
-	c := tx.Cursor()
-	name, _ := c.First()
-
-	if haveCur {
-		name, _ = c.Seek(cursor.bucketName)
+	if cursor == nil {
+		cursor = new(Cursor)
+		name, _ = c.Seek([]byte{metadataPrefix})
+	} else {
+		name, _ = c.Seek(metaBucketKey(cursor.containerID))
 	}
 
-loop:
 	for ; name != nil; name, _ = c.Next() {
 		containerID, prefix := parseContainerIDWithPrefix(name)
 		if containerID.IsZero() || prefix != metadataPrefix {
 			continue
 		}
 
+		if containerID != cursor.containerID {
+			cursor.lastObjectID = oid.ID{} // Reset for the next bucket.
+		}
+		cursor.containerID = containerID
 		bkt := tx.Bucket(name)
 		if bkt != nil {
-			if !haveCur && cursor != nil {
-				cursor.inBucketOffset = oid.ID{} // Reset for the next bucket.
-			}
-			result, cursor = selectNFromBucket(bkt, containerID,
-				result, count, cursor, attrs...)
+			result, cursor = selectNFromBucket(bkt, result, count, cursor, attrs...)
 		}
-		bucketName = name
 		if len(result) >= count {
-			break loop
+			break
 		}
-		haveCur = false
 	}
 
 	if len(result) == 0 {
 		return nil, nil, ErrEndOfListing
 	}
-
-	// new slice is much faster but less memory efficient
-	// we need to copy, because bucketName exists during bbolt tx
-	cursor.bucketName = bytes.Clone(bucketName)
 
 	return result, cursor, nil
 }
@@ -100,16 +95,11 @@ loop:
 // selectNFromBucket similar to selectAllFromBucket but uses cursor to find
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
-	cnt cid.ID, // container ID
 	to []objectcore.AddressWithAttributes, // listing result
 	limit int, // stop listing at `limit` items in result
 	cursor *Cursor, // start from cursor object
 	attrs ...string,
 ) ([]objectcore.AddressWithAttributes, *Cursor) {
-	if cursor == nil {
-		cursor = new(Cursor)
-	}
-
 	var (
 		c          = bkt.Cursor()
 		count      = len(to)
@@ -123,13 +113,13 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 
 	fillIDTypePrefix(typePrefix)
 
-	for obj := range iterPrefixedIDs(c, mkFilterPhysicalPrefix(), cursor.inBucketOffset) {
+	for obj := range iterPrefixedIDs(c, mkFilterPhysicalPrefix(), cursor.lastObjectID) {
 		if count >= limit {
 			break
 		}
 
 		mCursor := bkt.Cursor()
-		cursor.inBucketOffset = obj
+		cursor.lastObjectID = obj
 		if inGarbage(mCursor, obj) != statusAvailable {
 			continue
 		}
@@ -155,7 +145,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		}
 
 		var a oid.Address
-		a.SetContainer(cnt)
+		a.SetContainer(cursor.containerID)
 		a.SetObject(obj)
 		to = append(to, objectcore.AddressWithAttributes{Address: a, Type: objType, Attributes: gotAttrs})
 		count++
