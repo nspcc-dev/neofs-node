@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
@@ -45,27 +44,10 @@ func (db *DB) IterateOverGarbage(h func(oid.ID) error, cnr cid.ID, offset oid.ID
 }
 
 func (db *DB) iterateIDs(c *bbolt.Cursor, h func(oid.ID) error, offset oid.ID) error {
-	var (
-		k    []byte
-		pref = []byte{metaPrefixGarbage}
-	)
+	var pref = []byte{metaPrefixGarbage}
 
-	if offset.IsZero() {
-		k, _ = c.Seek(pref)
-	} else {
-		pref = append(pref, offset[:]...)
-		k, _ = c.Seek(pref)
-		if bytes.Equal(k, pref) {
-			k, _ = c.Next()
-		}
-	}
-
-	for ; len(k) > 0 && k[0] == metaPrefixGarbage; k, _ = c.Next() {
-		obj, err := oid.DecodeBytes(k[1:])
-		if err != nil {
-			return fmt.Errorf("garbage key of length %d: %w", len(k), err)
-		}
-		err = h(obj)
+	for obj := range iterPrefixedIDs(c, pref, offset) {
+		err := h(obj)
 		if err != nil {
 			if errors.Is(err, ErrInterruptIterator) {
 				return nil
@@ -143,11 +125,9 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 }
 
 func listGarbageObjects(cur *bbolt.Cursor, prefix byte, cnr cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {
-	k, _ := cur.Seek([]byte{prefix})
-	for ; len(k) > 0 && len(objs) < limit && k[0] == prefix; k, _ = cur.Next() {
-		obj, err := oid.DecodeBytes(k[1:])
-		if err != nil {
-			return objs, fmt.Errorf("bad key of length %d with prefix %d for container %s: %w", len(k), prefix, cnr, err)
+	for obj := range iterPrefixedIDs(cur, []byte{prefix}, oid.ID{}) {
+		if len(objs) >= limit {
+			break
 		}
 		objs = append(objs, oid.NewAddress(cnr, obj))
 	}
