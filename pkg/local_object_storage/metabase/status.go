@@ -1,11 +1,9 @@
 package meta
 
 import (
-	"bytes"
 	"slices"
 
 	"github.com/nspcc-dev/bbolt"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -48,7 +46,9 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		}
 		var metaCursor = metaBucket.Cursor()
 
-		res.HeaderIndex = readAttributes(metaCursor, oID)
+		for k, v := range iterIDAttrs(metaCursor, oID) {
+			res.HeaderIndex = append(res.HeaderIndex, HeaderField{K: slices.Clone(k), V: slices.Clone(v)})
+		}
 
 		var objLocked = objectLocked(currEpoch, metaCursor, oID)
 
@@ -59,10 +59,8 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		removedStatus := inGarbage(metaCursor, oID)
 
 		var existsRegular bool
-		var typPrefix = make([]byte, metaIDTypePrefixSize)
 
-		fillIDTypePrefix(typPrefix)
-		typ, err := fetchTypeForID(metaBucket.Cursor(), typPrefix, oID)
+		typ, err := fetchTypeForID(metaCursor, oID)
 		existsRegular = (err == nil && typ == object.TypeRegular)
 
 		if (removedStatus != statusAvailable && objLocked) || existsRegular {
@@ -79,22 +77,4 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	res.Path = db.boltDB.Path()
 	res.Error = err
 	return res, err
-}
-
-func readAttributes(c *bbolt.Cursor, oID oid.ID) []HeaderField {
-	var newIndexes []HeaderField
-
-	pref := slices.Concat([]byte{metaPrefixIDAttr}, oID[:])
-	k, _ := c.Seek(pref)
-	for ; bytes.HasPrefix(k, pref); k, _ = c.Next() {
-		kCut := k[len(pref):]
-		k, v, found := bytes.Cut(kCut, objectcore.MetaAttributeDelimiter)
-		if !found {
-			continue
-		}
-
-		newIndexes = append(newIndexes, HeaderField{K: slices.Clone(k), V: slices.Clone(v)})
-	}
-
-	return newIndexes
 }

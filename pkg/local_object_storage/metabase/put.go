@@ -111,6 +111,10 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 }
 
 func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) error {
+	target := obj.AssociatedObject()
+	if target.IsZero() {
+		return nil
+	}
 	cID := obj.GetContainerID()
 	oID := obj.GetID()
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
@@ -119,85 +123,78 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 	}
 	metaCursor := metaBkt.Cursor()
 	typ := obj.Type()
+	targetTyp, targetTypErr := fetchTypeForID(metaCursor, target)
 	switch typ {
-	case object.TypeLock, object.TypeTombstone:
-		if target := obj.AssociatedObject(); !target.IsZero() {
-			typPrefix := make([]byte, metaIDTypePrefixSize)
-			fillIDTypePrefix(typPrefix)
-			targetTyp, targetTypErr := fetchTypeForID(metaCursor, typPrefix, target)
+	case object.TypeLock:
+		if targetTypErr == nil && targetTyp != object.TypeRegular {
+			return logicerr.Wrap(apistatus.LockNonRegularObject{})
+		}
 
-			if typ == object.TypeLock {
-				if targetTypErr == nil && targetTyp != object.TypeRegular {
-					return logicerr.Wrap(apistatus.LockNonRegularObject{})
-				}
+		st := objectStatus(metaCursor, target, currEpoch)
+		if st == statusTombstoned {
+			return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
+		}
 
-				st := objectStatus(metaCursor, target, currEpoch)
-				if st == statusTombstoned {
-					return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
-				}
+		if targetTypErr != nil && !errors.Is(targetTypErr, errObjTypeNotFound) {
+			return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
+		}
+	case object.TypeTombstone:
+		var (
+			addr    oid.Address
+			inhumed int
+		)
+		addr.SetContainer(cID)
+		if targetTypErr == nil {
+			if targetTyp == object.TypeTombstone {
+				return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
+			}
+			if targetTyp == object.TypeLock {
+				return ErrLockObjectRemoval
+			}
+		}
 
-				if targetTypErr != nil && !errors.Is(targetTypErr, errObjTypeNotFound) {
-					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
-				}
-			} else { // TS case
-				var (
-					addr    oid.Address
-					inhumed int
-				)
-				addr.SetContainer(cID)
-				if targetTypErr == nil {
-					if targetTyp == object.TypeTombstone {
-						return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
-					}
-					if targetTyp == object.TypeLock {
-						return ErrLockObjectRemoval
-					}
-				}
+		if objectLocked(currEpoch, metaCursor, target) {
+			return apistatus.ErrObjectLocked
+		}
 
-				if objectLocked(currEpoch, metaCursor, target) {
-					return apistatus.ErrObjectLocked
-				}
+		if targetTypErr != nil && !errors.Is(targetTypErr, errObjTypeNotFound) {
+			return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
+		}
 
-				if targetTypErr != nil && !errors.Is(targetTypErr, errObjTypeNotFound) {
-					return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
-				}
+		children, err := collectChildren(metaCursor, cID, target)
+		if err != nil {
+			return fmt.Errorf("collect children: %w", err)
+		}
+		children = append(children, target)
+		for _, id := range children {
+			addr.SetObject(id)
 
-				children, err := collectChildren(metaCursor, cID, target)
-				if err != nil {
-					return fmt.Errorf("collect children: %w", err)
+			obj, err := get(metaCursor, addr, false, true, currEpoch)
+			// Garbage mark should be put irrespective of errors,
+			// especially if the error is SplitInfo.
+			if err == nil {
+				if inGarbage(metaCursor, id) == statusAvailable {
+					// object is available, decrement the
+					// logical counter
+					inhumed++
 				}
-				children = append(children, target)
-				for _, id := range children {
-					addr.SetObject(id)
-
-					obj, err := get(tx, addr, false, true, currEpoch)
-					// Garbage mark should be put irrespective of errors,
-					// especially if the error is SplitInfo.
-					if err == nil {
-						if inGarbage(metaCursor, id) == statusAvailable {
-							// object is available, decrement the
-							// logical counter
-							inhumed++
-						}
-						// if object is stored, and it is regular object then update bucket
-						// with container size estimations
-						if obj.Type() == object.TypeRegular {
-							err = changeContainerInfo(tx, cID, -int(obj.PayloadSize()), -1)
-							if err != nil {
-								return err
-							}
-						}
-					}
-					err = metaBkt.Put(mkGarbageKey(id), nil)
+				// if object is stored, and it is regular object then update bucket
+				// with container size estimations
+				if obj.Type() == object.TypeRegular {
+					err = changeContainerInfo(tx, cID, -int(obj.PayloadSize()), -1)
 					if err != nil {
-						return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
+						return err
 					}
-				}
-				err = updateCounter(tx, logical, uint64(inhumed), false)
-				if err != nil {
-					return fmt.Errorf("could not increase logical object counter: %w", err)
 				}
 			}
+			err = metaBkt.Put(mkGarbageKey(id), nil)
+			if err != nil {
+				return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
+			}
+		}
+		err = updateCounter(tx, logical, uint64(inhumed), false)
+		if err != nil {
+			return fmt.Errorf("could not increase logical object counter: %w", err)
 		}
 	default:
 	}

@@ -90,8 +90,6 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		return false, ErrObjectIsExpired
 	}
 
-	var objKeyBuf = make([]byte, metaIDTypePrefixSize)
-
 	if checkParent {
 		err := getParentInfo(metaCursor, cnr, id)
 		if err != nil {
@@ -102,8 +100,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 		}
 	}
 
-	fillIDTypePrefix(objKeyBuf)
-	_, err := fetchTypeForID(metaCursor, objKeyBuf, id)
+	_, err := fetchTypeForID(metaCursor, id)
 	return err == nil, nil
 }
 
@@ -170,17 +167,9 @@ func getParentID(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
 // the same attribute and value. Obviously this only makes sense if the parent
 // is the same, that is attribute is either a first object ID or a split ID.
 func seekForParentViaAttribute(metaCursor *bbolt.Cursor, attr string, val []byte) oid.ID {
-	var (
-		idCursor = metaCursor.Bucket().Cursor()
-		pref     = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attr),
-			objectcore.MetaAttributeDelimiter, val, objectcore.MetaAttributeDelimiter)
-	)
+	var idCursor = metaCursor.Bucket().Cursor()
 
-	for k, _ := metaCursor.Seek(pref); bytes.HasPrefix(k, pref); k, _ = metaCursor.Next() {
-		child, err := oid.DecodeBytes(k[len(pref):])
-		if err != nil {
-			continue
-		}
+	for child := range iterAttrVal(metaCursor, attr, val) {
 		parent := getParentID(idCursor, child)
 		if !parent.IsZero() {
 			return parent
@@ -254,33 +243,18 @@ func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
 // - [ErrParts] if object is EC.
 func getParentInfo(metaCursor *bbolt.Cursor, cnr cid.ID, parentID oid.ID) error {
 	var (
-		splitInfo    *object.SplitInfo
-		ecParts      []oid.ID
-		parentPrefix = getParentMetaOwnersPrefix(parentID)
+		splitInfo *object.SplitInfo
+		ecParts   []oid.ID
 	)
 
 loop:
-	for k, _ := metaCursor.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = metaCursor.Next() {
-		objID, err := oid.DecodeBytes(k[len(parentPrefix):])
-		if err != nil {
-			return fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)
-		}
-		var (
-			objCur    = metaCursor.Bucket().Cursor()
-			objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
-			isLink    bool
-			isV1      bool
-			isEmpty   bool
-		)
+	for objID := range iterAttrVal(metaCursor, object.FilterParentID, parentID[:]) {
+		var isEmpty, isLink, isV1 bool
+
 		if splitInfo == nil {
 			splitInfo = object.NewSplitInfo()
 		}
-		for ak, _ := objCur.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = objCur.Next() {
-			attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
-			if !ok {
-				return fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)
-			}
-
+		for attrKey, attrVal := range iterIDAttrs(metaCursor.Bucket().Cursor(), objID) {
 			if strings.HasPrefix(string(attrKey), iec.AttributePrefix) {
 				ecParts = append(ecParts, objID)
 				continue loop

@@ -51,7 +51,13 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 	)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		hdr, err = get(tx, addr, true, raw, currEpoch)
+		var metaBucket = tx.Bucket(metaBucketKey(addr.Container()))
+
+		if metaBucket == nil {
+			return logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
+
+		hdr, err = get(metaBucket.Cursor(), addr, true, raw, currEpoch)
 
 		return err
 	})
@@ -62,18 +68,11 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 // If raw and the object is a parent of some stored objects, get returns:
 // - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [iec.ErrPartitionedObject] if object is EC.
-func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
+func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
 	var (
-		cnr        = addr.Container()
-		metaBucket = tx.Bucket(metaBucketKey(cnr))
-		objID      = addr.Object()
+		cnr   = addr.Container()
+		objID = addr.Object()
 	)
-
-	if metaBucket == nil {
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	var metaCursor = metaBucket.Cursor()
 
 	if checkStatus {
 		switch objectStatus(metaCursor, objID, currEpoch) {
@@ -96,19 +95,10 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 
 	// Reconstruct header from available data.
 	var (
-		attrs     []object.Attribute
-		obj       = object.New()
-		objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
+		attrs []object.Attribute
+		obj   = object.New()
 	)
-	for ak, _ := metaCursor.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = metaCursor.Next() {
-		attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
-		if !ok {
-			return nil, fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)
-		}
-		// Attribute must non-zero key and value.
-		if len(attrKey) == 0 || len(attrVal) == 0 {
-			return nil, fmt.Errorf("empty attribute or value in meta of %s/%s", cnr, objID)
-		}
+	for attrKey, attrVal := range iterIDAttrs(metaCursor, objID) {
 		switch string(attrKey) {
 		case object.FilterVersion:
 			var v version.Version
@@ -189,12 +179,19 @@ func get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64
 	return obj, nil
 }
 
-func getParentMetaOwnersPrefix(parentID oid.ID) []byte {
-	var parentPrefix = make([]byte, 1+len(object.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
-	parentPrefix[0] = metaPrefixAttrIDPlain
-	off := 1 + copy(parentPrefix[1:], object.FilterParentID)
-	off += copy(parentPrefix[off:], objectcore.MetaAttributeDelimiter)
-	copy(parentPrefix[off:], parentID[:])
+func iterIDAttrs(cur *bbolt.Cursor, obj oid.ID) func(yield func(k, v []byte) bool) {
+	var pref = slices.Concat([]byte{metaPrefixIDAttr}, obj[:])
 
-	return parentPrefix
+	return func(yield func(k, v []byte) bool) {
+		for dbKey, _ := cur.Seek(pref); bytes.HasPrefix(dbKey, pref); dbKey, _ = cur.Next() {
+			kv := dbKey[len(pref):]
+			k, v, found := bytes.Cut(kv, objectcore.MetaAttributeDelimiter)
+			if !found || len(k) == 0 || len(v) == 0 {
+				continue
+			}
+			if !yield(k, v) {
+				break
+			}
+		}
+	}
 }

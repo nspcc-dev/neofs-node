@@ -100,13 +100,13 @@ const (
 	addressKeySize = cidSize + objectKeySize
 )
 
-// return true if provided object is of LOCK type.
-func isLockObject(cur *bbolt.Cursor, obj oid.ID) bool {
-	var typeKey = make([]byte, metaIDTypePrefixSize+len(object.TypeLock.String()))
+// return true if provided object is of the given type.
+func isObjectType(cur *bbolt.Cursor, obj oid.ID, typ object.Type) bool {
+	var typeKey = make([]byte, metaIDTypePrefixSize+len(typ.String()))
 
 	fillIDTypePrefix(typeKey)
 	copy(typeKey[1:], obj[:])
-	copy(typeKey[metaIDTypePrefixSize:], object.TypeLock.String())
+	copy(typeKey[metaIDTypePrefixSize:], typ.String())
 
 	k, _ := cur.Seek(typeKey)
 

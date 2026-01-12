@@ -199,7 +199,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 	// broken data
 	tcs = append(tcs, testcase{
 		name: "wrong OID len in parent index", assertErr: func(t *testing.T, err error) {
-			require.EqualError(t, err, "invalid meta bucket key (prefix 0x2): wrong OID len 31")
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		}, preset: func(t *testing.T) *meta.DB {
 			return presetBoltDB(t, func(tx *bbolt.Tx) error {
 				b, err := tx.CreateBucketIfNotExists(slices.Concat([]byte{0xFF}, cnr[:]))
@@ -213,7 +213,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 			})
 		}}, testcase{
 		name: "zero OID in parent index", assertErr: func(t *testing.T, err error) {
-			require.EqualError(t, err, "invalid meta bucket key (prefix 0x2): zero object ID")
+			require.ErrorIs(t, err, oid.ErrZero)
 		}, preset: func(t *testing.T) *meta.DB {
 			return presetBoltDB(t, func(tx *bbolt.Tx) error {
 				b, err := tx.CreateBucketIfNotExists(slices.Concat([]byte{0xFF}, cnr[:]))
