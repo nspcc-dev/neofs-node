@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -83,19 +82,19 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err = e.Put(tomb, nil)
 		require.NoError(t, err)
 
-		_, err = e.Get(objectcore.AddressOf(parent))
+		_, err = e.Get(parent.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
-		_, err = e.Get(objectcore.AddressOf(child))
+		_, err = e.Get(child.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
-		_, err = e.Get(objectcore.AddressOf(link))
+		_, err = e.Get(link.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
 		t.Run("empty search should return ts", func(t *testing.T) {
 			addrs, err := e.Select(cnr, object.SearchFilters{})
 			require.NoError(t, err)
-			require.Equal(t, []oid.Address{objectcore.AddressOf(tomb)}, addrs)
+			require.Equal(t, []oid.Address{tomb.Address()}, addrs)
 		})
 
 		t.Run("root search should fail", func(t *testing.T) {
@@ -120,14 +119,14 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		})
 
 		t.Run("parent get should claim deletion", func(t *testing.T) {
-			_, err = e.Get(objectcore.AddressOf(parent))
+			_, err = e.Get(parent.Address())
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 		})
 	})
 
 	t.Run("object is on wrong shard", func(t *testing.T) {
 		obj := generateObjectWithCID(cnr)
-		addr := objectcore.AddressOf(obj)
+		addr := obj.Address()
 
 		e := testNewEngineWithShardNum(t, 2)
 		defer e.Close()

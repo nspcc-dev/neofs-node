@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -25,13 +24,13 @@ func TestDB_Inhume(t *testing.T) {
 	err := putBig(db, raw)
 	require.NoError(t, err)
 
-	err = metaInhume(db, objectcore.AddressOf(raw), tombstoneID)
+	err = metaInhume(db, raw.Address(), tombstoneID)
 	require.NoError(t, err)
 
-	_, err = metaExists(db, objectcore.AddressOf(raw))
+	_, err = metaExists(db, raw.Address())
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	_, err = metaGet(db, objectcore.AddressOf(raw), false)
+	_, err = metaGet(db, raw.Address(), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	t.Run("EC", testInhumeEC)
@@ -53,7 +52,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	require.NoError(t, err)
 
 	// obj1 should become inhumed {obj1:obj2}
-	_, err = db.Exists(objectcore.AddressOf(obj1), false)
+	_, err = db.Exists(obj1.Address(), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	// try to inhume addr3 via obj1
@@ -117,7 +116,7 @@ func TestInhumeContainer(t *testing.T) {
 	require.Zero(t, containerSize)
 
 	for _, o := range oo {
-		_, err = metaGet(db, objectcore.AddressOf(o), false)
+		_, err = metaGet(db, o.Address(), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	}
 }

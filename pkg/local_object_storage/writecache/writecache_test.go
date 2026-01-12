@@ -3,7 +3,6 @@ package writecache
 import (
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +12,7 @@ func TestCache_InitReadOnly(t *testing.T) {
 
 	obj := objecttest.Object()
 
-	err := wc.Put(objectcore.AddressOf(&obj), &obj, nil)
+	err := wc.Put(obj.Address(), &obj, nil)
 	require.NoError(t, err)
 
 	err = wc.Close()

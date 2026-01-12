@@ -3,7 +3,6 @@ package shard_test
 import (
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -35,13 +34,13 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		_, err = testGet(t, sh, objectcore.AddressOf(obj), hasWriteCache)
+		_, err = testGet(t, sh, obj.Address(), hasWriteCache)
 		require.NoError(t, err)
 
-		err = sh.Delete([]oid.Address{objectcore.AddressOf(obj)})
+		err = sh.Delete([]oid.Address{obj.Address()})
 		require.NoError(t, err)
 
-		_, err = sh.Get(objectcore.AddressOf(obj), false)
+		_, err = sh.Get(obj.Address(), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
@@ -53,13 +52,13 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		_, err = sh.Get(objectcore.AddressOf(obj), false)
+		_, err = sh.Get(obj.Address(), false)
 		require.NoError(t, err)
 
-		err = sh.Delete([]oid.Address{objectcore.AddressOf(obj)})
+		err = sh.Delete([]oid.Address{obj.Address()})
 		require.NoError(t, err)
 
-		_, err = sh.Get(objectcore.AddressOf(obj), false)
+		_, err = sh.Get(obj.Address(), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 }

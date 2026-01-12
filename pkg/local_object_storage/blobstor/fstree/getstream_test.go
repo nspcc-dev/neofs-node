@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -114,7 +113,7 @@ func TestGetStream(t *testing.T) {
 		// Don't use map with FSTree.PutBatch because we need ordered writes
 		writeDataUnits := make([]writeDataUnit, 0, len(objects))
 		for _, obj := range objects {
-			addr := objectcore.AddressOf(obj)
+			addr := obj.Address()
 			p := fsTree.treePath(addr)
 			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fsTree.Permissions))
 			writeDataUnits = append(writeDataUnits, writeDataUnit{
@@ -126,7 +125,7 @@ func TestGetStream(t *testing.T) {
 		require.NoError(t, fsTree.writer.writeBatch(writeDataUnits))
 
 		for i := range objects {
-			res, reader, err := fsTree.GetStream(objectcore.AddressOf(objects[i]))
+			res, reader, err := fsTree.GetStream(objects[i].Address())
 			require.NoError(t, err)
 			require.Equal(t, objects[i].CutPayload(), res)
 
@@ -195,7 +194,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		require.NoError(t, err)
 		obj := object.New(cnr, usertest.ID())
 		obj.SetID(id)
-		addr := objectcore.AddressOf(obj)
+		addr := obj.Address()
 
 		require.NoError(t, fsTree.Put(addr, obj.Marshal()))
 

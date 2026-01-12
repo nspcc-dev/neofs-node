@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -96,7 +95,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
 
-	addr := objectcore.AddressOf(&obj)
+	addr := obj.Address()
 	// https://github.com/nspcc-dev/neofs-node/issues/2563
 	err = fsTree.Delete(addr)
 	require.NoError(t, err)
@@ -170,7 +169,7 @@ func TestResyncMetabase(t *testing.T) {
 			locked = append(locked, id)
 		}
 
-		addr := objectcore.AddressOf(&obj)
+		addr := obj.Address()
 
 		mObjs[addr] = objAddr{
 			obj:  &obj,
@@ -247,7 +246,7 @@ func TestResyncMetabase(t *testing.T) {
 	}
 
 	checkAllObjs(true)
-	checkObj(objectcore.AddressOf(&tombObj), &tombObj)
+	checkObj(tombObj.Address(), &tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 
@@ -289,7 +288,7 @@ func TestResyncMetabase(t *testing.T) {
 	defer sh.Close()
 
 	checkAllObjs(false)
-	checkObj(objectcore.AddressOf(&tombObj), nil)
+	checkObj(tombObj.Address(), nil)
 	checkTombMembers(false)
 
 	err = sh.resyncMetabase()
@@ -302,7 +301,7 @@ func TestResyncMetabase(t *testing.T) {
 	require.Equal(t, logicalBefore, c.Logic())
 
 	checkAllObjs(true)
-	checkObj(objectcore.AddressOf(&tombObj), &tombObj)
+	checkObj(tombObj.Address(), &tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 }

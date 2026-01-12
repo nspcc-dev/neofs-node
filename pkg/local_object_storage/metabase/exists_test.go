@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -23,7 +22,7 @@ func TestDB_Exists(t *testing.T) {
 
 	t.Run("no object", func(t *testing.T) {
 		nonExist := generateObject(t)
-		exists, err := metaExists(db, objectcore.AddressOf(nonExist))
+		exists, err := metaExists(db, nonExist.Address())
 		require.NoError(t, err)
 		require.False(t, exists)
 	})
@@ -33,15 +32,15 @@ func TestDB_Exists(t *testing.T) {
 		err := putBig(db, regular)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, objectcore.AddressOf(regular))
+		exists, err := metaExists(db, regular.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 
 		t.Run("removed object", func(t *testing.T) {
-			err := metaInhume(db, objectcore.AddressOf(regular), oidtest.Address())
+			err := metaInhume(db, regular.Address(), oidtest.Address())
 			require.NoError(t, err)
 
-			exists, err := metaExists(db, objectcore.AddressOf(regular))
+			exists, err := metaExists(db, regular.Address())
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 			require.False(t, exists)
 		})
@@ -54,7 +53,7 @@ func TestDB_Exists(t *testing.T) {
 		err := putBig(db, ts)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, objectcore.AddressOf(ts))
+		exists, err := metaExists(db, ts.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -66,7 +65,7 @@ func TestDB_Exists(t *testing.T) {
 		err := putBig(db, lock)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, objectcore.AddressOf(lock))
+		exists, err := metaExists(db, lock.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -83,7 +82,7 @@ func TestDB_Exists(t *testing.T) {
 		err := putBig(db, child)
 		require.NoError(t, err)
 
-		_, err = metaExists(db, objectcore.AddressOf(parent))
+		_, err = metaExists(db, parent.Address())
 
 		var expectedErr *object.SplitInfoError
 		require.ErrorIs(t, err, ierrors.ErrParentObject)
@@ -118,7 +117,7 @@ func TestDB_Exists(t *testing.T) {
 			err = putBig(db, link)
 			require.NoError(t, err)
 
-			_, err = metaExists(db, objectcore.AddressOf(parent))
+			_, err = metaExists(db, parent.Address())
 			require.Error(t, err)
 
 			var si *object.SplitInfoError
@@ -142,7 +141,7 @@ func TestDB_Exists(t *testing.T) {
 			err = putBig(db, child)
 			require.NoError(t, err)
 
-			_, err = metaExists(db, objectcore.AddressOf(parent))
+			_, err = metaExists(db, parent.Address())
 			require.Error(t, err)
 
 			var si *object.SplitInfoError
@@ -170,11 +169,11 @@ func TestDB_Exists(t *testing.T) {
 
 	t.Run("expired object", func(t *testing.T) {
 		checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
-			gotObj, err := metaExists(db, objectcore.AddressOf(exp))
+			gotObj, err := metaExists(db, exp.Address())
 			require.False(t, gotObj)
 			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
-			gotObj, err = metaExists(db, objectcore.AddressOf(nonExp))
+			gotObj, err = metaExists(db, nonExp.Address())
 			require.NoError(t, err)
 			require.True(t, gotObj)
 		})
@@ -194,7 +193,7 @@ func BenchmarkExists(b *testing.B) {
 
 	for range numOfObjects {
 		raw := generateObject(b)
-		addrs = append(addrs, objectcore.AddressOf(raw))
+		addrs = append(addrs, raw.Address())
 
 		require.NoError(b, putBig(db, raw))
 	}

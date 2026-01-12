@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -28,7 +27,7 @@ func TestDB_Get(t *testing.T) {
 	addAttribute(raw, "foo", "bar")
 
 	t.Run("object not found", func(t *testing.T) {
-		_, err := metaGet(db, objectcore.AddressOf(raw), false)
+		_, err := metaGet(db, raw.Address(), false)
 		require.Error(t, err)
 	})
 
@@ -36,7 +35,7 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, objectcore.AddressOf(raw), false)
+		newObj, err := metaGet(db, raw.Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
@@ -48,7 +47,7 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, objectcore.AddressOf(raw), false)
+		newObj, err := metaGet(db, raw.Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
@@ -60,7 +59,7 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, objectcore.AddressOf(raw), false)
+		newObj, err := metaGet(db, raw.Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
@@ -82,7 +81,7 @@ func TestDB_Get(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("raw is true", func(t *testing.T) {
-			_, err = metaGet(db, objectcore.AddressOf(parent), true)
+			_, err = metaGet(db, parent.Address(), true)
 			require.Error(t, err)
 
 			var siErr *object.SplitInfoError
@@ -97,11 +96,11 @@ func TestDB_Get(t *testing.T) {
 			require.True(t, link.IsZero())
 		})
 
-		newParent, err := metaGet(db, objectcore.AddressOf(parent), false)
+		newParent, err := metaGet(db, parent.Address(), false)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(parent.CutPayload(), newParent))
 
-		newChild, err := metaGet(db, objectcore.AddressOf(child), true)
+		newChild, err := metaGet(db, child.Address(), true)
 		require.NoError(t, err)
 		// newChild doesn't have parent header, so for ease of
 		// comparison re-add it
@@ -128,11 +127,11 @@ func TestDB_Get(t *testing.T) {
 
 	t.Run("expired object", func(t *testing.T) {
 		checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
-			gotExp, err := metaGet(db, objectcore.AddressOf(exp), false)
+			gotExp, err := metaGet(db, exp.Address(), false)
 			require.Nil(t, gotExp)
 			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
-			gotNonExp, err := metaGet(db, objectcore.AddressOf(nonExp), false)
+			gotNonExp, err := metaGet(db, nonExp.Address(), false)
 			require.NoError(t, err)
 			require.True(t, binaryEqual(gotNonExp, nonExp.CutPayload()))
 		})
@@ -177,7 +176,7 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 
 		for range numOfObj {
 			raw := generateObject(b)
-			addrs = append(addrs, objectcore.AddressOf(raw))
+			addrs = append(addrs, raw.Address())
 
 			err := putBig(db, raw)
 			require.NoError(b, err)
@@ -247,7 +246,7 @@ func TestDB_GetContainer(t *testing.T) {
 	err = metaPut(db, o8)
 	require.NoError(t, err)
 
-	err = metaInhume(db, objectcore.AddressOf(o1), objectcore.AddressOf(o8))
+	err = metaInhume(db, o1.Address(), o8.Address())
 	require.NoError(t, err)
 
 	objs, err := db.Select(cID, object.SearchFilters{})

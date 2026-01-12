@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -61,5 +60,5 @@ func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uin
 
 	require.NoError(t, putBig(db, obj))
 
-	return objectcore.AddressOf(obj)
+	return obj.Address()
 }

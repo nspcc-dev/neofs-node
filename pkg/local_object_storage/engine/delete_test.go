@@ -3,7 +3,6 @@ package engine
 import (
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -69,14 +68,14 @@ func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) err
 
 	var splitErr *object.SplitInfoError
 
-	addrParent := objectcore.AddressOf(parent)
+	addrParent := parent.Address()
 	checkGetError(t, e, addrParent, &splitErr)
 
-	addrLink := objectcore.AddressOf(link)
+	addrLink := link.Address()
 	checkGetError(t, e, addrLink, nil)
 
 	for i := range children {
-		checkGetError(t, e, objectcore.AddressOf(children[i]), nil)
+		checkGetError(t, e, children[i].Address(), nil)
 	}
 
 	err := fun(e, addrParent)
@@ -85,7 +84,7 @@ func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) err
 	checkGetError(t, e, addrParent, &apistatus.ObjectNotFound{})
 	checkGetError(t, e, addrLink, &apistatus.ObjectNotFound{})
 	for i := range children {
-		checkGetError(t, e, objectcore.AddressOf(children[i]), &apistatus.ObjectNotFound{})
+		checkGetError(t, e, children[i].Address(), &apistatus.ObjectNotFound{})
 	}
 }
 

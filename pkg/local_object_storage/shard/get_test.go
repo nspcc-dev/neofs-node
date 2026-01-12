@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -34,7 +33,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
-		addr := objectcore.AddressOf(obj)
+		addr := obj.Address()
 
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
@@ -52,7 +51,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		addAttribute(obj, "foo", "bar")
 		obj.SetID(oidtest.ID())
 		addPayload(obj, 1<<20) // big obj
-		addr := objectcore.AddressOf(obj)
+		addr := obj.Address()
 
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
@@ -71,7 +70,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 
 		parent := generateObjectWithCID(cnr)
 		addAttribute(parent, "parent", "attribute")
-		parentAddr := objectcore.AddressOf(parent)
+		parentAddr := parent.Address()
 
 		child := generateObjectWithCID(cnr)
 		child.SetParent(parent)
@@ -79,7 +78,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
-		childAddr := objectcore.AddressOf(child)
+		childAddr := child.Address()
 
 		err := sh.Put(child, nil)
 		require.NoError(t, err)

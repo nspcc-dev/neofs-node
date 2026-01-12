@@ -13,7 +13,6 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -989,7 +988,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				rightObj.SetParentID(addr.Object())
 				rightObj.SetParent(srcObj)
 
-				preRightAddr := objectcore.AddressOf(children[len(children)-2])
+				preRightAddr := children[len(children)-2].Address()
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -1058,14 +1057,14 @@ func TestGetRemoteSmall(t *testing.T) {
 				c1.addResult(addr, nil, errors.New("any error"))
 
 				for i := range children {
-					c1.addResult(objectcore.AddressOf(children[i]), nil, errors.New("any error"))
+					c1.addResult(children[i].Address(), nil, errors.New("any error"))
 				}
 
 				c2 := newTestClient()
 				c2.addResult(addr, nil, object.NewSplitInfoError(splitInfo))
 
 				for i := range children {
-					c2.addResult(objectcore.AddressOf(children[i]), children[i], nil)
+					c2.addResult(children[i].Address(), children[i], nil)
 				}
 
 				vectors := map[oid.Address][][]netmap.NodeInfo{}
@@ -1073,7 +1072,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				vectors[addr] = ns
 
 				for i := range children {
-					vectors[objectcore.AddressOf(children[i])] = ns
+					vectors[children[i].Address()] = ns
 				}
 
 				svc := newSvc(vectors, &testClientCache{

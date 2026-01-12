@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -35,7 +34,7 @@ func TestExists(t *testing.T) {
 	}
 
 	for i := range objects {
-		res, err := sh.Exists(objectcore.AddressOf(objects[i]), true)
+		res, err := sh.Exists(objects[i].Address(), true)
 		require.NoError(t, err)
 		require.True(t, res)
 	}
@@ -57,11 +56,11 @@ func TestExists(t *testing.T) {
 		require.NoError(t, os.Chmod(dir, 0))
 		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0777)) })
 
-		res, err := sh.Exists(objectcore.AddressOf(objects[0]), true)
+		res, err := sh.Exists(objects[0].Address(), true)
 		require.Error(t, err)
 		require.False(t, res)
 
-		res, err = sh.Exists(objectcore.AddressOf(objects[1]), true)
+		res, err = sh.Exists(objects[1].Address(), true)
 		require.Error(t, err)
 		require.False(t, res)
 	})

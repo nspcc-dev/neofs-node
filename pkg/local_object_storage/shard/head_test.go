@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -34,7 +33,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		res, err := testHead(t, sh, objectcore.AddressOf(obj), false, hasWriteCache)
+		res, err := testHead(t, sh, obj.Address(), false, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj.CutPayload(), res)
 	})
@@ -57,10 +56,10 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 
 		var siErr *object.SplitInfoError
 
-		_, err = testHead(t, sh, objectcore.AddressOf(parent), true, hasWriteCache)
+		_, err = testHead(t, sh, parent.Address(), true, hasWriteCache)
 		require.True(t, errors.As(err, &siErr))
 
-		head, err := sh.Head(objectcore.AddressOf(parent), false)
+		head, err := sh.Head(parent.Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, parent.CutPayload(), head)
 	})

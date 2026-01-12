@@ -3,7 +3,6 @@ package engine
 import (
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -19,13 +18,13 @@ func TestStorageEngine_ReviveObject(t *testing.T) {
 
 	obj := generateObjectWithCID(cnr)
 	require.NoError(t, e.Put(obj, nil))
-	addr := objectcore.AddressOf(obj)
+	addr := obj.Address()
 
 	ts := generateObjectWithCID(cnr)
 	ts.SetType(object.TypeTombstone)
 	addAttribute(ts, object.AttributeAssociatedObject, obj.GetID().EncodeToString())
 	addAttribute(ts, object.AttributeExpirationEpoch, "0")
-	tsAddr := objectcore.AddressOf(ts)
+	tsAddr := ts.Address()
 
 	require.NoError(t, e.Put(ts, nil))
 

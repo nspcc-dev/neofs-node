@@ -40,7 +40,7 @@ func (db *DB) Put(obj *object.Object) error {
 	})
 	if err == nil {
 		storagelog.Write(db.log,
-			storagelog.AddressField(objectcore.AddressOf(obj)),
+			storagelog.AddressField(obj.Address()),
 			storagelog.OpField("metabase PUT"))
 	}
 
@@ -52,7 +52,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 		return err
 	}
 
-	exists, err := db.exists(tx, objectcore.AddressOf(obj), currEpoch, false)
+	exists, err := db.exists(tx, obj.Address(), currEpoch, false)
 
 	switch {
 	case exists:

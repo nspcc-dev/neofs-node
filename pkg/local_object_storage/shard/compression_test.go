@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -41,11 +40,11 @@ func TestCompression(t *testing.T) {
 	}
 
 	testGet := func(t *testing.T, s *shard.Shard, i int) {
-		res1, err := s.Get(objectcore.AddressOf(smallObj[i]), true)
+		res1, err := s.Get(smallObj[i].Address(), true)
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i], res1)
 
-		res2, err := s.Get(objectcore.AddressOf(bigObj[i]), true)
+		res2, err := s.Get(bigObj[i].Address(), true)
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i], res2)
 	}
@@ -59,11 +58,11 @@ func TestCompression(t *testing.T) {
 	}
 
 	testHead := func(t *testing.T, s *shard.Shard, i int) {
-		res1, err := s.Head(objectcore.AddressOf(smallObj[i]), false)
+		res1, err := s.Head(smallObj[i].Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i].CutPayload(), res1)
 
-		res2, err := s.Head(objectcore.AddressOf(bigObj[i]), false)
+		res2, err := s.Head(bigObj[i].Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i].CutPayload(), res2)
 	}

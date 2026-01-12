@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -20,10 +19,10 @@ func TestHeadStorage(t *testing.T) {
 		addAttribute(obj, "test-key1", "test-value1")
 		addAttribute(obj, "test-key2", "test-value2")
 
-		err := fsTree.Put(objectcore.AddressOf(obj), obj.Marshal())
+		err := fsTree.Put(obj.Address(), obj.Marshal())
 		require.NoError(t, err)
 
-		res, err := fsTree.Head(objectcore.AddressOf(obj))
+		res, err := fsTree.Head(obj.Address())
 		require.NoError(t, err)
 
 		require.Equal(t, obj.CutPayload(), res)
@@ -31,7 +30,7 @@ func TestHeadStorage(t *testing.T) {
 
 		require.Len(t, res.Attributes(), len(obj.Attributes()))
 
-		fullObj, err := fsTree.Get(objectcore.AddressOf(obj))
+		fullObj, err := fsTree.Get(obj.Address())
 		require.NoError(t, err)
 		require.Equal(t, obj, fullObj)
 	}
@@ -47,13 +46,13 @@ func TestHeadStorage(t *testing.T) {
 			addAttribute(obj, fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
 
 			objects[i] = obj
-			objMap[objectcore.AddressOf(obj)] = obj.Marshal()
+			objMap[obj.Address()] = obj.Marshal()
 		}
 
 		require.NoError(t, fsTree.PutBatch(objMap))
 
 		for i := range numObjects {
-			res, err := fsTree.Head(objectcore.AddressOf(objects[i]))
+			res, err := fsTree.Head(objects[i].Address())
 			require.NoError(t, err)
 			require.Equal(t, objects[i].CutPayload(), res)
 
@@ -72,10 +71,10 @@ func TestHeadStorage(t *testing.T) {
 			addAttribute(obj, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
 		}
 
-		err := fsTree.Put(objectcore.AddressOf(obj), obj.Marshal())
+		err := fsTree.Put(obj.Address(), obj.Marshal())
 		require.NoError(t, err)
 
-		res, err := fsTree.Head(objectcore.AddressOf(obj))
+		res, err := fsTree.Head(obj.Address())
 		require.NoError(t, err)
 		require.Equal(t, obj.CutPayload(), res)
 		require.Len(t, res.Attributes(), numAttrs)
@@ -83,7 +82,7 @@ func TestHeadStorage(t *testing.T) {
 
 	t.Run("non-existent object", func(t *testing.T) {
 		obj := generateTestObject(0)
-		addr := objectcore.AddressOf(obj)
+		addr := obj.Address()
 
 		_, err := fsTree.Head(addr)
 		require.Error(t, err)

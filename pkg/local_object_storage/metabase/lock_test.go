@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -26,7 +25,7 @@ func TestDB_IsLocked(t *testing.T) {
 
 	obj, _ := putObjAndLockIt(t, db)
 
-	locked, err := db.IsLocked(objectcore.AddressOf(&obj))
+	locked, err := db.IsLocked(obj.Address())
 	require.NoError(t, err)
 	require.True(t, locked)
 
@@ -43,7 +42,7 @@ func TestDB_IsLocked(t *testing.T) {
 	err = db.Put(&anotherObj)
 	require.NoError(t, err)
 
-	locked, err = db.IsLocked(objectcore.AddressOf(&anotherObj))
+	locked, err = db.IsLocked(anotherObj.Address())
 	require.NoError(t, err)
 	require.False(t, locked)
 

@@ -34,7 +34,7 @@ func TestListWithCursor(t *testing.T) {
 
 		err := e.Put(obj, nil)
 		require.NoError(t, err)
-		expected = append(expected, objectcore.AddressWithAttributes{Type: object.TypeRegular, Address: objectcore.AddressOf(obj)})
+		expected = append(expected, objectcore.AddressWithAttributes{Type: object.TypeRegular, Address: obj.Address()})
 	}
 
 	expected = sortAddresses(expected)
@@ -90,7 +90,7 @@ func TestListWithCursor(t *testing.T) {
 
 				objs = append(objs, *obj)
 				exp = append(exp, objectcore.AddressWithAttributes{
-					Address:    objectcore.AddressOf(obj),
+					Address:    obj.Address(),
 					Type:       object.TypeRegular,
 					Attributes: []string{staticVal, commonVal, groupVal, string(owner[:])},
 				})

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -69,7 +68,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			addAttribute(obj, "foo", "bar")
 			addPayload(obj, tc.payloadSize)
 
-			addr := objectcore.AddressOf(obj)
+			addr := obj.Address()
 			payload := bytes.Clone(obj.Payload())
 
 			err := sh.Put(obj, nil)

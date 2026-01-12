@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -78,7 +77,7 @@ func TestShard_Lock(t *testing.T) {
 	})
 
 	t.Run("force objects inhuming", func(t *testing.T) {
-		err = sh.MarkGarbage(objectcore.AddressOf(lock))
+		err = sh.MarkGarbage(lock.Address())
 		require.NoError(t, err)
 
 		// it should be possible to remove
@@ -91,7 +90,7 @@ func TestShard_Lock(t *testing.T) {
 
 		// check that object has been removed
 
-		_, err = sh.Get(objectcore.AddressOf(obj), false)
+		_, err = sh.Get(obj.Address(), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 	})
 }
@@ -114,7 +113,7 @@ func TestShard_IsLocked(t *testing.T) {
 
 	// not locked object is not locked
 
-	locked, err := sh.IsLocked(objectcore.AddressOf(obj))
+	locked, err := sh.IsLocked(obj.Address())
 	require.NoError(t, err)
 
 	require.False(t, locked)
@@ -123,7 +122,7 @@ func TestShard_IsLocked(t *testing.T) {
 
 	require.NoError(t, sh.Put(lock, nil))
 
-	locked, err = sh.IsLocked(objectcore.AddressOf(obj))
+	locked, err = sh.IsLocked(obj.Address())
 	require.NoError(t, err)
 
 	require.True(t, locked)

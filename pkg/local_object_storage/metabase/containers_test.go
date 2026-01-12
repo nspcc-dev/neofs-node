@@ -5,7 +5,6 @@ import (
 	"sort"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -64,7 +63,7 @@ func TestDB_Containers(t *testing.T) {
 
 		assertContains(cnrs, cnr)
 
-		require.NoError(t, metaInhume(db, objectcore.AddressOf(obj), oidtest.Address()))
+		require.NoError(t, metaInhume(db, obj.Address(), oidtest.Address()))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -164,7 +163,7 @@ func TestDB_ContainerSize(t *testing.T) {
 			for i, obj := range list {
 				require.NoError(t, metaInhume(
 					db,
-					objectcore.AddressOf(obj),
+					obj.Address(),
 					oidtest.Address(),
 				))
 
@@ -210,7 +209,7 @@ func TestDB_DeleteContainer(t *testing.T) {
 		o4 := objecttest.Object()
 		o4.SetContainerID(cID)
 		o4.SetType(object.TypeTombstone)
-		err = metaInhume(db, objectcore.AddressOf(o1), objectcore.AddressOf(&o4))
+		err = metaInhume(db, o1.Address(), o4.Address())
 		require.NoError(t, err)
 
 		err = db.DeleteContainer(cID)

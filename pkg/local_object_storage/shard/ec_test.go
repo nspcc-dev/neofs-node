@@ -11,7 +11,6 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -188,7 +187,7 @@ func TestShard_GetECPart(t *testing.T) {
 
 			bs := mockBLOBStore{
 				getStream: map[oid.Address]getStreamValue{
-					objectcore.AddressOf(&sysObj): {obj: sysObj},
+					sysObj.Address(): {obj: sysObj},
 				},
 			}
 
@@ -221,7 +220,7 @@ func TestShard_GetECPart(t *testing.T) {
 
 		bs := mockBLOBStore{
 			getStream: map[oid.Address]getStreamValue{
-				objectcore.AddressOf(&linker): {obj: linker},
+				linker.Address(): {obj: linker},
 			},
 		}
 
@@ -476,7 +475,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 
 			bs := mockBLOBStore{
 				getStream: map[oid.Address]getStreamValue{
-					objectcore.AddressOf(&sysObj): {obj: partObj},
+					sysObj.Address(): {obj: partObj},
 				},
 			}
 
@@ -660,7 +659,7 @@ func TestShard_HeadECPart(t *testing.T) {
 
 			bs := mockBLOBStore{
 				head: map[oid.Address]headValue{
-					objectcore.AddressOf(&sysObj): {hdr: sysObj},
+					sysObj.Address(): {hdr: sysObj},
 				},
 			}
 

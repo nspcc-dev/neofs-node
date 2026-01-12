@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -111,14 +110,14 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 				link.SetChildren(childID)
 				linkID := link.GetID()
 
-				objectcore.AddressOf(&link)
+				link.Address()
 
 				*os = testObjectSource{
 					head: map[oid.Address]headRes{
 						addr: {
 							h: &child,
 						},
-						objectcore.AddressOf(&link): {
+						link.Address(): {
 							h: &link,
 						},
 					},
@@ -308,11 +307,11 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			deleted := objectWithCnr(ts.GetContainerID(), false)
 
 			deleted.SetType(typ)
-			ts.AssociateDeleted(objectcore.AddressOf(&deleted).Object())
+			ts.AssociateDeleted(deleted.Address().Object())
 
 			*os = testObjectSource{
 				head: map[oid.Address]headRes{
-					objectcore.AddressOf(&deleted): {h: &deleted},
+					deleted.Address(): {h: &deleted},
 				},
 			}
 
@@ -328,11 +327,11 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		deleted := objectWithCnr(cnr, false)
 
 		ts.SetContainerID(cnr)
-		ts.AssociateDeleted(objectcore.AddressOf(&deleted).Object())
+		ts.AssociateDeleted(deleted.Address().Object())
 
 		*os = testObjectSource{
 			head: map[oid.Address]headRes{
-				objectcore.AddressOf(&deleted): {h: &deleted},
+				deleted.Address(): {h: &deleted},
 			},
 		}
 

@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -71,7 +70,7 @@ func TestEvacuateShard(t *testing.T) {
 
 	checkHasObjects := func(t *testing.T) {
 		for i := range objects {
-			_, err := e.Get(objectcore.AddressOf(objects[i]))
+			_, err := e.Get(objects[i].Address())
 			require.NoError(t, err)
 		}
 	}
@@ -123,7 +122,7 @@ func TestEvacuateNetwork(t *testing.T) {
 
 			n++
 			for i := range objects {
-				if addr == objectcore.AddressOf(objects[i]) {
+				if addr == objects[i].Address() {
 					require.Equal(t, objects[i], obj)
 					return nil
 				}
