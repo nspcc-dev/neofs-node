@@ -1,7 +1,6 @@
 package meta_test
 
 import (
-	"bytes"
 	"errors"
 	"math/rand/v2"
 	"slices"
@@ -246,10 +245,10 @@ func BenchmarkDB_Delete(b *testing.B) {
 			bench(b, addrs)
 		}
 		b.Run("sorted", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return bytes.Compare(a[:], b[:]) })
+			bench(b, cid.ID.Compare)
 		})
 		b.Run("reverse", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return -bytes.Compare(a[:], b[:]) })
+			bench(b, func(a, b cid.ID) int { return b.Compare(a) })
 		})
 	})
 
@@ -268,10 +267,10 @@ func BenchmarkDB_Delete(b *testing.B) {
 			bench(b, addrs)
 		}
 		b.Run("sorted", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return bytes.Compare(a[:], b[:]) })
+			bench(b, cid.ID.Compare)
 		})
 		b.Run("reverse", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return -bytes.Compare(a[:], b[:]) })
+			bench(b, func(a, b cid.ID) int { return b.Compare(a) })
 		})
 	})
 }

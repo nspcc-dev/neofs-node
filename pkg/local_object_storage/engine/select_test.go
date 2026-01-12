@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"bytes"
 	"slices"
 	"testing"
 
@@ -13,15 +12,8 @@ import (
 func TestMergeOIDs(t *testing.T) {
 	var cnr = cid.ID{0xff}
 
-	var cmpAddresses = func(a, b oid.Address) int {
-		// OK, we're not comparing containers, but it's all
-		// the same and current SDK doesn't make it easy to
-		// make any comparisons.
-		return bytes.Compare(a.Object().Marshal(), b.Object().Marshal())
-	}
-
 	var equalAddresses = func(a, b oid.Address) bool {
-		return cmpAddresses(a, b) == 0
+		return a.Compare(b) == 0
 	}
 
 	t.Run("nil list", func(t *testing.T) {
@@ -69,7 +61,7 @@ func TestMergeOIDs(t *testing.T) {
 		for _, id := range ids2 {
 			expected = append(expected, oid.NewAddress(cnr, id))
 		}
-		slices.SortFunc(expected, cmpAddresses)
+		slices.SortFunc(expected, oid.Address.Compare)
 		require.Equal(t, expected, mergeOIDs(cnr, [][]oid.ID{ids1, ids2}))
 	})
 	t.Run("two lists with dups", func(t *testing.T) {
@@ -84,7 +76,7 @@ func TestMergeOIDs(t *testing.T) {
 		for _, id := range ids2 {
 			expected = append(expected, oid.NewAddress(cnr, id))
 		}
-		slices.SortFunc(expected, cmpAddresses)
+		slices.SortFunc(expected, oid.Address.Compare)
 		expected = slices.CompactFunc(expected, equalAddresses)
 		require.Len(t, expected, 5) // Ensure sort/compact.
 		require.Equal(t, expected, mergeOIDs(cnr, [][]oid.ID{ids1, ids2}))
@@ -103,7 +95,7 @@ func TestMergeOIDs(t *testing.T) {
 				expected = append(expected, oid.NewAddress(cnr, id))
 			}
 		}
-		slices.SortFunc(expected, cmpAddresses)
+		slices.SortFunc(expected, oid.Address.Compare)
 		expected = slices.CompactFunc(expected, equalAddresses)
 		require.Len(t, expected, 7) // Ensure sort/compact.
 		require.Equal(t, expected, mergeOIDs(cnr, idz))

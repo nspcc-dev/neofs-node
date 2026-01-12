@@ -1,7 +1,6 @@
 package metatest
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -986,7 +985,7 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 
 func sortObjectIDs(ids []oid.ID) []oid.ID {
 	s := slices.Clone(ids)
-	slices.SortFunc(s, func(a, b oid.ID) int { return bytes.Compare(a[:], b[:]) })
+	slices.SortFunc(s, oid.ID.Compare)
 	return s
 }
 
@@ -1015,7 +1014,7 @@ func assertSearchResultWithLimit(t testing.TB, db DB, cnr cid.ID, fs object.Sear
 	_assertSearchResultWithLimit(t, db, cnr, fs, attrs, expRes, lim)
 	if len(attrs) > 0 {
 		expRes = slices.Clone(expRes)
-		slices.SortFunc(expRes, func(a, b client.SearchResultItem) int { return bytes.Compare(a.ID[:], b.ID[:]) })
+		slices.SortFunc(expRes, func(a, b client.SearchResultItem) int { return a.ID.Compare(b.ID) })
 		_assertSearchResultWithLimit(t, db, cnr, fs, nil, expRes, lim)
 	}
 }

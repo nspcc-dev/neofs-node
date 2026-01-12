@@ -28,7 +28,7 @@ func searchResultFromIDs(n int) []client.SearchResultItem {
 	for i := range ids {
 		s[i].ID = ids[i]
 	}
-	slices.SortFunc(s, func(a, b client.SearchResultItem) int { return bytes.Compare(a.ID[:], b.ID[:]) })
+	slices.SortFunc(s, func(a, b client.SearchResultItem) int { return a.ID.Compare(b.ID) })
 	return s
 }
 
@@ -292,8 +292,8 @@ func TestMergeSearchResults(t *testing.T) {
 				"6hkrsFBPpAKTAKHeC5gycCZsz2BQdKtAn9ADriNdWf4E",
 				"BQY3VShN1BmU6XDKiQaDo2tk7s7rkYuaGeVgmcHcWsRY",
 			}
-			testSysAttrOrder(t, object.FilterFirstSplitObject, ids, ss, oid.ID.String, func(a, b oid.ID) int { return bytes.Compare(a[:], b[:]) })
-			testSysAttrOrder(t, object.FilterParentID, ids, ss, oid.ID.String, func(a, b oid.ID) int { return bytes.Compare(a[:], b[:]) })
+			testSysAttrOrder(t, object.FilterFirstSplitObject, ids, ss, oid.ID.String, oid.ID.Compare)
+			testSysAttrOrder(t, object.FilterParentID, ids, ss, oid.ID.String, oid.ID.Compare)
 		})
 		t.Run("owner", func(t *testing.T) {
 			ids := []user.ID{
