@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -115,16 +114,12 @@ func TestShardReload(t *testing.T) {
 }
 
 func newObject(t testing.TB) *object.Object {
-	x := object.New()
-	ver := version.Current()
+	x := object.New(cidtest.ID(), usertest.ID())
 
 	x.SetID(oidtest.ID())
 	x.SetPayload([]byte{1, 2, 3})
 	x.SetPayloadSize(3)
-	x.SetOwner(usertest.ID())
-	x.SetContainerID(cidtest.ID())
 	x.SetType(object.TypeRegular)
-	x.SetVersion(&ver)
 	x.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(x.Payload())))
 	x.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(x.Payload())))
 	return x

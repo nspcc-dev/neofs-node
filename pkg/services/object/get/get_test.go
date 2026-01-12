@@ -202,7 +202,7 @@ func (s *testStorage) inhume(addr oid.Address) {
 }
 
 func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *object.Object {
-	obj := object.New()
+	obj := new(object.Object)
 	obj.SetContainerID(addr.Container())
 	obj.SetID(addr.Object())
 	obj.SetPayload(payload)

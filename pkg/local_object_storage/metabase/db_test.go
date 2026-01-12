@@ -19,7 +19,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -75,10 +74,6 @@ func generateObject(t testing.TB) *object.Object {
 }
 
 func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
-	var ver version.Version
-	ver.SetMajor(2)
-	ver.SetMinor(1)
-
 	payload := make([]byte, 10)
 	_, _ = rand.Read(payload)
 
@@ -87,12 +82,8 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	csumTZ, err := checksum.NewFromData(checksum.TillichZemor, payload)
 	require.NoError(t, err)
 
-	obj := object.New()
+	obj := object.New(cnr, usertest.ID())
 	obj.SetID(oidtest.ID())
-	owner := usertest.ID()
-	obj.SetOwner(owner)
-	obj.SetContainerID(cnr)
-	obj.SetVersion(&ver)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)
 	obj.SetPayload(payload)

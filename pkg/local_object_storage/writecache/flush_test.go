@@ -23,7 +23,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -339,14 +338,10 @@ func putObject(t *testing.T, c Cache, size int) objectPair {
 }
 
 func newObject(t *testing.T, size int) (*object.Object, []byte) {
-	obj := object.New()
-	ver := versionSDK.Current()
+	obj := object.New(cidtest.ID(), usertest.ID())
 
 	obj.SetID(oidtest.ID())
-	obj.SetOwner(usertest.ID())
-	obj.SetContainerID(cidtest.ID())
 	obj.SetType(object.TypeRegular)
-	obj.SetVersion(&ver)
 	obj.SetPayload(make([]byte, size))
 	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
 	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload())))

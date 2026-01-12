@@ -791,7 +791,7 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *pr
 		Signature: idSig,
 		Header:    hdr,
 	}
-	var obj = object.New()
+	var obj = new(object.Object)
 	if err := obj.FromProtoMessage(mObj); err != nil {
 		return nil, err
 	}
@@ -1234,7 +1234,7 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 				Signature: v.Init.Signature,
 				Header:    v.Init.Header,
 			}
-			obj := object.New()
+			obj := new(object.Object)
 			err := obj.FromProtoMessage(mo)
 			if err != nil {
 				return err
@@ -2257,7 +2257,7 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub [
 }
 
 func objectFromMessage(gMsg *protoobject.Object) (*object.Object, error) {
-	var obj = object.New()
+	var obj = new(object.Object)
 	err := obj.FromProtoMessage(gMsg)
 	if err != nil {
 		return nil, err

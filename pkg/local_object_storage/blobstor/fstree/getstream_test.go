@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,7 +41,7 @@ func TestGetStream(t *testing.T) {
 		_, _ = rand.Read(payload)
 
 		addr := oidtest.Address()
-		obj := object.New()
+		obj := new(object.Object)
 		obj.SetID(addr.Object())
 		obj.SetPayload(payload)
 
@@ -99,9 +100,8 @@ func TestGetStream(t *testing.T) {
 
 		objects := make([]*object.Object, numObjects)
 		for i := range objects {
-			obj := object.New()
+			obj := object.New(cnr, usertest.ID())
 			obj.SetID(oidtest.ID())
-			obj.SetContainerID(cnr)
 			if i == 1 {
 				obj.SetPayload(payload2)
 			} else {
@@ -166,7 +166,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		tree.Config = &compress
 
 		addr := oidtest.Address()
-		obj := object.New()
+		obj := new(object.Object)
 		obj.SetID(addr.Object())
 		payload := []byte("test payload")
 		obj.SetPayload(payload)
@@ -193,9 +193,8 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		idStr := "HhW47uw6Fs48M2GtNx1Joem6qUjP1JxGPo4ffvp4QJaL"
 		id, err := oid.DecodeString(idStr)
 		require.NoError(t, err)
-		obj := object.New()
+		obj := object.New(cnr, usertest.ID())
 		obj.SetID(id)
-		obj.SetContainerID(cnr)
 		addr := objectcore.AddressOf(obj)
 
 		require.NoError(t, fsTree.Put(addr, obj.Marshal()))

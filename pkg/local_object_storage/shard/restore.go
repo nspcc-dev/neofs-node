@@ -59,7 +59,7 @@ func (s *Shard) Restore(r io.Reader, ignoreErrors bool) (int, int, error) {
 			return count, failCount, err
 		}
 
-		obj := object.New()
+		obj := new(object.Object)
 		err = obj.Unmarshal(data)
 		if err != nil {
 			if ignoreErrors {

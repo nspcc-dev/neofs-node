@@ -33,22 +33,21 @@ func (exec *execCtx) formTombstone() (ok bool) {
 		return false
 	}
 
-	exec.tombstoneObj = object.New()
-	exec.tombstoneObj.SetContainerID(exec.containerID())
+	// By default make local node the tombstone object owner.
+	var owner = exec.svc.netInfo.LocalNodeID()
+
+	tokenSession := exec.commonParameters().SessionToken()
+	if tokenSession != nil {
+		owner = tokenSession.Issuer()
+	}
+
+	exec.tombstoneObj = object.New(exec.containerID(), owner)
 
 	var a object.Attribute
 	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.FormatUint(exec.svc.netInfo.CurrentEpoch()+tsLifetime, 10))
 	exec.tombstoneObj.SetAttributes(a)
 	exec.tombstoneObj.AssociateDeleted(exec.address().Object())
-
-	tokenSession := exec.commonParameters().SessionToken()
-	if tokenSession != nil {
-		exec.tombstoneObj.SetOwner(tokenSession.Issuer())
-	} else {
-		// make local node a tombstone object owner
-		exec.tombstoneObj.SetOwner(exec.svc.netInfo.LocalNodeID())
-	}
 
 	return true
 }

@@ -384,7 +384,7 @@ func (t *FSTree) Get(addr oid.Address) (*object.Object, error) {
 		return nil, err
 	}
 
-	obj := object.New()
+	obj := new(object.Object)
 	if err := obj.Unmarshal(data); err != nil {
 		return nil, fmt.Errorf("decode object: %w", err)
 	}

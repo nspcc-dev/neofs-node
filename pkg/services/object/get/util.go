@@ -140,7 +140,7 @@ func (f *fallbackRangeReader) Read(p []byte) (int, error) {
 
 func NewSimpleObjectWriter() *SimpleObjectWriter {
 	return &SimpleObjectWriter{
-		obj: object.New(),
+		obj: new(object.Object),
 	}
 }
 

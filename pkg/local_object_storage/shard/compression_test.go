@@ -11,6 +11,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -152,11 +153,9 @@ func TestBlobstor_needsCompression(t *testing.T) {
 }
 
 func testObject(sz uint64) *object.Object {
-	raw := object.New()
+	raw := object.New(cidtest.ID(), usertest.ID())
 
 	raw.SetID(oidtest.ID())
-	raw.SetContainerID(cidtest.ID())
-
 	raw.SetPayload(make([]byte, sz))
 
 	// fit the binary size to the required

@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -86,10 +87,9 @@ func prepareBatch(t *testing.T, count int, s common.Storage, minSize, maxSize ui
 
 // NewObject creates a regular object of specified size with a random payload.
 func NewObject(sz uint64) *object.Object {
-	raw := object.New()
+	raw := object.New(cidtest.ID(), usertest.ID())
 
 	raw.SetID(oidtest.ID())
-	raw.SetContainerID(cidtest.ID())
 
 	payload := make([]byte, sz)
 	_, _ = crand.Read(payload)

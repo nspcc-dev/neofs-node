@@ -175,7 +175,7 @@ func (s *Shard) resyncMetabase() error {
 }
 
 func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
-	obj := object.New()
+	obj := new(object.Object)
 
 	if err := obj.Unmarshal(data); err != nil {
 		s.log.Warn("could not unmarshal object",

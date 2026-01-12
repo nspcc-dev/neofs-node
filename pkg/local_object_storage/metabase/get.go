@@ -96,7 +96,7 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 	// Reconstruct header from available data.
 	var (
 		attrs []object.Attribute
-		obj   = object.New()
+		obj   = new(object.Object)
 	)
 	for attrKey, attrVal := range iterIDAttrs(metaCursor, objID) {
 		switch string(attrKey) {

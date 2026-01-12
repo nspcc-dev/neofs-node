@@ -83,7 +83,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't open file '%s': %w", filename, err)
 	}
 	var payloadReader io.Reader = f
-	obj := object.New()
+	obj := new(object.Object)
 
 	if binary {
 		hdrObj, payloadPrefix, err := objectwire.ReadHeaderPrefix(f)
