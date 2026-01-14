@@ -47,8 +47,6 @@ func (e *StorageEngine) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (o
 		return object.Object{}, nil, e.blockErr
 	}
 
-	// TODO: sync placement with PUT. They should sort shards equally, but now PUT sorts by part ID.
-	//  https://github.com/nspcc-dev/neofs-node/issues/3537
 	s := e.sortShardsFn(e, oid.NewAddress(cnr, parent))
 
 	var partID oid.ID
@@ -218,8 +216,6 @@ func (e *StorageEngine) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (
 		return object.Object{}, e.blockErr
 	}
 
-	// TODO: sync placement with PUT. They should sort shards equally, but now PUT sorts by part ID.
-	//  https://github.com/nspcc-dev/neofs-node/issues/3537
 	s := e.sortShardsFn(e, oid.NewAddress(cnr, parent))
 
 	var partID oid.ID

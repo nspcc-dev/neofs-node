@@ -40,6 +40,7 @@ Changelog for NeoFS Node
 - SN removes objects immediately when requested via control service now instead of just marking them to be deleted by GC (#3727)
 - Tombstone objects with API <2.18 are no longer accepted (#3731)
 - Garbage marking scheme in metabase (#3753)
+- SN sorts shards identically when writing and reading EC parts (#3773)
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
