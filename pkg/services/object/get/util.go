@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -289,9 +288,8 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
-		r, err := e.engine.GetRange(exec.address(), rng.GetOffset(), rng.GetLength())
-		// TODO: use here GetRangeStream when it will be implemented
-		return nil, io.NopCloser(bytes.NewReader(r)), err
+		r, err := e.engine.GetRangeStream(exec.address(), rng.GetOffset(), rng.GetLength())
+		return nil, r, err
 	}
 
 	return e.engine.GetStream(exec.address())

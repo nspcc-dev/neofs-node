@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -85,10 +86,16 @@ type headValue struct {
 	err error
 }
 
+type getRangeStreamValue struct {
+	pld []byte
+	err error
+}
+
 type mockBLOBStore struct {
 	unimplementedBLOBStore
-	getStream map[oid.Address]getStreamValue
-	head      map[oid.Address]headValue
+	getStream      map[oid.Address]getStreamValue
+	head           map[oid.Address]headValue
+	getRangeStream map[oid.Address]getRangeStreamValue
 }
 
 func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
@@ -110,10 +117,36 @@ func (x *mockBLOBStore) Head(addr oid.Address) (*object.Object, error) {
 	return &val.hdr, val.err
 }
 
+func (x *mockBLOBStore) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
+	val, ok := x.getRangeStream[addr]
+	if !ok {
+		return nil, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return nil, val.err
+	}
+
+	pldLen := uint64(len(val.pld))
+	if off == 0 && ln == 0 {
+		if pldLen == 0 {
+			return nil, nil
+		}
+
+		return io.NopCloser(bytes.NewReader(val.pld)), nil
+	}
+
+	if off >= pldLen || pldLen-off < ln {
+		return nil, apistatus.ErrObjectOutOfRange
+	}
+
+	return io.NopCloser(bytes.NewReader(val.pld[off:][:ln])), nil
+}
+
 type mockWriteCache struct {
 	unimplementedWriteCache
-	getStream map[oid.Address]getStreamValue
-	head      map[oid.Address]headValue
+	getStream      map[oid.Address]getStreamValue
+	head           map[oid.Address]headValue
+	getRangeStream map[oid.Address]getRangeStreamValue
 }
 
 func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
@@ -133,6 +166,31 @@ func (x *mockWriteCache) Head(addr oid.Address) (*object.Object, error) {
 		return nil, errors.New("[test] unexpected object requested")
 	}
 	return &val.hdr, val.err
+}
+
+func (x *mockWriteCache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
+	val, ok := x.getRangeStream[addr]
+	if !ok {
+		return nil, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return nil, val.err
+	}
+
+	pldLen := uint64(len(val.pld))
+	if off == 0 && ln == 0 {
+		if pldLen == 0 {
+			return nil, nil
+		}
+
+		return io.NopCloser(bytes.NewReader(val.pld)), nil
+	}
+
+	if off >= pldLen || pldLen-off < ln {
+		return nil, apistatus.ErrObjectOutOfRange
+	}
+
+	return io.NopCloser(bytes.NewReader(val.pld[off:][:ln])), nil
 }
 
 type unimplementedBLOBStore struct{}
@@ -181,6 +239,10 @@ func (unimplementedBLOBStore) GetStream(oid.Address) (*object.Object, io.ReadClo
 	panic("unimplemented")
 }
 
+func (unimplementedBLOBStore) GetRangeStream(oid.Address, uint64, uint64) (io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedBLOBStore) Head(oid.Address) (*object.Object, error) {
 	panic("unimplemented")
 }
@@ -220,6 +282,10 @@ func (unimplementedWriteCache) GetBytes(oid.Address) ([]byte, error) {
 }
 
 func (unimplementedWriteCache) GetStream(oid.Address) (*object.Object, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedWriteCache) GetRangeStream(oid.Address, uint64, uint64) (io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

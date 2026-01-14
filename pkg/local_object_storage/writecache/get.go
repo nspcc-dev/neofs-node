@@ -67,3 +67,28 @@ func (c *cache) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, erro
 
 	return stream, reader, nil
 }
+
+// GetRangeStream reads payload range of the referenced object from c. Both zero
+// off and ln mean full payload. The stream must be finally closed by the
+// caller.
+//
+// If object is missing, GetRangeStream returns [apistatus.ErrObjectNotFound].
+//
+// If the range is out of payload bounds, GetRangeStream returns
+// [apistatus.ErrObjectOutOfRange].
+func (c *cache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
+	if ln == 0 && off != 0 {
+		return nil, fmt.Errorf("invalid range off=%d,ln=0", off)
+	}
+
+	if !c.objCounters.HasAddress(addr) {
+		return nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+	}
+
+	stream, err := c.fsTree.GetRangeStream(addr, off, ln)
+	if err != nil {
+		return nil, fmt.Errorf("get range stream from underlying FS tree: %w", err)
+	}
+
+	return stream, nil
+}

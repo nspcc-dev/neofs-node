@@ -540,6 +540,57 @@ func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte,
 	return payload, nil
 }
 
+// GetRangeStream reads payload range of the referenced object from t. Both zero
+// off and ln mean full payload. The stream must be finally closed by the
+// caller.
+//
+// If object is missing, GetRangeStream returns [apistatus.ErrObjectNotFound].
+//
+// If the range is out of payload bounds, GetRangeStream returns
+// [apistatus.ErrObjectOutOfRange].
+func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
+	if ln == 0 && off != 0 {
+		return nil, fmt.Errorf("invalid range off=%d,ln=0", off)
+	}
+
+	// TODO: we need only one header field. Consider decoding only it + jumping to payload
+	hdr, stream, err := t.getObjectStream(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	pldLen := hdr.PayloadSize()
+
+	if ln == 0 && off == 0 {
+		return stream, nil
+	}
+
+	if off >= pldLen || pldLen-off < ln {
+		stream.Close()
+		return nil, apistatus.ErrObjectOutOfRange
+	}
+
+	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
+		stream.Close()
+		return nil, fmt.Errorf("range overflowing int64 is not supported by this server: off=%d,len=%d", off, ln)
+	}
+
+	if off > 0 {
+		if _, err := stream.Seek(int64(off), io.SeekStart); err != nil {
+			stream.Close()
+			return nil, fmt.Errorf("seek offset in payload stream: %w", err)
+		}
+	}
+
+	return struct {
+		io.Reader
+		io.Closer
+	}{
+		Reader: io.LimitReader(stream, int64(ln)),
+		Closer: stream,
+	}, nil
+}
+
 // Type is fstree storage type used in logs and configuration.
 const Type = "fstree"
 

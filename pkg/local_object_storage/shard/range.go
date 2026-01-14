@@ -165,3 +165,47 @@ func slicePayloadReader(rc io.ReadCloser, pldLen uint64, off, ln int64) (io.Read
 		Closer: rc,
 	}, nil
 }
+
+// GetRangeStreamWithMetadataLookup reads payload range of the referenced object
+// from s. Both zero off and ln mean full payload. The stream must be finally
+// closed by the caller.
+//
+// If object is missing, GetRangeStreamWithMetadataLookup returns
+// [apistatus.ErrObjectNotFound].
+//
+// If the range is out of payload bounds, GetRangeStreamWithMetadataLookup
+// returns [apistatus.ErrObjectOutOfRange].
+//
+// If object exists in underlying metabase but cannot be read from underlying
+// storage, GetRangeStreamWithMetadataLookup returns [ErrMetaWithNoObject] along
+// with storage error.
+//
+// If skipMeta flag is set, GetRangeStreamWithMetadataLookup attempts to access
+// object bypassing metabase.
+func (s *Shard) GetRangeStreamWithMetadataLookup(addr oid.Address, off, ln uint64, skipMeta bool) (io.ReadCloser, error) {
+	// implementation is similar to Get
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	var stream io.ReadCloser
+
+	cb := func(stor common.Storage) error {
+		var err error
+		stream, err = stor.GetRangeStream(addr, off, ln)
+		return err
+	}
+
+	wc := func(c writecache.Cache) error {
+		var err error
+		stream, err = c.GetRangeStream(addr, off, ln)
+		return err
+	}
+
+	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
+	if err != nil && gotMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
+
+	return stream, err
+}

@@ -16,6 +16,7 @@ type (
 		getDuration                   prometheus.Histogram
 		headDuration                  prometheus.Histogram
 		getStreamDuration             prometheus.Histogram
+		getRangeStreamDuration        prometheus.Histogram
 		inhumeDuration                prometheus.Histogram
 		putDuration                   prometheus.Histogram
 		rangeDuration                 prometheus.Histogram
@@ -89,6 +90,13 @@ func newEngineMetrics() engineMetrics {
 			Subsystem: engineSubsystem,
 			Name:      "get_stream_time",
 			Help:      "Engine 'get stream' operations handling time",
+		})
+
+		getRangeStreamDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "get_range_stream_time",
+			Help:      "Engine 'get range stream' operations handling time",
 		})
 
 		inhumeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -180,6 +188,7 @@ func newEngineMetrics() engineMetrics {
 		getDuration:                   getDuration,
 		headDuration:                  headDuration,
 		getStreamDuration:             getStreamDuration,
+		getRangeStreamDuration:        getRangeStreamDuration,
 		inhumeDuration:                inhumeDuration,
 		putDuration:                   putDuration,
 		rangeDuration:                 rangeDuration,
@@ -203,6 +212,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.headDuration)
 	prometheus.MustRegister(m.getStreamDuration)
+	prometheus.MustRegister(m.getRangeStreamDuration)
 	prometheus.MustRegister(m.inhumeDuration)
 	prometheus.MustRegister(m.putDuration)
 	prometheus.MustRegister(m.rangeDuration)
@@ -246,6 +256,10 @@ func (m engineMetrics) AddHeadDuration(d time.Duration) {
 
 func (m engineMetrics) AddGetStreamDuration(d time.Duration) {
 	m.getStreamDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddGetRangeStreamDuration(d time.Duration) {
+	m.getRangeStreamDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddInhumeDuration(d time.Duration) {
