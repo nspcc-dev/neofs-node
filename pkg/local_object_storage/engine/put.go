@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -70,9 +71,16 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 		bestPool   util.WorkerPool
 		bestShard  shardWrapper
 		overloaded bool
+		shs        []shardWrapper
 	)
 
-	for _, sh := range e.sortedShards(addr) {
+	if iec.ObjectWithAttributes(*obj) {
+		shs = e.sortedShards(oid.NewAddress(obj.GetContainerID(), obj.GetParentID()))
+	} else {
+		shs = e.sortedShards(addr)
+	}
+
+	for _, sh := range shs {
 		e.mtx.RLock()
 		pool, ok := e.shardPools[sh.ID().String()]
 		if ok && bestPool == nil {
