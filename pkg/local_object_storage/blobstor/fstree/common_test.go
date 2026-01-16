@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -41,7 +40,7 @@ func setupCompressor(tb testing.TB, fsTree *fstree.FSTree) {
 
 func prepareSingleObject(tb testing.TB, fsTree *fstree.FSTree, payloadSize int) oid.Address {
 	obj := generateTestObject(payloadSize)
-	addr := objectcore.AddressOf(obj)
+	addr := obj.Address()
 	require.NoError(tb, fsTree.Put(addr, obj.Marshal()))
 	return addr
 }
@@ -90,7 +89,7 @@ func prepareMultipleObjects(tb testing.TB, fsTree *fstree.FSTree, payloadSize in
 
 	for i := range numObjects {
 		obj := generateTestObject(payloadSize)
-		addr := objectcore.AddressOf(obj)
+		addr := obj.Address()
 		objMap[addr] = obj.Marshal()
 		addrs[i] = addr
 	}

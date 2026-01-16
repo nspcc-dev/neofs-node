@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -14,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -46,7 +44,7 @@ func TestShardReload(t *testing.T) {
 	objects := make([]objAddr, 5)
 	for i := range objects {
 		objects[i].obj = newObject(t)
-		objects[i].addr = objectcore.AddressOf(objects[i].obj)
+		objects[i].addr = objects[i].obj.Address()
 		require.NoError(t, sh.Put(objects[i].obj, nil))
 	}
 
@@ -79,7 +77,7 @@ func TestShardReload(t *testing.T) {
 		t.Run("can put objects", func(t *testing.T) {
 			obj := newObject(t)
 			require.NoError(t, sh.Put(obj, nil))
-			objects = append(objects, objAddr{obj: obj, addr: objectcore.AddressOf(obj)})
+			objects = append(objects, objAddr{obj: obj, addr: obj.Address()})
 		})
 
 		newOpts = newShardOpts(filepath.Join(p, "meta2"), true)
@@ -108,23 +106,19 @@ func TestShardReload(t *testing.T) {
 			obj = newObject(t)
 			require.NoError(t, sh.Put(obj, nil))
 
-			objects = append(objects, objAddr{obj: obj, addr: objectcore.AddressOf(obj)})
+			objects = append(objects, objAddr{obj: obj, addr: obj.Address()})
 			checkHasObjects(t, true)
 		})
 	})
 }
 
 func newObject(t testing.TB) *object.Object {
-	x := object.New()
-	ver := version.Current()
+	x := object.New(cidtest.ID(), usertest.ID())
 
 	x.SetID(oidtest.ID())
 	x.SetPayload([]byte{1, 2, 3})
 	x.SetPayloadSize(3)
-	x.SetOwner(usertest.ID())
-	x.SetContainerID(cidtest.ID())
 	x.SetType(object.TypeRegular)
-	x.SetVersion(&ver)
 	x.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(x.Payload())))
 	x.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(x.Payload())))
 	return x

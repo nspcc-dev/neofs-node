@@ -179,8 +179,7 @@ func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObjec
 	}
 
 	slices.SortFunc(res, func(a, b RemovedObject) int {
-		ac, bc := a.Address.Container(), b.Address.Container()
-		return bytes.Compare(ac[:], bc[:])
+		return a.Address.Compare(b.Address) // Container-only sorting is sufficient here, but Compare() is more convenient anyway.
 	})
 
 	var err error

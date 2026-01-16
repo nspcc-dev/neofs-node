@@ -19,7 +19,7 @@ func TestWriteWithoutPayload(t *testing.T) {
 		require.Empty(t, buf.Bytes())
 	})
 
-	obj := object.New()
+	obj := new(object.Object)
 	payload := []byte{1, 2, 3, 4, 5}
 	obj.SetPayloadSize(uint64(len(payload)))
 

@@ -44,7 +44,7 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 			return err
 		}
 
-		obj = object.New()
+		obj = new(object.Object)
 		obj.SetPayload(r)
 
 		return nil
@@ -69,7 +69,7 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 			return logicerr.Wrap(apistatus.ObjectOutOfRange{})
 		}
 
-		obj = object.New()
+		obj = new(object.Object)
 		obj.SetPayload(payload[from:to])
 		return nil
 	}

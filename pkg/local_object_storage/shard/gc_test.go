@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -97,14 +96,14 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	err = sh.Put(lock, nil)
 	require.NoError(t, err)
 
-	_, err = sh.Get(objectcore.AddressOf(obj), false)
+	_, err = sh.Get(obj.Address(), false)
 	require.NoError(t, err)
 
 	epoch.Value = 5
 	sh.NotificationChannel() <- shard.EventNewEpoch(epoch.Value)
 
 	require.Eventually(t, func() bool {
-		_, err = sh.Get(objectcore.AddressOf(obj), false)
+		_, err = sh.Get(obj.Address(), false)
 		return shard.IsErrObjectExpired(err)
 	}, 3*time.Second, 1*time.Second, "lock expiration should make the object expired")
 
@@ -112,7 +111,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	sh.NotificationChannel() <- shard.EventNewEpoch(epoch.Value)
 
 	require.Eventually(t, func() bool {
-		_, err = sh.Get(objectcore.AddressOf(obj), false)
+		_, err = sh.Get(obj.Address(), false)
 		return shard.IsErrNotFound(err)
 	}, 3*time.Second, 1*time.Second, "expired object should eventually be deleted")
 }
@@ -140,7 +139,7 @@ func TestGC_ContainerCleanup(t *testing.T) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		oo = append(oo, objectcore.AddressOf(obj))
+		oo = append(oo, obj.Address())
 	}
 
 	containers, err := sh.ListContainers()
@@ -217,13 +216,13 @@ func TestExpiration(t *testing.T) {
 			err := sh.Put(obj, nil)
 			require.NoError(t, err)
 
-			_, err = sh.Get(objectcore.AddressOf(obj), false)
+			_, err = sh.Get(obj.Address(), false)
 			require.NoError(t, err)
 
 			ch <- shard.EventNewEpoch(exp + 1)
 
 			require.Eventually(t, func() bool {
-				_, err = sh.Get(objectcore.AddressOf(obj), false)
+				_, err = sh.Get(obj.Address(), false)
 				return shard.IsErrNotFound(err)
 			}, 3*time.Second, 100*time.Millisecond, "expiration should lead to object removal")
 		})
@@ -321,13 +320,13 @@ func TestContainerPayments(t *testing.T) {
 	//		err := sh.Put(obj, nil)
 	//		require.NoError(t, err)
 	//
-	//		_, err = sh.Get(objectcore.AddressOf(obj), false)
+	//		_, err = sh.Get(obj.Address(), false)
 	//		require.NoError(t, err)
 	//
 	//		ch <- shard.EventNewEpoch(exp + 1)
 	//
 	//		require.Eventually(t, func() bool {
-	//			_, err = sh.Get(objectcore.AddressOf(obj), false)
+	//			_, err = sh.Get(obj.Address(), false)
 	//			return shard.IsErrNotFound(err)
 	//		}, 3*time.Second, 100*time.Millisecond, "expiration should lead to object removal")
 	//	})

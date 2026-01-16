@@ -10,7 +10,6 @@ import (
 	"testing/iotest"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -33,7 +32,7 @@ func TestShard_GetRangeStream(t *testing.T) {
 	obj.SetPayloadSize(payloadLen)
 	obj.SetPayload(payload)
 
-	objAddr := objectcore.AddressOf(&obj)
+	objAddr := obj.Address()
 
 	bs := mockBLOBStore{
 		getStream: map[oid.Address]getStreamValue{

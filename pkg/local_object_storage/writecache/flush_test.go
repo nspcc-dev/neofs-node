@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -23,7 +22,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -128,7 +126,7 @@ func TestFlush(t *testing.T) {
 		t.Run("fs, read error", func(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
 				obj, data := newObject(t, 1)
-				addr := objectcore.AddressOf(obj)
+				addr := obj.Address()
 
 				err := c.fsTree.Put(addr, data)
 				require.NoError(t, err)
@@ -332,21 +330,17 @@ func waitForFlush(t *testing.T, wc Cache, objects []objectPair) {
 func putObject(t *testing.T, c Cache, size int) objectPair {
 	obj, data := newObject(t, size)
 
-	err := c.Put(objectcore.AddressOf(obj), obj, data)
+	err := c.Put(obj.Address(), obj, data)
 	require.NoError(t, err)
 
-	return objectPair{objectcore.AddressOf(obj), obj}
+	return objectPair{obj.Address(), obj}
 }
 
 func newObject(t *testing.T, size int) (*object.Object, []byte) {
-	obj := object.New()
-	ver := versionSDK.Current()
+	obj := object.New(cidtest.ID(), usertest.ID())
 
 	obj.SetID(oidtest.ID())
-	obj.SetOwner(usertest.ID())
-	obj.SetContainerID(cidtest.ID())
 	obj.SetType(object.TypeRegular)
-	obj.SetVersion(&ver)
 	obj.SetPayload(make([]byte, size))
 	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
 	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload())))

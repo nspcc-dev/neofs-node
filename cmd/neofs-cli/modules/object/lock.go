@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
 
@@ -93,11 +92,7 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		obj := object.New()
-		curV := version.Current()
-		obj.SetVersion(&curV)
-		obj.SetContainerID(cnr)
-		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
+		obj := object.New(cnr, user.NewFromECDSAPublicKey(key.PublicKey))
 
 		for _, locked := range lockList {
 			obj.SetAttributes(expirationAttr)

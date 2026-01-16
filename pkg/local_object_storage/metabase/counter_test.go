@@ -3,7 +3,6 @@ package meta_test
 import (
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -49,7 +48,7 @@ func TestCounters(t *testing.T) {
 		oo := putObjs(t, db, objCount, false)
 
 		for i := objCount - 1; i >= 0; i-- {
-			res, err := db.Delete([]oid.Address{objectcore.AddressOf(oo[i])})
+			res, err := db.Delete([]oid.Address{oo[i].Address()})
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), res.AvailableRemoved)
 
@@ -73,7 +72,7 @@ func TestCounters(t *testing.T) {
 				break
 			}
 
-			inhumedObjs[i] = objectcore.AddressOf(o)
+			inhumedObjs[i] = o.Address()
 		}
 
 		for _, addr := range inhumedObjs {
@@ -119,7 +118,7 @@ func TestCounters(t *testing.T) {
 		// and check that it does not affect
 		// the counter
 		for i, o := range oo {
-			require.NoError(t, metaDelete(db, objectcore.AddressOf(o)))
+			require.NoError(t, metaDelete(db, o.Address()))
 
 			c, err := db.ObjectCounters()
 			require.NoError(t, err)
@@ -140,7 +139,7 @@ func TestCounters(t *testing.T) {
 				break
 			}
 
-			inhumedObjs[i] = objectcore.AddressOf(o)
+			inhumedObjs[i] = o.Address()
 		}
 
 		for _, addr := range inhumedObjs {

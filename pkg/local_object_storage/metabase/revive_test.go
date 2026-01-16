@@ -3,7 +3,6 @@ package meta_test
 import (
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -22,27 +21,27 @@ func TestDB_ReviveObject(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, objectcore.AddressOf(raw))
+		exists, err := metaExists(db, raw.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 
 		// inhume object with tombstone
-		err = metaInhume(db, objectcore.AddressOf(raw), tombstoneID)
+		err = metaInhume(db, raw.Address(), tombstoneID)
 		require.NoError(t, err)
 
-		_, err = metaExists(db, objectcore.AddressOf(raw))
+		_, err = metaExists(db, raw.Address())
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-		_, err = metaGet(db, objectcore.AddressOf(raw), false)
+		_, err = metaGet(db, raw.Address(), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 		// revive object
-		res, err := db.ReviveObject(objectcore.AddressOf(raw))
+		res, err := db.ReviveObject(raw.Address())
 		require.NoError(t, err)
 		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
 		require.NotNil(t, res.TombstoneAddress())
 
-		exists, err = metaExists(db, objectcore.AddressOf(raw))
+		exists, err = metaExists(db, raw.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 
@@ -58,30 +57,30 @@ func TestDB_ReviveObject(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, objectcore.AddressOf(raw))
+		exists, err := metaExists(db, raw.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 
 		// inhume with GC mark
-		_, _, err = db.MarkGarbage(objectcore.AddressOf(raw))
+		_, _, err = db.MarkGarbage(raw.Address())
 		require.NoError(t, err)
 
-		_, err = metaExists(db, objectcore.AddressOf(raw))
+		_, err = metaExists(db, raw.Address())
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
-		_, err = metaGet(db, objectcore.AddressOf(raw), false)
+		_, err = metaGet(db, raw.Address(), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		// revive object
-		res, err := db.ReviveObject(objectcore.AddressOf(raw))
+		res, err := db.ReviveObject(raw.Address())
 		require.NoError(t, err)
 		require.Equal(t, meta.ReviveStatusGarbage, res.StatusType())
 
-		exists, err = metaExists(db, objectcore.AddressOf(raw))
+		exists, err = metaExists(db, raw.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 
-		obj, err := metaGet(db, objectcore.AddressOf(raw), false)
+		obj, err := metaGet(db, raw.Address(), false)
 		require.NoError(t, err)
 		require.NotNil(t, obj)
 	})
@@ -117,11 +116,11 @@ func TestDB_ReviveObject(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		exists, err := metaExists(db, objectcore.AddressOf(raw))
+		exists, err := metaExists(db, raw.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 
-		res, err := db.ReviveObject(objectcore.AddressOf(raw))
+		res, err := db.ReviveObject(raw.Address())
 		require.ErrorIs(t, err, meta.ErrObjectWasNotRemoved)
 		require.Equal(t, meta.ReviveStatusError, res.StatusType())
 	})

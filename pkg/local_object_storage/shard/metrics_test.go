@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/bbolt"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -125,7 +124,7 @@ func TestCounters(t *testing.T) {
 		inhumedNumber := objNumber / 4
 
 		for i := range inhumedNumber {
-			err := sh.MarkGarbage(objectcore.AddressOf(oo[i]))
+			err := sh.MarkGarbage(oo[i].Address())
 			require.NoError(t, err)
 		}
 
@@ -311,7 +310,7 @@ func addrFromObjs(oo []*object.Object) []oid.Address {
 	aa := make([]oid.Address, len(oo))
 
 	for i := range oo {
-		aa[i] = objectcore.AddressOf(oo[i])
+		aa[i] = oo[i].Address()
 	}
 
 	return aa

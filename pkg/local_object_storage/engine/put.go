@@ -6,7 +6,6 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -50,7 +49,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 		return e.blockErr
 	}
 
-	addr := objectcore.AddressOf(obj)
+	addr := obj.Address()
 
 	// In #1146 this check was parallelized, however, it became
 	// much slower on fast machines for 4 shards.
@@ -225,7 +224,7 @@ func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error
 		pool       util.WorkerPool
 		ok         bool
 		allShards  = e.unsortedShards()
-		addr       = objectcore.AddressOf(obj)
+		addr       = obj.Address()
 		goodShards = make([]shardWrapper, 0, len(allShards))
 		lastError  error
 		isFatal    bool

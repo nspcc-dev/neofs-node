@@ -40,7 +40,7 @@ func writeObject(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("unable to read given file: %w", err)
 	}
 
-	obj := object.New()
+	obj := new(object.Object)
 	if err := obj.Unmarshal(buf); err != nil {
 		return fmt.Errorf("can't unmarshal object from given file: %w", err)
 	}

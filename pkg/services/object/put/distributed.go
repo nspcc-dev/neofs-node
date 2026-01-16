@@ -260,7 +260,7 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 			return nil
 		}
 
-		addr := objectcore.AddressOf(&obj)
+		addr := obj.Address()
 		var objAccepted chan struct{}
 		if await {
 			objAccepted = make(chan struct{}, 1)

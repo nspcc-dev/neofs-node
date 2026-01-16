@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/zstd"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -257,7 +256,7 @@ func checkRestore(t *testing.T, sh *shard.Shard, path string, r io.Reader, objec
 	require.Equal(t, 0, failed)
 
 	for i := range objects {
-		res, err := sh.Get(objectcore.AddressOf(objects[i]), false)
+		res, err := sh.Get(objects[i].Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, objects[i], res)
 	}

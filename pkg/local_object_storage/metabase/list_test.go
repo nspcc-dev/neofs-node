@@ -144,21 +144,21 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		obj.SetType(object.TypeRegular)
 		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(obj), Type: object.TypeRegular})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: obj.Address(), Type: object.TypeRegular})
 
 		// add one tombstone
 		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(object.TypeTombstone)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(obj), Type: object.TypeTombstone})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: obj.Address(), Type: object.TypeTombstone})
 
 		// add one lock
 		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(object.TypeLock)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(obj), Type: object.TypeLock})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: obj.Address(), Type: object.TypeLock})
 
 		// add one inhumed (do not include into expected)
 		obj = generateObjectWithCID(t, containerID)
@@ -167,7 +167,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		require.NoError(t, err)
 		ts := createTSForObject(containerID, obj.GetID())
 		require.NoError(t, db.Put(ts))
-		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(ts), Type: object.TypeTombstone})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: ts.Address(), Type: object.TypeTombstone})
 
 		// add one child object (do not include parent into expected)
 		splitID := object.NewSplitID()
@@ -180,7 +180,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		child.SetSplitID(splitID)
 		err = putBig(db, child)
 		require.NoError(t, err)
-		expected = append(expected, objectcore.AddressWithAttributes{Address: objectcore.AddressOf(child), Type: object.TypeRegular})
+		expected = append(expected, objectcore.AddressWithAttributes{Address: child.Address(), Type: object.TypeRegular})
 	}
 
 	expected = sortAddresses(expected)
@@ -252,7 +252,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 				require.NoError(t, db.Put(obj))
 
 				exp = append(exp, objectcore.AddressWithAttributes{
-					Address:    objectcore.AddressOf(obj),
+					Address:    obj.Address(),
 					Type:       object.TypeRegular,
 					Attributes: []string{staticVal, commonVal, groupVal, string(owner[:])},
 				})
@@ -287,7 +287,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 		obj := generateObject(t)
 		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected[objectcore.AddressOf(obj)] = 0
+		expected[obj.Address()] = 0
 	}
 
 	// get half of the objects

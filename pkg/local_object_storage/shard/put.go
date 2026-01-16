@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
@@ -35,7 +34,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	var (
-		addr      = objectcore.AddressOf(obj)
+		addr      = obj.Address()
 		cachedPut bool
 	)
 

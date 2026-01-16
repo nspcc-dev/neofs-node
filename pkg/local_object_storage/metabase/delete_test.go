@@ -1,7 +1,6 @@
 package meta_test
 
 import (
-	"bytes"
 	"errors"
 	"math/rand/v2"
 	"slices"
@@ -9,7 +8,6 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -38,28 +36,28 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// try to remove parent, should be no-op, error-free
-	err = metaDelete(db, objectcore.AddressOf(parent))
+	err = metaDelete(db, parent.Address())
 	require.NoError(t, err)
 
 	// inhume child so it will be on graveyard
 	ts := generateObjectWithCID(t, cnr)
 
-	err = metaInhume(db, objectcore.AddressOf(child), objectcore.AddressOf(ts))
+	err = metaInhume(db, child.Address(), ts.Address())
 	require.NoError(t, err)
 
 	// delete object
-	err = metaDelete(db, objectcore.AddressOf(child))
+	err = metaDelete(db, child.Address())
 	require.NoError(t, err)
 
 	// check if the child is still inhumed (deletion should not affect
 	// TS status that should be kept for some epochs and be handled
 	// separately) and parent is not found
 
-	ok, err := metaExists(db, objectcore.AddressOf(child))
+	ok, err := metaExists(db, child.Address())
 	require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	require.False(t, ok)
 
-	ok, err = metaExists(db, objectcore.AddressOf(parent))
+	ok, err = metaExists(db, parent.Address())
 	require.NoError(t, err)
 	require.False(t, ok)
 
@@ -92,8 +90,8 @@ func TestDB_Delete(t *testing.T) {
 		parent1, ecParts1 := newGroup(cnr1, 3)
 		parent2, ecParts2 := newGroup(cnr2, 5)
 
-		parent1Addr := objectcore.AddressOf(&parent1)
-		parent2Addr := objectcore.AddressOf(&parent2)
+		parent1Addr := parent1.Address()
+		parent2Addr := parent2.Address()
 
 		res, err := db.Delete([]oid.Address{parent1Addr, parent2Addr})
 		require.NoError(t, err)
@@ -109,7 +107,7 @@ func TestDB_Delete(t *testing.T) {
 		})
 		for _, partObj := range slices.Concat(ecParts1, ecParts2) {
 			require.Contains(t, res.RemovedObjects, meta.RemovedObject{
-				Address:    objectcore.AddressOf(&partObj),
+				Address:    partObj.Address(),
 				PayloadLen: partObj.PayloadSize(),
 			})
 		}
@@ -134,7 +132,7 @@ func TestContainerInfo(t *testing.T) {
 	require.Equal(t, uint64(1), info.ObjectsNumber)
 	require.Equal(t, payloadSize, info.StorageSize)
 
-	addr := objectcore.AddressOf(obj)
+	addr := obj.Address()
 
 	res, err := db.Delete([]oid.Address{addr})
 	require.NoError(t, err)
@@ -175,17 +173,17 @@ func TestDeleteAllChildren(t *testing.T) {
 	require.NoError(t, putBig(db, child2))
 
 	// Exists should return split info for parent
-	_, err := metaExists(db, objectcore.AddressOf(parent))
+	_, err := metaExists(db, parent.Address())
 	siErr := object.NewSplitInfoError(nil)
 	require.ErrorIs(t, err, ierrors.ErrParentObject)
 	require.True(t, errors.As(err, &siErr))
 
 	// remove all children in single call
-	err = metaDelete(db, objectcore.AddressOf(child1), objectcore.AddressOf(child2))
+	err = metaDelete(db, child1.Address(), child2.Address())
 	require.NoError(t, err)
 
 	// parent should not be found now
-	ex, err := metaExists(db, objectcore.AddressOf(parent))
+	ex, err := metaExists(db, parent.Address())
 	require.NoError(t, err)
 	require.False(t, ex)
 }
@@ -207,9 +205,9 @@ func TestExpiredObject(t *testing.T) {
 
 	checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
 		// removing expired object should be error-free
-		require.NoError(t, metaDelete(db, objectcore.AddressOf(exp)))
+		require.NoError(t, metaDelete(db, exp.Address()))
 
-		require.NoError(t, metaDelete(db, objectcore.AddressOf(nonExp)))
+		require.NoError(t, metaDelete(db, nonExp.Address()))
 	})
 }
 
@@ -246,10 +244,10 @@ func BenchmarkDB_Delete(b *testing.B) {
 			bench(b, addrs)
 		}
 		b.Run("sorted", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return bytes.Compare(a[:], b[:]) })
+			bench(b, cid.ID.Compare)
 		})
 		b.Run("reverse", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return -bytes.Compare(a[:], b[:]) })
+			bench(b, func(a, b cid.ID) int { return b.Compare(a) })
 		})
 	})
 
@@ -268,10 +266,10 @@ func BenchmarkDB_Delete(b *testing.B) {
 			bench(b, addrs)
 		}
 		b.Run("sorted", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return bytes.Compare(a[:], b[:]) })
+			bench(b, cid.ID.Compare)
 		})
 		b.Run("reverse", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return -bytes.Compare(a[:], b[:]) })
+			bench(b, func(a, b cid.ID) int { return b.Compare(a) })
 		})
 	})
 }

@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -64,7 +63,7 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	err = putBig(db, obj1)
 	require.NoError(t, err)
 
-	_, _, err = db.MarkGarbage(objectcore.AddressOf(obj1))
+	_, _, err = db.MarkGarbage(obj1.Address())
 	require.NoError(t, err)
 
 	var counter int
@@ -132,7 +131,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	require.NoError(t, err)
 
 	// inhume with GC mark
-	_, _, err = db.MarkGarbage(objectcore.AddressOf(obj3), objectcore.AddressOf(obj4))
+	_, _, err = db.MarkGarbage(obj3.Address(), obj4.Address())
 	require.NoError(t, err)
 
 	var buriedGC []oid.Address
@@ -147,8 +146,8 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	// objects covered with a tombstone
 	// also receive GS mark
 	garbageExpected := []oid.Address{
-		objectcore.AddressOf(obj1), objectcore.AddressOf(obj2),
-		objectcore.AddressOf(obj3), objectcore.AddressOf(obj4),
+		obj1.Address(), obj2.Address(),
+		obj3.Address(), obj4.Address(),
 	}
 
 	require.ElementsMatch(t, garbageExpected, buriedGC)
@@ -183,14 +182,14 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	err = putBig(db, obj4)
 	require.NoError(t, err)
 
-	_, _, err = db.MarkGarbage(objectcore.AddressOf(obj1), objectcore.AddressOf(obj2),
-		objectcore.AddressOf(obj3), objectcore.AddressOf(obj4))
+	_, _, err = db.MarkGarbage(obj1.Address(), obj2.Address(),
+		obj3.Address(), obj4.Address())
 
 	require.NoError(t, err)
 
 	expectedGarbage := []oid.Address{
-		objectcore.AddressOf(obj1), objectcore.AddressOf(obj2),
-		objectcore.AddressOf(obj3), objectcore.AddressOf(obj4),
+		obj1.Address(), obj2.Address(),
+		obj3.Address(), obj4.Address(),
 	}
 
 	var (

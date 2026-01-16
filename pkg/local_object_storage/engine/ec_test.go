@@ -1307,7 +1307,7 @@ func testPutTombstoneEC(t *testing.T) {
 	signer := neofscryptotest.Signer()
 
 	parent := *generateObjectWithCID(cnr)
-	parentAddr := objectcore.AddressOf(&parent)
+	parentAddr := parent.Address()
 
 	var parts []object.Object
 	var partAddrs []oid.Address
@@ -1319,7 +1319,7 @@ func testPutTombstoneEC(t *testing.T) {
 		require.NoError(t, err)
 
 		parts = append(parts, part)
-		partAddrs = append(partAddrs, objectcore.AddressOf(&part))
+		partAddrs = append(partAddrs, part.Address())
 	}
 
 	assertSearch := func(t *testing.T, addrs []oid.Address) {
@@ -1436,7 +1436,7 @@ func testPutTombstoneEC(t *testing.T) {
 
 	// check marked
 	assertGetErrors(t, apistatus.ErrObjectAlreadyRemoved)
-	assertSearch(t, []oid.Address{objectcore.AddressOf(&tomb)})
+	assertSearch(t, []oid.Address{tomb.Address()})
 
 	// reach tombstone expiration and check all is gone
 	s.HandleNewEpoch(tombLastEpoch + 1)

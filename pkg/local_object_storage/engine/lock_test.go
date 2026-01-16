@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -200,7 +199,7 @@ func TestLockForceRemoval(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	err = e.Delete(objectcore.AddressOf(lock))
+	err = e.Delete(lock.Address())
 	require.NoError(t, err)
 
 	// 5.
@@ -365,7 +364,7 @@ func TestSplitObjectLockExpiration(t *testing.T) {
 	parent := generateObjectWithCID(cnr)
 	parent.SetID(parentID)
 	parent.SetPayload(nil)
-	parentAddr := objectcore.AddressOf(parent)
+	parentAddr := parent.Address()
 
 	const childCount = 3
 	children := make([]*object.Object, childCount)
@@ -384,7 +383,7 @@ func TestSplitObjectLockExpiration(t *testing.T) {
 		children[i].SetPayload([]byte{byte(i), byte(i + 1), byte(i + 2)})
 		children[i].SetPayloadSize(3)
 		childIDs[i] = children[i].GetID()
-		childAddrs[i] = objectcore.AddressOf(children[i])
+		childAddrs[i] = children[i].Address()
 	}
 
 	link := generateObjectWithCID(cnr)
@@ -459,7 +458,7 @@ func TestSimpleLockExpiration(t *testing.T) {
 	cnr := cidtest.ID()
 	obj := generateObjectWithCID(cnr)
 	objID := obj.GetID()
-	objAddr := objectcore.AddressOf(obj)
+	objAddr := obj.Address()
 
 	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)

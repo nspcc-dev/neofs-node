@@ -25,7 +25,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
@@ -155,16 +154,8 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 }
 
 func generateObjectWithCID(cnr cid.ID) *object.Object {
-	var ver version.Version
-	ver.SetMajor(2)
-	ver.SetMinor(1)
-
-	obj := object.New()
+	obj := object.New(cnr, usertest.ID())
 	obj.SetID(oidtest.ID())
-	owner := usertest.ID()
-	obj.SetOwner(owner)
-	obj.SetContainerID(cnr)
-	obj.SetVersion(&ver)
 	obj.SetPayload([]byte{1, 2, 3, 4, 5})
 	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
 	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload())))

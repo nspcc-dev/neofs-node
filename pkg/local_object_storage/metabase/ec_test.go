@@ -81,7 +81,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 	}
 
 	parentObj := newBlankObject(cnr, parentID)
-	parentAddr := objectcore.AddressOf(&parentObj)
+	parentAddr := parentObj.Address()
 
 	newPart := func(t *testing.T, pi iec.PartInfo) object.Object {
 		// artificially make parts of diff len, in reality they are the same
@@ -581,7 +581,7 @@ func testExistsEC(t *testing.T) {
 	parent := *generateObjectWithCID(t, cnr)
 	addAttribute(&parent, "__NEOFS__EXPIRATION_EPOCH", strconv.FormatUint(state.e, 10))
 
-	parentAddr := objectcore.AddressOf(&parent)
+	parentAddr := parent.Address()
 
 	var partIDs []oid.ID
 	for i := range partNum {
@@ -647,7 +647,7 @@ func testGetEC(t *testing.T) {
 	parent := *generateObjectWithCID(t, cnr)
 	addAttribute(&parent, "__NEOFS__EXPIRATION_EPOCH", strconv.FormatUint(state.e, 10))
 
-	parentAddr := objectcore.AddressOf(&parent)
+	parentAddr := parent.Address()
 
 	var parts []object.Object
 	var partIDs []oid.ID
@@ -712,7 +712,7 @@ func testInhumeEC(t *testing.T) {
 	signer := neofscryptotest.Signer()
 
 	parent := *generateObjectWithCID(t, cnr)
-	parentAddr := objectcore.AddressOf(&parent)
+	parentAddr := parent.Address()
 
 	var parts []object.Object
 	var partAddrs []oid.Address
@@ -726,7 +726,7 @@ func testInhumeEC(t *testing.T) {
 		require.NoError(t, db.Put(&part))
 
 		parts = append(parts, part)
-		partAddrs = append(partAddrs, objectcore.AddressOf(&parts[i]))
+		partAddrs = append(partAddrs, parts[i].Address())
 	}
 
 	assertECGroupAvailable(t, db, parent, parts)
@@ -766,7 +766,7 @@ func testMarkGarbageEC(t *testing.T) {
 	signer := neofscryptotest.Signer()
 
 	parent := *generateObjectWithCID(t, cnr)
-	parentAddr := objectcore.AddressOf(&parent)
+	parentAddr := parent.Address()
 
 	var parts []object.Object
 	var partAddrs []oid.Address
@@ -780,7 +780,7 @@ func testMarkGarbageEC(t *testing.T) {
 		require.NoError(t, db.Put(&part))
 
 		parts = append(parts, part)
-		partAddrs = append(partAddrs, objectcore.AddressOf(&parts[i]))
+		partAddrs = append(partAddrs, parts[i].Address())
 	}
 
 	assertECGroupAvailable(t, db, parent, parts)
@@ -815,7 +815,7 @@ func testMarkGarbageEC(t *testing.T) {
 }
 
 func assertECGroupAvailable(t *testing.T, db *meta.DB, parent object.Object, parts []object.Object) {
-	parentAddr := objectcore.AddressOf(&parent)
+	parentAddr := parent.Address()
 
 	partIDs := make([]oid.ID, len(parts))
 	for i := range parts {

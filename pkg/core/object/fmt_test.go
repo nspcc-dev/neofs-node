@@ -28,23 +28,17 @@ import (
 )
 
 func blankValidObject(signer user.Signer) *object.Object {
-	obj := object.New()
-	obj.SetContainerID(cidtest.ID())
-	obj.SetOwner(signer.UserID())
-
-	return obj
+	return object.New(cidtest.ID(), signer.UserID())
 }
 
 // returns an object which is valid when signed by the resulting signer.
 func minUnsignedObject(t testing.TB) (object.Object, usertest.UserSigner) {
 	usr := usertest.User()
 
-	var obj object.Object
-	obj.SetContainerID(cidtest.ID())
-	obj.SetOwner(usr.ID)
+	var obj = object.New(cidtest.ID(), usr.ID)
 	require.NoError(t, obj.CalculateAndSetID())
 
-	return obj, usr
+	return *obj, usr
 }
 
 type testNetState struct {
@@ -102,7 +96,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("storage group", func(t *testing.T) {
-		obj := object.New()
+		obj := new(object.Object)
 		obj.SetType(object.TypeStorageGroup) //nolint:staticcheck // Deprecated, but that's exactly the test.
 		obj.SetContainerID(cidtest.ID())
 
@@ -123,7 +117,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("nil container identifier", func(t *testing.T) {
-		obj := object.New()
+		obj := new(object.Object)
 		obj.SetID(oidtest.ID())
 
 		require.ErrorIs(t, v.Validate(obj, true), errNilCID)
@@ -217,13 +211,11 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("correct w/ session token", func(t *testing.T) {
 		signer := user.NewAutoIDSignerRFC6979(ownerKey.PrivateKey)
 
-		obj := object.New()
-		obj.SetContainerID(cidtest.ID())
+		obj := object.New(cidtest.ID(), signer.UserID())
 		tok := sessiontest.Object()
 		tok.SetAuthKey((*neofsecdsa.PublicKey)(&ownerKey.PrivateKey.PublicKey))
 		require.NoError(t, tok.Sign(signer))
 		obj.SetSessionToken(&tok)
-		obj.SetOwner(signer.UserID())
 
 		require.NoError(t, obj.SetIDWithSignature(signer))
 
@@ -235,11 +227,9 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("incorrect session token", func(t *testing.T) {
 		signer := user.NewAutoIDSignerRFC6979(ownerKey.PrivateKey)
 
-		obj := object.New()
-		obj.SetContainerID(cidtest.ID())
+		obj := object.New(cidtest.ID(), signer.UserID())
 		tok := sessiontest.ObjectSigned(signer)
 		obj.SetSessionToken(&tok)
-		obj.SetOwner(signer.UserID())
 
 		t.Run("wrong signature", func(t *testing.T) {
 			require.NoError(t, obj.SetIDWithSignature(signer))
@@ -454,7 +444,7 @@ func TestLinkObjectSplitV2(t *testing.T) {
 	signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
 	obj := blankValidObject(signer)
 	obj.SetContainerID(cnrID)
-	obj.SetParent(object.New())
+	obj.SetParent(new(object.Object))
 	obj.SetSplitID(object.NewSplitID())
 	obj.SetFirstID(oidtest.ID())
 
@@ -465,7 +455,7 @@ func TestLinkObjectSplitV2(t *testing.T) {
 	t.Run("V2 split", func(t *testing.T) {
 		t.Run("link object without finished parent", func(t *testing.T) {
 			obj.ResetRelations()
-			obj.SetParent(object.New())
+			obj.SetParent(new(object.Object))
 			obj.SetFirstID(oidtest.ID())
 			obj.SetType(object.TypeLink)
 
@@ -474,7 +464,7 @@ func TestLinkObjectSplitV2(t *testing.T) {
 
 		t.Run("middle child does not have previous object ID", func(t *testing.T) {
 			obj.ResetRelations()
-			obj.SetParent(object.New())
+			obj.SetParent(new(object.Object))
 			obj.SetFirstID(oidtest.ID())
 			obj.SetType(object.TypeRegular)
 

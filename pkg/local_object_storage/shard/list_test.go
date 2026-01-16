@@ -52,7 +52,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 			obj.SetParentID(idParent)
 			obj.SetParent(parent)
 
-			objs[objectcore.AddressOf(obj)] = 0
+			objs[obj.Address()] = 0
 
 			err := sh.Put(obj, nil)
 			require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestShard_ListWithCursor(t *testing.T) {
 				require.NoError(t, s.Put(obj, nil))
 
 				exp = append(exp, objectcore.AddressWithAttributes{
-					Address:    objectcore.AddressOf(obj),
+					Address:    obj.Address(),
 					Type:       object.TypeRegular,
 					Attributes: []string{staticVal, commonVal, groupVal, string(owner[:])},
 				})

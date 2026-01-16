@@ -116,7 +116,7 @@ func readObjectAddressBin(cnr *cid.ID, obj *oid.ID, filename string) (oid.Addres
 	if err != nil {
 		return oid.Address{}, fmt.Errorf("unable to read given file: %w", err)
 	}
-	objTemp := object.New()
+	objTemp := new(object.Object)
 	if err := objTemp.Unmarshal(buf); err != nil {
 		return oid.Address{}, fmt.Errorf("can't unmarshal object from given file: %w", err)
 	}

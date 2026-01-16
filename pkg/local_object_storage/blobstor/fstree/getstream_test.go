@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,7 +40,7 @@ func TestGetStream(t *testing.T) {
 		_, _ = rand.Read(payload)
 
 		addr := oidtest.Address()
-		obj := object.New()
+		obj := new(object.Object)
 		obj.SetID(addr.Object())
 		obj.SetPayload(payload)
 
@@ -99,9 +99,8 @@ func TestGetStream(t *testing.T) {
 
 		objects := make([]*object.Object, numObjects)
 		for i := range objects {
-			obj := object.New()
+			obj := object.New(cnr, usertest.ID())
 			obj.SetID(oidtest.ID())
-			obj.SetContainerID(cnr)
 			if i == 1 {
 				obj.SetPayload(payload2)
 			} else {
@@ -114,7 +113,7 @@ func TestGetStream(t *testing.T) {
 		// Don't use map with FSTree.PutBatch because we need ordered writes
 		writeDataUnits := make([]writeDataUnit, 0, len(objects))
 		for _, obj := range objects {
-			addr := objectcore.AddressOf(obj)
+			addr := obj.Address()
 			p := fsTree.treePath(addr)
 			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fsTree.Permissions))
 			writeDataUnits = append(writeDataUnits, writeDataUnit{
@@ -126,7 +125,7 @@ func TestGetStream(t *testing.T) {
 		require.NoError(t, fsTree.writer.writeBatch(writeDataUnits))
 
 		for i := range objects {
-			res, reader, err := fsTree.GetStream(objectcore.AddressOf(objects[i]))
+			res, reader, err := fsTree.GetStream(objects[i].Address())
 			require.NoError(t, err)
 			require.Equal(t, objects[i].CutPayload(), res)
 
@@ -166,7 +165,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		tree.Config = &compress
 
 		addr := oidtest.Address()
-		obj := object.New()
+		obj := new(object.Object)
 		obj.SetID(addr.Object())
 		payload := []byte("test payload")
 		obj.SetPayload(payload)
@@ -193,10 +192,9 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		idStr := "HhW47uw6Fs48M2GtNx1Joem6qUjP1JxGPo4ffvp4QJaL"
 		id, err := oid.DecodeString(idStr)
 		require.NoError(t, err)
-		obj := object.New()
+		obj := object.New(cnr, usertest.ID())
 		obj.SetID(id)
-		obj.SetContainerID(cnr)
-		addr := objectcore.AddressOf(obj)
+		addr := obj.Address()
 
 		require.NoError(t, fsTree.Put(addr, obj.Marshal()))
 

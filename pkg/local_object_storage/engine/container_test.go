@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -58,8 +57,8 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 	require.NoError(t, e.Init())
 
 	require.Eventually(t, func() bool {
-		_, err1 := e.Get(objectcore.AddressOf(&o1))
-		_, err2 := e.Get(objectcore.AddressOf(&o2))
+		_, err1 := e.Get(o1.Address())
+		_, err2 := e.Get(o2.Address())
 
 		return errors.Is(err1, new(apistatus.ObjectNotFound)) && errors.Is(err2, new(apistatus.ObjectNotFound))
 	}, time.Second, 100*time.Millisecond)

@@ -8,7 +8,6 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -151,7 +150,7 @@ func (exec execCtx) address() oid.Address {
 // upper level logic.
 func (exec execCtx) isChild(obj *object.Object) bool {
 	par := obj.Parent()
-	return par == nil || equalAddresses(exec.address(), objectcore.AddressOf(par))
+	return par == nil || equalAddresses(exec.address(), par.Address())
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {

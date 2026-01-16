@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -98,17 +97,10 @@ func generateObjectWithCID(cnr cid.ID) *object.Object {
 }
 
 func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
-	var ver version.Version
-	ver.SetMajor(2)
-	ver.SetMinor(1)
-
 	csum := checksum.NewSHA256(sha256.Sum256(data))
 
-	obj := object.New()
+	obj := object.New(cnr, usertest.ID())
 	obj.SetID(oidtest.ID())
-	obj.SetOwner(usertest.ID())
-	obj.SetContainerID(cnr)
-	obj.SetVersion(&ver)
 	obj.SetPayload(data)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(csum.Value())))

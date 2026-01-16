@@ -4,7 +4,6 @@ import (
 	"io"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
@@ -13,7 +12,7 @@ import (
 func TestStorageEngine_GetBytes(t *testing.T) {
 	e, _, _ := newEngine(t, t.TempDir())
 	obj := generateObjectWithCID(cidtest.ID())
-	addr := objectcore.AddressOf(obj)
+	addr := obj.Address()
 
 	objBin := obj.Marshal()
 
@@ -28,7 +27,7 @@ func TestStorageEngine_GetBytes(t *testing.T) {
 func TestStorageEngine_GetStream(t *testing.T) {
 	e, _, _ := newEngine(t, t.TempDir())
 	obj := generateObjectWithCID(cidtest.ID())
-	addr := objectcore.AddressOf(obj)
+	addr := obj.Address()
 
 	err := e.Put(obj, nil)
 	require.NoError(t, err)

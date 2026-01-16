@@ -5,12 +5,12 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,7 +54,7 @@ func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64)
 
 	for i := range objects {
 		objects[i].obj = NewObject(minSize + uint64(rand.IntN(int(maxSize-minSize+1)))) // not too large
-		objects[i].addr = objectcore.AddressOf(objects[i].obj)
+		objects[i].addr = objects[i].obj.Address()
 		objects[i].raw = objects[i].obj.Marshal()
 	}
 
@@ -72,7 +72,7 @@ func prepareBatch(t *testing.T, count int, s common.Storage, minSize, maxSize ui
 
 	for i := range objects {
 		objects[i].obj = NewObject(minSize + uint64(rand.IntN(int(maxSize-minSize+1)))) // not too large
-		objects[i].addr = objectcore.AddressOf(objects[i].obj)
+		objects[i].addr = objects[i].obj.Address()
 		objects[i].raw = objects[i].obj.Marshal()
 
 		mObj[objects[i].addr] = objects[i].raw
@@ -86,10 +86,9 @@ func prepareBatch(t *testing.T, count int, s common.Storage, minSize, maxSize ui
 
 // NewObject creates a regular object of specified size with a random payload.
 func NewObject(sz uint64) *object.Object {
-	raw := object.New()
+	raw := object.New(cidtest.ID(), usertest.ID())
 
 	raw.SetID(oidtest.ID())
-	raw.SetContainerID(cidtest.ID())
 
 	payload := make([]byte, sz)
 	_, _ = crand.Read(payload)

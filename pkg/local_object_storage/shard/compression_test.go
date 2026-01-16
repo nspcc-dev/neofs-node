@@ -4,13 +4,13 @@ import (
 	"os"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,11 +40,11 @@ func TestCompression(t *testing.T) {
 	}
 
 	testGet := func(t *testing.T, s *shard.Shard, i int) {
-		res1, err := s.Get(objectcore.AddressOf(smallObj[i]), true)
+		res1, err := s.Get(smallObj[i].Address(), true)
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i], res1)
 
-		res2, err := s.Get(objectcore.AddressOf(bigObj[i]), true)
+		res2, err := s.Get(bigObj[i].Address(), true)
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i], res2)
 	}
@@ -58,11 +58,11 @@ func TestCompression(t *testing.T) {
 	}
 
 	testHead := func(t *testing.T, s *shard.Shard, i int) {
-		res1, err := s.Head(objectcore.AddressOf(smallObj[i]), false)
+		res1, err := s.Head(smallObj[i].Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i].CutPayload(), res1)
 
-		res2, err := s.Head(objectcore.AddressOf(bigObj[i]), false)
+		res2, err := s.Head(bigObj[i].Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i].CutPayload(), res2)
 	}
@@ -152,11 +152,9 @@ func TestBlobstor_needsCompression(t *testing.T) {
 }
 
 func testObject(sz uint64) *object.Object {
-	raw := object.New()
+	raw := object.New(cidtest.ID(), usertest.ID())
 
 	raw.SetID(oidtest.ID())
-	raw.SetContainerID(cidtest.ID())
-
 	raw.SetPayload(make([]byte, sz))
 
 	// fit the binary size to the required

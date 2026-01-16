@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -63,7 +62,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(objectcore.AddressOf(obj))
+		_, err = e.Get(obj.Address())
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, mode.ReadWrite)
@@ -73,7 +72,7 @@ func TestErrorReporting(t *testing.T) {
 		t.Cleanup(func() { fixSubDir(t, filepath.Join(dir, "0")) })
 
 		for i := uint32(1); i < 3; i++ {
-			_, err = e.Get(objectcore.AddressOf(obj))
+			_, err = e.Get(obj.Address())
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, mode.ReadWrite)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
@@ -92,7 +91,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(objectcore.AddressOf(obj))
+		_, err = e.Get(obj.Address())
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, mode.ReadWrite)
@@ -102,14 +101,14 @@ func TestErrorReporting(t *testing.T) {
 		t.Cleanup(func() { fixSubDir(t, filepath.Join(dir, "0")) })
 
 		for i := uint32(1); i < errThreshold; i++ {
-			_, err = e.Get(objectcore.AddressOf(obj))
+			_, err = e.Get(obj.Address())
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, mode.ReadWrite)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 
 		for i := range uint32(2) {
-			_, err = e.Get(objectcore.AddressOf(obj))
+			_, err = e.Get(obj.Address())
 			require.Error(t, err)
 			checkShardState(t, e, id[0], errThreshold+i, mode.DegradedReadOnly)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
@@ -143,7 +142,7 @@ func TestBlobstorFailback(t *testing.T) {
 	}
 
 	for i := range objs {
-		addr := objectcore.AddressOf(objs[i])
+		addr := objs[i].Address()
 		_, err := e.Get(addr)
 		require.NoError(t, err)
 		_, err = e.GetRange(addr, 0, 0)
@@ -163,7 +162,7 @@ func TestBlobstorFailback(t *testing.T) {
 	e, _, id = newEngineWithErrorThreshold(t, dir, 1)
 
 	for i := range objs {
-		addr := objectcore.AddressOf(objs[i])
+		addr := objs[i].Address()
 		getObj, err := e.Get(addr)
 		require.NoError(t, err)
 		require.Equal(t, objs[i], getObj)

@@ -201,7 +201,7 @@ func checkObject(objHeader object.Object, storage commonb.Storage) error {
 
 	// object real presence
 
-	obj, err := storage.Get(objectcore.AddressOf(&objHeader))
+	obj, err := storage.Get(objHeader.Address())
 	if err != nil {
 		return fmt.Errorf("object get from %s storage: %w", storage.Type(), err)
 	}

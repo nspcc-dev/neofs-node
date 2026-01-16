@@ -65,7 +65,7 @@ func TestHeadRequest(t *testing.T) {
 		},
 	}
 
-	obj := object.New()
+	obj := new(object.Object)
 
 	attrKey := "attr_key"
 	attrVal := "attr_val"

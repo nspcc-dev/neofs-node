@@ -66,21 +66,21 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 	fs := object.SearchFilters{}
 	fs.AddFilter("foo", "bar", object.MatchStringEqual)
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw1),
-		objectcore.AddressOf(raw2),
+		raw1.Address(),
+		raw2.Address(),
 	)
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("x", "y", object.MatchStringEqual)
-	testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+	testSelect(t, db, cnr, fs, raw1.Address())
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("x", "y", object.MatchStringNotEqual)
-	testSelect(t, db, cnr, fs, objectcore.AddressOf(raw2))
+	testSelect(t, db, cnr, fs, raw2.Address())
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("a", "b", object.MatchStringEqual)
-	testSelect(t, db, cnr, fs, objectcore.AddressOf(raw3))
+	testSelect(t, db, cnr, fs, raw3.Address())
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("c", "d", object.MatchStringEqual)
@@ -89,56 +89,56 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 	fs = object.SearchFilters{}
 	fs.AddFilter("foo", "", object.MatchNotPresent)
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw3),
-		objectcore.AddressOf(raw4),
-		objectcore.AddressOf(raw5),
-		objectcore.AddressOf(raw6),
+		raw3.Address(),
+		raw4.Address(),
+		raw5.Address(),
+		raw6.Address(),
 	)
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("a", "", object.MatchNotPresent)
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw1),
-		objectcore.AddressOf(raw2),
-		objectcore.AddressOf(raw4),
-		objectcore.AddressOf(raw5),
-		objectcore.AddressOf(raw6),
+		raw1.Address(),
+		raw2.Address(),
+		raw4.Address(),
+		raw5.Address(),
+		raw6.Address(),
 	)
 
 	fs = object.SearchFilters{}
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw1),
-		objectcore.AddressOf(raw2),
-		objectcore.AddressOf(raw3),
-		objectcore.AddressOf(raw4),
-		objectcore.AddressOf(raw5),
-		objectcore.AddressOf(raw6),
+		raw1.Address(),
+		raw2.Address(),
+		raw3.Address(),
+		raw4.Address(),
+		raw5.Address(),
+		raw6.Address(),
 	)
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("key", "", object.MatchNotPresent)
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw1),
-		objectcore.AddressOf(raw2),
-		objectcore.AddressOf(raw3),
-		objectcore.AddressOf(raw4),
-		objectcore.AddressOf(raw5),
-		objectcore.AddressOf(raw6),
+		raw1.Address(),
+		raw2.Address(),
+		raw3.Address(),
+		raw4.Address(),
+		raw5.Address(),
+		raw6.Address(),
 	)
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("path", "test", object.MatchCommonPrefix)
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw4),
-		objectcore.AddressOf(raw5),
-		objectcore.AddressOf(raw6),
+		raw4.Address(),
+		raw5.Address(),
+		raw6.Address(),
 	)
 
 	fs = object.SearchFilters{}
 	fs.AddFilter("path", "test/1", object.MatchCommonPrefix)
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw4),
-		objectcore.AddressOf(raw5),
+		raw4.Address(),
+		raw5.Address(),
 	)
 }
 
@@ -195,8 +195,8 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddRootFilter()
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(small),
-			objectcore.AddressOf(parent),
+			small.Address(),
+			parent.Address(),
 		)
 	})
 
@@ -204,12 +204,12 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddPhyFilter()
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(small),
-			objectcore.AddressOf(ts),
-			objectcore.AddressOf(leftChild),
-			objectcore.AddressOf(rightChild),
-			objectcore.AddressOf(link),
-			objectcore.AddressOf(lock),
+			small.Address(),
+			ts.Address(),
+			leftChild.Address(),
+			rightChild.Address(),
+			link.Address(),
+			lock.Address(),
 		)
 	})
 
@@ -217,18 +217,18 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddTypeFilter(object.MatchStringEqual, object.TypeRegular)
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(small),
-			objectcore.AddressOf(leftChild),
-			objectcore.AddressOf(rightChild),
-			objectcore.AddressOf(link),
-			objectcore.AddressOf(parent),
+			small.Address(),
+			leftChild.Address(),
+			rightChild.Address(),
+			link.Address(),
+			parent.Address(),
 		)
 
 		fs = object.SearchFilters{}
 		fs.AddTypeFilter(object.MatchStringNotEqual, object.TypeRegular)
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(ts),
-			objectcore.AddressOf(lock),
+			ts.Address(),
+			lock.Address(),
 		)
 
 		fs = object.SearchFilters{}
@@ -239,17 +239,17 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	t.Run("tombstone objects", func(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddTypeFilter(object.MatchStringEqual, object.TypeTombstone)
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(ts))
+		testSelect(t, db, cnr, fs, ts.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddTypeFilter(object.MatchStringNotEqual, object.TypeTombstone)
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(small),
-			objectcore.AddressOf(leftChild),
-			objectcore.AddressOf(rightChild),
-			objectcore.AddressOf(link),
-			objectcore.AddressOf(parent),
-			objectcore.AddressOf(lock),
+			small.Address(),
+			leftChild.Address(),
+			rightChild.Address(),
+			link.Address(),
+			parent.Address(),
+			lock.Address(),
 		)
 
 		fs = object.SearchFilters{}
@@ -264,8 +264,8 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		fs.AddParentIDFilter(object.MatchStringEqual, idParent)
 
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(rightChild),
-			objectcore.AddressOf(link),
+			rightChild.Address(),
+			link.Address(),
 		)
 
 		fs = object.SearchFilters{}
@@ -276,22 +276,22 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		fs.AddFirstSplitObjectFilter(object.MatchStringEqual, firstChild)
 
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(leftChild),
-			objectcore.AddressOf(rightChild),
-			objectcore.AddressOf(link),
+			leftChild.Address(),
+			rightChild.Address(),
+			link.Address(),
 		)
 	})
 
 	t.Run("all objects", func(t *testing.T) {
 		fs := object.SearchFilters{}
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(small),
-			objectcore.AddressOf(ts),
-			objectcore.AddressOf(leftChild),
-			objectcore.AddressOf(rightChild),
-			objectcore.AddressOf(link),
-			objectcore.AddressOf(parent),
-			objectcore.AddressOf(lock),
+			small.Address(),
+			ts.Address(),
+			leftChild.Address(),
+			rightChild.Address(),
+			link.Address(),
+			parent.Address(),
+			lock.Address(),
 		)
 	})
 }
@@ -311,8 +311,8 @@ func TestDB_SelectInhume(t *testing.T) {
 
 	fs := object.SearchFilters{}
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw1),
-		objectcore.AddressOf(raw2),
+		raw1.Address(),
+		raw2.Address(),
 	)
 
 	var ts = createTSForObject(cnr, raw2.GetID())
@@ -320,8 +320,8 @@ func TestDB_SelectInhume(t *testing.T) {
 
 	fs = object.SearchFilters{}
 	testSelect(t, db, cnr, fs,
-		objectcore.AddressOf(raw1),
-		objectcore.AddressOf(ts),
+		raw1.Address(),
+		ts.Address(),
 	)
 }
 
@@ -345,7 +345,7 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddPayloadHashFilter(object.MatchStringEqual, payloadHash)
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, raw1.Address())
 	})
 
 	t.Run("common prefix filter", func(t *testing.T) {
@@ -354,14 +354,14 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 			hex.EncodeToString(payloadHash[:len(payloadHash)-1]),
 			object.MatchCommonPrefix)
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, raw1.Address())
 	})
 
 	t.Run("not equal filter", func(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddPayloadHashFilter(object.MatchStringNotEqual, payloadHash)
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, raw2.Address())
 	})
 
 	t.Run("not present filter", func(t *testing.T) {
@@ -379,7 +379,7 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 		otherHash[0]++
 		fs.AddPayloadHashFilter(object.MatchStringNotEqual, otherHash)
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1), objectcore.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, raw1.Address(), raw2.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddPayloadHashFilter(object.MatchCommonPrefix, otherHash)
@@ -421,12 +421,12 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddHomomorphicHashFilter(object.MatchStringEqual, homoHash)
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, raw1.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddHomomorphicHashFilter(object.MatchStringNotEqual, homoHash)
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, raw2.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterPayloadHomomorphicHash,
@@ -440,12 +440,12 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddPayloadSizeFilter(object.MatchStringEqual, raw2.PayloadSize())
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, raw2.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddPayloadSizeFilter(object.MatchStringNotEqual, raw2.PayloadSize())
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, raw1.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterPayloadSize, "", object.MatchNotPresent)
@@ -457,12 +457,12 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddCreationEpochFilter(object.MatchStringEqual, raw1.CreationEpoch())
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, raw1.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddCreationEpochFilter(object.MatchStringNotEqual, raw1.CreationEpoch())
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, raw2.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterCreationEpoch, "", object.MatchNotPresent)
@@ -472,17 +472,17 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 		fs = object.SearchFilters{}
 		fs.AddCreationEpochFilter(object.MatchCommonPrefix, 1)
 
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, raw1.Address())
 	})
 
 	t.Run("object with version", func(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddObjectVersionFilter(object.MatchStringEqual, v21)
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, raw2.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddObjectVersionFilter(object.MatchStringNotEqual, v21)
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, raw1.Address())
 
 		fs = object.SearchFilters{}
 		fs.AddObjectVersionFilter(object.MatchNotPresent, version.Version{})
@@ -520,13 +520,13 @@ func TestDB_SelectSplitID(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddSplitIDFilter(object.MatchStringEqual, *split1)
 		testSelect(t, db, cnr, fs,
-			objectcore.AddressOf(child1),
-			objectcore.AddressOf(child2),
+			child1.Address(),
+			child2.Address(),
 		)
 
 		fs = object.SearchFilters{}
 		fs.AddSplitIDFilter(object.MatchStringEqual, *split2)
-		testSelect(t, db, cnr, fs, objectcore.AddressOf(child3))
+		testSelect(t, db, cnr, fs, child3.Address())
 	})
 
 	t.Run("unknown split id", func(t *testing.T) {
@@ -618,9 +618,9 @@ func TestRemovedObjects(t *testing.T) {
 
 	fAll := object.SearchFilters{}
 
-	testSelect(t, db, cnr, f1, objectcore.AddressOf(o1))
-	testSelect(t, db, cnr, f2, objectcore.AddressOf(o2))
-	testSelect(t, db, cnr, fAll, objectcore.AddressOf(o1), objectcore.AddressOf(o2))
+	testSelect(t, db, cnr, f1, o1.Address())
+	testSelect(t, db, cnr, f2, o2.Address())
+	testSelect(t, db, cnr, fAll, o1.Address(), o2.Address())
 
 	// Removed object
 
@@ -631,15 +631,15 @@ func TestRemovedObjects(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, oo)
 
-	testSelect(t, db, cnr, fAll, objectcore.AddressOf(o2), objectcore.AddressOf(ts1))
+	testSelect(t, db, cnr, fAll, o2.Address(), ts1.Address())
 
 	// Expired (== removed) but locked
 
-	locker := generateObjectWithCID(t, objectcore.AddressOf(o3).Container())
-	locker.AssociateLocked(objectcore.AddressOf(o3).Object())
+	locker := generateObjectWithCID(t, o3.Address().Container())
+	locker.AssociateLocked(o3.Address().Object())
 	require.NoError(t, db.Put(locker))
 
-	testSelect(t, db, cnr, fAll, objectcore.AddressOf(o2), objectcore.AddressOf(ts1), objectcore.AddressOf(o3), objectcore.AddressOf(locker))
+	testSelect(t, db, cnr, fAll, o2.Address(), ts1.Address(), o3.Address(), locker.Address())
 }
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs object.SearchFilters, expected int) {
@@ -686,9 +686,9 @@ func TestNumericSelect(t *testing.T) {
 	} {
 		cnr := cidtest.ID()
 		obj1 := generateObjectWithCID(t, cnr)
-		addr1 := objectcore.AddressOf(obj1)
+		addr1 := obj1.Address()
 		obj2 := generateObjectWithCID(t, cnr)
-		addr2 := objectcore.AddressOf(obj2)
+		addr2 := obj2.Address()
 
 		const smallNum = 10
 		const midNum = 11
@@ -747,7 +747,7 @@ func TestNumericSelect(t *testing.T) {
 	const objVal = int64(-10)
 	const negAttr = "negative_attr"
 	addAttribute(obj, negAttr, strconv.FormatInt(objVal, 10))
-	addr := objectcore.AddressOf(obj)
+	addr := obj.Address()
 
 	require.NoError(t, putBig(db, obj))
 
@@ -806,9 +806,9 @@ func TestNumericSelect(t *testing.T) {
 		// attribute will be correct in all objects. This should not cause a denial of
 		// service, so such objects are simply not included in the result
 		obj1 := generateObjectWithCID(t, cnr)
-		addr1 := objectcore.AddressOf(obj1)
+		addr1 := obj1.Address()
 		obj2 := generateObjectWithCID(t, cnr)
-		addr2 := objectcore.AddressOf(obj2)
+		addr2 := obj2.Address()
 
 		const attr = "any_user_attribute"
 		addAttribute(obj1, attr, "123")
