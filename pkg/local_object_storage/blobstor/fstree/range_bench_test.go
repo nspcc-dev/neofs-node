@@ -2,12 +2,13 @@ package fstree_test
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func BenchmarkFSTree_GetRange(b *testing.B) {
+func BenchmarkFSTree_GetRangeStream(b *testing.B) {
 	const (
 		KB = 1024
 		MB = 1024 * 1024
@@ -36,12 +37,21 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 				obj := generateTestObject(tc.objectSize)
 				addr := obj.Address()
 
+				bufLen := tc.length
+				if bufLen == 0 {
+					bufLen = uint64(tc.objectSize)
+				}
+				buf := make([]byte, bufLen)
+
 				b.Run("regular", func(b *testing.B) {
 					fsTree := setupFSTree(b)
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
 					for b.Loop() {
-						_, err := fsTree.GetRange(addr, tc.from, tc.length)
+						stream, err := fsTree.GetRangeStream(addr, tc.from, tc.length)
+						if err == nil {
+							_, err = io.ReadFull(stream, buf)
+						}
 						if err != nil {
 							b.Fatal(err)
 						}
@@ -54,7 +64,10 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
 					for b.Loop() {
-						_, err := fsTree.GetRange(addr, tc.from, tc.length)
+						stream, err := fsTree.GetRangeStream(addr, tc.from, tc.length)
+						if err == nil {
+							_, err = io.ReadFull(stream, buf)
+						}
 						if err != nil {
 							b.Fatal(err)
 						}
@@ -67,7 +80,10 @@ func BenchmarkFSTree_GetRange(b *testing.B) {
 
 					b.ResetTimer()
 					for k := range b.N {
-						_, err := fsTree.GetRange(addrs[k%len(addrs)], tc.from, tc.length)
+						stream, err := fsTree.GetRangeStream(addrs[k%len(addrs)], tc.from, tc.length)
+						if err == nil {
+							_, err = io.ReadFull(stream, buf)
+						}
 						if err != nil {
 							b.Fatal(err)
 						}

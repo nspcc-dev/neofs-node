@@ -5,6 +5,7 @@ import (
 	"math"
 	"path/filepath"
 	"testing"
+	"testing/iotest"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -14,17 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestShard_GetRange(t *testing.T) {
+func TestShard_GetRangeStream(t *testing.T) {
 	t.Run("without write cache", func(t *testing.T) {
-		testShardGetRange(t, false)
+		testShardGetRangeStream(t, false)
 	})
 
 	t.Run("with write cache", func(t *testing.T) {
-		testShardGetRange(t, true)
+		testShardGetRangeStream(t, true)
 	})
 }
 
-func testShardGetRange(t *testing.T, hasWriteCache bool) {
+func testShardGetRangeStream(t *testing.T, hasWriteCache bool) {
 	type testCase struct {
 		hasErr      bool
 		name        string
@@ -74,20 +75,19 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			err := sh.Put(obj, nil)
 			require.NoError(t, err)
 
-			res, err := sh.GetRange(addr, tc.rng.GetOffset(), tc.rng.GetLength(), false)
+			stream, err := sh.GetRangeStreamWithMetadataLookup(addr, tc.rng.GetOffset(), tc.rng.GetLength(), false)
 			if tc.hasErr {
 				require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 			} else {
+				off := tc.rng.GetOffset()
 				ln := tc.rng.GetLength()
-				var to uint64
-				if ln != 0 {
-					to = tc.rng.GetOffset() + ln
+				if off == 0 && ln == 0 {
+					require.NoError(t, iotest.TestReader(stream, payload))
 				} else {
-					to = uint64(len(obj.Payload()))
+					require.NoError(t, iotest.TestReader(stream, payload[off:][:ln]))
+
+					require.NoError(t, stream.Close())
 				}
-				require.Equal(t,
-					payload[tc.rng.GetOffset():to],
-					res.Payload())
 			}
 		})
 	}

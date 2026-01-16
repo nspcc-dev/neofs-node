@@ -1,7 +1,9 @@
 package engine
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"errors"
+	"io"
+
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -23,24 +25,25 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}
-	e.blockMtx.RLock()
-	defer e.blockMtx.RUnlock()
 
-	if e.blockErr != nil {
-		return nil, e.blockErr
+	stream, err := e.getRangeStream(addr, offset, length)
+	if err != nil {
+		return nil, err
+	}
+	defer stream.Close()
+
+	if offset == 0 && length == 0 {
+		return io.ReadAll(stream)
 	}
 
-	var (
-		err  error
-		data []byte
-	)
+	data := make([]byte, length)
 
-	err = e.get(addr, func(sh *shard.Shard, ignoreMetadata bool) error {
-		res, err := sh.GetRange(addr, offset, length, ignoreMetadata)
-		if err == nil {
-			data = res.Payload()
+	if _, err = io.ReadFull(stream, data); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
 		}
-		return err
-	})
-	return data, err
+		return nil, err
+	}
+
+	return data, nil
 }

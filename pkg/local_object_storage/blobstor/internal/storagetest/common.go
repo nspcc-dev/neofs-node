@@ -29,8 +29,8 @@ func TestAll(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Run("get", func(t *testing.T) {
 		TestGet(t, cons, minSize, maxSize)
 	})
-	t.Run("get range", func(t *testing.T) {
-		TestGetRange(t, cons, minSize, maxSize)
+	t.Run("get range stream", func(t *testing.T) {
+		TestGetRangeStream(t, cons, minSize, maxSize)
 	})
 	t.Run("delete", func(t *testing.T) {
 		TestDelete(t, cons, minSize, maxSize)

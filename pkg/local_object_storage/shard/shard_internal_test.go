@@ -231,10 +231,6 @@ func (unimplementedBLOBStore) Get(oid.Address) (*object.Object, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) GetRange(oid.Address, uint64, uint64) ([]byte, error) {
-	panic("unimplemented")
-}
-
 func (unimplementedBLOBStore) GetStream(oid.Address) (*object.Object, io.ReadCloser, error) {
 	panic("unimplemented")
 }

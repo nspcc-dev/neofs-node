@@ -504,42 +504,6 @@ func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, err
 	return obj, reader, nil
 }
 
-// GetRange implements common.Storage.
-func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte, error) {
-	header, reader, err := t.getObjectStream(addr)
-	if err != nil {
-		return nil, err
-	}
-	defer reader.Close()
-
-	pLen := header.PayloadSize()
-	var to uint64
-	if length != 0 {
-		to = from + length
-	} else {
-		to = pLen
-	}
-
-	if to < from || pLen < from || pLen < to {
-		return nil, logicerr.Wrap(apistatus.ErrObjectOutOfRange)
-	}
-
-	if from > 0 {
-		_, err = reader.Seek(int64(from), io.SeekStart)
-		if err != nil {
-			return nil, fmt.Errorf("seek to %d in stream: %w", from, err)
-		}
-	}
-
-	payload := make([]byte, to-from)
-	_, err = io.ReadFull(reader, payload)
-	if err != nil {
-		return nil, fmt.Errorf("read %d bytes from stream: %w", length, err)
-	}
-
-	return payload, nil
-}
-
 // GetRangeStream reads payload range of the referenced object from t. Both zero
 // off and ln mean full payload. The stream must be finally closed by the
 // caller.

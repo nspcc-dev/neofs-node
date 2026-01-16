@@ -216,6 +216,10 @@ func (e *StorageEngine) GetRangeStream(addr oid.Address, off, ln uint64) (io.Rea
 		defer elapsed(e.metrics.AddGetRangeStreamDuration)()
 	}
 
+	return e.getRangeStream(addr, off, ln)
+}
+
+func (e *StorageEngine) getRangeStream(addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
