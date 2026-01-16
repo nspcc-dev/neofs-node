@@ -34,7 +34,7 @@ func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 			t.Run("getrange fail", func(t *testing.T) {
-				_, err := s.GetRange(oidtest.Address(), 0, 1)
+				_, err := s.GetRangeStream(oidtest.Address(), 0, 1)
 				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 		})

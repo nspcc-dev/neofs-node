@@ -355,6 +355,10 @@ getNextPart:
 					continue
 				}
 
+				if parts[partIdx] == nil {
+					parts[partIdx] = make([]byte, partLen)
+				}
+
 				copy(parts[partIdx][off:], b)
 				continue getNextPart
 			}

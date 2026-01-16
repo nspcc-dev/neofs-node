@@ -202,3 +202,38 @@ func (e *StorageEngine) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 	})
 	return obj, reader, err
 }
+
+// GetRangeStream reads payload range of the referenced object from e. Both zero
+// off and ln mean full payload. The stream must be finally closed by the
+// caller.
+//
+// If object is missing, GetRangeStream returns [apistatus.ErrObjectNotFound].
+//
+// If the range is out of payload bounds, GetRangeStream returns
+// [apistatus.ErrObjectOutOfRange].
+func (e *StorageEngine) GetRangeStream(addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddGetRangeStreamDuration)()
+	}
+
+	return e.getRangeStream(addr, off, ln)
+}
+
+func (e *StorageEngine) getRangeStream(addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
+
+	var stream io.ReadCloser
+
+	err := e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
+		var err error
+		stream, err = s.GetRangeStreamWithMetadataLookup(addr, off, ln, ignoreMetadata)
+		return err
+	})
+
+	return stream, err
+}

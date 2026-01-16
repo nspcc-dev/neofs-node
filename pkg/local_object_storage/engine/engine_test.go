@@ -443,6 +443,10 @@ func (x unimplementedMetrics) AddGetStreamDuration(time.Duration) {
 	panic("unimplemented")
 }
 
+func (x unimplementedMetrics) AddGetRangeStreamDuration(time.Duration) {
+	panic("unimplemented")
+}
+
 func (x unimplementedMetrics) AddInhumeDuration(time.Duration) {
 	panic("unimplemented")
 }

@@ -504,40 +504,55 @@ func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, err
 	return obj, reader, nil
 }
 
-// GetRange implements common.Storage.
-func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte, error) {
-	header, reader, err := t.getObjectStream(addr)
+// GetRangeStream reads payload range of the referenced object from t. Both zero
+// off and ln mean full payload. The stream must be finally closed by the
+// caller.
+//
+// If object is missing, GetRangeStream returns [apistatus.ErrObjectNotFound].
+//
+// If the range is out of payload bounds, GetRangeStream returns
+// [apistatus.ErrObjectOutOfRange].
+func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
+	if ln == 0 && off != 0 {
+		return nil, fmt.Errorf("invalid range off=%d,ln=0", off)
+	}
+
+	// TODO: we need only one header field. Consider decoding only it + jumping to payload
+	hdr, stream, err := t.getObjectStream(addr)
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
 
-	pLen := header.PayloadSize()
-	var to uint64
-	if length != 0 {
-		to = from + length
-	} else {
-		to = pLen
+	pldLen := hdr.PayloadSize()
+
+	if ln == 0 && off == 0 {
+		return stream, nil
 	}
 
-	if to < from || pLen < from || pLen < to {
-		return nil, logicerr.Wrap(apistatus.ErrObjectOutOfRange)
+	if off >= pldLen || pldLen-off < ln {
+		stream.Close()
+		return nil, apistatus.ErrObjectOutOfRange
 	}
 
-	if from > 0 {
-		_, err = reader.Seek(int64(from), io.SeekStart)
-		if err != nil {
-			return nil, fmt.Errorf("seek to %d in stream: %w", from, err)
+	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
+		stream.Close()
+		return nil, fmt.Errorf("range overflowing int64 is not supported by this server: off=%d,len=%d", off, ln)
+	}
+
+	if off > 0 {
+		if _, err := stream.Seek(int64(off), io.SeekStart); err != nil {
+			stream.Close()
+			return nil, fmt.Errorf("seek offset in payload stream: %w", err)
 		}
 	}
 
-	payload := make([]byte, to-from)
-	_, err = io.ReadFull(reader, payload)
-	if err != nil {
-		return nil, fmt.Errorf("read %d bytes from stream: %w", length, err)
-	}
-
-	return payload, nil
+	return struct {
+		io.Reader
+		io.Closer
+	}{
+		Reader: io.LimitReader(stream, int64(ln)),
+		Closer: stream,
+	}, nil
 }
 
 // Type is fstree storage type used in logs and configuration.
