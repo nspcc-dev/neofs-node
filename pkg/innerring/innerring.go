@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-contract/deploy"
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
@@ -87,6 +88,7 @@ type (
 		contracts            *contracts
 		predefinedValidators keys.PublicKeys
 		withoutMainNet       bool
+		chainTime            *chaintime.AtomicChainTimeProvider
 
 		// runtime processors
 		netmapProcessor    *netmap.Processor
@@ -202,6 +204,9 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		)
 
 		s.epochTimers.UpdateTime(b.Timestamp)
+		if s.chainTime != nil {
+			s.chainTime.Set(b.Timestamp)
+		}
 
 		err = s.persistate.SetUInt32(persistateFSChainLastBlockKey, b.Index)
 		if err != nil {
@@ -777,6 +782,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
+	server.chainTime = chaintime.New()
+
 	// container processor
 	server.containerProcessor, err = container.New(&container.Params{
 		Log:             log,
@@ -786,6 +793,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		NetworkState:    server.netmapClient,
 		MetaEnabled:     cfg.Experimental.ChainMetaData,
 		AllowEC:         cfg.Experimental.AllowEC,
+		ChainTime:       server.chainTime,
 	})
 	if err != nil {
 		return nil, err

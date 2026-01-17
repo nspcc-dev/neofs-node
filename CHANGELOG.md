@@ -21,6 +21,9 @@ Changelog for NeoFS Node
 - CLI `set-attribute` and `remove-attribute commands to `container` section (#3733)
 - Size-split object is now available even when LINK is unavailable in EC container (#3754)
 - `neofs-adm balance container-status` command (#3693)
+- IR supports new session token v2 (#3671)
+- SN supports new session token v2 for container operations (#3671)
+- SN supports new session token v2 for object operations (#3671)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)

@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -194,7 +195,12 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		if exec.prm.common.TTL() < 2 {
 			opts.MarkLocal()
 		}
-		if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+		if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+			verbV2 := sessionv2.VerbObjectHead
+			if stV2.AssertObject(verbV2, addr.Container(), id) {
+				opts.WithinSessionV2(*stV2)
+			}
+		} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
 			opts.WithinSession(*st)
 		}
 		if bt := exec.prm.common.BearerToken(); bt != nil {
@@ -229,7 +235,12 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		if exec.prm.common.TTL() < 2 {
 			opts.MarkLocal()
 		}
-		if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+		if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+			verbV2 := sessionv2.VerbObjectRange
+			if stV2.AssertObject(verbV2, addr.Container(), id) {
+				opts.WithinSessionV2(*stV2)
+			}
+		} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
 			opts.WithinSession(*st)
 		}
 		if bt := exec.prm.common.BearerToken(); bt != nil {
@@ -259,7 +270,12 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
 	}
-	if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+		verbV2 := sessionv2.VerbObjectGet
+		if stV2.AssertObject(verbV2, addr.Container(), id) {
+			opts.WithinSessionV2(*stV2)
+		}
+	} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
 		opts.WithinSession(*st)
 	}
 	if bt := exec.prm.common.BearerToken(); bt != nil {

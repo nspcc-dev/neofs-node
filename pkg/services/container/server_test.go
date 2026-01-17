@@ -3,13 +3,16 @@ package container_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	neoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -26,6 +29,7 @@ import (
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -35,13 +39,29 @@ import (
 
 type unimplementedFSChain struct{}
 
+func (c unimplementedFSChain) MsPerBlock() (int64, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedFSChain) HasUserInNNS(string, neoutil.Uint160) (bool, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedFSChain) GetBlockHeader(uint32) (*block.Header, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedFSChain) BlockCount() (uint32, error) {
 	panic("unimplemented")
 }
 
 type unimplementedContainerContract struct{}
 
-func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
+func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte) (cid.ID, error) {
 	panic("implement me")
 }
 
@@ -53,7 +73,7 @@ func (unimplementedContainerContract) List(user.ID) ([]cid.ID, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, *session.Container) error {
+func (unimplementedContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -61,7 +81,7 @@ func (unimplementedContainerContract) GetEACL(cid.ID) (eacl.Table, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []byte, *session.Container) error {
+func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -87,11 +107,12 @@ func (x testNodeState) CurrentEpoch() uint64 { return x.epoch }
 
 type testFSChain struct {
 	testNodeState
-	getErr error
-	cnrs   map[cid.ID]container.Container
+	getErr   error
+	cnrs     map[cid.ID]container.Container
+	nnsUsers map[string]neoutil.Uint160
 }
 
-func (testFSChain) Put(context.Context, container.Container, []byte, []byte, *session.Container) (cid.ID, error) {
+func (testFSChain) Put(context.Context, container.Container, []byte, []byte, []byte) (cid.ID, error) {
 	return cid.ID{}, errors.New("unimplemented")
 }
 
@@ -110,7 +131,7 @@ func (testFSChain) List(user.ID) ([]cid.ID, error) {
 	return nil, errors.New("unimplemented")
 }
 
-func (testFSChain) PutEACL(context.Context, eacl.Table, []byte, []byte, *session.Container) error {
+func (testFSChain) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte) error {
 	return nil
 }
 
@@ -118,7 +139,7 @@ func (testFSChain) GetEACL(cid.ID) (eacl.Table, error) {
 	return eacl.Table{}, errors.New("unimplemented")
 }
 
-func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, *session.Container) error {
+func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, []byte) error {
 	return nil
 }
 
@@ -126,6 +147,31 @@ func (x testFSChain) GetEpochBlock(uint64) (uint32, error) { panic("unimplemente
 
 func (x testFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
 	panic("unimplemented")
+}
+
+func (x testFSChain) HasUserInNNS(name string, addr neoutil.Uint160) (bool, error) {
+	if x.nnsUsers == nil {
+		return false, nil
+	}
+	storedAddr, exists := x.nnsUsers[name]
+	if !exists {
+		return false, nil
+	}
+	return storedAddr.Equals(addr), nil
+}
+
+func (x testFSChain) GetBlockHeader(uint32) (*block.Header, error) {
+	var bh block.Header
+	bh.Timestamp = uint64(time.Now().UnixMilli())
+	return &bh, nil
+}
+
+func (x testFSChain) BlockCount() (uint32, error) {
+	return 1, nil
+}
+
+func (x testFSChain) MsPerBlock() (int64, error) {
+	return 0, nil
 }
 
 func (testFSChain) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte) error {
@@ -176,7 +222,7 @@ func TestServer_Delete(t *testing.T) {
 		},
 	}
 	m.epoch = anyEpoch
-	svc := containerSvc.New(&usr.ECDSAPrivateKey, m, m, m, m)
+	svc := containerSvc.New(&usr.ECDSAPrivateKey, m, m, m, m, nil)
 
 	t.Run("session", func(t *testing.T) {
 		t.Run("failure", func(t *testing.T) {
@@ -367,7 +413,7 @@ func TestSessionVerb(t *testing.T) {
 		cnrID: cnr,
 	}
 
-	s := containerSvc.New(&owner.ECDSAPrivateKey, fsChain, fsChain, fsChain, fsChain)
+	s := containerSvc.New(&owner.ECDSAPrivateKey, fsChain, fsChain, fsChain, fsChain, nil)
 
 	var st session.Container
 	st.SetID(uuid.New())
@@ -447,7 +493,7 @@ func TestServer_SetExtendedACL_InvalidRequest(t *testing.T) {
 	var nmContract unimplementedNetmapContract
 
 	// fsChain is used for response, other components must not be accessed for invalid request
-	svc := containerSvc.New(&usr.ECDSAPrivateKey, state, fsChain, cnrContract, nmContract)
+	svc := containerSvc.New(&usr.ECDSAPrivateKey, state, fsChain, cnrContract, nmContract, nil)
 
 	t.Run("eACL without container ID", func(t *testing.T) {
 		req := &protocontainer.SetExtendedACLRequest{
@@ -502,7 +548,7 @@ func TestService_SetExtendedACL_SessionIssuer(t *testing.T) {
 		otherID: otherCnr,
 	}
 
-	s := containerSvc.New(&owner.ECDSAPrivateKey, &fsChain, &fsChain, &fsChain, &fsChain)
+	s := containerSvc.New(&owner.ECDSAPrivateKey, &fsChain, &fsChain, &fsChain, &fsChain, nil)
 
 	eACL := eacltest.Table()
 
@@ -604,7 +650,7 @@ func TestService_Delete_SessionIssuer(t *testing.T) {
 		otherID: otherCnr,
 	}
 
-	s := containerSvc.New(&owner.ECDSAPrivateKey, &fsChain, &fsChain, &fsChain, &fsChain)
+	s := containerSvc.New(&owner.ECDSAPrivateKey, &fsChain, &fsChain, &fsChain, &fsChain, nil)
 
 	eACL := eacltest.Table()
 
@@ -670,4 +716,99 @@ func TestService_Delete_SessionIssuer(t *testing.T) {
 	})
 
 	assertOK(t)
+}
+
+func TestService_TokenV2(t *testing.T) {
+	ctx := context.Background()
+	owner := usertest.User()
+	id := cidtest.ID()
+
+	var cnr container.Container
+	cnr.SetOwner(owner.ID)
+
+	ownerAddr := owner.ID.ScriptHash()
+	ownerNNS := "storage.neofs"
+
+	var fsChain testFSChain
+	fsChain.epoch = 10
+	fsChain.cnrs = map[cid.ID]container.Container{
+		id: cnr,
+	}
+	fsChain.nnsUsers = map[string]neoutil.Uint160{
+		ownerNNS: ownerAddr,
+	}
+
+	svc := containerSvc.New(&owner.ECDSAPrivateKey, &fsChain, &fsChain, &fsChain, &fsChain, nil)
+
+	buildToken := func(t *testing.T, subject string) sessionv2.Token {
+		t.Helper()
+		var tok sessionv2.Token
+		tok.SetVersion(sessionv2.TokenCurrentVersion)
+		tok.SetNonce(sessionv2.RandomNonce())
+
+		now := time.Now()
+		tok.SetIat(now)
+		tok.SetNbf(now)
+		tok.SetExp(now.Add(10 * time.Minute))
+
+		ctxS, err := sessionv2.NewContext(id, []sessionv2.Verb{sessionv2.VerbContainerDelete})
+		require.NoError(t, err)
+		require.NoError(t, tok.SetContexts([]sessionv2.Context{ctxS}))
+
+		require.NoError(t, tok.AddSubject(sessionv2.NewTargetNamed(subject)))
+
+		require.NoError(t, tok.Sign(owner))
+		return tok
+	}
+
+	makeDelete := func(t *testing.T, tok sessionv2.Token) *protocontainer.DeleteRequest {
+		t.Helper()
+		cidSig, err := owner.RFC6979.Sign(id[:])
+		require.NoError(t, err)
+
+		delReq := &protocontainer.DeleteRequest{
+			Body: &protocontainer.DeleteRequest_Body{
+				ContainerId: id.ProtoMessage(),
+				Signature: &refs.SignatureRFC6979{
+					Key:  owner.PublicKeyBytes,
+					Sign: cidSig,
+				},
+			},
+			MetaHeader: &protosession.RequestMetaHeader{
+				SessionTokenV2: tok.ProtoMessage(),
+			},
+		}
+
+		delReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(owner, delReq, nil)
+		require.NoError(t, err)
+		return delReq
+	}
+
+	t.Run("V2 token with NNS subject", func(t *testing.T) {
+		tok := buildToken(t, ownerNNS)
+
+		req := makeDelete(t, tok)
+		resp, err := svc.Delete(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+
+		require.NotNil(t, resp.MetaHeader)
+		require.Nil(t, resp.MetaHeader.Status)
+	})
+
+	t.Run("V2 token with wrong NNS subject is rejected", func(t *testing.T) {
+		tok := buildToken(t, "wrong-nns")
+
+		req := makeDelete(t, tok)
+		resp, err := svc.Delete(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+
+		sts := resp.GetMetaHeader().GetStatus()
+		require.NotNil(t, sts)
+		require.EqualValues(t, 1024, sts.Code)
+		require.Contains(t, strings.ToLower(sts.Message), "v2 token doesn't authorize this node")
+	})
 }

@@ -293,7 +293,9 @@ func initObjectService(c *cfg) {
 			fsChain:        fsChain,
 			netmapContract: c.nCli,
 		}),
+		v2.WithNodeKey(&c.key.PrivateKey.PublicKey),
 		v2.WithContainerSource(c.cnrSrc),
+		v2.WithTimeProvider(c.chainTime),
 	)
 	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
 		aclSvc.ResetTokenCheckCache()

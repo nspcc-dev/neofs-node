@@ -3,6 +3,7 @@ package container
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -44,7 +45,7 @@ type historicN3ScriptRunner struct {
 //   - operation data is witnessed by container owner or trusted party
 //
 // (*) includes:
-//   - session token decodes correctly
+//   - session token decodes correctly (V2 or V1)
 //   - session issued and witnessed by the container owner
 //   - session context corresponds to the container and verb in v
 //   - session is "alive"
@@ -55,10 +56,10 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		var tokV2 sessionv2.Token
 		err = tokV2.Unmarshal(v.binTokenSession)
 		if err == nil {
-			// TODO
-			return errors.New("sessions V2 are not supported yet")
+			return cp.verifySessionV2(tokV2, v)
 		}
 
+		// Fall back to V1 token
 		var tok session.Container
 
 		err = tok.Unmarshal(v.binTokenSession)
@@ -111,4 +112,63 @@ func (cp *Processor) checkTokenLifetime(token session.Container) error {
 	}
 
 	return nil
+}
+
+// verifySessionV2 validates V2 session token for container operations.
+func (cp *Processor) verifySessionV2(tok sessionv2.Token, v signatureVerificationData) error {
+	if err := tok.Validate(); err != nil {
+		return fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if !tok.VerifySignature() {
+		return errors.New("v2 session token signature verification failed")
+	}
+
+	if v.idContainerSet {
+		if !tok.AssertContainer(v.verbV2, v.idContainer) {
+			return errWrongCID
+		}
+	}
+
+	if tok.OriginalIssuer() != v.ownerContainer {
+		return errors.New("owner differs with original token issuer")
+	}
+
+	currentTime, err := cp.currentChainTime()
+	if err != nil {
+		return fmt.Errorf("get current chain time: %w", err)
+	}
+	if !tok.ValidAt(currentTime) {
+		return fmt.Errorf("v2 token is not valid at %s", currentTime)
+	}
+
+	return nil
+}
+
+// currentChainTime returns chain time preferring external provider.
+// If provider is not set, falls back to contract latest block header.
+func (cp *Processor) currentChainTime() (time.Time, error) {
+	blockTimeMs, err := cp.cnrClient.Morph().MsPerBlock()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("get FS chain block interval: %w", err)
+	}
+	durBlockTime := time.Duration(blockTimeMs) * time.Millisecond
+	if cp.chainTime != nil {
+		ct := cp.chainTime.Now()
+		if !ct.IsZero() {
+			return ct.Add(durBlockTime), nil
+		}
+		// If provider returns zero, fall back to chain.
+	}
+
+	idx, err := cp.cnrClient.Morph().BlockCount()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("get FS chain block count: %w", err)
+	}
+
+	header, err := cp.cnrClient.Morph().GetBlockHeader(idx - 1)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("get FS chain block header: %w", err)
+	}
+	return time.UnixMilli(int64(header.Timestamp)).Add(durBlockTime), nil
 }
