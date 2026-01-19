@@ -41,6 +41,7 @@ Changelog for NeoFS Node
 - Tombstone objects with API <2.18 are no longer accepted (#3731)
 - Garbage marking scheme in metabase (#3753)
 - SN sorts shards identically when writing and reading EC parts (#3773)
+- SN puts EC parts concurrently now (#3777)
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)

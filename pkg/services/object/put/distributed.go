@@ -29,6 +29,13 @@ import (
 	"go.uber.org/zap"
 )
 
+type metaCollection struct {
+	objectData []byte
+
+	signaturesMtx sync.RWMutex
+	signatures    [][][]byte
+}
+
 type distributedTarget struct {
 	opCtx context.Context
 
@@ -41,11 +48,9 @@ type distributedTarget struct {
 	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
 
-	metaSvc             *meta.Meta
-	metaMtx             sync.RWMutex
-	metaSigner          neofscrypto.Signer
-	objSharedMeta       []byte
-	collectedSignatures [][][]byte
+	metaSvc        *meta.Meta
+	metaSigner     neofscrypto.Signer
+	metaCollection metaCollection
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
@@ -191,7 +196,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
-				return t.sendObject(obj, encObj, node)
+				return t.sendObject(obj, encObj, node, &t.metaCollection)
 			})
 		})
 	}
@@ -200,7 +205,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 		if t.ecPart.RuleIndex >= 0 { // already encoded EC part
 			total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
 			nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
-			return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes)
+			return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
 		}
 
 		if t.sessionSigner != nil {
@@ -219,15 +224,20 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 		// this field is reused for sliced objects of the same container with
 		// the same placement policy; placement's len must be kept the same, do
 		// not nil the slice, keep it initialized
-		for i := range t.collectedSignatures {
-			t.collectedSignatures[i] = t.collectedSignatures[i][:0]
+		for i := range t.metaCollection.signatures {
+			t.metaCollection.signatures[i] = t.metaCollection.signatures[i][:0]
 		}
 	}()
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		t.objSharedMeta = t.encodeObjectMetadata(obj)
+		t.metaCollection.objectData = t.encodeObjectMetadata(obj)
 	}
 
+	return t.distributeObjectWithMeta(obj, encObj, &t.metaCollection, placementFn)
+}
+
+func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj encodedObject, metaC *metaCollection,
+	placementFn func(obj object.Object, encObj encodedObject) error) error {
 	id := obj.GetID()
 	var err error
 	if t.localOnly {
@@ -246,8 +256,8 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 	}
 
 	if !t.localOnly && t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		t.metaMtx.RLock()
-		defer t.metaMtx.RUnlock()
+		metaC.signaturesMtx.RLock()
+		defer metaC.signaturesMtx.RUnlock()
 
 		var await bool
 		switch t.metainfoConsistencyAttr {
@@ -267,7 +277,7 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 		}
 
-		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
+		err = t.cnrClient.SubmitObjectPut(metaC.objectData, metaC.signatures)
 		if err != nil {
 			if await {
 				t.metaSvc.UnsubscribeFromObject(addr)
@@ -316,7 +326,7 @@ func (t *distributedTarget) encodeObjectMetadata(obj object.Object) []byte {
 		obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.networkMagicNumber)
 }
 
-func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc) error {
+func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc, metaC *metaCollection) error {
 	if node.local {
 		if err := t.writeObjectLocally(obj, encObj); err != nil {
 			return fmt.Errorf("write object locally: %w", err)
@@ -328,14 +338,14 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		}
 
 		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-			sig, err := t.metaSigner.Sign(t.objSharedMeta)
+			sig, err := t.metaSigner.Sign(metaC.objectData)
 			if err != nil {
 				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}
 
-			t.metaMtx.Lock()
-			t.collectedSignatures[node.placementVector] = append(t.collectedSignatures[node.placementVector], sig)
-			t.metaMtx.Unlock()
+			metaC.signaturesMtx.Lock()
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig)
+			metaC.signaturesMtx.Unlock()
 		}
 
 		return nil
@@ -381,13 +391,13 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				continue
 			}
 
-			if !sig.Verify(t.objSharedMeta) {
+			if !sig.Verify(metaC.objectData) {
 				continue
 			}
 
-			t.metaMtx.Lock()
-			t.collectedSignatures[node.placementVector] = append(t.collectedSignatures[node.placementVector], sig.Value())
-			t.metaMtx.Unlock()
+			metaC.signaturesMtx.Lock()
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig.Value())
+			metaC.signaturesMtx.Unlock()
 
 			return nil
 		}
