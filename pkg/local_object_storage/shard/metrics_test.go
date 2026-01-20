@@ -177,6 +177,40 @@ func TestCounters(t *testing.T) {
 		}
 		require.Equal(t, expectedSizes, mm.containerSize)
 		require.Equal(t, totalPayload-int64(totalRemovedpayload), mm.payloadSize)
+
+		t.Run("parent", func(t *testing.T) {
+			cnr := cidtest.ID()
+
+			parent := generateObjectWithCID(cnr)
+
+			child := generateObjectWithCID(cnr)
+			child.SetParent(parent)
+
+			require.NoError(t, sh.Put(child, nil))
+
+			require.EqualValues(t, child.PayloadSize(), mm.containerSize[cnr])
+
+			cnrInfo, err := sh.ContainerInfo(cnr)
+			require.NoError(t, err)
+			require.EqualValues(t, child.PayloadSize(), cnrInfo.StorageSize)
+			require.EqualValues(t, 1, cnrInfo.ObjectsNumber)
+
+			phyBefore := mm.objectCounters[physical]
+			logicNumBefore := mm.objectCounters[logical]
+			sumPldSizeBefore := mm.payloadSize
+
+			require.NoError(t, sh.Delete([]oid.Address{parent.Address()}))
+
+			require.EqualValues(t, child.PayloadSize(), mm.containerSize[cnr])
+			require.Equal(t, phyBefore, mm.objectCounters[physical])
+			require.Equal(t, logicNumBefore, mm.objectCounters[logical])
+			require.Equal(t, sumPldSizeBefore, mm.payloadSize)
+
+			cnrInfo, err = sh.ContainerInfo(cnr)
+			require.NoError(t, err)
+			require.EqualValues(t, child.PayloadSize(), cnrInfo.StorageSize)
+			require.Zero(t, cnrInfo.ObjectsNumber)
+		})
 	})
 }
 

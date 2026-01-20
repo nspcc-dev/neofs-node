@@ -36,8 +36,9 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// try to remove parent, should be no-op, error-free
-	err = metaDelete(db, parent.Address())
+	res, err := db.Delete([]oid.Address{parent.Address()})
 	require.NoError(t, err)
+	require.Zero(t, res.PhyRemoved)
 
 	// inhume child so it will be on graveyard
 	ts := generateObjectWithCID(t, cnr)
@@ -98,7 +99,7 @@ func TestDB_Delete(t *testing.T) {
 
 		all := 2 + len(ecParts1) + len(ecParts2)
 		require.EqualValues(t, all, res.AvailableRemoved)
-		require.EqualValues(t, all, res.RawRemoved)
+		require.EqualValues(t, all-2, res.PhyRemoved)
 		require.Len(t, res.RemovedObjects, all)
 
 		require.ElementsMatch(t, res.RemovedObjects[:2], []meta.RemovedObject{
@@ -138,7 +139,7 @@ func TestContainerInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1), res.AvailableRemoved)
-	require.Equal(t, uint64(1), res.RawRemoved)
+	require.Equal(t, uint64(1), res.PhyRemoved)
 	require.Len(t, res.RemovedObjects, 1)
 	require.Equal(t, payloadSize, res.RemovedObjects[0].PayloadLen)
 	require.Equal(t, addr, res.RemovedObjects[0].Address)

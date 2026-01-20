@@ -12,6 +12,8 @@ import (
 // as removed and should not be returned from the Storage Engine.
 var ErrObjectIsExpired = logicerr.New("object is expired")
 
+var errNonPhy = errors.New("non-phy")
+
 // IsErrRemoved checks if error returned by Shard Exists/Get/Put method
 // corresponds to removed object.
 func IsErrRemoved(err error) bool {
