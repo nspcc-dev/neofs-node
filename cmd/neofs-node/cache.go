@@ -199,6 +199,10 @@ func newCachedContainerStorage(v container.Source, ttl time.Duration) *ttlContai
 	}
 }
 
+func (s *ttlContainerStorage) handleChange(cnr cid.ID) {
+	s.tc.remove(cnr)
+}
+
 func (s *ttlContainerStorage) handleCreation(cnr cid.ID) {
 	s.tc.remove(cnr)
 }
