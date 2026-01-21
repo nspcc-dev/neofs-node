@@ -233,8 +233,7 @@ func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqC
 	cacheKey := sha256.Sum256(mb)
 	res, ok := b.bearerTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
-		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = b.decodeAndVerifyBearerTokenCommon(m)
+		res.token, res.err = b.decodeAndVerifyBearerTokenCommon(m, mb)
 		b.bearerTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
@@ -250,7 +249,16 @@ func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqC
 	return &res.token, nil
 }
 
-func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken) (bearer.Token, error) {
+type bearerTokenWithEncodedBody struct {
+	bearer.Token
+	body []byte
+}
+
+func (x bearerTokenWithEncodedBody) SignedData() []byte {
+	return x.body
+}
+
+func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken, mb []byte) (bearer.Token, error) {
 	var token bearer.Token
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("invalid bearer token: %w", err)
@@ -268,7 +276,15 @@ func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken) (bear
 		return token, errAccessDenied
 	}
 
-	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
+	body, err := getFirstBytesField(mb)
+	if err != nil {
+		return token, fmt.Errorf("get body from calculated bearer token binary: %w", err)
+	}
+
+	if err := icrypto.AuthenticateToken(bearerTokenWithEncodedBody{
+		Token: token,
+		body:  body,
+	}, historicN3ScriptRunner{
 		FSChain:   b.c.fsChain,
 		Netmapper: b.nm,
 	}); err != nil {

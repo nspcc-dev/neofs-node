@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -64,6 +66,30 @@ func BenchmarkSessionTokenVerification(b *testing.B) {
 
 	for b.Loop() {
 		_, err := s.getVerifiedSessionToken(metaHdr, anyVerb, anyCnr, oid.ID{})
+		require.NoError(b, err)
+		s.ResetTokenCheckCache()
+	}
+}
+
+func BenchmarkBearerTokenVerification(b *testing.B) {
+	anyCnr := cidtest.ID()
+	anyCnrOwner := usertest.User()
+	anyReqSender := usertest.ID()
+	anyEACL := eacl.Table{}
+
+	var tok bearer.Token
+	tok.SetEACLTable(anyEACL)
+	tok.SetExp(1)
+	require.NoError(b, tok.Sign(anyCnrOwner))
+
+	metaHdr := &protosession.RequestMetaHeader{
+		BearerToken: tok.ProtoMessage(),
+	}
+
+	s := New(nopFSChain{}, WithIRFetcher(nopIR{}), WithNetmapper(nopNetmapContract{}), WithContainerSource(nopContrainerContract{}))
+
+	for b.Loop() {
+		_, err := s.getVerifiedBearerToken(metaHdr, anyCnr, anyCnrOwner.UserID(), anyReqSender)
 		require.NoError(b, err)
 		s.ResetTokenCheckCache()
 	}
