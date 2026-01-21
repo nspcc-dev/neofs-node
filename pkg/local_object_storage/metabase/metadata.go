@@ -135,6 +135,7 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	return nil
 }
 
+// returns errNonPhy if isParent is unset and the object is not physical.
 func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
 	var metaBkt = c.Bucket()
 	var err error
@@ -143,7 +144,7 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 	if !isParent {
 		v := metaBkt.Get(slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPhysical), objectcore.MetaAttributeDelimiter, []byte(binPropMarker)))
 		if v == nil {
-			return 0, nil
+			return 0, errNonPhy
 		}
 	}
 	pref := slices.Concat([]byte{metaPrefixID}, id[:])

@@ -397,6 +397,12 @@ func migrateFrom8Version(db *DB) error {
 				return fmt.Errorf("deleting %v bucket: %w", name, err)
 			}
 		}
+
+		err = syncCounter(tx, true)
+		if err != nil {
+			return fmt.Errorf("resync object counters: %w", err)
+		}
+
 		return updateVersion(tx, 9)
 	})
 }

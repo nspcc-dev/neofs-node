@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,12 +12,14 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/bbolt"
+	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -322,4 +325,81 @@ func TestMigrate7to8(t *testing.T) {
 	require.Len(t, gObjs, inhumeObjsNum)
 	require.Len(t, gCnrs, 1)
 	require.Equal(t, inhumeCnr, gCnrs[0])
+}
+
+func TestMigrate8to9(t *testing.T) {
+	db := newDB(t)
+
+	// store several root phy objects
+	const phyContainerNum = 5
+	const phyObjectsPerContainer = 10
+
+	anyOwner := usertest.ID()
+	anyChecksum := checksumtest.Checksum()
+
+	for range phyContainerNum {
+		cnr := cidtest.ID()
+
+		for range phyObjectsPerContainer {
+			var obj object.Object
+			obj.SetContainerID(cnr)
+			obj.SetID(oidtest.ID())
+			obj.SetOwner(anyOwner)
+			obj.SetPayloadChecksum(anyChecksum)
+
+			require.NoError(t, db.Put(&obj))
+		}
+	}
+
+	// store several phy objects with parent
+	const parentObjects = 3
+	for range parentObjects {
+		var parent object.Object
+		parent.SetContainerID(cidtest.ID())
+		parent.SetID(oidtest.ID())
+		parent.SetOwner(anyOwner)
+		parent.SetPayloadChecksum(anyChecksum)
+
+		var child object.Object
+		child.SetContainerID(parent.GetContainerID())
+		child.SetID(oidtest.ID())
+		child.SetOwner(anyOwner)
+		child.SetPayloadChecksum(anyChecksum)
+		child.SetParent(&parent)
+
+		require.NoError(t, db.Put(&child))
+	}
+
+	// force incorrect counters and previous DB version
+	const garbageCount = 1234567890
+
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		// reset to zero
+		if err := updateCounter(tx, phy, math.MaxUint64, false); err != nil {
+			return err
+		}
+		if err := updateCounter(tx, phy, garbageCount, true); err != nil {
+			return err
+		}
+
+		bkt, err := tx.CreateBucketIfNotExists([]byte{0x05})
+		if err != nil {
+			return err
+		}
+
+		return bkt.Put([]byte("version"), []byte{0x08, 0, 0, 0, 0, 0, 0, 0})
+	})
+	require.NoError(t, err)
+
+	c, err := db.ObjectCounters()
+	require.NoError(t, err)
+	require.EqualValues(t, garbageCount, c.Phy())
+
+	// migrate
+	require.NoError(t, db.Init())
+
+	// check counters have been corrected
+	c, err = db.ObjectCounters()
+	require.NoError(t, err)
+	require.EqualValues(t, phyContainerNum*phyObjectsPerContainer+parentObjects, c.Phy())
 }
