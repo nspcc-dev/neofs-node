@@ -2,12 +2,14 @@ package v2
 
 import (
 	"errors"
+	"fmt"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 var errMissingContainerID = errors.New("missing container ID")
@@ -109,4 +111,26 @@ func assertSessionRelation(tok sessionSDK.Object, cnr cid.ID, obj oid.ID) error 
 	}
 
 	return nil
+}
+
+func getFirstBytesField(b []byte) ([]byte, error) {
+	fNum, fTyp, n := protowire.ConsumeTag(b)
+	if n < 0 {
+		return nil, fmt.Errorf("parse first field tag: %w", protowire.ParseError(n))
+	}
+
+	if fNum != 1 {
+		return nil, fmt.Errorf("first field num is %d instead of 1", fNum)
+	}
+
+	if fTyp != protowire.BytesType {
+		return nil, fmt.Errorf("first field type is %v instead of %v", fTyp, protowire.BytesType)
+	}
+
+	body, n := protowire.ConsumeBytes(b[n:])
+	if n < 0 {
+		return nil, fmt.Errorf("parse bytes field: %w", protowire.ParseError(n))
+	}
+
+	return body, nil
 }

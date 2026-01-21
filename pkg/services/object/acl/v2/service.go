@@ -148,8 +148,7 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	cacheKey := sha256.Sum256(mb)
 	res, ok := b.sessionTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
-		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = b.decodeAndVerifySessionTokenCommon(m)
+		res.token, res.err = b.decodeAndVerifySessionTokenCommon(m, mb)
 		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
@@ -163,7 +162,16 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	return &res.token, nil
 }
 
-func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (sessionSDK.Object, error) {
+type sessionTokenWithEncodedBody struct {
+	sessionSDK.Object
+	body []byte
+}
+
+func (x sessionTokenWithEncodedBody) SignedData() []byte {
+	return x.body
+}
+
+func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, mb []byte) (sessionSDK.Object, error) {
 	var token sessionSDK.Object
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("invalid session token: %w", err)
@@ -180,7 +188,15 @@ func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken)
 		return token, fmt.Errorf("%s: token is invalid at %d epoch)", invalidRequestMessage, currentEpoch)
 	}
 
-	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
+	body, err := getFirstBytesField(mb)
+	if err != nil {
+		return token, fmt.Errorf("get body from calculated session token binary: %w", err)
+	}
+
+	if err := icrypto.AuthenticateToken(sessionTokenWithEncodedBody{
+		Object: token,
+		body:   body,
+	}, historicN3ScriptRunner{
 		FSChain:   b.c.fsChain,
 		Netmapper: b.nm,
 	}); err != nil {
