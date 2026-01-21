@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -188,7 +189,7 @@ func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken,
 		return token, fmt.Errorf("%s: token is invalid at %d epoch)", invalidRequestMessage, currentEpoch)
 	}
 
-	body, err := getFirstBytesField(mb)
+	body, err := iprotobuf.GetFirstBytesField(mb)
 	if err != nil {
 		return token, fmt.Errorf("get body from calculated session token binary: %w", err)
 	}
@@ -276,7 +277,7 @@ func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken, mb []
 		return token, errAccessDenied
 	}
 
-	body, err := getFirstBytesField(mb)
+	body, err := iprotobuf.GetFirstBytesField(mb)
 	if err != nil {
 		return token, fmt.Errorf("get body from calculated bearer token binary: %w", err)
 	}
