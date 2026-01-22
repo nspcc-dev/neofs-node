@@ -730,8 +730,16 @@ func (n netmapSourceWithNodes) GetEpochBlock(epoch uint64) (uint32, error) {
 	return n.netmapContract.GetEpochBlock(epoch)
 }
 
+func (n netmapSourceWithNodes) GetEpochBlockByTime(t uint32) (uint32, error) {
+	return n.netmapContract.GetEpochBlockByTime(t)
+}
+
 func (c *cfg) GetEpochBlock(epoch uint64) (uint32, error) {
 	return c.nCli.GetEpochBlock(epoch)
+}
+
+func (c *cfg) GetEpochBlockByTime(t uint32) (uint32, error) {
+	return c.nCli.GetEpochBlockByTime(t)
 }
 
 // GetContainerNodes reads storage policy of the referenced container from the

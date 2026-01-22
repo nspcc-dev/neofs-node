@@ -79,6 +79,10 @@ func (unimplementedNetmapContract) GetEpochBlock(uint64) (uint32, error) {
 	panic("unimplemented")
 }
 
+func (unimplementedNetmapContract) GetEpochBlockByTime(uint32) (uint32, error) {
+	panic("unimplemented")
+}
+
 type testNodeState struct {
 	epoch uint64
 }
@@ -123,6 +127,10 @@ func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, *session.Cont
 }
 
 func (x testFSChain) GetEpochBlock(uint64) (uint32, error) { panic("unimplemented") }
+
+func (x testFSChain) GetEpochBlockByTime(uint32) (uint32, error) {
+	panic("unimplemented")
+}
 
 func (x testFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
 	panic("unimplemented")

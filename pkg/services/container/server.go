@@ -88,6 +88,9 @@ type Contract interface {
 type NetmapContract interface {
 	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
 	GetEpochBlock(epoch uint64) (uint32, error)
+	// GetEpochBlockByTime returns FS chain height of block index when the latest epoch that
+	// started not later than the provided block time came.
+	GetEpochBlockByTime(t uint32) (uint32, error)
 }
 
 type historicN3ScriptRunner struct {
