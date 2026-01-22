@@ -128,8 +128,13 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*object.
 		if err != nil {
 			return nil, nil, fmt.Errorf("unmarshal object: %w", err)
 		}
-		return obj.CutPayload(), &payloadReader{
-			Reader: bytes.NewReader(obj.Payload()),
+
+		pld := obj.Payload()
+
+		obj.SetPayload(nil)
+
+		return &obj, &payloadReader{
+			Reader: bytes.NewReader(pld),
 			close:  func() error { return nil },
 		}, nil
 	}
