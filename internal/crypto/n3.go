@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -24,6 +25,9 @@ type HistoricN3ScriptRunner interface {
 	N3ScriptRunner
 	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
 	GetEpochBlock(epoch uint64) (uint32, error)
+	// GetEpochBlockByTime returns FS chain height of block index when the latest epoch that
+	// started not later than the provided block time came.
+	GetEpochBlockByTime(t uint32) (uint32, error)
 }
 
 func verifyN3ScriptsNow(nsr N3ScriptRunner, acc util.Uint160, invocScript, verifScript []byte, hashData func() [sha256.Size]byte) error {
@@ -34,6 +38,14 @@ func verifyN3ScriptsAtEpoch(fsChain HistoricN3ScriptRunner, epoch uint64, acc ut
 	height, err := fsChain.GetEpochBlock(epoch)
 	if err != nil {
 		return fmt.Errorf("get FS chain height at epoch #%d tick: %w", epoch, err)
+	}
+	return verifyN3Scripts(fsChain, height, acc, invocScript, verifScript, hashData())
+}
+
+func verifyN3ScriptsAtTime(fsChain HistoricN3ScriptRunner, t time.Time, acc util.Uint160, invocScript, verifScript []byte, hashData func() [sha256.Size]byte) error {
+	height, err := fsChain.GetEpochBlockByTime(uint32(t.UnixMilli()))
+	if err != nil {
+		return fmt.Errorf("get FS chain height at time %s: %w", t, err)
 	}
 	return verifyN3Scripts(fsChain, height, acc, invocScript, verifScript, hashData())
 }

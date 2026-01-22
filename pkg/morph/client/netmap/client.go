@@ -24,16 +24,17 @@ type Client struct {
 }
 
 const (
-	addNodeMethod         = "addNode"
-	configMethod          = "config"
-	epochMethod           = "epoch"
-	lastEpochBlockMethod  = "lastEpochBlock"
-	epochBlockMethod      = "getEpochBlock"
-	innerRingListMethod   = "innerRingList"
-	newEpochMethod        = "newEpoch"
-	setConfigMethod       = "setConfig"
-	updateInnerRingMethod = "updateInnerRing"
-	updateStateMethod     = "updateState"
+	addNodeMethod          = "addNode"
+	configMethod           = "config"
+	epochMethod            = "epoch"
+	lastEpochBlockMethod   = "lastEpochBlock"
+	epochBlockMethod       = "getEpochBlock"
+	epochBlockByTimeMethod = "getEpochBlockByTime"
+	innerRingListMethod    = "innerRingList"
+	newEpochMethod         = "newEpoch"
+	setConfigMethod        = "setConfig"
+	updateInnerRingMethod  = "updateInnerRing"
+	updateStateMethod      = "updateState"
 
 	configListMethod = "listConfig"
 )

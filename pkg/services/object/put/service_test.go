@@ -667,6 +667,10 @@ func (*mockNetwork) GetEpochBlock(uint64) (uint32, error) {
 	panic("unimplemented")
 }
 
+func (*mockNetwork) GetEpochBlockByTime(uint32) (uint32, error) {
+	panic("unimplemented")
+}
+
 type mockContainerNodes struct {
 	unsorted  [][]netmap.NodeInfo
 	sorted    [][]netmap.NodeInfo

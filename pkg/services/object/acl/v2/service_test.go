@@ -61,6 +61,10 @@ func (x *mockNetmapper) GetNetMapByEpoch(uint64) (*netmap.NetMap, error) {
 	panic("unimplemented")
 }
 
+func (x *mockNetmapper) GetEpochBlockByTime(uint32) (uint32, error) {
+	panic("unimplemented")
+}
+
 func (x *mockNetmapper) Epoch() (uint64, error) {
 	return x.curEpoch, nil
 }
