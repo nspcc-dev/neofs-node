@@ -335,11 +335,7 @@ func (exec *execCtx) writeObjectPayload(obj *object.Object, reader io.ReadCloser
 				exec.log.Debug("error while closing payload reader", zap.Error(err))
 			}
 		}()
-		bufSize := uint64(streamChunkSize)
-		if obj != nil {
-			bufSize = min(streamChunkSize, max(obj.PayloadSize(), 1))
-		}
-		err = copyPayloadStream(exec.prm.objWriter, reader, bufSize)
+		err = copyPayloadStream(exec.prm.objWriter, reader)
 	} else {
 		err = exec.prm.objWriter.WriteChunk(obj.Payload())
 	}
@@ -376,12 +372,15 @@ func copyObjectStream(w ObjectWriter, h object.Object, r io.Reader) error {
 		return fmt.Errorf("write header: %w", err)
 	}
 
-	return copyPayloadStream(w, r, min(h.PayloadSize(), streamChunkSize))
+	return copyPayloadStream(w, r)
 }
 
 // copyPayloadStream writes payload from stream to writer.
-func copyPayloadStream(w ChunkWriter, r io.Reader, bufSize uint64) error {
-	_, err := copyPayloadStreamBuffer(w, r, make([]byte, bufSize))
+func copyPayloadStream(w ChunkWriter, r io.Reader) error {
+	buf := bufferPool.Get()
+	defer bufferPool.Put(buf)
+
+	_, err := copyPayloadStreamBuffer(w, r, *buf.(*[]byte))
 	return err
 }
 
