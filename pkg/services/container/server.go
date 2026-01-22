@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
@@ -169,8 +170,7 @@ func (s *Server) getVerifiedSessionTokenWithBinary(m *protosession.SessionToken,
 	cacheKey := sha256.Sum256(b)
 	res, ok := s.sessionTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
-		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = s.decodeAndVerifySessionTokenCommon(m)
+		res.token, res.err = s.decodeAndVerifySessionTokenCommon(m, b)
 		s.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
@@ -184,13 +184,30 @@ func (s *Server) getVerifiedSessionTokenWithBinary(m *protosession.SessionToken,
 	return &res.token, b, nil
 }
 
-func (s *Server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (session.Container, error) {
+type sessionTokenWithEncodedBody struct {
+	session.Container
+	body []byte
+}
+
+func (x sessionTokenWithEncodedBody) SignedData() []byte {
+	return x.body
+}
+
+func (s *Server) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, mb []byte) (session.Container, error) {
 	var token session.Container
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("decode: %w", err)
 	}
 
-	if err := icrypto.AuthenticateToken(&token, s.historicN3ScriptRunner); err != nil {
+	body, err := iprotobuf.GetFirstBytesField(mb)
+	if err != nil {
+		return token, fmt.Errorf("get body from calculated session token binary: %w", err)
+	}
+
+	if err := icrypto.AuthenticateToken(sessionTokenWithEncodedBody{
+		Container: token,
+		body:      body,
+	}, s.historicN3ScriptRunner); err != nil {
 		return token, fmt.Errorf("authenticate: %w", err)
 	}
 

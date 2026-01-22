@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -148,8 +149,7 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	cacheKey := sha256.Sum256(mb)
 	res, ok := b.sessionTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
-		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = b.decodeAndVerifySessionTokenCommon(m)
+		res.token, res.err = b.decodeAndVerifySessionTokenCommon(m, mb)
 		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
@@ -163,7 +163,16 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 	return &res.token, nil
 }
 
-func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (sessionSDK.Object, error) {
+type sessionTokenWithEncodedBody struct {
+	sessionSDK.Object
+	body []byte
+}
+
+func (x sessionTokenWithEncodedBody) SignedData() []byte {
+	return x.body
+}
+
+func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, mb []byte) (sessionSDK.Object, error) {
 	var token sessionSDK.Object
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("invalid session token: %w", err)
@@ -180,7 +189,15 @@ func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken)
 		return token, fmt.Errorf("%s: token is invalid at %d epoch)", invalidRequestMessage, currentEpoch)
 	}
 
-	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
+	body, err := iprotobuf.GetFirstBytesField(mb)
+	if err != nil {
+		return token, fmt.Errorf("get body from calculated session token binary: %w", err)
+	}
+
+	if err := icrypto.AuthenticateToken(sessionTokenWithEncodedBody{
+		Object: token,
+		body:   body,
+	}, historicN3ScriptRunner{
 		FSChain:   b.c.fsChain,
 		Netmapper: b.nm,
 	}); err != nil {
@@ -217,8 +234,7 @@ func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqC
 	cacheKey := sha256.Sum256(mb)
 	res, ok := b.bearerTokenCommonCheckCache.Get(cacheKey)
 	if !ok {
-		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
-		res.token, res.err = b.decodeAndVerifyBearerTokenCommon(m)
+		res.token, res.err = b.decodeAndVerifyBearerTokenCommon(m, mb)
 		b.bearerTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
@@ -234,7 +250,16 @@ func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqC
 	return &res.token, nil
 }
 
-func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken) (bearer.Token, error) {
+type bearerTokenWithEncodedBody struct {
+	bearer.Token
+	body []byte
+}
+
+func (x bearerTokenWithEncodedBody) SignedData() []byte {
+	return x.body
+}
+
+func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken, mb []byte) (bearer.Token, error) {
 	var token bearer.Token
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("invalid bearer token: %w", err)
@@ -252,7 +277,15 @@ func (b Service) decodeAndVerifyBearerTokenCommon(m *protoacl.BearerToken) (bear
 		return token, errAccessDenied
 	}
 
-	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
+	body, err := iprotobuf.GetFirstBytesField(mb)
+	if err != nil {
+		return token, fmt.Errorf("get body from calculated bearer token binary: %w", err)
+	}
+
+	if err := icrypto.AuthenticateToken(bearerTokenWithEncodedBody{
+		Token: token,
+		body:  body,
+	}, historicN3ScriptRunner{
 		FSChain:   b.c.fsChain,
 		Netmapper: b.nm,
 	}); err != nil {
