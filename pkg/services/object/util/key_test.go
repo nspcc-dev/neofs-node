@@ -1,12 +1,13 @@
 package util_test
 
 import (
+	"path"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/util/state/session/temporary"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -19,7 +20,8 @@ func TestNewKeyStorage(t *testing.T) {
 	nodeKey, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 
-	tokenStor := tokenStorage.NewTokenStore()
+	tokenStor, err := state.NewPersistentStorage(path.Join(t.TempDir(), "storage"), true)
+	require.NoError(t, err)
 	stor := util.NewKeyStorage(&nodeKey.PrivateKey, tokenStor, mockedNetworkState{42})
 
 	owner := usertest.ID()
@@ -59,7 +61,7 @@ func TestNewKeyStorage(t *testing.T) {
 	})
 }
 
-func createToken(t *testing.T, store *tokenStorage.TokenStore, owner user.ID, exp uint64) session.Object {
+func createToken(t *testing.T, store *state.PersistentStorage, owner user.ID, exp uint64) session.Object {
 	key := neofscryptotest.ECDSAPrivateKey()
 	id := uuid.New()
 	err := store.Store(key, owner, id[:], exp)
