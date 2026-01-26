@@ -61,8 +61,8 @@ func (w *uniqueIDWriter) WriteIDs(list []oid.ID) error {
 	return w.writer.WriteIDs(list)
 }
 
-func (c *clientConstructorWrapper) get(info client.NodeInfo) (searchClient, error) {
-	clt, err := c.constructor.Get(info)
+func (c *clientConstructorWrapper) get(ctx context.Context, info client.NodeInfo) (searchClient, error) {
+	clt, err := c.constructor.Get(ctx, info)
 	if err != nil {
 		return nil, err
 	}

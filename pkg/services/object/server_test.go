@@ -155,7 +155,7 @@ func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Req
 
 type noCallClients struct{}
 
-func (noCallClients) Get(clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (noCallClients) Get(context.Context, clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
 	panic("must not be called")
 }
 

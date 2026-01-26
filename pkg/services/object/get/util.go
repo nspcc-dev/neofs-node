@@ -165,8 +165,8 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj
 }
 
-func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
-	clt, err := c.cache.Get(info)
+func (c *clientCacheWrapper) get(ctx context.Context, info coreclient.NodeInfo) (getClient, error) {
+	clt, err := c.cache.Get(ctx, info)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (w *directChildWriter) WriteHeader(obj *object.Object) error {
 
 func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
 	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
-	conn, err := c.connect(node)
+	conn, err := c.connect(ctx, node)
 	if err != nil {
 		return object.Object{}, nil, err
 	}
@@ -375,7 +375,7 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 
 func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 	sTok *session.Object) (object.Object, error) {
-	conn, err := c.connect(node)
+	conn, err := c.connect(ctx, node)
 	if err != nil {
 		return object.Object{}, err
 	}
@@ -396,7 +396,7 @@ func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk 
 
 func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
 	cnr cid.ID, id oid.ID, off, ln uint64, sTok *session.Object, xs []string) (io.ReadCloser, error) {
-	conn, err := c.connect(node)
+	conn, err := c.connect(ctx, node)
 	if err != nil {
 		return nil, err
 	}
@@ -416,12 +416,12 @@ func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node 
 	return rc, nil
 }
 
-func (c *clientCacheWrapper) connect(node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
-	conn, _, err := c._connect(node)
+func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
+	conn, _, err := c._connect(ctx, node)
 	return conn, err
 }
 
-func (c *clientCacheWrapper) _connect(node netmap.NodeInfo) (coreclient.MultiAddressClient, coreclient.NodeInfo, error) {
+func (c *clientCacheWrapper) _connect(ctx context.Context, node netmap.NodeInfo) (coreclient.MultiAddressClient, coreclient.NodeInfo, error) {
 	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
 	// TODO: we may waste resources doing this per request. Make once on network map change instead.
 	var ag network.AddressGroup
@@ -433,7 +433,7 @@ func (c *clientCacheWrapper) _connect(node netmap.NodeInfo) (coreclient.MultiAdd
 	ni.SetAddressGroup(ag)
 	ni.SetPublicKey(node.PublicKey())
 
-	conn, err := c.cache.Get(ni)
+	conn, err := c.cache.Get(ctx, ni)
 	if err != nil {
 		return nil, coreclient.NodeInfo{}, fmt.Errorf("get conn: %w", err)
 	}

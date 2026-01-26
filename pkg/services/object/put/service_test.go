@@ -970,7 +970,7 @@ func (x nodeServices) lookupNode(node clientcore.NodeInfo) (*Service, error) {
 	return x[ind], nil
 }
 
-func (x nodeServices) Get(node clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (x nodeServices) Get(_ context.Context, node clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
 	svc, err := x.lookupNode(node)
 	if err != nil {
 		return nil, err

@@ -44,6 +44,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -413,7 +414,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	pingTimeout := appCfg.APIClient.PingTimeout
 	newClientCache := func(scope string) *cache.Clients {
 		return cache.NewClients(c.log.With(zap.String("scope", scope)), &buffers, streamTimeout,
-			minConnTimeout, pingInterval, pingTimeout)
+			minConnTimeout, pingInterval, pingTimeout, neofsecdsa.Signer(key.PrivateKey))
 	}
 	c.shared = shared{
 		basics:            basicSharedConfig,

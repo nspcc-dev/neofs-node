@@ -143,8 +143,8 @@ func (fn *innerRingFetcherWithNotary) InnerRingKeys() ([][]byte, error) {
 
 type coreClientConstructor reputationClientConstructor
 
-func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.MultiAddressClient, error) {
-	c, err := (*reputationClientConstructor)(x).Get(info)
+func (x *coreClientConstructor) Get(ctx context.Context, info coreclient.NodeInfo) (coreclient.MultiAddressClient, error) {
+	c, err := (*reputationClientConstructor)(x).Get(ctx, info)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +340,7 @@ type reputationClientConstructor struct {
 	trustStorage *truststorage.Storage
 
 	basicConstructor interface {
-		Get(coreclient.NodeInfo) (coreclient.MultiAddressClient, error)
+		Get(context.Context, coreclient.NodeInfo) (coreclient.MultiAddressClient, error)
 	}
 }
 
@@ -421,8 +421,8 @@ func (c *reputationClient) ObjectSearchInit(ctx context.Context, containerID cid
 	return res, err
 }
 
-func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.Client, error) {
-	cl, err := c.basicConstructor.Get(info)
+func (c *reputationClientConstructor) Get(ctx context.Context, info coreclient.NodeInfo) (coreclient.Client, error) {
+	cl, err := c.basicConstructor.Get(ctx, info)
 	if err != nil {
 		return nil, err
 	}

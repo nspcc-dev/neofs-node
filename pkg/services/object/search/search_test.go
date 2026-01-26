@@ -70,7 +70,7 @@ func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netm
 	return nil
 }
 
-func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
+func (c *testClientCache) get(_ context.Context, info clientcore.NodeInfo) (searchClient, error) {
 	v, ok := c.clients[info.AddressGroup().String()]
 	if !ok {
 		return nil, errors.New("could not construct client")
