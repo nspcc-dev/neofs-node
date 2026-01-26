@@ -71,9 +71,9 @@ func (c *clientConstructorWrapper) get(info client.NodeInfo) (searchClient, erro
 	}, nil
 }
 
-func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info client.NodeInfo) ([]oid.ID, error) {
+func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx) ([]oid.ID, error) {
 	if exec.prm.forwarder != nil {
-		return exec.prm.forwarder(info, c.client)
+		return exec.prm.forwarder(c.client)
 	}
 
 	var sessionInfo *util.SessionInfo

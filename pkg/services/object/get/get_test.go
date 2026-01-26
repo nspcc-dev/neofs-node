@@ -95,7 +95,7 @@ func newTestClient() *testClient {
 	}
 }
 
-func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*object.Object, io.ReadCloser, error) {
+func (c *testClient) getObject(exec *execCtx) (*object.Object, io.ReadCloser, error) {
 	v, ok := c.results[exec.address()]
 	if !ok {
 		var errNotFound apistatus.ObjectNotFound

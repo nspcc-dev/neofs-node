@@ -26,7 +26,6 @@ import (
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -267,15 +266,13 @@ func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ct
 	}
 }
 
-func (x *putStream) sendToRemoteNode(node client.NodeInfo, c client.MultiAddressClient) error {
-	nodePub := node.PublicKey()
+func (x *putStream) sendToRemoteNode(c client.MultiAddressClient) error {
 	return c.ForEachGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-		return putToRemoteNode(ctx, conn, nodePub, x.initReq, x.chunkReqs) // TODO: log error
+		return putToRemoteNode(ctx, conn, x.initReq, x.chunkReqs) // TODO: log error
 	})
 }
 
-func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
-	initReq *protoobject.PutRequest, chunkReqs []*protoobject.PutRequest) error {
+func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, initReq *protoobject.PutRequest, chunkReqs []*protoobject.PutRequest) error {
 	stream, err := protoobject.NewObjectServiceClient(conn).Put(ctx)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
@@ -296,9 +293,6 @@ func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 		return fmt.Errorf("closing the stream failed: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return err
-	}
 	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 		return fmt.Errorf("response verification failed: %w", err)
 	}
@@ -720,7 +714,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	if meta == nil {
 		return getsvc.HeadPrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -930,7 +924,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 	if meta == nil {
 		return getsvc.RangeHashPrm{}, errors.New("missing meta header")
 	}
-	p.SetRangeHashRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) ([][]byte, error) {
+	p.SetRangeHashRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) ([][]byte, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -945,27 +939,22 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 			return nil, err
 		}
 
-		nodePub := node.PublicKey()
 		var hs [][]byte
 		return hs, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
-			hs, err = getHashesFromRemoteNode(ctx, conn, nodePub, req)
+			hs, err = getHashesFromRemoteNode(ctx, conn, req)
 			return err // TODO: log error
 		})
 	})
 	return p, nil
 }
 
-func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
-	req *protoobject.GetRangeHashRequest) ([][]byte, error) {
+func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRangeHashRequest) ([][]byte, error) {
 	resp, err := protoobject.NewObjectServiceClient(conn).GetRangeHash(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return nil, err
-	}
 	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 		return nil, fmt.Errorf("response verification failed: %w", err)
 	}
@@ -1148,7 +1137,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 		respStream: stream,
 	}
 
-	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1435,7 +1424,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 	if meta == nil {
 		return getsvc.RangePrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1449,9 +1438,8 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 			return nil, err
 		}
 
-		nodePub := node.PublicKey()
 		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := continueRangeFromRemoteNode(ctx, conn, nodePub, req, stream, &respondedPayload)
+			err := continueRangeFromRemoteNode(ctx, conn, req, stream, &respondedPayload)
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
@@ -1461,7 +1449,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 	return p, nil
 }
 
-func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.GetRangeRequest,
+func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRangeRequest,
 	stream *rangeStream, respondedPayload *int) error {
 	rangeStream, err := protoobject.NewObjectServiceClient(conn).GetRange(ctx, req)
 	if err != nil {
@@ -1478,9 +1466,6 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nod
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return err
-		}
 		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 			return fmt.Errorf("response verification failed: %w", err)
 		}
@@ -1650,7 +1635,7 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 	if meta == nil {
 		return searchsvc.Prm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(node client.NodeInfo, c client.MultiAddressClient) ([]oid.ID, error) {
+	p.SetRequestForwarder(func(c client.MultiAddressClient) ([]oid.ID, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1664,18 +1649,17 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 			return nil, err
 		}
 
-		nodePub := node.PublicKey()
 		var res []oid.ID
 		return res, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
-			res, err = searchOnRemoteNode(ctx, conn, nodePub, req)
+			res, err = searchOnRemoteNode(ctx, conn, req)
 			return err // TODO: log error
 		})
 	})
 	return p, nil
 }
 
-func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.SearchRequest) ([]oid.ID, error) {
+func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.SearchRequest) ([]oid.ID, error) {
 	searchStream, err := protoobject.NewObjectServiceClient(conn).Search(ctx, req)
 	if err != nil {
 		return nil, err
@@ -1691,9 +1675,6 @@ func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []by
 			return nil, fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return nil, err
-		}
 		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 			return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 		}
@@ -2191,8 +2172,7 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 	}
 	var info client.NodeInfo
 	info.SetAddressGroup(endpoints)
-	nodePub := node.PublicKey()
-	info.SetPublicKey(nodePub)
+	info.SetPublicKey(node.PublicKey())
 	c, err := s.nodeClients.Get(info)
 	if err != nil {
 		return nil, false, fmt.Errorf("get node client: %w", err)
@@ -2202,21 +2182,17 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 	var more bool
 	return items, more, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		var err error
-		items, more, err = searchOnRemoteAddress(ctx, conn, nodePub, req)
+		items, more, err = searchOnRemoteAddress(ctx, conn, req)
 		return err // TODO: log error
 	})
 }
 
-func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
-	req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
+func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
 	resp, err := protoobject.NewObjectServiceClient(conn).SearchV2(ctx, req)
 	if err != nil {
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}
 
-	if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
-		return nil, false, client.ErrWrongPublicKey
-	}
 	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 		return nil, false, fmt.Errorf("response verification failed: %w", err)
 	}

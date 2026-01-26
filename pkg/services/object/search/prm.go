@@ -29,7 +29,7 @@ type IDListWriter interface {
 
 // RequestForwarder is a callback for forwarding of the
 // original Search requests.
-type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) ([]oid.ID, error)
+type RequestForwarder func(coreclient.MultiAddressClient) ([]oid.ID, error)
 
 // SetCommonParameters sets common parameters of the operation.
 func (p *Prm) SetCommonParameters(common *util.CommonPrm) {

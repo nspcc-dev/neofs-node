@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -129,8 +128,7 @@ func (x *Clients) SyncWithNewNetmap(sns []netmap.NodeInfo, local int) {
 }
 
 func (x *Clients) syncWithNetmapSN(sn netmap.NodeInfo) error {
-	pub := sn.PublicKey()
-	conns, ok := x.conns[snCacheKey(pub)]
+	conns, ok := x.conns[snCacheKey(sn.PublicKey())]
 	if !ok {
 		return nil
 	}
@@ -168,7 +166,7 @@ func (x *Clients) syncWithNetmapSN(sn netmap.NodeInfo) error {
 			continue
 		}
 		x.log.Info("initializing connection to new SN address in the new network map...", zap.String("address", ma))
-		c, err := x.initConnection(pub, as[i].URIAddr())
+		c, err := x.initConnection(as[i].URIAddr())
 		if err != nil {
 			x.log.Info("failed to init connection to new SN address in the new network map",
 				zap.String("address", ma), zap.Error(err))
@@ -187,7 +185,7 @@ func (x *Clients) initConnections(pub []byte, as network.AddressGroup) (*connect
 	for i := range as {
 		cacheKey := as[i].String()
 		l.Info("initializing connection to the SN...", zap.String("address", cacheKey))
-		c, err := x.initConnection(pub, as[i].URIAddr())
+		c, err := x.initConnection(as[i].URIAddr())
 		if err != nil {
 			// TODO: if at least one address is OK, SN can be operational
 			for cl := range maps.Values(m) {
@@ -206,7 +204,7 @@ func (x *Clients) initConnections(pub []byte, as network.AddressGroup) (*connect
 	}, nil
 }
 
-func (x *Clients) initConnection(pub []byte, uri string) (*client.Client, error) {
+func (x *Clients) initConnection(uri string) (*client.Client, error) {
 	target, withTLS, err := uriutil.Parse(uri)
 	if err != nil {
 		return nil, fmt.Errorf("parse URI: %w", err)
@@ -232,12 +230,7 @@ func (x *Clients) initConnection(pub []byte, uri string) (*client.Client, error)
 	if err != nil { // should never happen
 		return nil, fmt.Errorf("init gRPC client conn: %w", err)
 	}
-	res, err := client.NewGRPC(grpcConn, x.signBufPool, x.streamMsgTimeout, func(respPub []byte) error {
-		if !bytes.Equal(respPub, pub) {
-			return clientcore.ErrWrongPublicKey
-		}
-		return nil
-	})
+	res, err := client.NewGRPC(grpcConn, x.signBufPool, x.streamMsgTimeout, nil)
 	if err != nil {
 		_ = grpcConn.Close()
 		return res, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
