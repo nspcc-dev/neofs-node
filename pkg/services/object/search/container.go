@@ -63,7 +63,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 
 			lg.Debug("processing node...")
 
-			c, err := exec.svc.clientConstructor.get(info)
+			c, err := exec.svc.clientConstructor.get(ctx, info)
 			if err != nil {
 				mtx.Lock()
 				exec.status = statusUndefined

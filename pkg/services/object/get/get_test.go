@@ -78,7 +78,7 @@ func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []
 	return nodeLists, primaryNums, nil, nil
 }
 
-func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {
+func (c *testClientCache) get(_ context.Context, info client.NodeInfo) (getClient, error) {
 	v, ok := c.clients[info.AddressGroup().String()]
 	if !ok {
 		return nil, errors.New("could not construct client")

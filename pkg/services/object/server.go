@@ -2197,7 +2197,7 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 	info.SetAddressGroup(endpoints)
 	nodePub := node.PublicKey()
 	info.SetPublicKey(nodePub)
-	c, err := s.nodeClients.Get(info)
+	c, err := s.nodeClients.Get(ctx, info)
 	if err != nil {
 		return nil, false, fmt.Errorf("get node client: %w", err)
 	}

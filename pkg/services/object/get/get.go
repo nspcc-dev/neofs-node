@@ -64,7 +64,7 @@ func (s *Service) proxyGetRequest(ctx context.Context, sortedNodeLists [][]netma
 	req string, headWriter internal.HeaderWriter) error {
 	for i := range sortedNodeLists {
 		for j := range sortedNodeLists[i] {
-			conn, node, err := s.conns.(*clientCacheWrapper)._connect(sortedNodeLists[i][j])
+			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
 			if err != nil {
 				s.log.Debug("get conn to remote node",
 					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
@@ -197,7 +197,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, proxyFn RangeRequestForwarder) ([][]byte, error) {
 	for i := range sortedNodeLists {
 		for j := range sortedNodeLists[i] {
-			conn, node, err := s.conns.(*clientCacheWrapper)._connect(sortedNodeLists[i][j])
+			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
 			if err != nil {
 				s.log.Debug("get conn to remote node",
 					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))

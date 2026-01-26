@@ -59,7 +59,7 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 		opts.WithinSession(*tok)
 	}
 
-	c, err := clientConstructor.Get(nodeInfo)
+	c, err := clientConstructor.Get(ctx, nodeInfo)
 	if err != nil {
 		return fmt.Errorf("could not create SDK client %s: %w", nodeInfo, err)
 	}
@@ -150,7 +150,7 @@ func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, id oid.ID, src
 		return fmt.Errorf("fetch local node's private key: %w", err)
 	}
 
-	c, err := s.clientConstructor.Get(nodeInfoForCons)
+	c, err := s.clientConstructor.Get(ctx, nodeInfoForCons)
 	if err != nil {
 		return fmt.Errorf("init NeoFS API client of the remote node: %w", err)
 	}

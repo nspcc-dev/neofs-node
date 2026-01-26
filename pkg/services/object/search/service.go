@@ -42,7 +42,7 @@ type Containers interface {
 }
 
 type ClientConstructor interface {
-	Get(client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
 }
 
 type cfg struct {
@@ -53,7 +53,7 @@ type cfg struct {
 	}
 
 	clientConstructor interface {
-		get(client.NodeInfo) (searchClient, error)
+		get(context.Context, client.NodeInfo) (searchClient, error)
 	}
 
 	keyStore *util.KeyStorage
