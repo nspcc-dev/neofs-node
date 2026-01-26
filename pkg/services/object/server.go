@@ -293,9 +293,6 @@ func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, initReq *protoo
 		return fmt.Errorf("closing the stream failed: %w", err)
 	}
 
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return fmt.Errorf("response verification failed: %w", err)
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return fmt.Errorf("remote node response: %w", err)
 	}
@@ -955,9 +952,6 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *pr
 		return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
 	}
 
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, fmt.Errorf("response verification failed: %w", err)
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, err
 	}
@@ -1466,9 +1460,6 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("response verification failed: %w", err)
-		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
@@ -1675,9 +1666,6 @@ func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoob
 			return nil, fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return nil, fmt.Errorf("could not verify %T: %w", resp, err)
-		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return nil, fmt.Errorf("remote node response: %w", err)
 		}
@@ -2193,9 +2181,6 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, req *prot
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}
 
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, false, fmt.Errorf("response verification failed: %w", err)
-	}
 	if err := apistatus.ToError(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, false, err
 	}
