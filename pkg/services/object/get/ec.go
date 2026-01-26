@@ -650,13 +650,7 @@ func (s *Service) copyLocalECPartRange(dst ChunkWriter, cnr cid.ID, parent oid.I
 	}
 	defer rc.Close()
 
-	var bufLen uint64
-	if ln == 0 && off == 0 {
-		bufLen = min(pldLen, streamChunkSize)
-	} else {
-		bufLen = min(ln, streamChunkSize)
-	}
-	if err := copyPayloadStream(dst, rc, bufLen); err != nil {
+	if err := copyPayloadStream(dst, rc); err != nil {
 		return fmt.Errorf("copy payload: %w", err)
 	}
 
