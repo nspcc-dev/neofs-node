@@ -93,7 +93,8 @@ func (s *Server) RequestNotary(method string, args ...[]byte) (util.Uint256, err
 				zap.ByteStrings("args", args))
 		}
 
-		nodePubKey, err := keys.NewPublicKeyFromBytes(args[0], elliptic.P256())
+		var nodePubKey *keys.PublicKey
+		nodePubKey, err = keys.NewPublicKeyFromBytes(args[0], elliptic.P256())
 		if err != nil {
 			return util.Uint256{}, fmt.Errorf("can't parse node public key: %w", err)
 		}

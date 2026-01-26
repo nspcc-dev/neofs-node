@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - Deadlock on SN exit in rare GC cases (#3744)
 - SN no longer counts removed parent objects as physical ones in metrics (#3717)
 - SN updates internal cache (if any) after attribute changes immediately (#3780)
+- Error handling in `removeNode` notary request (#3786)
 
 ### Changed
 - Optimized locking info in metabase (#3672)
