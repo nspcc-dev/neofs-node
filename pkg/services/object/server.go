@@ -305,9 +305,6 @@ func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 		return err
 	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return fmt.Errorf("response verification failed: %w", err)
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return fmt.Errorf("remote node response: %w", err)
 	}
@@ -982,9 +979,6 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 		return nil, err
 	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, fmt.Errorf("response verification failed: %w", err)
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, err
 	}
@@ -1497,9 +1491,6 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nod
 		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 			return err
 		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("response verification failed: %w", err)
-		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
@@ -1709,9 +1700,6 @@ func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []by
 
 		if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 			return nil, err
-		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return nil, fmt.Errorf("remote node response: %w", err)
@@ -2232,9 +2220,6 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub [
 
 	if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
 		return nil, false, client.ErrWrongPublicKey
-	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, false, fmt.Errorf("response verification failed: %w", err)
 	}
 	if err := apistatus.ToError(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, false, err
