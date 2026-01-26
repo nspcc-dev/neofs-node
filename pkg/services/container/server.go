@@ -593,7 +593,7 @@ func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtend
 
 func (s *Server) makeSetAttributeResponse(err error) (*protocontainer.SetAttributeResponse, error) {
 	return &protocontainer.SetAttributeResponse{
-		Status: apistatus.FromError(err),
+		Status: util.ToStatus(err),
 	}, nil
 }
 
