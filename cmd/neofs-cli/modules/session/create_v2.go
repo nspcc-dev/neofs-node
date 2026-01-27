@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -42,10 +41,9 @@ V2 tokens support:
 
 IMPORTANT: Contexts and verbs must be specified in sorted order for proper token validation.
 
-Context format: containerID:verbs[:objectID1,objectID2,...]
+Context format: containerID:verbs
 - containerID: Container ID or "0" for wildcard (any container)
 - verbs: Comma-separated list of operations (e.g., DELETE,GET,HEAD,PUT,SEARCH)
-- objectIDs: Optional comma-separated list of specific object IDs
 
 Example usage:
   neofs-cli session create-v2 \
@@ -55,7 +53,7 @@ Example usage:
     --json \
     --subject NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM \
 	--context 0:CONTAINERPUT \
-    --context 5HqniP5vq5xXr3FdijTSekrQJHu1WnADt2uLg7KSViZM:SEARCH:3JYV...obj1,3JYV...obj2
+    --context 5HqniP5vq5xXr3FdijTSekrQJHu1WnADt2uLg7KSViZM:SEARCH
 	--origin original-token.json
 
 Default lifetime of session token is ` + strconv.Itoa(defaultLifetimeV2) + ` seconds
@@ -81,7 +79,7 @@ func init() {
 	createV2Cmd.Flags().StringArray(v2SubjectsFlag, nil, "Subject user IDs (can be specified multiple times)")
 	createV2Cmd.Flags().StringArray(v2SubjectsNNSFlag, nil, "Subject NNS names (can be specified multiple times)")
 	createV2Cmd.Flags().Bool(v2FinalFlag, false, "Set the final flag in the token, disallowing further delegation")
-	createV2Cmd.Flags().StringArray(v2ContextFlag, nil, "Context spec (repeatable): containerID:verbs[:objectID1,objectID2,...]. Use '0' for wildcard container. Contexts and verbs should be sorted.")
+	createV2Cmd.Flags().StringArray(v2ContextFlag, nil, "Context spec (repeatable): containerID:verbs. Use '0' for wildcard container. Contexts and verbs should be sorted.")
 	createV2Cmd.Flags().String(v2OriginFlag, "", "Path to origin token file for token delegation chain")
 
 	_ = cobra.MarkFlagRequired(createV2Cmd.Flags(), commonflags.WalletPath)
@@ -165,8 +163,8 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 		if ctx.Container().IsZero() {
 			cnrStr = "* (wildcard - any container)"
 		}
-		common.PrintVerbose(cmd, "  Context %d: container=%s, objects=%d, verbs=%d",
-			i+1, cnrStr, len(ctx.Objects()), len(ctx.Verbs()))
+		common.PrintVerbose(cmd, "  Context %d: container=%s, verbs=%d",
+			i+1, cnrStr, len(ctx.Verbs()))
 	}
 
 	if err := tokV2.Sign(signer); err != nil {
@@ -265,31 +263,6 @@ func parseContexts(cmd *cobra.Command) ([]session.Context, error) {
 		ctx, err := session.NewContext(cnrID, verbs)
 		if err != nil {
 			return nil, fmt.Errorf("can't create context #%d: %w", idx+1, err)
-		}
-
-		// Optional objects list
-		if len(parts) >= 3 {
-			objSpec := strings.TrimSpace(parts[2])
-			if objSpec != "" {
-				objStrs := strings.Split(objSpec, ",")
-				var objIDs []oid.ID
-				for _, objStr := range objStrs {
-					objStr = strings.TrimSpace(objStr)
-					if objStr == "" {
-						continue
-					}
-					var objID oid.ID
-					if err := objID.DecodeString(objStr); err != nil {
-						return nil, fmt.Errorf("invalid object ID %q in context #%d: %w", objStr, idx+1, err)
-					}
-					objIDs = append(objIDs, objID)
-				}
-				if len(objIDs) > 0 {
-					if err := ctx.SetObjects(objIDs); err != nil {
-						return nil, fmt.Errorf("can't set objects in context #%d: %w", idx+1, err)
-					}
-				}
-			}
 		}
 
 		contexts = append(contexts, ctx)

@@ -83,14 +83,6 @@ func _readVerifiedSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Priva
 		return err
 	}
 
-	common.PrintVerbose(cmd, "Checking V2 session correctness...")
-
-	if obj != nil {
-		if !tok.AssertObject(cmdVerb, cnr, *obj) {
-			return fmt.Errorf("v2 session token does not authorize access to object %s", obj)
-		}
-	}
-
 	common.PrintVerbose(cmd, "V2 session is correct.")
 
 	dst.WithinSessionV2(*tok)

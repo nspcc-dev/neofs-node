@@ -283,7 +283,7 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 	if path != "" {
 		tokV2, err := getSessionV2(cmd)
 		if err == nil && tokV2 != nil {
-			return finalizeSessionV2(cmd, dst, tokV2, key, cnr, objs...)
+			return finalizeSessionV2(cmd, dst, tokV2, key, cnr)
 		}
 
 		// Fall back to V1 token from file
@@ -419,12 +419,6 @@ func CreateSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, 
 	if err != nil {
 		return fmt.Errorf("create V2 session context: %w", err)
 	}
-	if len(objs) > 0 {
-		err = ctx2.SetObjects(objs)
-		if err != nil {
-			return fmt.Errorf("set V2 session objects: %w", err)
-		}
-	}
 	err = tok.SetContexts([]sessionv2.Context{ctx2})
 	if err != nil {
 		return fmt.Errorf("set V2 session contexts: %w", err)
@@ -445,7 +439,7 @@ func CreateSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, 
 }
 
 // finalizeSessionV2 validates and attaches V2 token to the request.
-func finalizeSessionV2(cmd *cobra.Command, dst SessionPrm, tok *sessionv2.Token, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
+func finalizeSessionV2(cmd *cobra.Command, dst SessionPrm, tok *sessionv2.Token, key *ecdsa.PrivateKey, cnr cid.ID) error {
 	common.PrintVerbose(cmd, "Finalizing V2 session token...")
 
 	if err := tok.Validate(); err != nil {
@@ -473,14 +467,6 @@ func finalizeSessionV2(cmd *cobra.Command, dst SessionPrm, tok *sessionv2.Token,
 
 	if !tok.AssertVerb(verb, cnr) {
 		return fmt.Errorf("v2 session token does not authorize verb for container %s", cnr)
-	}
-
-	if len(objs) > 0 {
-		for _, obj := range objs {
-			if !tok.AssertObject(verb, cnr, obj) {
-				return fmt.Errorf("v2 session token does not authorize access to object %s", obj)
-			}
-		}
 	}
 
 	common.PrintVerbose(cmd, "V2 session token successfully validated and attached to the request.")
