@@ -14,10 +14,9 @@ V2 tokens support:
 
 IMPORTANT: Contexts and verbs must be specified in sorted order for proper token validation.
 
-Context format: containerID:verbs[:objectID1,objectID2,...]
+Context format: containerID:verbs
 - containerID: Container ID or "0" for wildcard (any container)
 - verbs: Comma-separated list of operations (e.g., DELETE,GET,HEAD,PUT,SEARCH)
-- objectIDs: Optional comma-separated list of specific object IDs
 
 Example usage:
   neofs-cli session create-v2 \
@@ -27,7 +26,7 @@ Example usage:
     --json \
     --subject NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM \
 	--context 0:CONTAINERPUT \
-    --context 5HqniP5vq5xXr3FdijTSekrQJHu1WnADt2uLg7KSViZM:SEARCH:3JYV...obj1,3JYV...obj2
+    --context 5HqniP5vq5xXr3FdijTSekrQJHu1WnADt2uLg7KSViZM:SEARCH
 	--origin original-token.json
 
 Default lifetime of session token is 36000 seconds
@@ -42,7 +41,7 @@ neofs-cli session create-v2 [flags]
 
 ```
       --address string            Address of wallet account
-      --context stringArray       Context spec (repeatable): containerID:verbs[:objectID1,objectID2,...]. Use '0' for wildcard container. Contexts and verbs should be sorted.
+      --context stringArray       Context spec (repeatable): containerID:verbs. Use '0' for wildcard container. Contexts and verbs should be sorted.
   -e, --expire-at uint            Expiration time in seconds for token to stay valid
       --final                     Set the final flag in the token, disallowing further delegation
   -h, --help                      help for create-v2
