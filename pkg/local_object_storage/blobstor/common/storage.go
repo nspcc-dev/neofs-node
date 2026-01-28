@@ -29,6 +29,7 @@ type Storage interface {
 	GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error)
 	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
 	Head(oid.Address) (*object.Object, error)
+	HeadToBuffer(oid.Address, func() []byte) (int, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
 	PutBatch(map[oid.Address][]byte) error

@@ -2,6 +2,8 @@ package fstree_test
 
 import (
 	"testing"
+
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 func BenchmarkFSTree_HeadVsGet(b *testing.B) {
@@ -35,6 +37,20 @@ func runHeadVsGetBenchmark(b *testing.B, payloadSize int, compressed bool) {
 		b.ReportAllocs()
 		for b.Loop() {
 			_, err := fsTree.Head(addr)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("HeadToBuffer"+suffix, func(b *testing.B) {
+		buf := make([]byte, object.MaxHeaderLen*2)
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := fsTree.HeadToBuffer(addr, func() []byte {
+				return buf
+			})
 			if err != nil {
 				b.Fatal(err)
 			}

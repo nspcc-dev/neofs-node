@@ -40,6 +40,20 @@ func (c *cache) Head(addr oid.Address) (*object.Object, error) {
 	return obj, nil
 }
 
+// TODO: docs.
+// TODO: tests.
+func (c *cache) HeadToBuffer(addr oid.Address, getBuffer func() []byte) (int, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return 0, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+	n, err := c.fsTree.HeadToBuffer(addr, getBuffer)
+	if err != nil {
+		return 0, fmt.Errorf("read header from underlying FS tree: %w", err)
+	}
+
+	return n, nil
+}
+
 func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})

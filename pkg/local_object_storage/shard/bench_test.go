@@ -123,6 +123,7 @@ func BenchmarkHead(b *testing.B) {
 				b.Run(name, func(b *testing.B) {
 					ptt, objs := prepareObjects(b, creat, tc.objSize, nObjects)
 
+					b.ReportAllocs()
 					b.ResetTimer()
 					for n := range b.N {
 						var wg sync.WaitGroup
@@ -133,6 +134,46 @@ func BenchmarkHead(b *testing.B) {
 								defer wg.Done()
 
 								_, err := ptt.Head(objs[nObjects/tc.nThreads*ind+n%(nObjects/tc.nThreads)])
+								require.NoError(b, err)
+							}(i)
+						}
+
+						wg.Wait()
+					}
+				})
+			}
+		})
+	}
+}
+
+func BenchmarkFSTree_HeadToBuffer(b *testing.B) {
+	const nObjects = 10000
+
+	for _, tc := range tests {
+		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
+			for name, creat := range map[string]func(testing.TB) common.Storage{
+				"fstree": newTestFSTree,
+			} {
+				b.Run(name, func(b *testing.B) {
+					ptt, objs := prepareObjects(b, creat, tc.objSize, nObjects)
+
+					bufs := make([][]byte, tc.nThreads)
+					for i := range bufs {
+						bufs[i] = make([]byte, object.MaxHeaderLen*2)
+					}
+
+					b.ResetTimer()
+					for n := range b.N {
+						var wg sync.WaitGroup
+
+						for i := range tc.nThreads {
+							wg.Add(1)
+							go func(ind int) {
+								defer wg.Done()
+
+								_, err := ptt.HeadToBuffer(objs[nObjects/tc.nThreads*ind+n%(nObjects/tc.nThreads)], func() []byte {
+									return bufs[ind]
+								})
 								require.NoError(b, err)
 							}(i)
 						}

@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -141,11 +142,15 @@ func TestExecBlocks(t *testing.T) {
 	// try to exec some op
 	_, err := e.Head(addr, false)
 	require.ErrorIs(t, err, errBlock)
+	_, err = e.HeadToBuffer(addr, false, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
+	require.ErrorIs(t, err, errBlock)
 
 	// resume executions
 	require.NoError(t, e.ResumeExecution())
 
 	_, err = e.Head(addr, false) // can be any data-related op
+	require.NoError(t, err)
+	_, err = e.HeadToBuffer(addr, false, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
 	require.NoError(t, err)
 
 	// close
@@ -153,6 +158,8 @@ func TestExecBlocks(t *testing.T) {
 
 	// try exec after close
 	_, err = e.Head(addr, false)
+	require.Error(t, err)
+	_, err = e.HeadToBuffer(addr, false, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
 	require.Error(t, err)
 
 	// try to resume
