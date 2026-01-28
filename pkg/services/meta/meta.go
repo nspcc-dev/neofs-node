@@ -43,7 +43,7 @@ type NeoFSNetwork interface {
 	List(uint64) (map[cid.ID]struct{}, error)
 	// IsMineWithMeta checks if the given container has meta enabled and current
 	// node belongs to it.
-	IsMineWithMeta([]byte) (bool, error)
+	IsMineWithMeta(cid.ID, []byte) (bool, error)
 	// Head returns actual object header from the NeoFS network (non-local
 	// objects should also be returned). Missing, removed object statuses
 	// must be reported according to API statuses from SDK.
