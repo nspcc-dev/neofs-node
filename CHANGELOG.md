@@ -21,6 +21,8 @@ Changelog for NeoFS Node
 - CLI `set-attribute` and `remove-attribute commands to `container` section (#3733, #3784)
 - Size-split object is now available even when LINK is unavailable in EC container (#3754)
 - `neofs-adm balance container-status` command (#3693)
+- Container IDs to JSON output of ADM `fschain dump-containers` command (#3789)
+- Support for IDs from JSON to ADM `fschain restore-containers` command (#3789)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)

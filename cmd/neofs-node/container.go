@@ -260,7 +260,7 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 				continue
 			}
 
-			if !isContainerMine(cont, networkMap, c.binPublicKey) {
+			if !isContainerMine(cnr, cont, networkMap, c.binPublicKey) {
 				l.Debug("got usage data for alien container, can't report", zap.Stringer("cid", cnr))
 				continue
 			}

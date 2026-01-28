@@ -37,12 +37,16 @@ var getContainerInfoCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cnr, err := getContainer(ctx)
+		cnr, id, err := getContainer(ctx)
 		if err != nil {
 			return err
 		}
 
-		err = prettyPrintContainer(cmd, cnr, containerJSON)
+		if id.IsZero() {
+			id = cid.NewFromMarshalledContainer(cnr.Marshal())
+		}
+
+		err = prettyPrintContainer(cmd, id, cnr, containerJSON)
 		if err != nil {
 			return err
 		}
@@ -89,13 +93,12 @@ func (x *stringWriter) WriteString(s string) (n int, err error) {
 	return len(s), nil
 }
 
-func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncoding bool) error {
+func prettyPrintContainer(cmd *cobra.Command, id cid.ID, cnr container.Container, jsonEncoding bool) error {
 	if jsonEncoding {
 		common.PrettyPrintJSON(cmd, cnr, "container")
 		return nil
 	}
 
-	id := cid.NewFromMarshalledContainer(cnr.Marshal())
 	cmd.Println("container ID:", id)
 
 	cmd.Println("owner ID:", cnr.Owner())
@@ -150,33 +153,38 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
 	util.PrettyPrintTableBACL(cmd, &basicACL)
 }
 
-func getContainer(ctx context.Context) (container.Container, error) {
+func getContainer(ctx context.Context) (container.Container, cid.ID, error) {
 	var cnr container.Container
+	var id cid.ID
 	if containerPathFrom != "" {
 		data, err := os.ReadFile(containerPathFrom)
 		if err != nil {
-			return container.Container{}, fmt.Errorf("can't read file: %w", err)
+			return container.Container{}, cid.ID{}, fmt.Errorf("can't read file: %w", err)
 		}
 
 		err = cnr.Unmarshal(data)
 		if err != nil {
-			return container.Container{}, fmt.Errorf("can't unmarshal container: %w", err)
+			return container.Container{}, cid.ID{}, fmt.Errorf("can't unmarshal container: %w", err)
 		}
 	} else {
-		id, err := parseContainerID()
+		var err error
+		id, err = parseContainerID()
 		if err != nil {
-			return container.Container{}, err
+			return container.Container{}, cid.ID{}, err
+		}
+		if id.IsZero() {
+			return container.Container{}, cid.ID{}, cid.ErrZero
 		}
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
-			return container.Container{}, err
+			return container.Container{}, cid.ID{}, err
 		}
 		defer cli.Close()
 
 		cnr, err = cli.ContainerGet(ctx, id, client.PrmContainerGet{})
 		if err != nil {
-			return container.Container{}, fmt.Errorf("rpc error: %w", err)
+			return container.Container{}, cid.ID{}, fmt.Errorf("rpc error: %w", err)
 		}
 	}
-	return cnr, nil
+	return cnr, id, nil
 }

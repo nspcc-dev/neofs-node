@@ -83,7 +83,7 @@ func (t *testNetwork) Head(_ context.Context, cID cid.ID, oID oid.ID) (object.Ob
 	return t.resObjects[oid.NewAddress(cID, oID)], t.resErr
 }
 
-func (t *testNetwork) IsMineWithMeta(_ []byte) (bool, error) {
+func (t *testNetwork) IsMineWithMeta(_ cid.ID, _ []byte) (bool, error) {
 	return true, nil
 }
 

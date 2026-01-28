@@ -180,7 +180,7 @@ func (m *Meta) addContainerIfMine(l *zap.Logger, cID cid.ID) {
 		return
 	}
 
-	ok, err := m.net.IsMineWithMeta(cData)
+	ok, err := m.net.IsMineWithMeta(cID, cData)
 	if err != nil {
 		l.Error("failed to check container relation to node", zap.Stringer("cid", cID), zap.Error(err))
 		return

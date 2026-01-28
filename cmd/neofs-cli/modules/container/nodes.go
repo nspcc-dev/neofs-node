@@ -24,7 +24,7 @@ var containerNodesCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cnr, err := getContainer(ctx)
+		cnr, id, err := getContainer(ctx)
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,9 @@ var containerNodesCmd = &cobra.Command{
 			return fmt.Errorf("unable to get netmap snapshot: %w", err)
 		}
 
-		id := cid.NewFromMarshalledContainer(cnr.Marshal())
+		if id.IsZero() {
+			id = cid.NewFromMarshalledContainer(cnr.Marshal())
+		}
 
 		policy := cnr.PlacementPolicy()
 
