@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -72,27 +71,7 @@ var objectNodesCmd = &cobra.Command{
 
 		short, _ := cmd.Flags().GetBool(shortFlag)
 
-		repRuleNum := policy.NumberOfReplicas()
-		for i := range repRuleNum {
-			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
-			for j := range placementNodes[i] {
-				cmdprinter.PrettyPrintNodeInfo(cmd, placementNodes[i][j], j, "\t", short)
-			}
-		}
-
-		placementNodes = placementNodes[repRuleNum:]
-
-		ecRules := policy.ECRules()
-		for i := range ecRules {
-			cmd.Printf("EC descriptor #%d, EC %s:\n", i+1, iec.Rule{
-				DataPartNum:   uint8(ecRules[i].DataPartNum()),
-				ParityPartNum: uint8(ecRules[i].ParityPartNum()),
-			})
-			for j := range placementNodes[i] {
-				cmdprinter.PrettyPrintNodeInfo(cmd, placementNodes[i][j], j, "\t", short)
-			}
-		}
-
+		cmdprinter.PrettyPrintPlacementPolicyNodes(cmd, placementNodes, policy, short)
 		return nil
 	},
 }

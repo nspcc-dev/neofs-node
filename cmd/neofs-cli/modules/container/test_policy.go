@@ -6,10 +6,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +65,7 @@ Shows nodes that will be used for container placement based on current network m
 			}
 		}
 
-		printPolicyNodes(cmd, placementNodes, *placementPolicy, short)
+		cmdprinter.PrettyPrintPlacementPolicyNodes(cmd, placementNodes, *placementPolicy, short)
 		return nil
 	},
 }
@@ -79,26 +77,4 @@ func initTestPolicyCmd() {
 	flags.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
 	flags.BoolVar(&short, "short", false, "Shortens output of node info")
-}
-
-func printPolicyNodes(cmd *cobra.Command, policyNodes [][]netmap.NodeInfo, policy netmap.PlacementPolicy, short bool) {
-	repRuleNum := policy.NumberOfReplicas()
-	for i := range repRuleNum {
-		cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
-		for j := range policyNodes[i] {
-			cmdprinter.PrettyPrintNodeInfo(cmd, policyNodes[i][j], j, "\t", short)
-		}
-	}
-
-	policyNodes = policyNodes[repRuleNum:]
-	ecRules := policy.ECRules()
-	for i := range ecRules {
-		cmd.Printf("EC descriptor #%d, EC %s:\n", i+1, iec.Rule{
-			DataPartNum:   uint8(ecRules[i].DataPartNum()),
-			ParityPartNum: uint8(ecRules[i].ParityPartNum()),
-		})
-		for j := range policyNodes[i] {
-			cmdprinter.PrettyPrintNodeInfo(cmd, policyNodes[i][j], j, "\t", short)
-		}
-	}
 }
