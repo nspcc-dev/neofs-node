@@ -105,6 +105,8 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 			cnt.EACL = ea
 		}
 
+		cnt.ID = id.String()
+
 		containers = append(containers, cnt)
 	}
 
@@ -234,6 +236,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 
 // Container represents container struct in contract storage.
 type Container struct {
+	ID        string `json:"id"`
 	Value     []byte `json:"value"`
 	Signature []byte `json:"signature"`
 	PublicKey []byte `json:"public_key"`
