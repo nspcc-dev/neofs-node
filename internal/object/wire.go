@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -19,6 +20,35 @@ const (
 	fieldObjectSignature
 	fieldObjectHeader
 	fieldObjectPayload
+)
+
+// Protobuf field numbers for header message.
+const (
+	_ = iota
+	/* fieldHeaderVersion */ _
+	/* fieldHeaderContainerID */ _
+	/* fieldHeaderOwnerID */ _
+	/* fieldHeaderCreationEpoch */ _
+	/* fieldHeaderPayloadLength */ _
+	/* fieldHeaderPayloadHash */ _
+	/* fieldHeaderType */ _
+	/* fieldHeaderHomoHash */ _
+	/* fieldHeaderSessionToken */ _
+	/* fieldHeaderAttributes */ _
+	fieldHeaderSplit
+	/* fieldHeaderSessionTokenV2 */ _
+)
+
+// Protobuf field numbers for split header message.
+const (
+	_ = iota
+	fieldHeaderSplitParent
+	fieldHeaderSplitPrevious
+	fieldHeaderSplitParentSignature
+	fieldHeaderSplitParentHeader
+	/* fieldHeaderSplitChildren */ _
+	/* fieldHeaderSplitSplitID */ _
+	/* fieldHeaderSplitFirst */ _
 )
 
 // WriteWithoutPayload writes the object header to the given writer without the payload.
@@ -107,4 +137,107 @@ func ReadHeaderPrefix(r io.Reader) (*object.Object, []byte, error) {
 		return nil, nil, err
 	}
 	return ExtractHeaderAndPayload(buf[:n])
+}
+
+// TODO: docs.
+func RestoreParentHeaderLayout(b []byte) (idf, sigf, hdrf iprotobuf.FieldBounds, err error) {
+	rootHdrf, err := iprotobuf.SeekBytesField(b, fieldObjectHeader)
+	if err != nil {
+		err = iprotobuf.WrapSeekFieldError(fieldObjectHeader, protowire.BytesType, err)
+		return
+	}
+
+	idf.From = -1
+	sigf.From = -1
+	hdrf.From = -1
+
+	if rootHdrf.From < 0 {
+		return
+	}
+
+	splitf, err := iprotobuf.SeekBytesField(b[rootHdrf.ValueFrom:rootHdrf.To], fieldHeaderSplit)
+	if err != nil {
+		err = iprotobuf.WrapSeekFieldError(fieldHeaderSplit, protowire.BytesType, err)
+		return
+	}
+
+	if splitf.From < 0 {
+		return
+	}
+
+	b = b[:rootHdrf.ValueFrom+splitf.To]
+	off := rootHdrf.ValueFrom + splitf.ValueFrom
+	var prevNum protowire.Number
+loop:
+	for {
+		num, typ, tagLn := protowire.ConsumeTag(b[off:])
+		if err = protowire.ParseError(tagLn); err != nil {
+			err = iprotobuf.WrapParseFieldTagError(err)
+			return
+		}
+
+		if num < prevNum {
+			err = iprotobuf.NewUnorderedFieldsError(prevNum, num)
+			return
+		}
+		prevNum = num
+
+		switch num {
+		case fieldHeaderSplitParent:
+			if typ != protowire.BytesType {
+				err = iprotobuf.WrapParseFieldError(fieldHeaderSplitParent, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+				return
+			}
+
+			idf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				err = iprotobuf.WrapParseFieldError(fieldHeaderSplitParent, protowire.BytesType, err)
+				return
+			}
+
+			off = idf.To
+		case fieldHeaderSplitPrevious:
+			ln := protowire.ConsumeFieldValue(num, typ, b[off+tagLn:])
+			if err = protowire.ParseError(ln); err != nil {
+				err = iprotobuf.WrapParseFieldError(fieldHeaderSplitPrevious, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+				return
+			}
+
+			off += tagLn + ln
+		case fieldHeaderSplitParentSignature:
+			if typ != protowire.BytesType {
+				err = iprotobuf.WrapParseFieldError(fieldHeaderSplitParentSignature, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+				return
+			}
+
+			sigf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				err = iprotobuf.WrapParseFieldError(fieldHeaderSplitParentSignature, protowire.BytesType, err)
+				return
+			}
+
+			off = sigf.To
+		case fieldHeaderSplitParentHeader:
+			if typ != protowire.BytesType {
+				err = iprotobuf.WrapParseFieldError(fieldHeaderSplitParentHeader, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+				return
+			}
+
+			hdrf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				err = iprotobuf.WrapParseFieldError(fieldHeaderSplitParentHeader, protowire.BytesType, err)
+				return
+			}
+
+			break loop
+		default:
+			break loop
+		}
+
+		if off == len(b) {
+			break
+		}
+	}
+
+	return
 }

@@ -311,6 +311,7 @@ func testLockRemoved(t *testing.T, shardNum int) {
 			lockErr := s.Put(lockObj, nil)
 			locked, lockedErr := s.IsLocked(objAddr)
 			_, lockHeadErr := s.Head(lockAddr, false)
+			_, lockHeadToBufferErr := s.HeadToBuffer(lockAddr, false, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
 			_, lockGetErr := s.Get(lockAddr)
 
 			if tc.assertLockErr != nil {
@@ -319,6 +320,7 @@ func testLockRemoved(t *testing.T, shardNum int) {
 				require.NoError(t, lockedErr)
 				require.False(t, locked)
 				require.ErrorIs(t, lockHeadErr, apistatus.ErrObjectNotFound)
+				require.ErrorIs(t, lockHeadToBufferErr, apistatus.ErrObjectNotFound)
 				require.ErrorIs(t, lockGetErr, apistatus.ErrObjectNotFound)
 			} else {
 				require.NoError(t, lockErr)
@@ -326,6 +328,7 @@ func testLockRemoved(t *testing.T, shardNum int) {
 				require.NoError(t, lockedErr)
 				require.True(t, locked)
 				require.NoError(t, lockHeadErr)
+				require.NoError(t, lockHeadToBufferErr)
 				require.NoError(t, lockGetErr)
 			}
 		})
