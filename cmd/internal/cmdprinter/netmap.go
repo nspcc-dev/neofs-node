@@ -3,6 +3,7 @@ package cmdprinter
 import (
 	"encoding/hex"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
@@ -45,5 +46,28 @@ func PrettyPrintNetMap(cmd *cobra.Command, nm netmap.NetMap) {
 	nodes := nm.Nodes()
 	for i := range nodes {
 		PrettyPrintNodeInfo(cmd, nodes[i], i, "", false)
+	}
+}
+
+// PrettyPrintPlacementPolicyNodes print information about placement policy nodes.
+func PrettyPrintPlacementPolicyNodes(cmd *cobra.Command, policyNodes [][]netmap.NodeInfo, policy netmap.PlacementPolicy, short bool) {
+	repRuleNum := policy.NumberOfReplicas()
+	for i := range repRuleNum {
+		cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
+		for j := range policyNodes[i] {
+			PrettyPrintNodeInfo(cmd, policyNodes[i][j], j, "\t", short)
+		}
+	}
+
+	policyNodes = policyNodes[repRuleNum:]
+	ecRules := policy.ECRules()
+	for i := range ecRules {
+		cmd.Printf("EC descriptor #%d, EC %s:\n", i+1, iec.Rule{
+			DataPartNum:   uint8(ecRules[i].DataPartNum()), // FIXME: do not cast to smaller integer
+			ParityPartNum: uint8(ecRules[i].ParityPartNum()),
+		})
+		for j := range policyNodes[i] {
+			PrettyPrintNodeInfo(cmd, policyNodes[i][j], j, "\t", short)
+		}
 	}
 }
