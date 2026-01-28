@@ -32,4 +32,5 @@ Operations with containers
 * [neofs-cli container remove-attribute](neofs-cli_container_remove-attribute.md)	 - Remove container attribute
 * [neofs-cli container set-attribute](neofs-cli_container_set-attribute.md)	 - Set attribute for container
 * [neofs-cli container set-eacl](neofs-cli_container_set-eacl.md)	 - Set new extended ACL table for container
+* [neofs-cli container test-policy](neofs-cli_container_test-policy.md)	 - Test placement policy
 

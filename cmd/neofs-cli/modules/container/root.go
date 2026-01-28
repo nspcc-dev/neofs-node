@@ -33,6 +33,7 @@ func init() {
 	}
 
 	Cmd.AddCommand(containerChildCommand...)
+	Cmd.AddCommand(testPolicyCmd)
 
 	initContainerListContainersCmd()
 	initContainerCreateCmd()
@@ -44,6 +45,7 @@ func init() {
 	initContainerNodesCmd()
 	initSetAttributeCmd()
 	initRemoveAttributeCmd()
+	initTestPolicyCmd()
 
 	for _, containerCommand := range containerChildCommand {
 		commonflags.InitAPI(containerCommand)
