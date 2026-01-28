@@ -10,6 +10,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -25,6 +26,36 @@ func (t *FSTree) Head(addr oid.Address) (*object.Object, error) {
 	_ = reader.Close()
 
 	return obj, nil
+}
+
+func (t *FSTree) HeadBuffered(buf []byte, addr oid.Address) (int, error) {
+	// copied from getObjectStream
+	p := t.treePath(addr)
+
+	f, err := os.Open(p)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		}
+		return 0, fmt.Errorf("read file %q: %w", p, err)
+	}
+	// =============
+	defer f.Close()
+
+	n, err := io.ReadFull(f, buf[:object.MaxHeaderLen])
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
+		}
+		return 0, err
+	}
+
+	thisOID, _ := parseCombinedPrefix(buf[:n])
+	if thisOID == nil {
+		return iprotobuf.SeekFieldByNumber(buf[:n], 4)
+	}
+
+	panic("unimplemented Head from combined file")
 }
 
 // getObjectStream reads an object from the storage by address as a stream.

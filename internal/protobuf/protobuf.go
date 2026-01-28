@@ -1,6 +1,7 @@
 package protobuf
 
 import (
+	"errors"
 	"fmt"
 
 	"google.golang.org/protobuf/encoding/protowire"
@@ -29,4 +30,31 @@ func GetFirstBytesField(b []byte) ([]byte, error) {
 	}
 
 	return b, nil
+}
+
+func SeekFieldByNumber(b []byte, num protowire.Number) (int, error) {
+	var off int
+	for {
+		if len(b) == 0 {
+			return 0, errors.New("field not found")
+		}
+
+		nextNum, typ, n := protowire.ConsumeTag(b[off:])
+		if n < 0 {
+			return 0, fmt.Errorf("parse field tag: %w", protowire.ParseError(n))
+		}
+
+		if nextNum == num {
+			return off, nil
+		}
+
+		off += n
+
+		n = protowire.ConsumeFieldValue(nextNum, typ, b[off:])
+		if n < 0 {
+			return 0, fmt.Errorf("invalid field num=%v,type=%v: %w", nextNum, typ, protowire.ParseError(n))
+		}
+
+		off += n
+	}
 }

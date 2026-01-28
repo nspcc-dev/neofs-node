@@ -57,6 +57,9 @@ type execCtx struct {
 
 	nodeLists [][]netmap.NodeInfo
 	repRules  []uint
+
+	headerBuffer []byte
+	headerRead   int
 }
 
 type execOption func(*execCtx)

@@ -70,3 +70,21 @@ func replicationResultFromResponse(m *protoobject.ReplicateResponse) ([]byte, er
 
 	return m.GetObjectSignature(), nil
 }
+
+type protoCodecCustomBuffers struct{}
+
+func (protoCodecCustomBuffers) Marshal(msg any) (mem.BufferSlice, error) {
+	if bs, ok := msg.(mem.BufferSlice); ok {
+		return bs, nil
+	}
+	return encoding.GetCodecV2(proto.Name).Marshal(msg)
+}
+
+func (protoCodecCustomBuffers) Unmarshal(data mem.BufferSlice, msg any) error {
+	return encoding.GetCodecV2(proto.Name).Unmarshal(data, msg)
+}
+
+func (protoCodecCustomBuffers) Name() string {
+	// may be any non-empty, conflicts are unlikely to arise
+	return "neofs_custom_buffers"
+}

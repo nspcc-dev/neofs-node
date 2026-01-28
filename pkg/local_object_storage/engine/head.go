@@ -77,3 +77,59 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*object.Object, error)
 
 	return nil, apistatus.ObjectNotFound{}
 }
+
+func (e *StorageEngine) HeadBuffered(buf []byte, addr oid.Address, raw bool) (int, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddHeadDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return 0, e.blockErr
+	}
+
+	var splitInfo *object.SplitInfo
+
+	for _, sh := range e.sortedShards(addr) {
+		res, err := sh.HeadBuffered(buf, addr, raw)
+		if err != nil {
+			var siErr *object.SplitInfoError
+
+			switch {
+			case shard.IsErrNotFound(err):
+				continue // ignore, go to next shard
+			case errors.As(err, &siErr):
+				if splitInfo == nil {
+					splitInfo = object.NewSplitInfo()
+				}
+
+				util.MergeSplitInfo(siErr.SplitInfo(), splitInfo)
+
+				// stop iterating over shards if SplitInfo structure is complete
+				if !splitInfo.GetLink().IsZero() && !splitInfo.GetLastPart().IsZero() {
+					return 0, logicerr.Wrap(object.NewSplitInfoError(splitInfo))
+				}
+				continue
+			case shard.IsErrRemoved(err):
+				return 0, err // stop, return it back
+			case shard.IsErrObjectExpired(err):
+				// object is found but should not
+				// be returned
+				return 0, apistatus.ObjectNotFound{}
+			default:
+				e.reportShardError(sh, "could not head object from shard", err, zap.Stringer("addr", addr))
+				continue
+			}
+		}
+
+		return res, nil
+	}
+
+	if splitInfo != nil {
+		return 0, logicerr.Wrap(object.NewSplitInfoError(splitInfo))
+	}
+
+	return 0, apistatus.ObjectNotFound{}
+}

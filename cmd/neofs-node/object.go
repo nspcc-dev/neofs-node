@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -52,6 +53,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type objectSvc struct {
@@ -79,8 +81,8 @@ func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
 	return s.put.Put(ctx)
 }
 
-func (s *objectSvc) Head(ctx context.Context, prm getsvc.HeadPrm) error {
-	return s.get.Head(ctx, prm)
+func (s *objectSvc) HeadBuffered(ctx context.Context, buf []byte, prm getsvc.HeadPrm) (int, error) {
+	return s.get.HeadBuffered(ctx, buf, prm)
 }
 
 func (s *objectSvc) Search(ctx context.Context, prm searchsvc.Prm) error {
@@ -315,8 +317,25 @@ func initObjectService(c *cfg) {
 	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 	os.server = server
 
+	svcDesc := protoobject.ObjectService_ServiceDesc
+	svcDesc.Methods = slices.Clone(protoobject.ObjectService_ServiceDesc.Methods)
+
+	const headMethod = "Head"
+	headInd := slices.IndexFunc(svcDesc.Methods, func(md grpc.MethodDesc) bool { return md.MethodName == headMethod })
+	if headInd < 0 {
+		fatalOnErr(fmt.Errorf("missing %s method handler in object service desc", headMethod))
+	}
+
+	svcDesc.Methods[headInd].Handler = func(_ any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
+		req := new(protoobject.HeadRequest)
+		if err := dec(req); err != nil {
+			return nil, err
+		}
+		return server.HeadBuffered(ctx, req)
+	}
+
 	for _, srv := range c.cfgGRPC.servers {
-		protoobject.RegisterObjectServiceServer(srv, server)
+		srv.RegisterService(&svcDesc, server)
 	}
 }
 

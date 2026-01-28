@@ -279,12 +279,14 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser, error) {
 	if exec.headOnly() {
-		r, err := e.engine.Head(exec.address(), exec.isRaw())
+		n, err := e.engine.HeadBuffered(exec.headerBuffer, exec.address(), exec.isRaw())
 		if err != nil {
 			return nil, nil, err
 		}
 
-		return r, nil, nil
+		exec.headerRead = n
+
+		return nil, nil, nil
 	}
 
 	if rng := exec.ctxRange(); rng != nil {

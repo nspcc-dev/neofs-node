@@ -274,6 +274,28 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		ecRules, ecNodeLists)
 }
 
+func (s *Service) HeadBuffered(ctx context.Context, buf []byte, prm HeadPrm) (int, error) {
+	exec := &execCtx{
+		svc: s,
+		ctx: ctx,
+		prm: RangePrm{
+			commonPrm: prm.commonPrm,
+		},
+		infoSplit:    object.NewSplitInfo(),
+		headerBuffer: buf,
+	}
+
+	headOnly()(exec)
+
+	if exec.log == nil {
+		exec.setLogger(s.log)
+	}
+
+	exec.execute() //nolint:contextcheck // It is in fact passed via execCtx
+
+	return exec.headerRead, exec.err
+}
+
 func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) statusError {
 	exec := &execCtx{
 		svc: s,

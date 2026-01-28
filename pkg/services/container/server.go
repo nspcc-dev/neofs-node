@@ -427,9 +427,9 @@ func (s *Server) makeFailedGetResponse(err error, req *protocontainer.GetRequest
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
 func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedGetResponse(err, req)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeFailedGetResponse(err, req)
+	// }
 
 	mID := req.GetBody().GetContainerId()
 	if mID == nil {

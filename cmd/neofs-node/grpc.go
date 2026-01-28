@@ -61,6 +61,7 @@ func initGRPC(c *cfg) {
 				MinTime:             5 * time.Second, // w/o this server sends GoAway with ENHANCE_YOUR_CALM code "too_many_pings"
 				PermitWithoutStream: true,
 			}),
+			grpc.ForceServerCodecV2(protoCodecCustomBuffers{}),
 		}
 		if maxRecvMsgSizeOpt != nil {
 			// TODO(@cthulhu-rider): the setting can be server-global only now, support

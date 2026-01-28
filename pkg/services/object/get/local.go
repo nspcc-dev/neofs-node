@@ -30,6 +30,11 @@ func (exec *execCtx) executeLocal() {
 	case err == nil:
 		exec.status = statusOK
 		exec.err = nil
+
+		if exec.headOnly() {
+			break
+		}
+
 		exec.writeCollectedObject()
 	case errors.Is(err, apistatus.Error):
 		if errors.Is(err, apistatus.ErrObjectNotFound) {

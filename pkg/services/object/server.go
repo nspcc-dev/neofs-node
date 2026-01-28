@@ -48,6 +48,9 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding"
+	"google.golang.org/grpc/encoding/proto"
+	"google.golang.org/grpc/mem"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -55,7 +58,7 @@ import (
 type Handlers interface {
 	Get(context.Context, getsvc.Prm) error
 	Put(context.Context) (*putsvc.Streamer, error)
-	Head(context.Context, getsvc.HeadPrm) error
+	HeadBuffered(context.Context, []byte, getsvc.HeadPrm) (int, error)
 	Search(context.Context, searchsvc.Prm) error
 	Delete(context.Context, deletesvc.Prm) error
 	GetRange(context.Context, getsvc.RangePrm) error
@@ -570,14 +573,19 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	return s.signDeleteResponse(&protoobject.DeleteResponse{Body: &rb}, err, req), nil
 }
 
-func (s *Server) signHeadResponse(resp *protoobject.HeadResponse, sign bool) *protoobject.HeadResponse {
+func (s *Server) signHeadResponse(resp *protoobject.HeadResponse, sign bool) mem.BufferSlice {
 	if sign {
 		resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	}
-	return resp
+	// temp solution
+	bs, err := encoding.GetCodecV2(proto.Name).Marshal(resp)
+	if err != nil {
+		panic(err)
+	}
+	return bs
 }
 
-func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadResponse {
+func (s *Server) makeStatusHeadResponse(err error, sign bool) mem.BufferSlice {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.signHeadResponse(&protoobject.HeadResponse{
@@ -593,7 +601,11 @@ func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadR
 	}, sign)
 }
 
-func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+func (s *Server) Head(context.Context, *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+	panic("must not be called")
+}
+
+func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest) (mem.BufferSlice, error) {
 	var (
 		err         error
 		recheckEACL bool
@@ -633,8 +645,7 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		recheckEACL = true
 	}
 
-	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, req, &resp)
+	p, err := convertHeadPrm(s.signer, req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -643,20 +654,28 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		}
 		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
-	err = s.handlers.Head(ctx, p)
+
+	respBuffer, hdrBuf := getHeadResponseBuffer()
+
+	hdrLen, err := s.handlers.HeadBuffered(ctx, hdrBuf, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
-	if recheckEACL { // previous check didn't match, but we have a header now.
-		err = s.aclChecker.CheckEACL(&resp, reqInfo)
-		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-			err = eACLErr(reqInfo, err) // defer
-			return s.makeStatusHeadResponse(err, needSignResp), nil
-		}
+	if err := respBuffer.finalize(hdrLen); err != nil {
+		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
 
-	return s.signHeadResponse(&resp, needSignResp), nil
+	if recheckEACL { // previous check didn't match, but we have a header now.
+		// TODO: can be done without structure, but pretty challenging
+		// err = s.aclChecker.CheckEACL(&resp, reqInfo)
+		// if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+		// 	err = eACLErr(reqInfo, err) // defer
+		// 	return s.makeStatusHeadResponse(err, needSignResp), nil
+		// }
+	}
+
+	return mem.BufferSlice{respBuffer}, nil
 }
 
 type headResponse struct {
@@ -678,7 +697,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -699,9 +718,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
 	p.WithRawFlag(body.Raw)
-	p.SetHeaderWriter(&headResponse{
-		dst: resp,
-	})
 	if cp.LocalOnly() {
 		return p, nil
 	}
