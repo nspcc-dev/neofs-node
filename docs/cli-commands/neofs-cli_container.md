@@ -29,6 +29,7 @@ Operations with containers
 * [neofs-cli container list](neofs-cli_container_list.md)	 - List all created containers
 * [neofs-cli container list-objects](neofs-cli_container_list-objects.md)	 - List existing objects in container
 * [neofs-cli container nodes](neofs-cli_container_nodes.md)	 - Show nodes for container
+* [neofs-cli container policy](neofs-cli_container_policy.md)	 - Operations with container placement policy
 * [neofs-cli container remove-attribute](neofs-cli_container_remove-attribute.md)	 - Remove container attribute
 * [neofs-cli container set-attribute](neofs-cli_container_set-attribute.md)	 - Set attribute for container
 * [neofs-cli container set-eacl](neofs-cli_container_set-eacl.md)	 - Set new extended ACL table for container
