@@ -34,6 +34,7 @@ Changelog for NeoFS Node
 - SN no longer counts removed parent objects as physical ones in metrics (#3717)
 - SN updates internal cache (if any) after attribute changes immediately (#3780)
 - Error handling in `removeNode` notary request (#3786)
+- SN RANGE continuation in EC multi-rule case (#3662)
 
 ### Changed
 - Optimized locking info in metabase (#3672)
