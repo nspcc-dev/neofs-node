@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -49,7 +50,7 @@ func (exec *execCtx) executeLocal() {
 }
 
 func (s *Service) copyLocalObjectHeader(dst internal.HeaderWriter, cnr cid.ID, id oid.ID, raw bool) error {
-	hdr, err := s.localObjects.Head(oid.NewAddress(cnr, id), raw)
+	hdr, err := s.getLocalObjectHeader(oid.NewAddress(cnr, id), raw)
 	if err != nil {
 		return fmt.Errorf("get object header from local storage: %w", err)
 	}
@@ -59,4 +60,34 @@ func (s *Service) copyLocalObjectHeader(dst internal.HeaderWriter, cnr cid.ID, i
 	}
 
 	return nil
+}
+
+func (s *Service) getLocalObjectHeader(addr oid.Address, raw bool) (*object.Object, error) {
+	var buf []byte
+
+	n, err := s.localStorage.(*storageEngineWrapper).engine.HeadToBuffer(addr, raw, func() []byte {
+		if buf == nil {
+			buf = make([]byte, object.MaxHeaderLen*2)
+		}
+		return buf
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pldOff, err := iobject.SeekPayloadField(buf[:n])
+	if err != nil {
+		return nil, err
+	}
+
+	if pldOff >= 0 {
+		n = pldOff
+	}
+
+	var obj object.Object
+	if err := obj.Unmarshal(buf[:n]); err != nil {
+		return nil, err
+	}
+
+	return &obj, nil
 }

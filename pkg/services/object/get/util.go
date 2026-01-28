@@ -279,7 +279,7 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser, error) {
 	if exec.headOnly() {
-		r, err := e.engine.Head(exec.address(), exec.isRaw())
+		r, err := exec.svc.getLocalObjectHeader(exec.address(), exec.isRaw())
 		if err != nil {
 			return nil, nil, err
 		}
