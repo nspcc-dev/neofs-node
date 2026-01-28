@@ -6,10 +6,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
 
@@ -74,7 +72,7 @@ only a subset must be chosen, results may differ from a real container.`,
 			}
 		}
 
-		printPolicyNodes(cmd, placementNodes, *placementPolicy, short)
+		cmdprinter.PrettyPrintPlacementPolicyNodes(cmd, placementNodes, *placementPolicy, short)
 		return nil
 	},
 }
@@ -89,26 +87,4 @@ func initCheckCmd() {
 
 	_ = checkCmd.MarkFlagRequired(commonflags.RPC)
 	_ = checkCmd.MarkFlagRequired("policy")
-}
-
-func printPolicyNodes(cmd *cobra.Command, policyNodes [][]netmap.NodeInfo, policy netmap.PlacementPolicy, short bool) {
-	repRuleNum := policy.NumberOfReplicas()
-	for i := range repRuleNum {
-		cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
-		for j := range policyNodes[i] {
-			cmdprinter.PrettyPrintNodeInfo(cmd, policyNodes[i][j], j, "\t", short)
-		}
-	}
-
-	policyNodes = policyNodes[repRuleNum:]
-	ecRules := policy.ECRules()
-	for i := range ecRules {
-		cmd.Printf("EC descriptor #%d, EC %s:\n", i+1, iec.Rule{
-			DataPartNum:   uint8(ecRules[i].DataPartNum()),
-			ParityPartNum: uint8(ecRules[i].ParityPartNum()),
-		})
-		for j := range policyNodes[i] {
-			cmdprinter.PrettyPrintNodeInfo(cmd, policyNodes[i][j], j, "\t", short)
-		}
-	}
 }
