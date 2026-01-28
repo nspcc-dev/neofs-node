@@ -2,6 +2,7 @@ package container
 
 import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/container/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +34,7 @@ func init() {
 	}
 
 	Cmd.AddCommand(containerChildCommand...)
+	Cmd.AddCommand(policy.Cmd)
 
 	initContainerListContainersCmd()
 	initContainerCreateCmd()
