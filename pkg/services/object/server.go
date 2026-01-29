@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -638,8 +639,7 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		recheckEACL = true
 	}
 
-	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, req, &resp)
+	p, err := convertHeadPrm(s.signer, req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -648,9 +648,37 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		}
 		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
+
+	var resp protoobject.HeadResponse
+
+	respDst := &headResponse{
+		dst: &resp,
+	}
+	p.SetHeaderWriter(respDst)
+
+	var hdrBuf []byte
+	hdrLen := -1 // to panic below if it is not updated along with hdrBuf
+	p.WithBuffersFuncs(func() []byte {
+		if hdrBuf == nil {
+			hdrBuf = make([]byte, object.MaxHeaderLen*2)
+		}
+		return hdrBuf
+	}, func(ln int) {
+		hdrLen = ln
+	})
+
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp), nil
+	}
+
+	if hdrBuf != nil {
+		hdr, _, err := iobject.ExtractHeaderAndPayload(hdrBuf[:hdrLen])
+		if err != nil {
+			return nil, fmt.Errorf("extract header from received binary: %w", err)
+		}
+
+		respDst.WriteHeader(hdr)
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.
@@ -682,8 +710,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 }
 
 // converts original request into parameters accepted by the internal handler.
-// Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -704,9 +731,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
 	p.WithRawFlag(body.Raw)
-	p.SetHeaderWriter(&headResponse{
-		dst: resp,
-	})
 	if cp.LocalOnly() {
 		return p, nil
 	}
