@@ -217,3 +217,76 @@ loop:
 
 	return idf, sigf, hdrf, nil
 }
+
+// TODO: docs.
+func RestoreLayoutWithCutPayload(b []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
+	var err error
+	var idf, sigf, hdrf iprotobuf.FieldBounds
+	var off int
+	var prevNum protowire.Number
+loop:
+	for {
+		num, typ, tagLn := protowire.ConsumeTag(b[off:])
+		if err = protowire.ParseError(tagLn); err != nil {
+			return idf, sigf, hdrf, iprotobuf.WrapParseFieldTagError(err)
+		}
+
+		if num < prevNum {
+			return idf, sigf, hdrf, iprotobuf.NewUnorderedFieldsError(prevNum, num)
+		}
+		if num == prevNum {
+			return idf, sigf, hdrf, iprotobuf.NewRepeatedFieldError(num)
+		}
+		prevNum = num
+
+		switch num {
+		case fieldObjectID:
+			if typ != protowire.BytesType {
+				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectID, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+			}
+
+			idf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectID, protowire.BytesType, err)
+			}
+
+			off = idf.To
+		case fieldObjectSignature:
+			if typ != protowire.BytesType {
+				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectSignature, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+			}
+
+			sigf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectSignature, protowire.BytesType, err)
+			}
+
+			off = sigf.To
+		case fieldObjectHeader:
+			if typ != protowire.BytesType {
+				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectHeader, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+			}
+
+			hdrf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectHeader, protowire.BytesType, err)
+			}
+
+			break loop
+		case fieldObjectPayload:
+			if _, n := protowire.ConsumeVarint(b[off+tagLn:]); n < 0 {
+				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectPayload, protowire.BytesType, protowire.ParseError(n))
+			}
+
+			break loop
+		default:
+			break loop
+		}
+
+		if off == len(b) {
+			break
+		}
+	}
+
+	return idf, sigf, hdrf, nil
+}

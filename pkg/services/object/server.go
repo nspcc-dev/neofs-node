@@ -50,6 +50,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -673,12 +674,44 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	}
 
 	if hdrBuf != nil {
-		hdr, _, err := iobject.ExtractHeaderAndPayload(hdrBuf[:hdrLen])
+		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(hdrBuf[:hdrLen])
 		if err != nil {
-			return nil, fmt.Errorf("extract header from received binary: %w", err)
+			return nil, fmt.Errorf("restore layout from received binary: %w", err)
 		}
 
-		respDst.WriteHeader(hdr)
+		if !idf.IsMissing() {
+			m := new(refs.ObjectID)
+			if err := proto.Unmarshal(hdrBuf[idf.ValueFrom:idf.To], m); err != nil {
+				return nil, fmt.Errorf("unmarshal ID from received binary: %w", err)
+			}
+			if err := new(oid.ID).FromProtoMessage(m); err != nil {
+				return nil, fmt.Errorf("invalid ID in received binary: %w", err)
+			}
+		}
+
+		var sig *refs.Signature
+		if !sigf.IsMissing() {
+			sig = new(refs.Signature)
+			if err := proto.Unmarshal(hdrBuf[sigf.ValueFrom:sigf.To], sig); err != nil {
+				return nil, fmt.Errorf("unmarshal signature from received binary: %w", err)
+			}
+			if err := new(neofscrypto.Signature).FromProtoMessage(sig); err != nil {
+				return nil, fmt.Errorf("invalid signature in received binary: %w", err)
+			}
+		}
+
+		var hdr *protoobject.Header
+		if !hdrf.IsMissing() {
+			hdr = new(protoobject.Header)
+			if err := proto.Unmarshal(hdrBuf[hdrf.ValueFrom:hdrf.To], hdr); err != nil {
+				return nil, fmt.Errorf("unmarshal header from received binary: %w", err)
+			}
+			if err := new(object.Object).FromProtoMessage(&protoobject.Object{Header: hdr}); err != nil {
+				return nil, fmt.Errorf("invalid header in received binary: %w", err)
+			}
+		}
+
+		fillHeadResponse(&resp, hdr, sig)
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.
@@ -698,15 +731,19 @@ type headResponse struct {
 
 func (x *headResponse) WriteHeader(hdr *object.Object) error {
 	mo := hdr.ProtoMessage()
-	x.dst.Body = &protoobject.HeadResponse_Body{
+	fillHeadResponse(x.dst, mo.GetHeader(), mo.GetSignature())
+	return nil
+}
+
+func fillHeadResponse(resp *protoobject.HeadResponse, hdr *protoobject.Header, sig *refs.Signature) {
+	resp.Body = &protoobject.HeadResponse_Body{
 		Head: &protoobject.HeadResponse_Body_Header{
 			Header: &protoobject.HeaderWithSignature{
-				Header:    mo.GetHeader(),
-				Signature: mo.GetSignature(),
+				Header:    hdr,
+				Signature: sig,
 			},
 		},
 	}
-	return nil
 }
 
 // converts original request into parameters accepted by the internal handler.
