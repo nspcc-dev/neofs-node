@@ -124,7 +124,7 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		if tokAny != nil {
 			switch tok := tokAny.(type) {
 			case *sessionv2.Token:
-				cnr.SetOwner(tok.Issuer())
+				cnr.SetOwner(tok.OriginalIssuer())
 			case *session.Container:
 				cnr.SetOwner(tok.Issuer())
 			default:

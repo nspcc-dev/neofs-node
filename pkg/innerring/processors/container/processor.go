@@ -8,11 +8,13 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
+	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -33,6 +35,8 @@ type (
 		netState      NetworkState
 		metaEnabled   bool
 		allowEC       bool
+		chainTime     TimeProvider
+		resolver      session.NNSResolver
 	}
 
 	// Params of the processor constructor.
@@ -44,6 +48,7 @@ type (
 		NetworkState    NetworkState
 		MetaEnabled     bool
 		AllowEC         bool
+		ChainTime       TimeProvider
 	}
 )
 
@@ -69,6 +74,17 @@ type NetworkState interface {
 
 	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
 	GetEpochBlock(epoch uint64) (uint32, error)
+
+	// GetEpochBlockByTime returns FS chain height of block index when the latest epoch that
+	// started not later than the provided block time came.
+	GetEpochBlockByTime(t uint32) (uint32, error)
+}
+
+// TimeProvider supplies current FS chain time without calling the chain.
+// It should be updated from block header subscriptions and return time
+// based on the latest observed header timestamp.
+type TimeProvider interface {
+	Now() time.Time
 }
 
 // New creates a container contract processor instance.
@@ -82,6 +98,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: Container client is not set")
 	case p.NetworkState == nil:
 		return nil, errors.New("ir/container: network state is not set")
+	case p.ChainTime == nil:
+		return nil, errors.New("ir/container: chain time provider is not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -103,6 +121,8 @@ func New(p *Params) (*Processor, error) {
 		netState:      p.NetworkState,
 		metaEnabled:   p.MetaEnabled,
 		allowEC:       p.AllowEC,
+		chainTime:     p.ChainTime,
+		resolver:      nns.NewResolver(p.ContainerClient.Morph()),
 	}, nil
 }
 

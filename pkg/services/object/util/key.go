@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	session2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -21,6 +22,11 @@ type SessionSource interface {
 	// of it is impossible to get information about the
 	// token Get must return nil.
 	GetToken(owner user.ID, tokenID []byte) *session.PrivateToken
+
+	// FindTokenBySubjects searches for a non-expired private token whose public key
+	// matches any of the given Target. Used for V2 session tokens where keys
+	// are identified by their Target. Returns nil if no matching token is found.
+	FindTokenBySubjects(owner user.ID, subjects []session2.Target) *session.PrivateToken
 }
 
 // KeyStorage represents private key storage of the local node.
@@ -81,4 +87,23 @@ func (s *KeyStorage) GetKey(info *SessionInfo) (*ecdsa.PrivateKey, error) {
 	}
 
 	return s.key, nil
+}
+
+// GetKeyBySubjects fetches private key for V2 session token by any of the subjects.
+//
+// Returns apistatus.SessionTokenNotFound if no matching key is found
+// or apistatus.SessionTokenExpired if the found token is expired.
+func (s *KeyStorage) GetKeyBySubjects(issuer user.ID, subjects []session2.Target) (*ecdsa.PrivateKey, error) {
+	if len(subjects) == 0 {
+		return nil, apistatus.ErrSessionTokenNotFound
+	}
+	pToken := s.tokenStore.FindTokenBySubjects(issuer, subjects)
+	if pToken != nil {
+		if pToken.ExpiredAt() <= s.networkState.CurrentEpoch() {
+			return nil, apistatus.ErrSessionTokenExpired
+		}
+		return pToken.SessionKey(), nil
+	}
+
+	return nil, apistatus.ErrSessionTokenNotFound
 }

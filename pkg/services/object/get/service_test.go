@@ -17,6 +17,8 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 func newCommonParameters(local bool, sTok *session.Object, xs []string) (*util.CommonPrm, error) {
@@ -143,6 +145,10 @@ type mockKeyStorage struct {
 }
 
 func (x *mockKeyStorage) GetKey(*util.SessionInfo) (*ecdsa.PrivateKey, error) {
+	return &x.privKey, nil
+}
+
+func (x *mockKeyStorage) GetKeyBySubjects(user.ID, []sessionv2.Target) (*ecdsa.PrivateKey, error) {
 	return &x.privKey, nil
 }
 

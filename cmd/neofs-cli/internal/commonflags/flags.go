@@ -48,6 +48,12 @@ const (
 
 	OIDFlag      = "oid"
 	OIDFlagUsage = "Object ID."
+
+	SessionSubjectFlag      = "session-subjects"
+	SessionSubjectFlagUsage = "Session subject user IDs (optional, defaults to current node)"
+
+	SessionSubjectNNSFlag      = "session-subjects-nns"
+	SessionSubjectNNSFlagUsage = "Session subject NNS names (optional, defaults to current node)"
 )
 
 // Init adds common flags to the command:

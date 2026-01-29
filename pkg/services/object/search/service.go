@@ -9,6 +9,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"go.uber.org/zap"
 )
 
@@ -56,6 +57,8 @@ type cfg struct {
 	}
 
 	keyStore *util.KeyStorage
+
+	nnsResolver session.NNSResolver
 }
 
 func defaultCfg() *cfg {
@@ -109,5 +112,12 @@ func WithClientConstructor(v ClientConstructor) Option {
 func WithKeyStorage(store *util.KeyStorage) Option {
 	return func(c *cfg) {
 		c.keyStore = store
+	}
+}
+
+// WithNNSResolver returns option to set NNS resolver for checking session token subjects.
+func WithNNSResolver(resolver session.NNSResolver) Option {
+	return func(c *cfg) {
+		c.nnsResolver = resolver
 	}
 }

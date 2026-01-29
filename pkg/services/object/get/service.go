@@ -14,6 +14,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -104,7 +106,10 @@ type cfg struct {
 
 	keyStore interface {
 		GetKey(*util.SessionInfo) (*ecdsa.PrivateKey, error)
+		GetKeyBySubjects(user.ID, []sessionv2.Target) (*ecdsa.PrivateKey, error)
 	}
+
+	nnsResolver sessionv2.NNSResolver
 }
 
 func defaultCfg() *cfg {
@@ -163,5 +168,12 @@ func WithClientConstructor(v ClientConstructor) Option {
 func WithKeyStorage(store *util.KeyStorage) Option {
 	return func(c *cfg) {
 		c.keyStore = store
+	}
+}
+
+// WithNNSResolver returns option to set NNS resolver for checking session token subjects.
+func WithNNSResolver(resolver sessionv2.NNSResolver) Option {
+	return func(c *cfg) {
+		c.nnsResolver = resolver
 	}
 }

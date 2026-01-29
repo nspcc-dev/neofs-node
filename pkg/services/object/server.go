@@ -43,6 +43,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -126,6 +127,11 @@ type sessions interface {
 	// Returns [apistatus.ErrSessionTokenNotFound] if there is no data for the
 	// referenced session.
 	GetSessionPrivateKey(usr user.ID, uid uuid.UUID) (ecdsa.PrivateKey, error)
+
+	// GetSessionV2PrivateKey reads private session key by user ID and session
+	// subject. Returns [apistatus.ErrSessionTokenNotFound] if there is no data
+	// for the referenced session.
+	GetSessionV2PrivateKey(issuer user.ID, subject []sessionv2.Target) (ecdsa.PrivateKey, error)
 }
 
 // Storage groups ops of the node's storage required to serve NeoFS API Object
@@ -893,7 +899,17 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 		p.SetHashGenerator(tz.New)
 	}
 
-	if tok := cp.SessionToken(); tok != nil {
+	if tokV2 := cp.SessionTokenV2(); tokV2 != nil {
+		signerKey, err := ss.GetSessionV2PrivateKey(tokV2.Issuer(), tokV2.Subjects())
+		if err != nil {
+			if !errors.Is(err, apistatus.ErrSessionTokenNotFound) {
+				return getsvc.RangeHashPrm{}, fmt.Errorf("fetching session v2 key: %w", err)
+			}
+			cp.ForgetTokens()
+			signerKey = signer
+		}
+		p.WithCachedSignerKey(&signerKey)
+	} else if tok := cp.SessionToken(); tok != nil {
 		signerKey, err := ss.GetSessionPrivateKey(tok.Issuer(), tok.ID())
 		if err != nil {
 			if !errors.Is(err, apistatus.ErrSessionTokenNotFound) {

@@ -10,13 +10,16 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 )
 
 // FormatValidator represents an object format validator.
@@ -25,6 +28,7 @@ type FormatValidator struct {
 	fsChain        FSChain
 	netmapContract NetmapContract
 	containers     container.Source
+	resolver       session.NNSResolver
 }
 
 // FormatValidatorOption represents a FormatValidator constructor option.
@@ -85,6 +89,7 @@ type TombVerifier interface {
 // [FormatValidator] to work.
 type FSChain interface {
 	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
+	HasUserInNNS(name string, addr util.Uint160) (bool, error)
 }
 
 // NetmapContract represents Netmap contract deployed in the FS chain required
@@ -92,11 +97,15 @@ type FSChain interface {
 type NetmapContract interface {
 	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
 	GetEpochBlock(epoch uint64) (uint32, error)
+	// GetEpochBlockByTime returns FS chain height of block index when the latest epoch that
+	// started not later than the provided block time came.
+	GetEpochBlockByTime(t uint32) (uint32, error)
 }
 
 type historicN3ScriptRunner struct {
 	FSChain
 	NetmapContract
+	session.NNSResolver
 }
 
 var errNilObject = errors.New("object is nil")
@@ -122,6 +131,7 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containe
 		fsChain:        fsChain,
 		netmapContract: netmapContract,
 		containers:     containers,
+		resolver:       nns.NewResolver(fsChain),
 	}
 }
 
@@ -189,6 +199,10 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 		return err
 	}
 
+	if obj.SessionToken() != nil && obj.SessionTokenV2() != nil {
+		return errors.New("both V1 and V2 session tokens are set")
+	}
+
 	_, firstSet := obj.FirstID()
 	splitID := obj.SplitID()
 	par := obj.Parent()
@@ -238,7 +252,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 		if err := icrypto.AuthenticateObject(*obj, historicN3ScriptRunner{
 			FSChain:        v.fsChain,
 			NetmapContract: v.netmapContract,
-		}, isEC); err != nil {
+		}, isEC, v.resolver); err != nil {
 			return fmt.Errorf("authenticate: %w", err)
 		}
 	}

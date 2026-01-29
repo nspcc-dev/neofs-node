@@ -28,7 +28,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -107,7 +106,7 @@ func initContainerService(c *cfg) {
 
 	initSizeLoadReports(c)
 
-	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli)
+	cnrSrv := containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli, &c.chainTime)
 	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
 		cnrSrv.ResetSessionTokenCheckCache()
 	})
@@ -543,14 +542,12 @@ func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
 	return x.cnrLst.List(&id)
 }
 
-func (x *containersInChain) Put(ctx context.Context, cnr containerSDK.Container, pub, sig []byte, st *session.Container) (cid.ID, error) {
+func (x *containersInChain) Put(ctx context.Context, cnr containerSDK.Container, pub, sig []byte, st []byte) (cid.ID, error) {
 	var prm cntClient.PutPrm
 	prm.SetContainer(cnr)
 	prm.SetKey(pub)
 	prm.SetSignature(sig)
-	if st != nil {
-		prm.SetToken(st.Marshal())
-	}
+	prm.SetToken(st)
 
 	id, err := x.cCli.Put(ctx, prm)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {
@@ -560,14 +557,12 @@ func (x *containersInChain) Put(ctx context.Context, cnr containerSDK.Container,
 	return id, err
 }
 
-func (x *containersInChain) Delete(ctx context.Context, id cid.ID, pub, sig []byte, st *session.Container) error {
+func (x *containersInChain) Delete(ctx context.Context, id cid.ID, pub, sig []byte, st []byte) error {
 	var prm cntClient.DeletePrm
 	prm.SetCID(id[:])
 	prm.SetSignature(sig)
 	prm.SetKey(pub)
-	if st != nil {
-		prm.SetToken(st.Marshal())
-	}
+	prm.SetToken(st)
 
 	err := x.cCli.Delete(ctx, prm)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {
@@ -577,14 +572,12 @@ func (x *containersInChain) Delete(ctx context.Context, id cid.ID, pub, sig []by
 	return err
 }
 
-func (x *containersInChain) PutEACL(ctx context.Context, eACL eacl.Table, pub, sig []byte, st *session.Container) error {
+func (x *containersInChain) PutEACL(ctx context.Context, eACL eacl.Table, pub, sig []byte, st []byte) error {
 	var prm cntClient.PutEACLPrm
 	prm.SetTable(eACL.Marshal())
 	prm.SetKey(pub)
 	prm.SetSignature(sig)
-	if st != nil {
-		prm.SetToken(st.Marshal())
-	}
+	prm.SetToken(st)
 
 	err := x.cCli.PutEACL(ctx, prm)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {

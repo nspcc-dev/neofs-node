@@ -42,6 +42,7 @@ import (
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
@@ -112,6 +113,10 @@ func (noCallTestStorage) VerifyAndStoreObjectLocally(object.Object) error {
 	panic("must not be called")
 }
 func (noCallTestStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+	panic("implement me")
+}
+
+func (s noCallTestStorage) GetSessionV2PrivateKey(user.ID, []sessionv2.Target) (ecdsa.PrivateKey, error) {
 	panic("implement me")
 }
 
@@ -630,6 +635,9 @@ type nopStorage struct{}
 
 func (nopStorage) VerifyAndStoreObjectLocally(object.Object) error { return nil }
 func (nopStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
+}
+func (s nopStorage) GetSessionV2PrivateKey(user.ID, []sessionv2.Target) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
 func (nopStorage) SearchObjects(cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {

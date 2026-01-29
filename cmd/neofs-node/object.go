@@ -17,6 +17,7 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -49,6 +50,7 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
@@ -217,11 +219,14 @@ func initObjectService(c *cfg) {
 
 	c.workers = append(c.workers, c.policer)
 
+	nnsResolver := nns.NewResolver(c.cli)
+
 	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
 		getsvc.WithKeyStorage(keyStorage),
+		getsvc.WithNNSResolver(nnsResolver),
 	)
 
 	*c.cfgObject.getSvc = *sGet // need smth better
@@ -235,6 +240,7 @@ func initObjectService(c *cfg) {
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
 		searchsvc.WithKeyStorage(keyStorage),
+		searchsvc.WithNNSResolver(nnsResolver),
 	)
 
 	mNumber, err := c.cli.MagicNumber()
@@ -256,6 +262,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithLogger(c.log),
 		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(os)),
+		putsvc.WithNNSResolver(nnsResolver),
 	)
 
 	sDelete := deletesvc.New(
@@ -268,6 +275,7 @@ func initObjectService(c *cfg) {
 			cfg: c,
 		}),
 		deletesvc.WithKeyStorage(keyStorage),
+		deletesvc.WithNNSResolver(nnsResolver),
 	)
 
 	objSvc := &objectSvc{
@@ -294,6 +302,7 @@ func initObjectService(c *cfg) {
 			netmapContract: c.nCli,
 		}),
 		v2.WithContainerSource(c.cnrSrc),
+		v2.WithTimeProvider(&c.chainTime),
 	)
 	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
 		aclSvc.ResetTokenCheckCache()
@@ -625,6 +634,14 @@ func (x storageForObjectService) GetSessionPrivateKey(usr user.ID, uid uuid.UUID
 	return *k, nil
 }
 
+func (x storageForObjectService) GetSessionV2PrivateKey(issuer user.ID, subjects []sessionv2.Target) (ecdsa.PrivateKey, error) {
+	k, err := x.keys.GetKeyBySubjects(issuer, subjects)
+	if err != nil {
+		return ecdsa.PrivateKey{}, err
+	}
+	return *k, nil
+}
+
 type objectSource struct {
 	get    *getsvc.Service
 	signer neofscrypto.Signer
@@ -730,8 +747,16 @@ func (n netmapSourceWithNodes) GetEpochBlock(epoch uint64) (uint32, error) {
 	return n.netmapContract.GetEpochBlock(epoch)
 }
 
+func (n netmapSourceWithNodes) GetEpochBlockByTime(t uint32) (uint32, error) {
+	return n.netmapContract.GetEpochBlockByTime(t)
+}
+
 func (c *cfg) GetEpochBlock(epoch uint64) (uint32, error) {
 	return c.nCli.GetEpochBlock(epoch)
+}
+
+func (c *cfg) GetEpochBlockByTime(t uint32) (uint32, error) {
+	return c.nCli.GetEpochBlockByTime(t)
 }
 
 // GetContainerNodes reads storage policy of the referenced container from the
