@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,7 +153,7 @@ func prepareObjects(b *testing.B, creat func(testing.TB) common.Storage, objSize
 	require.NoError(b, ptt.Init())
 	b.Cleanup(func() { _ = ptt.Close() })
 
-	obj := object.New(cid.ID{1, 2, 3}, user.ID{1, 2, 3})
+	obj := object.New(cid.ID{1, 2, 3}, usertest.ID())
 	data := make([]byte, objSize)
 	_, _ = rand.Read(data)
 	obj.SetID(oid.ID{1, 2, 3})
