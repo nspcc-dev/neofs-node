@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -107,4 +108,9 @@ func ReadHeaderPrefix(r io.Reader) (*object.Object, []byte, error) {
 		return nil, nil, err
 	}
 	return ExtractHeaderAndPayload(buf[:n])
+}
+
+// TODO: docs.
+func SeekPayloadField(b []byte) (int, error) {
+	return iprotobuf.SeekField(b, fieldObjectPayload, protowire.BytesType)
 }
