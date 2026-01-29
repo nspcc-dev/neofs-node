@@ -241,3 +241,84 @@ loop:
 
 	return
 }
+
+// TODO: docs.
+func RestoreLayoutWithCutPayload(b []byte) (idf, sigf, hdrf iprotobuf.FieldBounds, err error) {
+	idf.From = -1
+	sigf.From = -1
+	hdrf.From = -1
+
+	var off int
+	var prevNum protowire.Number
+loop:
+	for {
+		num, typ, tagLn := protowire.ConsumeTag(b[off:])
+		if err = protowire.ParseError(tagLn); err != nil {
+			err = iprotobuf.WrapParseFieldTagError(err)
+			return
+		}
+
+		if num < prevNum {
+			err = iprotobuf.NewUnorderedFieldsError(prevNum, num)
+			return
+		}
+		prevNum = num
+
+		switch num {
+		case fieldObjectID:
+			if typ != protowire.BytesType {
+				err = iprotobuf.WrapParseFieldError(fieldObjectID, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+				return
+			}
+
+			idf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				err = iprotobuf.WrapParseFieldError(fieldObjectID, protowire.BytesType, err)
+				return
+			}
+
+			off = idf.To
+		case fieldObjectSignature:
+			if typ != protowire.BytesType {
+				err = iprotobuf.WrapParseFieldError(fieldObjectSignature, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+				return
+			}
+
+			sigf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				err = iprotobuf.WrapParseFieldError(fieldObjectSignature, protowire.BytesType, err)
+				return
+			}
+
+			off = sigf.To
+		case fieldObjectHeader:
+			if typ != protowire.BytesType {
+				err = iprotobuf.WrapParseFieldError(fieldObjectHeader, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
+				return
+			}
+
+			hdrf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			if err != nil {
+				err = iprotobuf.WrapParseFieldError(fieldObjectHeader, protowire.BytesType, err)
+				return
+			}
+
+			break loop
+		case fieldObjectPayload:
+			if _, n := protowire.ConsumeVarint(b[off+tagLn:]); n < 0 {
+				err = iprotobuf.WrapParseFieldError(fieldObjectPayload, protowire.BytesType, protowire.ParseError(n))
+				return
+			}
+
+			break loop
+		default:
+			break loop
+		}
+
+		if off == len(b) {
+			break
+		}
+	}
+
+	return
+}
