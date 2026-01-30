@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/fschain"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/mainchain"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/storagecfg"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/autocomplete"
@@ -40,6 +41,7 @@ func init() {
 
 	rootCmd.AddCommand(config.RootCmd)
 	rootCmd.AddCommand(fschain.RootCmd)
+	rootCmd.AddCommand(mainchain.RootCmd)
 	rootCmd.AddCommand(storagecfg.RootCmd)
 
 	rootCmd.AddCommand(autocomplete.Command("neofs-adm"))

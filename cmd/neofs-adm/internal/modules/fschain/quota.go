@@ -74,7 +74,7 @@ func quotaContainerFunc(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid container ID: %w", err)
 	}
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
@@ -171,7 +171,7 @@ func quotaUserFunc(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid user account: %w", err)
 	}
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}

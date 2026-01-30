@@ -30,7 +30,7 @@ const tokenNotFound = "token not found"
 func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 	vpr := viper.GetViper()
 
-	n3Client, err := getN3Client(vpr)
+	n3Client, err := GetN3Client(vpr)
 	if err != nil {
 		return fmt.Errorf("open connection: %w", err)
 	}
@@ -150,7 +150,7 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to unlock the account with password: %w", err)
 	}
 
-	n3Client, err := getN3Client(vpr)
+	n3Client, err := GetN3Client(vpr)
 	if err != nil {
 		return fmt.Errorf("open connection: %w", err)
 	}

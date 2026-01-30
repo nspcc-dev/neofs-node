@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs-adm mainchain update-contract` command (#3799)
 
 ### Fixed
 

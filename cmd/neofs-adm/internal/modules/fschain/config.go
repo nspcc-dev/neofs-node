@@ -22,7 +22,7 @@ import (
 const forceConfigSet = "force"
 
 func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
-	c, err := getN3Client(viper.GetViper())
+	c, err := GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
