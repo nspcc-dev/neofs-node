@@ -192,7 +192,7 @@ func generateShardID() (*shard.ID, error) {
 func (e *StorageEngine) sortedShards(objAddr oid.Address) []shardWrapper {
 	shards := e.unsortedShards()
 
-	hrw.Sort(shards, hrw.WrapBytes([]byte(objAddr.EncodeToString())))
+	hrw.Sort(shards, hrwOIDWrapper(objAddr.Object()))
 
 	for i := range shards {
 		shards[i].shardIface = shards[i].Shard
@@ -258,4 +258,10 @@ func (e *StorageEngine) HandleNewEpoch(epoch uint64) {
 
 func (s shardWrapper) Hash() uint64 {
 	return binary.BigEndian.Uint64(*s.ID())
+}
+
+type hrwOIDWrapper oid.ID
+
+func (o hrwOIDWrapper) Hash() uint64 {
+	return binary.BigEndian.Uint64(o[:])
 }

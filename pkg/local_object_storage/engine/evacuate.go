@@ -100,7 +100,7 @@ mainLoop:
 		loop:
 			for i := range lst {
 				addr := lst[i].Address
-				addrHash := hrw.WrapBytes([]byte(addr.EncodeToString()))
+				addrHash := hrwOIDWrapper(addr.Object())
 
 				obj, err := sh.Get(addr, false)
 				if err != nil {
