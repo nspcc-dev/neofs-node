@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - `neofs-cli container policy check` command (#3790)
+- `neofs-adm mainchain update-contract` command (#3799)
 
 ### Fixed
 - Unclosed compressed FSTree files (#3802)

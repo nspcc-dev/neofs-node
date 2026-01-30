@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	nnsrpc "github.com/nspcc-dev/neofs-contract/rpc/nns"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/n3util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -30,7 +31,7 @@ const tokenNotFound = "token not found"
 func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 	vpr := viper.GetViper()
 
-	n3Client, err := getN3Client(vpr)
+	n3Client, err := n3util.GetN3Client(vpr)
 	if err != nil {
 		return fmt.Errorf("open connection: %w", err)
 	}
@@ -150,7 +151,7 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to unlock the account with password: %w", err)
 	}
 
-	n3Client, err := getN3Client(vpr)
+	n3Client, err := n3util.GetN3Client(vpr)
 	if err != nil {
 		return fmt.Errorf("open connection: %w", err)
 	}

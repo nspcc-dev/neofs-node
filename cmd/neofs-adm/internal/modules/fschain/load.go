@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cnrrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/n3util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -38,7 +39,7 @@ func reportsFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid container ID: %w", err)
 	}
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := n3util.GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
@@ -122,7 +123,7 @@ func loadSummaryFunc(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := n3util.GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}

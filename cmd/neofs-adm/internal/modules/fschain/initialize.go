@@ -3,9 +3,6 @@ package fschain
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -17,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/n3util"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,22 +42,22 @@ type initializeContext struct {
 
 func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContext, error) {
 	walletDir := config.ResolveHomePath(viper.GetString(alphabetWalletsFlag))
-	wallets, err := openAlphabetWallets(v, walletDir)
+	wallets, err := n3util.OpenAlphabetWallets(v, walletDir)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := getN3Client(v)
+	c, err := n3util.GetN3Client(v)
 	if err != nil {
 		return nil, fmt.Errorf("can't create N3 client: %w", err)
 	}
 
-	committeeAcc, err := getWalletAccount(wallets[0], committeeAccountName)
+	committeeAcc, err := n3util.GetWalletAccount(wallets[0], committeeAccountName)
 	if err != nil {
 		return nil, fmt.Errorf("can't find committee account: %w", err)
 	}
 
-	consensusAcc, err := getWalletAccount(wallets[0], consensusAccountName)
+	consensusAcc, err := n3util.GetWalletAccount(wallets[0], consensusAccountName)
 	if err != nil {
 		return nil, fmt.Errorf("can't find consensus account: %w", err)
 	}
@@ -85,7 +83,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 
 	accounts := make([]*wallet.Account, len(wallets))
 	for i, w := range wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
+		acc, err := n3util.GetWalletAccount(w, singleAccountName)
 		if err != nil {
 			return nil, fmt.Errorf("wallet %s is invalid (no single account): %w", w.Path(), err)
 		}
@@ -116,46 +114,6 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 	initCtx.clientContext = *cliCtx
 
 	return initCtx, nil
-}
-
-func openAlphabetWallets(v *viper.Viper, walletDir string) ([]*wallet.Wallet, error) {
-	walletFiles, err := os.ReadDir(walletDir)
-	if err != nil {
-		return nil, fmt.Errorf("can't read alphabet wallets dir: %w", err)
-	}
-
-	var wallets []*wallet.Wallet
-
-	for _, walletFile := range walletFiles {
-		walletName, isJson := strings.CutSuffix(walletFile.Name(), ".json")
-		if walletFile.IsDir() || !isJson {
-			continue // Ignore garbage.
-		}
-
-		p := filepath.Join(walletDir, walletFile.Name())
-		w, err := wallet.NewWalletFromFile(p)
-		if err != nil {
-			continue // Ignore garbage.
-		}
-
-		password, err := config.GetPassword(v, walletName)
-		if err != nil {
-			return nil, fmt.Errorf("can't fetch password: %w", err)
-		}
-
-		for i := range w.Accounts {
-			if err := w.Accounts[i].Decrypt(password, w.Scrypt); err != nil {
-				return nil, fmt.Errorf("can't unlock wallet: %w", err)
-			}
-		}
-
-		wallets = append(wallets, w)
-	}
-	if len(wallets) == 0 {
-		return nil, errors.New("alphabet wallets dir is empty (run `generate-alphabet` command first)")
-	}
-
-	return wallets, nil
 }
 
 func (c *initializeContext) awaitTx() error {
@@ -344,13 +302,4 @@ func (c *initializeContext) sendMultiTx(script []byte, fancyScope bool, withCons
 	}
 
 	return c.sendTx(tx, c.Command, false)
-}
-
-func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
-	for i := range w.Accounts {
-		if w.Accounts[i].Label == typ {
-			return w.Accounts[i], nil
-		}
-	}
-	return nil, fmt.Errorf("account for '%s' not found", typ)
 }
