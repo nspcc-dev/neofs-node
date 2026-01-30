@@ -1345,7 +1345,11 @@ func testPutTombstoneEC(t *testing.T) {
 		require.ErrorIs(t, err, target)
 		_, err = s.Head(parentAddr, false)
 		require.ErrorIs(t, err, target)
+		_, err = s.HeadToBuffer(parentAddr, false, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
+		require.ErrorIs(t, err, target)
 		_, err = s.Head(parentAddr, true)
+		require.ErrorIs(t, err, target)
+		_, err = s.HeadToBuffer(parentAddr, true, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
 		require.ErrorIs(t, err, target)
 
 		for i := range parts {
@@ -1359,7 +1363,11 @@ func testPutTombstoneEC(t *testing.T) {
 			require.ErrorIs(t, err, target)
 			_, err = s.Head(partAddrs[i], false)
 			require.ErrorIs(t, err, target)
+			_, err = s.HeadToBuffer(partAddrs[i], false, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
+			require.ErrorIs(t, err, target)
 			_, err = s.Head(partAddrs[i], true)
+			require.ErrorIs(t, err, target)
+			_, err = s.HeadToBuffer(partAddrs[i], true, func() []byte { return make([]byte, object.MaxHeaderLen*2) })
 			require.ErrorIs(t, err, target)
 			_, _, err = s.GetECPart(cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
 			require.ErrorIs(t, err, target)

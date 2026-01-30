@@ -18,6 +18,14 @@ func BenchmarkFSTree_Head(b *testing.B) {
 	}
 }
 
+func BenchmarkFSTree_HeadToBuffer(b *testing.B) {
+	for _, size := range payloadSizes {
+		b.Run(generateSizeLabel(size), func(b *testing.B) {
+			runReadBenchmark(b, "HeadToBuffer", size)
+		})
+	}
+}
+
 func BenchmarkFSTree_Get(b *testing.B) {
 	for _, size := range payloadSizes {
 		b.Run(generateSizeLabel(size), func(b *testing.B) {
@@ -89,6 +97,18 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 		addr := prepareSingleObject(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
+
+		if methodName == "HeadToBuffer" {
+			buf := make([]byte, object.MaxHeaderLen*2)
+
+			for b.Loop() {
+				_, err := fsTree.HeadToBuffer(addr, func() []byte { return buf })
+				require.NoError(b, err)
+			}
+
+			return
+		}
+
 		for b.Loop() {
 			testRead(fsTree, addr)
 		}
@@ -99,6 +119,19 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 		addrs := prepareMultipleObjects(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
+
+		if methodName == "HeadToBuffer" {
+			buf := make([]byte, object.MaxHeaderLen*2)
+
+			b.ResetTimer()
+			for k := range b.N {
+				_, err := fsTree.HeadToBuffer(addrs[k%len(addrs)], func() []byte { return buf })
+				require.NoError(b, err)
+			}
+
+			return
+		}
+
 		b.ResetTimer()
 		for k := range b.N {
 			testRead(fsTree, addrs[k%len(addrs)])
@@ -111,6 +144,18 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 		addr := prepareSingleObject(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
+
+		if methodName == "HeadToBuffer" {
+			buf := make([]byte, object.MaxHeaderLen*2)
+
+			for b.Loop() {
+				_, err := fsTree.HeadToBuffer(addr, func() []byte { return buf })
+				require.NoError(b, err)
+			}
+
+			return
+		}
+
 		for b.Loop() {
 			testRead(fsTree, addr)
 		}
@@ -122,6 +167,19 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 		addrs := prepareMultipleObjects(b, fsTree, payloadSize)
 
 		b.ReportAllocs()
+
+		if methodName == "HeadToBuffer" {
+			buf := make([]byte, object.MaxHeaderLen*2)
+
+			b.ResetTimer()
+			for k := range b.N {
+				_, err := fsTree.HeadToBuffer(addrs[k%len(addrs)], func() []byte { return buf })
+				require.NoError(b, err)
+			}
+
+			return
+		}
+
 		b.ResetTimer()
 		for k := range b.N {
 			testRead(fsTree, addrs[k%len(addrs)])
