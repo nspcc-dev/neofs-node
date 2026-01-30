@@ -48,6 +48,7 @@ Changelog for NeoFS Node
 - Garbage marking scheme in metabase (#3753)
 - SN sorts shards identically when writing and reading EC parts (#3773)
 - SN puts EC parts concurrently now (#3777)
+- Optimized object-to-shard placement (#3794)
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
