@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync/atomic"
 
@@ -256,7 +257,5 @@ func (e *StorageEngine) HandleNewEpoch(epoch uint64) {
 }
 
 func (s shardWrapper) Hash() uint64 {
-	return hrw.Hash(
-		[]byte(s.Shard.ID().String()),
-	)
+	return binary.BigEndian.Uint64(*s.ID())
 }
