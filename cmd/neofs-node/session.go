@@ -6,12 +6,14 @@ import (
 	sessionSvc "github.com/nspcc-dev/neofs-node/pkg/services/session"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type sessionStorage interface {
 	sessionSvc.KeyStorage
 	GetToken(ownerID user.ID, tokenID []byte) *session.PrivateToken
+	FindTokenBySubjects(owner user.ID, subjects []sessionv2.Target) *session.PrivateToken
 	RemoveOldTokens(epoch uint64)
 
 	Close() error

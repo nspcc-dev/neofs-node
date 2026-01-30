@@ -3,6 +3,7 @@ package object
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"io"
@@ -10,10 +11,9 @@ import (
 	"strings"
 	"time"
 
-	internal "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -205,7 +205,7 @@ func getSession(cmd *cobra.Command) (*session.Object, error) {
 //	*internal.PayloadRangePrm
 //	*internal.HashPayloadRangesPrm
 func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) error {
-	isV2, err := tryReadSessionV2(cmd, dst, key, cnr, obj)
+	isV2, err := tryReadSessionV2(cmd, dst, key, cnr)
 	if err != nil {
 		return fmt.Errorf("v2 session validation failed: %w", err)
 	}
@@ -276,8 +276,8 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 // ReadOrOpenSessionViaClient tries to read session from the file (V2 first, then V1),
 // specified in commonflags.SessionToken flag, finalizes structures of the decoded token
 // and write the result into provided SessionPrm.
-// If file is missing, ReadOrOpenSessionViaClient calls OpenSessionViaClient.
-func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
+// If file is missing, CreateSessionV2 is called to create V2 token.
+func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, subjects []sessionv2.Target, cnr cid.ID, objs ...oid.ID) error {
 	path, _ := cmd.Flags().GetString(commonflags.SessionToken)
 
 	if path != "" {
@@ -296,44 +296,10 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 		}
 	}
 
-	err := OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
+	err := CreateSessionV2(ctx, cmd, dst, cli, key, subjects, cnr)
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-// OpenSessionViaClient opens object session with the remote node, finalizes
-// structure of the session token and writes the result into the provided
-// SessionPrm. Also writes provided client connection to the SessionPrm.
-//
-// SessionPrm MUST be one of:
-//
-//	*internal.PutObjectPrm
-//	*internal.DeleteObjectPrm
-func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
-	var tok session.Object
-
-	const sessionLifetime = 10 // in NeoFS epochs
-
-	common.PrintVerbose(cmd, "Opening remote session with the node...")
-	currEpoch, err := internal.GetCurrentEpoch(ctx, viper.GetString(commonflags.RPC))
-	if err != nil {
-		return fmt.Errorf("can't fetch current epoch: %w", err)
-	}
-	exp := currEpoch + sessionLifetime
-	err = sessionCli.CreateSession(ctx, &tok, cli, *key, exp, currEpoch)
-	if err != nil {
-		return fmt.Errorf("open remote session: %w", err)
-	}
-
-	common.PrintVerbose(cmd, "Session successfully opened.")
-
-	err = finalizeSession(cmd, dst, &tok, key, cnr, objs...)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -381,14 +347,27 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 	return nil
 }
 
-// CreateSessionV2 creates V2 token locally and
-// writes the result into the provided SessionPrm.
+// noopNNSResolver is a no-operation NNS name resolver that
+// always returns that the user exists for any NNS name.
+// We don't have NNS resolution in the CLI, so this resolver
+// is used to skip issuer validation for NNS subjects.
+type noopNNSResolver struct{}
+
+func (r noopNNSResolver) HasUser(string, user.ID) (bool, error) {
+	return true, nil
+}
+
+// CreateSessionV2 opens object session with the remote node, finalizes
+// structure of the session token v2 and writes the result into the provided
+// SessionPrm. Also writes provided client connection to the SessionPrm.
 //
 // SessionPrm MUST be one of:
 //
 //	*internal.PutObjectPrm
 //	*internal.DeleteObjectPrm
-func CreateSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, subjects []sessionv2.Target, cnr cid.ID, objs ...oid.ID) error {
+func CreateSessionV2(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, subjects []sessionv2.Target, cnr cid.ID) error {
+	const defaultTokenExp = 10 * time.Hour
+
 	common.PrintVerbose(cmd, "Creating V2 session token locally...")
 	var tok sessionv2.Token
 	signer := user.NewAutoIDSigner(*key)
@@ -396,14 +375,51 @@ func CreateSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, 
 	currentTime := time.Now()
 	tok.SetVersion(sessionv2.TokenCurrentVersion)
 	tok.SetNonce(sessionv2.RandomNonce())
-	tok.SetIat(currentTime)
+	// allow 10s clock skew, because time isn't synchronous over the network
+	tok.SetIat(currentTime.Add(-10 * time.Second))
 	tok.SetNbf(currentTime)
-	tok.SetExp(currentTime.Add(10 * time.Hour))
+	tok.SetExp(currentTime.Add(defaultTokenExp))
 	tok.SetFinal(true)
 	err := tok.SetSubjects(subjects)
 	if err != nil {
 		return fmt.Errorf("set subjects: %w", err)
 	}
+
+	common.PrintVerbose(cmd, "Creating server-side session key via RPC...")
+
+	ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
+	if err != nil {
+		return fmt.Errorf("get network info: %w", err)
+	}
+	epochInMs := int64(ni.EpochDuration()) * ni.MsPerBlock()
+	if epochInMs == 0 {
+		return errors.New("invalid network configuration: epoch duration is zero")
+	}
+	epochLifetime := (defaultTokenExp.Milliseconds() + epochInMs - 1) / epochInMs
+	epochExp := ni.CurrentEpoch() + uint64(epochLifetime)
+	common.PrintVerbose(cmd, "Current epoch: %d", ni.CurrentEpoch())
+	common.PrintVerbose(cmd, "Token expiration epoch: %d", epochExp)
+
+	var sessionPrm client.PrmSessionCreate
+	sessionPrm.SetExp(epochExp)
+
+	sessionRes, err := cli.SessionCreate(ctx, signer, sessionPrm)
+	if err != nil {
+		return fmt.Errorf("create server-side session key: %w", err)
+	}
+
+	var keySession neofsecdsa.PublicKey
+	err = keySession.Decode(sessionRes.PublicKey())
+	if err != nil {
+		return fmt.Errorf("decode public session key: %w", err)
+	}
+
+	serverUserID := user.NewFromECDSAPublicKey((ecdsa.PublicKey)(keySession))
+	err = tok.AddSubject(sessionv2.NewTargetUser(serverUserID))
+	if err != nil {
+		return fmt.Errorf("add server-side session key as subject: %w", err)
+	}
+	common.PrintVerbose(cmd, "Server-side session key created as last subject: %s", serverUserID)
 
 	var verb sessionv2.Verb
 	switch dst.(type) {
@@ -428,7 +444,7 @@ func CreateSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, 
 		return fmt.Errorf("sign V2 session: %w", err)
 	}
 
-	if err := tok.Validate(); err != nil {
+	if err := tok.Validate(noopNNSResolver{}); err != nil {
 		return fmt.Errorf("invalid V2 session token after creation: %w", err)
 	}
 
@@ -442,7 +458,7 @@ func CreateSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, 
 func finalizeSessionV2(cmd *cobra.Command, dst SessionPrm, tok *sessionv2.Token, key *ecdsa.PrivateKey, cnr cid.ID) error {
 	common.PrintVerbose(cmd, "Finalizing V2 session token...")
 
-	if err := tok.Validate(); err != nil {
+	if err := tok.Validate(noopNNSResolver{}); err != nil {
 		return fmt.Errorf("invalid V2 session token: %w", err)
 	}
 
@@ -486,4 +502,48 @@ func openFileForPayload(name string) (io.WriteCloser, error) {
 		return nil, fmt.Errorf("can't open file '%s': %w", name, err)
 	}
 	return f, nil
+}
+
+func parseSessionSubjects(cmd *cobra.Command, ctx context.Context, cli *client.Client) ([]sessionv2.Target, error) {
+	sessionSubjects, _ := cmd.Flags().GetStringSlice(commonflags.SessionSubjectFlag)
+	sessionSubjectsNNS, _ := cmd.Flags().GetStringSlice(commonflags.SessionSubjectNNSFlag)
+
+	if len(sessionSubjects) > 0 || len(sessionSubjectsNNS) > 0 {
+		common.PrintVerbose(cmd, "Using session subjects from command line flags")
+		subjects := make([]sessionv2.Target, 0, len(sessionSubjects)+len(sessionSubjectsNNS))
+
+		// Parse user IDs
+		for _, subj := range sessionSubjects {
+			userID, err := user.DecodeString(subj)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode user ID '%s': %w", subj, err)
+			}
+			subjects = append(subjects, sessionv2.NewTargetUser(userID))
+		}
+
+		// Parse NNS names
+		for _, nnsName := range sessionSubjectsNNS {
+			if nnsName == "" {
+				return nil, fmt.Errorf("NNS name cannot be empty")
+			}
+			subjects = append(subjects, sessionv2.NewTargetNamed(nnsName))
+		}
+
+		return subjects, nil
+	}
+
+	common.PrintVerbose(cmd, "Using default session subjects (only target node)")
+	res, err := cli.EndpointInfo(ctx, client.PrmEndpointInfo{})
+	if err != nil {
+		return nil, fmt.Errorf("get endpoint info: %w", err)
+	}
+
+	neoPubKey, err := keys.NewPublicKeyFromBytes(res.NodeInfo().PublicKey(), elliptic.P256())
+	if err != nil {
+		return nil, fmt.Errorf("parse node public key: %w", err)
+	}
+
+	ecdsaPubKey := (*ecdsa.PublicKey)(neoPubKey)
+	userID := user.NewFromECDSAPublicKey(*ecdsaPubKey)
+	return []sessionv2.Target{sessionv2.NewTargetUser(userID)}, nil
 }

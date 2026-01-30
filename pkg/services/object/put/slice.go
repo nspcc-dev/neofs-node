@@ -13,6 +13,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object/slicer"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -20,6 +21,7 @@ type slicingTarget struct {
 	ctx              context.Context
 	signer           user.Signer
 	sessionToken     *session.Object
+	sessionTokenV2   *sessionv2.Token
 	currentEpoch     uint64
 	maxObjSize       uint64
 	homoHashDisabled bool
@@ -38,6 +40,7 @@ func newSlicingTarget(
 	homoHashDisabled bool,
 	signer user.Signer,
 	sessionToken *session.Object,
+	sessionTokenV2 *sessionv2.Token,
 	curEpoch uint64,
 	initNextTarget internal.Target,
 ) internal.Target {
@@ -45,6 +48,7 @@ func newSlicingTarget(
 		ctx:              ctx,
 		signer:           signer,
 		sessionToken:     sessionToken,
+		sessionTokenV2:   sessionTokenV2,
 		currentEpoch:     curEpoch,
 		maxObjSize:       maxObjSize,
 		homoHashDisabled: homoHashDisabled,
@@ -56,7 +60,9 @@ func (x *slicingTarget) WriteHeader(hdr *object.Object) error {
 	var opts slicer.Options
 	opts.SetObjectPayloadLimit(x.maxObjSize)
 	opts.SetCurrentNeoFSEpoch(x.currentEpoch)
-	if x.sessionToken != nil {
+	if x.sessionTokenV2 != nil {
+		opts.SetSessionV2(*x.sessionTokenV2)
+	} else if x.sessionToken != nil {
 		opts.SetSession(*x.sessionToken)
 	}
 	if !x.homoHashDisabled {

@@ -94,29 +94,47 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	}
 
 	sToken := prm.common.SessionToken()
+	sTokenV2 := prm.common.SessionTokenV2()
 
 	// prepare trusted-Put object target
 
-	// get private token from local storage
-	var sessionInfo *util.SessionInfo
-
-	if sToken != nil {
-		sessionInfo = &util.SessionInfo{
+	sessionKey, err := p.keyStorage.GetKey(nil)
+	if err != nil {
+		return fmt.Errorf("(%T) could not receive node key for V2 token: %w", p, err)
+	}
+	if sTokenV2 != nil {
+		// For V2 tokens, the key is stored as the subjects
+		if keyForSession, err := p.keyStorage.GetKeyBySubjects(sTokenV2.Issuer(), sTokenV2.Subjects()); err == nil {
+			sessionKey = keyForSession
+		} else if p.nnsResolver != nil {
+			nodeUser := user.NewFromECDSAPublicKey(sessionKey.PublicKey)
+			ok, authErr := sTokenV2.AssertAuthority(nodeUser, p.nnsResolver)
+			if authErr != nil {
+				return fmt.Errorf("assert authority for session v2 token: %w", authErr)
+			}
+			if !ok {
+				return fmt.Errorf("session v2 token authority assertion failed")
+			}
+			// node key is already in key
+		} else {
+			return fmt.Errorf("get key for session v2 token: %w", err)
+		}
+	} else if sToken != nil {
+		sessionInfo := &util.SessionInfo{
 			ID:    sToken.ID(),
 			Owner: sToken.Issuer(),
 		}
-	}
-
-	sessionKey, err := p.keyStorage.GetKey(sessionInfo)
-	if err != nil {
-		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
+		sessionKey, err = p.keyStorage.GetKey(sessionInfo)
+		if err != nil {
+			return fmt.Errorf("(%T) could not receive session key: %w", p, err)
+		}
 	}
 
 	signer := neofsecdsa.SignerRFC6979(*sessionKey)
 
 	// In case session token is missing, the line above returns the default key.
 	// If it isn't owner key, replication attempts will fail, thus this check.
-	if sToken == nil {
+	if sToken == nil && sTokenV2 == nil {
 		ownerObj := prm.hdr.Owner()
 		if ownerObj.IsZero() {
 			return errors.New("missing object owner")
@@ -144,6 +162,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			!homomorphicChecksumRequired,
 			sessionSigner,
 			sToken,
+			sTokenV2,
 			p.networkState.CurrentEpoch(),
 			p.newCommonTarget(prm),
 		),

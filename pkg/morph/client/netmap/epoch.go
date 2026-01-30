@@ -91,3 +91,34 @@ func (c *Client) GetEpochBlock(epoch uint64) (uint32, error) {
 
 	return uint32(bn.Uint64()), nil
 }
+
+// GetEpochBlockByTime returns FS chain height of block index when the latest epoch that
+// started not later than the provided block time came using 'getEpochBlockByTime' method.
+func (c *Client) GetEpochBlockByTime(t uint32) (uint32, error) {
+	var prm client.TestInvokePrm
+	prm.SetMethod(epochBlockByTimeMethod)
+	prm.SetArgs(t)
+
+	items, err := c.client.TestInvoke(prm)
+	if err != nil {
+		return 0, fmt.Errorf("call %s method: %w", epochBlockByTimeMethod, err)
+	}
+
+	if ln := len(items); ln != 1 {
+		return 0, fmt.Errorf("unexpected stack item count (%s): %d", epochBlockByTimeMethod, ln)
+	}
+
+	bn, err := items[0].TryInteger()
+	if err != nil {
+		return 0, fmt.Errorf("convert 1st stack item from %s method result to integer: %w", epochBlockByTimeMethod, err)
+	}
+	if !bn.IsUint64() {
+		return 0, fmt.Errorf("%s method result %v cannot be represented as uint64", epochBlockByTimeMethod, bn)
+	}
+	n64 := bn.Uint64()
+	if n64 > math.MaxUint32 {
+		return 0, fmt.Errorf("%s method result %v overflows uint32", epochBlockByTimeMethod, bn)
+	}
+
+	return uint32(n64), nil
+}

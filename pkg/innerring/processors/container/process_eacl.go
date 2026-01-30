@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"go.uber.org/zap"
 )
 
@@ -61,6 +62,7 @@ func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerSetEACL,
+		verbV2:          sessionv2.VerbContainerSetEACL,
 		idContainerSet:  true,
 		idContainer:     idCnr,
 		binTokenSession: req.SessionToken,

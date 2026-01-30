@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -160,16 +161,38 @@ func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 		return exec.prm.signerKey, nil
 	}
 
-	var sessionInfo *util.SessionInfo
-
-	if tok := exec.prm.common.SessionToken(); tok != nil {
-		sessionInfo = &util.SessionInfo{
+	key, err := exec.svc.keyStore.GetKey(nil)
+	if err != nil {
+		return nil, err
+	}
+	if tokV2 := exec.prm.common.SessionTokenV2(); tokV2 != nil {
+		// For V2 tokens, the key is stored as the subjects
+		if keyForSession, err := exec.svc.keyStore.GetKeyBySubjects(tokV2.Issuer(), tokV2.Subjects()); err == nil {
+			key = keyForSession
+		} else if exec.svc.nnsResolver != nil {
+			nodeUser := user.NewFromECDSAPublicKey(key.PublicKey)
+			ok, authErr := tokV2.AssertAuthority(nodeUser, exec.svc.nnsResolver)
+			if authErr != nil {
+				return nil, fmt.Errorf("assert authority for session v2 token: %w", authErr)
+			}
+			if !ok {
+				return nil, fmt.Errorf("session v2 token authority assertion failed")
+			}
+			// node key is already in key
+		} else {
+			return nil, fmt.Errorf("get key for session v2 token: %w", err)
+		}
+	} else if tok := exec.prm.common.SessionToken(); tok != nil {
+		key, err = exec.svc.keyStore.GetKey(&util.SessionInfo{
 			ID:    tok.ID(),
 			Owner: tok.Issuer(),
+		})
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return exec.svc.keyStore.GetKey(sessionInfo)
+	return key, nil
 }
 
 func (exec *execCtx) canAssemble() bool {

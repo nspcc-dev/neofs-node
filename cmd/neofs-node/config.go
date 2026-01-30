@@ -19,6 +19,7 @@ import (
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -209,6 +210,9 @@ type cfg struct {
 	cfgControlService cfgControlService
 	cfgReputation     cfgReputation
 	cfgObject         cfgObject
+
+	// chainTime is a global chain time provider updated from FS headers.
+	chainTime chaintime.AtomicChainTimeProvider
 }
 
 // GetNetworkMap reads network map which has been cached at the latest epoch.

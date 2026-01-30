@@ -51,10 +51,20 @@ func getSessionAnyVersion(cmd *cobra.Command) (any, error) {
 	return nil, nil
 }
 
+// noopNNSResolver is a no-operation NNS name resolver that
+// always returns that the user exists for any NNS name.
+// We don't have NNS resolution in the CLI, so this resolver
+// is used to skip issuer validation for NNS subjects.
+type noopNNSResolver struct{}
+
+func (r noopNNSResolver) HasUser(string, user.ID) (bool, error) {
+	return true, nil
+}
+
 func validateSessionV2ForContainer(cmd *cobra.Command, tok *session.Token, key *ecdsa.PrivateKey, cnrID cid.ID, verb session.Verb) error {
 	common.PrintVerbose(cmd, "Validating V2 session token...")
 
-	if err := tok.Validate(); err != nil {
+	if err := tok.Validate(noopNNSResolver{}); err != nil {
 		return fmt.Errorf("invalid V2 session token: %w", err)
 	}
 

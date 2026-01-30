@@ -33,3 +33,10 @@ func WithIRFetcher(v InnerRingFetcher) Option {
 		c.irFetcher = v
 	}
 }
+
+// WithTimeProvider sets external chain time provider updated from header subscriptions.
+func WithTimeProvider(p TimeProvider) Option {
+	return func(c *cfg) {
+		c.chainTime = p
+	}
+}

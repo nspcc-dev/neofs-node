@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -76,25 +77,46 @@ func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info c
 		return exec.prm.forwarder(info, c.client)
 	}
 
-	var sessionInfo *util.SessionInfo
-
-	if tok := exec.prm.common.SessionToken(); tok != nil {
-		sessionInfo = &util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
-		}
-	}
-
-	key, err := exec.svc.keyStore.GetKey(sessionInfo)
+	key, err := exec.svc.keyStore.GetKey(nil)
 	if err != nil {
 		return nil, err
+	}
+	if tokV2 := exec.prm.common.SessionTokenV2(); tokV2 != nil {
+		// For V2 tokens, the key is stored as the subjects
+		if keyForSession, err := exec.svc.keyStore.GetKeyBySubjects(tokV2.Issuer(), tokV2.Subjects()); err == nil {
+			key = keyForSession
+		} else if exec.svc.nnsResolver != nil {
+			nodeUser := user.NewFromECDSAPublicKey(key.PublicKey)
+			ok, authErr := tokV2.AssertAuthority(nodeUser, exec.svc.nnsResolver)
+			if authErr != nil {
+				return nil, fmt.Errorf("assert authority for session v2 token: %w", authErr)
+			}
+			if !ok {
+				return nil, fmt.Errorf("session v2 token authority assertion failed")
+			}
+			// node key is already in key
+		} else {
+			return nil, fmt.Errorf("get key for session v2 token: %w", err)
+		}
+	} else if tok := exec.prm.common.SessionToken(); tok != nil {
+		key, err = exec.svc.keyStore.GetKey(&util.SessionInfo{
+			ID:    tok.ID(),
+			Owner: tok.Issuer(),
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var opts sdkclient.PrmObjectSearch
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
 	}
-	if st := exec.prm.common.SessionToken(); st != nil {
+	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+		if stV2.AssertVerb(sessionv2.VerbObjectSearch, exec.containerID()) {
+			opts.WithinSessionV2(*stV2)
+		}
+	} else if st := exec.prm.common.SessionToken(); st != nil {
 		opts.WithinSession(*st)
 	}
 	if bt := exec.prm.common.BearerToken(); bt != nil {

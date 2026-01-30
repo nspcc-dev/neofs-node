@@ -1,17 +1,24 @@
 package session
 
 import (
+	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -33,13 +40,13 @@ var createV2Cmd = &cobra.Command{
 	Short: "Create V2 session token",
 	Long: `Create V2 session token with subjects and multiple contexts.
 
+V2 tokens always create a server-side key via SessionCreate RPC
+and include it as the last subject in the token.
+
 V2 tokens support:
 - Multiple subjects (accounts authorized to use the token)
 - Multiple contexts (container + object operations)
-- No server-side session key storage (no SessionCreate RPC needed)
 - Token delegation chains via --origin flag
-
-IMPORTANT: Contexts and verbs must be specified in sorted order for proper token validation.
 
 Context format: containerID:verbs
 - containerID: Container ID or "0" for wildcard (any container)
@@ -48,6 +55,7 @@ Context format: containerID:verbs
 Example usage:
   neofs-cli session create-v2 \
     --wallet wallet.json \
+    --rpc node.neofs.devenv:8080 \
     --lifetime 10000 \
     --out token.json \
     --json \
@@ -74,16 +82,19 @@ func init() {
 	createV2Cmd.Flags().String(outFlag, "", "File to write session token to")
 	createV2Cmd.Flags().Bool(jsonFlag, false, "Output token in JSON")
 	createV2Cmd.Flags().Uint64P(commonflags.ExpireAt, "e", 0, "Expiration time in seconds for token to stay valid")
+	createV2Cmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	// V2-specific flags
 	createV2Cmd.Flags().StringArray(v2SubjectsFlag, nil, "Subject user IDs (can be specified multiple times)")
 	createV2Cmd.Flags().StringArray(v2SubjectsNNSFlag, nil, "Subject NNS names (can be specified multiple times)")
 	createV2Cmd.Flags().Bool(v2FinalFlag, false, "Set the final flag in the token, disallowing further delegation")
-	createV2Cmd.Flags().StringArray(v2ContextFlag, nil, "Context spec (repeatable): containerID:verbs. Use '0' for wildcard container. Contexts and verbs should be sorted.")
+	createV2Cmd.Flags().StringArray(v2ContextFlag, nil, "Context spec (repeatable): containerID:verbs. Use '0' for wildcard container.")
 	createV2Cmd.Flags().String(v2OriginFlag, "", "Path to origin token file for token delegation chain")
+	createV2Cmd.Flags().BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "Skip token validation (use with caution)")
 
 	_ = cobra.MarkFlagRequired(createV2Cmd.Flags(), commonflags.WalletPath)
 	_ = cobra.MarkFlagRequired(createV2Cmd.Flags(), outFlag)
+	_ = cobra.MarkFlagRequired(createV2Cmd.Flags(), commonflags.RPC)
 	createV2Cmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 	createV2Cmd.MarkFlagsOneRequired(v2SubjectsFlag, v2SubjectsNNSFlag)
 	_ = cobra.MarkFlagRequired(createV2Cmd.Flags(), v2ContextFlag)
@@ -114,7 +125,8 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 	tokV2.SetVersion(session.TokenCurrentVersion)
 	tokV2.SetNonce(session.RandomNonce())
 	tokV2.SetNbf(currentTime)
-	tokV2.SetIat(currentTime)
+	// allow 10s clock skew, because time isn't synchronous over the network
+	tokV2.SetIat(currentTime.Add(-10 * time.Second))
 	tokV2.SetExp(expTime)
 
 	final, _ := cmd.Flags().GetBool(v2FinalFlag)
@@ -133,6 +145,55 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+
+	common.PrintVerbose(cmd, "Creating server-side session key via RPC...")
+
+	rpcEndpoint, _ := cmd.Flags().GetString(commonflags.RPC)
+	var netAddr network.Address
+	if err := netAddr.FromString(rpcEndpoint); err != nil {
+		return fmt.Errorf("parse endpoint: %w", err)
+	}
+
+	ctx := context.Background()
+	c, err := internalclient.GetSDKClient(ctx, netAddr)
+	if err != nil {
+		return fmt.Errorf("create client: %w", err)
+	}
+	defer c.Close()
+
+	ni, err := c.NetworkInfo(ctx, client.PrmNetworkInfo{})
+	if err != nil {
+		return fmt.Errorf("get network info: %w", err)
+	}
+	lifetime := uint64(expTime.Sub(currentTime).Milliseconds())
+	epochInMs := ni.EpochDuration() * uint64(ni.MsPerBlock())
+	if epochInMs == 0 {
+		return errors.New("invalid network configuration: epoch duration is zero")
+	}
+	epochLifetime := (lifetime + epochInMs - 1) / epochInMs
+	epochExp := ni.CurrentEpoch() + epochLifetime
+	common.PrintVerbose(cmd, "Current epoch: %d", ni.CurrentEpoch())
+	common.PrintVerbose(cmd, "Token expiration epoch: %d", epochExp)
+
+	var sessionPrm client.PrmSessionCreate
+	sessionPrm.SetExp(epochExp)
+
+	sessionRes, err := c.SessionCreate(ctx, signer, sessionPrm)
+	if err != nil {
+		return fmt.Errorf("create server-side session key: %w", err)
+	}
+
+	var keySession neofsecdsa.PublicKey
+
+	err = keySession.Decode(sessionRes.PublicKey())
+	if err != nil {
+		return fmt.Errorf("decode public session key: %w", err)
+	}
+
+	serverUserID := user.NewFromECDSAPublicKey((ecdsa.PublicKey)(keySession))
+	subjects = append(subjects, session.NewTargetUser(serverUserID))
+	common.PrintVerbose(cmd, "Server-side session key created as last subject: %s", serverUserID)
+
 	err = tokV2.SetSubjects(subjects)
 	if err != nil {
 		return fmt.Errorf("can't set subjects: %w", err)
@@ -173,10 +234,15 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 
 	common.PrintVerbose(cmd, "Token signed successfully")
 
-	if err := tokV2.Validate(); err != nil {
-		return fmt.Errorf("created token validation failed: %w", err)
+	force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
+	if !force {
+		if err := tokV2.Validate(noopNNSResolver{}); err != nil {
+			return fmt.Errorf("created token validation failed: %w", err)
+		}
+		common.PrintVerbose(cmd, "Created token validated successfully")
+	} else {
+		common.PrintVerbose(cmd, "Token validation skipped (--force flag)")
 	}
-	common.PrintVerbose(cmd, "Created token validated successfully")
 
 	var data []byte
 	if toJSON, _ := cmd.Flags().GetBool(jsonFlag); toJSON {
@@ -209,7 +275,7 @@ func parseSubjects(cmd *cobra.Command) ([]session.Target, error) {
 		return nil, errors.New("at least one subject (--subject or --subject-nns) must be specified")
 	}
 
-	subjects := make([]session.Target, 0, len(subjectIDs)+len(subjectNNS))
+	subjects := make([]session.Target, 0, len(subjectIDs)+len(subjectNNS)+1)
 
 	for _, idStr := range subjectIDs {
 		var userID user.ID
@@ -267,6 +333,11 @@ func parseContexts(cmd *cobra.Command) ([]session.Context, error) {
 
 		contexts = append(contexts, ctx)
 	}
+
+	slices.SortFunc(contexts, func(a, b session.Context) int {
+		return a.Container().Compare(b.Container())
+	})
+
 	return contexts, nil
 }
 
@@ -310,6 +381,8 @@ func parseVerbs(verbsStr string) ([]session.Verb, error) {
 		verbs = append(verbs, verb)
 	}
 
+	slices.Sort(verbs)
+
 	return verbs, nil
 }
 
@@ -331,9 +404,24 @@ func loadOriginToken(cmd *cobra.Command) (*session.Token, error) {
 		}
 	}
 
-	if err := originTok.Validate(); err != nil {
-		return nil, fmt.Errorf("origin token validation failed: %w", err)
+	force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
+	if !force {
+		if err := originTok.Validate(noopNNSResolver{}); err != nil {
+			return nil, fmt.Errorf("origin token validation failed: %w", err)
+		}
+	} else {
+		common.PrintVerbose(cmd, "Origin token validation skipped (--force flag)")
 	}
 
 	return &originTok, nil
+}
+
+// noopNNSResolver is a no-operation NNS name resolver that
+// always returns that the user exists for any NNS name.
+// We don't have NNS resolution in the CLI, so this resolver
+// is used to skip issuer validation for NNS subjects.
+type noopNNSResolver struct{}
+
+func (r noopNNSResolver) HasUser(string, user.ID) (bool, error) {
+	return true, nil
 }

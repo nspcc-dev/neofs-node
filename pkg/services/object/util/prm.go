@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 )
 
 // maxLocalTTL is maximum TTL for an operation to be considered local.
@@ -14,7 +15,8 @@ const maxLocalTTL = 1
 type CommonPrm struct {
 	local bool
 
-	token *sessionsdk.Object
+	token   *sessionsdk.Object
+	tokenV2 *sessionv2.Token
 
 	bearer *bearer.Token
 
@@ -65,6 +67,14 @@ func (p *CommonPrm) SessionToken() *sessionsdk.Object {
 	return nil
 }
 
+func (p *CommonPrm) SessionTokenV2() *sessionv2.Token {
+	if p != nil {
+		return p.tokenV2
+	}
+
+	return nil
+}
+
 func (p *CommonPrm) BearerToken() *bearer.Token {
 	if p != nil {
 		return p.bearer
@@ -78,6 +88,7 @@ func (p *CommonPrm) BearerToken() *bearer.Token {
 func (p *CommonPrm) ForgetTokens() {
 	if p != nil {
 		p.token = nil
+		p.tokenV2 = nil
 		p.bearer = nil
 	}
 }
@@ -95,7 +106,18 @@ func CommonPrmFromRequest(req interface {
 	}
 
 	var st *sessionsdk.Object
-	if meta.SessionToken != nil {
+	var stV2 *sessionv2.Token
+
+	if meta.SessionToken != nil && meta.SessionTokenV2 != nil {
+		return nil, fmt.Errorf("both V1 and V2 session tokens are set")
+	}
+
+	if meta.SessionTokenV2 != nil {
+		stV2 = new(sessionv2.Token)
+		if err := stV2.FromProtoMessage(meta.SessionTokenV2); err != nil {
+			return nil, fmt.Errorf("invalid V2 session token: %w", err)
+		}
+	} else if meta.SessionToken != nil {
 		st = new(sessionsdk.Object)
 		if err := st.FromProtoMessage(meta.SessionToken); err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
@@ -112,11 +134,12 @@ func CommonPrmFromRequest(req interface {
 
 	xHdrs := meta.XHeaders
 	prm := &CommonPrm{
-		local:  ttl <= maxLocalTTL,
-		token:  st,
-		bearer: bt,
-		ttl:    ttl - 1, // decrease TTL for new requests
-		xhdrs:  make([]string, 0, 2*len(xHdrs)),
+		local:   ttl <= maxLocalTTL,
+		token:   st,
+		tokenV2: stV2,
+		bearer:  bt,
+		ttl:     ttl - 1, // decrease TTL for new requests
+		xhdrs:   make([]string, 0, 2*len(xHdrs)),
 	}
 	for i := range xHdrs {
 		prm.xhdrs = append(prm.xhdrs, xHdrs[i].GetKey(), xHdrs[i].GetValue())

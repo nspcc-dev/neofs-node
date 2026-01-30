@@ -82,7 +82,11 @@ var objectLockCmd = &cobra.Command{
 		}
 		defer cli.Close()
 
-		err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, key, cnr)
+		subjects, err := parseSessionSubjects(cmd, ctx, cli)
+		if err != nil {
+			return err
+		}
+		err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, key, subjects, cnr)
 		if err != nil {
 			return err
 		}
@@ -132,4 +136,7 @@ func initCommandObjectLock() {
 
 	ff.Uint64(commonflags.Lifetime, 0, "Lock lifetime")
 	objectLockCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
+
+	ff.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
+	ff.StringSlice(commonflags.SessionSubjectNNSFlag, nil, commonflags.SessionSubjectNNSFlagUsage)
 }

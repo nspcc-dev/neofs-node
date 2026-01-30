@@ -4,16 +4,19 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -23,13 +26,15 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
 type sessionTokenCommonCheckResult struct {
-	token sessionSDK.Object
-	err   error
+	token   sessionSDK.Object
+	tokenV2 sessionv2.Token
+	err     error
 }
 
 type bearerTokenCommonCheckResult struct {
@@ -42,6 +47,7 @@ type Service struct {
 	*cfg
 
 	c senderClassifier
+	r *nns.Resolver
 
 	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
 	bearerTokenCommonCheckCache  *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
@@ -59,6 +65,9 @@ type FSChain interface {
 	// from the referenced container either in the current or the previous NeoFS
 	// epoch.
 	InContainerInLastTwoEpochs(_ cid.ID, pub []byte) (bool, error)
+
+	// HasUserInNNS checks whether given user is listed in the NNS domain.
+	HasUserInNNS(name string, addr util.Uint160) (bool, error)
 }
 
 // Netmapper must provide network map information.
@@ -70,6 +79,16 @@ type Netmapper interface {
 	ServerInContainer(cid.ID) (bool, error)
 	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
 	GetEpochBlock(epoch uint64) (uint32, error)
+	// GetEpochBlockByTime returns FS chain height of block index when the latest epoch that
+	// started not later than the provided block time came.
+	GetEpochBlockByTime(t uint32) (uint32, error)
+}
+
+// TimeProvider supplies current FS chain time without calling the chain.
+// It should be updated from block header subscriptions and return time
+// based on the latest observed header timestamp.
+type TimeProvider interface {
+	Now() time.Time
 }
 
 type cfg struct {
@@ -80,6 +99,8 @@ type cfg struct {
 	irFetcher InnerRingFetcher
 
 	nm Netmapper
+
+	chainTime TimeProvider
 }
 
 func defaultCfg() *cfg {
@@ -106,6 +127,7 @@ func New(fsChain FSChain, opts ...Option) Service {
 	panicOnNil(cfg.irFetcher, "inner Ring fetcher")
 	panicOnNil(cfg.containers, "container source")
 	panicOnNil(fsChain, "FS chain")
+	panicOnNil(cfg.chainTime, "chain time provider")
 
 	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
 	if err != nil {
@@ -123,6 +145,7 @@ func New(fsChain FSChain, opts ...Option) Service {
 			innerRing: cfg.irFetcher,
 			fsChain:   fsChain,
 		},
+		r:                            nns.NewResolver(fsChain),
 		sessionTokenCommonCheckCache: sessionTokenCheckCache,
 		bearerTokenCommonCheckCache:  bearerTokenCheckCache,
 	}
@@ -132,15 +155,24 @@ func New(fsChain FSChain, opts ...Option) Service {
 func (b Service) ResetTokenCheckCache() {
 	b.sessionTokenCommonCheckCache.Purge()
 	b.bearerTokenCommonCheckCache.Purge()
+	b.r.PurgeCache()
 }
 
-func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
+func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb,
+	reqVerbV2 sessionv2.Verb, reqCnr cid.ID, reqObj oid.ID) (user.ID, []byte, error) {
 	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
 		mh = omh
 	}
+
+	mV2 := mh.GetSessionTokenV2()
+	if mV2 != nil {
+		return b.getVerifiedSessionTokenV2(mV2, reqVerbV2, reqCnr)
+	}
+
+	// Fall back to V1 token
 	m := mh.GetSessionToken()
 	if m == nil {
-		return nil, nil
+		return user.ID{}, nil, nil
 	}
 
 	mb := make([]byte, m.MarshaledSize())
@@ -153,14 +185,19 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
-		return nil, res.err
+		return user.ID{}, nil, res.err
 	}
 
 	if err := b.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
-		return nil, err
+		return user.ID{}, nil, err
 	}
 
-	return &res.token, nil
+	sig, ok := res.token.Signature()
+	if !ok {
+		return user.ID{}, nil, errors.New("missing signature in session token")
+	}
+
+	return res.token.Issuer(), sig.PublicKeyBytes(), nil
 }
 
 type sessionTokenWithEncodedBody struct {
@@ -217,6 +254,86 @@ func (b Service) verifySessionTokenAgainstRequest(token sessionSDK.Object, reqVe
 	}
 
 	return nil
+}
+
+// getVerifiedSessionTokenV2 validates and returns V2 session token info.
+func (b Service) getVerifiedSessionTokenV2(mV2 *protosession.SessionTokenV2, reqVerb sessionv2.Verb, reqCnr cid.ID) (user.ID, []byte, error) {
+	mb := make([]byte, mV2.MarshaledSize())
+	mV2.MarshalStable(mb)
+
+	cacheKey := sha256.Sum256(mb)
+	res, ok := b.sessionTokenCommonCheckCache.Get(cacheKey)
+	if !ok {
+		res.tokenV2, res.err = b.decodeAndVerifySessionTokenV2Common(mV2, mb)
+	}
+	if res.err != nil {
+		return user.ID{}, nil, res.err
+	}
+
+	currentTime := b.chainTime.Now().Round(time.Second)
+	if res.tokenV2.Exp().Before(currentTime) {
+		return user.ID{}, nil, apistatus.ErrSessionTokenExpired
+	}
+	if !res.tokenV2.ValidAt(currentTime) {
+		return user.ID{}, nil, fmt.Errorf("%s: V2 token is invalid at %s, token iat %s, nbf %s, exp %s", invalidRequestMessage, currentTime, res.tokenV2.Iat(), res.tokenV2.Nbf(), res.tokenV2.Exp())
+	}
+	if !ok {
+		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
+	}
+
+	if !res.tokenV2.AssertVerb(reqVerb, reqCnr) {
+		return user.ID{}, nil, errInvalidVerb
+	}
+
+	var key []byte
+	origin := &res.tokenV2
+	for origin != nil {
+		sig, ok := origin.Signature()
+		if !ok {
+			return user.ID{}, nil, errors.New("missing signature in V2 session token")
+		}
+		key = sig.PublicKeyBytes()
+		origin = origin.Origin()
+	}
+
+	return res.tokenV2.OriginalIssuer(), key, nil
+}
+
+type sessionTokenV2WithEncodedBody struct {
+	sessionv2.Token
+	body []byte
+}
+
+func (x sessionTokenV2WithEncodedBody) SignedData() []byte {
+	return x.body
+}
+
+func (b Service) decodeAndVerifySessionTokenV2Common(m *protosession.SessionTokenV2, mb []byte) (sessionv2.Token, error) {
+	var token sessionv2.Token
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("invalid V2 session token: %w", err)
+	}
+
+	if err := token.Validate(b.r); err != nil {
+		return token, fmt.Errorf("validate V2 session token: %w", err)
+	}
+
+	body, err := iprotobuf.GetFirstBytesField(mb)
+	if err != nil {
+		return token, fmt.Errorf("get body from calculated session token v2 binary: %w", err)
+	}
+
+	if err := icrypto.AuthenticateTokenV2(sessionTokenV2WithEncodedBody{
+		Token: token,
+		body:  body,
+	}, historicN3ScriptRunner{
+		FSChain:   b.c.fsChain,
+		Netmapper: b.nm,
+	}); err != nil {
+		return token, fmt.Errorf("authenticate session token v2: %w", err)
+	}
+
+	return token, nil
 }
 
 func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) (*bearer.Token, error) {
@@ -327,7 +444,7 @@ func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo,
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
@@ -343,7 +460,7 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
 }
 
 // SearchRequestToInfo resolves RequestInfo from the request to check it using
@@ -368,7 +485,7 @@ func (b Service) searchRequestToInfo(request interface {
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, oid.ID{})
+	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
@@ -384,7 +501,7 @@ func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (Reques
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete, *obj)
 }
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
@@ -400,7 +517,7 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionv2.VerbObjectRange, *obj)
 }
 
 // HashRequestToInfo resolves RequestInfo from the request to check it using
@@ -416,7 +533,7 @@ func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (Re
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectHash, sessionSDK.VerbObjectRangeHash, *obj)
+	return b.findRequestInfo(request, cnr, acl.OpObjectHash, sessionSDK.VerbObjectRangeHash, sessionv2.VerbObjectRangeHash, *obj)
 }
 
 var ErrSkipRequest = errors.New("skip request")
@@ -483,15 +600,15 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		}
 	}
 
-	op, verb := acl.OpObjectPut, sessionSDK.VerbObjectPut
+	op, verb, verbv2 := acl.OpObjectPut, sessionSDK.VerbObjectPut, sessionv2.VerbObjectPut
 	tombstone := header.GetObjectType() == protoobject.ObjectType_TOMBSTONE
 	if tombstone {
 		// such objects are specific - saving them is essentially the removal of other
 		// objects
-		op, verb = acl.OpObjectDelete, sessionSDK.VerbObjectDelete
+		op, verb, verbv2 = acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cnr, op, verb, obj)
+	reqInfo, err := b.findRequestInfo(request, cnr, op, verb, verbv2, obj)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, err
 	}
@@ -512,26 +629,17 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 func (b Service) findRequestInfo(req interface {
 	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
-}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, obj oid.ID) (RequestInfo, error) {
+}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, verb2 sessionv2.Verb, obj oid.ID) (RequestInfo, error) {
 	var (
 		info    RequestInfo
 		metaHdr = req.GetMetaHeader()
 	)
-	sTok, err := b.getVerifiedSessionToken(metaHdr, verb, idCnr, obj)
+	reqAuthor, reqAuthorPub, err := b.getVerifiedSessionToken(metaHdr, verb, verb2, idCnr, obj)
 	if err != nil {
 		return info, err
 	}
 
-	var reqAuthor user.ID
-	var reqAuthorPub []byte
-	if sTok != nil {
-		reqAuthor = sTok.Issuer()
-		sig, ok := sTok.Signature()
-		if !ok {
-			return info, errors.New("missing signature in session token")
-		}
-		reqAuthorPub = sig.PublicKeyBytes()
-	} else {
+	if reqAuthor.IsZero() {
 		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
 			return info, fmt.Errorf("get request author: %w", err)
 		}
