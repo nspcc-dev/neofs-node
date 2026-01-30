@@ -1,7 +1,7 @@
 package meta
 
 import (
-	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -11,9 +11,15 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/limits"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
+	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type objectMeta struct {
@@ -75,8 +81,8 @@ func (m *objectMeta) parse(ic *interop.Context, metaInfo []stackitem.MapElement)
 		if err != nil {
 			panic(fmt.Sprintf("incorrect object type: %s", err.Error()))
 		}
-		switch typ.Int64() {
-		case 0, 1, 2, 3, 4: // regular, tombstone, storage group, lock, link
+		switch object.Type(typ.Int64()) {
+		case object.TypeRegular, object.TypeTombstone, object.TypeLock, object.TypeLink:
 		default:
 			panic(fmt.Errorf("incorrect object type: %d", typ.Int64()))
 		}
@@ -162,7 +168,7 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 		panic(fmt.Errorf("cannot retrieve placement vector from stack item: %w", err))
 	}
 
-	err = isSignedBySNs(ic, placement)
+	err = isSignedBySNs(ic, m.Hash, o.cID, len(placement))
 	if err != nil {
 		panic(err)
 	}
@@ -267,44 +273,106 @@ func storeObject(ic *interop.Context, o objectMeta) error {
 	return nil
 }
 
-func isSignedBySNs(ic *interop.Context, placement Placement) error {
-	if l := len(ic.Tx.Scripts); l != 1 {
-		return fmt.Errorf("expected exactly 1 witness script, got %d", l)
+func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackitem.Item) stackitem.Item {
+	var (
+		signedData = make([]byte, 4, 4+util.Uint256Size)
+		h          = ic.Container.Hash()
+	)
+	binary.LittleEndian.PutUint32(signedData, ic.Network)
+	signedData = append(signedData, h[:]...)
+	signedDataHash := sha256.Sum256(signedData)
+
+	const expectedNumberOfArgs = 2
+	if len(args) != expectedNumberOfArgs {
+		return stackitem.NewBool(false)
 	}
 
-	_, pks, ok := scparser.ParseMultiSigContract(ic.Tx.Scripts[0].VerificationScript)
+	cID := containerIDFromStackItem(args[0])
+	if ic.DAO.GetStorageItem(m.ID, append([]byte{metaContainersPrefix}, cID...)) == nil {
+		panic("container does not support chained metadata")
+	}
+
+	sigsVectorsRaw, ok := args[1].Value().([]stackitem.Item)
 	if !ok {
-		return fmt.Errorf("invalid verification script")
+		panic(fmt.Errorf("unexpected second argument value: %T expected, %T given", sigsVectorsRaw, args[1].Value()))
+	}
+	var sigVectors = make([][][]byte, 0, len(sigsVectorsRaw))
+	for i := range sigsVectorsRaw {
+		vectorRaw, ok := sigsVectorsRaw[i].Value().([]stackitem.Item)
+		if !ok {
+			panic(fmt.Errorf("unexpected %d signatures vector value: %T expected, %T given", i, vectorRaw, sigsVectorsRaw[i].Value()))
+		}
+		vector := make([][]byte, 0, len(vectorRaw))
+		for j := range vectorRaw {
+			sig, ok := vectorRaw[j].Value().([]byte)
+			if !ok {
+				panic(fmt.Errorf("unexpected %d signature value in %d signatures vector: %T expected, %T given", j, i, sig, sigsVectorsRaw[j].Value()))
+			}
+			vector = append(vector, sig)
+		}
+		sigVectors = append(sigVectors, vector)
+	}
+
+	cnrListRaw := ic.DAO.GetStorageItem(m.ID, append([]byte{containerPlacementPrefix}, cID...))
+	placementI, err := stackitem.Deserialize(cnrListRaw)
+	if err != nil {
+		panic(fmt.Errorf("cannot deserialize container placement list: %w", err))
+	}
+	var placement Placement
+	err = placement.FromStackItem(placementI)
+	if err != nil {
+		panic(fmt.Errorf("cannot retrieve placement vector from stack item: %w", err))
+	}
+	if len(sigVectors) != len(placement) {
+		panic(fmt.Errorf("unexpected number of signature vectors: %d signatures, %d placement vectors found", len(sigVectors), len(placement)))
 	}
 
 	for i, vector := range placement {
 		var foundSigs, lastFoundSig int
-		cachedRawKeys := make([][]byte, 0, len(pks))
-
-		for i, n := range vector.Nodes {
-			if len(cachedRawKeys)-1 < i {
-				cachedRawKeys = append(cachedRawKeys, n.Bytes())
-			}
-			rawKey := cachedRawKeys[i]
-
+		for _, sig := range sigVectors[i] {
 			// placement nodes are sorted by their public keys, so the signers are expected to be
-			for j := max(0, lastFoundSig); j < len(pks); j++ {
-				if bytes.Equal(pks[j], rawKey) {
+			for j := max(0, lastFoundSig); j < len(vector.Nodes); j++ {
+				if vector.Nodes[j].Verify(sig, signedDataHash[:]) {
 					foundSigs++
 					lastFoundSig = j
-
 					break
 				}
 			}
-
 			if foundSigs == int(vector.REP) {
 				break
 			}
 		}
-
 		if foundSigs < int(vector.REP) {
-			return fmt.Errorf("REP %d is not sufficient for %d placement vector, %d signatures found", vector.REP, i, foundSigs)
+			panic(fmt.Sprintf("REP %d is not sufficient for %d placement vector, %d signatures found", vector.REP, i, foundSigs))
 		}
+	}
+
+	return stackitem.NewBool(true)
+}
+
+func verifScript(hash util.Uint160, cID []byte, placementVectorsNumber int) []byte {
+	var (
+		verifScriptBuf = io.NewBufBinWriter()
+		writer         = verifScriptBuf.BinWriter
+	)
+	emit.Int(writer, int64(placementVectorsNumber)) // sigs array length
+	emit.Opcodes(writer, opcode.PACK)
+	emit.Bytes(writer, cID)
+	emit.Int(writer, 2) // number or args
+	emit.Opcodes(writer, opcode.PACK)
+	emit.AppCallNoArgs(writer, hash, "verifyPlacementSignatures", callflag.ReadOnly)
+
+	return verifScriptBuf.Bytes()
+}
+
+func isSignedBySNs(ic *interop.Context, contract util.Uint160, cID []byte, placementVectorsNumber int) error {
+	if l := len(ic.Tx.Scripts); l != 1 {
+		return fmt.Errorf("expected exactly 1 witness script, got %d", l)
+	}
+
+	acc := hash.Hash160(verifScript(contract, cID, placementVectorsNumber))
+	if !ic.Tx.Signers[0].Account.Equals(acc) {
+		return fmt.Errorf("not signed by %s account", acc)
 	}
 
 	return nil

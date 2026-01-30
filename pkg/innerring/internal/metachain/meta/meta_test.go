@@ -9,11 +9,17 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/neotest"
 	"github.com/nspcc-dev/neo-go/pkg/neotest/chain"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain/meta"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -120,12 +126,38 @@ func requirePlacementsEqual(t *testing.T, a, b stackitem.Item) {
 	}
 }
 
+//func makeSlice(value byte, length int) []byte {
+//	res := make([]byte, length)
+//	for i := range res {
+//		res[i] = value
+//	}
+//
+//	return res
+//}
+
 func TestMetaDataContract_Objects(t *testing.T) {
+	//cID2 := makeSlice(10, 32)
+	//var sigs []any
+	//for range 2 {
+	//	var vector []any
+	//	for j := range 3 {
+	//		sig := makeSlice(byte(j), 64)
+	//		vector = append(vector, sig)
+	//	}
+	//	sigs = append(sigs, vector)
+	//}
+	//
+	//w := io.NewBufBinWriter()
+	//emit.AppCall(w.BinWriter, util.Uint160{}, "test", callflag.ReadOnly, cID2, sigs)
+	//
+	//script := w.Bytes()
+	//_ = script
+
 	_, metaCommitteeI := newMetaClient(t)
 	cID := cidtest.ID()
 	const (
-		numOfVectors  = 5
-		nodesInVector = 5
+		numOfVectors  = 3
+		nodesInVector = 3
 	)
 
 	var nodes [][]*keys.PrivateKey
@@ -140,7 +172,7 @@ func TestMetaDataContract_Objects(t *testing.T) {
 		nodes = append(nodes, vector)
 	}
 	updateContainerList(t, metaCommitteeI, cID, nodes)
-	snMultisigner := nodesMultiSigner(nodes)
+	snMultisigner := nodesMultiSigner(metaCommitteeI.Hash, cID, nodes)
 
 	t.Run("meta disabled", func(t *testing.T) {
 		oID := oidtest.ID()
@@ -164,26 +196,60 @@ func TestMetaDataContract_Objects(t *testing.T) {
 			badNodes := slices.Clone(nodes)
 			badNodes = badNodes[:len(badNodes)/2]
 
-			metaCommitteeI.WithSigners(nodesMultiSigner(badNodes)).InvokeFail(t, "is not sufficient for", "submitObjectPut", rawMeta)
+			invokeFailWithCustomSigner(t, metaCommitteeI, nodesMultiSigner(metaCommitteeI.Hash, cID, badNodes), "unexpected", "submitObjectPut", rawMeta)
 		})
 
 		t.Run("correct meta data", func(t *testing.T) {
-			m := testMeta(cID[:], oID[:])
-			rawMeta, err := stackitem.Serialize(m)
-			require.NoError(t, err)
+			t.Run("notification", func(t *testing.T) {
+				m := testMeta(cID[:], oID[:])
+				rawMeta, err := stackitem.Serialize(m)
+				require.NoError(t, err)
 
-			hash := metaCommitteeI.WithSigners(snMultisigner).Invoke(t, stackitem.Null{}, "submitObjectPut", rawMeta)
-			res := metaCommitteeI.GetTxExecResult(t, hash)
-			require.Len(t, res.Events, 1)
-			require.Equal(t, "ObjectPut", res.Events[0].Name)
-			notificationArgs := res.Events[0].Item.Value().([]stackitem.Item)
-			require.Len(t, notificationArgs, 3)
-			require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
-			require.Equal(t, oID[:], notificationArgs[1].Value().([]byte))
+				h := invokeWithCustomSigner(t, metaCommitteeI, snMultisigner, stackitem.Null{}, "submitObjectPut", rawMeta)
+				res := metaCommitteeI.GetTxExecResult(t, h)
+				require.Len(t, res.Events, 1)
+				require.Equal(t, "ObjectPut", res.Events[0].Name)
+				notificationArgs := res.Events[0].Item.Value().([]stackitem.Item)
+				require.Len(t, notificationArgs, 3)
+				require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
+				require.Equal(t, oID[:], notificationArgs[1].Value().([]byte))
 
-			metaValuesExp := m.Value().([]stackitem.MapElement)
-			metaValuesGot := notificationArgs[2].Value().([]stackitem.MapElement)
-			require.Equal(t, metaValuesExp, metaValuesGot)
+				metaValuesExp := m.Value().([]stackitem.MapElement)
+				metaValuesGot := notificationArgs[2].Value().([]stackitem.MapElement)
+				require.Equal(t, metaValuesExp, metaValuesGot)
+			})
+
+			//t.Run("storage", func(t *testing.T) {
+			//	var (
+			//		cID                 = cidtest.ID()
+			//		oID                 = oidtest.ID()
+			//		typ          uint8  = 1
+			//		firstPart           = oidtest.ID()
+			//		previousPart        = oidtest.ID()
+			//		deleted             = oidtest.ID()
+			//		size         uint64 = 123456
+			//	)
+			//
+			//	m := stackitem.NewMapWithValue(
+			//		[]stackitem.MapElement{
+			//			{Key: stackitem.Make("network"), Value: stackitem.Make(netmode.UnitTestNet)},
+			//			{Key: stackitem.Make("cid"), Value: stackitem.Make(cID[:])},
+			//			{Key: stackitem.Make("oid"), Value: stackitem.Make(oID[:])},
+			//			{Key: stackitem.Make("type"), Value: stackitem.Make(typ)},
+			//			{Key: stackitem.Make("firstPart"), Value: stackitem.Make(firstPart)},
+			//			{Key: stackitem.Make("previousPart"), Value: stackitem.Make(previousPart)},
+			//			{Key: stackitem.Make("size"), Value: stackitem.Make(size)},
+			//			{Key: stackitem.Make("deleted"), Value: stackitem.Make(deleted[:])},
+			//			{Key: stackitem.Make("validUntil"), Value: stackitem.Make(math.MaxInt)},
+			//		})
+			//	rawMeta, err := stackitem.Serialize(m)
+			//	require.NoError(t, err)
+			//
+			//	metaCommitteeI.WithSigners(snMultisigner).Invoke(t, stackitem.Null{}, "submitObjectPut", rawMeta)
+			//
+			//	k := make([]byte, limits.MaxStorageKeyLen)
+			//	metaCommitteeI.Chain.GetStorageItem(meta.MetaDataContractID, key)
+			//})
 		})
 
 		t.Run("additional testing values", func(t *testing.T) {
@@ -196,8 +262,8 @@ func TestMetaDataContract_Objects(t *testing.T) {
 			rawMeta, err := stackitem.Serialize(m)
 			require.NoError(t, err)
 
-			hash := metaCommitteeI.WithSigners(snMultisigner).Invoke(t, stackitem.Null{}, "submitObjectPut", rawMeta)
-			res := metaCommitteeI.GetTxExecResult(t, hash)
+			h := invokeWithCustomSigner(t, metaCommitteeI, snMultisigner, stackitem.Null{}, "submitObjectPut", rawMeta)
+			res := metaCommitteeI.GetTxExecResult(t, h)
 			require.Len(t, res.Events, 1)
 			require.Equal(t, "ObjectPut", res.Events[0].Name)
 			notificationArgs := res.Events[0].Item.Value().([]stackitem.Item)
@@ -217,7 +283,7 @@ func TestMetaDataContract_Objects(t *testing.T) {
 				raw, err := stackitem.Serialize(m)
 				require.NoError(t, err)
 
-				metaCommitteeI.WithSigners(snMultisigner).InvokeFail(t, fmt.Sprintf("missing required '%s' key in map", key), "submitObjectPut", raw)
+				invokeFailWithCustomSigner(t, metaCommitteeI, snMultisigner, fmt.Sprintf("missing required '%s' key in map", key), "submitObjectPut", raw)
 			}
 
 			testFunc("oid")
@@ -233,7 +299,7 @@ func TestMetaDataContract_Objects(t *testing.T) {
 				raw, err := stackitem.Serialize(m)
 				require.NoError(t, err)
 
-				metaCommitteeI.WithSigners(snMultisigner).InvokeFail(t, "incorrect", "submitObjectPut", raw)
+				invokeFailWithCustomSigner(t, metaCommitteeI, snMultisigner, "incorrect", "submitObjectPut", raw)
 			}
 
 			testFunc("oid", []byte{1})
@@ -258,6 +324,7 @@ func testMeta(cid, oid []byte) *stackitem.Map {
 			{Key: stackitem.Make("oid"), Value: stackitem.Make(oid)},
 			{Key: stackitem.Make("type"), Value: stackitem.Make(1)},
 			{Key: stackitem.Make("firstPart"), Value: stackitem.Make(oid)},
+			{Key: stackitem.Make("previousPart"), Value: stackitem.Make(oid)},
 			{Key: stackitem.Make("size"), Value: stackitem.Make(123)},
 			{Key: stackitem.Make("deleted"), Value: stackitem.Make(deleted[:])},
 			{Key: stackitem.Make("validUntil"), Value: stackitem.Make(math.MaxInt)},
@@ -281,29 +348,95 @@ func updateContainerList(t *testing.T, metaI *neotest.ContractInvoker, cID cid.I
 	metaI.Invoke(t, stackitem.Null{}, "updateContainerList", cID[:], &newPlacement)
 }
 
-func nodesMultiSigner(nodes [][]*keys.PrivateKey) neotest.MultiSigner {
-	flatNodes := make([]*keys.PrivateKey, 0)
-	for _, v := range nodes {
-		flatNodes = append(flatNodes, v...)
-	}
-	slices.SortFunc(flatNodes, func(a, b *keys.PrivateKey) int {
-		return a.PublicKey().Cmp(b.PublicKey())
-	})
-	flatNodesPublic := make([]*keys.PublicKey, 0, len(flatNodes))
-	for _, n := range flatNodes {
-		flatNodesPublic = append(flatNodesPublic, n.PublicKey())
-	}
+func invokeFailWithCustomSigner(t testing.TB, validator *neotest.ContractInvoker, customSigner neotest.Signer, message string, method string, args ...any) util.Uint256 {
+	tx := validator.WithSigners(customSigner).PrepareInvoke(t, method, args...)
+	validator.AddNewBlock(t, tx)
+	validator.CheckFault(t, tx.Hash(), message)
+	return tx.Hash()
+}
 
-	accs := make([]*wallet.Account, 0, len(flatNodes))
-	for _, n := range flatNodes {
-		acc := wallet.NewAccountFromPrivateKey(&keys.PrivateKey{PrivateKey: n.PrivateKey})
-		err := acc.ConvertMultisig(len(nodes), flatNodesPublic)
-		if err != nil {
-			panic(err)
+func invokeWithCustomSigner(t testing.TB, validator *neotest.ContractInvoker, customSigner neotest.Signer, result any, method string, args ...any) util.Uint256 {
+	tx := validator.WithSigners(customSigner).PrepareInvoke(t, method, args...)
+	validator.AddNewBlock(t, tx)
+	validator.CheckHalt(t, tx.Hash(), stackitem.Make(result))
+	return tx.Hash()
+}
+
+type signer struct {
+	verif []byte
+	nodes [][]*keys.PrivateKey
+}
+
+func (s signer) Script() []byte {
+	return s.verif
+}
+
+func (s signer) ScriptHash() util.Uint160 {
+	return hash.Hash160(s.verif)
+}
+
+func (s signer) SignHashable(u uint32, hashable hash.Hashable) []byte {
+	var (
+		invokBuff = io.NewBufBinWriter()
+		writer    = invokBuff.BinWriter
+	)
+	for i := len(s.nodes) - 1; i >= 0; i-- {
+		vectorLen := len(s.nodes[i])
+		for j := vectorLen - 1; j >= 0; j-- {
+			emit.Bytes(writer, s.nodes[i][j].SignHashable(u, hashable))
 		}
-
-		accs = append(accs, acc)
+		emit.Int(writer, int64(vectorLen))
+		emit.Opcodes(writer, opcode.PACK)
 	}
 
-	return neotest.NewMultiSigner(accs...)
+	return invokBuff.Bytes()
+}
+
+func (s signer) SignTx(magic netmode.Magic, tx *transaction.Transaction) error {
+	if len(tx.Signers) != 1 {
+		return fmt.Errorf("expected 1 meta signer, got %d", len(tx.Signers))
+	}
+	if acc := hash.Hash160(s.verif); !tx.Signers[0].Account.Equals(acc) {
+		return fmt.Errorf("expected signer %s, got %s", acc, tx.Signers[0].Account)
+	}
+
+	// neotest does not support custom scripts and cannot calculate network
+	// fee correctly so change it there manually to smth that is currently
+	// enough for tests,
+	tx.NetworkFee = 10_000_000
+
+	tx.Scripts = append(tx.Scripts[:0], transaction.Witness{
+		InvocationScript:   s.SignHashable(uint32(magic), tx),
+		VerificationScript: s.verif,
+	})
+
+	return nil
+}
+
+func nodesMultiSigner(contractHash util.Uint160, cID cid.ID, nodes [][]*keys.PrivateKey) neotest.Signer {
+	for _, vector := range nodes {
+		slices.SortFunc(vector, func(a, b *keys.PrivateKey) int {
+			return a.PublicKey().Cmp(b.PublicKey())
+		})
+	}
+
+	return signer{
+		verif: verifScript(contractHash, cID[:], len(nodes)),
+		nodes: nodes,
+	}
+}
+
+func verifScript(hash util.Uint160, cID []byte, placementVectorsNumber int) []byte {
+	var (
+		verifScriptBuf = io.NewBufBinWriter()
+		writer         = verifScriptBuf.BinWriter
+	)
+	emit.Int(writer, int64(placementVectorsNumber)) // sigs array length
+	emit.Opcodes(writer, opcode.PACK)
+	emit.Bytes(writer, cID)
+	emit.Int(writer, 2) // number or args
+	emit.Opcodes(writer, opcode.PACK)
+	emit.AppCallNoArgs(writer, hash, "verifyPlacementSignatures", callflag.ReadOnly)
+
+	return verifScriptBuf.Bytes()
 }

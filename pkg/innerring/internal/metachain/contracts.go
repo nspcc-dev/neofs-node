@@ -49,7 +49,7 @@ func NewCustomNatives(cfg neogoconfig.ProtocolConfiguration) []interop.Contract 
 			neoContract = contract.(native.INEO)
 			newContracts = append(newContracts, neoContract)
 		case *native.GAS:
-			newContracts = append(newContracts, gas.NewGAS(int64(cfg.InitialGASSupply)))
+			newContracts = append(newContracts, gas.NewGAS())
 		case *native.Management, *native.Ledger, *native.Policy, *native.Designate, *native.Notary:
 			newContracts = append(newContracts, contract)
 		case *native.Std, *native.Crypto, *native.Oracle, *native.Treasury:

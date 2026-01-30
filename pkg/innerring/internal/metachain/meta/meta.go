@@ -75,6 +75,12 @@ func NewMetadata(neo native.INEO) *MetaData {
 	md = native.NewMethodAndPrice(m.updateContainerList, 1<<15, callflag.WriteStates)
 	m.AddMethod(md, desc)
 
+	desc = native.NewDescriptor("verifyPlacementSignatures", smartcontract.BoolType,
+		manifest.NewParameter("container", smartcontract.Hash256Type),
+		manifest.NewParameter("signatures", smartcontract.ArrayType))
+	md = native.NewMethodAndPrice(m.verifyPlacementSignatures, 1<<15, callflag.ReadOnly)
+	m.AddMethod(md, desc)
+
 	eDesc := native.NewEventDescriptor(putObjectEvent,
 		manifest.NewParameter("container", smartcontract.Hash256Type),
 		manifest.NewParameter("object", smartcontract.Hash256Type),
