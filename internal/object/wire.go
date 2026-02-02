@@ -29,18 +29,18 @@ const (
 // Protobuf field numbers for header message.
 const (
 	_ = iota
-	/* FieldHeaderVersion */ _
-	/* FieldHeaderContainerID */ _
-	/* FieldHeaderOwnerID */ _
-	/* FieldHeaderCreationEpoch */ _
-	/* FieldHeaderPayloadLength */ _
-	/* FieldHeaderPayloadHash */ _
-	/* FieldHeaderType */ _
-	/* FieldHeaderHomoHash */ _
-	/* FieldHeaderSessionToken */ _
-	/* FieldHeaderAttributes */ _
+	FieldHeaderVersion
+	FieldHeaderContainerID
+	FieldHeaderOwnerID
+	FieldHeaderCreationEpoch
+	FieldHeaderPayloadLength
+	FieldHeaderPayloadHash
+	FieldHeaderType
+	FieldHeaderHomoHash
+	FieldHeaderSessionToken
+	FieldHeaderAttributes
 	FieldHeaderSplit
-	/* FieldHeaderSessionTokenV2 */ _
+	FieldHeaderSessionTokenV2
 )
 
 // Protobuf field numbers for split header message.

@@ -3,6 +3,7 @@ package protobuf
 import (
 	"fmt"
 	"io"
+	"math"
 
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -84,4 +85,78 @@ func ParseAnyField(b []byte, off int, num protowire.Number, typ protowire.Type) 
 	}
 
 	return n, nil
+}
+
+func parseEnum[T ~int32](b []byte, off int) (T, int, error) {
+	u, n, err := parseVarint(b, off)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if u > math.MaxUint32 {
+		return 0, 0, fmt.Errorf("value %d overflows int32", u)
+	}
+
+	return T(u), n, nil
+}
+
+// ParseEnumField parses value of the next enum field with known number and type
+// at given offset. Returns value and its length.
+func ParseEnumField[T ~int32](b []byte, off int, num protowire.Number, typ protowire.Type) (T, int, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	e, n, err := parseEnum[T](b, off)
+	if err != nil {
+		return 0, 0, WrapParseFieldError(num, protowire.VarintType, err)
+	}
+
+	return e, n, nil
+}
+
+func parseUint32(b []byte, off int) (uint32, int, error) {
+	u, n, err := parseVarint(b, off)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if u > math.MaxUint32 {
+		return 0, 0, fmt.Errorf("value %d overflows uint32", u)
+	}
+
+	return uint32(u), n, nil
+}
+
+// ParseUint32Field parses value of the next uint32 field with known number and
+// type at given offset. Returns value and its length.
+func ParseUint32Field(b []byte, off int, num protowire.Number, typ protowire.Type) (uint32, int, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	u, n, err := parseUint32(b, off)
+	if err != nil {
+		return 0, 0, WrapParseFieldError(num, protowire.VarintType, err)
+	}
+
+	return u, n, nil
+}
+
+// ParseUint64Field parses value of the next uint64 field with known number and
+// type at given offset. Returns value and its length.
+func ParseUint64Field(b []byte, off int, num protowire.Number, typ protowire.Type) (uint64, int, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	u, n, err := parseVarint(b, off)
+	if err != nil {
+		return 0, 0, WrapParseFieldError(num, protowire.VarintType, err)
+	}
+
+	return u, n, nil
 }

@@ -693,11 +693,19 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 			return s.makeStatusHeadResponse(err, needSignResp), nil
 		}
 
+		if recheckEACL { // previous check didn't match, but we have a header now.
+			err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+				err = eACLErr(reqInfo, err) // defer
+				return s.makeStatusHeadResponse(err, needSignResp), nil
+			}
+		}
+
 		n := shiftHeadResponseBuffer(respBuf.SliceBuffer, hdrBuf, sigf, hdrf)
 
 		n += writeMetaHeaderToResponseBuffer(respBuf.SliceBuffer[n:], s.fsChain.CurrentEpoch(), nil)
 
-		if !recheckEACL && !needSignResp {
+		if !needSignResp {
 			respBuf.Finalize(n)
 			return respBuf, nil
 		}
@@ -705,6 +713,8 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		if err = proto.Unmarshal(respBuf.SliceBuffer[:n], &resp); err != nil {
 			return nil, fmt.Errorf("unmarshal response: %w", err)
 		}
+
+		recheckEACL = false
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.

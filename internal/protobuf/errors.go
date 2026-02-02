@@ -18,6 +18,12 @@ func NewRepeatedFieldError(n protowire.Number) error {
 	return fmt.Errorf("repeated field #%d", n)
 }
 
+// NewUnsupportedFieldError returns common error for unsupported field #n of
+// type t.
+func NewUnsupportedFieldError(n protowire.Number, t protowire.Type) error {
+	return fmt.Errorf("unsupported field #%d of type %v", n, t)
+}
+
 // WrapParseFieldError wraps cause of parsing field #n of type t.
 func WrapParseFieldError(n protowire.Number, t protowire.Type, cause error) error {
 	return fmt.Errorf("parse field (#%d,type=%v): %w", n, t, cause)
