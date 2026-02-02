@@ -13,6 +13,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// MaxHeaderVarintLen is varint len of [object.MaxHeaderLen].
+// TODO: unit test.
+const MaxHeaderVarintLen = 3 // object.MaxHeaderLen
+
 // Protobuf field numbers for object message.
 const (
 	_ = iota
@@ -218,17 +222,17 @@ loop:
 	return idf, sigf, hdrf, nil
 }
 
-// TODO: docs.
-func RestoreLayoutWithCutPayload(b []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
-	var err error
+// SeekParentHeaderFields seeks ID, signature and header in object message with
+// direct field order.
+func SeekHeaderFields(b []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
 	var idf, sigf, hdrf iprotobuf.FieldBounds
 	var off int
 	var prevNum protowire.Number
 loop:
 	for {
-		num, typ, tagLn := protowire.ConsumeTag(b[off:])
-		if err = protowire.ParseError(tagLn); err != nil {
-			return idf, sigf, hdrf, iprotobuf.WrapParseFieldTagError(err)
+		num, typ, n, err := iprotobuf.ParseTag(b, off)
+		if err != nil {
+			return idf, sigf, hdrf, err
 		}
 
 		if num < prevNum {
@@ -241,41 +245,21 @@ loop:
 
 		switch num {
 		case fieldObjectID:
-			if typ != protowire.BytesType {
-				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectID, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
-			}
-
-			idf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			idf, err = iprotobuf.ParseLenFieldBounds(b, off, n, num, typ)
 			if err != nil {
-				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectID, protowire.BytesType, err)
+				return idf, sigf, hdrf, err
 			}
-
 			off = idf.To
 		case fieldObjectSignature:
-			if typ != protowire.BytesType {
-				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectSignature, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
-			}
-
-			sigf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			sigf, err = iprotobuf.ParseLenFieldBounds(b, off, n, num, typ)
 			if err != nil {
-				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectSignature, protowire.BytesType, err)
+				return idf, sigf, hdrf, err
 			}
-
 			off = sigf.To
 		case fieldObjectHeader:
-			if typ != protowire.BytesType {
-				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectHeader, protowire.BytesType, iprotobuf.NewWrongFieldTypeError(typ))
-			}
-
-			hdrf, err = iprotobuf.ParseBytesFieldBounds(b, off, tagLn)
+			hdrf, err = iprotobuf.ParseLenFieldBounds(b, off, n, num, typ)
 			if err != nil {
-				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectHeader, protowire.BytesType, err)
-			}
-
-			break loop
-		case fieldObjectPayload:
-			if _, n := protowire.ConsumeVarint(b[off+tagLn:]); n < 0 {
-				return idf, sigf, hdrf, iprotobuf.WrapParseFieldError(fieldObjectPayload, protowire.BytesType, protowire.ParseError(n))
+				return idf, sigf, hdrf, err
 			}
 
 			break loop

@@ -3,9 +3,19 @@ package protobuf
 // One-byte tags for varlen fields.
 const (
 	_ = iota<<3 | 2
-	/* TagBytes1 */ _
+	TagBytes1
 	TagBytes2
 	TagBytes3
+	/* TagBytes4 */ _
+	/* TagBytes5 */ _
+	TagBytes6
+)
+
+// One-byte tags for varint fields.
+const (
+	_ = iota << 3
+	TagVarint1
+	TagVarint2
 )
 
 // FieldBounds represents bounds of some field in some continuous protobuf

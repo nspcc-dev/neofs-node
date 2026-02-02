@@ -657,11 +657,12 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	}
 	p.SetHeaderWriter(respDst)
 
-	var hdrBuf []byte
+	var hdrBuf, respBuf []byte
 	hdrLen := -1 // to panic below if it is not updated along with hdrBuf
 	p.WithBuffersFuncs(func() []byte {
 		if hdrBuf == nil {
-			hdrBuf = make([]byte, object.MaxHeaderLen*2)
+			respBuf = getBufferForHeadResponse()
+			hdrBuf = respBuf[maxHeaderOffsetInHeadResponse:]
 		}
 		return hdrBuf
 	}, func(ln int) {
@@ -674,7 +675,7 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	}
 
 	if hdrBuf != nil {
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(hdrBuf[:hdrLen])
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(hdrBuf[:hdrLen])
 		if err != nil {
 			return nil, fmt.Errorf("restore layout from received binary: %w", err)
 		}
@@ -711,7 +712,13 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 			}
 		}
 
-		fillHeadResponse(&resp, hdr, sig)
+		n := shiftHeadResponseBuffer(respBuf, hdrBuf, sigf, hdrf)
+
+		n += writeMetaHeaderToResponseBuffer(respBuf[n:], s.fsChain.CurrentEpoch(), nil)
+
+		if err = proto.Unmarshal(respBuf[:n], &resp); err != nil {
+			return nil, fmt.Errorf("unmarshal response: %w", err)
+		}
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.

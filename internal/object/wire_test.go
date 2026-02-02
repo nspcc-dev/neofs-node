@@ -107,7 +107,7 @@ func TestReadHeaderPrefix(t *testing.T) {
 	require.Equal(t, payload[:expectedSize], payloadPrefix)
 }
 
-func TestRestoreLayoutWithCutPayload(t *testing.T) {
+func TestSeekHeaderFields(t *testing.T) {
 	const pubkeyLen = 33
 	id := oidtest.ID()
 	sig := neofscrypto.NewSignatureFromRawKey(neofscrypto.N3, testutil.RandByteSlice(pubkeyLen), testutil.RandByteSlice(keys.SignatureLen))
@@ -162,21 +162,24 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 	}
 
 	t.Run("empty", func(t *testing.T) {
-		_, _, _, err := iobject.RestoreLayoutWithCutPayload(nil)
+		_, _, _, err := iobject.SeekHeaderFields(nil)
 		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 		require.EqualError(t, err, "parse field tag: "+io.ErrUnexpectedEOF.Error())
 
-		_, _, _, err = iobject.RestoreLayoutWithCutPayload([]byte{})
+		_, _, _, err = iobject.SeekHeaderFields([]byte{})
 		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 		require.EqualError(t, err, "parse field tag: "+io.ErrUnexpectedEOF.Error())
 	})
 	t.Run("payload tag", func(t *testing.T) {
-		_, _, _, err := iobject.RestoreLayoutWithCutPayload([]byte{34})
-		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
-		require.EqualError(t, err, "parse field (#4,type=2): "+io.ErrUnexpectedEOF.Error())
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields([]byte{34})
+		require.NoError(t, err)
+
+		require.True(t, idf.IsMissing())
+		require.True(t, sigf.IsMissing())
+		require.True(t, hdrf.IsMissing())
 	})
 	t.Run("payload tag and len", func(t *testing.T) {
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload([]byte{34, 13})
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields([]byte{34, 13})
 		require.NoError(t, err)
 
 		require.True(t, idf.IsMissing())
@@ -189,7 +192,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.True(t, idf.IsMissing())
@@ -204,7 +207,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.False(t, idf.IsMissing())
@@ -220,7 +223,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.False(t, idf.IsMissing())
@@ -237,7 +240,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := obj.Marshal()
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.False(t, idf.IsMissing())
@@ -254,7 +257,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.False(t, idf.IsMissing())
@@ -271,7 +274,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.False(t, idf.IsMissing())
@@ -286,7 +289,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := obj.Marshal()
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.False(t, idf.IsMissing())
@@ -301,7 +304,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.True(t, idf.IsMissing())
@@ -319,7 +322,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.True(t, idf.IsMissing())
@@ -334,7 +337,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := obj.Marshal()
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.True(t, idf.IsMissing())
@@ -350,7 +353,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.True(t, idf.IsMissing())
@@ -367,7 +370,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 		data := encodeObject(obj)
 
-		idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+		idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 		require.NoError(t, err)
 
 		require.True(t, idf.IsMissing())
@@ -379,7 +382,7 @@ func TestRestoreLayoutWithCutPayload(t *testing.T) {
 
 	data := encodeObject(obj)
 
-	idf, sigf, hdrf, err := iobject.RestoreLayoutWithCutPayload(data)
+	idf, sigf, hdrf, err := iobject.SeekHeaderFields(data)
 	require.NoError(t, err)
 
 	require.False(t, idf.IsMissing())
