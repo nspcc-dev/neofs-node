@@ -1449,7 +1449,6 @@ func checkAndCutECPartsForRule(t *testing.T, ruleIdx int, rule iec.Rule, nodeObj
 func newSessionTokenV2(t *testing.T, cnrID cid.ID, owner user.Signer, nodes []mockNodeSession, verbs []sessionv2.Verb) *sessionv2.Token {
 	var sessionTokenV2 sessionv2.Token
 	sessionTokenV2.SetVersion(sessionv2.TokenCurrentVersion)
-	sessionTokenV2.SetNonce(sessionv2.RandomNonce())
 
 	currentTime := time.Now()
 	sessionTokenV2.SetIat(currentTime)

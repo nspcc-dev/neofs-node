@@ -741,7 +741,6 @@ func TestService_TokenV2(t *testing.T) {
 		t.Helper()
 		var tok sessionv2.Token
 		tok.SetVersion(sessionv2.TokenCurrentVersion)
-		tok.SetNonce(sessionv2.RandomNonce())
 
 		now := time.Now()
 		tok.SetIat(now)

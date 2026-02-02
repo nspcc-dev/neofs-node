@@ -374,7 +374,6 @@ func CreateSessionV2(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cl
 
 	currentTime := time.Now()
 	tok.SetVersion(sessionv2.TokenCurrentVersion)
-	tok.SetNonce(sessionv2.RandomNonce())
 	// allow 10s clock skew, because time isn't synchronous over the network
 	tok.SetIat(currentTime.Add(-10 * time.Second))
 	tok.SetNbf(currentTime)
