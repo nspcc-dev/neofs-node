@@ -123,7 +123,6 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 	signer := user.NewAutoIDSigner(*privKey)
 
 	tokV2.SetVersion(session.TokenCurrentVersion)
-	tokV2.SetNonce(session.RandomNonce())
 	tokV2.SetNbf(currentTime)
 	// allow 10s clock skew, because time isn't synchronous over the network
 	tokV2.SetIat(currentTime.Add(-10 * time.Second))

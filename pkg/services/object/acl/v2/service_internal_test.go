@@ -126,7 +126,6 @@ func BenchmarkSessionTokenV2Verification(b *testing.B) {
 
 	var tok sessionv2.Token
 	tok.SetVersion(sessionv2.TokenCurrentVersion)
-	tok.SetNonce(sessionv2.RandomNonce())
 
 	ctx, err := sessionv2.NewContext(anyCnr, []sessionv2.Verb{anyVerbV2})
 	require.NoError(b, err)
