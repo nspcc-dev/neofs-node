@@ -50,6 +50,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -600,7 +601,11 @@ func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadR
 	}, sign)
 }
 
-func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+func (s *Server) Head(context.Context, *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+	panic("must not be called")
+}
+
+func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest) (any, error) {
 	var (
 		err         error
 		recheckEACL bool
@@ -715,6 +720,10 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		n := shiftHeadResponseBuffer(respBuf, hdrBuf, sigf, hdrf)
 
 		n += writeMetaHeaderToResponseBuffer(respBuf[n:], s.fsChain.CurrentEpoch(), nil)
+
+		if !recheckEACL && !needSignResp {
+			return mem.SliceBuffer(respBuf[:n]), nil
+		}
 
 		if err = proto.Unmarshal(respBuf[:n], &resp); err != nil {
 			return nil, fmt.Errorf("unmarshal response: %w", err)
