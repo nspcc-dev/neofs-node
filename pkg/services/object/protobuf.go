@@ -2,13 +2,19 @@ package object
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -61,10 +67,6 @@ func writeMetaHeaderToResponseBuffer(b []byte, epoch uint64, st *protostatus.Sta
 	return off
 }
 
-func getBufferForHeadResponse() []byte {
-	return make([]byte, headResponseBufferLen)
-}
-
 func shiftHeadResponseBuffer(respBuf, hdrBuf []byte, sigf, hdrf iprotobuf.FieldBounds) int {
 	if !hdrf.IsMissing() {
 		hdrBuf[hdrf.From] = iprotobuf.TagBytes1
@@ -85,4 +87,50 @@ func shiftHeadResponseBuffer(respBuf, hdrBuf []byte, sigf, hdrf iprotobuf.FieldB
 	}
 
 	return off
+}
+
+var headResponseBufferPool = iprotobuf.NewBufferPool(headResponseBufferLen)
+
+func getBufferForHeadResponse() (*iprotobuf.MemBuffer, []byte) {
+	item := headResponseBufferPool.Get()
+	return item, item.SliceBuffer[maxHeaderOffsetInHeadResponse:]
+}
+
+func parseHeaderBinary(b []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
+	idf, sigf, hdrf, err := iobject.SeekHeaderFields(b)
+	if err != nil {
+		return idf, sigf, hdrf, fmt.Errorf("restore layout from received binary: %w", err)
+	}
+
+	if !idf.IsMissing() {
+		m := new(refs.ObjectID)
+		if err = proto.Unmarshal(b[idf.ValueFrom:idf.To], m); err != nil {
+			return idf, sigf, hdrf, fmt.Errorf("unmarshal ID from received binary: %w", err)
+		}
+		if err = new(oid.ID).FromProtoMessage(m); err != nil {
+			return idf, sigf, hdrf, fmt.Errorf("invalid ID in received binary: %w", err)
+		}
+	}
+
+	if !sigf.IsMissing() {
+		m := new(refs.Signature)
+		if err = proto.Unmarshal(b[sigf.ValueFrom:sigf.To], m); err != nil {
+			return idf, sigf, hdrf, fmt.Errorf("unmarshal signature from received binary: %w", err)
+		}
+		if err = new(neofscrypto.Signature).FromProtoMessage(m); err != nil {
+			return idf, sigf, hdrf, fmt.Errorf("invalid signature in received binary: %w", err)
+		}
+	}
+
+	if !hdrf.IsMissing() {
+		m := new(protoobject.Header)
+		if err = proto.Unmarshal(b[hdrf.ValueFrom:hdrf.To], m); err != nil {
+			return idf, sigf, hdrf, fmt.Errorf("unmarshal header from received binary: %w", err)
+		}
+		if err = new(object.Object).FromProtoMessage(&protoobject.Object{Header: m}); err != nil {
+			return idf, sigf, hdrf, fmt.Errorf("invalid header in received binary: %w", err)
+		}
+	}
+
+	return idf, sigf, hdrf, nil
 }

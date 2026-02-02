@@ -17,7 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
-	iobject "github.com/nspcc-dev/neofs-node/internal/object"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -50,7 +50,6 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -662,12 +661,19 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 	p.SetHeaderWriter(respDst)
 
-	var hdrBuf, respBuf []byte
+	var respBuf *iprotobuf.MemBuffer
+	defer func() {
+		if respBuf != nil {
+			respBuf.Free()
+		}
+	}()
+
+	var hdrBuf []byte
 	hdrLen := -1 // to panic below if it is not updated along with hdrBuf
+
 	p.WithBuffersFuncs(func() []byte {
 		if hdrBuf == nil {
-			respBuf = getBufferForHeadResponse()
-			hdrBuf = respBuf[maxHeaderOffsetInHeadResponse:]
+			respBuf, hdrBuf = getBufferForHeadResponse()
 		}
 		return hdrBuf
 	}, func(ln int) {
@@ -680,52 +686,23 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	if hdrBuf != nil {
-		idf, sigf, hdrf, err := iobject.SeekHeaderFields(hdrBuf[:hdrLen])
+		defer respBuf.Free()
+
+		_, sigf, hdrf, err := parseHeaderBinary(hdrBuf[:hdrLen])
 		if err != nil {
-			return nil, fmt.Errorf("restore layout from received binary: %w", err)
+			return s.makeStatusHeadResponse(err, needSignResp), nil
 		}
 
-		if !idf.IsMissing() {
-			m := new(refs.ObjectID)
-			if err := proto.Unmarshal(hdrBuf[idf.ValueFrom:idf.To], m); err != nil {
-				return nil, fmt.Errorf("unmarshal ID from received binary: %w", err)
-			}
-			if err := new(oid.ID).FromProtoMessage(m); err != nil {
-				return nil, fmt.Errorf("invalid ID in received binary: %w", err)
-			}
-		}
+		n := shiftHeadResponseBuffer(respBuf.SliceBuffer, hdrBuf, sigf, hdrf)
 
-		var sig *refs.Signature
-		if !sigf.IsMissing() {
-			sig = new(refs.Signature)
-			if err := proto.Unmarshal(hdrBuf[sigf.ValueFrom:sigf.To], sig); err != nil {
-				return nil, fmt.Errorf("unmarshal signature from received binary: %w", err)
-			}
-			if err := new(neofscrypto.Signature).FromProtoMessage(sig); err != nil {
-				return nil, fmt.Errorf("invalid signature in received binary: %w", err)
-			}
-		}
-
-		var hdr *protoobject.Header
-		if !hdrf.IsMissing() {
-			hdr = new(protoobject.Header)
-			if err := proto.Unmarshal(hdrBuf[hdrf.ValueFrom:hdrf.To], hdr); err != nil {
-				return nil, fmt.Errorf("unmarshal header from received binary: %w", err)
-			}
-			if err := new(object.Object).FromProtoMessage(&protoobject.Object{Header: hdr}); err != nil {
-				return nil, fmt.Errorf("invalid header in received binary: %w", err)
-			}
-		}
-
-		n := shiftHeadResponseBuffer(respBuf, hdrBuf, sigf, hdrf)
-
-		n += writeMetaHeaderToResponseBuffer(respBuf[n:], s.fsChain.CurrentEpoch(), nil)
+		n += writeMetaHeaderToResponseBuffer(respBuf.SliceBuffer[n:], s.fsChain.CurrentEpoch(), nil)
 
 		if !recheckEACL && !needSignResp {
-			return mem.SliceBuffer(respBuf[:n]), nil
+			respBuf.Finalize(n)
+			return respBuf, nil
 		}
 
-		if err = proto.Unmarshal(respBuf[:n], &resp); err != nil {
+		if err = proto.Unmarshal(respBuf.SliceBuffer[:n], &resp); err != nil {
 			return nil, fmt.Errorf("unmarshal response: %w", err)
 		}
 	}
