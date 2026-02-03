@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -202,7 +203,8 @@ func (s StaticClient) execWithBackoff(invokeFunc func() error) error {
 	return backoff.RetryNotify(func() error {
 		err := invokeFunc()
 		if err != nil {
-			if errors.Is(err, neorpc.ErrMempoolCapReached) {
+			if errors.Is(err, neorpc.ErrMempoolCapReached) ||
+				strings.Contains(err.Error(), "insufficient amount of gas") {
 				return err
 			}
 			return backoff.Permanent(err)

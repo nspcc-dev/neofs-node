@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Potential payload overflow on getting full object from combined FSTree file (#3801)
 
 ### Changed
+- SN retries notary requests if `insufficient amount of gas` error appears (#3739)
 
 ### Removed
 
