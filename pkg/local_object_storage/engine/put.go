@@ -52,8 +52,8 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 
 	// In #1146 this check was parallelized, however, it became
 	// much slower on fast machines for 4 shards.
-	_, err := e.exists(addr)
-	if err != nil {
+	exists, err := e.exists(addr)
+	if err != nil || exists {
 		return err
 	}
 
