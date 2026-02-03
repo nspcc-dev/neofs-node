@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/binary"
 	"fmt"
+	"maps"
+	"slices"
 	"sync/atomic"
 
 	"github.com/google/uuid"
@@ -200,13 +202,7 @@ func (e *StorageEngine) unsortedShards() []shardWrapper {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
-	shards := make([]shardWrapper, 0, len(e.shards))
-
-	for _, sh := range e.shards {
-		shards = append(shards, sh)
-	}
-
-	return shards
+	return slices.Collect(maps.Values(e.shards))
 }
 
 func (e *StorageEngine) getShard(id string) shardWrapper {
