@@ -126,10 +126,9 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 
 	e.shards[strID] = shardWrapper{
 		errorCount: new(atomic.Uint32),
+		pool:       pool,
 		Shard:      sh,
 	}
-
-	e.shardPools[strID] = pool
 
 	return nil
 }
@@ -153,11 +152,7 @@ func (e *StorageEngine) removeShards(ids ...string) {
 		ss = append(ss, sh)
 		delete(e.shards, id)
 
-		pool, ok := e.shardPools[id]
-		if ok {
-			pool.Release()
-			delete(e.shardPools, id)
-		}
+		sh.pool.Release()
 
 		e.log.Info("shard has been removed",
 			zap.String("id", id))

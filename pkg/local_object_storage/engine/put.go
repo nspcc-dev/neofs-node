@@ -8,7 +8,6 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -67,7 +66,6 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	var (
-		bestPool   util.WorkerPool
 		bestShard  shardWrapper
 		overloaded bool
 		shs        []shardWrapper
@@ -80,19 +78,11 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	for _, sh := range shs {
-		e.mtx.RLock()
-		pool, ok := e.shardPools[sh.ID().String()]
-		if ok && bestPool == nil {
+		if bestShard.pool == nil {
 			bestShard = sh
-			bestPool = pool
-		}
-		e.mtx.RUnlock()
-		if !ok {
-			// Shard was concurrently removed, skip.
-			continue
 		}
 
-		err = e.putToShard(sh, pool, addr, obj, objBin)
+		err = e.putToShard(sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			return nil
 		}
@@ -105,7 +95,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 		zap.Stringer("addr", addr), zap.Stringer("best shard", bestShard.ID()))
 
 	if e.objectPutTimeout > 0 {
-		success, over := e.putToShardWithDeadLine(bestShard, bestPool, addr, obj, objBin)
+		success, over := e.putToShardWithDeadLine(bestShard, addr, obj, objBin)
 		if success {
 			return nil
 		}
@@ -126,7 +116,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 // putToShard puts object to sh.
 // Returns error from shard put or errOverloaded (when shard pool can't accept
 // the task) or errExists (if object is already stored there).
-func (e *StorageEngine) putToShard(sh shardWrapper, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) error {
+func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
 	var (
 		alreadyExists bool
 		err           error
@@ -135,7 +125,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, pool util.WorkerPool, addr o
 		putError      error
 	)
 
-	err = pool.Submit(func() {
+	err = sh.pool.Submit(func() {
 		defer close(exitCh)
 
 		exists, err := sh.Exists(addr, false)
@@ -192,7 +182,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, pool util.WorkerPool, addr o
 	return putError
 }
 
-func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, pool util.WorkerPool, addr oid.Address, obj *object.Object, objBin []byte) (bool, bool) {
+func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) (bool, bool) {
 	const putCooldown = 100 * time.Millisecond
 	var (
 		overloaded bool
@@ -206,7 +196,7 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, pool util.Worker
 			e.log.Error("could not put object", zap.Stringer("addr", addr), zap.Duration("deadline", e.objectPutTimeout))
 			return false, overloaded
 		case <-ticker.C:
-			err := e.putToShard(sh, pool, addr, obj, objBin)
+			err := e.putToShard(sh, addr, obj, objBin)
 			if errors.Is(err, errOverloaded) {
 				overloaded = true
 				ticker.Reset(putCooldown)
@@ -221,8 +211,6 @@ func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, pool util.Worker
 // broadcastObject stores object on ALL shards to ensure it's available everywhere.
 func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error {
 	var (
-		pool       util.WorkerPool
-		ok         bool
 		allShards  = e.unsortedShards()
 		addr       = obj.Address()
 		goodShards = make([]shardWrapper, 0, len(allShards))
@@ -237,16 +225,7 @@ func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error
 		zap.Int("shard_count", len(allShards)))
 
 	for _, sh := range allShards {
-		e.mtx.RLock()
-		pool, ok = e.shardPools[sh.ID().String()]
-		e.mtx.RUnlock()
-
-		if !ok {
-			// Shard was concurrently removed, skip.
-			continue
-		}
-
-		err := e.putToShard(sh, pool, addr, obj, objBin)
+		err := e.putToShard(sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			goodShards = append(goodShards, sh)
 			if errors.Is(err, errExists) {
