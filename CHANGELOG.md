@@ -4,6 +4,27 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.51.0
+
+## [0.51.0] - 2026-02-04 - Chudo
+
+A number of important protocol updates are delivered with this release including
+mutable NEP-11 containers, synchronous container operations and session token
+version 2. Metabase optimizations make some operations like object deletion
+significantly faster. Object service optimizations also allow to squeeze some
+additional ops/s from hardware, most noticeably for RANGE requests and PUT into
+containers using erasure coding.
+
+### Added
 - SN now supports new `getInfo` and `createV2` methods of the Container contract (#3670)
 - IR now supports container creation requests submitted via new `createV2` contract method (#3670)
 - IR structures containers in the contract iteratively (#3670, #3732)
@@ -2834,7 +2855,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.0...master
+[0.51.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...v0.51.0
 [0.50.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.1...v0.50.2
 [0.50.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...v0.50.0
