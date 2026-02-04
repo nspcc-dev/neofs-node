@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/binary"
 	"fmt"
+	"maps"
+	"slices"
 	"sync/atomic"
 
 	"github.com/google/uuid"
@@ -126,10 +128,9 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 
 	e.shards[strID] = shardWrapper{
 		errorCount: new(atomic.Uint32),
+		pool:       pool,
 		Shard:      sh,
 	}
-
-	e.shardPools[strID] = pool
 
 	return nil
 }
@@ -153,11 +154,7 @@ func (e *StorageEngine) removeShards(ids ...string) {
 		ss = append(ss, sh)
 		delete(e.shards, id)
 
-		pool, ok := e.shardPools[id]
-		if ok {
-			pool.Release()
-			delete(e.shardPools, id)
-		}
+		sh.pool.Release()
 
 		e.log.Info("shard has been removed",
 			zap.String("id", id))
@@ -205,13 +202,7 @@ func (e *StorageEngine) unsortedShards() []shardWrapper {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
-	shards := make([]shardWrapper, 0, len(e.shards))
-
-	for _, sh := range e.shards {
-		shards = append(shards, sh)
-	}
-
-	return shards
+	return slices.Collect(maps.Values(e.shards))
 }
 
 func (e *StorageEngine) getShard(id string) shardWrapper {

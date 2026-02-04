@@ -30,8 +30,6 @@ type StorageEngine struct {
 
 	shards map[string]shardWrapper
 
-	shardPools map[string]util.WorkerPool
-
 	closeCh   chan struct{}
 	setModeCh chan setModeRequest
 	wg        sync.WaitGroup
@@ -55,6 +53,7 @@ type shardInterface interface {
 
 type shardWrapper struct {
 	errorCount *atomic.Uint32
+	pool       util.WorkerPool
 	*shard.Shard
 	shardIface shardInterface // TODO: make Shard a shardInterface
 }
@@ -242,12 +241,11 @@ func New(opts ...Option) *StorageEngine {
 	}
 
 	return &StorageEngine{
-		cfg:        c,
-		mtx:        new(sync.RWMutex),
-		shards:     make(map[string]shardWrapper),
-		shardPools: make(map[string]util.WorkerPool),
-		closeCh:    make(chan struct{}),
-		setModeCh:  make(chan setModeRequest),
+		cfg:       c,
+		mtx:       new(sync.RWMutex),
+		shards:    make(map[string]shardWrapper),
+		closeCh:   make(chan struct{}),
+		setModeCh: make(chan setModeRequest),
 
 		sortShardsFn: (*StorageEngine).sortedShards,
 	}

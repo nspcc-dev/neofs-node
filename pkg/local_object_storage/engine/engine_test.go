@@ -91,9 +91,9 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 
 		engine.shards[s.ID().String()] = shardWrapper{
 			errorCount: new(atomic.Uint32),
+			pool:       pool,
 			Shard:      s,
 		}
-		engine.shardPools[s.ID().String()] = pool
 	}
 
 	return engine
