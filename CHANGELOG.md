@@ -4,6 +4,27 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.51.0
+
+## [0.51.0] - 2026-02-04 - Chudo
+
+A number of important protocol updates are delivered with this release including
+mutable NEP-11 containers, synchronous container operations and session token
+version 2. Metabase optimizations make some operations like object deletion
+significantly faster. Object service optimizations also allow to squeeze some
+additional ops/s from hardware, most noticeably for RANGE requests and PUT into
+containers using erasure coding.
+
+### Added
 - SN now supports new `getInfo` and `createV2` methods of the Container contract (#3670)
 - IR now supports container creation requests submitted via new `createV2` contract method (#3670)
 - IR structures containers in the contract iteratively (#3670, #3732)
@@ -62,7 +83,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-contract` module to `v0.26.0` (#3670, #3746, #3733, #3780, #3782)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.16.0.20260202120027-3768714e73a0` (#3711, #3750, #3733, #3775, #3772, #3787, #3784, #3671, #3796)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17` (#3711, #3750, #3733, #3775, #3772, #3787, #3784, #3671, #3796, #3800)
 - `github.com/nspcc-dev/locode-db` module to `v0.8.2` (#3729)
 - `github.com/nspcc-dev/neo-go` module to `v0.116.0` (#3733, #3769, #3779)
 
@@ -2834,7 +2855,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.0...master
+[0.51.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...v0.51.0
 [0.50.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.1...v0.50.2
 [0.50.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.49.1...v0.50.0
