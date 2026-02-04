@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `engine_consistency_state` SN metric that means all SN's objects correspond placement policies (#3795)
 
 ### Fixed
 
