@@ -325,6 +325,9 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 	}
 
 	if shortage > 0 {
+		p.metrics.SetPolicerConsistency(false)
+		p.hadToReplicate.Store(true)
+
 		p.log.Debug("shortage of object copies detected",
 			zap.Stringer("object", plc.object.Address),
 			zap.Uint32("shortage", shortage),
