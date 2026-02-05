@@ -27,8 +27,10 @@ type Cache interface {
 	GetBytes(oid.Address) ([]byte, error)
 	// GetStream returns an object and a stream to read its payload.
 	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
+	OpenStream(oid.Address, func() []byte) (int, io.ReadCloser, error)
 	GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error)
 	Head(oid.Address) (*object.Object, error)
+	HeadToBuffer(oid.Address, func() []byte) (int, error)
 	// Delete removes object referenced by the given oid.Address from the
 	// Cache. Returns any error encountered that prevented the object to be
 	// removed.

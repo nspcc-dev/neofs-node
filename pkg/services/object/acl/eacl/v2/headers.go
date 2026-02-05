@@ -19,7 +19,7 @@ type cfg struct {
 	storage      ObjectStorage
 	headerSource HeaderSource
 
-	msg xHeaderSource
+	msg any
 
 	cnr cid.ID
 	obj *oid.ID
@@ -81,7 +81,9 @@ func (h *headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.He
 		return nil, true, nil
 	case eaclSDK.HeaderFromRequest:
 		if h.requestHeaders == nil {
-			h.requestHeaders = requestHeaders(h.cfg.msg)
+			if x, ok := h.cfg.msg.(xHeaderSource); ok {
+				h.requestHeaders = requestHeaders(x)
+			}
 		}
 		return h.requestHeaders, true, nil
 	case eaclSDK.HeaderFromObject:
@@ -115,6 +117,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	switch m := h.msg.(type) {
 	default:
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
+	case binaryHeader:
+		var err error
+		dst.objectHeaders, err = headersFromBinaryObjectHeader(m, h.cnr, h.obj)
+		if err != nil {
+			return err
+		}
 	case requestXHeaderSource:
 		switch req := m.req.(type) {
 		case

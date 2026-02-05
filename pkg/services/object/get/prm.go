@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"hash"
+	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
@@ -61,6 +62,10 @@ type commonPrm struct {
 	// requests (if any), could be nil if incoming request handling
 	// routine does not include any key fetching operations
 	signerKey *ecdsa.PrivateKey
+
+	getBufferFn              func() []byte
+	putBytesReadFn           func(int)
+	putBytesReadWithStreamFn func(int, io.ReadCloser)
 }
 
 // ChunkWriter is an interface of target component
@@ -78,6 +83,12 @@ type ObjectWriter interface {
 // SetObjectWriter sets target component to write the object.
 func (p *Prm) SetObjectWriter(w ObjectWriter) {
 	p.objWriter = w
+}
+
+// TODO: docs.
+func (p *Prm) WithBuffersFuncs(getBufferFn func() []byte, putBytesReadWithStreamFn func(int, io.ReadCloser)) {
+	p.getBufferFn = getBufferFn
+	p.putBytesReadWithStreamFn = putBytesReadWithStreamFn
 }
 
 // SetChunkWriter sets target component to write the object payload range.
@@ -140,4 +151,10 @@ func (p *HeadPrm) SetHeaderWriter(w internal.HeaderWriter) {
 	p.objWriter = &partWriter{
 		headWriter: w,
 	}
+}
+
+// TODO: docs.
+func (p *HeadPrm) WithBuffersFuncs(getBufferFn func() []byte, putBytesReadFn func(int)) {
+	p.getBufferFn = getBufferFn
+	p.putBytesReadFn = putBytesReadFn
 }

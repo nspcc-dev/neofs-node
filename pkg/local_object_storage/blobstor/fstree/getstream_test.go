@@ -1,6 +1,7 @@
 package fstree
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -44,7 +45,9 @@ func TestGetStream(t *testing.T) {
 		obj.SetID(addr.Object())
 		obj.SetPayload(payload)
 
-		require.NoError(t, tree.Put(addr, obj.Marshal()))
+		data := obj.Marshal()
+
+		require.NoError(t, tree.Put(addr, data))
 
 		retrievedObj, reader, err := tree.GetStream(addr)
 		require.NoError(t, err)
@@ -56,6 +59,8 @@ func TestGetStream(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, payload, streamedPayload)
 		require.NoError(t, reader.Close())
+
+		assertOpenStreamOK(t, tree, addr, data)
 	}
 
 	t.Run("different objects", func(t *testing.T) {
@@ -149,7 +154,8 @@ func TestGetStreamAfterErrors(t *testing.T) {
 
 		f, err := os.Create(objPath)
 		require.NoError(t, err)
-		_, err = f.Write([]byte("corrupt data that isn't a valid object"))
+		data := []byte("corrupt data that isn't a valid object")
+		_, err = f.Write(data)
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
 
@@ -157,6 +163,9 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, obj)
 		require.Nil(t, reader)
+
+		assertOpenStreamOK(t, tree, addr, data)
+		assertOpenStreamOKWithPrefixLen(t, tree, addr, data, len(data))
 	})
 
 	t.Run("corrupt compressed data", func(t *testing.T) {
@@ -182,6 +191,12 @@ func TestGetStreamAfterErrors(t *testing.T) {
 
 		_, _, err = tree.GetStream(addr)
 		require.Error(t, err)
+
+		buf, n, reader, err2 := openStream(tree, addr)
+		require.NoError(t, err2)
+		t.Cleanup(func() { reader.Close() })
+		_, err2 = io.ReadAll(io.MultiReader(bytes.NewReader(buf[:n]), reader))
+		require.ErrorIs(t, err, err2)
 	})
 
 	t.Run("ID not found in combined object", func(t *testing.T) {
@@ -210,6 +225,9 @@ func TestGetStreamAfterErrors(t *testing.T) {
 
 		_, _, err = fsTree.GetStream(newAddr)
 		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+
+		_, _, _, err = openStream(fsTree, newAddr)
+		require.EqualError(t, err, "malformed combined file")
 	})
 }
 

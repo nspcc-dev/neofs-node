@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -553,6 +554,192 @@ func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.Rea
 		Reader: io.LimitReader(stream, int64(ln)),
 		Closer: stream,
 	}, nil
+}
+
+// OpenStream looks up for referenced object in t and returns object data
+// stream. The stream must be finally closed by the caller.
+//
+// If object is missing, OpenStream returns [apistatus.ErrObjectNotFound].
+// TODO: docs about buffer.
+// TODO: tests.
+func (t *FSTree) OpenStream(addr oid.Address, getBuffer func() []byte) (int, io.ReadCloser, error) {
+	p := t.treePath(addr)
+
+	f, err := os.Open(p)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		}
+		return 0, nil, fmt.Errorf("open file %q: %w", p, err)
+	}
+
+	buf := getBuffer()
+	if len(buf) < combinedDataOff+compression.PrefixLength {
+		return 0, nil, fmt.Errorf("too short buffer: %d < %d", len(buf), combinedDataOff)
+	}
+
+	seekID := addr.Object()
+	var fileOff int64
+	var n int
+	rem := int64(-1)
+
+nextRead:
+	for {
+		n, err = f.ReadAt(buf, fileOff)
+		if err != nil && !errors.Is(err, io.EOF) {
+			f.Close()
+			return 0, nil, fmt.Errorf("read file: %w", err)
+		}
+
+		for bufOff := 0; ; {
+			id, ln := parseCombinedPrefix(buf[bufOff:n])
+			if id == nil {
+				if fileOff > 0 { // combined
+					f.Close()
+					return 0, nil, errors.New("malformed combined file") // used in several places, share?
+				}
+
+				if n < len(buf) { // EOF => fully buffered
+					rem = 0
+				}
+				break nextRead
+			}
+
+			bufOff += combinedDataOff
+
+			if !bytes.Equal(id, seekID[:]) {
+				bufOff += int(ln)
+				if bufOff < n {
+					continue
+				}
+
+				if n < len(buf) { // EOF
+					f.Close()
+					return 0, nil, io.ErrUnexpectedEOF
+				}
+
+				fileOff += int64(bufOff)
+				continue nextRead
+			}
+
+			if int(ln) <= n-bufOff { // fully buffered
+				if bufOff > 0 {
+					n = copy(buf, buf[bufOff:][:ln])
+				}
+				rem = 0
+				break nextRead
+			}
+
+			if n < len(buf) { // EOF
+				f.Close()
+				return 0, nil, io.ErrUnexpectedEOF
+			}
+
+			if bufOff > 0 {
+				n = copy(buf, buf[bufOff:n])
+			}
+			rem = int64(ln) - int64(n)
+			fileOff += int64(bufOff + n)
+			break nextRead
+		}
+	}
+
+	compressed := t.IsCompressed(buf[:n])
+
+	if rem == 0 { // fully buffered
+		f.Close()
+
+		if !compressed {
+			return n, nopReadCloser{}, nil
+		}
+
+		// can be shared with HeadToBuffer()
+		dec, err := zstd.NewReader(nil)
+		if err != nil {
+			return 0, nil, fmt.Errorf("zstd decoder: %w", err)
+		}
+
+		var decBuf []byte
+		if n < object.MaxHeaderLen {
+			decBuf = buf[n:]
+		} else {
+			decBuf = make([]byte, object.MaxHeaderLen)
+		}
+		decBuf, err = dec.DecodeAll(buf[:n], decBuf[:0]) // shouldn't this be io.ReadFull?
+		if err != nil {
+			return 0, nil, fmt.Errorf("zstd read: %w", err)
+		}
+		if len(decBuf) > len(buf) {
+			return 0, nil, fmt.Errorf("decompressed %d bytes overflow buffer %d", n, len(buf))
+		}
+
+		return copy(buf, decBuf), nopReadCloser{}, nil
+	}
+
+	if rem < 0 { // non-combined, full file for object
+		if _, err = f.Seek(int64(n), io.SeekStart); err != nil {
+			return 0, nil, fmt.Errorf("seek object file: %w", err)
+		}
+
+		if !compressed {
+			return n, f, nil
+		}
+
+		dec, err := zstd.NewReader(io.MultiReader(bytes.NewReader(buf[:n]), f))
+		if err != nil {
+			return 0, nil, fmt.Errorf("zstd decoder: %w", err)
+		}
+
+		var decBuf []byte
+		if n < object.MaxHeaderLen {
+			decBuf = buf[n:][:object.MaxHeaderLen]
+		} else {
+			decBuf = make([]byte, object.MaxHeaderLen)
+		}
+		n, err = dec.Read(decBuf)
+		if err != nil {
+			return 0, nil, fmt.Errorf("zstd read: %w", err)
+		}
+		if n > len(buf) {
+			return 0, nil, fmt.Errorf("decompressed %d bytes overflow buffer %d", n, len(buf))
+		}
+
+		return copy(buf, decBuf[:n]), zstdStream{Decoder: dec, src: f}, nil
+	}
+
+	if _, err = f.Seek(fileOff, io.SeekStart); err != nil {
+		return 0, nil, fmt.Errorf("seek combined file: %w", err)
+	}
+
+	rdr := io.LimitReader(f, rem)
+
+	if !compressed {
+		return n, struct {
+			io.Reader
+			io.Closer
+		}{Reader: rdr, Closer: f}, nil
+	}
+
+	dec, err := zstd.NewReader(io.MultiReader(bytes.NewReader(buf[:n]), rdr))
+	if err != nil {
+		return 0, nil, fmt.Errorf("zstd decoder: %w", err)
+	}
+
+	var decBuf []byte
+	if n < object.MaxHeaderLen {
+		decBuf = buf[n:][:object.MaxHeaderLen]
+	} else {
+		decBuf = make([]byte, object.MaxHeaderLen)
+	}
+	n, err = dec.Read(decBuf)
+	if err != nil {
+		return 0, nil, fmt.Errorf("zstd read: %w", err)
+	}
+	if n > len(buf) {
+		return 0, nil, fmt.Errorf("decompressed %d bytes overflow buffer %d", n, len(buf))
+	}
+
+	return copy(buf, decBuf[:n]), zstdStream{Decoder: dec, src: f}, nil
 }
 
 // Type is fstree storage type used in logs and configuration.

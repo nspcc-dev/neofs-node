@@ -237,3 +237,28 @@ func (e *StorageEngine) getRangeStream(addr oid.Address, off, ln uint64) (io.Rea
 
 	return stream, err
 }
+
+// TODO: docs.
+func (e *StorageEngine) OpenStream(addr oid.Address, getBuffer func() []byte) (int, io.ReadCloser, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddGetStreamDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return 0, nil, e.blockErr
+	}
+
+	var n int
+	var stream io.ReadCloser
+
+	err := e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
+		var err error
+		n, stream, err = s.OpenStream(addr, ignoreMetadata, getBuffer)
+		return err
+	})
+
+	return n, stream, err
+}

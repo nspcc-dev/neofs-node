@@ -163,6 +163,8 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 
 	if req, ok := msg.(eaclV2.Request); ok {
 		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
+	} else if b, ok := msg.([]byte); ok {
+		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithObjectHeaderBinary(b))
 	} else {
 		hdrSrcOpts = append(hdrSrcOpts,
 			eaclV2.WithServiceResponse(

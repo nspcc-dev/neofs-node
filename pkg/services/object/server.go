@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -50,6 +51,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -604,7 +606,11 @@ func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadR
 	}, sign)
 }
 
-func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+func (s *Server) Head(context.Context, *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+	panic("must not be called")
+}
+
+func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest) (any, error) {
 	var (
 		err         error
 		recheckEACL bool
@@ -644,8 +650,7 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		recheckEACL = true
 	}
 
-	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, req, &resp)
+	p, err := convertHeadPrm(s.signer, req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -654,9 +659,68 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		}
 		return s.makeStatusHeadResponse(err, needSignResp), nil
 	}
+
+	var resp protoobject.HeadResponse
+
+	respDst := &headResponse{
+		dst: &resp,
+	}
+	p.SetHeaderWriter(respDst)
+
+	var respBuf *iprotobuf.MemBuffer
+	defer func() {
+		if respBuf != nil {
+			respBuf.Free()
+		}
+	}()
+
+	var hdrBuf []byte
+	hdrLen := -1 // to panic below if it is not updated along with hdrBuf
+
+	p.WithBuffersFuncs(func() []byte {
+		if hdrBuf == nil {
+			respBuf, hdrBuf = getBufferForHeadResponse()
+		}
+		return hdrBuf
+	}, func(ln int) {
+		hdrLen = ln
+	})
+
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp), nil
+	}
+
+	if hdrBuf != nil {
+		defer respBuf.Free()
+
+		_, sigf, hdrf, err := parseHeaderBinary(hdrBuf[:hdrLen])
+		if err != nil {
+			return s.makeStatusHeadResponse(err, needSignResp), nil
+		}
+
+		if recheckEACL { // previous check didn't match, but we have a header now.
+			err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+				err = eACLErr(reqInfo, err) // defer
+				return s.makeStatusHeadResponse(err, needSignResp), nil
+			}
+		}
+
+		n := shiftHeadResponseBuffer(respBuf.SliceBuffer, hdrBuf, sigf, hdrf)
+
+		n += writeMetaHeaderToResponseBuffer(respBuf.SliceBuffer[n:], s.fsChain.CurrentEpoch(), nil)
+
+		if !needSignResp {
+			respBuf.Finalize(n)
+			return respBuf, nil
+		}
+
+		if err = proto.Unmarshal(respBuf.SliceBuffer[:n], &resp); err != nil {
+			return nil, fmt.Errorf("unmarshal response: %w", err)
+		}
+
+		recheckEACL = false
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.
@@ -676,20 +740,23 @@ type headResponse struct {
 
 func (x *headResponse) WriteHeader(hdr *object.Object) error {
 	mo := hdr.ProtoMessage()
-	x.dst.Body = &protoobject.HeadResponse_Body{
-		Head: &protoobject.HeadResponse_Body_Header{
-			Header: &protoobject.HeaderWithSignature{
-				Header:    mo.GetHeader(),
-				Signature: mo.GetSignature(),
-			},
-		},
-	}
+	fillHeadResponse(x.dst, mo.GetHeader(), mo.GetSignature())
 	return nil
 }
 
+func fillHeadResponse(resp *protoobject.HeadResponse, hdr *protoobject.Header, sig *refs.Signature) {
+	resp.Body = &protoobject.HeadResponse_Body{
+		Head: &protoobject.HeadResponse_Body_Header{
+			Header: &protoobject.HeaderWithSignature{
+				Header:    hdr,
+				Signature: sig,
+			},
+		},
+	}
+}
+
 // converts original request into parameters accepted by the internal handler.
-// Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -710,9 +777,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
 	p.WithRawFlag(body.Raw)
-	p.SetHeaderWriter(&headResponse{
-		dst: resp,
-	})
 	if cp.LocalOnly() {
 		return p, nil
 	}
@@ -1007,7 +1071,7 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 		}, sign)
 	}
 	return s.sendGetResponse(stream, &protoobject.GetResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(apistatus.FromError(err)),
 	}, sign)
 }
 
@@ -1097,13 +1161,15 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		recheckEACL = true
 	}
 
-	p, err := convertGetPrm(s.signer, req, &getStream{
+	respStream := &getStream{
 		base:         gStream,
 		srv:          s,
 		reqInfo:      reqInfo,
 		recheckEACL:  recheckEACL,
 		signResponse: needSignResp,
-	})
+	}
+
+	p, err := convertGetPrm(s.signer, req, respStream)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -1112,10 +1178,162 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
+	p.SetObjectWriter(respStream)
+
+	var pldStream io.ReadCloser
+	var hdrRespBuf *iprotobuf.MemBuffer
+	defer func() {
+		if pldStream != nil {
+			pldStream.Close()
+		}
+		if hdrRespBuf != nil {
+			hdrRespBuf.Free()
+		}
+	}()
+
+	var hdrBuf []byte
+	hdrLen := -1
+
+	if !needSignResp {
+		p.WithBuffersFuncs(func() []byte {
+			if hdrBuf == nil {
+				hdrRespBuf, hdrBuf = getBufferForGetResponseHeader()
+			}
+			return hdrBuf
+		}, func(ln int, rc io.ReadCloser) {
+			hdrLen, pldStream = ln, rc
+		})
+	}
+
 	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
+
+	if needSignResp || hdrLen < 0 {
+		return nil
+	}
+
+	idf, sigf, hdrf, err := parseHeaderBinary(hdrBuf[:hdrLen])
+	if err != nil {
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	}
+
+	fullPldBuffered := false
+	pldPrefixSkipped := false
+	pldOff := max(idf.To, sigf.To, hdrf.To)
+	var pldValOff int
+
+	if pldOff < hdrLen {
+		if hdrBuf[pldOff] != iprotobuf.TagBytes4 {
+			err = fmt.Errorf("unexpected byte %d after header instead of payload field tag %d", hdrBuf[pldOff], iprotobuf.TagBytes4) // defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+
+		if hdrLen-pldOff >= 1+binary.MaxVarintLen64 {
+			var pldLen uint64
+			var n int
+			pldLen, n, err = iprotobuf.ParseVarint(hdrBuf, pldOff+1)
+			if err != nil {
+				err = fmt.Errorf("parse payload field len: %w", err) // defer
+				return s.sendStatusGetResponse(gStream, err, needSignResp)
+			}
+
+			pldValOff = pldOff + 1 + n
+
+			tail := uint64(hdrLen - pldValOff)
+			if tail > pldLen {
+				err = fmt.Errorf("received heading binary has extra %d bytes after payload", tail-pldLen) // defer
+				return s.sendStatusGetResponse(gStream, err, needSignResp)
+			}
+
+			fullPldBuffered = tail == pldLen
+			pldPrefixSkipped = true
+		}
+	}
+
+	if recheckEACL { // previous check didn't match, but we have a header now.
+		err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			err = eACLErr(reqInfo, err) // defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+	}
+
+	n := shiftGetResponseHeaderBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:pldOff])
+	// FIXME: meta header
+	// n += writeMetaHeaderToResponseBuffer(hdrRespBuf.SliceBuffer[n:], s.fsChain.CurrentEpoch(), nil)
+	hdrRespBuf.Finalize(n)
+	if err = gStream.SendMsg(hdrRespBuf); err != nil {
+		return err
+	}
+
+	pldRespBuf, pldBuf := getBufferForGetResponseChunk()
+	defer pldRespBuf.Free()
+
+	n = copy(pldBuf, hdrBuf[pldValOff:hdrLen])
+
+	if fullPldBuffered {
+		// TODO: it might be more efficient to reuse header buffer in this case
+		n = shiftGetResponseChunkBuffer(pldRespBuf.SliceBuffer, pldBuf[:n])
+		pldRespBuf.Finalize(n)
+		err = gStream.SendMsg(pldRespBuf) // defer
+		return err
+	}
+
+	pldOff = n
+
+	if !pldPrefixSkipped {
+		n, err = io.ReadFull(pldStream, pldBuf[pldOff:])
+		done := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+		if err != nil && !done {
+			err = fmt.Errorf("read payload stream: %w", err) // defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+
+		pldOff += n
+
+		if pldBuf[0] != iprotobuf.TagBytes4 {
+			err = fmt.Errorf("unexpected byte %d after header instead of payload field tag %d", pldBuf[0], iprotobuf.TagBytes4) // defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+
+		_, n, err = iprotobuf.ParseVarint(pldBuf[:pldOff], 1)
+		if err != nil {
+			err = fmt.Errorf("parse payload field len: %w", err) // defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+
+		if done {
+			n = shiftGetResponseChunkBuffer(pldRespBuf.SliceBuffer, pldBuf[:pldOff])
+			pldRespBuf.Finalize(n)
+			err = gStream.SendMsg(pldRespBuf) // defer
+			return err
+		}
+
+		pldOff = copy(pldBuf, pldBuf[1+n:pldOff])
+	}
+
+	for {
+		n, err = io.ReadFull(pldStream, pldBuf[pldOff:])
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+			err = fmt.Errorf("read payload stream: %w", err) // defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+
+		pldOff += n
+
+		n = shiftGetResponseChunkBuffer(pldRespBuf.SliceBuffer, pldBuf[:pldOff])
+		pldRespBuf.Finalize(n)
+		if err = gStream.SendMsg(pldRespBuf); err != nil || pldOff < len(pldBuf) {
+			return err
+		}
+
+		pldRespBuf, pldBuf = getBufferForGetResponseChunk()
+		defer pldRespBuf.Free() // TODO: avoid defer in for?
+		pldOff = 0
+	}
+
 	return nil
 }
 
@@ -1143,7 +1361,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
 	p.WithRawFlag(body.Raw)
-	p.SetObjectWriter(stream)
 	if cp.LocalOnly() {
 		return p, nil
 	}
