@@ -1,12 +1,15 @@
 package fstree
 
 import (
+	"bytes"
+	"io"
 	"testing"
 	"testing/iotest"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -87,4 +90,51 @@ func testGetRangeStream(t *testing.T, fst *FSTree) {
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	_, err = fst.GetRangeStream(addr, 1, pldLen-1)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+}
+
+func assertOpenStreamOK(t *testing.T, fst *FSTree, addr oid.Address, data []byte) {
+	_assertOpenStreamOK(t, fst, addr, data, -1, -1)
+}
+
+func assertOpenStreamOKWithBufferLen(t *testing.T, fst *FSTree, addr oid.Address, data []byte, bufLen int) {
+	_assertOpenStreamOK(t, fst, addr, data, bufLen, -1)
+}
+
+func assertOpenStreamOKWithPrefixLen(t *testing.T, fst *FSTree, addr oid.Address, data []byte, prefixLen int) {
+	_assertOpenStreamOK(t, fst, addr, data, -1, prefixLen)
+}
+
+func _assertOpenStreamOK(t *testing.T, fst *FSTree, addr oid.Address, data []byte, bufLen int, prefixLen int) {
+	buf, n, reader, err := _openStream(fst, addr, bufLen)
+	require.NoError(t, err)
+	require.NotNil(t, reader)
+	require.GreaterOrEqual(t, len(buf), n)
+	if prefixLen >= 0 {
+		require.EqualValues(t, prefixLen, n)
+	}
+
+	require.NoError(t, iotest.TestReader(io.MultiReader(bytes.NewReader(buf[:n]), reader), data))
+	require.NoError(t, err)
+	require.NoError(t, reader.Close())
+}
+
+func openStream(fst *FSTree, addr oid.Address) ([]byte, int, io.ReadCloser, error) {
+	return _openStream(fst, addr, -1)
+}
+
+func _openStream(fst *FSTree, addr oid.Address, bufLen int) ([]byte, int, io.ReadCloser, error) {
+	if bufLen < 0 {
+		bufLen = 42
+	}
+
+	var buf []byte
+
+	n, stream, err := fst.OpenStream(addr, func() []byte {
+		if buf == nil {
+			buf = make([]byte, bufLen)
+		}
+		return buf
+	})
+
+	return buf, n, stream, err
 }

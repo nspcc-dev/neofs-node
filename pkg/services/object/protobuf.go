@@ -22,6 +22,17 @@ const (
 	maxHeaderOffsetInHeadResponse = 1 + maxHeadResponseBodyVarintLen + 1 + iobject.MaxHeaderVarintLen // 1 for iprotobuf.TagBytes1
 	// TODO: test it is sufficient for everything
 	headResponseBufferLen = maxHeaderOffsetInHeadResponse + object.MaxHeaderLen*2
+
+	// TODO: share header buffers for HEAD and GET
+	maxGetResponseHeaderVarintLen = iobject.MaxHeaderVarintLen
+	maxHeaderOffsetInGetResponse  = 1 + maxGetResponseHeaderVarintLen + 1 + maxGetResponseHeaderVarintLen // 1 for iprotobuf.TagBytes1
+	getResponseHeaderBufferLen    = maxHeaderOffsetInGetResponse + +object.MaxHeaderLen*2
+
+	maxGetResponseChunkLen       = 256 << 10 // we already have such const, share?
+	maxGetResponseChunkVarintLen = 3
+	maxChunkOffsetInGetResponse  = 1 + maxGetResponseChunkVarintLen + // 1 for iprotobuf.TagBytes1
+		1 + maxGetResponseChunkVarintLen // 1 for iprotobuf.TagBytes2
+	getResponseChunkBufferLen = maxChunkOffsetInGetResponse + maxGetResponseChunkLen
 )
 
 var currentVersionResponseMetaHeader []byte
@@ -94,6 +105,42 @@ var headResponseBufferPool = iprotobuf.NewBufferPool(headResponseBufferLen)
 func getBufferForHeadResponse() (*iprotobuf.MemBuffer, []byte) {
 	item := headResponseBufferPool.Get()
 	return item, item.SliceBuffer[maxHeaderOffsetInHeadResponse:]
+}
+
+var getResponseHeaderBufferPool = iprotobuf.NewBufferPool(getResponseHeaderBufferLen)
+
+func getBufferForGetResponseHeader() (*iprotobuf.MemBuffer, []byte) {
+	item := getResponseHeaderBufferPool.Get()
+	return item, item.SliceBuffer[maxHeaderOffsetInGetResponse:]
+}
+
+func shiftGetResponseHeaderBuffer(respBuf, hdrBuf []byte) int {
+	bodyLen := 1 + protowire.SizeBytes(len(hdrBuf))
+
+	respBuf[0] = iprotobuf.TagBytes1
+	off := 1 + binary.PutUvarint(respBuf[1:], uint64(bodyLen))
+	respBuf[off] = iprotobuf.TagBytes1
+	off += 1 + binary.PutUvarint(respBuf[off+1:], uint64(len(hdrBuf)))
+
+	return off + copy(respBuf[off:], hdrBuf)
+}
+
+var getResponseChunkBufferPool = iprotobuf.NewBufferPool(getResponseChunkBufferLen)
+
+func getBufferForGetResponseChunk() (*iprotobuf.MemBuffer, []byte) {
+	item := getResponseChunkBufferPool.Get()
+	return item, item.SliceBuffer[maxChunkOffsetInGetResponse:]
+}
+
+func shiftGetResponseChunkBuffer(respBuf, chunk []byte) int {
+	bodyLen := 1 + protowire.SizeBytes(len(chunk))
+
+	respBuf[0] = iprotobuf.TagBytes1
+	off := 1 + binary.PutUvarint(respBuf[1:], uint64(bodyLen))
+	respBuf[off] = iprotobuf.TagBytes2
+	off += 1 + binary.PutUvarint(respBuf[off+1:], uint64(len(chunk)))
+
+	return off + copy(respBuf[off:], chunk)
 }
 
 func parseHeaderBinary(b []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {

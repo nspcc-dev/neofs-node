@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"hash"
+	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
@@ -43,9 +44,6 @@ type RangeRequestForwarder func(context.Context, coreclient.NodeInfo, coreclient
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
-
-	getBufferFn    func() []byte
-	putBytesReadFn func(int)
 }
 
 type commonPrm struct {
@@ -64,6 +62,10 @@ type commonPrm struct {
 	// requests (if any), could be nil if incoming request handling
 	// routine does not include any key fetching operations
 	signerKey *ecdsa.PrivateKey
+
+	getBufferFn              func() []byte
+	putBytesReadFn           func(int)
+	putBytesReadWithStreamFn func(int, io.ReadCloser)
 }
 
 // ChunkWriter is an interface of target component
@@ -81,6 +83,12 @@ type ObjectWriter interface {
 // SetObjectWriter sets target component to write the object.
 func (p *Prm) SetObjectWriter(w ObjectWriter) {
 	p.objWriter = w
+}
+
+// TODO: docs.
+func (p *Prm) WithBuffersFuncs(getBufferFn func() []byte, putBytesReadWithStreamFn func(int, io.ReadCloser)) {
+	p.getBufferFn = getBufferFn
+	p.putBytesReadWithStreamFn = putBytesReadWithStreamFn
 }
 
 // SetChunkWriter sets target component to write the object payload range.

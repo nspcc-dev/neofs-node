@@ -202,3 +202,33 @@ func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.R
 
 	return res, reader, err
 }
+
+// TODO: docs.
+func (s *Shard) OpenStream(addr oid.Address, skipMeta bool, getBuffer func() []byte) (int, io.ReadCloser, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	var n int
+	var stream io.ReadCloser
+
+	cb := func(stor common.Storage) error {
+		var err error
+		n, stream, err = stor.OpenStream(addr, getBuffer)
+		return err
+	}
+
+	wc := func(c writecache.Cache) error {
+		var err error
+		n, stream, err = c.OpenStream(addr, getBuffer)
+		return err
+	}
+
+	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+
+	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
+	if err != nil && gotMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
+
+	return n, stream, err
+}

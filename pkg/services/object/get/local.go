@@ -3,6 +3,7 @@ package getsvc
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -15,7 +16,17 @@ import (
 func (exec *execCtx) executeLocal() {
 	var err error
 
-	exec.collectedHeader, exec.collectedReader, err = exec.svc.localStorage.get(exec)
+	localGET := exec.isLocal() && !exec.headOnly() && exec.ctxRange() == nil
+	if localGET {
+		var n int
+		var stream io.ReadCloser
+		n, stream, err = exec.svc.localObjects.OpenStream(exec.address(), exec.prm.getBufferFn)
+		if err == nil {
+			exec.prm.putBytesReadWithStreamFn(n, stream)
+		}
+	} else {
+		exec.collectedHeader, exec.collectedReader, err = exec.svc.localStorage.get(exec)
+	}
 
 	var errSplitInfo *object.SplitInfoError
 
@@ -30,6 +41,11 @@ func (exec *execCtx) executeLocal() {
 	case err == nil:
 		exec.status = statusOK
 		exec.err = nil
+
+		if localGET {
+			break
+		}
+
 		exec.writeCollectedObject()
 	case errors.Is(err, apistatus.Error):
 		if errors.Is(err, apistatus.ErrObjectNotFound) {

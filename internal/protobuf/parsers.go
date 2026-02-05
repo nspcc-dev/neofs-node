@@ -19,7 +19,8 @@ func ParseTag(b []byte, off int) (protowire.Number, protowire.Type, int, error) 
 	return num, typ, n, nil
 }
 
-func parseVarint(b []byte, off int) (uint64, int, error) {
+// TODO: docs.
+func ParseVarint(b []byte, off int) (uint64, int, error) {
 	u, n := protowire.ConsumeVarint(b[off:])
 	if n < 0 {
 		return 0, 0, fmt.Errorf("parse varint: %w", protowire.ParseError(n))
@@ -31,7 +32,7 @@ func parseVarint(b []byte, off int) (uint64, int, error) {
 // ParseLen parses length of the varlen field at given offset. Returns length of
 // varlen tag and the length itself.
 func ParseLen(b []byte, off int) (int, int, error) {
-	ln, n, err := parseVarint(b, off)
+	ln, n, err := ParseVarint(b, off)
 	if err != nil {
 		return 0, 0, fmt.Errorf("parse field len: %w", err)
 	}
@@ -88,7 +89,7 @@ func ParseAnyField(b []byte, off int, num protowire.Number, typ protowire.Type) 
 }
 
 func parseEnum[T ~int32](b []byte, off int) (T, int, error) {
-	u, n, err := parseVarint(b, off)
+	u, n, err := ParseVarint(b, off)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -117,7 +118,7 @@ func ParseEnumField[T ~int32](b []byte, off int, num protowire.Number, typ proto
 }
 
 func parseUint32(b []byte, off int) (uint32, int, error) {
-	u, n, err := parseVarint(b, off)
+	u, n, err := ParseVarint(b, off)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -153,7 +154,7 @@ func ParseUint64Field(b []byte, off int, num protowire.Number, typ protowire.Typ
 		return 0, 0, err
 	}
 
-	u, n, err := parseVarint(b, off)
+	u, n, err := ParseVarint(b, off)
 	if err != nil {
 		return 0, 0, WrapParseFieldError(num, protowire.VarintType, err)
 	}
