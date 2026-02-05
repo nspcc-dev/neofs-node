@@ -83,6 +83,7 @@ type cfg struct {
 		// HeadECPart is similar to GetECPart but returns only the header.
 		HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error)
 		HeadToBuffer(oid.Address, bool, func() []byte) (int, error)
+		OpenStream(oid.Address, func() []byte) (int, io.ReadCloser, error)
 	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)

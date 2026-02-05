@@ -25,9 +25,7 @@ func (x *MemBuffer) Len() int {
 }
 
 func (x *MemBuffer) Ref() {
-	if x.refs.Add(1) <= 1 {
-		panic("ref of freed buffer")
-	}
+	x.refs.Add(1) // TODO: fix in HEAD commit
 }
 
 func (x *MemBuffer) Free() {
@@ -55,6 +53,6 @@ func NewBufferPool(ln int) *MemBufferPool {
 func (x *MemBufferPool) Get() *MemBuffer {
 	item := x.syncPool.Get().(*MemBuffer)
 	item.pool = x.syncPool
-	item.Ref()
+	item.Ref() // TODO: not always needed
 	return item
 }

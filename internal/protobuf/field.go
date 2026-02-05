@@ -6,7 +6,7 @@ const (
 	TagBytes1
 	TagBytes2
 	TagBytes3
-	/* TagBytes4 */ _
+	TagBytes4
 	/* TagBytes5 */ _
 	TagBytes6
 )

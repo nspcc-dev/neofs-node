@@ -106,3 +106,17 @@ func (c *cache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.Read
 
 	return stream, nil
 }
+
+// TODO: docs.
+// TODO: tests.
+func (c *cache) OpenStream(addr oid.Address, getBuffer func() []byte) (int, io.ReadCloser, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+	}
+	n, stream, err := c.fsTree.OpenStream(addr, getBuffer)
+	if err != nil {
+		return 0, nil, fmt.Errorf("open stream in underlying FS tree: %w", err)
+	}
+
+	return n, stream, nil
+}

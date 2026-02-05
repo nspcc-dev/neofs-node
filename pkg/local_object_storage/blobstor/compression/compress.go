@@ -8,6 +8,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
+// PrefixLength is a length of compression marker in compressed data.
+const PrefixLength = 4
+
 // Config represents common compression-related configuration.
 type Config struct {
 	Enabled                    bool
@@ -73,7 +76,7 @@ func (c *Config) NeedsCompression(obj *object.Object) bool {
 
 // IsCompressed checks whether given data is compressed.
 func (c *Config) IsCompressed(data []byte) bool {
-	return len(data) >= 4 && bytes.Equal(data[:4], zstdFrameMagic)
+	return len(data) >= PrefixLength && bytes.Equal(data[:PrefixLength], zstdFrameMagic)
 }
 
 // Decompress decompresses data if it starts with the magic

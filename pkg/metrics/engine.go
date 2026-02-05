@@ -16,6 +16,7 @@ type (
 		getDuration                   prometheus.Histogram
 		headDuration                  prometheus.Histogram
 		getStreamDuration             prometheus.Histogram
+		openStreamDuration            prometheus.Histogram
 		getRangeStreamDuration        prometheus.Histogram
 		inhumeDuration                prometheus.Histogram
 		putDuration                   prometheus.Histogram
@@ -90,6 +91,13 @@ func newEngineMetrics() engineMetrics {
 			Subsystem: engineSubsystem,
 			Name:      "get_stream_time",
 			Help:      "Engine 'get stream' operations handling time",
+		})
+
+		openStreamDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "open_stream_time",
+			Help:      "Engine 'open stream' operations handling time",
 		})
 
 		getRangeStreamDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -188,6 +196,7 @@ func newEngineMetrics() engineMetrics {
 		getDuration:                   getDuration,
 		headDuration:                  headDuration,
 		getStreamDuration:             getStreamDuration,
+		openStreamDuration:            openStreamDuration,
 		getRangeStreamDuration:        getRangeStreamDuration,
 		inhumeDuration:                inhumeDuration,
 		putDuration:                   putDuration,
@@ -212,6 +221,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.headDuration)
 	prometheus.MustRegister(m.getStreamDuration)
+	prometheus.MustRegister(m.openStreamDuration)
 	prometheus.MustRegister(m.getRangeStreamDuration)
 	prometheus.MustRegister(m.inhumeDuration)
 	prometheus.MustRegister(m.putDuration)
@@ -256,6 +266,10 @@ func (m engineMetrics) AddHeadDuration(d time.Duration) {
 
 func (m engineMetrics) AddGetStreamDuration(d time.Duration) {
 	m.getStreamDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddOpenStreamDuration(d time.Duration) {
+	m.openStreamDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddGetRangeStreamDuration(d time.Duration) {
