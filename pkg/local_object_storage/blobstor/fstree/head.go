@@ -153,12 +153,15 @@ func (t *FSTree) readUntilPayload(f io.ReadCloser, initial []byte) (*object.Obje
 		if err != nil {
 			return nil, nil, fmt.Errorf("zstd decoder: %w", err)
 		}
-		reader = decoder.IOReadCloser()
+		reader = readerTwoClosers{
+			ReadCloser: decoder.IOReadCloser(),
+			baseCloser: f,
+		}
 
 		buf := make([]byte, object.MaxHeaderLen)
 		n, err := decoder.Read(buf)
 		if err != nil && !errors.Is(err, io.EOF) {
-			decoder.Close()
+			reader.Close()
 			return nil, nil, fmt.Errorf("zstd read: %w", err)
 		}
 		initial = buf[:n]

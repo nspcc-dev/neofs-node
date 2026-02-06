@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Unclosed compressed FSTree files (#3802)
 
 ### Changed
 
