@@ -73,6 +73,7 @@ containers using erasure coding.
 - SN sorts shards identically when writing and reading EC parts (#3773)
 - SN puts EC parts concurrently now (#3777)
 - Optimized object-to-shard placement (#3794)
+- SN retries notary requests if `insufficient amount of gas` error appears (#3739)
 
 ### Removed
 - Deprecated `fschain_autodeploy`, `without_mainnet`, `governance.disable`, `fee.main_chain` and `contracts` IR config options (#3716)
