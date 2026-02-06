@@ -1,12 +1,16 @@
 package fstree
 
 import (
+	"bytes"
+	"io"
 	"testing"
 	"testing/iotest"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -87,4 +91,48 @@ func testGetRangeStream(t *testing.T, fst *FSTree) {
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	_, err = fst.GetRangeStream(addr, 1, pldLen-1)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+}
+
+func TestFSTree_PutBatch(t *testing.T) {
+	t.Run("compressed", func(t *testing.T) {
+		fst := setupFSTree(t)
+
+		compCfg := &compression.Config{Enabled: true}
+		require.NoError(t, compCfg.Init())
+		fst.SetCompressor(compCfg)
+
+		testPutBatch(t, fst)
+	})
+
+	testPutBatch(t, setupFSTree(t))
+}
+
+func testPutBatch(t *testing.T, fst *FSTree) {
+	const pldLen = object.MaxHeaderLen
+
+	objs := make([]object.Object, 3)
+	batch := make(map[oid.Address][]byte)
+	for i := range objs {
+		objs[i] = objecttest.Object()
+		objs[i].SetPayloadSize(pldLen)
+		objs[i].SetPayload(testutil.RandByteSlice(pldLen))
+
+		batch[objs[i].Address()] = objs[i].Marshal()
+	}
+
+	require.NoError(t, fst.PutBatch(batch))
+
+	for i := range objs {
+		hdr, stream, err := fst.GetStream(objs[i].Address())
+		require.NoError(t, err)
+		t.Cleanup(func() { stream.Close() })
+
+		require.EqualValues(t, objs[i].CutPayload(), hdr)
+
+		// note: iotest.TestReader does not fit due to overridden io.Seeker interface
+		b, err := io.ReadAll(stream)
+		require.NoError(t, err)
+		require.Len(t, b, pldLen)
+		require.True(t, bytes.Equal(objs[i].Payload(), b))
+	}
 }

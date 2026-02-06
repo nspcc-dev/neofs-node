@@ -81,6 +81,15 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, 
 					return nil, f, fmt.Errorf("read up to size: %w", err)
 				}
 			}
+
+			f := io.ReadCloser(f)
+			if buffered := uint32(size - offset); l > buffered {
+				f = struct {
+					io.Reader
+					io.Closer
+				}{Reader: io.LimitReader(f, int64(l-buffered)), Closer: f}
+			}
+
 			return t.readHeaderAndPayload(f, buf[offset:size])
 		}
 

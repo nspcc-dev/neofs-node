@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Unclosed compressed FSTree files (#3802)
+- Potential payload overflow on getting full object from combined FSTree file (#3801)
 
 ### Changed
 
