@@ -25,7 +25,7 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 		h = c.ConsensusAcc.Contract.ScriptHash()
 	}
 	for _, w := range c.Wallets {
-		acc, err := getWalletAccount(w, accType)
+		acc, err := GetWalletAccount(w, accType)
 		if err != nil {
 			return fmt.Errorf("can't find %s wallet account: %w", accType, err)
 		}

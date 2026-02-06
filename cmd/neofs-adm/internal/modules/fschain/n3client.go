@@ -48,7 +48,8 @@ type clientContext struct {
 	SentTxs         []hashVUBPair
 }
 
-func getN3Client(v *viper.Viper) (*rpcclient.Client, error) {
+// GetN3Client creates and initializes neo-go RPC client using configuration from viper.
+func GetN3Client(v *viper.Viper) (*rpcclient.Client, error) {
 	// number of opened connections
 	// by neo-go client per one host
 	const (

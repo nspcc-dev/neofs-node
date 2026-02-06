@@ -59,7 +59,7 @@ func balanceContainerPayment(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
@@ -155,7 +155,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		nmHash          util.Uint160
 	)
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := GetN3Client(viper.GetViper())
 	if err != nil {
 		return err
 	}

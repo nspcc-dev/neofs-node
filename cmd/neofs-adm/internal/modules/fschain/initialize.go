@@ -49,17 +49,17 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, err
 	}
 
-	c, err := getN3Client(v)
+	c, err := GetN3Client(v)
 	if err != nil {
 		return nil, fmt.Errorf("can't create N3 client: %w", err)
 	}
 
-	committeeAcc, err := getWalletAccount(wallets[0], committeeAccountName)
+	committeeAcc, err := GetWalletAccount(wallets[0], committeeAccountName)
 	if err != nil {
 		return nil, fmt.Errorf("can't find committee account: %w", err)
 	}
 
-	consensusAcc, err := getWalletAccount(wallets[0], consensusAccountName)
+	consensusAcc, err := GetWalletAccount(wallets[0], consensusAccountName)
 	if err != nil {
 		return nil, fmt.Errorf("can't find consensus account: %w", err)
 	}
@@ -85,7 +85,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 
 	accounts := make([]*wallet.Account, len(wallets))
 	for i, w := range wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
+		acc, err := GetWalletAccount(w, singleAccountName)
 		if err != nil {
 			return nil, fmt.Errorf("wallet %s is invalid (no single account): %w", w.Path(), err)
 		}
@@ -346,7 +346,8 @@ func (c *initializeContext) sendMultiTx(script []byte, fancyScope bool, withCons
 	return c.sendTx(tx, c.Command, false)
 }
 
-func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
+// GetWalletAccount returns account with the given label from the wallet.
+func GetWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
 	for i := range w.Accounts {
 		if w.Accounts[i].Label == typ {
 			return w.Accounts[i], nil
