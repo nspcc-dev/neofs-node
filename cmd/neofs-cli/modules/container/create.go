@@ -3,20 +3,18 @@ package container
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	containerpolicy "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/container/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -46,7 +44,7 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			return errors.New("--global-name requires a name attribute")
 		}
 
-		placementPolicy, err := parseContainerPolicy(cmd, containerPolicy)
+		placementPolicy, err := containerpolicy.ParseContainerPolicy(cmd, containerPolicy)
 		if err != nil {
 			return err
 		}
@@ -200,35 +198,6 @@ func initContainerCreateCmd() {
 	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
 		"Skip placement validity check")
 	flags.BoolVar(&containerGlobalName, "global-name", false, "Name becomes a domain name, that is registered with the default zone in NNS contract. Requires name attribute.")
-}
-
-func parseContainerPolicy(cmd *cobra.Command, policyString string) (*netmap.PlacementPolicy, error) {
-	_, err := os.Stat(policyString) // check if `policyString` is a path to file with placement policy
-	if err == nil {
-		common.PrintVerbose(cmd, "Reading placement policy from file: %s", policyString)
-
-		data, err := os.ReadFile(policyString)
-		if err != nil {
-			return nil, fmt.Errorf("can't read file with placement policy: %w", err)
-		}
-
-		policyString = string(data)
-	}
-
-	var result netmap.PlacementPolicy
-
-	err = result.DecodeString(policyString)
-	if err == nil {
-		common.PrintVerbose(cmd, "Parsed QL encoded policy")
-		return &result, nil
-	}
-
-	if err = result.UnmarshalJSON([]byte(policyString)); err == nil {
-		common.PrintVerbose(cmd, "Parsed JSON encoded policy")
-		return &result, nil
-	}
-
-	return nil, errors.New("can't parse placement policy")
 }
 
 func parseAttributes(dst *container.Container, attributes []string) error {
