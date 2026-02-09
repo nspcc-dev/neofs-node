@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -79,7 +80,10 @@ func (oiw *objectsInWork) add(addr oid.Address) {
 type Policer struct {
 	*cfg
 
-	objsInWork *objectsInWork
+	// hadToReplicate is a flag that indicates whether policer had objects
+	// to replicate to other nodes in the previous cycle
+	hadToReplicate atomic.Bool
+	objsInWork     *objectsInWork
 
 	signer neofscrypto.Signer
 
@@ -91,39 +95,49 @@ type Policer struct {
 // Option is an option for Policer constructor.
 type Option func(*cfg)
 
-// Network provides information about the NeoFS network to Policer for work.
-type Network interface {
-	// IsLocalNodeInNetmap checks whether the local node belongs to the current
-	// network map. If it is impossible to check this fact, IsLocalNodeInNetmap
-	// returns false.
-	IsLocalNodeInNetmap() bool
-	// GetNodesForObject returns descriptors of storage nodes matching storage
-	// policy of the referenced object for now. Nodes are identified by their public
-	// keys and can be repeated in different lists. First len(repRules) lists relate
-	// to replication, the rest len(ecRules) - to EC.
-	//
-	// repRules specifies replication rules: the number (N) of primary object
-	// holders for each list (L) so:
-	//  - size of each L >= N;
-	//  - first N nodes of each L are primary data holders while others (if any)
-	//    are backup.
-	//
-	// ecRules specifies erasure coding rules for all objects in the container: each
-	// object is split into [iec.Rule.DataPartNum] data and [iec.Rule.ParityPartNum]
-	// parity parts. Each i-th part most expected to be located on SN described by
-	// i-th list element. In general, list len is a multiple of CBF, and the part is
-	// expected on N with index M*i, M in [0,CBF). Then part is expected on SN
-	// for i+1-th part and so on.
-	//
-	// GetNodesForObject callers do not change resulting slices and their elements.
-	//
-	// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
-	// the network.
-	GetNodesForObject(oid.Address) (nodeLists [][]netmapsdk.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
-	// IsLocalNodePublicKey checks whether given binary-encoded public key is
-	// assigned in the network map to a local storage node running [Policer].
-	IsLocalNodePublicKey([]byte) bool
-}
+type (
+	// Network provides information about the NeoFS network to Policer for work.
+	Network interface {
+		// IsLocalNodeInNetmap checks whether the local node belongs to the current
+		// network map. If it is impossible to check this fact, IsLocalNodeInNetmap
+		// returns false.
+		IsLocalNodeInNetmap() bool
+		// GetNodesForObject returns descriptors of storage nodes matching storage
+		// policy of the referenced object for now. Nodes are identified by their public
+		// keys and can be repeated in different lists. First len(repRules) lists relate
+		// to replication, the rest len(ecRules) - to EC.
+		//
+		// repRules specifies replication rules: the number (N) of primary object
+		// holders for each list (L) so:
+		//  - size of each L >= N;
+		//  - first N nodes of each L are primary data holders while others (if any)
+		//    are backup.
+		//
+		// ecRules specifies erasure coding rules for all objects in the container: each
+		// object is split into [iec.Rule.DataPartNum] data and [iec.Rule.ParityPartNum]
+		// parity parts. Each i-th part most expected to be located on SN described by
+		// i-th list element. In general, list len is a multiple of CBF, and the part is
+		// expected on N with index M*i, M in [0,CBF). Then part is expected on SN
+		// for i+1-th part and so on.
+		//
+		// GetNodesForObject callers do not change resulting slices and their elements.
+		//
+		// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
+		// the network.
+		GetNodesForObject(oid.Address) (nodeLists [][]netmapsdk.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
+		// IsLocalNodePublicKey checks whether given binary-encoded public key is
+		// assigned in the network map to a local storage node running [Policer].
+		IsLocalNodePublicKey([]byte) bool
+	}
+
+	// MetricsCollector describes [Policer]'s state metrics collector.
+	MetricsCollector interface {
+		// SetPolicerConsistency must update [Policer] consistency metric
+		// based on background check progress. `true` is for the consistent
+		// state, `false` for the opposite one.
+		SetPolicerConsistency(bool)
+	}
+)
 
 type cfg struct {
 	mtx sync.RWMutex
@@ -133,7 +147,8 @@ type cfg struct {
 	batchSize   uint32
 	maxCapacity uint32
 
-	log *zap.Logger
+	log     *zap.Logger
+	metrics MetricsCollector
 
 	localStorage localStorage
 
@@ -210,6 +225,13 @@ func WithLogger(v *zap.Logger) Option {
 func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.localStorage = v
+	}
+}
+
+// WithMetrics returns option to set metrics of [Policer].
+func WithMetrics(v MetricsCollector) Option {
+	return func(c *cfg) {
+		c.metrics = v
 	}
 }
 

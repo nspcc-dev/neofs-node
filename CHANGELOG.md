@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - `neofs-cli container policy check` command (#3790)
 - `neofs-adm mainchain update-contract` command (#3799)
+- `policer_consistency_state` SN metric that means all SN's objects correspond placement policies (#3795)
 
 ### Fixed
 - Unclosed compressed FSTree files (#3802)

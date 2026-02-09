@@ -61,3 +61,7 @@ func (c *cfg) setHealthStatus(st control.HealthStatus) {
 func (c *cfg) HealthStatus() control.HealthStatus {
 	return control.HealthStatus(c.healthStatus.Load())
 }
+
+func (c *cfg) SetPolicerConsistency(consistent bool) {
+	c.metricsCollector.SetPolicerConsistencyState(consistent)
+}

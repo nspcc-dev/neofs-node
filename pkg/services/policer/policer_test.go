@@ -34,6 +34,126 @@ import (
 	"go.uber.org/zap"
 )
 
+type storageListerWithDelay struct {
+	ch chan struct{}
+
+	m    sync.RWMutex
+	objs []objectcore.AddressWithAttributes
+	err  error
+}
+
+func (s *storageListerWithDelay) setListResulsts(oo []objectcore.AddressWithAttributes, err error) {
+	s.m.Lock()
+	s.objs = oo
+	s.err = err
+	s.m.Unlock()
+}
+
+func (s *storageListerWithDelay) ListWithCursor(u uint32, cursor *engine.Cursor, s2 ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
+	<-s.ch
+	s.m.RLock()
+	defer s.m.RUnlock()
+	return s.objs, cursor, s.err
+}
+
+func (s *storageListerWithDelay) Delete(address oid.Address) error {
+	panic("do not call me")
+}
+
+func (s *storageListerWithDelay) Put(o *object.Object, i []byte) error {
+	panic("do not call me")
+}
+
+func (s *storageListerWithDelay) Head(address oid.Address, b bool) (*object.Object, error) {
+	panic("do not call me")
+}
+
+func (s *storageListerWithDelay) HeadECPart(id cid.ID, id2 oid.ID, info iec.PartInfo) (object.Object, error) {
+	panic("do not call me")
+}
+
+func (s *storageListerWithDelay) GetRange(address oid.Address, u uint64, u2 uint64) ([]byte, error) {
+	panic("do not call me")
+}
+
+func TestConsistency(t *testing.T) {
+	t.Run("startup value", func(t *testing.T) {
+		wp, err := ants.NewPool(100)
+		require.NoError(t, err)
+
+		var (
+			mockM     = &mockMetrics{}
+			mockNet   = newMockNetwork()
+			localNode = newTestLocalNode()
+		)
+
+		p := New(neofscryptotest.Signer(),
+			WithPool(wp),
+			WithReplicationCooldown(time.Hour),
+			WithNodeLoader(nopNodeLoader{}),
+			WithNetwork(mockNet),
+			WithLogger(zap.NewNop()),
+			WithMetrics(mockM),
+		)
+		p.localStorage = localNode
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		p.Run(ctx)
+
+		require.Equal(t, false, mockM.consistency.Load())
+	})
+
+	t.Run("metrics change", func(t *testing.T) {
+		wp, err := ants.NewPool(100)
+		require.NoError(t, err)
+
+		var (
+			cnr      = cidtest.ID()
+			objID    = oidtest.ID()
+			objAddr  = oid.NewAddress(cnr, objID)
+			localObj = objectcore.AddressWithAttributes{
+				Address:    objAddr,
+				Type:       object.TypeRegular,
+				Attributes: make([]string, 3),
+			}
+
+			mockM     = &mockMetrics{}
+			mockNet   = newMockNetwork()
+			delayCh   = make(chan struct{})
+			localNode = &storageListerWithDelay{ch: delayCh}
+		)
+
+		localNode.objs = []objectcore.AddressWithAttributes{localObj}
+
+		p := New(neofscryptotest.Signer(),
+			WithPool(wp),
+			WithReplicationCooldown(time.Millisecond),
+			WithNodeLoader(nopNodeLoader{}),
+			WithNetwork(mockNet),
+			WithLogger(zap.NewNop()),
+			WithMetrics(mockM),
+		)
+		p.localStorage = localNode
+
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		go p.Run(ctx)
+
+		require.Equal(t, false, mockM.consistency.Load())
+		delayCh <- struct{}{}
+		require.Equal(t, false, mockM.consistency.Load()) // still not finished cycle
+
+		localNode.setListResulsts(nil, engine.ErrEndOfListing)
+		delayCh <- struct{}{}
+		require.Eventually(t, func() bool {
+			return mockM.consistency.Load()
+		}, 3*time.Second, 50*time.Millisecond)
+
+		delayCh <- struct{}{}
+	})
+}
+
 func TestPolicer_Run_RepDefault(t *testing.T) {
 	for _, typ := range []object.Type{
 		object.TypeRegular,
@@ -515,6 +635,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 		WithNodeLoader(nopNodeLoader{}),
 		WithNetwork(mockNet),
 		WithLogger(l),
+		WithMetrics(&mockMetrics{}),
 	)
 	p.localStorage = localNode
 	p.apiConns = conns
@@ -527,7 +648,8 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	require.Eventually(t, func() bool {
 		return lb.Contains(testutil.LogEntry{
 			Level: zap.InfoLevel, Message: "finished local storage cycle", Fields: map[string]any{
-				"component": "Object Policer",
+				"component":  "Object Policer",
+				"cleanCycle": true,
 			}})
 	}, 3*time.Second, 50*time.Millisecond)
 
@@ -950,6 +1072,7 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 		WithNodeLoader(nopNodeLoader{}),
 		WithNetwork(mockNet),
 		WithLogger(l),
+		WithMetrics(&mockMetrics{}),
 	)
 	p.localStorage = localNode
 	p.apiConns = conns
@@ -962,7 +1085,8 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	require.Eventually(t, func() bool {
 		return lb.Contains(testutil.LogEntry{
 			Level: zap.InfoLevel, Message: "finished local storage cycle", Fields: map[string]any{
-				"component": "Object Policer",
+				"component":  "Object Policer",
+				"cleanCycle": true,
 			}})
 	}, 3*time.Second, 50*time.Millisecond)
 
@@ -1045,6 +1169,14 @@ func newMockNetwork() *mockNetwork {
 	}
 }
 
+type mockMetrics struct {
+	consistency atomic.Bool
+}
+
+func (m *mockMetrics) SetPolicerConsistency(b bool) {
+	m.consistency.Store(b)
+}
+
 func (x *mockNetwork) IsLocalNodePublicKey(key []byte) bool {
 	return bytes.Equal(key, x.pubKey)
 }
@@ -1054,11 +1186,11 @@ func (x *mockNetwork) IsLocalNodeInNetmap() bool {
 }
 
 func (x *testLocalNode) ListWithCursor(_ uint32, c *engine.Cursor, _ ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
-	if c == nil {
-		return x.objList, new(engine.Cursor), nil
-	} else {
+	if c != nil || len(x.objList) == 0 {
 		return nil, c, engine.ErrEndOfListing
 	}
+
+	return x.objList, new(engine.Cursor), nil
 }
 
 func (x *testLocalNode) deletedObjects() []oid.Address {

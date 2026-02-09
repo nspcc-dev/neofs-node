@@ -17,6 +17,9 @@ func (p *Policer) Run(ctx context.Context) {
 		p.log.Info("routine stopped")
 	}()
 
+	p.metrics.SetPolicerConsistency(false)
+	p.hadToReplicate.Store(false)
+
 	go p.poolCapacityWorker(ctx)
 	p.shardPolicyWorker(ctx)
 }
@@ -45,7 +48,12 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor, iec.AttributeRuleIdx, iec.AttributePartIdx, object.FilterParentID)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
-				p.log.Info("finished local storage cycle")
+				cleanCycle := !p.hadToReplicate.Swap(false)
+				if cleanCycle {
+					p.metrics.SetPolicerConsistency(true)
+				}
+
+				p.log.Info("finished local storage cycle", zap.Bool("cleanCycle", cleanCycle))
 			} else {
 				p.log.Warn("failure at object select for replication", zap.Error(err))
 			}
