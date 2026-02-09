@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -453,4 +454,281 @@ func createTSForObject(cnr cid.ID, id oid.ID) *object.Object {
 	ts.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(ts.Payload())))
 	ts.AssociateDeleted(id)
 	return ts
+}
+
+func TestDB_PutBatch(t *testing.T) {
+	db := newDB(t)
+
+	objs := prepareObjects(t, 100)
+
+	err := db.PutBatch(objs)
+	require.NoError(t, err)
+
+	for _, obj := range objs {
+		exists, err := db.Exists(obj.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+	}
+
+	t.Run("empty batch", func(t *testing.T) {
+		require.NoError(t, db.PutBatch([]*object.Object{}))
+	})
+
+	t.Run("batch with tombstoned objects", func(t *testing.T) {
+		db := newDB(t)
+		cnr := cidtest.ID()
+
+		obj1 := generateObjectWithCID(t, cnr)
+		obj2 := generateObjectWithCID(t, cnr)
+		obj3 := generateObjectWithCID(t, cnr)
+
+		require.NoError(t, db.Put(obj1))
+		require.NoError(t, db.Put(obj2))
+
+		ts := generateObjectWithCID(t, cnr)
+		ts.AssociateDeleted(obj1.GetID())
+		require.NoError(t, db.Put(ts))
+
+		_, err := db.Get(obj1.Address(), false)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+
+		// obj1 should be skipped (already removed), obj2 should be skipped (exists), obj3 should be added
+		batch := []*object.Object{obj1, obj2, obj3}
+		require.NoError(t, db.PutBatch(batch))
+
+		exists, err := db.Exists(obj3.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		_, err = db.Get(obj1.Address(), false)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+	})
+
+	t.Run("batch with expired objects", func(t *testing.T) {
+		es := &epochState{e: 100}
+		db := newDB(t, meta.WithEpochState(es))
+		cnr := cidtest.ID()
+
+		obj1 := generateObjectWithCID(t, cnr)
+		obj1.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "99")) // expired
+		obj2 := generateObjectWithCID(t, cnr)
+		obj2.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "200")) // not expired
+
+		obj3 := generateObjectWithCID(t, cnr) // no expiration
+
+		batch := []*object.Object{obj1, obj2, obj3}
+		require.NoError(t, db.PutBatch(batch))
+
+		_, err := db.Get(obj1.Address(), false)
+		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+
+		exists, err := db.Exists(obj2.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		exists, err = db.Exists(obj3.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+
+	t.Run("batch with locked objects", func(t *testing.T) {
+		db := newDB(t)
+		cnr := cidtest.ID()
+
+		obj1 := generateObjectWithCID(t, cnr)
+		obj1.SetType(object.TypeRegular)
+		require.NoError(t, db.Put(obj1))
+
+		lock := generateObjectWithCID(t, cnr)
+		lock.AssociateLocked(obj1.GetID())
+		require.NoError(t, db.Put(lock))
+
+		locked, err := db.IsLocked(obj1.Address())
+		require.NoError(t, err)
+		require.True(t, locked)
+
+		ts := generateObjectWithCID(t, cnr)
+		ts.AssociateDeleted(obj1.GetID())
+
+		obj2 := generateObjectWithCID(t, cnr)
+
+		// Try to put batch with tombstone for locked object
+		// ts should be skipped (object is locked), obj2 should be added
+		batch := []*object.Object{ts, obj2}
+		require.NoError(t, db.PutBatch(batch))
+
+		exists, err := db.Exists(obj1.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		exists, err = db.Exists(obj2.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+
+	t.Run("mixed batch with multiple non-critical errors", func(t *testing.T) {
+		es := &epochState{e: 100}
+		db := newDB(t, meta.WithEpochState(es))
+		cnr := cidtest.ID()
+
+		lockedObj := generateObjectWithCID(t, cnr)
+		lockedObj.SetType(object.TypeRegular)
+		require.NoError(t, db.Put(lockedObj))
+		lock := generateObjectWithCID(t, cnr)
+		lock.AssociateLocked(lockedObj.GetID())
+		require.NoError(t, db.Put(lock))
+
+		tombstonedObj := generateObjectWithCID(t, cnr)
+		require.NoError(t, db.Put(tombstonedObj))
+		ts1 := generateObjectWithCID(t, cnr)
+		ts1.AssociateDeleted(tombstonedObj.GetID())
+		require.NoError(t, db.Put(ts1))
+
+		expiredObj := generateObjectWithCID(t, cnr)
+		expiredObj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "99"))
+
+		ts2 := generateObjectWithCID(t, cnr)
+		ts2.AssociateDeleted(lockedObj.GetID()) // tombstone for locked object
+
+		newObj1 := generateObjectWithCID(t, cnr)
+		newObj2 := generateObjectWithCID(t, cnr)
+
+		batch := []*object.Object{
+			tombstonedObj, // already removed - skip
+			expiredObj,    // expired - skip
+			ts2,           // locked object - skip
+			newObj1,       // should succeed
+			newObj2,       // should succeed
+		}
+
+		require.NoError(t, db.PutBatch(batch))
+
+		// Verify only newObj1 and newObj2 were added
+		exists, err := db.Exists(newObj1.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		exists, err = db.Exists(newObj2.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		// Locked object should still be available
+		exists, err = db.Exists(lockedObj.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+
+	t.Run("degraded mode", func(t *testing.T) {
+		db := newDB(t)
+		require.NoError(t, db.SetMode(mode.ReadOnly))
+
+		objs := prepareObjects(t, 10)
+		err := db.PutBatch(objs)
+		require.ErrorIs(t, err, meta.ErrReadOnlyMode)
+	})
+
+	t.Run("transaction atomicity on critical error", func(t *testing.T) {
+		db := newDB(t)
+		cnr := cidtest.ID()
+
+		obj1 := generateObjectWithCID(t, cnr)
+		obj2 := generateObjectWithCID(t, cnr)
+
+		tombstone := generateObjectWithCID(t, cnr)
+		tombstone.SetType(object.TypeTombstone)
+		require.NoError(t, db.Put(tombstone))
+
+		invalidLock := generateObjectWithCID(t, cnr)
+		invalidLock.AssociateLocked(tombstone.GetID()) // locking a tombstone is invalid
+
+		batch := []*object.Object{obj1, invalidLock, obj2}
+
+		err := db.PutBatch(batch)
+		require.Error(t, err)
+
+		// Due to transaction rollback, obj1 should NOT be in the database
+		exists, err := db.Exists(obj1.Address(), false)
+		require.NoError(t, err)
+		require.False(t, exists)
+
+		// obj2 should also NOT be in the database
+		exists, err = db.Exists(obj2.Address(), false)
+		require.NoError(t, err)
+		require.False(t, exists)
+	})
+}
+
+func BenchmarkPutBatch(b *testing.B) {
+	b.Run("batch_size_1", func(b *testing.B) {
+		db := newDB(b)
+		objs := prepareObjects(b, b.N)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := range b.N {
+			if err := db.PutBatch([]*object.Object{objs[i]}); err != nil {
+				b.Fatal(err)
+			}
+		}
+		b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "objects/sec")
+	})
+	b.Run("batch_size_10", func(b *testing.B) {
+		db := newDB(b)
+		objs := prepareObjects(b, b.N)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i += 10 {
+			end := i + 10
+			if end > b.N {
+				end = b.N
+			}
+			if err := db.PutBatch(objs[i:end]); err != nil {
+				b.Fatal(err)
+			}
+		}
+		b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "objects/sec")
+	})
+	b.Run("batch_size_100", func(b *testing.B) {
+		db := newDB(b)
+		objs := prepareObjects(b, b.N)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i += 100 {
+			end := i + 100
+			if end > b.N {
+				end = b.N
+			}
+			if err := db.PutBatch(objs[i:end]); err != nil {
+				b.Fatal(err)
+			}
+		}
+		b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "objects/sec")
+	})
+	b.Run("batch_size_1000", func(b *testing.B) {
+		db := newDB(b)
+		objs := prepareObjects(b, b.N)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i += 1000 {
+			end := i + 1000
+			if end > b.N {
+				end = b.N
+			}
+			if err := db.PutBatch(objs[i:end]); err != nil {
+				b.Fatal(err)
+			}
+		}
+		b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "objects/sec")
+	})
+	b.Run("individual_puts", func(b *testing.B) {
+		db := newDB(b)
+		objs := prepareObjects(b, b.N)
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := range b.N {
+			if err := db.Put(objs[i]); err != nil {
+				b.Fatal(err)
+			}
+		}
+		b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "objects/sec")
+	})
 }

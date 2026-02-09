@@ -6,11 +6,12 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
+
+const resyncBatchSize = 1000
 
 func (s *Shard) handleMetabaseFailure(stage string, err error) error {
 	s.log.Error("metabase failure, switching mode",
@@ -161,9 +162,15 @@ func (s *Shard) resyncMetabase() error {
 		return nil
 	}
 
-	err = s.blobStor.Iterate(s.resyncObjectHandler, errorHandler)
+	rh := newResyncHandler(s, resyncBatchSize)
+	err = s.blobStor.Iterate(rh.handle, errorHandler)
 	if err != nil {
 		return fmt.Errorf("could not put objects to the meta from blobstor: %w", err)
+	}
+
+	// Flush any remaining objects in the batch
+	if err := rh.flush(); err != nil {
+		return fmt.Errorf("could not flush remaining objects to metabase: %w", err)
 	}
 
 	err = s.metaBase.SyncCounters()
@@ -174,27 +181,49 @@ func (s *Shard) resyncMetabase() error {
 	return nil
 }
 
-func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
+// resyncHandler accumulates objects and flushes them in batches.
+type resyncHandler struct {
+	shard *Shard
+	batch []*object.Object
+}
+
+func newResyncHandler(s *Shard, batchSize int) *resyncHandler {
+	return &resyncHandler{
+		shard: s,
+		batch: make([]*object.Object, 0, batchSize),
+	}
+}
+
+func (rh *resyncHandler) handle(addr oid.Address, data []byte) error {
 	obj := new(object.Object)
 
 	if err := obj.Unmarshal(data); err != nil {
-		s.log.Warn("could not unmarshal object",
+		rh.shard.log.Warn("could not unmarshal object",
 			zap.Stringer("address", addr),
 			zap.Error(err))
 		return nil
 	}
 
-	err := s.metaBase.Put(obj)
+	rh.batch = append(rh.batch, obj)
+
+	if len(rh.batch) == cap(rh.batch) {
+		return rh.flush()
+	}
+
+	return nil
+}
+
+func (rh *resyncHandler) flush() error {
+	if len(rh.batch) == 0 {
+		return nil
+	}
+
+	err := rh.shard.metaBase.PutBatch(rh.batch)
 	if err != nil {
-		if meta.IsErrRemoved(err) || errors.Is(err, meta.ErrObjectIsExpired) ||
-			errors.Is(err, apistatus.ErrObjectLocked) {
-			s.log.Warn("meta put failure on resync", zap.Stringer("address", addr),
-				zap.Error(err))
-			return nil
-		}
 		return err
 	}
 
+	rh.batch = rh.batch[:0]
 	return nil
 }
 

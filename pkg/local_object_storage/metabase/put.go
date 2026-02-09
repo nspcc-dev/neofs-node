@@ -11,6 +11,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 const maxObjectNestingLevel = 2
@@ -42,6 +43,57 @@ func (db *DB) Put(obj *object.Object) error {
 		storagelog.Write(db.log,
 			storagelog.AddressField(obj.Address()),
 			storagelog.OpField("metabase PUT"))
+	}
+
+	return err
+}
+
+// PutBatch updates metabase indexes for multiple objects in a single transaction.
+//
+// Non-critical errors ([apistatus.ErrObjectAlreadyRemoved], [ErrObjectIsExpired],
+// [apistatus.ErrObjectLocked]) are logged with warning and skipped, they do not affect
+// other objects in the batch. On any other error, the entire batch is rolled back.
+func (db *DB) PutBatch(objs []*object.Object) error {
+	if len(objs) == 0 {
+		return nil
+	}
+
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return ErrReadOnlyMode
+	}
+
+	currEpoch := db.epochState.CurrentEpoch()
+
+	var successIndices []int
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		for i, obj := range objs {
+			if err := db.put(tx, obj, 0, currEpoch); err != nil {
+				if IsErrRemoved(err) || errors.Is(err, ErrObjectIsExpired) ||
+					errors.Is(err, apistatus.ErrObjectLocked) {
+					db.log.Warn("skipping object in batch due to non-critical error",
+						storagelog.AddressField(obj.Address()),
+						storagelog.OpField("metabase PUT batch"),
+						storagelog.StorageTypeField("metabase"),
+						zap.Error(err))
+					continue
+				}
+				return err
+			}
+			successIndices = append(successIndices, i)
+		}
+		return nil
+	})
+	if err == nil {
+		for _, i := range successIndices {
+			storagelog.Write(db.log,
+				storagelog.AddressField(objs[i].Address()),
+				storagelog.OpField("metabase PUT"))
+		}
 	}
 
 	return err
