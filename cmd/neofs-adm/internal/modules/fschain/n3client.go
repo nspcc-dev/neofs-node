@@ -1,23 +1,18 @@
 package fschain
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // Client represents N3 client interface capable of test-invoking scripts
@@ -46,32 +41,6 @@ type clientContext struct {
 	CommitteeAct    *actor.Actor     // committee actor with the Global witness scope
 	ReadOnlyInvoker *invoker.Invoker // R/O contract invoker, does not contain any signer
 	SentTxs         []hashVUBPair
-}
-
-func getN3Client(v *viper.Viper) (*rpcclient.Client, error) {
-	// number of opened connections
-	// by neo-go client per one host
-	const (
-		maxConnsPerHost = 10
-		requestTimeout  = time.Second * 10
-	)
-
-	ctx := context.Background()
-	endpoint := v.GetString(endpointFlag)
-	if endpoint == "" {
-		return nil, errors.New("missing endpoint")
-	}
-	c, err := rpcclient.New(ctx, endpoint, rpcclient.Options{
-		MaxConnsPerHost: maxConnsPerHost,
-		RequestTimeout:  requestTimeout,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if err := c.Init(); err != nil {
-		return nil, err
-	}
-	return c, nil
 }
 
 func defaultClientContext(c Client, committeeAcc *wallet.Account) (*clientContext, error) {

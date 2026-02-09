@@ -10,6 +10,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/n3util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -24,7 +25,7 @@ type nameExp struct {
 }
 
 func dumpNames(cmd *cobra.Command, _ []string) error {
-	c, err := getN3Client(viper.GetViper())
+	c, err := n3util.GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}

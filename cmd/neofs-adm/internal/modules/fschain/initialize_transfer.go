@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/n3util"
 )
 
 func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accType string) error {
@@ -25,7 +26,7 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 		h = c.ConsensusAcc.Contract.ScriptHash()
 	}
 	for _, w := range c.Wallets {
-		acc, err := getWalletAccount(w, accType)
+		acc, err := n3util.GetWalletAccount(w, accType)
 		if err != nil {
 			return fmt.Errorf("can't find %s wallet account: %w", accType, err)
 		}

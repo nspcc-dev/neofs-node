@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/rpc/balance"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/n3util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
@@ -59,7 +60,7 @@ func balanceContainerPayment(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := n3util.GetN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
@@ -155,7 +156,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		nmHash          util.Uint160
 	)
 
-	c, err := getN3Client(viper.GetViper())
+	c, err := n3util.GetN3Client(viper.GetViper())
 	if err != nil {
 		return err
 	}
