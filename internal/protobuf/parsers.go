@@ -73,6 +73,24 @@ func ParseLENField(buf []byte, num protowire.Number, typ protowire.Type) (int, i
 	return ln, n, nil
 }
 
+// ParseLENFieldBounds parses boundaries of LEN field with preread tag length,
+// number and type at given offset from buf.
+//
+// If there is an error, its text contains num and typ.
+func ParseLENFieldBounds(buf []byte, off int, tagLn int, num protowire.Number, typ protowire.Type) (FieldBounds, error) {
+	ln, n, err := ParseLENField(buf[off+tagLn:], num, typ)
+	if err != nil {
+		return FieldBounds{}, err
+	}
+
+	var f FieldBounds
+	f.From = off
+	f.ValueFrom = f.From + tagLn + n
+	f.To = f.ValueFrom + ln
+
+	return f, nil
+}
+
 // ParseEnum parses enum value from buf. Returns parsed value and number of
 // bytes read.
 func ParseEnum[T ~int32](buf []byte) (T, int, error) {

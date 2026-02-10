@@ -74,15 +74,5 @@ func GetLENFieldBounds(buf []byte, num protowire.Number) (FieldBounds, error) {
 		return FieldBounds{}, nil
 	}
 
-	ln, n, err := ParseLENField(buf[off+tagLn:], num, typ)
-	if err != nil {
-		return FieldBounds{}, err
-	}
-
-	var f FieldBounds
-	f.From = off
-	f.ValueFrom = f.From + tagLn + n
-	f.To = f.ValueFrom + ln
-
-	return f, nil
+	return ParseLENFieldBounds(buf, off, tagLn, num, typ)
 }

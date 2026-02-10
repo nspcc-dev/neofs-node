@@ -189,6 +189,70 @@ func TestParseLENField(t *testing.T) {
 	}
 }
 
+func TestParseLENFieldBounds(t *testing.T) {
+	prefix := []byte{1, 2, 3, 4}
+	const off = 2
+	tagLn := len(prefix) - off
+
+	t.Run("cut prefix", func(t *testing.T) {
+		require.Panics(t, func() {
+			_, _ = iprotobuf.ParseLENFieldBounds(prefix, off+1, tagLn, 42, protowire.BytesType)
+		})
+		require.Panics(t, func() {
+			_, _ = iprotobuf.ParseLENFieldBounds(prefix, off, tagLn+1, 42, protowire.BytesType)
+		})
+	})
+
+	t.Run("wrong type", func(t *testing.T) {
+		_, err := iprotobuf.ParseLENFieldBounds(prefix, off, tagLn, 42, protowire.VarintType)
+		require.EqualError(t, err, "wrong type of field #42: expected LEN, got VARINT")
+	})
+
+	t.Run("invalid len", func(t *testing.T) {
+		for _, tc := range invalidVarintTestcases {
+			t.Run(tc.name, func(t *testing.T) {
+				buf := slices.Concat(prefix, tc.buf)
+				_, err := iprotobuf.ParseLENFieldBounds(buf, off, tagLn, 42, protowire.BytesType)
+				require.ErrorContains(t, err, "parse field #42 of LEN type: parse varint")
+				require.ErrorContains(t, err, tc.err)
+			})
+		}
+	})
+
+	t.Run("buffer overflow", func(t *testing.T) {
+		t.Run("int overflow", func(t *testing.T) {
+			buf := slices.Concat(prefix, make([]byte, binary.MaxVarintLen64))
+			n := binary.PutUvarint(buf[len(prefix):], uint64(math.MaxInt+1))
+
+			_, err := iprotobuf.ParseLENFieldBounds(buf[:len(prefix)+n], off, tagLn, 42, protowire.BytesType)
+			require.EqualError(t, err, "parse field #42 of LEN type: value "+strconv.FormatUint(math.MaxInt+1, 10)+" overflows int")
+		})
+
+		for i, tc := range varintTestcases {
+			if tc.val == 0 || tc.val > 1<<20 {
+				continue
+			}
+
+			buf := slices.Concat(prefix, tc.buf, make([]byte, tc.val-1))
+			_, err := iprotobuf.ParseLENFieldBounds(buf, off, tagLn, 42, protowire.BytesType)
+			require.EqualError(t, err, "parse field #42 of LEN type: unexpected EOF: need "+strconv.FormatUint(tc.val, 10)+" bytes, left "+strconv.FormatUint(tc.val-1, 10)+" in buffer", i)
+		}
+	})
+
+	for i, tc := range varintTestcases {
+		if tc.val > 1<<20 {
+			continue
+		}
+
+		buf := make([]byte, tc.val)
+		f, err := iprotobuf.ParseLENFieldBounds(slices.Concat(prefix, tc.buf, buf), off, tagLn, 42, protowire.BytesType)
+		require.NoError(t, err, i)
+		require.EqualValues(t, off, f.From)
+		require.EqualValues(t, f.From+tagLn+tc.ln, f.ValueFrom)
+		require.EqualValues(t, f.ValueFrom+int(tc.val), f.To)
+	}
+}
+
 func TestParseEnum(t *testing.T) {
 	t.Run("invalid varint", func(t *testing.T) {
 		for _, tc := range invalidVarintTestcases {
