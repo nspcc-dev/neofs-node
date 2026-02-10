@@ -11,3 +11,9 @@ import (
 func NewUnorderedFieldsError(n1, n2 protowire.Number) error {
 	return fmt.Errorf("unordered fields: #%d after #%d", n2, n1)
 }
+
+// NewRepeatedFieldError returns common error for field #n repeated more than
+// once.
+func NewRepeatedFieldError(n protowire.Number) error {
+	return fmt.Errorf("repeated field #%d", n)
+}
