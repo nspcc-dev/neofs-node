@@ -14,7 +14,7 @@ import (
 func getArgsFromEvent(ne event.NotaryEvent, expectedNum int) ([]scparser.Instruction, error) {
 	args := ne.Params()
 	if len(args) != expectedNum {
-		return nil, newWrongArgNumError(expectedNum, len(args))
+		return nil, event.WrongNumberOfParameters(expectedNum, len(args))
 	}
 	return args, nil
 }
@@ -29,10 +29,6 @@ func getValueFromArg[T any](args []scparser.Instruction, i int, desc string, f s
 
 func wrapInvalidArgError(i int, desc string, err error) error {
 	return fmt.Errorf("arg#%d (%s): %w", i, desc, err)
-}
-
-func newWrongArgNumError(expected, actual int) error {
-	return fmt.Errorf("wrong/unsupported arg num %d instead of %d", actual, expected)
 }
 
 // CreateContainerV2Request wraps container creation request to provide
@@ -56,9 +52,9 @@ func RestoreCreateContainerV2Request(notaryReq event.NotaryEvent) (event.Event, 
 		err error
 	)
 
-	args := notaryReq.Params()
-	if len(args) != argNum {
-		return nil, newWrongArgNumError(argNum, len(args))
+	args, err := getArgsFromEvent(notaryReq, argNum)
+	if err != nil {
+		return nil, err
 	}
 
 	if res.Container, err = containerInfoFromInstruction(args[0]); err != nil {
