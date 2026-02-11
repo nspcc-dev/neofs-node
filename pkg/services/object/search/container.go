@@ -74,7 +74,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 				return
 			}
 
-			ids, err := c.searchObjects(ctx, exec, info)
+			ids, err := c.searchObjects(ctx, exec)
 			if err != nil {
 				lg.Debug("remote operation failed",
 					zap.Error(err))

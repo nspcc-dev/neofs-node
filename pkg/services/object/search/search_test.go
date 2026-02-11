@@ -88,7 +88,7 @@ func (ts *testStorage) search(exec *execCtx) ([]oid.ID, error) {
 	return v.ids, v.err
 }
 
-func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
+func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx) ([]oid.ID, error) {
 	v, ok := ts.items[exec.containerID()]
 	if !ok {
 		return nil, nil
