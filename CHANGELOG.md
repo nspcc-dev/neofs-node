@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 ### Changed
 - SN retries notary requests if `insufficient amount of gas` error appears (#3739)
 - Speed up metabase resync by using batch operations (#3804)
+- Notary events parsing is now done via NeoGo `scparser` package (#3813)
 
 ### Removed
 

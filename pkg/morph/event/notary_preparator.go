@@ -14,15 +14,13 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 var (
-	errNotContractCall            = errors.New("received main tx is not a contract call")
 	errUnexpectedWitnessAmount    = errors.New("received main tx has unexpected amount of witnesses")
 	errUnexpectedCosignersAmount  = errors.New("received main tx has unexpected amount of cosigners")
 	errIncorrectAlphabetSigner    = errors.New("received main tx has incorrect Alphabet signer")
@@ -32,9 +30,6 @@ var (
 	errIncorrectNotaryPlaceholder = errors.New("received main tx has incorrect Notary contract placeholder")
 	errIncorrectAttributesAmount  = errors.New("received main tx has incorrect attributes amount")
 	errIncorrectAttribute         = errors.New("received main tx has incorrect attribute")
-	errIncorrectCallFlag          = errors.New("received main tx has unexpected call flag")
-	errIncorrectArgPacking        = errors.New("received main tx has incorrect argument packing")
-	errUnexpectedCONVERT          = errors.New("received main tx has unexpected CONVERT opcode")
 
 	errIncorrectFBAttributesAmount = errors.New("received fallback tx has incorrect attributes amount")
 	errIncorrectFBAttributes       = errors.New("received fallback tx has incorrect attributes")
@@ -180,82 +175,28 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		return nil, err
 	}
 
-	var (
-		opCode opcode.Opcode
-		param  []byte
-	)
-
-	ctx := vm.NewContext(nr.MainTransaction.Script)
-	ops := make([]Op, 0, 10) // 10 is maximum num of opcodes for calling contracts with 4 args(no arrays of arrays)
-
-	for {
-		opCode, param, err = ctx.Next()
-		if err != nil {
-			return nil, fmt.Errorf("could not get next opcode in script: %w", err)
-		}
-
-		if opCode == opcode.RET {
-			break
-		}
-
-		ops = append(ops, Op{code: opCode, param: param, pos: ctx.IP()})
-	}
-
-	opsLen := len(ops)
-
-	// check if it is tx with contract call
-	if !bytes.Equal(ops[opsLen-1].param, p.contractSysCall) {
-		return nil, errNotContractCall
-	}
-
-	// retrieve contract's script hash
-	contractHash, err := util.Uint160DecodeBytesBE(ops[opsLen-2].param)
+	h, m, _, args, err := scparser.ParseAppCall(nr.MainTransaction.Script)
 	if err != nil {
-		return nil, fmt.Errorf("could not decode contract hash: %w", err)
+		return nil, fmt.Errorf("failed to parse main transaction script: %w", err)
 	}
-
-	// retrieve contract's method
-	contractMethod := string(ops[opsLen-3].param)
-	eventType := NotaryTypeFromString(contractMethod)
+	eventType := NotaryTypeFromString(m)
 
 	p.m.RLock()
 	_, allowed := p.allowedEvents[notaryScriptWithHash{
-		scriptHashValue:   scriptHashValue{contractHash},
+		scriptHashValue:   scriptHashValue{h},
 		notaryRequestType: notaryRequestType{eventType},
 	}]
 	p.m.RUnlock()
-
 	if !allowed {
 		return nil, ErrUnknownEvent
-	}
-
-	// check if there is a call flag(must be in range [0:15))
-	callFlag := callflag.CallFlag(ops[opsLen-4].code - opcode.PUSH0)
-	if callFlag > callflag.All {
-		return nil, errIncorrectCallFlag
-	}
-
-	args := ops[:opsLen-4]
-	argScript := nr.MainTransaction.Script[:ops[opsLen-4].pos]
-
-	if len(args) != 0 {
-		err = p.validateParameterOpcodes(args)
-		if err != nil {
-			return nil, fmt.Errorf("could not validate arguments: %w", err)
-		}
-
-		// without args packing opcodes
-		argScript = nr.MainTransaction.Script[:args[len(args)-2].pos]
-		args = args[:len(args)-2]
 	}
 
 	p.alreadyHandledTXs.Add(nr.MainTransaction.Hash(), struct{}{})
 
 	return parsedNotaryEvent{
-		hash:       contractHash,
+		hash:       h,
 		notaryType: eventType,
 		params:     args,
-		argScript:  argScript,
 		raw:        nr,
 	}, nil
 }
@@ -265,74 +206,6 @@ func (p preparator) allowNotaryEvent(filter notaryScriptWithHash) {
 	defer p.m.Unlock()
 
 	p.allowedEvents[filter] = struct{}{}
-}
-
-func (p preparator) validateParameterOpcodes(ops []Op) error {
-	l := len(ops)
-
-	if ops[l-1].code != opcode.PACK {
-		return fmt.Errorf("unexpected packing opcode: %s", ops[l-1].code)
-	}
-
-	argsLen, err := IntFromOpcode(ops[l-2])
-	if err != nil {
-		return fmt.Errorf("could not parse argument len: %w", err)
-	}
-
-	err = validateNestedArgs(argsLen, ops[:l-2])
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validateNestedArgs(expArgLen int64, ops []Op) error {
-	var (
-		currentCode opcode.Opcode
-
-		opsLenGot = len(ops)
-	)
-
-	for i := opsLenGot - 1; i >= 0; i-- {
-		// only PUSH(also, PACK for arrays and CONVERT for booleans)
-		// codes are allowed; number of params and their content must
-		// be checked in a notary parser and a notary handler of a
-		// particular contract
-		switch currentCode = ops[i].code; {
-		case currentCode <= opcode.PUSH16:
-		case currentCode == opcode.CONVERT:
-			if i == 0 || ops[i-1].code != opcode.PUSHT && ops[i-1].code != opcode.PUSHF {
-				return errUnexpectedCONVERT
-			}
-
-			expArgLen++
-		case currentCode == opcode.PACK || currentCode == opcode.PACKSTRUCT ||
-			currentCode == opcode.PACKMAP:
-			if i == 0 {
-				return errIncorrectArgPacking
-			}
-
-			argsLen, err := IntFromOpcode(ops[i-1])
-			if err != nil {
-				return fmt.Errorf("could not parse argument len: %w", err)
-			}
-			if currentCode == opcode.PACKMAP {
-				argsLen *= 2 // Key + value.
-			}
-
-			expArgLen += argsLen + 1
-			i--
-		default:
-			return fmt.Errorf("received main tx has unexpected(not PUSH) NeoVM opcode: %s", currentCode)
-		}
-	}
-
-	if int64(opsLenGot) != expArgLen {
-		return errIncorrectArgPacking
-	}
-
-	return nil
 }
 
 func (p preparator) validateExpiration(fbTX *transaction.Transaction) error {
@@ -435,10 +308,9 @@ func (p preparator) validateAttributes(aa []transaction.Attribute, alphaKeys key
 }
 
 type parsedNotaryEvent struct {
-	argScript  []byte
 	hash       util.Uint160
 	notaryType NotaryType
-	params     []Op
+	params     []scparser.PushedItem
 	raw        *payload.P2PNotaryRequest
 }
 
@@ -450,11 +322,8 @@ func (p parsedNotaryEvent) Type() NotaryType {
 	return p.notaryType
 }
 
-func (p parsedNotaryEvent) Params() []Op {
+func (p parsedNotaryEvent) Params() []scparser.PushedItem {
 	return p.params
-}
-func (p parsedNotaryEvent) ArgumentScript() []byte {
-	return p.argScript
 }
 
 func (p parsedNotaryEvent) Raw() *payload.P2PNotaryRequest {
