@@ -30,19 +30,19 @@ func ParsePutReport(ne event.NotaryEvent) (event.Event, error) {
 	}
 	var ev Report
 
-	ev.CID, err = event.GetValueFromArg(args, 0, "container ID", scparser.GetBytesFromInstr)
+	ev.CID, err = event.GetValueFromArg(args, 0, ne.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.StorageSize, err = event.GetValueFromArg(args, 1, "container's size", scparser.GetInt64FromInstr)
+	ev.StorageSize, err = event.GetValueFromArg(args, 1, ne.Type().String(), scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.ObjectsNumber, err = event.GetValueFromArg(args, 2, "objects number", scparser.GetInt64FromInstr)
+	ev.ObjectsNumber, err = event.GetValueFromArg(args, 2, ne.Type().String(), scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.NodeKey, err = event.GetValueFromArg(args, 3, "reporter's key", scparser.GetBytesFromInstr)
+	ev.NodeKey, err = event.GetValueFromArg(args, 3, ne.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}

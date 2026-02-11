@@ -66,14 +66,14 @@ func ParseAddNodeNotary(ne event.NotaryEvent) (event.Event, error) {
 		err error
 	)
 
-	args := ne.Params()
-	if len(args) != addNodeArgsCnt {
-		return nil, event.WrongNumberOfParameters(addNodeArgsCnt, len(args))
+	args, err := event.GetArgs(ne, addNodeArgsCnt)
+	if err != nil {
+		return nil, err
 	}
 
 	ev.Node, err = nodeFromPushedItem(args[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse netmap node from AppCall parameter: %w", err)
+		return nil, event.WrapInvalidArgError(0, ne.Type().String(), err)
 	}
 	ev.notaryRequest = ne.Raw()
 
@@ -120,14 +120,14 @@ func nodeFromPushedItem(instr scparser.PushedItem) (netmaprpc.NetmapNode2, error
 		res.Attributes[k] = v
 	}
 
-	res.Key, err = scparser.GetPublicKeyFromInstr(fields[2].Instruction)
+	res.Key, err = event.GetValueFromArg(fields, 2, "Key", scparser.GetPublicKeyFromInstr)
 	if err != nil {
-		return res, fmt.Errorf("key: %w", err)
+		return res, err
 	}
 
-	res.State, err = scparser.GetBigIntFromInstr(fields[3].Instruction)
+	res.State, err = event.GetValueFromArg(fields, 3, "State", scparser.GetBigIntFromInstr)
 	if err != nil {
-		return res, fmt.Errorf("state: %w", err)
+		return res, err
 	}
 
 	return res, nil

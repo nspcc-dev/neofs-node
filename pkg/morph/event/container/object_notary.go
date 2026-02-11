@@ -56,9 +56,9 @@ func ParseObjectPut(e event.NotaryEvent) (event.Event, error) {
 		return nil, event.WrongNumberOfParameters(expectedItemNumObjectPut, len(args))
 	}
 
-	rawMap, err := scparser.GetBytesFromInstr(args[0].Instruction)
+	rawMap, err := event.GetValueFromArg(args, 0, e.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
-		return nil, fmt.Errorf("converting metadata information from AppCall parameter: %w", err)
+		return nil, err
 	}
 	m, err := stackitem.Deserialize(rawMap)
 	if err != nil {

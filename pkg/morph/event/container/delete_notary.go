@@ -1,8 +1,6 @@
 package container
 
 import (
-	"fmt"
-
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -37,15 +35,15 @@ func ParseDeleteNotary(ne event.NotaryEvent) (event.Event, error) {
 	const expectedItemNumDelete = 3
 	var ev Delete
 
-	args := ne.Params()
-	if len(args) != expectedItemNumDelete {
-		return nil, event.WrongNumberOfParameters(expectedItemNumDelete, len(args))
+	args, err := event.GetArgs(ne, expectedItemNumDelete)
+	if err != nil {
+		return nil, err
 	}
 
-	for i, arg := range args {
-		v, err := scparser.GetBytesFromInstr(arg.Instruction)
+	for i := range args {
+		v, err := event.GetValueFromArg(args, i, ne.Type().String(), scparser.GetBytesFromInstr)
 		if err != nil {
-			return nil, fmt.Errorf("%s arg #%d: %w", DeleteNotaryEvent, i, err)
+			return nil, err
 		}
 		deleteFieldSetters[i](&ev, v)
 	}
