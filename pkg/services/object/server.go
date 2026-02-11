@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -50,6 +51,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/mem"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -604,7 +606,11 @@ func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadR
 	}, sign)
 }
 
-func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+func (s *Server) Head(context.Context, *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+	panic("must not be called")
+}
+
+func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest) (any, error) {
 	var (
 		err         error
 		recheckEACL bool
@@ -645,7 +651,8 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, req, &resp)
+	var respBuf mem.BufferSlice
+	p, err := convertHeadPrm(s.signer, req, &resp, &respBuf)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -657,6 +664,10 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp), nil
+	}
+
+	if respBuf != nil {
+		return respBuf, nil
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.
@@ -689,7 +700,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, respBuf *mem.BufferSlice) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -736,72 +747,13 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 			return nil, err
 		}
 
-		var hdr *object.Object
-		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			var err error
-			hdr, err = getHeaderFromRemoteNode(ctx, conn, req, addr.Object())
-			return err // TODO: log error
+		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			// protoobject.NewObjectServiceClient() with customized codec
+			return conn.Invoke(ctx, protoobject.ObjectService_Head_FullMethodName, req, &respBuf,
+				grpc.StaticMethod(), grpc.ForceCodecV2(iprotobuf.BuffersCodec{}))
 		})
 	})
 	return p, nil
-}
-
-func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest, reqOID oid.ID) (*object.Object, error) {
-	resp, err := protoobject.NewObjectServiceClient(conn).Head(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("sending the request failed: %w", err)
-	}
-
-	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
-		return nil, err
-	}
-
-	var hdr *protoobject.Header
-	var idSig *refs.Signature
-	switch v := resp.GetBody().GetHead().(type) {
-	case nil:
-		return nil, fmt.Errorf("unexpected header type %T", v)
-	case *protoobject.HeadResponse_Body_ShortHeader:
-		return nil, fmt.Errorf("unsupported short header")
-	case *protoobject.HeadResponse_Body_Header:
-		if v == nil || v.Header == nil {
-			return nil, errors.New("nil header oneof field")
-		}
-		if v.Header.Header == nil {
-			return nil, errors.New("missing header")
-		}
-		if v.Header.Signature == nil {
-			// TODO(@cthulhu-rider): #1387 use "const" error
-			return nil, errors.New("missing signature")
-		}
-
-		if err := checkHeaderAgainstID(v.Header.Header, reqOID); err != nil {
-			return nil, err
-		}
-
-		hdr = v.Header.Header
-		idSig = v.Header.Signature
-	case *protoobject.HeadResponse_Body_SplitInfo:
-		if v == nil || v.SplitInfo == nil {
-			return nil, errors.New("nil split info oneof field")
-		}
-		si := object.NewSplitInfo()
-		err := si.FromProtoMessage(v.SplitInfo)
-		if err != nil {
-			return nil, err
-		}
-		return nil, object.NewSplitInfoError(si)
-	}
-
-	mObj := &protoobject.Object{
-		Signature: idSig,
-		Header:    hdr,
-	}
-	var obj = new(object.Object)
-	if err := obj.FromProtoMessage(mObj); err != nil {
-		return nil, err
-	}
-	return obj, nil
 }
 
 func (s *Server) signHashResponse(resp *protoobject.GetRangeHashResponse) *protoobject.GetRangeHashResponse {

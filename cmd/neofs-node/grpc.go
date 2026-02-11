@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
@@ -61,6 +62,7 @@ func initGRPC(c *cfg) {
 				MinTime:             5 * time.Second, // w/o this server sends GoAway with ENHANCE_YOUR_CALM code "too_many_pings"
 				PermitWithoutStream: true,
 			}),
+			grpc.ForceServerCodecV2(iprotobuf.BuffersCodec{}),
 		}
 		if maxRecvMsgSizeOpt != nil {
 			// TODO(@cthulhu-rider): the setting can be server-global only now, support
