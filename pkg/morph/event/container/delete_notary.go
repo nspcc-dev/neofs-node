@@ -6,21 +6,15 @@ import (
 )
 
 func (d *Delete) setContainerID(v []byte) {
-	if v != nil {
-		d.containerID = v
-	}
+	d.containerID = v
 }
 
 func (d *Delete) setSignature(v []byte) {
-	if v != nil {
-		d.signature = v
-	}
+	d.signature = v
 }
 
 func (d *Delete) setToken(v []byte) {
-	if v != nil {
-		d.token = v
-	}
+	d.token = v
 }
 
 var deleteFieldSetters = []func(*Delete, []byte){

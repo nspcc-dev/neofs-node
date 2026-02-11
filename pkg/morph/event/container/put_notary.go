@@ -9,27 +9,19 @@ import (
 )
 
 func (p *Put) setRawContainer(v []byte) {
-	if v != nil {
-		p.rawContainer = v
-	}
+	p.rawContainer = v
 }
 
 func (p *Put) setSignature(v []byte) {
-	if v != nil {
-		p.signature = v
-	}
+	p.signature = v
 }
 
 func (p *Put) setPublicKey(v []byte) {
-	if v != nil {
-		p.publicKey = v
-	}
+	p.publicKey = v
 }
 
 func (p *Put) setToken(v []byte) {
-	if v != nil {
-		p.token = v
-	}
+	p.token = v
 }
 
 func (p *Put) setName(v string) {
