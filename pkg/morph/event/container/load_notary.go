@@ -24,25 +24,25 @@ func (r Report) MorphEvent() {}
 // ParsePutReport from NotaryEvent into container event structure.
 func ParsePutReport(ne event.NotaryEvent) (event.Event, error) {
 	const expectedItemNumAnnounceLoad = 4
-	args, err := getArgsFromEvent(ne, expectedItemNumAnnounceLoad)
+	args, err := event.GetArgs(ne, expectedItemNumAnnounceLoad)
 	if err != nil {
 		return nil, err
 	}
 	var ev Report
 
-	ev.CID, err = getValueFromArg(args, 0, "container ID", scparser.GetBytesFromInstr)
+	ev.CID, err = event.GetValueFromArg(args, 0, "container ID", scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.StorageSize, err = getValueFromArg(args, 1, "container's size", scparser.GetInt64FromInstr)
+	ev.StorageSize, err = event.GetValueFromArg(args, 1, "container's size", scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.ObjectsNumber, err = getValueFromArg(args, 2, "objects number", scparser.GetInt64FromInstr)
+	ev.ObjectsNumber, err = event.GetValueFromArg(args, 2, "objects number", scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.NodeKey, err = getValueFromArg(args, 3, "reporter's key", scparser.GetBytesFromInstr)
+	ev.NodeKey, err = event.GetValueFromArg(args, 3, "reporter's key", scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}
