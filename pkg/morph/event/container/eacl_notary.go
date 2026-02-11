@@ -6,27 +6,19 @@ import (
 )
 
 func (x *SetEACL) setTable(v []byte) {
-	if v != nil {
-		x.table = v
-	}
+	x.table = v
 }
 
 func (x *SetEACL) setSignature(v []byte) {
-	if v != nil {
-		x.signature = v
-	}
+	x.signature = v
 }
 
 func (x *SetEACL) setPublicKey(v []byte) {
-	if v != nil {
-		x.publicKey = v
-	}
+	x.publicKey = v
 }
 
 func (x *SetEACL) setToken(v []byte) {
-	if v != nil {
-		x.token = v
-	}
+	x.token = v
 }
 
 var setEACLFieldSetters = []func(*SetEACL, []byte){
