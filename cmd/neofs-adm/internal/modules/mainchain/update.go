@@ -34,7 +34,7 @@ const (
 )
 
 var updateContractCommand = &cobra.Command{
-	Use:   "update-contract",
+	Use:   "update",
 	Short: "Update contract in main chain Neo network",
 	Long: `Update contract in main chain Neo network using alphabet wallets for multisig.
 This command creates a transaction calling the 'update' method of the specified contract,
@@ -45,7 +45,7 @@ The transaction requires two signers:
 2. Committee multisig (authorizes the contract update) - alphabet wallets
 
 Example:
-  neofs-adm mainchain update-contract \
+  neofs-adm mainchain update \
     --config ./wallet-config.yml \
     --alphabet-wallets ./alphabet-wallets \
     --sender-wallet ./sender-wallet.json \
