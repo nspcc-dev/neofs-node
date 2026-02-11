@@ -58,16 +58,16 @@ const (
 	PutNamedNotaryEvent = "putNamed"
 )
 
-func parsePutNotary(ev *Put, raw *payload.P2PNotaryRequest, args []scparser.PushedItem) error {
+func parsePutNotary(ev *Put, raw *payload.P2PNotaryRequest, args []scparser.PushedItem, t event.NotaryType) error {
 	switch l := len(args); l {
 	case putArgCnt + 3:
 		err := parseNamedArgs(ev, args[putArgCnt:])
 		if err != nil {
 			return err
 		}
-		enableMeta, err := scparser.GetBoolFromInstr(args[l-1].Instruction)
+		enableMeta, err := event.GetValueFromArg(args, l-1, t.String(), scparser.GetBoolFromInstr)
 		if err != nil {
-			return fmt.Errorf("parse arg meta: %w", err)
+			return err
 		}
 		ev.setMetaOnChain(enableMeta)
 	case putArgCnt + 2:
@@ -77,13 +77,13 @@ func parsePutNotary(ev *Put, raw *payload.P2PNotaryRequest, args []scparser.Push
 		}
 	case putArgCnt:
 	default:
-		return fmt.Errorf("unknown number of args: %d", l)
+		return fmt.Errorf("%s: unknown number of args: %d", t, l)
 	}
 
-	for i, arg := range args[:putArgCnt] {
-		b, err := scparser.GetBytesFromInstr(arg.Instruction)
+	for i := range args[:putArgCnt] {
+		b, err := event.GetValueFromArg(args, i, t.String(), scparser.GetBytesFromInstr)
 		if err != nil {
-			return fmt.Errorf("parse arg #%d: %w", i, err)
+			return err
 		}
 		putFieldSetters[i](ev, b)
 	}
@@ -96,12 +96,12 @@ func parsePutNotary(ev *Put, raw *payload.P2PNotaryRequest, args []scparser.Push
 func parseNamedArgs(ev *Put, args []scparser.PushedItem) error {
 	name, err := scparser.GetStringFromInstr(args[0].Instruction)
 	if err != nil {
-		return fmt.Errorf("parse arg zone: %w", err)
+		return fmt.Errorf("zone: %w", err)
 	}
 
 	zone, err := scparser.GetStringFromInstr(args[1].Instruction)
 	if err != nil {
-		return fmt.Errorf("parse arg name: %w", err)
+		return fmt.Errorf("name: %w", err)
 	}
 
 	ev.setName(name)
@@ -114,7 +114,7 @@ func parseNamedArgs(ev *Put, args []scparser.PushedItem) error {
 func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 	var ev Put
 
-	err := parsePutNotary(&ev, ne.Raw(), ne.Params())
+	err := parsePutNotary(&ev, ne.Raw(), ne.Params(), ne.Type())
 	if err != nil {
 		return nil, err
 	}
@@ -124,13 +124,13 @@ func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 
 // ParsePutNamedNotary parses PutNamed event structure from generic event.NotaryEvent.
 func ParsePutNamedNotary(ne event.NotaryEvent) (event.Event, error) {
-	args := ne.Params()
-	if len(args) != putNamedArgCnt {
-		return nil, fmt.Errorf("%s: expected %d args, got %d", PutNamedNotaryEvent, putNamedArgCnt, len(args))
+	args, err := event.GetArgs(ne, putNamedArgCnt)
+	if err != nil {
+		return nil, err
 	}
 
 	var ev Put
-	err := parsePutNotary(&ev, ne.Raw(), ne.Params())
+	err = parsePutNotary(&ev, ne.Raw(), args, ne.Type())
 	if err != nil {
 		return nil, err
 	}

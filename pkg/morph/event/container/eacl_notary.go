@@ -1,8 +1,6 @@
 package container
 
 import (
-	"fmt"
-
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -42,14 +40,14 @@ func ParseSetEACLNotary(ne event.NotaryEvent) (event.Event, error) {
 	const expectedItemNumEACL = 4
 	var ev SetEACL
 
-	args := ne.Params()
-	if len(args) != expectedItemNumEACL {
-		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, len(args))
+	args, err := event.GetArgs(ne, expectedItemNumEACL)
+	if err != nil {
+		return nil, err
 	}
-	for i, arg := range args {
-		v, err := scparser.GetBytesFromInstr(arg.Instruction)
+	for i := range args {
+		v, err := event.GetValueFromArg(args, i, ne.Type().String(), scparser.GetBytesFromInstr)
 		if err != nil {
-			return nil, fmt.Errorf("%s arg #%d: %w", SetEACLNotaryEvent, i, err)
+			return nil, err
 		}
 		setEACLFieldSetters[i](&ev, v)
 	}

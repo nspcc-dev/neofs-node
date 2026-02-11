@@ -37,33 +37,33 @@ func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 	const putArgCnt = 3
 	var ev = new(Put)
 
-	args := ne.Params()
-	if len(args) != putArgCnt {
-		return nil, event.WrongNumberOfParameters(putArgCnt, len(args))
+	args, err := event.GetArgs(ne, putArgCnt)
+	if err != nil {
+		return nil, err
 	}
 
-	epoch, err := scparser.GetInt64FromInstr(args[0].Instruction)
+	epoch, err := event.GetValueFromArg(args, 0, ne.Type().String(), scparser.GetInt64FromInstr)
 	if err != nil {
-		return nil, fmt.Errorf("epoch: %w", err)
+		return nil, err
 	}
 	ev.setEpoch(uint64(epoch))
 
-	peerID, err := scparser.GetBytesFromInstr(args[1].Instruction)
+	peerID, err := event.GetValueFromArg(args, 1, ne.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
-		return nil, fmt.Errorf("peer ID: %w", err)
+		return nil, err
 	}
 	err = ev.setPeerID(peerID)
 	if err != nil {
-		return nil, fmt.Errorf("peer ID: %w", err)
+		return nil, event.WrapInvalidArgError(1, ne.Type().String(), err)
 	}
 
-	value, err := scparser.GetBytesFromInstr(args[2].Instruction)
+	value, err := event.GetValueFromArg(args, 2, ne.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
-		return nil, fmt.Errorf("value: %w", err)
+		return nil, err
 	}
 	err = ev.setValue(value)
 	if err != nil {
-		return nil, fmt.Errorf("value: %w", err)
+		return nil, event.WrapInvalidArgError(2, ne.Type().String(), err)
 	}
 
 	ev.notaryRequest = ne.Raw()
