@@ -26,7 +26,6 @@ import (
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -302,9 +301,6 @@ func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 		return fmt.Errorf("closing the stream failed: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return err
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return fmt.Errorf("remote node response: %w", err)
 	}
@@ -976,9 +972,6 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 		return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return nil, err
-	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, err
 	}
@@ -1488,9 +1481,6 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nod
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return err
-		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
@@ -1698,9 +1688,6 @@ func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []by
 			return nil, fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return nil, err
-		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return nil, fmt.Errorf("remote node response: %w", err)
 		}
@@ -2218,9 +2205,6 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub [
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}
 
-	if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
-		return nil, false, client.ErrWrongPublicKey
-	}
 	if err := apistatus.ToError(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, false, err
 	}

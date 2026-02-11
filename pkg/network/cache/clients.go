@@ -235,17 +235,26 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	if err != nil { // should never happen
 		return nil, fmt.Errorf("init gRPC client conn: %w", err)
 	}
-	res, err := client.NewGRPC(ctx, pub, grpcConn, x.signBufPool, x.streamMsgTimeout, func(respPub []byte) error {
-		if !bytes.Equal(respPub, pub) {
-			return clientcore.ErrWrongPublicKey
-		}
-		return nil
-	})
+	res, err := client.NewGRPC(ctx, pub, grpcConn, x.signBufPool, x.streamMsgTimeout, nil)
 	if err != nil {
 		_ = grpcConn.Close()
 		return res, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
 	}
-	grpcConn.Connect()
+
+	ctx, cancel := context.WithTimeout(ctx, x.streamMsgTimeout)
+	defer cancel()
+
+	resp, err := res.EndpointInfo(ctx, client.PrmEndpointInfo{})
+	if err != nil {
+		_ = grpcConn.Close()
+		return nil, fmt.Errorf("get node info to check public key: %w", err)
+	}
+
+	if got := resp.NodeInfo().PublicKey(); !bytes.Equal(got, pub) {
+		_ = grpcConn.Close()
+		return nil, clientcore.ErrWrongPublicKey
+	}
+
 	return res, nil
 }
 
