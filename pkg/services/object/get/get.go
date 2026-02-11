@@ -71,7 +71,7 @@ func (s *Service) proxyGetRequest(ctx context.Context, sortedNodeLists [][]netma
 				continue
 			}
 
-			hdr, err := proxyFn(ctx, node, conn)
+			hdr, err := proxyFn(ctx, conn)
 			if err == nil {
 				if headWriter != nil {
 					return headWriter.WriteHeader(hdr)
@@ -204,7 +204,7 @@ func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netm
 				continue
 			}
 
-			hashes, err := proxyFn(ctx, node, conn)
+			hashes, err := proxyFn(ctx, conn)
 			if err == nil {
 				return hashes, nil
 			}

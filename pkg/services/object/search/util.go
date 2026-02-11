@@ -72,9 +72,9 @@ func (c *clientConstructorWrapper) get(ctx context.Context, info client.NodeInfo
 	}, nil
 }
 
-func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info client.NodeInfo) ([]oid.ID, error) {
+func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx) ([]oid.ID, error) {
 	if exec.prm.forwarder != nil {
-		return exec.prm.forwarder(info, c.client)
+		return exec.prm.forwarder(c.client)
 	}
 
 	key, err := exec.svc.keyStore.GetKey(nil)
