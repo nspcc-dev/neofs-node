@@ -4,8 +4,13 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+)
+
+const (
+	putArgCnt      = 4
+	putNamedArgCnt = 6 // `putNamed` has the same args as `put` + (name, zone) (2)
 )
 
 func (p *Put) setRawContainer(v []byte) {
@@ -37,11 +42,10 @@ func (p *Put) setMetaOnChain(v bool) {
 }
 
 var putFieldSetters = []func(*Put, []byte){
-	// order on stack is reversed
-	(*Put).setToken,
-	(*Put).setPublicKey,
-	(*Put).setSignature,
 	(*Put).setRawContainer,
+	(*Put).setSignature,
+	(*Put).setPublicKey,
+	(*Put).setToken,
 }
 
 const (
@@ -54,57 +58,54 @@ const (
 	PutNamedNotaryEvent = "putNamed"
 )
 
-func parsePutNotary(ev *Put, raw *payload.P2PNotaryRequest, ops []event.Op) error {
-	var (
-		currentOp opcode.Opcode
-		fieldNum  = 0
-	)
-
-	switch len(ops) {
-	case expectedItemNumPut + 3:
-		enableMeta, err := event.BoolFromOpcode(ops[0])
+func parsePutNotary(ev *Put, raw *payload.P2PNotaryRequest, args []scparser.PushedItem) error {
+	switch l := len(args); l {
+	case putArgCnt + 3:
+		err := parseNamedArgs(ev, args[putArgCnt:])
+		if err != nil {
+			return err
+		}
+		enableMeta, err := scparser.GetBoolFromInstr(args[l-1].Instruction)
 		if err != nil {
 			return fmt.Errorf("parse arg meta: %w", err)
 		}
 		ev.setMetaOnChain(enableMeta)
-
-		ops = ops[1:]
-
-		err = parseNamedArgs(ev, ops)
+	case putArgCnt + 2:
+		err := parseNamedArgs(ev, args[putArgCnt:])
 		if err != nil {
 			return err
 		}
-
-		ops = ops[2:]
-	case expectedItemNumPut + 2:
-		err := parseNamedArgs(ev, ops)
-		if err != nil {
-			return err
-		}
-
-		ops = ops[2:]
-	case expectedItemNumPut:
+	case putArgCnt:
 	default:
-		return fmt.Errorf("unknown number of args: %d", len(ops))
+		return fmt.Errorf("unknown number of args: %d", l)
 	}
 
-	for _, op := range ops {
-		currentOp = op.Code()
-
-		switch {
-		case opcode.PUSHDATA1 <= currentOp && currentOp <= opcode.PUSHDATA4:
-			if fieldNum == expectedItemNumPut {
-				return event.UnexpectedArgNumErr(PutNotaryEvent)
-			}
-
-			putFieldSetters[fieldNum](ev, op.Param())
-			fieldNum++
-		default:
-			return event.UnexpectedOpcode(PutNotaryEvent, op.Code())
+	for i, arg := range args[:putArgCnt] {
+		b, err := scparser.GetBytesFromInstr(arg.Instruction)
+		if err != nil {
+			return fmt.Errorf("parse arg #%d: %w", i, err)
 		}
+		putFieldSetters[i](ev, b)
 	}
 
 	ev.notaryRequest = raw
+
+	return nil
+}
+
+func parseNamedArgs(ev *Put, args []scparser.PushedItem) error {
+	name, err := scparser.GetStringFromInstr(args[0].Instruction)
+	if err != nil {
+		return fmt.Errorf("parse arg zone: %w", err)
+	}
+
+	zone, err := scparser.GetStringFromInstr(args[1].Instruction)
+	if err != nil {
+		return fmt.Errorf("parse arg name: %w", err)
+	}
+
+	ev.setName(name)
+	ev.setZone(zone)
 
 	return nil
 }
@@ -123,50 +124,16 @@ func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 
 // ParsePutNamedNotary parses PutNamed event structure from generic event.NotaryEvent.
 func ParsePutNamedNotary(ne event.NotaryEvent) (event.Event, error) {
-	ops := ne.Params()
-
-	const putNamedAdditionalArgs = 2 // PutNamed has same args as Put + (name, zone) (2)
-
-	if len(ops) != expectedItemNumPut+putNamedAdditionalArgs {
-		return nil, event.UnexpectedArgNumErr(PutNamedNotaryEvent)
+	args := ne.Params()
+	if len(args) != putNamedArgCnt {
+		return nil, fmt.Errorf("%s: expected %d args, got %d", PutNamedNotaryEvent, putNamedArgCnt, len(args))
 	}
 
-	var (
-		ev  PutNamed
-		err error
-	)
-
-	err = parseNamedArgs(&ev, ops)
-	if err != nil {
-		return nil, err
-	}
-
-	err = parsePutNotary(&ev.Put, ne.Raw(), ops[putNamedAdditionalArgs:])
+	var ev Put
+	err := parsePutNotary(&ev, ne.Raw(), ne.Params())
 	if err != nil {
 		return nil, err
 	}
 
 	return ev, nil
-}
-
-type putEvNamed interface {
-	setName(v string)
-	setZone(v string)
-}
-
-func parseNamedArgs(p putEvNamed, ops []event.Op) error {
-	zone, err := event.StringFromOpcode(ops[0])
-	if err != nil {
-		return fmt.Errorf("parse arg zone: %w", err)
-	}
-
-	name, err := event.StringFromOpcode(ops[1])
-	if err != nil {
-		return fmt.Errorf("parse arg name: %w", err)
-	}
-
-	p.setZone(zone)
-	p.setName(name)
-
-	return nil
 }

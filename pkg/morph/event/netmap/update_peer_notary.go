@@ -1,29 +1,11 @@
 package netmap
 
 import (
-	"crypto/elliptic"
-	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
-
-var errNilPubKey = errors.New("could not parse public key: public key is nil")
-
-func (s *UpdatePeer) setPublicKey(v []byte) (err error) {
-	if v == nil {
-		return errNilPubKey
-	}
-
-	s.publicKey, err = keys.NewPublicKeyFromBytes(v, elliptic.P256())
-	if err != nil {
-		return fmt.Errorf("could not parse public key: %w", err)
-	}
-
-	return
-}
 
 const (
 	// UpdateStateNotaryEvent is method name for netmap state updating
@@ -38,40 +20,24 @@ func ParseUpdatePeerNotary(ne event.NotaryEvent) (event.Event, error) {
 	var (
 		ev  UpdatePeer
 		err error
-
-		currCode opcode.Opcode
 	)
+	args := ne.Params()
+	if len(args) != expectedItemNumUpdatePeer {
+		return nil, event.WrongNumberOfParameters(expectedItemNumUpdatePeer, len(args))
+	}
 
-	fieldNum := 0
+	state, err := scparser.GetInt64FromInstr(args[0].Instruction)
+	if err != nil {
+		return nil, fmt.Errorf("state: %w", err)
+	}
+	err = ev.decodeState(state)
+	if err != nil {
+		return nil, fmt.Errorf("state: %w", err)
+	}
 
-	for _, op := range ne.Params() {
-		currCode = op.Code()
-
-		switch {
-		case fieldNum == 0 && opcode.PUSHDATA1 <= currCode && currCode <= opcode.PUSHDATA4:
-			err = ev.setPublicKey(op.Param())
-			if err != nil {
-				return nil, err
-			}
-
-			fieldNum++
-		case fieldNum == 1:
-			state, err := event.IntFromOpcode(op)
-			if err != nil {
-				return nil, err
-			}
-
-			err = ev.decodeState(state)
-			if err != nil {
-				return nil, err
-			}
-
-			fieldNum++
-		case fieldNum == expectedItemNumUpdatePeer:
-			return nil, event.UnexpectedArgNumErr(UpdateStateNotaryEvent)
-		default:
-			return nil, event.UnexpectedOpcode(UpdateStateNotaryEvent, currCode)
-		}
+	ev.publicKey, err = scparser.GetPublicKeyFromInstr(args[1].Instruction)
+	if err != nil {
+		return nil, fmt.Errorf("public key: %w", err)
 	}
 
 	ev.notaryRequest = ne.Raw()

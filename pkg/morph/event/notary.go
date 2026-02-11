@@ -1,11 +1,9 @@
 package event
 
 import (
-	"fmt"
-
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 )
 
 // NotaryType is a notary event enumeration type.
@@ -15,10 +13,9 @@ type NotaryType string
 // provided by Neo:Morph notary event
 // structures.
 type NotaryEvent interface {
-	ArgumentScript() []byte
 	ScriptHash() util.Uint160
 	Type() NotaryType
-	Params() []Op
+	Params() []scparser.PushedItem
 
 	Raw() *payload.P2PNotaryRequest
 }
@@ -37,16 +34,4 @@ func (t NotaryType) String() string {
 // NotaryTypeFromString converts string to NotaryType.
 func NotaryTypeFromString(str string) NotaryType {
 	return NotaryType(str)
-}
-
-// UnexpectedArgNumErr returns error when notary parsers
-// get unexpected amount of argument in contract call.
-func UnexpectedArgNumErr(method string) error {
-	return fmt.Errorf("unexpected arguments amount in %s call", method)
-}
-
-// UnexpectedOpcode returns error when notary parsers
-// get unexpected opcode in contract call.
-func UnexpectedOpcode(method string, op opcode.Opcode) error {
-	return fmt.Errorf("unexpected opcode in %s call: %s", method, op)
 }

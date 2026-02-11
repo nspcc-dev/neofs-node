@@ -2,6 +2,7 @@ package container
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -30,19 +31,19 @@ func ParsePutReport(ne event.NotaryEvent) (event.Event, error) {
 	}
 	var ev Report
 
-	ev.NodeKey, err = getValueFromArg(args, 0, "reporter's key", stackitem.ByteArrayT, event.BytesFromOpcode)
+	ev.CID, err = getValueFromArg(args, 0, "container ID", stackitem.ByteArrayT, scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.ObjectsNumber, err = getValueFromArg(args, 1, "objects number", stackitem.IntegerT, event.IntFromOpcode)
+	ev.StorageSize, err = getValueFromArg(args, 1, "container's size", stackitem.IntegerT, scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.StorageSize, err = getValueFromArg(args, 2, "container's size", stackitem.IntegerT, event.IntFromOpcode)
+	ev.ObjectsNumber, err = getValueFromArg(args, 2, "objects number", stackitem.IntegerT, scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.CID, err = getValueFromArg(args, 3, "container ID", stackitem.ByteArrayT, event.BytesFromOpcode)
+	ev.NodeKey, err = getValueFromArg(args, 3, "reporter's key", stackitem.ByteArrayT, scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}

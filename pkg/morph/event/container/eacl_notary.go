@@ -1,7 +1,9 @@
 package container
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
@@ -22,11 +24,10 @@ func (x *SetEACL) setToken(v []byte) {
 }
 
 var setEACLFieldSetters = []func(*SetEACL, []byte){
-	// order on stack is reversed
-	(*SetEACL).setToken,
-	(*SetEACL).setPublicKey,
-	(*SetEACL).setSignature,
 	(*SetEACL).setTable,
+	(*SetEACL).setSignature,
+	(*SetEACL).setPublicKey,
+	(*SetEACL).setToken,
 }
 
 const (
@@ -39,27 +40,18 @@ const (
 // ParseSetEACLNotary from NotaryEvent into container event structure.
 func ParseSetEACLNotary(ne event.NotaryEvent) (event.Event, error) {
 	const expectedItemNumEACL = 4
-	var (
-		ev        SetEACL
-		currentOp opcode.Opcode
-	)
+	var ev SetEACL
 
-	fieldNum := 0
-
-	for _, op := range ne.Params() {
-		currentOp = op.Code()
-
-		switch {
-		case opcode.PUSHDATA1 <= currentOp && currentOp <= opcode.PUSHDATA4:
-			if fieldNum == expectedItemNumEACL {
-				return nil, event.UnexpectedArgNumErr(SetEACLNotaryEvent)
-			}
-
-			setEACLFieldSetters[fieldNum](&ev, op.Param())
-			fieldNum++
-		default:
-			return nil, event.UnexpectedOpcode(SetEACLNotaryEvent, op.Code())
+	args := ne.Params()
+	if len(args) != expectedItemNumEACL {
+		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, len(args))
+	}
+	for i, arg := range args {
+		v, err := scparser.GetBytesFromInstr(arg.Instruction)
+		if err != nil {
+			return nil, fmt.Errorf("%s arg #%d: %w", SetEACLNotaryEvent, i, err)
 		}
+		setEACLFieldSetters[i](&ev, v)
 	}
 
 	ev.notaryRequest = ne.Raw()

@@ -1,7 +1,9 @@
 package container
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
@@ -18,10 +20,9 @@ func (d *Delete) setToken(v []byte) {
 }
 
 var deleteFieldSetters = []func(*Delete, []byte){
-	// order on stack is reversed
-	(*Delete).setToken,
-	(*Delete).setSignature,
 	(*Delete).setContainerID,
+	(*Delete).setSignature,
+	(*Delete).setToken,
 }
 
 const (
@@ -34,27 +35,19 @@ const (
 // ParseDeleteNotary from NotaryEvent into container event structure.
 func ParseDeleteNotary(ne event.NotaryEvent) (event.Event, error) {
 	const expectedItemNumDelete = 3
-	var (
-		ev        Delete
-		currentOp opcode.Opcode
-	)
+	var ev Delete
 
-	fieldNum := 0
+	args := ne.Params()
+	if len(args) != expectedItemNumDelete {
+		return nil, event.WrongNumberOfParameters(expectedItemNumDelete, len(args))
+	}
 
-	for _, op := range ne.Params() {
-		currentOp = op.Code()
-
-		switch {
-		case opcode.PUSHDATA1 <= currentOp && currentOp <= opcode.PUSHDATA4:
-			if fieldNum == expectedItemNumDelete {
-				return nil, event.UnexpectedArgNumErr(DeleteNotaryEvent)
-			}
-
-			deleteFieldSetters[fieldNum](&ev, op.Param())
-			fieldNum++
-		default:
-			return nil, event.UnexpectedOpcode(DeleteNotaryEvent, op.Code())
+	for i, arg := range args {
+		v, err := scparser.GetBytesFromInstr(arg.Instruction)
+		if err != nil {
+			return nil, fmt.Errorf("%s arg #%d: %w", DeleteNotaryEvent, i, err)
 		}
+		deleteFieldSetters[i](&ev, v)
 	}
 
 	ev.notaryRequest = ne.Raw()
