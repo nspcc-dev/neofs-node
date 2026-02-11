@@ -10,26 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
-func getArgsFromEvent(ne event.NotaryEvent, expectedNum int) ([]scparser.PushedItem, error) {
-	args := ne.Params()
-	if len(args) != expectedNum {
-		return nil, event.WrongNumberOfParameters(expectedNum, len(args))
-	}
-	return args, nil
-}
-
-func getValueFromArg[T any](args []scparser.PushedItem, i int, desc string, f scparser.GetEFromInstr[T]) (v T, err error) {
-	v, err = f(args[i].Instruction)
-	if err != nil {
-		return v, wrapInvalidArgError(i, desc, err)
-	}
-	return v, nil
-}
-
-func wrapInvalidArgError(i int, desc string, err error) error {
-	return fmt.Errorf("arg#%d (%s): %w", i, desc, err)
-}
-
 // CreateContainerV2Request wraps container creation request to provide
 // app-internal event.
 type CreateContainerV2Request struct {
@@ -51,22 +31,22 @@ func RestoreCreateContainerV2Request(notaryReq event.NotaryEvent) (event.Event, 
 		err error
 	)
 
-	args, err := getArgsFromEvent(notaryReq, argNum)
+	args, err := event.GetArgs(notaryReq, argNum)
 	if err != nil {
 		return nil, err
 	}
 
 	if res.Container, err = containerInfoFromPushedItem(args[0]); err != nil {
-		return nil, wrapInvalidArgError(0, "container", err)
+		return nil, event.WrapInvalidArgError(0, "container", err)
 	}
 	if res.InvocationScript, err = scparser.GetBytesFromInstr(args[1].Instruction); err != nil {
-		return nil, wrapInvalidArgError(1, "invocation script", err)
+		return nil, event.WrapInvalidArgError(1, "invocation script", err)
 	}
 	if res.VerificationScript, err = scparser.GetBytesFromInstr(args[2].Instruction); err != nil {
-		return nil, wrapInvalidArgError(2, "verification script", err)
+		return nil, event.WrapInvalidArgError(2, "verification script", err)
 	}
 	if res.SessionToken, err = scparser.GetBytesFromInstr(args[3].Instruction); err != nil {
-		return nil, wrapInvalidArgError(3, "session token", err)
+		return nil, event.WrapInvalidArgError(3, "session token", err)
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
 
@@ -181,32 +161,32 @@ type CreateContainerRequest struct {
 // notary one.
 func RestoreCreateContainerRequest(notaryReq event.NotaryEvent) (event.Event, error) {
 	const argNum = 7
-	args, err := getArgsFromEvent(notaryReq, argNum)
+	args, err := event.GetArgs(notaryReq, argNum)
 	if err != nil {
 		return nil, err
 	}
 
 	var res CreateContainerRequest
 
-	if res.Container, err = getValueFromArg(args, 0, "container", scparser.GetBytesFromInstr); err != nil {
+	if res.Container, err = event.GetValueFromArg(args, 0, "container", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = event.GetValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = event.GetValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = event.GetValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.DomainName, err = getValueFromArg(args, 4, "domain name", scparser.GetStringFromInstr); err != nil {
+	if res.DomainName, err = event.GetValueFromArg(args, 4, "domain name", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.DomainZone, err = getValueFromArg(args, 5, "domain zone", scparser.GetStringFromInstr); err != nil {
+	if res.DomainZone, err = event.GetValueFromArg(args, 5, "domain zone", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.EnableObjectMetadata, err = getValueFromArg(args, 6, "enable object metadata", scparser.GetBoolFromInstr); err != nil {
+	if res.EnableObjectMetadata, err = event.GetValueFromArg(args, 6, "enable object metadata", scparser.GetBoolFromInstr); err != nil {
 		return nil, err
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
@@ -226,23 +206,23 @@ type RemoveContainerRequest struct {
 // notary one.
 func RestoreRemoveContainerRequest(notaryReq event.NotaryEvent) (event.Event, error) {
 	const argNum = 4
-	args, err := getArgsFromEvent(notaryReq, argNum)
+	args, err := event.GetArgs(notaryReq, argNum)
 	if err != nil {
 		return nil, err
 	}
 
 	var res RemoveContainerRequest
 
-	if res.ID, err = getValueFromArg(args, 0, "container ID", scparser.GetBytesFromInstr); err != nil {
+	if res.ID, err = event.GetValueFromArg(args, 0, "container ID", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = event.GetValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = event.GetValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = event.GetValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
@@ -262,23 +242,23 @@ type PutContainerEACLRequest struct {
 // notary one.
 func RestorePutContainerEACLRequest(notaryReq event.NotaryEvent) (event.Event, error) {
 	const argNum = 4
-	args, err := getArgsFromEvent(notaryReq, argNum)
+	args, err := event.GetArgs(notaryReq, argNum)
 	if err != nil {
 		return nil, err
 	}
 
 	var res PutContainerEACLRequest
 
-	if res.EACL, err = getValueFromArg(args, 0, "eACL", scparser.GetBytesFromInstr); err != nil {
+	if res.EACL, err = event.GetValueFromArg(args, 0, "eACL", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = event.GetValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = event.GetValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = event.GetValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
@@ -296,7 +276,7 @@ type AddStructsRequest struct {
 // RestoreAddStructsRequest restores [AddStructsRequest] from the
 // notary one.
 func RestoreAddStructsRequest(notaryReq event.NotaryEvent) (event.Event, error) {
-	_, err := getArgsFromEvent(notaryReq, 0)
+	_, err := event.GetArgs(notaryReq, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -325,32 +305,32 @@ type SetAttributeRequest struct {
 // one.
 func RestoreSetAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error) {
 	const argNum = 7
-	args, err := getArgsFromEvent(notaryReq, argNum)
+	args, err := event.GetArgs(notaryReq, argNum)
 	if err != nil {
 		return nil, err
 	}
 
 	var res SetAttributeRequest
 
-	if res.ID, err = getValueFromArg(args, 0, "ID", scparser.GetBytesFromInstr); err != nil {
+	if res.ID, err = event.GetValueFromArg(args, 0, "ID", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.Attribute, err = getValueFromArg(args, 1, "attribute", scparser.GetStringFromInstr); err != nil {
+	if res.Attribute, err = event.GetValueFromArg(args, 1, "attribute", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.Value, err = getValueFromArg(args, 2, "value", scparser.GetStringFromInstr); err != nil {
+	if res.Value, err = event.GetValueFromArg(args, 2, "value", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.ValidUntil, err = getValueFromArg(args, 3, "request expiration time", scparser.GetInt64FromInstr); err != nil {
+	if res.ValidUntil, err = event.GetValueFromArg(args, 3, "request expiration time", scparser.GetInt64FromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 4, "invocation script", scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = event.GetValueFromArg(args, 4, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 5, "verification script", scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = event.GetValueFromArg(args, 5, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 6, "session token", scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = event.GetValueFromArg(args, 6, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 
@@ -377,29 +357,29 @@ type RemoveAttributeRequest struct {
 // notary one.
 func RestoreRemoveAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error) {
 	const argNum = 6
-	args, err := getArgsFromEvent(notaryReq, argNum)
+	args, err := event.GetArgs(notaryReq, argNum)
 	if err != nil {
 		return nil, err
 	}
 
 	var res RemoveAttributeRequest
 
-	if res.ID, err = getValueFromArg(args, 0, "ID", scparser.GetBytesFromInstr); err != nil {
+	if res.ID, err = event.GetValueFromArg(args, 0, "ID", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.Attribute, err = getValueFromArg(args, 1, "attribute", scparser.GetStringFromInstr); err != nil {
+	if res.Attribute, err = event.GetValueFromArg(args, 1, "attribute", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.ValidUntil, err = getValueFromArg(args, 2, "request expiration time", scparser.GetInt64FromInstr); err != nil {
+	if res.ValidUntil, err = event.GetValueFromArg(args, 2, "request expiration time", scparser.GetInt64FromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 3, "invocation script", scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = event.GetValueFromArg(args, 3, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 4, "verification script", scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = event.GetValueFromArg(args, 4, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 5, "session token", scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = event.GetValueFromArg(args, 5, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 
