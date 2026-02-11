@@ -3,8 +3,9 @@ package netmap
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
-	"github.com/nspcc-dev/neo-go/pkg/vm"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -60,26 +61,76 @@ func Candidate2Info(c *netmaprpc.NetmapCandidate) (netmap.NodeInfo, error) {
 
 // ParseAddNodeNotary from NotaryEvent into netmap event structure.
 func ParseAddNodeNotary(ne event.NotaryEvent) (event.Event, error) {
+	const addNodeArgsCnt = 1
 	var (
-		ev AddNode
-		v  = vm.New()
+		ev  AddNode
+		err error
 	)
 
-	v.LoadScript(ne.ArgumentScript())
-	err := v.Run()
-	if err != nil {
-		return nil, fmt.Errorf("VM failure: %w", err)
+	args := ne.Params()
+	if len(args) != addNodeArgsCnt {
+		return nil, event.WrongNumberOfParameters(addNodeArgsCnt, len(args))
 	}
 
-	es := v.Estack()
-	if es.Len() != 1 {
-		return nil, errors.New("incorrect argument evaluation result for addNode")
-	}
-	err = ev.Node.FromStackItem(es.Pop().Item())
+	ev.Node, err = nodeFromInstruction(args[0])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse netmap node from AppCall parameter: %w", err)
 	}
 	ev.notaryRequest = ne.Raw()
 
 	return ev, nil
+}
+
+func nodeFromInstruction(instr scparser.Instruction) (netmaprpc.NetmapNode2, error) {
+	var (
+		res netmaprpc.NetmapNode2
+		err error
+	)
+
+	fields := instr.List
+	if len(fields) != 4 {
+		return res, fmt.Errorf("wrong number of structure elements: expected 4, got %d", len(fields))
+	}
+
+	addrs := fields[0].List
+	if addrs == nil {
+		return res, errors.New("addresses: not an array")
+	}
+	res.Addresses = make([]string, len(addrs))
+	for i, e := range addrs {
+		res.Addresses[i], err = scparser.GetUTF8StringFromInstr(e)
+		if err != nil {
+			return res, fmt.Errorf("address #%d: %w", i, err)
+		}
+	}
+
+	attrs := fields[1].Map
+	if attrs == nil {
+		return res, errors.New("attributes: not a map")
+	}
+	res.Attributes = make(map[string]string, len(attrs))
+	for i, attr := range attrs {
+		k, err := scparser.GetUTF8StringFromInstr(attr.Key)
+		if err != nil {
+			return res, fmt.Errorf("attribute #%d key: %w", i, err)
+		}
+		v, err := scparser.GetUTF8StringFromInstr(attr.Value)
+		if err != nil {
+			return res, fmt.Errorf("attribute #%d value: %w", i, err)
+		}
+		res.Attributes[k] = v
+	}
+
+	res.Key, err = scparser.GetPublicKeyFromInstr(fields[2])
+	if err != nil {
+		return res, fmt.Errorf("key: %w", err)
+	}
+
+	s, err := scparser.GetInt64FromInstr(fields[3])
+	if err != nil {
+		return res, fmt.Errorf("state: %w", err)
+	}
+	res.State = big.NewInt(s)
+
+	return res, nil
 }
