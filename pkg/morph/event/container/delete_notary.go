@@ -5,24 +5,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
-func (d *Delete) setContainerID(v []byte) {
-	d.containerID = v
-}
-
-func (d *Delete) setSignature(v []byte) {
-	d.signature = v
-}
-
-func (d *Delete) setToken(v []byte) {
-	d.token = v
-}
-
-var deleteFieldSetters = []func(*Delete, []byte){
-	(*Delete).setContainerID,
-	(*Delete).setSignature,
-	(*Delete).setToken,
-}
-
 const (
 	// DeleteNotaryEvent is method name for container delete operations
 	// in `Container` contract. Is used as identificator for notary
@@ -40,12 +22,17 @@ func ParseDeleteNotary(ne event.NotaryEvent) (event.Event, error) {
 		return nil, err
 	}
 
-	for i := range args {
-		v, err := event.GetValueFromArg(args, i, ne.Type().String(), scparser.GetBytesFromInstr)
-		if err != nil {
-			return nil, err
-		}
-		deleteFieldSetters[i](&ev, v)
+	ev.containerID, err = event.GetValueFromArg(args, 0, ne.Type().String(), scparser.GetBytesFromInstr)
+	if err != nil {
+		return nil, err
+	}
+	ev.signature, err = event.GetValueFromArg(args, 1, ne.Type().String(), scparser.GetBytesFromInstr)
+	if err != nil {
+		return nil, err
+	}
+	ev.token, err = event.GetValueFromArg(args, 2, ne.Type().String(), scparser.GetBytesFromInstr)
+	if err != nil {
+		return nil, err
 	}
 
 	ev.notaryRequest = ne.Raw()
