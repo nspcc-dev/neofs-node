@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -19,16 +18,16 @@ func getArgsFromEvent(ne event.NotaryEvent, expectedNum int) ([]scparser.PushedI
 	return args, nil
 }
 
-func getValueFromArg[T any](args []scparser.PushedItem, i int, desc string, typ stackitem.Type, f scparser.GetEFromInstr[T]) (v T, err error) {
+func getValueFromArg[T any](args []scparser.PushedItem, i int, desc string, f scparser.GetEFromInstr[T]) (v T, err error) {
 	v, err = f(args[i].Instruction)
 	if err != nil {
-		return v, wrapInvalidArgError(i, typ, desc, err)
+		return v, wrapInvalidArgError(i, desc, err)
 	}
 	return v, nil
 }
 
-func wrapInvalidArgError(i int, typ stackitem.Type, desc string, err error) error {
-	return fmt.Errorf("arg#%d (%s, %s): %w", i, typ, desc, err)
+func wrapInvalidArgError(i int, desc string, err error) error {
+	return fmt.Errorf("arg#%d (%s): %w", i, desc, err)
 }
 
 func newWrongArgNumError(expected, actual int) error {
@@ -62,16 +61,16 @@ func RestoreCreateContainerV2Request(notaryReq event.NotaryEvent) (event.Event, 
 	}
 
 	if res.Container, err = containerInfoFromPushedItem(args[0]); err != nil {
-		return nil, wrapInvalidArgError(0, stackitem.StructT, "container", err)
+		return nil, wrapInvalidArgError(0, "container", err)
 	}
 	if res.InvocationScript, err = scparser.GetBytesFromInstr(args[1].Instruction); err != nil {
-		return nil, wrapInvalidArgError(1, stackitem.ByteArrayT, "invocation script", err)
+		return nil, wrapInvalidArgError(1, "invocation script", err)
 	}
 	if res.VerificationScript, err = scparser.GetBytesFromInstr(args[2].Instruction); err != nil {
-		return nil, wrapInvalidArgError(2, stackitem.ByteArrayT, "verification script", err)
+		return nil, wrapInvalidArgError(2, "verification script", err)
 	}
 	if res.SessionToken, err = scparser.GetBytesFromInstr(args[3].Instruction); err != nil {
-		return nil, wrapInvalidArgError(3, stackitem.ByteArrayT, "session token", err)
+		return nil, wrapInvalidArgError(3, "session token", err)
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
 
@@ -193,25 +192,25 @@ func RestoreCreateContainerRequest(notaryReq event.NotaryEvent) (event.Event, er
 
 	var res CreateContainerRequest
 
-	if res.Container, err = getValueFromArg(args, 0, "container", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.Container, err = getValueFromArg(args, 0, "container", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 3, "session token", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = getValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.DomainName, err = getValueFromArg(args, 4, "domain name", stackitem.ByteArrayT, scparser.GetStringFromInstr); err != nil {
+	if res.DomainName, err = getValueFromArg(args, 4, "domain name", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.DomainZone, err = getValueFromArg(args, 5, "domain zone", stackitem.ByteArrayT, scparser.GetStringFromInstr); err != nil {
+	if res.DomainZone, err = getValueFromArg(args, 5, "domain zone", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.EnableObjectMetadata, err = getValueFromArg(args, 6, "enable object metadata", stackitem.BooleanT, scparser.GetBoolFromInstr); err != nil {
+	if res.EnableObjectMetadata, err = getValueFromArg(args, 6, "enable object metadata", scparser.GetBoolFromInstr); err != nil {
 		return nil, err
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
@@ -238,16 +237,16 @@ func RestoreRemoveContainerRequest(notaryReq event.NotaryEvent) (event.Event, er
 
 	var res RemoveContainerRequest
 
-	if res.ID, err = getValueFromArg(args, 0, "container ID", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.ID, err = getValueFromArg(args, 0, "container ID", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 3, "session token", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = getValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
@@ -274,16 +273,16 @@ func RestorePutContainerEACLRequest(notaryReq event.NotaryEvent) (event.Event, e
 
 	var res PutContainerEACLRequest
 
-	if res.EACL, err = getValueFromArg(args, 0, "eACL", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.EACL, err = getValueFromArg(args, 0, "eACL", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = getValueFromArg(args, 1, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = getValueFromArg(args, 2, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 3, "session token", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = getValueFromArg(args, 3, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 	res.MainTransaction = *notaryReq.Raw().MainTransaction
@@ -337,25 +336,25 @@ func RestoreSetAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error
 
 	var res SetAttributeRequest
 
-	if res.ID, err = getValueFromArg(args, 0, "ID", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.ID, err = getValueFromArg(args, 0, "ID", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.Attribute, err = getValueFromArg(args, 1, "attribute", stackitem.ByteArrayT, scparser.GetStringFromInstr); err != nil {
+	if res.Attribute, err = getValueFromArg(args, 1, "attribute", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.Value, err = getValueFromArg(args, 2, "value", stackitem.ByteArrayT, scparser.GetStringFromInstr); err != nil {
+	if res.Value, err = getValueFromArg(args, 2, "value", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.ValidUntil, err = getValueFromArg(args, 3, "request expiration time", stackitem.IntegerT, scparser.GetInt64FromInstr); err != nil {
+	if res.ValidUntil, err = getValueFromArg(args, 3, "request expiration time", scparser.GetInt64FromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 4, "invocation script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = getValueFromArg(args, 4, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 5, "verification script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = getValueFromArg(args, 5, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 6, "session token", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = getValueFromArg(args, 6, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 
@@ -389,22 +388,22 @@ func RestoreRemoveAttributeRequest(notaryReq event.NotaryEvent) (event.Event, er
 
 	var res RemoveAttributeRequest
 
-	if res.ID, err = getValueFromArg(args, 0, "ID", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.ID, err = getValueFromArg(args, 0, "ID", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.Attribute, err = getValueFromArg(args, 1, "attribute", stackitem.ByteArrayT, scparser.GetStringFromInstr); err != nil {
+	if res.Attribute, err = getValueFromArg(args, 1, "attribute", scparser.GetStringFromInstr); err != nil {
 		return nil, err
 	}
-	if res.ValidUntil, err = getValueFromArg(args, 2, "request expiration time", stackitem.IntegerT, scparser.GetInt64FromInstr); err != nil {
+	if res.ValidUntil, err = getValueFromArg(args, 2, "request expiration time", scparser.GetInt64FromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = getValueFromArg(args, 3, "invocation script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = getValueFromArg(args, 3, "invocation script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = getValueFromArg(args, 4, "verification script", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = getValueFromArg(args, 4, "verification script", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = getValueFromArg(args, 5, "session token", stackitem.ByteArrayT, scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = getValueFromArg(args, 5, "session token", scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 
