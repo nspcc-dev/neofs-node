@@ -7,10 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
-func (p *Put) setEpoch(v uint64) {
-	p.epoch = v
-}
-
 func (p *Put) setPeerID(v []byte) error {
 	if ln := len(v); ln != peerIDLength {
 		return fmt.Errorf("peer ID is %d byte long, expected %d", ln, peerIDLength)
@@ -46,7 +42,7 @@ func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	ev.setEpoch(uint64(epoch))
+	ev.epoch = uint64(epoch)
 
 	peerID, err := event.GetValueFromArg(args, 1, ne.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
