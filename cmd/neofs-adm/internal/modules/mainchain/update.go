@@ -109,16 +109,17 @@ func updateContractCmd(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't open alphabet wallets: %w", err)
 	}
 
+	var senderAcc *wallet.Account
+
 	senderWalletPath, _ := cmd.Flags().GetString(senderWalletFlag)
-	if senderWalletPath == "" {
-		return fmt.Errorf("sender wallet is required (use %s flag)", senderWalletFlag)
+	if senderWalletPath != "" {
+		senderWallet, err := n3util.OpenWallet(senderWalletPath, v)
+		if err != nil {
+			return fmt.Errorf("can't open sender wallet: %w", err)
+		}
+		senderDefaultAddress := senderWallet.GetChangeAddress()
+		senderAcc = senderWallet.GetAccount(senderDefaultAddress)
 	}
-	senderWallet, err := n3util.OpenWallet(senderWalletPath, v)
-	if err != nil {
-		return fmt.Errorf("can't open sender wallet: %w", err)
-	}
-	senderDefaultAddress := senderWallet.GetChangeAddress()
-	senderAcc := senderWallet.GetAccount(senderDefaultAddress)
 
 	c, err := n3util.GetN3Client(v)
 	if err != nil {
@@ -130,25 +131,30 @@ func updateContractCmd(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't find committee account: %w", err)
 	}
 
-	// Create two signers:
-	// 1. Sender wallet - pays fees
+	// Create one or two signers:
+	// 1. Sender wallet - pays fees if specified
 	// 2. Alphabet multisig - authorizes contract call
-	signers := []actor.SignerAccount{
-		{
+	var (
+		signers             = make([]actor.SignerAccount, 0, 2)
+		alphabetSignerIndex = 0
+	)
+	if senderAcc != nil {
+		signers = append(signers, actor.SignerAccount{
 			Signer: transaction.Signer{
-				Account: senderDefaultAddress,
+				Account: senderAcc.ScriptHash(),
 				Scopes:  transaction.None,
 			},
 			Account: senderAcc,
-		},
-		{
-			Signer: transaction.Signer{
-				Account: alphabetAcc.Contract.ScriptHash(),
-				Scopes:  transaction.CalledByEntry,
-			},
-			Account: alphabetAcc,
-		},
+		})
+		alphabetSignerIndex = 1
 	}
+	signers = append(signers, actor.SignerAccount{
+		Signer: transaction.Signer{
+			Account: alphabetAcc.Contract.ScriptHash(),
+			Scopes:  transaction.CalledByEntry,
+		},
+		Account: alphabetAcc,
+	})
 
 	act, err := actor.New(c, signers)
 	if err != nil {
@@ -162,12 +168,13 @@ func updateContractCmd(cmd *cobra.Command, _ []string) error {
 	}
 
 	networkMagic := act.GetNetwork()
-	err = senderAcc.SignTx(networkMagic, tx)
-	if err != nil {
-		return fmt.Errorf("can't sign transaction with gas wallet: %w", err)
+	if senderAcc != nil {
+		err = senderAcc.SignTx(networkMagic, tx)
+		if err != nil {
+			return fmt.Errorf("can't sign transaction with gas wallet: %w", err)
+		}
 	}
 
-	const alphabetSignerIndex = 1
 	if err := multiSignTransactionAt(tx, wallets, committeeAccountName, networkMagic, alphabetSignerIndex); err != nil {
 		return fmt.Errorf("can't sign transaction: %w", err)
 	}
@@ -236,7 +243,6 @@ func initUpdateContractCmd() {
 	flags.String(manifestFlag, "", "Path to manifest file")
 	flags.String(dataFlag, "", "Optional data parameter for update method (default: nil)")
 
-	_ = updateContractCommand.MarkFlagRequired(senderWalletFlag)
 	_ = updateContractCommand.MarkFlagRequired(contractHashFlag)
 	_ = updateContractCommand.MarkFlagRequired(nefFlag)
 	_ = updateContractCommand.MarkFlagRequired(manifestFlag)
