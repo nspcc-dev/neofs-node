@@ -3,7 +3,6 @@ package netmap
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
@@ -67,14 +66,14 @@ func ParseAddNodeNotary(ne event.NotaryEvent) (event.Event, error) {
 		err error
 	)
 
-	args := ne.Params()
-	if len(args) != addNodeArgsCnt {
-		return nil, event.WrongNumberOfParameters(addNodeArgsCnt, len(args))
+	args, err := event.GetArgs(ne, addNodeArgsCnt)
+	if err != nil {
+		return nil, err
 	}
 
 	ev.Node, err = nodeFromInstruction(args[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse netmap node from AppCall parameter: %w", err)
+		return nil, event.WrapInvalidArgError(0, ne.Type().String(), err)
 	}
 	ev.notaryRequest = ne.Raw()
 
@@ -121,16 +120,15 @@ func nodeFromInstruction(instr scparser.Instruction) (netmaprpc.NetmapNode2, err
 		res.Attributes[k] = v
 	}
 
-	res.Key, err = scparser.GetPublicKeyFromInstr(fields[2])
+	res.Key, err = event.GetValueFromArg(fields, 2, "Key", scparser.GetPublicKeyFromInstr)
 	if err != nil {
-		return res, fmt.Errorf("key: %w", err)
+		return res, err
 	}
 
-	s, err := scparser.GetInt64FromInstr(fields[3])
+	res.State, err = event.GetValueFromArg(fields, 3, "State", scparser.GetBigIntFromInstr)
 	if err != nil {
-		return res, fmt.Errorf("state: %w", err)
+		return res, err
 	}
-	res.State = big.NewInt(s)
 
 	return res, nil
 }
