@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -49,25 +49,16 @@ const (
 // ParseObjectPut decodes notification event thrown by Container contract into
 // ObjectPut and returns it as event.Event.
 func ParseObjectPut(e event.NotaryEvent) (event.Event, error) {
-	ev := ObjectPut{notaryRequest: e.Raw()}
-	v := vm.New()
-
-	v.LoadScript(e.ArgumentScript())
-	err := v.Run()
-	if err != nil {
-		return nil, fmt.Errorf("VM failure: %w", err)
-	}
-
-	es := v.Estack()
-
 	const expectedItemNumObjectPut = 2
-	if ln := es.Len(); ln != expectedItemNumObjectPut {
-		return nil, event.WrongNumberOfParameters(expectedItemNumObjectPut, ln)
+	ev := ObjectPut{notaryRequest: e.Raw()}
+	args := e.Params()
+	if len(args) != expectedItemNumObjectPut {
+		return nil, event.WrongNumberOfParameters(expectedItemNumObjectPut, len(args))
 	}
 
-	rawMap, err := client.BytesFromStackItem(es.Peek(0).Item())
+	rawMap, err := event.GetValueFromArg(args, 0, e.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
-		return nil, fmt.Errorf("reading metadata information from stack: %w", err)
+		return nil, err
 	}
 	m, err := stackitem.Deserialize(rawMap)
 	if err != nil {

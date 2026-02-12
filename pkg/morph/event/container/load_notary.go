@@ -2,7 +2,7 @@ package container
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/scparser"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
@@ -24,25 +24,25 @@ func (r Report) MorphEvent() {}
 // ParsePutReport from NotaryEvent into container event structure.
 func ParsePutReport(ne event.NotaryEvent) (event.Event, error) {
 	const expectedItemNumAnnounceLoad = 4
-	args, err := getArgsFromEvent(ne, expectedItemNumAnnounceLoad)
+	args, err := event.GetArgs(ne, expectedItemNumAnnounceLoad)
 	if err != nil {
 		return nil, err
 	}
 	var ev Report
 
-	ev.NodeKey, err = getValueFromArg(args, 0, "reporter's key", stackitem.ByteArrayT, event.BytesFromOpcode)
+	ev.CID, err = event.GetValueFromArg(args, 0, ne.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.ObjectsNumber, err = getValueFromArg(args, 1, "objects number", stackitem.IntegerT, event.IntFromOpcode)
+	ev.StorageSize, err = event.GetValueFromArg(args, 1, ne.Type().String(), scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.StorageSize, err = getValueFromArg(args, 2, "container's size", stackitem.IntegerT, event.IntFromOpcode)
+	ev.ObjectsNumber, err = event.GetValueFromArg(args, 2, ne.Type().String(), scparser.GetInt64FromInstr)
 	if err != nil {
 		return nil, err
 	}
-	ev.CID, err = getValueFromArg(args, 3, "container ID", stackitem.ByteArrayT, event.BytesFromOpcode)
+	ev.NodeKey, err = event.GetValueFromArg(args, 3, ne.Type().String(), scparser.GetBytesFromInstr)
 	if err != nil {
 		return nil, err
 	}
