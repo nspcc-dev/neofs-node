@@ -893,11 +893,11 @@ type mockNodeSession struct {
 	expiresAt uint64
 }
 
-func (x mockNodeSession) FindTokenBySubjects(user.ID, []sessionv2.Target) *storage.PrivateToken {
+func (x mockNodeSession) FindTokenBySubjects([]sessionv2.Target) *storage.PrivateToken {
 	return storage.NewPrivateToken(&x.signer.ECDSAPrivateKey, x.expiresAt)
 }
 
-func (x mockNodeSession) GetToken(user.ID, []byte) *storage.PrivateToken {
+func (x mockNodeSession) GetToken(user.ID) *storage.PrivateToken {
 	return storage.NewPrivateToken(&x.signer.ECDSAPrivateKey, x.expiresAt)
 }
 

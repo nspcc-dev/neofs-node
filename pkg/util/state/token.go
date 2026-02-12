@@ -3,7 +3,6 @@ package state
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
@@ -49,22 +48,17 @@ func (p *PersistentStorage) initTokenStore(cfg cfg) error {
 	return nil
 }
 
-// GetToken returns private token corresponding to the given identifiers.
+// GetToken returns private token corresponding to the given account.
 //
 // Returns nil is there is no element in storage.
-func (p PersistentStorage) GetToken(ownerID user.ID, tokenID []byte) (t *session.PrivateToken) {
+func (p PersistentStorage) GetToken(account user.ID) (t *session.PrivateToken) {
 	err := p.db.View(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 		if rootBucket == nil {
 			return nil
 		}
 
-		ownerBucket := rootBucket.Bucket(ownerID[:])
-		if ownerBucket == nil {
-			return nil
-		}
-
-		rawToken := ownerBucket.Get(tokenID)
+		rawToken := rootBucket.Get(account[:])
 		if rawToken == nil {
 			return nil
 		}
@@ -81,8 +75,7 @@ func (p PersistentStorage) GetToken(ownerID user.ID, tokenID []byte) (t *session
 	if err != nil {
 		p.l.Error("could not get session from persistent storage",
 			zap.Error(err),
-			zap.Stringer("ownerID", ownerID),
-			zap.String("tokenID", hex.EncodeToString(tokenID)),
+			zap.Stringer("account", account),
 		)
 	}
 
@@ -94,25 +87,21 @@ func (p PersistentStorage) RemoveOldTokens(epoch uint64) {
 	err := p.db.Update(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 
-		// iterating over ownerIDs
-		return iterateNestedBuckets(rootBucket, func(b *bbolt.Bucket) error {
-			c := b.Cursor()
-			var err error
-
-			// iterating over fixed ownerID's tokens
-			for k, v := c.First(); k != nil; k, v = c.Next() {
-				if epochFromToken(v) <= epoch {
-					err = c.Delete()
-					if err != nil {
-						p.l.Error("could not delete %s token",
-							zap.String("token_id", hex.EncodeToString(k)),
-						)
-					}
+		// iterating over accounts
+		c := rootBucket.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			if epochFromToken(v) <= epoch {
+				err := c.Delete()
+				var id user.ID
+				copy(id[:], k)
+				if err != nil {
+					p.l.Error("could not delete token",
+						zap.Stringer("account", id),
+					)
 				}
 			}
-
-			return nil
-		})
+		}
+		return nil
 	})
 	if err != nil {
 		p.l.Error("could not clean up expired tokens",
@@ -124,7 +113,7 @@ func (p PersistentStorage) RemoveOldTokens(epoch uint64) {
 // FindTokenBySubjects searches for a private token whose public key
 // matches any of the given user ID Targets.
 // Returns nil if no matching non-expired token is found.
-func (p PersistentStorage) FindTokenBySubjects(ownerID user.ID, subjects []sessionv2.Target) *session.PrivateToken {
+func (p PersistentStorage) FindTokenBySubjects(subjects []sessionv2.Target) *session.PrivateToken {
 	var token *session.PrivateToken
 	err := p.db.View(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
@@ -132,14 +121,9 @@ func (p PersistentStorage) FindTokenBySubjects(ownerID user.ID, subjects []sessi
 			return nil
 		}
 
-		ownerBucket := rootBucket.Bucket(ownerID[:])
-		if ownerBucket == nil {
-			return nil
-		}
-
 		for _, subject := range subjects {
 			if subjectUser := subject.UserID(); !subjectUser.IsZero() {
-				rawToken := ownerBucket.Get(subjectUser[:])
+				rawToken := rootBucket.Get(subjectUser[:])
 				if rawToken == nil {
 					continue
 				}
@@ -160,7 +144,6 @@ func (p PersistentStorage) FindTokenBySubjects(ownerID user.ID, subjects []sessi
 	if err != nil {
 		p.l.Error("could not search for any subject in persistent storage",
 			zap.Error(err),
-			zap.Stringer("ownerID", ownerID),
 			zap.Stringers("subjects", subjects),
 		)
 	}
