@@ -105,8 +105,8 @@ type cfg struct {
 	}
 
 	keyStore interface {
-		GetKey(*util.SessionInfo) (*ecdsa.PrivateKey, error)
-		GetKeyBySubjects(user.ID, []sessionv2.Target) (*ecdsa.PrivateKey, error)
+		GetKey(*user.ID) (*ecdsa.PrivateKey, error)
+		GetKeyBySubjects([]sessionv2.Target) (*ecdsa.PrivateKey, error)
 	}
 
 	nnsResolver sessionv2.NNSResolver

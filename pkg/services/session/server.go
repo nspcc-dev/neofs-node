@@ -22,9 +22,9 @@ import (
 
 // KeyStorage represents private keys stored on the local node side.
 type KeyStorage interface {
-	// Store saves given private key by specified user and locally unique IDs along
+	// Store saves given private key by its account along
 	// with its expiration time.
-	Store(key ecdsa.PrivateKey, _ user.ID, id []byte, exp uint64) error
+	Store(key ecdsa.PrivateKey, exp uint64) error
 }
 
 type server struct {
@@ -85,17 +85,11 @@ func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*pr
 		return s.makeFailedCreateResponse(fmt.Errorf("generate private key: %w", err), req)
 	}
 
-	uid := uuid.New()
-	if err := s.keys.Store(*key, usr, uid[:], reqBody.Expiration); err != nil {
+	if err := s.keys.Store(*key, reqBody.Expiration); err != nil {
 		return s.makeFailedCreateResponse(fmt.Errorf("store private key locally: %w", err), req)
 	}
 
-	// also store the key using account as key ID
-	keyUser := user.NewFromECDSAPublicKey(key.PublicKey)
-	if err := s.keys.Store(*key, usr, keyUser[:], reqBody.Expiration); err != nil {
-		return s.makeFailedCreateResponse(fmt.Errorf("store private key with public key locally: %w", err), req)
-	}
-
+	uid := uuid.New()
 	body := &protosession.CreateResponse_Body{
 		Id:         uid[:],
 		SessionKey: neofscrypto.PublicKeyBytes((*neofsecdsa.PublicKey)(&key.PublicKey)),

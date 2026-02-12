@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 )
 
@@ -56,21 +55,4 @@ func (p PersistentStorage) unpackToken(raw []byte) (*session.PrivateToken, error
 
 func epochFromToken(rawToken []byte) uint64 {
 	return binary.LittleEndian.Uint64(rawToken)
-}
-
-func iterateNestedBuckets(b *bbolt.Bucket, fn func(b *bbolt.Bucket) error) error {
-	c := b.Cursor()
-
-	for k, v := c.First(); k != nil; k, v = c.Next() {
-		// nil value is a hallmark
-		// of the nested buckets
-		if v == nil {
-			err := fn(b.Bucket(k))
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }

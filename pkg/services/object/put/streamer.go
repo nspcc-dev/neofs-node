@@ -8,7 +8,6 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -104,7 +103,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	}
 	if sTokenV2 != nil {
 		// For V2 tokens, the key is stored as the subjects
-		if keyForSession, err := p.keyStorage.GetKeyBySubjects(sTokenV2.Issuer(), sTokenV2.Subjects()); err == nil {
+		if keyForSession, err := p.keyStorage.GetKeyBySubjects(sTokenV2.Subjects()); err == nil {
 			sessionKey = keyForSession
 		} else if p.nnsResolver != nil {
 			nodeUser := user.NewFromECDSAPublicKey(sessionKey.PublicKey)
@@ -120,11 +119,11 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			return fmt.Errorf("get key for session v2 token: %w", err)
 		}
 	} else if sToken != nil {
-		sessionInfo := &util.SessionInfo{
-			ID:    sToken.ID(),
-			Owner: sToken.Issuer(),
+		authUser, err := sToken.AuthUser()
+		if err != nil {
+			return fmt.Errorf("could not get session auth user: %w", err)
 		}
-		sessionKey, err = p.keyStorage.GetKey(sessionInfo)
+		sessionKey, err = p.keyStorage.GetKey(&authUser)
 		if err != nil {
 			return fmt.Errorf("(%T) could not receive session key: %w", p, err)
 		}

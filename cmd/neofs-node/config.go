@@ -407,6 +407,9 @@ func initCfg(appCfg *config.Config) *cfg {
 		fatalOnErr(err)
 	}
 
+	err = persistate.MigrateSessionTokensToAccounts()
+	fatalOnErr(err)
+
 	basicSharedConfig := initBasics(c, key, persistate)
 	streamTimeout := appCfg.APIClient.StreamTimeout
 	minConnTimeout := appCfg.APIClient.MinConnectionTime

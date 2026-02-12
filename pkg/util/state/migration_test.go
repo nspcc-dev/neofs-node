@@ -4,13 +4,16 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/bbolt"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestMigrateOldTokenStorage(t *testing.T) {
@@ -20,11 +23,9 @@ func TestMigrateOldTokenStorage(t *testing.T) {
 
 	ownerID1 := usertest.ID()
 	ownerID2 := usertest.ID()
-	exOwnerID := usertest.ID()
 	tokenID1 := []byte("token-id-1")
 	tokenID2 := []byte("token-id-2")
 	tokenID3 := []byte("token-id-3")
-	exTokenID := []byte("existing-token")
 
 	key1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
@@ -32,13 +33,10 @@ func TestMigrateOldTokenStorage(t *testing.T) {
 	require.NoError(t, err)
 	key3, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
-	exKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
 
 	epoch1 := uint64(100)
 	epoch2 := uint64(200)
 	epoch3 := uint64(300)
-	exEpoch := uint64(250)
 
 	createOldSessionDB(t, oldDBPath, map[user.ID]map[string]tokenData{
 		ownerID1: {
@@ -51,43 +49,27 @@ func TestMigrateOldTokenStorage(t *testing.T) {
 	})
 
 	newStorage := newStorageWithSession(t, newDBPath)
-	require.NoError(t, newStorage.Store(*exKey, exOwnerID, exTokenID, exEpoch))
 
 	err = newStorage.MigrateOldTokenStorage(oldDBPath)
 	require.NoError(t, err)
 
-	t.Run("verify token 1", func(t *testing.T) {
-		token := newStorage.GetToken(ownerID1, tokenID1)
-		require.NotNil(t, token)
-		require.Equal(t, epoch1, token.ExpiredAt())
-		require.Equal(t, key1, token.SessionKey())
-	})
+	require.NoError(t, newStorage.db.View(func(tx *bbolt.Tx) error {
+		rootBucket := tx.Bucket(sessionsBucket)
+		require.NotNil(t, rootBucket)
 
-	t.Run("verify token 2", func(t *testing.T) {
-		token := newStorage.GetToken(ownerID1, tokenID2)
-		require.NotNil(t, token)
-		require.Equal(t, epoch2, token.ExpiredAt())
-		require.Equal(t, key2, token.SessionKey())
-	})
+		owner1Bucket := rootBucket.Bucket(ownerID1[:])
+		require.NotNil(t, owner1Bucket)
+		require.NotNil(t, owner1Bucket.Get(tokenID1))
+		require.NotNil(t, owner1Bucket.Get(tokenID2))
 
-	t.Run("verify token 3", func(t *testing.T) {
-		token := newStorage.GetToken(ownerID2, tokenID3)
-		require.NotNil(t, token)
-		require.Equal(t, epoch3, token.ExpiredAt())
-		require.Equal(t, key3, token.SessionKey())
-	})
+		owner2Bucket := rootBucket.Bucket(ownerID2[:])
+		require.NotNil(t, owner2Bucket)
+		require.NotNil(t, owner2Bucket.Get(tokenID3))
 
-	t.Run("existing token preserved", func(t *testing.T) {
-		token := newStorage.GetToken(exOwnerID, exTokenID)
-		require.NotNil(t, token)
-		require.Equal(t, exEpoch, token.ExpiredAt())
-		require.Equal(t, exKey, token.SessionKey())
-	})
+		require.Nil(t, owner1Bucket.Get([]byte("non-existent")))
 
-	t.Run("non-existent token", func(t *testing.T) {
-		token := newStorage.GetToken(usertest.ID(), []byte("non-existent"))
-		require.Nil(t, token)
-	})
+		return nil
+	}))
 }
 
 func TestMigrateEmptyOldTokenStorage(t *testing.T) {
@@ -102,8 +84,17 @@ func TestMigrateEmptyOldTokenStorage(t *testing.T) {
 	err := newStorage.MigrateOldTokenStorage(oldDBPath)
 	require.NoError(t, err)
 
-	token := newStorage.GetToken(usertest.ID(), []byte("any-token"))
-	require.Nil(t, token)
+	require.NoError(t, newStorage.db.View(func(tx *bbolt.Tx) error {
+		rootBucket := tx.Bucket(sessionsBucket)
+		if rootBucket == nil {
+			return nil
+		}
+		c := rootBucket.Cursor()
+		k, v := c.First()
+		require.Nil(t, k)
+		require.Nil(t, v)
+		return nil
+	}))
 }
 
 func TestMigrateOldTokenStorageMultipleOwners(t *testing.T) {
@@ -135,14 +126,21 @@ func TestMigrateOldTokenStorageMultipleOwners(t *testing.T) {
 	err := newStorage.MigrateOldTokenStorage(oldDBPath)
 	require.NoError(t, err)
 
-	for ownerID, tokens := range allTokens {
-		for tokenIDStr, tokenData := range tokens {
-			token := newStorage.GetToken(ownerID, []byte(tokenIDStr))
-			require.NotNil(t, token)
-			require.Equal(t, tokenData.epoch, token.ExpiredAt())
-			require.Equal(t, tokenData.key.D, token.SessionKey().D)
+	require.NoError(t, newStorage.db.View(func(tx *bbolt.Tx) error {
+		rootBucket := tx.Bucket(sessionsBucket)
+		require.NotNil(t, rootBucket)
+
+		for _, ownerID := range owners {
+			ownerBucket := rootBucket.Bucket(ownerID[:])
+			require.NotNil(t, ownerBucket)
+
+			for tokenIDStr := range allTokens[ownerID] {
+				tokenID := []byte(tokenIDStr)
+				require.NotNil(t, ownerBucket.Get(tokenID))
+			}
 		}
-	}
+		return nil
+	}))
 }
 
 func TestMigrateOldTokenStorageNonExistentFile(t *testing.T) {
@@ -180,10 +178,140 @@ func TestMigrateOldTokenStorageWithEncryption(t *testing.T) {
 	err = newStorage.MigrateOldTokenStorage(oldDBPath)
 	require.NoError(t, err)
 
-	token := newStorage.GetToken(ownerID, tokenID)
-	require.NotNil(t, token)
-	require.Equal(t, epoch, token.ExpiredAt())
-	require.Equal(t, sessionKey.D, token.SessionKey().D)
+	require.NoError(t, newStorage.db.View(func(tx *bbolt.Tx) error {
+		rootBucket := tx.Bucket(sessionsBucket)
+		require.NotNil(t, rootBucket)
+
+		ownerBucket := rootBucket.Bucket(ownerID[:])
+		require.NotNil(t, ownerBucket)
+		require.NotNil(t, ownerBucket.Get(tokenID))
+
+		return nil
+	}))
+}
+
+func TestMigrateSessionTokensToAccounts(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "sessions.db")
+
+	db, err := bbolt.Open(dbPath, 0o600, nil)
+	require.NoError(t, err)
+
+	ownerID1 := usertest.ID()
+	ownerID2 := usertest.ID()
+	ownerID3 := usertest.ID()
+	ownerID4 := usertest.ID()
+
+	key1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	key2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	key3, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	pubKeyID1 := user.NewFromECDSAPublicKey(key1.PublicKey)
+	pubKeyID2 := user.NewFromECDSAPublicKey(key2.PublicKey)
+	pubKeyID3 := user.NewFromECDSAPublicKey(key3.PublicKey)
+
+	uuid1 := []byte("0123456789abcdef")
+	uuid2 := []byte("fedcba9876543210")
+
+	epoch1 := uint64(100)
+	epoch2 := uint64(200)
+	epoch3 := uint64(300)
+
+	err = db.Update(func(tx *bbolt.Tx) error {
+		rootBucket, err := tx.CreateBucketIfNotExists(sessionsBucket)
+		require.NoError(t, err)
+
+		tempStorage := &PersistentStorage{db: db}
+
+		// Owner 1 with one UUID token
+		ownerBucket1, err := rootBucket.CreateBucket(ownerID1[:])
+		require.NoError(t, err)
+
+		packedToken1, err := tempStorage.packToken(epoch1, key1)
+		require.NoError(t, err)
+
+		err = ownerBucket1.Put(uuid1, packedToken1)
+		require.NoError(t, err)
+
+		// Owner 2 with one token that has both UUID and pubkey ID entries
+		ownerBucket2, err := rootBucket.CreateBucket(ownerID2[:])
+		require.NoError(t, err)
+
+		packedToken2, err := tempStorage.packToken(epoch2, key2)
+		require.NoError(t, err)
+		err = ownerBucket2.Put(uuid2, packedToken2)
+		require.NoError(t, err)
+		err = ownerBucket2.Put(pubKeyID2[:], packedToken2)
+		require.NoError(t, err)
+
+		// Owner 3 with one token with pubkey ID
+		ownerBucket3, err := rootBucket.CreateBucket(ownerID3[:])
+		require.NoError(t, err)
+
+		packedToken3, err := tempStorage.packToken(epoch3, key3)
+		require.NoError(t, err)
+		err = ownerBucket3.Put(pubKeyID3[:], packedToken3)
+		require.NoError(t, err)
+
+		// Owner 4 with no tokens
+		_, err = rootBucket.CreateBucket(ownerID4[:])
+		require.NoError(t, err)
+
+		return nil
+	})
+	require.NoError(t, err)
+	_ = db.Close()
+
+	logger, logBuf := testutil.NewBufferedLogger(t, zap.DebugLevel)
+	storage, err := NewPersistentStorage(dbPath, true, WithLogger(logger))
+	require.NoError(t, err)
+	defer func() { _ = storage.Close() }()
+
+	require.NoError(t, storage.MigrateSessionTokensToAccounts())
+
+	logBuf.AssertContains(testutil.LogEntry{
+		Level:   zap.InfoLevel,
+		Message: "session token storage migration completed",
+		Fields: map[string]any{
+			"migrated": json.Number("3"),
+			"deleted":  json.Number("4"),
+		},
+	})
+
+	token1 := storage.GetToken(pubKeyID1)
+	require.NotNil(t, token1)
+	require.Equal(t, epoch1, token1.ExpiredAt())
+	require.Equal(t, key1, token1.SessionKey())
+
+	token2 := storage.GetToken(pubKeyID2)
+	require.NotNil(t, token2)
+	require.Equal(t, epoch2, token2.ExpiredAt())
+	require.Equal(t, key2, token2.SessionKey())
+
+	token3 := storage.GetToken(pubKeyID3)
+	require.NotNil(t, token3)
+	require.Equal(t, epoch3, token3.ExpiredAt())
+	require.Equal(t, key3, token3.SessionKey())
+
+	require.NoError(t, storage.db.View(func(tx *bbolt.Tx) error {
+		rootBucket := tx.Bucket(sessionsBucket)
+		if rootBucket == nil {
+			return nil
+		}
+
+		require.Nil(t, rootBucket.Bucket(ownerID1[:]))
+		require.Nil(t, rootBucket.Bucket(ownerID2[:]))
+		require.Nil(t, rootBucket.Bucket(ownerID3[:]))
+		require.Nil(t, rootBucket.Bucket(ownerID4[:]))
+
+		return nil
+	}))
+
+	require.NoError(t, storage.MigrateSessionTokensToAccounts())
+	logBuf.AssertContainsMsg(zap.DebugLevel, "session token storage migration is not needed, already migrated")
 }
 
 type tokenData struct {
