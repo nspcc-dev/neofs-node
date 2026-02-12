@@ -12,6 +12,8 @@ var RootCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(updateContractCommand)
+	RootCmd.AddCommand(versionCommand)
 
 	initUpdateContractCmd()
+	initVersionCmd()
 }
