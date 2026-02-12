@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
@@ -112,7 +111,7 @@ func (noCallTestStorage) SearchObjects(cid.ID, []objectcore.SearchFilter, []stri
 func (noCallTestStorage) VerifyAndStoreObjectLocally(object.Object) error {
 	panic("must not be called")
 }
-func (noCallTestStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+func (noCallTestStorage) GetSessionPrivateKey(user.ID, user.ID) (ecdsa.PrivateKey, error) {
 	panic("implement me")
 }
 
@@ -284,7 +283,7 @@ func (x *testStorage) VerifyAndStoreObjectLocally(obj object.Object) error {
 	return x.storeErr
 }
 
-func (x *testStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+func (x *testStorage) GetSessionPrivateKey(user.ID, user.ID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
 
@@ -634,7 +633,7 @@ func (nopFSChain) LocalNodeUnderMaintenance() bool { return false }
 type nopStorage struct{}
 
 func (nopStorage) VerifyAndStoreObjectLocally(object.Object) error { return nil }
-func (nopStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+func (nopStorage) GetSessionPrivateKey(user.ID, user.ID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
 func (s nopStorage) GetSessionV2PrivateKey(user.ID, []sessionv2.Target) (ecdsa.PrivateKey, error) {

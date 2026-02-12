@@ -120,9 +120,13 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			return fmt.Errorf("get key for session v2 token: %w", err)
 		}
 	} else if sToken != nil {
+		authUser, err := sToken.AuthUser()
+		if err != nil {
+			return fmt.Errorf("could not get session auth user: %w", err)
+		}
 		sessionInfo := &util.SessionInfo{
-			ID:    sToken.ID(),
-			Owner: sToken.Issuer(),
+			Account: authUser,
+			Owner:   sToken.Issuer(),
 		}
 		sessionKey, err = p.keyStorage.GetKey(sessionInfo)
 		if err != nil {

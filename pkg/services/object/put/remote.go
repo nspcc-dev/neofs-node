@@ -48,9 +48,13 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 		}
 		opts.WithinSessionV2(*tokV2)
 	} else if tok := commonPrm.SessionToken(); tok != nil {
+		authUser, err := tok.AuthUser()
+		if err != nil {
+			return fmt.Errorf("could not get session auth user: %w", err)
+		}
 		sessionInfo := &util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
+			Account: authUser,
+			Owner:   tok.Issuer(),
 		}
 		key, err = keyStorage.GetKey(sessionInfo)
 		if err != nil {

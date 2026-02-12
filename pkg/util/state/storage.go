@@ -48,6 +48,11 @@ func NewPersistentStorage(path string, withSessionStorage bool, opts ...Option) 
 			_ = db.Close()
 			return nil, fmt.Errorf("can't create session storage: %w", err)
 		}
+
+		if err := ps.MigrateSessionTokensToAccounts(); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("can't migrate duality tokens: %w", err)
+		}
 	}
 	return ps, nil
 }

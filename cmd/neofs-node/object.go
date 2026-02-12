@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -627,8 +626,8 @@ func (x storageForObjectService) VerifyAndStoreObjectLocally(obj object.Object) 
 	return x.putSvc.ValidateAndStoreObjectLocally(obj)
 }
 
-func (x storageForObjectService) GetSessionPrivateKey(usr user.ID, uid uuid.UUID) (ecdsa.PrivateKey, error) {
-	k, err := x.keys.GetKey(&util.SessionInfo{ID: uid, Owner: usr})
+func (x storageForObjectService) GetSessionPrivateKey(usr, account user.ID) (ecdsa.PrivateKey, error) {
+	k, err := x.keys.GetKey(&util.SessionInfo{Account: account, Owner: usr})
 	if err != nil {
 		return ecdsa.PrivateKey{}, err
 	}
