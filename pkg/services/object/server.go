@@ -52,6 +52,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
+	"google.golang.org/protobuf/proto"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -1109,7 +1110,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	proxyCtx := getProxyContext{
 		req:        req,
 		reqOID:     addr.Object(),
-		respStream: stream,
+		respStream: stream.base,
 	}
 
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
@@ -1140,7 +1141,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 type getProxyContext struct {
 	req        *protoobject.GetRequest
 	reqOID     oid.ID
-	respStream *getStream
+	respStream grpc.ServerStream
 
 	onceHdr sync.Once
 
@@ -1152,7 +1153,7 @@ type getProxyContext struct {
 }
 
 func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.ClientConn) error {
-	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, x.req)
+	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, x.req, grpc.ForceCodecV2(iprotobuf.BuffersCodec{}))
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
 	}
@@ -1160,7 +1161,9 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 	var headWas bool
 	var readPayload int
 	for {
-		resp, err := getStream.Recv()
+		var respBuf mem.BufferSlice
+
+		err := getStream.RecvMsg(&respBuf)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				if !headWas {
@@ -1169,6 +1172,16 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 				return io.EOF
 			}
 			return fmt.Errorf("reading the response failed: %w", err)
+		}
+
+		// TODO: consider no-unmarshal approach
+		var resp protoobject.GetResponse
+
+		buf := respBuf.MaterializeToBuffer(mem.DefaultBufferPool())
+		err = proto.Unmarshal(buf.ReadOnlyData(), &resp)
+		buf.Free()
+		if err != nil {
+			return fmt.Errorf("unmarshal response: %w", err)
 		}
 
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
@@ -1197,18 +1210,8 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 				return err
 			}
 
-			mo := &protoobject.Object{
-				ObjectId:  v.Init.ObjectId,
-				Signature: v.Init.Signature,
-				Header:    v.Init.Header,
-			}
-			obj := new(object.Object)
-			err := obj.FromProtoMessage(mo)
-			if err != nil {
-				return err
-			}
 			x.onceHdr.Do(func() {
-				err = x.respStream.WriteHeader(obj)
+				err = x.respStream.SendMsg(respBuf)
 			})
 			if err != nil {
 				return fmt.Errorf("could not write object header in Get forwarder: %w", err)
@@ -1236,7 +1239,18 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 				}
 			}
 
-			if err := x.respStream.WriteChunk(respChunk); err != nil {
+			var r any
+			if len(respChunk) != len(fullChunk) {
+				v.Chunk = respChunk
+				// FIXME: meta header optional signature
+				resp.MetaHeader = nil
+				resp.VerifyHeader = nil
+				r = &resp
+			} else {
+				r = respBuf
+			}
+
+			if err := x.respStream.SendMsg(r); err != nil {
 				return fmt.Errorf("could not write object chunk in Get forwarder: %w", err)
 			}
 			readPayload += len(fullChunk)
