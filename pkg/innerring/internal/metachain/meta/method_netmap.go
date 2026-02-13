@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/interop"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-contract/common"
 )
@@ -14,10 +15,94 @@ import (
 // Placement is a placeholder for container's storage nodes list.
 type Placement []PlacementVector
 
+func (p Placement) ToSCParameter() (smartcontract.Parameter, error) {
+	res := smartcontract.NewParameter(smartcontract.ArrayType)
+
+	scVectors := make([]smartcontract.Parameter, 0, len(p))
+	for i, v := range p {
+		scNodes := make([]smartcontract.Parameter, 0, len(v.Nodes))
+		for j, n := range v.Nodes {
+			scNode, err := smartcontract.NewParameterFromValue(n.Bytes())
+			if err != nil {
+				return smartcontract.Parameter{}, fmt.Errorf("converting %d node of %d vector: %w", j, i, err)
+			}
+			scNodes = append(scNodes, scNode)
+		}
+
+		scRep, err := smartcontract.NewParameterFromValue(v.REP)
+		if err != nil {
+			return smartcontract.Parameter{}, fmt.Errorf("converting REP of %d vector: %w", i, err)
+		}
+
+		scNodesField, err := smartcontract.NewParameterFromValue(scNodes)
+		if err != nil {
+			return smartcontract.Parameter{}, fmt.Errorf("converting %d vector nodes to struct field: %w", i, err)
+		}
+
+		scVector := smartcontract.NewParameter(smartcontract.ArrayType)
+		scVector.Value = []smartcontract.Parameter{scRep, scNodesField}
+
+		scVectors = append(scVectors, scVector)
+	}
+
+	res.Value = scVectors
+
+	return res, nil
+}
+
 // PlacementVector is a single placement vector in NeoFS [Placement].
 type PlacementVector struct {
 	REP   uint8
 	Nodes keys.PublicKeys
+}
+
+func (p PlacementVector) ToStackItem() (stackitem.Item, error) {
+	nodes := make([]stackitem.Item, 0, len(p.Nodes))
+	for _, node := range p.Nodes {
+		nodes = append(nodes, stackitem.NewByteArray(node.Bytes()))
+	}
+
+	return stackitem.NewStruct([]stackitem.Item{
+		stackitem.Make(p.REP),
+		stackitem.NewArray(nodes),
+	}), nil
+}
+
+func (p *PlacementVector) FromStackItem(it stackitem.Item) error {
+	arr, ok := it.Value().([]stackitem.Item)
+	if !ok {
+		return errors.New("not an array")
+	}
+	if len(arr) != 2 {
+		return fmt.Errorf("unexpected number of fields: %d expected; %d given", 2, len(arr))
+	}
+
+	rep, err := stackitem.ToUint8(arr[0])
+	if err != nil {
+		return fmt.Errorf("first fiels not an uint8: %w", err)
+	}
+	p.REP = rep
+
+	p.Nodes = make(keys.PublicKeys, 0, len(arr))
+	vectorRaw, ok := arr[1].Value().([]stackitem.Item)
+	if !ok {
+		return fmt.Errorf("second field is not an array")
+	}
+	for i := range vectorRaw {
+		kRaw, err := vectorRaw[i].TryBytes()
+		if err != nil {
+			return fmt.Errorf("incorrect %d key: %w", i, err)
+		}
+		var k keys.PublicKey
+		err = k.DecodeBytes(kRaw)
+		if err != nil {
+			return fmt.Errorf("%d key is not a key: %w", i, err)
+		}
+
+		p.Nodes = append(p.Nodes, &k)
+	}
+
+	return nil
 }
 
 func (p Placement) ToStackItem() (stackitem.Item, error) {
@@ -43,44 +128,12 @@ func (p *Placement) FromStackItem(it stackitem.Item) error {
 		return errors.New("not an array")
 	}
 
-	*p = make(Placement, 0, len(arr))
+	*p = make(Placement, len(arr))
 	for i := range arr {
-		vectorRaw, ok := arr[i].Value().([]stackitem.Item)
-		if !ok {
-			return fmt.Errorf("%d vector not an array", i)
-		}
-		if len(vectorRaw) != 2 {
-			return fmt.Errorf("%d vector length has unexpected number of fields: %d expected; %d given", i, 2, len(vectorRaw))
-		}
-
-		rep, err := stackitem.ToUint8(vectorRaw[0])
+		err := (*p)[i].FromStackItem(arr[i])
 		if err != nil {
-			return fmt.Errorf("%d vector has incorrect REP: %w", i, err)
+			return fmt.Errorf("parsing %d placement vector: %w", i, err)
 		}
-		if rep > maxREPsClauses {
-			return fmt.Errorf("%d vector exceeds maximum number of REP: max %d expetected, %d given", i, maxREPsClauses, rep)
-		}
-
-		keysRaw, ok := vectorRaw[1].Value().([]stackitem.Item)
-		if !ok {
-			return fmt.Errorf("%d vector's keys field is not an array: %w", i, err)
-		}
-		pKeys := make(keys.PublicKeys, 0, len(keysRaw))
-		for j := range keysRaw {
-			kRaw, err := keysRaw[j].TryBytes()
-			if err != nil {
-				return fmt.Errorf("incorrect %d key of %d vector: %w", j, i, err)
-			}
-			var k keys.PublicKey
-			err = k.DecodeBytes(kRaw)
-			if err != nil {
-				return fmt.Errorf("%d key of %d vector is not a key: %w", j, i, err)
-			}
-
-			pKeys = append(pKeys, &k)
-		}
-
-		*p = append(*p, PlacementVector{REP: uint8(rep), Nodes: pKeys})
 	}
 	return nil
 }

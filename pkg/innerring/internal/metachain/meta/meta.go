@@ -5,6 +5,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/dao"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop"
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
@@ -14,6 +15,9 @@ import (
 
 var (
 	_ interop.Contract = (*MetaData)(nil)
+
+	// Hash is a hash of native MetaData contract.
+	Hash = state.CreateNativeContractHash(MetaDataContractName)
 )
 
 // MetaData is a native contract for processing NeoFS objects meta data.

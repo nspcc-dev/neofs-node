@@ -1,11 +1,13 @@
 package gas
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/core/dao"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop"
+	"github.com/nspcc-dev/neo-go/pkg/core/interop/contract"
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativeids"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -125,7 +127,48 @@ func (g *GAS) TotalSupply(ic *interop.Context, _ []stackitem.Item) stackitem.Ite
 	return stackitem.NewBigInteger(big.NewInt(DefaultBalance * native.GASFactor))
 }
 
+func toUint160(s stackitem.Item) util.Uint160 {
+	u, err := stackitem.ToUint160(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+func toBigInt(s stackitem.Item) *big.Int {
+	bi, err := s.TryInteger()
+	if err != nil {
+		panic(err)
+	}
+	return bi
+}
+
 func (g *GAS) Transfer(ic *interop.Context, args []stackitem.Item) stackitem.Item {
+	fmt.Println("DEBUG: in transfer")
+
+	from := toUint160(args[0])
+	to := toUint160(args[1])
+	amount := toBigInt(args[2])
+
+	paymentArgs := []stackitem.Item{
+		stackitem.NewByteArray(from.BytesBE()),
+		stackitem.NewBigInteger(amount),
+		args[3],
+	}
+	cs, err := ic.GetContract(to)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("DEBUG: before calling %s...\n", manifest.MethodOnNEP17Payment)
+
+	err = contract.CallFromNative(ic, g.Hash, cs, manifest.MethodOnNEP17Payment, paymentArgs, false)
+	if err != nil {
+		panic(fmt.Errorf("failed to call %s: %w", manifest.MethodOnNEP17Payment, err))
+	}
+
+	fmt.Printf("DEBUG: after calling %s\n", manifest.MethodOnNEP17Payment)
+
 	return stackitem.NewBool(true)
 }
 

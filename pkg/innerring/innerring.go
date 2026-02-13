@@ -2,21 +2,37 @@ package innerring
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"math/big"
 	"net"
+	"path"
+	"slices"
+	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/native"
+	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
+	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
@@ -56,7 +72,8 @@ type (
 	Server struct {
 		log *zap.Logger
 
-		bc *blockchain.Blockchain
+		bc        *blockchain.Blockchain
+		metaChain *blockchain.Blockchain
 
 		// event producers
 		fsChainListener event.Listener
@@ -94,7 +111,7 @@ type (
 		netmapProcessor    *netmap.Processor
 		containerProcessor *container.Processor
 
-		workers []func(context.Context)
+		workers []func(context.Context) error
 
 		// Set of local resources that must be
 		// initialized at the very beginning of
@@ -756,10 +773,149 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		nodeValidators = append(nodeValidators, external.New(cfg.Validator.URL, server.key))
 	}
 
+	var metaActor *notary.Actor
+	if cfg.Experimental.ChainMetaData {
+		if !isLocalConsensus {
+			return nil, errors.New("experimental meta-on-chain is not supported for non-consensus Alphabet nodes")
+		}
+
+		v, err := server.fsChainClient.GetVersion()
+		if err != nil {
+			return nil, fmt.Errorf("fetchin FS chain version: %w", err)
+		}
+
+		metaSeeds, err := incPort(cfg.FSChain.Consensus.SeedNodes)
+		if err != nil {
+			return nil, fmt.Errorf("parsing consensus seed nodes: %w", err)
+		}
+		metaRPCs, err := incPort(cfg.FSChain.Consensus.RPC.Listen)
+		if err != nil {
+			return nil, fmt.Errorf("parsing consensus RPCs: %w", err)
+		}
+		metaRPCsTLS, err := incPort(cfg.FSChain.Consensus.RPC.TLS.Listen)
+		if err != nil {
+			return nil, fmt.Errorf("parsing consensus RPCs (TLS): %w", err)
+		}
+		metaP2Ps, err := incPort(cfg.FSChain.Consensus.P2P.Listen)
+		if err != nil {
+			return nil, fmt.Errorf("parsing consensus P2Ps: %w", err)
+		}
+
+		fsChainProtocol := v.Protocol
+		metaChainCfg := config.Consensus{
+			Storage: config.Storage{
+				Path: path.Join(path.Dir(cfg.FSChain.Consensus.Storage.Path), "meta_db.bolt"),
+				Type: dbconfig.BoltDB,
+			},
+			SeedNodes: metaSeeds,
+			RPC: config.RPC{
+				Listen:              metaRPCs,
+				MaxWebSocketClients: cfg.FSChain.Consensus.RPC.MaxWebSocketClients,
+				SessionPoolSize:     cfg.FSChain.Consensus.RPC.SessionPoolSize,
+				MaxGasInvoke:        cfg.FSChain.Consensus.RPC.MaxGasInvoke,
+				TLS: config.TLS{
+					Enabled:  cfg.FSChain.Consensus.RPC.TLS.Enabled,
+					Listen:   metaRPCsTLS,
+					CertFile: cfg.FSChain.Consensus.RPC.TLS.CertFile,
+					KeyFile:  cfg.FSChain.Consensus.RPC.TLS.KeyFile,
+				},
+			},
+			P2P: config.P2P{
+				DialTimeout:       cfg.FSChain.Consensus.P2P.DialTimeout,
+				ProtoTickInterval: cfg.FSChain.Consensus.P2P.ProtoTickInterval,
+				Listen:            metaP2Ps,
+				Peers:             cfg.FSChain.Consensus.P2P.Peers,
+				Ping:              cfg.FSChain.Consensus.P2P.Ping,
+			},
+			MaxTimePerBlock: cfg.FSChain.Consensus.MaxTimePerBlock,
+
+			Magic:                       uint32(fsChainProtocol.Network) + 1,
+			Committee:                   fsChainProtocol.StandbyCommittee,
+			TimePerBlock:                time.Duration(fsChainProtocol.MillisecondsPerBlock) * time.Millisecond,
+			MaxTraceableBlocks:          fsChainProtocol.MaxTraceableBlocks,
+			MaxValidUntilBlockIncrement: fsChainProtocol.MaxValidUntilBlockIncrement,
+
+			Hardforks:                       config.Hardforks{},
+			ValidatorsHistory:               config.ValidatorsHistory{},
+			SetRolesInGenesis:               true,
+			KeepOnlyLatestState:             false,
+			RemoveUntraceableBlocks:         false,
+			P2PNotaryRequestPayloadPoolSize: 1000, // default for blockchain.New()
+		}
+
+		server.metaChain, err = metachain.NewMetaChain(&metaChainCfg, &cfg.Wallet, errChan, log.With(zap.String("component", "metadata chain")))
+		if err != nil {
+			return nil, fmt.Errorf("init meta sidechain blockchain: %w", err)
+		}
+		server.workers = append(server.workers, server.metaChain.Run)
+
+		alphabetList, err := server.fsChainClient.NeoFSAlphabetList()
+		if err != nil {
+			return nil, fmt.Errorf("fetching FS chain Alphabet: %w", err)
+		}
+		metaCli, err := server.metaChain.BuildWSClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("build meta chain client: %w", err)
+		}
+		alphaAcc := wallet.NewAccountFromPrivateKey(server.key)
+		err = alphaAcc.ConvertMultisig(sc.GetMajorityHonestNodeCount(len(alphabetList)), alphabetList)
+		if err != nil {
+			return nil, fmt.Errorf("build meta committee acc: %w", err)
+		}
+		metaActor, err = notary.NewActor(metaCli, []actor.SignerAccount{
+			{
+				Signer: transaction.Signer{
+					Account: alphaAcc.ScriptHash(),
+					Scopes:  transaction.CalledByEntry,
+				},
+				Account: alphaAcc,
+			},
+		}, wallet.NewAccountFromPrivateKey(server.key))
+		if err != nil {
+			return nil, fmt.Errorf("build meta committee actor: %w", err)
+		}
+
+		server.workers = append(server.workers, func(ctx context.Context) error {
+			simpleAcc := wallet.NewAccountFromPrivateKey(server.key)
+			simpleAccHash := simpleAcc.ScriptHash()
+			act, err := actor.New(metaCli, []actor.SignerAccount{{
+				Signer: transaction.Signer{
+					Account: simpleAccHash,
+					Scopes:  transaction.CalledByEntry,
+				},
+				Account: simpleAcc,
+			}})
+
+			gasAct := gas.New(act)
+			txHash, vub, err := gasAct.Transfer(
+				simpleAccHash,
+				notary.Hash,
+				big.NewInt(90*native.GASFactor), // default meta chain balance but a little bit less
+				&notary.OnNEP17PaymentData{Account: &simpleAccHash, Till: math.MaxUint32})
+			if err != nil {
+				if !errors.Is(err, neorpc.ErrAlreadyExists) {
+					return fmt.Errorf("can't make notary deposit in meta chain: %w", err)
+				}
+			}
+
+			server.log.Debug("made meta chain notary deposit, awaiting...", zap.String("txHash", txHash.StringLE()), zap.Uint32("vub", vub))
+
+			_, err = act.WaitSuccess(ctx, txHash, vub, nil)
+			if err != nil {
+				return fmt.Errorf("waiting for meta chain notary deposit %s TX to be persisted: %w", txHash.StringLE(), err)
+			}
+
+			server.log.Debug("meta chain notary deposit successful", zap.String("tx_hash", txHash.StringLE()))
+
+			return nil
+		})
+	}
+
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
 		PoolSize:         cfg.Workers.Netmap,
+		MetaClient:       metaActor,
 		NetmapClient:     server.netmapClient,
 		EpochTimer:       server,
 		EpochState:       server,
@@ -786,6 +942,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		PoolSize:        cfg.Workers.Container,
 		AlphabetState:   server,
 		ContainerClient: cnrClient,
+		MetaClient:      metaActor,
 		NetworkState:    server.netmapClient,
 		MetaEnabled:     cfg.Experimental.ChainMetaData,
 		AllowEC:         cfg.Experimental.AllowEC,
@@ -892,6 +1049,24 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	initTimers(server, cfg, settlementProcessor)
 
 	return server, nil
+}
+
+func incPort(addrs []string) ([]string, error) {
+	res := slices.Clone(addrs)
+	for i := range res {
+		host, port, err := net.SplitHostPort(res[i])
+		if err != nil {
+			return nil, fmt.Errorf("[%d] address ('%s') cannot be parsed: %w", i, res[i], err)
+		}
+		portU, err := strconv.ParseUint(port, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("[%d] address ('%s') cannot be parsed: %w", i, port, err)
+		}
+		portU++
+		res[i] = net.JoinHostPort(host, strconv.FormatUint(portU, 10))
+	}
+
+	return res, nil
 }
 
 func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement.Processor) {
