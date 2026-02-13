@@ -106,8 +106,12 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	currentTime := time.Now()
-	var expTime time.Time
+	var (
+		currentTime = time.Now()
+		expTime     time.Time
+		// allow 30s clock skew, because time isn't synchronous over the network
+		nbfTime = currentTime.Add(-30 * time.Second)
+	)
 	if exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt); exp == 0 {
 		lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 		lifetimeDuration := time.Duration(lifetime) * time.Second
@@ -123,9 +127,8 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 	signer := user.NewAutoIDSigner(*privKey)
 
 	tokV2.SetVersion(session.TokenCurrentVersion)
-	tokV2.SetNbf(currentTime)
-	// allow 10s clock skew, because time isn't synchronous over the network
-	tokV2.SetIat(currentTime.Add(-10 * time.Second))
+	tokV2.SetNbf(nbfTime)
+	tokV2.SetIat(nbfTime)
 	tokV2.SetExp(expTime)
 
 	final, _ := cmd.Flags().GetBool(v2FinalFlag)
