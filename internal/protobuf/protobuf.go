@@ -6,6 +6,18 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
+// FieldBounds represents boundaries of a field in a particular buffer.
+type FieldBounds struct {
+	From      int // first byte index
+	ValueFrom int // first value byte index
+	To        int // last byte index
+}
+
+// IsMissing returns field absence flag.
+func (x FieldBounds) IsMissing() bool {
+	return x.From == x.To
+}
+
 // GetFirstBytesField gets VARLEN field with number = 1 from b.
 //
 // GetFirstBytesField returns slice of b, not copy.

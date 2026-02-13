@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -19,6 +21,27 @@ const (
 	fieldObjectSignature
 	fieldObjectHeader
 	fieldObjectPayload
+
+	FieldHeaderVersion        = 1
+	FieldHeaderContainerID    = 2
+	FieldHeaderOwnerID        = 3
+	FieldHeaderCreationEpoch  = 4
+	FieldHeaderPayloadLength  = 5
+	FieldHeaderPayloadHash    = 6
+	FieldHeaderType           = 7
+	FieldHeaderHomoHash       = 8
+	FieldHeaderSessionToken   = 9
+	FieldHeaderAttributes     = 10
+	FieldHeaderSplit          = 11
+	FieldHeaderSessionTokenV2 = 12
+
+	FieldHeaderSplitParent          = 1
+	FieldHeaderSplitPrevious        = 2
+	FieldHeaderSplitParentSignature = 3
+	FieldHeaderSplitParentHeader    = 4
+	FieldHeaderSplitChildren        = 5
+	FieldHeaderSplitSplitID         = 6
+	FieldHeaderSplitFirst           = 7
 )
 
 // WriteWithoutPayload writes the object header to the given writer without the payload.
@@ -107,4 +130,149 @@ func ReadHeaderPrefix(r io.Reader) (*object.Object, []byte, error) {
 		return nil, nil, err
 	}
 	return ExtractHeaderAndPayload(buf[:n])
+}
+
+// GetNonPayloadFieldBounds seeks ID, signature and header in object message and
+// parses their boundaries.
+//
+// If any field is missing, no error is returned.
+//
+// Message should have ascending field order, otherwise error returns.
+func GetNonPayloadFieldBounds(buf []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
+	var idf, sigf, hdrf iprotobuf.FieldBounds
+	var off int
+	var prevNum protowire.Number
+loop:
+	for {
+		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
+		if err != nil {
+			return idf, sigf, hdrf, err
+		}
+
+		if num > fieldObjectHeader {
+			break
+		}
+		if num < prevNum {
+			return idf, sigf, hdrf, iprotobuf.NewUnorderedFieldsError(prevNum, num)
+		}
+		if num == prevNum {
+			return idf, sigf, hdrf, iprotobuf.NewRepeatedFieldError(num)
+		}
+		prevNum = num
+
+		switch num {
+		case fieldObjectID:
+			idf, err = iprotobuf.ParseLENFieldBounds(buf, off, n, num, typ)
+			if err != nil {
+				return idf, sigf, hdrf, err
+			}
+			off = idf.To
+		case fieldObjectSignature:
+			sigf, err = iprotobuf.ParseLENFieldBounds(buf, off, n, num, typ)
+			if err != nil {
+				return idf, sigf, hdrf, err
+			}
+			off = sigf.To
+		case fieldObjectHeader:
+			hdrf, err = iprotobuf.ParseLENFieldBounds(buf, off, n, num, typ)
+			if err != nil {
+				return idf, sigf, hdrf, err
+			}
+			break loop
+		default:
+			panic("unreachable with num " + strconv.Itoa(int(num)))
+		}
+
+		if off == len(buf) {
+			break
+		}
+	}
+
+	return idf, sigf, hdrf, nil
+}
+
+// GetParentNonPayloadFieldBounds seeks parent's ID, signature and header in child
+// object message and parses their boundaries.
+//
+// If any field is missing, no error is returned.
+//
+// Message should have ascending field order, otherwise error returns.
+func GetParentNonPayloadFieldBounds(buf []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
+	var idf, sigf, hdrf iprotobuf.FieldBounds
+
+	rootHdrf, err := iprotobuf.GetLENFieldBounds(buf, fieldObjectHeader)
+	if err != nil {
+		return idf, sigf, hdrf, err
+	}
+
+	if rootHdrf.IsMissing() {
+		return idf, sigf, hdrf, nil
+	}
+
+	splitf, err := iprotobuf.GetLENFieldBounds(buf[rootHdrf.ValueFrom:rootHdrf.To], FieldHeaderSplit)
+	if err != nil {
+		return idf, sigf, hdrf, err
+	}
+
+	if splitf.IsMissing() {
+		return idf, sigf, hdrf, nil
+	}
+
+	buf = buf[:rootHdrf.ValueFrom+splitf.To]
+	off := rootHdrf.ValueFrom + splitf.ValueFrom
+	var prevNum protowire.Number
+loop:
+	for {
+		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
+		if err != nil {
+			return idf, sigf, hdrf, err
+		}
+
+		if num > FieldHeaderSplitParentHeader {
+			break
+		}
+		if num < prevNum {
+			return idf, sigf, hdrf, iprotobuf.NewUnorderedFieldsError(prevNum, num)
+		}
+		if num == prevNum {
+			return idf, sigf, hdrf, iprotobuf.NewRepeatedFieldError(num)
+		}
+		prevNum = num
+
+		switch num {
+		case FieldHeaderSplitParent:
+			idf, err = iprotobuf.ParseLENFieldBounds(buf, off, n, num, typ)
+			if err != nil {
+				return idf, sigf, hdrf, err
+			}
+			off = idf.To
+		case FieldHeaderSplitPrevious:
+			off += n
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return idf, sigf, hdrf, err
+			}
+			off += n + ln
+		case FieldHeaderSplitParentSignature:
+			sigf, err = iprotobuf.ParseLENFieldBounds(buf, off, n, num, typ)
+			if err != nil {
+				return idf, sigf, hdrf, err
+			}
+			off = sigf.To
+		case FieldHeaderSplitParentHeader:
+			hdrf, err = iprotobuf.ParseLENFieldBounds(buf, off, n, num, typ)
+			if err != nil {
+				return idf, sigf, hdrf, err
+			}
+			break loop
+		default:
+			panic("unreachable with num " + strconv.Itoa(int(num)))
+		}
+
+		if off == len(buf) {
+			break
+		}
+	}
+
+	return idf, sigf, hdrf, nil
 }
