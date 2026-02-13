@@ -27,6 +27,81 @@ func (t *FSTree) Head(addr oid.Address) (*object.Object, error) {
 	return obj, nil
 }
 
+// ReadHeader reads header of the referenced object from t into buffer provided
+// by getBuffer. Returns number of bytes read.
+//
+// If object is missing, ReadHeader returns [apistatus.ErrObjectNotFound].
+//
+// The buffer must have 2*[object.MaxHeaderLen] bytes len at least.
+func (t *FSTree) ReadHeader(addr oid.Address, getBuffer func() []byte) (int, error) {
+	p := t.treePath(addr)
+
+	f, err := os.Open(p)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		}
+		return 0, fmt.Errorf("read file %q: %w", p, err)
+	}
+	defer f.Close()
+
+	buf := getBuffer()
+	if len(buf) < 2*object.MaxHeaderLen {
+		return 0, fmt.Errorf("too short buffer %d bytes", len(buf))
+	}
+
+	from, to, rem, err := t.readHeader(buf, addr.Object(), f)
+	if err != nil {
+		return 0, err
+	}
+
+	// following mostly copied from readHeaderAndPayload()
+
+	compressed := t.IsCompressed(buf[from:to])
+	if !compressed {
+		return copy(buf, buf[from:to]), nil
+	}
+
+	if to-from < object.MaxHeaderLen {
+		dec, err := t.DecompressForce(buf[from:to])
+		if err != nil {
+			return 0, fmt.Errorf("decompress initial data: %w", err)
+		}
+		if len(dec) > len(buf) {
+			return 0, fmt.Errorf("decompressed data len %d overflows buffer len %d", len(dec), len(buf))
+		}
+
+		return copy(buf, dec), nil
+	}
+
+	var r io.Reader
+	if rem < 0 { // non-combined
+		r = io.MultiReader(bytes.NewReader(buf[from:to]), f)
+	} else if rem == 0 {
+		r = bytes.NewReader(buf[from:to])
+	} else {
+		r = io.MultiReader(bytes.NewReader(buf[from:to]), io.LimitReader(f, rem))
+	}
+
+	decoder, err := zstd.NewReader(r)
+	if err != nil {
+		return 0, fmt.Errorf("zstd decoder: %w", err)
+	}
+	defer decoder.Close()
+
+	decBuf := make([]byte, object.MaxHeaderLen)
+
+	n, err := decoder.Read(decBuf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return 0, fmt.Errorf("zstd read: %w", err)
+	}
+	if n > len(buf) {
+		return 0, fmt.Errorf("decompressed data len %d overflows buffer len %d", n, len(buf))
+	}
+
+	return copy(buf, decBuf[:n]), nil
+}
+
 // getObjectStream reads an object from the storage by address as a stream.
 // It returns the object with header only, and a reader for the payload.
 func (t *FSTree) getObjectStream(addr oid.Address) (*object.Object, io.ReadSeekCloser, error) {
@@ -58,17 +133,39 @@ func (t *FSTree) getObjectStream(addr oid.Address) (*object.Object, io.ReadSeekC
 // The caller is responsible for closing the returned io.ReadCloser if it is not nil.
 func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, io.ReadSeekCloser, error) {
 	buf := make([]byte, 2*object.MaxHeaderLen)
+
+	from, to, rem, err := t.readHeader(buf, id, f)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if rem <= 0 {
+		return t.readHeaderAndPayload(f, buf[from:to])
+	}
+
+	rc := struct {
+		io.Reader
+		io.Closer
+	}{Reader: io.LimitReader(f, rem), Closer: f}
+
+	return t.readHeaderAndPayload(rc, buf[from:to])
+}
+
+// reads header of object by id from f into buf. Returns first and last
+// bytes in buf containing the result. Third return is the number of bytes left
+// it f is combined (negative if not combined).
+func (t *FSTree) readHeader(buf []byte, id oid.ID, f *os.File) (int, int, int64, error) {
 	n, err := io.ReadFull(f, buf[:object.MaxHeaderLen])
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return nil, f, err
+		return 0, 0, 0, err
 	}
 	if n < combinedDataOff {
-		return t.readHeaderAndPayload(f, buf[:n])
+		return 0, n, -1, nil
 	}
 
 	thisOID, l := parseCombinedPrefix(buf)
 	if thisOID == nil {
-		return t.readHeaderAndPayload(f, buf[:n])
+		return 0, n, -1, nil
 	}
 
 	offset := combinedDataOff
@@ -78,19 +175,15 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, 
 			if n < size {
 				_, err = io.ReadFull(f, buf[n:size])
 				if err != nil {
-					return nil, f, fmt.Errorf("read up to size: %w", err)
+					return 0, 0, 0, fmt.Errorf("read up to size: %w", err)
 				}
 			}
 
-			f := io.ReadCloser(f)
 			if buffered := uint32(size - offset); l > buffered {
-				f = struct {
-					io.Reader
-					io.Closer
-				}{Reader: io.LimitReader(f, int64(l-buffered)), Closer: f}
+				return offset, size, int64(l - buffered), nil
 			}
 
-			return t.readHeaderAndPayload(f, buf[offset:size])
+			return offset, size, 0, nil
 		}
 
 		offset += int(l)
@@ -98,24 +191,24 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, 
 			if offset > n {
 				_, err = f.Seek(int64(offset-n), io.SeekCurrent)
 				if err != nil {
-					return nil, f, err
+					return 0, 0, 0, err
 				}
 			}
 			n = copy(buf, buf[min(offset, n):n])
 			offset = 0
 			k, err := io.ReadFull(f, buf[n:n+object.MaxHeaderLen])
 			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-				return nil, f, fmt.Errorf("read full: %w", err)
+				return 0, 0, 0, fmt.Errorf("read full: %w", err)
 			}
 			if k == 0 {
-				return nil, f, fmt.Errorf("file was found, but this object is not in it: %w", io.ErrUnexpectedEOF)
+				return 0, 0, 0, fmt.Errorf("file was found, but this object is not in it: %w", io.ErrUnexpectedEOF)
 			}
 			n += k
 		}
 
 		thisOID, l = parseCombinedPrefix(buf[offset:])
 		if thisOID == nil {
-			return nil, f, errors.New("malformed combined file")
+			return 0, 0, 0, errors.New("malformed combined file")
 		}
 
 		offset += combinedDataOff

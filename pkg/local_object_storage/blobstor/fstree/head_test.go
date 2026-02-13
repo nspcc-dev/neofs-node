@@ -1,10 +1,13 @@
 package fstree_test
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -33,6 +36,8 @@ func TestHeadStorage(t *testing.T) {
 		fullObj, err := fsTree.Get(obj.Address())
 		require.NoError(t, err)
 		require.Equal(t, obj, fullObj)
+
+		testHeadToBufferOK(t, fsTree, *obj)
 	}
 
 	testCombinedObjects := func(t *testing.T, fsTree *fstree.FSTree, size int) {
@@ -60,6 +65,8 @@ func TestHeadStorage(t *testing.T) {
 			require.Len(t, attrs, 1)
 			require.Equal(t, fmt.Sprintf("key-%d", i), attrs[0].Key())
 			require.Equal(t, fmt.Sprintf("value-%d", i), attrs[0].Value())
+
+			testHeadToBufferOK(t, fsTree, *objects[i])
 		}
 	}
 
@@ -78,6 +85,8 @@ func TestHeadStorage(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, obj.CutPayload(), res)
 		require.Len(t, res.Attributes(), numAttrs)
+
+		testHeadToBufferOK(t, fsTree, *obj)
 	})
 
 	t.Run("non-existent object", func(t *testing.T) {
@@ -86,6 +95,11 @@ func TestHeadStorage(t *testing.T) {
 
 		_, err := fsTree.Head(addr)
 		require.Error(t, err)
+
+		_, err = fsTree.ReadHeader(obj.Address(), func() []byte {
+			return make([]byte, object.MaxHeaderLen*2)
+		})
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	})
 
 	t.Run("different payload sizes", func(t *testing.T) {
@@ -118,4 +132,29 @@ func TestHeadStorage(t *testing.T) {
 			})
 		}
 	})
+}
+
+func testHeadToBufferOK(t *testing.T, fst *fstree.FSTree, obj object.Object) {
+	var buf []byte
+	n, err := fst.ReadHeader(obj.Address(), func() []byte {
+		buf = make([]byte, object.MaxHeaderLen*2)
+		return buf
+	})
+	require.NoError(t, err)
+
+	_, tail, ok := bytes.Cut(buf[:n], obj.CutPayload().Marshal())
+	require.True(t, ok)
+
+	prefix := make([]byte, 1+binary.MaxVarintLen64)
+	prefix[0] = 34 // payload field tag
+	prefix = prefix[:1+binary.PutUvarint(prefix[1:], uint64(len(obj.Payload())))]
+
+	if len(tail) < len(prefix) {
+		require.True(t, bytes.HasPrefix(prefix, tail))
+		return
+	}
+
+	tail, ok = bytes.CutPrefix(tail, prefix)
+	require.True(t, ok)
+	require.True(t, bytes.HasPrefix(obj.Payload(), tail))
 }
