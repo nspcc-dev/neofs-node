@@ -4,7 +4,6 @@ import (
 	"path"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
@@ -34,8 +33,8 @@ func TestNewKeyStorage(t *testing.T) {
 
 	t.Run("unknown token", func(t *testing.T) {
 		_, err = stor.GetKey(&util.SessionInfo{
-			ID:    uuid.New(),
-			Owner: usertest.ID(),
+			Account: usertest.ID(),
+			Owner:   usertest.ID(),
 		})
 		require.Error(t, err)
 	})
@@ -43,9 +42,11 @@ func TestNewKeyStorage(t *testing.T) {
 	t.Run("known token", func(t *testing.T) {
 		tok := createToken(t, tokenStor, owner, 100)
 
+		authUser, err := tok.AuthUser()
+		require.NoError(t, err)
 		key, err := stor.GetKey(&util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: owner,
+			Account: authUser,
+			Owner:   owner,
 		})
 		require.NoError(t, err)
 		require.True(t, tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)))
@@ -53,9 +54,11 @@ func TestNewKeyStorage(t *testing.T) {
 
 	t.Run("expired token", func(t *testing.T) {
 		tok := createToken(t, tokenStor, owner, 30)
-		_, err := stor.GetKey(&util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: owner,
+		authUser, err := tok.AuthUser()
+		require.NoError(t, err)
+		_, err = stor.GetKey(&util.SessionInfo{
+			Account: authUser,
+			Owner:   owner,
 		})
 		require.Error(t, err)
 	})
@@ -63,13 +66,12 @@ func TestNewKeyStorage(t *testing.T) {
 
 func createToken(t *testing.T, store *state.PersistentStorage, owner user.ID, exp uint64) session.Object {
 	key := neofscryptotest.ECDSAPrivateKey()
-	id := uuid.New()
-	err := store.Store(key, owner, id[:], exp)
+	authUser := user.NewFromECDSAPublicKey(key.PublicKey)
+	err := store.Store(key, owner, authUser[:], exp)
 	require.NoError(t, err)
 
 	var tok session.Object
 	tok.SetAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey))
-	tok.SetID(id)
 
 	return tok
 }

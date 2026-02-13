@@ -85,17 +85,12 @@ func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*pr
 		return s.makeFailedCreateResponse(fmt.Errorf("generate private key: %w", err))
 	}
 
-	uid := uuid.New()
-	if err := s.keys.Store(*key, usr, uid[:], reqBody.Expiration); err != nil {
+	keyUser := user.NewFromECDSAPublicKey(key.PublicKey)
+	if err := s.keys.Store(*key, usr, keyUser[:], reqBody.Expiration); err != nil {
 		return s.makeFailedCreateResponse(fmt.Errorf("store private key locally: %w", err))
 	}
 
-	// also store the key using account as key ID
-	keyUser := user.NewFromECDSAPublicKey(key.PublicKey)
-	if err := s.keys.Store(*key, usr, keyUser[:], reqBody.Expiration); err != nil {
-		return s.makeFailedCreateResponse(fmt.Errorf("store private key with public key locally: %w", err))
-	}
-
+	uid := uuid.New()
 	body := &protosession.CreateResponse_Body{
 		Id:         uid[:],
 		SessionKey: neofscrypto.PublicKeyBytes((*neofsecdsa.PublicKey)(&key.PublicKey)),

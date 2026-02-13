@@ -186,6 +186,85 @@ func TestMigrateOldTokenStorageWithEncryption(t *testing.T) {
 	require.Equal(t, sessionKey.D, token.SessionKey().D)
 }
 
+func TestMigrateSessionTokensToAccounts(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "sessions.db")
+
+	db, err := bbolt.Open(dbPath, 0o600, nil)
+	require.NoError(t, err)
+
+	ownerID1 := usertest.ID()
+	ownerID2 := usertest.ID()
+
+	key1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	key2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	pubKeyID1 := user.NewFromECDSAPublicKey(key1.PublicKey)
+	pubKeyID2 := user.NewFromECDSAPublicKey(key2.PublicKey)
+
+	uuid1 := []byte("0123456789abcdef")
+	uuid2 := []byte("fedcba9876543210")
+
+	epoch1 := uint64(100)
+	epoch2 := uint64(200)
+
+	err = db.Update(func(tx *bbolt.Tx) error {
+		rootBucket, err := tx.CreateBucketIfNotExists(sessionsBucket)
+		require.NoError(t, err)
+
+		tempStorage := &PersistentStorage{db: db}
+
+		// Owner 1
+		ownerBucket1, err := rootBucket.CreateBucket(ownerID1[:])
+		require.NoError(t, err)
+
+		packedToken1, err := tempStorage.packToken(epoch1, key1)
+		require.NoError(t, err)
+
+		err = ownerBucket1.Put(uuid1, packedToken1)
+		require.NoError(t, err)
+		err = ownerBucket1.Put(pubKeyID1[:], packedToken1)
+		require.NoError(t, err)
+
+		// Owner 2
+		ownerBucket2, err := rootBucket.CreateBucket(ownerID2[:])
+		require.NoError(t, err)
+
+		packedToken2, err := tempStorage.packToken(epoch2, key2)
+		require.NoError(t, err)
+
+		err = ownerBucket2.Put(uuid2, packedToken2)
+		require.NoError(t, err)
+		err = ownerBucket2.Put(pubKeyID2[:], packedToken2)
+		require.NoError(t, err)
+
+		return nil
+	})
+	require.NoError(t, err)
+	_ = db.Close()
+
+	storage, err := NewPersistentStorage(dbPath, true)
+	require.NoError(t, err)
+	defer func() { _ = storage.Close() }()
+
+	// Verify tokens are accessible via public key ID
+	token1 := storage.GetToken(ownerID1, pubKeyID1[:])
+	require.NotNil(t, token1)
+	require.Equal(t, epoch1, token1.ExpiredAt())
+	require.Equal(t, key1, token1.SessionKey())
+
+	token2 := storage.GetToken(ownerID2, pubKeyID2[:])
+	require.NotNil(t, token2)
+	require.Equal(t, epoch2, token2.ExpiredAt())
+	require.Equal(t, key2, token2.SessionKey())
+
+	// Verify UUID tokens are gone
+	require.Nil(t, storage.GetToken(ownerID1, uuid1))
+	require.Nil(t, storage.GetToken(ownerID2, uuid2))
+}
+
 type tokenData struct {
 	key   *ecdsa.PrivateKey
 	epoch uint64

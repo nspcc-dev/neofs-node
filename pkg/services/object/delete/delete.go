@@ -2,6 +2,7 @@ package deletesvc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -31,9 +32,13 @@ func (s *Service) Delete(ctx context.Context, prm Prm) error {
 			}
 		}
 	} else if tok := prm.common.SessionToken(); tok != nil {
-		_, err := s.keyStorage.GetKey(&util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
+		authUser, err := tok.AuthUser()
+		if err != nil {
+			return fmt.Errorf("can't get auth user from token: %w", err)
+		}
+		_, err = s.keyStorage.GetKey(&util.SessionInfo{
+			Account: authUser,
+			Owner:   tok.Issuer(),
 		})
 		if err != nil {
 			return err

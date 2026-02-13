@@ -183,9 +183,13 @@ func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 			return nil, fmt.Errorf("get key for session v2 token: %w", err)
 		}
 	} else if tok := exec.prm.common.SessionToken(); tok != nil {
+		authUser, err := tok.AuthUser()
+		if err != nil {
+			return nil, fmt.Errorf("could not get session auth user: %w", err)
+		}
 		key, err = exec.svc.keyStore.GetKey(&util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
+			Account: authUser,
+			Owner:   tok.Issuer(),
 		})
 		if err != nil {
 			return nil, err

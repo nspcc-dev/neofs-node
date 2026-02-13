@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -123,10 +122,10 @@ type FSChain interface {
 }
 
 type sessions interface {
-	// GetSessionPrivateKey reads private session key by user and session IDs.
+	// GetSessionPrivateKey reads private session key by user and session user-defined public key.
 	// Returns [apistatus.ErrSessionTokenNotFound] if there is no data for the
 	// referenced session.
-	GetSessionPrivateKey(usr user.ID, uid uuid.UUID) (ecdsa.PrivateKey, error)
+	GetSessionPrivateKey(usr, account user.ID) (ecdsa.PrivateKey, error)
 
 	// GetSessionV2PrivateKey reads private session key by user ID and session
 	// subject. Returns [apistatus.ErrSessionTokenNotFound] if there is no data
@@ -910,7 +909,11 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 		}
 		p.WithCachedSignerKey(&signerKey)
 	} else if tok := cp.SessionToken(); tok != nil {
-		signerKey, err := ss.GetSessionPrivateKey(tok.Issuer(), tok.ID())
+		authUser, err := tok.AuthUser()
+		if err != nil {
+			return getsvc.RangeHashPrm{}, fmt.Errorf("getting auth user from token: %w", err)
+		}
+		signerKey, err := ss.GetSessionPrivateKey(tok.Issuer(), authUser)
 		if err != nil {
 			if !errors.Is(err, apistatus.ErrSessionTokenNotFound) {
 				return getsvc.RangeHashPrm{}, fmt.Errorf("fetching session key: %w", err)
