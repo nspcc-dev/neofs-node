@@ -372,12 +372,16 @@ func CreateSessionV2(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cl
 	var tok sessionv2.Token
 	signer := user.NewAutoIDSigner(*key)
 
-	currentTime := time.Now()
+	var (
+		currentTime = time.Now()
+		expTime     = currentTime.Add(defaultTokenExp)
+		// allow 30s clock skew, because time isn't synchronous over the network
+		nbfTime = currentTime.Add(-30 * time.Second)
+	)
 	tok.SetVersion(sessionv2.TokenCurrentVersion)
-	// allow 10s clock skew, because time isn't synchronous over the network
-	tok.SetIat(currentTime.Add(-10 * time.Second))
-	tok.SetNbf(currentTime)
-	tok.SetExp(currentTime.Add(defaultTokenExp))
+	tok.SetIat(nbfTime)
+	tok.SetNbf(nbfTime)
+	tok.SetExp(expTime)
 	tok.SetFinal(true)
 	err := tok.SetSubjects(subjects)
 	if err != nil {
