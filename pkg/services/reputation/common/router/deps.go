@@ -1,6 +1,8 @@
 package router
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 )
@@ -24,5 +26,5 @@ type RemoteWriterProvider interface {
 	// corresponding to info.
 	//
 	// Nil info matches the end of the route.
-	InitRemote(info common.ServerInfo) (common.WriterProvider, error)
+	InitRemote(ctx context.Context, info common.ServerInfo) (common.WriterProvider, error)
 }

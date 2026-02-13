@@ -26,7 +26,7 @@ type Option func(*cfg)
 type searchClient interface {
 	// searchObjects searches objects on the specified node.
 	// MUST NOT modify execCtx as it can be accessed concurrently.
-	searchObjects(context.Context, *execCtx, client.NodeInfo) ([]oid.ID, error)
+	searchObjects(context.Context, *execCtx) ([]oid.ID, error)
 }
 
 // Containers provides information about NeoFS containers necessary for the
@@ -42,7 +42,7 @@ type Containers interface {
 }
 
 type ClientConstructor interface {
-	Get(client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
 }
 
 type cfg struct {
@@ -53,7 +53,7 @@ type cfg struct {
 	}
 
 	clientConstructor interface {
-		get(client.NodeInfo) (searchClient, error)
+		get(context.Context, client.NodeInfo) (searchClient, error)
 	}
 
 	keyStore *util.KeyStorage

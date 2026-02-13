@@ -89,7 +89,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 
 		remoteWriter, ok := w.mServers[key]
 		if !ok {
-			provider, err := w.router.remoteProvider.InitRemote(remoteInfo)
+			provider, err := w.router.remoteProvider.InitRemote(w.routeCtx, remoteInfo)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer provider",
 					zap.Error(err),

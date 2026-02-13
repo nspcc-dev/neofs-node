@@ -46,7 +46,7 @@ func New(s *ecdsa.PrivateKey, net netmap.State, ks KeyStorage) protosession.Sess
 	}
 }
 
-func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *protostatus.Status) (*protosession.CreateResponse, error) {
+func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *protostatus.Status, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
 	resp := &protosession.CreateResponse{
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
@@ -55,50 +55,50 @@ func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
-func (s *server) makeFailedCreateResponse(err error) (*protosession.CreateResponse, error) {
-	return s.makeCreateResponse(nil, util.ToStatus(err))
+func (s *server) makeFailedCreateResponse(err error, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
+	return s.makeCreateResponse(nil, util.ToStatus(err), req)
 }
 
 // Create generates new private session key and saves it in the underlying
 // [KeyStorage].
 func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedCreateResponse(err)
+		return s.makeFailedCreateResponse(err, req)
 	}
 
 	reqBody := req.GetBody()
 	mUsr := reqBody.GetOwnerId()
 	if mUsr == nil {
-		return s.makeFailedCreateResponse(errors.New("missing account"))
+		return s.makeFailedCreateResponse(errors.New("missing account"), req)
 	}
 	var usr user.ID
 	if err := usr.FromProtoMessage(mUsr); err != nil {
-		return s.makeFailedCreateResponse(fmt.Errorf("invalid account: %w", err))
+		return s.makeFailedCreateResponse(fmt.Errorf("invalid account: %w", err), req)
 	}
 
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return s.makeFailedCreateResponse(fmt.Errorf("generate private key: %w", err))
+		return s.makeFailedCreateResponse(fmt.Errorf("generate private key: %w", err), req)
 	}
 
 	uid := uuid.New()
 	if err := s.keys.Store(*key, usr, uid[:], reqBody.Expiration); err != nil {
-		return s.makeFailedCreateResponse(fmt.Errorf("store private key locally: %w", err))
+		return s.makeFailedCreateResponse(fmt.Errorf("store private key locally: %w", err), req)
 	}
 
 	// also store the key using account as key ID
 	keyUser := user.NewFromECDSAPublicKey(key.PublicKey)
 	if err := s.keys.Store(*key, usr, keyUser[:], reqBody.Expiration); err != nil {
-		return s.makeFailedCreateResponse(fmt.Errorf("store private key with public key locally: %w", err))
+		return s.makeFailedCreateResponse(fmt.Errorf("store private key with public key locally: %w", err), req)
 	}
 
 	body := &protosession.CreateResponse_Body{
 		Id:         uid[:],
 		SessionKey: neofscrypto.PublicKeyBytes((*neofsecdsa.PublicKey)(&key.PublicKey)),
 	}
-	return s.makeCreateResponse(body, util.StatusOK)
+	return s.makeCreateResponse(body, util.StatusOK, req)
 }

@@ -259,11 +259,11 @@ func initNetmapService(c *cfg) {
 		local := slices.IndexFunc(nodes, func(node netmapSDK.NodeInfo) bool { return c.IsLocalKey(node.PublicKey()) })
 		var wg sync.WaitGroup
 		l.Info("syncing SN connection caches with the new network map...")
-		for _, c := range []*cache.Clients{c.clientCache, c.putClientCache, c.bgClientCache} {
+		for _, cl := range []*cache.Clients{c.clientCache, c.putClientCache, c.bgClientCache} {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				c.SyncWithNewNetmap(nodes, local)
+				cl.SyncWithNewNetmap(c.ctx, nodes, local)
 			}()
 		}
 		wg.Wait()
