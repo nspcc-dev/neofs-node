@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -32,6 +33,7 @@ type (
 		objectPool    *ants.Pool
 		alphabetState AlphabetState
 		cnrClient     *container.Client // notary must be enabled
+		metaClient    *notary.Actor
 		netState      NetworkState
 		metaEnabled   bool
 		allowEC       bool
@@ -45,6 +47,7 @@ type (
 		PoolSize        int
 		AlphabetState   AlphabetState
 		ContainerClient *container.Client
+		MetaClient      *notary.Actor
 		NetworkState    NetworkState
 		MetaEnabled     bool
 		AllowEC         bool
@@ -96,6 +99,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: global state is not set")
 	case p.ContainerClient == nil:
 		return nil, errors.New("ir/container: Container client is not set")
+	case p.MetaEnabled && p.MetaClient == nil:
+		return nil, errors.New("ir/container: MetaClient client is not set")
 	case p.NetworkState == nil:
 		return nil, errors.New("ir/container: network state is not set")
 	case p.ChainTime == nil:
@@ -119,6 +124,7 @@ func New(p *Params) (*Processor, error) {
 		alphabetState: p.AlphabetState,
 		cnrClient:     p.ContainerClient,
 		netState:      p.NetworkState,
+		metaClient:    p.MetaClient,
 		metaEnabled:   p.MetaEnabled,
 		allowEC:       p.AllowEC,
 		chainTime:     p.ChainTime,

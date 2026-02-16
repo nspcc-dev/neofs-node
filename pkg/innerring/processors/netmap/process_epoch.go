@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -98,6 +99,26 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 		}
 		for i := repRuleNum; i < len(vectors); i++ { // EC rules
 			replicas[i] = 1 // each EC part is stored in a single copy
+		}
+
+		if np.metaClient != nil {
+			var metaPolicy string
+			for k, v := range cnr.Attributes() {
+				if k == "__NEOFS__METAINFO_CONSISTENCY" && (v == "optimistic" || v == "strict") {
+					metaPolicy = v
+					break
+				}
+			}
+			if metaPolicy != "" {
+				np.log.Debug("updating meta container placements...", zap.Stringer("cid", cID))
+
+				err = processors.UpdateMetaPlacement(np.metaClient, cID, vectors, policy, 1)
+				if err != nil {
+					np.log.Error("could not update meta container placement", zap.Stringer("cid", cID), zap.Error(err))
+				} else {
+					np.log.Debug("updated meta container placements...", zap.Stringer("cid", cID))
+				}
+			}
 		}
 
 		err = np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)
