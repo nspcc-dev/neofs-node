@@ -137,7 +137,8 @@ func initApp(c *cfg) {
 	initAndLog(c, "accounting", initAccountingService)
 	initAndLog(c, "session", initSessionService)
 	initAndLog(c, "reputation", initReputationService)
-	initAndLog(c, "meta", initMeta)
+	//initAndLog(c, "meta", initMeta)
+	initAndLog(c, "meta sidechain", initMeta_new)
 	initAndLog(c, "object", initObjectService)
 
 	initAndLog(c, "morph notifications", listenMorphNotifications)
