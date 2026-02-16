@@ -7,7 +7,11 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain/meta"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -190,6 +194,55 @@ func (cp *Processor) approvePutContainer(mainTx transaction.Transaction, cnr con
 	if err != nil {
 		l.Error("could not update Container contract", zap.Error(err))
 		return
+	}
+
+	if cp.metaEnabled {
+		var metaPolicy string
+		for k, v := range cnr.Attributes() {
+			if k == sysAttrChainMeta && (v == "optimistic" || v == "strict") {
+				metaPolicy = v
+				break
+			}
+		}
+		if metaPolicy != "" {
+			l.Debug("sending registration transaction for metadata container...", zap.Stringer("cid", id), zap.String("metaPolicy", metaPolicy))
+
+			_, err = cp.metaClient.WaitSuccess(cp.metaClient.Notarize(cp.metaClient.MakeTunedCall(meta.Hash, "registerMetaContainer", nil, func(r *result.Invoke, t *transaction.Transaction) error {
+				if r.State != vmstate.Halt.String() {
+					return fmt.Errorf("script failed (%s state) due to an error: %s", r.State, r.FaultException)
+				}
+
+				vub, err := processors.CalculateVUB(cp.metaClient)
+				if err != nil {
+					return fmt.Errorf("could not calculate vub: %w", err)
+				}
+
+				t.ValidUntilBlock = vub
+				t.Nonce = mainTx.Nonce
+
+				// Add 10% GAS to prevent this errors:
+				// "at instruction 1689 (SYSCALL): System.Runtime.Log failed: insufficient amount of gas"
+				t.SystemFee += t.SystemFee / 10
+
+				return nil
+			}, id[:])))
+			if err != nil {
+				l.Error("could not register meta container", zap.Stringer("cid", id), zap.Error(err))
+				return
+			}
+
+			l.Debug("registered meta container", zap.Stringer("cid", id), zap.String("polices", metaPolicy))
+
+			l.Debug("sending placement update transaction for metadata container...", zap.Stringer("cid", id), zap.String("metaPolicy", metaPolicy))
+
+			err := processors.UpdateMetaPlacement(cp.metaClient, id, vectors, policy, mainTx.Nonce)
+			if err != nil {
+				l.Error("could not update placement", zap.Stringer("cid", id), zap.Error(err))
+				return
+			}
+
+			l.Debug("updated meta container placement successfully...", zap.Stringer("cid", id), zap.String("metaPolicy", metaPolicy))
+		}
 	}
 
 	l.Debug("container successfully approved")
