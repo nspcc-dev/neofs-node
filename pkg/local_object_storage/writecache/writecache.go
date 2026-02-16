@@ -74,12 +74,6 @@ type cache struct {
 // wcStorageType is used for write-cache operations logging.
 const wcStorageType = "write-cache"
 
-type objectInfo struct {
-	addr string
-	data []byte
-	obj  *object.Object
-}
-
 const (
 	defaultMaxCacheSize = 1 << 30 // 1 GiB
 )
