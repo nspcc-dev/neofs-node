@@ -278,15 +278,19 @@ func bootstrapNode(c *cfg) {
 		var netInfo, inMap = c.cfgNetmap.state.getNodeInfo()
 
 		c.cfgNodeInfo.localInfoLock.RLock()
-		var localAttrs = c.cfgNodeInfo.localInfo.GetAttributes()
+		var (
+			localAddresses = slices.Collect(c.cfgNodeInfo.localInfo.NetworkEndpoints())
+			localAttrs     = c.cfgNodeInfo.localInfo.GetAttributes()
+		)
 		c.cfgNodeInfo.localInfoLock.RUnlock()
 
 		var (
-			sameAttrs = nodeAttrsEqual(localAttrs, netInfo.GetAttributes())
-			isOffline = c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_OFFLINE
+			sameAttrs     = nodeAttrsEqual(localAttrs, netInfo.GetAttributes())
+			sameAddresses = slices.Equal(localAddresses, slices.Collect(netInfo.NetworkEndpoints()))
+			isOffline     = c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_OFFLINE
 		)
-		if isOffline || !inMap || !sameAttrs {
-			c.log.Info("bootstrapping node", zap.Bool("offline", isOffline), zap.Bool("inMap", inMap), zap.Bool("sameAttributes", sameAttrs))
+		if isOffline || !inMap || !sameAttrs || !sameAddresses {
+			c.log.Info("bootstrapping node", zap.Bool("offline", isOffline), zap.Bool("inMap", inMap), zap.Bool("sameAttributes", sameAttrs), zap.Bool("sameAddresses", sameAddresses))
 			err := c.bootstrapOnline()
 			fatalOnErrDetails("bootstrap error", err)
 		} else {

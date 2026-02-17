@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Potential payload overflow on getting full object from combined FSTree file (#3801)
 - Too high nbf/iat token defaults in CLI for testnet/mainnet (#3819)
 - Repeated attempts to delete nonexistent objects (#3820)
+- Address change in configuration not triggering netmap update (#3828)
 
 ### Changed
 - SN retries notary requests if `insufficient amount of gas` error appears (#3739)
