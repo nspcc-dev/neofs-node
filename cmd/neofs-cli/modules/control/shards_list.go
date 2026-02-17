@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -96,27 +95,22 @@ func prettyPrintShardsJSON(cmd *cobra.Command, ii []*control.ShardInfo) error {
 
 func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 	for _, i := range ii {
-		pathPrinter := func(name, path string) string {
-			if path == "" {
-				return ""
-			}
-
-			return fmt.Sprintf("%s: %s\n", name, path)
-		}
-
-		var sb strings.Builder
-		sb.WriteString("Blobstor:\n")
-		sb.WriteString(fmt.Sprintf("\tPath: %s\n\tType: %s\n",
-			i.GetBlobstor().GetPath(), i.GetBlobstor().GetType()))
-
-		cmd.Printf("Shard %s:\nMode: %s\n"+
-			pathPrinter("Metabase", i.GetMetabasePath())+
-			sb.String()+
-			pathPrinter("Write-cache", i.GetWritecachePath())+
-			fmt.Sprintf("Error count: %d\n", i.GetErrorCount()),
+		cmd.Printf("Shard %s:\nMode: %s\n",
 			base58.Encode(i.Shard_ID),
-			shardModeToString(i.GetMode()),
-		)
+			shardModeToString(i.GetMode()))
+
+		var metaPath = i.GetMetabasePath()
+		if metaPath != "" {
+			cmd.Println("Metabase: ", metaPath)
+		}
+		cmd.Printf("Blobstor:\n\tPath: %s\n\tType: %s\n",
+			i.GetBlobstor().GetPath(), i.GetBlobstor().GetType())
+
+		var wcPath = i.GetMetabasePath()
+		if wcPath != "" {
+			cmd.Println("Write-cache: ", wcPath)
+		}
+		cmd.Printf("Error count: %d\n", i.GetErrorCount())
 	}
 }
 
