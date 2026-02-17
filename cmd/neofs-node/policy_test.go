@@ -109,9 +109,9 @@ func newNetmapWithContainer(tb testing.TB, nodeNum int, selected ...[]int) ([]ne
 
 	var sbRpl, sbSlc, sbFlt strings.Builder
 	for i := range selected {
-		sbFlt.WriteString(fmt.Sprintf("FILTER attr%d EQ true AS F%d\n", i, i))
-		sbSlc.WriteString(fmt.Sprintf("SELECT %d FROM F%d AS S%d\n", len(selected[i]), i, i))
-		sbRpl.WriteString(fmt.Sprintf("REP %d IN S%d\n", len(selected[i]), i))
+		fmt.Fprintf(&sbFlt, "FILTER attr%d EQ true AS F%d\n", i, i)
+		fmt.Fprintf(&sbSlc, "SELECT %d FROM F%d AS S%d\n", len(selected[i]), i, i)
+		fmt.Fprintf(&sbRpl, "REP %d IN S%d\n", len(selected[i]), i)
 	}
 	var policy netmap.PlacementPolicy
 	strPolicy := fmt.Sprintf("%sCBF 1\n%s%s", &sbRpl, &sbSlc, &sbFlt)
