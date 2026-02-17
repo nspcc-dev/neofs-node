@@ -13,8 +13,9 @@ var (
 	ErrOutOfSpace = errors.New("no space left in the write cache")
 )
 
-// Put puts object to write-cache.
-func (c *cache) Put(addr oid.Address, obj *object.Object, data []byte) error {
+// Put puts object to write-cache. data MUST have serialized object, Object
+// parameter is left for compatibility with blobstor only.
+func (c *cache) Put(addr oid.Address, _ *object.Object, data []byte) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.readOnly() {
@@ -25,24 +26,18 @@ func (c *cache) Put(addr oid.Address, obj *object.Object, data []byte) error {
 		defer elapsed(c.metrics.AddWCPutDuration)()
 	}
 
-	oi := objectInfo{
-		addr: addr.EncodeToString(),
-		obj:  obj,
-		data: data,
-	}
-
-	return c.put(addr, oi)
+	return c.put(addr, data)
 }
 
 // put writes object to FSTree and pushes it to the flush workers queue.
-func (c *cache) put(addr oid.Address, obj objectInfo) error {
+func (c *cache) put(addr oid.Address, data []byte) error {
 	cacheSz := c.objCounters.Size()
-	objSz := uint64(len(obj.data))
+	objSz := uint64(len(data))
 	if c.maxCacheSize < cacheSz+objSz {
 		return ErrOutOfSpace
 	}
 
-	err := c.fsTree.Put(addr, obj.data)
+	err := c.fsTree.Put(addr, data)
 	if err != nil {
 		return err
 	}
@@ -51,7 +46,7 @@ func (c *cache) put(addr oid.Address, obj objectInfo) error {
 	c.metrics.IncWCObjectCount()
 	c.metrics.AddWCSize(objSz)
 	storagelog.Write(c.log,
-		storagelog.AddressField(obj.addr),
+		storagelog.AddressField(addr),
 		storagelog.StorageTypeField(wcStorageType),
 		storagelog.OpField("PUT"),
 	)

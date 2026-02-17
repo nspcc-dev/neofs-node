@@ -137,23 +137,33 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 
 // returns errNonPhy if isParent is unset and the object is not physical.
 func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
-	var metaBkt = c.Bucket()
-	var err error
-	var parent oid.ID
-	var size uint64
-	if !isParent {
-		v := metaBkt.Get(slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPhysical), objectcore.MetaAttributeDelimiter, []byte(binPropMarker)))
-		if v == nil {
+	var (
+		err     error
+		metaBkt = c.Bucket()
+		nonPhy  = !isParent && getObjAttribute(c, id, object.FilterPhysical) == nil
+		parent  oid.ID
+		pref    = slices.Concat([]byte{metaPrefixID}, id[:])
+		size    uint64
+	)
+
+	k, _ := c.Seek(pref)
+	haveObject := bytes.Equal(k, pref)
+
+	if haveObject {
+		if nonPhy {
 			return 0, errNonPhy
 		}
+		if err := c.Delete(); err != nil {
+			return 0, err
+		}
 	}
-	pref := slices.Concat([]byte{metaPrefixID}, id[:])
-	if err := metaBkt.Delete(pref); err != nil {
-		return 0, err
-	}
+
 	pref[0] = metaPrefixGarbage
 	if err := metaBkt.Delete(pref); err != nil {
 		return 0, err
+	}
+	if !haveObject {
+		return 0, errNonPhy
 	}
 	// removed keys must be pre-collected according to BoltDB docs.
 	var ks [][]byte

@@ -1,6 +1,7 @@
 package storagelog
 
 import (
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -13,10 +14,8 @@ func Write(logger *zap.Logger, fields ...zap.Field) {
 }
 
 // AddressField returns logger's field for object address.
-//
-// Address should be type of *object.Address or string.
-func AddressField(addr any) zap.Field {
-	return zap.Any("address", addr)
+func AddressField(addr oid.Address) zap.Field {
+	return zap.Stringer("address", addr)
 }
 
 // OpField returns logger's field for operation type.
