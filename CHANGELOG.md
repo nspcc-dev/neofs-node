@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - Too high nbf/iat token defaults in CLI for testnet/mainnet (#3819)
 - Repeated attempts to delete nonexistent objects (#3820)
 - Address change in configuration not triggering netmap update (#3828)
+- Billing for networks with 0.25.0 -> 0.26.0 migrated contracts (#3832)
 
 ### Changed
 - SN retries notary requests if `insufficient amount of gas` error appears (#3739)
@@ -24,6 +25,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - NeoGo dependency to 0.117.0 (#3829)
+- neofs-contracts to 0.26.1 (#3832)
 
 ### Updating from v0.51.0
 
