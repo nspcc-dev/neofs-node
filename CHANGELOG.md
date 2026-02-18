@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.51.1
+
+## [0.51.1] - 2026-02-18
+
+### Added
 - `neofs-cli container policy check` command (#3790)
 - `neofs-adm mainchain update` command (#3799, #3811)
 - `neofs-adm mainchain version` command (#3811)
@@ -21,13 +35,9 @@ Changelog for NeoFS Node
 - SN retries notary requests if `insufficient amount of gas` error appears (#3739)
 - Speed up metabase resync by using batch operations (#3804)
 
-### Removed
-
 ### Updated
 - NeoGo dependency to 0.117.0 (#3829)
 - neofs-contracts to 0.26.1 (#3832)
-
-### Updating from v0.51.0
 
 ## [0.51.0] - 2026-02-04 - Chudo
 
@@ -2869,7 +2879,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.1...master
+[0.51.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.0...v0.51.1
 [0.51.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...v0.51.0
 [0.50.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.1...v0.50.2
 [0.50.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.0...v0.50.1
