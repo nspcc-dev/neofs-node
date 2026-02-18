@@ -910,6 +910,7 @@ func (x mockNodeState) CurrentEpoch() uint64 {
 }
 
 type inMemLocalStorage struct {
+	unimplementedLocalStorage
 	mtx  sync.RWMutex
 	objs []object.Object
 	err  error
@@ -946,15 +947,21 @@ func (x *inMemLocalStorage) Put(obj *object.Object, objBin []byte) error {
 	return nil
 }
 
-func (x *inMemLocalStorage) Delete(oid.Address, uint64, []oid.ID) error {
+type unimplementedLocalStorage struct{}
+
+func (unimplementedLocalStorage) Put(*object.Object, []byte) error {
 	panic("unimplemented")
 }
 
-func (x *inMemLocalStorage) Lock(oid.Address, []oid.ID) error {
+func (unimplementedLocalStorage) Delete(oid.Address, uint64, []oid.ID) error {
 	panic("unimplemented")
 }
 
-func (x *inMemLocalStorage) IsLocked(oid.Address) (bool, error) {
+func (unimplementedLocalStorage) Lock(oid.Address, []oid.ID) error {
+	panic("unimplemented")
+}
+
+func (unimplementedLocalStorage) IsLocked(oid.Address) (bool, error) {
 	panic("unimplemented")
 }
 
@@ -975,7 +982,7 @@ func (x nodeServices) Get(node clientcore.NodeInfo) (clientcore.MultiAddressClie
 	if err != nil {
 		return nil, err
 	}
-	return (*serviceClient)(svc), nil
+	return &serviceClient{svc: svc}, nil
 }
 
 func (x nodeServices) SendReplicationRequestToNode(_ context.Context, reqBin []byte, node clientcore.NodeInfo) ([]byte, error) {
@@ -1005,10 +1012,13 @@ func (x nodeServices) SendReplicationRequestToNode(_ context.Context, reqBin []b
 	return nil, nil
 }
 
-type serviceClient Service
+type serviceClient struct {
+	unimplementedClient
+	svc *Service
+}
 
 func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
-	stream, err := (*Service)(m).Put(ctx)
+	stream, err := m.svc.Put(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1033,48 +1043,54 @@ func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ 
 	return (*testPayloadStream)(stream), nil
 }
 
-func (m *serviceClient) ReplicateObject(context.Context, oid.ID, io.ReadSeeker, neofscrypto.Signer, bool) (*neofscrypto.Signature, error) {
+type unimplementedClient struct{}
+
+func (unimplementedClient) ObjectPutInit(context.Context, object.Object, user.Signer, client.PrmObjectPutInit) (client.ObjectWriter, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectDelete(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectDelete) (oid.ID, error) {
+func (unimplementedClient) ReplicateObject(context.Context, oid.ID, io.ReadSeeker, neofscrypto.Signer, bool) (*neofscrypto.Signature, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectGetInit(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectGet) (object.Object, *client.PayloadReader, error) {
+func (unimplementedClient) ObjectDelete(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectDelete) (oid.ID, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHead) (*object.Object, error) {
+func (unimplementedClient) ObjectGetInit(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectGet) (object.Object, *client.PayloadReader, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectSearchInit(context.Context, cid.ID, user.Signer, client.PrmObjectSearch) (*client.ObjectListReader, error) {
+func (unimplementedClient) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHead) (*object.Object, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) SearchObjects(context.Context, cid.ID, object.SearchFilters, []string, string, neofscrypto.Signer, client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
+func (unimplementedClient) ObjectSearchInit(context.Context, cid.ID, user.Signer, client.PrmObjectSearch) (*client.ObjectListReader, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64, uint64, user.Signer, client.PrmObjectRange) (*client.ObjectRangeReader, error) {
+func (unimplementedClient) SearchObjects(context.Context, cid.ID, object.SearchFilters, []string, string, neofscrypto.Signer, client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectHash(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHash) ([][]byte, error) {
+func (unimplementedClient) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64, uint64, user.Signer, client.PrmObjectRange) (*client.ObjectRangeReader, error) {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) AnnounceLocalTrust(context.Context, uint64, []apireputation.Trust, client.PrmAnnounceLocalTrust) error {
+func (unimplementedClient) ObjectHash(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHash) ([][]byte, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedClient) AnnounceLocalTrust(context.Context, uint64, []apireputation.Trust, client.PrmAnnounceLocalTrust) error {
 	// TODO: interfaces are oversaturated. This will never be needed to server object PUT. Refactor this.
 	panic("unimplemented")
 }
 
-func (m *serviceClient) AnnounceIntermediateTrust(context.Context, uint64, apireputation.PeerToPeerTrust, client.PrmAnnounceIntermediateTrust) error {
+func (unimplementedClient) AnnounceIntermediateTrust(context.Context, uint64, apireputation.PeerToPeerTrust, client.PrmAnnounceIntermediateTrust) error {
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+func (unimplementedClient) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
 	panic("unimplemented")
 }
 

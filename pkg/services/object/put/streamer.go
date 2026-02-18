@@ -290,6 +290,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		},
 		metaSigner: prm.localSignerRFC6979,
 		localOnly:  prm.common.LocalOnly(),
+		// initialPlacementPolicy: prm.cnr.InitialPlacementPolicy(), // FIXME
 	}
 }
 
