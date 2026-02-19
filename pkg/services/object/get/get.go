@@ -327,7 +327,7 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 			zap.Error(exec.err),
 		)
 
-		if execCnr {
+		if execCnr && !exec.headerWritten {
 			exec.executeOnContainer()
 			exec.analyzeStatus(false)
 		}

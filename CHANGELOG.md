@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Resending the header after chunks have already been sent in object service `Get` handler (#3833)
 
 ### Changed
 

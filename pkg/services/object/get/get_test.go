@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -1135,4 +1136,185 @@ func parameterizeXHeaders(t testing.TB, p *Prm, ss []string) {
 	require.NoError(t, err)
 
 	p.SetCommonParameters(cp)
+}
+
+type failingReader struct {
+	data      []byte
+	pos       int
+	failAfter int
+	err       error
+}
+
+func (r *failingReader) Read(p []byte) (n int, err error) {
+	if r.pos >= len(r.data) {
+		return 0, io.EOF
+	}
+
+	if r.pos >= r.failAfter && r.failAfter > 0 {
+		return 0, r.err
+	}
+
+	n = copy(p, r.data[r.pos:])
+	r.pos += n
+	return n, nil
+}
+
+func (r *failingReader) Close() error {
+	return nil
+}
+
+type trackingWriter struct {
+	writeHeaderCount atomic.Int32
+	writeChunkCount  atomic.Int32
+	failAfterChunks  int32
+	err              error
+}
+
+func (w *trackingWriter) WriteHeader(*object.Object) error {
+	w.writeHeaderCount.Add(1)
+	return nil
+}
+
+func (w *trackingWriter) WriteChunk([]byte) error {
+	count := w.writeChunkCount.Add(1)
+
+	if w.failAfterChunks > 0 && count == w.failAfterChunks {
+		return w.err
+	}
+	return nil
+}
+
+type testStorageWithFailingReader struct {
+	unimplementedLocalStorage
+	obj       *object.Object
+	failAfter int
+	err       error
+}
+
+func (s *testStorageWithFailingReader) get(*execCtx) (*object.Object, io.ReadCloser, error) {
+	if s.obj == nil {
+		return nil, nil, errors.New("object not found")
+	}
+
+	payload := s.obj.Payload()
+	reader := &failingReader{
+		data:      payload,
+		failAfter: s.failAfter,
+		err:       s.err,
+	}
+
+	objWithoutPayload := s.obj.CutPayload()
+	objWithoutPayload.SetPayloadSize(s.obj.PayloadSize())
+	return objWithoutPayload, reader, nil
+}
+
+func (s *testStorageWithFailingReader) Head(oid.Address, bool) (*object.Object, error) {
+	if s.obj == nil {
+		return nil, errors.New("object not found")
+	}
+	return s.obj.CutPayload(), nil
+}
+
+func TestDoubleWriteHeaderOnPayloadReadFailure(t *testing.T) {
+	ctx := context.Background()
+	addr := oidtest.Address()
+
+	payloadSize := 1024 * 1024 // 1MB > chunk (256KB)
+	payload := make([]byte, payloadSize)
+	_, _ = rand.Read(payload)
+
+	obj := generateObject(addr, nil, payload)
+
+	readErr := errors.New("simulated payload read error")
+	storage := &testStorageWithFailingReader{
+		obj:       obj,
+		failAfter: 300 * 1024, // > chunk
+		err:       readErr,
+	}
+
+	anyNodeLists, nodeStrs := testNodeMatrix(t, []int{1})
+
+	clientCache := &testClientCache{
+		clients: make(map[string]*testClient),
+	}
+	remoteClient := newTestClient()
+	remoteClient.addResult(addr, obj, nil)
+	clientCache.clients[nodeStrs[0][0]] = remoteClient
+
+	svc := &Service{cfg: new(cfg)}
+	svc.log = zaptest.NewLogger(t)
+	svc.localObjects = storage
+	svc.localStorage = storage
+	svc.clientCache = clientCache
+	svc.neoFSNet = &testNeoFS{
+		vectors: map[oid.Address][][]netmap.NodeInfo{
+			addr: anyNodeLists,
+		},
+	}
+
+	writer := &trackingWriter{}
+
+	var prm Prm
+	prm.SetObjectWriter(writer)
+	prm.WithAddress(addr)
+	prm.common = new(util.CommonPrm)
+
+	err := svc.Get(ctx, prm)
+	require.ErrorIs(t, err, readErr)
+
+	t.Logf("WriteHeader called: %d times", writer.writeHeaderCount.Load())
+	t.Logf("WriteChunk called: %d times", writer.writeChunkCount.Load())
+	require.EqualValues(t, 1, writer.writeHeaderCount.Load())
+}
+
+func TestDoubleWriteHeaderOnChunkWriteFailure(t *testing.T) {
+	ctx := context.Background()
+	addr := oidtest.Address()
+
+	payloadSize := 1024 * 1024 // 1MB > chunk (256KB)
+	payload := make([]byte, payloadSize)
+	_, _ = rand.Read(payload)
+
+	obj := generateObject(addr, nil, payload)
+
+	storage := newTestStorage()
+	storage.addPhy(addr, obj)
+
+	anyNodeLists, nodeStrs := testNodeMatrix(t, []int{1})
+
+	clientCache := &testClientCache{
+		clients: make(map[string]*testClient),
+	}
+	remoteClient := newTestClient()
+	remoteClient.addResult(addr, obj, nil)
+	clientCache.clients[nodeStrs[0][0]] = remoteClient
+
+	svc := &Service{cfg: new(cfg)}
+	svc.log = zaptest.NewLogger(t)
+	svc.localObjects = storage
+	svc.localStorage = storage
+	svc.clientCache = clientCache
+	svc.neoFSNet = &testNeoFS{
+		vectors: map[oid.Address][][]netmap.NodeInfo{
+			addr: anyNodeLists,
+		},
+	}
+
+	writeErr := errors.New("simulated chunk write error")
+	writer := &trackingWriter{
+		failAfterChunks: 2,
+		err:             writeErr,
+	}
+
+	var prm Prm
+	prm.SetObjectWriter(writer)
+	prm.WithAddress(addr)
+	prm.common = new(util.CommonPrm)
+
+	err := svc.Get(ctx, prm)
+	require.ErrorIs(t, err, writeErr)
+
+	t.Logf("WriteHeader called: %d times", writer.writeHeaderCount.Load())
+	t.Logf("WriteChunk called: %d times", writer.writeChunkCount.Load())
+	require.EqualValues(t, 1, writer.writeHeaderCount.Load())
 }
