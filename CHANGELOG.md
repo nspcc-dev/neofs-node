@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
+- GC deadlock on local object storage shutdown (#3837)
 
 ### Changed
 
