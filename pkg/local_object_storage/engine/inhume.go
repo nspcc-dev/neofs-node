@@ -96,7 +96,7 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 			linkAddr.SetContainer(addr.Container())
 			linkAddr.SetObject(linkID)
 
-			linkObj, err := e.Get(linkAddr)
+			linkObj, err := e.getInt(linkAddr)
 			if err != nil {
 				e.log.Debug("inhuming root object but no link object is found",
 					zap.Stringer("linkAddr", linkAddr),

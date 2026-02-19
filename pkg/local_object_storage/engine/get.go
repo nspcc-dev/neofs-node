@@ -37,7 +37,11 @@ func (e *StorageEngine) Get(addr oid.Address) (*object.Object, error) {
 	if e.blockErr != nil {
 		return nil, e.blockErr
 	}
+	return e.getInt(addr)
+}
 
+// getInt is an unlocked version of Get.
+func (e *StorageEngine) getInt(addr oid.Address) (*object.Object, error) {
 	var (
 		err error
 		obj *object.Object
