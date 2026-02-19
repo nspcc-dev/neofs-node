@@ -58,6 +58,11 @@ type execCtx struct {
 
 	nodeLists [][]netmap.NodeInfo
 	repRules  []uint
+
+	// headerWritten is set to true after WriteHeader is successfully called.
+	// If an error occurs after that, the stream is already corrupted and
+	// no retry should be attempted.
+	headerWritten bool
 }
 
 type execOption func(*execCtx)
@@ -291,7 +296,7 @@ func (exec *execCtx) headChild(id oid.ID) (*object.Object, bool) {
 	return nil, false
 }
 
-func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
+func (exec *execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
 	c, err := exec.svc.clientCache.get(info)
 
 	if err == nil {
@@ -331,6 +336,7 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	)
 
 	if err == nil {
+		exec.headerWritten = true
 		exec.status = statusOK
 		exec.err = nil
 	} else {
