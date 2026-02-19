@@ -291,7 +291,7 @@ func (exec *execCtx) headChild(id oid.ID) (*object.Object, bool) {
 	return nil, false
 }
 
-func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
+func (exec *execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
 	c, err := exec.svc.clientCache.get(info)
 
 	if err == nil {
