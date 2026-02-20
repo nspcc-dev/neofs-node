@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - GC deadlock on local object storage shutdown (#3837)
 - `owner mismatches signature` for stored objects (#3836)
 - SN does not retry resending failed transaction because of insufficient GAS in some cases (#3839)
+- Too early GET/HEAD/RANGE request failure on single SN dial failure (#3840)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)

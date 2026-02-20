@@ -14,7 +14,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 
 	remoteClient, ok := exec.remoteClient(info)
 	if !ok {
-		return true
+		return false
 	}
 
 	obj, reader, err := remoteClient.getObject(exec)
