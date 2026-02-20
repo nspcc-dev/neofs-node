@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
 - GC deadlock on local object storage shutdown (#3837)
 - `owner mismatches signature` for stored objects (#3836)
+- SN does not retry resending failed transaction because of insufficient GAS in some cases (#3839)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)

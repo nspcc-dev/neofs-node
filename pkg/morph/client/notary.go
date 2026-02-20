@@ -836,6 +836,21 @@ func alreadyOnChainError(err error) bool {
 	return strings.Contains(err.Error(), alreadyOnChainErrorMessage)
 }
 
+// Neo-Go VM (as of v0.117.0) can return different variations of GAS problem
+// depending on instruction throwing expeception.
+// See https://github.com/nspcc-dev/neo-go/issues/4170.
+func insufficientAmountOfGasErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "insufficient amount of gas") ||
+		strings.Contains(msg, "gas limit exceeded") ||
+		strings.Contains(msg, "GAS limit exceeded") ||
+		strings.Contains(msg, "insufficient gas") ||
+		strings.Contains(msg, "gas limit is exceeded")
+}
+
 // CalculateNotaryDepositAmount calculates notary deposit amount
 // using the rule:
 //
