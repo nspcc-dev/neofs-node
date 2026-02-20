@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -12,7 +13,7 @@ import (
 )
 
 type clientCache interface {
-	Get(client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
 }
 
 // clientKeyRemoteProvider must provide a remote writer and take into account
@@ -71,7 +72,7 @@ func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriter
 	}
 }
 
-func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (reputationcommon.WriterProvider, error) {
+func (rtp *remoteTrustProvider) InitRemote(ctx context.Context, srv reputationcommon.ServerInfo) (reputationcommon.WriterProvider, error) {
 	rtp.log.Debug("initializing remote writer provider")
 
 	if srv == nil {
@@ -92,7 +93,7 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
 
-	c, err := rtp.clientCache.Get(info)
+	c, err := rtp.clientCache.Get(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}

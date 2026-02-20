@@ -60,7 +60,7 @@ type Service struct {
 type Option func(*cfg)
 
 type getClient interface {
-	getObject(*execCtx, client.NodeInfo) (*object.Object, io.ReadCloser, error)
+	getObject(*execCtx) (*object.Object, io.ReadCloser, error)
 }
 
 type cfg struct {
@@ -90,7 +90,7 @@ type cfg struct {
 	}
 
 	clientCache interface {
-		get(client.NodeInfo) (getClient, error)
+		get(context.Context, client.NodeInfo) (getClient, error)
 	}
 	// TODO: merge with clientCache
 	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client
@@ -152,7 +152,7 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 }
 
 type ClientConstructor interface {
-	Get(client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
 }
 
 // WithClientConstructor returns option to set constructor of remote node clients.

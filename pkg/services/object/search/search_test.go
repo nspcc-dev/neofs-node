@@ -70,7 +70,7 @@ func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netm
 	return nil
 }
 
-func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
+func (c *testClientCache) get(_ context.Context, info clientcore.NodeInfo) (searchClient, error) {
 	v, ok := c.clients[info.AddressGroup().String()]
 	if !ok {
 		return nil, errors.New("could not construct client")
@@ -88,7 +88,7 @@ func (ts *testStorage) search(exec *execCtx) ([]oid.ID, error) {
 	return v.ids, v.err
 }
 
-func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
+func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx) ([]oid.ID, error) {
 	v, ok := ts.items[exec.containerID()]
 	if !ok {
 		return nil, nil

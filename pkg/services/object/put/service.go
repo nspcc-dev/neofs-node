@@ -62,7 +62,7 @@ type Transport interface {
 }
 
 type ClientConstructor interface {
-	Get(client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
 }
 
 // ContainerNodes provides access to storage nodes matching storage policy of

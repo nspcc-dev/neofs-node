@@ -11,10 +11,12 @@ Changelog for NeoFS Node
 - `owner mismatches signature` for stored objects (#3836)
 
 ### Changed
+- SN returns unsigned responses to requests with API >= `v2.22` (#3785)
 
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260211130529-740a11a64a87` (#3785)
 
 ### Updating from v0.51.1
 

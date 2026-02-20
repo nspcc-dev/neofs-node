@@ -46,11 +46,13 @@ type Clients struct {
 
 	mtx   sync.RWMutex
 	conns map[string]*connections // keys are public key bytes
+
+	signer neofscrypto.Signer
 }
 
 // NewClients constructs Clients initializing connection to any endpoint with
 // given parameters.
-func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTimeout, pingInterval, pingTimeout time.Duration) *Clients {
+func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTimeout, pingInterval, pingTimeout time.Duration, signer neofscrypto.Signer) *Clients {
 	return &Clients{
 		log:              l,
 		streamMsgTimeout: streamTimeout,
@@ -59,6 +61,7 @@ func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTim
 		pingInterval:     pingInterval,
 		pingTimeout:      pingTimeout,
 		conns:            make(map[string]*connections),
+		signer:           signer,
 	}
 }
 
@@ -76,7 +79,7 @@ func snCacheKey(pub []byte) string { return string(pub) }
 // Get initializes connections to network addresses of described SN and returns
 // interface to access them. All opened connections are cached and kept alive
 // until [Clients.CloseAll].
-func (x *Clients) Get(info clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (x *Clients) Get(ctx context.Context, info clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
 	pub := info.PublicKey()
 	cacheKey := snCacheKey(pub)
 
@@ -93,7 +96,7 @@ func (x *Clients) Get(info clientcore.NodeInfo) (clientcore.MultiAddressClient, 
 		return c, nil
 	}
 
-	c, err := x.initConnections(pub, info.AddressGroup())
+	c, err := x.initConnections(ctx, pub, info.AddressGroup())
 	if err != nil {
 		return nil, fmt.Errorf("init connections: %w", err)
 	}
@@ -102,7 +105,7 @@ func (x *Clients) Get(info clientcore.NodeInfo) (clientcore.MultiAddressClient, 
 }
 
 // SyncWithNewNetmap synchronizes x with the passed new network map.
-func (x *Clients) SyncWithNewNetmap(sns []netmap.NodeInfo, local int) {
+func (x *Clients) SyncWithNewNetmap(ctx context.Context, sns []netmap.NodeInfo, local int) {
 	x.mtx.Lock()
 	defer x.mtx.Unlock()
 
@@ -110,7 +113,7 @@ func (x *Clients) SyncWithNewNetmap(sns []netmap.NodeInfo, local int) {
 		if i == local {
 			continue
 		}
-		if err := x.syncWithNetmapSN(sns[i]); err != nil {
+		if err := x.syncWithNetmapSN(ctx, sns[i]); err != nil {
 			x.log.Warn("failed to sync connection cache with SN from the new network map, skip",
 				zap.String("pub", hex.EncodeToString(sns[i].PublicKey())), zap.Error(err))
 		}
@@ -128,7 +131,7 @@ func (x *Clients) SyncWithNewNetmap(sns []netmap.NodeInfo, local int) {
 	})
 }
 
-func (x *Clients) syncWithNetmapSN(sn netmap.NodeInfo) error {
+func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) error {
 	pub := sn.PublicKey()
 	conns, ok := x.conns[snCacheKey(pub)]
 	if !ok {
@@ -168,7 +171,7 @@ func (x *Clients) syncWithNetmapSN(sn netmap.NodeInfo) error {
 			continue
 		}
 		x.log.Info("initializing connection to new SN address in the new network map...", zap.String("address", ma))
-		c, err := x.initConnection(pub, as[i].URIAddr())
+		c, err := x.initConnection(ctx, pub, as[i].URIAddr())
 		if err != nil {
 			x.log.Info("failed to init connection to new SN address in the new network map",
 				zap.String("address", ma), zap.Error(err))
@@ -181,13 +184,13 @@ func (x *Clients) syncWithNetmapSN(sn netmap.NodeInfo) error {
 	return nil
 }
 
-func (x *Clients) initConnections(pub []byte, as network.AddressGroup) (*connections, error) {
+func (x *Clients) initConnections(ctx context.Context, pub []byte, as network.AddressGroup) (*connections, error) {
 	m := make(map[string]*client.Client, len(as))
 	l := x.log.With(zap.String("public key", hex.EncodeToString(pub)))
 	for i := range as {
 		cacheKey := as[i].String()
 		l.Info("initializing connection to the SN...", zap.String("address", cacheKey))
-		c, err := x.initConnection(pub, as[i].URIAddr())
+		c, err := x.initConnection(ctx, pub, as[i].URIAddr())
 		if err != nil {
 			// TODO: if at least one address is OK, SN can be operational
 			for cl := range maps.Values(m) {
@@ -206,7 +209,7 @@ func (x *Clients) initConnections(pub []byte, as network.AddressGroup) (*connect
 	}, nil
 }
 
-func (x *Clients) initConnection(pub []byte, uri string) (*client.Client, error) {
+func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*client.Client, error) {
 	target, withTLS, err := uriutil.Parse(uri)
 	if err != nil {
 		return nil, fmt.Errorf("parse URI: %w", err)
@@ -232,17 +235,26 @@ func (x *Clients) initConnection(pub []byte, uri string) (*client.Client, error)
 	if err != nil { // should never happen
 		return nil, fmt.Errorf("init gRPC client conn: %w", err)
 	}
-	res, err := client.NewGRPC(grpcConn, x.signBufPool, x.streamMsgTimeout, func(respPub []byte) error {
-		if !bytes.Equal(respPub, pub) {
-			return clientcore.ErrWrongPublicKey
-		}
-		return nil
-	})
+	res, err := client.NewGRPC(ctx, pub, grpcConn, x.signBufPool, x.streamMsgTimeout, nil)
 	if err != nil {
 		_ = grpcConn.Close()
 		return res, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
 	}
-	grpcConn.Connect()
+
+	ctx, cancel := context.WithTimeout(ctx, x.streamMsgTimeout)
+	defer cancel()
+
+	resp, err := res.EndpointInfo(ctx, client.PrmEndpointInfo{})
+	if err != nil {
+		_ = grpcConn.Close()
+		return nil, fmt.Errorf("get node info to check public key: %w", err)
+	}
+
+	if got := resp.NodeInfo().PublicKey(); !bytes.Equal(got, pub) {
+		_ = grpcConn.Close()
+		return nil, clientcore.ErrWrongPublicKey
+	}
+
 	return res, nil
 }
 

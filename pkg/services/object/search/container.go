@@ -63,7 +63,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 
 			lg.Debug("processing node...")
 
-			c, err := exec.svc.clientConstructor.get(info)
+			c, err := exec.svc.clientConstructor.get(ctx, info)
 			if err != nil {
 				mtx.Lock()
 				exec.status = statusUndefined
@@ -74,7 +74,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 				return
 			}
 
-			ids, err := c.searchObjects(ctx, exec, info)
+			ids, err := c.searchObjects(ctx, exec)
 			if err != nil {
 				lg.Debug("remote operation failed",
 					zap.Error(err))

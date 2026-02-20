@@ -25,7 +25,7 @@ type Streamer struct {
 
 	target internal.Target
 
-	relay func(client.NodeInfo, client.MultiAddressClient) error
+	relay func(client.MultiAddressClient) error
 
 	maxPayloadSz uint64 // network config
 
@@ -251,12 +251,12 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {
-			c, err := p.clientConstructor.Get(node.info)
+			c, err := p.clientConstructor.Get(p.ctx, node.info)
 			if err != nil {
 				return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
 			}
 
-			return p.relay(node.info, c)
+			return p.relay(c)
 		}
 	}
 

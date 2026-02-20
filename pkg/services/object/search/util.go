@@ -61,8 +61,8 @@ func (w *uniqueIDWriter) WriteIDs(list []oid.ID) error {
 	return w.writer.WriteIDs(list)
 }
 
-func (c *clientConstructorWrapper) get(info client.NodeInfo) (searchClient, error) {
-	clt, err := c.constructor.Get(info)
+func (c *clientConstructorWrapper) get(ctx context.Context, info client.NodeInfo) (searchClient, error) {
+	clt, err := c.constructor.Get(ctx, info)
 	if err != nil {
 		return nil, err
 	}
@@ -72,9 +72,9 @@ func (c *clientConstructorWrapper) get(info client.NodeInfo) (searchClient, erro
 	}, nil
 }
 
-func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info client.NodeInfo) ([]oid.ID, error) {
+func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx) ([]oid.ID, error) {
 	if exec.prm.forwarder != nil {
-		return exec.prm.forwarder(info, c.client)
+		return exec.prm.forwarder(c.client)
 	}
 
 	key, err := exec.svc.keyStore.GetKey(nil)

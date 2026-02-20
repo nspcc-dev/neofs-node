@@ -19,7 +19,7 @@ import (
 )
 
 type ClientConstructor interface {
-	Get(clientcore.NodeInfo) (clientcore.Client, error)
+	Get(context.Context, clientcore.NodeInfo) (clientcore.Client, error)
 }
 
 // RemoteHeader represents utility for getting
@@ -93,7 +93,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
 
-	c, err := h.clientCache.Get(info)
+	c, err := h.clientCache.Get(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, info.AddressGroup(), err)
 	}
@@ -127,7 +127,7 @@ func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr c
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
 
-	conn, err := h.clientCache.Get(info)
+	conn, err := h.clientCache.Get(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("get conn: %w", err)
 	}

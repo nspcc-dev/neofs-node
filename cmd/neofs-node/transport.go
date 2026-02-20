@@ -20,7 +20,7 @@ type transport struct {
 // SendReplicationRequestToNode connects to described node and sends prepared
 // replication request message to it.
 func (x *transport) SendReplicationRequestToNode(ctx context.Context, req []byte, node coreclient.NodeInfo) ([]byte, error) {
-	c, err := x.clients.Get(node)
+	c, err := x.clients.Get(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("connect to remote node: %w", err)
 	}
