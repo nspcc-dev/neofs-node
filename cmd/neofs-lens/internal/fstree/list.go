@@ -1,4 +1,4 @@
-package writecache
+package fstree
 
 import (
 	"fmt"
@@ -12,33 +12,34 @@ import (
 var listCMD = &cobra.Command{
 	Use:   "list",
 	Short: "Object listing",
-	Long:  `List all objects stored in a write-cache.`,
+	Long:  `List all objects stored in FSTree.`,
 	Args:  cobra.NoArgs,
 	RunE:  listFunc,
 }
 
 func init() {
 	common.AddComponentPathFlag(listCMD, &vPath)
+	AddDepthFlag(listCMD, &vDepth)
 }
 
 func listFunc(cmd *cobra.Command, _ []string) error {
 	// other targets can be supported
 	w := cmd.OutOrStderr()
 
-	wAddr := func(addr oid.Address, _ []byte) error {
-		_, err := io.WriteString(w, fmt.Sprintf("%s\n", addr))
+	wAddr := func(addr oid.Address) error {
+		_, err := io.WriteString(w, addr.EncodeToString()+"\n")
 		return err
 	}
 
-	wc, err := openWC()
+	fst, err := openFSTree()
 	if err != nil {
 		return err
 	}
-	defer wc.Close()
+	defer fst.Close()
 
-	err = wc.Iterate(wAddr, true)
+	err = fst.IterateAddresses(wAddr, true)
 	if err != nil {
-		return fmt.Errorf("write-cache iterator failure: %w", err)
+		return fmt.Errorf("fstree iterator failure: %w", err)
 	}
 	return nil
 }

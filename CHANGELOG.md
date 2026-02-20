@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
+- Move lens `write-cache` `get`/`list` commands into `fstree` section in CLI (#3838)
 
 ### Removed
 
