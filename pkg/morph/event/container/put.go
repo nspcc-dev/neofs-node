@@ -10,7 +10,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
-// Put structure of container.Put notification from morph chain.
+// Put structure of container.Put or container.PutNamed notification from morph chain.
 type Put struct {
 	rawContainer []byte
 	signature    []byte
@@ -24,8 +24,6 @@ type Put struct {
 	// Contains raw transactions of notary request.
 	notaryRequest *payload.P2PNotaryRequest
 }
-
-const expectedItemNumPut = 4
 
 // MorphEvent implements Neo:Morph Event interface.
 func (Put) MorphEvent() {}
@@ -45,27 +43,20 @@ func (p Put) SessionToken() []byte {
 	return p.token
 }
 
+// Name returns "name" arg of contract call.
+func (p Put) Name() string {
+	return p.name
+}
+
+// Zone returns "zone" arg of contract call.
+func (p Put) Zone() string {
+	return p.zone
+}
+
 // NotaryRequest returns raw notary request if notification
 // was received via notary service. Otherwise, returns nil.
 func (p Put) NotaryRequest() *payload.P2PNotaryRequest {
 	return p.notaryRequest
-}
-
-// PutNamed represents notification event spawned by PutNamed method from Container contract of NeoFS Morph chain.
-type PutNamed struct {
-	Put
-
-	name, zone string
-}
-
-// Name returns "name" arg of contract call.
-func (x PutNamed) Name() string {
-	return x.name
-}
-
-// Zone returns "zone" arg of contract call.
-func (x PutNamed) Zone() string {
-	return x.zone
 }
 
 // PutSuccess structures notification event of successful container creation
