@@ -304,7 +304,7 @@ func (exec *execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
 	}
 	exec.status = statusUndefined
 	exec.err = err
-	exec.log.Debug("could not construct remote node client")
+	exec.log.Debug("could not construct remote node client", zap.Error(err))
 	return nil, false
 }
 
