@@ -22,6 +22,24 @@ func SysObjTargetShouldBeInHeader(v *version.Version) bool {
 		(v.Major() == latestSysObjTargetInPayloadMjr && v.Minor() > latestSysObjTargetInPayloadMnr)
 }
 
+// OwnerSignatureMatchRequired returns true if an object with the given version
+// must have the owner matching the signature's public key. Objects below version
+// 2.18 may have a mismatching owner due to a bug that allowed creating such
+// objects, so they should not be rejected.
+func OwnerSignatureMatchRequired(v *version.Version) bool {
+	if v == nil || !IsValid(*v) {
+		return true // assume latest
+	}
+
+	const (
+		ownerMatchMjr = 2
+		ownerMatchMnr = 18
+	)
+
+	return v.Major() > ownerMatchMjr ||
+		(v.Major() == ownerMatchMjr && v.Minor() >= ownerMatchMnr)
+}
+
 // IsValid checks if Version is not earlier than the genesis version of the NeoFS.
 func IsValid(v version.Version) bool {
 	const (

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -78,7 +79,9 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		if !verifyECDSAFns[scheme](*ecdsaPub, sig.Value(), obj.GetID().Marshal()) {
 			return schemeError(scheme, errSignatureMismatch)
 		}
-		if sessionToken == nil && sessionTokenV2 == nil && !ecPart && user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() {
+		if sessionToken == nil && sessionTokenV2 == nil && !ecPart &&
+			user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() &&
+			version.OwnerSignatureMatchRequired(obj.Version()) {
 			return errors.New("owner mismatches signature")
 		}
 	case neofscrypto.N3:
