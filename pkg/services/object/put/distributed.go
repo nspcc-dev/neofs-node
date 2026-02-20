@@ -189,17 +189,17 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	initialPUT := t.sessionSigner != nil || !t.localOnly
 	if initialPUT && typ == object.TypeRegular && t.initialPlacementPolicy != nil {
 		if t.sessionSigner != nil || len(ecRules) == 0 {
-			err := t.handleInitialPlacementPolicy(*t.initialPlacementPolicy, repRules, ecRules, objNodeLists, obj, encObj)
+			err := t.putInitial(obj, encObj, repRules, ecRules, objNodeLists, *t.initialPlacementPolicy)
 			if err != nil {
 				return fmt.Errorf("initial placement failed: %w", err)
 			}
 			return nil
 		} else if t.ecPart.RuleIndex < 0 { // prevent EC encoding
-			err := t.handleInitialPlacementPolicy(InitialPlacementPolicy{
+			err := t.putInitial(obj, encObj, repRules, nil, objNodeLists[:len(repRules)], InitialPlacementPolicy{
 				MaxReplicas:        t.initialPlacementPolicy.MaxReplicas,
 				PreferLocal:        t.initialPlacementPolicy.PreferLocal,
 				MaxPerRuleReplicas: t.initialPlacementPolicy.MaxPerRuleReplicas[:len(repRules)],
-			}, repRules, nil, objNodeLists[:len(repRules)], obj, encObj)
+			})
 			if err != nil {
 				return fmt.Errorf("initial placement failed: %w", err)
 			}

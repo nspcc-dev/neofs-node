@@ -63,6 +63,20 @@ const (
 	maxObjectSize = 1000
 )
 
+type nopObjectWriter struct{}
+
+func (nopObjectWriter) Write(p []byte) (int, error)    { return len(p), nil }
+func (nopObjectWriter) Close() error                   { return nil }
+func (nopObjectWriter) GetResult() client.ResObjectPut { return client.ResObjectPut{} }
+
+type nopPutClient struct {
+	unimplementedClient
+}
+
+func (nopPutClient) ObjectPutInit(context.Context, object.Object, user.Signer, client.PrmObjectPutInit) (client.ObjectWriter, error) {
+	return nopObjectWriter{}, nil
+}
+
 type quotas struct {
 	soft, hard uint64
 }

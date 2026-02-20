@@ -2,7 +2,6 @@ package putsvc
 
 import (
 	"fmt"
-	"iter"
 	"slices"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -28,326 +27,442 @@ const (
 	statusFail
 )
 
-type nodeProgress struct {
+type progress struct {
 	status progressStatus
 	ok     bool
 }
 
-func (t *distributedTarget) handleInitialPlacementPolicy(inPolicy InitialPlacementPolicy, mainRepRules []uint, mainECRules []iec.Rule,
-	nodeLists [][]netmap.NodeInfo, obj object.Object, encObj encodedObject) error {
+func (t *distributedTarget) putInitial(obj object.Object, encObj encodedObject, repRules []uint, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo, policy InitialPlacementPolicy) error {
 	var repLimits, ecLimits []uint32
-	if inPolicy.MaxPerRuleReplicas != nil {
-		repLimits = inPolicy.MaxPerRuleReplicas[:len(mainRepRules)]
-		ecLimits = inPolicy.MaxPerRuleReplicas[len(mainRepRules):]
+	if policy.MaxPerRuleReplicas != nil {
+		repLimits = policy.MaxPerRuleReplicas[:len(repRules)]
+		ecLimits = policy.MaxPerRuleReplicas[len(repRules):]
 	} else {
-		// TODO: make ContainerNodes.PrimaryCounts() to just assign here
-		repLimits = make([]uint32, len(mainRepRules))
+		// TODO: sync integer type with ContainerNodes.PrimaryCounts() to just assign here
+		repLimits = make([]uint32, len(repRules))
 		for i := range repLimits {
-			repLimits[i] = uint32(mainRepRules[i])
+			repLimits[i] = uint32(repRules[i])
 		}
-		ecLimits = islices.RepeatElement(len(mainECRules), uint32(1))
+		ecLimits = islices.RepeatElement(len(ecRules), uint32(1))
 	}
 
-	listStatuses := make([][]nodeProgress, len(repLimits)+len(ecLimits))
-	for i := range listStatuses {
-		if i < len(repLimits) {
+	var repProg [][]progress
+	if slices.ContainsFunc(repLimits, func(l uint32) bool { return l > 0 }) {
+		repProg = make([][]progress, len(repLimits))
+		for i := range repLimits {
 			if repLimits[i] > 0 {
-				listStatuses[i] = make([]nodeProgress, len(nodeLists[i]))
+				repProg[i] = make([]progress, len(nodeLists[i]))
 			}
-			continue
 		}
+	}
 
-		if ecLimits[i-len(repLimits)] > 0 {
-			listStatuses[i] = make([]nodeProgress, 1)
-		}
+	var ecProg []progress
+	if slices.ContainsFunc(ecLimits, func(l uint32) bool { return l > 0 }) {
+		ecProg = make([]progress, len(ecLimits))
 	}
 
 	var eg errgroup.Group
 
-	if inPolicy.PreferLocal && inPolicy.MaxReplicas > 0 {
-		localLists := make([]int, 0, len(nodeLists))
-		for i := range nodeLists {
-			if localNodeInSet(t.placementIterator.neoFSNet, nodeLists[i]) {
-				localLists = append(localLists, i)
-			}
-		}
+	if policy.MaxReplicas > 0 {
+		return t.handleFlatInitialPlacementRule(obj, encObj, ecRules, nodeLists, policy.MaxReplicas, policy.PreferLocal, repLimits, ecLimits, repProg, ecProg, &eg)
+	}
 
-		ok, err := t._handleInitialPlacementSeq(inPolicy.MaxReplicas, repLimits, ecLimits, mainECRules, nodeLists, obj, encObj, listStatuses, &eg, true, slices.All(localLists))
-		if err != nil || ok == inPolicy.MaxReplicas {
+	return t.handleIndependentInitialPlacementRules(obj, encObj, ecRules, nodeLists, repLimits, ecLimits, repProg, ecProg, &eg)
+}
+
+func (t *distributedTarget) handleIndependentInitialPlacementRules(obj object.Object, encObj encodedObject, ecRules []iec.Rule,
+	nodeLists [][]netmap.NodeInfo, repLimits []uint32, ecLimits []uint32, repProg [][]progress, ecProg []progress, eg *errgroup.Group) error {
+	for {
+		t.groupIndependentInitialPlacement(eg, obj, encObj, ecRules, nodeLists, repLimits, repProg, ecLimits, ecProg)
+
+		if err := eg.Wait(); err != nil {
 			return err
 		}
 
-		inPolicy.MaxReplicas -= ok
-	}
+		doneREP, err := checkIndependentREPProgress(repLimits, repProg)
+		if err != nil {
+			return err
+		}
 
-	_, err := t._handleInitialPlacementSeq(inPolicy.MaxReplicas, repLimits, ecLimits, mainECRules, nodeLists, obj, encObj, listStatuses, &eg, false, func(yield func(int, int) bool) {
-		for i := range nodeLists {
-			if !yield(i, i) {
-				return
+		doneEC := checkIndependentECProgress(ecLimits, ecProg)
+
+		if doneREP && doneEC {
+			return nil
+		}
+	}
+}
+
+func (t *distributedTarget) handleFlatInitialPlacementRule(obj object.Object, encObj encodedObject, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo,
+	maxReplicas uint32, preferLocal bool, repLimits []uint32, ecLimits []uint32, repProg [][]progress, ecProg []progress, eg *errgroup.Group) error {
+	left := maxReplicas
+	var err error
+	for {
+		preferLocal = t.groupFlatInitialPlacement(eg, obj, encObj, ecRules, nodeLists, maxReplicas, preferLocal, repLimits, repProg, ecLimits, ecProg)
+
+		if err = eg.Wait(); err != nil {
+			return err
+		}
+
+		left, err = checkFlatInitialPlacementProgress(maxReplicas, repLimits, ecLimits, repProg, ecProg)
+		if left == 0 {
+			return err
+		}
+	}
+}
+
+func (t *distributedTarget) groupIndependentInitialPlacement(eg *errgroup.Group, obj object.Object, encObj encodedObject, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo,
+	repLimits []uint32, repProg [][]progress, ecLimits []uint32, ecProg []progress) {
+	t.groupIndependentInitialREP(eg, obj, encObj, nodeLists[:len(repLimits)], repLimits, repProg)
+	t.groupIndependentInitialEC(eg, obj, ecRules, nodeLists[len(repLimits):], ecLimits, ecProg, true)
+}
+
+func (t *distributedTarget) groupIndependentInitialREP(eg *errgroup.Group, obj object.Object, encObj encodedObject, nodeLists [][]netmap.NodeInfo,
+	limits []uint32, prog [][]progress) {
+nextRule:
+	for ruleIdx := range limits {
+		if limits[ruleIdx] == 0 {
+			continue
+		}
+
+		var okOrWIP uint32
+		for nodeIdx := range prog[ruleIdx] {
+			switch prog[ruleIdx][nodeIdx].status {
+			case statusUndone:
+				if !t.startInitialREPToNode(eg, obj, encObj, nodeLists, prog, ruleIdx, nodeIdx) {
+					setNodeStatus(prog, nodeLists, ruleIdx, nodeIdx, statusFail)
+					break
+				}
+				setNodeStatus(prog, nodeLists, ruleIdx, nodeIdx, statusWIP)
+				fallthrough
+			case statusOK, statusWIP:
+				if okOrWIP++; okOrWIP == limits[ruleIdx] {
+					continue nextRule
+				}
+			case statusFail:
+			default:
+				panic(fmt.Sprintf("unexpected enum value %d", prog[ruleIdx][nodeIdx].status))
 			}
 		}
+	}
+}
+
+func (t *distributedTarget) groupIndependentInitialEC(eg *errgroup.Group, obj object.Object, rules []iec.Rule, nodeLists [][]netmap.NodeInfo,
+	limits []uint32, prog []progress, mustSucceed bool) {
+	for ruleIdx := range limits {
+		if limits[ruleIdx] == 0 {
+			continue
+		}
+
+		switch prog[ruleIdx].status {
+		case statusUndone:
+			t.startInitialECByRule(eg, obj, nodeLists[ruleIdx], rules[ruleIdx], prog, ruleIdx, mustSucceed)
+			prog[ruleIdx].status = statusWIP
+		case statusOK, statusWIP, statusFail:
+		default:
+			panic(fmt.Sprintf("unexpected enum value %d", prog[ruleIdx].status))
+		}
+	}
+}
+
+func (t *distributedTarget) groupFlatInitialPlacement(eg *errgroup.Group, obj object.Object, encObj encodedObject, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo,
+	limit uint32, localOnly bool, repLimits []uint32, repProg [][]progress, ecLimits []uint32, ecProg []progress) bool {
+	for {
+		var added bool
+	nextRule:
+		for ruleIdx := range repLimits {
+			if repLimits[ruleIdx] == 0 {
+				continue
+			}
+
+			if localOnly && !localNodeInSet(t.placementIterator.neoFSNet, nodeLists[ruleIdx]) {
+				continue
+			}
+
+			var okOrWIP uint32
+			for nodeIdx := range repProg[ruleIdx] {
+				switch repProg[ruleIdx][nodeIdx].status {
+				case statusUndone:
+					if !t.startInitialREPToNode(eg, obj, encObj, nodeLists, repProg, ruleIdx, nodeIdx) {
+						setNodeStatus(repProg, nodeLists, ruleIdx, nodeIdx, statusFail)
+						break
+					}
+					setNodeStatus(repProg, nodeLists, ruleIdx, nodeIdx, statusWIP)
+					if limit--; limit == 0 {
+						return localOnly
+					}
+					added = true
+					fallthrough
+				case statusOK, statusWIP:
+					if okOrWIP++; okOrWIP == repLimits[ruleIdx] {
+						continue nextRule
+					}
+				case statusFail:
+				default:
+					panic(fmt.Sprintf("unexpected enum value %d", repProg[ruleIdx][nodeIdx].status))
+				}
+			}
+		}
+
+		for ruleIdx := range ecLimits {
+			if ecLimits[ruleIdx] == 0 {
+				continue
+			}
+
+			listIdx := len(repLimits) + ruleIdx
+			if localOnly && !localNodeInSet(t.placementIterator.neoFSNet, nodeLists[listIdx]) {
+				continue
+			}
+
+			switch ecProg[ruleIdx].status {
+			case statusUndone:
+				t.startInitialECByRule(eg, obj, nodeLists[listIdx], ecRules[ruleIdx], ecProg, ruleIdx, false)
+				ecProg[ruleIdx].status = statusWIP
+				if limit--; limit == 0 {
+					return localOnly
+				}
+				added = true
+			case statusOK, statusWIP, statusFail:
+			default:
+				panic(fmt.Sprintf("unexpected enum value %d", ecProg[ruleIdx].status))
+			}
+		}
+
+		if !added {
+			if !localOnly {
+				return false
+			}
+			localOnly = false
+		}
+	}
+}
+
+func (t *distributedTarget) startInitialREPToNode(eg *errgroup.Group, obj object.Object, encObj encodedObject,
+	nodeLists [][]netmap.NodeInfo, prog [][]progress, ruleIdx, nodeIdx int) bool {
+	var node nodeDesc
+	node.local = t.placementIterator.neoFSNet.IsLocalNodePublicKey(nodeLists[ruleIdx][nodeIdx].PublicKey())
+	if !node.local {
+		var err error
+		node.info, err = convertNodeInfo(nodeLists[ruleIdx][nodeIdx])
+		if err != nil {
+			// https://github.com/nspcc-dev/neofs-node/issues/3565
+			logNodeConversionError(t.placementIterator.log, nodeLists[ruleIdx][nodeIdx], err)
+			return false
+		}
+	}
+
+	node.placementVector = ruleIdx
+
+	eg.Go(func() error {
+		err := t.sendObject(obj, encObj, node, &t.metaCollection)
+		if err != nil {
+			t.placementIterator.log.Error("initial REP placement to node failed",
+				zap.Stringer("object", obj.Address()), zap.Int("repRule", ruleIdx), zap.Int("nodeIdx", nodeIdx),
+				zap.Bool("local", node.local), zap.Error(err)) // error contains addresses if remote
+
+			// TODO: this could have been the last chance to comply with the rule. If it is
+			//  missed, the entire operation should be aborted asap. Currently, if some other
+			//  worker handles slow node, request handler will wait for it delaying the response.
+			return nil
+		}
+
+		markNodeSuccess(prog, nodeLists, ruleIdx, nodeIdx)
+
+		return nil
 	})
-	return err
+
+	return true
 }
 
-func (t *distributedTarget) _handleInitialPlacementSeq(maxReplicas uint32, repLimits []uint32, ecLimits []uint32, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo,
-	obj object.Object, encObj encodedObject, listStatuses [][]nodeProgress, eg *errgroup.Group, local bool, listSeq iter.Seq2[int, int]) (uint32, error) {
-	leftReplicas := maxReplicas
-group:
-	for {
-		t._fillNextInitialPlacementGroup(leftReplicas, repLimits, ecLimits, ecRules, nodeLists, obj, encObj, listStatuses, eg, local, listSeq)
+func (t *distributedTarget) startInitialECByRule(eg *errgroup.Group, obj object.Object, nodeList []netmap.NodeInfo, rule iec.Rule,
+	prog []progress, ruleIdx int, mustSucceed bool) {
+	eg.Go(func() error {
+		_, err := t.ecAndSaveObjectByRule(t.sessionSigner, obj, ruleIdx, rule, nodeList)
+		if err != nil {
+			t.placementIterator.log.Error("initial EC placement failed",
+				zap.Stringer("object", obj.Address()), zap.Error(err)) // error contains rule info
 
-		if err := eg.Wait(); err != nil {
-			return 0, err
+			prog[ruleIdx].ok = false
+
+			if mustSucceed {
+				return err
+			}
+			return nil
 		}
 
-		for _, i := range listSeq {
-			for j := range listStatuses[i] {
-				if listStatuses[i][j].status == statusWIP {
-					if listStatuses[i][j].ok {
-						listStatuses[i][j].status = statusOK
-					} else {
-						listStatuses[i][j].status = statusFail
-					}
-				}
-			}
-		}
+		prog[ruleIdx].ok = true
 
-		if maxReplicas > 0 {
-			var ok, undone uint32
-			for _, i := range listSeq {
-				var limit uint32
-				if i < len(repLimits) {
-					limit = repLimits[i]
-				} else {
-					limit = ecLimits[i]
-				}
-
-				if limit == 0 {
-					continue
-				}
-
-				for j := range listStatuses[i] {
-					switch listStatuses[i][j].status {
-					case statusUndone:
-						undone++
-					case statusOK:
-						if ok++; ok == maxReplicas {
-							return ok, nil
-						}
-					case statusFail:
-					default:
-						panic(fmt.Sprintf("unexpected enum value %d", listStatuses[i][j].status))
-					}
-				}
-			}
-
-			if local {
-				if undone == 0 {
-					return ok, nil
-				}
-				continue
-			}
-
-			if maxReplicas <= ok+undone {
-				leftReplicas = maxReplicas - ok
-				continue
-			}
-
-			err := fmt.Errorf("unable to reach MaxReplicas %d (succeeded: %d, left nodes: %d)", maxReplicas, ok, undone)
-			if ok == 0 {
-				return 0, err
-			}
-			return 0, wrapIncompleteError(err)
-		}
-
-	nextList:
-		for i := range listStatuses {
-			var limit uint32
-			if i < len(repLimits) {
-				limit = repLimits[i]
-			} else {
-				limit = ecLimits[i]
-			}
-
-			if limit == 0 {
-				continue
-			}
-
-			var ok, undone uint32
-			for j := range listStatuses[i] {
-				switch listStatuses[i][j].status {
-				case statusUndone:
-					undone++
-				case statusOK:
-					if ok++; ok == limit {
-						continue nextList
-					}
-				case statusFail:
-				default:
-					panic(fmt.Sprintf("unexpected enum value %d", listStatuses[i][j].status))
-				}
-			}
-
-			if limit <= ok+undone {
-				continue group
-			}
-
-			err := fmt.Errorf("unable to reach replica number for rule #%d (required: %d, succeeded: %d, left nodes: %d)", i, limit, ok, undone)
-			if ok == 0 {
-				return 0, err
-			}
-			return 0, wrapIncompleteError(err)
-		}
-
-		return 0, nil
-	}
+		return nil
+	})
 }
 
-func (t *distributedTarget) _fillNextInitialPlacementGroup(maxReplicas uint32, repLimits []uint32, ecLimits []uint32, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo,
-	obj object.Object, encObj encodedObject, listStatuses [][]nodeProgress, eg *errgroup.Group, local bool, listSeq iter.Seq2[int, int]) {
-	var added uint32
-	for {
-		var extended bool
-	nextList:
-		for _, listIdx := range listSeq {
-			var limit uint32
-			ecRuleIdx := -1
-			if listIdx >= len(repLimits) {
-				ecRuleIdx = listIdx - len(repLimits)
-				limit = ecLimits[ecRuleIdx]
-			} else {
-				limit = repLimits[listIdx]
-			}
-
-			if limit == 0 {
-				continue
-			}
-
-			nodeIdx := -1
-			var ok, wip uint32
-		statusLoop:
-			for i := range listStatuses[listIdx] {
-				switch listStatuses[listIdx][i].status {
-				case statusUndone:
-					nodeIdx = i
-					break statusLoop
-				case statusOK:
-					ok++
-					if ok+wip == limit {
-						continue nextList
-					}
-				case statusWIP:
-					wip++
-					if ok+wip == limit {
-						continue nextList
-					}
-				case statusFail:
-				default:
-					panic(fmt.Sprintf("unexpected enum value %d", listStatuses[listIdx][i].status))
-				}
-			}
-
-			if nodeIdx < 0 {
-				continue
-			}
-
-			if ecRuleIdx >= 0 {
-				eg.Go(func() error {
-					_, err := t.ecAndSaveObjectByRule(t.sessionSigner, obj, ecRuleIdx, ecRules[ecRuleIdx], nodeLists[listIdx])
-					if err != nil {
-						t.placementIterator.log.Error("initial EC placement failed",
-							zap.Stringer("object", obj.Address()), zap.Error(err)) // error contains rule info
-					}
-					listStatuses[listIdx][0].ok = err == nil
-					if local {
-						err = nil
-					} // otherwise EC rule must succeed
-					return err
-				})
-
-				listStatuses[listIdx][0].status = statusWIP
-
-				if added++; added == maxReplicas {
-					return
-				}
-
-				extended = true
-				continue
-			}
-
-			var node nodeDesc
-			node.local = t.placementIterator.neoFSNet.IsLocalNodePublicKey(nodeLists[listIdx][nodeIdx].PublicKey())
-			node.placementVector = listIdx
-			if !node.local {
-				var err error
-				node.info, err = convertNodeInfo(nodeLists[listIdx][nodeIdx])
-				if err != nil {
-					// https://github.com/nspcc-dev/neofs-node/issues/3565
-					logNodeConversionError(t.placementIterator.log, nodeLists[listIdx][nodeIdx], err)
-					setNodeStatus(listStatuses[:len(repLimits)], nodeLists[:len(repLimits)], listIdx, nodeIdx, statusFail)
-					continue
-				}
-			}
-
-			setNodeStatus(listStatuses[:len(repLimits)], nodeLists[:len(repLimits)], listIdx, nodeIdx, statusWIP)
-
-			eg.Go(func() error {
-				err := t.sendObject(obj, encObj, node, &t.metaCollection)
-				if err != nil {
-					t.placementIterator.log.Error("initial REP placement to node failed",
-						zap.Stringer("object", obj.Address()), zap.Int("repRule", listIdx), zap.Int("nodeIdx", nodeIdx),
-						zap.Bool("local", node.local), zap.Error(err)) // error contains addresses if remote
-					markNodeFailure(listStatuses[:len(repLimits)], nodeLists[:len(repLimits)], listIdx, nodeIdx)
-					// TODO: this could have been the last chance to comply with the rule. If it is
-					//  missed, the entire operation should be aborted asap. Currently, if some other
-					//  worker handles slow node, request handler will wait for it delaying the response.
-					//  Note that this is relevant if local is unset only.
-					return nil
-				}
-				markNodeSuccess(listStatuses[:len(repLimits)], nodeLists[:len(repLimits)], listIdx, nodeIdx)
-				return nil
-			})
-
-			if added++; added == maxReplicas {
-				return
-			}
-
-			extended = true
-		}
-
-		if !extended {
-			return
-		}
-	}
-}
-
-func setNodeStatus(listStatuses [][]nodeProgress, nodeLists [][]netmap.NodeInfo, listIdx int, nodeIdx int, st progressStatus) {
+func setNodeStatus(listStatuses [][]progress, nodeLists [][]netmap.NodeInfo, ruleIdx int, nodeIdx int, st progressStatus) {
 	for i := range listStatuses {
-		if i != listIdx {
-			if ind := nodeIndexInSet(nodeLists[listIdx][nodeIdx], nodeLists[i]); ind >= 0 {
+		if i != ruleIdx {
+			if ind := nodeIndexInSet(nodeLists[ruleIdx][nodeIdx], nodeLists[i]); ind >= 0 {
 				listStatuses[i][ind].status = st
 			}
 		}
 	}
-	listStatuses[listIdx][nodeIdx].status = st
+	listStatuses[ruleIdx][nodeIdx].status = st
 }
 
-func markNodeSuccess(listStatuses [][]nodeProgress, nodeLists [][]netmap.NodeInfo, listIdx int, nodeIdx int) {
-	_markNodeResult(listStatuses, nodeLists, listIdx, nodeIdx, true)
-}
-
-func markNodeFailure(listStatuses [][]nodeProgress, nodeLists [][]netmap.NodeInfo, listIdx int, nodeIdx int) {
-	_markNodeResult(listStatuses, nodeLists, listIdx, nodeIdx, false)
-}
-
-func _markNodeResult(listStatuses [][]nodeProgress, nodeLists [][]netmap.NodeInfo, listIdx int, nodeIdx int, ok bool) {
+func markNodeSuccess(listStatuses [][]progress, nodeLists [][]netmap.NodeInfo, ruleIdx int, nodeIdx int) {
 	for i := range listStatuses {
-		if i != listIdx {
-			if ind := nodeIndexInSet(nodeLists[listIdx][nodeIdx], nodeLists[i]); ind >= 0 {
-				listStatuses[i][ind].ok = ok
+		if i != ruleIdx {
+			if ind := nodeIndexInSet(nodeLists[ruleIdx][nodeIdx], nodeLists[i]); ind >= 0 {
+				listStatuses[i][ind].ok = true
 			}
 		}
 	}
-	listStatuses[listIdx][nodeIdx].ok = ok
+	listStatuses[ruleIdx][nodeIdx].ok = true
+}
+
+func checkIndependentREPProgress(limits []uint32, prog [][]progress) (bool, error) {
+	done := true
+
+nextRule:
+	for ruleIdx := range limits {
+		if limits[ruleIdx] == 0 {
+			continue
+		}
+
+		var ok, undone uint32
+		for nodeIdx := range prog[ruleIdx] {
+			if prog[ruleIdx][nodeIdx].status == statusWIP {
+				if prog[ruleIdx][nodeIdx].ok {
+					prog[ruleIdx][nodeIdx].status = statusOK
+				} else {
+					prog[ruleIdx][nodeIdx].status = statusFail
+				}
+			}
+
+			switch prog[ruleIdx][nodeIdx].status {
+			case statusUndone:
+				undone++
+			case statusOK:
+				if ok++; ok == limits[ruleIdx] && undone == 0 {
+					continue nextRule
+				}
+			case statusFail:
+			default:
+				panic(fmt.Sprintf("unexpected enum value %d", prog[ruleIdx][nodeIdx].status))
+			}
+		}
+
+		if limits[ruleIdx] <= ok+undone {
+			done = false
+			continue
+		}
+
+		err := fmt.Errorf("unable to reach REP rule #%d (required: %d, succeeded: %d, left nodes: %d)",
+			ruleIdx, limits[ruleIdx], ok, undone)
+		if ok == 0 {
+			return false, err
+		}
+		return false, wrapIncompleteError(err)
+	}
+
+	return done, nil
+}
+
+func checkIndependentECProgress(limits []uint32, prog []progress) bool {
+	done := true
+
+	for ruleIdx := range limits {
+		if limits[ruleIdx] == 0 {
+			continue
+		}
+
+		if prog[ruleIdx].status == statusWIP {
+			if !prog[ruleIdx].ok {
+				// must have already been caught by errgroup
+				panic("unexpected failed EC rule")
+			}
+			prog[ruleIdx].status = statusOK
+		}
+
+		switch prog[ruleIdx].status {
+		case statusUndone:
+			done = false
+		case statusOK:
+		default:
+			panic(fmt.Sprintf("unexpected enum value %d", prog[ruleIdx].status))
+		}
+	}
+
+	return done
+}
+
+func checkFlatInitialPlacementProgress(maxReplicas uint32, repLimits []uint32, ecLimits []uint32, repProg [][]progress, ecProg []progress) (uint32, error) {
+	var okTotal, undoneTotal uint32
+
+nextRule:
+	for ruleIdx := range repLimits {
+		if repLimits[ruleIdx] == 0 {
+			continue
+		}
+
+		var ok, undone uint32
+		for nodeIdx := range repProg[ruleIdx] {
+			if repProg[ruleIdx][nodeIdx].status == statusWIP {
+				if repProg[ruleIdx][nodeIdx].ok {
+					repProg[ruleIdx][nodeIdx].status = statusOK
+				} else {
+					repProg[ruleIdx][nodeIdx].status = statusFail
+				}
+			}
+
+			switch repProg[ruleIdx][nodeIdx].status {
+			case statusUndone:
+				undone++
+				undoneTotal++
+			case statusOK:
+				if okTotal++; okTotal == maxReplicas {
+					return 0, nil
+				}
+				if ok++; ok == repLimits[ruleIdx] && undone == 0 {
+					continue nextRule
+				}
+			case statusFail:
+			default:
+				panic(fmt.Sprintf("unexpected enum value %d", repProg[ruleIdx][nodeIdx].status))
+			}
+		}
+	}
+
+	for ruleIdx := range ecLimits {
+		if ecLimits[ruleIdx] == 0 {
+			continue
+		}
+
+		if ecProg[ruleIdx].status == statusWIP {
+			if ecProg[ruleIdx].ok {
+				ecProg[ruleIdx].status = statusOK
+			} else {
+				ecProg[ruleIdx].status = statusFail
+			}
+		}
+
+		switch ecProg[ruleIdx].status {
+		case statusUndone:
+			undoneTotal++
+		case statusOK:
+			if okTotal++; okTotal == maxReplicas {
+				return 0, nil
+			}
+		case statusFail:
+		default:
+			panic(fmt.Sprintf("unexpected enum value %d", ecProg[ruleIdx].status))
+		}
+	}
+
+	if maxReplicas > undoneTotal {
+		err := fmt.Errorf("unable to reach MaxReplicas %d (succeeded: %d, left nodes: %d)", maxReplicas, okTotal, undoneTotal)
+		if okTotal == 0 {
+			return 0, err
+		}
+		return 0, wrapIncompleteError(err)
+	}
+
+	return maxReplicas - okTotal, nil
 }
