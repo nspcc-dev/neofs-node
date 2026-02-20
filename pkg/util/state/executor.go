@@ -10,7 +10,7 @@ import (
 
 // Store saves parameterized private key in the underlying Bolt database.
 // Private keys are encrypted if token store has been configured to.
-func (p PersistentStorage) Store(sk ecdsa.PrivateKey, usr user.ID, id []byte, exp uint64) error {
+func (p PersistentStorage) Store(sk ecdsa.PrivateKey, exp uint64) error {
 	value, err := p.packToken(exp, &sk)
 	if err != nil {
 		return err
@@ -19,15 +19,10 @@ func (p PersistentStorage) Store(sk ecdsa.PrivateKey, usr user.ID, id []byte, ex
 	err = p.db.Update(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 
-		ownerBucket, err := rootBucket.CreateBucketIfNotExists(usr[:])
+		usr := user.NewFromECDSAPublicKey(sk.PublicKey)
+		err = rootBucket.Put(usr[:], value)
 		if err != nil {
-			return fmt.Errorf(
-				"could not get/create %s owner bucket: %w", usr, err)
-		}
-
-		err = ownerBucket.Put(id, value)
-		if err != nil {
-			return fmt.Errorf("could not put session token for %s oid: %w", id, err)
+			return fmt.Errorf("could not put session token for %s: %w", usr, err)
 		}
 
 		return nil

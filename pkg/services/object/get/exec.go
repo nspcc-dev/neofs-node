@@ -8,7 +8,6 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -172,7 +171,7 @@ func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 	}
 	if tokV2 := exec.prm.common.SessionTokenV2(); tokV2 != nil {
 		// For V2 tokens, the key is stored as the subjects
-		if keyForSession, err := exec.svc.keyStore.GetKeyBySubjects(tokV2.Issuer(), tokV2.Subjects()); err == nil {
+		if keyForSession, err := exec.svc.keyStore.GetKeyBySubjects(tokV2.Subjects()); err == nil {
 			key = keyForSession
 		} else if exec.svc.nnsResolver != nil {
 			nodeUser := user.NewFromECDSAPublicKey(key.PublicKey)
@@ -188,10 +187,11 @@ func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 			return nil, fmt.Errorf("get key for session v2 token: %w", err)
 		}
 	} else if tok := exec.prm.common.SessionToken(); tok != nil {
-		key, err = exec.svc.keyStore.GetKey(&util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
-		})
+		authUser, err := tok.AuthUser()
+		if err != nil {
+			return nil, fmt.Errorf("could not get session auth user: %w", err)
+		}
+		key, err = exec.svc.keyStore.GetKey(&authUser)
 		if err != nil {
 			return nil, err
 		}

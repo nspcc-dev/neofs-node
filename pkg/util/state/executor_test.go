@@ -3,7 +3,6 @@ package state
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/rand"
 	"path/filepath"
 	"testing"
 
@@ -20,34 +19,28 @@ func TestTokenStore(t *testing.T) {
 	const tokenNumber = 5
 
 	type tok struct {
-		owner user.ID
-		id    []byte
-		key   ecdsa.PrivateKey
+		user usertest.UserSigner
 	}
 
 	tokens := make([]tok, 0, tokenNumber)
 
 	for i := range tokenNumber {
 		usr := usertest.User()
-		sessionID := make([]byte, 32) // any len
-		_, _ = rand.Read(sessionID)
 
-		err := ts.Store(usr.ECDSAPrivateKey, usr.ID, sessionID, uint64(i))
+		err := ts.Store(usr.ECDSAPrivateKey, uint64(i))
 		require.NoError(t, err)
 
 		tokens = append(tokens, tok{
-			owner: usr.ID,
-			id:    sessionID,
-			key:   usr.ECDSAPrivateKey,
+			user: usr,
 		})
 	}
 
 	for i, token := range tokens {
-		savedToken := ts.GetToken(token.owner, token.id)
+		savedToken := ts.GetToken(token.user.UserID())
 
 		require.Equal(t, uint64(i), savedToken.ExpiredAt())
 		require.NotNil(t, savedToken.SessionKey())
-		require.Equal(t, token.key, *savedToken.SessionKey())
+		require.Equal(t, token.user.ECDSAPrivateKey, *savedToken.SessionKey())
 	}
 }
 
@@ -55,11 +48,10 @@ func TestTokenStore_Persistent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".storage")
 	ts := newStorageWithSession(t, path)
 
-	sessionID := make([]byte, 64) // any len
-	owner := usertest.User()
+	account := usertest.User()
 	const exp = 12345
 
-	err := ts.Store(owner.ECDSAPrivateKey, owner.ID, sessionID, exp)
+	err := ts.Store(account.ECDSAPrivateKey, exp)
 	require.NoError(t, err)
 
 	// close db (stop the node)
@@ -68,19 +60,18 @@ func TestTokenStore_Persistent(t *testing.T) {
 	// open persistent storage again
 	ts = newStorageWithSession(t, path)
 
-	savedToken := ts.GetToken(owner.ID, sessionID)
+	savedToken := ts.GetToken(account.ID)
 
 	require.EqualValues(t, exp, savedToken.ExpiredAt())
 	require.NotNil(t, savedToken.SessionKey())
-	require.Equal(t, owner.ECDSAPrivateKey, *savedToken.SessionKey())
+	require.Equal(t, account.ECDSAPrivateKey, *savedToken.SessionKey())
 }
 
 func TestTokenStore_RemoveOld(t *testing.T) {
 	tests := []*struct {
-		epoch uint64
-		owner user.ID
-		id    []byte
-		key   ecdsa.PrivateKey
+		epoch   uint64
+		account user.ID
+		key     ecdsa.PrivateKey
 	}{
 		{
 			epoch: 1,
@@ -105,15 +96,13 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 	ts := newStorageWithSession(t, filepath.Join(t.TempDir(), ".storage"))
 
 	for _, test := range tests {
-		test.id = make([]byte, 32) // any len
-		_, _ = rand.Read(test.id)
-		owner := usertest.User()
+		acc := usertest.User()
 
-		err := ts.Store(owner.ECDSAPrivateKey, owner.ID, test.id, test.epoch)
+		err := ts.Store(acc.ECDSAPrivateKey, test.epoch)
 		require.NoError(t, err)
 
-		test.owner = owner.ID
-		test.key = owner.ECDSAPrivateKey
+		test.account = acc.ID
+		test.key = acc.ECDSAPrivateKey
 	}
 
 	const currEpoch = 3
@@ -121,7 +110,7 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 	ts.RemoveOldTokens(currEpoch)
 
 	for _, test := range tests {
-		token := ts.GetToken(test.owner, test.id)
+		token := ts.GetToken(test.account)
 
 		if test.epoch <= currEpoch {
 			require.Nil(t, token)
@@ -200,25 +189,17 @@ func TestTokenStore_FindTokenBySubjects(t *testing.T) {
 
 	const tokenNumber = 3
 	tokens := make([]struct {
-		owner user.ID
-		key   ecdsa.PrivateKey
+		account user.ID
+		key     ecdsa.PrivateKey
 	}, tokenNumber)
 
-	multiUsr := usertest.ID()
 	for i := range tokenNumber {
-		var usr user.ID
-		if i == 0 {
-			usr = usertest.ID()
-		} else {
-			usr = multiUsr
-		}
-
 		subject := usertest.User()
 
-		err := ts.Store(subject.ECDSAPrivateKey, usr, subject.ID[:], uint64(100+i))
+		err := ts.Store(subject.ECDSAPrivateKey, uint64(100+i))
 		require.NoError(t, err)
 
-		tokens[i].owner = usr
+		tokens[i].account = subject.ID
 		tokens[i].key = subject.ECDSAPrivateKey
 	}
 
@@ -229,27 +210,21 @@ func TestTokenStore_FindTokenBySubjects(t *testing.T) {
 	}
 
 	for i, tok := range tokens {
-		foundToken := ts.FindTokenBySubjects(tok.owner, []sessionv2.Target{subjects[i]})
+		foundToken := ts.FindTokenBySubjects([]sessionv2.Target{subjects[i]})
 		require.NotNil(t, foundToken)
 		require.EqualValues(t, 100+i, foundToken.ExpiredAt())
 		require.Equal(t, tok.key, *foundToken.SessionKey())
 	}
 
-	foundToken := ts.FindTokenBySubjects(tokens[0].owner, []sessionv2.Target{subjects[2], subjects[1]})
-	require.Nil(t, foundToken)
-	foundToken = ts.FindTokenBySubjects(tokens[0].owner, []sessionv2.Target{subjects[2], subjects[0]})
+	// first matching subject in db
+	foundToken := ts.FindTokenBySubjects(subjects)
 	require.NotNil(t, foundToken)
 	require.EqualValues(t, 100, foundToken.ExpiredAt())
 
-	// first matching subject in db
-	foundToken = ts.FindTokenBySubjects(tokens[1].owner, subjects)
-	require.NotNil(t, foundToken)
-	require.EqualValues(t, 101, foundToken.ExpiredAt())
-
 	nonExistentSubject := sessionv2.NewTargetUser(usertest.ID())
-	foundToken = ts.FindTokenBySubjects(tokens[0].owner, []sessionv2.Target{nonExistentSubject})
+	foundToken = ts.FindTokenBySubjects([]sessionv2.Target{nonExistentSubject})
 	require.Nil(t, foundToken)
 
-	foundToken = ts.FindTokenBySubjects(tokens[0].owner, []sessionv2.Target{})
+	foundToken = ts.FindTokenBySubjects([]sessionv2.Target{})
 	require.Nil(t, foundToken)
 }

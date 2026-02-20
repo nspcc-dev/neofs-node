@@ -12,8 +12,8 @@ import (
 
 type sessionStorage interface {
 	sessionSvc.KeyStorage
-	GetToken(ownerID user.ID, tokenID []byte) *session.PrivateToken
-	FindTokenBySubjects(owner user.ID, subjects []sessionv2.Target) *session.PrivateToken
+	GetToken(account user.ID) *session.PrivateToken
+	FindTokenBySubjects(subjects []sessionv2.Target) *session.PrivateToken
 	RemoveOldTokens(epoch uint64)
 
 	Close() error

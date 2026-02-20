@@ -43,16 +43,16 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 
 	if tokV2 := commonPrm.SessionTokenV2(); tokV2 != nil {
 		// For V2 tokens, the key is stored as the subjects
-		if keyForSession, err := keyStorage.GetKeyBySubjects(tokV2.Issuer(), tokV2.Subjects()); err == nil {
+		if keyForSession, err := keyStorage.GetKeyBySubjects(tokV2.Subjects()); err == nil {
 			key = keyForSession
 		}
 		opts.WithinSessionV2(*tokV2)
 	} else if tok := commonPrm.SessionToken(); tok != nil {
-		sessionInfo := &util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
+		authUser, err := tok.AuthUser()
+		if err != nil {
+			return fmt.Errorf("could not get session auth user: %w", err)
 		}
-		key, err = keyStorage.GetKey(sessionInfo)
+		key, err = keyStorage.GetKey(&authUser)
 		if err != nil {
 			return fmt.Errorf("could not receive private key: %w", err)
 		}

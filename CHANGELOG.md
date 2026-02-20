@@ -14,11 +14,12 @@ Changelog for NeoFS Node
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
 - Move lens `write-cache` `get`/`list` commands into `fstree` section in CLI (#3838)
+- Session key storage access session keys by account only (#3817)
 
 ### Removed
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260211130529-740a11a64a87` (#3785)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260219114115-99622c87f029` (#3785, #3817)
 
 ### Updating from v0.51.1
 

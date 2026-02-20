@@ -199,8 +199,8 @@ github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea h1:mK
 github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea/go.mod h1:YzhD4EZmC9Z/PNyd7ysC7WXgIgURc9uCG1UWDeV027Y=
 github.com/nspcc-dev/neofs-contract v0.26.1 h1:7Ii7Q4L3au408LOsIWKiSgfnT1g8G9jo3W7381d41T8=
 github.com/nspcc-dev/neofs-contract v0.26.1/go.mod h1:pevVF9OWdEN5bweKxOu6ryZv9muCEtS1ppzYM4RfBIo=
-github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.17.0.20260211130529-740a11a64a87 h1:RlOzZGS7925Dz5F6OckibMSLv/awqhla2D8PeO9nIHI=
-github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.17.0.20260211130529-740a11a64a87/go.mod h1:y2vNz9DVTqBkR7ctYb6taLnabWTtG7xtCHlGofEpKOM=
+github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.17.0.20260219114115-99622c87f029 h1:7EvHXn5LAzbZ25pwz+4qwLxG2f1H8jqjCOe0E1aR9gw=
+github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.17.0.20260219114115-99622c87f029/go.mod h1:y2vNz9DVTqBkR7ctYb6taLnabWTtG7xtCHlGofEpKOM=
 github.com/nspcc-dev/rfc6979 v0.2.4 h1:NBgsdCjhLpEPJZqmC9rciMZDcSY297po2smeaRjw57k=
 github.com/nspcc-dev/rfc6979 v0.2.4/go.mod h1:86ylDw6Kss+P6v4QAJqo1Sp3mC0/Zr9G97xSjQ9TuFg=
 github.com/nspcc-dev/tzhash v1.8.3 h1:EWJMOL/ppdqNBvkKjHECljusopcsNu4i4kH8KctTv10=
