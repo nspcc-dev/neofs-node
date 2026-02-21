@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 
-	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -293,18 +292,6 @@ func (exec *execCtx) headChild(id oid.ID) (*object.Object, bool) {
 		zap.Error(err),
 	)
 
-	return nil, false
-}
-
-func (exec *execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
-	c, err := exec.svc.clientCache.get(exec.context(), info)
-
-	if err == nil {
-		return c, true
-	}
-	exec.status = statusUndefined
-	exec.err = err
-	exec.log.Debug("could not construct remote node client")
 	return nil, false
 }
 

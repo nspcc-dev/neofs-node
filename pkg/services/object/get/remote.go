@@ -12,9 +12,12 @@ import (
 func (exec *execCtx) processNode(info client.NodeInfo) bool {
 	exec.log.Debug("processing node...", zap.Stringers("address group", info.AddressGroup()))
 
-	remoteClient, ok := exec.remoteClient(info)
-	if !ok {
-		return true
+	remoteClient, err := exec.svc.clientCache.get(exec.context(), info)
+	if err != nil {
+		exec.status = statusUndefined
+		exec.err = err
+		exec.log.Debug("could not construct remote node client", zap.Error(err))
+		return false
 	}
 
 	obj, reader, err := remoteClient.getObject(exec)
