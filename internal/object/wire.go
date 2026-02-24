@@ -12,20 +12,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Protobuf field numbers for object message.
-const (
-	_ = iota
-	fieldObjectID
-	fieldObjectSignature
-	fieldObjectHeader
-	fieldObjectPayload
-)
-
 // WriteWithoutPayload writes the object header to the given writer without the payload.
 func WriteWithoutPayload(w io.Writer, obj object.Object) error {
 	header := obj.CutPayload().Marshal()
 	if obj.PayloadSize() != 0 {
-		header = protowire.AppendTag(header, fieldObjectPayload, protowire.BytesType)
+		header = protowire.AppendTag(header, protoobject.FieldObjectPayload, protowire.BytesType)
 		header = protowire.AppendVarint(header, obj.PayloadSize())
 	}
 	_, err := w.Write(header)
@@ -55,7 +46,7 @@ func ExtractHeaderAndPayload(data []byte) (*object.Object, []byte, error) {
 			return nil, nil, fmt.Errorf("unexpected wire type: %v", typ)
 		}
 
-		if num == fieldObjectPayload {
+		if num == protoobject.FieldObjectPayload {
 			_, n = protowire.ConsumeVarint(data[offset:])
 			if err := protowire.ParseError(n); err != nil {
 				return nil, nil, fmt.Errorf("invalid varint at offset %d: %w", offset, err)
@@ -70,17 +61,17 @@ func ExtractHeaderAndPayload(data []byte) (*object.Object, []byte, error) {
 		offset += n
 
 		switch num {
-		case fieldObjectID:
+		case protoobject.FieldObjectID:
 			obj.ObjectId = new(refs.ObjectID)
 			if err := proto.Unmarshal(val, obj.ObjectId); err != nil {
 				return nil, nil, fmt.Errorf("unmarshal object ID: %w", err)
 			}
-		case fieldObjectSignature:
+		case protoobject.FieldObjectSignature:
 			obj.Signature = new(refs.Signature)
 			if err := proto.Unmarshal(val, obj.Signature); err != nil {
 				return nil, nil, fmt.Errorf("unmarshal object signature: %w", err)
 			}
-		case fieldObjectHeader:
+		case protoobject.FieldObjectHeader:
 			obj.Header = new(protoobject.Header)
 			if err := proto.Unmarshal(val, obj.Header); err != nil {
 				return nil, nil, fmt.Errorf("unmarshal object header: %w", err)
