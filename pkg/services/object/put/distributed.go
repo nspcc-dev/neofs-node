@@ -182,8 +182,8 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 	repRules := t.containerNodes.PrimaryCounts()
 	ecRules := t.containerNodes.ECRules()
-	if typ := obj.Type(); len(repRules) > 0 || typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink {
-		broadcast := typ == object.TypeTombstone || typ == object.TypeLink || (!t.localOnly && typ == object.TypeLock) || len(obj.Children()) > 0
+	if typ := obj.Type(); typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink || len(obj.Children()) > 0 {
+		broadcast := typ != object.TypeLock || !t.localOnly
 
 		useRepRules := repRules
 		if broadcast && len(ecRules) > 0 {
@@ -196,6 +196,14 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
+				return t.sendObject(obj, encObj, node, &t.metaCollection)
+			})
+		})
+	}
+
+	if len(repRules) > 0 {
+		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
+			return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, objNodeLists, false, func(node nodeDesc) error {
 				return t.sendObject(obj, encObj, node, &t.metaCollection)
 			})
 		})
