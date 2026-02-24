@@ -120,7 +120,6 @@
     "shards": [
       {
         "mode": "read-only",
-        "resync_metabase": false,
         "writecache": {
           "enabled": false,
           "no_sync": true,
@@ -150,7 +149,6 @@
       },
       {
         "mode": "read-write",
-        "resync_metabase": true,
         "writecache": {
           "enabled": true,
           "path": "tmp/1/cache",

@@ -143,7 +143,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
 			shard.WithLogger(c.log),
-			shard.WithResyncMetabase(*shCfg.ResyncMetabase),
 			shard.WithMode(shCfg.Mode),
 			shard.WithCompressObjects(*shCfg.Compress),
 			shard.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),

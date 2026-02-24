@@ -64,12 +64,12 @@ func TestShardReload(t *testing.T) {
 	})
 
 	t.Run("open meta at new path", func(t *testing.T) {
-		newShardOpts := func(metaPath string, resync bool) []Option {
+		newShardOpts := func(metaPath string) []Option {
 			metaOpts := []meta.Option{meta.WithPath(metaPath), meta.WithEpochState(epochState{})}
-			return append(opts, WithMetaBaseOptions(metaOpts...), WithResyncMetabase(resync))
+			return append(opts, WithMetaBaseOptions(metaOpts...))
 		}
 
-		newOpts := newShardOpts(filepath.Join(p, "meta1"), false)
+		newOpts := newShardOpts(filepath.Join(p, "meta1"))
 		require.NoError(t, sh.Reload(newOpts...))
 
 		checkHasObjects(t, false) // new path, but no resync
@@ -80,8 +80,9 @@ func TestShardReload(t *testing.T) {
 			objects = append(objects, objAddr{obj: obj, addr: obj.Address()})
 		})
 
-		newOpts = newShardOpts(filepath.Join(p, "meta2"), true)
+		newOpts = newShardOpts(filepath.Join(p, "meta2"))
 		require.NoError(t, sh.Reload(newOpts...))
+		require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, "", nil))
 
 		checkHasObjects(t, true) // all objects are restored, including the new one
 
@@ -89,7 +90,7 @@ func TestShardReload(t *testing.T) {
 			badPath := filepath.Join(p, "meta3")
 			require.NoError(t, os.WriteFile(badPath, []byte{1}, 0))
 
-			newOpts = newShardOpts(badPath, true)
+			newOpts = newShardOpts(badPath)
 			require.Error(t, sh.Reload(newOpts...))
 
 			// Cleanup is done, no panic.
@@ -102,6 +103,7 @@ func TestShardReload(t *testing.T) {
 			// Successive reload produces no undesired effects.
 			require.NoError(t, os.RemoveAll(badPath))
 			require.NoError(t, sh.Reload(newOpts...))
+			require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, "", nil))
 
 			obj = newObject(t)
 			require.NoError(t, sh.Put(obj, nil))

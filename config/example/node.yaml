@@ -109,8 +109,6 @@ storage:
   ignore_uninited_shards: true # do we need to ignore uninited shards (default: false, fail on any shard failure)
 
   shard_defaults: # section with the default shard parameters
-    resync_metabase: true  # sync metabase with blobstor on start, expensive, leave false until complete understanding
-
     writecache:
       enabled: true
 
@@ -136,7 +134,6 @@ storage:
       # degraded
       # degraded-read-only
       # disabled (do not work with the shard, allows to not remove it from the config)
-      resync_metabase: false  # sync metabase with blobstor on start, expensive, leave false until complete understanding
 
       writecache:
         enabled: false

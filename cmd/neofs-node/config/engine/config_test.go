@@ -82,7 +82,6 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 150, gc.RemoverBatchSize)
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval)
 
-				require.False(t, *sc.ResyncMetabase)
 				require.Equal(t, mode.ReadOnly, sc.Mode)
 			case 1:
 				require.True(t, *wc.Enabled)
@@ -108,7 +107,6 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 200, gc.RemoverBatchSize)
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval)
 
-				require.True(t, *sc.ResyncMetabase)
 				require.Equal(t, mode.ReadWrite, sc.Mode)
 			}
 			return nil

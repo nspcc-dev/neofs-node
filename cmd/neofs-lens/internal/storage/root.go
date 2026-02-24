@@ -101,7 +101,6 @@ func openEngine() (*engine.StorageEngine, error) {
 		var sh shardOptsWithID
 		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
-			shard.WithResyncMetabase(*shCfg.ResyncMetabase),
 			shard.WithMode(shCfg.Mode),
 			shard.WithCompressObjects(*shCfg.Compress),
 			shard.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),
