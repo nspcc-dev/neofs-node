@@ -2,9 +2,7 @@ package util
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -17,16 +15,16 @@ import (
 // tokens.
 type SessionSource interface {
 	// GetToken must return non-expired private token that
-	// corresponds with passed owner and tokenID. If
+	// corresponds to his account. If
 	// token has not been created, has been expired
 	// of it is impossible to get information about the
 	// token Get must return nil.
-	GetToken(owner user.ID, tokenID []byte) *session.PrivateToken
+	GetToken(account user.ID) *session.PrivateToken
 
 	// FindTokenBySubjects searches for a non-expired private token whose public key
 	// matches any of the given Target. Used for V2 session tokens where keys
 	// are identified by their Target. Returns nil if no matching token is found.
-	FindTokenBySubjects(owner user.ID, subjects []session2.Target) *session.PrivateToken
+	FindTokenBySubjects(subjects []session2.Target) *session.PrivateToken
 }
 
 // KeyStorage represents private key storage of the local node.
@@ -47,31 +45,16 @@ func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore SessionSource, net net
 	}
 }
 
-// SessionInfo groups information about NeoFS Object session
-// which is reflected in KeyStorage.
-type SessionInfo struct {
-	// Session unique identifier.
-	ID uuid.UUID
-
-	// Session issuer.
-	Owner user.ID
-}
-
-// GetKey fetches private key depending on the SessionInfo.
+// GetKey fetches private key depending on his account.
 //
-// If info is not `nil`, searches for dynamic session token through the
+// If account is not `nil`, searches for dynamic session token through the
 // underlying token storage. Returns apistatus.SessionTokenNotFound if
 // token storage does not contain information about provided dynamic session.
 //
-// If info is `nil`, returns node's private key.
-func (s *KeyStorage) GetKey(info *SessionInfo) (*ecdsa.PrivateKey, error) {
-	if info != nil {
-		binID, err := info.ID.MarshalBinary()
-		if err != nil {
-			return nil, fmt.Errorf("marshal ID: %w", err)
-		}
-
-		pToken := s.tokenStore.GetToken(info.Owner, binID)
+// If account is `nil`, returns node's private key.
+func (s *KeyStorage) GetKey(account *user.ID) (*ecdsa.PrivateKey, error) {
+	if account != nil {
+		pToken := s.tokenStore.GetToken(*account)
 		if pToken != nil {
 			if pToken.ExpiredAt() <= s.networkState.CurrentEpoch() {
 				var errExpired apistatus.SessionTokenExpired
@@ -93,11 +76,11 @@ func (s *KeyStorage) GetKey(info *SessionInfo) (*ecdsa.PrivateKey, error) {
 //
 // Returns apistatus.SessionTokenNotFound if no matching key is found
 // or apistatus.SessionTokenExpired if the found token is expired.
-func (s *KeyStorage) GetKeyBySubjects(issuer user.ID, subjects []session2.Target) (*ecdsa.PrivateKey, error) {
+func (s *KeyStorage) GetKeyBySubjects(subjects []session2.Target) (*ecdsa.PrivateKey, error) {
 	if len(subjects) == 0 {
 		return nil, apistatus.ErrSessionTokenNotFound
 	}
-	pToken := s.tokenStore.FindTokenBySubjects(issuer, subjects)
+	pToken := s.tokenStore.FindTokenBySubjects(subjects)
 	if pToken != nil {
 		if pToken.ExpiredAt() <= s.networkState.CurrentEpoch() {
 			return nil, apistatus.ErrSessionTokenExpired

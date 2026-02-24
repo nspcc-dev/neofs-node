@@ -2,8 +2,8 @@ package deletesvc
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -13,7 +13,7 @@ func (s *Service) Delete(ctx context.Context, prm Prm) error {
 	// If session token is not found we will fail during tombstone PUT.
 	// Here we fail immediately to ensure no unnecessary network communication is done.
 	if tokV2 := prm.common.SessionTokenV2(); tokV2 != nil {
-		if _, err := s.keyStorage.GetKeyBySubjects(tokV2.Issuer(), tokV2.Subjects()); err != nil {
+		if _, err := s.keyStorage.GetKeyBySubjects(tokV2.Subjects()); err != nil {
 			if s.nnsResolver == nil {
 				return err
 			}
@@ -31,10 +31,11 @@ func (s *Service) Delete(ctx context.Context, prm Prm) error {
 			}
 		}
 	} else if tok := prm.common.SessionToken(); tok != nil {
-		_, err := s.keyStorage.GetKey(&util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
-		})
+		authUser, err := tok.AuthUser()
+		if err != nil {
+			return fmt.Errorf("can't get auth user from token: %w", err)
+		}
+		_, err = s.keyStorage.GetKey(&authUser)
 		if err != nil {
 			return err
 		}

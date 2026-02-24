@@ -144,11 +144,11 @@ type mockKeyStorage struct {
 	privKey ecdsa.PrivateKey
 }
 
-func (x *mockKeyStorage) GetKey(*util.SessionInfo) (*ecdsa.PrivateKey, error) {
+func (x *mockKeyStorage) GetKey(*user.ID) (*ecdsa.PrivateKey, error) {
 	return &x.privKey, nil
 }
 
-func (x *mockKeyStorage) GetKeyBySubjects(user.ID, []sessionv2.Target) (*ecdsa.PrivateKey, error) {
+func (x *mockKeyStorage) GetKeyBySubjects([]sessionv2.Target) (*ecdsa.PrivateKey, error) {
 	return &x.privKey, nil
 }
 
