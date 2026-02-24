@@ -37,9 +37,6 @@
       "VerifiedNodesDomain:nodes.some-org.neofs"
     ],
     "relay": true,
-    "persistent_sessions": {
-      "path": "/sessions"
-    },
     "persistent_state": {
       "path": "/state"
     }

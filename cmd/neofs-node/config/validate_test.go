@@ -32,8 +32,6 @@ node:
     - UN-LOCODE:RU MSK
     - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true
-  persistent_sessions:
-    path: /sessions
   persistent_state:
     path: /state
 `,
@@ -57,8 +55,6 @@ node:
     - UN-LOCODE:RU MSK
     - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true
-  persistent_sessions:
-    path: /sessions
   persistent_state:
     path: /state
 `,
@@ -78,8 +74,6 @@ node:
     - UN-LOCODE:RU MSK
     - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true
-  persistent_sessions:
-    path: /sessions
   persistent_state:
     path: /state
 `,
@@ -100,8 +94,6 @@ node:
     - VerifiedNodesDomain:nodes.some-org.neofs
   attr: attr
   relay: true
-  persistent_sessions:
-    path: /sessions
   persistent_state:
     path: /state
 `,

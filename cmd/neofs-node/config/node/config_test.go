@@ -24,7 +24,6 @@ func TestNodeSection(t *testing.T) {
 
 		require.Empty(t, empty.Node.Attributes)
 		require.Equal(t, false, empty.Node.Relay)
-		require.Equal(t, "", empty.Node.PersistentSessions.Path)
 		require.Equal(t, nodeconfig.PersistentStatePathDefault, empty.Node.PersistentState.Path)
 	})
 
@@ -35,7 +34,6 @@ func TestNodeSection(t *testing.T) {
 		attributes := c.Node.Attributes
 		relay := c.Node.Relay
 		wKey := c.Node.PrivateKey()
-		persisessionsPath := c.Node.PersistentSessions.Path
 		persistatePath := c.Node.PersistentState.Path
 
 		expectedAddr := []struct {
@@ -83,7 +81,6 @@ func TestNodeSection(t *testing.T) {
 			c.Node.Wallet.Address,
 			address.Uint160ToString(wKey.GetScriptHash()))
 
-		require.Equal(t, "/sessions", persisessionsPath)
 		require.Equal(t, "/state", persistatePath)
 	}
 
