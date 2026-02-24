@@ -21,7 +21,7 @@ Changelog for NeoFS Node
 - `node.persistent_sessions.path` config option from SN config (#3846)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260219114115-99622c87f029` (#3785, #3817)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)
 
 ### Updating from v0.51.1
 SN config option `node.persistent_sessions.path` was deprecated since release 0.50.0
