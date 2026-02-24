@@ -33,9 +33,11 @@ type FSTree struct {
 	Depth  uint64
 	writer writer
 
-	noSync   bool
-	readOnly bool
-	shardID  string
+	depthSet   bool
+	shardIDSet bool
+	noSync     bool
+	readOnly   bool
+	shardID    string
 
 	combinedCountLimit    int
 	combinedSizeLimit     int

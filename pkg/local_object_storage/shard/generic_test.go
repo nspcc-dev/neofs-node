@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/stretchr/testify/require"
 )
 
 type ModeAwareStorage struct {
@@ -55,6 +56,11 @@ func TestBlobstorGeneric(t *testing.T) {
 			Enabled: true,
 		}
 		fsTree.SetCompressor(comp)
+
+		// fstree must be initialized to create a descriptor
+		require.NoError(t, fsTree.Open(false))
+		require.NoError(t, fsTree.Init())
+		require.NoError(t, fsTree.Close())
 
 		return NewModeAwareStorage(fsTree)
 	}

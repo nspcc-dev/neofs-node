@@ -65,7 +65,7 @@ func (t *FSTree) checkConfig() error {
 			return fmt.Errorf("read descriptor %q: %w", descPath, err)
 		}
 		if t.readOnly {
-			return nil
+			return fmt.Errorf("descriptor %q is missing, can't open read-only storage", descPath)
 		}
 		// create new descriptor
 		d := fsDescriptor{
@@ -95,11 +95,19 @@ func (t *FSTree) checkConfig() error {
 	if d.Version != currentVersion {
 		return fmt.Errorf("unsupported layout version: %d (current version: %d)", d.Version, currentVersion)
 	}
-	if d.Depth != t.Depth {
-		return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
+	if t.depthSet {
+		if d.Depth != t.Depth {
+			return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
+		}
+	} else {
+		t.Depth = d.Depth
 	}
-	if d.ShardID != t.shardID {
-		return fmt.Errorf("shard ID mismatch: on-disk shard ID=%s, configured shard ID=%s", d.ShardID, t.shardID)
+	if t.shardIDSet {
+		if d.ShardID != t.shardID {
+			return fmt.Errorf("shard ID mismatch: on-disk shard ID=%s, configured shard ID=%s", d.ShardID, t.shardID)
+		}
+	} else {
+		t.shardID = d.ShardID
 	}
 	return nil
 }

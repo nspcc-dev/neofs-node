@@ -10,6 +10,7 @@ type Option func(*FSTree)
 func WithDepth(d uint64) Option {
 	return func(f *FSTree) {
 		f.Depth = d
+		f.depthSet = true
 	}
 }
 
@@ -34,6 +35,7 @@ func WithNoSync(noSync bool) Option {
 func WithShardID(id string) Option {
 	return func(f *FSTree) {
 		f.shardID = id
+		f.shardIDSet = true
 	}
 }
 

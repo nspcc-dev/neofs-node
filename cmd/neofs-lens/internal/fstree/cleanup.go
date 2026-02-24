@@ -18,7 +18,7 @@ func init() {
 }
 
 func cleanupFunc(cmd *cobra.Command, _ []string) error {
-	fst, err := openFSTree()
+	fst, err := openFSTree(false)
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,6 @@ var (
 	vPath        string
 	vOut         string
 	vPayloadOnly bool
-	vDepth       uint64
 )
 
 // Root defines root command for operations with FSTree.
@@ -28,16 +27,11 @@ func init() {
 	Root.AddCommand(listCMD)
 }
 
-func AddDepthFlag(cmd *cobra.Command, depth *uint64) {
-	cmd.Flags().Uint64VarP(depth, "depth", "d", 4, "FSTree depth, for write-cache 1 must be used")
-}
-
 // openFSTree opens and returns fstree.FSTree located in vPath.
-func openFSTree() (*fstree.FSTree, error) {
+func openFSTree(readOnly bool) (*fstree.FSTree, error) {
 	fst := fstree.New(
 		fstree.WithPath(vPath),
 		fstree.WithPerm(0600),
-		fstree.WithDepth(vDepth),
 	)
 
 	var compressCfg compression.Config
@@ -49,7 +43,7 @@ func openFSTree() (*fstree.FSTree, error) {
 
 	fst.SetCompressor(&compressCfg)
 
-	err = fst.Open(false)
+	err = fst.Open(readOnly)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open FSTree: %w", err)
 	}

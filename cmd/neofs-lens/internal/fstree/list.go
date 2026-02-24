@@ -19,7 +19,6 @@ var listCMD = &cobra.Command{
 
 func init() {
 	common.AddComponentPathFlag(listCMD, &vPath)
-	AddDepthFlag(listCMD, &vDepth)
 }
 
 func listFunc(cmd *cobra.Command, _ []string) error {
@@ -31,11 +30,16 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fst, err := openFSTree()
+	fst, err := openFSTree(true)
 	if err != nil {
 		return err
 	}
 	defer fst.Close()
+
+	err = fst.Init()
+	if err != nil {
+		return fmt.Errorf("failed to init FSTree: %w", err)
+	}
 
 	err = fst.IterateAddresses(wAddr, true)
 	if err != nil {
