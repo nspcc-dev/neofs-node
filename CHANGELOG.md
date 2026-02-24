@@ -18,11 +18,15 @@ Changelog for NeoFS Node
 - Session key storage access session keys by account only (#3817)
 
 ### Removed
+- `node.persistent_sessions.path` config option from SN config (#3846)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260219114115-99622c87f029` (#3785, #3817)
 
 ### Updating from v0.51.1
+SN config option `node.persistent_sessions.path` was deprecated since release 0.50.0
+and has now been removed. Drop this config and associated file, migrate with 0.51.1 if needed.
+Sessions are stored in `node.persistent_state.path` DB now.
 
 ## [0.51.1] - 2026-02-18
 

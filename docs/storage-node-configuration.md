@@ -283,20 +283,17 @@ node:
     - "UN-LOCODE:RU MSK"
     - "key:value"
   relay: false
-  persistent_sessions:
-    path: /sessions
   persistent_state:
     path: /state
 ```
 
-| Parameter             | Type                                                          | Default value | Description                                                                                                          |
-|-----------------------|---------------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
-| `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration.                                                                                                |
-| `addresses`           | `[]string`                                                    |               | Addresses advertised in the netmap.                                                                                  |
-| `attributes`          | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
-| `relay`               | `bool`                                                        |               | Enable relay mode.                                                                                                   |
-| `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                                                                        |
-| `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                                                                      |
+| Parameter          | Type                                                    | Default value | Description                                                                                                          |
+|--------------------|---------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
+| `wallet`           | [Wallet config](#wallet-subsection)                     |               | Wallet configuration.                                                                                                |
+| `addresses`        | `[]string`                                              |               | Addresses advertised in the netmap.                                                                                  |
+| `attributes`       | `[]string`                                              |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
+| `relay`            | `bool`                                                  |               | Enable relay mode.                                                                                                   |
+| `persistent_state` | [Persistent state config](#persistent_state-subsection) |               | Persistent state configuration.                                                                                      |
 
 
 ## `wallet` subsection
@@ -308,17 +305,11 @@ N3 wallet configuration.
 | `address`  | `string` |               | Wallet address to use.       |
 | `password` | `string` |               | Password to open the wallet. |
 
-## `persistent_sessions` subsection
-
-Contains persistent session token store configuration. By default sessions do not persist between restarts.
-
-| Parameter | Type     | Default value | Description           |
-|-----------|----------|---------------|-----------------------|
-| `path`    | `string` |               | Path to the database. |
-
 ## `persistent_state` subsection
 Configures persistent storage for auxiliary information, such as last seen block height.
 It is used to correctly handle node restarts or crashes.
+Also, this database contains persistent session token store: session tokens created by this node
+are kept here so that they survive restarts and can still be used afterward.
 
 | Parameter | Type     | Default value          | Description            |
 |-----------|----------|------------------------|------------------------|

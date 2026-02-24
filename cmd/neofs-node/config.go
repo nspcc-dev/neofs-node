@@ -399,14 +399,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	)
 	fatalOnErr(err)
 
-	// TODO: drop deprecated 'node.persistent_sessions.path' in future releases
-	persistentSessionPath := c.appCfg.Node.PersistentSessions.Path
-	if persistentSessionPath != "" {
-		c.log.Warn("'node.persistent_sessions.path' is deprecated, now it is located in 'node.persistent_state.path'")
-		err = persistate.MigrateOldTokenStorage(persistentSessionPath)
-		fatalOnErr(err)
-	}
-
 	err = persistate.MigrateSessionTokensToAccounts()
 	fatalOnErr(err)
 
