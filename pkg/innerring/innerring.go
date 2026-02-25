@@ -803,11 +803,19 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 		fsChainProtocol := v.Protocol
 		metaChainCfg := config.Consensus{
+			Magic:     uint32(fsChainProtocol.Network) + 1,
+			Committee: fsChainProtocol.StandbyCommittee,
 			Storage: config.Storage{
 				Path: path.Join(path.Dir(cfg.FSChain.Consensus.Storage.Path), "meta_db.bolt"),
 				Type: dbconfig.BoltDB,
 			},
-			SeedNodes: metaSeeds,
+			TimePerBlock:                50 * time.Millisecond,
+			MaxTimePerBlock:             20 * time.Second,
+			MaxTraceableBlocks:          fsChainProtocol.MaxTraceableBlocks,
+			MaxValidUntilBlockIncrement: fsChainProtocol.MaxValidUntilBlockIncrement,
+			SeedNodes:                   metaSeeds,
+			Hardforks:                   config.Hardforks{},
+			ValidatorsHistory:           config.ValidatorsHistory{},
 			RPC: config.RPC{
 				Listen:              metaRPCs,
 				MaxWebSocketClients: cfg.FSChain.Consensus.RPC.MaxWebSocketClients,
@@ -827,16 +835,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 				Peers:             cfg.FSChain.Consensus.P2P.Peers,
 				Ping:              cfg.FSChain.Consensus.P2P.Ping,
 			},
-			MaxTimePerBlock: cfg.FSChain.Consensus.MaxTimePerBlock,
-
-			Magic:                       uint32(fsChainProtocol.Network) + 1,
-			Committee:                   fsChainProtocol.StandbyCommittee,
-			TimePerBlock:                time.Duration(fsChainProtocol.MillisecondsPerBlock) * time.Millisecond,
-			MaxTraceableBlocks:          fsChainProtocol.MaxTraceableBlocks,
-			MaxValidUntilBlockIncrement: fsChainProtocol.MaxValidUntilBlockIncrement,
-
-			Hardforks:                       config.Hardforks{},
-			ValidatorsHistory:               config.ValidatorsHistory{},
 			SetRolesInGenesis:               true,
 			KeepOnlyLatestState:             false,
 			RemoveUntraceableBlocks:         false,

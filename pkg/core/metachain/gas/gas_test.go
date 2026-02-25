@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neotest"
 	"github.com/nspcc-dev/neo-go/pkg/neotest/chain"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain"
+	"github.com/nspcc-dev/neofs-node/pkg/core/metachain"
 )
 
 func newGasClient(t *testing.T) (*neotest.ContractInvoker, *neotest.ContractInvoker) {

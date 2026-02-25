@@ -11,13 +11,14 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -30,10 +31,11 @@ import (
 )
 
 type metaCollection struct {
-	objectData []byte
+	dataToSign      []byte
+	metaTransaction *transaction.Transaction
 
 	signaturesMtx sync.RWMutex
-	signatures    [][][]byte
+	signatures    [][]neofscrypto.Signature
 }
 
 type distributedTarget struct {
@@ -41,9 +43,8 @@ type distributedTarget struct {
 
 	placementIterator placementIterator
 
-	obj                *object.Object
-	networkMagicNumber uint32
-	fsState            netmapcore.StateDetailed
+	obj     *object.Object
+	fsState netmapcore.StateDetailed
 
 	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
@@ -230,7 +231,7 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 	}()
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		t.metaCollection.objectData = t.encodeObjectMetadata(obj)
+		t.metaCollection.metaTransaction, t.metaCollection.dataToSign = t.encodeObjectMetadata(obj)
 	}
 
 	return t.distributeObjectWithMeta(obj, encObj, &t.metaCollection, placementFn)
@@ -277,7 +278,7 @@ func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj e
 			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 		}
 
-		err = t.cnrClient.SubmitObjectPut(metaC.objectData, metaC.signatures)
+		err := t.metaSvc.SubmitObjectPut(t.metaCollection.metaTransaction, t.metaCollection.signatures)
 		if err != nil {
 			if await {
 				t.metaSvc.UnsubscribeFromObject(addr)
@@ -300,8 +301,8 @@ func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj e
 	return nil
 }
 
-func (t *distributedTarget) encodeObjectMetadata(obj object.Object) []byte {
-	currBlock := t.fsState.CurrentBlock()
+func (t *distributedTarget) encodeObjectMetadata(obj object.Object) (*transaction.Transaction, []byte) {
+	currBlock := t.metaSvc.Height()
 	currEpochDuration := t.fsState.CurrentEpochDuration()
 	expectedVUB := (uint64(currBlock)/currEpochDuration + 2) * currEpochDuration
 
@@ -311,19 +312,23 @@ func (t *distributedTarget) encodeObjectMetadata(obj object.Object) []byte {
 		firstObj = obj.GetID()
 	}
 
-	var deletedObjs []oid.ID
-	var lockedObjs []oid.ID
+	var (
+		deletedObj oid.ID
+		lockedObj  oid.ID
+	)
 	typ := obj.Type()
 	switch typ {
 	case object.TypeTombstone:
-		deletedObjs = append(deletedObjs, obj.AssociatedObject())
+		deletedObj = obj.AssociatedObject()
 	case object.TypeLock:
-		lockedObjs = append(lockedObjs, obj.AssociatedObject())
+		lockedObj = obj.AssociatedObject()
 	default:
 	}
 
-	return objectcore.EncodeReplicationMetaInfo(obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
-		obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.networkMagicNumber)
+	tx, hash := objectcore.EncodeReplicationMetaInfo(len(t.containerNodes.PrimaryCounts()), obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
+		obj.PayloadSize(), typ, deletedObj, lockedObj, expectedVUB, t.metaSvc.MagicNumber())
+
+	return tx, hash
 }
 
 func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc, metaC *metaCollection) error {
@@ -338,13 +343,13 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		}
 
 		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-			sig, err := t.metaSigner.Sign(metaC.objectData)
+			sig, err := t.metaSigner.Sign(metaC.dataToSign)
 			if err != nil {
 				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}
 
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig)
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig))
 			metaC.signaturesMtx.Unlock()
 		}
 
@@ -391,12 +396,12 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				continue
 			}
 
-			if !sig.Verify(metaC.objectData) {
+			if !sig.Verify(metaC.dataToSign) {
 				continue
 			}
 
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig.Value())
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig)
 			metaC.signaturesMtx.Unlock()
 
 			return nil

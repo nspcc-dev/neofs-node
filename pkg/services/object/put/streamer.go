@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -260,10 +261,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	}
 
 	return &distributedTarget{
-		opCtx:              p.ctx,
-		fsState:            p.networkState,
-		networkMagicNumber: p.networkMagic,
-		metaSvc:            p.metaSvc,
+		opCtx:   p.ctx,
+		fsState: p.networkState,
+		metaSvc: p.metaSvc,
 		placementIterator: placementIterator{
 			log:           p.log,
 			neoFSNet:      p.neoFSNet,
@@ -285,7 +285,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		cnrClient:               p.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 		metaCollection: metaCollection{
-			signatures: make([][][]byte, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
+			signatures: make([][]neofscrypto.Signature, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
 		},
 		metaSigner: prm.localSignerRFC6979,
 		localOnly:  prm.common.LocalOnly(),

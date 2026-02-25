@@ -23,7 +23,7 @@ import (
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -243,14 +243,10 @@ func initObjectService(c *cfg) {
 		searchsvc.WithNNSResolver(nnsResolver),
 	)
 
-	mNumber, err := c.cli.MagicNumber()
-	fatalOnErr(err)
-
 	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
 		initQuotas(c.cCli, c.cfgObject.quotasTTL),
 		c.containerPayments,
-		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithContainerClient(c.cCli),
@@ -321,7 +317,7 @@ func initObjectService(c *cfg) {
 		putSvc:  sPut,
 		keys:    keyStorage,
 	}
-	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
+	server := objectService.New(objSvc, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 	os.server = server
 
 	for _, srv := range c.cfgGRPC.servers {
