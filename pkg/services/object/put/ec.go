@@ -13,8 +13,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (t *distributedTarget) ecAndSaveObject(signer neofscrypto.Signer, obj object.Object, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo) error {
+func (t *distributedTarget) ecAndSaveObject(signer neofscrypto.Signer, obj object.Object, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo, limits []uint32) error {
 	for i := range ecRules {
+		if limits != nil && limits[i] == 0 {
+			continue
+		}
+
 		if slices.Contains(ecRules[:i], ecRules[i]) { // has already been processed, see below
 			continue
 		}

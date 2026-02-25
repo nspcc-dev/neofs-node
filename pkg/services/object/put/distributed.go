@@ -76,6 +76,8 @@ type distributedTarget struct {
 	// When object from request is an EC part, ecPart.RuleIndex is >= 0.
 	// Otherwise, ecPart.RuleIndex is negative.
 	ecPart iec.PartInfo
+
+	initialPolicy *netmap.InitialPlacementPolicy
 }
 
 type nodeDesc struct {
@@ -201,10 +203,42 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 		})
 	}
 
+	initial := t.initialPolicy != nil && (t.sessionSigner != nil || !t.localOnly)
+
 	if t.ecPart.RuleIndex >= 0 { // already encoded EC part
+		// part info should already be verified, so we don't prevent out-of-range panic here
+		if initial && len(t.initialPolicy.ReplicaLimits()) != 0 && t.initialPolicy.ReplicaLimits()[len(repRules)+t.ecPart.RuleIndex] == 0 {
+			// clients can encode data themselves, but they're unlikely to enforce the initial placement policy. So, let this not be an error
+			return nil
+		}
+
 		total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
 		nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
 		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
+	}
+
+	var ecLimits []uint32
+
+	if initial {
+		if initialLimits := t.initialPolicy.ReplicaLimits(); len(initialLimits) > 0 {
+			if len(initialLimits) != len(repRules)+len(ecRules) { // required by policy, but better to double-check
+				return fmt.Errorf("ReplicaLimits has len %d while main policy has %d REP and %d EC rules", len(initialLimits), len(repRules), len(ecRules))
+			}
+			// TODO: make ContainerNodes.PrimaryCounts() to return []uint32, and just assign
+			repRules = make([]uint, len(repRules)) // recreate to not mutate cache
+			for i := range repRules {
+				repRules[i] = uint(initialLimits[i])
+			}
+			ecLimits = initialLimits[len(repRules):]
+		}
+
+		maxReplicas := t.initialPolicy.MaxReplicas()
+		if maxReplicas == 0 && t.placementIterator.linearReplNum > 0 {
+			maxReplicas = uint32(t.placementIterator.linearReplNum)
+		}
+		if maxReplicas > 0 {
+			return errors.New("requests with MaxReplicas are not yet supported")
+		}
 	}
 
 	if len(repRules) > 0 {
@@ -216,7 +250,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	}
 
 	if len(ecRules) > 0 && t.sessionSigner != nil {
-		if err := t.ecAndSaveObject(t.sessionSigner, obj, ecRules, objNodeLists[len(repRules):]); err != nil {
+		if err := t.ecAndSaveObject(t.sessionSigner, obj, ecRules, objNodeLists[len(repRules):], ecLimits); err != nil {
 			return err
 		}
 	}
