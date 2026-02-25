@@ -235,6 +235,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		prm.ecPart = ecPart
 	} else {
 		prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+		prm.ecPart.RuleIndex = -1
 	}
 	if !prm.localNodeInContainer && localOnly {
 		return errors.New("local operation on the node not compliant with the container storage policy")

@@ -74,7 +74,7 @@ type distributedTarget struct {
 	localOnly bool
 
 	// When object from request is an EC part, ecPart.RuleIndex is >= 0.
-	// Undefined when policy has no EC rules.
+	// Otherwise, ecPart.RuleIndex is negative.
 	ecPart iec.PartInfo
 }
 
@@ -201,6 +201,12 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 		})
 	}
 
+	if t.ecPart.RuleIndex >= 0 { // already encoded EC part
+		total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
+		nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
+		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
+	}
+
 	if len(repRules) > 0 {
 		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, objNodeLists, false, func(node nodeDesc) error {
@@ -209,17 +215,9 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 		})
 	}
 
-	if len(ecRules) > 0 {
-		if t.ecPart.RuleIndex >= 0 { // already encoded EC part
-			total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
-			nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
-			return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
-		}
-
-		if t.sessionSigner != nil {
-			if err := t.ecAndSaveObject(t.sessionSigner, obj, ecRules, objNodeLists[len(repRules):]); err != nil {
-				return err
-			}
+	if len(ecRules) > 0 && t.sessionSigner != nil {
+		if err := t.ecAndSaveObject(t.sessionSigner, obj, ecRules, objNodeLists[len(repRules):]); err != nil {
+			return err
 		}
 	}
 
