@@ -4,8 +4,8 @@ import (
 	neogoconfig "github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop"
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain/gas"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain/meta"
+	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/gas"
+	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/meta"
 )
 
 // NewCustomNatives returns custom list of native contracts for metadata

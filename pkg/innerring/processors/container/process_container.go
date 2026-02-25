@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain/meta"
+	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/meta"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
