@@ -23,13 +23,9 @@ func (t *distributedTarget) ecAndSaveObject(signer neofscrypto.Signer, obj objec
 			continue
 		}
 
-		payloadParts, err := iec.Encode(ecRules[i], obj.Payload())
+		payloadParts, err := t.ecObjectAndSaveParts(signer, obj, ecRules[i], i, nodeLists[i])
 		if err != nil {
-			return fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", i, ecRules[i], err)
-		}
-
-		if err := t.applyECRule(signer, obj, i, payloadParts, nodeLists[i]); err != nil {
-			return fmt.Errorf("apply EC rule #%d (%s): %w", i, ecRules[i], err)
+			return err
 		}
 
 		for j := i + 1; j < len(ecRules); j++ {
@@ -43,6 +39,19 @@ func (t *distributedTarget) ecAndSaveObject(signer neofscrypto.Signer, obj objec
 	}
 
 	return nil
+}
+
+func (t *distributedTarget) ecObjectAndSaveParts(signer neofscrypto.Signer, obj object.Object, rule iec.Rule, ruleIdx int, nodeList []netmap.NodeInfo) ([][]byte, error) {
+	payloadParts, err := iec.Encode(rule, obj.Payload())
+	if err != nil {
+		return nil, fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", ruleIdx, rule, err)
+	}
+
+	if err := t.applyECRule(signer, obj, ruleIdx, payloadParts, nodeList); err != nil {
+		return nil, fmt.Errorf("apply EC rule #%d (%s): %w", ruleIdx, rule, err)
+	}
+
+	return payloadParts, nil
 }
 
 func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Object, ruleIdx int, payloadParts [][]byte, nodeList []netmap.NodeInfo) error {

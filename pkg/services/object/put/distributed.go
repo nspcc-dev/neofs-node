@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -237,7 +238,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			maxReplicas = uint32(t.placementIterator.linearReplNum)
 		}
 		if maxReplicas > 0 {
-			return errors.New("requests with MaxReplicas are not yet supported")
+			return t.putMaxReplicas(obj, encObj, ecRules, objNodeLists, repRules, ecLimits, maxReplicas, t.initialPolicy.PreferLocal())
 		}
 	}
 
@@ -258,16 +259,18 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	return nil
 }
 
+func (t *distributedTarget) resetMetaCollection() {
+	// this field is reused for sliced objects of the same container with
+	// the same placement policy; placement's len must be kept the same, do
+	// not nil the slice, keep it initialized
+	for i := range t.metaCollection.signatures {
+		t.metaCollection.signatures[i] = t.metaCollection.signatures[i][:0]
+	}
+}
+
 func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedObject,
 	placementFn func(obj object.Object, encObj encodedObject) error) error {
-	defer func() {
-		// this field is reused for sliced objects of the same container with
-		// the same placement policy; placement's len must be kept the same, do
-		// not nil the slice, keep it initialized
-		for i := range t.metaCollection.signatures {
-			t.metaCollection.signatures[i] = t.metaCollection.signatures[i][:0]
-		}
-	}()
+	defer t.resetMetaCollection()
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		t.metaCollection.objectData = t.encodeObjectMetadata(obj)
@@ -296,46 +299,50 @@ func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj e
 	}
 
 	if !t.localOnly && t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		metaC.signaturesMtx.RLock()
-		defer metaC.signaturesMtx.RUnlock()
-
-		var await bool
-		switch t.metainfoConsistencyAttr {
-		// TODO: there was no constant in SDK at the code creation moment
-		case "strict":
-			await = true
-		case "optimistic":
-			await = false
-		default:
-			return nil
-		}
-
-		addr := obj.Address()
-		var objAccepted chan struct{}
-		if await {
-			objAccepted = make(chan struct{}, 1)
-			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
-		}
-
-		err = t.cnrClient.SubmitObjectPut(metaC.objectData, metaC.signatures)
-		if err != nil {
-			if await {
-				t.metaSvc.UnsubscribeFromObject(addr)
-			}
-			return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
-		}
-
-		if await {
-			select {
-			case <-t.opCtx.Done():
-				t.metaSvc.UnsubscribeFromObject(addr)
-				return fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
-			case <-objAccepted:
-			}
-		}
-
-		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
+		return t.submitCollectedMeta(obj.Address(), metaC)
 	}
+
+	return nil
+}
+func (t *distributedTarget) submitCollectedMeta(addr oid.Address, metaC *metaCollection) error {
+	metaC.signaturesMtx.RLock()
+	defer metaC.signaturesMtx.RUnlock()
+
+	var await bool
+	switch t.metainfoConsistencyAttr {
+	// TODO: there was no constant in SDK at the code creation moment
+	case "strict":
+		await = true
+	case "optimistic":
+		await = false
+	default:
+		return nil
+	}
+
+	var objAccepted chan struct{}
+	if await {
+		objAccepted = make(chan struct{}, 1)
+		t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
+	}
+
+	err := t.cnrClient.SubmitObjectPut(metaC.objectData, metaC.signatures)
+	if err != nil {
+		if await {
+			t.metaSvc.UnsubscribeFromObject(addr)
+		}
+		return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
+	}
+
+	if await {
+		select {
+		case <-t.opCtx.Done():
+			t.metaSvc.UnsubscribeFromObject(addr)
+			return fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
+		case <-objAccepted:
+		}
+	}
+
+	t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
 
 	return nil
 }
@@ -582,13 +589,9 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 					if !overloaded {
 						return retErr
 					}
-					var busy = new(apistatus.Busy)
-					busy.SetMessage(retErr.Error())
-					return busy
+					return newBusyError(retErr)
 				}
-				var inc = new(apistatus.Incomplete)
-				inc.SetMessage(retErr.Error())
-				return inc
+				return newIncompleteError(retErr)
 			}
 			nextNodeGroupKeys = slices.Grow(nextNodeGroupKeys, int(replRem))[:0]
 			for ; nodesCounters[listInd].processed < listLen && uint(len(nextNodeGroupKeys)) < replRem; nodesCounters[listInd].processed++ {
@@ -710,4 +713,253 @@ func convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
 	res.SetAddressGroup(endpoints)
 	res.SetPublicKey(nodeInfo.PublicKey())
 	return res, nil
+}
+
+type ruleCounters struct {
+	stored    atomic.Uint32
+	processed uint
+}
+
+type maxReplicasError struct {
+	needed uint32
+	ok     uint32
+	left   uint32
+}
+
+func newMaxReplicasError(needed uint32, ok uint32, undone uint32) maxReplicasError {
+	return maxReplicasError{needed: needed, ok: ok, left: undone}
+}
+
+func (x maxReplicasError) Error() string {
+	return fmt.Sprintf("unable to reach MaxReplicas %d (succeeded: %d, left nodes: %d)", x.needed, x.ok, x.left)
+}
+
+func (t *distributedTarget) putMaxReplicas(obj object.Object, encObj encodedObject, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo,
+	repLimits []uint, ecLimits []uint32, maxReplicas uint32, preferLocal bool) (err error) {
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		t.metaCollection.objectData = t.encodeObjectMetadata(obj)
+		defer func() {
+			if err == nil {
+				err = t.submitCollectedMeta(obj.Address(), &t.metaCollection)
+			}
+			t.resetMetaCollection()
+		}()
+	}
+
+	var poolErr error
+	var wg sync.WaitGroup
+	var repResultsMtx sync.RWMutex
+	repResults := make(map[string]bool, islices.TwoDimSliceElementCount(nodeLists))
+	rulesCounters := make([]ruleCounters, len(nodeLists))
+
+	leftReplicas := maxReplicas
+	for {
+		preferLocal, poolErr = t.fillNextMaxReplicasGroup(obj, encObj, ecRules, nodeLists, repLimits, ecLimits, leftReplicas, preferLocal,
+			&wg, rulesCounters, &repResultsMtx, repResults)
+		if poolErr != nil {
+			t.placementIterator.log.Error("could not push task to worker pool",
+				zap.String("request", "PUT"), zap.Stringer("oid", obj.GetID()), zap.Error(poolErr))
+			if !errors.Is(poolErr, ants.ErrPoolOverload) {
+				return fmt.Errorf("unknown worker pool error: %w", err)
+			}
+		}
+
+		wg.Wait()
+
+		ok, undone := calculateMaxReplicasProgress(maxReplicas, ecRules, nodeLists, repLimits, ecLimits, rulesCounters)
+
+		if poolErr != nil { // overload
+			return newBusyError(newMaxReplicasError(maxReplicas, ok, undone))
+		}
+		if ok >= maxReplicas {
+			return nil
+		}
+		if maxReplicas <= ok+undone {
+			leftReplicas = maxReplicas - ok
+			continue
+		}
+
+		err = newMaxReplicasError(maxReplicas, ok, undone)
+		if ok == 0 {
+			return err
+		}
+		return newIncompleteError(err)
+	}
+}
+
+func (t *distributedTarget) fillNextMaxReplicasGroup(obj object.Object, encObj encodedObject, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo,
+	repLimits []uint, ecLimits []uint32, limit uint32, localOnly bool, wg *sync.WaitGroup, rulesCounters []ruleCounters, repResultsMtx *sync.RWMutex, repResults map[string]bool) (bool, error) {
+	for {
+		var added bool
+		for i := range repLimits {
+			ruleCounter := &rulesCounters[i]
+
+			if repLimits[i] == 0 || // disabled in policy
+				ruleCounter.processed == uint(len(nodeLists[i])) || // this rule can no longer be followed, but the goal can still be achieved
+				uint(ruleCounter.stored.Load()) == repLimits[i] || // do not overflow the rule limit
+				localOnly && !localNodeInSet(t.placementIterator.neoFSNet, nodeLists[i]) { // we're still trying with local sets
+				continue
+			}
+
+			node := nodeLists[i][ruleCounter.processed]
+			ruleCounter.processed++
+
+			pubKey := node.PublicKey()
+			pubKeyStr := string(pubKey)
+
+			repResultsMtx.RLock()
+			succeeded, ok := repResults[pubKeyStr]
+			repResultsMtx.RUnlock()
+			if !ok {
+				for j := range repLimits {
+					if j != i && slices.ContainsFunc(nodeLists[j][:rulesCounters[j].processed], func(node netmap.NodeInfo) bool {
+						return bytes.Equal(node.PublicKey(), pubKey)
+					}) {
+						ok = true
+						break
+					}
+				}
+			}
+			if ok { // node appears in other set and has already been handled
+				if succeeded {
+					ruleCounter.stored.Add(1)
+					if limit--; limit == 0 {
+						return localOnly, nil
+					}
+				}
+				added = true
+				continue
+			}
+
+			if t.placementIterator.neoFSNet.IsLocalNodePublicKey(pubKey) {
+				wg.Go(func() {
+					err := t.sendObject(obj, encObj, nodeDesc{local: true, placementVector: i}, &t.metaCollection)
+					if err != nil {
+						repResultsMtx.Lock()
+						repResults[pubKeyStr] = false
+						repResultsMtx.Unlock()
+						t.placementIterator.log.Error("local object PUT failed", zap.Stringer("oid", obj.GetID()), zap.Error(err))
+						return
+					}
+
+					repResultsMtx.Lock()
+					repResults[pubKeyStr] = false
+					repResultsMtx.Unlock()
+					ruleCounter.stored.Add(1)
+				})
+
+				if limit--; limit == 0 {
+					return localOnly, nil
+				}
+				added = true
+				continue
+			}
+
+			ni, err := convertNodeInfo(node)
+			if err != nil {
+				// same as for main policy handler. This will likely go away with https://github.com/nspcc-dev/neofs-node/issues/3565
+				t.placementIterator.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
+					zap.Stringer("oid", obj.GetID()), zap.String("public key", netmap.StringifyPublicKey(node)), zap.Error(err))
+				continue
+			}
+
+			wg.Add(1)
+			err = t.placementIterator.remotePool.Submit(func() {
+				defer wg.Done()
+
+				err := t.sendObject(obj, encObj, nodeDesc{placementVector: i, info: ni}, &t.metaCollection)
+				if err != nil {
+					repResultsMtx.Lock()
+					repResults[pubKeyStr] = false
+					repResultsMtx.Unlock()
+					t.placementIterator.log.Error("remote object PUT failed", zap.Stringer("oid", obj.GetID()), zap.Error(err))
+					return
+				}
+
+				repResultsMtx.Lock()
+				repResults[pubKeyStr] = false
+				repResultsMtx.Unlock()
+				ruleCounter.stored.Add(1)
+			})
+			if err != nil {
+				wg.Done()
+				return localOnly, err
+			}
+
+			if limit--; limit == 0 {
+				return localOnly, nil
+			}
+			added = true
+		}
+
+		for i := range ecRules {
+			ruleCounter := &rulesCounters[i]
+
+			if ecLimits != nil && ecLimits[i] == 0 || // disabled in policy
+				ruleCounter.processed > 0 || // partitioning failed, but the goal can still be achieved
+				ruleCounter.stored.Load() > 0 || // already partitioned
+				localOnly && !localNodeInSet(t.placementIterator.neoFSNet, nodeLists[i]) { // we're still trying with local sets
+				continue
+			}
+
+			wg.Add(1)
+			err := t.placementIterator.remotePool.Submit(func() {
+				defer wg.Done()
+				_, err := t.ecObjectAndSaveParts(t.sessionSigner, obj, ecRules[i], i, nodeLists[len(repLimits)+i])
+				if err != nil {
+					t.placementIterator.log.Error("EC PUT failed", zap.Stringer("oid", obj.GetID()), zap.Error(err))
+					return
+				}
+				ruleCounter.stored.Store(1) // no concurrency
+			})
+			if err != nil {
+				wg.Done()
+				return localOnly, err
+			}
+
+			if limit--; limit == 0 {
+				return localOnly, nil
+			}
+			added = true
+		}
+
+		if !added {
+			if !localOnly {
+				return false, nil
+			}
+			localOnly = false
+		}
+	}
+}
+
+func calculateMaxReplicasProgress(maxReplicas uint32, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo, repLimits []uint, ecLimits []uint32, rulesCounters []ruleCounters) (uint32, uint32) {
+	var ok, undone uint32
+
+	for i := range repLimits {
+		if repLimits[i] == 0 {
+			continue
+		}
+		if ok += rulesCounters[i].stored.Load(); ok >= maxReplicas {
+			return ok, undone
+		}
+		if uint(len(nodeLists[i])) > rulesCounters[i].processed {
+			undone += uint32(len(nodeLists[i])) - uint32(rulesCounters[i].processed)
+		}
+	}
+
+	for i := range ecRules {
+		if ecLimits != nil && ecLimits[i] == 0 {
+			continue
+		}
+		if rulesCounters[i].stored.Load() > 0 {
+			if ok++; ok >= maxReplicas {
+				return ok, undone
+			}
+		}
+		if rulesCounters[i].processed > 0 {
+			undone++
+		}
+	}
+
+	return ok, undone
 }
