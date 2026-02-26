@@ -21,6 +21,7 @@ func (c *cache) openStore(readOnly bool) error {
 		fstree.WithNoSync(c.noSync),
 		fstree.WithCombinedCountLimit(1))
 	c.fsTree.SetLogger(c.log)
+	c.fsTree.SetShardID(c.metrics.id)
 	if err := c.fsTree.Open(readOnly); err != nil {
 		return fmt.Errorf("could not open FSTree: %w", err)
 	}

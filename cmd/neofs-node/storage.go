@@ -116,7 +116,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				fstree.WithPerm(sRead.Perm),
 				fstree.WithDepth(sRead.Depth),
 				fstree.WithNoSync(*sRead.NoSync),
-				fstree.WithShardID(shCfg.ID()),
 				fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
 				fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
 				fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
