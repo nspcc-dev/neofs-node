@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)
+- Go 1.25+ is required to build now (#3525)
 
 ### Updating from v0.51.1
 SN config option `node.persistent_sessions.path` was deprecated since release 0.50.0
