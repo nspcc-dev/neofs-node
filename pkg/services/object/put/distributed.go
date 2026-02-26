@@ -767,23 +767,22 @@ func (t *distributedTarget) putMaxReplicas(obj object.Object, encObj encodedObje
 		wg.Wait()
 
 		ok, undone := calculateMaxReplicasProgress(maxReplicas, ecRules, nodeLists, repLimits, ecLimits, rulesCounters)
-
-		if poolErr != nil { // overload
-			return newBusyError(newMaxReplicasError(maxReplicas, ok, undone))
-		}
 		if ok >= maxReplicas {
 			return nil
 		}
-		if maxReplicas <= ok+undone {
-			leftReplicas = maxReplicas - ok
-			continue
-		}
 
-		err = newMaxReplicasError(maxReplicas, ok, undone)
-		if ok == 0 {
+		if maxReplicas > ok+undone {
+			err = newMaxReplicasError(maxReplicas, ok, undone)
+			if ok > 0 {
+				err = newIncompleteError(err)
+			}
+			if poolErr != nil {
+				return newBusyError(err)
+			}
 			return err
 		}
-		return newIncompleteError(err)
+
+		leftReplicas = maxReplicas - ok
 	}
 }
 
