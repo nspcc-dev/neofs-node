@@ -27,6 +27,7 @@ Changelog for NeoFS Node
 - `github.com/klauspost/compress` dependency from v1.18.0 to v1.18.4 (#3850)
 - `github.com/klauspost/reedsolomon` dependency from v1.12.5 to v1.13.2 (#3850)
 - `github.com/nspcc-dev/tzhash` dependency from v1.8.3 to v1.8.4 (#3850)
+- `github.com/panjf2000/ants/v2` dependency from v2.11.3 to v2.11.5 (#3850)
 
 ### Updating from v0.51.1
 SN config option `node.persistent_sessions.path` was deprecated since release 0.50.0

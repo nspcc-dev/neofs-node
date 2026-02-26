@@ -23,7 +23,7 @@ require (
 	github.com/nspcc-dev/neofs-contract v0.26.1
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.17.0.20260224112648-e6342b6bf094
 	github.com/nspcc-dev/tzhash v1.8.4
-	github.com/panjf2000/ants/v2 v2.11.3
+	github.com/panjf2000/ants/v2 v2.11.5
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cast v1.10.0
 	github.com/spf13/cobra v1.10.1
