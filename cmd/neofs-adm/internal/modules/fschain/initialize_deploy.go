@@ -226,14 +226,13 @@ func (c *initializeContext) readContracts(names []string) error {
 		fi  os.FileInfo
 		err error
 	)
-	if c.ContractPath != "" {
-		fi, err = os.Stat(c.ContractPath)
-		if err != nil {
-			return fmt.Errorf("invalid contracts path: %w", err)
-		}
+
+	fi, err = os.Stat(c.ContractPath)
+	if err != nil {
+		return fmt.Errorf("invalid contracts path: %w", err)
 	}
 
-	if c.ContractPath != "" && fi.IsDir() {
+	if fi.IsDir() {
 		for _, ctrName := range names {
 			cs, err := readContract(filepath.Join(c.ContractPath, ctrName), ctrName)
 			if err != nil {
@@ -242,13 +241,7 @@ func (c *initializeContext) readContracts(names []string) error {
 			c.Contracts[ctrName] = cs
 		}
 	} else {
-		var r io.ReadCloser
-		if c.ContractPath == "" {
-			c.Command.Println("Contracts flag is missing, latest release will be fetched from Github.")
-			r, err = downloadContractsFromGithub(c.Command)
-		} else {
-			r, err = os.Open(c.ContractPath)
-		}
+		r, err := os.Open(c.ContractPath)
 		if err != nil {
 			return fmt.Errorf("can't open contracts archive: %w", err)
 		}

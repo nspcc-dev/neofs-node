@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
+- Undocumented ability to fetch the latest contract release for adm update-contracts (#3850)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)
