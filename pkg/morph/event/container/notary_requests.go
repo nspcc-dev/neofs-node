@@ -35,7 +35,7 @@ func newWrongArgNumError(expected, actual int) error {
 	return fmt.Errorf("wrong/unsupported arg num %d instead of %d", actual, expected)
 }
 
-// CreateContainerRequest wraps container creation request to provide
+// CreateContainerV2Request wraps container creation request to provide
 // app-internal event.
 type CreateContainerV2Request struct {
 	event.Event
