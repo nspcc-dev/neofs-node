@@ -8,32 +8,6 @@ import (
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
-// UpdatePrm groups the parameters of Storage's Update operation.
-type UpdatePrm struct {
-	sat bool
-
-	epoch uint64
-
-	peer apireputation.PeerID
-}
-
-// SetEpoch sets number of the epoch
-// when the interaction happened.
-func (p *UpdatePrm) SetEpoch(e uint64) {
-	p.epoch = e
-}
-
-// SetPeer sets identifier of the peer
-// with which the local node interacted.
-func (p *UpdatePrm) SetPeer(id apireputation.PeerID) {
-	p.peer = id
-}
-
-// SetSatisfactory sets successful completion status.
-func (p *UpdatePrm) SetSatisfactory(sat bool) {
-	p.sat = sat
-}
-
 type trustValue struct {
 	sat, all int
 }
@@ -61,11 +35,11 @@ func peerIDFromString(str string) (res apireputation.PeerID) {
 	return
 }
 
-func (s *EpochTrustValueStorage) update(prm UpdatePrm) {
+func (s *EpochTrustValueStorage) update(peer apireputation.PeerID, sat bool) {
 	s.mtx.Lock()
 
 	{
-		strID := stringifyPeerID(prm.peer)
+		strID := stringifyPeerID(peer)
 
 		val, ok := s.mItems[strID]
 		if !ok {
@@ -73,7 +47,7 @@ func (s *EpochTrustValueStorage) update(prm UpdatePrm) {
 			s.mItems[strID] = val
 		}
 
-		if prm.sat {
+		if sat {
 			val.sat++
 		}
 
@@ -84,16 +58,13 @@ func (s *EpochTrustValueStorage) update(prm UpdatePrm) {
 }
 
 // Update updates the number of satisfactory transactions with peer.
-func (s *Storage) Update(prm UpdatePrm) {
+func (s *Storage) Update(epoch uint64, peer apireputation.PeerID, sat bool) {
 	var trustStorage *EpochTrustValueStorage
 
 	s.mtx.Lock()
 
 	{
-		var (
-			ok    bool
-			epoch = prm.epoch
-		)
+		var ok bool
 
 		trustStorage, ok = s.mItems[epoch]
 		if !ok {
@@ -104,7 +75,7 @@ func (s *Storage) Update(prm UpdatePrm) {
 
 	s.mtx.Unlock()
 
-	trustStorage.update(prm)
+	trustStorage.update(peer, sat)
 }
 
 // ErrNoPositiveTrust is returned by iterator when
