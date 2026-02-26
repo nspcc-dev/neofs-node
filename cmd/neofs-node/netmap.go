@@ -260,11 +260,9 @@ func initNetmapService(c *cfg) {
 		var wg sync.WaitGroup
 		l.Info("syncing SN connection caches with the new network map...")
 		for _, cl := range []*cache.Clients{c.clientCache, c.putClientCache, c.bgClientCache} {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				cl.SyncWithNewNetmap(c.ctx, nodes, local)
-			}()
+			})
 		}
 		wg.Wait()
 		l.Info("finished syncing SN connection caches with the new network map")

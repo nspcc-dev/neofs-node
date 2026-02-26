@@ -17,17 +17,15 @@ func TestSyncWorkerPool(t *testing.T) {
 		p := NewPseudoWorkerPool()
 		ch1, ch2 := make(chan struct{}), make(chan struct{})
 		wg := new(sync.WaitGroup)
-		wg.Add(2)
-		go func(t *testing.T) {
-			defer wg.Done()
+
+		wg.Go(func() {
 			err := p.Submit(newControlledReturnFunc(ch1))
 			require.NoError(t, err)
-		}(t)
-		go func(t *testing.T) {
-			defer wg.Done()
+		})
+		wg.Go(func() {
 			err := p.Submit(newControlledReturnFunc(ch2))
 			require.NoError(t, err)
-		}(t)
+		})
 
 		// Make sure functions were submitted.
 		<-ch1

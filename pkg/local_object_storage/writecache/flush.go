@@ -32,17 +32,13 @@ const (
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
 	for i := range c.workersCount {
-		c.wg.Add(1)
-		go c.flushWorker(i)
+		c.wg.Go(func() { c.flushWorker(i) })
 	}
 
-	c.wg.Add(1)
-	go c.flushScheduler()
+	c.wg.Go(c.flushScheduler)
 }
 
 func (c *cache) flushScheduler() {
-	defer c.wg.Done()
-
 	var tick = time.NewTicker(defaultMaxBatchDelay)
 
 	for {
@@ -120,8 +116,6 @@ func (c *cache) flushScheduler() {
 }
 
 func (c *cache) flushWorker(id int) {
-	defer c.wg.Done()
-
 	for {
 		var (
 			addrs []oid.Address

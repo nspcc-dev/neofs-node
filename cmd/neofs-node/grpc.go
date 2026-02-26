@@ -115,18 +115,14 @@ func initGRPC(c *cfg) {
 
 func serveGRPC(c *cfg) {
 	for i := range c.cfgGRPC.servers {
-		c.wg.Add(1)
-
 		srv := c.cfgGRPC.servers[i]
 		lis := c.cfgGRPC.listeners[i]
 
-		go func() {
+		c.wg.Go(func() {
 			defer func() {
 				c.log.Info("stop listening gRPC endpoint",
 					zap.Stringer("endpoint", lis.Addr()),
 				)
-
-				c.wg.Done()
 			}()
 
 			c.log.Info("start listening gRPC endpoint",
@@ -136,7 +132,7 @@ func serveGRPC(c *cfg) {
 			if err := srv.Serve(lis); err != nil {
 				fmt.Println("gRPC server error", err)
 			}
-		}()
+		})
 	}
 }
 

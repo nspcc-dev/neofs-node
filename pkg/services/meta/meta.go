@@ -323,11 +323,10 @@ func (m *Meta) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(3)
 
-	go m.flusher(ctx, &wg)
-	go m.blockHandler(ctx, m.blockHeadersBuff, &wg)
-	go m.blockStorer(ctx, m.blockEventsBuff, &wg)
+	wg.Go(func() { m.flusher(ctx) })
+	wg.Go(func() { m.blockHandler(ctx, m.blockHeadersBuff) })
+	wg.Go(func() { m.blockStorer(ctx, m.blockEventsBuff) })
 
 	err = m.listenNotifications(ctx)
 	wg.Wait()
@@ -335,8 +334,7 @@ func (m *Meta) Run(ctx context.Context) error {
 	return err
 }
 
-func (m *Meta) flusher(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (m *Meta) flusher(ctx context.Context) {
 	const (
 		flushInterval = time.Second
 		collapseDepth = 10

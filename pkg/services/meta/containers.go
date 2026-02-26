@@ -67,22 +67,19 @@ func (s *containerStorage) putObjects(ctx context.Context, l *zap.Logger, bInd u
 	objCh := make(chan eventWithMptKVs, len(ee))
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+
+	wg.Go(func() {
 		err := s.putRawIndexes(ctx, l, ee, net, objCh)
 		if err != nil {
 			l.Error("failed to put raw indexes", zap.Error(err))
 		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		err := s.putMPTIndexes(bInd, objCh)
 		if err != nil {
 			l.Error("failed to put mpt indexes", zap.Error(err))
 		}
-	}()
+	})
 	wg.Wait()
 }
 
@@ -579,22 +576,19 @@ func (s *containerStorage) handleNewEpoch(e uint64) error {
 
 	var mptErr error
 	var dbErr error
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+
+	wg.Go(func() {
 		_, err := s.mpt.PutBatch(mpt.MapToMPTBatch(mptBatch))
 		if err != nil {
 			mptErr = fmt.Errorf("mpt delete operations application: %w", err)
 		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		err := s.db.PutChangeSet(dbBatch, nil)
 		if err != nil {
 			dbErr = fmt.Errorf("raw db delete operations application: %w", err)
 		}
-	}()
+	})
 
 	wg.Wait()
 

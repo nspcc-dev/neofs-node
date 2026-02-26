@@ -58,8 +58,7 @@ func (e *StorageEngine) Init() error {
 		return fmt.Errorf("obsolete containers cleanup: %w", err)
 	}
 
-	e.wg.Add(1)
-	go e.setModeLoop()
+	e.wg.Go(e.setModeLoop)
 
 	return nil
 }

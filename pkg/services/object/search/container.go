@@ -50,9 +50,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 		info.SetAddressGroup(endpoints)
 		info.SetPublicKey(pubKey)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			select {
 			case <-ctx.Done():
 				lg.Debug("interrupt placement iteration by context",
@@ -85,7 +83,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 			mtx.Lock()
 			exec.writeIDList(ids)
 			mtx.Unlock()
-		}()
+		})
 	})
 	wg.Wait()
 	if err != nil {

@@ -242,11 +242,10 @@ func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Met
 	exitCh := make(chan struct{})
 
 	var wg sync.WaitGroup
-	wg.Add(3)
 
-	go m.flusher(ctx, &wg)
-	go m.blockHandler(ctx, m.blockHeadersBuff, &wg)
-	go m.blockStorer(ctx, m.blockEventsBuff, &wg)
+	wg.Go(func() { m.flusher(ctx) })
+	wg.Go(func() { m.blockHandler(ctx, m.blockHeadersBuff) })
+	wg.Go(func() { m.blockStorer(ctx, m.blockEventsBuff) })
 	go func() {
 		_ = m.listenNotifications(ctx)
 		wg.Wait()

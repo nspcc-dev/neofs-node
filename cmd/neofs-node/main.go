@@ -94,13 +94,11 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 	}
 
 	c.log.Info(fmt.Sprintf("%s service is initialized", name))
-	c.wg.Add(1)
-	go func() {
+	c.wg.Go(func() {
 		runAndLog(c, name, false, func(c *cfg) {
 			fatalOnErr(srv.Serve(ln))
-			c.wg.Done()
 		})
-	}()
+	})
 
 	c.veryLastClosers[name] = func() {
 		c.log.Debug(fmt.Sprintf("shutting down %s service", name))

@@ -482,14 +482,11 @@ func (p *Policer) recreateECPartsIdx(ctx context.Context, parent object.Object, 
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(missingIdx))
 
 	for _, partIdx := range missingIdx {
-		go func(partIdx int) {
-			defer wg.Done()
-
+		wg.Go(func() {
 			p.recreateECPart(ctx, parent, rule, ruleIdx, partIdx, parts[partIdx], sortedNodes)
-		}(partIdx)
+		})
 	}
 
 	wg.Wait()
