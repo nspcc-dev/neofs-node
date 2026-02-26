@@ -21,15 +21,19 @@ func init() {
 	common.AddComponentPathFlag(getCMD, &vPath)
 	common.AddOutputFileFlag(getCMD, &vOut)
 	common.AddPayloadOnlyFlag(getCMD, &vPayloadOnly)
-	AddDepthFlag(getCMD, &vDepth)
 }
 
 func getFunc(cmd *cobra.Command, _ []string) error {
-	fst, err := openFSTree()
+	fst, err := openFSTree(true)
 	if err != nil {
 		return err
 	}
 	defer fst.Close()
+
+	err = fst.Init()
+	if err != nil {
+		return fmt.Errorf("failed to init FSTree: %w", err)
+	}
 
 	addr, err := oid.DecodeAddressString(vAddress)
 	if err != nil {
