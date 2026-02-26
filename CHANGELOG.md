@@ -32,6 +32,7 @@ Changelog for NeoFS Node
 - `go.uber.org/zap` dependency from v1.27.0 to v1.27.1 (#3850)
 - `golang.org/x/net` dependency from v0.47.0 to v0.51.0 (#3850)
 - `google.golang.org/grpc` dependency from v1.75.1 to v1.79.1 (#3850)
+- `google.golang.org/protobuf` dependency from v1.36.10 to v1.36.11 (#3850)
 
 ### Updating from v0.51.1
 SN config option `node.persistent_sessions.path` was deprecated since release 0.50.0
