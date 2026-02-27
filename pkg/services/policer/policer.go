@@ -31,7 +31,6 @@ type nodeLoader interface {
 // interface of [replicator.Replicator] used by [Policer] for overriding in tests.
 type replicatorIface interface {
 	HandleTask(context.Context, replicator.Task, replicator.TaskResult)
-	PutObjectToNode(context.Context, object.Object, netmapsdk.NodeInfo) error
 }
 
 // interface of [engine.StorageEngine] used by [Policer] for overriding in tests.

@@ -24,13 +24,6 @@ type RemoteSender struct {
 	clientConstructor ClientConstructor
 }
 
-// RemotePutPrm groups remote put operation parameters.
-type RemotePutPrm struct {
-	node netmap.NodeInfo
-
-	obj *object.Object
-}
-
 func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object,
 	keyStorage *util.KeyStorage, clientConstructor ClientConstructor, commonPrm *util.CommonPrm) error {
 	var opts client.PrmObjectPutInit
@@ -98,40 +91,6 @@ func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *Remot
 		keyStorage:        keyStorage,
 		clientConstructor: cons,
 	}
-}
-
-// WithNodeInfo sets information about the remote node.
-func (p *RemotePutPrm) WithNodeInfo(v netmap.NodeInfo) *RemotePutPrm {
-	if p != nil {
-		p.node = v
-	}
-
-	return p
-}
-
-// WithObject sets transferred object.
-func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
-	if p != nil {
-		p.obj = v
-	}
-
-	return p
-}
-
-// PutObject sends object to remote node.
-func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
-	var nodeInfo clientcore.NodeInfo
-	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfo, netmapCore.Node(p.node))
-	if err != nil {
-		return fmt.Errorf("parse client node info: %w", err)
-	}
-
-	err = putObjectToNode(ctx, nodeInfo, p.obj, s.keyStorage, s.clientConstructor, nil)
-	if err != nil {
-		return fmt.Errorf("(%T) could not send object: %w", s, err)
-	}
-
-	return nil
 }
 
 // ReplicateObjectToNode copies binary-encoded NeoFS object from the given
