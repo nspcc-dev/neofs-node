@@ -16,7 +16,7 @@ var (
 	containerVolumeBucketName = []byte{containerVolumePrefix}
 
 	// containerGCMarkKey marker key inside meta bucket designating whole container GC-marked.
-	containerGCMarkKey = []byte{metaPrefixGC}
+	containerGCMarkKey = []byte{metaPrefixContainerRemoved}
 
 	zeroValue = []byte{0xFF}
 )

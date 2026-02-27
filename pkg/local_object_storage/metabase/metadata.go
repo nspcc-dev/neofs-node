@@ -24,8 +24,8 @@ const (
 	metaPrefixAttrIDInt
 	metaPrefixAttrIDPlain
 	metaPrefixIDAttr
-	metaPrefixGC
-	metaPrefixGarbage
+	metaPrefixContainerRemoved // the whole container removal flag
+	metaPrefixGarbage          // container's garbage objects
 )
 
 const (
