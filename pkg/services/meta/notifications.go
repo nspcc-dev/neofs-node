@@ -624,14 +624,12 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 	defer m.stM.RUnlock()
 	var gcWG sync.WaitGroup
 	for cID, st := range m.storages {
-		gcWG.Add(1)
-		go func() {
-			defer gcWG.Done()
+		gcWG.Go(func() {
 			err := st.handleNewEpoch(e)
 			if err != nil {
 				l.Error("handling new epoch", zap.Stringer("cID", cID), zap.Error(err))
 			}
-		}()
+		})
 	}
 	gcWG.Wait()
 

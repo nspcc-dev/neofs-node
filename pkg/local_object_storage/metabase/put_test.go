@@ -677,10 +677,7 @@ func BenchmarkPutBatch(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i += 10 {
-			end := i + 10
-			if end > b.N {
-				end = b.N
-			}
+			end := min(i+10, b.N)
 			if err := db.PutBatch(objs[i:end]); err != nil {
 				b.Fatal(err)
 			}
@@ -693,10 +690,7 @@ func BenchmarkPutBatch(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i += 100 {
-			end := i + 100
-			if end > b.N {
-				end = b.N
-			}
+			end := min(i+100, b.N)
 			if err := db.PutBatch(objs[i:end]); err != nil {
 				b.Fatal(err)
 			}
@@ -709,10 +703,7 @@ func BenchmarkPutBatch(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i += 1000 {
-			end := i + 1000
-			if end > b.N {
-				end = b.N
-			}
+			end := min(i+1000, b.N)
 			if err := db.PutBatch(objs[i:end]); err != nil {
 				b.Fatal(err)
 			}

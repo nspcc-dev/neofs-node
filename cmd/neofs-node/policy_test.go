@@ -95,11 +95,8 @@ func newNetmapWithContainer(tb testing.TB, nodeNum int, selected ...[]int) ([]ne
 		nodes[i].SetPublicKey(key)
 
 		for j := range selected {
-			for k := range selected[j] {
-				if i == selected[j][k] {
-					nodes[i].SetAttribute("attr"+strconv.Itoa(j), "true")
-					break
-				}
+			if slices.Contains(selected[j], i) {
+				nodes[i].SetAttribute("attr"+strconv.Itoa(j), "true")
 			}
 		}
 	}

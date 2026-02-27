@@ -22,7 +22,7 @@ func allocNodes(n []uint) [][]netmap.NodeInfo {
 	for i := range res {
 		res[i] = make([]netmap.NodeInfo, n[i])
 		for j := range res[i] {
-			res[i][j].SetPublicKey([]byte(fmt.Sprintf("pub_%d_%d", i, j)))
+			res[i][j].SetPublicKey(fmt.Appendf(nil, "pub_%d_%d", i, j))
 			res[i][j].SetNetworkEndpoints(
 				"localhost:"+strconv.Itoa(1e4+i*100+2*j),
 				"localhost:"+strconv.Itoa(1e4+i*100+2*j+1),

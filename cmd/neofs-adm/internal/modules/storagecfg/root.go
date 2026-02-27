@@ -305,8 +305,8 @@ func (filenameCompleter) Do(line []rune, pos int) (newLine [][]rune, length int)
 
 	for i := range de {
 		name := filepath.Join(dir, de[i].Name())
-		if strings.HasPrefix(name, prefix) {
-			tail := []rune(strings.TrimPrefix(name, prefix))
+		if after, ok := strings.CutPrefix(name, prefix); ok {
+			tail := []rune(after)
 			if de[i].IsDir() {
 				tail = append(tail, filepath.Separator)
 			}
