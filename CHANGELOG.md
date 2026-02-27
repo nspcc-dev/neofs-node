@@ -19,9 +19,20 @@ Changelog for NeoFS Node
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
+- Undocumented ability to fetch the latest contract release for adm update-contracts (#3850)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)
+- Go 1.25+ is required to build now (#3525)
+- `github.com/klauspost/compress` dependency from v1.18.0 to v1.18.4 (#3850)
+- `github.com/klauspost/reedsolomon` dependency from v1.12.5 to v1.13.2 (#3850)
+- `github.com/nspcc-dev/tzhash` dependency from v1.8.3 to v1.8.4 (#3850)
+- `github.com/panjf2000/ants/v2` dependency from v2.11.3 to v2.11.5 (#3850)
+- `github.com/spf13/cobra` dependency from v1.10.1 to v1.10.2 (#3850)
+- `go.uber.org/zap` dependency from v1.27.0 to v1.27.1 (#3850)
+- `golang.org/x/net` dependency from v0.47.0 to v0.51.0 (#3850)
+- `google.golang.org/grpc` dependency from v1.75.1 to v1.79.1 (#3850)
+- `google.golang.org/protobuf` dependency from v1.36.10 to v1.36.11 (#3850)
 
 ### Updating from v0.51.1
 SN config option `node.persistent_sessions.path` was deprecated since release 0.50.0

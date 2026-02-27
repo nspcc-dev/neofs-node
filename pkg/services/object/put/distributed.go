@@ -495,8 +495,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 	}
 	nodeResults := make(map[string]nodeResult, nrCap)
 
-	processNode := func(pubKeyStr string, listInd int, nr nodeResult, wg *sync.WaitGroup) {
-		defer wg.Done()
+	processNode := func(pubKeyStr string, listInd int, nr nodeResult) {
 		nr.desc.placementVector = listInd
 		err := f(nr.desc)
 		processedNodesMtx.Lock()
@@ -593,13 +592,14 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 				processedNodesMtx.RLock()
 				nr := nodeResults[pks]
 				processedNodesMtx.RUnlock()
-				wg.Add(1)
 				if nr.desc.local {
-					go processNode(pks, listInd, nr, &wg)
+					wg.Go(func() { processNode(pks, listInd, nr) })
 					continue
 				}
+				wg.Add(1)
 				if err := x.remotePool.Submit(func() {
-					processNode(pks, listInd, nr, &wg)
+					processNode(pks, listInd, nr)
+					wg.Done()
 				}); err != nil {
 					wg.Done()
 					if errors.Is(err, ants.ErrPoolOverload) {
@@ -642,13 +642,14 @@ broadcast:
 					zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])), zap.Error(nr.convertErr))
 				continue // to send as many replicas as possible
 			}
-			wg.Add(1)
 			if nr.desc.local {
-				go processNode(pks, -1, nr, &wg)
+				wg.Go(func() { processNode(pks, -1, nr) })
 				continue
 			}
+			wg.Add(1)
 			if err := x.remotePool.Submit(func() {
-				processNode(pks, -1, nr, &wg)
+				processNode(pks, -1, nr)
+				wg.Done()
 			}); err != nil {
 				wg.Done()
 				svcutil.LogWorkerPoolError(l, "PUT (extra broadcast)", err)

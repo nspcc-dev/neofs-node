@@ -47,13 +47,10 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 		var wg sync.WaitGroup
 
 		for range nThreads {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				err := p.Put(oidtest.Address(), data)
 				require.NoError(b, err)
-			}()
+			})
 		}
 
 		wg.Wait()
@@ -95,13 +92,10 @@ func BenchmarkGet(b *testing.B) {
 						var wg sync.WaitGroup
 
 						for i := range tc.nThreads {
-							wg.Add(1)
-							go func(ind int) {
-								defer wg.Done()
-
-								_, err := ptt.Get(objs[nObjects/tc.nThreads*ind+n%(nObjects/tc.nThreads)])
+							wg.Go(func() {
+								_, err := ptt.Get(objs[nObjects/tc.nThreads*i+n%(nObjects/tc.nThreads)])
 								require.NoError(b, err)
-							}(i)
+							})
 						}
 
 						wg.Wait()
@@ -128,13 +122,10 @@ func BenchmarkHead(b *testing.B) {
 						var wg sync.WaitGroup
 
 						for i := range tc.nThreads {
-							wg.Add(1)
-							go func(ind int) {
-								defer wg.Done()
-
-								_, err := ptt.Head(objs[nObjects/tc.nThreads*ind+n%(nObjects/tc.nThreads)])
+							wg.Go(func() {
+								_, err := ptt.Head(objs[nObjects/tc.nThreads*i+n%(nObjects/tc.nThreads)])
 								require.NoError(b, err)
-							}(i)
+							})
 						}
 
 						wg.Wait()

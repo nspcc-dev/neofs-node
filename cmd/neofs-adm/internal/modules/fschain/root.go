@@ -384,6 +384,7 @@ func init() {
 	updateContractsCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
 	updateContractsCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	updateContractsCmd.Flags().String(contractsInitFlag, "", "Path to archive with compiled NeoFS contracts (default fetched from latest github release)")
+	_ = updateContractsCmd.MarkFlagRequired(contractPathFlag)
 
 	RootCmd.AddCommand(dumpContainersCmd)
 	dumpContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")

@@ -77,14 +77,11 @@ func defaultGCCfg() gcCfg {
 }
 
 func (gc *gc) init() {
-	gc.wg.Add(2)
-	go gc.tickRemover()
-	go gc.listenEvents()
+	gc.wg.Go(gc.tickRemover)
+	gc.wg.Go(gc.listenEvents)
 }
 
 func (gc *gc) listenEvents() {
-	defer gc.wg.Done()
-
 	for {
 		select {
 		case <-gc.stopChannel:
@@ -97,18 +94,14 @@ func (gc *gc) listenEvents() {
 			}
 
 			v.prevGroup.Wait()
-			v.prevGroup.Add(1)
-			go func() {
+			v.prevGroup.Go(func() {
 				v.handler(event)
-				v.prevGroup.Done()
-			}()
+			})
 		}
 	}
 }
 
 func (gc *gc) tickRemover() {
-	defer gc.wg.Done()
-
 	timer := time.NewTimer(gc.removerInterval)
 
 	for {

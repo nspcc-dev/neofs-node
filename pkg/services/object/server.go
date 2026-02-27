@@ -2082,13 +2082,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			}
 			mProcessedNodes[strKey] = struct{}{}
 			if s.fsChain.IsOwnPublicKey(nodePub) {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					if set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err == nil {
 						add(set, crsr != nil)
 					} // TODO: else log error
-				}()
+				})
 				return true
 			}
 			if !signed {

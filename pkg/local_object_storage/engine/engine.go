@@ -66,8 +66,6 @@ type setModeRequest struct {
 // setModeLoop listens setModeCh to perform degraded mode transition of a single shard.
 // Instead of creating a worker per single shard we use a single goroutine.
 func (e *StorageEngine) setModeLoop() {
-	defer e.wg.Done()
-
 	var (
 		mtx        sync.RWMutex // protects inProgress map
 		inProgress = make(map[string]struct{})

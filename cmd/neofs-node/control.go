@@ -39,13 +39,11 @@ func initControlService(c *cfg) {
 	})
 
 	control.RegisterControlServiceServer(c.cfgControlService.server, c.control)
-	c.wg.Add(1)
-	go func() {
+	c.wg.Go(func() {
 		runAndLog(c, "control", false, func(c *cfg) {
 			fatalOnErr(c.cfgControlService.server.Serve(lis))
-			c.wg.Done()
 		})
-	}()
+	})
 }
 
 func (c *cfg) NetmapStatus() control.NetmapStatus {
