@@ -59,21 +59,20 @@ func (s *EpochTrustValueStorage) update(peer apireputation.PeerID, sat bool) {
 
 // Update updates the number of satisfactory transactions with peer.
 func (s *Storage) Update(epoch uint64, peer apireputation.PeerID, sat bool) {
-	var trustStorage *EpochTrustValueStorage
+	s.mtx.RLock()
+	trustStorage, ok := s.mItems[epoch]
+	s.mtx.RUnlock()
 
-	s.mtx.Lock()
-
-	{
-		var ok bool
-
+	if !ok {
+		s.mtx.Lock()
+		// Can be added by another routine.
 		trustStorage, ok = s.mItems[epoch]
 		if !ok {
 			trustStorage = newTrustValueStorage()
 			s.mItems[epoch] = trustStorage
 		}
+		s.mtx.Unlock()
 	}
-
-	s.mtx.Unlock()
 
 	trustStorage.update(peer, sat)
 }
