@@ -18,6 +18,14 @@ func BenchmarkFSTree_Head(b *testing.B) {
 	}
 }
 
+func BenchmarkFSTree_ReadHeader(b *testing.B) {
+	for _, size := range payloadSizes {
+		b.Run(generateSizeLabel(size), func(b *testing.B) {
+			runReadBenchmark(b, "ReadHeader", size)
+		})
+	}
+}
+
 func BenchmarkFSTree_Get(b *testing.B) {
 	for _, size := range payloadSizes {
 		b.Run(generateSizeLabel(size), func(b *testing.B) {
@@ -59,6 +67,8 @@ func BenchmarkFSTree_GetStream(b *testing.B) {
 }
 
 func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
+	buf := make([]byte, 2*object.MaxHeaderLen)
+
 	testRead := func(fsTree *fstree.FSTree, addr oid.Address) {
 		var err error
 		switch methodName {
@@ -78,6 +88,8 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 			if reader != nil {
 				require.NoError(b, reader.Close())
 			}
+		case "ReadHeader":
+			_, err = fsTree.ReadHeader(addr, buf)
 		}
 		if err != nil {
 			b.Fatal(err)
