@@ -25,7 +25,7 @@ PKG_VERSION ?= $(shell echo $(VERSION) | sed "s/^v//" | \
 			sed -E "s/(.*)-(g[a-fA-F0-9]{6,8})(.*)/\1\3~\2/" | \
 			sed "s/-/~/")-${OS_RELEASE}
 
-.PHONY: help all images dep clean fmts fmt imports test lint docker/lint
+.PHONY: help all images dep clean fmts fmt modernize imports test lint docker/lint
 		prepare-release debpackage
 
 # To build a specific binary, use it's name prefix with bin/ as a target
@@ -111,7 +111,7 @@ docker/%:
 
 
 # Run all code formatters
-fmts: fmt imports
+fmts: fmt imports modernize
 
 # Reformat code
 fmt:
@@ -122,6 +122,11 @@ fmt:
 imports:
 	@echo "⇒ Processing goimports check"
 	@goimports -w $$(find . -type f -name '*.go' -not -path '*.pb.go')
+
+# Prettify code
+modernize:
+	@echo "⇒ Processing modernize check"
+	@go run golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@latest -fix ./...
 
 # Run Unit Test with go test
 test:

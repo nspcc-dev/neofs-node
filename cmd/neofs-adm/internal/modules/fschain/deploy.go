@@ -209,8 +209,8 @@ func probeContractName(ctrPath string) (string, error) {
 
 	var ctrName string
 	for i := range ds {
-		if strings.HasSuffix(ds[i].Name(), "_contract.nef") {
-			ctrName = strings.TrimSuffix(ds[i].Name(), "_contract.nef")
+		if before, ok := strings.CutSuffix(ds[i].Name(), "_contract.nef"); ok {
+			ctrName = before
 			break
 		}
 	}

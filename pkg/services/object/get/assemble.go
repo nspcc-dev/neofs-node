@@ -128,10 +128,7 @@ func (exec *execCtx) initFromChild(obj oid.ID) (*oid.ID, []oid.ID) {
 
 		to := uint64(0)
 		if seekOff+seekLen > startRight+from {
-			to = seekOff + seekLen - startRight
-			if to > childSize {
-				to = childSize
-			}
+			to = min(seekOff+seekLen-startRight, childSize)
 		}
 
 		segLen := uint64(0)

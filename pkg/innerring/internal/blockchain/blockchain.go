@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"time"
 
@@ -169,10 +170,7 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	cfgBaseProto.Genesis.MaxValidUntilBlockIncrement = cfg.MaxValidUntilBlockIncrement
 	cfgBaseProto.Hardforks = cfg.Hardforks.Name
 	if cfg.ValidatorsHistory.Height != nil {
-		cfgBaseProto.ValidatorsHistory = make(map[uint32]uint32, len(cfg.ValidatorsHistory.Height))
-		for height, num := range cfg.ValidatorsHistory.Height {
-			cfgBaseProto.ValidatorsHistory[height] = num
-		}
+		cfgBaseProto.ValidatorsHistory = maps.Clone(cfg.ValidatorsHistory.Height)
 	} else {
 		cfgBaseProto.ValidatorsCount = uint32(len(standByCommittee))
 	}
