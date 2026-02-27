@@ -3,13 +3,14 @@ package truststorage
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 type trustValue struct {
-	sat, all int
+	sat, all atomic.Int64
 }
 
 // EpochTrustValueStorage represents storage of
@@ -36,25 +37,26 @@ func peerIDFromString(str string) (res apireputation.PeerID) {
 }
 
 func (s *EpochTrustValueStorage) update(peer apireputation.PeerID, sat bool) {
-	s.mtx.Lock()
+	var strID = stringifyPeerID(peer)
 
-	{
-		strID := stringifyPeerID(peer)
-
-		val, ok := s.mItems[strID]
+	s.mtx.RLock()
+	val, ok := s.mItems[strID]
+	s.mtx.RUnlock()
+	if !ok {
+		s.mtx.Lock()
+		// Can be added by another routine.
+		val, ok = s.mItems[strID]
 		if !ok {
 			val = new(trustValue)
 			s.mItems[strID] = val
 		}
-
-		if sat {
-			val.sat++
-		}
-
-		val.all++
+		s.mtx.Unlock()
+	}
+	if sat {
+		val.sat.Add(1)
 	}
 
-	s.mtx.Unlock()
+	val.all.Add(1)
 }
 
 // Update updates the number of satisfactory transactions with peer.
@@ -111,9 +113,9 @@ func (s *EpochTrustValueStorage) Iterate(h reputation.TrustHandler) (err error) 
 
 		// iterate first time to calculate normalizing divisor
 		for strID, val := range s.mItems {
-			if val.all > 0 {
-				num := reputation.TrustValueFromInt(val.sat)
-				denom := reputation.TrustValueFromInt(val.all)
+			if val.all.Load() > 0 {
+				num := reputation.TrustValueFromInt64(val.sat.Load())
+				denom := reputation.TrustValueFromInt64(val.all.Load())
 
 				v := num.Div(denom)
 

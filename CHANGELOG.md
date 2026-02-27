@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
 - Move lens `write-cache` `get`/`list` commands into `fstree` section in CLI (#3838, #3844)
 - Session key storage access session keys by account only (#3817)
+- Optimized locking for reputation data collector (#3851)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
