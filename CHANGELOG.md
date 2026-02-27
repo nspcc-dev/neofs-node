@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - `owner mismatches signature` for stored objects (#3836)
 - SN does not retry resending failed transaction because of insufficient GAS in some cases (#3839)
 - Too early GET/HEAD/RANGE request failure on single SN dial failure (#3840)
+- Payment deadlock on IR side (#3842)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
