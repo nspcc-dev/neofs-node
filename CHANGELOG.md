@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - `neofs-lens meta resync` command (#3849)
+- `policer.boost_multiplier` SN config option (#3855)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)

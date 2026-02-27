@@ -215,6 +215,7 @@ func initObjectService(c *cfg) {
 		policer.WithNetwork(c),
 		policer.WithReplicationCooldown(c.appCfg.Policer.ReplicationCooldown),
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
+		policer.WithBoostMultiplier(c.appCfg.Policer.BoostMultiplier),
 	)
 
 	c.workers = append(c.workers, c.policer)

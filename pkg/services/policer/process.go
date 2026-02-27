@@ -24,25 +24,68 @@ func (p *Policer) Run(ctx context.Context) {
 	p.shardPolicyWorker(ctx)
 }
 
-func (p *Policer) shardPolicyWorker(ctx context.Context) {
-	p.mtx.RLock()
-	repCooldown := p.repCooldown
-	batchSize := p.batchSize
-	p.mtx.RUnlock()
+const (
+	// boostWindowSize is the number of recent batches tracked to compute the
+	// current boost multiplier.
+	boostWindowSize = 8
+	// boostMajority is the minimum number of batches in the sliding window that
+	// must require replication to enter boost mode (or be clean to leave it).
+	// An equal split keeps the current state unchanged.
+	boostMajority = boostWindowSize/2 + 1
+)
 
+// boostWindow is a fixed-size circular buffer that records whether each of the
+// last [boostWindowSize] batches required any replication or was clean.
+// It is used to decide when to enter or leave boost mode.
+type boostWindow struct {
+	buf [boostWindowSize]bool
+	pos int
+}
+
+// record adds a new observation to the window and returns the number of
+// batches that required replication among the ones currently in the window.
+func (w *boostWindow) record(hadReplicated bool) (withReplication int) {
+	w.buf[w.pos] = hadReplicated
+	w.pos = (w.pos + 1) % boostWindowSize
+	for _, v := range w.buf {
+		if v {
+			withReplication++
+		}
+	}
+	return withReplication
+}
+
+func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	var (
-		addrs  []objectcore.AddressWithAttributes
-		cursor *engine.Cursor
-		err    error
+		addrs   []objectcore.AddressWithAttributes
+		cursor  *engine.Cursor
+		win     boostWindow
+		boosted bool
+		err     error
 	)
 
-	t := time.NewTimer(repCooldown)
+	p.mtx.RLock()
+	t := time.NewTimer(p.repCooldown)
+	p.mtx.RUnlock()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+		}
+
+		p.mtx.RLock()
+		repCooldown := p.repCooldown
+		baseBatchSize := p.batchSize
+		boostMultiplier := p.boostMultiplier
+		p.mtx.RUnlock()
+
+		boostMultiplier = max(boostMultiplier, 1)
+
+		batchSize := baseBatchSize
+		if boosted {
+			batchSize *= boostMultiplier
 		}
 
 		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor, iec.AttributeRuleIdx, iec.AttributePartIdx, object.FilterParentID)
@@ -86,13 +129,30 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			}
 		}
 
+		// After each batch, record whether replication was needed and update the
+		// sliding window. Boost mode transitions only when a strict majority
+		// of the window agrees, so an equal split keeps the current state unchanged.
+		if boostMultiplier > 1 {
+			withReplication := win.record(p.hadToReplicate.Load())
+
+			if !boosted && withReplication >= boostMajority {
+				p.log.Info("missing replicas detected, entering boost mode",
+					zap.Uint32("multiplier", boostMultiplier),
+					zap.Uint32("batch_size", baseBatchSize),
+					zap.Int("batches_with_replication", withReplication))
+				boosted = true
+			} else if boosted && (boostWindowSize-withReplication) >= boostMajority {
+				p.log.Info("recovery complete, leaving boost mode",
+					zap.Int("clean_batches", boostWindowSize-withReplication))
+				boosted = false
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			p.mtx.RLock()
-			t.Reset(p.repCooldown)
-			p.mtx.RUnlock()
+			t.Reset(repCooldown)
 		}
 	}
 }

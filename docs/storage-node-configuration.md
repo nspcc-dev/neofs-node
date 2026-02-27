@@ -341,14 +341,16 @@ policer:
   replication_cooldown: 100ms
   object_batch_size: 10
   max_workers: 20
+  boost_multiplier: 5
 ```
 
-| Parameter              | Type       | Default value | Description                                         |
-|------------------------|------------|---------------|-----------------------------------------------------|
-| `head_timeout`         | `duration` | `5s`          | Timeout for performing the `HEAD` operation.        |
-| `replication_cooldown` | `duration` | `1s`          | Cooldown time between replication tasks submitting. |
-| `object_batch_size`    | `int`      | `10`          | Replication's objects batch size.                   |
-| `max_workers`          | `int`      | `20`          | Replication's worker pool's maximum size.           |
+| Parameter              | Type       | Default value | Description                                                                                                          |
+|------------------------|------------|---------------|----------------------------------------------------------------------------------------------------------------------|
+| `head_timeout`         | `duration` | `5s`          | Timeout for performing the `HEAD` operation.                                                                         |
+| `replication_cooldown` | `duration` | `1s`          | Cooldown time between replication tasks submitting.                                                                  |
+| `object_batch_size`    | `int`      | `10`          | Replication's objects batch size.                                                                                    |
+| `max_workers`          | `int`      | `20`          | Replication's worker pool's maximum size.                                                                            |
+| `boost_multiplier`     | `int`      | `3`           | Multiplier applied to `object_batch_size` for the next cycle when the policer detects and recovers missing replicas. |
 
 # `replicator` section
 

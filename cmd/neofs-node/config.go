@@ -572,6 +572,7 @@ func (c *cfg) policerOpts() []policer.Option {
 		policer.WithHeadTimeout(pCfg.HeadTimeout),
 		policer.WithReplicationCooldown(pCfg.ReplicationCooldown),
 		policer.WithObjectBatchSize(pCfg.ObjectBatchSize),
+		policer.WithBoostMultiplier(pCfg.BoostMultiplier),
 	}
 }
 
