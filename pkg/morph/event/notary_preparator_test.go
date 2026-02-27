@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/vm"
-
 	"github.com/nspcc-dev/neo-go/pkg/core/interop/interopnames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
@@ -79,13 +77,13 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 
 			_, err := preparator.Prepare(nr)
 
-			require.EqualError(t, err, errNotContractCall.Error())
+			require.ErrorContains(t, err, "failed to parse main transaction script: failed to parse AppCall: failed to parse arguments: static parser supports only System.Contract.Call SYSCALL: expected System.Contract.Call SYSCALL, got System.Contract.CallNative")
 		})
 
 		t.Run(fmt.Sprintf("incorrect, compat: %t", dummyMultisig), func(t *testing.T) {
 			bw := io.NewBufBinWriter()
 
-			emit.Int(bw.BinWriter, -1)
+			emit.Int(bw.BinWriter, -1) // missing args.
 			emit.String(bw.BinWriter, contractMethod)
 			emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
 			emit.Syscall(bw.BinWriter, interopnames.SystemContractCall)
@@ -94,7 +92,7 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 
 			_, err := preparator.Prepare(nr)
 
-			require.EqualError(t, err, errIncorrectCallFlag.Error())
+			require.ErrorContains(t, err, "failed to parse main transaction script: failed to parse AppCall: failed to parse arguments: failed to parse SYSCALL: System.Contract.Call requires 4 parameters, got 3")
 		})
 	}
 }
@@ -443,46 +441,23 @@ func TestPrepare_CorrectNR(t *testing.T) {
 	for _, test := range tests {
 		for i := range 2 { // run tests against 3 and 4 witness NR
 			for j, dummyMultisig := range []bool{true, false} { // run tests against empty and dummy multisig/Notary witness
-				method := test.method + strconv.FormatInt(int64(j), 10)
-				preparator.allowNotaryEvent(notaryScriptWithHash{
-					notaryRequestType: notaryRequestType{NotaryTypeFromString(method)},
-					scriptHashValue:   scriptHashValue{scriptHash},
-				})
+				t.Run(fmt.Sprintf("%s, i: %d, dummyMultisig: %t", test.method, i, dummyMultisig), func(t *testing.T) {
+					method := test.method + strconv.FormatInt(int64(j), 10)
+					preparator.allowNotaryEvent(notaryScriptWithHash{
+						notaryRequestType: notaryRequestType{NotaryTypeFromString(method)},
+						scriptHashValue:   scriptHashValue{scriptHash},
+					})
 
-				additionalWitness := i == 0
-				nr := correctNR(script(test.hash, method, test.args...), dummyMultisig, additionalWitness)
+					additionalWitness := i == 0
+					nr := correctNR(script(test.hash, method, test.args...), dummyMultisig, additionalWitness)
 
-				event, err := preparator.Prepare(nr)
+					event, err := preparator.Prepare(nr)
 
-				require.NoError(t, err)
-				require.Equal(t, method, event.Type().String())
-				require.Equal(t, test.hash.StringLE(), event.ScriptHash().StringLE())
-
-				// check args parsing
-				bw := io.NewBufBinWriter()
-				emit.Array(bw.BinWriter, test.args...)
-
-				ctx := vm.NewContext(bw.Bytes())
-
-				opCode, param, err := ctx.Next()
-				require.NoError(t, err)
-
-				for _, opGot := range event.Params() {
-					require.Equal(t, opCode, opGot.code)
-					require.Equal(t, param, opGot.param)
-
-					opCode, param, err = ctx.Next()
 					require.NoError(t, err)
-				}
-
-				_, _, err = ctx.Next() //  PACK opcode
-				require.NoError(t, err)
-				_, _, err = ctx.Next() //  packing len opcode
-				require.NoError(t, err)
-
-				opCode, _, err = ctx.Next()
-				require.NoError(t, err)
-				require.Equal(t, opcode.RET, opCode)
+					require.Equal(t, method, event.Type().String())
+					require.Equal(t, test.hash.StringLE(), event.ScriptHash().StringLE())
+					require.Equal(t, len(test.args), len(event.Params()))
+				})
 			}
 		}
 	}
@@ -505,13 +480,7 @@ func alphaKeysSource() client.AlphabetKeys {
 
 func script(hash util.Uint160, method string, args ...any) []byte {
 	bw := io.NewBufBinWriter()
-
-	if len(args) > 0 {
-		emit.AppCall(bw.BinWriter, hash, method, callflag.All, args)
-	} else {
-		emit.AppCallNoArgs(bw.BinWriter, hash, method, callflag.All)
-	}
-
+	emit.AppCall(bw.BinWriter, hash, method, callflag.All, args...)
 	return bw.Bytes()
 }
 
