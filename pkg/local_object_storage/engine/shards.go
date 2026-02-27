@@ -186,10 +186,10 @@ func generateShardID() (*shard.ID, error) {
 	return shard.NewIDFromBytes(bin), nil
 }
 
-func (e *StorageEngine) sortedShards(objAddr oid.Address) []shardWrapper {
+func (e *StorageEngine) sortedShards(id oid.ID) []shardWrapper {
 	shards := e.unsortedShards()
 
-	hrw.Sort(shards, hrwOIDWrapper(objAddr.Object()))
+	hrw.Sort(shards, hrwOIDWrapper(id))
 
 	for i := range shards {
 		shards[i].shardIface = shards[i].Shard

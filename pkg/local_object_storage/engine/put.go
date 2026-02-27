@@ -71,9 +71,9 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 	)
 
 	if iec.ObjectWithAttributes(*obj) {
-		shs = e.sortedShards(oid.NewAddress(obj.GetContainerID(), obj.GetParentID()))
+		shs = e.sortedShards(obj.GetParentID())
 	} else {
-		shs = e.sortedShards(addr)
+		shs = e.sortedShards(addr.Object())
 	}
 
 	if len(shs) == 0 {

@@ -386,7 +386,7 @@ func TestSplitObjectExpirationWithoutLink(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		// Check this way because Get returns ErrObjectNotFound for expired error
-		for _, sh := range e.sortedShards(parentAddr) {
+		for _, sh := range e.sortedShards(parentID) {
 			_, err = sh.Get(parentAddr, false)
 			if errors.Is(err, statusSDK.ErrObjectNotFound) {
 				return true
@@ -496,7 +496,7 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		// Check this way because Get returns ErrObjectNotFound for expired error
-		for _, sh := range e.sortedShards(parentAddr) {
+		for _, sh := range e.sortedShards(parentID) {
 			_, err = sh.Get(parentAddr, false)
 			if errors.Is(err, statusSDK.ErrObjectNotFound) {
 				return true

@@ -62,7 +62,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 		metaError     error
 	)
 
-	for _, sh := range e.sortedShards(addr) {
+	for _, sh := range e.sortedShards(addr.Object()) {
 		noMeta := sh.GetMode().NoMetabase()
 		hasDegraded = hasDegraded || noMeta
 
@@ -118,7 +118,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 	// If the object is not found but is present in metabase,
 	// try to fetch it from blobstor directly. If it is found in any
 	// blobstor, increase the error counter for the shard which contains the meta.
-	for _, sh := range e.sortedShards(addr) {
+	for _, sh := range e.sortedShards(addr.Object()) {
 		if sh.GetMode().NoMetabase() {
 			// Already visited.
 			continue

@@ -133,7 +133,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 		var wrongShardID string
 
-		for i, sh := range e.sortedShards(addr) {
+		for i, sh := range e.sortedShards(addr.Object()) {
 			if i != 0 {
 				wrongShardID = sh.ID().String()
 			}

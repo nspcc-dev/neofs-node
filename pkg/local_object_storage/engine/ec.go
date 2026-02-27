@@ -47,7 +47,7 @@ func (e *StorageEngine) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (o
 		return object.Object{}, nil, e.blockErr
 	}
 
-	s := e.sortShardsFn(e, oid.NewAddress(cnr, parent))
+	s := e.sortShardsFn(e, parent)
 
 	var partID oid.ID
 loop:
@@ -147,7 +147,7 @@ func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInf
 		return 0, nil, e.blockErr
 	}
 
-	s := e.sortShardsFn(e, oid.NewAddress(cnr, parent))
+	s := e.sortShardsFn(e, parent)
 
 	var partID oid.ID
 loop:
@@ -216,7 +216,7 @@ func (e *StorageEngine) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (
 		return object.Object{}, e.blockErr
 	}
 
-	s := e.sortShardsFn(e, oid.NewAddress(cnr, parent))
+	s := e.sortShardsFn(e, parent)
 
 	var partID oid.ID
 loop:

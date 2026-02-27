@@ -14,7 +14,7 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 		defer elapsed(e.metrics.AddExistsDuration)()
 	}
 
-	for _, sh := range e.sortedShards(addr) {
+	for _, sh := range e.sortedShards(addr.Object()) {
 		exists, err := sh.Exists(addr, false)
 		if err != nil {
 			if shard.IsErrRemoved(err) {

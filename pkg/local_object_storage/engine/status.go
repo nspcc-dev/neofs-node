@@ -20,7 +20,7 @@ type ObjectStatus struct {
 func (e *StorageEngine) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	var res ObjectStatus
 
-	for _, sh := range e.sortedShards(address) {
+	for _, sh := range e.sortedShards(address.Object()) {
 		shardStatus, err := sh.ObjectStatus(address)
 		id := *sh.ID()
 		if err != nil {

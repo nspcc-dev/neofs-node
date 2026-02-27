@@ -36,7 +36,7 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*object.Object, error)
 
 	var splitInfo *object.SplitInfo
 
-	for _, sh := range e.sortedShards(addr) {
+	for _, sh := range e.sortedShards(addr.Object()) {
 		res, err := sh.Head(addr, raw)
 		if err != nil {
 			var siErr *object.SplitInfoError
