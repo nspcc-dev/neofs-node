@@ -17,7 +17,6 @@ func (c *Client) SettleContainerPayment(epoch uint64, cID cid.ID) error {
 	prm.SetArgs(cID[:])
 	prm.RequireAlphabetSignature()
 	prm.SetNonce(uint32(epoch))
-	prm.Await()
 
 	err := c.client.Invoke(prm)
 	if err != nil {
