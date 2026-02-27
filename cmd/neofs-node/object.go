@@ -346,8 +346,7 @@ type reputationClientConstructor struct {
 type reputationClient struct {
 	coreclient.MultiAddressClient
 
-	prm truststorage.UpdatePrm
-
+	peer apireputation.PeerID
 	cons *reputationClientConstructor
 }
 
@@ -361,11 +360,7 @@ func (c *reputationClient) submitResult(err error) {
 		zap.Bool("satisfactory", sat),
 	)
 
-	prm := c.prm
-	prm.SetSatisfactory(sat)
-	prm.SetEpoch(currEpoch)
-
-	c.cons.trustStorage.Update(prm)
+	c.cons.trustStorage.Update(currEpoch, c.peer, sat)
 }
 
 func (c *reputationClient) ObjectPutInit(ctx context.Context, hdr object.Object, signer user.Signer, prm client.PrmObjectPutInit) (client.ObjectWriter, error) {
@@ -437,12 +432,9 @@ func (c *reputationClientConstructor) Get(ctx context.Context, info coreclient.N
 			if bytes.Equal(nmNodes[i].PublicKey(), key) {
 				peer.SetPublicKey(nmNodes[i].PublicKey())
 
-				prm := truststorage.UpdatePrm{}
-				prm.SetPeer(peer)
-
 				return &reputationClient{
 					MultiAddressClient: cl,
-					prm:                prm,
+					peer:               peer,
 					cons:               c,
 				}, nil
 			}

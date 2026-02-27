@@ -80,7 +80,7 @@ func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
 	}
 
 	// calculate Pj http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Chapter 4.5.
-	p := reputation.TrustOne.Div(reputation.TrustValueFromInt(ln))
+	p := reputation.TrustOne.Div(reputation.TrustValueFromInt64(int64(ln)))
 
 	for i := range nmNodes {
 		if i == localIndex {

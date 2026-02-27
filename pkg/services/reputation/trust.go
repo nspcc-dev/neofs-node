@@ -22,8 +22,8 @@ func TrustValueFromFloat64(v float64) TrustValue {
 	return TrustValue(v)
 }
 
-// TrustValueFromInt converts int to TrustValue.
-func TrustValueFromInt(v int) TrustValue {
+// TrustValueFromInt64 converts int64 to TrustValue.
+func TrustValueFromInt64(v int64) TrustValue {
 	return TrustValue(v)
 }
 

@@ -3,39 +3,14 @@ package truststorage
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
-// UpdatePrm groups the parameters of Storage's Update operation.
-type UpdatePrm struct {
-	sat bool
-
-	epoch uint64
-
-	peer apireputation.PeerID
-}
-
-// SetEpoch sets number of the epoch
-// when the interaction happened.
-func (p *UpdatePrm) SetEpoch(e uint64) {
-	p.epoch = e
-}
-
-// SetPeer sets identifier of the peer
-// with which the local node interacted.
-func (p *UpdatePrm) SetPeer(id apireputation.PeerID) {
-	p.peer = id
-}
-
-// SetSatisfactory sets successful completion status.
-func (p *UpdatePrm) SetSatisfactory(sat bool) {
-	p.sat = sat
-}
-
 type trustValue struct {
-	sat, all int
+	sat, all atomic.Int64
 }
 
 // EpochTrustValueStorage represents storage of
@@ -61,50 +36,47 @@ func peerIDFromString(str string) (res apireputation.PeerID) {
 	return
 }
 
-func (s *EpochTrustValueStorage) update(prm UpdatePrm) {
-	s.mtx.Lock()
+func (s *EpochTrustValueStorage) update(peer apireputation.PeerID, sat bool) {
+	var strID = stringifyPeerID(peer)
 
-	{
-		strID := stringifyPeerID(prm.peer)
-
-		val, ok := s.mItems[strID]
+	s.mtx.RLock()
+	val, ok := s.mItems[strID]
+	s.mtx.RUnlock()
+	if !ok {
+		s.mtx.Lock()
+		// Can be added by another routine.
+		val, ok = s.mItems[strID]
 		if !ok {
 			val = new(trustValue)
 			s.mItems[strID] = val
 		}
-
-		if prm.sat {
-			val.sat++
-		}
-
-		val.all++
+		s.mtx.Unlock()
+	}
+	if sat {
+		val.sat.Add(1)
 	}
 
-	s.mtx.Unlock()
+	val.all.Add(1)
 }
 
 // Update updates the number of satisfactory transactions with peer.
-func (s *Storage) Update(prm UpdatePrm) {
-	var trustStorage *EpochTrustValueStorage
+func (s *Storage) Update(epoch uint64, peer apireputation.PeerID, sat bool) {
+	s.mtx.RLock()
+	trustStorage, ok := s.mItems[epoch]
+	s.mtx.RUnlock()
 
-	s.mtx.Lock()
-
-	{
-		var (
-			ok    bool
-			epoch = prm.epoch
-		)
-
+	if !ok {
+		s.mtx.Lock()
+		// Can be added by another routine.
 		trustStorage, ok = s.mItems[epoch]
 		if !ok {
 			trustStorage = newTrustValueStorage()
 			s.mItems[epoch] = trustStorage
 		}
+		s.mtx.Unlock()
 	}
 
-	s.mtx.Unlock()
-
-	trustStorage.update(prm)
+	trustStorage.update(peer, sat)
 }
 
 // ErrNoPositiveTrust is returned by iterator when
@@ -141,9 +113,9 @@ func (s *EpochTrustValueStorage) Iterate(h reputation.TrustHandler) (err error) 
 
 		// iterate first time to calculate normalizing divisor
 		for strID, val := range s.mItems {
-			if val.all > 0 {
-				num := reputation.TrustValueFromInt(val.sat)
-				denom := reputation.TrustValueFromInt(val.all)
+			if val.all.Load() > 0 {
+				num := reputation.TrustValueFromInt64(val.sat.Load())
+				denom := reputation.TrustValueFromInt64(val.all.Load())
 
 				v := num.Div(denom)
 
