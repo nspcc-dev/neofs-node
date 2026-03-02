@@ -235,6 +235,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		prm.ecPart = ecPart
 	} else {
 		prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+		prm.ecPart.RuleIndex = -1
 	}
 	if !prm.localNodeInContainer && localOnly {
 		return errors.New("local operation on the node not compliant with the container storage policy")
@@ -287,8 +288,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		metaCollection: metaCollection{
 			signatures: make([][][]byte, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
 		},
-		metaSigner: prm.localSignerRFC6979,
-		localOnly:  prm.common.LocalOnly(),
+		metaSigner:    prm.localSignerRFC6979,
+		localOnly:     prm.common.LocalOnly(),
+		initialPolicy: prm.cnr.PlacementPolicy().Initial(),
 	}
 }
 

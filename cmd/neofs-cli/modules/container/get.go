@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
 
@@ -113,11 +114,45 @@ func prettyPrintContainer(cmd *cobra.Command, id cid.ID, cnr container.Container
 		cmd.Printf("\t%s=%s\n", key, val)
 	}
 
+	policy := cnr.PlacementPolicy()
+	repRules := policy.Replicas()
+
 	cmd.Println("placement policy:")
-	if err := cnr.PlacementPolicy().WriteStringTo((*stringWriter)(cmd)); err != nil {
+	// https://github.com/nspcc-dev/neofs-sdk-go/issues/789
+	var policyCp netmap.PlacementPolicy
+	policyCp.SetReplicas(repRules)
+	policyCp.SetSelectors(policy.Selectors())
+	policyCp.SetFilters(policy.Filters())
+	policyCp.SetECRules(policy.ECRules())
+	policyCp.SetContainerBackupFactor(policy.ContainerBackupFactor())
+	if err := policyCp.WriteStringTo((*stringWriter)(cmd)); err != nil {
 		return fmt.Errorf("write policy: %w", err)
 	}
 	cmd.Println()
+
+	initialPolicy := policy.Initial()
+	if initialPolicy == nil {
+		return nil
+	}
+
+	cmd.Printf("INITIAL")
+	if repLimits := initialPolicy.ReplicaLimits(); len(repLimits) != 0 {
+		for i := range repLimits {
+			if i < len(repRules) {
+				cmd.Printf(" REP %d", repLimits[i])
+			} else {
+				cmd.Printf(" EC %d", repLimits[i])
+			}
+		}
+	}
+	if maxReplicas := initialPolicy.MaxReplicas(); maxReplicas != 0 {
+		cmd.Printf(" MAX %d", maxReplicas)
+	}
+	if initialPolicy.PreferLocal() {
+		cmd.Print(" LOCAL")
+	}
+	cmd.Println()
+
 	return nil
 }
 
