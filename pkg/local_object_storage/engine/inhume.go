@@ -49,7 +49,7 @@ func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*sha
 		err      error
 		root     bool
 		siNoLink *object.SplitInfo
-		shards   = e.sortedShards(addr)
+		shards   = e.sortedShards(addr.Object())
 	)
 
 	// see if the object is root

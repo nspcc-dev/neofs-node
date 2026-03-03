@@ -26,7 +26,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/tzhash/tz"
-	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -84,18 +83,11 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 	engine := New()
 
 	for _, s := range shards {
-		pool, err := ants.NewPool(10, ants.WithNonblocking(true))
+		err := engine.addShard(s)
 		if err != nil {
 			panic(err)
 		}
-
-		engine.shards[s.ID().String()] = shardWrapper{
-			errorCount: new(atomic.Uint32),
-			pool:       pool,
-			Shard:      s,
-		}
 	}
-
 	return engine
 }
 
@@ -194,7 +186,7 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 		}
 	}
 
-	e.sortShardsFn = func(*StorageEngine, oid.Address) []shardWrapper {
+	e.sortShardsFn = func(*StorageEngine, oid.ID) []shardWrapper {
 		return ws
 	}
 

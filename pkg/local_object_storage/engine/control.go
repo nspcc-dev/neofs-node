@@ -81,14 +81,14 @@ func (e *StorageEngine) close(releasePools bool) error {
 	defer e.mtx.RUnlock()
 
 	for id, sh := range e.shards {
-		if releasePools {
-			sh.pool.Release()
-		}
 		if err := sh.Close(); err != nil {
 			e.log.Debug("could not close shard",
 				zap.String("id", id),
 				zap.Error(err),
 			)
+		}
+		if releasePools {
+			close(sh.putCh)
 		}
 	}
 
@@ -188,7 +188,17 @@ func (rCfg *ReConfiguration) AddShard(id string, opts []shard.Option) {
 // Reload reloads StorageEngine's configuration in runtime.
 func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 	e.mtx.Lock()
-	e.shardPoolSize = rcfg.shardPoolSize
+	if rcfg.shardPoolSize != e.shardPoolSize {
+		e.shardPoolSize = rcfg.shardPoolSize
+		for id, sh := range e.shards {
+			close(sh.putCh)
+			sh.putCh = make(chan putTask)
+			for range e.shardPoolSize {
+				go sh.shardPutThread()
+			}
+			e.shards[id] = sh
+		}
+	}
 	e.mtx.Unlock()
 
 	type reloadInfo struct {
@@ -197,9 +207,6 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 	}
 
 	e.mtx.RLock()
-	for _, sh := range e.shards {
-		sh.pool.Tune(int(e.shardPoolSize))
-	}
 
 	var shardsToRemove []string // shards IDs
 	var shardsToAdd []string    // shard config identifiers (blobstor paths concatenation)
