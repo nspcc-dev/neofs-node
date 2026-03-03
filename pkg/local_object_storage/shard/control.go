@@ -6,12 +6,8 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
-
-const resyncBatchSize = 1000
 
 func (s *Shard) handleMetabaseFailure(stage string, err error) error {
 	s.log.Error("metabase failure, switching mode",
@@ -71,12 +67,6 @@ func (s *Shard) Open() error {
 	return nil
 }
 
-type metabaseSynchronizer Shard
-
-func (x *metabaseSynchronizer) Init() error {
-	return (*Shard)(x).resyncMetabase()
-}
-
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
 	type initializer interface {
@@ -86,15 +76,7 @@ func (s *Shard) Init() error {
 	var components = []initializer{&s.compression, s.blobStor}
 
 	if !s.GetMode().NoMetabase() {
-		var initMetabase initializer
-
-		if s.needResyncMetabase() {
-			initMetabase = (*metabaseSynchronizer)(s)
-		} else {
-			initMetabase = s.metaBase
-		}
-
-		components = append(components, initMetabase)
+		components = append(components, s.metaBase)
 	}
 
 	if s.hasWriteCache() {
@@ -137,93 +119,6 @@ func (s *Shard) Init() error {
 
 	s.gc.init()
 
-	return nil
-}
-
-func (s *Shard) resyncMetabase() error {
-	err := s.metaBase.Reset()
-	if err != nil {
-		return fmt.Errorf("could not reset metabase: %w", err)
-	}
-
-	if s.writeCache != nil {
-		// ensure there will not be any raсes in write-cache -> blobstor object
-		// background flushing while iterating blobstor
-		err = s.writeCache.Flush(true)
-		if err != nil {
-			s.log.Warn("could not flush write-cache while resyncing metabase", zap.Error(err))
-		}
-	}
-
-	var errorHandler = func(addr oid.Address, err error) error {
-		s.log.Warn("error occurred during the iteration",
-			zap.Stringer("address", addr),
-			zap.Error(err))
-		return nil
-	}
-
-	rh := newResyncHandler(s, resyncBatchSize)
-	err = s.blobStor.Iterate(rh.handle, errorHandler)
-	if err != nil {
-		return fmt.Errorf("could not put objects to the meta from blobstor: %w", err)
-	}
-
-	// Flush any remaining objects in the batch
-	if err := rh.flush(); err != nil {
-		return fmt.Errorf("could not flush remaining objects to metabase: %w", err)
-	}
-
-	err = s.metaBase.SyncCounters()
-	if err != nil {
-		return fmt.Errorf("could not sync object counters: %w", err)
-	}
-
-	return nil
-}
-
-// resyncHandler accumulates objects and flushes them in batches.
-type resyncHandler struct {
-	shard *Shard
-	batch []*object.Object
-}
-
-func newResyncHandler(s *Shard, batchSize int) *resyncHandler {
-	return &resyncHandler{
-		shard: s,
-		batch: make([]*object.Object, 0, batchSize),
-	}
-}
-
-func (rh *resyncHandler) handle(addr oid.Address, data []byte) error {
-	obj := new(object.Object)
-
-	if err := obj.Unmarshal(data); err != nil {
-		rh.shard.log.Warn("could not unmarshal object",
-			zap.Stringer("address", addr),
-			zap.Error(err))
-		return nil
-	}
-
-	rh.batch = append(rh.batch, obj)
-
-	if len(rh.batch) == cap(rh.batch) {
-		return rh.flush()
-	}
-
-	return nil
-}
-
-func (rh *resyncHandler) flush() error {
-	if len(rh.batch) == 0 {
-		return nil
-	}
-
-	err := rh.shard.metaBase.PutBatch(rh.batch)
-	if err != nil {
-		return err
-	}
-
-	rh.batch = rh.batch[:0]
 	return nil
 }
 
@@ -275,15 +170,7 @@ func (s *Shard) Reload(opts ...Option) error {
 		return err
 	}
 	if ok {
-		var err error
-		if c.resyncMetabase {
-			// Here we refill metabase only if a new instance was opened. This is a feature,
-			// we don't want to hang for some time just because we forgot to change
-			// config after the node was updated.
-			err = s.resyncMetabase()
-		} else {
-			err = s.metaBase.Init()
-		}
+		err = s.metaBase.Init()
 		if err != nil {
 			s.log.Error("can't initialize metabase, move to a degraded-read-only mode", zap.Error(err))
 			_ = s.setMode(mode.DegradedReadOnly)

@@ -167,8 +167,6 @@ storage:
   ignore_uninited_shards: true
 
   shard_defaults:
-    resync_metabase: true
-
     writecache:
       enabled: true
 
@@ -189,7 +187,6 @@ storage:
 
   shards:
     - mode: read-only
-      resync_metabase: false
       writecache:
         enabled: false
         no_sync: true
@@ -218,11 +215,9 @@ storage:
 
   shard:
     default:
-      resync_metabase: true
 
     0:
       mode: read-only
-      resync_metabase: false
       writecache:
         enabled: false
         no_sync: true

@@ -154,10 +154,10 @@ func TestBlobstorFailback(t *testing.T) {
 
 	p1 := e.shards[id[0].String()].DumpInfo().BlobStorInfo.Path
 	p2 := e.shards[id[1].String()].DumpInfo().BlobStorInfo.Path
-	tmp := filepath.Join(dir, "tmp")
-	require.NoError(t, os.Rename(p1, tmp))
-	require.NoError(t, os.Rename(p2, p1))
-	require.NoError(t, os.Rename(tmp, p2))
+	swapPaths(t, dir, p1, p2)
+	desc1 := filepath.Join(p1, ".fstree.json")
+	desc2 := filepath.Join(p2, ".fstree.json")
+	swapPaths(t, dir, desc1, desc2)
 
 	e, _, id = newEngineWithErrorThreshold(t, dir, 1)
 
@@ -210,4 +210,12 @@ func fixSubDir(t *testing.T, dir string) {
 			require.NoError(t, os.Chmod(filepath.Join(dir, de[i].Name()), 0777))
 		}
 	}
+}
+
+func swapPaths(t *testing.T, baseDir, p1, p2 string) {
+	tmp := filepath.Join(baseDir, "tmp")
+
+	require.NoError(t, os.Rename(p1, tmp))
+	require.NoError(t, os.Rename(p2, p1))
+	require.NoError(t, os.Rename(tmp, p2))
 }

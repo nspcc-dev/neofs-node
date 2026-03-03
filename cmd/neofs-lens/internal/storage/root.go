@@ -77,7 +77,6 @@ func openEngine() (*engine.StorageEngine, error) {
 				fstree.WithPerm(sRead.Perm),
 				fstree.WithDepth(sRead.Depth),
 				fstree.WithNoSync(*sRead.NoSync),
-				fstree.WithShardID(shCfg.ID()),
 				fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
 				fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
 				fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
@@ -102,7 +101,6 @@ func openEngine() (*engine.StorageEngine, error) {
 		var sh shardOptsWithID
 		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
-			shard.WithResyncMetabase(*shCfg.ResyncMetabase),
 			shard.WithMode(shCfg.Mode),
 			shard.WithCompressObjects(*shCfg.Compress),
 			shard.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),

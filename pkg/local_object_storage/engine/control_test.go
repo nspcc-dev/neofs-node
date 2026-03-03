@@ -172,12 +172,12 @@ func TestPersistentShardID(t *testing.T) {
 	require.Equal(t, id, newID)
 	require.NoError(t, e.Close())
 
-	p1 := e.shards[id[0].String()].DumpInfo().MetaBaseInfo.Path
-	p2 := e.shards[id[1].String()].DumpInfo().MetaBaseInfo.Path
-	tmp := filepath.Join(dir, "tmp")
-	require.NoError(t, os.Rename(p1, tmp))
-	require.NoError(t, os.Rename(p2, p1))
-	require.NoError(t, os.Rename(tmp, p2))
+	m1 := e.shards[id[0].String()].DumpInfo().MetaBaseInfo.Path
+	m2 := e.shards[id[1].String()].DumpInfo().MetaBaseInfo.Path
+	swapPaths(t, dir, m1, m2)
+	b1 := e.shards[id[0].String()].DumpInfo().BlobStorInfo.Path
+	b2 := e.shards[id[1].String()].DumpInfo().BlobStorInfo.Path
+	swapPaths(t, dir, b1, b2)
 
 	e, _, newID = newEngineWithErrorThreshold(t, dir, 1)
 	require.Equal(t, id[1], newID[0])

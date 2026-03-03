@@ -56,6 +56,7 @@ func (s *Shard) UpdateID() (err error) {
 	s.gcCfg.log = s.gcCfg.log.With(zap.String("shard_id", sID))
 	s.metaBase.SetLogger(l)
 	s.blobStor.SetLogger(l)
+	s.blobStor.SetShardID(sID)
 	if s.hasWriteCache() {
 		s.writeCache.SetLogger(l)
 		s.writeCache.SetShardIDMetrics(sID)

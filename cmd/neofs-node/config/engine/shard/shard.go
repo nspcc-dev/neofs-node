@@ -15,7 +15,6 @@ import (
 // ShardDetails contains configuration for a single shard of a storage node.
 type ShardDetails struct {
 	Mode                           mode.Mode `mapstructure:"mode"`
-	ResyncMetabase                 *bool     `mapstructure:"resync_metabase"`
 	Compress                       *bool     `mapstructure:"compress"`
 	CompressionExcludeContentTypes []string  `mapstructure:"compression_exclude_content_types"`
 
@@ -29,7 +28,6 @@ type ShardDetails struct {
 // If some of fields are not set or have invalid values, they will be
 // set to default values.
 func (s *ShardDetails) Normalize(def ShardDetails) {
-	s.ResyncMetabase = internal.CheckPtrBool(s.ResyncMetabase, def.ResyncMetabase)
 	s.Compress = internal.CheckPtrBool(s.Compress, def.Compress)
 	s.Blobstor.Normalize(def.Blobstor)
 	s.WriteCache.Normalize(def.WriteCache)

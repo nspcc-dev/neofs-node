@@ -12,7 +12,7 @@ import (
 )
 
 // currentVersion contains current FSTree config version.
-const currentVersion = 1
+const currentVersion = 2
 
 // Open implements common.Storage.
 func (t *FSTree) Open(ro bool) error {
@@ -90,8 +90,15 @@ func (t *FSTree) checkConfig() error {
 	dec := json.NewDecoder(f)
 	dec.DisallowUnknownFields()
 	if err = dec.Decode(&d); err != nil {
+		_ = f.Close()
 		return fmt.Errorf("decode descriptor from JSON: %w", err)
 	}
+	_ = f.Close()
+
+	if d.Version == 1 {
+		return t.migrateDescriptorFrom1Version(&d, descPath)
+	}
+
 	if d.Version != currentVersion {
 		return fmt.Errorf("unsupported layout version: %d (current version: %d)", d.Version, currentVersion)
 	}
@@ -108,6 +115,40 @@ func (t *FSTree) checkConfig() error {
 		}
 	} else {
 		t.shardID = d.ShardID
+	}
+	return nil
+}
+
+// migrateDescriptorFrom1Version migrates descriptor from version 1 to version 2.
+// In version 1, ShardID was path-based and needs to be updated during migration.
+func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string) error {
+	if t.depthSet {
+		if d.Depth != t.Depth {
+			return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
+		}
+	} else {
+		t.Depth = d.Depth
+	}
+
+	if !t.shardIDSet {
+		t.shardID = d.ShardID
+	}
+
+	if !t.readOnly {
+		d.Version = currentVersion
+		// update shard ID
+		d.ShardID = t.shardID
+		data, err := json.Marshal(d)
+		if err != nil {
+			return fmt.Errorf("encode descriptor to JSON during migration: %w", err)
+		}
+		tmp := descPath + ".tmp"
+		if err = os.WriteFile(tmp, data, 0o600); err != nil {
+			return fmt.Errorf("write descriptor tmp during migration: %w", err)
+		}
+		if err = os.Rename(tmp, descPath); err != nil {
+			return fmt.Errorf("rename descriptor tmp during migration: %w", err)
+		}
 	}
 	return nil
 }

@@ -570,6 +570,18 @@ func (t *FSTree) Path() string {
 	return t.RootPath
 }
 
+// ShardID returns the shard ID associated with this FSTree.
+func (t *FSTree) ShardID() string {
+	return t.shardID
+}
+
+// SetShardID sets the shard ID to be written to the on-disk descriptor.
+// Must be called after the shard ID was generated and before Init().
+func (t *FSTree) SetShardID(id string) {
+	t.shardID = id
+	t.shardIDSet = true
+}
+
 // SetCompressor implements common.Storage.
 func (t *FSTree) SetCompressor(cc *compression.Config) {
 	t.Config = cc

@@ -116,7 +116,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				fstree.WithPerm(sRead.Perm),
 				fstree.WithDepth(sRead.Depth),
 				fstree.WithNoSync(*sRead.NoSync),
-				fstree.WithShardID(shCfg.ID()),
 				fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
 				fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
 				fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
@@ -144,7 +143,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
 			shard.WithLogger(c.log),
-			shard.WithResyncMetabase(*shCfg.ResyncMetabase),
 			shard.WithMode(shCfg.Mode),
 			shard.WithCompressObjects(*shCfg.Compress),
 			shard.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),

@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs-lens meta resync` command (#3849)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
@@ -12,6 +13,7 @@ Changelog for NeoFS Node
 - SN does not retry resending failed transaction because of insufficient GAS in some cases (#3839)
 - Too early GET/HEAD/RANGE request failure on single SN dial failure (#3840)
 - Payment deadlock on IR side (#3842)
+- Wrong shard ID entry in FSTree descriptor (#3849)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
@@ -22,6 +24,7 @@ Changelog for NeoFS Node
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
 - Undocumented ability to fetch the latest contract release for adm update-contracts (#3850)
+- `storage.shards.resync_metabase` config option from SN config (#3849)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)
@@ -40,6 +43,9 @@ Changelog for NeoFS Node
 SN config option `node.persistent_sessions.path` was deprecated since release 0.50.0
 and has now been removed. Drop this config and associated file, migrate with 0.51.1 if needed.
 Sessions are stored in `node.persistent_state.path` DB now.
+
+Delete `storage.shards.resync_metabase` config option from SN config, it's no longer used.
+Use `neofs-lens meta resync` command if you need to resync metabase.
 
 ## [0.51.1] - 2026-02-18
 

@@ -223,6 +223,10 @@ func (unimplementedBLOBStore) SetCompressor(*compression.Config) {
 	panic("unimplemented")
 }
 
+func (unimplementedBLOBStore) SetShardID(string) {
+	panic("unimplemented")
+}
+
 func (unimplementedBLOBStore) GetBytes(oid.Address) ([]byte, error) {
 	panic("unimplemented")
 }

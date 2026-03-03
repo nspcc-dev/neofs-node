@@ -81,8 +81,6 @@ type ContainerPayments interface {
 type cfg struct {
 	m sync.RWMutex
 
-	resyncMetabase bool
-
 	rmBatchSize int
 
 	useWriteCache bool
@@ -224,11 +222,6 @@ func (s *Shard) hasWriteCache() bool {
 	return s.useWriteCache
 }
 
-// needResyncMetabase returns true if metabase is needed to be refilled.
-func (s *Shard) needResyncMetabase() bool {
-	return s.cfg.resyncMetabase
-}
-
 // WithRemoverBatchSize returns option to set batch size
 // of single removal operation.
 func WithRemoverBatchSize(sz int) Option {
@@ -258,13 +251,6 @@ func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
 func WithExpiredLocksCallback(cb ExpiredObjectsCallback) Option {
 	return func(c *cfg) {
 		c.expiredLocksCallback = cb
-	}
-}
-
-// WithResyncMetabase returns option to set flag to refill the Metabase on Shard's initialization step.
-func WithResyncMetabase(v bool) Option {
-	return func(c *cfg) {
-		c.resyncMetabase = v
 	}
 }
 

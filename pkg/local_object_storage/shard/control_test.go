@@ -105,9 +105,9 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	sh = New(
 		WithBlobstor(fsTree),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
-		WithResyncMetabase(true))
+	)
 	require.NoError(t, sh.Open())
-	require.NoError(t, sh.Init())
+	require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, "", nil))
 
 	_, err = sh.Get(addr, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
@@ -291,7 +291,9 @@ func TestResyncMetabase(t *testing.T) {
 	checkObj(tombObj.Address(), nil)
 	checkTombMembers(false)
 
-	err = sh.resyncMetabase()
+	require.NoError(t, sh.writeCache.Flush(true))
+
+	err = sh.metaBase.ResyncFromBlobstor(sh.blobStor, "", nil)
 	require.NoError(t, err)
 
 	c, err = sh.metaBase.ObjectCounters()
