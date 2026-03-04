@@ -19,8 +19,6 @@ The lowest not used bucket index: 20.
   - Keys and values
     - `id` -> shard id as bytes
     - `version` -> metabase version as little-endian uint64
-    - `phy_counter` -> shard's physical object counter as little-endian uint64
-    - `logic_counter` -> shard's logical object counter as little-endian uint64
     - `last_resync_epoch` -> last epoch when metabase was resynchronized as little-endian uint64
 - Metadata bucket
   - Name: `255` + container ID
@@ -34,8 +32,19 @@ The lowest not used bucket index: 20.
       Presence means the whole container is scheduled for garbage collection.
     - `5` + object ID \
       Garbage mark for an object.
+    - `6` —> container's PHY objects counter as little-endian uint64
+    - `7` —> container's ROOT objects counter as little-endian uint64
+    - `8` —> container's TS objects counter as little-endian uint64
+    - `9` —> container's LOCK objects counter as little-endian uint64
+    - `10` —> container's LINK objects counter as little-endian uint64
+    - `11` —> container's garbage objects counter as little-endian uint64
 
 # History
+
+## Version 10
+
+Object counters are stored inside metadata bucket per container now. New ROOT,
+TS, LOCK, LINK, garbage objects counters added.
 
 ## Version 9
 

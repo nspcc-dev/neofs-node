@@ -58,7 +58,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	if !m.NoMetabase() {
-		var metaErr = s.metaBase.Put(obj)
+		diff, metaErr := s.metaBase.PutCounted(obj)
 		if metaErr != nil {
 			if cachedPut {
 				var err = s.writeCache.Delete(addr)
@@ -80,7 +80,12 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 			return fmt.Errorf("could not put object to metabase: %w", metaErr)
 		}
 
-		s.incObjectCounter()
+		s.addObjectCounter(physicalObjType, diff.Phy)
+		s.addObjectCounter(rootObjType, diff.Root)
+		s.addObjectCounter(tsObjType, diff.TS)
+		s.addObjectCounter(lockObjType, diff.Lock)
+		s.addObjectCounter(linkObjType, diff.Link)
+		s.addObjectCounter(gcObjType, diff.GC)
 		s.addToContainerSize(addr.Container().EncodeToString(), int64(obj.PayloadSize()))
 	}
 

@@ -253,8 +253,7 @@ func TestResyncMetabase(t *testing.T) {
 	c, err := sh.metaBase.ObjectCounters()
 	require.NoError(t, err)
 
-	phyBefore := c.Phy()
-	logicalBefore := c.Logic()
+	phyBefore := c.Phy
 
 	err = sh.Close()
 	require.NoError(t, err)
@@ -299,8 +298,7 @@ func TestResyncMetabase(t *testing.T) {
 	c, err = sh.metaBase.ObjectCounters()
 	require.NoError(t, err)
 
-	require.Equal(t, phyBefore, c.Phy())
-	require.Equal(t, logicalBefore, c.Logic())
+	require.Equal(t, phyBefore, c.Phy)
 
 	checkAllObjs(true)
 	checkObj(tombObj.Address(), &tombObj)

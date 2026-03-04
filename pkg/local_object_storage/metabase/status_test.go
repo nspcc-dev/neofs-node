@@ -39,7 +39,7 @@ func TestDB_ObjectStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, st.Error)
 	require.Equal(t, db.DumpInfo().Path, st.Path)
-	require.EqualValues(t, 9, st.Version)
+	require.EqualValues(t, 10, st.Version)
 	require.Equal(t, []string{"AVAILABLE"}, st.State)
 
 	require.Len(t, st.HeaderIndex, 8)
@@ -89,7 +89,7 @@ func TestDB_ObjectStatus(t *testing.T) {
 
 		addr := oid.NewAddress(obj.GetContainerID(), obj.GetID())
 
-		n, _, err := db.MarkGarbage(addr)
+		n, err := db.MarkGarbage(addr)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, n)
 

@@ -98,18 +98,32 @@ func TestInhumeContainer(t *testing.T) {
 	cc, err := db.ObjectCounters()
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(numOfObjs), cc.Phy())
-	require.Equal(t, uint64(numOfObjs), cc.Logic())
+	require.EqualValues(t, numOfObjs, cc.Phy)
+	require.EqualValues(t, numOfObjs, cc.Root)
+	require.EqualValues(t, 0, cc.Link)
+	require.EqualValues(t, 0, cc.Lock)
+	require.EqualValues(t, 0, cc.GC)
+	require.EqualValues(t, 0, cc.TS)
 
-	removedAvailable, err := db.InhumeContainer(cID)
+	diff, err := db.InhumeContainer(cID)
 	require.NoError(t, err)
+
+	require.EqualValues(t, -numOfObjs, diff.Phy)
+	require.EqualValues(t, -numOfObjs, diff.Root)
+	require.EqualValues(t, 0, diff.Link)
+	require.EqualValues(t, 0, diff.Lock)
+	require.EqualValues(t, numOfObjs, diff.GC)
+	require.EqualValues(t, 0, diff.TS)
 
 	cc, err = db.ObjectCounters()
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(numOfObjs), removedAvailable)
-	require.Equal(t, uint64(numOfObjs), cc.Phy())
-	require.Zero(t, cc.Logic())
+	require.Zero(t, cc.Phy)
+	require.Zero(t, cc.Root)
+	require.Zero(t, cc.Link)
+	require.Zero(t, cc.Lock)
+	require.EqualValues(t, numOfObjs, cc.GC)
+	require.Zero(t, cc.TS)
 
 	containerSize, err := db.GetContainerInfo(cID)
 	require.NoError(t, err)

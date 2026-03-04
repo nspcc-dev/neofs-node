@@ -52,7 +52,12 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 		}
 	}
 
-	s.decObjectCounterBy(physical, res.PhyRemoved)
+	s.addObjectCounter(physicalObjType, res.Counters.Phy)
+	s.addObjectCounter(rootObjType, res.Counters.Root)
+	s.addObjectCounter(tsObjType, res.Counters.TS)
+	s.addObjectCounter(lockObjType, res.Counters.Lock)
+	s.addObjectCounter(linkObjType, res.Counters.Link)
+	s.addObjectCounter(gcObjType, res.Counters.GC)
 
 	var totalRemovedPayload uint64
 

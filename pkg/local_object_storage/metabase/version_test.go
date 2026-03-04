@@ -13,6 +13,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -133,6 +134,98 @@ func TestSlicesCloneNil(t *testing.T) {
 	require.Nil(t, slices.Clone([]byte(nil)))
 }
 
+// an older version of [updateCounter].
+func updateCounter7Version(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
+	b := tx.Bucket(shardInfoBucket)
+	if b == nil {
+		return nil
+	}
+
+	var counter uint64
+	var counterKey []byte
+
+	switch typ {
+	case phyCounter:
+		counterKey = objectPhyCounterKey
+	case logicalCounter:
+		counterKey = objectLogicCounterKey
+	default:
+		panic("unknown object type counter")
+	}
+
+	data := b.Get(counterKey)
+	if len(data) == 8 {
+		counter = binary.LittleEndian.Uint64(data)
+	}
+
+	if inc {
+		counter += delta
+	} else if counter <= delta {
+		counter = 0
+	} else {
+		counter -= delta
+	}
+
+	newCounter := make([]byte, 8)
+	binary.LittleEndian.PutUint64(newCounter, counter)
+
+	return b.Put(counterKey, newCounter)
+}
+
+func (db *DB) InhumeContainer7Version(cID cid.ID) (uint64, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return 0, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return 0, ErrReadOnlyMode
+	}
+
+	var removedAvailable uint64
+
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
+		if err != nil {
+			return fmt.Errorf("create meta bucket: %w", err)
+		}
+		if err := metaBkt.Put(containerGCMarkKey, nil); err != nil {
+			return fmt.Errorf("write container GC mark: %w", err)
+		}
+
+		info := db.containerInfo(tx, cID)
+		removedAvailable = info.ObjectsNumber
+
+		err = updateCounter7Version(tx, logicalCounter, removedAvailable, false)
+		if err != nil {
+			return fmt.Errorf("logical counter update: %w", err)
+		}
+
+		return resetContainerSize(tx, cID)
+	})
+
+	return removedAvailable, err
+}
+
+func getCounters7Version(tx *bbolt.Tx) (uint64, uint64) {
+	var phyC, logicC uint64
+
+	b := tx.Bucket(shardInfoBucket)
+	if b != nil {
+		data := b.Get(objectPhyCounterKey)
+		if len(data) == 8 {
+			phyC = binary.LittleEndian.Uint64(data)
+		}
+
+		data = b.Get(objectLogicCounterKey)
+		if len(data) == 8 {
+			logicC = binary.LittleEndian.Uint64(data)
+		}
+	}
+
+	return phyC, logicC
+}
+
 func TestMigrate7to8(t *testing.T) {
 	db := newDB(t)
 	cnr := cidtest.ID()
@@ -145,8 +238,8 @@ func TestMigrate7to8(t *testing.T) {
 			o.SetType(object.TypeRegular)
 			totalSize += o.PayloadSize()
 
-			require.NoError(t, updateCounter(tx, phy, 1, true))
-			require.NoError(t, updateCounter(tx, logical, 1, true))
+			require.NoError(t, updateCounter7Version(tx, phyCounter, 1, true))
+			require.NoError(t, updateCounter7Version(tx, logicalCounter, 1, true))
 
 			return PutMetadataForObject(tx, o, true)
 		})
@@ -160,13 +253,13 @@ func TestMigrate7to8(t *testing.T) {
 			o := objecttest.Object()
 			o.SetContainerID(inhumeCnr)
 
-			require.NoError(t, updateCounter(tx, phy, 1, true))
+			require.NoError(t, updateCounter7Version(tx, phyCounter, 1, true))
 
 			return PutMetadataForObject(tx, o, true)
 		})
 		require.NoError(t, err)
 	}
-	_, err := db.InhumeContainer(inhumeCnr)
+	_, err := db.InhumeContainer7Version(inhumeCnr)
 	require.NoError(t, err)
 
 	// one more parent (virtual) object
@@ -206,7 +299,8 @@ func TestMigrate7to8(t *testing.T) {
 	require.NoError(t, err)
 
 	// migrate
-	require.NoError(t, db.Init())
+	err = migrateFrom7Version(db)
+	require.NoError(t, err)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		infoBkt := tx.Bucket(containerVolumeBucketName)
@@ -232,9 +326,9 @@ func TestMigrate7to8(t *testing.T) {
 		// check new version
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
-		require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+		require.Equal(t, []byte{0x08, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 
-		pc, lc := getCounters(tx)
+		pc, lc := getCounters7Version(tx)
 		require.Equal(t, uint64(objsNum+inhumeObjsNum), pc)
 		require.Equal(t, uint64(objsNum), lc)
 		return nil
@@ -247,6 +341,36 @@ func TestMigrate7to8(t *testing.T) {
 	require.Len(t, gObjs, inhumeObjsNum)
 	require.Len(t, gCnrs, 1)
 	require.Equal(t, inhumeCnr, gCnrs[0])
+}
+
+type ObjectCounters8Version struct {
+	logic uint64
+	phy   uint64
+}
+
+func (o ObjectCounters8Version) Logic() uint64 {
+	return o.logic
+}
+
+func (o ObjectCounters8Version) Phy() uint64 {
+	return o.phy
+}
+
+func (db *DB) ObjectCounters8Version() (ObjectCounters8Version, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ObjectCounters8Version{}, ErrDegradedMode
+	}
+
+	var res ObjectCounters8Version
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		res.phy, res.logic = getCounters7Version(tx)
+		return nil
+	})
+
+	return res, err
 }
 
 func TestMigrate8to9(t *testing.T) {
@@ -297,10 +421,10 @@ func TestMigrate8to9(t *testing.T) {
 
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		// reset to zero
-		if err := updateCounter(tx, phy, math.MaxUint64, false); err != nil {
+		if err := updateCounter7Version(tx, phyCounter, math.MaxUint64, false); err != nil {
 			return err
 		}
-		if err := updateCounter(tx, phy, garbageCount, true); err != nil {
+		if err := updateCounter7Version(tx, phyCounter, garbageCount, true); err != nil {
 			return err
 		}
 
@@ -313,15 +437,113 @@ func TestMigrate8to9(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	c, err := db.ObjectCounters()
+	c, err := db.ObjectCounters8Version()
 	require.NoError(t, err)
 	require.EqualValues(t, garbageCount, c.Phy())
 
 	// migrate
-	require.NoError(t, db.Init())
+	require.NoError(t, migrateFrom8Version(db))
 
 	// check counters have been corrected
-	c, err = db.ObjectCounters()
+	c, err = db.ObjectCounters8Version()
 	require.NoError(t, err)
 	require.EqualValues(t, phyContainerNum*phyObjectsPerContainer+parentObjects, c.Phy())
+}
+
+func TestMigrate9To10(t *testing.T) {
+	cID := cidtest.ID()
+	o := objecttest.Object()
+	o.ResetRelations()
+	o.SetType(object.TypeRegular)
+	o.SetContainerID(cID)
+
+	ts := objecttest.Object()
+	ts.ResetRelations()
+	ts.SetType(object.TypeTombstone)
+	ts.SetContainerID(cID)
+	ts.AssociateDeleted(o.GetID())
+
+	link := objecttest.Object()
+	link.ResetRelations()
+	link.SetType(object.TypeLink)
+	link.SetContainerID(cID)
+
+	lock := objecttest.Object()
+	lock.ResetRelations()
+	lock.SetType(object.TypeLock)
+	lock.SetContainerID(cID)
+
+	db := newDB(t)
+
+	require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+		// Put objects, no counters handling
+
+		err := PutMetadataForObject(tx, o, true)
+		if err != nil {
+			return err
+		}
+		metaB := tx.Bucket(metaBucketKey(cID))
+		err = handleObjectWithAssociation(metaB, &CountersDiff{}, 0, ts)
+		if err != nil {
+			return err
+		}
+		err = PutMetadataForObject(tx, ts, true)
+		if err != nil {
+			return err
+		}
+		err = PutMetadataForObject(tx, link, true)
+		if err != nil {
+			return err
+		}
+		err = PutMetadataForObject(tx, lock, true)
+		if err != nil {
+			return err
+		}
+
+		// put outdated shard info values
+
+		someUint64Val := make([]byte, 8)
+		binary.LittleEndian.PutUint64(someUint64Val, 12345678)
+
+		infoBkt := tx.Bucket(shardInfoBucket)
+		err = infoBkt.Put(objectPhyCounterKey, slices.Clone(someUint64Val))
+		if err != nil {
+			return err
+		}
+		err = infoBkt.Put(objectLogicCounterKey, slices.Clone(someUint64Val))
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}))
+
+	require.NoError(t, migrateFrom9Version(db))
+
+	require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
+		// there are no old values
+
+		v := tx.Bucket(shardInfoBucket).Get(objectPhyCounterKey)
+		require.Nil(t, v)
+		v = tx.Bucket(shardInfoBucket).Get(objectLogicCounterKey)
+		require.Nil(t, v)
+
+		// there are actual resynced new counters
+
+		requireUint64Value := func(v []byte, want uint64) {
+			require.NotNil(t, v)
+
+			require.Equal(t, want, binary.LittleEndian.Uint64(v))
+		}
+
+		metaB := tx.Bucket(metaBucketKey(cID))
+		requireUint64Value(metaB.Get([]byte{metaPrefixPhyCounter}), 7)
+		requireUint64Value(metaB.Get([]byte{metaPrefixRootCounter}), 1)
+		requireUint64Value(metaB.Get([]byte{metaPrefixTSCounter}), 1)
+		requireUint64Value(metaB.Get([]byte{metaPrefixLinkCounter}), 1)
+		requireUint64Value(metaB.Get([]byte{metaPrefixLockCounter}), 1)
+		requireUint64Value(metaB.Get([]byte{metaPrefixGCCounter}), 1)
+
+		return nil
+	}))
 }
