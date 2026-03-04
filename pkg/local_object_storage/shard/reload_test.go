@@ -82,7 +82,7 @@ func TestShardReload(t *testing.T) {
 
 		newOpts = newShardOpts(filepath.Join(p, "meta2"))
 		require.NoError(t, sh.Reload(newOpts...))
-		require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, "", nil))
+		require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, nil))
 
 		checkHasObjects(t, true) // all objects are restored, including the new one
 
@@ -103,7 +103,7 @@ func TestShardReload(t *testing.T) {
 			// Successive reload produces no undesired effects.
 			require.NoError(t, os.RemoveAll(badPath))
 			require.NoError(t, sh.Reload(newOpts...))
-			require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, "", nil))
+			require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, nil))
 
 			obj = newObject(t)
 			require.NoError(t, sh.Put(obj, nil))

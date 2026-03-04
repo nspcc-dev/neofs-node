@@ -220,11 +220,10 @@ func (db *DB) Reload(opts ...Option) (bool, error) {
 }
 
 // ResyncFromBlobstor resets the metabase and repopulates it by iterating
-// over all objects in the blobstor. shardID is written to the metabase after
-// the reset. onIterationError is called for every object that fails to be read
-// or unmarshalled; returning a non-nil error aborts the resync;
-// if onIterationError is nil, iteration errors are ignored.
-func (db *DB) ResyncFromBlobstor(bs common.Storage, shardID string, onIterationError func(oid.Address, error) error) error {
+// over all objects in the blobstor. onIterationError is called for every
+// object that fails to be read or unmarshalled; returning a non-nil error
+// aborts the resync; if onIterationError is nil, iteration errors are ignored.
+func (db *DB) ResyncFromBlobstor(bs common.Storage, onIterationError func(oid.Address, error) error) error {
 	if onIterationError == nil {
 		onIterationError = func(oid.Address, error) error { return nil }
 	}
@@ -234,12 +233,14 @@ func (db *DB) ResyncFromBlobstor(bs common.Storage, shardID string, onIterationE
 		return fmt.Errorf("could not reset metabase: %w", err)
 	}
 
-	if shardID != "" {
-		id, err := base58.Decode(shardID)
+	strBlobstorShardID := bs.ShardID()
+	if strBlobstorShardID != "" {
+		blobstorShardID, err := base58.Decode(strBlobstorShardID)
 		if err != nil {
-			return fmt.Errorf("invalid shard ID: %w", err)
+			return fmt.Errorf("invalid blobstor shard ID %q: %w", strBlobstorShardID, err)
 		}
-		if err := db.WriteShardID(id); err != nil {
+		err = db.WriteShardID(blobstorShardID)
+		if err != nil {
 			return fmt.Errorf("could not write shard ID: %w", err)
 		}
 	}

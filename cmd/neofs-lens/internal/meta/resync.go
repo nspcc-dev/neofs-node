@@ -91,7 +91,7 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 
 	cmd.Println("Iterating over blobstor objects...")
 
-	err = db.ResyncFromBlobstor(fst, blobstorShardID, func(addr oid.Address, err error) error {
+	err = db.ResyncFromBlobstor(fst, func(addr oid.Address, err error) error {
 		cmd.PrintErrf("warn: object %s: %v\n", addr, err)
 		return nil
 	})
