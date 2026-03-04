@@ -115,6 +115,7 @@ func (t *FSTree) checkConfig() error {
 		}
 	} else {
 		t.shardID = d.ShardID
+		t.shardIDSet = true
 	}
 	return nil
 }
@@ -132,6 +133,7 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 
 	if !t.shardIDSet {
 		t.shardID = d.ShardID
+		t.shardIDSet = true
 	}
 
 	if !t.readOnly {

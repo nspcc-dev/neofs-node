@@ -215,6 +215,10 @@ func (unimplementedBLOBStore) Path() string {
 	panic("unimplemented")
 }
 
+func (unimplementedBLOBStore) ShardID() string {
+	panic("unimplemented")
+}
+
 func (unimplementedBLOBStore) SetLogger(*zap.Logger) {
 	panic("unimplemented")
 }
