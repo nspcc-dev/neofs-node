@@ -16,14 +16,20 @@ var ErrEndOfListing = shard.ErrEndOfListing
 // [StorageEngine.ListWithCursor] and can be reused as a parameter for it for
 // subsequent requests.
 type Cursor struct {
-	shardID     string
-	shardCursor *shard.Cursor
+	perShard map[string]*shard.Cursor
 }
 
 // ListWithCursor lists physical objects available in the engine starting
 // from the cursor. It includes regular, tombstone and storage group objects.
 // Does not include inhumed objects. Use cursor value from the response
 // for consecutive requests (it's nil when iteration is over).
+//
+// The call queries every available shard and deduplicates the combined result
+// within the call: an object present on multiple shards is emitted exactly
+// once per call. Objects duplicated across shards may still appear in more
+// than one call if the per-shard cursors reach the duplicate at different
+// iterations. [objectcore.AddressWithAttributes.ShardIDs] is populated with the IDs of
+// all local shards that returned the object in this batch.
 //
 // Optional attrs specifies attributes to include in the result. If object does
 // not have requested attribute, corresponding element in the result is empty.
@@ -34,8 +40,6 @@ func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor, attrs ...st
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
-
-	result := make([]objectcore.AddressWithAttributes, 0, count)
 
 	// 1. Get available shards and sort them.
 	e.mtx.RLock()
@@ -53,40 +57,43 @@ func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor, attrs ...st
 
 	// 2. Prepare cursor object.
 	if cursor == nil {
-		cursor = &Cursor{shardID: shardIDs[0]}
+		cursor = &Cursor{perShard: make(map[string]*shard.Cursor, len(shardIDs))}
 	}
 
-	// 3. Iterate over available shards. Skip unavailable shards.
-	for i := range shardIDs {
-		if len(result) >= int(count) {
-			break
-		}
+	// 3. Iterate over available shards.
+	index := make(map[string]int)
+	var result []objectcore.AddressWithAttributes
 
-		if shardIDs[i] < cursor.shardID {
+	for _, id := range shardIDs {
+		if exhausted, known := cursor.perShard[id]; known && exhausted == nil {
 			continue
 		}
 
 		e.mtx.RLock()
-		shardInstance, ok := e.shards[shardIDs[i]]
+		shardInstance, ok := e.shards[id]
 		e.mtx.RUnlock()
 		if !ok {
 			continue
 		}
 
-		count := uint32(int(count) - len(result))
-		var shCursor *shard.Cursor
-		if shardIDs[i] == cursor.shardID {
-			shCursor = cursor.shardCursor
-		}
-
-		res, shCursor, err := shardInstance.ListWithCursor(int(count), shCursor, attrs...)
+		res, shCursor, err := shardInstance.ListWithCursor(int(count), cursor.perShard[id], attrs...)
 		if err != nil {
+			cursor.perShard[id] = nil
 			continue
 		}
 
-		result = append(result, res...)
-		cursor.shardCursor = shCursor
-		cursor.shardID = shardIDs[i]
+		cursor.perShard[id] = shCursor
+
+		for i := range res {
+			addrStr := res[i].Address.EncodeToString()
+			if pos, dup := index[addrStr]; dup {
+				result[pos].ShardIDs = append(result[pos].ShardIDs, id)
+			} else {
+				res[i].ShardIDs = []string{id}
+				index[addrStr] = len(result)
+				result = append(result, res[i])
+			}
+		}
 	}
 
 	if len(result) == 0 {

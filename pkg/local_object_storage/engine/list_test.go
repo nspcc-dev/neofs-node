@@ -15,6 +15,7 @@ import (
 )
 
 func TestListWithCursor(t *testing.T) {
+	const shardNum = 2
 	s1 := testNewShard(t, 1)
 	s2 := testNewShard(t, 2)
 	e := testNewEngineWithShards(s1, s2)
@@ -41,10 +42,10 @@ func TestListWithCursor(t *testing.T) {
 
 	addrs, cursor, err := e.ListWithCursor(1, nil)
 	require.NoError(t, err)
-	require.NotEmpty(t, addrs)
+	require.Len(t, addrs, shardNum)
 	got = append(got, addrs...)
 
-	for range total - 1 {
+	for {
 		addrs, cursor, err = e.ListWithCursor(1, cursor)
 		if errors.Is(err, ErrEndOfListing) {
 			break
@@ -52,10 +53,7 @@ func TestListWithCursor(t *testing.T) {
 		got = append(got, addrs...)
 	}
 
-	_, _, err = e.ListWithCursor(1, cursor)
-	require.ErrorIs(t, err, ErrEndOfListing)
-
-	got = sortAddresses(got)
+	got = sortAddresses(stripShardIDs(got))
 	require.Equal(t, expected, got)
 
 	t.Run("attributes", func(t *testing.T) {
@@ -114,7 +112,7 @@ func TestListWithCursor(t *testing.T) {
 				} {
 					t.Run(fmt.Sprintf("total=%d,count=%d", totalObjects, count), func(t *testing.T) {
 						collected := collectListWithCursor(t, s, count, staticAttr, commonAttr, groupAttr, "$Object:ownerID")
-						require.ElementsMatch(t, exp, collected)
+						require.ElementsMatch(t, exp, stripShardIDs(collected))
 					})
 				}
 			})
@@ -122,11 +120,48 @@ func TestListWithCursor(t *testing.T) {
 	})
 }
 
+func TestListWithCursor_Dedup(t *testing.T) {
+	s1 := testNewShard(t, 1)
+	s2 := testNewShard(t, 2)
+	e := testNewEngineWithShards(s1, s2)
+	t.Cleanup(func() { _ = e.Close() })
+
+	obj := generateObjectWithCID(cidtest.ID())
+	require.NoError(t, s1.Put(obj, nil))
+	require.NoError(t, s2.Put(obj, nil))
+
+	var all []objectcore.AddressWithAttributes
+	var cursor *Cursor
+	var err error
+	for {
+		var batch []objectcore.AddressWithAttributes
+		batch, cursor, err = e.ListWithCursor(2, cursor)
+		all = append(all, batch...)
+		if errors.Is(err, ErrEndOfListing) {
+			break
+		}
+		require.NoError(t, err)
+	}
+
+	require.Len(t, all, 1)
+	require.Equal(t, obj.Address(), all[0].Address)
+	require.Len(t, all[0].ShardIDs, 2)
+}
+
 func sortAddresses(addrWithType []objectcore.AddressWithAttributes) []objectcore.AddressWithAttributes {
 	sort.Slice(addrWithType, func(i, j int) bool {
 		return addrWithType[i].Address.EncodeToString() < addrWithType[j].Address.EncodeToString()
 	})
 	return addrWithType
+}
+
+func stripShardIDs(addrs []objectcore.AddressWithAttributes) []objectcore.AddressWithAttributes {
+	res := make([]objectcore.AddressWithAttributes, len(addrs))
+	for i, a := range addrs {
+		a.ShardIDs = nil
+		res[i] = a
+	}
+	return res
 }
 
 func collectListWithCursor(t *testing.T, s *StorageEngine, count uint32, attrs ...string) []objectcore.AddressWithAttributes {
