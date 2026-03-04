@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"encoding/binary"
 	"fmt"
 	"slices"
 
@@ -15,29 +16,29 @@ import (
 // performed on lock object, and it is not a forced object removal.
 var ErrLockObjectRemoval = logicerr.New("lock object removal")
 
-// MarkGarbage marks objects to be physically removed from shard. force flag
-// allows to override any restrictions imposed on object deletion (to be used
-// by control service and other manual intervention cases).
-func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
+// MarkGarbage marks objects to be physically removed from shard.
+func (db *DB) MarkGarbage(addrs ...oid.Address) (int, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return 0, nil, ErrDegradedMode
+		return 0, ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return 0, nil, ErrReadOnlyMode
+		return 0, ErrReadOnlyMode
 	}
 
 	var (
-		currEpoch       = db.epochState.CurrentEpoch()
-		deletedLockObjs []oid.Address
-		err             error
-		inhumed         uint64
+		currEpoch      = db.epochState.CurrentEpoch()
+		err            error
+		actuallyMarked int
+		objsInCnr      []oid.ID
 	)
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		// collect children
 		// TODO: Do not extend addrs, do in the main loop. This likely would be more efficient regarding memory.
 		for i := range addrs {
+			objsInCnr = objsInCnr[:0]
+
 			cnr := addrs[i].Container()
 			if slices.ContainsFunc(addrs[:i], func(a oid.Address) bool { return a.Container() == cnr }) {
 				continue // already handled, see loop below
@@ -53,59 +54,62 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 				if j != 0 && addrs[i+j].Container() != cnr {
 					continue
 				}
-				partIDs, err := collectChildren(metaCursor, cnr, addrs[i+j].Object())
+				parObj := addrs[i+j].Object()
+				partIDs, err := collectChildren(metaCursor, cnr, parObj)
 				if err != nil {
 					return fmt.Errorf("collect EC parts: %w", err)
 				}
-
-				for i := range partIDs {
-					addrs = append(addrs, oid.NewAddress(cnr, partIDs[i]))
-				}
-			}
-		}
-
-		for _, addr := range addrs {
-			id := addr.Object()
-			cnr := addr.Container()
-
-			metaBucket := tx.Bucket(metaBucketKey(cnr))
-			if metaBucket == nil {
-				continue
-			}
-			var metaCursor = metaBucket.Cursor()
-
-			obj, err := get(metaCursor, addr, false, true, currEpoch)
-			if err == nil {
-				if inGarbage(metaCursor, id) == statusAvailable {
-					// object is available, decrement the
-					// logical counter
-					inhumed++
-				}
-
-				// if object is stored, and it is regular object then update bucket
-				// with container size estimations
-				if obj.Type() == object.TypeRegular {
-					err := changeContainerInfo(tx, cnr, -int(obj.PayloadSize()), -1)
-					if err != nil {
-						return err
-					}
-				}
+				objsInCnr = append(objsInCnr, parObj)
+				objsInCnr = append(objsInCnr, partIDs...)
 			}
 
-			err = metaBucket.Put(mkGarbageKey(id), nil)
+			err = markGarbageInContainer(metaCursor, cnr, objsInCnr, currEpoch)
 			if err != nil {
-				return err
+				return fmt.Errorf("marking objects for %s container: %w", cnr, err)
 			}
 
-			if isObjectType(metaCursor, id, object.TypeLock) {
-				deletedLockObjs = append(deletedLockObjs, addr)
+			actuallyMarked += len(objsInCnr)
+			err := updateCounter(metaBucket, gcCounter, len(objsInCnr))
+			if err != nil {
+				return fmt.Errorf("update gc counter to %d: %w", len(objsInCnr), err)
 			}
 		}
 
-		return updateCounter(tx, logical, inhumed, false)
+		return nil
 	})
 
-	return inhumed, deletedLockObjs, err
+	return actuallyMarked, err
+}
+
+func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID, currEpoch uint64) error {
+	var (
+		addr       oid.Address
+		metaBucket = metaCursor.Bucket()
+	)
+	addr.SetContainer(cnr)
+
+	for _, id := range objs {
+		addr.SetObject(id)
+
+		obj, err := get(metaCursor, addr, false, true, currEpoch)
+		if err == nil {
+			// if object is stored, and it is regular object then update bucket
+			// with container size estimations
+			if obj.Type() == object.TypeRegular {
+				err := changeContainerInfo(metaBucket.Tx(), cnr, -int(obj.PayloadSize()), -1)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		err = metaBucket.Put(mkGarbageKey(id), nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // InhumeContainer marks every object in a container as removed.
@@ -114,17 +118,17 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 // There is no any LOCKs, forced GC marks and any relations checks,
 // every object that belongs to a provided container will be marked
 // as a removed one.
-func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
+func (db *DB) InhumeContainer(cID cid.ID) (CountersDiff, error) {
+	var res CountersDiff
+
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return 0, ErrDegradedMode
+		return res, ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return 0, ErrReadOnlyMode
+		return res, ErrReadOnlyMode
 	}
-
-	var removedAvailable uint64
 
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
@@ -135,16 +139,53 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 			return fmt.Errorf("write container GC mark: %w", err)
 		}
 
-		info := db.containerInfo(tx, cID)
-		removedAvailable = info.ObjectsNumber
-
-		err = updateCounter(tx, logical, removedAvailable, false)
+		counters := getCountersByContainer(metaBkt)
+		err = resetContainerCounters(metaBkt, counters.Phy)
 		if err != nil {
-			return fmt.Errorf("logical counter update: %w", err)
+			return fmt.Errorf("reset container counters: %w", err)
 		}
+
+		res.Phy = -int(counters.Phy)
+		res.Root = -int(counters.Root)
+		res.TS = -int(counters.TS)
+		res.Lock = -int(counters.Lock)
+		res.Link = -int(counters.Link)
+		res.GC = int(counters.Phy) - int(counters.GC)
 
 		return resetContainerSize(tx, cID)
 	})
 
-	return removedAvailable, err
+	return res, err
+}
+
+func resetContainerCounters(metaBkt *bbolt.Bucket, newGCCounter uint64) error {
+	err := metaBkt.Put([]byte{metaPrefixPhyCounter}, make([]byte, 8))
+	if err != nil {
+		return fmt.Errorf("reset phy counter: %w", err)
+	}
+	err = metaBkt.Put([]byte{metaPrefixRootCounter}, make([]byte, 8))
+	if err != nil {
+		return fmt.Errorf("reset root counter: %w", err)
+	}
+	err = metaBkt.Put([]byte{metaPrefixTSCounter}, make([]byte, 8))
+	if err != nil {
+		return fmt.Errorf("reset ts counter: %w", err)
+	}
+	err = metaBkt.Put([]byte{metaPrefixLockCounter}, make([]byte, 8))
+	if err != nil {
+		return fmt.Errorf("reset lock counter: %w", err)
+	}
+	err = metaBkt.Put([]byte{metaPrefixLinkCounter}, make([]byte, 8))
+	if err != nil {
+		return fmt.Errorf("reset link counter: %w", err)
+	}
+
+	raw := make([]byte, 8)
+	binary.LittleEndian.PutUint64(raw, newGCCounter)
+	err = metaBkt.Put([]byte{metaPrefixGCCounter}, raw)
+	if err != nil {
+		return fmt.Errorf("reset gc counter: %w", err)
+	}
+
+	return nil
 }

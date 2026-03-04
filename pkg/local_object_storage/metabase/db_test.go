@@ -69,6 +69,18 @@ func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 	return bdb
 }
 
+func generateTypedObject(t testing.TB, typ object.Type) *object.Object {
+	o := generateObjectWithCID(t, cidtest.ID())
+	o.SetType(typ)
+	switch typ {
+	case object.TypeTombstone, object.TypeLock:
+		o.AssociateObject(oidtest.ID())
+	default:
+	}
+
+	return o
+}
+
 func generateObject(t testing.TB) *object.Object {
 	return generateObjectWithCID(t, cidtest.ID())
 }

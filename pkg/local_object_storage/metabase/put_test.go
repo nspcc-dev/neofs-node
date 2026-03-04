@@ -156,11 +156,10 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			require.Equal(t, []oid.Address{addr}, collected)
 		})
 		t.Run("mark garbage", func(t *testing.T) {
-			// already garbage, should not do anything
-			n, locks, err := db.MarkGarbage(addr)
+			// any GC mark should be considered as a GC counter increasing
+			n, err := db.MarkGarbage(addr)
 			require.NoError(t, err)
-			require.Empty(t, locks)
-			require.Zero(t, n)
+			require.EqualValues(t, 1, n)
 		})
 	})
 
@@ -308,7 +307,7 @@ func TestDB_Put_Lock(t *testing.T) {
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 
-			n, _, err := db.MarkGarbage(objAddr)
+			n, err := db.MarkGarbage(objAddr)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n)
 		}},
