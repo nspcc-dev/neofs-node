@@ -158,12 +158,12 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 }
 
 func (p *Policer) poolCapacityWorker(ctx context.Context) {
-	p.mtx.RLock()
-	maxCapacity := p.maxCapacity
-	p.mtx.RUnlock()
-
 	ticker := time.NewTicker(p.rebalanceFreq)
 	for {
+		p.mtx.RLock()
+		maxCapacity := p.maxCapacity
+		p.mtx.RUnlock()
+
 		select {
 		case <-ctx.Done():
 			return
