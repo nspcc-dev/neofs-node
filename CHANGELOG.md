@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - `neofs-lens meta resync` command (#3849)
+- SN has new `root`, `ts`, `lock`, `link`, `gc` object counter metrics (#3740)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
@@ -25,6 +26,7 @@ Changelog for NeoFS Node
 - `node.persistent_sessions.path` config option from SN config (#3846)
 - Undocumented ability to fetch the latest contract release for adm update-contracts (#3850)
 - `storage.shards.resync_metabase` config option from SN config (#3849)
+- SN's `logic` object counter metric (#3740)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)

@@ -80,9 +80,12 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 			obj, err := get(metaCursor, addr, false, true, currEpoch)
 			if err == nil {
 				if inGarbage(metaCursor, id) == statusAvailable {
-					// object is available, decrement the
-					// logical counter
 					inhumed++
+
+					err = updateCounter(metaBucket, gcCounter, 1, true)
+					if err != nil {
+						return fmt.Errorf("update gc counter to %d: %w", inhumed, err)
+					}
 				}
 
 				// if object is stored, and it is regular object then update bucket
@@ -105,7 +108,7 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) (uint64, []oid.Address, error) {
 			}
 		}
 
-		return updateCounter(tx, logical, inhumed, false)
+		return nil
 	})
 
 	return inhumed, deletedLockObjs, err
@@ -140,11 +143,6 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 
 		info := db.containerInfo(tx, cID)
 		removedAvailable = info.ObjectsNumber
-
-		err = updateCounter(tx, logical, removedAvailable, false)
-		if err != nil {
-			return fmt.Errorf("logical counter update: %w", err)
-		}
 
 		return resetContainerSize(tx, cID)
 	})

@@ -26,10 +26,8 @@ type DeleteRes struct {
 	// Actually removed objects. First len(addrs) elements always contain addrs
 	// passed to [DB.Delete], but order is different in general.
 	RemovedObjects []RemovedObject
-	// PhyRemoved contains the number of removed physical objects.
-	PhyRemoved uint64
-	// AvailableRemoved contains the number of removed available objects.
-	AvailableRemoved uint64
+	// CountersDiff describes counters changes after [DB.Delete] operation.
+	Counters CountersDiff
 }
 
 // Delete removes object records from metabase indexes.
@@ -49,14 +47,13 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 		return DeleteRes{}, ErrReadOnlyMode
 	}
 
-	var phyRemoved uint64
-	var availableRemoved uint64
+	var diff CountersDiff
 	var err error
 	var removed []RemovedObject
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		// We need to clear slice because tx can try to execute multiple times.
-		phyRemoved, availableRemoved, removed, err = db.deleteGroup(tx, addrs)
+		diff, removed, err = db.deleteGroup(tx, addrs)
 		return err
 	})
 	if err == nil {
@@ -67,9 +64,8 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 		}
 	}
 	return DeleteRes{
-		PhyRemoved:       phyRemoved,
-		AvailableRemoved: availableRemoved,
-		RemovedObjects:   removed,
+		Counters:       diff,
+		RemovedObjects: removed,
 	}, err
 }
 
@@ -79,19 +75,18 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 // objects that were stored. The second return value is a logical objects
 // removed number: objects that were available (without Tombstones, GCMarks
 // non-expired, etc.)
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, []RemovedObject, error) {
-	var phyDeleted uint64
-	var availableDeleted uint64
+func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (CountersDiff, []RemovedObject, error) {
 	var errorCount int
 	var firstErr error
+	var diff CountersDiff
 
 	removedObjs, err := supplementRemovedObjects(tx, addrs)
 	if err != nil {
-		return 0, 0, nil, fmt.Errorf("extend removed objects: %w", err)
+		return diff, nil, fmt.Errorf("extend removed objects: %w", err)
 	}
 
 	for i := range removedObjs {
-		isPhy, available, size, err := db.delete(tx, removedObjs[i].Address)
+		objectDiff, err := db.delete(tx, removedObjs[i].Address)
 		if err != nil {
 			errorCount++
 			db.log.Warn("failed to delete object", zap.Stringer("addr", removedObjs[i].Address), zap.Error(err))
@@ -102,76 +97,54 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, []
 			continue
 		}
 
-		if isPhy {
-			phyDeleted++
-			removedObjs[i].PayloadLen = size
-		}
+		diff.Phy += objectDiff.Phy
+		diff.Root += objectDiff.Root
+		diff.TS += objectDiff.TS
+		diff.Lock += objectDiff.Lock
+		diff.Link += objectDiff.Link
+		diff.GC += objectDiff.GC
 
-		if available {
-			availableDeleted++
-		}
+		removedObjs[i].PayloadLen = uint64(-objectDiff.payloadDiff)
 	}
 
 	if firstErr != nil {
 		all := len(removedObjs)
 		success := all - errorCount
-		return 0, 0, nil, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
+		return diff, nil, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
 	}
 
-	if phyDeleted > 0 {
-		err := updateCounter(tx, phy, phyDeleted, false)
-		if err != nil {
-			return 0, 0, nil, fmt.Errorf("could not decrease phy object counter: %w", err)
-		}
-	}
+	return diff, removedObjs, nil
+}
 
-	if availableDeleted > 0 {
-		err := updateCounter(tx, logical, availableDeleted, false)
-		if err != nil {
-			return 0, 0, nil, fmt.Errorf("could not decrease logical object counter: %w", err)
-		}
-	}
-
-	return phyDeleted, availableDeleted, removedObjs, nil
+type objectDiff struct {
+	CountersDiff
+	payloadDiff int
 }
 
 // delete removes object indexes from the metabase.
-// The first return value indicates if an object is physical. (removing a
-// non-exist object is error-free). The second return value indicates if an
-// object was available before the removal (for calculating the logical object
-// counter). The third return value is removed object payload size.
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (bool, bool, uint64, error) {
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (objectDiff, error) {
 	cID := addr.Container()
 	metaBucket := tx.Bucket(metaBucketKey(cID))
 	if metaBucket == nil {
-		return true, false, 0, nil
+		return objectDiff{}, nil
 	}
 	var metaCursor = metaBucket.Cursor()
 
-	removeAvailableObject := inGarbage(metaCursor, addr.Object()) == statusAvailable
-
-	isPhy := true
-
-	payloadSize, err := deleteMetadata(metaCursor, db.log, addr.Container(), addr.Object(), false)
+	diff, err := deleteMetadata(metaCursor, db.log, addr.Container(), addr.Object(), false)
 	if err != nil {
 		if !errors.Is(err, errNonPhy) {
-			return false, false, 0, fmt.Errorf("can't remove metadata indexes: %w", err)
+			return objectDiff{}, fmt.Errorf("can't remove metadata indexes: %w", err)
 		}
-
-		isPhy = false
 	}
 
-	// if object is not available, counters have already been handled in
-	// `Inhume` call, but if we are removing an available object, this is
-	// either a force removal or GC work, and counters must be kept up-to-date
-	if removeAvailableObject {
-		err = changeContainerInfo(tx, cID, -int(payloadSize), -1)
+	if diff.Phy < 0 {
+		err = changeContainerInfo(tx, cID, diff.payloadDiff, diff.Phy)
 		if err != nil {
-			return false, false, 0, fmt.Errorf("can't update container info: %w", err)
+			return objectDiff{}, fmt.Errorf("can't update container info: %w", err)
 		}
 	}
 
-	return isPhy, removeAvailableObject, payloadSize, nil
+	return diff, nil
 }
 
 // forms list of objects from addrs and their missing parts.

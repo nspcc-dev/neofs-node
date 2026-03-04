@@ -110,12 +110,22 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 				return errors.New("reported as deleted, but no tombstone found")
 			}
 			var tombAddress = oid.NewAddress(cnr, tombOID)
-			_, _, _, err := db.delete(tx, tombAddress)
+			_, err := db.delete(tx, tombAddress)
 			if err != nil {
 				return err
 			}
 			res.setStatusGraveyard(tombAddress.EncodeToString())
 			res.tombstoneAddr = tombAddress
+		}
+		if status == statusGCMarked || status == statusTombstoned {
+			err = updateCounter(metaBucket, gcCounter, 1, false)
+			if err != nil {
+				return fmt.Errorf("update garbage counter: %w", err)
+			}
+		}
+		err := reviveCounters(metaCursor, addr.Object())
+		if err != nil {
+			return fmt.Errorf("revive object counters: %w", err)
 		}
 
 		// Deleted objects are marked as garbage as well, so this mark is _always_ deleted.
@@ -131,11 +141,6 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 					return err
 				}
 			}
-
-			// also need to restore logical counter
-			if err := updateCounter(tx, logical, 1, true); err != nil {
-				return err
-			}
 		}
 
 		return nil
@@ -145,4 +150,58 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 	}
 
 	return
+}
+
+func reviveCounters(metaC *bbolt.Cursor, obj oid.ID) error {
+	var (
+		typ  object.Type = -1
+		phy  bool
+		root bool
+	)
+
+	for k, v := range iterIDAttrs(metaC, obj) {
+		switch string(k) {
+		case object.FilterType:
+			typ.DecodeString(string(v))
+		case object.FilterPhysical:
+			phy = string(v) == binPropMarker
+		case object.FilterRoot:
+			root = string(v) == binPropMarker
+		default:
+		}
+	}
+
+	switch typ {
+	case object.TypeRegular:
+		if phy {
+			err := updateCounter(metaC.Bucket(), phyCounter, 1, true)
+			if err != nil {
+				return fmt.Errorf("revive PHY counter : %w", err)
+			}
+		}
+		if root {
+			err := updateCounter(metaC.Bucket(), rootCounter, 1, true)
+			if err != nil {
+				return fmt.Errorf("revive ROOT counter : %w", err)
+			}
+		}
+	case object.TypeTombstone:
+		err := updateCounter(metaC.Bucket(), tsCounter, 1, true)
+		if err != nil {
+			return fmt.Errorf("revive TS counter : %w", err)
+		}
+	case object.TypeLock:
+		err := updateCounter(metaC.Bucket(), lockCounter, 1, true)
+		if err != nil {
+			return fmt.Errorf("revive LOCK counter : %w", err)
+		}
+	case object.TypeLink:
+		err := updateCounter(metaC.Bucket(), linkCounter, 1, true)
+		if err != nil {
+			return fmt.Errorf("revive LINK counter : %w", err)
+		}
+	default:
+	}
+
+	return nil
 }

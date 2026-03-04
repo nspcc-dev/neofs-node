@@ -1,11 +1,9 @@
 package shard_test
 
 import (
-	"encoding/binary"
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -72,8 +70,14 @@ func (m *metricsStore) AddToPayloadSize(size int64) {
 	m.payloadSize += size
 }
 
-const physical = "phy"
-const logical = "logic"
+const (
+	phyObj  = "phy"
+	rootObj = "root"
+	tsObj   = "ts"
+	lockObj = "lock"
+	linkObj = "link"
+	gcObj   = "gc"
+)
 
 func TestCounters(t *testing.T) {
 	dir := t.TempDir()
@@ -93,8 +97,12 @@ func TestCounters(t *testing.T) {
 	}
 
 	t.Run("defaults", func(t *testing.T) {
-		require.Zero(t, mm.objectCounters[physical])
-		require.Zero(t, mm.objectCounters[logical])
+		require.Zero(t, mm.objectCounters[phyObj])
+		require.Zero(t, mm.objectCounters[rootObj])
+		require.Zero(t, mm.objectCounters[tsObj])
+		require.Zero(t, mm.objectCounters[lockObj])
+		require.Zero(t, mm.objectCounters[linkObj])
+		require.Zero(t, mm.objectCounters[gcObj])
 		require.Empty(t, mm.containerSize)
 		require.Zero(t, mm.payloadSize)
 	})
@@ -115,7 +123,12 @@ func TestCounters(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.Equal(t, uint64(objNumber), mm.objectCounters[physical])
+		require.Equal(t, uint64(objNumber), mm.objectCounters[phyObj])
+		require.Equal(t, uint64(objNumber), mm.objectCounters[rootObj])
+		require.Zero(t, mm.objectCounters[tsObj])
+		require.Zero(t, mm.objectCounters[lockObj])
+		require.Zero(t, mm.objectCounters[linkObj])
+		require.Zero(t, mm.objectCounters[gcObj])
 		require.Equal(t, expectedSizes, mm.containerSize)
 		require.Equal(t, totalPayload, mm.payloadSize)
 	})
@@ -128,7 +141,12 @@ func TestCounters(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.Equal(t, uint64(objNumber), mm.objectCounters[physical])
+		require.Equal(t, uint64(objNumber), mm.objectCounters[phyObj])
+		require.Equal(t, uint64(objNumber), mm.objectCounters[rootObj])
+		require.Equal(t, uint64(inhumedNumber), mm.objectCounters[gcObj])
+		require.Zero(t, mm.objectCounters[tsObj])
+		require.Zero(t, mm.objectCounters[lockObj])
+		require.Zero(t, mm.objectCounters[linkObj])
 		require.Equal(t, expectedSizes, mm.containerSize)
 		require.Equal(t, totalPayload, mm.payloadSize)
 
@@ -142,7 +160,9 @@ func TestCounters(t *testing.T) {
 		tombObj.SetContainerID(oo[0].GetContainerID())
 		tombObj.AssociateDeleted(oo[0].GetID())
 
-		phy := mm.objectCounters[physical]
+		phy := mm.objectCounters[phyObj]
+		root := phy
+		inhumed := mm.objectCounters[gcObj]
 
 		inhumedNumber := 1
 
@@ -152,7 +172,12 @@ func TestCounters(t *testing.T) {
 		// Tomb is an object too.
 		phy++
 
-		require.Equal(t, phy, mm.objectCounters[physical])
+		require.Equal(t, phy, mm.objectCounters[phyObj])
+		require.Equal(t, root, mm.objectCounters[rootObj])
+		require.Equal(t, inhumed+1, mm.objectCounters[gcObj])
+		require.Equal(t, uint64(1), mm.objectCounters[tsObj])
+		require.Zero(t, mm.objectCounters[lockObj])
+		require.Zero(t, mm.objectCounters[linkObj])
 		require.Equal(t, expectedSizes, mm.containerSize)
 		require.Equal(t, totalPayload, mm.payloadSize)
 
@@ -160,14 +185,18 @@ func TestCounters(t *testing.T) {
 	})
 
 	t.Run("Delete", func(t *testing.T) {
-		phy := mm.objectCounters[physical]
+		phy := mm.objectCounters[phyObj]
+		root := mm.objectCounters[rootObj]
 
 		deletedNumber := int(phy / 4)
 
 		err := sh.Delete(addrFromObjs(oo[:deletedNumber]))
 		require.NoError(t, err)
 
-		require.Equal(t, phy-uint64(deletedNumber), mm.objectCounters[physical])
+		require.Equal(t, phy-uint64(deletedNumber), mm.objectCounters[phyObj])
+		require.Equal(t, root-uint64(deletedNumber), mm.objectCounters[rootObj])
+		require.Zero(t, mm.objectCounters[linkObj])
+		require.Zero(t, mm.objectCounters[lockObj])
 		var totalRemovedpayload uint64
 		for i := range oo[:deletedNumber] {
 			removedPayload := oo[i].PayloadSize()
@@ -195,21 +224,19 @@ func TestCounters(t *testing.T) {
 			require.EqualValues(t, child.PayloadSize(), cnrInfo.StorageSize)
 			require.EqualValues(t, 1, cnrInfo.ObjectsNumber)
 
-			phyBefore := mm.objectCounters[physical]
-			logicNumBefore := mm.objectCounters[logical]
+			phyBefore := mm.objectCounters[phyObj]
 			sumPldSizeBefore := mm.payloadSize
 
 			require.NoError(t, sh.Delete([]oid.Address{parent.Address()}))
 
 			require.EqualValues(t, child.PayloadSize(), mm.containerSize[cnr])
-			require.Equal(t, phyBefore, mm.objectCounters[physical])
-			require.Equal(t, logicNumBefore, mm.objectCounters[logical])
+			require.Equal(t, phyBefore, mm.objectCounters[phyObj])
 			require.Equal(t, sumPldSizeBefore, mm.payloadSize)
 
 			cnrInfo, err = sh.ContainerInfo(cnr)
 			require.NoError(t, err)
 			require.EqualValues(t, child.PayloadSize(), cnrInfo.StorageSize)
-			require.Zero(t, cnrInfo.ObjectsNumber)
+			require.EqualValues(t, 1, cnrInfo.ObjectsNumber)
 		})
 	})
 }
@@ -237,11 +264,11 @@ func TestInhumeContainerCounters(t *testing.T) {
 	total := uint64(objsC1 + objsC2)
 	initialPayload := mm.payloadSize
 	require.Equal(t, sizeC1+sizeC2, initialPayload)
-	require.Equal(t, mm.objectCounters[physical], total)
+	require.Equal(t, mm.objectCounters[phyObj], total)
 
 	require.NoError(t, sh.InhumeContainer(c1))
 
-	require.Equal(t, mm.objectCounters[physical], total)
+	require.Equal(t, mm.objectCounters[phyObj], total)
 	require.Empty(t, mm.containerSize[c1])
 	require.Equal(t, mm.containerSize[c2], sizeC2)
 	// payload size must remain unchanged after logical removal
@@ -249,73 +276,22 @@ func TestInhumeContainerCounters(t *testing.T) {
 
 	require.NoError(t, sh.InhumeContainer(c2))
 
-	require.Equal(t, mm.objectCounters[physical], total)
+	require.Equal(t, mm.objectCounters[phyObj], total)
 	require.Empty(t, mm.containerSize[c1])
 	require.Empty(t, mm.containerSize[c2])
 	// payload size still unchanged
 	require.Equal(t, initialPayload, mm.payloadSize)
 }
 
-func TestShardCounterMigration(t *testing.T) {
-	path := t.TempDir()
-	sh, mm := shardWithMetrics(t, path)
-
-	const n = 11
-	for range n {
-		obj := generateObject()
-		require.NoError(t, sh.Put(obj, nil))
-	}
-	require.Equal(t, uint64(n), mm.objectCounters[physical])
-
-	// Close shard so we can mutate Bolt file.
-	require.NoError(t, sh.Close())
-
-	metaPath := filepath.Join(path, "meta")
-	mdb, err := bbolt.Open(metaPath, 0o600, nil)
-	require.NoError(t, err)
-
-	var (
-		bucketPrefix          = []byte{5} // shardInfoPrefix
-		objectPhyCounterKey   = []byte("phy_counter")
-		objectLogicCounterKey = []byte("logic_counter")
-		corruptPhysical       = uint64(100)
-		corruptLogical        = uint64(200)
-	)
-
-	require.NoError(t, mdb.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketPrefix)
-		require.NotNil(t, b)
-
-		require.Equal(t, uint64(n), binary.LittleEndian.Uint64(b.Get(objectPhyCounterKey)))
-		require.Equal(t, uint64(n), binary.LittleEndian.Uint64(b.Get(objectLogicCounterKey)))
-
-		cc := make([]byte, 8)
-		binary.LittleEndian.PutUint64(cc, corruptPhysical)
-		require.NoError(t, b.Put(objectPhyCounterKey, cc))
-		cc = make([]byte, 8)
-		binary.LittleEndian.PutUint64(cc, corruptLogical)
-		require.NoError(t, b.Put(objectLogicCounterKey, cc))
-
-		// force metabase version to 7 to restore counters
-		bkt := tx.Bucket([]byte{0x05})
-		require.NotNil(t, bkt)
-		require.NoError(t, bkt.Put([]byte("version"), []byte{0x07, 0, 0, 0, 0, 0, 0, 0}))
-		return nil
-	}))
-	require.NoError(t, mdb.Close())
-
-	// re-open shard, initMetrics should force sync counters and restore real values
-	sh, mm = shardWithMetrics(t, path)
-
-	require.Equal(t, uint64(n), mm.objectCounters[physical])
-	require.NoError(t, sh.Close())
-}
-
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 	mm := &metricsStore{
 		objectCounters: map[string]uint64{
-			"phy":   0,
-			"logic": 0,
+			"phy":  0,
+			"root": 0,
+			"ts":   0,
+			"lock": 0,
+			"link": 0,
+			"gc":   0,
 		},
 		containerSize: make(map[cid.ID]int64),
 	}

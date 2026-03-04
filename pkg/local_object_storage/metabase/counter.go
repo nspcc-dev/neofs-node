@@ -5,36 +5,47 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
+// unused starting from 10 DB version.
 var objectPhyCounterKey = []byte("phy_counter")
 var objectLogicCounterKey = []byte("logic_counter")
+
+// CountersDiff groups counters diff after operation on [DB]. Positive and
+// negative values are possible.
+type CountersDiff struct {
+	Phy  int
+	Root int
+	TS   int
+	Lock int
+	Link int
+	GC   int
+}
 
 type objectType uint8
 
 const (
 	_ objectType = iota
-	phy
-	logical
+	phyCounter
+	logicalCounter // removed in 10 metabase version
+	rootCounter
+	tsCounter
+	lockCounter
+	linkCounter
+	gcCounter
 )
 
-// ObjectCounters groups object counter
+// ObjectCounters groups object counters
 // according to metabase state.
 type ObjectCounters struct {
-	logic uint64
-	phy   uint64
-}
-
-// Logic returns logical object counter.
-func (o ObjectCounters) Logic() uint64 {
-	return o.logic
-}
-
-// Phy returns physical object counter.
-func (o ObjectCounters) Phy() uint64 {
-	return o.phy
+	Phy  uint64
+	Root uint64
+	TS   uint64
+	Lock uint64
+	Link uint64
+	GC   uint64
 }
 
 // ObjectCounters returns object counters that metabase has
@@ -52,53 +63,70 @@ func (db *DB) ObjectCounters() (ObjectCounters, error) {
 
 	var res ObjectCounters
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.phy, res.logic = getCounters(tx)
-		return nil
+		var err error
+		res, err = getCounters(tx)
+		return err
 	})
 
 	return res, err
 }
 
-func getCounters(tx *bbolt.Tx) (uint64, uint64) {
-	var phyC, logicC uint64
-
-	b := tx.Bucket(shardInfoBucket)
-	if b != nil {
-		data := b.Get(objectPhyCounterKey)
-		if len(data) == 8 {
-			phyC = binary.LittleEndian.Uint64(data)
+func getCounters(tx *bbolt.Tx) (ObjectCounters, error) {
+	fetchCounter := func(b *bbolt.Bucket, prefix byte) uint64 {
+		data := b.Get([]byte{prefix})
+		if len(data) != 8 {
+			return 0
 		}
-
-		data = b.Get(objectLogicCounterKey)
-		if len(data) == 8 {
-			logicC = binary.LittleEndian.Uint64(data)
-		}
+		return binary.LittleEndian.Uint64(data)
 	}
 
-	return phyC, logicC
+	var res ObjectCounters
+	return res, tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+		if name[0] != metadataPrefix {
+			return nil
+		}
+		res.Phy += fetchCounter(b, metaPrefixPhyCounter)
+		res.Root += fetchCounter(b, metaPrefixRootCounter)
+		res.TS += fetchCounter(b, metaPrefixTSCounter)
+		res.Lock += fetchCounter(b, metaPrefixLockCounter)
+		res.Link += fetchCounter(b, metaPrefixLinkCounter)
+
+		if containerMarkedGC(b.Cursor()) {
+			res.GC += res.Phy
+			return nil
+		}
+		res.GC += fetchCounter(b, metaPrefixGCCounter)
+
+		return nil
+	})
 }
 
 // updateCounter updates the object counter. Tx MUST be writable.
 // If inc == `true`, increases the counter, decreases otherwise.
-func updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
-	b := tx.Bucket(shardInfoBucket)
-	if b == nil {
-		return nil
-	}
-
-	var counter uint64
-	var counterKey []byte
+func updateCounter(metaBkt *bbolt.Bucket, typ objectType, delta uint64, inc bool) error {
+	var (
+		counter    uint64
+		counterKey = make([]byte, 1)
+	)
 
 	switch typ {
-	case phy:
-		counterKey = objectPhyCounterKey
-	case logical:
-		counterKey = objectLogicCounterKey
+	case phyCounter:
+		counterKey[0] = metaPrefixPhyCounter
+	case rootCounter:
+		counterKey[0] = metaPrefixRootCounter
+	case tsCounter:
+		counterKey[0] = metaPrefixTSCounter
+	case lockCounter:
+		counterKey[0] = metaPrefixLockCounter
+	case linkCounter:
+		counterKey[0] = metaPrefixLinkCounter
+	case gcCounter:
+		counterKey[0] = metaPrefixGCCounter
 	default:
 		panic("unknown object type counter")
 	}
 
-	data := b.Get(counterKey)
+	data := metaBkt.Get(counterKey)
 	if len(data) == 8 {
 		counter = binary.LittleEndian.Uint64(data)
 	}
@@ -114,7 +142,7 @@ func updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
 	newCounter := make([]byte, 8)
 	binary.LittleEndian.PutUint64(newCounter, counter)
 
-	return b.Put(counterKey, newCounter)
+	return metaBkt.Put(counterKey, newCounter)
 }
 
 // syncCounter updates object counters according to metabase state:
@@ -124,49 +152,105 @@ func updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool) error {
 // Does nothing if counters are not empty and force is false. If force is
 // true, updates the counters anyway.
 func syncCounter(tx *bbolt.Tx, force bool) error {
-	b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
-	if err != nil {
-		return fmt.Errorf("could not get shard info bucket: %w", err)
-	}
+	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+		if name[0] != metadataPrefix {
+			return nil
+		}
 
-	if !force && len(b.Get(objectPhyCounterKey)) == 8 && len(b.Get(objectLogicCounterKey)) == 8 {
-		// the counters are already inited
-		return nil
-	}
-
-	var phyCounter uint64
-	var logicCounter uint64
-
-	err = iteratePhyObjects(tx, func(c *bbolt.Cursor, obj oid.ID) error {
-		phyCounter++
-
-		typ, err := fetchTypeForID(c, obj)
-		// check if an object is available: not with GCMark
-		// and not covered with a tombstone
-		if inGarbage(c, obj) == statusAvailable && err == nil && typ == object.TypeRegular {
-			logicCounter++
+		err := syncContainerCounters(b, force)
+		if err != nil {
+			cnr, err := cid.DecodeBytes(name[1:])
+			if err != nil {
+				return fmt.Errorf("sync container counters: %w", err)
+			}
+			return fmt.Errorf("sync %s container counters: %w", cnr, err)
 		}
 
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("could not iterate objects: %w", err)
+}
+
+func syncContainerCounters(b *bbolt.Bucket, force bool) error {
+	if !force &&
+		len(b.Get([]byte{metaPrefixPhyCounter})) == 8 &&
+		len(b.Get([]byte{metaPrefixRootCounter})) == 8 &&
+		len(b.Get([]byte{metaPrefixTSCounter})) == 8 &&
+		len(b.Get([]byte{metaPrefixLockCounter})) == 8 &&
+		len(b.Get([]byte{metaPrefixLinkCounter})) == 8 &&
+		len(b.Get([]byte{metaPrefixGCCounter})) == 8 {
+		// the counters are already inited
+		return nil
 	}
 
-	data := make([]byte, 8)
-	binary.LittleEndian.PutUint64(data, phyCounter)
+	var (
+		phyCounter  uint64
+		rootCounter uint64
+		tsCounter   uint64
+		lockCounter uint64
+		linkCounter uint64
+		gcCounter   uint64
+	)
 
-	err = b.Put(objectPhyCounterKey, data)
-	if err != nil {
-		return fmt.Errorf("could not update phy object counter: %w", err)
+	c := b.Cursor()
+	for obj := range iterAttrVal(b.Cursor(), object.FilterType, []byte(object.TypeRegular.String())) {
+		if string(getObjAttribute(c, obj, object.FilterPhysical)) == binPropMarker {
+			phyCounter++
+		}
+		if string(getObjAttribute(c, obj, object.FilterRoot)) == binPropMarker {
+			rootCounter++
+		}
+		if inGarbage(c, obj) != statusAvailable {
+			gcCounter++
+		}
 	}
 
-	data = make([]byte, 8)
-	binary.LittleEndian.PutUint64(data, logicCounter)
+	countNonRegularObjects := func(typ object.Type, counter *uint64) {
+		for obj := range iterAttrVal(b.Cursor(), object.FilterType, []byte(typ.String())) {
+			phyCounter++
+			*counter++
+			if inGarbage(c, obj) != statusAvailable {
+				gcCounter++
+				continue
+			}
+		}
+	}
+	countNonRegularObjects(object.TypeTombstone, &tsCounter)
+	countNonRegularObjects(object.TypeLock, &lockCounter)
+	countNonRegularObjects(object.TypeLink, &linkCounter)
 
-	err = b.Put(objectLogicCounterKey, data)
+	putCounter := func(counterKeyPref byte, counter uint64) error {
+		data := make([]byte, 8)
+		binary.LittleEndian.PutUint64(data, counter)
+		err := b.Put([]byte{counterKeyPref}, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+	err := putCounter(metaPrefixPhyCounter, phyCounter)
 	if err != nil {
-		return fmt.Errorf("could not update logic object counter: %w", err)
+		return fmt.Errorf("sync PHY counter: %w", err)
+	}
+	err = putCounter(metaPrefixRootCounter, rootCounter)
+	if err != nil {
+		return fmt.Errorf("sync ROOT counter: %w", err)
+	}
+	err = putCounter(metaPrefixTSCounter, tsCounter)
+	if err != nil {
+		return fmt.Errorf("sync TS counter: %w", err)
+	}
+	err = putCounter(metaPrefixLockCounter, lockCounter)
+	if err != nil {
+		return fmt.Errorf("sync LOCK counter: %w", err)
+	}
+	err = putCounter(metaPrefixLinkCounter, linkCounter)
+	if err != nil {
+		return fmt.Errorf("sync LINK counter: %w", err)
+	}
+	err = putCounter(metaPrefixGCCounter, gcCounter)
+	if err != nil {
+		return fmt.Errorf("sync GC counter: %w", err)
 	}
 
 	return nil

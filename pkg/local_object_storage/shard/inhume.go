@@ -27,16 +27,17 @@ func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
 		return ErrDegradedMode
 	}
 
-	var err error
-
-	_, _, err = s.metaBase.MarkGarbage(addrs...)
-
+	inhumed, _, err := s.metaBase.MarkGarbage(addrs...)
 	if err != nil {
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.Error(err),
 		)
 
 		return fmt.Errorf("metabase inhume: %w", err)
+	}
+
+	if s.metricsWriter != nil {
+		s.metricsWriter.AddToObjectCounter(gcObjType, int(inhumed))
 	}
 
 	if s.hasWriteCache() {
