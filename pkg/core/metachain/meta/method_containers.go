@@ -24,7 +24,7 @@ func (m *MetaData) unregisterMetaContainer(ic *interop.Context, args []stackitem
 		panic(common.ErrAlphabetWitnessFailed)
 	}
 
-	deleteStorageItem(ic, append([]byte{metaContainersPrefix}, cID[:]...))
+	deleteStorageItem(ic, append([]byte{metaContainersPrefix}, cID.BytesBE()...))
 
 	return stackitem.Null{}
 }
@@ -44,7 +44,7 @@ func (m *MetaData) registerMetaContainer(ic *interop.Context, args []stackitem.I
 		panic(common.ErrAlphabetWitnessFailed)
 	}
 
-	putStorageItem(ic, append([]byte{metaContainersPrefix}, cID[:]...), state.StorageItem{})
+	putStorageItem(ic, append([]byte{metaContainersPrefix}, cID.BytesBE()...), state.StorageItem{})
 
 	return stackitem.Null{}
 }

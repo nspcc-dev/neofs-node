@@ -268,10 +268,12 @@ func TestMetaDataContract_Objects(t *testing.T) {
 				k[0] = 2 // address prefix
 				copy(k[1:], cID[:])
 				copy(k[1+cid.Size:], anotherOID[:])
-
 				require.Equal(t, rawMeta, []byte(metaCommitteeI.Chain.GetStorageItem(meta.MetaDataContractID, k)))
 
-				k[0] = 3 // lockedBy prefix
+				k[0] = 3 // type prefix
+				require.Equal(t, []byte{byte(object.TypeLock)}, []byte(metaCommitteeI.Chain.GetStorageItem(meta.MetaDataContractID, k)))
+
+				k[0] = 4 // lockedBy prefix
 				copy(k[1+32:], lockedObj[:])
 				require.Equal(t, anotherOID[:], []byte(metaCommitteeI.Chain.GetStorageItem(meta.MetaDataContractID, k)))
 			})
@@ -409,10 +411,14 @@ func (s signer) SignHashable(u uint32, hashable hash.Hashable) []byte {
 		invokBuff = io.NewBufBinWriter()
 		writer    = invokBuff.BinWriter
 	)
-	for i := len(s.nodes) - 1; i >= 0; i-- {
-		vectorLen := len(s.nodes[i])
-		for j := vectorLen - 1; j >= 0; j-- {
-			emit.Bytes(writer, s.nodes[i][j].SignHashable(u, hashable))
+
+	for _, vector := range slices.Backward(s.nodes) {
+		vectorLen := len(vector)
+		for i, node := range slices.Backward(vector) {
+			emit.Array(writer,
+				stackitem.Make(i), // singature's index
+				stackitem.Make(node.SignHashable(u, hashable)), // signature
+			)
 		}
 		emit.Int(writer, int64(vectorLen))
 		emit.Opcodes(writer, opcode.PACK)

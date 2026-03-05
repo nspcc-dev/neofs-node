@@ -4,8 +4,8 @@ import (
 	"math"
 )
 
+// Metadata contract identifiers.
 const (
-	// Metadata contract identifiers.
 	MetaDataContractID   = math.MinInt32
 	MetaDataContractName = "MetaData"
 )
@@ -17,6 +17,7 @@ const (
 
 	// object prefixes.
 	addrIndex
+	typeIndex
 	lockedByIndex
 )
 

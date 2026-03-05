@@ -104,7 +104,7 @@ func (m *objectMeta) parse(ic *interop.Context, metaInfo []stackitem.MapElement)
 		if err != nil {
 			panic(fmt.Sprintf("incorrect locked object: %s", err))
 		}
-		if object.Type(m.typ) != object.TypeLock {
+		if m.typ != uint8(object.TypeLock) {
 			panic("non-LOCK object with associated locked object")
 		}
 
@@ -115,7 +115,7 @@ func (m *objectMeta) parse(ic *interop.Context, metaInfo []stackitem.MapElement)
 		if err != nil {
 			panic(fmt.Sprintf("incorrect deleted object: %s", err))
 		}
-		if object.Type(m.typ) != object.TypeTombstone {
+		if m.typ != uint8(object.TypeTombstone) {
 			panic("non-TS object with associated deleted object")
 		}
 
@@ -149,11 +149,11 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 		panic(err)
 	}
 
-	if ic.DAO.GetStorageItem(m.ID, append([]byte{metaContainersPrefix}, o.cID.BytesBE()...)) == nil {
+	if getStorageItem(ic, append([]byte{metaContainersPrefix}, o.cID.BytesBE()...)) == nil {
 		panic("container does not support chained metadata")
 	}
 
-	cnrListRaw := ic.DAO.GetStorageItem(m.ID, append([]byte{containerPlacementPrefix}, o.cID.BytesBE()...))
+	cnrListRaw := getStorageItem(ic, append([]byte{containerPlacementPrefix}, o.cID.BytesBE()...))
 	placementI, err := stackitem.Deserialize(cnrListRaw)
 	if err != nil {
 		panic(fmt.Errorf("cannot deserialize container placement list: %w", err))
@@ -164,7 +164,7 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 		panic(fmt.Errorf("cannot retrieve placement vector from stack item: %w", err))
 	}
 
-	err = isSignedBySNs(ic, m.Hash, o.cID, len(placement))
+	err = isSignedBySNs(ic, m.Hash, o.cID.BytesBE(), len(placement))
 	if err != nil {
 		panic(err)
 	}
@@ -175,8 +175,8 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 	}
 
 	err = ic.AddNotification(m.Hash, objectPutEvent, stackitem.NewArray([]stackitem.Item{
-		stackitem.NewByteArray(o.cID.BytesBE()),
-		stackitem.NewByteArray(o.oID.BytesBE()),
+		stackitem.Make(o.cID.BytesBE()),
+		stackitem.Make(o.oID.BytesBE()),
 		stackitem.NewMapWithValue(metaInfo)}))
 	if err != nil {
 		panic(err)
@@ -185,16 +185,16 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 	switch {
 	case !o.locked.Equals(util.Uint256{}):
 		err = ic.AddNotification(m.Hash, objectLockedEvent, stackitem.NewArray([]stackitem.Item{
-			stackitem.NewByteArray(o.cID.BytesBE()),
-			stackitem.NewByteArray(o.locked.BytesBE()),
+			stackitem.Make(o.cID.BytesBE()),
+			stackitem.Make(o.locked.BytesBE()),
 		}))
 		if err != nil {
 			panic(fmt.Errorf("locked notification: %w", err))
 		}
 	case !o.deleted.Equals(util.Uint256{}):
 		err = ic.AddNotification(m.Hash, objectDeletedEvent, stackitem.NewArray([]stackitem.Item{
-			stackitem.NewByteArray(o.cID.BytesBE()),
-			stackitem.NewByteArray(o.deleted.BytesBE()),
+			stackitem.Make(o.cID.BytesBE()),
+			stackitem.Make(o.deleted.BytesBE()),
 		}))
 		if err != nil {
 			panic(fmt.Errorf("deleted notification: %w", err))
@@ -242,6 +242,10 @@ func storeObject(ic *interop.Context, parsed objectMeta, rawMeta []byte) error {
 		if l := getStorageItem(ic, key); l != nil {
 			return errors.New("locked object deletion")
 		}
+		key[0] = typeIndex
+		if t := getStorageItem(ic, key); t != nil {
+			return fmt.Errorf("non-regular object deletion: %s", object.Type(t[0]))
+		}
 
 		key[0] = addrIndex
 		deleteStorageItem(ic, key)
@@ -251,6 +255,10 @@ func storeObject(ic *interop.Context, parsed objectMeta, rawMeta []byte) error {
 
 	key[0] = addrIndex
 	putStorageItem(ic, key, rawMeta)
+	if object.Type(parsed.typ) != object.TypeRegular {
+		key[0] = typeIndex
+		putStorageItem(ic, key, []byte{parsed.typ})
+	}
 
 	if !parsed.locked.Equals(util.Uint256{}) {
 		key[0] = lockedByIndex
@@ -259,6 +267,11 @@ func storeObject(ic *interop.Context, parsed objectMeta, rawMeta []byte) error {
 	}
 
 	return nil
+}
+
+type indexedSig struct {
+	ind uint8
+	sig []byte
 }
 
 func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackitem.Item) stackitem.Item {
@@ -272,14 +285,14 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 
 	const expectedNumberOfArgs = 2
 	if len(args) != expectedNumberOfArgs {
-		return stackitem.NewBool(false)
+		return stackitem.Make(false)
 	}
 
 	cID, err := stackitem.ToUint256(args[0])
 	if err != nil {
 		panic(err)
 	}
-	if ic.DAO.GetStorageItem(m.ID, append([]byte{metaContainersPrefix}, cID[:]...)) == nil {
+	if getStorageItem(ic, append([]byte{metaContainersPrefix}, cID.BytesBE()...)) == nil {
 		panic("container does not support chained metadata")
 	}
 
@@ -287,24 +300,35 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 	if !ok {
 		panic(fmt.Errorf("unexpected second argument value: %T expected, %s given", sigsVectorsRaw, args[1].Type()))
 	}
-	var sigVectors = make([][][]byte, 0, len(sigsVectorsRaw))
+	var sigVectors = make([][]indexedSig, 0, len(sigsVectorsRaw))
 	for i := range sigsVectorsRaw {
 		vectorRaw, ok := sigsVectorsRaw[i].Value().([]stackitem.Item)
 		if !ok {
-			panic(fmt.Errorf("unexpected %d signatures vector value: %s expected, %s given", i, stackitem.ArrayT, sigsVectorsRaw[i].Type()))
+			panic(fmt.Errorf("unexpected %d signatures vector value: %T expected, %T given", i, vectorRaw, sigsVectorsRaw[i].Value()))
 		}
-		vector := make([][]byte, 0, len(vectorRaw))
+		vector := make([]indexedSig, 0, len(vectorRaw))
 		for j := range vectorRaw {
-			sig, ok := vectorRaw[j].Value().([]byte)
+			indSig, ok := vectorRaw[j].Value().([]stackitem.Item)
 			if !ok {
-				panic(fmt.Errorf("unexpected %d signature value in %d signatures vector: %s expected, %s given", j, i, stackitem.ByteArrayT, sigsVectorsRaw[j].Type()))
+				panic(fmt.Errorf("unexpected %d indexed signature value in %d signatures vector: %s expected, %s given", j, i, stackitem.ArrayT, vectorRaw[j].Type()))
 			}
-			vector = append(vector, sig)
+			if l := len(indSig); l != 2 {
+				panic(fmt.Errorf("indexed signature has unexpected number of fields: %d (%d expected)", l, 2))
+			}
+			ind, err := stackitem.ToUint8(indSig[0])
+			if err != nil {
+				panic(fmt.Errorf("parsing signature index: %w", err))
+			}
+			sig, err := indSig[1].TryBytes()
+			if err != nil {
+				panic(fmt.Errorf("parsing signature: %w", err))
+			}
+			vector = append(vector, indexedSig{ind: ind, sig: sig})
 		}
 		sigVectors = append(sigVectors, vector)
 	}
 
-	cnrListRaw := ic.DAO.GetStorageItem(m.ID, append([]byte{containerPlacementPrefix}, cID[:]...))
+	cnrListRaw := getStorageItem(ic, append([]byte{containerPlacementPrefix}, cID[:]...))
 	placementI, err := stackitem.Deserialize(cnrListRaw)
 	if err != nil {
 		panic(fmt.Errorf("cannot deserialize container placement list: %w", err))
@@ -318,37 +342,31 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 		panic(fmt.Errorf("unexpected number of signature vectors: %d signatures, %d placement vectors found", len(sigVectors), len(placement)))
 	}
 
-	for i, vector := range placement {
-		var foundSigs, lastFoundSig int
-		for _, sig := range sigVectors[i] {
-			// placement nodes are sorted by their public keys, so the signers are expected to be
-			for j := max(0, lastFoundSig); j < len(vector.Nodes); j++ {
-				if vector.Nodes[j].Verify(sig, signedDataHash[:]) {
-					foundSigs++
-					lastFoundSig = j
-					break
-				}
-			}
-			if foundSigs == int(vector.REP) {
-				break
-			}
+	for i, sigVector := range sigVectors {
+		if int(placement[i].REP) != len(sigVector) {
+			panic(fmt.Errorf("number of signatures for %d vector differs REP: %d != %d", i, len(sigVector), placement[i].REP))
 		}
-		if foundSigs < int(vector.REP) {
-			panic(fmt.Sprintf("REP %d is not sufficient for %d placement vector, %d signatures found", vector.REP, i, foundSigs))
+		for j, sigIndexed := range sigVector {
+			if int(sigIndexed.ind) >= len(placement[i].Nodes) {
+				panic(fmt.Errorf("signature's index in %d vector is bigger than number of nodes: %d > %d", i, int(sigIndexed.ind), len(placement[i].Nodes)))
+			}
+			if !placement[i].Nodes[int(sigIndexed.ind)].Verify(sigIndexed.sig, signedDataHash[:]) {
+				panic(fmt.Errorf("%d signature in %d vector invalid for %d node", j, i, sigIndexed.ind))
+			}
 		}
 	}
 
 	return stackitem.NewBool(true)
 }
 
-func verifScript(hash util.Uint160, cID util.Uint256, placementVectorsNumber int) []byte {
+func verifScript(hash util.Uint160, cID []byte, placementVectorsNumber int) []byte {
 	var (
 		verifScriptBuf = io.NewBufBinWriter()
 		writer         = verifScriptBuf.BinWriter
 	)
 	emit.Int(writer, int64(placementVectorsNumber)) // sigs array length
 	emit.Opcodes(writer, opcode.PACK)
-	emit.Bytes(writer, cID.BytesBE())
+	emit.Bytes(writer, cID)
 	emit.Int(writer, 2) // number or args
 	emit.Opcodes(writer, opcode.PACK)
 	emit.AppCallNoArgs(writer, hash, "verifyPlacementSignatures", callflag.ReadOnly)
@@ -356,13 +374,13 @@ func verifScript(hash util.Uint160, cID util.Uint256, placementVectorsNumber int
 	return verifScriptBuf.Bytes()
 }
 
-func isSignedBySNs(ic *interop.Context, contract util.Uint160, cID util.Uint256, placementVectorsNumber int) error {
-	if l := len(ic.Tx.Scripts); l != 1 {
+func isSignedBySNs(ic *interop.Context, contract util.Uint160, cID []byte, placementVectorsNumber int) error {
+	if l := len(ic.Tx.Signers); l != 1 {
 		return fmt.Errorf("expected exactly 1 witness script, got %d", l)
 	}
 
 	acc := hash.Hash160(verifScript(contract, cID, placementVectorsNumber))
-	if !ic.Tx.Signers[0].Account.Equals(acc) {
+	if !ic.Tx.Sender().Equals(acc) {
 		return fmt.Errorf("not signed by %s account", acc)
 	}
 

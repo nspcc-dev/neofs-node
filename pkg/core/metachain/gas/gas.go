@@ -44,15 +44,15 @@ func NewGAS() *GAS {
 	})
 
 	desc := native.NewDescriptor("symbol", smartcontract.StringType)
-	md := native.NewMethodAndPrice(g.Symbol, 0, callflag.NoneFlag)
+	md := native.NewMethodAndPrice(g.symbol, 0, callflag.NoneFlag)
 	g.AddMethod(md, desc)
 
 	desc = native.NewDescriptor("decimals", smartcontract.IntegerType)
-	md = native.NewMethodAndPrice(g.Decimals, 0, callflag.NoneFlag)
+	md = native.NewMethodAndPrice(g.decimals, 0, callflag.NoneFlag)
 	g.AddMethod(md, desc)
 
 	desc = native.NewDescriptor("totalSupply", smartcontract.IntegerType)
-	md = native.NewMethodAndPrice(g.TotalSupply, 1<<15, callflag.ReadStates)
+	md = native.NewMethodAndPrice(g.totalSupply, 1<<15, callflag.ReadStates)
 	g.AddMethod(md, desc)
 
 	desc = native.NewDescriptor("balanceOf", smartcontract.IntegerType,
@@ -68,7 +68,7 @@ func NewGAS() *GAS {
 	desc = native.NewDescriptor("transfer", smartcontract.BoolType,
 		append(transferParams, manifest.NewParameter("data", smartcontract.AnyType))...,
 	)
-	md = native.NewMethodAndPrice(g.Transfer, 1<<17, callflag.States|callflag.AllowCall|callflag.AllowNotify)
+	md = native.NewMethodAndPrice(g.transfer, 1<<17, callflag.States|callflag.AllowCall|callflag.AllowNotify)
 	g.AddMethod(md, desc)
 
 	eDesc := native.NewEventDescriptor("Transfer", transferParams...)
@@ -108,16 +108,16 @@ func (g *GAS) BalanceOf(d *dao.Simple, acc util.Uint160) *big.Int {
 	return big.NewInt(DefaultBalance)
 }
 
-func (g *GAS) Symbol(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
-	return stackitem.NewByteArray([]byte("GAS"))
+func (g *GAS) symbol(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
+	return stackitem.Make([]byte("GAS"))
 }
 
-func (g *GAS) Decimals(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
-	return stackitem.NewBigInteger(big.NewInt(8))
+func (g *GAS) decimals(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
+	return stackitem.Make(8)
 }
 
-func (g *GAS) TotalSupply(ic *interop.Context, _ []stackitem.Item) stackitem.Item {
-	return stackitem.NewBigInteger(big.NewInt(DefaultBalance))
+func (g *GAS) totalSupply(ic *interop.Context, _ []stackitem.Item) stackitem.Item {
+	return stackitem.Make(DefaultBalance)
 }
 
 func toUint160(s stackitem.Item) util.Uint160 {
@@ -136,14 +136,14 @@ func toBigInt(s stackitem.Item) *big.Int {
 	return bi
 }
 
-func (g *GAS) Transfer(ic *interop.Context, args []stackitem.Item) stackitem.Item {
+func (g *GAS) transfer(ic *interop.Context, args []stackitem.Item) stackitem.Item {
 	from := toUint160(args[0])
 	to := toUint160(args[1])
 	amount := toBigInt(args[2])
 
 	paymentArgs := []stackitem.Item{
-		stackitem.NewByteArray(from.BytesBE()),
-		stackitem.NewBigInteger(amount),
+		stackitem.Make(from),
+		stackitem.Make(amount),
 		args[3],
 	}
 	cs, err := ic.GetContract(to)
@@ -154,13 +154,13 @@ func (g *GAS) Transfer(ic *interop.Context, args []stackitem.Item) stackitem.Ite
 		}
 	}
 
-	return stackitem.NewBool(true)
+	return stackitem.Make(true)
 }
 
 // balanceOf is the only difference with default native GAS implementation:
 // it always returns fixed number of tokens.
 func (g *GAS) balanceOf(ic *interop.Context, args []stackitem.Item) stackitem.Item {
-	return stackitem.NewBigInteger(g.BalanceOf(nil, util.Uint160{}))
+	return stackitem.Make(DefaultBalance)
 }
 
 func (g *GAS) Mint(ic *interop.Context, h util.Uint160, amount *big.Int, callOnPayment bool) {

@@ -60,7 +60,7 @@ type PlacementVector struct {
 func (p PlacementVector) ToStackItem() (stackitem.Item, error) {
 	nodes := make([]stackitem.Item, 0, len(p.Nodes))
 	for _, node := range p.Nodes {
-		nodes = append(nodes, stackitem.NewByteArray(node.Bytes()))
+		nodes = append(nodes, stackitem.Make(node.Bytes()))
 	}
 
 	return stackitem.NewStruct([]stackitem.Item{
@@ -80,7 +80,7 @@ func (p *PlacementVector) FromStackItem(it stackitem.Item) error {
 
 	rep, err := stackitem.ToUint8(arr[0])
 	if err != nil {
-		return fmt.Errorf("first field not an uint8: %w", err)
+		return fmt.Errorf("first fields not an uint8: %w", err)
 	}
 	p.REP = rep
 
@@ -163,7 +163,7 @@ func (m *MetaData) updateContainerList(ic *interop.Context, args []stackitem.Ite
 		sort.Sort(vector.Nodes)
 	}
 
-	err = ic.DAO.PutStorageConvertible(m.ID, append([]byte{containerPlacementPrefix}, cID[:]...), &newPlacement)
+	err = ic.DAO.PutStorageConvertible(m.ID, append([]byte{containerPlacementPrefix}, cID.BytesBE()...), &newPlacement)
 	if err != nil {
 		panic(fmt.Errorf("cannot put updated placement: %w", err))
 	}
