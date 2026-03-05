@@ -19,6 +19,7 @@ type Storage interface {
 
 	Type() string
 	Path() string
+	ShardID() string
 	SetLogger(*zap.Logger)
 	SetCompressor(cc *compression.Config)
 	SetShardID(id string)

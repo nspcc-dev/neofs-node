@@ -46,6 +46,20 @@ func (s *Shard) UpdateID() (err error) {
 		if s.metricsWriter != nil {
 			s.metricsWriter.SetShardID(s.info.ID.String())
 		}
+	} else {
+		blobShardID := s.blobStor.ShardID()
+		if blobShardID != "" {
+			var bBlobShardID []byte
+			bBlobShardID, err = base58.Decode(blobShardID)
+			if err != nil {
+				return err
+			}
+			s.info.ID = NewIDFromBytes(bBlobShardID)
+
+			if s.metricsWriter != nil {
+				s.metricsWriter.SetShardID(s.info.ID.String())
+			}
+		}
 	}
 
 	var (

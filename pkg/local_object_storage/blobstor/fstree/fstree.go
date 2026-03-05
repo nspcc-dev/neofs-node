@@ -3,6 +3,7 @@ package fstree
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -572,6 +573,22 @@ func (t *FSTree) Path() string {
 
 // ShardID returns the shard ID associated with this FSTree.
 func (t *FSTree) ShardID() string {
+	if !t.shardIDSet {
+		descPath := t.descriptorPath()
+		f, err := os.Open(descPath)
+		if err != nil {
+			return ""
+		}
+		defer f.Close()
+
+		var d fsDescriptor
+		dec := json.NewDecoder(f)
+		dec.DisallowUnknownFields()
+		if err = dec.Decode(&d); err != nil {
+			return ""
+		}
+		return d.ShardID
+	}
 	return t.shardID
 }
 
