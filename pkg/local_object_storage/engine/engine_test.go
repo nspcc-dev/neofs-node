@@ -431,6 +431,10 @@ func (x unimplementedMetrics) AddHeadDuration(time.Duration) {
 	panic("unimplemented")
 }
 
+func (x unimplementedMetrics) AddReadHeaderDuration(time.Duration) {
+	panic("unimplemented")
+}
+
 func (x unimplementedMetrics) AddGetStreamDuration(time.Duration) {
 	panic("unimplemented")
 }

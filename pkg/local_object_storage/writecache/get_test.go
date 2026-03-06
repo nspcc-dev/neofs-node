@@ -1,11 +1,15 @@
 package writecache
 
 import (
+	"bytes"
+	"encoding/binary"
 	"io"
 	"testing"
 
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -119,4 +123,26 @@ func TestCache_GetRangeStream(t *testing.T) {
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	_, err = c.GetRangeStream(addr, 1, pldLen-1)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+}
+
+func TestCache_ReadHeader(t *testing.T) {
+	c, _ := newCache(t)
+
+	obj := putObject(t, c, 4<<10).obj
+
+	buf := make([]byte, object.MaxHeaderLen*2)
+
+	n, err := c.ReadHeader(obj.Address(), buf)
+	require.NoError(t, err)
+
+	_, tail, ok := bytes.Cut(buf[:n], obj.CutPayload().Marshal())
+	require.True(t, ok)
+
+	prefix := make([]byte, 1+binary.MaxVarintLen64)
+	prefix[0] = iprotobuf.TagBytes4 // payload field tag
+	prefix = prefix[:1+binary.PutUvarint(prefix[1:], uint64(len(obj.Payload())))]
+
+	tail, ok = bytes.CutPrefix(tail, prefix)
+	require.True(t, ok)
+	require.True(t, bytes.HasPrefix(obj.Payload(), tail))
 }

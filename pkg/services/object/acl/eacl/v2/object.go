@@ -1,13 +1,18 @@
 package v2
 
 import (
+	"fmt"
 	"strconv"
 
+	"github.com/mr-tron/base58"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 type sysObjHdr struct {
@@ -93,4 +98,158 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 	}
 
 	return res
+}
+
+func headersFromBinaryObjectHeader(b []byte, cnr cid.ID, id *oid.ID) ([]eaclSDK.Header, error) {
+	res, err := _headersFromBinaryObjectHeader(b)
+	if err != nil {
+		return nil, err
+	}
+
+	if id != nil {
+		return append(res, cidHeader(cnr), oidHeader(*id)), nil
+	}
+
+	return append(res, cidHeader(cnr)), nil
+}
+
+func _headersFromBinaryObjectHeader(buf []byte) ([]eaclSDK.Header, error) {
+	var ver version.Version
+	var creationEpoch uint64
+	var payloadLen uint64
+	var objTyp object.Type
+	res := make([]eaclSDK.Header, 0, 10)
+
+	var off int
+	var prevNum protowire.Number
+	for {
+		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
+		if err != nil {
+			return nil, err
+		}
+
+		if num < prevNum {
+			return nil, iprotobuf.NewUnorderedFieldsError(prevNum, num)
+		}
+		if num == prevNum && num != protoobject.FieldHeaderAttributes {
+			return nil, iprotobuf.NewRepeatedFieldError(num)
+		}
+		prevNum = num
+
+		off += n
+
+		switch num {
+		case protoobject.FieldHeaderVersion:
+			ver, n, err = iprotobuf.ParseAPIVersionField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+		case protoobject.FieldHeaderContainerID:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n + ln
+		case protoobject.FieldHeaderOwnerID:
+			owner, n, err := iprotobuf.ParseUserIDField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+
+			res = append(res, sysObjHdr{k: eaclSDK.FilterObjectOwnerID, v: base58.Encode(owner)})
+		case protoobject.FieldHeaderCreationEpoch:
+			creationEpoch, n, err = iprotobuf.ParseUint64Field(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+		case protoobject.FieldHeaderPayloadLength:
+			payloadLen, n, err = iprotobuf.ParseUint64Field(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+		case protoobject.FieldHeaderPayloadHash:
+			cs, n, err := iprotobuf.ParseChecksum(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+
+			res = append(res, sysObjHdr{k: eaclSDK.FilterObjectPayloadChecksum, v: cs.String()})
+		case protoobject.FieldHeaderObjectType:
+			objTyp, n, err = iprotobuf.ParseEnumField[object.Type](buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+		case protoobject.FieldHeaderHomomorphicHash:
+			cs, n, err := iprotobuf.ParseChecksum(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+
+			res = append(res, sysObjHdr{k: eaclSDK.FilterObjectPayloadHomomorphicChecksum, v: cs.String()})
+		case protoobject.FieldHeaderSessionToken:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n + ln
+		case protoobject.FieldHeaderAttributes:
+			k, v, n, err := iprotobuf.ParseAttribute(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+
+			res = append(res, sysObjHdr{k: string(k), v: string(v)})
+		case protoobject.FieldHeaderSplit:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+
+			parHdrf, err := iprotobuf.GetLENFieldBounds(buf[off:][:ln], protoobject.FieldHeaderSplitParentHeader)
+			if err != nil {
+				return nil, fmt.Errorf("invalid split header field: %w", err)
+			}
+
+			if !parHdrf.IsMissing() {
+				parRes, err := _headersFromBinaryObjectHeader(buf[off:][parHdrf.ValueFrom:parHdrf.To])
+				if err != nil {
+					return nil, fmt.Errorf("invalid split header field: %w", err)
+				}
+
+				res = append(res, parRes...)
+			}
+
+			off += ln
+		case protoobject.FieldHeaderSessionV2:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n + ln
+		default:
+			return nil, iprotobuf.NewUnsupportedFieldError(num, typ)
+		}
+
+		if off == len(buf) {
+			break
+		}
+	}
+
+	res = append(res,
+		sysObjHdr{k: eaclSDK.FilterObjectCreationEpoch, v: u64Value(creationEpoch)},
+		sysObjHdr{k: eaclSDK.FilterObjectPayloadSize, v: u64Value(payloadLen)},
+		sysObjHdr{k: eaclSDK.FilterObjectVersion, v: ver.String()},
+		sysObjHdr{k: eaclSDK.FilterObjectType, v: objTyp.String()},
+	)
+
+	return res, nil
 }

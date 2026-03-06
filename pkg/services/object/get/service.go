@@ -82,6 +82,7 @@ type cfg struct {
 		// Returns [apistatus.ErrObjectNotFound] if the range is out of payload bounds.
 		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error)
 		Head(oid.Address, bool) (*object.Object, error)
+		ReadHeader(oid.Address, bool, []byte) (int, error)
 		// HeadECPart is similar to GetECPart but returns only the header.
 		HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error)
 	}

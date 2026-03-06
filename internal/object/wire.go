@@ -14,6 +14,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// MaxHeaderVarintLen is varint len of [object.MaxHeaderLen].
+// TODO: unit test.
+const MaxHeaderVarintLen = 3
+
 var errEmptyData = errors.New("empty data")
 
 // WriteWithoutPayload writes the object header to the given writer without the payload.
