@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - Move lens `write-cache` `get`/`list` commands into `fstree` section in CLI (#3838, #3844)
 - Session key storage access session keys by account only (#3817)
 - Optimized locking for reputation data collector (#3851)
+- Deduplicate object list results across shards per call (#3862)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
