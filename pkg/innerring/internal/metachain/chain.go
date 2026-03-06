@@ -1,0 +1,14 @@
+package metachain
+
+import (
+	metacontracts "github.com/nspcc-dev/neofs-node/pkg/core/metachain"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
+	"go.uber.org/zap"
+)
+
+// NewMetaChain returns side chain with redefined/custom native contracts.
+// See [metacontracts.NewCustomNatives] for details.
+func NewMetaChain(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log *zap.Logger) (*blockchain.Blockchain, error) {
+	return blockchain.New(cfg, wallet, errChan, log, metacontracts.NewCustomNatives)
+}
