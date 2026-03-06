@@ -17,8 +17,6 @@ var (
 
 	// containerGCMarkKey marker key inside meta bucket designating whole container GC-marked.
 	containerGCMarkKey = []byte{metaPrefixGC}
-
-	zeroValue = []byte{0xFF}
 )
 
 // Prefix bytes for database keys. All ids and addresses are encoded in binary
@@ -46,13 +44,13 @@ const (
 	// ======================
 
 	// unusedPrimaryPrefix was deleted in metabase version 6
-	unusedPrimaryPrefix
+	unusedPrimaryPrefix //nolint:unused
 	// unusedLockersPrefix was deleted in metabase version 6
-	unusedLockersPrefix
+	unusedLockersPrefix //nolint:unused
 	// unusedStorageGroupPrefix was deleted in metabase version 6
-	unusedStorageGroupPrefix
+	unusedStorageGroupPrefix //nolint:unused
 	// unusedTombstonePrefix was deleted in metabase version 6
-	unusedTombstonePrefix
+	unusedTombstonePrefix //nolint:unused
 	// unusedSmallPrefix was deleted in metabase version 5
 	unusedSmallPrefix //nolint:unused
 	// unusedRootPrefix was deleted in metabase version 5
@@ -82,7 +80,7 @@ const (
 	unusedGarbageContainersPrefix
 
 	// unusedLinkObjectsPrefix was deleted in metabase version 6
-	unusedLinkObjectsPrefix
+	unusedLinkObjectsPrefix //nolint:unused
 
 	// unusedFirstObjectIDPrefix was deleted in metabase version 5
 	unusedFirstObjectIDPrefix //nolint:unused
