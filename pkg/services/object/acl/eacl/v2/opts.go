@@ -43,6 +43,12 @@ func WithServiceResponse(resp Response, req Request) Option {
 	}
 }
 
+func WithObjectHeaderBinary(b []byte) Option {
+	return func(c *cfg) {
+		c.msg = binaryHeader(b)
+	}
+}
+
 func WithCID(v cid.ID) Option {
 	return func(c *cfg) {
 		c.cnr = v
