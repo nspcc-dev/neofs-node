@@ -43,6 +43,9 @@ type RangeRequestForwarder func(context.Context, coreclient.MultiAddressClient) 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
+
+	buffer      []byte
+	submitLenFn func(int)
 }
 
 type commonPrm struct {
@@ -140,4 +143,12 @@ func (p *HeadPrm) SetHeaderWriter(w internal.HeaderWriter) {
 	p.objWriter = &partWriter{
 		headWriter: w,
 	}
+}
+
+// WithBuffer specifies a buffer into which header of the requested object is
+// optionally written. The submitLenFn parameter is a callback for number of
+// bytes written. If buffer is unused, submitLenFn is not called.
+func (p *HeadPrm) WithBuffer(buffer []byte, submitLenFn func(int)) {
+	p.buffer = buffer
+	p.submitLenFn = submitLenFn
 }

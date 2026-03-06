@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,8 +18,13 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
@@ -685,4 +691,39 @@ func BenchmarkServer_Replicate(b *testing.B) {
 			}
 		})
 	}
+}
+
+type nopHandlerFSChain struct{}
+
+func (nopHandlerFSChain) GetNodesForObject(oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	return nil, nil, nil, nil
+}
+
+func (nopHandlerFSChain) IsLocalNodePublicKey([]byte) bool {
+	return false
+}
+
+func newSimpleStorage(t *testing.T, fsChain FSChain) *engine.StorageEngine {
+	storageDir := filepath.Join(t.TempDir(), "storage")
+
+	fst := fstree.New(
+		fstree.WithPath(filepath.Join(storageDir, "fstree")),
+	)
+
+	storage := engine.New()
+
+	_, err := storage.AddShard(
+		shard.WithBlobstor(fst),
+		shard.WithMetaBaseOptions(
+			meta.WithPath(filepath.Join(storageDir, "metabase")),
+			meta.WithEpochState(fsChain),
+		),
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, storage.Open())
+	require.NoError(t, storage.Init())
+	t.Cleanup(func() { storage.Close() })
+
+	return storage
 }

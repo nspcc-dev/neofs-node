@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"io"
 	"math"
 	"slices"
@@ -275,4 +276,9 @@ func BenchmarkGetParentNonPayloadFieldBounds(b *testing.B) {
 		_, _, _, err = iobject.GetNonPayloadFieldBounds(buf)
 		require.NoError(b, err)
 	}
+}
+
+func TestMaxHeaderVarintLen(t *testing.T) {
+	buf := make([]byte, binary.MaxVarintLen64)
+	require.EqualValues(t, binary.PutUvarint(buf, object.MaxHeaderLen), iobject.MaxHeaderVarintLen)
 }
