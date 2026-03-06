@@ -251,6 +251,10 @@ func (unimplementedBLOBStore) Head(oid.Address) (*object.Object, error) {
 	panic("unimplemented")
 }
 
+func (unimplementedBLOBStore) ReadHeader(oid.Address, []byte) (int, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedBLOBStore) Exists(oid.Address) (bool, error) {
 	panic("unimplemented")
 }
@@ -294,6 +298,10 @@ func (unimplementedWriteCache) GetRangeStream(oid.Address, uint64, uint64) (io.R
 }
 
 func (unimplementedWriteCache) Head(oid.Address) (*object.Object, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedWriteCache) ReadHeader(oid.Address, []byte) (int, error) {
 	panic("unimplemented")
 }
 
