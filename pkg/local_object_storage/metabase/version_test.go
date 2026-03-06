@@ -13,10 +13,8 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -133,82 +131,6 @@ func newDB(t testing.TB, opts ...Option) *DB {
 func TestSlicesCloneNil(t *testing.T) {
 	// not stated in docs, but migrateContainersToMetaBucket relies on this
 	require.Nil(t, slices.Clone([]byte(nil)))
-}
-
-func TestMigrate6to7(t *testing.T) {
-	db := newDB(t)
-
-	const cnrNum = 5
-	const objsPerCnr = 20
-	mObjs := make(map[cid.ID][]oid.ID)
-	trashKey := []byte("trash")
-	leakingObj := oidtest.ID()
-
-	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
-		garbageBkt, err := tx.CreateBucketIfNotExists([]byte{0x01})
-		require.NoError(t, err)
-
-		cnrs := cidtest.IDs(cnrNum)
-
-		for _, cnr := range cnrs {
-			metaBkt, err := tx.CreateBucketIfNotExists(slices.Concat([]byte{0xFF}, cnr[:]))
-			require.NoError(t, err)
-
-			ids := oidtest.IDs(objsPerCnr)
-
-			for j, id := range ids {
-				metaKey := slices.Concat([]byte{0x00}, id[:])
-				require.NoError(t, metaBkt.Put(metaKey, nil))
-
-				var garbageKey []byte
-				if j%2 == 0 { // correct
-					garbageKey = id[:]
-				} else { // broken
-					garbageKey = slices.Concat(cnr[:], id[:])
-				}
-
-				require.NoError(t, garbageBkt.Put(garbageKey, nil))
-			}
-
-			mObjs[cnr] = ids
-		}
-
-		// add trash key which is neither OID nor CID+OID
-		require.NoError(t, garbageBkt.Put(trashKey, nil))
-		// add random OID which should be cleaned because there is no container for it
-		require.NoError(t, garbageBkt.Put(leakingObj[:], nil))
-
-		// force old version
-		bkt := tx.Bucket([]byte{0x05})
-		require.NotNil(t, bkt)
-		require.NoError(t, bkt.Put([]byte("version"), []byte{0x06, 0, 0, 0, 0, 0, 0, 0}))
-
-		return nil
-	})
-	require.NoError(t, err)
-
-	// migrate
-	require.NoError(t, db.Init())
-
-	gObjs, _, err := db.GetGarbage(cnrNum*objsPerCnr + 2)
-	require.NoError(t, err)
-	require.EqualValues(t, cnrNum*objsPerCnr, len(gObjs))
-
-	for cnr, ids := range mObjs {
-		for _, id := range ids {
-			require.Contains(t, gObjs, oid.NewAddress(cnr, id))
-		}
-	}
-
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		// check new version
-		bkt := tx.Bucket([]byte{0x05})
-		require.NotNil(t, bkt)
-		require.Equal(t, []byte{currentMetaVersion, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
-
-		return nil
-	})
-	require.NoError(t, err)
 }
 
 func TestMigrate7to8(t *testing.T) {

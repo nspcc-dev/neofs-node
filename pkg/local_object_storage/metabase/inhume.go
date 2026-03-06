@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 
@@ -11,8 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
-
-var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // ErrLockObjectRemoval is returned when inhume operation is being
 // performed on lock object, and it is not a forced object removal.

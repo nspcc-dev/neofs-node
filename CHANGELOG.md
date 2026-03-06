@@ -27,6 +27,7 @@ Changelog for NeoFS Node
 - Undocumented ability to fetch the latest contract release for adm update-contracts (#3850)
 - `storage.shards.resync_metabase` config option from SN config (#3849)
 - One-time netmap contract placement migration routine for v0.49.0+ releases (#3821)
+- Metabase v5 to v6 and v6 to v7 migrations (#3864)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)
@@ -48,6 +49,10 @@ Sessions are stored in `node.persistent_state.path` DB now.
 
 Delete `storage.shards.resync_metabase` config option from SN config, it's no longer used.
 Use `neofs-lens meta resync` command if you need to resync metabase.
+
+Storage nodes no longer automatically migrate metabases from version 5
+(NeoFS 0.46.0) to 6 (NeoFS 0.48.0) and from version 6 to version 7 (NeoFS
+0.48.1), migrate using SN 0.51.1 or resynchronize with 0.52.0 if needed.
 
 ## [0.51.1] - 2026-02-18
 

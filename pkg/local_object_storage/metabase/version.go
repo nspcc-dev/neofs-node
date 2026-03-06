@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/bbolt"
 	berrors "github.com/nspcc-dev/bbolt/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -49,8 +48,6 @@ var (
 	// and it's hardly acceptable, so in general it's better to log and
 	// continue rather than return an error.
 	migrateFrom = map[uint64]func(*DB) error{
-		5: migrateFrom5Version,
-		6: migrateFrom6Version,
 		7: migrateFrom7Version,
 		8: migrateFrom8Version,
 	}
@@ -187,46 +184,8 @@ func iterateContainerBuckets(l *zap.Logger, cs Containers, tx *bbolt.Tx, fromBkt
 	return name, afterObj, nil
 }
 
-func migrateFrom5Version(db *DB) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		var (
-			buckets          [][]byte
-			obsoletePrefixes = []byte{unusedPrimaryPrefix,
-				unusedLockersPrefix, unusedStorageGroupPrefix,
-				unusedTombstonePrefix, unusedLinkObjectsPrefix}
-		)
-		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
-			if slices.Contains(obsoletePrefixes, name[0]) {
-				buckets = append(buckets, slices.Clone(name))
-			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("iterating buckets: %w", err)
-		}
-		for _, name := range buckets {
-			err := tx.DeleteBucket(name)
-			if err != nil {
-				return fmt.Errorf("deleting %v bucket: %w", name, err)
-			}
-		}
-		return updateVersion(tx, 6)
-	})
-}
-
 // garbageObjectsBucketName is pre-version-9 garbage bucket.
 var garbageObjectsBucketName = []byte{unusedGarbageObjectsPrefix}
-
-func migrateFrom6Version(db *DB) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		if garbageBkt := tx.Bucket(garbageObjectsBucketName); garbageBkt != nil {
-			if err := fixGarbageBucketKeys(db.log, tx, garbageBkt); err != nil {
-				return fmt.Errorf("fix garbage bucket keys: %w", err)
-			}
-		}
-		return updateVersion(tx, 7)
-	})
-}
 
 func migrateFrom7Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
@@ -326,57 +285,6 @@ func migrateFrom7Version(db *DB) error {
 
 		return updateVersion(tx, 8)
 	})
-}
-
-func fixGarbageBucketKeys(log *zap.Logger, tx *bbolt.Tx, garbageBkt *bbolt.Bucket) error {
-	var rmKeys [][]byte
-	newItems := make(map[cid.ID][][]byte)
-	metaOIDKey := [1 + oid.Size]byte{metaPrefixID}
-
-	garbageCursor := garbageBkt.Cursor()
-	for k, _ := garbageCursor.First(); k != nil; k, _ = garbageCursor.Next() {
-		if len(k) != oid.Size {
-			continue
-		}
-
-		copy(metaOIDKey[1:], k)
-
-		cnr, err := resolveContainerByOID(tx, metaOIDKey[:])
-		if err != nil {
-			return fmt.Errorf("resolve container by OID: %w", err)
-		}
-
-		// update after so as not to break the cursor
-		rmKeys = append(rmKeys, k)
-
-		if cnr.IsZero() {
-			log.Info("failed to resolve container for broken item in garbage bucket, removing...", zap.String("OID", base58.Encode(k)))
-			continue
-		}
-
-		newItems[cnr] = append(newItems[cnr], k)
-	}
-
-	for i := range rmKeys {
-		if err := garbageBkt.Delete(rmKeys[i]); err != nil {
-			return fmt.Errorf("remove broken item: %w", err)
-		}
-	}
-
-	var newKey [cid.Size + oid.Size]byte
-	for cnr, objs := range newItems {
-		copy(newKey[:], cnr[:])
-
-		for _, id := range objs {
-			copy(newKey[cid.Size:], id)
-
-			if err := garbageBkt.Put(newKey[:], zeroValue); err != nil {
-				return fmt.Errorf("put fixed item: %w", err)
-			}
-		}
-	}
-
-	return nil
 }
 
 func migrateFrom8Version(db *DB) error {
