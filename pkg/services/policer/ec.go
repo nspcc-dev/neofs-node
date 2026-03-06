@@ -11,6 +11,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -504,40 +505,30 @@ func (p *Policer) recreateECPart(ctx context.Context, parent object.Object, rule
 		return
 	}
 
-	for i := range iec.NodeSequenceForPart(partIdx, int(rule.DataPartNum)+int(rule.ParityPartNum), len(sortedNodes)) {
-		if p.network.IsLocalNodePublicKey(sortedNodes[i].PublicKey()) {
-			err = p.localStorage.Put(&partObj, nil)
-			if err == nil {
-				p.log.Info("EC part successfully recreated and put to local storage",
-					zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
-					zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()))
-				return
-			}
+	totalParts := int(rule.DataPartNum) + int(rule.ParityPartNum)
+	seq := slices.Collect(iec.NodeSequenceForPart(partIdx, totalParts, len(sortedNodes)))
+	nodes := make([]netmap.NodeInfo, len(seq))
+	for i, idx := range seq {
+		nodes[i] = sortedNodes[idx]
+	}
 
-			p.log.Info("failed to put recreated EC part to local storage",
-				zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
-				zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()),
-				zap.Error(err))
-			continue
-		}
+	var repRes singleReplication
+	var task replicator.Task
+	task.SetObject(&partObj)
+	task.SetObjectAddress(oid.NewAddress(parent.GetContainerID(), partObj.GetID()))
+	task.SetCopiesNumber(1)
+	task.SetNodes(nodes)
+	p.replicator.HandleTask(ctx, task, &repRes)
 
-		err = p.replicator.PutObjectToNode(ctx, partObj, sortedNodes[i])
-		if err == nil {
-			p.log.Info("EC part successfully recreated and put to remote node",
-				zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
-				zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()),
-				zap.String("node_pub", netmap.StringifyPublicKey(sortedNodes[i])))
-			return
-		}
-
-		if errors.Is(err, ctx.Err()) {
-			return
-		}
-
-		p.log.Info("failed to put recreated EC part to remote node",
+	if repRes.done {
+		p.log.Info("EC part successfully recreated",
 			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
 			zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()),
-			zap.String("node_pub", netmap.StringifyPublicKey(sortedNodes[i])), zap.Error(err))
+			zap.Strings("node", repRes.netAddresses))
+	} else {
+		p.log.Info("failed to put recreated EC part on any node",
+			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
+			zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()))
 	}
 }
 

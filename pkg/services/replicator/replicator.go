@@ -8,6 +8,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// LocalNodeKey provides information about the NeoFS network to Replicator for work.
+type LocalNodeKey interface {
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node running [Replicator].
+	IsLocalNodePublicKey([]byte) bool
+}
+
 // Replicator represents the utility that replicates
 // local objects to remote nodes.
 type Replicator struct {
@@ -25,6 +32,8 @@ type cfg struct {
 	remoteSender *putsvc.RemoteSender
 
 	localStorage *engine.StorageEngine
+
+	localNodeKey LocalNodeKey
 }
 
 func defaultCfg() *cfg {
@@ -71,5 +80,12 @@ func WithRemoteSender(v *putsvc.RemoteSender) Option {
 func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.localStorage = v
+	}
+}
+
+// WithLocalNodeKey provides LocalNodeKey component.
+func WithLocalNodeKey(n LocalNodeKey) Option {
+	return func(c *cfg) {
+		c.localNodeKey = n
 	}
 }
