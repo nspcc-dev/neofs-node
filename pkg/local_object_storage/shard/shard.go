@@ -309,9 +309,26 @@ func (s *Shard) fillInfo() {
 }
 
 const (
-	// physical is a physically stored object
+	// metrics labels.
+
+	// physicalObjType is a physically stored object
 	// counter type.
-	physical = "phy"
+	physicalObjType = "phy"
+
+	// rootObjType object is object that either is not split or is a virtual one.
+	rootObjType = "root"
+
+	// tsObjType is a tombstone object.
+	tsObjType = "ts"
+
+	// lockObjType is a lock object.
+	lockObjType = "lock"
+
+	// linkObjType is a link object.
+	linkObjType = "link"
+
+	// gcObjType is an object marked for removal.
+	gcObjType = "gc"
 
 	// logical is a logically stored object
 	// counter type (excludes objects that are
@@ -331,7 +348,12 @@ func (s *Shard) initMetrics() {
 			return
 		}
 
-		s.metricsWriter.SetObjectCounter(physical, cc.Phy())
+		s.metricsWriter.SetObjectCounter(physicalObjType, cc.Phy)
+		s.metricsWriter.SetObjectCounter(rootObjType, cc.Root)
+		s.metricsWriter.SetObjectCounter(tsObjType, cc.TS)
+		s.metricsWriter.SetObjectCounter(lockObjType, cc.Lock)
+		s.metricsWriter.SetObjectCounter(linkObjType, cc.Link)
+		s.metricsWriter.SetObjectCounter(gcObjType, cc.GC)
 
 		cnrList, err := s.metaBase.Containers()
 		if err != nil {
@@ -357,17 +379,9 @@ func (s *Shard) initMetrics() {
 	}
 }
 
-// incObjectCounter increment both physical and logical object
-// counters.
-func (s *Shard) incObjectCounter() {
-	if s.metricsWriter != nil {
-		s.metricsWriter.IncObjectCounter(physical)
-	}
-}
-
-func (s *Shard) decObjectCounterBy(typ string, v uint64) {
-	if s.metricsWriter != nil {
-		s.metricsWriter.AddToObjectCounter(typ, -int(v))
+func (s *Shard) addObjectCounter(typ string, v int) {
+	if s.metricsWriter != nil && v != 0 {
+		s.metricsWriter.AddToObjectCounter(typ, v)
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	berrors "github.com/nspcc-dev/bbolt/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -24,7 +25,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 9
+const currentMetaVersion = 10
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -53,6 +54,7 @@ var (
 		6: migrateFrom6Version,
 		7: migrateFrom7Version,
 		8: migrateFrom8Version,
+		9: migrateFrom9Version,
 	}
 
 	versionKey = []byte("version")
@@ -228,6 +230,55 @@ func migrateFrom6Version(db *DB) error {
 	})
 }
 
+func syncCounter7Version(tx *bbolt.Tx, force bool) error {
+	b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
+	if err != nil {
+		return fmt.Errorf("could not get shard info bucket: %w", err)
+	}
+
+	if !force && len(b.Get(objectPhyCounterKey)) == 8 && len(b.Get(objectLogicCounterKey)) == 8 {
+		// the counters are already inited
+		return nil
+	}
+
+	var phyCounter uint64
+	var logicCounter uint64
+
+	err = iteratePhyObjects(tx, func(c *bbolt.Cursor, obj oid.ID) error {
+		phyCounter++
+
+		typ, err := fetchTypeForID(c, obj)
+		// check if an object is available: not with GCMark
+		// and not covered with a tombstone
+		if inGarbage(c, obj) == statusAvailable && err == nil && typ == object.TypeRegular {
+			logicCounter++
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("could not iterate objects: %w", err)
+	}
+
+	data := make([]byte, 8)
+	binary.LittleEndian.PutUint64(data, phyCounter)
+
+	err = b.Put(objectPhyCounterKey, data)
+	if err != nil {
+		return fmt.Errorf("could not update phy object counter: %w", err)
+	}
+
+	data = make([]byte, 8)
+	binary.LittleEndian.PutUint64(data, logicCounter)
+
+	err = b.Put(objectLogicCounterKey, data)
+	if err != nil {
+		return fmt.Errorf("could not update logic object counter: %w", err)
+	}
+
+	return nil
+}
+
 func migrateFrom7Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		type cnrAndSize struct {
@@ -319,7 +370,7 @@ func migrateFrom7Version(db *DB) error {
 			}
 		}
 
-		err = syncCounter(tx, true)
+		err = syncCounter7Version(tx, true)
 		if err != nil {
 			return fmt.Errorf("syncing counters: %w", err)
 		}
@@ -398,12 +449,33 @@ func migrateFrom8Version(db *DB) error {
 			}
 		}
 
-		err = syncCounter(tx, true)
+		err = syncCounter7Version(tx, true)
 		if err != nil {
 			return fmt.Errorf("resync object counters: %w", err)
 		}
 
 		return updateVersion(tx, 9)
+	})
+}
+
+func migrateFrom9Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		err := syncCounter(tx, true)
+		if err != nil {
+			return fmt.Errorf("resync object counters: %w", err)
+		}
+
+		infoBkt := tx.Bucket(shardInfoBucket)
+		err = infoBkt.Delete(objectLogicCounterKey)
+		if err != nil {
+			return fmt.Errorf("delete old object logic counter: %w", err)
+		}
+		err = infoBkt.Delete(objectPhyCounterKey)
+		if err != nil {
+			return fmt.Errorf("delete old object phy counter: %w", err)
+		}
+
+		return updateVersion(tx, 10)
 	})
 }
 

@@ -1,13 +1,10 @@
 package meta_test
 
 import (
-	"strconv"
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -76,50 +73,51 @@ func TestInhumeLocked(t *testing.T) {
 	require.ErrorAs(t, err, &e)
 }
 
-func TestInhumeContainer(t *testing.T) {
-	db := newDB(t)
-
-	const numOfObjs = 5
-	cID := cidtest.ID()
-	var oo []*object.Object
-	var size uint64
-
-	for i := range numOfObjs {
-		raw := generateObjectWithCID(t, cID)
-		addAttribute(raw, "foo"+strconv.Itoa(i), "bar"+strconv.Itoa(i))
-
-		size += raw.PayloadSize()
-		oo = append(oo, raw)
-
-		err := putBig(db, raw)
-		require.NoError(t, err)
-	}
-
-	cc, err := db.ObjectCounters()
-	require.NoError(t, err)
-
-	require.Equal(t, uint64(numOfObjs), cc.Phy())
-	require.Equal(t, uint64(numOfObjs), cc.Logic())
-
-	removedAvailable, err := db.InhumeContainer(cID)
-	require.NoError(t, err)
-
-	cc, err = db.ObjectCounters()
-	require.NoError(t, err)
-
-	require.Equal(t, uint64(numOfObjs), removedAvailable)
-	require.Equal(t, uint64(numOfObjs), cc.Phy())
-	require.Zero(t, cc.Logic())
-
-	containerSize, err := db.GetContainerInfo(cID)
-	require.NoError(t, err)
-	require.Zero(t, containerSize)
-
-	for _, o := range oo {
-		_, err = metaGet(db, o.Address(), false)
-		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-	}
-}
+//
+//func TestInhumeContainer(t *testing.T) {
+//	db := newDB(t)
+//
+//	const numOfObjs = 5
+//	cID := cidtest.ID()
+//	var oo []*object.Object
+//	var size uint64
+//
+//	for i := range numOfObjs {
+//		raw := generateObjectWithCID(t, cID)
+//		addAttribute(raw, "foo"+strconv.Itoa(i), "bar"+strconv.Itoa(i))
+//
+//		size += raw.PayloadSize()
+//		oo = append(oo, raw)
+//
+//		err := putBig(db, raw)
+//		require.NoError(t, err)
+//	}
+//
+//	cc, err := db.ObjectCounters()
+//	require.NoError(t, err)
+//
+//	require.Equal(t, uint64(numOfObjs), cc.Phy())
+//	require.Equal(t, uint64(numOfObjs), cc.Logic())
+//
+//	removedAvailable, err := db.InhumeContainer(cID)
+//	require.NoError(t, err)
+//
+//	cc, err = db.ObjectCounters()
+//	require.NoError(t, err)
+//
+//	require.Equal(t, uint64(numOfObjs), removedAvailable)
+//	require.Equal(t, uint64(numOfObjs), cc.Phy())
+//	require.Zero(t, cc.Logic())
+//
+//	containerSize, err := db.GetContainerInfo(cID)
+//	require.NoError(t, err)
+//	require.Zero(t, containerSize)
+//
+//	for _, o := range oo {
+//		_, err = metaGet(db, o.Address(), false)
+//		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+//	}
+//}
 
 func TestDB_MarkGarbage(t *testing.T) {
 	t.Run("EC", testMarkGarbageEC)

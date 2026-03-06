@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -20,239 +22,289 @@ func TestCounters(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		c, err = db.ObjectCounters()
 		require.NoError(t, err)
-		require.Zero(t, c.Phy())
-		require.Zero(t, c.Logic())
+		require.Zero(t, c.Phy)
+		require.Zero(t, c.Root)
+		require.Zero(t, c.TS)
+		require.Zero(t, c.Lock)
+		require.Zero(t, c.Link)
+		require.Zero(t, c.GC)
 	})
 
 	t.Run("put", func(t *testing.T) {
-		oo := make([]*object.Object, 0, objCount)
-		for range objCount {
-			oo = append(oo, generateObject(t))
-		}
+		for _, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLock, object.TypeLink} {
+			t.Run(typ.String(), func(t *testing.T) {
+				oo := make([]*object.Object, 0, objCount)
+				for range objCount {
+					oo = append(oo, generateTypedObject(t, typ))
+				}
 
-		for i := range objCount {
-			err = db.Put(oo[i])
-			require.NoError(t, err)
+				for i := range objCount {
+					err = db.Put(oo[i])
+					require.NoError(t, err)
 
-			c, err = db.ObjectCounters()
-			require.NoError(t, err)
+					c, err = db.ObjectCounters()
+					require.NoError(t, err)
 
-			require.Equal(t, uint64(i+1), c.Phy())
-			require.Equal(t, uint64(i+1), c.Logic())
+					switch typ {
+					case object.TypeRegular:
+						require.Equal(t, uint64(i+1), c.Phy)
+						require.Equal(t, uint64(i+1), c.Root)
+
+						require.Zero(t, c.TS)
+						require.Zero(t, c.Lock)
+						require.Zero(t, c.Link)
+						require.Zero(t, c.GC)
+					case object.TypeTombstone:
+						require.Equal(t, uint64(i+1), c.Phy)
+						require.Equal(t, uint64(i+1), c.TS)
+
+						require.Zero(t, c.Root)
+						require.Zero(t, c.Lock)
+						require.Zero(t, c.Link)
+						require.Zero(t, c.GC)
+					case object.TypeLock:
+						require.Equal(t, uint64(i+1), c.Phy)
+						require.Equal(t, uint64(i+1), c.Lock)
+
+						require.Zero(t, c.Root)
+						require.Zero(t, c.TS)
+						require.Zero(t, c.Link)
+						require.Zero(t, c.GC)
+					case object.TypeLink:
+						require.Equal(t, uint64(i+1), c.Phy)
+						require.Equal(t, uint64(i+1), c.Link)
+
+						require.Zero(t, c.Root)
+						require.Zero(t, c.Lock)
+						require.Zero(t, c.TS)
+						require.Zero(t, c.GC)
+					default:
+					}
+				}
+
+				require.NoError(t, db.Reset())
+			})
 		}
 	})
-
-	require.NoError(t, db.Reset())
 
 	t.Run("delete", func(t *testing.T) {
-		oo := putObjs(t, db, objCount, false)
+		for _, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLock, object.TypeLink} {
+			t.Run(typ.String(), func(t *testing.T) {
+				oo := putTypedObjs(t, db, typ, objCount, false)
 
-		for i := objCount - 1; i >= 0; i-- {
-			res, err := db.Delete([]oid.Address{oo[i].Address()})
-			require.NoError(t, err)
-			require.Equal(t, uint64(1), res.AvailableRemoved)
+				for i := objCount - 1; i >= 0; i-- {
+					res, err := db.Delete([]oid.Address{oo[i].Address()})
+					require.NoError(t, err)
+					require.Equal(t, -1, res.Counters.Phy)
 
-			c, err = db.ObjectCounters()
-			require.NoError(t, err)
+					c, err = db.ObjectCounters()
+					require.NoError(t, err)
 
-			require.Equal(t, uint64(i), c.Phy())
-			require.Equal(t, uint64(i), c.Logic())
+					require.Equal(t, uint64(i), c.Phy)
+					require.Zero(t, c.GC)
+					switch typ {
+					case object.TypeRegular:
+						require.Equal(t, uint64(i), c.Root)
+
+						require.Zero(t, c.TS)
+						require.Zero(t, c.Lock)
+						require.Zero(t, c.Link)
+					case object.TypeTombstone:
+						require.Equal(t, uint64(i), c.TS)
+
+						require.Zero(t, c.Lock)
+						require.Zero(t, c.Link)
+					case object.TypeLock:
+						require.Equal(t, uint64(i), c.Lock)
+
+						require.Zero(t, c.TS)
+						require.Zero(t, c.Link)
+					case object.TypeLink:
+						require.Equal(t, uint64(i), c.Link)
+
+						require.Zero(t, c.TS)
+						require.Zero(t, c.Lock)
+					default:
+					}
+				}
+
+				require.NoError(t, db.Reset())
+			})
 		}
 	})
-
-	require.NoError(t, db.Reset())
 
 	t.Run("inhume", func(t *testing.T) {
-		oo := putObjs(t, db, objCount, false)
+		t.Run("object", func(t *testing.T) {
+			oo := putTypedObjs(t, db, object.TypeRegular, objCount, false)
 
-		inhumedObjs := make([]oid.Address, objCount/2)
+			inhumedObjs := make([]oid.Address, objCount/2)
 
-		for i, o := range oo {
-			if i == len(inhumedObjs) {
-				break
+			for i, o := range oo {
+				if i == len(inhumedObjs) {
+					break
+				}
+
+				inhumedObjs[i] = o.Address()
 			}
 
-			inhumedObjs[i] = o.Address()
-		}
-
-		for _, addr := range inhumedObjs {
-			err := db.Put(createTSForObject(addr.Container(), addr.Object()))
-			require.NoError(t, err)
-		}
-
-		c, err = db.ObjectCounters()
-		require.NoError(t, err)
-
-		require.Equal(t, uint64(objCount+len(inhumedObjs)), c.Phy())
-		require.Equal(t, uint64(objCount-len(inhumedObjs)), c.Logic())
-	})
-
-	require.NoError(t, db.Reset())
-
-	t.Run("put_split", func(t *testing.T) {
-		parObj := generateObject(t)
-
-		// put objects and check that parent info
-		// does not affect the counter
-		for i := range objCount {
-			o := generateObject(t)
-			if i < objCount/2 { // half of the objs will have the parent
-				o.SetParent(parObj)
+			for _, addr := range inhumedObjs {
+				err := db.Put(createTSForObject(addr.Container(), addr.Object()))
+				require.NoError(t, err)
 			}
-
-			require.NoError(t, putBig(db, o))
 
 			c, err = db.ObjectCounters()
 			require.NoError(t, err)
-			require.Equal(t, uint64(i+1), c.Phy())
-			require.Equal(t, uint64(i+1), c.Logic())
-		}
-	})
 
-	require.NoError(t, db.Reset())
+			require.Equal(t, uint64(objCount+len(inhumedObjs)), c.Phy)
+			require.Equal(t, uint64(objCount), c.Root)
+			require.Equal(t, uint64(len(inhumedObjs)), c.TS)
+			require.Equal(t, uint64(len(inhumedObjs)), c.GC)
 
-	t.Run("delete_split", func(t *testing.T) {
-		oo := putObjs(t, db, objCount, true)
+			require.Zero(t, c.Link)
+			require.Zero(t, c.Lock)
 
-		// delete objects that have parent info
-		// and check that it does not affect
-		// the counter
-		for i, o := range oo {
-			require.NoError(t, metaDelete(db, o.Address()))
+			require.NoError(t, db.Reset())
+		})
 
-			c, err := db.ObjectCounters()
-			require.NoError(t, err)
-			require.Equal(t, uint64(objCount-i-1), c.Phy())
-			require.Equal(t, uint64(objCount-i-1), c.Logic())
-		}
-	})
+		t.Run("container", func(t *testing.T) {
+			var (
+				oo  []*object.Object
+				cnr = cidtest.ID()
+			)
+			for range objCount {
+				o := generateObjectWithCID(t, cnr)
+				require.NoError(t, db.Put(o))
 
-	require.NoError(t, db.Reset())
-
-	t.Run("inhume_split", func(t *testing.T) {
-		oo := putObjs(t, db, objCount, true)
-
-		inhumedObjs := make([]oid.Address, objCount/2)
-
-		for i, o := range oo {
-			if i == len(inhumedObjs) {
-				break
+				oo = append(oo, o)
 			}
 
-			inhumedObjs[i] = o.Address()
-		}
-
-		for _, addr := range inhumedObjs {
-			err := db.Put(createTSForObject(addr.Container(), addr.Object()))
+			// drop single obj to have non-zero TS counter
+			err := db.Put(createTSForObject(oo[0].GetContainerID(), oo[0].GetID()))
 			require.NoError(t, err)
-		}
 
-		c, err = db.ObjectCounters()
-		require.NoError(t, err)
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
 
-		require.Equal(t, uint64(objCount+len(inhumedObjs)), c.Phy())
-		require.Equal(t, uint64(objCount-len(inhumedObjs)), c.Logic())
+			require.Equal(t, uint64(objCount)+1, c.Phy)
+			require.Equal(t, uint64(objCount), c.Root)
+			require.Equal(t, uint64(1), c.TS)
+			require.Equal(t, uint64(1), c.GC)
+			require.Zero(t, c.Lock)
+			require.Zero(t, c.Link)
+
+			_, err = db.InhumeContainer(oo[0].GetContainerID())
+			require.NoError(t, err)
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+
+			require.Equal(t, uint64(objCount)+1, c.Phy)
+			require.Equal(t, uint64(objCount), c.Root)
+			require.Equal(t, uint64(1), c.TS)
+			require.Equal(t, uint64(objCount)+1, c.GC)
+			require.Zero(t, c.Lock)
+			require.Zero(t, c.Link)
+
+			require.NoError(t, db.Reset())
+		})
+	})
+
+	t.Run("split", func(t *testing.T) {
+		const (
+			childrenCount     = objCount
+			phyObjectsInTotal = childrenCount + 1 // +link
+		)
+
+		t.Run("put", func(t *testing.T) {
+			cnr := cidtest.ID()
+			_, chain := generateChain(t, childrenCount, cnr)
+
+			for _, o := range chain {
+				require.NoError(t, db.Put(o))
+			}
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+
+			require.Equal(t, uint64(phyObjectsInTotal), c.Phy)
+			require.Equal(t, uint64(1), c.Root)
+			require.Equal(t, uint64(1), c.Link)
+			require.Zero(t, c.TS)
+			require.Zero(t, c.Lock)
+			require.Zero(t, c.GC)
+
+			require.NoError(t, db.Reset())
+		})
+
+		t.Run("inhume", func(t *testing.T) {
+			cnr := cidtest.ID()
+			par, chain := generateChain(t, childrenCount, cnr)
+			for _, o := range chain {
+				require.NoError(t, db.Put(o))
+			}
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+
+			require.Equal(t, uint64(phyObjectsInTotal), c.Phy)
+			require.Equal(t, uint64(1), c.Root)
+			require.Equal(t, uint64(1), c.Link)
+			require.Zero(t, c.TS)
+			require.Zero(t, c.Lock)
+			require.Zero(t, c.GC)
+
+			_, _, err := db.MarkGarbage(par.Address())
+			require.NoError(t, err)
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+
+			require.Equal(t, uint64(phyObjectsInTotal), c.Phy)
+			require.Equal(t, uint64(phyObjectsInTotal), c.GC)
+			require.Equal(t, uint64(1), c.Root)
+			require.Equal(t, uint64(1), c.Link)
+			require.Zero(t, c.TS)
+			require.Zero(t, c.Lock)
+
+			require.NoError(t, db.Reset())
+		})
+
+		t.Run("delete", func(t *testing.T) {
+			cnr := cidtest.ID()
+			_, chain := generateChain(t, childrenCount, cnr)
+			for _, o := range chain {
+				require.NoError(t, db.Put(o))
+			}
+
+			// no parent removals, `Delete` is not expected to face parents
+			chainAddrs := make([]oid.Address, 0, len(chain))
+			for _, ch := range chain {
+				chainAddrs = append(chainAddrs, ch.Address())
+			}
+
+			_, err = db.Delete(chainAddrs)
+			require.NoError(t, err)
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+
+			require.Zero(t, c.Phy)
+			require.Zero(t, c.Root)
+			require.Zero(t, c.TS)
+			require.Zero(t, c.Lock)
+			require.Zero(t, c.Link)
+			require.Zero(t, c.GC)
+		})
 	})
 }
 
-func TestCounters_Expired(t *testing.T) {
-	// That test is about expired objects without
-	// GCMark yet. Such objects should be treated as
-	// logically available: decrementing logic counter
-	// should be done explicitly and only in `Delete`
-	// and `Inhume` operations, otherwise, it would be
-	// impossible to maintain logic counter.
-
-	const epoch = 123
-
-	es := &epochState{epoch}
-	db := newDB(t, meta.WithEpochState(es))
-
-	oo := make([]oid.Address, objCount)
-	for i := range oo {
-		oo[i] = putWithExpiration(t, db, object.TypeRegular, epoch+1)
-	}
-
-	// 1. objects are available and counters are correct
-
-	c, err := db.ObjectCounters()
-	require.NoError(t, err)
-	require.Equal(t, uint64(objCount), c.Phy())
-	require.Equal(t, uint64(objCount), c.Logic())
-
-	for _, o := range oo {
-		_, err := metaGet(db, o, true)
-		require.NoError(t, err)
-	}
-
-	// 2. objects are expired, not available but logic counter
-	// is the same
-
-	es.e = epoch + 2
-
-	c, err = db.ObjectCounters()
-	require.NoError(t, err)
-	require.Equal(t, uint64(objCount), c.Phy())
-	require.Equal(t, uint64(objCount), c.Logic())
-
-	for _, o := range oo {
-		_, err := metaGet(db, o, true)
-		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
-	}
-
-	// 3. inhuming an expired object with GCMark (like it would
-	// the GC do) should decrease the logic counter despite the
-	// expiration fact
-
-	inhumed, deleted, err := db.MarkGarbage(oo[0])
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), inhumed)
-	require.Nil(t, deleted)
-
-	c, err = db.ObjectCounters()
-	require.NoError(t, err)
-
-	require.Equal(t, uint64(len(oo)), c.Phy())
-	require.Equal(t, uint64(len(oo)-1), c.Logic())
-
-	// 4. `Delete` an object with GCMark should decrease the
-	// phy counter but does not affect the logic counter (after
-	// that step they should be equal)
-
-	deleteRes, err := db.Delete(oo[:1])
-	require.NoError(t, err)
-	require.Zero(t, deleteRes.AvailableRemoved)
-
-	oo = oo[1:]
-
-	c, err = db.ObjectCounters()
-	require.NoError(t, err)
-	require.Equal(t, uint64(len(oo)), c.Phy())
-	require.Equal(t, uint64(len(oo)), c.Logic())
-
-	// 5 `Delete` an expired object (like it would the control
-	// service do) should decrease both counters despite the
-	// expiration fact
-
-	deleteRes, err = db.Delete(oo[:1])
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), deleteRes.AvailableRemoved)
-
-	oo = oo[1:]
-
-	c, err = db.ObjectCounters()
-	require.NoError(t, err)
-	require.Equal(t, uint64(len(oo)), c.Phy())
-	require.Equal(t, uint64(len(oo)), c.Logic())
-}
-
-func putObjs(t *testing.T, db *meta.DB, count int, withParent bool) []*object.Object {
+func putTypedObjs(t *testing.T, db *meta.DB, typ object.Type, count int, withParent bool) []*object.Object {
 	var err error
 	parent := generateObject(t)
 
 	oo := make([]*object.Object, 0, count)
 	for i := range count {
-		o := generateObject(t)
+		o := generateTypedObject(t, typ)
 		if withParent {
 			o.SetParent(parent)
 		}
@@ -265,9 +317,53 @@ func putObjs(t *testing.T, db *meta.DB, count int, withParent bool) []*object.Ob
 		c, err := db.ObjectCounters()
 		require.NoError(t, err)
 
-		require.Equal(t, uint64(i+1), c.Phy())
-		require.Equal(t, uint64(i+1), c.Logic())
+		require.Equal(t, uint64(i+1), c.Phy)
+
+		switch typ {
+		case object.TypeRegular:
+			require.Equal(t, uint64(i+1), c.Root)
+		case object.TypeTombstone:
+			require.Equal(t, uint64(i+1), c.TS)
+		case object.TypeLock:
+			require.Equal(t, uint64(i+1), c.Lock)
+		case object.TypeLink:
+			require.Equal(t, uint64(i+1), c.Link)
+		default:
+		}
 	}
 
 	return oo
+}
+
+func generateChain(t *testing.T, ln int, cnr cid.ID) (*object.Object, []*object.Object) {
+	par := generateObjectWithCID(t, cnr)
+	var chain []*object.Object
+	for range ln {
+		chain = append(chain, generateObjectWithCID(t, cnr))
+	}
+	for i := range chain {
+		if i == 0 {
+			chain[i].SetParent(par)
+			chain[i].SetParentID(oid.ID{})
+			continue
+		}
+
+		chain[i].SetFirstID(chain[0].GetID())
+		chain[i].SetPreviousID(chain[i-1].GetID())
+
+		if i == len(chain)-1 {
+			chain[i].SetParent(par)
+			chain[i].SetParentID(par.GetID())
+		}
+	}
+
+	link := generateObjectWithCID(t, cnr)
+	link.SetType(object.TypeLink)
+	link.SetParent(par)
+	link.SetParentID(par.GetID())
+	link.SetFirstID(chain[0].GetID())
+
+	chain = append(chain, link)
+
+	return par, chain
 }
