@@ -18,6 +18,7 @@ func TestPolicerSection(t *testing.T) {
 		require.Equal(t, policerconfig.ReplicationCooldownDefault, empty.Policer.ReplicationCooldown)
 		require.Equal(t, uint32(policerconfig.ObjectBatchSizeDefault), empty.Policer.ObjectBatchSize)
 		require.Equal(t, uint32(policerconfig.MaxWorkersDefault), empty.Policer.MaxWorkers)
+		require.Equal(t, uint32(policerconfig.BoostMultiplierDefault), empty.Policer.BoostMultiplier)
 	})
 
 	const path = "../../../../config/example/node"
@@ -27,6 +28,7 @@ func TestPolicerSection(t *testing.T) {
 		require.Equal(t, 101*time.Millisecond, c.Policer.ReplicationCooldown)
 		require.Equal(t, uint32(11), c.Policer.ObjectBatchSize)
 		require.Equal(t, uint32(21), c.Policer.MaxWorkers)
+		require.Equal(t, uint32(5), c.Policer.BoostMultiplier)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

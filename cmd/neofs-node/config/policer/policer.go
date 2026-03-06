@@ -12,6 +12,9 @@ const (
 	ObjectBatchSizeDefault = 10
 	// MaxWorkersDefault is the default replication's worker pool's maximum size.
 	MaxWorkersDefault = 20
+	// BoostMultiplierDefault is the default multiplier for object batch size when
+	// the policer detects missing replicas and performs recovery.
+	BoostMultiplierDefault = 3
 )
 
 // Policer contains configuration for the replication policer.
@@ -20,6 +23,7 @@ type Policer struct {
 	ReplicationCooldown time.Duration `mapstructure:"replication_cooldown"`
 	ObjectBatchSize     uint32        `mapstructure:"object_batch_size"`
 	MaxWorkers          uint32        `mapstructure:"max_workers"`
+	BoostMultiplier     uint32        `mapstructure:"boost_multiplier"`
 }
 
 // Normalize ensures that all fields of Policer have valid values.
@@ -37,5 +41,8 @@ func (p *Policer) Normalize() {
 	}
 	if p.MaxWorkers <= 0 {
 		p.MaxWorkers = MaxWorkersDefault
+	}
+	if p.BoostMultiplier <= 0 {
+		p.BoostMultiplier = BoostMultiplierDefault
 	}
 }

@@ -6,7 +6,8 @@ package policer
 // - [WithReplicationCooldown];
 // - [WithMaxCapacity];
 // - [WithObjectBatchSize];
-// - [WithObjectCacheSize].
+// - [WithObjectCacheSize];
+// - [WithBoostMultiplier].
 func (p *Policer) Reload(opts ...Option) {
 	cfg := new(cfg)
 	for _, o := range opts {
@@ -20,4 +21,5 @@ func (p *Policer) Reload(opts ...Option) {
 	p.repCooldown = cfg.repCooldown
 	p.maxCapacity = cfg.maxCapacity
 	p.batchSize = cfg.batchSize
+	p.boostMultiplier = cfg.boostMultiplier
 }

@@ -142,10 +142,11 @@ type (
 type cfg struct {
 	mtx sync.RWMutex
 	// available for runtime reconfiguration
-	headTimeout time.Duration
-	repCooldown time.Duration
-	batchSize   uint32
-	maxCapacity uint32
+	headTimeout     time.Duration
+	repCooldown     time.Duration
+	batchSize       uint32
+	maxCapacity     uint32
+	boostMultiplier uint32
 
 	log     *zap.Logger
 	metrics MetricsCollector
@@ -311,5 +312,15 @@ func WithReplicationCooldown(d time.Duration) Option {
 func WithObjectBatchSize(s uint32) Option {
 	return func(c *cfg) {
 		c.batchSize = s
+	}
+}
+
+// WithBoostMultiplier returns option to set the boost multiplier for the
+// object batch size. When the policer detects and recovers missing replicas,
+// it will multiply the batch size by this value for the next cycle to speed
+// up recovery.
+func WithBoostMultiplier(m uint32) Option {
+	return func(c *cfg) {
+		c.boostMultiplier = m
 	}
 }
