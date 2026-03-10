@@ -8,6 +8,7 @@ import (
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"google.golang.org/grpc"
 )
 
 type sessionStorage interface {
@@ -26,7 +27,7 @@ func initSessionService(c *cfg) {
 
 	server := sessionSvc.New(&c.key.PrivateKey, c, c.privateTokenStore)
 
-	for _, srv := range c.cfgGRPC.servers {
+	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protosession.RegisterSessionServiceServer(srv, server)
-	}
+	})
 }

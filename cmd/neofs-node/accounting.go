@@ -3,6 +3,7 @@ package main
 import (
 	accountingService "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 	protoaccounting "github.com/nspcc-dev/neofs-sdk-go/proto/accounting"
+	"google.golang.org/grpc"
 )
 
 func initAccountingService(c *cfg) {
@@ -12,7 +13,7 @@ func initAccountingService(c *cfg) {
 
 	server := accountingService.New(&c.key.PrivateKey, c.networkState, c.bCli)
 
-	for _, srv := range c.cfgGRPC.servers {
+	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protoaccounting.RegisterAccountingServiceServer(srv, server)
-	}
+	})
 }
