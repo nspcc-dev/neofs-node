@@ -379,7 +379,7 @@ func (c *Client) CallWithAlphabetWitness(ctx context.Context, contract util.Uint
 	}
 
 	if !aer.VMState.HasFlag(vmstate.Halt) {
-		return fmt.Errorf("%w: %s", actor.ErrExecFailed, aer.FaultException)
+		return &neorpc.FaultException{Message: aer.FaultException}
 	}
 
 	return nil
@@ -834,21 +834,6 @@ func alreadyOnChainError(err error) bool {
 	const alreadyOnChainErrorMessage = "already on chain"
 
 	return strings.Contains(err.Error(), alreadyOnChainErrorMessage)
-}
-
-// Neo-Go VM (as of v0.117.0) can return different variations of GAS problem
-// depending on instruction throwing expeception.
-// See https://github.com/nspcc-dev/neo-go/issues/4170.
-func insufficientAmountOfGasErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "insufficient amount of gas") ||
-		strings.Contains(msg, "gas limit exceeded") ||
-		strings.Contains(msg, "GAS limit exceeded") ||
-		strings.Contains(msg, "insufficient gas") ||
-		strings.Contains(msg, "gas limit is exceeded")
 }
 
 // CalculateNotaryDepositAmount calculates notary deposit amount
