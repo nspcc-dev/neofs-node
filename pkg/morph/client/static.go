@@ -202,7 +202,7 @@ func (s StaticClient) execWithBackoff(invokeFunc func() error) error {
 	return backoff.RetryNotify(func() error {
 		err := invokeFunc()
 		if err != nil {
-			if errors.Is(err, neorpc.ErrMempoolCapReached) || insufficientAmountOfGasErr(err) {
+			if errors.Is(err, neorpc.ErrMempoolCapReached) || errors.Is(&neorpc.FaultException{Message: err.Error()}, neorpc.GASLimitExceededException) {
 				return err
 			}
 			return backoff.Permanent(err)
