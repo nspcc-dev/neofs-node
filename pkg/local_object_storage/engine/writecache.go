@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 )
 
@@ -15,4 +17,15 @@ func (e *StorageEngine) FlushWriteCache(id *shard.ID) error {
 	}
 
 	return sh.FlushWriteCache(false)
+}
+
+// FlushWriteCaches flushes write-cache on all shards.
+func (e *StorageEngine) FlushWriteCaches() error {
+	for _, sh := range e.unsortedShards() {
+		err := sh.FlushWriteCache(false)
+		if err != nil {
+			return fmt.Errorf("flush write-cache for shard %s: %w", sh.ID(), err)
+		}
+	}
+	return nil
 }

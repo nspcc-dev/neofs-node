@@ -27,7 +27,7 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 	// other targets can be supported
 	w := cmd.OutOrStderr()
 
-	storage, err := openEngine()
+	storage, err := openEngine(true)
 	if err != nil {
 		return err
 	}

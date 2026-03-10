@@ -29,7 +29,7 @@ func statusObject(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid address argument: %w", err)
 	}
 
-	storage, err := openEngine()
+	storage, err := openEngine(true)
 	if err != nil {
 		return err
 	}
