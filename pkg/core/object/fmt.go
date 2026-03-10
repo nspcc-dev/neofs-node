@@ -142,10 +142,12 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containe
 //
 // Returns nil error if the object has valid structure.
 func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
-	return v.validate(obj, unprepared, false)
+	return v.validate(obj, unprepared, 0)
 }
 
-func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool) error {
+const maxObjectNestingLevel = 2
+
+func (v *FormatValidator) validate(obj *object.Object, unprepared bool, nestingLevel int) error {
 	if obj == nil {
 		return errNilObject
 	}
@@ -194,7 +196,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 		return fmt.Errorf("read container by ID=%s: %w", cnrID, err)
 	}
 
-	isEC, err := checkEC(*obj, cnr.PlacementPolicy().ECRules(), unprepared, isParent)
+	isEC, err := checkEC(*obj, cnr.PlacementPolicy().ECRules(), unprepared, nestingLevel > 0)
 	if err != nil {
 		return err
 	}
@@ -208,10 +210,6 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 	par := obj.Parent()
 
 	if !isEC && obj.HasParent() {
-		if par != nil && par.HasParent() {
-			return errors.New("parent object has a parent itself")
-		}
-
 		if splitID != nil {
 			// V1 split
 			if firstSet {
@@ -257,9 +255,14 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, isParent bool
 		}
 	}
 
-	if par != nil && (firstSet || splitID != nil || isEC) {
-		// Parent object already exists.
-		return v.validate(par, false, true)
+	if par != nil {
+		if nestingLevel == maxObjectNestingLevel {
+			return fmt.Errorf("max object nesting level %d overflow", maxObjectNestingLevel)
+		}
+
+		// it is possible to have a split of a split
+		prepared := firstSet || splitID != nil || isEC
+		return v.validate(par, !prepared, nestingLevel+1)
 	}
 
 	return nil
