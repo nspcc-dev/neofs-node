@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - Too early GET/HEAD/RANGE request failure on single SN dial failure (#3840)
 - Payment deadlock on IR side (#3842)
 - Wrong shard ID entry in FSTree descriptor (#3849, #3861)
+- Shard evacuation replicate for EC parts (#3854)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)

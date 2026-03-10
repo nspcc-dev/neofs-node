@@ -198,6 +198,7 @@ func initObjectService(c *cfg) {
 		replicator.WithRemoteSender(
 			putsvc.NewRemoteSender(keyStorage, (*coreClientConstructor)(clientConstructor)),
 		),
+		replicator.WithLocalNodeKey(c),
 	)
 
 	c.policer = policer.New(neofsecdsa.Signer(c.key.PrivateKey),

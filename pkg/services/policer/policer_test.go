@@ -1138,10 +1138,6 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 	_ = x.task.CompareAndSwap(nil, task)
 }
 
-func (x *testReplicator) PutObjectToNode(context.Context, object.Object, netmap.NodeInfo) error {
-	return nil
-}
-
 type testLocalNode struct {
 	objList []objectcore.AddressWithAttributes
 
@@ -1183,6 +1179,10 @@ func (x *mockNetwork) IsLocalNodePublicKey(key []byte) bool {
 
 func (x *mockNetwork) IsLocalNodeInNetmap() bool {
 	return x.inNetmap
+}
+
+func (x *mockNetwork) PublicKey() []byte {
+	return x.pubKey
 }
 
 func (x *testLocalNode) ListWithCursor(_ uint32, c *engine.Cursor, _ ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
