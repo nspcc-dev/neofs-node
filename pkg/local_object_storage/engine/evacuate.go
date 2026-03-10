@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/nspcc-dev/hrw/v2"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -89,8 +90,10 @@ mainLoop:
 			// TODO (@fyrchik): #1731 parallelize the loop
 		loop:
 			for i := range lst {
-				addr := lst[i].Address
-				addrHash := hrwOIDWrapper(addr.Object())
+				var (
+					addr     = lst[i].Address
+					addrHash hrwOIDWrapper
+				)
 
 				obj, err := sh.Get(addr, false)
 				if err != nil {
@@ -100,6 +103,11 @@ mainLoop:
 					return count, err
 				}
 
+				if iec.ObjectWithAttributes(*obj) {
+					addrHash = hrwOIDWrapper(obj.GetParentID())
+				} else {
+					addrHash = hrwOIDWrapper(addr.Object())
+				}
 				hrw.Sort(shards, addrHash)
 				for j := range shards {
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
