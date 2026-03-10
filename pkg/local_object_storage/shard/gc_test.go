@@ -313,28 +313,4 @@ func TestContainerPayments(t *testing.T) {
 		_, err = sh.Get(obj.Address(), false)
 		require.ErrorIsf(t, err, apistatus.ErrObjectNotFound, "object was not removed")
 	})
-
-	//for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink} {
-	//	t.Run(fmt.Sprintf("type: %s", typ), func(t *testing.T) {
-	//		exp := uint64(i * 10)
-	//
-	//		expAttr.SetValue(strconv.FormatUint(exp, 10))
-	//		obj.SetAttributes(expAttr)
-	//		obj.SetType(typ)
-	//		require.NoError(t, obj.SetIDWithSignature(neofscryptotest.Signer()))
-	//
-	//		err := sh.Put(obj, nil)
-	//		require.NoError(t, err)
-	//
-	//		_, err = sh.Get(obj.Address(), false)
-	//		require.NoError(t, err)
-	//
-	//		ch <- shard.EventNewEpoch(exp + 1)
-	//
-	//		require.Eventually(t, func() bool {
-	//			_, err = sh.Get(obj.Address(), false)
-	//			return shard.IsErrNotFound(err)
-	//		}, 3*time.Second, 100*time.Millisecond, "expiration should lead to object removal")
-	//	})
-	//}
 }
