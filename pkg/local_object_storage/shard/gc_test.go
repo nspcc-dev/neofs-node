@@ -266,7 +266,7 @@ func TestContainerPayments(t *testing.T) {
 	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
-	const unpaidWarningMsg = "found unpaid container"
+	const unpaidWarningMsg = "unpaid container has been marked for removal"
 
 	t.Run("paid container", func(t *testing.T) {
 		err = sh.Put(obj, nil)
@@ -278,6 +278,9 @@ func TestContainerPayments(t *testing.T) {
 		ch <- shard.EventNewEpoch(1) // wait for epoch handling to finish at least once, its buffer is 1
 
 		lb.AssertNotContainsMsg(zap.DebugLevel, unpaidWarningMsg)
+
+		_, err = sh.Get(obj.Address(), false)
+		require.NoError(t, err)
 	})
 
 	t.Run("unpaid container", func(t *testing.T) {
@@ -297,7 +300,7 @@ func TestContainerPayments(t *testing.T) {
 		ch <- shard.EventNewEpoch(currEpoch) // wait for epoch handling to finish at least once, its buffer is 1
 
 		expLog := testutil.LogEntry{
-			Level:   zap.WarnLevel,
+			Level:   zap.InfoLevel,
 			Message: unpaidWarningMsg,
 			Fields: map[string]any{
 				"epoch":       json.Number(strconv.FormatInt(currEpoch, 10)),
@@ -306,6 +309,9 @@ func TestContainerPayments(t *testing.T) {
 			},
 		}
 		lb.AssertContains(expLog)
+
+		_, err = sh.Get(obj.Address(), false)
+		require.ErrorIsf(t, err, apistatus.ErrObjectNotFound, "object was not removed")
 	})
 
 	//for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink} {
