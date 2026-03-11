@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -247,6 +248,11 @@ func (s *Shard) setEpochEventHandler(e Event) {
 	l := s.log.With(zap.Uint64("epoch", ne.epoch))
 	l.Debug("handling new epoch event...")
 
+	if s.gcCfg.containerPayments.PaymentsDisabled() {
+		l.Debug("payments system is disabled, skipping container payments check")
+		return
+	}
+
 	cnrs, err := s.ListContainers()
 	if err != nil {
 		l.Warn("reading containers list failed", zap.Error(err))
@@ -268,20 +274,17 @@ func (s *Shard) setEpochEventHandler(e Event) {
 			continue
 		}
 
-		l.Warn("found unpaid container", zap.Stringer("cID", cID), zap.Int64("unpaidSince", unpaidSince))
-
 		if ne.epoch-uint64(unpaidSince) >= maxUnpaidEpochDelay {
-			// TODO: delete container after v0.50.0 release.
+			l.Info("marking unpaid container as garbage",
+				zap.Stringer("cID", cID), zap.Int64("unpaidSince", unpaidSince))
 
-			//l.Info("deleting unpaid container", zap.Stringer("cID", cID), zap.Int64("unpaidSince", unpaidSince))
-			//
-			//err := s.DeleteContainer(context.Background(), cID)
-			//if err != nil {
-			//	l.Warn("cannot delete unpaid container", zap.Stringer("cID", cID), zap.Error(err))
-			//	continue
-			//}
+			err := s.DeleteContainer(context.Background(), cID)
+			if err != nil {
+				l.Warn("cannot delete unpaid container", zap.Stringer("cID", cID), zap.Error(err))
+				continue
+			}
 
-			l.Info("WARNING: unpaid container will be deleted in the next release",
+			l.Info("unpaid container has been marked for removal",
 				zap.Stringer("cID", cID), zap.Int64("unpaidSince", unpaidSince))
 		}
 	}

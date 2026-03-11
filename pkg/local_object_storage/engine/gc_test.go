@@ -26,6 +26,8 @@ import (
 
 type containerPaymantsStub struct{}
 
+func (p containerPaymantsStub) PaymentsDisabled() bool { return false }
+
 func (p containerPaymantsStub) UnpaidSince(id cid.ID) (int64, error) { return -1, nil }
 
 func TestChildrenExpiration(t *testing.T) {

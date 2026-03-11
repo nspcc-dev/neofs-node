@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Session key storage access session keys by account only (#3817)
 - Optimized locking for reputation data collector (#3851)
 - Optimized local HEAD request execution (#3783)
+- Unpaid container's data is deleted now (#3691)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
@@ -57,6 +58,8 @@ Use `neofs-lens meta resync` command if you need to resync metabase.
 Storage nodes no longer automatically migrate metabases from version 5
 (NeoFS 0.46.0) to 6 (NeoFS 0.48.0) and from version 6 to version 7 (NeoFS
 0.48.1), migrate using SN 0.51.1 or resynchronize with 0.52.0 if needed.
+
+Storage nodes clean up objects that belong to unpdaid containers.
 
 ## [0.51.1] - 2026-02-18
 

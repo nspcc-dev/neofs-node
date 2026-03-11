@@ -26,8 +26,16 @@ import (
 )
 
 type testContainerPayments struct {
-	m    sync.RWMutex
-	cnrs map[cid.ID]int64
+	m                sync.RWMutex
+	cnrs             map[cid.ID]int64
+	paymentsDisabled bool
+}
+
+func (p *testContainerPayments) PaymentsDisabled() bool {
+	p.m.RLock()
+	defer p.m.RUnlock()
+
+	return p.paymentsDisabled
 }
 
 func (p *testContainerPayments) UnpaidSince(id cid.ID) (int64, error) {
@@ -266,7 +274,7 @@ func TestContainerPayments(t *testing.T) {
 	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
-	const unpaidWarningMsg = "found unpaid container"
+	const unpaidWarningMsg = "unpaid container has been marked for removal"
 
 	t.Run("paid container", func(t *testing.T) {
 		err = sh.Put(obj, nil)
@@ -278,6 +286,9 @@ func TestContainerPayments(t *testing.T) {
 		ch <- shard.EventNewEpoch(1) // wait for epoch handling to finish at least once, its buffer is 1
 
 		lb.AssertNotContainsMsg(zap.DebugLevel, unpaidWarningMsg)
+
+		_, err = sh.Get(obj.Address(), false)
+		require.NoError(t, err)
 	})
 
 	t.Run("unpaid container", func(t *testing.T) {
@@ -297,7 +308,7 @@ func TestContainerPayments(t *testing.T) {
 		ch <- shard.EventNewEpoch(currEpoch) // wait for epoch handling to finish at least once, its buffer is 1
 
 		expLog := testutil.LogEntry{
-			Level:   zap.WarnLevel,
+			Level:   zap.InfoLevel,
 			Message: unpaidWarningMsg,
 			Fields: map[string]any{
 				"epoch":       json.Number(strconv.FormatInt(currEpoch, 10)),
@@ -306,29 +317,29 @@ func TestContainerPayments(t *testing.T) {
 			},
 		}
 		lb.AssertContains(expLog)
+
+		_, err = sh.Get(obj.Address(), false)
+		require.ErrorIsf(t, err, apistatus.ErrObjectNotFound, "object was not removed")
 	})
 
-	//for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink} {
-	//	t.Run(fmt.Sprintf("type: %s", typ), func(t *testing.T) {
-	//		exp := uint64(i * 10)
-	//
-	//		expAttr.SetValue(strconv.FormatUint(exp, 10))
-	//		obj.SetAttributes(expAttr)
-	//		obj.SetType(typ)
-	//		require.NoError(t, obj.SetIDWithSignature(neofscryptotest.Signer()))
-	//
-	//		err := sh.Put(obj, nil)
-	//		require.NoError(t, err)
-	//
-	//		_, err = sh.Get(obj.Address(), false)
-	//		require.NoError(t, err)
-	//
-	//		ch <- shard.EventNewEpoch(exp + 1)
-	//
-	//		require.Eventually(t, func() bool {
-	//			_, err = sh.Get(obj.Address(), false)
-	//			return shard.IsErrNotFound(err)
-	//		}, 3*time.Second, 100*time.Millisecond, "expiration should lead to object removal")
-	//	})
-	//}
+	t.Run("payments disabled", func(t *testing.T) {
+		const currEpoch = 100
+
+		p.m.Lock()
+		p.paymentsDisabled = true
+		p.m.Unlock()
+
+		for range 4 {
+			ch <- shard.EventNewEpoch(currEpoch) // wait for epoch handling to finish at least once, its buffer is 1
+		}
+
+		expLog := testutil.LogEntry{
+			Level:   zap.DebugLevel,
+			Message: "payments system is disabled, skipping container payments check",
+			Fields: map[string]any{
+				"epoch": json.Number(strconv.FormatInt(currEpoch, 10)),
+			},
+		}
+		lb.AssertContains(expLog)
+	})
 }

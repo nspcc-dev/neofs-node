@@ -72,6 +72,9 @@ type MetricsWriter interface {
 
 // ContainerPayments defines containers' payment status checker.
 type ContainerPayments interface {
+	// PaymentsDisabled must return actual payment system status in the network.
+	PaymentsDisabled() bool
+
 	// UnpaidSince must return an epoch starting from which, container is
 	// considered as an unpaid one. Must return negative value if container
 	// has been paid.
