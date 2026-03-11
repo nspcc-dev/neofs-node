@@ -208,11 +208,14 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	}
 
 	if len(repRules) > 0 {
-		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
-			return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, objNodeLists, false, func(node nodeDesc) error {
+		err = t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
+			return t.placementIterator.iterateNodesForObject(obj.GetID(), repRules, objNodeLists[:len(repRules)], false, func(node nodeDesc) error {
 				return t.sendObject(obj, encObj, node, &t.metaCollection)
 			})
 		})
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(ecRules) > 0 && t.sessionSigner != nil {
