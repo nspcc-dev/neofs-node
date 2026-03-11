@@ -15,7 +15,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -194,6 +197,7 @@ type Server struct {
 	storage       Storage
 	meta          *metasvc.Meta
 	signer        ecdsa.PrivateKey
+	pubKeyBytes   []byte
 	mNumber       uint32
 	metrics       MetricCollector
 	aclChecker    aclsvc.ACLChecker
@@ -210,6 +214,7 @@ func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Sto
 		storage:       st,
 		meta:          metaSvc,
 		signer:        signer,
+		pubKeyBytes:   (*keys.PublicKey)(&signer.PublicKey).Bytes(),
 		mNumber:       magicNumber,
 		metrics:       m,
 		aclChecker:    ac,
@@ -598,7 +603,17 @@ func (s *Server) makeStatusHeadResponse(err error, sign bool) *protoobject.HeadR
 	}, sign)
 }
 
-func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+// Head implements [protoobject.ObjectServiceServer] so that generated functions
+// don't panic. It must never be called, [Server.HeadBuffered] must be used
+// instead.
+func (s *Server) Head(context.Context, *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+	panic("must not be called")
+}
+
+// HeadBuffered serves req and returns response as either
+// [*protoobject.HeadResponse] or [mem.Buffer]. The buffer must be freed
+// eventually.
+func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest) any {
 	var (
 		err         error
 		recheckEACL bool
@@ -609,11 +624,11 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	needSignResp := needSignGetResponse(req)
 
 	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHeadResponse(err, needSignResp), nil
+		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp), nil
+		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
 	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
@@ -623,17 +638,17 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 			bad.SetMessage(err.Error())
 			err = bad // defer
 		}
-		return s.makeStatusHeadResponse(err, needSignResp), nil
+		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHeadResponse(err, needSignResp), nil
+		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		if !errors.Is(err, aclsvc.ErrNotMatched) {
 			err = eACLErr(reqInfo, err) // needed for defer
-			return s.makeStatusHeadResponse(err, needSignResp), nil
+			return s.makeStatusHeadResponse(err, needSignResp)
 		}
 		recheckEACL = true
 	}
@@ -646,22 +661,65 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 			bad.SetMessage(err.Error())
 			err = bad // defer
 		}
-		return s.makeStatusHeadResponse(err, needSignResp), nil
-	}
-	err = s.handlers.Head(ctx, p)
-	if err != nil {
-		return s.makeStatusHeadResponse(err, needSignResp), nil
+		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 
-	if recheckEACL { // previous check didn't match, but we have a header now.
-		err = s.aclChecker.CheckEACL(&resp, reqInfo)
-		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-			err = eACLErr(reqInfo, err) // defer
-			return s.makeStatusHeadResponse(err, needSignResp), nil
+	respMemBuf, hdrBuf := getBufferForHeadResponse()
+	defer respMemBuf.Free()
+
+	hdrLen := -1
+
+	p.WithBuffer(hdrBuf, func(ln int) { hdrLen = ln })
+
+	err = s.handlers.Head(ctx, p)
+	if err != nil {
+		return s.makeStatusHeadResponse(err, needSignResp)
+	}
+
+	buffered := hdrLen >= 0
+
+	var sigf, hdrf iprotobuf.FieldBounds
+	if buffered {
+		_, sigf, hdrf, err = iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
+		if err != nil {
+			return s.makeStatusHeadResponse(err, needSignResp)
 		}
 	}
 
-	return s.signHeadResponse(&resp, needSignResp), nil
+	if recheckEACL { // previous check didn't match, but we have a header now.
+		var msg any
+		if buffered {
+			msg = hdrBuf[hdrf.ValueFrom:hdrf.To]
+		} else {
+			msg = &resp
+		}
+		err = s.aclChecker.CheckEACL(msg, reqInfo)
+		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			err = eACLErr(reqInfo, err) // defer
+			return s.makeStatusHeadResponse(err, needSignResp)
+		}
+	}
+
+	if !buffered {
+		return s.signHeadResponse(&resp, needSignResp)
+	}
+
+	bodyf := shiftHeaderInHeadResponseBuffer(respMemBuf.SliceBuffer, hdrBuf, sigf, hdrf, needSignResp)
+	metaFrom, metaTo := s.writeMetaHeaderToResponseBuffer(respMemBuf.SliceBuffer[bodyf.To:])
+
+	respTo := bodyf.To + metaTo
+	if needSignResp {
+		var n int
+		n, err = s.signResponse(respMemBuf.SliceBuffer[respTo:], respMemBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], respMemBuf.SliceBuffer[bodyf.To:][metaFrom:metaTo])
+		if err != nil {
+			err = fmt.Errorf("sign response: %w", err) // defer
+			return s.makeStatusHeadResponse(err, needSignResp)
+		}
+		respTo += n
+	}
+
+	respMemBuf.Finalize(bodyf.From, respTo)
+	return respMemBuf
 }
 
 type headResponse struct {

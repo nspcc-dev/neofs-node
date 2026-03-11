@@ -197,6 +197,10 @@ func (unimplementedLocalStorage) Head(oid.Address, bool) (*object.Object, error)
 	panic("unimplemented")
 }
 
+func (unimplementedLocalStorage) ReadHeader(oid.Address, bool, []byte) (int, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedLocalStorage) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
 	panic("unimplemented")
 }

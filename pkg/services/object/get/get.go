@@ -247,6 +247,14 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	}
 
 	if prm.common.LocalOnly() {
+		if prm.buffer != nil {
+			n, err := s.localObjects.ReadHeader(prm.addr, prm.raw, prm.buffer)
+			if err == nil {
+				prm.submitLenFn(n)
+			}
+			return err
+		}
+
 		return s.copyLocalObjectHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.raw)
 	}
 

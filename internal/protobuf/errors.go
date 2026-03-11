@@ -17,3 +17,9 @@ func NewUnorderedFieldsError(n1, n2 protowire.Number) error {
 func NewRepeatedFieldError(n protowire.Number) error {
 	return fmt.Errorf("repeated field #%d", n)
 }
+
+// NewUnsupportedFieldError returns common error for unsupported field #n of
+// type t.
+func NewUnsupportedFieldError(n protowire.Number, t protowire.Type) error {
+	return fmt.Errorf("unsupported field #%d of type %v", n, t)
+}

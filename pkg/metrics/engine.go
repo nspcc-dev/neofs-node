@@ -15,6 +15,7 @@ type (
 		existsDuration                prometheus.Histogram
 		getDuration                   prometheus.Histogram
 		headDuration                  prometheus.Histogram
+		readHeaderDuration            prometheus.Histogram
 		getStreamDuration             prometheus.Histogram
 		getRangeStreamDuration        prometheus.Histogram
 		inhumeDuration                prometheus.Histogram
@@ -83,6 +84,13 @@ func newEngineMetrics() engineMetrics {
 			Subsystem: engineSubsystem,
 			Name:      "head_time",
 			Help:      "Engine 'head' operations handling time",
+		})
+
+		readHeaderDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "read_header_time",
+			Help:      "Engine 'read header' operations handling time",
 		})
 
 		getStreamDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -187,6 +195,7 @@ func newEngineMetrics() engineMetrics {
 		existsDuration:                existsDuration,
 		getDuration:                   getDuration,
 		headDuration:                  headDuration,
+		readHeaderDuration:            readHeaderDuration,
 		getStreamDuration:             getStreamDuration,
 		getRangeStreamDuration:        getRangeStreamDuration,
 		inhumeDuration:                inhumeDuration,
@@ -211,6 +220,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.existsDuration)
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.headDuration)
+	prometheus.MustRegister(m.readHeaderDuration)
 	prometheus.MustRegister(m.getStreamDuration)
 	prometheus.MustRegister(m.getRangeStreamDuration)
 	prometheus.MustRegister(m.inhumeDuration)
@@ -252,6 +262,10 @@ func (m engineMetrics) AddGetDuration(d time.Duration) {
 
 func (m engineMetrics) AddHeadDuration(d time.Duration) {
 	m.headDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddReadHeaderDuration(d time.Duration) {
+	m.readHeaderDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddGetStreamDuration(d time.Duration) {
