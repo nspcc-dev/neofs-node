@@ -35,6 +35,7 @@ func init() {
 		storageListObjsCMD,
 		storageStatusObjCMD,
 		storageSanityCMD,
+		wcFlushCMD,
 	)
 }
 
@@ -50,7 +51,7 @@ func (e epochState) CurrentEpoch() uint64 {
 	return 0
 }
 
-func openEngine() (*engine.StorageEngine, error) {
+func openEngine(readOnly bool) (*engine.StorageEngine, error) {
 	appCfg, err := config.New(config.WithConfigFile(vConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config file: %w", err)
@@ -125,8 +126,12 @@ func openEngine() (*engine.StorageEngine, error) {
 		shardsWithMeta = append(shardsWithMeta, sh)
 	}
 
+	shardMode := mode.ReadWrite
+	if readOnly {
+		shardMode = mode.ReadOnly
+	}
 	for _, optsWithMeta := range shardsWithMeta {
-		_, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithMode(mode.ReadOnly))...)
+		_, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithMode(shardMode))...)
 		if err != nil {
 			return nil, err
 		}
