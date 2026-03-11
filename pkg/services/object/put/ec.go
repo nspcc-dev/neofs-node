@@ -3,7 +3,6 @@ package putsvc
 import (
 	"fmt"
 	"math"
-	"slices"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -12,34 +11,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
-
-func (t *distributedTarget) ecAndSaveObject(signer neofscrypto.Signer, obj object.Object, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo) error {
-	for i := range ecRules {
-		if slices.Contains(ecRules[:i], ecRules[i]) { // has already been processed, see below
-			continue
-		}
-
-		payloadParts, err := iec.Encode(ecRules[i], obj.Payload())
-		if err != nil {
-			return fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", i, ecRules[i], err)
-		}
-
-		if err := t.applyECRule(signer, obj, i, payloadParts, nodeLists[i]); err != nil {
-			return fmt.Errorf("apply EC rule #%d (%s): %w", i, ecRules[i], err)
-		}
-
-		for j := i + 1; j < len(ecRules); j++ {
-			if ecRules[i] != ecRules[j] {
-				continue
-			}
-			if err := t.applyECRule(signer, obj, j, payloadParts, nodeLists[j]); err != nil {
-				return fmt.Errorf("apply EC rule #%d (%s): %w", j, ecRules[j], err)
-			}
-		}
-	}
-
-	return nil
-}
 
 func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Object, ruleIdx int, payloadParts [][]byte, nodeList []netmap.NodeInfo) error {
 	var eg errgroup.Group
