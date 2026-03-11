@@ -260,11 +260,6 @@ func (db *DB) ResyncFromBlobstor(bs common.Storage, onIterationError func(oid.Ad
 		return fmt.Errorf("could not flush remaining objects to metabase: %w", err)
 	}
 
-	err = db.SyncCounters()
-	if err != nil {
-		return fmt.Errorf("could not sync object counters: %w", err)
-	}
-
 	return nil
 }
 
