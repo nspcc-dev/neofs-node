@@ -248,6 +248,11 @@ func (s *Shard) setEpochEventHandler(e Event) {
 	l := s.log.With(zap.Uint64("epoch", ne.epoch))
 	l.Debug("handling new epoch event...")
 
+	if s.gcCfg.containerPayments.PaymentsDisabled() {
+		l.Debug("payments system is disabled, skipping container payments check")
+		return
+	}
+
 	cnrs, err := s.ListContainers()
 	if err != nil {
 		l.Warn("reading containers list failed", zap.Error(err))

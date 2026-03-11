@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -440,6 +441,7 @@ func initPaymentChecker(c *cfg) {
 			m:          sync.RWMutex{},
 			statuses:   make(map[cid.ID]int64),
 			balanceCli: c.bCli,
+			netmapCli:  c.nCli,
 		}
 	)
 
@@ -475,6 +477,16 @@ type paymentChecker struct {
 	statuses map[cid.ID]int64
 
 	balanceCli *balanceClient.Client
+	netmapCli  *netmapClient.Client
+}
+
+func (p *paymentChecker) PaymentsDisabled() bool {
+	rate, err := p.netmapCli.BasicIncomeRate()
+	if err != nil {
+		return false
+	}
+
+	return rate == 0
 }
 
 func (p *paymentChecker) resetCache() {

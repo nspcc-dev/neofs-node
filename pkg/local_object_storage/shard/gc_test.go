@@ -26,8 +26,16 @@ import (
 )
 
 type testContainerPayments struct {
-	m    sync.RWMutex
-	cnrs map[cid.ID]int64
+	m                sync.RWMutex
+	cnrs             map[cid.ID]int64
+	paymentsDisabled bool
+}
+
+func (p *testContainerPayments) PaymentsDisabled() bool {
+	p.m.RLock()
+	defer p.m.RUnlock()
+
+	return p.paymentsDisabled
 }
 
 func (p *testContainerPayments) UnpaidSince(id cid.ID) (int64, error) {
@@ -312,5 +320,26 @@ func TestContainerPayments(t *testing.T) {
 
 		_, err = sh.Get(obj.Address(), false)
 		require.ErrorIsf(t, err, apistatus.ErrObjectNotFound, "object was not removed")
+	})
+
+	t.Run("payments disabled", func(t *testing.T) {
+		const currEpoch = 100
+
+		p.m.Lock()
+		p.paymentsDisabled = true
+		p.m.Unlock()
+
+		for range 4 {
+			ch <- shard.EventNewEpoch(currEpoch) // wait for epoch handling to finish at least once, its buffer is 1
+		}
+
+		expLog := testutil.LogEntry{
+			Level:   zap.DebugLevel,
+			Message: "payments system is disabled, skipping container payments check",
+			Fields: map[string]any{
+				"epoch": json.Number(strconv.FormatInt(currEpoch, 10)),
+			},
+		}
+		lb.AssertContains(expLog)
 	})
 }
