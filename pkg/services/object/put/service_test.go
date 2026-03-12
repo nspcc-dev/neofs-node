@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	storage "github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -1467,4 +1468,504 @@ func newSessionTokenV2(t *testing.T, cnrID cid.ID, owner user.Signer, nodes []mo
 	}
 
 	return &sessionTokenV2
+}
+
+func TestInitialPlacement(t *testing.T) {
+	t.Run("REP", func(t *testing.T) {
+		for tcIdx, tc := range []struct {
+			repRules     []uint
+			initialRules []uint32
+		}{
+			{repRules: []uint{3}, initialRules: []uint32{2}},
+			{repRules: []uint{3}, initialRules: []uint32{1}},
+			{repRules: []uint{3, 3, 3}, initialRules: []uint32{1, 1, 1}},
+			{repRules: []uint{3, 3, 3}, initialRules: []uint32{1, 0, 1}},
+			{repRules: []uint{1, 2, 3}, initialRules: []uint32{1, 1, 1}},
+		} {
+			t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+				testInitialPlacementREP(t, tc.repRules, tc.initialRules)
+			})
+		}
+	})
+
+	t.Run("EC", func(t *testing.T) {
+		for tcIdx, tc := range []struct {
+			ecRules      []iec.Rule
+			initialRules []bool
+		}{
+			{ecRules: []iec.Rule{
+				{DataPartNum: 3, ParityPartNum: 1},
+				{DataPartNum: 2, ParityPartNum: 2},
+			}, initialRules: []bool{false, true}},
+			{ecRules: []iec.Rule{
+				{DataPartNum: 3, ParityPartNum: 1},
+				{DataPartNum: 2, ParityPartNum: 2},
+				{DataPartNum: 1, ParityPartNum: 1},
+			}, initialRules: []bool{true, true, false}},
+		} {
+			t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+				testInitialPlacementEC(t, tc.ecRules, tc.initialRules)
+			})
+		}
+	})
+
+	t.Run("MaxReplicas", func(t *testing.T) {
+		for tcIdx, tc := range []struct {
+			repRules      []uint
+			ecRules       []iec.Rule
+			initialLimits []uint32
+			maxReplicas   uint32
+			localNum      int
+			repNodes      map[int][]int
+			ecLists       []int
+		}{
+			{
+				repRules:      []uint{3, 3, 3},
+				initialLimits: []uint32{1, 2, 1},
+				maxReplicas:   3,
+				repNodes:      map[int][]int{0: {0}, 1: {0, 1}},
+			},
+			{
+				repRules:      []uint{3, 3, 3},
+				initialLimits: []uint32{1, 2, 1},
+				maxReplicas:   3,
+				repNodes:      map[int][]int{0: {0}, 1: {0, 1}},
+			},
+			{
+				repRules:      []uint{3, 3, 3},
+				initialLimits: []uint32{2, 2, 2},
+				maxReplicas:   3,
+				localNum:      3,
+				repNodes:      map[int][]int{0: {0}, 2: {0, 1}},
+			},
+			{
+				ecRules: []iec.Rule{
+					{DataPartNum: 3, ParityPartNum: 1},
+					{DataPartNum: 2, ParityPartNum: 2},
+					{DataPartNum: 2, ParityPartNum: 1},
+				},
+				initialLimits: []uint32{1, 0, 1},
+				maxReplicas:   2,
+				ecLists:       []int{0, 2},
+			},
+			{
+				ecRules: []iec.Rule{
+					{DataPartNum: 3, ParityPartNum: 1},
+					{DataPartNum: 2, ParityPartNum: 2},
+					{DataPartNum: 2, ParityPartNum: 1},
+				},
+				initialLimits: []uint32{1, 1, 1},
+				maxReplicas:   1,
+				localNum:      2,
+				ecLists:       []int{1},
+			},
+		} {
+			t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+				var ip netmap.InitialPlacementPolicy
+				ip.SetReplicaLimits(tc.initialLimits)
+				ip.SetMaxReplicas(tc.maxReplicas)
+				ip.SetPreferLocal(tc.localNum > 0)
+
+				testInitialPlacement(t, tc.repRules, tc.ecRules, ip, tc.localNum-1, tc.repNodes, tc.ecLists)
+			})
+		}
+	})
+}
+
+func testInitialPlacementREP(t *testing.T, repRules []uint, initialRules []uint32) {
+	creator := usertest.User()
+
+	var ip netmap.InitialPlacementPolicy
+	ip.SetReplicaLimits(initialRules)
+
+	var pp netmap.PlacementPolicy
+	pp.SetInitial(ip)
+
+	var cnr container.Container
+	cnr.SetPlacementPolicy(pp)
+
+	obj := *object.New(cidtest.ID(), creator.ID)
+	obj.SetPayload([]byte("Hello, world!"))
+	obj.SetPayloadSize(uint64(len(obj.Payload())))
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte(testutil.RandByteSlice(tz.Size))))
+	require.NoError(t, obj.SetVerificationFields(creator))
+
+	nodeCounts := make([]uint, len(repRules))
+	for i := range repRules {
+		nodeCounts[i] = repRules[i] * 3 // default CBF
+	}
+
+	nodeLists := allocNodes(nodeCounts)
+
+	cluster := testCluster{
+		nodeServices:      make(nodeServices, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeNetworks:      make([]mockNetwork, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeSessions:      make([]mockNodeSession, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeLocalStorages: make([]inMemLocalStorage, islices.TwoDimSliceElementCount(nodeLists)),
+	}
+
+	blankNodeState := mockNetwork{
+		mockNodeState: mockNodeState{
+			epoch: currentEpoch,
+		},
+		cnrNodes: mockContainerNodes{
+			unsorted:  nodeLists,
+			sorted:    nodeLists,
+			repCounts: repRules,
+		},
+	}
+
+	var nodeIdx int
+	for i := range nodeLists {
+		for j := range nodeLists[i] {
+			nodeSigner := neofscryptotest.Signer()
+			nodeLists[i][j].SetPublicKey(nodeSigner.PublicKeyBytes)
+
+			cluster.nodeNetworks[nodeIdx] = blankNodeState
+			cluster.nodeNetworks[nodeIdx].localPub = nodeSigner.PublicKeyBytes
+
+			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
+				quotas{math.MaxUint64, math.MaxUint64},
+				&payments{},
+				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
+				WithKeyStorage(objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])),
+				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
+				WithMaxSizeSource(mockMaxSize(maxObjectSize)),
+				WithContainerSource(mockContainer(cnr)),
+				WithNetworkState(&cluster.nodeNetworks[nodeIdx]),
+				WithClientConstructor(cluster.nodeServices),
+				WithSplitChainVerifier(mockSplitVerifier{}),
+				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
+				WithTombstoneVerifier(mockTombstoneVerifier{}),
+			)
+
+			nodeIdx++
+		}
+	}
+
+	storeObjectWithSession(t, cluster.nodeServices[0], obj, nil, nil)
+
+	nodeObjLists := cluster.allStoredObjects()
+
+	nodeIdx = 0
+	for i := range nodeLists {
+		for j := range nodeLists[i] {
+			if j < int(initialRules[i]) {
+				require.Len(t, nodeObjLists[nodeIdx], 1)
+				require.Equal(t, nodeObjLists[nodeIdx][0], obj)
+			} else {
+				require.Empty(t, nodeObjLists[nodeIdx])
+			}
+			nodeIdx++
+		}
+	}
+}
+
+func testInitialPlacementEC(t *testing.T, ecRules []iec.Rule, initialRules []bool) {
+	creator := usertest.User()
+
+	repLimits := make([]uint32, len(initialRules))
+	for i := range initialRules {
+		if initialRules[i] {
+			repLimits[i] = 1
+		}
+	}
+
+	var ip netmap.InitialPlacementPolicy
+	ip.SetReplicaLimits(repLimits)
+
+	cnrECRules := make([]netmap.ECRule, len(ecRules))
+	for i := range ecRules {
+		cnrECRules[i] = netmap.NewECRule(uint32(ecRules[i].DataPartNum), uint32(ecRules[i].ParityPartNum))
+	}
+
+	var pp netmap.PlacementPolicy
+	pp.SetECRules(cnrECRules)
+	pp.SetInitial(ip)
+
+	var cnr container.Container
+	cnr.SetPlacementPolicy(pp)
+
+	nodeCounts := make([]uint, len(ecRules))
+	for i := range ecRules {
+		nodeCounts[i] = uint((ecRules[i].DataPartNum + ecRules[i].ParityPartNum)) * 3 // default CBF
+	}
+
+	nodeLists := allocNodes(nodeCounts)
+
+	cluster := testCluster{
+		nodeServices:      make(nodeServices, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeNetworks:      make([]mockNetwork, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeSessions:      make([]mockNodeSession, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeLocalStorages: make([]inMemLocalStorage, islices.TwoDimSliceElementCount(nodeLists)),
+	}
+
+	blankNodeState := mockNetwork{
+		mockNodeState: mockNodeState{
+			epoch: currentEpoch,
+		},
+		cnrNodes: mockContainerNodes{
+			unsorted: nodeLists,
+			sorted:   nodeLists,
+			ecRules:  ecRules,
+		},
+	}
+
+	var nodeIdx int
+	for i := range nodeLists {
+		for j := range nodeLists[i] {
+			nodeSigner := neofscryptotest.Signer()
+			nodeLists[i][j].SetPublicKey(nodeSigner.PublicKeyBytes)
+
+			cluster.nodeNetworks[nodeIdx] = blankNodeState
+			cluster.nodeNetworks[nodeIdx].localPub = nodeSigner.PublicKeyBytes
+
+			cluster.nodeSessions[nodeIdx] = mockNodeSession{
+				signer:    nodeSigner,
+				expiresAt: cluster.nodeNetworks[nodeIdx].epoch + 1,
+			}
+
+			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
+				quotas{math.MaxUint64, math.MaxUint64},
+				&payments{},
+				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
+				WithKeyStorage(objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])),
+				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
+				WithMaxSizeSource(mockMaxSize(maxObjectSize)),
+				WithContainerSource(mockContainer(cnr)),
+				WithNetworkState(&cluster.nodeNetworks[nodeIdx]),
+				WithClientConstructor(cluster.nodeServices),
+				WithSplitChainVerifier(mockSplitVerifier{}),
+				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
+				WithTombstoneVerifier(mockTombstoneVerifier{}),
+			)
+
+			nodeIdx++
+		}
+	}
+
+	sessionTokenV2 := newSessionTokenV2(t, cidtest.ID(), creator, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+
+	pk := cluster.nodeSessions[0].signer.ECDSAPrivateKey.PublicKey
+	require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
+	require.NoError(t, sessionTokenV2.Sign(creator))
+
+	obj := *object.New(cidtest.ID(), creator.ID)
+	obj.SetPayload([]byte("Hello, world!"))
+	obj.SetPayloadSize(uint64(len(obj.Payload())))
+	obj.SetAttributes(
+		object.NewAttribute("attr1", "val1"),
+		object.NewAttribute("attr2", "val2"),
+	)
+
+	storeObjectWithSession(t, cluster.nodeServices[0], obj, nil, sessionTokenV2)
+
+	nodeObjLists := cluster.allStoredObjects()
+
+	nodeIdx = 0
+	for i := range nodeLists {
+		if initialRules[i] {
+			var parts []object.Object
+
+			for j := range nodeLists[i] {
+				if j < int(ecRules[i].DataPartNum+ecRules[i].ParityPartNum) {
+					require.Len(t, nodeObjLists[nodeIdx], 1)
+
+					gotRuleIdx, gotPartIdx := checkAndGetECPartInfo(t, nodeObjLists[nodeIdx][0])
+					require.EqualValues(t, i, gotRuleIdx)
+					require.EqualValues(t, j, gotPartIdx)
+
+					parts = append(parts, nodeObjLists[nodeIdx][0])
+				} else {
+					require.Empty(t, nodeObjLists[nodeIdx])
+				}
+				nodeIdx++
+			}
+
+			restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
+
+			assertObjectIntegrity(t, restoredObj)
+			require.Equal(t, obj.GetContainerID(), restoredObj.GetContainerID())
+			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
+			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
+			require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
+			require.Equal(t, object.TypeRegular, restoredObj.Type())
+			require.Equal(t, obj.Attributes(), restoredObj.Attributes())
+			require.False(t, restoredObj.HasParent())
+			require.True(t, bytes.Equal(obj.Payload(), restoredObj.Payload()))
+
+			continue
+		}
+
+		for range nodeLists[i] {
+			require.Empty(t, nodeObjLists[nodeIdx])
+			nodeIdx++
+		}
+	}
+}
+
+func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip netmap.InitialPlacementPolicy, localList int, repNodes map[int][]int, ecLists []int) {
+	creator := usertest.User()
+
+	ecRulesP := make([]netmap.ECRule, len(ecRules))
+	for i := range ecRules {
+		ecRulesP[i].SetDataPartNum(uint32(ecRules[i].DataPartNum))
+		ecRulesP[i].SetParityPartNum(uint32(ecRules[i].ParityPartNum))
+	}
+
+	var pp netmap.PlacementPolicy
+	pp.SetECRules(ecRulesP)
+	pp.SetInitial(ip)
+
+	var cnr container.Container
+	cnr.SetPlacementPolicy(pp)
+
+	nodeCounts := make([]uint, len(repRules)+len(ecRules))
+	for i := range nodeCounts {
+		const cbf = 3 // default
+		if i < len(repRules) {
+			nodeCounts[i] = repRules[i] * cbf
+		} else {
+			rule := ecRules[i-len(repRules)]
+			nodeCounts[i] = uint(rule.DataPartNum+rule.ParityPartNum) * cbf
+		}
+	}
+
+	nodeLists := allocNodes(nodeCounts)
+
+	cluster := testCluster{
+		nodeServices:      make(nodeServices, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeNetworks:      make([]mockNetwork, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeSessions:      make([]mockNodeSession, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeLocalStorages: make([]inMemLocalStorage, islices.TwoDimSliceElementCount(nodeLists)),
+	}
+
+	blankNodeState := mockNetwork{
+		mockNodeState: mockNodeState{
+			epoch: currentEpoch,
+		},
+		cnrNodes: mockContainerNodes{
+			unsorted:  nodeLists,
+			sorted:    nodeLists,
+			repCounts: repRules,
+			ecRules:   ecRules,
+		},
+	}
+
+	var nodeIdx int
+	for i := range nodeLists {
+		for j := range nodeLists[i] {
+			nodeSigner := neofscryptotest.Signer()
+			nodeLists[i][j].SetPublicKey(nodeSigner.PublicKeyBytes)
+
+			cluster.nodeNetworks[nodeIdx] = blankNodeState
+			cluster.nodeNetworks[nodeIdx].localPub = nodeSigner.PublicKeyBytes
+
+			cluster.nodeSessions[nodeIdx] = mockNodeSession{
+				signer:    nodeSigner,
+				expiresAt: cluster.nodeNetworks[nodeIdx].epoch + 1,
+			}
+
+			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
+				quotas{math.MaxUint64, math.MaxUint64},
+				&payments{},
+				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
+				WithKeyStorage(objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])),
+				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
+				WithMaxSizeSource(mockMaxSize(maxObjectSize)),
+				WithContainerSource(mockContainer(cnr)),
+				WithNetworkState(&cluster.nodeNetworks[nodeIdx]),
+				WithClientConstructor(cluster.nodeServices),
+				WithSplitChainVerifier(mockSplitVerifier{}),
+				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
+				WithTombstoneVerifier(mockTombstoneVerifier{}),
+			)
+
+			nodeIdx++
+		}
+	}
+
+	sessionTokenV2 := newSessionTokenV2(t, cidtest.ID(), creator, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+
+	nodeIdx = 0
+	if localList >= 0 {
+		for i := range nodeLists {
+			nodeIdx += len(nodeLists[i])
+			if i == localList {
+				nodeIdx--
+				break
+			}
+		}
+	}
+
+	pk := cluster.nodeSessions[nodeIdx].signer.ECDSAPrivateKey.PublicKey
+	require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
+	require.NoError(t, sessionTokenV2.Sign(creator))
+
+	obj := *object.New(cidtest.ID(), creator.ID)
+	obj.SetPayload([]byte("Hello, world!"))
+	obj.SetPayloadSize(uint64(len(obj.Payload())))
+	obj.SetAttributes(
+		object.NewAttribute("attr1", "val1"),
+		object.NewAttribute("attr2", "val2"),
+	)
+
+	storeObjectWithSession(t, cluster.nodeServices[nodeIdx], obj, nil, sessionTokenV2)
+
+	nodeObjLists := cluster.allStoredObjects()
+
+	var nodeOff int
+	for i := range nodeLists {
+		if i < len(repRules) {
+			for j := range nodeLists[i] {
+				nodeIdx := nodeOff + j
+				if slices.Contains(repNodes[i], j) {
+					require.Len(t, nodeObjLists[nodeIdx], 1)
+					storedObj := nodeObjLists[nodeIdx][0]
+					assertObjectIntegrity(t, storedObj)
+					require.Equal(t, obj.Payload(), storedObj.Payload())
+					require.Equal(t, obj.Attributes(), storedObj.Attributes())
+				} else {
+					require.Empty(t, nodeObjLists[nodeIdx])
+				}
+			}
+		} else {
+			if slices.Contains(ecLists, i) {
+				var parts []object.Object
+
+				for j := range nodeLists[i] {
+					nodeIdx := nodeOff + j
+					if j < int(ecRules[i].DataPartNum+ecRules[i].ParityPartNum) {
+						require.Len(t, nodeObjLists[nodeIdx], 1)
+
+						gotRuleIdx, gotPartIdx := checkAndGetECPartInfo(t, nodeObjLists[nodeIdx][0])
+						require.EqualValues(t, i, gotRuleIdx)
+						require.EqualValues(t, j, gotPartIdx)
+
+						parts = append(parts, nodeObjLists[nodeIdx][0])
+					} else {
+						require.Empty(t, nodeObjLists[nodeIdx])
+					}
+				}
+
+				restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
+
+				assertObjectIntegrity(t, restoredObj)
+				require.Equal(t, obj.GetContainerID(), restoredObj.GetContainerID())
+				require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
+				require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
+				require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
+				require.Equal(t, object.TypeRegular, restoredObj.Type())
+				require.Equal(t, obj.Attributes(), restoredObj.Attributes())
+				require.False(t, restoredObj.HasParent())
+				require.True(t, bytes.Equal(obj.Payload(), restoredObj.Payload()))
+			} else {
+				for j := range nodeLists[i] {
+					require.Empty(t, nodeObjLists[nodeOff+j])
+				}
+			}
+		}
+
+		nodeOff += len(nodeLists[i])
+	}
 }

@@ -77,6 +77,8 @@ type distributedTarget struct {
 	// When object from request is an EC part, ecPart.RuleIndex is >= 0.
 	// Otherwise, ecPart.RuleIndex is negative.
 	ecPart iec.PartInfo
+
+	initialPolicy *netmap.InitialPlacementPolicy
 }
 
 type nodeDesc struct {
@@ -98,6 +100,12 @@ func (x errIncompletePut) Error() string {
 	}
 
 	return commonMsg
+}
+
+func newMaxReplicasError(maxReplicas, done uint, lastRule int, overloaded bool, lastRuleErr error) error {
+	err := fmt.Errorf("unreachable MaxReplicas: %d of %d replicas placed in total, aborted on rule #%d (%w)",
+		done, maxReplicas, lastRule, lastRuleErr)
+	return newCompletionError(err, done > 0, overloaded)
 }
 
 func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
@@ -202,7 +210,18 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 		})
 	}
 
+	initial := t.initialPolicy != nil
+
 	if t.ecPart.RuleIndex >= 0 { // already encoded EC part
+		// part info should already be verified, so we don't prevent out-of-range panic here
+		if initial && len(t.initialPolicy.ReplicaLimits()) != 0 && t.initialPolicy.ReplicaLimits()[len(repRules)+t.ecPart.RuleIndex] == 0 {
+			// Client can seal objects himself, but he is unlikely to enforce placement policies.
+			// Using SDK slicer as an example, the object is PUT to any SN.
+			// But this object should still not be saved according to initial policy.
+			// So, this is no-op.
+			return nil
+		}
+
 		total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
 		nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
 		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
@@ -218,13 +237,119 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 		ecRules = nil
 	}
 
+	var maxReplicas uint
+	var ecLimits []uint32
+	var ruleOrder []int
+	ruleNum := len(repRules) + len(ecRules)
+
+	if initial {
+		initialLimits := t.initialPolicy.ReplicaLimits()
+		if t.sessionSigner == nil { // same as above
+			if len(initialLimits) < len(repRules) {
+				return fmt.Errorf("ReplicaLimits has len %d while main policy has %d REP rules", len(initialLimits), len(repRules))
+			}
+			initialLimits = initialLimits[:len(repRules)]
+		}
+
+		if len(initialLimits) > 0 {
+			// TODO: make ContainerNodes.PrimaryCounts() to return []uint32, and just assign
+			repRules = make([]uint, len(repRules)) // recreation is required to not mutate the cache
+			for i := range repRules {
+				repRules[i] = uint(initialLimits[i])
+			}
+			ecLimits = initialLimits[len(repRules):]
+		}
+
+		maxReplicas = uint(t.initialPolicy.MaxReplicas())
+		if maxReplicas > 0 && t.initialPolicy.PreferLocal() {
+			ruleOrder = make([]int, 0, ruleNum)
+			for i := range repRules {
+				if repRules[i] > 0 {
+					ruleOrder = append(ruleOrder, i)
+				}
+			}
+			for i := range ecRules {
+				if ecLimits == nil || ecLimits[i] > 0 {
+					ruleOrder = append(ruleOrder, len(repRules)+i)
+				}
+			}
+			slices.SortFunc(ruleOrder, func(a, b int) int {
+				if localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[a]) {
+					return -1
+				}
+				if localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[b]) {
+					return 1
+				}
+				return 0
+			})
+			ruleNum = len(ruleOrder)
+		}
+	}
+
 	t.resetMetaCollection()
+
+	getRuleIdx := func(i int) int {
+		if ruleOrder == nil {
+			return i
+		}
+		return ruleOrder[i]
+	}
+
+	// TODO: check possibility of using math induction instead:
+	//  MIN0 = MAX - REP1 - REP2 - ... - REPn
+	//  MIN1 = MIN0 + REP1 - OK0
+	//  In practice there are few rules.
+	sumLimitsSinceRule := func(from int) uint {
+		var res uint
+		for i := from; i < ruleNum; i++ {
+			ruleIdx := getRuleIdx(i)
+			if ecRuleIdx := ruleIdx - len(repRules); ecRuleIdx >= 0 {
+				if ecLimits != nil {
+					res += uint(ecLimits[ecRuleIdx])
+				} else {
+					res++
+				}
+			} else {
+				res += repRules[ruleIdx]
+			}
+		}
+		return res
+	}
+
+	leftReplicas := maxReplicas
+
+	handleECRule := func(ruleIdx int, ecRuleIdx int, payloadParts [][]byte) (bool, error) {
+		err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, objNodeLists[ruleIdx])
+		if err != nil {
+			err = fmt.Errorf("apply EC rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
+			if maxReplicas == 0 {
+				return false, err
+			}
+			if leftReplicas > sumLimitsSinceRule(ruleIdx+1) {
+				return false, newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas, ruleIdx, false, err)
+			}
+			t.placementIterator.log.Info("PUT by EC rule failure", zap.Stringer("object", obj.Address()), zap.Error(err))
+			return false, nil
+		}
+		if maxReplicas > 0 {
+			leftReplicas--
+			return leftReplicas == 0, nil
+		}
+		return false, nil
+	}
 
 	var repProg *repProgress
 	var l *zap.Logger
 
-	for ruleIdx := range len(repRules) + len(ecRules) {
-		if ecRuleIdx := ruleIdx - len(repRules); ecRuleIdx >= 0 { // EC
+nextRule:
+	for i := range ruleNum {
+		ruleIdx := getRuleIdx(i)
+
+		if ecRuleIdx := ruleIdx - len(repRules); ecRuleIdx >= 0 {
+			if ecLimits != nil && ecLimits[ecRuleIdx] == 0 { // disabled by policy
+				continue
+			}
+
 			if slices.Contains(ecRules[:ecRuleIdx], ecRules[ecRuleIdx]) { // has already been processed, see below
 				continue
 			}
@@ -234,19 +359,31 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 				return fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
 			}
 
-			if err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, objNodeLists[ruleIdx]); err != nil {
-				return fmt.Errorf("apply EC rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
+			fin, err := handleECRule(ruleIdx, ecRuleIdx, payloadParts)
+			if err != nil {
+				return err
+			}
+			if fin {
+				break
 			}
 
 			for j := ecRuleIdx + 1; j < len(ecRules); j++ {
 				if ecRules[ecRuleIdx] != ecRules[j] {
 					continue
 				}
-				if err := t.applyECRule(t.sessionSigner, obj, j, payloadParts, objNodeLists[len(repRules)+j]); err != nil {
-					return fmt.Errorf("apply EC rule #%d (%s): %w", j, ecRules[j], err)
+				fin, err := handleECRule(i, j, payloadParts)
+				if err != nil {
+					return err
+				}
+				if fin {
+					break nextRule
 				}
 			}
 
+			continue
+		}
+
+		if repRules[ruleIdx] == 0 { // disabled by policy
 			continue
 		}
 
@@ -262,11 +399,31 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			repProg = newRepProgress(objNodeLists[:len(repRules)])
 		}
 
-		err = t.placementIterator.handleREPRule(l, repProg, ruleIdx, repRules[ruleIdx], objNodeLists[ruleIdx], func(node nodeDesc) error {
+		var minReps, maxReps uint
+		if maxReplicas > 0 {
+			if sum := sumLimitsSinceRule(i + 1); leftReplicas > sum {
+				minReps = leftReplicas - sum
+			}
+			maxReps = min(repRules[ruleIdx], leftReplicas)
+		} else {
+			minReps, maxReps = repRules[ruleIdx], repRules[ruleIdx]
+		}
+
+		stored, overloaded, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
 			return t.sendObject(obj, encObj, node, &t.metaCollection)
 		})
 		if err != nil {
-			return err
+			if maxReplicas > 0 {
+				return newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas+stored, ruleIdx, overloaded, err)
+			}
+			return newCompletionError(err, stored > 0, overloaded)
+		}
+
+		if maxReplicas > 0 {
+			if leftReplicas <= stored { // < should never happen
+				break
+			}
+			leftReplicas -= stored
 		}
 	}
 
@@ -584,33 +741,33 @@ func repToNode(l *zap.Logger, prog *repProgress, pubKeyStr string, listInd int, 
 	}
 }
 
-func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listInd int, maxReps uint, nodeList []netmap.NodeInfo, f func(desc nodeDesc) error) error {
+func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listInd int, minReps, maxReps uint, nodeList []netmap.NodeInfo, f func(desc nodeDesc) error) (uint, bool, error) {
 	var overloaded bool
 
 	for {
-		replRem := maxReps - prog.nodesCounters[listInd].stored
-		if replRem == 0 {
-			return nil
+		if prog.nodesCounters[listInd].stored >= maxReps { // > should never happen
+			return prog.nodesCounters[listInd].stored, false, nil
 		}
+
+		var minRequired uint
+		if minReps > prog.nodesCounters[listInd].stored {
+			minRequired = minReps - prog.nodesCounters[listInd].stored
+		}
+
 		listLen := uint(len(nodeList))
-		if listLen-prog.nodesCounters[listInd].processed < replRem {
-			var err error = errNotEnoughNodes{listIndex: listInd, required: replRem, left: listLen - prog.nodesCounters[listInd].processed}
+		if listLen-prog.nodesCounters[listInd].processed < minRequired {
+			var err error = errNotEnoughNodes{listIndex: listInd, required: minRequired, left: listLen - prog.nodesCounters[listInd].processed}
 			if e, _ := prog.lastRespErr.Load().(error); e != nil {
 				err = fmt.Errorf("%w (last node error: %w)", err, e)
 			}
-			var retErr = errIncompletePut{singleErr: err}
-			if prog.nodesCounters[listInd].stored == 0 {
-				if !overloaded {
-					return retErr
-				}
-				var busy = new(apistatus.Busy)
-				busy.SetMessage(retErr.Error())
-				return busy
-			}
-			var inc = new(apistatus.Incomplete)
-			inc.SetMessage(retErr.Error())
-			return inc
+			return prog.nodesCounters[listInd].stored, overloaded, errIncompletePut{singleErr: err}
+		} else if prog.nodesCounters[listInd].processed >= listLen { // > should never happen
+			// The required minimum is reached, and the maximum is unreachable.
+			return prog.nodesCounters[listInd].stored, false, nil
 		}
+
+		replRem := maxReps - prog.nodesCounters[listInd].stored // overflow prevented above
+
 		prog.nextNodeGroupKeys = slices.Grow(prog.nextNodeGroupKeys, int(replRem))[:0]
 		for ; prog.nodesCounters[listInd].processed < listLen && uint(len(prog.nextNodeGroupKeys)) < replRem; prog.nodesCounters[listInd].processed++ {
 			j := prog.nodesCounters[listInd].processed
@@ -640,11 +797,14 @@ func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listI
 			// should not appear because entry into the network map under strict control
 			l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
 				zap.String("public key", netmap.StringifyPublicKey(nodeList[j])), zap.Error(nr.convertErr))
-			if listLen-prog.nodesCounters[listInd].processed-1 < replRem { // -1 includes current node failure
+			if minReps > prog.nodesCounters[listInd].stored {
+				minRequired = minReps - prog.nodesCounters[listInd].stored
+			}
+			if listLen-prog.nodesCounters[listInd].processed-1 < minRequired { // -1 includes current node failure
 				err := fmt.Errorf("%w (last node error: failed to decode network addresses: %w)",
-					errNotEnoughNodes{listIndex: listInd, required: replRem, left: listLen - prog.nodesCounters[listInd].processed - 1},
+					errNotEnoughNodes{listIndex: listInd, required: minRequired, left: listLen - prog.nodesCounters[listInd].processed - 1},
 					nr.convertErr)
-				return errIncompletePut{singleErr: err}
+				return prog.nodesCounters[listInd].stored, false, errIncompletePut{singleErr: err}
 			}
 			// continue to try the best to save required number of replicas
 		}
@@ -684,9 +844,9 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 	//  the failure of any of the nodes the ability to comply with the policy
 	//  requirements may be lost.
 	for i := range replCounts {
-		err := x.handleREPRule(l, prog, i, replCounts[i], nodeLists[i], f)
+		stored, overloaded, err := x.handleREPRule(l, prog, i, replCounts[i], replCounts[i], nodeLists[i], f)
 		if err != nil {
-			return err
+			return newCompletionError(err, stored > 0, overloaded)
 		}
 	}
 	if !broadcast {

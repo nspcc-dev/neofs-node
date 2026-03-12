@@ -282,8 +282,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		metaCollection: metaCollection{
 			signatures: make([][][]byte, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
 		},
-		metaSigner: prm.localSignerRFC6979,
-		localOnly:  prm.common.LocalOnly(),
+		metaSigner:    prm.localSignerRFC6979,
+		localOnly:     prm.common.LocalOnly(),
+		initialPolicy: prm.cnr.PlacementPolicy().Initial(),
 	}
 }
 
