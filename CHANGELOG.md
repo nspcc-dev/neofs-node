@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Wrong shard ID entry in FSTree descriptor (#3849, #3861)
 - Shard evacuation replicate for EC parts (#3854)
 - Suboptimal shard selection for EC parts during data evacuation (#3870)
+- No redistribution of objects when adding a new `REP 3` node (#3873)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)

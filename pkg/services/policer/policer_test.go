@@ -598,6 +598,65 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 			})
 		})
 	})
+
+	t.Run("misplaced", func(t *testing.T) {
+		if broadcast {
+			// For LOCK/LINK shortage == len(nodes) so it never reaches 0 early
+			return
+		}
+
+		t.Run("one misplaced primary / in container", func(t *testing.T) {
+			// local=node[0], node[1]=404, node[2]=nil, rest=nil
+			// misplacedCandidates=[node[1]]
+			errs := islices.RepeatElement(len(nodes), error(nil))
+			errs[1] = apistatus.ErrObjectNotFound
+
+			expCandidates := []netmap.NodeInfo{nodes[1]}
+			logBuf := testRepCheck(t, defaultRep, localObj, nodes, 0, true, errs, 1, false, expCandidates)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.DebugLevel, Message: "misplaced object copies detected, replicating to primary nodes", Fields: map[string]any{
+					"component": "Object Policer",
+					"object":    objAddr.String(),
+					"misplaced": json.Number("1"),
+				},
+			})
+		})
+
+		t.Run("two misplaced primaries / in container", func(t *testing.T) {
+			// local=node[0], nodes[1]=404, nodes[2]=404, nodes[3]=nil, nodes[4]=nil
+			// misplacedCandidates=[node[1], node[2]]
+			errs := islices.RepeatElement(len(nodes), error(nil))
+			errs[1] = apistatus.ErrObjectNotFound
+			errs[2] = apistatus.ErrObjectNotFound
+
+			expCandidates := []netmap.NodeInfo{nodes[1], nodes[2]}
+			logBuf := testRepCheck(t, defaultRep, localObj, nodes, 0, true, errs, 2, false, expCandidates)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.DebugLevel, Message: "misplaced object copies detected, replicating to primary nodes", Fields: map[string]any{
+					"component": "Object Policer",
+					"object":    objAddr.String(),
+					"misplaced": json.Number("2"),
+				},
+			})
+		})
+
+		t.Run("one misplaced primary / out container", func(t *testing.T) {
+			// local=-1 (not in nodes), nodes[0]=404, nodes[1]=nil, nodes[2]=nil
+			// misplacedCandidates=[node[0]]
+			errs := islices.RepeatElement(len(nodes), error(nil))
+			errs[0] = apistatus.ErrObjectNotFound
+
+			expCandidates := []netmap.NodeInfo{nodes[0]}
+			logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, errs, 1, true, expCandidates)
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.DebugLevel, Message: "misplaced object copies detected, replicating to primary nodes", Fields: map[string]any{
+					"component": "Object Policer",
+					"object":    objAddr.String(),
+					"misplaced": json.Number("1"),
+				},
+			})
+		})
+	})
 }
 
 func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, localInNM bool, headErrs []error,

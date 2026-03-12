@@ -266,6 +266,9 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		shortage = uint32(len(nodes))
 	}
 
+	// candidates collects nodes that don't hold the object and can receive a
+	// replica. Used both for shortage replication (shortage > 0) and for rebalancing
+	// (shortage == 0 but primary nodes are missing the object).
 	var candidates []netmap.NodeInfo
 	for i := 0; (!plc.localNodeInContainer || shortage > 0) && i < len(nodes); i++ {
 		select {
@@ -281,9 +284,11 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		}
 
 		if shortage == 0 {
-			candidates = append(candidates, nodes[i])
+			// still looking for local node
 			continue
-		} else if isLocalNode {
+		}
+
+		if isLocalNode {
 			plc.needLocalCopy = true
 
 			shortage--
@@ -334,6 +339,19 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		)
 
 		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, plc.checkedNodes)
+	} else if len(candidates) > 0 {
+		// The required number of replicas exists, but some primary placement
+		// nodes are missing the object. Replicate to them so that the placement
+		// matches the policy.
+		p.metrics.SetPolicerConsistency(false)
+		p.hadToReplicate.Store(true)
+
+		p.log.Debug("misplaced object copies detected, replicating to primary nodes",
+			zap.Stringer("object", plc.object.Address),
+			zap.Int("misplaced", len(candidates)),
+		)
+
+		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, plc.checkedNodes)
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
