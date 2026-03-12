@@ -23,6 +23,30 @@ type Cursor struct {
 	attrsPrefix  []byte
 }
 
+// NewCursor creates a Cursor positioned at the given container and object.
+func NewCursor(cnr cid.ID, obj oid.ID) *Cursor {
+	return &Cursor{containerID: cnr, lastObjectID: obj}
+}
+
+// Reset repositions the cursor to the given container and object, reusing the
+// existing attrsPrefix buffer to avoid re-allocation on repeated calls.
+func (c *Cursor) Reset(cnr cid.ID, obj oid.ID) {
+	c.containerID = cnr
+	c.lastObjectID = obj
+	// attrsPrefix is intentionally kept: its capacity is reused by
+	// selectNFromBucket on the next ListWithCursor call.
+}
+
+// ContainerID returns the container ID stored in the cursor.
+func (c *Cursor) ContainerID() cid.ID {
+	return c.containerID
+}
+
+// LastObjectID returns the last object ID stored in the cursor.
+func (c *Cursor) LastObjectID() oid.ID {
+	return c.lastObjectID
+}
+
 // ListWithCursor lists physical objects available in metabase starting from
 // cursor. Includes objects of all types. Does not include inhumed objects.
 // Use cursor value from response for consecutive requests.
