@@ -31,6 +31,7 @@ Changelog for NeoFS Node
 - Optimized local HEAD request execution (#3783)
 - Unpaid container's data is deleted now (#3691)
 - Policer iterates engine-level object list now instead of shard-level (#3862)
+- SN now ignores `copies_number` field of `object.PutRequest.Body.Init` message (#3830)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
@@ -65,6 +66,9 @@ Storage nodes no longer automatically migrate metabases from version 5
 0.48.1), migrate using SN 0.51.1 or resynchronize with 0.52.0 if needed.
 
 Storage nodes clean up objects that belong to unpdaid containers.
+
+`copies_number` parameter of object PUT request no longer has an effect. Use
+`max_replicas` setting of container's initial placement policy instead.
 
 ## [0.51.1] - 2026-02-18
 

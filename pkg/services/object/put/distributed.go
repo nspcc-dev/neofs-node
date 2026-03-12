@@ -475,19 +475,10 @@ type placementIterator struct {
 	log        *zap.Logger
 	neoFSNet   NeoFSNetwork
 	remotePool util.WorkerPool
-	/* request-dependent */
-	// when non-zero, this setting simplifies the object's storage policy
-	// requirements to a fixed number of object replicas to be retained
-	linearReplNum uint
 }
 
 func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, nodeLists [][]netmap.NodeInfo, broadcast bool, f func(nodeDesc) error) error {
 	var l = x.log.With(zap.Stringer("oid", obj))
-	if x.linearReplNum > 0 {
-		ns := slices.Concat(nodeLists...)
-		nodeLists = [][]netmap.NodeInfo{ns}
-		replCounts = []uint{x.linearReplNum}
-	}
 	var processedNodesMtx sync.RWMutex
 	var nextNodeGroupKeys []string
 	var wg sync.WaitGroup

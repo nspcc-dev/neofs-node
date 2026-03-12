@@ -16,8 +16,6 @@ type PutInitPrm struct {
 
 	cnr containerSDK.Container
 
-	copiesNumber uint32
-
 	relay func(client.MultiAddressClient) error
 
 	containerNodes       ContainerNodes
@@ -51,14 +49,6 @@ func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
 func (p *PutInitPrm) WithRelay(f func(client.MultiAddressClient) error) *PutInitPrm {
 	if p != nil {
 		p.relay = f
-	}
-
-	return p
-}
-
-func (p *PutInitPrm) WithCopiesNumber(cn uint32) *PutInitPrm {
-	if p != nil {
-		p.copiesNumber = cn
 	}
 
 	return p
