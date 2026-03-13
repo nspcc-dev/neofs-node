@@ -149,7 +149,6 @@ func (v *Verifier) verifySinglePart(ctx context.Context, cnr cid.ID, firstID *oi
 	var prm getsvc.HeadPrm
 	prm.SetHeaderWriter(&hw)
 	prm.WithAddress(childAddr)
-	prm.WithRawFlag(true)
 
 	err := v.get.Head(ctx, prm)
 	if err != nil {

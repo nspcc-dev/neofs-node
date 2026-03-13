@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -406,6 +407,27 @@ func TestFormatValidator_Validate(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("split", func(t *testing.T) {
+		t.Run("nesting limit exceeded", func(t *testing.T) {
+			chain := getParentChain(t, maxObjectNestingLevel+2) // one exceeds and one is a child
+			child := chain[len(chain)-1]
+
+			registerContainer(child.GetContainerID())
+
+			require.EqualError(t, v.Validate(&child, true), "max object nesting level 2 overflow")
+		})
+
+		t.Run("nesting is ok", func(t *testing.T) {
+			chain := getParentChain(t, maxObjectNestingLevel+1) // one exceeds and one is a child
+			child := chain[len(chain)-1]
+
+			registerContainer(child.GetContainerID())
+
+			require.NoError(t, v.Validate(&child, true))
+		})
+	})
+
 	for _, tc := range []struct {
 		scheme neofscrypto.Scheme
 		object object.Object
@@ -418,6 +440,44 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, v.Validate(&tc.object, false))
 		})
 	}
+}
+
+func getParentChain(t *testing.T, nesting int) []object.Object {
+	var (
+		signer   neofscrypto.Signer
+		parChain []object.Object
+		cID      = cidtest.ID()
+	)
+	pk, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+	signer = neofsecdsa.SignerRFC6979(pk.PrivateKey)
+	owner := user.NewFromECDSAPublicKey(pk.PrivateKey.PublicKey)
+
+	for i := range nesting {
+		o := objecttest.Object()
+
+		o.SetOwner(owner)
+		o.SetSessionToken(nil)
+		o.SetContainerID(cID)
+		o.ResetRelations()
+		o.SetType(object.TypeRegular)
+		if i != 0 {
+			o.SetParent(&parChain[i-1])
+		}
+		err = o.SetIDWithSignature(signer)
+		require.NoError(t, err)
+
+		err := o.CalculateAndSetID()
+		require.NoError(t, err)
+
+		parChain = append(parChain, o)
+	}
+
+	child := &parChain[len(parChain)-1]
+	child.SetFirstID(oidtest.ID())
+	child.SetPreviousID(oidtest.ID())
+
+	return parChain
 }
 
 type testSplitVerifier struct {

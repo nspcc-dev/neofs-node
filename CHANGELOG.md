@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - Shard evacuation replicate for EC parts (#3854)
 - Suboptimal shard selection for EC parts during data evacuation (#3870)
 - No redistribution of objects when adding a new `REP 3` node (#3873)
+- Split of a split is allowed (#3867)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
