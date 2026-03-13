@@ -31,6 +31,7 @@ import (
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 func initContainerService(c *cfg) {
@@ -112,9 +113,9 @@ func initContainerService(c *cfg) {
 		cnrSrv.ResetSessionTokenCheckCache()
 	})
 
-	for _, srv := range c.cfgGRPC.servers {
+	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protocontainer.RegisterContainerServiceServer(srv, cnrSrv)
-	}
+	})
 }
 
 func initSizeLoadReports(c *cfg) {

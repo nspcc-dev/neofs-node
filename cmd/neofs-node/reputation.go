@@ -31,6 +31,7 @@ import (
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 func initReputationService(c *cfg) {
@@ -203,9 +204,9 @@ func initReputationService(c *cfg) {
 		routeBuilder:       localRouteBuilder,
 	}
 
-	for _, srv := range c.cfgGRPC.servers {
+	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protoreputation.RegisterReputationServiceServer(srv, server)
-	}
+	})
 
 	// initialize eigen trust block timer
 	newEigenTrustIterTimer(c)

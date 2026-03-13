@@ -233,9 +233,26 @@ func (c *cfg) GetNetworkMap() (netmap.NetMap, error) {
 func (c *cfg) CurrentEpoch() uint64 { return c.networkState.CurrentEpoch() }
 
 type cfgGRPC struct {
-	listeners []net.Listener
+	mu sync.Mutex
 
-	servers []*grpc.Server
+	listeners []net.Listener
+	servers   []*grpc.Server
+
+	// serviceRegistrators stores functions that register gRPC service
+	// implementations into a gRPC server.
+	serviceRegistrators []func(*grpc.Server)
+}
+
+// registerService saves the registrator function and immediately applies it to
+// all currently running gRPC servers.
+func (g *cfgGRPC) registerService(f func(*grpc.Server)) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	g.serviceRegistrators = append(g.serviceRegistrators, f)
+	for _, srv := range g.servers {
+		f(srv)
+	}
 }
 
 type cfgMeta struct {
@@ -681,6 +698,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			oldMetrics := writeMetricConfig(c.appCfg)
 			oldProfiler := writeProfilerConfig(c.appCfg)
+			oldGRPC := writeGRPCConfig(c.appCfg)
 
 			c.appCfg, err = config.New(config.WithConfigFile(c.appCfg.Path()))
 			if err != nil {
@@ -742,6 +760,13 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			err = c.metaService.Reload(p)
 			if err != nil {
 				c.log.Error("failed to reload meta service configuration", zap.Error(err))
+				continue
+			}
+
+			// gRPC
+
+			if err = reloadGRPC(c, oldGRPC); err != nil {
+				c.log.Error("gRPC configuration reload", zap.Error(err))
 				continue
 			}
 

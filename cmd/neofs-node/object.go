@@ -345,9 +345,9 @@ func initObjectService(c *cfg) {
 		return server.HeadBuffered(ctx, req), nil
 	}
 
-	for _, srv := range c.cfgGRPC.servers {
+	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		srv.RegisterService(&svcDesc, server)
-	}
+	})
 }
 
 type reputationClientConstructor struct {
