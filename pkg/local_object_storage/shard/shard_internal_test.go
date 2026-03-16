@@ -255,6 +255,10 @@ func (unimplementedBLOBStore) ReadHeader(oid.Address, []byte) (int, error) {
 	panic("unimplemented")
 }
 
+func (unimplementedBLOBStore) ReadObject(oid.Address, []byte) (int, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedBLOBStore) Exists(oid.Address) (bool, error) {
 	panic("unimplemented")
 }
@@ -302,6 +306,10 @@ func (unimplementedWriteCache) Head(oid.Address) (*object.Object, error) {
 }
 
 func (unimplementedWriteCache) ReadHeader(oid.Address, []byte) (int, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedWriteCache) ReadObject(oid.Address, []byte) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

@@ -202,3 +202,50 @@ func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.R
 
 	return res, reader, err
 }
+
+// ReadObject reads first bytes of the referenced object's binary containing its
+// full header from s into buf. Returns number of bytes read and stream of
+// remaining bytes. The stream must be finally closed by the caller.
+//
+// If write-cache is enabled, ReadObject looks up there first. Its errors are
+// logged and never returned.
+//
+// If object is missing, ReadObject returns [apistatus.ErrObjectNotFound].
+//
+// If object is known but removed, ReadObject returns
+// [apistatus.ErrObjectAlreadyRemoved].
+//
+// If object is known but expired, ReadObject returns [meta.ErrObjectIsExpired].
+//
+// If object is a split-parent, behavior depends on skipMeta flag. If set,
+// ReadObject returns [object.SplitInfoError] with all relations recorded in s.
+// If unset, ReadObject returns [apistatus.ErrObjectNotFound].
+func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int, io.ReadCloser, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	var (
+		n      int
+		stream io.ReadCloser
+	)
+
+	cb := func(stor common.Storage) error {
+		var err error
+		n, stream, err = stor.ReadObject(addr, buf)
+		return err
+	}
+
+	wc := func(c writecache.Cache) error {
+		var err error
+		n, stream, err = c.ReadObject(addr, buf)
+		return err
+	}
+
+	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
+	if err != nil && gotMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
+
+	return n, stream, err
+}
