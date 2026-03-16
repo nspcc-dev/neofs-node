@@ -17,16 +17,21 @@ type MemBuffer struct {
 	pool *sync.Pool
 }
 
+// SetBounds seals underlying message with given bounds.
+func (x *MemBuffer) SetBounds(from, to int) {
+	x.from = from
+	x.to = to
+}
+
 // Finalize seals underlying message with given bounds and increments ref
 // counter for x. Finalize is intended to be called before.
 func (x *MemBuffer) Finalize(from, to int) {
-	x.from = from
-	x.to = to
+	x.SetBounds(from, to)
 	x.Ref()
 }
 
 // Len returns final length of the underlying message. Len returns undefined
-// value before [MemBuffer.Finalize].
+// value before [MemBuffer.SetBounds]/[MemBuffer.Finalize].
 //
 // Len implements [mem.Buffer].
 func (x *MemBuffer) ReadOnlyData() []byte {
@@ -34,7 +39,7 @@ func (x *MemBuffer) ReadOnlyData() []byte {
 }
 
 // Len returns final length of the underlying message. Len returns undefined
-// value before [MemBuffer.Finalize].
+// value before [MemBuffer.SetBounds]/[MemBuffer.Finalize].
 //
 // Len implements [mem.Buffer].
 func (x *MemBuffer) Len() int {

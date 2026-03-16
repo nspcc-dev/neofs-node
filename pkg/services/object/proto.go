@@ -3,6 +3,7 @@ package object
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
@@ -17,6 +18,14 @@ const (
 	maxHeadResponseBodyVarintLen  = iobject.MaxHeaderVarintLen
 	maxHeaderOffsetInHeadResponse = 1 + maxHeadResponseBodyVarintLen + 1 + iobject.MaxHeaderVarintLen // 1 for iprotobuf.TagBytes1
 	headResponseBufferLen         = maxHeaderOffsetInHeadResponse + 2*object.MaxHeaderLen
+
+	maxResponseVerificationHeaderLen = 1 << 10
+
+	maxGetResponseChunkLen       = 256 << 10
+	maxGetResponseChunkVarintLen = 3
+	maxChunkOffsetInGetResponse  = 1 + maxGetResponseChunkVarintLen + // 1 for iprotobuf.TagBytes1
+		1 + maxGetResponseChunkVarintLen // 1 for iprotobuf.TagBytes2
+	getResponseChunkBufferLen = maxChunkOffsetInGetResponse + maxGetResponseChunkLen + maxResponseVerificationHeaderLen
 )
 
 var currentVersionResponseMetaHeader []byte
@@ -83,6 +92,9 @@ func (s *Server) signResponse(buf, body, metaHdr []byte) (int, error) {
 	// Practically, verification header has constant length, so this could be faster.
 	// But since https://github.com/nspcc-dev/neofs-node/issues/3396 this is not worthy of attention.
 	fullLen := 1 + protowire.SizeBytes(bodyLen) + 1 + protowire.SizeBytes(metaLen) + 1 + protowire.SizeBytes(origLen)
+	if ln := 1 + protowire.SizeBytes(fullLen); ln > maxResponseVerificationHeaderLen {
+		return 0, fmt.Errorf("calculated verification header has len %d, expected limit is %d", ln, maxResponseVerificationHeaderLen)
+	}
 
 	buf[0] = iprotobuf.TagBytes3
 	off := 1 + binary.PutUvarint(buf[1:], uint64(fullLen))
@@ -181,4 +193,71 @@ var headResponseBufferPool = iprotobuf.NewBufferPool(headResponseBufferLen)
 func getBufferForHeadResponse() (*iprotobuf.MemBuffer, []byte) {
 	item := headResponseBufferPool.Get()
 	return item, item.SliceBuffer[maxHeaderOffsetInHeadResponse:]
+}
+
+func shiftHeaderInGetResponseBuffer(respBuf, hdrBuf []byte) iprotobuf.FieldBounds {
+	bodyValLen := len(hdrBuf)
+
+	bodyFldPrefixLen := 1 + protowire.SizeVarint(uint64(bodyValLen))
+
+	var bodyf iprotobuf.FieldBounds
+
+	bodyf.ValueFrom = maxHeaderOffsetInHeadResponse - bodyFldPrefixLen
+
+	bodyf.From = bodyf.ValueFrom - (1 + protowire.SizeVarint(uint64(bodyFldPrefixLen+bodyValLen)))
+
+	respBuf[bodyf.From] = iprotobuf.TagBytes1 // body
+	binary.PutUvarint(respBuf[bodyf.From+1:], uint64(bodyFldPrefixLen+bodyValLen))
+
+	respBuf[bodyf.ValueFrom] = iprotobuf.TagBytes1 // header with signature
+	binary.PutUvarint(respBuf[bodyf.ValueFrom+1:], uint64(bodyValLen))
+
+	bodyf.To = maxHeaderOffsetInHeadResponse + bodyValLen
+
+	return bodyf
+}
+
+func shiftPayloadChunkInGetResponseBuffer(respBuf []byte, off, ln int) iprotobuf.FieldBounds {
+	bodyFldPrefixLen := 1 + protowire.SizeVarint(uint64(ln))
+
+	var bodyf iprotobuf.FieldBounds
+
+	bodyf.ValueFrom = off - bodyFldPrefixLen
+
+	bodyf.From = bodyf.ValueFrom - (1 + protowire.SizeVarint(uint64(bodyFldPrefixLen+ln)))
+
+	respBuf[bodyf.From] = iprotobuf.TagBytes1 // body
+	binary.PutUvarint(respBuf[bodyf.From+1:], uint64(bodyFldPrefixLen+ln))
+
+	respBuf[bodyf.ValueFrom] = iprotobuf.TagBytes2 // chunk
+	binary.PutUvarint(respBuf[bodyf.ValueFrom+1:], uint64(ln))
+
+	bodyf.To = off + ln
+
+	return bodyf
+}
+
+func parseObjectPayloadFieldTag(buf []byte) (int, error) {
+	if len(buf) == 0 {
+		return 0, io.ErrUnexpectedEOF
+	}
+
+	if buf[0] != iprotobuf.TagBytes4 {
+		return 0, fmt.Errorf("invalid tag %d instead of %d", buf[0], iprotobuf.TagBytes4)
+	}
+
+	_, n, err := iprotobuf.ParseVarint(buf[1:])
+	if err != nil {
+		return 0, err
+	}
+
+	return 1 + n, nil
+}
+
+var getResponseChunkBufferPool = iprotobuf.NewBufferPool(getResponseChunkBufferLen)
+
+func getBufferForChunkGetResponse() (*iprotobuf.MemBuffer, []byte) {
+	item := getResponseChunkBufferPool.Get()
+	chunkBuf := item.SliceBuffer[maxChunkOffsetInGetResponse:]
+	return item, chunkBuf[:len(chunkBuf)-maxResponseVerificationHeaderLen]
 }

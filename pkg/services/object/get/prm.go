@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"hash"
+	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
@@ -12,9 +13,15 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
+// SubmitStreamFunc is a callback for partially read object stream.
+type SubmitStreamFunc = func(int, io.ReadCloser)
+
 // Prm groups parameters of Get service call.
 type Prm struct {
 	commonPrm
+
+	localGetBuffer         []byte
+	submitLocalGetStreamFn SubmitStreamFunc
 }
 
 // RangePrm groups parameters of GetRange service call.
@@ -151,4 +158,19 @@ func (p *HeadPrm) SetHeaderWriter(w internal.HeaderWriter) {
 func (p *HeadPrm) WithBuffer(buffer []byte, submitLenFn func(int)) {
 	p.buffer = buffer
 	p.submitLenFn = submitLenFn
+}
+
+// WithBuffer specifies a buffer into which header of the requested object is
+// optionally written. The submitStreamFn parameter is a callback for number of
+// bytes written and stream of remaining bytes. If buffer is unused,
+// submitStreamFn is not called. The stream must be finally closed by the
+// caller.
+func (p *Prm) WithBuffer(buffer []byte, submitStreamFn SubmitStreamFunc) {
+	p.localGetBuffer = buffer
+	p.submitLocalGetStreamFn = submitStreamFn
+}
+
+// GetBuffer returns buffer settings set using [Prm.WithBuffer].
+func (p Prm) GetBuffer() ([]byte, SubmitStreamFunc) {
+	return p.localGetBuffer, p.submitLocalGetStreamFn
 }

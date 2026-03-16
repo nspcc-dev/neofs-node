@@ -1160,11 +1160,143 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
+
+	// TODO: consider optimization
+	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
+	// Then small objects would fit into a single buffer, and for large ones it'd be possible to
+	// encode the first chunk response using the heading buffer.
+	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
+	defer hdrRespBuf.Free()
+
+	hdrLen := -1
+	var stream io.ReadCloser
+	defer func() {
+		if stream != nil {
+			stream.Close()
+		}
+	}()
+
+	p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+
 	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
+
+	if hdrLen < 0 {
+		return nil
+	}
+
+	idf, sigf, hdrf, err := iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
+	if err != nil {
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	}
+
+	if recheckEACL { // previous check didn't match, but we have a header now.
+		err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			err = eACLErr(reqInfo, err) // defer
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+	}
+
+	pldFldOff := max(idf.To, sigf.To, hdrf.To)
+
+	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, stream, pldFldOff, needSignResp) // defer
+	if err != nil {
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	}
+
 	return nil
+}
+
+func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte,
+	hdrLen int, stream io.Reader, pldFldOff int, needSignResp bool) error {
+	var chunkRespBuf *iprotobuf.MemBuffer
+	var chunkBuf []byte
+
+	prereadPldLen := hdrLen - pldFldOff
+	if prereadPldLen > 0 {
+		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
+		copy(chunkBuf, hdrBuf[pldFldOff:][:prereadPldLen])
+		// TODO: consider optimization
+		// Object can be small and fit entirely within the heading buffer. In this
+		// case, no more buffers are needed. This can be checked by reading
+		// `header.payload_length` field.
+	}
+
+	bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:pldFldOff])
+
+	if needSignResp {
+		n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+		if err != nil {
+			if chunkRespBuf != nil {
+				chunkRespBuf.Free()
+			}
+			return fmt.Errorf("sign head response: %w", err)
+		}
+		bodyf.To += n
+	}
+
+	hdrRespBuf.SetBounds(bodyf.From, bodyf.To)
+	hdrRespBuf.Ref() // because Free() is defered
+	// Note that finished SendMsg() does not guarantee that the buffer is free.
+	// Moreover, this is not guaranteed even by returning from the current function.
+	// Therefore, buffer release has to be delegated to gRPC layer.
+	// For the same reason, reusing a single buffer for multiple messages is unsafe.
+	if err := gStream.SendMsg(hdrRespBuf); err != nil {
+		if chunkRespBuf != nil {
+			chunkRespBuf.Free()
+		}
+		return err
+	}
+
+	if chunkRespBuf == nil {
+		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
+	}
+
+	for first := true; ; first = false {
+		n, err := io.ReadFull(stream, chunkBuf[prereadPldLen:])
+		streamDone := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+		if err != nil && !streamDone {
+			chunkRespBuf.Free()
+			return fmt.Errorf("read payload stream: %w", err)
+		}
+
+		n += prereadPldLen
+
+		if first && n > 0 {
+			prereadPldLen, err = parseObjectPayloadFieldTag(chunkBuf[:n])
+			if err != nil {
+				chunkRespBuf.Free()
+				return fmt.Errorf("parse payload field tag: %w", err)
+			}
+
+			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+prereadPldLen, n-prereadPldLen)
+			prereadPldLen = 0
+		} else if n == 0 {
+			chunkRespBuf.Free()
+			return nil
+		} else {
+			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
+		}
+
+		if needSignResp {
+			n, err = s.signResponse(chunkRespBuf.SliceBuffer[bodyf.To:], chunkRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+			if err != nil {
+				chunkRespBuf.Free()
+				return fmt.Errorf("sign chunk response: %w", err)
+			}
+			bodyf.To += n
+		}
+
+		chunkRespBuf.SetBounds(bodyf.From, bodyf.To)
+		if err = gStream.SendMsg(chunkRespBuf); err != nil || streamDone {
+			return err
+		}
+
+		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
+	}
 }
 
 // converts original request into parameters accepted by the internal handler.
