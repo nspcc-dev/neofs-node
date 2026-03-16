@@ -16,6 +16,12 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
+// Common response field numbers.
+// TODO: declare in SDK.
+const (
+	FieldResponseBody = 1
+)
+
 // ParseAPIVersionField parses version.Version from the next field with known
 // number and type at given offset. Also returns field length.
 func ParseAPIVersionField(buf []byte, fNum protowire.Number, fTyp protowire.Type) (version.Version, int, error) {

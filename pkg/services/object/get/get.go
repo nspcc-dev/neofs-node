@@ -259,7 +259,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	}
 
 	if len(repRules) > 0 {
-		err := s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
+		err := s.get(ctx, prm.commonPrm, headOnly(prm.forwardRequestFn, prm.submitBufferedResponseFn), withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
@@ -275,7 +275,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(ecNodeLists, repRules)).err
+		return s.get(ctx, prm.commonPrm, headOnly(prm.forwardRequestFn, prm.submitBufferedResponseFn), withPreSortedContainerNodes(ecNodeLists, repRules)).err
 	}
 
 	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),

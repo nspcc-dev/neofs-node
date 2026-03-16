@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"google.golang.org/grpc/mem"
 )
 
 // Prm groups parameters of Get service call.
@@ -40,12 +41,23 @@ type RangeHashPrm struct {
 type RequestForwarder func(context.Context, coreclient.MultiAddressClient) (*object.Object, error)
 type RangeRequestForwarder func(context.Context, coreclient.MultiAddressClient) ([][]byte, error)
 
+// HeadRequestForwarder forwards particular HEAD request to remote node and
+// returns buffered response.
+type HeadRequestForwarder = func(context.Context, coreclient.MultiAddressClient) (mem.BufferSlice, error)
+
+// SubmitBufferedResponseFunc is a callback accepting buffered response.
+type SubmitBufferedResponseFunc = func(mem.BufferSlice)
+
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
 
 	buffer      []byte
 	submitLenFn func(int)
+
+	forwardRequestFn HeadRequestForwarder
+
+	submitBufferedResponseFn func(mem.BufferSlice)
 }
 
 type commonPrm struct {
@@ -151,4 +163,17 @@ func (p *HeadPrm) SetHeaderWriter(w internal.HeaderWriter) {
 func (p *HeadPrm) WithBuffer(buffer []byte, submitLenFn func(int)) {
 	p.buffer = buffer
 	p.submitLenFn = submitLenFn
+}
+
+// SetRequestForwarder sets function called to transmit a request to a remote
+// node. Once response is received without error, it is passed to handler which
+// must be set via [HeadPrm.SetSubmitBufferedResponseFunc].
+func (p *HeadPrm) SetRequestForwarder(f HeadRequestForwarder) {
+	p.forwardRequestFn = f
+}
+
+// SetSubmitBufferedResponseFunc sets function called with buffered response
+// binary if any.
+func (p *HeadPrm) SetSubmitBufferedResponseFunc(f SubmitBufferedResponseFunc) {
+	p.submitBufferedResponseFn = f
 }

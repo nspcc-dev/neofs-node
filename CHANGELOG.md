@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 - Optimized local HEAD request execution (#3783)
 - Unpaid container's data is deleted now (#3691)
 - Policer iterates engine-level object list now instead of shard-level (#3862)
+- SN now forwards remote SN's response to the client as is (#3877)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
