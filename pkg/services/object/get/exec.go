@@ -61,6 +61,10 @@ type execCtx struct {
 	// If an error occurs after that, the stream is already corrupted and
 	// no retry should be attempted.
 	headerWritten bool
+
+	forwardHeadFn HeadRequestForwarder
+
+	submitBufferedResponseFn SubmitBufferedResponseFunc
 }
 
 type execOption func(*execCtx)
@@ -73,9 +77,11 @@ const (
 	statusNotFound
 )
 
-func headOnly() execOption {
+func headOnly(forwardRequestFn HeadRequestForwarder, submitBufferedResponseFn SubmitBufferedResponseFunc) execOption {
 	return func(c *execCtx) {
 		c.head = true
+		c.forwardHeadFn = forwardRequestFn
+		c.submitBufferedResponseFn = submitBufferedResponseFn
 	}
 }
 

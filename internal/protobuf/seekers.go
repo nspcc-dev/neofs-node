@@ -14,6 +14,10 @@ import (
 // Note that SeekFieldByNumber does not check value of found field, but checks
 // intermediate ones for correct message traverse.
 func SeekFieldByNumber(buf []byte, seekNum protowire.Number) (int, int, protowire.Type, error) {
+	return seekFieldByNumber(buf, seekNum, true)
+}
+
+func seekFieldByNumber(buf []byte, seekNum protowire.Number, ordered bool) (int, int, protowire.Type, error) {
 	if err := checkFieldNumber(seekNum); err != nil {
 		return 0, 0, 0, err
 	}
@@ -34,13 +38,15 @@ func SeekFieldByNumber(buf []byte, seekNum protowire.Number) (int, int, protowir
 		if num == seekNum {
 			return off, n, typ, nil
 		}
-		if num > seekNum {
-			break
+		if ordered {
+			if num > seekNum {
+				break
+			}
+			if num < prevNum {
+				return 0, 0, 0, NewUnorderedFieldsError(prevNum, num)
+			}
+			prevNum = num
 		}
-		if num < prevNum {
-			return 0, 0, 0, NewUnorderedFieldsError(prevNum, num)
-		}
-		prevNum = num
 
 		off += n
 
@@ -65,7 +71,21 @@ func SeekFieldByNumber(buf []byte, seekNum protowire.Number) (int, int, protowir
 //
 // If there is an error, its text contains num.
 func GetLENFieldBounds(buf []byte, num protowire.Number) (FieldBounds, error) {
-	off, tagLn, typ, err := SeekFieldByNumber(buf, num)
+	return getLENFieldBounds(buf, num, true)
+}
+
+// GetLENFieldBounds seeks LEN field in buf by number and parses its boundaries.
+// If field is missing, no error is returned.
+//
+// If field is repeated, GetLENFieldBoundsUnordered stops on first encounter.
+//
+// If there is an error, its text contains num.
+func GetLENFieldBoundsUnordered(buf []byte, num protowire.Number) (FieldBounds, error) {
+	return getLENFieldBounds(buf, num, false)
+}
+
+func getLENFieldBounds(buf []byte, num protowire.Number, ordered bool) (FieldBounds, error) {
+	off, tagLn, typ, err := seekFieldByNumber(buf, num, ordered)
 	if err != nil {
 		return FieldBounds{}, err
 	}

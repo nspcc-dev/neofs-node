@@ -51,6 +51,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/mem"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -611,8 +612,8 @@ func (s *Server) Head(context.Context, *protoobject.HeadRequest) (*protoobject.H
 }
 
 // HeadBuffered serves req and returns response as either
-// [*protoobject.HeadResponse] or [mem.Buffer]. The buffer must be freed
-// eventually.
+// [*protoobject.HeadResponse], [mem.BufferSlice] or [mem.Buffer]. All buffers
+// must be freed eventually.
 func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest) any {
 	var (
 		err         error
@@ -671,15 +672,44 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 	p.WithBuffer(hdrBuf, func(ln int) { hdrLen = ln })
 
+	var proxyRespBuf mem.BufferSlice
+	p.SetSubmitBufferedResponseFunc(func(respBuf mem.BufferSlice) { proxyRespBuf = respBuf })
+
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 
-	buffered := hdrLen >= 0
-
+	var buffered bool
 	var sigf, hdrf iprotobuf.FieldBounds
-	if buffered {
+	if proxyRespBuf != nil {
+		if !recheckEACL {
+			return proxyRespBuf
+		}
+
+		var respBuf []byte
+		if len(proxyRespBuf) == 1 {
+			respBuf = proxyRespBuf[0].ReadOnlyData()
+		} else {
+			// This concats all buffers. It is definitely possible to loop over ReadOnlyData(), but that's not trivial.
+			// And object headers fit into single buffer mostly.
+			respBuf = proxyRespBuf.Materialize()
+		}
+
+		off, ln, err := seekHeaderInHeadResponseBuffer(respBuf)
+		if err != nil {
+			return s.makeStatusHeadResponse(fmt.Errorf("seek header field in proxy response: %w", err), needSignResp)
+		}
+
+		if off >= 0 {
+			hdrBuf = respBuf[off:]
+			hdrf.To = ln
+		} else {
+			hdrBuf = []byte{}
+		}
+
+		buffered = true
+	} else if buffered = hdrLen >= 0; buffered {
 		_, sigf, hdrf, err = iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
 		if err != nil {
 			return s.makeStatusHeadResponse(err, needSignResp)
@@ -697,6 +727,10 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 			err = eACLErr(reqInfo, err) // defer
 			return s.makeStatusHeadResponse(err, needSignResp)
+		}
+
+		if proxyRespBuf != nil {
+			return proxyRespBuf
 		}
 	}
 
@@ -774,7 +808,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	if meta == nil {
 		return getsvc.HeadPrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (*object.Object, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (mem.BufferSlice, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -788,10 +822,11 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 			return nil, err
 		}
 
-		var hdr *object.Object
-		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			var err error
-			hdr, err = getHeaderFromRemoteNode(ctx, conn, req, addr.Object())
+		var respBuf mem.BufferSlice
+		return respBuf, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			// following is protoobject.objectServiceClient.Head() with custom response codec
+			var err = conn.Invoke(ctx, protoobject.ObjectService_Head_FullMethodName, req, &respBuf,
+				grpc.StaticMethod(), grpc.ForceCodecV2(iprotobuf.BufferedCodec{}))
 			return err // TODO: log error
 		})
 	})

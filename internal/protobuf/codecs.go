@@ -12,15 +12,26 @@ type BufferedCodec struct{}
 
 // Marshal implements [encoding.CodecV2].
 func (BufferedCodec) Marshal(msg any) (mem.BufferSlice, error) {
-	if bs, ok := msg.(mem.Buffer); ok {
-		return mem.BufferSlice{bs}, nil
+	switch v := msg.(type) {
+	case mem.BufferSlice:
+		return v, nil
+	case mem.Buffer:
+		return mem.BufferSlice{v}, nil
+	default:
+		return encoding.GetCodecV2(proto.Name).Marshal(msg)
 	}
-	return encoding.GetCodecV2(proto.Name).Marshal(msg)
 }
 
 // Unmarshal implements [encoding.CodecV2].
 func (BufferedCodec) Unmarshal(data mem.BufferSlice, msg any) error {
-	return encoding.GetCodecV2(proto.Name).Unmarshal(data, msg)
+	switch v := msg.(type) {
+	case *mem.BufferSlice:
+		data.Ref()
+		*v = data
+		return nil
+	default:
+		return encoding.GetCodecV2(proto.Name).Unmarshal(data, msg)
+	}
 }
 
 // Name implements [encoding.CodecV2].

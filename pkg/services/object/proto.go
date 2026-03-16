@@ -9,6 +9,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -174,6 +175,31 @@ func shiftHeaderInHeadResponseBuffer(respBuf, hdrBuf []byte, sigf, hdrf iprotobu
 	bodyf.To = hdrWithSigOff + hdrWithSigLen
 
 	return bodyf
+}
+
+func seekHeaderInHeadResponseBuffer(buf []byte) (int, int, error) {
+	f, err := iprotobuf.GetLENFieldBoundsUnordered(buf, iprotobuf.FieldResponseBody)
+	if err != nil || f.IsMissing() {
+		return -1, 0, err
+	}
+
+	buf = buf[f.ValueFrom:f.To]
+	off := f.ValueFrom
+
+	f, err = iprotobuf.GetLENFieldBoundsUnordered(buf, protoobject.FieldHeadResponseBodyHeader)
+	if err != nil || f.IsMissing() {
+		return -1, 0, err
+	}
+
+	buf = buf[f.ValueFrom:f.To]
+	off += f.ValueFrom
+
+	f, err = iprotobuf.GetLENFieldBoundsUnordered(buf, protoobject.FieldHeaderWithSignatureHeader)
+	if err != nil || f.IsMissing() {
+		return -1, 0, err
+	}
+
+	return off + f.ValueFrom, f.To - f.ValueFrom, nil
 }
 
 var headResponseBufferPool = iprotobuf.NewBufferPool(headResponseBufferLen)
