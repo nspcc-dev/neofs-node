@@ -61,6 +61,23 @@ func (c *cache) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	return n, nil
 }
 
+// ReadObject reads first bytes of the referenced object's binary containing its
+// full header from c into buf. Returns number of bytes read and stream of
+// remainining bytes. The stream must be finally closed by the caller.
+//
+// Read part may include payload prefix.
+//
+// If object is missing, ReadHeader returns [apistatus.ErrObjectNotFound].
+//
+// Passed buf must have 2*[object.MaxHeaderLen] bytes len at least.
+func (c *cache) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return 0, nil, apistatus.ErrObjectNotFound
+	}
+
+	return c.fsTree.ReadObject(addr, buf)
+}
+
 func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
