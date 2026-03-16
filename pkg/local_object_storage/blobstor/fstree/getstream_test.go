@@ -33,6 +33,12 @@ func TestGetStream(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, obj)
 		require.Nil(t, reader)
+
+		buf := make([]byte, 2*object.MaxHeaderLen)
+		n, reader, err := tree.ReadObject(addr, buf)
+		require.Error(t, err)
+		require.Zero(t, n)
+		require.Nil(t, reader)
 	})
 
 	testStream := func(t *testing.T, size int) {
@@ -56,6 +62,8 @@ func TestGetStream(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, payload, streamedPayload)
 		require.NoError(t, reader.Close())
+
+		assertReadObjectOK(t, tree, addr, *obj)
 	}
 
 	t.Run("different objects", func(t *testing.T) {
@@ -149,7 +157,8 @@ func TestGetStreamAfterErrors(t *testing.T) {
 
 		f, err := os.Create(objPath)
 		require.NoError(t, err)
-		_, err = f.Write([]byte("corrupt data that isn't a valid object"))
+		data := []byte("corrupt data that isn't a valid object")
+		_, err = f.Write(data)
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
 
@@ -182,6 +191,10 @@ func TestGetStreamAfterErrors(t *testing.T) {
 
 		_, _, err = tree.GetStream(addr)
 		require.Error(t, err)
+
+		buf := make([]byte, 2*object.MaxHeaderLen)
+		_, _, err = tree.ReadObject(addr, buf)
+		require.Error(t, err)
 	})
 
 	t.Run("ID not found in combined object", func(t *testing.T) {
@@ -209,6 +222,10 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		require.NoError(t, os.Rename(p, newPath))
 
 		_, _, err = fsTree.GetStream(newAddr)
+		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+
+		buf := make([]byte, 2*object.MaxHeaderLen)
+		_, _, err = fsTree.ReadObject(newAddr, buf)
 		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
 }

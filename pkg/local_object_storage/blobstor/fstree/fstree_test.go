@@ -2,10 +2,12 @@ package fstree
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"testing"
 	"testing/iotest"
 
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -135,4 +137,30 @@ func testPutBatch(t *testing.T, fst *FSTree) {
 		require.Len(t, b, pldLen)
 		require.True(t, bytes.Equal(objs[i].Payload(), b))
 	}
+}
+
+func assertReadObjectOK(t *testing.T, fst *FSTree, addr oid.Address, obj object.Object) {
+	buf := make([]byte, 2*object.MaxHeaderLen)
+
+	n, reader, err := fst.ReadObject(addr, buf)
+	require.NoError(t, err)
+
+	_, tail, ok := bytes.Cut(buf[:n], obj.CutPayload().Marshal())
+	require.True(t, ok)
+
+	prefix := make([]byte, 1+binary.MaxVarintLen64)
+	prefix[0] = iprotobuf.TagBytes4 // payload field tag
+	prefix = prefix[:1+binary.PutUvarint(prefix[1:], uint64(len(obj.Payload())))]
+
+	if len(tail) < len(prefix) {
+		require.True(t, bytes.HasPrefix(prefix, tail))
+		return
+	}
+
+	tail, ok = bytes.CutPrefix(tail, prefix)
+	require.True(t, ok)
+	require.True(t, bytes.HasPrefix(obj.Payload(), tail))
+
+	require.NoError(t, iotest.TestReader(io.MultiReader(bytes.NewReader(buf[:n]), reader), obj.Marshal()))
+	require.NoError(t, reader.Close())
 }
