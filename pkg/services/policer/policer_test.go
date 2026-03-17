@@ -148,6 +148,7 @@ func TestConsistency(t *testing.T) {
 
 		localNode.setListResulsts(nil, engine.ErrEndOfListing)
 		delayCh <- struct{}{}
+		delayCh <- struct{}{}
 		require.Eventually(t, func() bool {
 			return mockM.consistency.Load()
 		}, 3*time.Second, 50*time.Millisecond)
@@ -243,7 +244,7 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 			})
 			t.Run("backup", func(t *testing.T) {
 				for i := defaultRep; i < len(nodes); i++ {
-					testRepCheck(t, defaultRep, localObj, nodes, i, true, allNotFound, expShortage, false, slices.Delete(slices.Clone(nodes), i, i+1))
+					testRepCheck(t, defaultRep, localObj, nodes, i, true, allNotFound, expShortage, !broadcast, slices.Delete(slices.Clone(nodes), i, i+1))
 				}
 			})
 		})
@@ -253,9 +254,9 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 				expShortage = uint32(len(nodes))
 			}
 			t.Run("in netmap", func(t *testing.T) {
-				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, allNotFound, expShortage, false, nodes)
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, allNotFound, expShortage, true, nodes)
 				logBuf.AssertContains(testutil.LogEntry{
-					Level: zap.InfoLevel, Message: "node outside the container, but nobody stores the object, holding the replica...", Fields: map[string]any{
+					Level: zap.InfoLevel, Message: "node outside the container, removing the replica so as not to violate the storage policy...", Fields: map[string]any{
 						"component": "Object Policer",
 						"object":    objAddr.String(),
 					},
@@ -681,12 +682,21 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 		mockNet.inNetmap = localInNM
 	}
 
-	r := newTestReplicator(t)
-
 	conns := newMockAPIConnections()
 	for i := range nodes {
 		if i != localIdx {
 			conns.setHeadResult(nodes[i], localObj.Address, headErrs[i])
+		}
+	}
+
+	r := newTestReplicator(t)
+	r.success = true
+	if expShortage > 0 {
+		r.successfulCopies = expShortage
+		r.onTask = func(_ replicator.Task, successfulNodes []netmap.NodeInfo) {
+			for _, node := range successfulNodes {
+				conns.setHeadResult(node, localObj.Address, nil)
+			}
 		}
 	}
 
@@ -707,13 +717,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	t.Cleanup(cancel)
 	go p.Run(ctx)
 
-	require.Eventually(t, func() bool {
-		return lb.Contains(testutil.LogEntry{
-			Level: zap.InfoLevel, Message: "finished local storage cycle", Fields: map[string]any{
-				"component":  "Object Policer",
-				"cleanCycle": true,
-			}})
-	}, 3*time.Second, 50*time.Millisecond)
+	waitForPolicerResult(t, p, lb, mockNet, localNode, localObj.Address, expRedundant, expShortage > 0, r)
 
 	var taskV = r.task.Load()
 	if expShortage > 0 {
@@ -797,8 +801,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx, parentOIDAttr}
 
-				logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, false, nil)
-				logBuf.AssertContains(testutil.LogEntry{
+				testECCheckWaitLog(t, rule, localObj, nodes, 0, allOK, testutil.LogEntry{
 					Level: zap.ErrorLevel, Message: "failed to decode EC part info from attributes, skip object",
 					Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "error": tc.err},
 				})
@@ -814,8 +817,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 		mockNet := newMockNetwork()
 		mockNet.setObjectNodesECResult(cnr, parentOID, nodes, rule)
 
-		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, false, nil)
-		logBuf.AssertContains(testutil.LogEntry{
+		testECCheckWithNetworkAndShortage(t, mockNet, localObj, nodes, 0, allOK, false, nil, false, 0, testutil.LogEntry{
 			Level: zap.ErrorLevel, Message: "received EC parent OID with unexpected len from local storage, skip object",
 			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "len": json.Number("31")},
 		})
@@ -1077,7 +1079,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	}
 }
 
-func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo) *testutil.LogBuffer {
+func newECMockNetwork(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int) *mockNetwork {
 	require.Len(t, localObj.Attributes, 3)
 
 	var sortOID oid.ID
@@ -1094,7 +1096,17 @@ func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAtt
 		mockNet.pubKey = nodes[localIdx].PublicKey()
 	}
 
+	return mockNet
+}
+
+func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo) *testutil.LogBuffer {
+	mockNet := newECMockNetwork(t, rule, localObj, nodes, localIdx)
 	return testECCheckWithNetwork(t, mockNet, localObj, nodes, localIdx, headErrs, expRedundant, expCandidates)
+}
+
+func testECCheckWaitLog(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, exp testutil.LogEntry) {
+	mockNet := newECMockNetwork(t, rule, localObj, nodes, localIdx)
+	testECCheckWithNetworkAndShortage(t, mockNet, localObj, nodes, localIdx, headErrs, false, nil, false, 0, exp)
 }
 
 func testECCheckWithNetwork(t *testing.T, mockNet *mockNetwork, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo,
@@ -1108,7 +1120,7 @@ func testECCheckWithNetwork(t *testing.T, mockNet *mockNetwork, localObj objectc
 }
 
 func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo,
-	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool, expShortage uint32) *testutil.LogBuffer {
+	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool, expShortage uint32, waitLog ...testutil.LogEntry) *testutil.LogBuffer {
 	require.Equal(t, len(nodes), len(headErrs))
 
 	wp, err := ants.NewPool(100)
@@ -1118,13 +1130,21 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	localNode := newTestLocalNode()
 	localNode.objList = []objectcore.AddressWithAttributes{localObj}
 
-	r := newTestReplicator(t)
-	r.success = repSuccess
-
 	conns := newMockAPIConnections()
 	for i := range nodes {
 		if i != localIdx {
 			conns.setHeadResult(nodes[i], localObj.Address, headErrs[i])
+		}
+	}
+
+	r := newTestReplicator(t)
+	r.success = repSuccess
+	if repSuccess && expShortage > 0 {
+		r.successfulCopies = expShortage
+		r.onTask = func(_ replicator.Task, successfulNodes []netmap.NodeInfo) {
+			for _, node := range successfulNodes {
+				conns.setHeadResult(node, localObj.Address, nil)
+			}
 		}
 	}
 
@@ -1145,13 +1165,12 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	t.Cleanup(cancel)
 	go p.Run(ctx)
 
-	require.Eventually(t, func() bool {
-		return lb.Contains(testutil.LogEntry{
-			Level: zap.InfoLevel, Message: "finished local storage cycle", Fields: map[string]any{
-				"component":  "Object Policer",
-				"cleanCycle": true,
-			}})
-	}, 3*time.Second, 50*time.Millisecond)
+	var expLog *testutil.LogEntry
+	if len(waitLog) > 0 {
+		expLog = &waitLog[0]
+	}
+
+	waitForPolicerResult(t, p, lb, mockNet, localNode, localObj.Address, expRedundant, len(expCandidates) > 0, r, expLog)
 
 	var taskV = r.task.Load()
 	if len(expCandidates) > 0 {
@@ -1175,10 +1194,41 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	return lb
 }
 
+func waitForPolicerResult(t *testing.T, p *Policer, lb *testutil.LogBuffer, mockNet *mockNetwork, localNode *testLocalNode, addr oid.Address, expRedundant bool, expectTask bool, r *testReplicator, waitLog ...*testutil.LogEntry) {
+	t.Helper()
+
+	var expLog *testutil.LogEntry
+	if len(waitLog) > 0 {
+		expLog = waitLog[0]
+	}
+
+	require.Eventually(t, func() bool {
+		if p.objsInWork.inWork(addr) {
+			return false
+		}
+
+		if expRedundant {
+			return slices.Equal(localNode.deletedObjects(), []oid.Address{addr})
+		}
+
+		if expectTask {
+			return r.task.Load() != nil
+		}
+
+		if expLog != nil {
+			return lb.Contains(*expLog)
+		}
+
+		return mockNet.totalGetNodesCalls() > 0
+	}, 3*time.Second, 50*time.Millisecond)
+}
+
 type testReplicator struct {
-	t       *testing.T
-	task    atomic.Value
-	success bool
+	t                *testing.T
+	task             atomic.Value
+	success          bool
+	successfulCopies uint32
+	onTask           func(replicator.Task, []netmap.NodeInfo)
 }
 
 func newTestReplicator(t *testing.T) *testReplicator {
@@ -1192,9 +1242,24 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 	require.NotNil(x.t, r)
 
 	nodes := task.Nodes()
-	require.NotEmpty(x.t, nodes)
-	if x.success {
-		r.SubmitSuccessfulReplication(nodes[0])
+
+	var successfulNodes []netmap.NodeInfo
+	if x.success && len(nodes) > 0 {
+		copies := x.successfulCopies
+		if copies == 0 {
+			copies = 1
+		}
+		if copies > uint32(len(nodes)) {
+			copies = uint32(len(nodes))
+		}
+
+		successfulNodes = append(successfulNodes, nodes[:copies]...)
+		for i := range successfulNodes {
+			r.SubmitSuccessfulReplication(successfulNodes[i])
+		}
+	}
+	if x.onTask != nil {
+		x.onTask(task, successfulNodes)
 	}
 
 	// Prevent collisions on subsequent iterations
@@ -1219,12 +1284,15 @@ type mockNetwork struct {
 
 	inNetmap bool
 
-	getNodes map[getNodesKey]getNodesValue
+	mtx            sync.RWMutex
+	getNodes       map[getNodesKey]getNodesValue
+	getNodesCalled map[getNodesKey]uint64
 }
 
 func newMockNetwork() *mockNetwork {
 	return &mockNetwork{
-		getNodes: make(map[getNodesKey]getNodesValue),
+		getNodes:       make(map[getNodesKey]getNodesValue),
+		getNodesCalled: make(map[getNodesKey]uint64),
 	}
 }
 
@@ -1249,11 +1317,39 @@ func (x *mockNetwork) PublicKey() []byte {
 }
 
 func (x *testLocalNode) ListWithCursor(_ uint32, c *engine.Cursor, _ ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
-	if c != nil || len(x.objList) == 0 {
-		return nil, c, engine.ErrEndOfListing
+	if len(x.objList) == 0 {
+		return nil, nil, engine.ErrEndOfListing
 	}
 
-	return x.objList, new(engine.Cursor), nil
+	x.delMtx.RLock()
+	withoutDel := make([]objectcore.AddressWithAttributes, 0, len(x.objList))
+	for _, obj := range x.objList {
+		if _, ok := x.del[obj.Address]; !ok {
+			withoutDel = append(withoutDel, obj)
+		}
+	}
+	x.delMtx.RUnlock()
+
+	if len(withoutDel) == 0 {
+		return nil, nil, engine.ErrEndOfListing
+	}
+
+	if c == nil {
+		lastObj := withoutDel[len(withoutDel)-1]
+		return withoutDel, engine.NewCursor(lastObj.Address.Container(), lastObj.Address.Object()), nil
+	}
+	cursorAddr := oid.NewAddress(c.ContainerID(), c.ObjectID())
+	res := make([]objectcore.AddressWithAttributes, 0, len(withoutDel))
+	for _, obj := range withoutDel {
+		if obj.Address.Compare(cursorAddr) > 0 {
+			res = append(res, obj)
+		}
+	}
+
+	if len(res) == 0 {
+		return nil, nil, engine.ErrEndOfListing
+	}
+	return res, engine.NewCursor(res[len(res)-1].Address.Container(), res[len(res)-1].Address.Object()), nil
 }
 
 func (x *testLocalNode) deletedObjects() []oid.Address {
@@ -1305,26 +1401,45 @@ func newGetNodesKey(cnr cid.ID, obj oid.ID) getNodesKey {
 }
 
 func (x *mockNetwork) setObjectNodesRepResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rep uint) {
+	x.mtx.Lock()
 	x.getNodes[newGetNodesKey(cnr, obj)] = getNodesValue{
 		nodes:    nodes,
 		repRules: []uint{rep},
 	}
+	x.mtx.Unlock()
 }
 
 func (x *mockNetwork) setObjectNodesECResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rule iec.Rule) {
+	x.mtx.Lock()
 	x.getNodes[newGetNodesKey(cnr, obj)] = getNodesValue{
 		nodes:   nodes,
 		ecRules: []iec.Rule{rule},
 	}
+	x.mtx.Unlock()
 }
 
 func (x *mockNetwork) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
-	v, ok := x.getNodes[newGetNodesKey(addr.Container(), addr.Object())]
+	key := newGetNodesKey(addr.Container(), addr.Object())
+	x.mtx.Lock()
+	x.getNodesCalled[key]++
+	v, ok := x.getNodes[key]
+	x.mtx.Unlock()
 	if !ok {
 		return nil, nil, nil, errors.New("[test] unexpected policy requested")
 	}
 
 	return [][]netmap.NodeInfo{v.nodes}, v.repRules, v.ecRules, nil
+}
+
+func (x *mockNetwork) totalGetNodesCalls() uint64 {
+	x.mtx.RLock()
+	defer x.mtx.RUnlock()
+
+	var res uint64
+	for _, v := range x.getNodesCalled {
+		res += v
+	}
+	return res
 }
 
 type nopNodeLoader struct{}
@@ -1346,14 +1461,19 @@ func newConnKey(node netmap.NodeInfo, objAddr oid.Address) connObjectKey {
 }
 
 type mockAPIConnections struct {
+	lock sync.RWMutex
 	head map[connObjectKey]error
 }
 
 func (x *mockAPIConnections) setHeadResult(node netmap.NodeInfo, addr oid.Address, err error) {
+	x.lock.Lock()
+	defer x.lock.Unlock()
 	x.head[newConnKey(node, addr)] = err
 }
 
 func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo, addr oid.Address, _ bool, _ []string) (object.Object, error) {
+	x.lock.RLock()
+	defer x.lock.RUnlock()
 	v, ok := x.head[newConnKey(node, addr)]
 	if !ok {
 		return object.Object{}, errors.New("[test] unexpected conn/object accessed")
