@@ -3,11 +3,11 @@ package engine
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 )
 
 // FlushWriteCache flushes write-cache on a single shard with the given ID.
-func (e *StorageEngine) FlushWriteCache(id *shard.ID) error {
+func (e *StorageEngine) FlushWriteCache(id common.ID) error {
 	e.mtx.RLock()
 	sh, ok := e.shards[id.String()]
 	e.mtx.RUnlock()

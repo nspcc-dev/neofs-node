@@ -263,7 +263,7 @@ func (unimplementedBLOBStore) Path() string {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) ShardID() string {
+func (unimplementedBLOBStore) ShardID() common.ID {
 	panic("unimplemented")
 }
 
@@ -275,7 +275,7 @@ func (unimplementedBLOBStore) SetCompressor(*compression.Config) {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) SetShardID(string) {
+func (unimplementedBLOBStore) SetShardID(common.ID) {
 	panic("unimplemented")
 }
 

@@ -3,8 +3,8 @@ package meta
 import (
 	"fmt"
 
-	"github.com/mr-tron/base58"
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
+	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -84,8 +84,14 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("read shard ID from metabase: %w", err)
 	}
-	metaShardID := base58.Encode(idRaw)
-	if len(metaShardID) > 0 && metaShardID != blobstorShardID && !vForce {
+	var metaShardID blobstorcommon.ID
+	if len(idRaw) != 0 {
+		metaShardID, err = blobstorcommon.NewIDFromBytes(idRaw)
+		if err != nil {
+			return fmt.Errorf("decode metabase shard ID: %w", err)
+		}
+	}
+	if !metaShardID.IsZero() && metaShardID != blobstorShardID && !vForce {
 		return fmt.Errorf("metabase shard ID %q does not match blobstor shard ID %q, use --%s to override", metaShardID, blobstorShardID, forceFlagName)
 	}
 

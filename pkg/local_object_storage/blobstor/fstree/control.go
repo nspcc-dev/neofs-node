@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
 
@@ -68,10 +69,14 @@ func (t *FSTree) checkConfig() error {
 			return fmt.Errorf("descriptor %q is missing, can't open read-only storage", descPath)
 		}
 		// create new descriptor
+		var shardID string
+		if !t.shardID.IsZero() {
+			shardID = t.shardID.String()
+		}
 		d := fsDescriptor{
 			Version: currentVersion,
 			Depth:   t.Depth,
-			ShardID: t.shardID,
+			ShardID: shardID,
 		}
 		data, err := json.Marshal(d)
 		if err != nil {
@@ -110,12 +115,21 @@ func (t *FSTree) checkConfig() error {
 		t.Depth = d.Depth
 	}
 	if t.shardIDSet {
-		if d.ShardID != t.shardID {
+		if d.ShardID != t.shardID.String() {
 			return fmt.Errorf("shard ID mismatch: on-disk shard ID=%s, configured shard ID=%s", d.ShardID, t.shardID)
 		}
 	} else {
-		t.shardID = d.ShardID
-		t.shardIDSet = true
+		if d.ShardID == "" {
+			t.shardID = common.ID{}
+			t.shardIDSet = false
+			return nil
+		}
+		id, err := common.DecodeIDString(d.ShardID)
+		if err != nil {
+			return fmt.Errorf("invalid shard ID %q in descriptor: %w", d.ShardID, err)
+		}
+		t.shardID = id
+		t.shardIDSet = !id.IsZero()
 	}
 	return nil
 }
@@ -131,15 +145,18 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 		t.Depth = d.Depth
 	}
 
-	if !t.shardIDSet {
-		t.shardID = d.ShardID
-		t.shardIDSet = true
+	if !t.shardIDSet && d.ShardID != "" {
+		id, err := common.DecodeIDString(d.ShardID)
+		if err == nil {
+			t.shardID = id
+			t.shardIDSet = !id.IsZero()
+		}
 	}
 
 	if !t.readOnly {
 		d.Version = currentVersion
 		// update shard ID
-		d.ShardID = t.shardID
+		d.ShardID = t.shardID.String()
 		data, err := json.Marshal(d)
 		if err != nil {
 			return fmt.Errorf("encode descriptor to JSON during migration: %w", err)

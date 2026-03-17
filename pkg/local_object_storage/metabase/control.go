@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -232,13 +231,9 @@ func (db *DB) ResyncFromBlobstor(bs common.Storage, onIterationError func(oid.Ad
 		return fmt.Errorf("could not reset metabase: %w", err)
 	}
 
-	strBlobstorShardID := bs.ShardID()
-	if strBlobstorShardID != "" {
-		blobstorShardID, err := base58.Decode(strBlobstorShardID)
-		if err != nil {
-			return fmt.Errorf("invalid blobstor shard ID %q: %w", strBlobstorShardID, err)
-		}
-		err = db.WriteShardID(blobstorShardID)
+	blobstorShardID := bs.ShardID()
+	if !blobstorShardID.IsZero() {
+		err = db.WriteShardID(blobstorShardID.Bytes())
 		if err != nil {
 			return fmt.Errorf("could not write shard ID: %w", err)
 		}

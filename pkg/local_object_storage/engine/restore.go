@@ -3,13 +3,13 @@ package engine
 import (
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 )
 
 // RestoreShard restores objects from dump to the shard with provided identifier.
 //
 // Returns an error if shard is not read-only.
-func (e *StorageEngine) RestoreShard(id *shard.ID, r io.Reader, ignoreErrors bool) error {
+func (e *StorageEngine) RestoreShard(id common.ID, r io.Reader, ignoreErrors bool) error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 

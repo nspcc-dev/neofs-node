@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -199,7 +198,7 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 
 type unimplementedShard struct{}
 
-func (unimplementedShard) ID() *shard.ID {
+func (unimplementedShard) ID() common.ID {
 	panic("unimplemented")
 }
 
@@ -314,9 +313,12 @@ type mockShard struct {
 	headECPart     map[headECPartKey]headECPartValue
 }
 
-func (x *mockShard) ID() *shard.ID {
-	si := strconv.Itoa(x.i)
-	return shard.NewIDFromBytes([]byte(si))
+func (x *mockShard) ID() common.ID {
+	id, err := common.NewIDFromBytes(fmt.Appendf(nil, "%016d", x.i))
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {

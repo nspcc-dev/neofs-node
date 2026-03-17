@@ -20,7 +20,12 @@ func (s *Server) FlushCache(_ context.Context, req *control.FlushCacheRequest) (
 		return nil, err
 	}
 
-	for _, shardID := range s.getShardIDList(req.GetBody().GetShard_ID()) {
+	shardIDs, err := s.getShardIDList(req.GetBody().GetShard_ID())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	for _, shardID := range shardIDs {
 		err = s.storage.FlushWriteCache(shardID)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())

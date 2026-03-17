@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -19,14 +20,14 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*object.Object) {
+func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []common.ID, []*object.Object) {
 	var (
 		dir = t.TempDir()
 		e   = New(
 			WithLogger(zaptest.NewLogger(t)),
 			WithShardPoolSize(uint32(objPerShard)))
 		err error
-		ids = make([]*shard.ID, shardNum)
+		ids = make([]common.ID, shardNum)
 	)
 
 	for i := range ids {

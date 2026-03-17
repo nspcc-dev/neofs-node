@@ -9,6 +9,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -41,7 +42,7 @@ type StorageEngine struct {
 
 // interface of [shard.Shard] used by [StorageEngine] for overriding in tests.
 type shardInterface interface {
-	ID() *shard.ID
+	ID() common.ID
 	GetStream(oid.Address, bool) (*object.Object, io.ReadCloser, error)
 	ReadObject(oid.Address, bool, []byte) (int, io.ReadCloser, error)
 	GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error)
