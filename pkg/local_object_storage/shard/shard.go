@@ -5,6 +5,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -156,7 +157,7 @@ func New(opts ...Option) *Shard {
 }
 
 // WithID returns option to set the default shard identifier.
-func WithID(id *ID) Option {
+func WithID(id *coreshard.ID) Option {
 	return func(c *cfg) {
 		c.info.ID = id
 	}

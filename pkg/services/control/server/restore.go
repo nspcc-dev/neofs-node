@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,7 +22,7 @@ func (s *Server) RestoreShard(_ context.Context, req *control.RestoreShardReques
 		return nil, err
 	}
 
-	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
+	shardID := coreshard.NewFromBytes(req.GetBody().GetShard_ID())
 
 	f, err := os.Open(req.GetBody().GetFilepath())
 	if err != nil {

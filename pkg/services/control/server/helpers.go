@@ -1,23 +1,23 @@
 package control
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // call only if `ready` returned no error.
-func (s *Server) getShardIDList(raw [][]byte) []*shard.ID {
+func (s *Server) getShardIDList(raw [][]byte) []*coreshard.ID {
 	if len(raw) != 0 {
-		res := make([]*shard.ID, 0, len(raw))
+		res := make([]*coreshard.ID, 0, len(raw))
 		for i := range raw {
-			res = append(res, shard.NewIDFromBytes(raw[i]))
+			res = append(res, coreshard.NewFromBytes(raw[i]))
 		}
 		return res
 	}
 
 	info := s.storage.DumpInfo()
-	res := make([]*shard.ID, 0, len(info.Shards))
+	res := make([]*coreshard.ID, 0, len(info.Shards))
 	for i := range info.Shards {
 		res = append(res, info.Shards[i].ID)
 	}

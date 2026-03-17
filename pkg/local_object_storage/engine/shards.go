@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw/v2"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -61,7 +62,7 @@ func (m *metricsWithID) AddToPayloadSize(size int64) {
 //
 // Returns any error encountered that did not allow adding a shard.
 // Otherwise returns the ID of the added shard.
-func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
+func (e *StorageEngine) AddShard(opts ...shard.Option) (*coreshard.ID, error) {
 	sh, err := e.createShard(opts)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a shard: %w", err)
@@ -172,7 +173,7 @@ func (e *StorageEngine) removeShards(ids ...string) {
 	}
 }
 
-func generateShardID() (*shard.ID, error) {
+func generateShardID() (*coreshard.ID, error) {
 	uid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
@@ -183,7 +184,7 @@ func generateShardID() (*shard.ID, error) {
 		return nil, err
 	}
 
-	return shard.NewIDFromBytes(bin), nil
+	return coreshard.NewFromBytes(bin), nil
 }
 
 func (e *StorageEngine) sortedShards(id oid.ID) []shardWrapper {
@@ -215,7 +216,7 @@ func (e *StorageEngine) getShard(id string) shardWrapper {
 // SetShardMode sets mode of the shard with provided identifier.
 //
 // Returns an error if shard mode was not set, or shard was not found in storage engine.
-func (e *StorageEngine) SetShardMode(id *shard.ID, m mode.Mode, resetErrorCounter bool) error {
+func (e *StorageEngine) SetShardMode(id *coreshard.ID, m mode.Mode, resetErrorCounter bool) error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 

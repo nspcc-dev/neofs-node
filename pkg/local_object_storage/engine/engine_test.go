@@ -13,6 +13,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -195,7 +196,7 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 
 type unimplementedShard struct{}
 
-func (unimplementedShard) ID() *shard.ID {
+func (unimplementedShard) ID() *coreshard.ID {
 	panic("unimplemented")
 }
 
@@ -294,9 +295,9 @@ type mockShard struct {
 	headECPart     map[headECPartKey]headECPartValue
 }
 
-func (x *mockShard) ID() *shard.ID {
+func (x *mockShard) ID() *coreshard.ID {
 	si := strconv.Itoa(x.i)
-	return shard.NewIDFromBytes([]byte(si))
+	return coreshard.NewFromBytes([]byte(si))
 }
 
 func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -38,7 +39,7 @@ type FSTree struct {
 	shardIDSet bool
 	noSync     bool
 	readOnly   bool
-	shardID    string
+	shardID    *coreshard.ID
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
@@ -572,12 +573,12 @@ func (t *FSTree) Path() string {
 }
 
 // ShardID returns the shard ID associated with this FSTree.
-func (t *FSTree) ShardID() string {
+func (t *FSTree) ShardID() *coreshard.ID {
 	if !t.shardIDSet {
 		descPath := t.descriptorPath()
 		f, err := os.Open(descPath)
 		if err != nil {
-			return ""
+			return nil
 		}
 		defer f.Close()
 
@@ -585,17 +586,29 @@ func (t *FSTree) ShardID() string {
 		dec := json.NewDecoder(f)
 		dec.DisallowUnknownFields()
 		if err = dec.Decode(&d); err != nil {
-			return ""
+			return nil
 		}
-		return d.ShardID
+		id, err := coreshard.DecodeString(d.ShardID)
+		if err != nil {
+			return nil
+		}
+		return id
 	}
-	return t.shardID
+	if t.shardID == nil {
+		return nil
+	}
+	return coreshard.NewFromBytes(t.shardID.Bytes())
 }
 
 // SetShardID sets the shard ID to be written to the on-disk descriptor.
 // Must be called after the shard ID was generated and before Init().
-func (t *FSTree) SetShardID(id string) {
-	t.shardID = id
+func (t *FSTree) SetShardID(id *coreshard.ID) {
+	if id == nil {
+		t.shardID = nil
+		t.shardIDSet = false
+		return
+	}
+	t.shardID = coreshard.NewFromBytes(id.Bytes())
 	t.shardIDSet = true
 }
 

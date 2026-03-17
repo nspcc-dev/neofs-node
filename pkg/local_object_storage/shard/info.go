@@ -1,6 +1,7 @@
 package shard
 
 import (
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -9,7 +10,7 @@ import (
 // Info groups the information about Shard.
 type Info struct {
 	// Identifier of the shard.
-	ID *ID
+	ID *coreshard.ID
 
 	// Shard mode.
 	Mode mode.Mode

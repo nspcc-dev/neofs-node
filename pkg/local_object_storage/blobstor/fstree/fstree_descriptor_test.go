@@ -5,8 +5,17 @@ import (
 	"path/filepath"
 	"testing"
 
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/stretchr/testify/require"
 )
+
+func mustShardID(t *testing.T, s string) *coreshard.ID {
+	t.Helper()
+
+	id, err := coreshard.DecodeString(s)
+	require.NoError(t, err)
+	return id
+}
 
 func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 	dir := t.TempDir()
@@ -15,7 +24,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs1.SetShardID("shard1")
+	fs1.SetShardID(mustShardID(t, "shard1"))
 	require.NoError(t, fs1.Init())
 	desc := filepath.Join(dir, ".fstree.json")
 
@@ -28,7 +37,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID("shard1")
+		fs.SetShardID(mustShardID(t, "shard1"))
 		err = fs.Init()
 		require.NoError(t, err)
 	})
@@ -38,7 +47,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(3), // mismatch
 		)
-		fs.SetShardID("shard1")
+		fs.SetShardID(mustShardID(t, "shard1"))
 		err = fs.Init()
 		require.EqualError(t, err, "layout mismatch: on-disk depth=2, configured depth=3")
 	})
@@ -48,7 +57,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID("shard2") // mismatch
+		fs.SetShardID(mustShardID(t, "shard2")) // mismatch
 		err = fs.Init()
 		require.EqualError(t, err, "shard ID mismatch: on-disk shard ID=shard1, configured shard ID=shard2")
 	})
@@ -61,7 +70,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID("shard1")
+		fs.SetShardID(mustShardID(t, "shard1"))
 		err = fs.Init()
 		require.EqualError(t, err, "unsupported layout version: 3 (current version: 2)")
 	})
@@ -73,7 +82,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID("shard1")
+		fs.SetShardID(mustShardID(t, "shard1"))
 		err = fs.Init()
 		require.ErrorContains(t, err, "decode descriptor from JSON:")
 	})
@@ -86,7 +95,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID("shard1")
+		fs.SetShardID(mustShardID(t, "shard1"))
 		err = fs.Init()
 		require.ErrorContains(t, err, "decode descriptor from JSON:")
 		require.ErrorContains(t, err, "unknown field \"extra\"")
@@ -105,7 +114,7 @@ func TestFSTreeDescriptor_MigrationFrom1Version(t *testing.T) {
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs.SetShardID("YZfSQhkAhFjXyyGReAEuTU")
+	fs.SetShardID(mustShardID(t, "YZfSQhkAhFjXyyGReAEuTU"))
 	require.NoError(t, fs.Init())
 	require.NoError(t, fs.Close())
 
@@ -117,7 +126,7 @@ func TestFSTreeDescriptor_MigrationFrom1Version(t *testing.T) {
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs2.SetShardID("YZfSQhkAhFjXyyGReAEuTU")
+	fs2.SetShardID(mustShardID(t, "YZfSQhkAhFjXyyGReAEuTU"))
 	require.NoError(t, fs2.Init())
 	require.NoError(t, fs2.Close())
 
@@ -125,7 +134,7 @@ func TestFSTreeDescriptor_MigrationFrom1Version(t *testing.T) {
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs3.SetShardID("DifferentShardID")
+	fs3.SetShardID(mustShardID(t, "APzY5YdK4SSf6N"))
 	err = fs3.Init()
-	require.EqualError(t, err, "shard ID mismatch: on-disk shard ID=YZfSQhkAhFjXyyGReAEuTU, configured shard ID=DifferentShardID")
+	require.EqualError(t, err, "shard ID mismatch: on-disk shard ID=YZfSQhkAhFjXyyGReAEuTU, configured shard ID=APzY5YdK4SSf6N")
 }

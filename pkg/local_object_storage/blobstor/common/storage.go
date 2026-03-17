@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -19,10 +20,10 @@ type Storage interface {
 
 	Type() string
 	Path() string
-	ShardID() string
+	ShardID() *coreshard.ID
 	SetLogger(*zap.Logger)
 	SetCompressor(cc *compression.Config)
-	SetShardID(id string)
+	SetShardID(id *coreshard.ID)
 
 	// GetBytes reads object by address into memory buffer in a canonical NeoFS
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.

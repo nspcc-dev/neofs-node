@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -119,7 +120,7 @@ func TestResyncMetabase(t *testing.T) {
 
 	defer os.RemoveAll(p)
 
-	shID := ID("test")
+	shID := coreshard.ID("test")
 	sh := New(
 		WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(p, "fstree")),
