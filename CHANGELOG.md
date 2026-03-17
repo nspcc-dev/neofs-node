@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - `policer.boost_multiplier` SN config option (#3855)
 - `neofs-lens storage flush-write-caches` command (#3872)
 - Reload gRPC SN config with SIGHUP (#3874)
+- Support for creation of containers with initial placement policy (#3830)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
@@ -30,6 +31,7 @@ Changelog for NeoFS Node
 - Optimized local HEAD request execution (#3783)
 - Unpaid container's data is deleted now (#3691)
 - Policer iterates engine-level object list now instead of shard-level (#3862)
+- SN now ignores `copies_number` field of `object.PutRequest.Body.Init` message (#3830)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
@@ -39,7 +41,7 @@ Changelog for NeoFS Node
 - Metabase v5 to v6 and v6 to v7 migrations (#3864)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260224112648-e6342b6bf094` (#3785, #3817, #3808)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260226163827-b703a4861e06` (#3785, #3817, #3808, #3830)
 - Go 1.25+ is required to build now (#3525)
 - `github.com/klauspost/compress` dependency from v1.18.0 to v1.18.4 (#3850)
 - `github.com/klauspost/reedsolomon` dependency from v1.12.5 to v1.13.2 (#3850)
@@ -64,6 +66,9 @@ Storage nodes no longer automatically migrate metabases from version 5
 0.48.1), migrate using SN 0.51.1 or resynchronize with 0.52.0 if needed.
 
 Storage nodes clean up objects that belong to unpdaid containers.
+
+`copies_number` parameter of object PUT request no longer has an effect. Use
+`max_replicas` setting of container's initial placement policy instead.
 
 ## [0.51.1] - 2026-02-18
 

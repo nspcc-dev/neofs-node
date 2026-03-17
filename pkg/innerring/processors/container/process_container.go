@@ -96,14 +96,18 @@ var allowedSystemAttributes = map[string]struct{}{
 }
 
 func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
+	var metaEnabled bool
 	for k := range cnr.Attributes() {
 		if strings.HasPrefix(k, sysAttrPrefix) {
 			if _, ok := allowedSystemAttributes[k]; !ok {
 				return fmt.Errorf("system attribute %s is not allowed", k)
 			}
 
-			if k == sysAttrChainMeta && !cp.metaEnabled {
-				return errors.New("chain meta data attribute is not allowed")
+			if k == sysAttrChainMeta {
+				if !cp.metaEnabled {
+					return errors.New("chain meta data attribute is not allowed")
+				}
+				metaEnabled = true
 			}
 		}
 	}
@@ -114,6 +118,9 @@ func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, ses
 	}
 	if len(ecRules) > 0 && cnr.PlacementPolicy().NumberOfReplicas() > 0 {
 		return errors.New("REP+EC rules are not supported yet")
+	}
+	if metaEnabled && cnr.PlacementPolicy().Initial() != nil {
+		return errors.New("initial placement policies with consistent metadata are not supported yet")
 	}
 
 	err := cp.verifySignature(signatureVerificationData{

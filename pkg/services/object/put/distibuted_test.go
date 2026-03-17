@@ -148,43 +148,6 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
 	}
 
-	t.Run("linear num of replicas", func(t *testing.T) {
-		// nodes: [A B C] [D B E] [F G]
-		// policy: [2 1 2]
-		// B fails, all others succeed
-		// linear num: 4
-		//
-		// expected order of candidates: [A B C D E]
-		objID := oidtest.ID()
-		cnrNodes := allocNodes([]uint{3, 3, 2})
-		cnrNodes[1][1].SetPublicKey(cnrNodes[0][1].PublicKey())
-		iter := placementIterator{
-			log:           zaptest.NewLogger(t),
-			neoFSNet:      new(testNetwork),
-			remotePool:    new(testWorkerPool),
-			linearReplNum: 4,
-		}
-		var handlerMtx sync.Mutex
-		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, []uint{2, 1, 2}, cnrNodes, false, func(node nodeDesc) error {
-			handlerMtx.Lock()
-			handlerCalls = append(handlerCalls, node.info.PublicKey())
-			handlerMtx.Unlock()
-			if bytes.Equal(node.info.PublicKey(), cnrNodes[0][1].PublicKey()) {
-				return errors.New("any node error")
-			}
-			return nil
-		})
-		require.NoError(t, err)
-		require.Len(t, handlerCalls, 5)
-		require.ElementsMatch(t, [][]byte{
-			cnrNodes[0][0].PublicKey(),
-			cnrNodes[0][1].PublicKey(),
-			cnrNodes[0][2].PublicKey(),
-			cnrNodes[1][0].PublicKey(),
-			cnrNodes[1][2].PublicKey(),
-		}, handlerCalls)
-	})
 	t.Run("broadcast", func(t *testing.T) {
 		// nodes: [A B] [C D B] [E F]
 		// policy: [1 1 1]

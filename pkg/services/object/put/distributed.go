@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -74,8 +75,10 @@ type distributedTarget struct {
 	localOnly bool
 
 	// When object from request is an EC part, ecPart.RuleIndex is >= 0.
-	// Undefined when policy has no EC rules.
+	// Otherwise, ecPart.RuleIndex is negative.
 	ecPart iec.PartInfo
+
+	initialPolicy *netmap.InitialPlacementPolicy
 }
 
 type nodeDesc struct {
@@ -97,6 +100,12 @@ func (x errIncompletePut) Error() string {
 	}
 
 	return commonMsg
+}
+
+func newMaxReplicasError(maxReplicas, done uint, lastRule int, overloaded bool, lastRuleErr error) error {
+	err := fmt.Errorf("unreachable MaxReplicas: %d of %d replicas placed in total, aborted on rule #%d (%w)",
+		done, maxReplicas, lastRule, lastRuleErr)
+	return newCompletionError(err, done > 0, overloaded)
 }
 
 func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
@@ -182,8 +191,8 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 	repRules := t.containerNodes.PrimaryCounts()
 	ecRules := t.containerNodes.ECRules()
-	if typ := obj.Type(); len(repRules) > 0 || typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink {
-		broadcast := typ == object.TypeTombstone || typ == object.TypeLink || (!t.localOnly && typ == object.TypeLock) || len(obj.Children()) > 0
+	if typ := obj.Type(); typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink || len(obj.Children()) > 0 {
+		broadcast := typ != object.TypeLock || !t.localOnly
 
 		useRepRules := repRules
 		if broadcast && len(ecRules) > 0 {
@@ -201,33 +210,244 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 		})
 	}
 
-	if len(ecRules) > 0 {
-		if t.ecPart.RuleIndex >= 0 { // already encoded EC part
-			total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
-			nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
-			return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
+	initial := t.initialPolicy != nil
+
+	if t.ecPart.RuleIndex >= 0 { // already encoded EC part
+		// part info should already be verified, so we don't prevent out-of-range panic here
+		if initial && len(t.initialPolicy.ReplicaLimits()) != 0 && t.initialPolicy.ReplicaLimits()[len(repRules)+t.ecPart.RuleIndex] == 0 {
+			// Client can seal objects himself, but he is unlikely to enforce placement policies.
+			// Using SDK slicer as an example, the object is PUT to any SN.
+			// But this object should still not be saved according to initial policy.
+			// So, this is no-op.
+			return nil
 		}
 
-		if t.sessionSigner != nil {
-			if err := t.ecAndSaveObject(t.sessionSigner, obj, ecRules, objNodeLists[len(repRules):]); err != nil {
-				return err
+		total := int(ecRules[t.ecPart.RuleIndex].DataPartNum + ecRules[t.ecPart.RuleIndex].ParityPartNum)
+		nodes := objNodeLists[len(repRules)+t.ecPart.RuleIndex]
+		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
+	}
+
+	if t.sessionSigner == nil {
+		// Here object sealed on the client side is placed. If it's an EC part, then it's already processed.
+		// Otherwise, it is a regular object replica and policy is REP+EC, so no EC should/can be performed.
+		if len(repRules) == 0 {
+			// already checked and must not happen, and following code is not ready for this
+			panic("unexpected lack of REP rules")
+		}
+		ecRules = nil
+	}
+
+	var maxReplicas uint
+	var ecLimits []uint32
+	var ruleOrder []int
+	ruleNum := len(repRules) + len(ecRules)
+
+	if initial {
+		initialLimits := t.initialPolicy.ReplicaLimits()
+		if t.sessionSigner == nil { // same as above
+			if len(initialLimits) < len(repRules) {
+				return fmt.Errorf("ReplicaLimits has len %d while main policy has %d REP rules", len(initialLimits), len(repRules))
+			}
+			initialLimits = initialLimits[:len(repRules)]
+		}
+
+		if len(initialLimits) > 0 {
+			// TODO: make ContainerNodes.PrimaryCounts() to return []uint32, and just assign
+			repRules = make([]uint, len(repRules)) // recreation is required to not mutate the cache
+			for i := range repRules {
+				repRules[i] = uint(initialLimits[i])
+			}
+			ecLimits = initialLimits[len(repRules):]
+		}
+
+		maxReplicas = uint(t.initialPolicy.MaxReplicas())
+		if maxReplicas > 0 && t.initialPolicy.PreferLocal() {
+			ruleOrder = make([]int, 0, ruleNum)
+			for i := range repRules {
+				if repRules[i] > 0 {
+					ruleOrder = append(ruleOrder, i)
+				}
+			}
+			for i := range ecRules {
+				if ecLimits == nil || ecLimits[i] > 0 {
+					ruleOrder = append(ruleOrder, len(repRules)+i)
+				}
+			}
+			slices.SortFunc(ruleOrder, func(a, b int) int {
+				if localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[a]) {
+					return -1
+				}
+				if localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[b]) {
+					return 1
+				}
+				return 0
+			})
+			ruleNum = len(ruleOrder)
+		}
+	}
+
+	t.resetMetaCollection()
+
+	getRuleIdx := func(i int) int {
+		if ruleOrder == nil {
+			return i
+		}
+		return ruleOrder[i]
+	}
+
+	// TODO: check possibility of using math induction instead:
+	//  MIN0 = MAX - REP1 - REP2 - ... - REPn
+	//  MIN1 = MIN0 + REP1 - OK0
+	//  In practice there are few rules.
+	sumLimitsSinceRule := func(from int) uint {
+		var res uint
+		for i := from; i < ruleNum; i++ {
+			ruleIdx := getRuleIdx(i)
+			if ecRuleIdx := ruleIdx - len(repRules); ecRuleIdx >= 0 {
+				if ecLimits != nil {
+					res += uint(ecLimits[ecRuleIdx])
+				} else {
+					res++
+				}
+			} else {
+				res += repRules[ruleIdx]
 			}
 		}
+		return res
+	}
+
+	leftReplicas := maxReplicas
+
+	handleECRule := func(ruleIdx int, ecRuleIdx int, payloadParts [][]byte) (bool, error) {
+		err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, objNodeLists[ruleIdx])
+		if err != nil {
+			err = fmt.Errorf("apply EC rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
+			if maxReplicas == 0 {
+				return false, err
+			}
+			if leftReplicas > sumLimitsSinceRule(ruleIdx+1) {
+				return false, newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas, ruleIdx, false, err)
+			}
+			t.placementIterator.log.Info("PUT by EC rule failure", zap.Stringer("object", obj.Address()), zap.Error(err))
+			return false, nil
+		}
+		if maxReplicas > 0 {
+			leftReplicas--
+			return leftReplicas == 0, nil
+		}
+		return false, nil
+	}
+
+	var repProg *repProgress
+	var l *zap.Logger
+
+nextRule:
+	for i := range ruleNum {
+		ruleIdx := getRuleIdx(i)
+
+		if ecRuleIdx := ruleIdx - len(repRules); ecRuleIdx >= 0 {
+			if ecLimits != nil && ecLimits[ecRuleIdx] == 0 { // disabled by policy
+				continue
+			}
+
+			if slices.Contains(ecRules[:ecRuleIdx], ecRules[ecRuleIdx]) { // has already been processed, see below
+				continue
+			}
+
+			payloadParts, err := iec.Encode(ecRules[ecRuleIdx], obj.Payload())
+			if err != nil {
+				return fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
+			}
+
+			fin, err := handleECRule(ruleIdx, ecRuleIdx, payloadParts)
+			if err != nil {
+				return err
+			}
+			if fin {
+				break
+			}
+
+			for j := ecRuleIdx + 1; j < len(ecRules); j++ {
+				if ecRules[ecRuleIdx] != ecRules[j] {
+					continue
+				}
+				fin, err := handleECRule(i, j, payloadParts)
+				if err != nil {
+					return err
+				}
+				if fin {
+					break nextRule
+				}
+			}
+
+			continue
+		}
+
+		if repRules[ruleIdx] == 0 { // disabled by policy
+			continue
+		}
+
+		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" && t.metaCollection.objectData == nil {
+			t.metaCollection.objectData = t.encodeObjectMetadata(obj)
+		}
+
+		if l == nil {
+			l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()))
+		}
+
+		if repProg == nil {
+			repProg = newRepProgress(objNodeLists[:len(repRules)])
+		}
+
+		var minReps, maxReps uint
+		if maxReplicas > 0 {
+			if sum := sumLimitsSinceRule(i + 1); leftReplicas > sum {
+				minReps = leftReplicas - sum
+			}
+			maxReps = min(repRules[ruleIdx], leftReplicas)
+		} else {
+			minReps, maxReps = repRules[ruleIdx], repRules[ruleIdx]
+		}
+
+		stored, overloaded, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
+			return t.sendObject(obj, encObj, node, &t.metaCollection)
+		})
+		if err != nil {
+			if maxReplicas > 0 {
+				return newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas+stored, ruleIdx, overloaded, err)
+			}
+			return newCompletionError(err, stored > 0, overloaded)
+		}
+
+		if maxReplicas > 0 {
+			if leftReplicas <= stored { // < should never happen
+				break
+			}
+			leftReplicas -= stored
+		}
+	}
+
+	if len(repRules) > 0 {
+		return t.submitMetaCollection(obj.Address(), &t.metaCollection)
 	}
 
 	return nil
 }
 
+func (t *distributedTarget) resetMetaCollection() {
+	// this field is reused for sliced objects of the same container with
+	// the same placement policy; placement's len must be kept the same, do
+	// not nil the slice, keep it initialized
+	for i := range t.metaCollection.signatures {
+		t.metaCollection.signatures[i] = t.metaCollection.signatures[i][:0]
+	}
+
+	t.metaCollection.objectData = nil
+}
+
 func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedObject,
 	placementFn func(obj object.Object, encObj encodedObject) error) error {
-	defer func() {
-		// this field is reused for sliced objects of the same container with
-		// the same placement policy; placement's len must be kept the same, do
-		// not nil the slice, keep it initialized
-		for i := range t.metaCollection.signatures {
-			t.metaCollection.signatures[i] = t.metaCollection.signatures[i][:0]
-		}
-	}()
+	defer t.resetMetaCollection()
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		t.metaCollection.objectData = t.encodeObjectMetadata(obj)
@@ -255,47 +475,51 @@ func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj e
 		return err
 	}
 
-	if !t.localOnly && t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		metaC.signaturesMtx.RLock()
-		defer metaC.signaturesMtx.RUnlock()
+	return t.submitMetaCollection(obj.Address(), metaC)
+}
 
-		var await bool
-		switch t.metainfoConsistencyAttr {
-		// TODO: there was no constant in SDK at the code creation moment
-		case "strict":
-			await = true
-		case "optimistic":
-			await = false
-		default:
-			return nil
-		}
-
-		addr := obj.Address()
-		var objAccepted chan struct{}
-		if await {
-			objAccepted = make(chan struct{}, 1)
-			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
-		}
-
-		err = t.cnrClient.SubmitObjectPut(metaC.objectData, metaC.signatures)
-		if err != nil {
-			if await {
-				t.metaSvc.UnsubscribeFromObject(addr)
-			}
-			return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
-		}
-
-		if await {
-			select {
-			case <-t.opCtx.Done():
-				t.metaSvc.UnsubscribeFromObject(addr)
-				return fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
-			case <-objAccepted:
-			}
-		}
-
-		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
+func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCollection) error {
+	if t.localOnly || !t.localNodeInContainer || t.metainfoConsistencyAttr == "" {
+		return nil
 	}
+	metaC.signaturesMtx.RLock()
+	defer metaC.signaturesMtx.RUnlock()
+
+	var await bool
+	switch t.metainfoConsistencyAttr {
+	// TODO: there was no constant in SDK at the code creation moment
+	case "strict":
+		await = true
+	case "optimistic":
+		await = false
+	default:
+		return nil
+	}
+
+	var objAccepted chan struct{}
+	if await {
+		objAccepted = make(chan struct{}, 1)
+		t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
+	}
+
+	err := t.cnrClient.SubmitObjectPut(metaC.objectData, metaC.signatures)
+	if err != nil {
+		if await {
+			t.metaSvc.UnsubscribeFromObject(addr)
+		}
+		return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
+	}
+
+	if await {
+		select {
+		case <-t.opCtx.Done():
+			t.metaSvc.UnsubscribeFromObject(addr)
+			return fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
+		case <-objAccepted:
+		}
+	}
+
+	t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
 
 	return nil
 }
@@ -466,150 +690,163 @@ type placementIterator struct {
 	log        *zap.Logger
 	neoFSNet   NeoFSNetwork
 	remotePool util.WorkerPool
-	/* request-dependent */
-	// when non-zero, this setting simplifies the object's storage policy
-	// requirements to a fixed number of object replicas to be retained
-	linearReplNum uint
+}
+
+type nodeResult struct {
+	convertErr error
+	desc       nodeDesc
+	succeeded  bool
+}
+
+type nodeCounters struct {
+	stored    uint
+	processed uint
+}
+
+type repProgress struct {
+	nodeResultsMtx    sync.RWMutex
+	nodeResults       map[string]nodeResult
+	nodesCounters     []nodeCounters
+	nextNodeGroupKeys []string
+	lastRespErr       atomic.Value
+	wg                sync.WaitGroup
+}
+
+func newRepProgress(nodeLists [][]netmap.NodeInfo) *repProgress {
+	return &repProgress{
+		nodeResults:   make(map[string]nodeResult, islices.TwoDimSliceElementCount(nodeLists)),
+		nodesCounters: make([]nodeCounters, len(nodeLists)),
+	}
+}
+
+func repToNode(l *zap.Logger, prog *repProgress, pubKeyStr string, listInd int, nr nodeResult, f func(nodeDesc) error) {
+	nr.desc.placementVector = listInd
+	err := f(nr.desc)
+	prog.nodeResultsMtx.Lock()
+	if listInd >= 0 {
+		if nr.succeeded = err == nil; nr.succeeded {
+			prog.nodesCounters[listInd].stored++
+		}
+	}
+	prog.nodeResults[pubKeyStr] = nr
+	prog.nodeResultsMtx.Unlock()
+	if err != nil {
+		prog.lastRespErr.Store(err)
+		if listInd >= 0 {
+			svcutil.LogServiceError(l, "PUT", nr.desc.info.AddressGroup(), err)
+		} else {
+			svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.AddressGroup(), err)
+		}
+		return
+	}
+}
+
+func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listInd int, minReps, maxReps uint, nodeList []netmap.NodeInfo, f func(desc nodeDesc) error) (uint, bool, error) {
+	var overloaded bool
+
+	for {
+		if prog.nodesCounters[listInd].stored >= maxReps { // > should never happen
+			return prog.nodesCounters[listInd].stored, false, nil
+		}
+
+		var minRequired uint
+		if minReps > prog.nodesCounters[listInd].stored {
+			minRequired = minReps - prog.nodesCounters[listInd].stored
+		}
+
+		listLen := uint(len(nodeList))
+		if listLen-prog.nodesCounters[listInd].processed < minRequired {
+			var err error = errNotEnoughNodes{listIndex: listInd, required: minRequired, left: listLen - prog.nodesCounters[listInd].processed}
+			if e, _ := prog.lastRespErr.Load().(error); e != nil {
+				err = fmt.Errorf("%w (last node error: %w)", err, e)
+			}
+			return prog.nodesCounters[listInd].stored, overloaded, errIncompletePut{singleErr: err}
+		} else if prog.nodesCounters[listInd].processed >= listLen { // > should never happen
+			// The required minimum is reached, and the maximum is unreachable.
+			return prog.nodesCounters[listInd].stored, false, nil
+		}
+
+		replRem := maxReps - prog.nodesCounters[listInd].stored // overflow prevented above
+
+		prog.nextNodeGroupKeys = slices.Grow(prog.nextNodeGroupKeys, int(replRem))[:0]
+		for ; prog.nodesCounters[listInd].processed < listLen && uint(len(prog.nextNodeGroupKeys)) < replRem; prog.nodesCounters[listInd].processed++ {
+			j := prog.nodesCounters[listInd].processed
+			pk := nodeList[j].PublicKey()
+			pks := string(pk)
+			prog.nodeResultsMtx.RLock()
+			nr, ok := prog.nodeResults[pks]
+			prog.nodeResultsMtx.RUnlock()
+			if ok {
+				if nr.succeeded { // in some previous list
+					prog.nodesCounters[listInd].stored++
+					replRem--
+				}
+				continue
+			}
+			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
+				nr.desc.info, nr.convertErr = convertNodeInfo(nodeList[j])
+			}
+			prog.nodeResultsMtx.Lock()
+			prog.nodeResults[pks] = nr
+			prog.nodeResultsMtx.Unlock()
+			if nr.convertErr == nil {
+				prog.nextNodeGroupKeys = append(prog.nextNodeGroupKeys, pks)
+				continue
+			}
+			// critical error that may ultimately block the storage service. Normally it
+			// should not appear because entry into the network map under strict control
+			l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
+				zap.String("public key", netmap.StringifyPublicKey(nodeList[j])), zap.Error(nr.convertErr))
+			if minReps > prog.nodesCounters[listInd].stored {
+				minRequired = minReps - prog.nodesCounters[listInd].stored
+			}
+			if listLen-prog.nodesCounters[listInd].processed-1 < minRequired { // -1 includes current node failure
+				err := fmt.Errorf("%w (last node error: failed to decode network addresses: %w)",
+					errNotEnoughNodes{listIndex: listInd, required: minRequired, left: listLen - prog.nodesCounters[listInd].processed - 1},
+					nr.convertErr)
+				return prog.nodesCounters[listInd].stored, false, errIncompletePut{singleErr: err}
+			}
+			// continue to try the best to save required number of replicas
+		}
+		for j := range prog.nextNodeGroupKeys {
+			pks := prog.nextNodeGroupKeys[j]
+			prog.nodeResultsMtx.RLock()
+			nr := prog.nodeResults[pks]
+			prog.nodeResultsMtx.RUnlock()
+			if nr.desc.local {
+				prog.wg.Go(func() { repToNode(l, prog, pks, listInd, nr, f) })
+				continue
+			}
+			prog.wg.Add(1)
+			if err := x.remotePool.Submit(func() {
+				repToNode(l, prog, pks, listInd, nr, f)
+				prog.wg.Done()
+			}); err != nil {
+				prog.wg.Done()
+				if errors.Is(err, ants.ErrPoolOverload) {
+					overloaded = true
+				}
+				err = fmt.Errorf("submit next job to save an object to the worker pool: %w", err)
+				svcutil.LogWorkerPoolError(l, "PUT", err)
+			}
+		}
+		prog.wg.Wait()
+	}
 }
 
 func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, nodeLists [][]netmap.NodeInfo, broadcast bool, f func(nodeDesc) error) error {
 	var l = x.log.With(zap.Stringer("oid", obj))
-	if x.linearReplNum > 0 {
-		ns := slices.Concat(nodeLists...)
-		nodeLists = [][]netmap.NodeInfo{ns}
-		replCounts = []uint{x.linearReplNum}
-	}
-	var processedNodesMtx sync.RWMutex
-	var nextNodeGroupKeys []string
-	var wg sync.WaitGroup
-	var lastRespErr atomic.Value
-	nodesCounters := make([]struct{ stored, processed uint }, len(nodeLists))
-	type nodeResult struct {
-		convertErr error
-		desc       nodeDesc
-		succeeded  bool
-	}
-	var nrCap int
-	for i := range nodeLists {
-		nrCap += len(nodeLists[i])
-	}
-	nodeResults := make(map[string]nodeResult, nrCap)
 
-	processNode := func(pubKeyStr string, listInd int, nr nodeResult) {
-		nr.desc.placementVector = listInd
-		err := f(nr.desc)
-		processedNodesMtx.Lock()
-		if listInd >= 0 {
-			if nr.succeeded = err == nil; nr.succeeded {
-				nodesCounters[listInd].stored++
-			}
-		}
-		nodeResults[pubKeyStr] = nr
-		processedNodesMtx.Unlock()
-		if err != nil {
-			lastRespErr.Store(err)
-			if listInd >= 0 {
-				svcutil.LogServiceError(l, "PUT", nr.desc.info.AddressGroup(), err)
-			} else {
-				svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.AddressGroup(), err)
-			}
-			return
-		}
-	}
+	prog := newRepProgress(nodeLists)
 
 	// TODO: processing node lists in ascending size can potentially reduce failure
 	//  latency and volume of "unfinished" data to be garbage-collected. Also after
 	//  the failure of any of the nodes the ability to comply with the policy
 	//  requirements may be lost.
 	for i := range replCounts {
-		var (
-			listInd    = i
-			overloaded bool
-		)
-		for {
-			replRem := replCounts[listInd] - nodesCounters[listInd].stored
-			if replRem == 0 {
-				break
-			}
-			listLen := uint(len(nodeLists[listInd]))
-			if listLen-nodesCounters[listInd].processed < replRem {
-				var err error = errNotEnoughNodes{listIndex: listInd, required: replRem, left: listLen - nodesCounters[listInd].processed}
-				if e, _ := lastRespErr.Load().(error); e != nil {
-					err = fmt.Errorf("%w (last node error: %w)", err, e)
-				}
-				var retErr = errIncompletePut{singleErr: err}
-				if nodesCounters[listInd].stored == 0 {
-					if !overloaded {
-						return retErr
-					}
-					var busy = new(apistatus.Busy)
-					busy.SetMessage(retErr.Error())
-					return busy
-				}
-				var inc = new(apistatus.Incomplete)
-				inc.SetMessage(retErr.Error())
-				return inc
-			}
-			nextNodeGroupKeys = slices.Grow(nextNodeGroupKeys, int(replRem))[:0]
-			for ; nodesCounters[listInd].processed < listLen && uint(len(nextNodeGroupKeys)) < replRem; nodesCounters[listInd].processed++ {
-				j := nodesCounters[listInd].processed
-				pk := nodeLists[listInd][j].PublicKey()
-				pks := string(pk)
-				processedNodesMtx.RLock()
-				nr, ok := nodeResults[pks]
-				processedNodesMtx.RUnlock()
-				if ok {
-					if nr.succeeded { // in some previous list
-						nodesCounters[listInd].stored++
-						replRem--
-					}
-					continue
-				}
-				if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-					nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[listInd][j])
-				}
-				processedNodesMtx.Lock()
-				nodeResults[pks] = nr
-				processedNodesMtx.Unlock()
-				if nr.convertErr == nil {
-					nextNodeGroupKeys = append(nextNodeGroupKeys, pks)
-					continue
-				}
-				// critical error that may ultimately block the storage service. Normally it
-				// should not appear because entry into the network map under strict control
-				l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
-					zap.String("public key", netmap.StringifyPublicKey(nodeLists[listInd][j])), zap.Error(nr.convertErr))
-				if listLen-nodesCounters[listInd].processed-1 < replRem { // -1 includes current node failure
-					err := fmt.Errorf("%w (last node error: failed to decode network addresses: %w)",
-						errNotEnoughNodes{listIndex: listInd, required: replRem, left: listLen - nodesCounters[listInd].processed - 1},
-						nr.convertErr)
-					return errIncompletePut{singleErr: err}
-				}
-				// continue to try the best to save required number of replicas
-			}
-			for j := range nextNodeGroupKeys {
-				pks := nextNodeGroupKeys[j]
-				processedNodesMtx.RLock()
-				nr := nodeResults[pks]
-				processedNodesMtx.RUnlock()
-				if nr.desc.local {
-					wg.Go(func() { processNode(pks, listInd, nr) })
-					continue
-				}
-				wg.Add(1)
-				if err := x.remotePool.Submit(func() {
-					processNode(pks, listInd, nr)
-					wg.Done()
-				}); err != nil {
-					wg.Done()
-					if errors.Is(err, ants.ErrPoolOverload) {
-						overloaded = true
-					}
-					err = fmt.Errorf("submit next job to save an object to the worker pool: %w", err)
-					svcutil.LogWorkerPoolError(l, "PUT", err)
-				}
-			}
-			wg.Wait()
+		stored, overloaded, err := x.handleREPRule(l, prog, i, replCounts[i], replCounts[i], nodeLists[i], f)
+		if err != nil {
+			return newCompletionError(err, stored > 0, overloaded)
 		}
 	}
 	if !broadcast {
@@ -623,18 +860,18 @@ broadcast:
 		for j := range nodeLists[i] {
 			pk := nodeLists[i][j].PublicKey()
 			pks := string(pk)
-			processedNodesMtx.RLock()
-			nr, ok := nodeResults[pks]
-			processedNodesMtx.RUnlock()
+			prog.nodeResultsMtx.RLock()
+			nr, ok := prog.nodeResults[pks]
+			prog.nodeResultsMtx.RUnlock()
 			if ok {
 				continue
 			}
 			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
 				nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[i][j])
 			}
-			processedNodesMtx.Lock()
-			nodeResults[pks] = nr
-			processedNodesMtx.Unlock()
+			prog.nodeResultsMtx.Lock()
+			prog.nodeResults[pks] = nr
+			prog.nodeResultsMtx.Unlock()
 			if nr.convertErr != nil {
 				// critical error that may ultimately block the storage service. Normally it
 				// should not appear because entry into the network map under strict control
@@ -643,21 +880,21 @@ broadcast:
 				continue // to send as many replicas as possible
 			}
 			if nr.desc.local {
-				wg.Go(func() { processNode(pks, -1, nr) })
+				prog.wg.Go(func() { repToNode(l, prog, pks, -1, nr, f) })
 				continue
 			}
-			wg.Add(1)
+			prog.wg.Add(1)
 			if err := x.remotePool.Submit(func() {
-				processNode(pks, -1, nr)
-				wg.Done()
+				repToNode(l, prog, pks, -1, nr, f)
+				prog.wg.Done()
 			}); err != nil {
-				wg.Done()
+				prog.wg.Done()
 				svcutil.LogWorkerPoolError(l, "PUT (extra broadcast)", err)
 				break broadcast
 			}
 		}
 	}
-	wg.Wait()
+	prog.wg.Wait()
 	return nil
 }
 

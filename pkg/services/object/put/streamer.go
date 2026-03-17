@@ -172,11 +172,6 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 }
 
 func (p *Streamer) preparePrm(prm *PutInitPrm) error {
-	localOnly := prm.common.LocalOnly()
-	if localOnly && prm.copiesNumber > 1 {
-		return errors.New("storage of multiple object replicas is requested for a local operation")
-	}
-
 	localNodeKey, err := p.keyStorage.GetKey(nil)
 	if err != nil {
 		return fmt.Errorf("get local node's private key: %w", err)
@@ -235,8 +230,9 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		prm.ecPart = ecPart
 	} else {
 		prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
+		prm.ecPart.RuleIndex = -1
 	}
-	if !prm.localNodeInContainer && localOnly {
+	if !prm.localNodeInContainer && prm.common.LocalOnly() {
 		return errors.New("local operation on the node not compliant with the container storage policy")
 	}
 
@@ -265,10 +261,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		networkMagicNumber: p.networkMagic,
 		metaSvc:            p.metaSvc,
 		placementIterator: placementIterator{
-			log:           p.log,
-			neoFSNet:      p.neoFSNet,
-			remotePool:    p.remotePool,
-			linearReplNum: uint(prm.copiesNumber),
+			log:        p.log,
+			neoFSNet:   p.neoFSNet,
+			remotePool: p.remotePool,
 		},
 		localStorage:            p.localStore,
 		keyStorage:              p.keyStorage,
@@ -287,8 +282,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		metaCollection: metaCollection{
 			signatures: make([][][]byte, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
 		},
-		metaSigner: prm.localSignerRFC6979,
-		localOnly:  prm.common.LocalOnly(),
+		metaSigner:    prm.localSignerRFC6979,
+		localOnly:     prm.common.LocalOnly(),
+		initialPolicy: prm.cnr.PlacementPolicy().Initial(),
 	}
 }
 
