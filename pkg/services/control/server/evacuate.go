@@ -31,7 +31,12 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 		return nil, err
 	}
 
-	count, err := s.storage.Evacuate(s.getShardIDList(req.GetBody().GetShard_ID()), req.GetBody().GetIgnoreErrors(), s.replicate)
+	shardIDs, err := s.getShardIDList(req.GetBody().GetShard_ID())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	count, err := s.storage.Evacuate(shardIDs, req.GetBody().GetIgnoreErrors(), s.replicate)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

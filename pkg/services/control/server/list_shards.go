@@ -28,7 +28,7 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 	for _, sh := range info.Shards {
 		si := new(control.ShardInfo)
 
-		si.SetID(*sh.ID)
+		si.SetID(sh.ID.Bytes())
 		si.SetMetabasePath(sh.MetaBaseInfo.Path)
 		si.Blobstor = &control.BlobstorInfo{
 			Path: sh.BlobStorInfo.Path,

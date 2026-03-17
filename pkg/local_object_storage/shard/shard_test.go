@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -55,8 +56,14 @@ func _newShardWithFSTree(t testing.TB, rootPath string, enableWriteCache bool, w
 		fstree.WithPath(filepath.Join(rootPath, "fstree")),
 	)
 
+	newShardID := func() common.ID {
+		id, err := common.NewID()
+		require.NoError(t, err)
+		return id
+	}
+
 	opts := append([]shard.Option{
-		shard.WithID(shard.NewIDFromBytes([]byte("testShard"))),
+		shard.WithID(newShardID()),
 		shard.WithLogger(zap.L()),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),

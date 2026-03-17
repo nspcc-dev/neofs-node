@@ -42,7 +42,12 @@ func (s *Server) SetShardMode(_ context.Context, req *control.SetShardModeReques
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unknown shard mode: %s", requestedMode))
 	}
 
-	for _, shardID := range s.getShardIDList(req.Body.GetShard_ID()) {
+	shardIDs, err := s.getShardIDList(req.Body.GetShard_ID())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	for _, shardID := range shardIDs {
 		err = s.storage.SetShardMode(shardID, m, req.Body.GetResetErrorCounter())
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())

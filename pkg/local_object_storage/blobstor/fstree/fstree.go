@@ -38,7 +38,7 @@ type FSTree struct {
 	shardIDSet bool
 	noSync     bool
 	readOnly   bool
-	shardID    string
+	shardID    common.ID
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
@@ -572,12 +572,12 @@ func (t *FSTree) Path() string {
 }
 
 // ShardID returns the shard ID associated with this FSTree.
-func (t *FSTree) ShardID() string {
+func (t *FSTree) ShardID() common.ID {
 	if !t.shardIDSet {
 		descPath := t.descriptorPath()
 		f, err := os.Open(descPath)
 		if err != nil {
-			return ""
+			return common.ID{}
 		}
 		defer f.Close()
 
@@ -585,16 +585,25 @@ func (t *FSTree) ShardID() string {
 		dec := json.NewDecoder(f)
 		dec.DisallowUnknownFields()
 		if err = dec.Decode(&d); err != nil {
-			return ""
+			return common.ID{}
 		}
-		return d.ShardID
+		id, err := common.DecodeIDString(d.ShardID)
+		if err != nil {
+			return common.ID{}
+		}
+		return id
 	}
 	return t.shardID
 }
 
 // SetShardID sets the shard ID to be written to the on-disk descriptor.
 // Must be called after the shard ID was generated and before Init().
-func (t *FSTree) SetShardID(id string) {
+func (t *FSTree) SetShardID(id common.ID) {
+	if id.IsZero() {
+		t.shardID = common.ID{}
+		t.shardIDSet = false
+		return
+	}
 	t.shardID = id
 	t.shardIDSet = true
 }

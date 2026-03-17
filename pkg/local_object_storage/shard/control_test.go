@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -124,13 +125,14 @@ func TestResyncMetabase(t *testing.T) {
 
 	defer os.RemoveAll(p)
 
-	shID := ID("test")
+	shID, err := common.NewID()
+	require.NoError(t, err)
 	sh := New(
 		WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
-		WithID(&shID),
+		WithID(shID),
 		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
@@ -189,11 +191,11 @@ func TestResyncMetabase(t *testing.T) {
 	tombedAddress := oid.NewAddress(tombObj.GetContainerID(), tombedID)
 
 	for _, v := range mObjs {
-		err := sh.Put(v.obj, nil)
+		err = sh.Put(v.obj, nil)
 		require.NoError(t, err)
 	}
 
-	err := sh.Put(&tombObj, nil)
+	err = sh.Put(&tombObj, nil)
 	require.NoError(t, err)
 
 	// LOCK object handling
@@ -269,7 +271,7 @@ func TestResyncMetabase(t *testing.T) {
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
-		WithID(&shID),
+		WithID(shID),
 		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),

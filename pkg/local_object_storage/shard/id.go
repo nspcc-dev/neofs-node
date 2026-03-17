@@ -1,27 +1,12 @@
 package shard
 
 import (
-	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"go.uber.org/zap"
 )
 
-// ID represents Shard identifier.
-//
-// Each shard should have the unique ID within
-// a single instance of local storage.
-type ID []byte
-
-// NewIDFromBytes constructs ID from byte slice.
-func NewIDFromBytes(v []byte) *ID {
-	return (*ID)(&v)
-}
-
-func (id ID) String() string {
-	return base58.Encode(id)
-}
-
 // ID returns Shard identifier.
-func (s *Shard) ID() *ID {
+func (s *Shard) ID() common.ID {
 	return s.info.ID
 }
 
@@ -41,20 +26,18 @@ func (s *Shard) UpdateID() (err error) {
 		return err
 	}
 	if len(id) != 0 {
-		s.info.ID = NewIDFromBytes(id)
+		s.info.ID, err = common.NewIDFromBytes(id)
+		if err != nil {
+			return err
+		}
 
 		if s.metricsWriter != nil {
 			s.metricsWriter.SetShardID(s.info.ID.String())
 		}
 	} else {
 		blobShardID := s.blobStor.ShardID()
-		if blobShardID != "" {
-			var bBlobShardID []byte
-			bBlobShardID, err = base58.Decode(blobShardID)
-			if err != nil {
-				return err
-			}
-			s.info.ID = NewIDFromBytes(bBlobShardID)
+		if !blobShardID.IsZero() {
+			s.info.ID = blobShardID
 
 			if s.metricsWriter != nil {
 				s.metricsWriter.SetShardID(s.info.ID.String())
@@ -70,7 +53,7 @@ func (s *Shard) UpdateID() (err error) {
 	s.gcCfg.log = s.gcCfg.log.With(zap.String("shard_id", sID))
 	s.metaBase.SetLogger(l)
 	s.blobStor.SetLogger(l)
-	s.blobStor.SetShardID(sID)
+	s.blobStor.SetShardID(s.info.ID)
 	if s.hasWriteCache() {
 		s.writeCache.SetLogger(l)
 		s.writeCache.SetShardIDMetrics(sID)
@@ -79,5 +62,5 @@ func (s *Shard) UpdateID() (err error) {
 	if len(id) != 0 {
 		return nil
 	}
-	return s.metaBase.WriteShardID(*s.info.ID)
+	return s.metaBase.WriteShardID(s.info.ID.Bytes())
 }

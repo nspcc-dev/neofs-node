@@ -19,10 +19,10 @@ type Storage interface {
 
 	Type() string
 	Path() string
-	ShardID() string
+	ShardID() ID
 	SetLogger(*zap.Logger)
 	SetCompressor(cc *compression.Config)
-	SetShardID(id string)
+	SetShardID(id ID)
 
 	// GetBytes reads object by address into memory buffer in a canonical NeoFS
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.
