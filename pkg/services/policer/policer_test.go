@@ -80,6 +80,7 @@ func TestConsistency(t *testing.T) {
 	t.Run("startup value", func(t *testing.T) {
 		wp, err := ants.NewPool(100)
 		require.NoError(t, err)
+		t.Cleanup(wp.Release)
 
 		var (
 			mockM     = &mockMetrics{}
@@ -107,6 +108,7 @@ func TestConsistency(t *testing.T) {
 	t.Run("metrics change", func(t *testing.T) {
 		wp, err := ants.NewPool(100)
 		require.NoError(t, err)
+		t.Cleanup(wp.Release)
 
 		var (
 			cnr      = cidtest.ID()
@@ -665,6 +667,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 
 	wp, err := ants.NewPool(100)
 	require.NoError(t, err)
+	t.Cleanup(wp.Release)
 
 	localNode := newTestLocalNode()
 	localNode.objList = []objectcore.AddressWithAttributes{localObj}
@@ -1110,6 +1113,7 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 
 	wp, err := ants.NewPool(100)
 	require.NoError(t, err)
+	t.Cleanup(wp.Release)
 
 	localNode := newTestLocalNode()
 	localNode.objList = []objectcore.AddressWithAttributes{localObj}

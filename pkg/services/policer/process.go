@@ -14,6 +14,7 @@ import (
 
 func (p *Policer) Run(ctx context.Context) {
 	defer func() {
+		p.checkECPartsWorkerPool.Release()
 		p.log.Info("routine stopped")
 	}()
 
