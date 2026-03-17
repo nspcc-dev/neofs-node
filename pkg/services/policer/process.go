@@ -111,20 +111,19 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 				return
 			default:
 				addr := addrs[i]
-				if p.objsInWork.inWork(addr.Address) {
+				if !p.objsInWork.tryAdd(addr.Address) {
 					// do not process an object
 					// that is in work
 					continue
 				}
 
 				err = p.taskPool.Submit(func() {
-					p.objsInWork.add(addr.Address)
+					defer p.objsInWork.remove(addr.Address)
 
 					p.processObject(ctx, addr)
-
-					p.objsInWork.remove(addr.Address)
 				})
 				if err != nil {
+					p.objsInWork.remove(addr.Address)
 					p.log.Warn("pool submission", zap.Error(err))
 				}
 			}

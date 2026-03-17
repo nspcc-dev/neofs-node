@@ -62,15 +62,21 @@ func (oiw *objectsInWork) inWork(addr oid.Address) bool {
 	return ok
 }
 
+func (oiw *objectsInWork) tryAdd(addr oid.Address) bool {
+	oiw.m.Lock()
+	defer oiw.m.Unlock()
+
+	if _, ok := oiw.objs[addr]; ok {
+		return false
+	}
+
+	oiw.objs[addr] = struct{}{}
+	return true
+}
+
 func (oiw *objectsInWork) remove(addr oid.Address) {
 	oiw.m.Lock()
 	delete(oiw.objs, addr)
-	oiw.m.Unlock()
-}
-
-func (oiw *objectsInWork) add(addr oid.Address) {
-	oiw.m.Lock()
-	oiw.objs[addr] = struct{}{}
 	oiw.m.Unlock()
 }
 
