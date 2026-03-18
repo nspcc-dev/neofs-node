@@ -30,10 +30,10 @@ func (x *MemBuffer) Finalize(from, to int) {
 	x.Ref()
 }
 
-// Len returns final length of the underlying message. Len returns undefined
+// ReadOnlyData returns final length of the underlying message. ReadOnlyData returns undefined
 // value before [MemBuffer.SetBounds]/[MemBuffer.Finalize].
 //
-// Len implements [mem.Buffer].
+// ReadOnlyData implements [mem.Buffer].
 func (x *MemBuffer) ReadOnlyData() []byte {
 	return x.SliceBuffer[x.from:x.to]
 }
