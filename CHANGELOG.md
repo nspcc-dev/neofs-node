@@ -32,6 +32,7 @@ Changelog for NeoFS Node
 - Unpaid container's data is deleted now (#3691)
 - Policer iterates engine-level object list now instead of shard-level (#3862)
 - SN now ignores `copies_number` field of `object.PutRequest.Body.Init` message (#3830)
+- Policer starts from a random offset (#3879)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)

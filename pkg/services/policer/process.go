@@ -2,18 +2,22 @@ package policer
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 func (p *Policer) Run(ctx context.Context) {
 	defer func() {
+		p.checkECPartsWorkerPool.Release()
 		p.log.Info("routine stopped")
 	}()
 
@@ -55,20 +59,49 @@ func (w *boostWindow) record(hadReplicated bool) (withReplication int) {
 	return withReplication
 }
 
+func randomAddress() oid.Address {
+	var cnr cid.ID
+	var obj oid.ID
+	_, _ = rand.Read(cnr[:])
+	_, _ = rand.Read(obj[:])
+	var addr oid.Address
+	addr.SetContainer(cnr)
+	addr.SetObject(obj)
+	return addr
+}
+
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	var (
-		addrs   []objectcore.AddressWithAttributes
-		cursor  *engine.Cursor
-		win     boostWindow
-		boosted bool
-		err     error
+		addrs    []objectcore.AddressWithAttributes
+		cursor   *engine.Cursor
+		win      boostWindow
+		boosted  bool
+		err      error
+		wrapped  bool
+		stopAddr oid.Address
 	)
 
 	p.mtx.RLock()
 	t := time.NewTimer(p.repCooldown)
 	p.mtx.RUnlock()
 
+	stopAddr = randomAddress()
+	cursor = engine.NewCursor(stopAddr.Container(), stopAddr.Object())
+
+	cycleFinished := func() {
+		cleanCycle := !p.hadToReplicate.Swap(false)
+		if cleanCycle {
+			p.metrics.SetPolicerConsistency(true)
+		}
+
+		p.log.Info("finished local storage cycle", zap.Bool("cleanCycle", cleanCycle))
+
+		wrapped = false
+	}
+
 	for {
+		var hadReplicationBeforeReset bool
+
 		select {
 		case <-ctx.Done():
 			return
@@ -91,39 +124,44 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		addrs, cursor, err = p.localStorage.ListWithCursor(batchSize, cursor, iec.AttributeRuleIdx, iec.AttributePartIdx, object.FilterParentID)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
-				cleanCycle := !p.hadToReplicate.Swap(false)
-				if cleanCycle {
-					p.metrics.SetPolicerConsistency(true)
+				if wrapped {
+					cycleFinished()
+					time.Sleep(repCooldown)
+				} else {
+					wrapped = true
+					cursor = nil
 				}
-
-				p.log.Info("finished local storage cycle", zap.Bool("cleanCycle", cleanCycle))
 			} else {
 				p.log.Warn("failure at object select for replication", zap.Error(err))
+				time.Sleep(repCooldown)
 			}
-			time.Sleep(repCooldown)
 			continue
 		}
 
 		for i := range addrs {
+			if wrapped && addrs[i].Address.Compare(stopAddr) > 0 {
+				hadReplicationBeforeReset = p.hadToReplicate.Load()
+				cycleFinished()
+			}
+
 			select {
 			case <-ctx.Done():
 				return
 			default:
 				addr := addrs[i]
-				if p.objsInWork.inWork(addr.Address) {
+				if !p.objsInWork.tryAdd(addr.Address) {
 					// do not process an object
 					// that is in work
 					continue
 				}
 
 				err = p.taskPool.Submit(func() {
-					p.objsInWork.add(addr.Address)
+					defer p.objsInWork.remove(addr.Address)
 
 					p.processObject(ctx, addr)
-
-					p.objsInWork.remove(addr.Address)
 				})
 				if err != nil {
+					p.objsInWork.remove(addr.Address)
 					p.log.Warn("pool submission", zap.Error(err))
 				}
 			}
@@ -133,7 +171,8 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		// sliding window. Boost mode transitions only when a strict majority
 		// of the window agrees, so an equal split keeps the current state unchanged.
 		if boostMultiplier > 1 {
-			withReplication := win.record(p.hadToReplicate.Load())
+			hadReplication := hadReplicationBeforeReset || p.hadToReplicate.Load()
+			withReplication := win.record(hadReplication)
 
 			if !boosted && withReplication >= boostMajority {
 				p.log.Info("missing replicas detected, entering boost mode",

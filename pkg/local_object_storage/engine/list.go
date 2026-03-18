@@ -26,6 +26,16 @@ func NewCursor(cnr cid.ID, obj oid.ID) *Cursor {
 	return &Cursor{shardCursor: shard.NewCursor(cnr, obj)}
 }
 
+// ContainerID returns the container ID stored in the cursor.
+func (c *Cursor) ContainerID() cid.ID {
+	return c.shardCursor.ContainerID()
+}
+
+// ObjectID returns the object ID stored in the cursor.
+func (c *Cursor) ObjectID() oid.ID {
+	return c.shardCursor.LastObjectID()
+}
+
 // ListWithCursor lists physical objects available in the engine starting
 // from the cursor. It includes regular, tombstone and storage group objects.
 // Does not include inhumed objects. Use cursor value from the response
