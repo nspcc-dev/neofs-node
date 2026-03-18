@@ -718,7 +718,8 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		respTo += n
 	}
 
-	respMemBuf.Finalize(bodyf.From, respTo)
+	respMemBuf.SetBounds(bodyf.From, respTo)
+	respMemBuf.Ref()
 	return respMemBuf
 }
 

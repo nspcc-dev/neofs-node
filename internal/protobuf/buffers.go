@@ -23,15 +23,8 @@ func (x *MemBuffer) SetBounds(from, to int) {
 	x.to = to
 }
 
-// Finalize seals underlying message with given bounds and increments ref
-// counter for x. Finalize is intended to be called before.
-func (x *MemBuffer) Finalize(from, to int) {
-	x.SetBounds(from, to)
-	x.Ref()
-}
-
 // ReadOnlyData returns final length of the underlying message. ReadOnlyData returns undefined
-// value before [MemBuffer.SetBounds]/[MemBuffer.Finalize].
+// value before [MemBuffer.SetBounds].
 //
 // ReadOnlyData implements [mem.Buffer].
 func (x *MemBuffer) ReadOnlyData() []byte {
@@ -39,7 +32,7 @@ func (x *MemBuffer) ReadOnlyData() []byte {
 }
 
 // Len returns final length of the underlying message. Len returns undefined
-// value before [MemBuffer.SetBounds]/[MemBuffer.Finalize].
+// value before [MemBuffer.SetBounds].
 //
 // Len implements [mem.Buffer].
 func (x *MemBuffer) Len() int {
@@ -95,7 +88,7 @@ func NewBufferPool(ln int) *MemBufferPool {
 // Get selects MemBuffer from x and returns it.
 //
 // Instant [MemBuffer.Free] call returns the buffer to x. Use [MemBuffer.Ref] /
-// [MemBuffer.Finalize] to prevent release.
+// to prevent release.
 func (x *MemBufferPool) Get() *MemBuffer {
 	item := x.syncPool.Get().(*MemBuffer)
 	item.pool = x.syncPool
