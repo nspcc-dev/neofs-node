@@ -10,10 +10,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -109,17 +109,6 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			cmd.Println("ACL extension is enabled in the container, continue processing.")
 		}
 
-		var actor containerModifier = cli
-
-		if containerAwait {
-			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
-			if err != nil {
-				return fmt.Errorf("fetching network info: %w", err)
-			}
-
-			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
-		}
-
 		var setEACLPrm client.PrmContainerSetEACL
 		if tokAny != nil {
 			switch tok := tokAny.(type) {
@@ -132,16 +121,15 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				setEACLPrm.WithinSession(*tok)
 			}
 		}
-		err = actor.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
+		err = cli.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
 		if err != nil {
+			if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
+				err = common.ErrAwaitTimeout
+			}
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		if !containerAwait {
-			cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
-		} else {
-			cmd.Println("EACL has been persisted on FS chain")
-		}
+		cmd.Println("EACL has been persisted on FS chain")
 		return nil
 	},
 }
