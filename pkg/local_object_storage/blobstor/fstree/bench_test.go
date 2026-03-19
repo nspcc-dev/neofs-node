@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -67,7 +68,7 @@ func BenchmarkFSTree_GetStream(b *testing.B) {
 }
 
 func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
-	buf := make([]byte, 2*object.MaxHeaderLen)
+	buf := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
 
 	testRead := func(fsTree *fstree.FSTree, addr oid.Address) {
 		var err error
