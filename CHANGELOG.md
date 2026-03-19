@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - SN now determines request API version from original request meta header (#3897)
 - 2.18 is the minimum supported version for new objects (#3869)
 - Rename `neofs-lens` into `neofs-lancet` (#3894)
+- SN no longer accepts objects with invocation or verification script bigger than 1KiB (#3887)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
