@@ -47,7 +47,7 @@ Changelog for NeoFS Node
 - Metabase v5 to v6 and v6 to v7 migrations (#3864)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260319060454-934c0cf2ac17` (#3785, #3817, #3808, #3830, #3883, #3896)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260320132435-55419a28ca95` (#3785, #3817, #3808, #3830, #3883, #3896, #3887)
 - `github.com/nspcc-dev/neo-go` module to `v0.118.0` (#3896)
 - Go 1.25+ is required to build now (#3525)
 - `github.com/klauspost/compress` dependency from v1.18.0 to v1.18.4 (#3850)
