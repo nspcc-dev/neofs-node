@@ -3,16 +3,45 @@ package fstree_test
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"math"
 	"testing"
 
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
+
+func newMaxNonPayloadFieldsObject() object.Object {
+	maxVerifScript := testutil.RandByteSlice(neofscrypto.MaxVerificationScriptLength)
+	maxInvocScript := testutil.RandByteSlice(neofscrypto.MaxInvocationScriptLength)
+	sig := neofscrypto.NewSignatureFromRawKey(math.MaxInt32, maxVerifScript, maxInvocScript)
+
+	var obj object.Object
+	obj.SetID(oidtest.ID())
+	obj.SetContainerID(cidtest.ID())
+	obj.SetSignature(&sig)
+	obj.SetAttributes(object.NewAttribute("attr", hex.EncodeToString(testutil.RandByteSlice(8168))))
+	obj.SetPayload(testutil.RandByteSlice(1024))
+
+	return obj
+}
+
+func TestMaxNonPayloadFieldsObject(t *testing.T) {
+	obj := newMaxNonPayloadFieldsObject()
+	data := obj.CutPayload().Marshal()
+	require.EqualValues(t, iprotobuf.MaxObjectWithoutPayloadLength, len(data))
+	require.LessOrEqual(t, len(data), iobject.NonPayloadFieldsBufferLength)
+}
 
 func TestHeadStorage(t *testing.T) {
 	fsTree := setupFSTree(t)
@@ -23,22 +52,34 @@ func TestHeadStorage(t *testing.T) {
 		addAttribute(obj, "test-key1", "test-value1")
 		addAttribute(obj, "test-key2", "test-value2")
 
-		err := fsTree.Put(obj.Address(), obj.Marshal())
-		require.NoError(t, err)
+		testObject := func(t *testing.T, obj *object.Object) {
+			err := fsTree.Put(obj.Address(), obj.Marshal())
+			require.NoError(t, err)
 
-		res, err := fsTree.Head(obj.Address())
-		require.NoError(t, err)
+			res, err := fsTree.Head(obj.Address())
+			require.NoError(t, err)
 
-		require.Equal(t, obj.CutPayload(), res)
-		require.Empty(t, res.Payload())
+			require.Equal(t, obj.CutPayload(), res)
+			require.Empty(t, res.Payload())
 
-		require.Len(t, res.Attributes(), len(obj.Attributes()))
+			require.Len(t, res.Attributes(), len(obj.Attributes()))
 
-		fullObj, err := fsTree.Get(obj.Address())
-		require.NoError(t, err)
-		require.Equal(t, obj, fullObj)
+			fullObj, err := fsTree.Get(obj.Address())
+			require.NoError(t, err)
+			require.Equal(t, obj, fullObj)
 
-		testReadHeaderOK(t, fsTree, *obj)
+			testReadHeaderOK(t, fsTree, *obj)
+		}
+
+		t.Run("non-payload fields limit", func(t *testing.T) {
+			obj := newMaxNonPayloadFieldsObject()
+			if size > 0 {
+				obj.SetPayload(testutil.RandByteSlice(size))
+			}
+			testObject(t, &obj)
+		})
+
+		testObject(t, obj)
 	}
 
 	testCombinedObjects := func(t *testing.T, fsTree *fstree.FSTree, size int) {
@@ -46,6 +87,28 @@ func TestHeadStorage(t *testing.T) {
 
 		objMap := make(map[oid.Address][]byte, numObjects)
 		objects := make([]*object.Object, numObjects)
+
+		t.Run("non-payload fields limit", func(t *testing.T) {
+			for i := range numObjects {
+				obj := newMaxNonPayloadFieldsObject()
+				if size > 0 {
+					obj.SetPayload(testutil.RandByteSlice(size))
+				}
+				objects[i] = &obj
+				objMap[obj.Address()] = obj.Marshal()
+			}
+
+			require.NoError(t, fsTree.PutBatch(objMap))
+
+			for i := range numObjects {
+				res, err := fsTree.Head(objects[i].Address())
+				require.NoError(t, err)
+				require.Equal(t, objects[i].CutPayload(), res)
+
+				testReadHeaderOK(t, fsTree, *objects[i])
+			}
+		})
+
 		for i := range numObjects {
 			obj := generateTestObject(size)
 			obj.SetAttributes()
@@ -97,7 +160,7 @@ func TestHeadStorage(t *testing.T) {
 		_, err := fsTree.Head(addr)
 		require.Error(t, err)
 
-		_, err = fsTree.ReadHeader(obj.Address(), make([]byte, object.MaxHeaderLen*2))
+		_, err = fsTree.ReadHeader(obj.Address(), make([]byte, iobject.NonPayloadFieldsBufferLength*2))
 		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	})
 
@@ -134,7 +197,7 @@ func TestHeadStorage(t *testing.T) {
 }
 
 func testReadHeaderOK(t *testing.T, fst *fstree.FSTree, obj object.Object) {
-	buf := make([]byte, object.MaxHeaderLen*2)
+	buf := make([]byte, iobject.NonPayloadFieldsBufferLength*2)
 
 	n, err := fst.ReadHeader(obj.Address(), buf)
 	require.NoError(t, err)

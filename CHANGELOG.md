@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Suboptimal shard selection for EC parts during data evacuation (#3870)
 - No redistribution of objects when adding a new `REP 3` node (#3873)
 - Split of a split is allowed (#3867)
+- SN no longer fails to read valid objects with non-payload fields larger than 16K (#3887)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)

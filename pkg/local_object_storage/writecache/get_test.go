@@ -8,10 +8,10 @@ import (
 	"testing"
 	"testing/iotest"
 
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -132,7 +132,7 @@ func TestCache_ReadHeader(t *testing.T) {
 
 	obj := putObject(t, c, 4<<10).obj
 
-	buf := make([]byte, object.MaxHeaderLen*2)
+	buf := make([]byte, iobject.NonPayloadFieldsBufferLength*2)
 
 	n, err := c.ReadHeader(obj.Address(), buf)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestCache_ReadObject(t *testing.T) {
 	testWithPayloadLen := func(t *testing.T, ln int) {
 		obj := putObject(t, c, ln).obj
 
-		buf := make([]byte, object.MaxHeaderLen*2)
+		buf := make([]byte, iobject.NonPayloadFieldsBufferLength*2)
 
 		n, stream, err := c.ReadObject(obj.Address(), buf)
 		require.NoError(t, err)

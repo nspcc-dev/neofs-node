@@ -34,7 +34,7 @@ func (t *FSTree) Head(addr oid.Address) (*object.Object, error) {
 //
 // If object is missing, ReadHeader returns [apistatus.ErrObjectNotFound].
 //
-// Passed buf must have 2*[object.MaxHeaderLen] bytes len at least.
+// Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
 func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	n, stream, err := t.ReadObject(addr, buf)
 	if err != nil {
@@ -54,9 +54,9 @@ func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 //
 // If object is missing, ReadObject returns [apistatus.ErrObjectNotFound].
 //
-// Passed buf must have 2*[object.MaxHeaderLen] bytes len at least.
+// Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
 func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
-	if len(buf) < 2*object.MaxHeaderLen {
+	if len(buf) < 2*objectwire.NonPayloadFieldsBufferLength {
 		return 0, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
 	}
 
@@ -118,7 +118,7 @@ func (t *FSTree) getObjectStream(addr oid.Address) (*object.Object, io.ReadSeekC
 // extractHeaderAndStream reads the header of an object from a file.
 // The caller is responsible for closing the returned io.ReadCloser if it is not nil.
 func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, io.ReadSeekCloser, error) {
-	buf := make([]byte, 2*object.MaxHeaderLen)
+	buf := make([]byte, 2*objectwire.NonPayloadFieldsBufferLength)
 
 	initial, stream, err := t.readHeader(id, f, buf)
 	if err != nil {
@@ -130,7 +130,7 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, 
 }
 
 func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadCloser, error) {
-	n, err := io.ReadFull(f, buf[:object.MaxHeaderLen])
+	n, err := io.ReadFull(f, buf[:objectwire.NonPayloadFieldsBufferLength])
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, f, err
 	}
@@ -146,7 +146,7 @@ func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadC
 	offset := combinedDataOff
 	for {
 		if bytes.Equal(thisOID, id[:]) {
-			size := min(offset+int(l), offset+object.MaxHeaderLen)
+			size := min(offset+int(l), offset+objectwire.NonPayloadFieldsBufferLength)
 			if n < size {
 				_, err = io.ReadFull(f, buf[n:size])
 				if err != nil {
@@ -175,7 +175,7 @@ func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadC
 			}
 			n = copy(buf, buf[min(offset, n):n])
 			offset = 0
-			k, err := io.ReadFull(f, buf[n:n+object.MaxHeaderLen])
+			k, err := io.ReadFull(f, buf[n:n+objectwire.NonPayloadFieldsBufferLength])
 			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 				return nil, f, fmt.Errorf("read full: %w", err)
 			}
@@ -233,7 +233,7 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*object.
 
 func (t *FSTree) preprocessStreamHead(f io.ReadCloser, initial []byte) ([]byte, io.ReadCloser, error) {
 	var err error
-	if len(initial) < object.MaxHeaderLen {
+	if len(initial) < objectwire.NonPayloadFieldsBufferLength {
 		_ = f.Close()
 		initial, err = t.Decompress(initial)
 		if err != nil {
@@ -254,7 +254,7 @@ func (t *FSTree) preprocessStreamHead(f io.ReadCloser, initial []byte) ([]byte, 
 			baseCloser: f,
 		}
 
-		buf := make([]byte, object.MaxHeaderLen)
+		buf := make([]byte, objectwire.NonPayloadFieldsBufferLength)
 		n, err := decoder.Read(buf)
 		if err != nil && !errors.Is(err, io.EOF) {
 			reader.Close()
