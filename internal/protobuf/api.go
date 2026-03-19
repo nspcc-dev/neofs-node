@@ -9,11 +9,29 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/protobuf/encoding/protowire"
+)
+
+// Fixed message lengths.
+const (
+	ObjectIDLength = 1 + 1 + oid.Size
+)
+
+// Message length limits.
+const (
+	MaxSignatureLength = 1 + 2 + neofscrypto.MaxVerificationScriptLength +
+		1 + 2 + neofscrypto.MaxInvocationScriptLength +
+		1 + 5 // scheme tag + varint max int32
+	MaxObjectWithoutPayloadLength = 1 + 1 + ObjectIDLength +
+		1 + 2 + MaxSignatureLength +
+		1 + 3 + object.MaxHeaderLen
 )
 
 // ParseAPIVersionField parses version.Version from the next field with known

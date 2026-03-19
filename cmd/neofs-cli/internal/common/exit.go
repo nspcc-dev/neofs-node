@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmderr"
 	sdkstatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 )
 
 // ErrAwaitTimeout represents the expiration of a polling interval
@@ -46,7 +45,7 @@ func WrapError(err error) error {
 	case errors.As(err, &accessErr):
 		code = aclDenied
 		err = fmt.Errorf("%w: %s", err, accessErr.Reason())
-	case errors.Is(err, ErrAwaitTimeout) || errors.Is(err, waiter.ErrConfirmationTimeout):
+	case errors.Is(err, ErrAwaitTimeout):
 		code = awaitTimeout
 	case errors.Is(err, sdkstatus.ErrObjectAlreadyRemoved):
 		code = alreadyRemoved

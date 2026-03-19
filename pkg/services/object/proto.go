@@ -8,7 +8,6 @@ import (
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -16,7 +15,7 @@ import (
 const (
 	maxHeadResponseBodyVarintLen  = iobject.MaxHeaderVarintLen
 	maxHeaderOffsetInHeadResponse = 1 + maxHeadResponseBodyVarintLen + 1 + iobject.MaxHeaderVarintLen // 1 for iprotobuf.TagBytes1
-	headResponseBufferLen         = maxHeaderOffsetInHeadResponse + 2*object.MaxHeaderLen
+	headResponseBufferLen         = maxHeaderOffsetInHeadResponse + 2*iobject.NonPayloadFieldsBufferLength
 )
 
 var currentVersionResponseMetaHeader []byte

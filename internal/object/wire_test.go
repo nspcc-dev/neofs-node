@@ -282,3 +282,8 @@ func TestMaxHeaderVarintLen(t *testing.T) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	require.EqualValues(t, binary.PutUvarint(buf, object.MaxHeaderLen), iobject.MaxHeaderVarintLen)
 }
+
+func TestNonPayloadFieldsBufferLength(t *testing.T) {
+	require.Zero(t, iobject.NonPayloadFieldsBufferLength%(4<<10))
+	require.GreaterOrEqual(t, iobject.NonPayloadFieldsBufferLength, iprotobuf.MaxObjectWithoutPayloadLength)
+}

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -21,6 +22,18 @@ func TestAuthenticateObject(t *testing.T) {
 	t.Run("without signature", func(t *testing.T) {
 		obj := getUnsignedObject()
 		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "missing signature")
+	})
+	t.Run("too big verification script", func(t *testing.T) {
+		sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1025), testutil.RandByteSlice(1024))
+		obj := getUnsignedObject()
+		obj.SetSignature(&sig)
+		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "verification script len 1025 overflows limit 1024")
+	})
+	t.Run("too big invocation script", func(t *testing.T) {
+		obj := getUnsignedObject()
+		sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1024), testutil.RandByteSlice(1025))
+		obj.SetSignature(&sig)
+		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "invocation script len 1025 overflows limit 1024")
 	})
 	t.Run("unsupported scheme", func(t *testing.T) {
 		obj := objectECDSASHA512

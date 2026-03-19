@@ -1,6 +1,7 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -8,12 +9,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -106,16 +107,6 @@ Only owner of the container has a permission to remove container.`,
 			}
 		}
 
-		var actor containerModifier = cli
-		if containerAwait {
-			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
-			if err != nil {
-				return fmt.Errorf("fetching network info: %w", err)
-			}
-
-			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
-		}
-
 		var delPrm client.PrmContainerDelete
 		if tokAny != nil {
 			switch tok := tokAny.(type) {
@@ -129,16 +120,15 @@ Only owner of the container has a permission to remove container.`,
 			}
 		}
 
-		err = actor.ContainerDelete(ctx, id, user.NewAutoIDSignerRFC6979(*pk), delPrm)
+		err = cli.ContainerDelete(ctx, id, user.NewAutoIDSignerRFC6979(*pk), delPrm)
 		if err != nil {
+			if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
+				err = common.ErrAwaitTimeout
+			}
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		if !containerAwait {
-			cmd.Println("container removal request accepted for processing (the operation may not be completed yet)")
-		} else {
-			cmd.Println("container has been removed:", containerID)
-		}
+		cmd.Println("container has been removed:", containerID)
 		return nil
 	},
 }

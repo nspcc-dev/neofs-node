@@ -7,6 +7,7 @@ import (
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	containerpolicy "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/container/policy"
@@ -18,7 +19,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -141,12 +141,6 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		}
 		cnr.ApplyNetworkConfig(ni)
 
-		var actor containerModifier = cli
-
-		if containerAwait {
-			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
-		}
-
 		var putPrm client.PrmContainerPut
 		if tokAny != nil {
 			switch tok := tokAny.(type) {
@@ -160,19 +154,15 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			}
 		}
 
-		id, err := actor.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
+		id, err := cli.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
 		if err != nil {
 			if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
-				err = waiter.ErrConfirmationTimeout
+				err = common.ErrAwaitTimeout
 			}
 			return fmt.Errorf("put container rpc error: %w", err)
 		}
 
-		if !containerAwait {
-			cmd.Println("container creation request accepted for processing (the operation may not be completed yet)")
-		} else {
-			cmd.Println("container has been persisted on FS chain")
-		}
+		cmd.Println("container has been persisted on FS chain")
 		cmd.Println("container ID:", id)
 
 		return nil
