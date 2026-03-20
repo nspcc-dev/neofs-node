@@ -693,13 +693,17 @@ func BenchmarkServer_Replicate(b *testing.B) {
 	}
 }
 
-type nopHandlerFSChain struct{}
-
-func (nopHandlerFSChain) GetNodesForObject(oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
-	return nil, nil, nil, nil
+type mockHandlerFSChain struct {
+	nodeLists [][]netmap.NodeInfo
+	repRules  []uint
+	ecRules   []iec.Rule
 }
 
-func (nopHandlerFSChain) IsLocalNodePublicKey([]byte) bool {
+func (x mockHandlerFSChain) GetNodesForObject(oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	return x.nodeLists, x.repRules, x.ecRules, nil
+}
+
+func (mockHandlerFSChain) IsLocalNodePublicKey([]byte) bool {
 	return false
 }
 

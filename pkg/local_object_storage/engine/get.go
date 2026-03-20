@@ -241,3 +241,41 @@ func (e *StorageEngine) getRangeStream(addr oid.Address, off, ln uint64) (io.Rea
 
 	return stream, err
 }
+
+// ReadObject reads first bytes of the referenced object's binary containing its
+// full header from e into buf. Returns number of bytes read and stream of
+// remaining bytes. The stream must be finally closed by the caller.
+//
+// If object is missing, ReadObject returns [apistatus.ErrObjectNotFound].
+//
+// If object is known but removed, ReadObject returns
+// [apistatus.ErrObjectAlreadyRemoved].
+//
+// If object is known but expired, ReadObject returns
+// [apistatus.ErrObjectNotFound].
+//
+// If object is a split-parent, ReadObject returns [object.SplitInfoError] with
+// all relations recorded in e.
+func (e *StorageEngine) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddReadObjectDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return 0, nil, e.blockErr
+	}
+
+	var (
+		n      int
+		stream io.ReadCloser
+	)
+
+	return n, stream, e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
+		var err error
+		n, stream, err = s.ReadObject(addr, ignoreMetadata, buf)
+		return err
+	})
+}

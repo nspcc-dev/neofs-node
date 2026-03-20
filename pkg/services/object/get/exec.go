@@ -61,6 +61,9 @@ type execCtx struct {
 	// If an error occurs after that, the stream is already corrupted and
 	// no retry should be attempted.
 	headerWritten bool
+
+	localGetBuffer         []byte
+	submitLocalGetStreamFn SubmitStreamFunc
 }
 
 type execOption func(*execCtx)
@@ -101,6 +104,13 @@ func withPreSortedContainerNodes(nodeLists [][]netmap.NodeInfo, repRules []uint)
 	return func(ctx *execCtx) {
 		ctx.nodeLists = nodeLists
 		ctx.repRules = repRules
+	}
+}
+
+func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc) execOption {
+	return func(ctx *execCtx) {
+		ctx.localGetBuffer = buf
+		ctx.submitLocalGetStreamFn = submitStreamFn
 	}
 }
 

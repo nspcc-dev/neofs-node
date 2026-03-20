@@ -37,7 +37,8 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	if len(repRules) > 0 { // REP format does not require encoding
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
+		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), bufOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}

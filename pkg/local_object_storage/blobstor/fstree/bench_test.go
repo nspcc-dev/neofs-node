@@ -66,6 +66,37 @@ func BenchmarkFSTree_GetStream(b *testing.B) {
 	}
 }
 
+func BenchmarkFSTree_ReadObject(b *testing.B) {
+	for _, size := range payloadSizes {
+		b.Run(generateSizeLabel(size), func(b *testing.B) {
+			runReadBenchmark(b, "ReadObject", size)
+
+			b.Run("GetStream_with_payload_read", func(b *testing.B) {
+				freshFSTree := setupFSTree(b)
+				addr := prepareSingleObject(b, freshFSTree, size)
+
+				buf := make([]byte, 2*object.MaxHeaderLen)
+
+				b.ReportAllocs()
+				for b.Loop() {
+					_, stream, err := freshFSTree.ReadObject(addr, buf)
+					if err != nil {
+						b.Fatal(err)
+					}
+					if stream != nil {
+						// Read all payload to simulate real usage
+						_, err := io.ReadAll(stream)
+						if err != nil {
+							b.Fatal(err)
+						}
+						require.NoError(b, stream.Close())
+					}
+				}
+			})
+		})
+	}
+}
+
 func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 	buf := make([]byte, 2*object.MaxHeaderLen)
 
@@ -90,6 +121,12 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 			}
 		case "ReadHeader":
 			_, err = fsTree.ReadHeader(addr, buf)
+		case "ReadObject":
+			var stream io.ReadCloser
+			_, stream, err = fsTree.ReadObject(addr, buf)
+			if stream != nil {
+				require.NoError(b, stream.Close())
+			}
 		}
 		if err != nil {
 			b.Fatal(err)

@@ -16,6 +16,7 @@ type (
 		getDuration                   prometheus.Histogram
 		headDuration                  prometheus.Histogram
 		readHeaderDuration            prometheus.Histogram
+		readObjectDuration            prometheus.Histogram
 		getStreamDuration             prometheus.Histogram
 		getRangeStreamDuration        prometheus.Histogram
 		inhumeDuration                prometheus.Histogram
@@ -91,6 +92,13 @@ func newEngineMetrics() engineMetrics {
 			Subsystem: engineSubsystem,
 			Name:      "read_header_time",
 			Help:      "Engine 'read header' operations handling time",
+		})
+
+		readObjectDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "read_object_time",
+			Help:      "Engine 'read object' operations handling time",
 		})
 
 		getStreamDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -196,6 +204,7 @@ func newEngineMetrics() engineMetrics {
 		getDuration:                   getDuration,
 		headDuration:                  headDuration,
 		readHeaderDuration:            readHeaderDuration,
+		readObjectDuration:            readObjectDuration,
 		getStreamDuration:             getStreamDuration,
 		getRangeStreamDuration:        getRangeStreamDuration,
 		inhumeDuration:                inhumeDuration,
@@ -221,6 +230,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.headDuration)
 	prometheus.MustRegister(m.readHeaderDuration)
+	prometheus.MustRegister(m.readObjectDuration)
 	prometheus.MustRegister(m.getStreamDuration)
 	prometheus.MustRegister(m.getRangeStreamDuration)
 	prometheus.MustRegister(m.inhumeDuration)
@@ -266,6 +276,10 @@ func (m engineMetrics) AddHeadDuration(d time.Duration) {
 
 func (m engineMetrics) AddReadHeaderDuration(d time.Duration) {
 	m.readHeaderDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddReadObjectDuration(d time.Duration) {
+	m.readObjectDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddGetStreamDuration(d time.Duration) {

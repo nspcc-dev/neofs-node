@@ -32,6 +32,7 @@ type Storage interface {
 	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
 	Head(oid.Address) (*object.Object, error)
 	ReadHeader(oid.Address, []byte) (int, error)
+	ReadObject(oid.Address, []byte) (int, io.ReadCloser, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
 	PutBatch(map[oid.Address][]byte) error

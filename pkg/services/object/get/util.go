@@ -305,6 +305,14 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 		return nil, r, err
 	}
 
+	if exec.localGetBuffer != nil {
+		n, stream, err := e.engine.ReadObject(exec.address(), exec.localGetBuffer)
+		if err == nil {
+			exec.submitLocalGetStreamFn(n, stream)
+		}
+		return nil, nil, err
+	}
+
 	return e.engine.GetStream(exec.address())
 }
 

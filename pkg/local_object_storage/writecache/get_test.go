@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"strconv"
 	"testing"
+	"testing/iotest"
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -145,4 +147,39 @@ func TestCache_ReadHeader(t *testing.T) {
 	tail, ok = bytes.CutPrefix(tail, prefix)
 	require.True(t, ok)
 	require.True(t, bytes.HasPrefix(obj.Payload(), tail))
+}
+
+func TestCache_ReadObject(t *testing.T) {
+	c, _ := newCache(t)
+
+	testWithPayloadLen := func(t *testing.T, ln int) {
+		obj := putObject(t, c, ln).obj
+
+		buf := make([]byte, object.MaxHeaderLen*2)
+
+		n, stream, err := c.ReadObject(obj.Address(), buf)
+		require.NoError(t, err)
+
+		if ln > 0 {
+			_, tail, ok := bytes.Cut(buf[:n], obj.CutPayload().Marshal())
+			require.True(t, ok)
+
+			prefix := make([]byte, 1+binary.MaxVarintLen64)
+			prefix[0] = iprotobuf.TagBytes4 // payload field tag
+			prefix = prefix[:1+binary.PutUvarint(prefix[1:], uint64(len(obj.Payload())))]
+
+			tail, ok = bytes.CutPrefix(tail, prefix)
+			require.True(t, ok)
+			require.True(t, bytes.HasPrefix(obj.Payload(), tail))
+		}
+
+		require.NoError(t, iotest.TestReader(io.MultiReader(bytes.NewReader(buf[:n]), stream), obj.Marshal()))
+		require.NoError(t, stream.Close())
+	}
+
+	for _, ln := range []int{0, 4 << 10, 128 << 10} {
+		t.Run(strconv.Itoa(ln), func(t *testing.T) {
+			testWithPayloadLen(t, ln)
+		})
+	}
 }

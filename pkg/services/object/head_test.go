@@ -42,7 +42,7 @@ func TestServer_Head_Local(t *testing.T) {
 
 	require.NoError(t, storage.Put(obj, nil))
 
-	handler := getsvc.New(nopHandlerFSChain{},
+	handler := getsvc.New(mockHandlerFSChain{},
 		getsvc.WithLocalStorageEngine(storage),
 	)
 	handlers := headOnlyHandler{svc: handler}
