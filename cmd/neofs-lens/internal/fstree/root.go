@@ -25,6 +25,7 @@ func init() {
 	Root.AddCommand(cleanupCMD)
 	Root.AddCommand(getCMD)
 	Root.AddCommand(listCMD)
+	Root.AddCommand(removeCMD)
 }
 
 // openFSTree opens and returns fstree.FSTree located in vPath.
