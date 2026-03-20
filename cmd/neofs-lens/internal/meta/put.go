@@ -30,7 +30,7 @@ func writeObject(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	err = db.Init()
+	err = db.Init(nil)
 	if err != nil {
 		return fmt.Errorf("can't init metabase: %w", err)
 	}

@@ -69,39 +69,35 @@ func (s *Shard) Open() error {
 
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
-	type initializer interface {
-		Init() error
+	if s.info.ID == nil {
+		return fmt.Errorf("shard ID is not resolved")
 	}
 
-	var components = []initializer{&s.compression, s.blobStor}
+	if err := s.compression.Init(); err != nil {
+		return fmt.Errorf("could not initialize %T: %w", &s.compression, err)
+	}
+
+	if err := s.blobStor.Init(s.info.ID); err != nil {
+		return fmt.Errorf("could not initialize %T: %w", s.blobStor, err)
+	}
+	s.initedStorage = true
 
 	if !s.GetMode().NoMetabase() {
-		components = append(components, s.metaBase)
+		if err := s.metaBase.Init(s.info.ID); err != nil {
+			if errors.Is(err, meta.ErrOutdatedVersion) {
+				return fmt.Errorf("metabase initialization: %w", err)
+			}
+
+			err = s.handleMetabaseFailure("init", err)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	if s.hasWriteCache() {
-		components = append(components, s.writeCache)
-	}
-
-	for _, component := range components {
-		if err := component.Init(); err != nil {
-			if component == s.metaBase {
-				if errors.Is(err, meta.ErrOutdatedVersion) {
-					return fmt.Errorf("metabase initialization: %w", err)
-				}
-
-				err = s.handleMetabaseFailure("init", err)
-				if err != nil {
-					return err
-				}
-
-				break
-			}
-
-			return fmt.Errorf("could not initialize %T: %w", component, err)
-		}
-		if component == s.blobStor {
-			s.initedStorage = true
+		if err := s.writeCache.Init(); err != nil {
+			return fmt.Errorf("could not initialize %T: %w", s.writeCache, err)
 		}
 	}
 
@@ -170,7 +166,7 @@ func (s *Shard) Reload(opts ...Option) error {
 		return err
 	}
 	if ok {
-		err = s.metaBase.Init()
+		err = s.metaBase.Init(s.info.ID)
 		if err != nil {
 			s.log.Error("can't initialize metabase, move to a degraded-read-only mode", zap.Error(err))
 			_ = s.setMode(mode.DegradedReadOnly)

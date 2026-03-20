@@ -35,7 +35,9 @@ func TestShard_Lock(t *testing.T) {
 		),
 	}
 
-	sh = shard.New(opts...)
+	var err error
+	sh, err = shard.New(opts...)
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -52,7 +54,7 @@ func TestShard_Lock(t *testing.T) {
 
 	// put the object
 
-	err := sh.Put(obj, nil)
+	err = sh.Put(obj, nil)
 	require.NoError(t, err)
 
 	// lock the object
@@ -132,7 +134,7 @@ func TestShard_Lock_Removed(t *testing.T) {
 	newShard := func(t *testing.T) *shard.Shard {
 		dir := t.TempDir()
 
-		sh := shard.New(
+		sh, err := shard.New(
 			shard.WithBlobstor(fstree.New(
 				fstree.WithPath(filepath.Join(dir, "fstree")),
 				fstree.WithDepth(1),
@@ -142,6 +144,7 @@ func TestShard_Lock_Removed(t *testing.T) {
 				meta.WithEpochState(epochState{}),
 			),
 		)
+		require.NoError(t, err)
 
 		require.NoError(t, sh.Open())
 		require.NoError(t, sh.Init())

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -98,13 +99,9 @@ func newStorage(root string) common.Storage {
 }
 
 func testNewShard(t testing.TB, id int) *shard.Shard {
-	sid, err := generateShardID()
-	require.NoError(t, err)
-
 	dir := t.TempDir()
 
-	s := shard.New(
-		shard.WithID(sid),
+	s, err := shard.New(
 		shard.WithLogger(zap.L()),
 		shard.WithBlobstor(
 			newStorage(filepath.Join(dir, fmt.Sprintf("%d.fstree", id)))),
@@ -114,6 +111,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 			meta.WithEpochState(epochState{}),
 		))
 
+	require.NoError(t, err)
 	require.NoError(t, s.Open())
 	require.NoError(t, s.Init())
 
@@ -195,7 +193,7 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 
 type unimplementedShard struct{}
 
-func (unimplementedShard) ID() *shard.ID {
+func (unimplementedShard) ID() *coreshard.ID {
 	panic("unimplemented")
 }
 
@@ -294,9 +292,9 @@ type mockShard struct {
 	headECPart     map[headECPartKey]headECPartValue
 }
 
-func (x *mockShard) ID() *shard.ID {
+func (x *mockShard) ID() *coreshard.ID {
 	si := strconv.Itoa(x.i)
-	return shard.NewIDFromBytes([]byte(si))
+	return coreshard.NewFromBytes([]byte(si))
 }
 
 func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {

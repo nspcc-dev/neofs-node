@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
 
@@ -25,6 +26,7 @@ type fsDescriptor struct {
 	Version int    `json:"version"`
 	Depth   uint64 `json:"depth"`
 	ShardID string `json:"shard_id"`
+	Subtype string `json:"subtype"`
 }
 
 func (t *FSTree) descriptorPath() string {
@@ -32,7 +34,12 @@ func (t *FSTree) descriptorPath() string {
 }
 
 // Init implements common.Storage.
-func (t *FSTree) Init() error {
+func (t *FSTree) Init(shardID *coreshard.ID) error {
+	if shardID != nil {
+		t.shardID = coreshard.NewFromBytes(shardID.Bytes())
+		t.shardIDSet = true
+	}
+
 	err := util.MkdirAllX(t.RootPath, t.Permissions)
 	if err != nil {
 		return fmt.Errorf("mkdir all for %q: %w", t.RootPath, err)
@@ -68,10 +75,18 @@ func (t *FSTree) checkConfig() error {
 			return fmt.Errorf("descriptor %q is missing, can't open read-only storage", descPath)
 		}
 		// create new descriptor
+		if t.shardID == nil {
+			t.shardID, err = generateShardID()
+			if err != nil {
+				return fmt.Errorf("generate shard ID: %w", err)
+			}
+			t.shardIDSet = true
+		}
 		d := fsDescriptor{
 			Version: currentVersion,
 			Depth:   t.Depth,
-			ShardID: t.shardID,
+			ShardID: t.shardID.String(),
+			Subtype: t.subtype,
 		}
 		data, err := json.Marshal(d)
 		if err != nil {
@@ -110,12 +125,22 @@ func (t *FSTree) checkConfig() error {
 		t.Depth = d.Depth
 	}
 	if t.shardIDSet {
-		if d.ShardID != t.shardID {
-			return fmt.Errorf("shard ID mismatch: on-disk shard ID=%s, configured shard ID=%s", d.ShardID, t.shardID)
+		if d.ShardID != t.shardID.String() {
+			return fmt.Errorf("shard ID mismatch: on-disk shard ID=%s, configured shard ID=%s", d.ShardID, t.shardID.String())
 		}
 	} else {
-		t.shardID = d.ShardID
-		t.shardIDSet = true
+		id, err := coreshard.DecodeString(d.ShardID)
+		if err != nil {
+			return fmt.Errorf("invalid shard ID %q in descriptor: %w", d.ShardID, err)
+		}
+		t.shardID = id
+		t.shardIDSet = id != nil
+	}
+	if d.Subtype != t.subtype {
+		if d.Subtype == "" {
+			return fmt.Errorf("descriptor %q is missing subtype", descPath)
+		}
+		return fmt.Errorf("subtype mismatch: on-disk subtype=%s, configured subtype=%s", d.Subtype, t.subtype)
 	}
 	return nil
 }
@@ -131,15 +156,20 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 		t.Depth = d.Depth
 	}
 
-	if !t.shardIDSet {
-		t.shardID = d.ShardID
+	if t.shardID == nil {
+		id, err := generateShardID()
+		if err != nil {
+			return fmt.Errorf("invalid shard ID %q in descriptor: %w", d.ShardID, err)
+		}
+		t.shardID = id
 		t.shardIDSet = true
 	}
 
 	if !t.readOnly {
 		d.Version = currentVersion
 		// update shard ID
-		d.ShardID = t.shardID
+		d.ShardID = t.shardID.String()
+		d.Subtype = t.subtype
 		data, err := json.Marshal(d)
 		if err != nil {
 			return fmt.Errorf("encode descriptor to JSON during migration: %w", err)

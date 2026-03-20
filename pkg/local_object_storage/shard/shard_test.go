@@ -55,7 +55,6 @@ func _newShardWithFSTree(t testing.TB, rootPath string, enableWriteCache bool, w
 	)
 
 	opts := append([]shard.Option{
-		shard.WithID(shard.NewIDFromBytes([]byte("testShard"))),
 		shard.WithLogger(zap.L()),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
@@ -74,7 +73,8 @@ func _newShardWithFSTree(t testing.TB, rootPath string, enableWriteCache bool, w
 		shard.WithBlobstor(fst),
 	}, options...)
 
-	sh := shard.New(opts...)
+	sh, err := shard.New(opts...)
+	require.NoError(t, err)
 
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())

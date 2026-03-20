@@ -37,7 +37,8 @@ func TestShardReload(t *testing.T) {
 		WithMetaBaseOptions(metaOpts...),
 	}
 
-	sh := New(opts...)
+	sh, err := New(opts...)
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 

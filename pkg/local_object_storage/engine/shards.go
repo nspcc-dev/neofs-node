@@ -7,8 +7,8 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw/v2"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -61,7 +61,7 @@ func (m *metricsWithID) AddToPayloadSize(size int64) {
 //
 // Returns any error encountered that did not allow adding a shard.
 // Otherwise returns the ID of the added shard.
-func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
+func (e *StorageEngine) AddShard(opts ...shard.Option) (*coreshard.ID, error) {
 	sh, err := e.createShard(opts)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a shard: %w", err)
@@ -80,17 +80,12 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 }
 
 func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
-	id, err := generateShardID()
-	if err != nil {
-		return nil, fmt.Errorf("could not generate shard ID: %w", err)
-	}
-
 	e.mtx.RLock()
 
 	if e.metrics != nil {
 		opts = append(opts, shard.WithMetricsWriter(
 			&metricsWithID{
-				id: id.String(),
+				id: "",
 				mw: e.metrics,
 			},
 		))
@@ -98,17 +93,15 @@ func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
 
 	e.mtx.RUnlock()
 
-	sh := shard.New(append(opts,
-		shard.WithID(id),
+	sh, err := shard.New(append(opts,
 		shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 		shard.WithReportErrorFunc(e.reportShardErrorBackground),
 	)...)
-
-	if err := sh.UpdateID(); err != nil {
-		return nil, fmt.Errorf("could not update shard ID: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve shard ID: %w", err)
 	}
 
-	return sh, err
+	return sh, nil
 }
 
 func (e *StorageEngine) addShard(sh *shard.Shard) error {
@@ -172,20 +165,6 @@ func (e *StorageEngine) removeShards(ids ...string) {
 	}
 }
 
-func generateShardID() (*shard.ID, error) {
-	uid, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-
-	bin, err := uid.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	return shard.NewIDFromBytes(bin), nil
-}
-
 func (e *StorageEngine) sortedShards(id oid.ID) []shardWrapper {
 	shards := e.unsortedShards()
 
@@ -215,7 +194,7 @@ func (e *StorageEngine) getShard(id string) shardWrapper {
 // SetShardMode sets mode of the shard with provided identifier.
 //
 // Returns an error if shard mode was not set, or shard was not found in storage engine.
-func (e *StorageEngine) SetShardMode(id *shard.ID, m mode.Mode, resetErrorCounter bool) error {
+func (e *StorageEngine) SetShardMode(id *coreshard.ID, m mode.Mode, resetErrorCounter bool) error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 

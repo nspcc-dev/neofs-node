@@ -3,8 +3,8 @@ package meta
 import (
 	"fmt"
 
-	"github.com/mr-tron/base58"
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -51,7 +51,7 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	err = db.Init()
+	err = db.Init(nil)
 	if err != nil {
 		return fmt.Errorf("init metabase: %w", err)
 	}
@@ -74,18 +74,21 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to open FSTree: %w", err)
 	}
 
-	err = fst.Init()
+	err = fst.Init(nil)
 	if err != nil {
 		return fmt.Errorf("init blobstor: %w", err)
 	}
 
-	blobstorShardID := fst.ShardID()
+	blobstorShardID, _, err := fst.ResolveShardID()
+	if err != nil {
+		return fmt.Errorf("resolve shard ID from blobstor: %w", err)
+	}
 	idRaw, err := db.ReadShardID()
 	if err != nil {
 		return fmt.Errorf("read shard ID from metabase: %w", err)
 	}
-	metaShardID := base58.Encode(idRaw)
-	if len(metaShardID) > 0 && metaShardID != blobstorShardID && !vForce {
+	metaShardID := coreshard.NewFromBytes(idRaw)
+	if !metaShardID.IsZero() && !metaShardID.Equal(blobstorShardID) && !vForce {
 		return fmt.Errorf("metabase shard ID %q does not match blobstor shard ID %q, use --%s to override", metaShardID, blobstorShardID, forceFlagName)
 	}
 

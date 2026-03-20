@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -199,7 +200,7 @@ func (unimplementedBLOBStore) Open(bool) error {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) Init() error {
+func (unimplementedBLOBStore) Init(*coreshard.ID) error {
 	panic("unimplemented")
 }
 
@@ -215,7 +216,7 @@ func (unimplementedBLOBStore) Path() string {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) ShardID() string {
+func (unimplementedBLOBStore) ResolveShardID() (*coreshard.ID, bool, error) {
 	panic("unimplemented")
 }
 
@@ -227,7 +228,7 @@ func (unimplementedBLOBStore) SetCompressor(*compression.Config) {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) SetShardID(string) {
+func (unimplementedBLOBStore) SetShardID(*coreshard.ID) {
 	panic("unimplemented")
 }
 
@@ -318,14 +319,6 @@ func (unimplementedWriteCache) Put(oid.Address, *object.Object, []byte) error {
 }
 
 func (unimplementedWriteCache) SetMode(mode.Mode) error {
-	panic("unimplemented")
-}
-
-func (unimplementedWriteCache) SetLogger(*zap.Logger) {
-	panic("unimplemented")
-}
-
-func (unimplementedWriteCache) SetShardIDMetrics(string) {
 	panic("unimplemented")
 }
 

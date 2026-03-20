@@ -211,7 +211,7 @@ func TestFlushErrorRetry(t *testing.T) {
 			s.SetCompressor(comp)
 
 			require.NoError(t, s.Open(false))
-			require.NoError(t, s.Init())
+			require.NoError(t, s.Init(nil))
 
 			logger, logBuf := testutil.NewBufferedLogger(t, zap.DebugLevel)
 			wc := New(WithPath(filepath.Join(dir, "writecache")),
@@ -251,8 +251,8 @@ func TestFlushErrorRetry(t *testing.T) {
 				Level:   zap.WarnLevel,
 				Message: "flush scheduler paused due to error",
 				Fields: map[string]any{
-					"component": "WriteCache",
-					"delay":     json.Number("10"),
+					"substorage": wcStorageType,
+					"delay":      json.Number("10"),
 				},
 			})
 			logBuf.AssertContainsMsg(zap.ErrorLevel, "can't flush objects")
@@ -356,7 +356,7 @@ func storageSetMode(s common.Storage, m mode.Mode) error {
 	err := s.Close()
 	if err == nil {
 		if err = s.Open(m.ReadOnly()); err == nil {
-			err = s.Init()
+			err = s.Init(nil)
 		}
 	}
 	return err
@@ -381,7 +381,7 @@ func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
 	err := m.Close()
 	if err == nil {
 		if err = m.Open(newMode.ReadOnly()); err == nil {
-			err = m.Init()
+			err = m.Init(nil)
 		}
 	}
 

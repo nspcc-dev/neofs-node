@@ -177,7 +177,7 @@ func TestShard_GetECPart(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init())
+			require.NoError(t, mb.Init(nil))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)
@@ -207,7 +207,7 @@ func TestShard_GetECPart(t *testing.T) {
 		)
 		require.NoError(t, mb.Open(false))
 		t.Cleanup(func() { _ = mb.Close() })
-		require.NoError(t, mb.Init())
+		require.NoError(t, mb.Init(nil))
 
 		payload := testutil.RandByteSlice(32) // any
 
@@ -464,7 +464,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init())
+			require.NoError(t, mb.Init(nil))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)
@@ -650,7 +650,7 @@ func TestShard_HeadECPart(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init())
+			require.NoError(t, mb.Init(nil))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)

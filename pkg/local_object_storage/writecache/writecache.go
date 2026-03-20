@@ -40,8 +40,6 @@ type Cache interface {
 	Iterate(func(oid.Address, []byte) error, bool) error
 	Put(oid.Address, *object.Object, []byte) error
 	SetMode(mode.Mode) error
-	SetLogger(*zap.Logger)
-	SetShardIDMetrics(string)
 	DumpInfo() Info
 	Flush(bool) error
 
@@ -107,16 +105,6 @@ func New(opts ...Option) Cache {
 	return c
 }
 
-// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (c *cache) SetLogger(l *zap.Logger) {
-	c.log = l.With(zap.String("substorage", wcStorageType))
-}
-
-// SetShardIDMetrics sets shard id for metrics. It is used after the shard ID was generated.
-func (c *cache) SetShardIDMetrics(id string) {
-	c.metrics.id = id
-}
-
 func (c *cache) DumpInfo() Info {
 	return Info{
 		Path: c.path,
@@ -147,7 +135,7 @@ func (c *cache) Open(readOnly bool) error {
 
 // Init runs necessary services. No-op in read-only mode.
 func (c *cache) Init() error {
-	err := c.fsTree.Init()
+	err := c.fsTree.Init(c.shardID)
 	if err != nil {
 		return fmt.Errorf("init FSTree: %w", err)
 	}

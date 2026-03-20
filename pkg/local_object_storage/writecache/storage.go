@@ -16,12 +16,12 @@ func (c *cache) openStore(readOnly bool) error {
 
 	c.fsTree = fstree.New(
 		fstree.WithPath(c.path),
+		fstree.WithSubtype(fstree.SubtypeWriteCache),
 		fstree.WithPerm(os.ModePerm),
 		fstree.WithDepth(1),
 		fstree.WithNoSync(c.noSync),
 		fstree.WithCombinedCountLimit(1))
 	c.fsTree.SetLogger(c.log)
-	c.fsTree.SetShardID(c.metrics.id)
 	if err := c.fsTree.Open(readOnly); err != nil {
 		return fmt.Errorf("could not open FSTree: %w", err)
 	}

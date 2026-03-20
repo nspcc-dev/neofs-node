@@ -37,7 +37,7 @@ func TestShardOpen(t *testing.T) {
 	metaPath := filepath.Join(dir, "meta")
 
 	newShard := func() *Shard {
-		return New(
+		sh, err := New(
 			WithLogger(zaptest.NewLogger(t)),
 			WithBlobstor(fstree.New(
 				fstree.WithPath(filepath.Join(dir, "fstree")),
@@ -47,6 +47,8 @@ func TestShardOpen(t *testing.T) {
 			WithWriteCache(true),
 			WithWriteCacheOptions(
 				writecache.WithPath(filepath.Join(dir, "wc"))))
+		require.NoError(t, err)
+		return sh
 	}
 
 	sh := newShard()
@@ -81,9 +83,10 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 		fstree.WithPath(filepath.Join(dir, "fstree")),
 		fstree.WithDepth(1))
 
-	sh := New(
+	sh, err := New(
 		WithBlobstor(fsTree),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta")), meta.WithEpochState(epochState{})))
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -91,7 +94,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	obj.SetType(object.TypeRegular)
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
-	err := sh.Put(&obj, nil)
+	err = sh.Put(&obj, nil)
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
 
@@ -102,10 +105,11 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	err = fsTree.Put(addr, []byte("not an object"))
 	require.NoError(t, err)
 
-	sh = New(
+	sh, err = New(
 		WithBlobstor(fsTree),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
 	)
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, nil))
 
@@ -119,13 +123,11 @@ func TestResyncMetabase(t *testing.T) {
 
 	defer os.RemoveAll(p)
 
-	shID := ID("test")
-	sh := New(
+	sh, err := New(
 		WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
-		WithID(&shID),
 		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
@@ -137,8 +139,7 @@ func TestResyncMetabase(t *testing.T) {
 			writecache.WithLogger(zaptest.NewLogger(t)),
 		),
 	)
-
-	require.NoError(t, sh.UpdateID())
+	require.NoError(t, err)
 
 	// open Blobstor
 	require.NoError(t, sh.Open())
@@ -187,7 +188,7 @@ func TestResyncMetabase(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err := sh.Put(&tombObj, nil)
+	err = sh.Put(&tombObj, nil)
 	require.NoError(t, err)
 
 	// LOCK object handling
@@ -259,12 +260,11 @@ func TestResyncMetabase(t *testing.T) {
 	err = sh.Close()
 	require.NoError(t, err)
 
-	sh = New(
+	sh, err = New(
 		WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
-		WithID(&shID),
 		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
@@ -276,8 +276,7 @@ func TestResyncMetabase(t *testing.T) {
 			writecache.WithLogger(zaptest.NewLogger(t)),
 		),
 	)
-
-	require.NoError(t, sh.UpdateID())
+	require.NoError(t, err)
 
 	// open Blobstor
 	require.NoError(t, sh.Open())

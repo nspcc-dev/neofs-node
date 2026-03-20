@@ -20,7 +20,7 @@ func TestDB_ReadLastResyncEpoch(t *testing.T) {
 	}...)
 
 	require.NoError(t, db.Open(false))
-	require.NoError(t, db.Init())
+	require.NoError(t, db.Init(nil))
 
 	t.Cleanup(func() {
 		db.Close()
@@ -57,7 +57,7 @@ func TestDB_ReadLastResyncEpoch(t *testing.T) {
 	// After reload, last resync epoch the same.
 	require.NoError(t, db.Close())
 	require.NoError(t, db.Open(false))
-	require.NoError(t, db.Init())
+	require.NoError(t, db.Init(nil))
 
 	checkEpoch(t, resyncEpoch)
 }

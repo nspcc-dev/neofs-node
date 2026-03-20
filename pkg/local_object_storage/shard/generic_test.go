@@ -41,6 +41,10 @@ func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
 	return err
 }
 
+func (m *ModeAwareStorage) Init() error {
+	return m.Storage.Init(nil)
+}
+
 func TestBlobstorGeneric(t *testing.T) {
 	defer func() { _ = os.RemoveAll(t.Name()) }()
 
@@ -59,7 +63,7 @@ func TestBlobstorGeneric(t *testing.T) {
 
 		// fstree must be initialized to create a descriptor
 		require.NoError(t, fsTree.Open(false))
-		require.NoError(t, fsTree.Init())
+		require.NoError(t, fsTree.Init(nil))
 		require.NoError(t, fsTree.Close())
 
 		return NewModeAwareStorage(fsTree)

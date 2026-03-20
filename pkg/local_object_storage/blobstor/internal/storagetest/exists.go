@@ -10,7 +10,7 @@ import (
 func TestExists(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
-	require.NoError(t, s.Init())
+	require.NoError(t, s.Init(nil))
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	objects := prepare(t, 1, s, minSize, maxSize)

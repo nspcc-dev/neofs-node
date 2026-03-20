@@ -216,7 +216,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 func setupFSTree(t *testing.T) *FSTree {
 	tree := New(WithPath(t.TempDir()))
 	require.NoError(t, tree.Open(false))
-	require.NoError(t, tree.Init())
+	require.NoError(t, tree.Init(nil))
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })
 	return tree
 }

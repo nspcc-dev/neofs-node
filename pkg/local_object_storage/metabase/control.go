@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -71,8 +71,29 @@ func (db *DB) openBolt() error {
 //
 // Does nothing if metabase has already been initialized and filled. To roll back the database to its initial state,
 // use Reset.
-func (db *DB) Init() error {
-	return db.init(false)
+func (db *DB) Init(shardID *coreshard.ID) error {
+	if err := db.init(false); err != nil {
+		return err
+	}
+
+	if shardID == nil || db.mode.NoMetabase() || db.mode.ReadOnly() {
+		return nil
+	}
+
+	storedByteID, err := db.ReadShardID()
+	if err != nil {
+		return err
+	}
+
+	if len(storedByteID) == 0 {
+		return db.WriteShardID(shardID.Bytes())
+	}
+
+	storedID := coreshard.NewFromBytes(storedByteID)
+	if !storedID.Equal(shardID) {
+		return fmt.Errorf("shard ID mismatch: metabase=%s, init=%s", storedID, shardID)
+	}
+	return nil
 }
 
 // Reset resets metabase. Works similar to Init but cleans up all static buckets and
@@ -233,13 +254,12 @@ func (db *DB) ResyncFromBlobstor(bs common.Storage, onIterationError func(oid.Ad
 		return fmt.Errorf("could not reset metabase: %w", err)
 	}
 
-	strBlobstorShardID := bs.ShardID()
-	if strBlobstorShardID != "" {
-		blobstorShardID, err := base58.Decode(strBlobstorShardID)
-		if err != nil {
-			return fmt.Errorf("invalid blobstor shard ID %q: %w", strBlobstorShardID, err)
-		}
-		err = db.WriteShardID(blobstorShardID)
+	blobstorShardID, _, err := bs.ResolveShardID()
+	if err != nil {
+		return fmt.Errorf("resolve shard ID from blobstor: %w", err)
+	}
+	if blobstorShardID != nil {
+		err = db.WriteShardID(blobstorShardID.Bytes())
 		if err != nil {
 			return fmt.Errorf("could not write shard ID: %w", err)
 		}

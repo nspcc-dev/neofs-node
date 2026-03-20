@@ -3,11 +3,11 @@ package engine
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 )
 
 // FlushWriteCache flushes write-cache on a single shard with the given ID.
-func (e *StorageEngine) FlushWriteCache(id *shard.ID) error {
+func (e *StorageEngine) FlushWriteCache(id *coreshard.ID) error {
 	e.mtx.RLock()
 	sh, ok := e.shards[id.String()]
 	e.mtx.RUnlock()

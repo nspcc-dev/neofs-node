@@ -29,7 +29,7 @@ func testCopy(t *testing.T, copier func(dst, src common.Storage) error) {
 	src := fstree.New(fstree.WithPath(filepath.Join(dir, "src")))
 
 	require.NoError(t, src.Open(false))
-	require.NoError(t, src.Init())
+	require.NoError(t, src.Init(nil))
 
 	mObjs := make(map[oid.Address][]byte, nObjects)
 
