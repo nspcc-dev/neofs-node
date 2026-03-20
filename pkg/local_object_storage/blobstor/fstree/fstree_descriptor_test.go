@@ -24,21 +24,19 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs1.SetShardID(mustShardID(t, "shard1"))
-	require.NoError(t, fs1.Init())
+	require.NoError(t, fs1.Init(mustShardID(t, "shard1")))
 	desc := filepath.Join(dir, ".fstree.json")
 
 	b, err := os.ReadFile(desc)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"version": 2,"depth": 2,"shard_id": "shard1"}`, string(b))
+	require.JSONEq(t, `{"version": 2,"depth": 2,"shard_id": "shard1","subtype":"blobstor"}`, string(b))
 
 	t.Run("same config", func(t *testing.T) {
 		fs := New(
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID(mustShardID(t, "shard1"))
-		err = fs.Init()
+		err = fs.Init(mustShardID(t, "shard1"))
 		require.NoError(t, err)
 	})
 
@@ -47,8 +45,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(3), // mismatch
 		)
-		fs.SetShardID(mustShardID(t, "shard1"))
-		err = fs.Init()
+		err = fs.Init(mustShardID(t, "shard1"))
 		require.EqualError(t, err, "layout mismatch: on-disk depth=2, configured depth=3")
 	})
 
@@ -57,22 +54,30 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID(mustShardID(t, "shard2")) // mismatch
-		err = fs.Init()
+		err = fs.Init(mustShardID(t, "shard2")) // mismatch
 		require.EqualError(t, err, "shard ID mismatch: on-disk shard ID=shard1, configured shard ID=shard2")
 	})
 
+	t.Run("subtype mismatch", func(t *testing.T) {
+		fs := New(
+			WithPath(dir),
+			WithDepth(2),
+			WithSubtype(SubtypeWriteCache),
+		)
+		err = fs.Init(mustShardID(t, "shard1"))
+		require.EqualError(t, err, "subtype mismatch: on-disk subtype=blobstor, configured subtype=write-cache")
+	})
+
 	t.Run("version mismatch", func(t *testing.T) {
-		data := []byte(`{"version":3,"depth":2,"shard_id":"shard1"}`) // version mismatch
+		data := []byte(`{"version":4,"depth":2,"shard_id":"shard1","subtype":"blobstor"}`) // version mismatch
 		require.NoError(t, os.WriteFile(desc, data, 0o600))
 
 		fs := New(
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID(mustShardID(t, "shard1"))
-		err = fs.Init()
-		require.EqualError(t, err, "unsupported layout version: 3 (current version: 2)")
+		err = fs.Init(mustShardID(t, "shard1"))
+		require.EqualError(t, err, "unsupported layout version: 4 (current version: 2)")
 	})
 
 	t.Run("invalid Json", func(t *testing.T) {
@@ -82,8 +87,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID(mustShardID(t, "shard1"))
-		err = fs.Init()
+		err = fs.Init(mustShardID(t, "shard1"))
 		require.ErrorContains(t, err, "decode descriptor from JSON:")
 	})
 
@@ -95,8 +99,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		fs.SetShardID(mustShardID(t, "shard1"))
-		err = fs.Init()
+		err = fs.Init(mustShardID(t, "shard1"))
 		require.ErrorContains(t, err, "decode descriptor from JSON:")
 		require.ErrorContains(t, err, "unknown field \"extra\"")
 	})
@@ -114,27 +117,63 @@ func TestFSTreeDescriptor_MigrationFrom1Version(t *testing.T) {
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs.SetShardID(mustShardID(t, "YZfSQhkAhFjXyyGReAEuTU"))
-	require.NoError(t, fs.Init())
+	require.NoError(t, fs.Init(mustShardID(t, "YZfSQhkAhFjXyyGReAEuTU")))
 	require.NoError(t, fs.Close())
 
 	b, err := os.ReadFile(desc)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"version":2,"depth":2,"shard_id":"YZfSQhkAhFjXyyGReAEuTU"}`, string(b))
+	require.JSONEq(t, `{"version":2,"depth":2,"shard_id":"YZfSQhkAhFjXyyGReAEuTU","subtype":"blobstor"}`, string(b))
 
 	fs2 := New(
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs2.SetShardID(mustShardID(t, "YZfSQhkAhFjXyyGReAEuTU"))
-	require.NoError(t, fs2.Init())
+	require.NoError(t, fs2.Init(mustShardID(t, "YZfSQhkAhFjXyyGReAEuTU")))
 	require.NoError(t, fs2.Close())
 
 	fs3 := New(
 		WithPath(dir),
 		WithDepth(2),
 	)
-	fs3.SetShardID(mustShardID(t, "APzY5YdK4SSf6N"))
-	err = fs3.Init()
+	err = fs3.Init(mustShardID(t, "APzY5YdK4SSf6N"))
 	require.EqualError(t, err, "shard ID mismatch: on-disk shard ID=YZfSQhkAhFjXyyGReAEuTU, configured shard ID=APzY5YdK4SSf6N")
+}
+
+func TestFSTree_ResolveShardID(t *testing.T) {
+	t.Run("missing descriptor", func(t *testing.T) {
+		dir := t.TempDir()
+		fs := New(WithPath(dir))
+
+		id, generated, err := fs.ResolveShardID()
+		require.NoError(t, err)
+		require.NotNil(t, id)
+		require.True(t, generated)
+	})
+
+	t.Run("v1 descriptor with legacy path ID", func(t *testing.T) {
+		dir := t.TempDir()
+		desc := filepath.Join(dir, ".fstree.json")
+		require.NoError(t, os.WriteFile(desc, []byte(`{"version":1,"depth":2,"shard_id":"/storage/fstree1"}`), 0o600))
+
+		fs := New(WithPath(dir))
+
+		id, generated, err := fs.ResolveShardID()
+		require.NoError(t, err)
+		require.NotNil(t, id)
+		require.True(t, generated)
+	})
+
+	t.Run("v2 descriptor with valid ID", func(t *testing.T) {
+		dir := t.TempDir()
+		desc := filepath.Join(dir, ".fstree.json")
+		require.NoError(t, os.WriteFile(desc, []byte(`{"version":2,"depth":2,"shard_id":"shard1","subtype":"blobstor"}`), 0o600))
+
+		fs := New(WithPath(dir))
+
+		id, generated, err := fs.ResolveShardID()
+		require.NoError(t, err)
+		require.NotNil(t, id)
+		require.False(t, generated)
+		require.Equal(t, "shard1", id.String())
+	})
 }

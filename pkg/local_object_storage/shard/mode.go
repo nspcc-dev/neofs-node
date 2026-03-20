@@ -85,7 +85,7 @@ func (s *Shard) setModeStorage(m mode.Mode) error {
 	err := s.blobStor.Close()
 	if err == nil {
 		if err = s.blobStor.Open(m.ReadOnly()); err == nil && s.initedStorage {
-			err = s.blobStor.Init()
+			err = s.blobStor.Init(s.info.ID)
 		}
 	}
 	if err != nil {

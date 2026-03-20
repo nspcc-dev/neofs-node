@@ -200,7 +200,7 @@ func (unimplementedBLOBStore) Open(bool) error {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) Init() error {
+func (unimplementedBLOBStore) Init(*coreshard.ID) error {
 	panic("unimplemented")
 }
 
@@ -216,7 +216,7 @@ func (unimplementedBLOBStore) Path() string {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) ShardID() *coreshard.ID {
+func (unimplementedBLOBStore) ResolveShardID() (*coreshard.ID, bool, error) {
 	panic("unimplemented")
 }
 
@@ -319,14 +319,6 @@ func (unimplementedWriteCache) Put(oid.Address, *object.Object, []byte) error {
 }
 
 func (unimplementedWriteCache) SetMode(mode.Mode) error {
-	panic("unimplemented")
-}
-
-func (unimplementedWriteCache) SetLogger(*zap.Logger) {
-	panic("unimplemented")
-}
-
-func (unimplementedWriteCache) SetShardIDMetrics(string) {
 	panic("unimplemented")
 }
 

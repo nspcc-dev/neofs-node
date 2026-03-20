@@ -26,6 +26,12 @@ func WithPath(p string) Option {
 	}
 }
 
+func WithSubtype(subtype string) Option {
+	return func(f *FSTree) {
+		f.subtype = subtype
+	}
+}
+
 func WithNoSync(noSync bool) Option {
 	return func(f *FSTree) {
 		f.noSync = noSync

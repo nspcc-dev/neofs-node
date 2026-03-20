@@ -1,6 +1,10 @@
 package shard
 
 import (
+	"errors"
+	"fmt"
+	"os"
+
 	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"go.uber.org/zap"
 )
@@ -10,54 +14,49 @@ func (s *Shard) ID() *coreshard.ID {
 	return s.info.ID
 }
 
-// UpdateID reads shard ID saved in the metabase and updates it if it is missing.
-func (s *Shard) UpdateID() (err error) {
-	if err = s.metaBase.Open(false); err != nil {
-		return err
+// ResolveID resolves shard ID.
+func (s *Shard) ResolveID() error {
+	if s.blobStor == nil {
+		return fmt.Errorf("blobstor is not configured")
 	}
-	defer func() {
-		cErr := s.metaBase.Close()
-		if err == nil {
-			err = cErr
-		}
-	}()
-	id, err := s.metaBase.ReadShardID()
+
+	resolvedID, generated, err := s.blobStor.ResolveShardID()
 	if err != nil {
 		return err
 	}
-	if len(id) != 0 {
-		s.info.ID = coreshard.NewFromBytes(id)
+	if resolvedID == nil {
+		return fmt.Errorf("empty shard ID from blobstor resolver")
+	}
 
-		if s.metricsWriter != nil {
-			s.metricsWriter.SetShardID(s.info.ID.String())
-		}
-	} else {
-		blobShardID := s.blobStor.ShardID()
-		if blobShardID != nil {
-			s.info.ID = blobShardID
-
-			if s.metricsWriter != nil {
-				s.metricsWriter.SetShardID(s.info.ID.String())
+	id := resolvedID
+	if generated {
+		if err = s.metaBase.Open(false); err == nil {
+			// metabase can already have a persisted shard ID for this shard, use it
+			// as soon as it is known to keep other components consistent
+			metaID, err := s.metaBase.ReadShardID()
+			closeErr := s.metaBase.Close()
+			if err != nil {
+				return err
 			}
+			if closeErr != nil {
+				return closeErr
+			}
+			if len(metaID) != 0 {
+				id = coreshard.NewFromBytes(metaID)
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
 		}
 	}
 
-	var (
-		sID = s.info.ID.String()
-		l   = s.log.With(zap.String("shard_id", sID))
-	)
-	s.log = l
-	s.gcCfg.log = s.gcCfg.log.With(zap.String("shard_id", sID))
-	s.metaBase.SetLogger(l)
-	s.blobStor.SetLogger(l)
-	s.blobStor.SetShardID(s.info.ID)
-	if s.hasWriteCache() {
-		s.writeCache.SetLogger(l)
-		s.writeCache.SetShardIDMetrics(sID)
+	s.info.ID = id
+	idStr := id.String()
+	s.log = s.log.With(zap.String("shard_id", idStr))
+	s.gcCfg.log = s.gcCfg.log.With(zap.String("shard_id", idStr))
+	s.metaBase.SetLogger(s.log)
+	s.blobStor.SetLogger(s.log)
+	if s.metricsWriter != nil {
+		s.metricsWriter.SetShardID(idStr)
 	}
-
-	if len(id) != 0 {
-		return nil
-	}
-	return s.metaBase.WriteShardID(s.info.ID.Bytes())
+	return nil
 }

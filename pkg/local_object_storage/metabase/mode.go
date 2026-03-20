@@ -32,7 +32,7 @@ func (db *DB) SetMode(m mode.Mode) error {
 		err = db.Open(false)
 	}
 	if err == nil && !m.NoMetabase() && !m.ReadOnly() {
-		err = db.Init()
+		err = db.Init(nil)
 	}
 
 	if err != nil {

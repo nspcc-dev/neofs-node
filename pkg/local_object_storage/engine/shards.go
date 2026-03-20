@@ -7,7 +7,6 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw/v2"
 	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -81,17 +80,12 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*coreshard.ID, error) {
 }
 
 func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
-	id, err := generateShardID()
-	if err != nil {
-		return nil, fmt.Errorf("could not generate shard ID: %w", err)
-	}
-
 	e.mtx.RLock()
 
 	if e.metrics != nil {
 		opts = append(opts, shard.WithMetricsWriter(
 			&metricsWithID{
-				id: id.String(),
+				id: "",
 				mw: e.metrics,
 			},
 		))
@@ -99,17 +93,15 @@ func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
 
 	e.mtx.RUnlock()
 
-	sh := shard.New(append(opts,
-		shard.WithID(id),
+	sh, err := shard.New(append(opts,
 		shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 		shard.WithReportErrorFunc(e.reportShardErrorBackground),
 	)...)
-
-	if err := sh.UpdateID(); err != nil {
-		return nil, fmt.Errorf("could not update shard ID: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve shard ID: %w", err)
 	}
 
-	return sh, err
+	return sh, nil
 }
 
 func (e *StorageEngine) addShard(sh *shard.Shard) error {
@@ -171,20 +163,6 @@ func (e *StorageEngine) removeShards(ids ...string) {
 		}
 		close(sh.putCh)
 	}
-}
-
-func generateShardID() (*coreshard.ID, error) {
-	uid, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-
-	bin, err := uid.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	return coreshard.NewFromBytes(bin), nil
 }
 
 func (e *StorageEngine) sortedShards(id oid.ID) []shardWrapper {

@@ -15,15 +15,14 @@ import (
 // It is used as a building block for a blobstor of a shard.
 type Storage interface {
 	Open(readOnly bool) error
-	Init() error
+	Init(shardID *coreshard.ID) error
 	Close() error
 
 	Type() string
 	Path() string
-	ShardID() *coreshard.ID
+	ResolveShardID() (*coreshard.ID, bool, error)
 	SetLogger(*zap.Logger)
 	SetCompressor(cc *compression.Config)
-	SetShardID(id *coreshard.ID)
 
 	// GetBytes reads object by address into memory buffer in a canonical NeoFS
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.
@@ -58,7 +57,7 @@ func CopyBatched(dst, src Storage, batchSize int) error {
 
 	defer func() { _ = src.Close() }()
 
-	err = src.Init()
+	err = src.Init(nil)
 	if err != nil {
 		return fmt.Errorf("initialize source sub-storage: %w", err)
 	}
@@ -70,7 +69,7 @@ func CopyBatched(dst, src Storage, batchSize int) error {
 
 	defer func() { _ = dst.Close() }()
 
-	err = dst.Init()
+	err = dst.Init(nil)
 	if err != nil {
 		return fmt.Errorf("initialize destination sub-storage: %w", err)
 	}

@@ -26,7 +26,7 @@ var payloadSizes = []int{
 func setupFSTree(tb testing.TB) *fstree.FSTree {
 	fsTree := fstree.New(fstree.WithPath(tb.TempDir()))
 	require.NoError(tb, fsTree.Open(false))
-	require.NoError(tb, fsTree.Init())
+	require.NoError(tb, fsTree.Init(nil))
 	return fsTree
 }
 

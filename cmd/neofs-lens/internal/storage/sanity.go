@@ -97,11 +97,11 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("moving metabase in readonly mode: %w", err)
 		}
 
-		if err := sh.m.Init(); err != nil {
+		if err := sh.m.Init(nil); err != nil {
 			return fmt.Errorf("init metabase: %w", err)
 		}
 		if sh.fsT != nil {
-			if err := sh.fsT.Init(); err != nil {
+			if err := sh.fsT.Init(nil); err != nil {
 				return fmt.Errorf("init fstree: %w", err)
 			}
 		}

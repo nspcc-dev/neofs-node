@@ -99,13 +99,9 @@ func newStorage(root string) common.Storage {
 }
 
 func testNewShard(t testing.TB, id int) *shard.Shard {
-	sid, err := generateShardID()
-	require.NoError(t, err)
-
 	dir := t.TempDir()
 
-	s := shard.New(
-		shard.WithID(sid),
+	s, err := shard.New(
 		shard.WithLogger(zap.L()),
 		shard.WithBlobstor(
 			newStorage(filepath.Join(dir, fmt.Sprintf("%d.fstree", id)))),
@@ -115,6 +111,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 			meta.WithEpochState(epochState{}),
 		))
 
+	require.NoError(t, err)
 	require.NoError(t, s.Open())
 	require.NoError(t, s.Init())
 

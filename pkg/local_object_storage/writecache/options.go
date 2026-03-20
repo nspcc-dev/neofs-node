@@ -1,6 +1,7 @@
 package writecache
 
 import (
+	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -19,6 +20,8 @@ type stor interface {
 
 type options struct {
 	log *zap.Logger
+	// shardID is used to initialize write-cache fstree descriptor.
+	shardID *coreshard.ID
 	// path is a path to a directory for write-cache.
 	path string
 	// storage is the main persistent storage.
@@ -47,7 +50,7 @@ type options struct {
 // WithLogger sets logger.
 func WithLogger(log *zap.Logger) Option {
 	return func(o *options) {
-		o.log = log.With(zap.String("component", "WriteCache"))
+		o.log = log.With(zap.String("substorage", wcStorageType))
 	}
 }
 
@@ -126,5 +129,19 @@ func WithMaxFlushBatchThreshold(sz uint64) Option {
 func WithMetrics(m metricRegister) Option {
 	return func(o *options) {
 		o.metrics.mr = m
+	}
+}
+
+// WithShardID sets shard identifier for write-cache fstree and metrics.
+func WithShardID(id *coreshard.ID) Option {
+	return func(o *options) {
+		if id == nil {
+			o.shardID = nil
+			o.metrics.id = ""
+			return
+		}
+
+		o.shardID = coreshard.NewFromBytes(id.Bytes())
+		o.metrics.id = id.String()
 	}
 }

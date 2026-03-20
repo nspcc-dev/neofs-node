@@ -320,7 +320,7 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 		containerSize: make(map[cid.ID]int64),
 	}
 
-	sh := shard.New(
+	sh, err := shard.New(
 		shard.WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(path, "fstree")),
 			fstree.WithDepth(1)),
@@ -330,6 +330,7 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 			meta.WithEpochState(epochState{})),
 		shard.WithMetricsWriter(mm),
 	)
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 

@@ -60,7 +60,7 @@ func TestOpenRO(t *testing.T) {
 	)
 
 	require.NoError(t, db.Open(false))
-	require.NoError(t, db.Init())
+	require.NoError(t, db.Init(nil))
 
 	obj := generateObject(t)
 	addr := obj.Address()

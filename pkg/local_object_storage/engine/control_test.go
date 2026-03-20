@@ -32,11 +32,7 @@ func TestInitializationFailure(t *testing.T) {
 	badDir := filepath.Join(t.TempDir(), "missing")
 
 	testShard := func(c paths) []shard.Option {
-		sid, err := generateShardID()
-		require.NoError(t, err)
-
 		return []shard.Option{
-			shard.WithID(sid),
 			shard.WithLogger(zaptest.NewLogger(t)),
 			shard.WithBlobstor(
 				newStorage(c.storage)),
@@ -56,7 +52,7 @@ func TestInitializationFailure(t *testing.T) {
 		badDir := filepath.Join(badDir, t.Name())
 		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
 		require.NoError(t, os.Chmod(badDir, 0))
-		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
+		testEngineFailInitAndReload(t, badDir, true, testShard(paths{
 			storage:    filepath.Join(badDir, "0"),
 			metabase:   filepath.Join(existsDir, t.Name(), "1"),
 			writecache: filepath.Join(existsDir, t.Name(), "2"),
@@ -91,9 +87,10 @@ func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s [
 	_, err := e.AddShard(s...)
 	if errOnAdd {
 		require.Error(t, err)
-		// This branch is only taken when we cannot update shard ID in the metabase.
-		// The id cannot be encountered during normal operation, but it is ok for tests:
-		// it is only compared for equality with other ids and we have 0 shards here.
+		// This branch is taken when shard creation fails before the shard is added
+		// to the engine, so there is no real shard ID to derive a configuration key
+		// from. A dummy value is sufficient here because the test only needs a stable
+		// key for Reload and the engine has no shards at this point.
 		configID = "id"
 	} else {
 		require.NoError(t, err)

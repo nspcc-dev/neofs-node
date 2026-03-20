@@ -5,7 +5,6 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -123,8 +122,8 @@ func defaultCfg() *cfg {
 	}
 }
 
-// New creates, initializes and returns new Shard instance.
-func New(opts ...Option) *Shard {
+// New creates shard from options and resolves shard ID.
+func New(opts ...Option) (*Shard, error) {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -140,27 +139,30 @@ func New(opts ...Option) *Shard {
 		metaBaseIface: mb,
 	}
 
-	reportFunc := func(msg string, err error) {
-		s.reportErrorFunc(s.ID().String(), msg, err)
+	if err := s.ResolveID(); err != nil {
+		return nil, err
 	}
-
 	if c.useWriteCache {
+		shardID := ""
+		if id := s.ID(); id != nil {
+			shardID = id.String()
+		}
+
+		reportFunc := func(msg string, err error) {
+			s.reportErrorFunc(shardID, msg, err)
+		}
+
 		s.writeCache = writecache.New(
-			append(c.writeCacheOpts,
+			append(s.writeCacheOpts,
+				writecache.WithLogger(s.log.With(zap.String("shard_id", shardID))),
+				writecache.WithShardID(s.ID()),
 				writecache.WithReportErrorFunc(reportFunc),
 				writecache.WithStorage(s.blobStor))...)
 	}
 
 	s.fillInfo()
 
-	return s
-}
-
-// WithID returns option to set the default shard identifier.
-func WithID(id *coreshard.ID) Option {
-	return func(c *cfg) {
-		c.info.ID = id
-	}
+	return s, nil
 }
 
 // WithBlobstor provides storage.

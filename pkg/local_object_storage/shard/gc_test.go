@@ -73,7 +73,9 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 		shard.WithContainerPayments(&testContainerPayments{}),
 	}
 
-	sh = shard.New(opts...)
+	var err error
+	sh, err = shard.New(opts...)
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -98,7 +100,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	lock.SetAttributes(expAttrLocker)
 	lock.AssociateLocked(objID)
 
-	err := sh.Put(obj, nil)
+	err = sh.Put(obj, nil)
 	require.NoError(t, err)
 
 	err = sh.Put(lock, nil)
@@ -198,7 +200,9 @@ func TestExpiration(t *testing.T) {
 		shard.WithContainerPayments(&testContainerPayments{}),
 	}
 
-	sh = shard.New(opts...)
+	var err error
+	sh, err = shard.New(opts...)
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -261,7 +265,9 @@ func TestContainerPayments(t *testing.T) {
 		shard.WithContainerPayments(&p),
 	}
 
-	sh = shard.New(opts...)
+	var err error
+	sh, err = shard.New(opts...)
+	require.NoError(t, err)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -271,7 +277,7 @@ func TestContainerPayments(t *testing.T) {
 	ch := sh.NotificationChannel()
 	obj := generateObject()
 
-	err := sh.Put(obj, nil)
+	err = sh.Put(obj, nil)
 	require.NoError(t, err)
 
 	const unpaidWarningMsg = "unpaid container has been marked for removal"
@@ -313,6 +319,7 @@ func TestContainerPayments(t *testing.T) {
 			Fields: map[string]any{
 				"epoch":       json.Number(strconv.FormatInt(currEpoch, 10)),
 				"cID":         cID.String(),
+				"shard_id":    sh.ID().String(),
 				"unpaidSince": json.Number(strconv.FormatInt(unpaidSince, 10)),
 			},
 		}
@@ -337,7 +344,8 @@ func TestContainerPayments(t *testing.T) {
 			Level:   zap.DebugLevel,
 			Message: "payments system is disabled, skipping container payments check",
 			Fields: map[string]any{
-				"epoch": json.Number(strconv.FormatInt(currEpoch, 10)),
+				"epoch":    json.Number(strconv.FormatInt(currEpoch, 10)),
+				"shard_id": sh.ID().String(),
 			},
 		}
 		lb.AssertContains(expLog)

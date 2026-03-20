@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	coreshard "github.com/nspcc-dev/neofs-node/pkg/core/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -40,6 +41,7 @@ type FSTree struct {
 	noSync     bool
 	readOnly   bool
 	shardID    *coreshard.ID
+	subtype    string
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
@@ -104,8 +106,9 @@ func New(opts ...Option) *FSTree {
 			Permissions: 0700,
 			RootPath:    "./",
 		},
-		Config: nil,
-		Depth:  4,
+		Config:  nil,
+		Depth:   4,
+		subtype: SubtypeBlobstor,
 
 		combinedCountLimit:    128,
 		combinedSizeLimit:     8 * 1024 * 1024,
@@ -562,6 +565,11 @@ func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.Rea
 // Type is fstree storage type used in logs and configuration.
 const Type = "fstree"
 
+const (
+	SubtypeBlobstor   = "blobstor"
+	SubtypeWriteCache = "write-cache"
+)
+
 // Type implements common.Storage.
 func (*FSTree) Type() string {
 	return Type
@@ -572,44 +580,62 @@ func (t *FSTree) Path() string {
 	return t.RootPath
 }
 
-// ShardID returns the shard ID associated with this FSTree.
-func (t *FSTree) ShardID() *coreshard.ID {
-	if !t.shardIDSet {
-		descPath := t.descriptorPath()
-		f, err := os.Open(descPath)
-		if err != nil {
-			return nil
+// ResolveShardID resolves shard ID in read-only fashion.
+// It returns resolved ID, generated flag, and error.
+// Generated=true means ID is generated in-memory (descriptor missing or v1)
+// and can be overridden by external source during migration.
+func (t *FSTree) ResolveShardID() (*coreshard.ID, bool, error) {
+	descPath := t.descriptorPath()
+	f, err := os.Open(descPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			id, genErr := generateShardID()
+			if genErr != nil {
+				return nil, false, genErr
+			}
+			return id, true, nil
 		}
-		defer f.Close()
+		return nil, false, fmt.Errorf("read descriptor %q: %w", descPath, err)
+	}
+	defer f.Close()
 
-		var d fsDescriptor
-		dec := json.NewDecoder(f)
-		dec.DisallowUnknownFields()
-		if err = dec.Decode(&d); err != nil {
-			return nil
-		}
-		id, err := coreshard.DecodeString(d.ShardID)
-		if err != nil {
-			return nil
-		}
-		return id
+	var d fsDescriptor
+	dec := json.NewDecoder(f)
+	dec.DisallowUnknownFields()
+	if err = dec.Decode(&d); err != nil {
+		return nil, false, fmt.Errorf("decode descriptor from JSON: %w", err)
 	}
-	if t.shardID == nil {
-		return nil
+
+	if d.Version != 1 && d.Version != currentVersion {
+		return nil, false, fmt.Errorf("unsupported layout version: %d", d.Version)
 	}
-	return coreshard.NewFromBytes(t.shardID.Bytes())
+
+	if d.Version == 1 {
+		id, genErr := generateShardID()
+		if genErr != nil {
+			return nil, false, genErr
+		}
+		return id, true, nil
+	}
+
+	id, err := coreshard.DecodeString(d.ShardID)
+	if err != nil {
+		return nil, false, fmt.Errorf("invalid shard ID %q in descriptor: %w", d.ShardID, err)
+	}
+
+	return id, false, nil
 }
 
-// SetShardID sets the shard ID to be written to the on-disk descriptor.
-// Must be called after the shard ID was generated and before Init().
-func (t *FSTree) SetShardID(id *coreshard.ID) {
-	if id == nil {
-		t.shardID = nil
-		t.shardIDSet = false
-		return
+func generateShardID() (*coreshard.ID, error) {
+	uid, err := uuid.NewRandom()
+	if err != nil {
+		return nil, err
 	}
-	t.shardID = coreshard.NewFromBytes(id.Bytes())
-	t.shardIDSet = true
+	bin, err := uid.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return coreshard.NewFromBytes(bin), nil
 }
 
 // SetCompressor implements common.Storage.

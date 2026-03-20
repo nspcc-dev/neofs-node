@@ -30,7 +30,7 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer fst.Close()
 
-	err = fst.Init()
+	err = fst.Init(nil)
 	if err != nil {
 		return fmt.Errorf("failed to init FSTree: %w", err)
 	}

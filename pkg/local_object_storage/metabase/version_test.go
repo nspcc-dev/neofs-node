@@ -53,13 +53,13 @@ func TestVersion(t *testing.T) {
 	t.Run("simple", func(t *testing.T) {
 		db := newDB(t)
 		require.NoError(t, db.Open(false))
-		require.NoError(t, db.Init())
+		require.NoError(t, db.Init(nil))
 		check(t, db)
 		require.NoError(t, db.Close())
 
 		t.Run("reopen", func(t *testing.T) {
 			require.NoError(t, db.Open(false))
-			require.NoError(t, db.Init())
+			require.NoError(t, db.Init(nil))
 			check(t, db)
 			require.NoError(t, db.Close())
 		})
@@ -71,7 +71,7 @@ func TestVersion(t *testing.T) {
 		require.NoError(t, db.Close())
 
 		require.NoError(t, db.Open(false))
-		require.NoError(t, db.Init())
+		require.NoError(t, db.Init(nil))
 		check(t, db)
 		require.NoError(t, db.Close())
 	})
@@ -84,7 +84,7 @@ func TestVersion(t *testing.T) {
 		require.NoError(t, db.Close())
 
 		require.NoError(t, db.Open(false))
-		require.Error(t, db.Init())
+		require.Error(t, db.Init(nil))
 		require.NoError(t, db.Close())
 
 		t.Run("reset", func(t *testing.T) {
@@ -118,7 +118,7 @@ func newDB(t testing.TB, opts ...Option) *DB {
 	)
 
 	require.NoError(t, bdb.Open(false))
-	require.NoError(t, bdb.Init())
+	require.NoError(t, bdb.Init(nil))
 
 	t.Cleanup(func() {
 		bdb.Close()
@@ -206,7 +206,7 @@ func TestMigrate7to8(t *testing.T) {
 	require.NoError(t, err)
 
 	// migrate
-	require.NoError(t, db.Init())
+	require.NoError(t, db.Init(nil))
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		infoBkt := tx.Bucket(containerVolumeBucketName)
@@ -318,7 +318,7 @@ func TestMigrate8to9(t *testing.T) {
 	require.EqualValues(t, garbageCount, c.Phy())
 
 	// migrate
-	require.NoError(t, db.Init())
+	require.NoError(t, db.Init(nil))
 
 	// check counters have been corrected
 	c, err = db.ObjectCounters()
