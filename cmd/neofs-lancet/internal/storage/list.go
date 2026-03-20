@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/spf13/cobra"
