@@ -219,7 +219,15 @@ func (unimplementedShard) Head(oid.Address, bool) (*object.Object, error) {
 	panic("unimplemented")
 }
 
+func (unimplementedShard) ReadHeader(oid.Address, bool, []byte) (int, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedShard) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error) {
 	panic("unimplemented")
 }
 
@@ -388,6 +396,20 @@ func (x *mockShard) Head(addr oid.Address, raw bool) (*object.Object, error) {
 	return &val.hdr, val.err
 }
 
+func (x *mockShard) ReadHeader(addr oid.Address, raw bool, buf []byte) (int, error) {
+	val, ok := x.head[headKey{
+		addr: addr,
+		raw:  raw,
+	}]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
+}
+
 func (x *mockShard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
 	time.Sleep(x.eCPartSleep)
 	val, ok := x.headECPart[headECPartKey{
@@ -399,6 +421,22 @@ func (x *mockShard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (obje
 		return object.Object{}, errors.New("[test] unexpected object requested")
 	}
 	return val.hdr, val.err
+}
+
+func (x *mockShard) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error) {
+	time.Sleep(x.eCPartSleep)
+	val, ok := x.headECPart[headECPartKey{
+		cnr:    cnr,
+		parent: parent,
+		pi:     pi,
+	}]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
 }
 
 type unimplementedMetrics struct{}
@@ -497,9 +535,10 @@ func (x unimplementedMetrics) AddToPayloadCounter(string, int64) {
 
 type testMetrics struct {
 	unimplementedMetrics
-	getECPart      atomic.Int64
-	getECPartRange atomic.Int64
-	headECPart     atomic.Int64
+	getECPart        atomic.Int64
+	getECPartRange   atomic.Int64
+	headECPart       atomic.Int64
+	readECPartHeader atomic.Int64
 }
 
 func (x *testMetrics) AddGetECPartDuration(d time.Duration) {
@@ -512,4 +551,8 @@ func (x *testMetrics) AddGetECPartRangeDuration(d time.Duration) {
 
 func (x *testMetrics) AddHeadECPartDuration(d time.Duration) {
 	x.headECPart.Add(int64(d))
+}
+
+func (x *testMetrics) AddReadECPartHeaderDuration(d time.Duration) {
+	x.readECPartHeader.Add(int64(d))
 }

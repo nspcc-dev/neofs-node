@@ -117,6 +117,17 @@ func (x *mockBLOBStore) Head(addr oid.Address) (*object.Object, error) {
 	return &val.hdr, val.err
 }
 
+func (x *mockBLOBStore) ReadHeader(addr oid.Address, buf []byte) (int, error) {
+	val, ok := x.head[addr]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
+}
+
 func (x *mockBLOBStore) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
 	val, ok := x.getRangeStream[addr]
 	if !ok {
@@ -166,6 +177,17 @@ func (x *mockWriteCache) Head(addr oid.Address) (*object.Object, error) {
 		return nil, errors.New("[test] unexpected object requested")
 	}
 	return &val.hdr, val.err
+}
+
+func (x *mockWriteCache) ReadHeader(addr oid.Address, buf []byte) (int, error) {
+	val, ok := x.head[addr]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
 }
 
 func (x *mockWriteCache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {

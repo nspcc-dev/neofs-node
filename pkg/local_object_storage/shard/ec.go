@@ -7,6 +7,8 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -124,13 +126,46 @@ func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, 
 	return pldLen, rc, nil
 }
 
+// ReadECPartHeader is a buffered alternative for [Shard.HeadECPart]
+// similar to [Shard.ReadHeader].
+func (s *Shard) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error) {
+	var n int
+	return n, s.headECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
+		var err error
+		n, err = writeCache.ReadHeader(addr, buf)
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address) error {
+		var err error
+		n, err = blobStorage.ReadHeader(addr, buf)
+		return err
+	})
+}
+
 // HeadECPart is similar to [Shard.GetECPart] but returns only the header.
 func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
+	var hdr object.Object
+	return hdr, s.headECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
+		h, err := writeCache.Head(addr)
+		if err == nil {
+			hdr = *h
+		}
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address) error {
+		h, err := blobStorage.Head(addr)
+		if err == nil {
+			hdr = *h
+		}
+		return err
+	})
+}
+
+func (s *Shard) headECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeCacheFn func(writecache.Cache, oid.Address) error,
+	blobStorageFn func(common.Storage, oid.Address) error) error {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
 		var se *object.SplitInfoError
 		if !errors.As(err, &se) || se.SplitInfo().GetLink().IsZero() {
-			return object.Object{}, fmt.Errorf("resolve part ID in metabase: %w", err)
+			return fmt.Errorf("resolve part ID in metabase: %w", err)
 		}
 
 		partID = se.SplitInfo().GetLink()
@@ -138,9 +173,9 @@ func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.O
 
 	partAddr := oid.NewAddress(cnr, partID)
 	if s.hasWriteCache() {
-		hdr, err := s.writeCache.Head(partAddr)
+		err := writeCacheFn(s.writeCache, partAddr)
 		if err == nil {
-			return *hdr, nil
+			return nil
 		}
 
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -150,10 +185,10 @@ func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.O
 		}
 	}
 
-	hdr, err := s.blobStor.Head(partAddr)
+	err = blobStorageFn(s.blobStor, partAddr)
 	if err != nil {
-		return object.Object{}, fmt.Errorf("get header from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
+		return fmt.Errorf("get header from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
 	}
 
-	return *hdr, nil
+	return nil
 }

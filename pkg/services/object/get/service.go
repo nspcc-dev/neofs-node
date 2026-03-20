@@ -85,6 +85,9 @@ type cfg struct {
 		ReadHeader(oid.Address, bool, []byte) (int, error)
 		// HeadECPart is similar to GetECPart but returns only the header.
 		HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error)
+		// ReadECPartHeader is a buffered alternative for HeadECPart similar to
+		// ReadHeader.
+		ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error)
 	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)

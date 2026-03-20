@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"testing"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -42,16 +44,16 @@ func TestServer_Head_Local(t *testing.T) {
 
 	require.NoError(t, storage.Put(obj, nil))
 
-	handler := getsvc.New(nopHandlerFSChain{},
+	var handlerFSChain mockHandlerFSChain
+
+	handler := getsvc.New(&handlerFSChain,
 		getsvc.WithLocalStorageEngine(storage),
 	)
 	handlers := headOnlyHandler{svc: handler}
 
 	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
 
-	assertWithVersion := func(t *testing.T, ver version.Version) *protoobject.HeadResponse {
-		req := newLocalHeadRequest(t, ver, obj.Address(), signer)
-
+	assertRequest := func(t *testing.T, req *protoobject.HeadRequest, expObj object.Object) *protoobject.HeadResponse {
 		resp, err := callHead(t, srv, req)
 		require.NoError(t, err)
 
@@ -65,14 +67,48 @@ func TestServer_Head_Local(t *testing.T) {
 		require.Equal(t, &protoobject.HeadResponse_Body{
 			Head: &protoobject.HeadResponse_Body_Header{
 				Header: &protoobject.HeaderWithSignature{
-					Header:    obj.ProtoMessage().Header,
-					Signature: obj.Signature().ProtoMessage(),
+					Header:    expObj.ProtoMessage().Header,
+					Signature: expObj.Signature().ProtoMessage(),
 				},
 			},
 		}, resp.Body)
 
 		return resp
 	}
+
+	assertWithVersion := func(t *testing.T, ver version.Version) *protoobject.HeadResponse {
+		req := newLocalHeadRequest(t, ver, obj.Address(), signer)
+		return assertRequest(t, req, *obj)
+	}
+
+	t.Run("EC part", func(t *testing.T) {
+		const anyRuleIdx = 13
+		const anyPartIdx = 42
+
+		handlerFSChain.ecRules = make([]iec.Rule, anyRuleIdx+1)
+		handlerFSChain.ecRules[anyRuleIdx].DataPartNum = anyPartIdx/2 + 1
+		handlerFSChain.ecRules[anyRuleIdx].ParityPartNum = anyPartIdx/2 + 1
+
+		partHdr, err := iec.FormObjectForECPart(signer, *obj, nil, iec.PartInfo{
+			RuleIndex: anyRuleIdx,
+			Index:     anyPartIdx,
+		}) // payload is not needed
+		require.NoError(t, err)
+
+		require.NoError(t, storage.Put(&partHdr, nil))
+
+		req := newUnsignedLocalHeadRequest(version.Current(), obj.Address())
+		req.MetaHeader.XHeaders = []*protosession.XHeader{
+			{Key: "__NEOFS__EC_RULE_IDX", Value: strconv.Itoa(anyRuleIdx)},
+			{Key: "__NEOFS__EC_PART_IDX", Value: strconv.Itoa(anyPartIdx)},
+		}
+		req.MetaHeader.Ttl = 2 // to show it has no effect w/ EC X-headers
+		signHeadRequest(t, req, signer)
+
+		assertRequest(t, req, partHdr)
+
+		handlerFSChain.ecRules = nil
+	})
 
 	t.Run("signed response", func(t *testing.T) {
 		resp := assertWithVersion(t, version.New(2, 17))
@@ -93,8 +129,8 @@ func (x headOnlyHandler) Head(ctx context.Context, prm getsvc.HeadPrm) error {
 	return x.svc.Head(ctx, prm)
 }
 
-func newLocalHeadRequest(t *testing.T, ver version.Version, addr oid.Address, signer neofscrypto.Signer) *protoobject.HeadRequest {
-	req := &protoobject.HeadRequest{
+func newUnsignedLocalHeadRequest(ver version.Version, addr oid.Address) *protoobject.HeadRequest {
+	return &protoobject.HeadRequest{
 		Body: &protoobject.HeadRequest_Body{
 			Address: addr.ProtoMessage(),
 		},
@@ -103,12 +139,20 @@ func newLocalHeadRequest(t *testing.T, ver version.Version, addr oid.Address, si
 			Ttl:     1,
 		},
 	}
+}
 
+func newLocalHeadRequest(t *testing.T, ver version.Version, addr oid.Address, signer neofscrypto.Signer) *protoobject.HeadRequest {
+	req := newUnsignedLocalHeadRequest(ver, addr)
+
+	signHeadRequest(t, req, signer)
+
+	return req
+}
+
+func signHeadRequest(t *testing.T, req *protoobject.HeadRequest, signer neofscrypto.Signer) {
 	var err error
 	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
 	require.NoError(t, err)
-
-	return req
 }
 
 func callHead(t *testing.T, srv *Server, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {

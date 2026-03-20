@@ -243,6 +243,15 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 			return fmt.Errorf("invalid request: %w", err)
 		}
 		// TODO: deny if node is not in the container?
+
+		if prm.buffer != nil {
+			n, err := s.localObjects.ReadECPartHeader(prm.addr.Container(), prm.addr.Object(), pi, prm.buffer)
+			if err == nil {
+				prm.submitLenFn(n)
+			}
+			return err
+		}
+
 		return s.copyLocalECPartHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 

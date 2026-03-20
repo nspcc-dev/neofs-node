@@ -890,6 +890,9 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 
 		_, err := s.HeadECPart(cnr, parentID, pi)
 		require.Equal(t, e, err)
+
+		_, err = s.ReadECPartHeader(cnr, parentID, pi, nil)
+		require.Equal(t, e, err)
 	})
 
 	var parentObj object.Object
@@ -921,6 +924,9 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 
 		_, _ = s.HeadECPart(cnr, parentID, pi)
 		require.GreaterOrEqual(t, time.Duration(m.headECPart.Load()), sleepTime)
+
+		_, _ = s.ReadECPartHeader(cnr, parentID, pi, make([]byte, 40<<10))
+		require.GreaterOrEqual(t, time.Duration(m.readECPartHeader.Load()), sleepTime)
 	})
 
 	t.Run("zero OID error", func(t *testing.T) {
@@ -935,6 +941,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
 			_, _ = s.HeadECPart(cnr, parentID, pi)
+		})
+
+		require.PanicsWithValue(t, "zero object ID returned as error", func() {
+			_, _ = s.ReadECPartHeader(cnr, parentID, pi, nil)
 		})
 
 		lb.AssertEmpty()
@@ -970,8 +980,18 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, partHdr, hdr)
 	}
+	checkOKBuffered := func(t *testing.T, s *StorageEngine) {
+		buf := make([]byte, 40<<10)
+		n, err := s.ReadECPartHeader(cnr, parentID, pi, buf)
+		require.NoError(t, err)
+		require.Equal(t, partHdr.Marshal(), buf[:n])
+	}
 	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
-		_, err := s.HeadECPart(cnr, parentID, pi)
+		_, err = s.ReadECPartHeader(cnr, parentID, pi, make([]byte, 40<<10))
+		require.ErrorIs(t, err, e)
+	}
+	checkErrorIsBuffered := func(t *testing.T, s *StorageEngine, e error) {
+		_, err = s.ReadECPartHeader(cnr, parentID, pi, make([]byte, 40<<10))
 		require.ErrorIs(t, err, e)
 	}
 
@@ -982,6 +1002,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		s.log = l
 
 		checkOK(t, s)
+
+		lb.AssertEmpty()
+
+		checkOKBuffered(t, s)
 
 		lb.AssertEmpty()
 	})
@@ -995,6 +1019,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		checkErrorIs(t, s, apistatus.ErrObjectAlreadyRemoved)
 
 		lb.AssertEmpty()
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectAlreadyRemoved)
+
+		lb.AssertEmpty()
 	})
 
 	t.Run("404,expired", func(t *testing.T) {
@@ -1006,6 +1034,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
 
 		lb.AssertEmpty()
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertEmpty()
 	})
 
 	t.Run("404,404", func(t *testing.T) {
@@ -1015,6 +1047,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		s.log = l
 
 		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertEmpty()
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectNotFound)
 
 		lb.AssertEmpty()
 	})
@@ -1039,6 +1075,8 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"error":     "some shard error",
 			},
 		})
+
+		checkOKBuffered(t, s)
 	})
 
 	t.Run("internal,already removed", func(t *testing.T) {
@@ -1061,6 +1099,8 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"error":     "some shard error",
 			},
 		})
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectAlreadyRemoved)
 	})
 
 	t.Run("internal,expired", func(t *testing.T) {
@@ -1083,6 +1123,8 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"error":     "some shard error",
 			},
 		})
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectNotFound)
 	})
 
 	t.Run("internal,404", func(t *testing.T) {
@@ -1105,6 +1147,8 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"error":     "some shard error",
 			},
 		})
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectNotFound)
 	})
 
 	t.Run("404,OID,OK", func(t *testing.T) {
@@ -1136,6 +1180,8 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"error":     "some error: " + partID.String(),
 			},
 		})
+
+		checkOKBuffered(t, s)
 	})
 
 	t.Run("404,OID,404", func(t *testing.T) {
@@ -1163,6 +1209,8 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"error":     "some error: " + partID.String(),
 			},
 		})
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectNotFound)
 	})
 
 	t.Run("404,OID,internal", func(t *testing.T) {
@@ -1207,6 +1255,8 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"error":     "some shard error",
 			},
 		}})
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectNotFound)
 	})
 
 	t.Run("already removed", func(t *testing.T) {
@@ -1218,6 +1268,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		checkErrorIs(t, s, apistatus.ErrObjectAlreadyRemoved)
 
 		lb.AssertEmpty()
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectAlreadyRemoved)
+
+		lb.AssertEmpty()
 	})
 
 	t.Run("expired", func(t *testing.T) {
@@ -1227,6 +1281,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		s.log = l
 
 		checkErrorIs(t, s, apistatus.ErrObjectNotFound)
+
+		lb.AssertEmpty()
+
+		checkErrorIsBuffered(t, s, apistatus.ErrObjectNotFound)
 
 		lb.AssertEmpty()
 	})
@@ -1251,6 +1309,11 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 			hdr, err := s.HeadECPart(cnr, sysObj.GetID(), pi)
 			require.NoError(t, err)
 			require.Equal(t, sysObj, hdr)
+
+			buf := make([]byte, 40<<10)
+			n, err := s.ReadECPartHeader(cnr, sysObj.GetID(), pi, buf)
+			require.NoError(t, err)
+			require.Equal(t, sysObj.Marshal(), buf[:n])
 		})
 	}
 
@@ -1260,6 +1323,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 	s.log = l
 
 	checkOK(t, s)
+
+	lb.AssertEmpty()
+
+	checkOKBuffered(t, s)
 
 	lb.AssertEmpty()
 }

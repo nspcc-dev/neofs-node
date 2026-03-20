@@ -47,7 +47,9 @@ type shardInterface interface {
 	GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error)
 	GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error)
 	Head(oid.Address, bool) (*object.Object, error)
+	ReadHeader(oid.Address, bool, []byte) (int, error)
 	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
+	ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error)
 }
 
 type putTask struct {
