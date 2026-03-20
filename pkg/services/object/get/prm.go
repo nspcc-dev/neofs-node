@@ -16,6 +16,9 @@ import (
 // SubmitStreamFunc is a callback for partially read object stream.
 type SubmitStreamFunc = func(int, io.ReadCloser)
 
+// SubmitLenFunc is a callback for number of bytes.
+type SubmitLenFunc = func(int)
+
 // Prm groups parameters of Get service call.
 type Prm struct {
 	commonPrm
@@ -52,7 +55,7 @@ type HeadPrm struct {
 	commonPrm
 
 	buffer      []byte
-	submitLenFn func(int)
+	submitLenFn SubmitLenFunc
 }
 
 type commonPrm struct {
@@ -155,7 +158,7 @@ func (p *HeadPrm) SetHeaderWriter(w internal.HeaderWriter) {
 // WithBuffer specifies a buffer into which header of the requested object is
 // optionally written. The submitLenFn parameter is a callback for number of
 // bytes written. If buffer is unused, submitLenFn is not called.
-func (p *HeadPrm) WithBuffer(buffer []byte, submitLenFn func(int)) {
+func (p *HeadPrm) WithBuffer(buffer []byte, submitLenFn SubmitLenFunc) {
 	p.buffer = buffer
 	p.submitLenFn = submitLenFn
 }

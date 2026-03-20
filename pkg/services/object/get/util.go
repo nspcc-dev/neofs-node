@@ -292,6 +292,14 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser, error) {
 	if exec.headOnly() {
+		if exec.localBuffer != nil {
+			n, err := e.engine.ReadHeader(exec.address(), exec.isRaw(), exec.localBuffer)
+			if err == nil {
+				exec.submitLocalHeadFn(n)
+			}
+			return nil, nil, err
+		}
+
 		r, err := e.engine.Head(exec.address(), exec.isRaw())
 		if err != nil {
 			return nil, nil, err
@@ -305,8 +313,8 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 		return nil, r, err
 	}
 
-	if exec.localGetBuffer != nil {
-		n, stream, err := e.engine.ReadObject(exec.address(), exec.localGetBuffer)
+	if exec.localBuffer != nil {
+		n, stream, err := e.engine.ReadObject(exec.address(), exec.localBuffer)
 		if err == nil {
 			exec.submitLocalGetStreamFn(n, stream)
 		}

@@ -62,8 +62,9 @@ type execCtx struct {
 	// no retry should be attempted.
 	headerWritten bool
 
-	localGetBuffer         []byte
+	localBuffer            []byte
 	submitLocalGetStreamFn SubmitStreamFunc
+	submitLocalHeadFn      SubmitLenFunc
 }
 
 type execOption func(*execCtx)
@@ -76,9 +77,11 @@ const (
 	statusNotFound
 )
 
-func headOnly() execOption {
+func headOnly(buf []byte, submitLenFn SubmitLenFunc) execOption {
 	return func(c *execCtx) {
 		c.head = true
+		c.localBuffer = buf
+		c.submitLocalHeadFn = submitLenFn
 	}
 }
 
@@ -109,7 +112,7 @@ func withPreSortedContainerNodes(nodeLists [][]netmap.NodeInfo, repRules []uint)
 
 func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc) execOption {
 	return func(ctx *execCtx) {
-		ctx.localGetBuffer = buf
+		ctx.localBuffer = buf
 		ctx.submitLocalGetStreamFn = submitStreamFn
 	}
 }
