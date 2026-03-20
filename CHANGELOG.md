@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - `neofs-lens storage flush-write-caches` command (#3872)
 - Reload gRPC SN config with SIGHUP (#3874)
 - Support for creation of containers with initial placement policy (#3830)
+- `neofs-lens meta remove` command (#3891)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
