@@ -4,7 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
-- `neofs-lens meta resync` command (#3849)
+- `neofs-lens meta resync` command (#3849, #3890)
 - `policer.boost_multiplier` SN config option (#3855)
 - `neofs-lens storage flush-write-caches` command (#3872)
 - Reload gRPC SN config with SIGHUP (#3874)

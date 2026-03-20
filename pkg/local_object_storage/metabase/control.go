@@ -281,6 +281,9 @@ func (rh *resyncHandler) handle(addr oid.Address, data []byte) error {
 	if err := obj.Unmarshal(data); err != nil {
 		return rh.onError(addr, err)
 	}
+	if obj.Address() != addr {
+		return rh.onError(addr, fmt.Errorf("unmarshalled object address %s does not match expected address %s", obj.Address(), addr))
+	}
 
 	rh.batch = append(rh.batch, obj)
 
