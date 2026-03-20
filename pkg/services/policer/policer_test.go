@@ -91,7 +91,6 @@ func TestConsistency(t *testing.T) {
 		p := New(neofscryptotest.Signer(),
 			WithPool(wp),
 			WithReplicationCooldown(time.Hour),
-			WithNodeLoader(nopNodeLoader{}),
 			WithNetwork(mockNet),
 			WithLogger(zap.NewNop()),
 			WithMetrics(mockM),
@@ -131,7 +130,6 @@ func TestConsistency(t *testing.T) {
 		p := New(neofscryptotest.Signer(),
 			WithPool(wp),
 			WithReplicationCooldown(time.Millisecond),
-			WithNodeLoader(nopNodeLoader{}),
 			WithNetwork(mockNet),
 			WithLogger(zap.NewNop()),
 			WithMetrics(mockM),
@@ -704,7 +702,6 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	p := New(neofscryptotest.Signer(),
 		WithPool(wp),
 		WithReplicationCooldown(50*time.Millisecond),
-		WithNodeLoader(nopNodeLoader{}),
 		WithNetwork(mockNet),
 		WithLogger(l),
 		WithMetrics(&mockMetrics{}),
@@ -1152,7 +1149,6 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	p := New(neofscryptotest.Signer(),
 		WithPool(wp),
 		WithReplicationCooldown(50*time.Millisecond), // any huge time to cancel process repeat
-		WithNodeLoader(nopNodeLoader{}),
 		WithNetwork(mockNet),
 		WithLogger(l),
 		WithMetrics(&mockMetrics{}),
@@ -1440,12 +1436,6 @@ func (x *mockNetwork) totalGetNodesCalls() uint64 {
 		res += v
 	}
 	return res
-}
-
-type nopNodeLoader struct{}
-
-func (nopNodeLoader) ObjectServiceLoad() float64 {
-	return 0
 }
 
 type connObjectKey struct {

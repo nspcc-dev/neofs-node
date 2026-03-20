@@ -679,13 +679,6 @@ func (c *cfg) needBootstrap() bool {
 	return c.cfgNetmap.needBootstrap
 }
 
-// ObjectServiceLoad implements system loader interface for policer component.
-// It is calculated as size/capacity ratio of "remote object put" worker.
-// Returns float value between 0.0 and 1.0.
-func (c *cfg) ObjectServiceLoad() float64 {
-	return float64(c.cfgObject.pool.putRemote.Running()) / float64(c.cfgObject.pool.putRemote.Cap())
-}
-
 func (c *cfg) configWatcher(ctx context.Context) {
 	var err error
 	ch := make(chan os.Signal, 1)

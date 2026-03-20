@@ -22,12 +22,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// NodeLoader provides application load statistics.
-type nodeLoader interface {
-	// ObjectServiceLoad returns object service load value in [0:1] range.
-	ObjectServiceLoad() float64
-}
-
 // interface of [replicator.Replicator] used by [Policer] for overriding in tests.
 type replicatorIface interface {
 	HandleTask(context.Context, replicator.Task, replicator.TaskResult)
@@ -164,8 +158,6 @@ type cfg struct {
 
 	taskPool *ants.Pool
 
-	loader nodeLoader
-
 	rebalanceFreq time.Duration
 
 	network Network
@@ -286,13 +278,6 @@ func WithMaxCapacity(capacity uint32) Option {
 func WithPool(p *ants.Pool) Option {
 	return func(c *cfg) {
 		c.taskPool = p
-	}
-}
-
-// WithNodeLoader returns option to set NeoFS node load source.
-func WithNodeLoader(l nodeLoader) Option {
-	return func(c *cfg) {
-		c.loader = l
 	}
 }
 

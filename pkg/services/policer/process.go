@@ -24,7 +24,6 @@ func (p *Policer) Run(ctx context.Context) {
 	p.metrics.SetPolicerConsistency(false)
 	p.hadToReplicate.Store(false)
 
-	go p.poolCapacityWorker(ctx)
 	p.shardPolicyWorker(ctx)
 }
 
@@ -192,33 +191,6 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			return
 		case <-t.C:
 			t.Reset(repCooldown)
-		}
-	}
-}
-
-func (p *Policer) poolCapacityWorker(ctx context.Context) {
-	ticker := time.NewTicker(p.rebalanceFreq)
-	for {
-		p.mtx.RLock()
-		maxCapacity := p.maxCapacity
-		p.mtx.RUnlock()
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			neofsSysLoad := p.loader.ObjectServiceLoad()
-			newCapacity := int((1.0 - neofsSysLoad) * float64(maxCapacity))
-			if newCapacity == 0 {
-				newCapacity++
-			}
-
-			if p.taskPool.Cap() != newCapacity {
-				p.taskPool.Tune(newCapacity)
-				p.log.Debug("tune replication capacity",
-					zap.Float64("system_load", neofsSysLoad),
-					zap.Int("new_capacity", newCapacity))
-			}
 		}
 	}
 }
