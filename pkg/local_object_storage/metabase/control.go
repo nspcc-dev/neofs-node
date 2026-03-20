@@ -94,8 +94,7 @@ func (db *DB) init(reset bool) error {
 	}
 
 	mStaticBuckets := map[string]struct{}{
-		string(containerVolumeBucketName): {},
-		string(shardInfoBucket):           {},
+		string(shardInfoBucket): {},
 	}
 
 	if !reset {

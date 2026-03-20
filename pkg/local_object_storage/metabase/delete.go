@@ -97,14 +97,8 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (CountersDiff, []Re
 			continue
 		}
 
-		diff.Phy += objectDiff.Phy
-		diff.Root += objectDiff.Root
-		diff.TS += objectDiff.TS
-		diff.Lock += objectDiff.Lock
-		diff.Link += objectDiff.Link
-		diff.GC += objectDiff.GC
-
-		removedObjs[i].PayloadLen = uint64(-objectDiff.payloadDiff)
+		diff.add(objectDiff)
+		removedObjs[i].PayloadLen = uint64(-objectDiff.Payload)
 	}
 
 	if firstErr != nil {
@@ -116,31 +110,19 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (CountersDiff, []Re
 	return diff, removedObjs, nil
 }
 
-type objectDiff struct {
-	CountersDiff
-	payloadDiff int
-}
-
 // delete removes object indexes from the metabase.
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (objectDiff, error) {
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (CountersDiff, error) {
 	cID := addr.Container()
 	metaBucket := tx.Bucket(metaBucketKey(cID))
 	if metaBucket == nil {
-		return objectDiff{}, nil
+		return CountersDiff{}, nil
 	}
 	var metaCursor = metaBucket.Cursor()
 
 	diff, err := deleteMetadata(metaCursor, db.log, addr.Container(), addr.Object(), false)
 	if err != nil {
 		if !errors.Is(err, errNonPhy) {
-			return objectDiff{}, fmt.Errorf("can't remove metadata indexes: %w", err)
-		}
-	}
-
-	if diff.Phy < 0 {
-		err = changeContainerInfo(tx, cID, diff.payloadDiff, diff.Phy)
-		if err != nil {
-			return objectDiff{}, fmt.Errorf("can't update container info: %w", err)
+			return CountersDiff{}, fmt.Errorf("can't remove metadata indexes: %w", err)
 		}
 	}
 

@@ -91,7 +91,7 @@ func TestDB_ObjectStatus(t *testing.T) {
 
 		n, err := db.MarkGarbage(addr)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, n)
+		require.EqualValues(t, 1, n[0].NewGarbage)
 
 		st, err := db.ObjectStatus(addr)
 		require.NoError(t, err)

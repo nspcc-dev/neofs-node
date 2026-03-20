@@ -156,16 +156,13 @@ func TestDB_ContainerSize(t *testing.T) {
 		require.Equal(t, N, int(info.ObjectsNumber))
 	}
 
-	t.Run("Inhume", func(t *testing.T) {
+	t.Run("Garbage", func(t *testing.T) {
 		for cnr, list := range objs {
 			volume := cids[cnr]
 
 			for i, obj := range list {
-				require.NoError(t, metaInhume(
-					db,
-					obj.Address(),
-					oidtest.Address(),
-				))
+				_, err := db.MarkGarbage(obj.Address())
+				require.NoError(t, err)
 
 				volume -= int(obj.PayloadSize())
 

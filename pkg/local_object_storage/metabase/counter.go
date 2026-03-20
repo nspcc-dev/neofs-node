@@ -3,6 +3,7 @@ package meta
 import (
 	"encoding/binary"
 	"fmt"
+	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -17,12 +18,23 @@ var objectLogicCounterKey = []byte("logic_counter")
 // CountersDiff groups counters diff after operation on [DB]. Positive and
 // negative values are possible.
 type CountersDiff struct {
-	Phy  int
-	Root int
-	TS   int
-	Lock int
-	Link int
-	GC   int
+	Phy     int
+	Root    int
+	TS      int
+	Lock    int
+	Link    int
+	GC      int
+	Payload int
+}
+
+func (c *CountersDiff) add(c2 CountersDiff) {
+	c.Phy += c2.Phy
+	c.Root += c2.Root
+	c.TS += c2.TS
+	c.Lock += c2.Lock
+	c.Link += c2.Link
+	c.GC += c2.GC
+	c.Payload += c2.Payload
 }
 
 type objectType uint8
@@ -36,17 +48,19 @@ const (
 	lockCounter
 	linkCounter
 	gcCounter
+	payloadCounter
 )
 
 // ObjectCounters groups object counters
 // according to metabase state.
 type ObjectCounters struct {
-	Phy  uint64
-	Root uint64
-	TS   uint64
-	Lock uint64
-	Link uint64
-	GC   uint64
+	Phy     uint64
+	Root    uint64
+	TS      uint64
+	Lock    uint64
+	Link    uint64
+	GC      uint64
+	Payload uint64
 }
 
 func (o *ObjectCounters) add(o2 ObjectCounters) {
@@ -56,6 +70,7 @@ func (o *ObjectCounters) add(o2 ObjectCounters) {
 	o.Lock += o2.Lock
 	o.Link += o2.Link
 	o.GC += o2.GC
+	o.Payload += o2.Payload
 }
 
 // ObjectCounters returns object counters that metabase has
@@ -118,6 +133,12 @@ func applyDiff(metaBkt *bbolt.Bucket, diff CountersDiff) error {
 			return fmt.Errorf("updating gc counter: %w", err)
 		}
 	}
+	if diff.Payload != 0 {
+		err := updateCounter(metaBkt, payloadCounter, diff.Payload)
+		if err != nil {
+			return fmt.Errorf("updating user payload counter: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -153,6 +174,7 @@ func getCountersByContainer(metaBucket *bbolt.Bucket) ObjectCounters {
 	res.Lock = fetchCounter(metaBucket, metaPrefixLockCounter)
 	res.Link = fetchCounter(metaBucket, metaPrefixLinkCounter)
 	res.GC = fetchCounter(metaBucket, metaPrefixGCCounter)
+	res.Payload = fetchCounter(metaBucket, metaPrefixPayloadCounter)
 
 	return res
 }
@@ -177,6 +199,8 @@ func updateCounter(metaBkt *bbolt.Bucket, typ objectType, delta int) error {
 		counterKey[0] = metaPrefixLinkCounter
 	case gcCounter:
 		counterKey[0] = metaPrefixGCCounter
+	case payloadCounter:
+		counterKey[0] = metaPrefixPayloadCounter
 	default:
 		panic("unknown object type counter")
 	}
@@ -230,23 +254,32 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 		len(b.Get([]byte{metaPrefixTSCounter})) == 8 &&
 		len(b.Get([]byte{metaPrefixLockCounter})) == 8 &&
 		len(b.Get([]byte{metaPrefixLinkCounter})) == 8 &&
-		len(b.Get([]byte{metaPrefixGCCounter})) == 8 {
+		len(b.Get([]byte{metaPrefixGCCounter})) == 8 &&
+		len(b.Get([]byte{metaPrefixPayloadCounter})) == 8 {
 		// the counters are already inited
 		return nil
 	}
 
 	var (
-		phyCounter  uint64
-		rootCounter uint64
-		tsCounter   uint64
-		lockCounter uint64
-		linkCounter uint64
-		gcCounter   uint64
+		phyCounter          uint64
+		rootCounter         uint64
+		tsCounter           uint64
+		lockCounter         uint64
+		linkCounter         uint64
+		gcCounter           uint64
+		usersPayloadCounter uint64
 	)
 
 	c := b.Cursor()
-	for range iterAttrVal(c, object.FilterPhysical, []byte(binPropMarker)) {
+	cInt := b.Cursor()
+	for obj := range iterAttrVal(c, object.FilterPhysical, []byte(binPropMarker)) {
 		phyCounter++
+		if inGarbage(cInt, obj) != statusAvailable {
+			continue
+		}
+		sizeRaw := getObjAttribute(cInt, obj, object.FilterPayloadSize)
+		size, _ := strconv.ParseUint(string(sizeRaw), 10, 64)
+		usersPayloadCounter += size
 	}
 	if containerMarkedGC(c) {
 		err := resetContainerCounters(b, phyCounter)
@@ -309,6 +342,10 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 	err = putCounter(metaPrefixGCCounter, gcCounter)
 	if err != nil {
 		return fmt.Errorf("sync GC counter: %w", err)
+	}
+	err = putCounter(metaPrefixPayloadCounter, usersPayloadCounter)
+	if err != nil {
+		return fmt.Errorf("sync user payload counter: %w", err)
 	}
 
 	return nil

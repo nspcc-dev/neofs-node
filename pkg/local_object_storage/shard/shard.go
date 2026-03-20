@@ -388,14 +388,14 @@ func (s *Shard) addObjectCounter(typ string, v int) {
 	}
 }
 
-func (s *Shard) addToContainerSize(cnr string, size int64) {
+func (s *Shard) addToContainerSize(cnr string, size int) {
 	if s.metricsWriter != nil {
-		s.metricsWriter.AddToContainerSize(cnr, size)
+		s.metricsWriter.AddToContainerSize(cnr, int64(size))
 	}
 }
 
-func (s *Shard) addToPayloadCounter(size int64) {
+func (s *Shard) addToPayloadCounter(size int) {
 	if s.metricsWriter != nil {
-		s.metricsWriter.AddToPayloadSize(size)
+		s.metricsWriter.AddToPayloadSize(int64(size))
 	}
 }

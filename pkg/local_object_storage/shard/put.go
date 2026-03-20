@@ -86,7 +86,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 		s.addObjectCounter(lockObjType, diff.Lock)
 		s.addObjectCounter(linkObjType, diff.Link)
 		s.addObjectCounter(gcObjType, diff.GC)
-		s.addToContainerSize(addr.Container().EncodeToString(), int64(obj.PayloadSize()))
+		s.addToContainerSize(addr.Container().EncodeToString(), diff.Payload)
 	}
 
 	return nil

@@ -32,10 +32,12 @@ func TestCounters(t *testing.T) {
 
 	t.Run("put", func(t *testing.T) {
 		for _, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLock, object.TypeLink} {
+			const payloadSize = 1024
+
 			t.Run(typ.String(), func(t *testing.T) {
 				oo := make([]*object.Object, 0, objCount)
 				for range objCount {
-					oo = append(oo, generateTypedObject(t, typ))
+					oo = append(oo, generateTypedObject(t, typ, payloadSize))
 				}
 
 				for i := range objCount {
@@ -46,6 +48,7 @@ func TestCounters(t *testing.T) {
 					require.NoError(t, err)
 
 					require.EqualValues(t, i+1, c.Phy)
+					require.EqualValues(t, payloadSize*(i+1), c.Payload)
 
 					switch typ {
 					case object.TypeRegular:
@@ -86,9 +89,11 @@ func TestCounters(t *testing.T) {
 	})
 
 	t.Run("delete", func(t *testing.T) {
+		const payloadSize = 1024
+
 		for _, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLock, object.TypeLink} {
 			t.Run(typ.String(), func(t *testing.T) {
-				oo := putTypedObjs(t, db, typ, objCount, false)
+				oo := putTypedObjs(t, db, typ, objCount, false, payloadSize)
 
 				for i := objCount - 1; i >= 0; i-- {
 					res, err := db.Delete([]oid.Address{oo[i].Address()})
@@ -99,6 +104,7 @@ func TestCounters(t *testing.T) {
 					require.NoError(t, err)
 
 					require.EqualValues(t, i, c.Phy)
+					require.EqualValues(t, i*(payloadSize), c.Payload)
 					require.Zero(t, c.GC)
 					switch typ {
 					case object.TypeRegular:
@@ -133,7 +139,9 @@ func TestCounters(t *testing.T) {
 
 	t.Run("inhume", func(t *testing.T) {
 		t.Run("object", func(t *testing.T) {
-			oo := putTypedObjs(t, db, object.TypeRegular, objCount, false)
+			const payloadSize = 1024
+
+			oo := putTypedObjs(t, db, object.TypeRegular, objCount, false, payloadSize)
 
 			inhumedObjs := make([]oid.Address, objCount/2)
 
@@ -154,6 +162,7 @@ func TestCounters(t *testing.T) {
 			require.NoError(t, err)
 
 			require.EqualValues(t, objCount+len(inhumedObjs), c.Phy)
+			require.EqualValues(t, payloadSize*(objCount-len(inhumedObjs)), c.Payload)
 			require.EqualValues(t, objCount, c.Root)
 			require.EqualValues(t, len(inhumedObjs), c.TS)
 			require.EqualValues(t, len(inhumedObjs), c.GC)
@@ -303,13 +312,13 @@ func TestCounters(t *testing.T) {
 	})
 }
 
-func putTypedObjs(t *testing.T, db *meta.DB, typ object.Type, count int, withParent bool) []*object.Object {
+func putTypedObjs(t *testing.T, db *meta.DB, typ object.Type, count int, withParent bool, size uint64) []*object.Object {
 	var err error
 	parent := generateObject(t)
 
 	oo := make([]*object.Object, 0, count)
 	for i := range count {
-		o := generateTypedObject(t, typ)
+		o := generateTypedObject(t, typ, size)
 		if withParent {
 			o.SetParent(parent)
 		}
@@ -323,6 +332,7 @@ func putTypedObjs(t *testing.T, db *meta.DB, typ object.Type, count int, withPar
 		require.NoError(t, err)
 
 		require.EqualValues(t, i+1, c.Phy)
+		require.EqualValues(t, int(size)*(i+1), c.Payload)
 
 		switch typ {
 		case object.TypeRegular:

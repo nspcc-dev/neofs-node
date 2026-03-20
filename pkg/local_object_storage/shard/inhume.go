@@ -36,7 +36,13 @@ func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
 		return fmt.Errorf("metabase inhume: %w", err)
 	}
 
-	s.addObjectCounter(gcObjType, int(inhumed))
+	for _, cnrDiff := range inhumed {
+		cnrStr := cnrDiff.CID.EncodeToString()
+
+		s.addObjectCounter(gcObjType, cnrDiff.NewGarbage)
+		s.addToContainerSize(cnrStr, cnrDiff.UserPayloadDiff)
+		s.addToPayloadCounter(cnrDiff.UserPayloadDiff)
+	}
 
 	if s.hasWriteCache() {
 		for i := range addrs {

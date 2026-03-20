@@ -64,7 +64,7 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 	for i := range res.RemovedObjects {
 		removedPayload := res.RemovedObjects[i].PayloadLen
 		totalRemovedPayload += removedPayload
-		s.addToContainerSize(res.RemovedObjects[i].Address.Container().EncodeToString(), -int64(removedPayload))
+		s.addToContainerSize(res.RemovedObjects[i].Address.Container().EncodeToString(), -int(removedPayload))
 
 		err = s.blobStor.Delete(res.RemovedObjects[i].Address)
 		if err == nil {
@@ -80,7 +80,7 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 		}
 	}
 
-	s.addToPayloadCounter(-int64(totalRemovedPayload))
+	s.addToPayloadCounter(-int(totalRemovedPayload))
 
 	return nil
 }

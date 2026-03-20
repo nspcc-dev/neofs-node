@@ -811,7 +811,7 @@ func testMarkGarbageEC(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
 
-	require.EqualValues(t, len(parts)+1, inhumed) // parent also has a GC mark in the shard now
+	require.EqualValues(t, len(parts)+1, inhumed[0].NewGarbage) // parent also has a GC mark in the shard now
 }
 
 func assertECGroupAvailable(t *testing.T, db *meta.DB, parent object.Object, parts []object.Object) {
