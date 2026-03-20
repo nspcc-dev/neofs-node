@@ -3,7 +3,7 @@ package meta
 import (
 	"fmt"
 
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )

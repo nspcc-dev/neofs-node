@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mr-tron/base58"
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"

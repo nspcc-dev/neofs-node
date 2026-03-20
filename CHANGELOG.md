@@ -4,12 +4,12 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
-- `neofs-lens meta resync` command (#3849, #3890)
+- `neofs-lancet meta resync` command (#3849, #3890)
 - `policer.boost_multiplier` SN config option (#3855)
-- `neofs-lens storage flush-write-caches` command (#3872)
+- `neofs-lancet storage flush-write-caches` command (#3872)
 - Reload gRPC SN config with SIGHUP (#3874)
 - Support for creation of containers with initial placement policy (#3830)
-- `neofs-lens meta remove` command (#3891)
+- `neofs-lancet meta remove` command (#3891)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
@@ -26,7 +26,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
-- Move lens `write-cache` `get`/`list` commands into `fstree` section in CLI (#3838, #3844)
+- Move lancet `write-cache` `get`/`list` commands into `fstree` section in CLI (#3838, #3844)
 - Session key storage access session keys by account only (#3817)
 - Optimized locking for reputation data collector (#3851)
 - Optimized local HEAD/GET request execution (#3783, #3882)
@@ -34,6 +34,7 @@ Changelog for NeoFS Node
 - Policer iterates engine-level object list now instead of shard-level (#3862)
 - SN now ignores `copies_number` field of `object.PutRequest.Body.Init` message (#3830)
 - Policer starts from a random offset (#3879)
+- Rename `neofs-lens` into `neofs-lancet` (#3894)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
@@ -61,7 +62,7 @@ and has now been removed. Drop this config and associated file, migrate with 0.5
 Sessions are stored in `node.persistent_state.path` DB now.
 
 Delete `storage.shards.resync_metabase` config option from SN config, it's no longer used.
-Use `neofs-lens meta resync` command if you need to resync metabase.
+Use `neofs-lancet meta resync` command if you need to resync metabase.
 
 Storage nodes no longer automatically migrate metabases from version 5
 (NeoFS 0.46.0) to 6 (NeoFS 0.48.0) and from version 6 to version 7 (NeoFS
@@ -71,6 +72,10 @@ Storage nodes clean up objects that belong to unpdaid containers.
 
 `copies_number` parameter of object PUT request no longer has an effect. Use
 `max_replicas` setting of container's initial placement policy instead.
+
+`neofs-lens` command was renamed to `neofs-lancet` to reflect that it now
+supports modifying storage state in addition to inspection.
+Replace `neofs-lens` references with `neofs-lancet`.
 
 ## [0.51.1] - 2026-02-18
 
