@@ -3,6 +3,7 @@ package meta
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -80,7 +81,6 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 		return res, ErrDegradedMode
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
 	cnr := addr.Container()
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
@@ -123,7 +123,7 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 				return fmt.Errorf("update garbage counter: %w", err)
 			}
 		}
-		err := reviveCounters(metaCursor, addr.Object())
+		err := reviveCounters(metaCursor, status, addr.Object())
 		if err != nil {
 			return fmt.Errorf("revive object counters: %w", err)
 		}
@@ -131,16 +131,6 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 		// Deleted objects are marked as garbage as well, so this mark is _always_ deleted.
 		if err := metaBucket.Delete(mkGarbageKey(addr.Object())); err != nil {
 			return err
-		}
-
-		if obj, err := get(metaCursor, addr, false, true, currEpoch); err == nil {
-			// if object is stored, and it is regular object then update bucket
-			// with container size estimations
-			if obj.Type() == object.TypeRegular {
-				if err := changeContainerInfo(tx, cnr, int(obj.PayloadSize()), 1); err != nil {
-					return err
-				}
-			}
 		}
 
 		return nil
@@ -152,15 +142,18 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 	return
 }
 
-func reviveCounters(metaC *bbolt.Cursor, obj oid.ID) error {
+func reviveCounters(metaC *bbolt.Cursor, gcStatus uint8, obj oid.ID) error {
 	var (
 		typ  object.Type = -1
 		phy  bool
 		root bool
+		size uint64
 	)
 
 	for k, v := range iterIDAttrs(metaC, obj) {
 		switch string(k) {
+		case object.FilterPayloadSize:
+			size, _ = strconv.ParseUint(string(v), 10, 64)
 		case object.FilterType:
 			typ.DecodeString(string(v))
 		case object.FilterPhysical:
@@ -169,6 +162,15 @@ func reviveCounters(metaC *bbolt.Cursor, obj oid.ID) error {
 			root = string(v) == binPropMarker
 		default:
 		}
+	}
+
+	switch gcStatus {
+	case statusTombstoned, statusGCMarked:
+		err := updateCounter(metaC.Bucket(), payloadCounter, int64(size))
+		if err != nil {
+			return fmt.Errorf("update payload counter: %w", err)
+		}
+	default:
 	}
 
 	switch typ {

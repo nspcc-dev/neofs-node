@@ -34,6 +34,7 @@ const (
 	metaPrefixLockCounter
 	metaPrefixLinkCounter
 	metaPrefixGCCounter
+	metaPrefixPayloadCounter
 )
 
 const (
@@ -144,10 +145,10 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 }
 
 // returns errNonPhy if isParent is unset and the object is not physical.
-func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (objectDiff, error) {
+func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (CountersDiff, error) {
 	var (
 		err     error
-		diff    objectDiff
+		diff    CountersDiff
 		metaBkt = c.Bucket()
 		nonPhy  = getObjAttribute(c, id, object.FilterPhysical) == nil
 		parent  oid.ID
@@ -168,7 +169,8 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 
 	pref[0] = metaPrefixGarbage
 	gcK, _ := c.Seek(pref)
-	if bytes.Equal(gcK, pref) {
+	garbage := bytes.Equal(gcK, pref)
+	if garbage {
 		err = c.Delete()
 		if err != nil {
 			return diff, fmt.Errorf("removing GC mark: %w", err)
@@ -272,7 +274,13 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 		}
 	}
 
-	diff.payloadDiff = -int(size)
+	if !nonPhy && !garbage {
+		diff.Payload = -int64(size)
+		err = updateCounter(metaBkt, payloadCounter, -int64(size))
+		if err != nil {
+			return diff, fmt.Errorf("failed to update payload counter: %w", err)
+		}
+	}
 
 	return diff, nil
 }

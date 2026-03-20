@@ -69,9 +69,10 @@ func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 	return bdb
 }
 
-func generateTypedObject(t testing.TB, typ object.Type) *object.Object {
+func generateTypedObject(t testing.TB, typ object.Type, size uint64) *object.Object {
 	o := generateObjectWithCID(t, cidtest.ID())
 	o.SetType(typ)
+	o.SetPayloadSize(size)
 	switch typ {
 	case object.TypeTombstone, object.TypeLock:
 		o.AssociateObject(oidtest.ID())

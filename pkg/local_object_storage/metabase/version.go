@@ -279,7 +279,7 @@ func migrateFrom7Version(db *DB) error {
 
 		currEpoch := db.epochState.CurrentEpoch()
 		phyPrefix := mkFilterPhysicalPrefix()
-		infoBkt := tx.Bucket(containerVolumeBucketName)
+		infoBkt := tx.Bucket([]byte{unusedContainerVolumePrefix})
 		var cnrsOld []cnrAndSize
 		err := infoBkt.ForEach(func(cnr, sizeRaw []byte) error {
 			if sizeRaw != nil {
@@ -368,7 +368,14 @@ func migrateFrom8Version(db *DB) error {
 
 func migrateFrom9Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		err := syncCounter(tx, true)
+		err := tx.DeleteBucket([]byte{unusedContainerVolumePrefix})
+		if err != nil {
+			if !errors.Is(err, berrors.ErrBucketNotFound) {
+				return fmt.Errorf("deleting deprecated container volume bucket: %w", err)
+			}
+		}
+
+		err = syncCounter(tx, true)
 		if err != nil {
 			return fmt.Errorf("resync object counters: %w", err)
 		}

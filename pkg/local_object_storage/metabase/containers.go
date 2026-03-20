@@ -79,34 +79,21 @@ func (db *DB) GetContainerInfo(id cid.ID) (ContainerInfo, error) {
 }
 
 func (db *DB) containerInfo(tx *bbolt.Tx, id cid.ID) ContainerInfo {
-	infoBkt := tx.Bucket(containerVolumeBucketName)
-	cnrBkt := infoBkt.Bucket(id[:])
-	if cnrBkt == nil {
+	metaBkt := tx.Bucket(metaBucketKey(id))
+	if metaBkt == nil || containerMarkedGC(metaBkt.Cursor()) {
 		return ContainerInfo{}
 	}
 
 	var res ContainerInfo
-	res.StorageSize = parseContainerCounter(cnrBkt.Get([]byte{containerStorageSizeKey}))
-	res.ObjectsNumber = parseContainerCounter(cnrBkt.Get([]byte{containerObjectsNumberKey}))
+	res.StorageSize = parseContainerCounter(metaBkt.Get([]byte{metaPrefixPayloadCounter}))
 
-	return res
-}
-
-func resetContainerSize(tx *bbolt.Tx, cID cid.ID) error {
-	infoBkt := tx.Bucket(containerVolumeBucketName)
-	cnrBkt := infoBkt.Bucket(cID[:])
-	if cnrBkt != nil {
-		err := cnrBkt.Put([]byte{containerStorageSizeKey}, make([]byte, 8))
-		if err != nil {
-			return fmt.Errorf("put zero storage size: %w", err)
-		}
-		err = cnrBkt.Put([]byte{containerObjectsNumberKey}, make([]byte, 8))
-		if err != nil {
-			return fmt.Errorf("put zero objects number: %w", err)
-		}
+	phy := parseContainerCounter(metaBkt.Get([]byte{metaPrefixPhyCounter}))
+	gc := parseContainerCounter(metaBkt.Get([]byte{metaPrefixGCCounter}))
+	if phy > gc {
+		res.ObjectsNumber = phy - gc
 	}
 
-	return nil
+	return res
 }
 
 func parseContainerCounter(v []byte) uint64 {
@@ -115,49 +102,6 @@ func parseContainerCounter(v []byte) uint64 {
 	}
 
 	return binary.LittleEndian.Uint64(v)
-}
-
-func changeContainerInfo(tx *bbolt.Tx, id cid.ID, storageSizeDelta, objectsNumberDelta int) error {
-	var err error
-	infoBkt := tx.Bucket(containerVolumeBucketName)
-	cnrInfoBkt := infoBkt.Bucket(id[:])
-	if cnrInfoBkt == nil {
-		cnrInfoBkt, err = infoBkt.CreateBucket(id[:])
-		if err != nil {
-			return fmt.Errorf("create container info: %w", err)
-		}
-	}
-
-	sizeOld := parseContainerCounter(cnrInfoBkt.Get([]byte{containerStorageSizeKey}))
-	sizeNew := changeCounter(sizeOld, storageSizeDelta)
-	buff := make([]byte, 8)
-	binary.LittleEndian.PutUint64(buff, sizeNew)
-	err = cnrInfoBkt.Put([]byte{containerStorageSizeKey}, buff)
-	if err != nil {
-		return fmt.Errorf("update container size value (from %d to %d): %w", sizeOld, sizeNew, err)
-	}
-
-	objsNumberOld := parseContainerCounter(cnrInfoBkt.Get([]byte{containerObjectsNumberKey}))
-	objsNumberNew := changeCounter(objsNumberOld, objectsNumberDelta)
-	buff = make([]byte, 8)
-	binary.LittleEndian.PutUint64(buff, objsNumberNew)
-	err = cnrInfoBkt.Put([]byte{containerObjectsNumberKey}, buff)
-	if err != nil {
-		return fmt.Errorf("update container objects number value (from %d to %d): %w", objsNumberOld, objsNumberNew, err)
-	}
-
-	return nil
-}
-
-func changeCounter(oldVal uint64, delta int) uint64 {
-	if delta >= 0 {
-		return oldVal + uint64(delta)
-	}
-	newVal := oldVal - uint64(-delta)
-	if newVal > oldVal {
-		return 0
-	}
-	return newVal
 }
 
 // DeleteContainer removes any information that the metabase has
@@ -173,18 +117,8 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 		return ErrReadOnlyMode
 	}
 
-	cIDRaw := cID[:]
-
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		// Estimations
-		bktEstimations := tx.Bucket(containerVolumeBucketName)
-		err := bktEstimations.DeleteBucket(cIDRaw)
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("estimations bucket cleanup: %w", err)
-		}
-
-		// Metadata
-		if err = tx.DeleteBucket(metaBucketKey(cID)); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
+		if err := tx.DeleteBucket(metaBucketKey(cID)); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("metadata bucket cleanup: %w", err)
 		}
 

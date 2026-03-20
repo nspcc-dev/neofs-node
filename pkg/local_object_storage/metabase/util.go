@@ -13,8 +13,6 @@ import (
 const attributeDelimiterLen = 1
 
 var (
-	containerVolumeBucketName = []byte{containerVolumePrefix}
-
 	// containerGCMarkKey marker key inside meta bucket designating whole container GC-marked.
 	containerGCMarkKey = []byte{metaPrefixContainerRemoved}
 )
@@ -30,10 +28,8 @@ const (
 	unusedGarbageObjectsPrefix
 	// unusedToMoveItPrefix was deleted in metabase version 9
 	unusedToMoveItPrefix
-	// containerVolumePrefix is used for storing container size estimations.
-	//	Key: container ID
-	//  Value: container size in bytes as little-endian uint64
-	containerVolumePrefix
+	// unusedContainerVolumePrefix was deleted in metabase version 10
+	unusedContainerVolumePrefix
 	// unusedLockedPrefix was deleted in metabase version 9
 	unusedLockedPrefix
 	// shardInfoPrefix is used for storing shard ID. All keys are custom and are not connected to the container.

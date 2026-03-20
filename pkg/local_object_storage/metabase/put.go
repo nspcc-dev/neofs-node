@@ -142,17 +142,11 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 		}
 	}
 
-	cnr := obj.GetContainerID()
 	if nestingLevel == 0 {
-		// update container volume size estimation
-		if obj.Type() == object.TypeRegular {
-			err = changeContainerInfo(tx, cnr, int(obj.PayloadSize()), 1)
-			if err != nil {
-				return diff, err
-			}
-		}
+		diff.Payload += int64(obj.PayloadSize())
 	}
 
+	cnr := obj.GetContainerID()
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnr))
 	if err != nil {
 		return diff, fmt.Errorf("create meta bucket for %s container: %w", cnr, err)
@@ -260,10 +254,7 @@ func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, curr
 				// if object is stored, and it is regular object then update bucket
 				// with container size estimations
 				if obj.Type() == object.TypeRegular {
-					err = changeContainerInfo(metaBkt.Tx(), cID, -int(obj.PayloadSize()), -1)
-					if err != nil {
-						return err
-					}
+					diff.Payload -= int64(obj.PayloadSize())
 				}
 			}
 			err = metaBkt.Put(mkGarbageKey(id), nil)

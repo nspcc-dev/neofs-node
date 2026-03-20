@@ -184,6 +184,27 @@ func (db *DB) InhumeContainer7Version(cID cid.ID) (uint64, error) {
 
 	var removedAvailable uint64
 
+	resetContainerSize := func(tx *bbolt.Tx, cID cid.ID) error {
+		infoBkt := tx.Bucket([]byte{unusedContainerVolumePrefix})
+		if infoBkt == nil {
+			return nil
+		}
+		cnrBkt := infoBkt.Bucket(cID[:])
+		if cnrBkt == nil {
+			return nil
+		}
+		err := cnrBkt.Put([]byte{containerStorageSizeKey}, make([]byte, 8))
+		if err != nil {
+			return fmt.Errorf("put zero storage size: %w", err)
+		}
+		err = cnrBkt.Put([]byte{containerObjectsNumberKey}, make([]byte, 8))
+		if err != nil {
+			return fmt.Errorf("put zero objects number: %w", err)
+		}
+
+		return nil
+	}
+
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
 		if err != nil {
@@ -226,8 +247,22 @@ func getCounters7Version(tx *bbolt.Tx) (uint64, uint64) {
 	return phyC, logicC
 }
 
+func newDBBefore10Version(t testing.TB, opts ...Option) *DB {
+	db := newDB(t, opts...)
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte{unusedContainerVolumePrefix})
+		if err != nil {
+			return fmt.Errorf("create volume bucket: %w", err)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	return db
+}
+
 func TestMigrate7to8(t *testing.T) {
-	db := newDB(t)
+	db := newDBBefore10Version(t)
 	cnr := cidtest.ID()
 	var totalSize uint64
 	const objsNum = 10
@@ -270,7 +305,7 @@ func TestMigrate7to8(t *testing.T) {
 
 	// force 7th version
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		infoBtk := tx.Bucket(containerVolumeBucketName)
+		infoBtk := tx.Bucket([]byte{unusedContainerVolumePrefix})
 		buff := make([]byte, 8)
 		binary.LittleEndian.PutUint64(buff, totalSize)
 		err = infoBtk.Put(cnr[:], buff)
@@ -303,7 +338,7 @@ func TestMigrate7to8(t *testing.T) {
 	require.NoError(t, err)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		infoBkt := tx.Bucket(containerVolumeBucketName)
+		infoBkt := tx.Bucket([]byte{unusedContainerVolumePrefix})
 		v := infoBkt.Get(cnr[:])
 		require.Nil(t, v) // it is a bucket now, now a regular value
 
@@ -374,7 +409,7 @@ func (db *DB) ObjectCounters8Version() (ObjectCounters8Version, error) {
 }
 
 func TestMigrate8to9(t *testing.T) {
-	db := newDB(t)
+	db := newDBBefore10Version(t)
 
 	// store several root phy objects
 	const phyContainerNum = 5
@@ -452,26 +487,43 @@ func TestMigrate8to9(t *testing.T) {
 
 func TestMigrate9To10(t *testing.T) {
 	cID := cidtest.ID()
+	oTombstoned := objecttest.Object()
+	oTombstoned.ResetRelations()
+	oTombstoned.SetType(object.TypeRegular)
+	oTombstoned.SetContainerID(cID)
+	oTombstoned.SetPayloadSize(11)
+
 	o := objecttest.Object()
 	o.ResetRelations()
 	o.SetType(object.TypeRegular)
 	o.SetContainerID(cID)
+	o.SetPayloadSize(22)
 
 	ts := objecttest.Object()
 	ts.ResetRelations()
 	ts.SetType(object.TypeTombstone)
 	ts.SetContainerID(cID)
-	ts.AssociateDeleted(o.GetID())
+	ts.AssociateDeleted(oTombstoned.GetID())
+	ts.SetPayloadSize(33)
 
 	link := objecttest.Object()
 	link.ResetRelations()
 	link.SetType(object.TypeLink)
 	link.SetContainerID(cID)
+	link.SetPayloadSize(44)
 
 	lock := objecttest.Object()
 	lock.ResetRelations()
 	lock.SetType(object.TypeLock)
 	lock.SetContainerID(cID)
+	lock.SetPayloadSize(55)
+
+	// every object except tombstoned one
+	var totalPayloadSize uint64
+	totalPayloadSize += o.PayloadSize()
+	totalPayloadSize += ts.PayloadSize()
+	totalPayloadSize += link.PayloadSize()
+	totalPayloadSize += lock.PayloadSize()
 
 	db := newDB(t)
 
@@ -479,6 +531,10 @@ func TestMigrate9To10(t *testing.T) {
 		// Put objects, no counters handling
 
 		err := PutMetadataForObject(tx, o, true)
+		if err != nil {
+			return err
+		}
+		err = PutMetadataForObject(tx, oTombstoned, true)
 		if err != nil {
 			return err
 		}
@@ -515,6 +571,25 @@ func TestMigrate9To10(t *testing.T) {
 			return err
 		}
 
+		// put deprecated container volume counters
+
+		bVolume, err := tx.CreateBucketIfNotExists([]byte{unusedContainerVolumePrefix})
+		if err != nil {
+			return err
+		}
+		bCnr, err := bVolume.CreateBucket(cID[:])
+		if err != nil {
+			return err
+		}
+		err = bCnr.Put([]byte{containerStorageSizeKey}, someUint64Val)
+		if err != nil {
+			return err
+		}
+		err = bCnr.Put([]byte{containerObjectsNumberKey}, someUint64Val)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}))
 
@@ -537,12 +612,18 @@ func TestMigrate9To10(t *testing.T) {
 		}
 
 		metaB := tx.Bucket(metaBucketKey(cID))
-		requireUint64Value(metaB.Get([]byte{metaPrefixPhyCounter}), 7)
-		requireUint64Value(metaB.Get([]byte{metaPrefixRootCounter}), 1)
+		requireUint64Value(metaB.Get([]byte{metaPrefixPhyCounter}), 5)
+		requireUint64Value(metaB.Get([]byte{metaPrefixRootCounter}), 2)
 		requireUint64Value(metaB.Get([]byte{metaPrefixTSCounter}), 1)
 		requireUint64Value(metaB.Get([]byte{metaPrefixLinkCounter}), 1)
 		requireUint64Value(metaB.Get([]byte{metaPrefixLockCounter}), 1)
 		requireUint64Value(metaB.Get([]byte{metaPrefixGCCounter}), 1)
+		requireUint64Value(metaB.Get([]byte{metaPrefixPayloadCounter}), totalPayloadSize)
+
+		// there is no container volume bucket
+
+		b := tx.Bucket([]byte{unusedContainerVolumePrefix})
+		require.Nil(t, b)
 
 		return nil
 	}))

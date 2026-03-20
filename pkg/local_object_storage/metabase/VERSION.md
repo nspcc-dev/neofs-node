@@ -8,12 +8,6 @@ Numbers stand for a single byte value unless otherwise stated.
 The lowest not used bucket index: 20.
 
 ### Primary buckets
-- Container volume bucket
-  - Name: `3`
-  - Key: container ID
-  - Value: bucket with container metrics:
-            - `0` -> container size in bytes as little-endian uint64
-            - `1` -> container's objects number as little-endian uint64
 - Bucket containing auxiliary information. All keys are custom and are not connected to the container
   - Name: `5`
   - Keys and values
@@ -38,13 +32,14 @@ The lowest not used bucket index: 20.
     - `9` —> container's LOCK objects counter as little-endian uint64
     - `10` —> container's LINK objects counter as little-endian uint64
     - `11` —> container's garbage objects counter as little-endian uint64
+    - `12` —> container's non-GCed payload of physical objects counter as little-endian uint64
 
 # History
 
 ## Version 10
 
 Object counters are stored inside metadata bucket per container now. New ROOT,
-TS, LOCK, LINK, garbage objects counters added.
+TS, LOCK, LINK, garbage objects, available PHY objects payload counters added.
 
 ## Version 9
 

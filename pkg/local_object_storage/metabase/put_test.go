@@ -159,7 +159,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			// any GC mark should be considered as a GC counter increasing
 			n, err := db.MarkGarbage(addr)
 			require.NoError(t, err)
-			require.EqualValues(t, 1, n)
+			require.EqualValues(t, 1, n[0].NewGarbage)
 		})
 	})
 
@@ -309,7 +309,7 @@ func TestDB_Put_Lock(t *testing.T) {
 
 			n, err := db.MarkGarbage(objAddr)
 			require.NoError(t, err)
-			require.EqualValues(t, 1, n)
+			require.EqualValues(t, 1, n[0].NewGarbage)
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

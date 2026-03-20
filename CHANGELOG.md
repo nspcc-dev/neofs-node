@@ -41,6 +41,7 @@ Changelog for NeoFS Node
 - 2.18 is the minimum supported version for new objects (#3869)
 - Rename `neofs-lens` into `neofs-lancet` (#3894)
 - SN no longer accepts objects with invocation or verification script bigger than 1KiB (#3887)
+- Every object with non-zero payload is now paid, not only regular ones (#3856)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
