@@ -16,7 +16,8 @@ import (
 
 const maxObjectNestingLevel = 2
 
-// Put updates metabase indexes for the given object.
+// PutCounted updates metabase indexes for the given object.
+// [CountersDiff] describes internal state chages after put operation.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
@@ -24,20 +25,25 @@ const maxObjectNestingLevel = 2
 // Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [object.TypeLock]
 // type and there is an object of [object.TypeTombstone] type associated with
 // the same target.
-func (db *DB) Put(obj *object.Object) error {
+func (db *DB) PutCounted(obj *object.Object) (CountersDiff, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	var (
+		diff CountersDiff
+		err  error
+	)
 	if db.mode.NoMetabase() {
-		return ErrDegradedMode
+		return diff, ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return ErrReadOnlyMode
+		return diff, ErrReadOnlyMode
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()
 
-	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, obj, 0, currEpoch)
+	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+		diff, err = db.put(tx, obj, 0, currEpoch)
+		return err
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -45,6 +51,13 @@ func (db *DB) Put(obj *object.Object) error {
 			storagelog.OpField("metabase PUT"))
 	}
 
+	return diff, err
+}
+
+// Put does same things as [DB.PutCounted] but without counter changes tracking,
+// it was added to minimize code diff.
+func (db *DB) Put(obj *object.Object) error {
+	_, err := db.PutCounted(obj)
 	return err
 }
 
@@ -72,7 +85,7 @@ func (db *DB) PutBatch(objs []*object.Object) error {
 	var successIndices []int
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		for i, obj := range objs {
-			if err := db.put(tx, obj, 0, currEpoch); err != nil {
+			if _, err := db.put(tx, obj, 0, currEpoch); err != nil {
 				if IsErrRemoved(err) || errors.Is(err, ErrObjectIsExpired) ||
 					errors.Is(err, apistatus.ErrObjectLocked) {
 					db.log.Warn("skipping object in batch due to non-critical error",
@@ -99,80 +112,88 @@ func (db *DB) PutBatch(objs []*object.Object) error {
 	return err
 }
 
-func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch uint64) error {
+func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch uint64) (CountersDiff, error) {
+	var diff CountersDiff
 	if err := objectcore.VerifyHeaderForMetadata(*obj); err != nil {
-		return err
+		return diff, err
 	}
 
 	exists, err := db.exists(tx, obj.Address(), currEpoch, false)
 
 	switch {
 	case exists:
-		return nil
+		return diff, nil
 	case errors.As(err, &apistatus.ObjectNotFound{}):
 		// OK, we're putting here.
 	case err != nil:
-		return err // return any other errors
+		return diff, err // return any other errors
 	}
 
 	var par = obj.Parent()
 
 	if par != nil && !par.GetID().IsZero() { // skip the first object without useful info
 		if nestingLevel == maxObjectNestingLevel {
-			return fmt.Errorf("max object nesting level %d overflow", maxObjectNestingLevel)
+			return diff, fmt.Errorf("max object nesting level %d overflow", maxObjectNestingLevel)
 		}
 
-		err = db.put(tx, par, nestingLevel+1, currEpoch)
+		_, err = db.put(tx, par, nestingLevel+1, currEpoch)
 		if err != nil {
-			return err
+			return diff, err
 		}
 	}
 
 	if nestingLevel == 0 {
-		// update container volume size estimation
-		if obj.Type() == object.TypeRegular {
-			err = changeContainerInfo(tx, obj.GetContainerID(), int(obj.PayloadSize()), 1)
-			if err != nil {
-				return err
-			}
-
-			// it is expected that putting an unavailable object is
-			// impossible and should be handled on the higher levels
-			err = updateCounter(tx, logical, 1, true)
-			if err != nil {
-				return fmt.Errorf("could not increase logical object counter: %w", err)
-			}
-		}
-
-		err = updateCounter(tx, phy, 1, true)
-		if err != nil {
-			return fmt.Errorf("could not increase phy object counter: %w", err)
-		}
+		diff.Payload += int(obj.PayloadSize())
 	}
 
-	err = handleNonRegularObject(tx, currEpoch, *obj)
+	cnr := obj.GetContainerID()
+	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnr))
 	if err != nil {
-		return err
+		return diff, fmt.Errorf("create meta bucket for %s container: %w", cnr, err)
+	}
+
+	switch obj.Type() {
+	case object.TypeStorageGroup: //nolint:staticcheck // TypeStorageGroup is deprecated, we do not index.
+	case object.TypeLink:
+		err = handleLinkObject(&diff)
+	case object.TypeTombstone, object.TypeLock:
+		err = handleObjectWithAssociation(metaBkt, &diff, currEpoch, *obj)
+	case object.TypeRegular:
+		err = handleRegularObject(&diff, *obj, nestingLevel == 0)
+	default:
+		return diff, fmt.Errorf("unsupported object type: %s", obj.Type())
+	}
+	if err != nil {
+		return diff, err
+	}
+
+	err = applyDiff(metaBkt, diff)
+	if err != nil {
+		return diff, fmt.Errorf("put applying counters diff: %w", err)
 	}
 
 	if err := PutMetadataForObject(tx, *obj, nestingLevel == 0); err != nil {
-		return fmt.Errorf("put metadata: %w", err)
+		return diff, fmt.Errorf("put metadata: %w", err)
 	}
+
+	return diff, nil
+}
+
+func handleLinkObject(diff *CountersDiff) error {
+	diff.Link++
+	// link is always phy
+	diff.Phy++
 
 	return nil
 }
 
-func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) error {
+func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, currEpoch uint64, obj object.Object) error {
 	target := obj.AssociatedObject()
 	if target.IsZero() {
 		return nil
 	}
 	cID := obj.GetContainerID()
 	oID := obj.GetID()
-	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
-	if err != nil {
-		return fmt.Errorf("create meta bucket for container: %w", err)
-	}
 	metaCursor := metaBkt.Cursor()
 	typ := obj.Type()
 	targetTyp, targetTypErr := fetchTypeForID(metaCursor, target)
@@ -190,6 +211,8 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 		if targetTypErr != nil && !errors.Is(targetTypErr, errObjTypeNotFound) {
 			return fmt.Errorf("can't get type for %s object's target %s: %w", typ, target, targetTypErr)
 		}
+
+		diff.Lock++
 	case object.TypeTombstone:
 		var (
 			addr    oid.Address
@@ -226,17 +249,12 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 			// especially if the error is SplitInfo.
 			if err == nil {
 				if inGarbage(metaCursor, id) == statusAvailable {
-					// object is available, decrement the
-					// logical counter
 					inhumed++
 				}
 				// if object is stored, and it is regular object then update bucket
 				// with container size estimations
 				if obj.Type() == object.TypeRegular {
-					err = changeContainerInfo(tx, cID, -int(obj.PayloadSize()), -1)
-					if err != nil {
-						return err
-					}
+					diff.Payload -= int(obj.PayloadSize())
 				}
 			}
 			err = metaBkt.Put(mkGarbageKey(id), nil)
@@ -244,11 +262,23 @@ func handleNonRegularObject(tx *bbolt.Tx, currEpoch uint64, obj object.Object) e
 				return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
 			}
 		}
-		err = updateCounter(tx, logical, uint64(inhumed), false)
-		if err != nil {
-			return fmt.Errorf("could not increase logical object counter: %w", err)
-		}
+		diff.TS++
+		diff.GC += inhumed
 	default:
+	}
+
+	diff.Phy++
+
+	return nil
+}
+
+func handleRegularObject(diff *CountersDiff, obj object.Object, phy bool) error {
+	if !obj.HasParent() {
+		diff.Root++
+	}
+
+	if phy {
+		diff.Phy++
 	}
 
 	return nil

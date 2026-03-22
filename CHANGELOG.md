@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Reload gRPC SN config with SIGHUP (#3874)
 - Support for creation of containers with initial placement policy (#3830)
 - `neofs-lens meta remove` command (#3891)
+- SN has new `root`, `ts`, `lock`, `link`, `gc` object counter metrics (#3740)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
@@ -34,6 +35,7 @@ Changelog for NeoFS Node
 - Policer iterates engine-level object list now instead of shard-level (#3862)
 - SN now ignores `copies_number` field of `object.PutRequest.Body.Init` message (#3830)
 - Policer starts from a random offset (#3879)
+- Every object with non-zero payload is now paid, not only regular ones (#3856)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
@@ -41,6 +43,7 @@ Changelog for NeoFS Node
 - `storage.shards.resync_metabase` config option from SN config (#3849)
 - One-time netmap contract placement migration routine for v0.49.0+ releases (#3821)
 - Metabase v5 to v6 and v6 to v7 migrations (#3864)
+- SN's `logic` object counter metric (#3740)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260313123945-7c44802bcefb` (#3785, #3817, #3808, #3830, #3883)

@@ -62,7 +62,7 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.True(t, exists)
 
 		// inhume with GC mark
-		_, _, err = db.MarkGarbage(raw.Address())
+		_, err = db.MarkGarbage(raw.Address())
 		require.NoError(t, err)
 
 		_, err = metaExists(db, raw.Address())
