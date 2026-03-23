@@ -1,6 +1,8 @@
 package container
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 
@@ -10,10 +12,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -109,7 +112,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			cmd.Println("ACL extension is enabled in the container, continue processing.")
 		}
 
-		var actor containerModifier = cli
+		var call = cli.ContainerSetEACL
 
 		if containerAwait {
 			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
@@ -117,7 +120,39 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				return fmt.Errorf("fetching network info: %w", err)
 			}
 
-			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
+			call = func(ctx context.Context, table eacl.Table, signer user.Signer, prm client.PrmContainerSetEACL) error {
+				if err := cli.ContainerSetEACL(ctx, table, signer, prm); err != nil {
+					return fmt.Errorf("container setEacl: %w", err)
+				}
+
+				contID := table.GetCID()
+				if contID.IsZero() {
+					return client.ErrMissingEACLContainer
+				}
+
+				newBinary := table.Marshal()
+
+				var prmEacl client.PrmContainerEACL
+
+				logic := func() error {
+					actualTable, err := cli.ContainerEACL(ctx, contID, prmEacl)
+					if err != nil {
+						if errors.Is(err, apistatus.ErrEACLNotFound) {
+							return errRetry
+						}
+
+						return fmt.Errorf("ContainerEACL: %w", err)
+					}
+
+					if bytes.Equal(newBinary, actualTable.Marshal()) {
+						return nil
+					}
+
+					return errRetry
+				}
+
+				return poll(ctx, pollTimeFromNetworkInfo(ni), logic)
+			}
 		}
 
 		var setEACLPrm client.PrmContainerSetEACL
@@ -132,7 +167,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				setEACLPrm.WithinSession(*tok)
 			}
 		}
-		err = actor.ContainerSetEACL(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
+		err = call(ctx, eaclTable, user.NewAutoIDSignerRFC6979(*pk), setEACLPrm)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}

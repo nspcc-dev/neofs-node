@@ -1,12 +1,14 @@
 package container
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	containerpolicy "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/container/policy"
@@ -15,10 +17,10 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -141,10 +143,32 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		}
 		cnr.ApplyNetworkConfig(ni)
 
-		var actor containerModifier = cli
+		var call = cli.ContainerPut
 
 		if containerAwait {
-			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
+			call = func(ctx context.Context, cont container.Container, signer neofscrypto.Signer, prm client.PrmContainerPut) (cid.ID, error) {
+				id, err := cli.ContainerPut(ctx, cont, signer, prm)
+				if err != nil {
+					return cid.ID{}, fmt.Errorf("put: %w", err)
+				}
+
+				var prmGet client.PrmContainerGet
+
+				logic := func() error {
+					_, err = cli.ContainerGet(ctx, id, prmGet)
+					if err != nil {
+						if errors.Is(err, apistatus.ErrContainerNotFound) {
+							return errRetry
+						}
+
+						return fmt.Errorf("ContainerGet: %w", err)
+					}
+
+					return nil
+				}
+
+				return id, poll(ctx, pollTimeFromNetworkInfo(ni), logic)
+			}
 		}
 
 		var putPrm client.PrmContainerPut
@@ -160,10 +184,10 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			}
 		}
 
-		id, err := actor.ContainerPut(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
+		id, err := call(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
 		if err != nil {
 			if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
-				err = waiter.ErrConfirmationTimeout
+				err = common.ErrAwaitTimeout
 			}
 			return fmt.Errorf("put container rpc error: %w", err)
 		}
