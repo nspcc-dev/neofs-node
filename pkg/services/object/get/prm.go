@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"google.golang.org/grpc/mem"
 )
 
 // SubmitStreamFunc is a callback for partially read object stream.
@@ -47,12 +48,24 @@ type RangeHashPrm struct {
 type RequestForwarder func(context.Context, coreclient.MultiAddressClient) (*object.Object, error)
 type RangeRequestForwarder func(context.Context, coreclient.MultiAddressClient) ([][]byte, error)
 
+// ForwardHeadRequestFunc sends currently served HEAD request to remote node
+// through passed connection and returns buffered response with requested
+// object's header binary in it.
+type ForwardHeadRequestFunc = func(context.Context, coreclient.MultiAddressClient) (mem.BufferSlice, []byte, error)
+
+// SubmitHeadResponseFunc accepts result of [ForwardHeadRequestFunc].
+type SubmitHeadResponseFunc = func(mem.BufferSlice, []byte)
+
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
 
 	buffer      []byte
 	submitLenFn func(int)
+
+	forwardHeadResponseFn ForwardHeadRequestFunc
+
+	submitHeadResponseFn SubmitHeadResponseFunc
 }
 
 type commonPrm struct {
@@ -173,4 +186,26 @@ func (p *Prm) WithBuffer(buffer []byte, submitStreamFn SubmitStreamFunc) {
 // GetBuffer returns buffer settings set using [Prm.WithBuffer].
 func (p Prm) GetBuffer() ([]byte, SubmitStreamFunc) {
 	return p.localGetBuffer, p.submitLocalGetStreamFn
+}
+
+// SetRequestForwarder specifies request transport callback to use for receiving
+// response from remote node.
+//
+// The f should return:
+//   - response buffer and object header protobuf without an error on OK
+//   - (nil, nil, [object.SplitInfoError]) on OK with corresponding body field
+//   - (nil, nil, [apistatus.ErrObjectNotFound]) on 404 status
+//   - (respBuf, nil, nil) on other API statuses
+//   - (nil, nil, err) on any transport err
+//
+// Once results successfully received, it is forwarded untouched to handler
+// which must be set via [HeadPrm.SetSubmitHeadResponseFunc].
+func (p *HeadPrm) SetRequestForwarder(f ForwardHeadRequestFunc) {
+	p.forwardHeadResponseFn = f
+}
+
+// SetSubmitHeadResponseFunc specifies handler to pass results of
+// [HeadPrm.SetRequestForwarder] argument into.
+func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
+	p.submitHeadResponseFn = f
 }

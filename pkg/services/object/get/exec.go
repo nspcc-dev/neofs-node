@@ -64,6 +64,10 @@ type execCtx struct {
 
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
+
+	forwardHeadRequestFn ForwardHeadRequestFunc
+
+	submitHeadResponseFn SubmitHeadResponseFunc
 }
 
 type execOption func(*execCtx)
@@ -76,9 +80,11 @@ const (
 	statusNotFound
 )
 
-func headOnly() execOption {
+func headOnly(forwardRequestFn ForwardHeadRequestFunc, submitResponseFn SubmitHeadResponseFunc) execOption {
 	return func(c *execCtx) {
 		c.head = true
+		c.forwardHeadRequestFn = forwardRequestFn
+		c.submitHeadResponseFn = submitResponseFn
 	}
 }
 
