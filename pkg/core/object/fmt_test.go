@@ -93,7 +93,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("nil input", func(t *testing.T) {
-		require.Error(t, v.Validate(nil, true))
+		require.Error(t, v.Validate(nil, true, true))
 	})
 
 	t.Run("storage group", func(t *testing.T) {
@@ -101,19 +101,19 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetType(object.TypeStorageGroup) //nolint:staticcheck // Deprecated, but that's exactly the test.
 		obj.SetContainerID(cidtest.ID())
 
-		require.Error(t, v.Validate(obj, false))
-		require.Error(t, v.Validate(obj, true))
+		require.Error(t, v.Validate(obj, false, true))
+		require.Error(t, v.Validate(obj, true, true))
 	})
 
 	t.Run("invalid identifier", func(t *testing.T) {
 		t.Run("missing", func(t *testing.T) {
 			obj := smallECDSASHA512
 			obj.ResetID()
-			require.ErrorIs(t, v.Validate(&obj, false), errNilID)
+			require.ErrorIs(t, v.Validate(&obj, false, true), errNilID)
 		})
 		t.Run("wrong", func(t *testing.T) {
 			registerContainer(wrongIDECDSASHA512.GetContainerID())
-			require.EqualError(t, v.Validate(&wrongIDECDSASHA512, false), "could not validate header fields: invalid identifier: incorrect object identifier")
+			require.EqualError(t, v.Validate(&wrongIDECDSASHA512, false, true), "could not validate header fields: invalid identifier: incorrect object identifier")
 		})
 	})
 
@@ -121,14 +121,14 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj := new(object.Object)
 		obj.SetID(oidtest.ID())
 
-		require.ErrorIs(t, v.Validate(obj, true), errNilCID)
+		require.ErrorIs(t, v.Validate(obj, true, true), errNilCID)
 	})
 
 	t.Run("invalid signature", func(t *testing.T) {
 		t.Run("unsigned", func(t *testing.T) {
 			obj, _ := minUnsignedObject(t)
 			registerContainer(obj.GetContainerID())
-			require.EqualError(t, v.Validate(&obj, false), "authenticate: missing signature")
+			require.EqualError(t, v.Validate(&obj, false, true), "authenticate: missing signature")
 		})
 		t.Run("unsupported scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -140,7 +140,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			registerContainer(obj.GetContainerID())
 
-			require.EqualError(t, v.Validate(&obj, false), "authenticate: unsupported scheme 4")
+			require.EqualError(t, v.Validate(&obj, false, true), "authenticate: unsupported scheme 4")
 		})
 		t.Run("wrong scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -152,7 +152,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			registerContainer(obj.GetContainerID())
 
-			require.EqualError(t, v.Validate(&obj, false), "authenticate: scheme ECDSA_RFC6979_SHA256_WALLET_CONNECT: signature mismatch")
+			require.EqualError(t, v.Validate(&obj, false, true), "authenticate: scheme ECDSA_RFC6979_SHA256_WALLET_CONNECT: signature mismatch")
 		})
 		t.Run("invalid public key", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -180,7 +180,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 					registerContainer(obj.GetContainerID())
 
-					require.EqualError(t, v.Validate(&obj, false), "authenticate: scheme ECDSA_SHA512: decode public key: "+tc.err)
+					require.EqualError(t, v.Validate(&obj, false, true), "authenticate: scheme ECDSA_SHA512: decode public key: "+tc.err)
 				})
 			}
 		})
@@ -202,7 +202,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 						cp[i]++
 						newSig := neofscrypto.NewSignatureFromRawKey(sig.Scheme(), sig.PublicKeyBytes(), cp)
 						tc.object.SetSignature(&newSig)
-						require.EqualError(t, v.Validate(&tc.object, false), fmt.Sprintf("authenticate: scheme %s: signature mismatch", tc.scheme))
+						require.EqualError(t, v.Validate(&tc.object, false, true), fmt.Sprintf("authenticate: scheme %s: signature mismatch", tc.scheme))
 					}
 				})
 			}
@@ -222,7 +222,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		registerContainer(obj.GetContainerID())
 
-		require.NoError(t, v.Validate(obj, false))
+		require.NoError(t, v.Validate(obj, false, true))
 	})
 
 	t.Run("incorrect session token", func(t *testing.T) {
@@ -236,14 +236,14 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, obj.SetIDWithSignature(signer))
 
 			obj.SetSignature(&neofscrypto.Signature{})
-			require.Error(t, v.Validate(obj, false))
+			require.Error(t, v.Validate(obj, false, true))
 		})
 
 		t.Run("wrong owner", func(t *testing.T) {
 			obj.SetOwner(user.ID{})
 
 			require.NoError(t, obj.SetIDWithSignature(signer))
-			require.Error(t, v.Validate(obj, false))
+			require.Error(t, v.Validate(obj, false, true))
 		})
 
 		t.Run("wrong signer", func(t *testing.T) {
@@ -253,7 +253,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			wrongSigner := user.NewAutoIDSignerRFC6979(wrongOwner.PrivateKey)
 
 			require.NoError(t, obj.SetIDWithSignature(wrongSigner))
-			require.Error(t, v.Validate(obj, false))
+			require.Error(t, v.Validate(obj, false, true))
 		})
 
 		t.Run("signed not by issuer", func(t *testing.T) {
@@ -275,7 +275,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			registerContainer(obj.GetContainerID())
 
-			err = v.Validate(obj, false)
+			err = v.Validate(obj, false, true)
 			require.EqualError(t, err, "authenticate: session token: issuer mismatches signature")
 		})
 	})
@@ -288,7 +288,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		registerContainer(obj.GetContainerID())
 
-		require.NoError(t, v.Validate(obj, false))
+		require.NoError(t, v.Validate(obj, false, true))
 	})
 
 	t.Run("expiration", func(t *testing.T) {
@@ -311,7 +311,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		t.Run("invalid attribute value", func(t *testing.T) {
 			val := "text"
-			err := v.Validate(fn(val), false)
+			err := v.Validate(fn(val), false, true)
 			require.Error(t, err)
 		})
 
@@ -320,7 +320,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			obj := fn(val)
 
 			t.Run("non-locked", func(t *testing.T) {
-				err := v.Validate(obj, false)
+				err := v.Validate(obj, false, true)
 				require.ErrorIs(t, err, errExpired)
 			})
 
@@ -333,14 +333,14 @@ func TestFormatValidator_Validate(t *testing.T) {
 				addr.SetObject(oID)
 				ls.m[addr] = true
 
-				err := v.Validate(obj, false)
+				err := v.Validate(obj, false, true)
 				require.NoError(t, err)
 			})
 		})
 
 		t.Run("alive object", func(t *testing.T) {
 			val := strconv.FormatUint(curEpoch, 10)
-			err := v.Validate(fn(val), true)
+			err := v.Validate(fn(val), true, true)
 			require.NoError(t, err)
 		})
 	})
@@ -395,15 +395,15 @@ func TestFormatValidator_Validate(t *testing.T) {
 			}
 			t.Run("in key", func(t *testing.T) {
 				obj := objWithAttr("k\x00y", "value")
-				require.EqualError(t, v.Validate(obj, true), "invalid attributes: invalid attribute #1: invalid key: illegal zero byte")
+				require.EqualError(t, v.Validate(obj, true, true), "invalid attributes: invalid attribute #1: invalid key: illegal zero byte")
 				obj.SetID(oidtest.ID())
-				require.EqualError(t, v.Validate(obj, false), "invalid attributes: invalid attribute #1: invalid key: illegal zero byte")
+				require.EqualError(t, v.Validate(obj, false, true), "invalid attributes: invalid attribute #1: invalid key: illegal zero byte")
 			})
 			t.Run("in value", func(t *testing.T) {
 				obj := objWithAttr("key", "va\x00ue")
-				require.EqualError(t, v.Validate(obj, true), "invalid attributes: invalid attribute #1: invalid value: illegal zero byte")
+				require.EqualError(t, v.Validate(obj, true, true), "invalid attributes: invalid attribute #1: invalid value: illegal zero byte")
 				obj.SetID(oidtest.ID())
-				require.EqualError(t, v.Validate(obj, false), "invalid attributes: invalid attribute #1: invalid value: illegal zero byte")
+				require.EqualError(t, v.Validate(obj, false, true), "invalid attributes: invalid attribute #1: invalid value: illegal zero byte")
 			})
 		})
 	})
@@ -415,7 +415,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			registerContainer(child.GetContainerID())
 
-			require.EqualError(t, v.Validate(&child, true), "max object nesting level 2 overflow")
+			require.EqualError(t, v.Validate(&child, true, true), "max object nesting level 2 overflow")
 		})
 
 		t.Run("nesting is ok", func(t *testing.T) {
@@ -424,7 +424,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			registerContainer(child.GetContainerID())
 
-			require.NoError(t, v.Validate(&child, true))
+			require.NoError(t, v.Validate(&child, true, true))
 		})
 	})
 
@@ -437,7 +437,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		{scheme: neofscrypto.ECDSA_WALLETCONNECT, object: smallECDSAWalletConnect},
 	} {
 		t.Run(tc.scheme.String(), func(t *testing.T) {
-			require.NoError(t, v.Validate(&tc.object, false))
+			require.NoError(t, v.Validate(&tc.object, false, true))
 		})
 	}
 }
@@ -509,7 +509,7 @@ func TestLinkObjectSplitV2(t *testing.T) {
 	obj.SetFirstID(oidtest.ID())
 
 	t.Run("V1 split, first is set", func(t *testing.T) {
-		require.ErrorContains(t, v.Validate(obj, true), "first object ID is set")
+		require.ErrorContains(t, v.Validate(obj, true, true), "first object ID is set")
 	})
 
 	t.Run("V2 split", func(t *testing.T) {
@@ -519,7 +519,7 @@ func TestLinkObjectSplitV2(t *testing.T) {
 			obj.SetFirstID(oidtest.ID())
 			obj.SetType(object.TypeLink)
 
-			require.ErrorContains(t, v.Validate(obj, true), "incorrect link object's parent header")
+			require.ErrorContains(t, v.Validate(obj, true, true), "incorrect link object's parent header")
 		})
 
 		t.Run("middle child does not have previous object ID", func(t *testing.T) {
@@ -528,7 +528,52 @@ func TestLinkObjectSplitV2(t *testing.T) {
 			obj.SetFirstID(oidtest.ID())
 			obj.SetType(object.TypeRegular)
 
-			require.ErrorContains(t, v.Validate(obj, true), "middle part does not have previous object ID")
+			require.ErrorContains(t, v.Validate(obj, true, true), "middle part does not have previous object ID")
+		})
+	})
+}
+
+func TestVersion(t *testing.T) {
+	cnrID := cidtest.ID()
+
+	obj := objecttest.Object()
+	obj.ResetRelations()
+	obj.SetType(object.TypeRegular)
+	obj.CutPayload()
+	obj.SetContainerID(cnrID)
+
+	verifier := new(testSplitVerifier)
+
+	cnrs := newMockContainers()
+	cnrs.setContainer(cnrID, container.Container{})
+
+	v := NewFormatValidator(nil, nil, cnrs, WithSplitVerifier(verifier))
+
+	t.Run("Replication", func(t *testing.T) {
+		vers := version.New(2, 17)
+		obj.SetVersion(&vers)
+
+		require.NoError(t, v.Validate(&obj, true, true))
+	})
+
+	t.Run("PUT", func(t *testing.T) {
+		t.Run("2.18-", func(t *testing.T) {
+			vers := version.New(2, 17)
+			obj.SetVersion(&vers)
+
+			require.Error(t, v.Validate(&obj, true, false), "invalid version for a non-replicated object")
+		})
+
+		t.Run("2.18+", func(t *testing.T) {
+			vers := version.New(2, 18)
+			obj.SetVersion(&vers)
+
+			require.NoError(t, v.Validate(&obj, true, true))
+
+			vers = version.New(2, 100)
+			obj.SetVersion(&vers)
+
+			require.NoError(t, v.Validate(&obj, true, true))
 		})
 	})
 }

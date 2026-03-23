@@ -36,6 +36,7 @@ Changelog for NeoFS Node
 - SN now ignores `copies_number` field of `object.PutRequest.Body.Init` message (#3830)
 - Policer starts from a random offset (#3879)
 - SN now determines request API version from original request meta header (#3897)
+- 2.18 is the minimum supported version for new objects (#3869)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
