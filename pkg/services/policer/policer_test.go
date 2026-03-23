@@ -29,7 +29,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -78,10 +77,6 @@ func (s *storageListerWithDelay) GetRange(address oid.Address, u uint64, u2 uint
 
 func TestConsistency(t *testing.T) {
 	t.Run("startup value", func(t *testing.T) {
-		wp, err := ants.NewPool(100)
-		require.NoError(t, err)
-		t.Cleanup(wp.Release)
-
 		var (
 			mockM     = &mockMetrics{}
 			mockNet   = newMockNetwork()
@@ -89,7 +84,6 @@ func TestConsistency(t *testing.T) {
 		)
 
 		p := New(neofscryptotest.Signer(),
-			WithPool(wp),
 			WithReplicationCooldown(time.Hour),
 			WithNetwork(mockNet),
 			WithLogger(zap.NewNop()),
@@ -105,10 +99,6 @@ func TestConsistency(t *testing.T) {
 	})
 
 	t.Run("metrics change", func(t *testing.T) {
-		wp, err := ants.NewPool(100)
-		require.NoError(t, err)
-		t.Cleanup(wp.Release)
-
 		var (
 			cnr      = cidtest.ID()
 			objID    = oidtest.ID()
@@ -128,7 +118,6 @@ func TestConsistency(t *testing.T) {
 		localNode.objs = []objectcore.AddressWithAttributes{localObj}
 
 		p := New(neofscryptotest.Signer(),
-			WithPool(wp),
 			WithReplicationCooldown(time.Millisecond),
 			WithNetwork(mockNet),
 			WithLogger(zap.NewNop()),
@@ -664,10 +653,6 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	expShortage uint32, expRedundant bool, expCandidates []netmap.NodeInfo) *testutil.LogBuffer {
 	require.Equal(t, len(nodes), len(headErrs))
 
-	wp, err := ants.NewPool(100)
-	require.NoError(t, err)
-	t.Cleanup(wp.Release)
-
 	localNode := newTestLocalNode()
 	localNode.objList = []objectcore.AddressWithAttributes{localObj}
 
@@ -700,7 +685,6 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 	p := New(neofscryptotest.Signer(),
-		WithPool(wp),
 		WithReplicationCooldown(50*time.Millisecond),
 		WithNetwork(mockNet),
 		WithLogger(l),
@@ -1120,10 +1104,6 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo, repSuccess bool, expShortage uint32, waitLog ...testutil.LogEntry) *testutil.LogBuffer {
 	require.Equal(t, len(nodes), len(headErrs))
 
-	wp, err := ants.NewPool(100)
-	require.NoError(t, err)
-	t.Cleanup(wp.Release)
-
 	localNode := newTestLocalNode()
 	localNode.objList = []objectcore.AddressWithAttributes{localObj}
 
@@ -1147,7 +1127,6 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 
 	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 	p := New(neofscryptotest.Signer(),
-		WithPool(wp),
 		WithReplicationCooldown(50*time.Millisecond), // any huge time to cancel process repeat
 		WithNetwork(mockNet),
 		WithLogger(l),
@@ -1199,10 +1178,6 @@ func waitForPolicerResult(t *testing.T, p *Policer, lb *testutil.LogBuffer, mock
 	}
 
 	require.Eventually(t, func() bool {
-		if p.objsInWork.inWork(addr) {
-			return false
-		}
-
 		if expRedundant {
 			return slices.Equal(localNode.deletedObjects(), []oid.Address{addr})
 		}

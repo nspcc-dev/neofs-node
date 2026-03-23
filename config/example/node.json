@@ -99,7 +99,6 @@
     "boost_multiplier": "5"
   },
   "replicator": {
-    "pool_size": 10,
     "put_timeout": "15s"
   },
   "object": {

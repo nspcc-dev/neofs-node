@@ -319,8 +319,6 @@ type cfgLocalStorage struct {
 type cfgObjectRoutines struct {
 	putRemote *ants.Pool
 
-	replication *ants.Pool
-
 	search *ants.Pool
 }
 
@@ -601,14 +599,6 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	pool.putRemote, err = ants.NewPool(cfg.Object.Put.PoolSizeRemote, optNonBlocking)
 	fatalOnErr(err)
 
-	replicatorPoolSize := cfg.Replicator.PoolSize
-	if replicatorPoolSize <= 0 {
-		replicatorPoolSize = cfg.Object.Put.PoolSizeRemote
-	}
-
-	pool.replication, err = ants.NewPool(replicatorPoolSize)
-	fatalOnErr(err)
-
 	pool.search, err = ants.NewPool(cfg.Object.Search.PoolSize, optNonBlocking)
 	fatalOnErr(err)
 
@@ -620,12 +610,6 @@ func (c *cfg) reloadObjectPoolSizes() {
 	defer c.cfgObject.poolLock.Unlock()
 
 	c.cfgObject.pool.putRemote.Tune(c.appCfg.Object.Put.PoolSizeRemote)
-
-	replicatorPoolSize := c.appCfg.Replicator.PoolSize
-	if replicatorPoolSize <= 0 {
-		replicatorPoolSize = c.appCfg.Object.Put.PoolSizeRemote
-	}
-	c.cfgObject.pool.replication.Tune(replicatorPoolSize)
 
 	c.cfgObject.pool.search.Tune(c.appCfg.Object.Search.PoolSize)
 }

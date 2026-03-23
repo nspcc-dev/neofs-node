@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"sync"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -78,6 +79,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		err      error
 		wrapped  bool
 		stopAddr oid.Address
+		wg       sync.WaitGroup
 	)
 
 	p.mtx.RLock()
@@ -137,35 +139,17 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			continue
 		}
 
-		for i := range addrs {
-			if wrapped && addrs[i].Address.Compare(stopAddr) > 0 {
+		for _, addr := range addrs {
+			if wrapped && addr.Address.Compare(stopAddr) > 0 {
 				hadReplicationBeforeReset = p.hadToReplicate.Load()
 				cycleFinished()
 			}
-
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				addr := addrs[i]
-				if !p.objsInWork.tryAdd(addr.Address) {
-					// do not process an object
-					// that is in work
-					continue
-				}
-
-				err = p.taskPool.Submit(func() {
-					defer p.objsInWork.remove(addr.Address)
-
-					p.processObject(ctx, addr)
-				})
-				if err != nil {
-					p.objsInWork.remove(addr.Address)
-					p.log.Warn("pool submission", zap.Error(err))
-				}
-			}
+			wg.Go(func() {
+				p.processObject(ctx, addr)
+			})
 		}
 
+		wg.Wait()
 		// After each batch, record whether replication was needed and update the
 		// sliding window. Boost mode transitions only when a strict majority
 		// of the window agrees, so an equal split keeps the current state unchanged.

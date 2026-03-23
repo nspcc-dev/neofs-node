@@ -359,13 +359,11 @@ Configuration for the Replicator service.
 ```yaml
 replicator:
   put_timeout: 15s
-  pool_size: 10
 ```
 
 | Parameter     | Type       | Default value                          | Description                                 |
 |---------------|------------|----------------------------------------|---------------------------------------------|
 | `put_timeout` | `duration` | `1m`                                   | Timeout for performing the `PUT` operation. |
-| `pool_size`   | `int`      | Equal to `object.put.pool_size_remote` | Maximum amount of concurrent replications.  |
 
 # `object` section
 Contains object-service related parameters.
