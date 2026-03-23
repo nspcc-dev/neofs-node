@@ -74,6 +74,12 @@ Storage nodes clean up objects that belong to unpdaid containers.
 `copies_number` parameter of object PUT request no longer has an effect. Use
 `max_replicas` setting of container's initial placement policy instead.
 
+CLI `--await` flag is now deprecated for `container` commands. For servers
+supporting NeoFS API version starting from `v2.21`, the flag may be safely
+dropped. For older servers, success checks should now be done by polling with
+symmetric read command instead. Please note that this flag will be removed in a
+future release.
+
 ## [0.51.1] - 2026-02-18
 
 ### Added

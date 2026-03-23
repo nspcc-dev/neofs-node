@@ -189,5 +189,6 @@ func initContainerSetEACLCmd() {
 	flags.StringVar(&flagVarsSetEACL.srcPath, "table", "", "path to file with JSON or binary encoded EACL table")
 	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("block execution until EACL is persisted. "+
 		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
+	markAwaitFlagDeprecated(flags, "get-eacl")
 	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "skip validation checks (ownership, extensibility of the container ACL)")
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -92,5 +93,13 @@ func poll(ctx context.Context, pollInterval time.Duration, callBack func() error
 		case <-ctx.Done():
 			return common.ErrAwaitTimeout
 		}
+	}
+}
+
+func markAwaitFlagDeprecated(flags *pflag.FlagSet, readCmd string) {
+	usage := fmt.Sprintf("operation is synchronous now. Use 'neofs-cli container %s' to double-check success instead.", readCmd)
+	err := flags.MarkDeprecated("await", usage)
+	if err != nil {
+		panic(fmt.Sprintf("failed to mark flag as deprecated: %v", err))
 	}
 }

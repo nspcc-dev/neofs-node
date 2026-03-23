@@ -15,7 +15,6 @@ neofs-cli container set-eacl [flags]
 
 ```
       --address string        Address of wallet account
-      --await                 block execution until EACL is persisted. Increases default execution timeout to 60s
       --cid string            Container ID.
   -f, --force                 skip validation checks (ownership, extensibility of the container ACL)
   -g, --generate-key          Generate new private key
