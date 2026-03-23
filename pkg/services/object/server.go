@@ -879,11 +879,9 @@ func handleHeadResponse(respBuf mem.BufferSlice, reqOID oid.ID) ([]byte, error) 
 				return nil, err
 			}
 			off += n
-			var mh protosession.ResponseMetaHeader
-			if err := proto.Unmarshal(buf[off:][:ln], &mh); err != nil {
-				return nil, fmt.Errorf("unmarshal meta header: %w", err)
+			if code, err = iprotobuf.GetStatusCodeFromResponseMetaHeader(buf[off:][:ln]); err != nil {
+				return nil, fmt.Errorf("handle meta header: %w", err)
 			}
-			code = mh.GetStatus().GetCode()
 			off += ln
 		default:
 			if n, err = iprotobuf.SkipField(buf[off:], num, typ); err != nil {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"unicode/utf8"
 
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -89,6 +90,23 @@ func ParseLENFieldBounds(buf []byte, off int, tagLn int, num protowire.Number, t
 	f.To = f.ValueFrom + ln
 
 	return f, nil
+}
+
+// ParseStringField parses string field with preread number and type from buf.
+// Returns parsed value and number of bytes read.
+//
+// If there is an error, its text contains num and typ.
+func ParseStringField(buf []byte, num protowire.Number, typ protowire.Type) (int, int, error) {
+	ln, n, err := ParseLENField(buf, num, typ)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if !utf8.Valid(buf[n:][:ln]) {
+		return 0, 0, NewInvalidUTF8Error(num)
+	}
+
+	return ln, n, nil
 }
 
 // ParseEnum parses enum value from buf. Returns parsed value and number of
