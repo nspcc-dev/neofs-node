@@ -21,11 +21,26 @@ func TestVersionLE(t *testing.T) {
 		Version: &refs.Version{Major: 2, Minor: 21},
 	}
 
-	require.True(t, util.VersionLE(req, 2, 21))
-	require.True(t, util.VersionLE(req, 2, 22))
+	assert := func(t *testing.T) {
+		require.True(t, util.VersionLE(req, 2, 21))
+		require.True(t, util.VersionLE(req, 2, 22))
 
-	require.False(t, util.VersionLE(req, 2, 20))
-	require.False(t, util.VersionLE(req, 1, 22))
+		require.False(t, util.VersionLE(req, 2, 20))
+		require.False(t, util.VersionLE(req, 1, 22))
+	}
+
+	assert(t)
+
+	t.Run("nested request", func(t *testing.T) {
+		req.MetaHeader = &protosession.RequestMetaHeader{
+			Version: &refs.Version{Major: 2, Minor: 22},
+			Origin: &protosession.RequestMetaHeader{
+				Origin: req.MetaHeader,
+			},
+		}
+
+		assert(t)
+	})
 }
 
 func TestSignResponseIfNeeded(t *testing.T) {
