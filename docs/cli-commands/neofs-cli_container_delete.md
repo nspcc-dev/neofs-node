@@ -15,7 +15,6 @@ neofs-cli container delete [flags]
 
 ```
       --address string        Address of wallet account
-      --await                 Block execution until container is removed. Increases default execution timeout to 60s
       --cid string            Container ID.
   -f, --force                 Skip validation checks (ownership, presence of LOCK objects)
   -h, --help                  help for delete

@@ -1,6 +1,8 @@
 package container
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -8,12 +10,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/waiter"
 	"github.com/spf13/cobra"
 )
 
@@ -106,14 +110,35 @@ Only owner of the container has a permission to remove container.`,
 			}
 		}
 
-		var actor containerModifier = cli
+		var call = cli.ContainerDelete
 		if containerAwait {
 			ni, err := cli.NetworkInfo(ctx, client.PrmNetworkInfo{})
 			if err != nil {
 				return fmt.Errorf("fetching network info: %w", err)
 			}
 
-			actor = waiter.NewWaiter(cli, pollTimeFromNetworkInfo(ni))
+			call = func(ctx context.Context, id cid.ID, signer neofscrypto.Signer, prm client.PrmContainerDelete) error {
+				if err := cli.ContainerDelete(ctx, id, signer, prm); err != nil {
+					return fmt.Errorf("delete: %w", err)
+				}
+
+				var prmGet client.PrmContainerGet
+
+				logic := func() error {
+					_, err := cli.ContainerGet(ctx, id, prmGet)
+					if err != nil {
+						if errors.Is(err, apistatus.ErrContainerNotFound) {
+							return nil
+						}
+
+						return fmt.Errorf("ContainerGet: %w", err)
+					}
+
+					return errRetry
+				}
+
+				return poll(ctx, pollTimeFromNetworkInfo(ni), logic)
+			}
 		}
 
 		var delPrm client.PrmContainerDelete
@@ -129,7 +154,7 @@ Only owner of the container has a permission to remove container.`,
 			}
 		}
 
-		err = actor.ContainerDelete(ctx, id, user.NewAutoIDSignerRFC6979(*pk), delPrm)
+		err = call(ctx, id, user.NewAutoIDSignerRFC6979(*pk), delPrm)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -153,5 +178,6 @@ func initContainerDeleteCmd() {
 	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is removed. "+
 		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
+	markAwaitFlagDeprecated(flags, "get")
 	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "Skip validation checks (ownership, presence of LOCK objects)")
 }

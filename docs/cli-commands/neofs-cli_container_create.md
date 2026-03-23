@@ -16,7 +16,6 @@ neofs-cli container create [flags]
 ```
       --address string        Address of wallet account
   -a, --attributes strings    Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2
-      --await                 Block execution until container is persisted. Increases default execution timeout to 60s
       --basic-acl string      HEX-encoded basic ACL value or one of the keywords ['public-read-write', 'private', 'eacl-public-read','eacl-private', 'public-read', 'eacl-public-read-write', 'public-append', 'eacl-public-append']. To see the basic ACL details, run: 'neofs-cli acl basic print' (default "private")
       --disable-timestamp     Disable timestamp container attribute
   -f, --force                 Skip placement validity check

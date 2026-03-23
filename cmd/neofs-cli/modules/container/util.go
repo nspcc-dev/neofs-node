@@ -8,15 +8,11 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -24,13 +20,6 @@ const (
 
 	awaitTimeout = time.Minute
 )
-
-// containerModifier groups container modification operations.
-type containerModifier interface {
-	ContainerSetEACL(ctx context.Context, table eacl.Table, signer user.Signer, prm client.PrmContainerSetEACL) error
-	ContainerPut(ctx context.Context, cont container.Container, signer neofscrypto.Signer, prm client.PrmContainerPut) (cid.ID, error)
-	ContainerDelete(ctx context.Context, id cid.ID, signer neofscrypto.Signer, prm client.PrmContainerDelete) error
-}
 
 func parseContainerID() (cid.ID, error) {
 	if containerID == "" {
@@ -77,4 +66,40 @@ func getAwaitContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 func pollTimeFromNetworkInfo(ni netmap.NetworkInfo) time.Duration {
 	// Half a block time by default, but not less than 50ms.
 	return max(50*time.Millisecond, time.Duration(ni.MsPerBlock())*time.Millisecond/2)
+}
+
+var errRetry = errors.New("retry")
+
+func poll(ctx context.Context, pollInterval time.Duration, callBack func() error) error {
+	if pollInterval == 0 {
+		pollInterval = time.Second
+	}
+
+	t := time.NewTicker(pollInterval)
+
+	for {
+		select {
+		case <-t.C:
+			if err := callBack(); err != nil {
+				if errors.Is(err, errRetry) {
+					// wait one more tick
+					continue
+				}
+
+				return fmt.Errorf("poller: %w", err)
+			}
+
+			return nil
+		case <-ctx.Done():
+			return common.ErrAwaitTimeout
+		}
+	}
+}
+
+func markAwaitFlagDeprecated(flags *pflag.FlagSet, readCmd string) {
+	usage := fmt.Sprintf("operation is synchronous now. Use 'neofs-cli container %s' to double-check success instead.", readCmd)
+	err := flags.MarkDeprecated("await", usage)
+	if err != nil {
+		panic(fmt.Sprintf("failed to mark flag as deprecated: %v", err))
+	}
 }

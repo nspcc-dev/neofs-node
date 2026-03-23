@@ -45,7 +45,8 @@ Changelog for NeoFS Node
 - Metabase v5 to v6 and v6 to v7 migrations (#3864)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260313123945-7c44802bcefb` (#3785, #3817, #3808, #3830, #3883)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260319060454-934c0cf2ac17` (#3785, #3817, #3808, #3830, #3883, #3896)
+- `github.com/nspcc-dev/neo-go` module to `v0.118.0` (#3896)
 - Go 1.25+ is required to build now (#3525)
 - `github.com/klauspost/compress` dependency from v1.18.0 to v1.18.4 (#3850)
 - `github.com/klauspost/reedsolomon` dependency from v1.12.5 to v1.13.2 (#3850)
@@ -73,6 +74,12 @@ Storage nodes clean up objects that belong to unpdaid containers.
 
 `copies_number` parameter of object PUT request no longer has an effect. Use
 `max_replicas` setting of container's initial placement policy instead.
+
+CLI `--await` flag is now deprecated for `container` commands. For servers
+supporting NeoFS API version starting from `v2.21`, the flag may be safely
+dropped. For older servers, success checks should now be done by polling with
+symmetric read command instead. Please note that this flag will be removed in a
+future release.
 
 ## [0.51.1] - 2026-02-18
 
