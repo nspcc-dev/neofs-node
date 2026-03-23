@@ -14,6 +14,8 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -260,4 +262,241 @@ func ParseAttribute(buf []byte, fNum protowire.Number, fTyp protowire.Type) ([]b
 	}
 
 	return k, v, nf + lnf, nil
+}
+
+// VerifyAPIVersion checks whether buf is a valid NeoFS API version protobuf.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed.
+func VerifyAPIVersion(buf []byte) error {
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := ParseTag(buf[off:])
+		if err != nil {
+			return fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protorefs.FieldVersionMajor, protorefs.FieldVersionMinor:
+			if _, n, err = ParseUint32Field(buf[off:], num, typ); err != nil {
+				return err
+			}
+		default:
+			if n, err = SkipField(buf[off:], num, typ); err != nil {
+				return err
+			}
+		}
+
+		off += n
+	}
+	return nil
+}
+
+// VerifyStatusDetail checks whether buf is a valid API status detail protobuf.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed.
+func VerifyStatusDetail(buf []byte) error {
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := ParseTag(buf[off:])
+		if err != nil {
+			return fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protostatus.FieldStatusDetailID:
+			if _, n, err = ParseUint32Field(buf[off:], num, typ); err != nil {
+				return err
+			}
+		case protostatus.FieldStatusDetailValue:
+			var ln int
+			if ln, n, err = ParseLENField(buf[off:], num, typ); err != nil {
+				return err
+			}
+			off += ln
+		default:
+			if n, err = SkipField(buf[off:], num, typ); err != nil {
+				return err
+			}
+		}
+
+		off += n
+	}
+	return nil
+}
+
+// VerifyXHeader checks whether buf is a valid X-header protobuf.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed.
+func VerifyXHeader(buf []byte) error {
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := ParseTag(buf[off:])
+		if err != nil {
+			return fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protosession.FieldXHeaderKey, protosession.FieldXHeaderValue:
+			var ln int
+			ln, n, err = ParseStringField(buf[off:], num, typ)
+			if err != nil {
+				return err
+			}
+			off += ln
+		default:
+			if n, err = SkipField(buf[off:], num, typ); err != nil {
+				return err
+			}
+		}
+
+		off += n
+	}
+	return nil
+}
+
+// GetStatusCodeFromResponseMetaHeader checks whether buf is a valid response
+// meta header protobuf. If so, status code field is returned. In case of
+// nesting headers, code from the root is returned.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed: if status field is repeated (including nested),
+// code from the last one is returned.
+func GetStatusCodeFromResponseMetaHeader(buf []byte) (uint32, error) {
+	var originFld []byte
+	var statusFld []byte
+
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := ParseTag(buf[off:])
+		if err != nil {
+			return 0, fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protosession.FieldResponseMetaHeaderVersion:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return 0, err
+			}
+			off += n
+			if err = VerifyAPIVersion(buf[off:][:ln]); err != nil {
+				return 0, fmt.Errorf("invalid version field: %w", err)
+			}
+			off += ln
+		case protosession.FieldResponseMetaHeaderEpoch:
+			if _, n, err = ParseUint64Field(buf[off:], num, typ); err != nil {
+				return 0, err
+			}
+			off += n
+		case protosession.FieldResponseMetaHeaderTTL:
+			if _, n, err = ParseUint32Field(buf[off:], num, typ); err != nil {
+				return 0, err
+			}
+			off += n
+		case protosession.FieldResponseMetaHeaderXHeaders:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return 0, err
+			}
+			off += n
+			if err = VerifyXHeader(buf[off:][:ln]); err != nil {
+				return 0, fmt.Errorf("invalid X-header field: %w", err)
+			}
+			off += ln
+		case protosession.FieldResponseMetaHeaderOrigin:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return 0, err
+			}
+			off += n
+			originFld = buf[off:][:ln]
+			off += ln
+		case protosession.FieldResponseMetaHeaderStatus:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return 0, err
+			}
+			off += n
+			statusFld = buf[off:][:ln]
+			off += ln
+		default:
+			if n, err = SkipField(buf[off:], num, typ); err != nil {
+				return 0, err
+			}
+			off += n
+		}
+	}
+
+	if originFld != nil {
+		return GetStatusCodeFromResponseMetaHeader(originFld)
+	}
+
+	code, err := getCodeFromStatus(statusFld)
+	if err != nil {
+		return 0, fmt.Errorf("invalid status field: %w", err)
+	}
+
+	return code, nil
+}
+
+// getCodeFromStatus checks whether buf is a valid response status protobuf. If
+// so, code field is returned.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed.
+func getCodeFromStatus(buf []byte) (uint32, error) {
+	var code uint32
+
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := ParseTag(buf[off:])
+		if err != nil {
+			return 0, fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protostatus.FieldStatusCode:
+			code, n, err = ParseUint32Field(buf[off:], num, typ)
+			if err != nil {
+				return 0, err
+			}
+			off += n
+		case protostatus.FieldStatusMessage:
+			ln, n, err := ParseStringField(buf[off:], num, typ)
+			if err != nil {
+				return 0, err
+			}
+			off += n + ln
+		case protostatus.FieldStatusDetails:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return 0, err
+			}
+			off += n
+			if err = VerifyStatusDetail(buf[off:][:ln]); err != nil {
+				return 0, fmt.Errorf("invalid details field: %w", err)
+			}
+			off += ln
+		default:
+			if n, err = SkipField(buf[off:], num, typ); err != nil {
+				return 0, err
+			}
+			off += n
+		}
+	}
+
+	return code, nil
 }
