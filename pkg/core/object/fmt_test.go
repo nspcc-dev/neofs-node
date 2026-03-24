@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -129,6 +131,26 @@ func TestFormatValidator_Validate(t *testing.T) {
 			obj, _ := minUnsignedObject(t)
 			registerContainer(obj.GetContainerID())
 			require.EqualError(t, v.Validate(&obj, false, true), "authenticate: missing signature")
+		})
+		t.Run("too big verification script", func(t *testing.T) {
+			obj, _ := minUnsignedObject(t)
+			registerContainer(obj.GetContainerID())
+			sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1025), testutil.RandByteSlice(1024))
+			obj.SetSignature(&sig)
+			require.EqualError(t, v.Validate(&obj, false, true), "authenticate: verification script len 1025 overflows limit 1024")
+		})
+		t.Run("too big invocation script", func(t *testing.T) {
+			obj, _ := minUnsignedObject(t)
+			registerContainer(obj.GetContainerID())
+			sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1024), testutil.RandByteSlice(1025))
+			obj.SetSignature(&sig)
+			require.EqualError(t, v.Validate(&obj, false, true), "authenticate: invocation script len 1025 overflows limit 1024")
+		})
+		t.Run("too big invocation script", func(t *testing.T) {
+			obj := getUnsignedObject()
+			sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1024), testutil.RandByteSlice(1025))
+			obj.SetSignature(&sig)
+			require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "invocation script len 1025 overflows limit 1024")
 		})
 		t.Run("unsupported scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)

@@ -21,6 +21,16 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		return errMissingSignature
 	}
 
+	verifScript := sig.PublicKeyBytes()
+	if len(verifScript) > neofscrypto.MaxVerificationScriptLength {
+		return fmt.Errorf("verification script len %d overflows limit %d", len(verifScript), neofscrypto.MaxVerificationScriptLength)
+	}
+
+	invocScript := sig.Value()
+	if len(invocScript) > neofscrypto.MaxVerificationScriptLength {
+		return fmt.Errorf("invocation script len %d overflows limit %d", len(invocScript), neofscrypto.MaxInvocationScriptLength)
+	}
+
 	var ecdsaPub *ecdsa.PublicKey
 	scheme := sig.Scheme()
 	sessionToken := obj.SessionToken()
@@ -30,7 +40,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		return fmt.Errorf("unsupported scheme %v", scheme)
 	case neofscrypto.ECDSA_SHA512, neofscrypto.ECDSA_DETERMINISTIC_SHA256, neofscrypto.ECDSA_WALLETCONNECT:
 		var err error
-		if ecdsaPub, err = decodeECDSAPublicKey(sig.PublicKeyBytes()); err != nil {
+		if ecdsaPub, err = decodeECDSAPublicKey(verifScript); err != nil {
 			return schemeError(scheme, fmt.Errorf("decode public key: %w", err))
 		}
 	case neofscrypto.N3:
@@ -76,7 +86,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 	default:
 		panic(fmt.Sprintf("unexpected scheme %v", scheme)) // see switch above
 	case neofscrypto.ECDSA_SHA512, neofscrypto.ECDSA_DETERMINISTIC_SHA256, neofscrypto.ECDSA_WALLETCONNECT:
-		if !verifyECDSAFns[scheme](*ecdsaPub, sig.Value(), obj.GetID().Marshal()) {
+		if !verifyECDSAFns[scheme](*ecdsaPub, invocScript, obj.GetID().Marshal()) {
 			return schemeError(scheme, errSignatureMismatch)
 		}
 		if sessionToken == nil && sessionTokenV2 == nil && !ecPart &&
@@ -85,7 +95,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 			return errors.New("owner mismatches signature")
 		}
 	case neofscrypto.N3:
-		if err := verifyN3ScriptsAtEpoch(fsChain, obj.CreationEpoch(), obj.Owner().ScriptHash(), sig.Value(), sig.PublicKeyBytes(), func() [sha256.Size]byte {
+		if err := verifyN3ScriptsAtEpoch(fsChain, obj.CreationEpoch(), obj.Owner().ScriptHash(), invocScript, verifScript, func() [sha256.Size]byte {
 			return sha256.Sum256(obj.SignedData())
 		}); err != nil {
 			return err

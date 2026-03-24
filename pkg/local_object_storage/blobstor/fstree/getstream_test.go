@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -34,7 +35,7 @@ func TestGetStream(t *testing.T) {
 		require.Nil(t, obj)
 		require.Nil(t, reader)
 
-		buf := make([]byte, 2*object.MaxHeaderLen)
+		buf := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
 		n, reader, err := tree.ReadObject(addr, buf)
 		require.Error(t, err)
 		require.Zero(t, n)
@@ -192,7 +193,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		_, _, err = tree.GetStream(addr)
 		require.Error(t, err)
 
-		buf := make([]byte, 2*object.MaxHeaderLen)
+		buf := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
 		_, _, err = tree.ReadObject(addr, buf)
 		require.Error(t, err)
 	})
@@ -224,7 +225,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		_, _, err = fsTree.GetStream(newAddr)
 		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 
-		buf := make([]byte, 2*object.MaxHeaderLen)
+		buf := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
 		_, _, err = fsTree.ReadObject(newAddr, buf)
 		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})

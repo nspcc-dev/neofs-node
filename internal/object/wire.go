@@ -17,6 +17,11 @@ import (
 // MaxHeaderVarintLen is varint len of [object.MaxHeaderLen].
 const MaxHeaderVarintLen = 3
 
+// NonPayloadFieldsBufferLength is a length of the buffer sufficient to read an
+// object of maximum size without taking into account the payload. Its value is
+// a multiple of 4K.
+const NonPayloadFieldsBufferLength = 20 << 10
+
 var errEmptyData = errors.New("empty data")
 
 // WriteWithoutPayload writes the object header to the given writer without the payload.

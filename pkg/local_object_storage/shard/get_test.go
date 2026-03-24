@@ -9,6 +9,7 @@ import (
 	"testing/iotest"
 	"time"
 
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -165,7 +166,7 @@ func testShardReadObject(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	buf := make([]byte, 2*object.MaxHeaderLen)
+	buf := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
 
 	t.Run("regular object", func(t *testing.T) {
 		obj := generateObject()

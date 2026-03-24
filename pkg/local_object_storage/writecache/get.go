@@ -47,7 +47,7 @@ func (c *cache) Head(addr oid.Address) (*object.Object, error) {
 //
 // If object is missing, ReadHeader returns [apistatus.ErrObjectNotFound].
 //
-// Passed buf must have 2*[object.MaxHeaderLen] bytes len at least.
+// Passed buf must have 2*[iobject.NonPayloadFieldsBufferLength] bytes len at least.
 func (c *cache) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return 0, apistatus.ErrObjectNotFound
@@ -69,7 +69,7 @@ func (c *cache) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 //
 // If object is missing, ReadHeader returns [apistatus.ErrObjectNotFound].
 //
-// Passed buf must have 2*[object.MaxHeaderLen] bytes len at least.
+// Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
 func (c *cache) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return 0, nil, apistatus.ErrObjectNotFound

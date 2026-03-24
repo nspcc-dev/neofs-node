@@ -7,6 +7,7 @@ import (
 	"testing"
 	"testing/iotest"
 
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -140,7 +141,7 @@ func testPutBatch(t *testing.T, fst *FSTree) {
 }
 
 func assertReadObjectOK(t *testing.T, fst *FSTree, addr oid.Address, obj object.Object) {
-	buf := make([]byte, 2*object.MaxHeaderLen)
+	buf := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
 
 	n, reader, err := fst.ReadObject(addr, buf)
 	require.NoError(t, err)

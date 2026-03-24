@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Suboptimal shard selection for EC parts during data evacuation (#3870)
 - No redistribution of objects when adding a new `REP 3` node (#3873)
 - Split of a split is allowed (#3867)
+- SN no longer fails to read valid objects with non-payload fields larger than 16K (#3887)
 
 ### Changed
 - SN returns unsigned responses to requests with API >= `v2.22` (#3785)
@@ -38,6 +39,7 @@ Changelog for NeoFS Node
 - SN now determines request API version from original request meta header (#3897)
 - 2.18 is the minimum supported version for new objects (#3869)
 - Rename `neofs-lens` into `neofs-lancet` (#3894)
+- SN no longer accepts objects with invocation or verification script bigger than 1KiB (#3887)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
@@ -47,7 +49,7 @@ Changelog for NeoFS Node
 - Metabase v5 to v6 and v6 to v7 migrations (#3864)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260319060454-934c0cf2ac17` (#3785, #3817, #3808, #3830, #3883, #3896)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260320132435-55419a28ca95` (#3785, #3817, #3808, #3830, #3883, #3896, #3887)
 - `github.com/nspcc-dev/neo-go` module to `v0.118.0` (#3896)
 - Go 1.25+ is required to build now (#3525)
 - `github.com/klauspost/compress` dependency from v1.18.0 to v1.18.4 (#3850)
