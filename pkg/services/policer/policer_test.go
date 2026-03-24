@@ -76,7 +76,7 @@ func (s *storageListerWithDelay) GetRange(address oid.Address, u uint64, u2 uint
 	panic("do not call me")
 }
 
-func TestConsistency(t *testing.T) {
+func TestConsistencyAndPlacement(t *testing.T) {
 	t.Run("startup value", func(t *testing.T) {
 		var (
 			mockM     = &mockMetrics{}
@@ -97,6 +97,7 @@ func TestConsistency(t *testing.T) {
 		p.Run(ctx)
 
 		require.Equal(t, false, mockM.consistency.Load())
+		require.Equal(t, false, mockM.optimalPlacement.Load())
 	})
 
 	t.Run("metrics change", func(t *testing.T) {
@@ -131,17 +132,70 @@ func TestConsistency(t *testing.T) {
 		go p.Run(ctx)
 
 		require.Equal(t, false, mockM.consistency.Load())
+		require.Equal(t, false, mockM.optimalPlacement.Load())
 		delayCh <- struct{}{}
-		require.Equal(t, false, mockM.consistency.Load()) // still not finished cycle
+		require.Equal(t, false, mockM.consistency.Load())      // still not finished cycle
+		require.Equal(t, false, mockM.optimalPlacement.Load()) // still not finished cycle
 
 		localNode.setListResulsts(nil, engine.ErrEndOfListing)
 		delayCh <- struct{}{}
 		delayCh <- struct{}{}
 		require.Eventually(t, func() bool {
-			return mockM.consistency.Load()
+			return mockM.consistency.Load() && mockM.optimalPlacement.Load()
 		}, 3*time.Second, 50*time.Millisecond)
 
 		delayCh <- struct{}{}
+	})
+
+	t.Run("misplaced replica don't affect consistency", func(t *testing.T) {
+		nodes := testutil.Nodes(3)
+		cnr := cidtest.ID()
+		objID := oidtest.ID()
+		addr := oid.NewAddress(cnr, objID)
+
+		mockM := &mockMetrics{}
+		mockM.SetPolicerConsistency(true)
+		mockM.SetPolicerOptimalPlacement(true)
+
+		mockNet := newMockNetwork()
+		mockNet.pubKey = nodes[0].PublicKey()
+		mockNet.inNetmap = true
+
+		conns := newMockAPIConnections()
+		conns.setHeadResult(nodes[1], addr, apistatus.ErrObjectNotFound)
+		conns.setHeadResult(nodes[2], addr, nil)
+
+		r := newTestReplicator(t)
+		r.success = true
+
+		p := New(neofscryptotest.Signer(),
+			WithNetwork(mockNet),
+			WithLogger(zap.NewNop()),
+			WithMetrics(mockM),
+		)
+		p.apiConns = conns
+		p.replicator = r
+
+		plc := &processPlacementContext{
+			object: objectcore.AddressWithAttributes{
+				Address: addr,
+				Type:    object.TypeRegular,
+			},
+			checkedNodes: newNodeCache(),
+		}
+
+		p.processNodes(context.Background(), plc, nodes, 2)
+
+		require.True(t, mockM.consistency.Load())
+		require.False(t, mockM.optimalPlacement.Load())
+		require.True(t, p.hadPlacementMismatch.Load())
+		require.False(t, p.hadReplicaShortage.Load())
+
+		var exp replicator.Task
+		exp.SetObjectAddress(addr)
+		exp.SetCopiesNumber(1)
+		exp.SetNodes([]netmap.NodeInfo{nodes[1]})
+		require.Equal(t, exp, r.task.Load().(replicator.Task))
 	})
 }
 
@@ -1275,11 +1329,16 @@ func newMockNetwork() *mockNetwork {
 }
 
 type mockMetrics struct {
-	consistency atomic.Bool
+	consistency      atomic.Bool
+	optimalPlacement atomic.Bool
 }
 
 func (m *mockMetrics) SetPolicerConsistency(b bool) {
 	m.consistency.Store(b)
+}
+
+func (m *mockMetrics) SetPolicerOptimalPlacement(b bool) {
+	m.optimalPlacement.Store(b)
 }
 
 func (x *mockNetwork) IsLocalNodePublicKey(key []byte) bool {
