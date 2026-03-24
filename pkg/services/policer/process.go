@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"sync"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -24,7 +25,6 @@ func (p *Policer) Run(ctx context.Context) {
 	p.metrics.SetPolicerConsistency(false)
 	p.hadToReplicate.Store(false)
 
-	go p.poolCapacityWorker(ctx)
 	p.shardPolicyWorker(ctx)
 }
 
@@ -79,10 +79,13 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		err      error
 		wrapped  bool
 		stopAddr oid.Address
+		wg       sync.WaitGroup
+		curTick  time.Duration
 	)
 
 	p.mtx.RLock()
-	t := time.NewTimer(p.repCooldown)
+	curTick = p.repCooldown
+	t := time.NewTicker(curTick)
 	p.mtx.RUnlock()
 
 	stopAddr = randomAddress()
@@ -105,7 +108,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case <-t.C:
 		}
 
 		p.mtx.RLock()
@@ -113,6 +116,11 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		baseBatchSize := p.batchSize
 		boostMultiplier := p.boostMultiplier
 		p.mtx.RUnlock()
+
+		if curTick != repCooldown {
+			curTick = repCooldown
+			t.Reset(curTick)
+		}
 
 		boostMultiplier = max(boostMultiplier, 1)
 
@@ -126,47 +134,27 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				if wrapped {
 					cycleFinished()
-					time.Sleep(repCooldown)
 				} else {
 					wrapped = true
 					cursor = nil
 				}
 			} else {
 				p.log.Warn("failure at object select for replication", zap.Error(err))
-				time.Sleep(repCooldown)
 			}
 			continue
 		}
 
-		for i := range addrs {
-			if wrapped && addrs[i].Address.Compare(stopAddr) > 0 {
+		for _, addr := range addrs {
+			if wrapped && addr.Address.Compare(stopAddr) > 0 {
 				hadReplicationBeforeReset = p.hadToReplicate.Load()
 				cycleFinished()
 			}
-
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				addr := addrs[i]
-				if !p.objsInWork.tryAdd(addr.Address) {
-					// do not process an object
-					// that is in work
-					continue
-				}
-
-				err = p.taskPool.Submit(func() {
-					defer p.objsInWork.remove(addr.Address)
-
-					p.processObject(ctx, addr)
-				})
-				if err != nil {
-					p.objsInWork.remove(addr.Address)
-					p.log.Warn("pool submission", zap.Error(err))
-				}
-			}
+			wg.Go(func() {
+				p.processObject(ctx, addr)
+			})
 		}
 
+		wg.Wait()
 		// After each batch, record whether replication was needed and update the
 		// sliding window. Boost mode transitions only when a strict majority
 		// of the window agrees, so an equal split keeps the current state unchanged.
@@ -184,40 +172,6 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 				p.log.Info("recovery complete, leaving boost mode",
 					zap.Int("clean_batches", boostWindowSize-withReplication))
 				boosted = false
-			}
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			t.Reset(repCooldown)
-		}
-	}
-}
-
-func (p *Policer) poolCapacityWorker(ctx context.Context) {
-	ticker := time.NewTicker(p.rebalanceFreq)
-	for {
-		p.mtx.RLock()
-		maxCapacity := p.maxCapacity
-		p.mtx.RUnlock()
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			neofsSysLoad := p.loader.ObjectServiceLoad()
-			newCapacity := int((1.0 - neofsSysLoad) * float64(maxCapacity))
-			if newCapacity == 0 {
-				newCapacity++
-			}
-
-			if p.taskPool.Cap() != newCapacity {
-				p.taskPool.Tune(newCapacity)
-				p.log.Debug("tune replication capacity",
-					zap.Float64("system_load", neofsSysLoad),
-					zap.Int("new_capacity", newCapacity))
 			}
 		}
 	}

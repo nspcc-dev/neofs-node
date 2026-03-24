@@ -22,12 +22,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// NodeLoader provides application load statistics.
-type nodeLoader interface {
-	// ObjectServiceLoad returns object service load value in [0:1] range.
-	ObjectServiceLoad() float64
-}
-
 // interface of [replicator.Replicator] used by [Policer] for overriding in tests.
 type replicatorIface interface {
 	HandleTask(context.Context, replicator.Task, replicator.TaskResult)
@@ -49,37 +43,6 @@ type apiConnections interface {
 	GetRange(ctx context.Context, node netmapsdk.NodeInfo, cnr cid.ID, id oid.ID, ln, off uint64, xs []string) (io.ReadCloser, error)
 }
 
-type objectsInWork struct {
-	m    sync.RWMutex
-	objs map[oid.Address]struct{}
-}
-
-func (oiw *objectsInWork) inWork(addr oid.Address) bool {
-	oiw.m.RLock()
-	_, ok := oiw.objs[addr]
-	oiw.m.RUnlock()
-
-	return ok
-}
-
-func (oiw *objectsInWork) tryAdd(addr oid.Address) bool {
-	oiw.m.Lock()
-	defer oiw.m.Unlock()
-
-	if _, ok := oiw.objs[addr]; ok {
-		return false
-	}
-
-	oiw.objs[addr] = struct{}{}
-	return true
-}
-
-func (oiw *objectsInWork) remove(addr oid.Address) {
-	oiw.m.Lock()
-	delete(oiw.objs, addr)
-	oiw.m.Unlock()
-}
-
 // Policer represents the utility that verifies
 // compliance with the object storage policy.
 type Policer struct {
@@ -88,7 +51,6 @@ type Policer struct {
 	// hadToReplicate is a flag that indicates whether policer had objects
 	// to replicate to other nodes in the previous cycle
 	hadToReplicate atomic.Bool
-	objsInWork     *objectsInWork
 
 	signer neofscrypto.Signer
 
@@ -162,10 +124,6 @@ type cfg struct {
 
 	replicator replicatorIface
 
-	taskPool *ants.Pool
-
-	loader nodeLoader
-
 	rebalanceFreq time.Duration
 
 	network Network
@@ -196,10 +154,7 @@ func New(signer neofscrypto.Signer, opts ...Option) *Policer {
 	c.log = c.log.With(zap.String("component", "Object Policer"))
 
 	return &Policer{
-		cfg: c,
-		objsInWork: &objectsInWork{
-			objs: make(map[oid.Address]struct{}, c.maxCapacity),
-		},
+		cfg:                     c,
 		signer:                  signer,
 		checkECPartsProgressMap: make(map[oid.Address]struct{}, checkECPartsWorkerPool.Cap()),
 		checkECPartsWorkerPool:  checkECPartsWorkerPool,
@@ -278,21 +233,6 @@ func WithReplicator(v *replicator.Replicator) Option {
 func WithMaxCapacity(capacity uint32) Option {
 	return func(c *cfg) {
 		c.maxCapacity = capacity
-	}
-}
-
-// WithPool returns option to set pool for
-// policy and replication operations.
-func WithPool(p *ants.Pool) Option {
-	return func(c *cfg) {
-		c.taskPool = p
-	}
-}
-
-// WithNodeLoader returns option to set NeoFS node load source.
-func WithNodeLoader(l nodeLoader) Option {
-	return func(c *cfg) {
-		c.loader = l
 	}
 }
 

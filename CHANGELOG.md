@@ -50,6 +50,7 @@ Changelog for NeoFS Node
 - One-time netmap contract placement migration routine for v0.49.0+ releases (#3821)
 - Metabase v5 to v6 and v6 to v7 migrations (#3864)
 - SN's `logic` object counter metric (#3740)
+- `replicator.pool_size` option (#3899)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260320132435-55419a28ca95` (#3785, #3817, #3808, #3830, #3883, #3896, #3887)
@@ -72,6 +73,8 @@ Sessions are stored in `node.persistent_state.path` DB now.
 
 Delete `storage.shards.resync_metabase` config option from SN config, it's no longer used.
 Use `neofs-lancet meta resync` command if you need to resync metabase.
+
+Delete `replicator.pool_size` config option from SN config, it's no longer needed.
 
 Storage nodes no longer automatically migrate metabases from version 5
 (NeoFS 0.46.0) to 6 (NeoFS 0.48.0) and from version 6 to version 7 (NeoFS

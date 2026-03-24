@@ -8,7 +8,6 @@ const PutTimeoutDefault = time.Minute
 // Replicator contains configuration for replicator.
 type Replicator struct {
 	PutTimeout time.Duration `mapstructure:"put_timeout"`
-	PoolSize   int           `mapstructure:"pool_size"`
 }
 
 // Normalize sets default values for Replicator fields if they are not set.
