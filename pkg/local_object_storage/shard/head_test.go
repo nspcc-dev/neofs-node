@@ -5,14 +5,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"testing"
-	"time"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +34,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		res, err := testHead(t, sh, obj.Address(), false, hasWriteCache)
+		res, err := sh.Head(obj.Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, obj.CutPayload(), res)
 	})
@@ -60,26 +57,13 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 
 		var siErr *object.SplitInfoError
 
-		_, err = testHead(t, sh, parent.Address(), true, hasWriteCache)
+		_, err = sh.Head(parent.Address(), true)
 		require.True(t, errors.As(err, &siErr))
 
 		head, err := sh.Head(parent.Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, parent.CutPayload(), head)
 	})
-}
-
-func testHead(t *testing.T, sh *shard.Shard, addr oid.Address, raw bool, hasWriteCache bool) (*object.Object, error) {
-	res, err := sh.Head(addr, raw)
-	if hasWriteCache {
-		require.Eventually(t, func() bool {
-			if shard.IsErrNotFound(err) {
-				res, err = sh.Head(addr, raw)
-			}
-			return !shard.IsErrNotFound(err)
-		}, time.Second, time.Millisecond*100)
-	}
-	return res, err
 }
 
 func TestShard_ReadHeader(t *testing.T) {
