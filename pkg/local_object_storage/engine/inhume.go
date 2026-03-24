@@ -44,12 +44,15 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 
 // processAddrDelete processes deletion (inhume or immediate delete) of an object by its address.
 func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*shard.Shard, []oid.Address) error) error {
+	return e.processAddrDeleteOnShards(e.sortedShards(addr.Object()), addr, deleteFunc)
+}
+
+func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oid.Address, deleteFunc func(*shard.Shard, []oid.Address) error) error {
 	var (
 		children []oid.Address
 		err      error
 		root     bool
 		siNoLink *object.SplitInfo
-		shards   = e.sortedShards(addr.Object())
 	)
 
 	// see if the object is root

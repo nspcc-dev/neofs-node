@@ -27,6 +27,62 @@ func (e *StorageEngine) Delete(addr oid.Address) error {
 	})
 }
 
+// DeleteRedundantCopies marks redundant object copies to be removed from all
+// listed shards except the most preferred one according to HRW ordering.
+//
+// Returns an error if executions are blocked (see BlockExecution) or if none of
+// the provided shards is found in the engine.
+func (e *StorageEngine) DeleteRedundantCopies(addr oid.Address, shardIDs []string) error {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddDeleteDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+
+	if len(shardIDs) < 2 {
+		return nil
+	}
+
+	allowed := make(map[string]struct{}, len(shardIDs))
+	for i := range shardIDs {
+		allowed[shardIDs[i]] = struct{}{}
+	}
+
+	var deleteShards []shardWrapper
+	keep := true
+	for _, sh := range e.sortedShards(addr.Object()) {
+		if _, ok := allowed[sh.ID().String()]; !ok {
+			continue
+		}
+
+		if keep {
+			keep = false
+			delete(allowed, sh.ID().String())
+			continue
+		}
+
+		deleteShards = append(deleteShards, sh)
+		delete(allowed, sh.ID().String())
+	}
+
+	if keep {
+		return errShardNotFound
+	}
+
+	if len(deleteShards) == 0 {
+		return nil
+	}
+
+	return e.processAddrDeleteOnShards(deleteShards, addr, func(sh *shard.Shard, addrs []oid.Address) error {
+		return sh.MarkGarbage(addrs...)
+	})
+}
+
 // Drop removes an object from the storage engine from all shards. This
 // function bypasses any lock checks or other reasons to keep the object and
 // performs immediate removal, not just marking it to be removed by GC later
