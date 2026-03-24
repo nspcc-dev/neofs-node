@@ -30,7 +30,7 @@ Changelog for NeoFS Node
 - Move lancet `write-cache` `get`/`list` commands into `fstree` section in CLI (#3838, #3844)
 - Session key storage access session keys by account only (#3817)
 - Optimized locking for reputation data collector (#3851)
-- Optimized local HEAD/GET request execution (#3783, #3882)
+- Optimized local HEAD/GET request execution (#3783, #3882, #3903)
 - Unpaid container's data is deleted now (#3691)
 - Policer iterates engine-level object list now instead of shard-level (#3862)
 - SN now ignores `copies_number` field of `object.PutRequest.Body.Init` message (#3830)

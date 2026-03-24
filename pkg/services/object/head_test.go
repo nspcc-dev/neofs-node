@@ -10,10 +10,13 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	corenetmap "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -53,32 +56,9 @@ func TestServer_Head_Local(t *testing.T) {
 
 	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
 
-	assertRequest := func(t *testing.T, req *protoobject.HeadRequest, expObj object.Object) *protoobject.HeadResponse {
-		resp, err := callHead(t, srv, req)
-		require.NoError(t, err)
-
-		require.Equal(t, &protosession.ResponseMetaHeader{
-			Version: version.Current().ProtoMessage(),
-			Epoch:   fsChain.CurrentEpoch(),
-			Status:  nil, // for clarity
-		}, resp.MetaHeader)
-
-		require.NotNil(t, resp.Body)
-		require.Equal(t, &protoobject.HeadResponse_Body{
-			Head: &protoobject.HeadResponse_Body_Header{
-				Header: &protoobject.HeaderWithSignature{
-					Header:    expObj.ProtoMessage().Header,
-					Signature: expObj.Signature().ProtoMessage(),
-				},
-			},
-		}, resp.Body)
-
-		return resp
-	}
-
 	assertWithVersion := func(t *testing.T, ver version.Version) *protoobject.HeadResponse {
 		req := newLocalHeadRequest(t, ver, obj.Address(), signer)
-		return assertRequest(t, req, *obj)
+		return assertHeadRequestOK(t, srv, fsChain, req, *obj)
 	}
 
 	t.Run("EC part", func(t *testing.T) {
@@ -105,7 +85,7 @@ func TestServer_Head_Local(t *testing.T) {
 		req.MetaHeader.Ttl = 2 // to show it has no effect w/ EC X-headers
 		signHeadRequest(t, req, signer)
 
-		assertRequest(t, req, partHdr)
+		assertHeadRequestOK(t, srv, fsChain, req, partHdr)
 
 		handlerFSChain.ecRules = nil
 	})
@@ -118,6 +98,71 @@ func TestServer_Head_Local(t *testing.T) {
 
 	resp := assertWithVersion(t, version.Current())
 	require.Nil(t, resp.VerifyHeader)
+}
+
+func TestServer_Head_Remote(t *testing.T) {
+	signer := usertest.User()
+	cnr := cidtest.ID()
+	var fsChain nopFSChain
+	var mtrc nopMetrics
+	var aclChecker nopACLChecker
+	var reqInfoExt nopReqInfoExtractor
+
+	const payloadLen = 100 << 10
+	obj := object.New(cnr, signer.ID)
+	obj.SetAttributes(
+		object.NewAttribute("k1", "v1"),
+		object.NewAttribute("k2", "v2"),
+	)
+	obj.SetPayloadSize(payloadLen)
+	obj.SetPayload(testutil.RandByteSlice(payloadLen))
+	require.NoError(t, obj.SetVerificationFields(signer))
+
+	storage := newSimpleStorage(t, fsChain)
+
+	require.NoError(t, storage.Put(obj, nil))
+
+	keyStorage := util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)
+
+	var handlerFSChain mockHandlerFSChain
+	mockConns := newMockConnections()
+
+	handler := getsvc.New(&handlerFSChain,
+		getsvc.WithLocalStorageEngine(storage),
+		getsvc.WithClientConstructor(mockConns),
+		getsvc.WithKeyStorage(keyStorage),
+	)
+	handlers := headOnlyHandler{svc: handler}
+
+	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
+
+	t.Run("EC part", func(t *testing.T) {
+		nodes := make([]netmap.NodeInfo, 3)
+		for i := range nodes {
+			nodes[i].SetPublicKey([]byte("pub_" + strconv.Itoa(i)))
+			nodes[i].SetNetworkEndpoints("localhost:" + strconv.Itoa(9090+i)) // any
+
+			mockConns.setConn(nodes[i], emptyRemoteNode{})
+		}
+
+		handlerFSChain.ecRules = make([]iec.Rule, 1) // any non-empty
+		handlerFSChain.nodeLists = [][]netmap.NodeInfo{nodes}
+		handlerFSChain.localPub = nodes[len(nodes)-1].PublicKey()
+
+		partHdr, err := iec.FormObjectForECPart(signer, *obj, testutil.RandByteSlice(32), iec.PartInfo{
+			RuleIndex: 13,
+			Index:     42,
+		}) // any part payload
+		require.NoError(t, err)
+
+		require.NoError(t, storage.Put(&partHdr, nil))
+
+		req := newUnsignedLocalHeadRequest(version.Current(), obj.Address())
+		req.MetaHeader.Ttl = 2
+		signHeadRequest(t, req, signer)
+
+		assertHeadRequestOK(t, srv, fsChain, req, *obj.CutPayload())
+	})
 }
 
 type headOnlyHandler struct {
@@ -192,4 +237,27 @@ func callHead(t *testing.T, srv *Server, req *protoobject.HeadRequest) (*protoob
 	require.NoError(t, err) // lib misuse, not a request error
 
 	return protoobject.NewObjectServiceClient(c).Head(context.Background(), req)
+}
+
+func assertHeadRequestOK(t *testing.T, srv *Server, fsChain corenetmap.State, req *protoobject.HeadRequest, expObj object.Object) *protoobject.HeadResponse {
+	resp, err := callHead(t, srv, req)
+	require.NoError(t, err)
+
+	require.Equal(t, &protosession.ResponseMetaHeader{
+		Version: version.Current().ProtoMessage(),
+		Epoch:   fsChain.CurrentEpoch(),
+		Status:  nil, // for clarity
+	}, resp.MetaHeader)
+
+	require.NotNil(t, resp.Body)
+	require.Equal(t, &protoobject.HeadResponse_Body{
+		Head: &protoobject.HeadResponse_Body_Header{
+			Header: &protoobject.HeaderWithSignature{
+				Header:    expObj.ProtoMessage().Header,
+				Signature: expObj.Signature().ProtoMessage(),
+			},
+		},
+	}, resp.Body)
+
+	return resp
 }

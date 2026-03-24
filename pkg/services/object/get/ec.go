@@ -66,10 +66,14 @@ func (s *Service) copyLocalECPartHeader(dst internal.HeaderWriter, cnr cid.ID, p
 }
 
 func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID,
-	sTok *session.Object, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) error {
-	hdr, err := s.getECObjectHeader(ctx, cnr, parent, sTok, ecRules, sortedNodeLists)
+	sTok *session.Object, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, buf []byte, submitLenFn func(int)) error {
+	hdr, err := s.getECObjectHeader(ctx, cnr, parent, sTok, ecRules, sortedNodeLists, buf, submitLenFn)
 	if err != nil {
 		return err
+	}
+
+	if buf != nil && hdr.GetID().IsZero() {
+		return nil
 	}
 
 	if err := dst.WriteHeader(&hdr); err != nil {
@@ -80,7 +84,7 @@ func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWri
 }
 
 func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, sTok *session.Object,
-	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo) (object.Object, error) {
+	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, buf []byte, submitLenFn func(int)) (object.Object, error) {
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
 		return object.Object{}, fmt.Errorf("get local SN private key: %w", err)
@@ -89,7 +93,7 @@ func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, 
 	// TODO: limit per-rule context? https://github.com/nspcc-dev/neofs-node/issues/3560
 	var firstErr error
 	for i := range ecRules {
-		hdr, err := s.getECObjectHeaderByRule(ctx, *localNodeKey, cnr, id, sTok, sortedNodeLists[i])
+		hdr, err := s.getECObjectHeaderByRule(ctx, *localNodeKey, cnr, id, sTok, sortedNodeLists[i], buf, submitLenFn)
 		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 			return hdr, err
 		}
@@ -108,14 +112,25 @@ func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, 
 }
 
 func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, id oid.ID, sTok *session.Object,
-	sortedNodes []netmap.NodeInfo) (object.Object, error) {
+	sortedNodes []netmap.NodeInfo, buf []byte, submitLenFn func(int)) (object.Object, error) {
 	var firstErr error
 
 	for i := range sortedNodes {
 		if s.neoFSNet.IsLocalNodePublicKey(sortedNodes[i].PublicKey()) {
-			hdr, err := s.localStorage.(*storageEngineWrapper).engine.Head(oid.NewAddress(cnr, id), false)
-			if err == nil {
-				return *hdr, nil
+			var err error
+			if buf != nil {
+				var n int
+				n, err = s.localObjects.ReadHeader(oid.NewAddress(cnr, id), false, buf)
+				if err == nil {
+					submitLenFn(n)
+					return object.Object{}, nil
+				}
+			} else {
+				var hdr *object.Object
+				hdr, err = s.localStorage.(*storageEngineWrapper).engine.Head(oid.NewAddress(cnr, id), false)
+				if err == nil {
+					return *hdr, nil
+				}
 			}
 
 			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
@@ -218,7 +233,7 @@ func (s *Service) copySplitECObjectByInfo(ctx context.Context, dst ObjectWriter,
 		return errors.New("missing first part ID in size-split info, unable to assemble")
 	}
 
-	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists)
+	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists, nil, nil)
 	if err != nil {
 		return fmt.Errorf("get header of last size-split part %s: %w", lastPartID, err)
 	}
@@ -238,7 +253,7 @@ func (s *Service) copySplitECObjectByInfo(ctx context.Context, dst ObjectWriter,
 			break
 		}
 
-		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, prev, sTok, rules, sortedNodeLists)
+		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, prev, sTok, rules, sortedNodeLists, nil, nil)
 		if err != nil {
 			return fmt.Errorf("get header of size-split part %s: %w", prev, err)
 		}
@@ -728,7 +743,7 @@ func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWri
 		return errors.New("missing first part ID in size-split info, unable to assemble")
 	}
 
-	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists)
+	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists, nil, nil)
 	if err != nil {
 		return fmt.Errorf("get header of last size-split part %s: %w", lastPartID, err)
 	}
@@ -778,7 +793,7 @@ func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWri
 
 		lastPartID = lastPartHdr.GetPreviousID()
 
-		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists)
+		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists, nil, nil)
 		if err != nil {
 			return fmt.Errorf("get header of size-split part %s: %w", lastPartID, err)
 		}

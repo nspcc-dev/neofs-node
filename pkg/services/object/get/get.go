@@ -298,7 +298,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	}
 
 	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, ecNodeLists)
+		ecRules, ecNodeLists, prm.buffer, prm.submitLenFn)
 }
 
 func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) statusError {

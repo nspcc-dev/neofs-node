@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"testing"
 	"time"
@@ -47,11 +48,13 @@ import (
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 )
 
 func randECDSAPrivateKey(tb testing.TB) *ecdsa.PrivateKey {
@@ -697,14 +700,15 @@ type mockHandlerFSChain struct {
 	nodeLists [][]netmap.NodeInfo
 	repRules  []uint
 	ecRules   []iec.Rule
+	localPub  []byte
 }
 
 func (x mockHandlerFSChain) GetNodesForObject(oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	return x.nodeLists, x.repRules, x.ecRules, nil
 }
 
-func (mockHandlerFSChain) IsLocalNodePublicKey([]byte) bool {
-	return false
+func (x mockHandlerFSChain) IsLocalNodePublicKey(pub []byte) bool {
+	return bytes.Equal(pub, x.localPub)
 }
 
 func newSimpleStorage(t *testing.T, fsChain FSChain) *engine.StorageEngine {
@@ -730,4 +734,85 @@ func newSimpleStorage(t *testing.T, fsChain FSChain) *engine.StorageEngine {
 	t.Cleanup(func() { storage.Close() })
 
 	return storage
+}
+
+type mockConnections struct {
+	conns map[string]clientcore.MultiAddressClient
+}
+
+func newMockConnections() *mockConnections {
+	return &mockConnections{
+		conns: make(map[string]clientcore.MultiAddressClient),
+	}
+}
+
+func (x *mockConnections) setConn(node netmap.NodeInfo, conn clientcore.MultiAddressClient) {
+	x.conns[string(node.PublicKey())] = conn
+}
+
+func (x *mockConnections) Get(_ context.Context, info clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+	conn, ok := x.conns[string(info.PublicKey())]
+	if !ok {
+		return nil, errors.New("missing node connection")
+	}
+	return conn, nil
+}
+
+type unimplementedConn struct {
+}
+
+func (unimplementedConn) ObjectPutInit(context.Context, object.Object, user.Signer, client.PrmObjectPutInit) (client.ObjectWriter, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ReplicateObject(context.Context, oid.ID, io.ReadSeeker, neofscrypto.Signer, bool) (*neofscrypto.Signature, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ObjectDelete(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectDelete) (oid.ID, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ObjectGetInit(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectGet) (object.Object, *client.PayloadReader, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHead) (*object.Object, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ObjectSearchInit(context.Context, cid.ID, user.Signer, client.PrmObjectSearch) (*client.ObjectListReader, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) SearchObjects(context.Context, cid.ID, object.SearchFilters, []string, string, neofscrypto.Signer, client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64, uint64, user.Signer, client.PrmObjectRange) (*client.ObjectRangeReader, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ObjectHash(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHash) ([][]byte, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) AnnounceLocalTrust(context.Context, uint64, []reputation.Trust, client.PrmAnnounceLocalTrust) error {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) AnnounceIntermediateTrust(context.Context, uint64, reputation.PeerToPeerTrust, client.PrmAnnounceIntermediateTrust) error {
+	panic("unimplemented")
+}
+
+func (unimplementedConn) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+	panic("unimplemented")
+}
+
+type emptyRemoteNode struct {
+	unimplementedConn
+}
+
+func (emptyRemoteNode) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHead) (*object.Object, error) {
+	return nil, apistatus.ErrObjectNotFound
 }
