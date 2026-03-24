@@ -7,6 +7,7 @@ import (
 	"path"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -55,6 +56,7 @@ func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 			meta.WithPath(path.Join(p, "meta.db")),
 			meta.WithPermissions(0o600),
 			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		}, opts...)...,
 	)
 
