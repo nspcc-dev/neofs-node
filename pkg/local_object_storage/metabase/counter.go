@@ -202,7 +202,7 @@ func updateCounter(metaBkt *bbolt.Bucket, typ objectType, delta int64) error {
 	case payloadCounter:
 		counterKey[0] = metaPrefixPayloadCounter
 	default:
-		panic("unknown object type counter")
+		panic(fmt.Sprintf("unknown object type counter: %d", typ))
 	}
 
 	data := metaBkt.Get(counterKey)
