@@ -109,7 +109,7 @@ func (t *validatingTarget) WriteHeader(obj *object.Object) error {
 		t.checksum = cs.Value()
 	}
 
-	if err := t.fmt.Validate(obj, t.unpreparedObject); err != nil {
+	if err := t.fmt.Validate(obj, t.unpreparedObject, false); err != nil {
 		return fmt.Errorf("(%T) could not validate object format: %w", t, err)
 	}
 

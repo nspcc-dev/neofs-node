@@ -139,17 +139,22 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containe
 //
 // Does not validate payload checksum and content.
 // If unprepared is true, only fields set by user are validated.
+// allowAllVersions defines whether the object version is checked.
 //
 // Returns nil error if the object has valid structure.
-func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
-	return v.validate(obj, unprepared, 0)
+func (v *FormatValidator) Validate(obj *object.Object, unprepared, allowAllVersions bool) error {
+	return v.validate(obj, unprepared, allowAllVersions, 0)
 }
 
 const maxObjectNestingLevel = 2
 
-func (v *FormatValidator) validate(obj *object.Object, unprepared bool, nestingLevel int) error {
+func (v *FormatValidator) validate(obj *object.Object, unprepared, allowAllVersions bool, nestingLevel int) error {
 	if obj == nil {
 		return errNilObject
+	}
+
+	if !allowAllVersions && !version.ValidNewObject(obj.Version()) {
+		return fmt.Errorf("invalid version for a non-replicated object: %s", obj.Version())
 	}
 
 	var expirationRequired bool
@@ -262,7 +267,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared bool, nestingL
 
 		// it is possible to have a split of a split
 		prepared := firstSet || splitID != nil || isEC
-		return v.validate(par, !prepared, nestingLevel+1)
+		return v.validate(par, !prepared, allowAllVersions, nestingLevel+1)
 	}
 
 	return nil

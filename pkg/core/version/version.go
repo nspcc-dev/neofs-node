@@ -22,6 +22,14 @@ func SysObjTargetShouldBeInHeader(v *version.Version) bool {
 		(v.Major() == latestSysObjTargetInPayloadMjr && v.Minor() > latestSysObjTargetInPayloadMnr)
 }
 
+// ValidNewObject checks if version is a correct for new objects in the system.
+func ValidNewObject(v *version.Version) bool {
+	// in practice this func was added to bypass error objects, `ValidNewObject`
+	// means the same version check but preventing new objects to be PUT;
+	// see https://github.com/nspcc-dev/neofs-node/issues/3869
+	return OwnerSignatureMatchRequired(v)
+}
+
 // OwnerSignatureMatchRequired returns true if an object with the given version
 // must have the owner matching the signature's public key. Objects below version
 // 2.18 may have a mismatching owner due to a bug that allowed creating such

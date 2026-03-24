@@ -93,7 +93,7 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		}
 	}
 
-	if err := p.fmtValidator.Validate(&obj, false); err != nil {
+	if err := p.fmtValidator.Validate(&obj, false, true); err != nil {
 		return fmt.Errorf("validate object format: %w", err)
 	}
 

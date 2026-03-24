@@ -208,12 +208,12 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 					obj.SetParent(&parent)
 					tc.corruptPart(obj)
 				})
-				require.EqualError(t, v.Validate(&cp, false), tc.err)
+				require.EqualError(t, v.Validate(&cp, false, true), tc.err)
 				return
 			}
 
 			cp := corruptPart(t, tc.corruptPart)
-			require.EqualError(t, v.Validate(&cp, false), tc.err)
+			require.EqualError(t, v.Validate(&cp, false, true), tc.err)
 		})
 	}
 
@@ -224,17 +224,17 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 			obj.SetPayload(nil)
 			obj.AssociateDeleted(oidtest.ID())
 		})
-		require.EqualError(t, v.Validate(&cp, false), "mix of EC (__NEOFS__EC_RULE_IDX) and non-EC (__NEOFS__ASSOCIATE) attributes")
+		require.EqualError(t, v.Validate(&cp, false, true), "mix of EC (__NEOFS__EC_RULE_IDX) and non-EC (__NEOFS__ASSOCIATE) attributes")
 	})
 
 	t.Run("blank", func(t *testing.T) {
 		for i := range ecParts {
-			require.EqualError(t, v.Validate(&ecParts[i], true), "blank object with EC attributes")
+			require.EqualError(t, v.Validate(&ecParts[i], true, true), "blank object with EC attributes")
 		}
 
 		obj := blankValidObject(creator)
 		obj.SetContainerID(cnrID)
-		require.NoError(t, v.Validate(obj, true))
+		require.NoError(t, v.Validate(obj, true, true))
 	})
 
 	t.Run("non-EC container", func(t *testing.T) {
@@ -247,7 +247,7 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 			obj.SetContainerID(cnr)
 		})
 
-		require.EqualError(t, v.Validate(&cp, false), "object with EC attributes __NEOFS__EC_RULE_IDX in container without EC rules")
+		require.EqualError(t, v.Validate(&cp, false, true), "object with EC attributes __NEOFS__EC_RULE_IDX in container without EC rules")
 	})
 
 	t.Run("split", func(t *testing.T) {
@@ -318,7 +318,7 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 
 		require.NoError(t, linker.SetVerificationFields(creator))
 
-		require.NoError(t, v.Validate(&linker, false))
+		require.NoError(t, v.Validate(&linker, false, true))
 
 		for i := range splitParts {
 			parts, err := iec.Encode(irule, splitParts[i].Payload())
@@ -331,7 +331,7 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				require.NoError(t, v.Validate(&ecPart, false))
+				require.NoError(t, v.Validate(&ecPart, false, true))
 			}
 		}
 	})
@@ -345,11 +345,11 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			require.NoError(t, v.Validate(&obj, false))
+			require.NoError(t, v.Validate(&obj, false, true))
 		}
 	})
 
 	for i := range ecParts {
-		require.NoError(t, v.Validate(&ecParts[i], false))
+		require.NoError(t, v.Validate(&ecParts[i], false, true))
 	}
 }
