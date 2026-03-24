@@ -13,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -694,12 +695,14 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	p.apiConns = conns
 	p.replicator = r
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go p.Run(ctx)
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		go p.Run(ctx)
 
-	waitForPolicerResult(t, p, lb, mockNet, localNode, localObj.Address, expRedundant, expShortage > 0, r)
-
+		time.Sleep(time.Second)
+		waitForPolicerResult(t, p, lb, mockNet, localNode, localObj.Address, expRedundant, expShortage > 0, r)
+	})
 	var taskV = r.task.Load()
 	if expShortage > 0 {
 		require.NotNil(t, taskV)
@@ -1136,17 +1139,20 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	p.apiConns = conns
 	p.replicator = r
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go p.Run(ctx)
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		go p.Run(ctx)
 
-	var expLog *testutil.LogEntry
-	if len(waitLog) > 0 {
-		expLog = &waitLog[0]
-	}
+		var expLog *testutil.LogEntry
+		if len(waitLog) > 0 {
+			expLog = &waitLog[0]
+		}
 
-	waitForPolicerResult(t, p, lb, mockNet, localNode, localObj.Address, expRedundant, len(expCandidates) > 0, r, expLog)
-
+		time.Sleep(time.Second)
+		waitForPolicerResult(t, p, lb, mockNet, localNode, localObj.Address, expRedundant, len(expCandidates) > 0, r, expLog)
+		synctest.Wait()
+	})
 	var taskV = r.task.Load()
 	if len(expCandidates) > 0 {
 		require.NotNil(t, taskV)
@@ -1177,21 +1183,22 @@ func waitForPolicerResult(t *testing.T, p *Policer, lb *testutil.LogBuffer, mock
 		expLog = waitLog[0]
 	}
 
-	require.Eventually(t, func() bool {
-		if expRedundant {
-			return slices.Equal(localNode.deletedObjects(), []oid.Address{addr})
-		}
+	if expRedundant {
+		require.Equal(t, []oid.Address{addr}, localNode.deletedObjects())
+		return
+	}
 
-		if expectTask {
-			return r.task.Load() != nil
-		}
+	if expectTask {
+		require.NotNil(t, r.task.Load())
+		return
+	}
 
-		if expLog != nil {
-			return lb.Contains(*expLog)
-		}
+	if expLog != nil {
+		require.True(t, lb.Contains(*expLog))
+		return
+	}
 
-		return mockNet.totalGetNodesCalls() > 0
-	}, 3*time.Second, 50*time.Millisecond)
+	require.Greater(t, mockNet.totalGetNodesCalls(), uint64(0))
 }
 
 type testReplicator struct {
