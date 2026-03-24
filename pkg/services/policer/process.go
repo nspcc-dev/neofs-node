@@ -80,10 +80,12 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		wrapped  bool
 		stopAddr oid.Address
 		wg       sync.WaitGroup
+		curTick  time.Duration
 	)
 
 	p.mtx.RLock()
-	t := time.NewTimer(p.repCooldown)
+	curTick = p.repCooldown
+	t := time.NewTicker(curTick)
 	p.mtx.RUnlock()
 
 	stopAddr = randomAddress()
@@ -106,7 +108,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case <-t.C:
 		}
 
 		p.mtx.RLock()
@@ -114,6 +116,11 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		baseBatchSize := p.batchSize
 		boostMultiplier := p.boostMultiplier
 		p.mtx.RUnlock()
+
+		if curTick != repCooldown {
+			curTick = repCooldown
+			t.Reset(curTick)
+		}
 
 		boostMultiplier = max(boostMultiplier, 1)
 
@@ -127,14 +134,12 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				if wrapped {
 					cycleFinished()
-					time.Sleep(repCooldown)
 				} else {
 					wrapped = true
 					cursor = nil
 				}
 			} else {
 				p.log.Warn("failure at object select for replication", zap.Error(err))
-				time.Sleep(repCooldown)
 			}
 			continue
 		}
@@ -168,13 +173,6 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 					zap.Int("clean_batches", boostWindowSize-withReplication))
 				boosted = false
 			}
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			t.Reset(repCooldown)
 		}
 	}
 }
