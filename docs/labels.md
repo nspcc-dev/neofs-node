@@ -9,7 +9,7 @@ naturally form this set of labels:
 - neofs-adm
 - neofs-cli
 - neofs-ir
-- neofs-lens
+- neofs-lancet
 - neofs-storage
 
 ## Platform
