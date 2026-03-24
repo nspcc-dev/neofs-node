@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -1435,155 +1436,158 @@ func testPutTombstoneEC(t *testing.T) {
 	const shardNum = 10
 	const gcInterval = time.Second
 
-	s := testEngineFromShardOpts(t, shardNum, []shard.Option{
-		shard.WithGCRemoverSleepInterval(gcInterval),
-	})
-
-	const partNum = 10
-	const ruleIdx = 123 // any
-	cnr := cidtest.ID()
-	signer := neofscryptotest.Signer()
-
-	parent := *generateObjectWithCID(cnr)
-	parentAddr := parent.Address()
-
-	var parts []object.Object
-	var partAddrs []oid.Address
-	for i := range partNum {
-		part, err := iec.FormObjectForECPart(signer, parent, testutil.RandByteSlice(32), iec.PartInfo{
-			RuleIndex: ruleIdx,
-			Index:     i,
+	synctest.Test(t, func(t *testing.T) {
+		s := testEngineFromShardOpts(t, shardNum, []shard.Option{
+			shard.WithGCRemoverSleepInterval(gcInterval),
 		})
-		require.NoError(t, err)
+		t.Cleanup(func() { _ = s.Close() })
 
-		parts = append(parts, part)
-		partAddrs = append(partAddrs, part.Address())
-	}
+		const partNum = 10
+		const ruleIdx = 123 // any
+		cnr := cidtest.ID()
+		signer := neofscryptotest.Signer()
 
-	assertSearch := func(t *testing.T, addrs []oid.Address) {
-		fs, crs, err := objectcore.PreprocessSearchQuery(nil, nil, "")
-		require.NoError(t, err)
-		res, newCrs, err := s.Search(cnr, fs, nil, crs, 1000)
-		require.NoError(t, err)
-		require.Zero(t, newCrs)
-		require.Len(t, res, len(addrs))
-		for i := range addrs {
-			require.Contains(t, res, client.SearchResultItem{ID: addrs[i].Object()})
+		parent := *generateObjectWithCID(cnr)
+		parentAddr := parent.Address()
+
+		var parts []object.Object
+		var partAddrs []oid.Address
+		for i := range partNum {
+			part, err := iec.FormObjectForECPart(signer, parent, testutil.RandByteSlice(32), iec.PartInfo{
+				RuleIndex: ruleIdx,
+				Index:     i,
+			})
+			require.NoError(t, err)
+
+			parts = append(parts, part)
+			partAddrs = append(partAddrs, part.Address())
 		}
-	}
 
-	assertGetErrors := func(t *testing.T, target error) {
+		assertSearch := func(t *testing.T, addrs []oid.Address) {
+			fs, crs, err := objectcore.PreprocessSearchQuery(nil, nil, "")
+			require.NoError(t, err)
+			res, newCrs, err := s.Search(cnr, fs, nil, crs, 1000)
+			require.NoError(t, err)
+			require.Zero(t, newCrs)
+			require.Len(t, res, len(addrs))
+			for i := range addrs {
+				require.Contains(t, res, client.SearchResultItem{ID: addrs[i].Object()})
+			}
+		}
+
+		assertGetErrors := func(t *testing.T, target error) {
+			_, err := s.Get(parentAddr)
+			require.ErrorIs(t, err, target)
+			_, _, err = s.GetStream(parentAddr)
+			require.ErrorIs(t, err, target)
+			_, err = s.GetBytes(parentAddr)
+			require.ErrorIs(t, err, target)
+			_, err = s.GetRange(parentAddr, 0, 1)
+			require.ErrorIs(t, err, target)
+			_, err = s.Head(parentAddr, false)
+			require.ErrorIs(t, err, target)
+			_, err = s.Head(parentAddr, true)
+			require.ErrorIs(t, err, target)
+
+			for i := range parts {
+				_, err := s.Get(partAddrs[i])
+				require.ErrorIs(t, err, target)
+				_, _, err = s.GetStream(partAddrs[i])
+				require.ErrorIs(t, err, target)
+				_, err = s.GetBytes(partAddrs[i])
+				require.ErrorIs(t, err, target)
+				_, err = s.GetRange(partAddrs[i], 0, 1)
+				require.ErrorIs(t, err, target)
+				_, err = s.Head(partAddrs[i], false)
+				require.ErrorIs(t, err, target)
+				_, err = s.Head(partAddrs[i], true)
+				require.ErrorIs(t, err, target)
+				_, _, err = s.GetECPart(cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
+				require.ErrorIs(t, err, target)
+			}
+		}
+
+		// before storage
+		assertGetErrors(t, apistatus.ErrObjectNotFound)
+		assertSearch(t, nil)
+
+		// store parts
+		for i := range parts {
+			require.NoError(t, s.Put(&parts[i], nil))
+		}
+
+		// check before removal
 		_, err := s.Get(parentAddr)
-		require.ErrorIs(t, err, target)
+		require.ErrorIs(t, err, ierrors.ErrParentObject)
+		require.ErrorAs(t, err, new(iec.ErrParts))
 		_, _, err = s.GetStream(parentAddr)
-		require.ErrorIs(t, err, target)
+		require.ErrorIs(t, err, ierrors.ErrParentObject)
+		require.ErrorAs(t, err, new(iec.ErrParts))
 		_, err = s.GetBytes(parentAddr)
-		require.ErrorIs(t, err, target)
+		require.ErrorIs(t, err, ierrors.ErrParentObject)
+		require.ErrorAs(t, err, new(iec.ErrParts))
 		_, err = s.GetRange(parentAddr, 0, 1)
-		require.ErrorIs(t, err, target)
-		_, err = s.Head(parentAddr, false)
-		require.ErrorIs(t, err, target)
-		_, err = s.Head(parentAddr, true)
-		require.ErrorIs(t, err, target)
+		require.ErrorIs(t, err, ierrors.ErrParentObject)
+		require.ErrorAs(t, err, new(iec.ErrParts))
+
+		hdr, err := s.Head(parentAddr, false)
+		require.NoError(t, err)
+		require.Equal(t, parent.CutPayload(), hdr)
+		hdr, err = s.Head(parentAddr, true)
+		require.NoError(t, err)
+		require.Equal(t, parent.CutPayload(), hdr)
 
 		for i := range parts {
-			_, err := s.Get(partAddrs[i])
-			require.ErrorIs(t, err, target)
-			_, _, err = s.GetStream(partAddrs[i])
-			require.ErrorIs(t, err, target)
-			_, err = s.GetBytes(partAddrs[i])
-			require.ErrorIs(t, err, target)
-			_, err = s.GetRange(partAddrs[i], 0, 1)
-			require.ErrorIs(t, err, target)
-			_, err = s.Head(partAddrs[i], false)
-			require.ErrorIs(t, err, target)
-			_, err = s.Head(partAddrs[i], true)
-			require.ErrorIs(t, err, target)
-			_, _, err = s.GetECPart(cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
-			require.ErrorIs(t, err, target)
+			obj, err := s.Get(partAddrs[i])
+			require.NoError(t, err)
+			require.Equal(t, parts[i], *obj)
+
+			hdr, rdr, err := s.GetStream(partAddrs[i])
+			assertGetStreamOK(t, hdr, rdr, err, parts[i])
+
+			b, err := s.GetBytes(partAddrs[i])
+			require.NoError(t, err)
+			require.Equal(t, parts[i].Marshal(), b)
+
+			const off, ln = 3, 12
+			b, err = s.GetRange(partAddrs[i], off, ln)
+			require.NoError(t, err)
+			require.Equal(t, parts[i].Payload()[off:][:ln], b)
+
+			hdr, err = s.Head(partAddrs[i], false)
+			require.NoError(t, err)
+			require.Equal(t, parts[i].CutPayload(), hdr)
+			hdr, err = s.Head(partAddrs[i], true)
+			require.NoError(t, err)
+			require.Equal(t, parts[i].CutPayload(), hdr)
+
+			h, rdr, err := s.GetECPart(cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
+			assertGetStreamOK(t, &h, rdr, err, parts[i])
 		}
-	}
 
-	// before storage
-	assertGetErrors(t, apistatus.ErrObjectNotFound)
-	assertSearch(t, nil)
+		assertSearch(t, append(partAddrs, parentAddr))
 
-	// store parts
-	for i := range parts {
-		require.NoError(t, s.Put(&parts[i], nil))
-	}
+		// store tombstone
+		const tombLastEpoch = 42 // any
 
-	// check before removal
-	_, err := s.Get(parentAddr)
-	require.ErrorIs(t, err, ierrors.ErrParentObject)
-	require.ErrorAs(t, err, new(iec.ErrParts))
-	_, _, err = s.GetStream(parentAddr)
-	require.ErrorIs(t, err, ierrors.ErrParentObject)
-	require.ErrorAs(t, err, new(iec.ErrParts))
-	_, err = s.GetBytes(parentAddr)
-	require.ErrorIs(t, err, ierrors.ErrParentObject)
-	require.ErrorAs(t, err, new(iec.ErrParts))
-	_, err = s.GetRange(parentAddr, 0, 1)
-	require.ErrorIs(t, err, ierrors.ErrParentObject)
-	require.ErrorAs(t, err, new(iec.ErrParts))
+		tomb := *generateObjectWithCID(cnr)
+		tomb.AssociateDeleted(parent.GetID())
+		addAttribute(&tomb, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(tombLastEpoch))
+		require.NoError(t, s.Put(&tomb, nil))
 
-	hdr, err := s.Head(parentAddr, false)
-	require.NoError(t, err)
-	require.Equal(t, parent.CutPayload(), hdr)
-	hdr, err = s.Head(parentAddr, true)
-	require.NoError(t, err)
-	require.Equal(t, parent.CutPayload(), hdr)
+		// check marked
+		assertGetErrors(t, apistatus.ErrObjectAlreadyRemoved)
+		assertSearch(t, []oid.Address{tomb.Address()})
 
-	for i := range parts {
-		obj, err := s.Get(partAddrs[i])
-		require.NoError(t, err)
-		require.Equal(t, parts[i], *obj)
+		// reach tombstone expiration and check all is gone
+		s.HandleNewEpoch(tombLastEpoch + 1)
 
-		hdr, rdr, err := s.GetStream(partAddrs[i])
-		assertGetStreamOK(t, hdr, rdr, err, parts[i])
+		time.Sleep(2 * gcInterval)
 
-		b, err := s.GetBytes(partAddrs[i])
-		require.NoError(t, err)
-		require.Equal(t, parts[i].Marshal(), b)
+		_, err = s.Get(parentAddr)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
-		const off, ln = 3, 12
-		b, err = s.GetRange(partAddrs[i], off, ln)
-		require.NoError(t, err)
-		require.Equal(t, parts[i].Payload()[off:][:ln], b)
-
-		hdr, err = s.Head(partAddrs[i], false)
-		require.NoError(t, err)
-		require.Equal(t, parts[i].CutPayload(), hdr)
-		hdr, err = s.Head(partAddrs[i], true)
-		require.NoError(t, err)
-		require.Equal(t, parts[i].CutPayload(), hdr)
-
-		h, rdr, err := s.GetECPart(cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
-		assertGetStreamOK(t, &h, rdr, err, parts[i])
-	}
-
-	assertSearch(t, append(partAddrs, parentAddr))
-
-	// store tombstone
-	const tombLastEpoch = 42 // any
-
-	tomb := *generateObjectWithCID(cnr)
-	tomb.AssociateDeleted(parent.GetID())
-	addAttribute(&tomb, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(tombLastEpoch))
-	require.NoError(t, s.Put(&tomb, nil))
-
-	// check marked
-	assertGetErrors(t, apistatus.ErrObjectAlreadyRemoved)
-	assertSearch(t, []oid.Address{tomb.Address()})
-
-	// reach tombstone expiration and check all is gone
-	s.HandleNewEpoch(tombLastEpoch + 1)
-
-	require.Eventually(t, func() bool {
-		_, err := s.Get(parentAddr)
-		return errors.Is(err, apistatus.ErrObjectNotFound)
-	}, 2*gcInterval, gcInterval/10)
-
-	assertGetErrors(t, apistatus.ErrObjectNotFound)
-	assertSearch(t, nil)
+		assertGetErrors(t, apistatus.ErrObjectNotFound)
+		assertSearch(t, nil)
+	})
 }
