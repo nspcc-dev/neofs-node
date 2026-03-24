@@ -236,8 +236,8 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 
 		err := syncContainerCounters(b, force)
 		if err != nil {
-			cnr, err := cid.DecodeBytes(name[1:])
-			if err != nil {
+			cnr, decErr := cid.DecodeBytes(name[1:])
+			if decErr != nil {
 				return fmt.Errorf("sync container counters: %w", err)
 			}
 			return fmt.Errorf("sync %s container counters: %w", cnr, err)
