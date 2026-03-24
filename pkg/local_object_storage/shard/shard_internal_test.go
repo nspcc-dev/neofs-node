@@ -109,12 +109,36 @@ func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
+func (x *mockBLOBStore) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+	val, ok := x.getStream[addr]
+	if !ok {
+		return 0, nil, errors.New("[test] unexpected object requested")
+	}
+	if val.rc != nil {
+		return copy(buf, val.obj.CutPayload().Marshal()), val.rc, nil
+	}
+	b := val.obj.Marshal()
+	n := val.obj.HeaderLen()
+	return copy(buf, b[:n]), io.NopCloser(bytes.NewReader(b[n:])), val.err
+}
+
 func (x *mockBLOBStore) Head(addr oid.Address) (*object.Object, error) {
 	val, ok := x.head[addr]
 	if !ok {
 		return nil, errors.New("[test] unexpected object requested")
 	}
 	return &val.hdr, val.err
+}
+
+func (x *mockBLOBStore) ReadHeader(addr oid.Address, buf []byte) (int, error) {
+	val, ok := x.head[addr]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
 }
 
 func (x *mockBLOBStore) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
@@ -160,12 +184,36 @@ func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadClo
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
+func (x *mockWriteCache) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+	val, ok := x.getStream[addr]
+	if !ok {
+		return 0, nil, errors.New("[test] unexpected object requested")
+	}
+	if val.rc != nil {
+		return copy(buf, val.obj.CutPayload().Marshal()), val.rc, nil
+	}
+	b := val.obj.Marshal()
+	n := val.obj.HeaderLen()
+	return copy(buf, b[:n]), io.NopCloser(bytes.NewReader(b[n:])), val.err
+}
+
 func (x *mockWriteCache) Head(addr oid.Address) (*object.Object, error) {
 	val, ok := x.head[addr]
 	if !ok {
 		return nil, errors.New("[test] unexpected object requested")
 	}
 	return &val.hdr, val.err
+}
+
+func (x *mockWriteCache) ReadHeader(addr oid.Address, buf []byte) (int, error) {
+	val, ok := x.head[addr]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
 }
 
 func (x *mockWriteCache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {

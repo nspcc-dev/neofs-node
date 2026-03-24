@@ -33,6 +33,15 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 			return fmt.Errorf("invalid request: %w", err)
 		}
 		// TODO: deny if node is not in the container?
+
+		if prm.localGetBuffer != nil {
+			n, stream, err := s.localObjects.ReadECPart(prm.addr.Container(), prm.addr.Object(), pi, prm.localGetBuffer)
+			if err == nil {
+				prm.submitLocalGetStreamFn(n, stream)
+			}
+			return err
+		}
+
 		return s.copyLocalECPart(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 
@@ -244,6 +253,15 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 			return fmt.Errorf("invalid request: %w", err)
 		}
 		// TODO: deny if node is not in the container?
+
+		if prm.buffer != nil {
+			n, err := s.localObjects.ReadECPartHeader(prm.addr.Container(), prm.addr.Object(), pi, prm.buffer)
+			if err == nil {
+				prm.submitLenFn(n)
+			}
+			return err
+		}
+
 		return s.copyLocalECPartHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 

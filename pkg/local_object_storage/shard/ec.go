@@ -7,12 +7,30 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
+
+// ReadECPart is a buffered alternative for [Shard.GetECPart] similar to
+// [Shard.ReadObject].
+func (s *Shard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+	var n int
+	var stream io.ReadCloser
+	return n, stream, s.getECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
+		var err error
+		n, stream, err = writeCache.ReadObject(addr, buf)
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address) error {
+		var err error
+		n, stream, err = blobStorage.ReadObject(addr, buf)
+		return err
+	})
+}
 
 // GetECPart looks up for object that carries EC part produced within cnr for
 // parent object and indexed by pi in the underlying metabase, checks its
@@ -39,11 +57,30 @@ import (
 // If object is locked (e.g. via [Shard.Lock] or stored locker object),
 // GetECPart ignores expiration, tombstone and garbage marks.
 func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
+	var hdr object.Object
+	var stream io.ReadCloser
+	return hdr, stream, s.getECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
+		h, str, err := writeCache.GetStream(addr)
+		if err == nil {
+			hdr, stream = *h, str
+		}
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address) error {
+		h, str, err := blobStorage.GetStream(addr)
+		if err == nil {
+			hdr, stream = *h, str
+		}
+		return err
+	})
+}
+
+func (s *Shard) getECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeCacheFn func(writecache.Cache, oid.Address) error,
+	blobStorageFn func(common.Storage, oid.Address) error) error {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
 		var se *object.SplitInfoError
 		if !errors.As(err, &se) || se.SplitInfo().GetLink().IsZero() {
-			return object.Object{}, nil, fmt.Errorf("resolve part ID in metabase: %w", err)
+			return fmt.Errorf("resolve part ID in metabase: %w", err)
 		}
 
 		partID = se.SplitInfo().GetLink()
@@ -51,9 +88,9 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 
 	partAddr := oid.NewAddress(cnr, partID)
 	if s.hasWriteCache() {
-		hdr, rdr, err := s.writeCache.GetStream(partAddr)
+		err := writeCacheFn(s.writeCache, partAddr)
 		if err == nil {
-			return *hdr, rdr, nil
+			return nil
 		}
 
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -63,12 +100,12 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 		}
 	}
 
-	hdr, rdr, err := s.blobStor.GetStream(partAddr)
+	err = blobStorageFn(s.blobStor, partAddr)
 	if err != nil {
-		return object.Object{}, nil, fmt.Errorf("get from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
+		return fmt.Errorf("get from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
 	}
 
-	return *hdr, rdr, nil
+	return nil
 }
 
 // GetECPartRange looks up for object that carries EC part produced within cnr
@@ -124,13 +161,46 @@ func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, 
 	return pldLen, rc, nil
 }
 
+// ReadECPartHeader is a buffered alternative for [Shard.HeadECPart]
+// similar to [Shard.ReadHeader].
+func (s *Shard) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error) {
+	var n int
+	return n, s.headECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
+		var err error
+		n, err = writeCache.ReadHeader(addr, buf)
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address) error {
+		var err error
+		n, err = blobStorage.ReadHeader(addr, buf)
+		return err
+	})
+}
+
 // HeadECPart is similar to [Shard.GetECPart] but returns only the header.
 func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
+	var hdr object.Object
+	return hdr, s.headECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
+		h, err := writeCache.Head(addr)
+		if err == nil {
+			hdr = *h
+		}
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address) error {
+		h, err := blobStorage.Head(addr)
+		if err == nil {
+			hdr = *h
+		}
+		return err
+	})
+}
+
+func (s *Shard) headECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeCacheFn func(writecache.Cache, oid.Address) error,
+	blobStorageFn func(common.Storage, oid.Address) error) error {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
 		var se *object.SplitInfoError
 		if !errors.As(err, &se) || se.SplitInfo().GetLink().IsZero() {
-			return object.Object{}, fmt.Errorf("resolve part ID in metabase: %w", err)
+			return fmt.Errorf("resolve part ID in metabase: %w", err)
 		}
 
 		partID = se.SplitInfo().GetLink()
@@ -138,9 +208,9 @@ func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.O
 
 	partAddr := oid.NewAddress(cnr, partID)
 	if s.hasWriteCache() {
-		hdr, err := s.writeCache.Head(partAddr)
+		err := writeCacheFn(s.writeCache, partAddr)
 		if err == nil {
-			return *hdr, nil
+			return nil
 		}
 
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -150,10 +220,10 @@ func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.O
 		}
 	}
 
-	hdr, err := s.blobStor.Head(partAddr)
+	err = blobStorageFn(s.blobStor, partAddr)
 	if err != nil {
-		return object.Object{}, fmt.Errorf("get header from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
+		return fmt.Errorf("get header from BLOB storage by ID %w: %w", ierrors.ObjectID(partID), err)
 	}
 
-	return *hdr, nil
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"testing"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -40,10 +41,12 @@ func TestServer_Get_Local(t *testing.T) {
 
 	storage := newSimpleStorage(t, fsChain)
 
-	handler := getsvc.New(mockHandlerFSChain{
+	handlerFSChain := mockHandlerFSChain{
 		repRules:  []uint{3},               // any non-empty
 		nodeLists: [][]netmap.NodeInfo{{}}, // any non-empty
-	},
+	}
+
+	handler := getsvc.New(&handlerFSChain,
 		getsvc.WithLocalStorageEngine(storage),
 	)
 	handlers := &getOnlyHandler{svc: handler}
@@ -93,6 +96,37 @@ func TestServer_Get_Local(t *testing.T) {
 			handlers.mockObject = nil
 		})
 	}
+
+	t.Run("EC part", func(t *testing.T) {
+		const anyRuleIdx = 13
+		const anyPartIdx = 42
+
+		handlerFSChain.ecRules = make([]iec.Rule, anyRuleIdx+1)
+		handlerFSChain.ecRules[anyRuleIdx].DataPartNum = anyPartIdx/2 + 1
+		handlerFSChain.ecRules[anyRuleIdx].ParityPartNum = anyPartIdx/2 + 1
+
+		parentHdr := *object.New(cnr, signer.ID)
+		require.NoError(t, parentHdr.SetVerificationFields(signer))
+
+		part, err := iec.FormObjectForECPart(signer, parentHdr, testutil.RandByteSlice(4<<10), iec.PartInfo{
+			RuleIndex: anyRuleIdx,
+			Index:     anyPartIdx,
+		}) // any part payload
+		require.NoError(t, err)
+
+		require.NoError(t, storage.Put(&part, nil))
+
+		req := newUnsignedLocalGetRequest(version.Current(), parentHdr.Address())
+		req.MetaHeader.XHeaders = []*protosession.XHeader{
+			{Key: "__NEOFS__EC_RULE_IDX", Value: strconv.Itoa(anyRuleIdx)},
+			{Key: "__NEOFS__EC_PART_IDX", Value: strconv.Itoa(anyPartIdx)},
+		}
+		signGetRequest(t, req, signer)
+
+		assertGetRequest(t, srv, req, part)
+
+		handlerFSChain.ecRules = nil
+	})
 }
 
 type getOnlyHandler struct {
@@ -115,7 +149,13 @@ func (x getOnlyHandler) Get(ctx context.Context, prm getsvc.Prm) error {
 }
 
 func newLocalGetRequest(t *testing.T, ver version.Version, addr oid.Address, signer neofscrypto.Signer) *protoobject.GetRequest {
-	req := &protoobject.GetRequest{
+	req := newUnsignedLocalGetRequest(ver, addr)
+	signGetRequest(t, req, signer)
+	return req
+}
+
+func newUnsignedLocalGetRequest(ver version.Version, addr oid.Address) *protoobject.GetRequest {
+	return &protoobject.GetRequest{
 		Body: &protoobject.GetRequest_Body{
 			Address: addr.ProtoMessage(),
 		},
@@ -124,12 +164,12 @@ func newLocalGetRequest(t *testing.T, ver version.Version, addr oid.Address, sig
 			Ttl:     1,
 		},
 	}
+}
 
+func signGetRequest(t *testing.T, req *protoobject.GetRequest, signer neofscrypto.Signer) {
 	var err error
 	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
 	require.NoError(t, err)
-
-	return req
 }
 
 func callGet(t *testing.T, srv *Server, req *protoobject.GetRequest) (grpc.ServerStreamingClient[protoobject.GetResponse], error) {
@@ -169,7 +209,10 @@ func assertGetOK(t *testing.T, srv *Server, obj object.Object, signer neofscrypt
 
 func assertGetOKVersioned(t *testing.T, srv *Server, obj object.Object, signer neofscrypto.Signer, ver version.Version) []*protoobject.GetResponse {
 	req := newLocalGetRequest(t, ver, obj.Address(), signer)
+	return assertGetRequest(t, srv, req, obj)
+}
 
+func assertGetRequest(t *testing.T, srv *Server, req *protoobject.GetRequest, obj object.Object) []*protoobject.GetResponse {
 	stream, err := callGet(t, srv, req)
 	require.NoError(t, err)
 

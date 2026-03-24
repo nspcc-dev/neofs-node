@@ -13,6 +13,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -28,6 +29,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 type epochState struct {
@@ -203,11 +205,19 @@ func (unimplementedShard) GetStream(oid.Address, bool) (*object.Object, io.ReadC
 	panic("unimplemented")
 }
 
+func (unimplementedShard) ReadObject(oid.Address, bool, []byte) (int, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, int64, int64) (uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
 func (unimplementedShard) GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) ReadECPart(cid.ID, oid.ID, iec.PartInfo, []byte) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -219,7 +229,15 @@ func (unimplementedShard) Head(oid.Address, bool) (*object.Object, error) {
 	panic("unimplemented")
 }
 
+func (unimplementedShard) ReadHeader(oid.Address, bool, []byte) (int, error) {
+	panic("unimplemented")
+}
+
 func (unimplementedShard) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error) {
 	panic("unimplemented")
 }
 
@@ -310,6 +328,19 @@ func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, 
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
+func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int, io.ReadCloser, error) {
+	val, ok := x.getStream[getStreamKey{
+		addr:     addr,
+		skipMeta: skipMeta,
+	}]
+	if !ok {
+		return 0, nil, errors.New("[test] unexpected object requested")
+	}
+	payloadFld := []byte{iprotobuf.TagBytes4}
+	payloadFld = protowire.AppendBytes(payloadFld, val.obj.Payload())
+	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
+}
+
 func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error) {
 	val, ok := x.getRangeStream[getRangeStreamKey{
 		cnr: cnr,
@@ -347,6 +378,21 @@ func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (objec
 		return object.Object{}, nil, errors.New("[test] unexpected object requested")
 	}
 	return *val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
+}
+
+func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+	time.Sleep(x.eCPartSleep)
+	val, ok := x.getECPart[getECPartKey{
+		cnr:    cnr,
+		parent: parent,
+		pi:     pi,
+	}]
+	if !ok {
+		return 0, nil, errors.New("[test] unexpected object requested")
+	}
+	payloadFld := []byte{iprotobuf.TagBytes4}
+	payloadFld = protowire.AppendBytes(payloadFld, val.obj.Payload())
+	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
 }
 
 func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
@@ -388,6 +434,20 @@ func (x *mockShard) Head(addr oid.Address, raw bool) (*object.Object, error) {
 	return &val.hdr, val.err
 }
 
+func (x *mockShard) ReadHeader(addr oid.Address, raw bool, buf []byte) (int, error) {
+	val, ok := x.head[headKey{
+		addr: addr,
+		raw:  raw,
+	}]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
+}
+
 func (x *mockShard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
 	time.Sleep(x.eCPartSleep)
 	val, ok := x.headECPart[headECPartKey{
@@ -399,6 +459,22 @@ func (x *mockShard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (obje
 		return object.Object{}, errors.New("[test] unexpected object requested")
 	}
 	return val.hdr, val.err
+}
+
+func (x *mockShard) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error) {
+	time.Sleep(x.eCPartSleep)
+	val, ok := x.headECPart[headECPartKey{
+		cnr:    cnr,
+		parent: parent,
+		pi:     pi,
+	}]
+	if !ok {
+		return 0, errors.New("[test] unexpected object requested")
+	}
+	if val.err != nil {
+		return 0, val.err
+	}
+	return copy(buf, val.hdr.Marshal()), nil
 }
 
 type unimplementedMetrics struct{}
@@ -501,13 +577,19 @@ func (x unimplementedMetrics) AddToPayloadCounter(string, int64) {
 
 type testMetrics struct {
 	unimplementedMetrics
-	getECPart      atomic.Int64
-	getECPartRange atomic.Int64
-	headECPart     atomic.Int64
+	getECPart        atomic.Int64
+	readECPart       atomic.Int64
+	getECPartRange   atomic.Int64
+	headECPart       atomic.Int64
+	readECPartHeader atomic.Int64
 }
 
 func (x *testMetrics) AddGetECPartDuration(d time.Duration) {
 	x.getECPart.Add(int64(d))
+}
+
+func (x *testMetrics) AddReadECPartDuration(d time.Duration) {
+	x.readECPart.Add(int64(d))
 }
 
 func (x *testMetrics) AddGetECPartRangeDuration(d time.Duration) {
@@ -516,4 +598,8 @@ func (x *testMetrics) AddGetECPartRangeDuration(d time.Duration) {
 
 func (x *testMetrics) AddHeadECPartDuration(d time.Duration) {
 	x.headECPart.Add(int64(d))
+}
+
+func (x *testMetrics) AddReadECPartHeaderDuration(d time.Duration) {
+	x.readECPartHeader.Add(int64(d))
 }
