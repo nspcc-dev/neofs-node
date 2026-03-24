@@ -78,11 +78,11 @@ func (db *DB) MarkGarbage(addrs ...oid.Address) ([]ContainerGarbageDiff, error) 
 
 			err := updateCounter(metaBucket, gcCounter, int64(len(objsInCnr)))
 			if err != nil {
-				return fmt.Errorf("update gc counter to %d: %w", len(objsInCnr), err)
+				return fmt.Errorf("update %s container's gc counter to %d: %w", cnr, len(objsInCnr), err)
 			}
 			err = updateCounter(metaBucket, payloadCounter, diff.PayloadDiff)
 			if err != nil {
-				return fmt.Errorf("update user payload counter to %d: %w", diff.PayloadDiff, err)
+				return fmt.Errorf("update %s container's user payload counter to %d: %w", cnr, diff.PayloadDiff, err)
 			}
 
 			containersCountersDiff = append(containersCountersDiff, diff)

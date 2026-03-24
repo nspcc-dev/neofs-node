@@ -202,7 +202,7 @@ func updateCounter(metaBkt *bbolt.Bucket, typ objectType, delta int64) error {
 	case payloadCounter:
 		counterKey[0] = metaPrefixPayloadCounter
 	default:
-		panic("unknown object type counter")
+		panic(fmt.Sprintf("unknown object type counter: %d", typ))
 	}
 
 	data := metaBkt.Get(counterKey)
@@ -236,8 +236,8 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 
 		err := syncContainerCounters(b, force)
 		if err != nil {
-			cnr, err := cid.DecodeBytes(name[1:])
-			if err != nil {
+			cnr, decErr := cid.DecodeBytes(name[1:])
+			if decErr != nil {
 				return fmt.Errorf("sync container counters: %w", err)
 			}
 			return fmt.Errorf("sync %s container counters: %w", cnr, err)
