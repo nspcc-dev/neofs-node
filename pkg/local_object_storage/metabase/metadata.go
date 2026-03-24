@@ -24,8 +24,17 @@ const (
 	metaPrefixAttrIDInt
 	metaPrefixAttrIDPlain
 	metaPrefixIDAttr
-	metaPrefixGC
-	metaPrefixGarbage
+	metaPrefixContainerRemoved // the whole container removal flag
+	metaPrefixGarbage          // container's garbage objects
+
+	// counters.
+	metaPrefixPhyCounter
+	metaPrefixRootCounter
+	metaPrefixTSCounter
+	metaPrefixLockCounter
+	metaPrefixLinkCounter
+	metaPrefixGCCounter
+	metaPrefixPayloadCounter
 )
 
 const (
@@ -136,50 +145,72 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 }
 
 // returns errNonPhy if isParent is unset and the object is not physical.
-func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
+func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (CountersDiff, error) {
 	var (
 		err     error
+		diff    CountersDiff
 		metaBkt = c.Bucket()
-		nonPhy  = !isParent && getObjAttribute(c, id, object.FilterPhysical) == nil
+		nonPhy  = getObjAttribute(c, id, object.FilterPhysical) == nil
 		parent  oid.ID
 		pref    = slices.Concat([]byte{metaPrefixID}, id[:])
-		size    uint64
 	)
 
 	k, _ := c.Seek(pref)
 	haveObject := bytes.Equal(k, pref)
 
 	if haveObject {
-		if nonPhy {
-			return 0, errNonPhy
+		if !isParent && nonPhy {
+			return diff, errNonPhy
 		}
 		if err := c.Delete(); err != nil {
-			return 0, err
+			return diff, err
 		}
 	}
 
 	pref[0] = metaPrefixGarbage
-	if err := metaBkt.Delete(pref); err != nil {
-		return 0, err
+	gcK, _ := c.Seek(pref)
+	garbage := bytes.Equal(gcK, pref)
+	if garbage {
+		err = c.Delete()
+		if err != nil {
+			return diff, fmt.Errorf("removing GC mark: %w", err)
+		}
+
+		diff.GC--
+		err = updateCounter(metaBkt, gcCounter, -1)
+		if err != nil {
+			return diff, fmt.Errorf("failed to update garbage counter: %w", err)
+		}
 	}
+
 	if !haveObject {
-		return 0, errNonPhy
+		return diff, errNonPhy
 	}
-	// removed keys must be pre-collected according to BoltDB docs.
-	var ks [][]byte
+	var (
+		typ    object.Type = -1
+		size   uint64
+		isRoot bool
+
+		// removed keys must be pre-collected according to BoltDB docs.
+		ks [][]byte
+	)
 	pref[0] = metaPrefixIDAttr
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
 		attrK, attrV, found := bytes.Cut(kIDAttr[len(pref):], objectcore.MetaAttributeDelimiter)
 		if !found {
-			return 0, fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
+			return diff, fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
 		}
 		switch kStr := string(attrK); kStr {
 		case object.FilterParentID:
 			if len(attrV) == oid.Size {
 				parent = oid.ID(attrV)
 			}
+		case object.FilterRoot:
+			isRoot = string(attrV) == binPropMarker
 		case object.FilterPayloadSize:
 			size, _ = strconv.ParseUint(string(attrV), 10, 64)
+		case object.FilterType:
+			typ.DecodeString(string(attrV))
 		default:
 		}
 		kAttrID := make([]byte, len(kIDAttr)+attributeDelimiterLen)
@@ -200,8 +231,37 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 	}
 	for i := range ks {
 		if err := metaBkt.Delete(ks[i]); err != nil {
-			return 0, err
+			return diff, err
 		}
+	}
+
+	if !nonPhy {
+		diff.Phy--
+		err = updateCounter(metaBkt, phyCounter, -1)
+		if err != nil {
+			return diff, fmt.Errorf("failed to update phy counter: %w", err)
+		}
+	}
+
+	switch typ {
+	case object.TypeRegular:
+		if isRoot {
+			diff.Root--
+			err = updateCounter(metaBkt, rootCounter, -1)
+		}
+	case object.TypeTombstone:
+		diff.TS--
+		err = updateCounter(metaBkt, tsCounter, -1)
+	case object.TypeLink:
+		diff.Link--
+		err = updateCounter(metaBkt, linkCounter, -1)
+	case object.TypeLock:
+		diff.Lock--
+		err = updateCounter(metaBkt, lockCounter, -1)
+	default:
+	}
+	if err != nil {
+		return diff, fmt.Errorf("failed to update typed counter: %w", err)
 	}
 
 	if !parent.IsZero() && getParentInfo(c, cnr, parent) == nil {
@@ -214,7 +274,15 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 		}
 	}
 
-	return size, nil
+	if !nonPhy && !garbage {
+		diff.Payload = -int64(size)
+		err = updateCounter(metaBkt, payloadCounter, -int64(size))
+		if err != nil {
+			return diff, fmt.Errorf("failed to update payload counter: %w", err)
+		}
+	}
+
+	return diff, nil
 }
 
 // Search selects up to count container's objects from the given container

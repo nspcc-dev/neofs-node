@@ -94,8 +94,7 @@ func (db *DB) init(reset bool) error {
 	}
 
 	mStaticBuckets := map[string]struct{}{
-		string(containerVolumeBucketName): {},
-		string(shardInfoBucket):           {},
+		string(shardInfoBucket): {},
 	}
 
 	if !reset {
@@ -258,11 +257,6 @@ func (db *DB) ResyncFromBlobstor(bs common.Storage, onIterationError func(oid.Ad
 	// Flush any remaining objects in the batch
 	if err := rh.flush(); err != nil {
 		return fmt.Errorf("could not flush remaining objects to metabase: %w", err)
-	}
-
-	err = db.SyncCounters()
-	if err != nil {
-		return fmt.Errorf("could not sync object counters: %w", err)
 	}
 
 	return nil

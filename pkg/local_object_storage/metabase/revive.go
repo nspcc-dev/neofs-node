@@ -3,6 +3,7 @@ package meta
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -80,7 +81,6 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 		return res, ErrDegradedMode
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
 	cnr := addr.Container()
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
@@ -110,32 +110,27 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 				return errors.New("reported as deleted, but no tombstone found")
 			}
 			var tombAddress = oid.NewAddress(cnr, tombOID)
-			_, _, _, err := db.delete(tx, tombAddress)
+			_, err := db.delete(tx, tombAddress)
 			if err != nil {
 				return err
 			}
 			res.setStatusGraveyard(tombAddress.EncodeToString())
 			res.tombstoneAddr = tombAddress
 		}
+		if status == statusGCMarked || status == statusTombstoned {
+			err = updateCounter(metaBucket, gcCounter, -1)
+			if err != nil {
+				return fmt.Errorf("update garbage counter: %w", err)
+			}
+		}
+		err := reviveCounters(metaCursor, status, addr.Object())
+		if err != nil {
+			return fmt.Errorf("revive object counters: %w", err)
+		}
 
 		// Deleted objects are marked as garbage as well, so this mark is _always_ deleted.
 		if err := metaBucket.Delete(mkGarbageKey(addr.Object())); err != nil {
 			return err
-		}
-
-		if obj, err := get(metaCursor, addr, false, true, currEpoch); err == nil {
-			// if object is stored, and it is regular object then update bucket
-			// with container size estimations
-			if obj.Type() == object.TypeRegular {
-				if err := changeContainerInfo(tx, cnr, int(obj.PayloadSize()), 1); err != nil {
-					return err
-				}
-			}
-
-			// also need to restore logical counter
-			if err := updateCounter(tx, logical, 1, true); err != nil {
-				return err
-			}
 		}
 
 		return nil
@@ -145,4 +140,70 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 	}
 
 	return
+}
+
+func reviveCounters(metaC *bbolt.Cursor, gcStatus uint8, obj oid.ID) error {
+	var (
+		typ  object.Type = -1
+		phy  bool
+		root bool
+		size uint64
+	)
+
+	for k, v := range iterIDAttrs(metaC, obj) {
+		switch string(k) {
+		case object.FilterPayloadSize:
+			size, _ = strconv.ParseUint(string(v), 10, 64)
+		case object.FilterType:
+			typ.DecodeString(string(v))
+		case object.FilterPhysical:
+			phy = string(v) == binPropMarker
+		case object.FilterRoot:
+			root = string(v) == binPropMarker
+		default:
+		}
+	}
+
+	switch gcStatus {
+	case statusTombstoned, statusGCMarked:
+		err := updateCounter(metaC.Bucket(), payloadCounter, int64(size))
+		if err != nil {
+			return fmt.Errorf("update payload counter: %w", err)
+		}
+	default:
+	}
+
+	switch typ {
+	case object.TypeRegular:
+		if phy {
+			err := updateCounter(metaC.Bucket(), phyCounter, 1)
+			if err != nil {
+				return fmt.Errorf("revive PHY counter : %w", err)
+			}
+		}
+		if root {
+			err := updateCounter(metaC.Bucket(), rootCounter, 1)
+			if err != nil {
+				return fmt.Errorf("revive ROOT counter : %w", err)
+			}
+		}
+	case object.TypeTombstone:
+		err := updateCounter(metaC.Bucket(), tsCounter, 1)
+		if err != nil {
+			return fmt.Errorf("revive TS counter : %w", err)
+		}
+	case object.TypeLock:
+		err := updateCounter(metaC.Bucket(), lockCounter, 1)
+		if err != nil {
+			return fmt.Errorf("revive LOCK counter : %w", err)
+		}
+	case object.TypeLink:
+		err := updateCounter(metaC.Bucket(), linkCounter, 1)
+		if err != nil {
+			return fmt.Errorf("revive LINK counter : %w", err)
+		}
+	default:
+	}
+
+	return nil
 }
