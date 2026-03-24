@@ -48,9 +48,12 @@ type apiConnections interface {
 type Policer struct {
 	*cfg
 
-	// hadToReplicate is a flag that indicates whether policer had objects
-	// to replicate to other nodes in the previous cycle
-	hadToReplicate atomic.Bool
+	// hadReplicaShortage is a flag that indicates whether policer had objects
+	// with missing replicas in the previous cycle.
+	hadReplicaShortage atomic.Bool
+	// hadPlacementMismatch is a flag that indicates whether policer had objects
+	// requiring placement optimization in the previous cycle.
+	hadPlacementMismatch atomic.Bool
 
 	signer neofscrypto.Signer
 
@@ -103,6 +106,10 @@ type (
 		// based on background check progress. `true` is for the consistent
 		// state, `false` for the opposite one.
 		SetPolicerConsistency(bool)
+		// SetPolicerOptimalPlacement must update [Policer] optimal placement
+		// metric based on background check progress. `true` is for the
+		// optimal placement, `false` for the opposite one.
+		SetPolicerOptimalPlacement(bool)
 	}
 )
 

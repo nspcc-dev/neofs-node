@@ -331,7 +331,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 
 	if shortage > 0 {
 		p.metrics.SetPolicerConsistency(false)
-		p.hadToReplicate.Store(true)
+		p.hadReplicaShortage.Store(true)
 
 		p.log.Debug("shortage of object copies detected",
 			zap.Stringer("object", plc.object.Address),
@@ -343,8 +343,8 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		// The required number of replicas exists, but some primary placement
 		// nodes are missing the object. Replicate to them so that the placement
 		// matches the policy.
-		p.metrics.SetPolicerConsistency(false)
-		p.hadToReplicate.Store(true)
+		p.metrics.SetPolicerOptimalPlacement(false)
+		p.hadPlacementMismatch.Store(true)
 
 		p.log.Debug("misplaced object copies detected, replicating to primary nodes",
 			zap.Stringer("object", plc.object.Address),

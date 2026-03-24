@@ -23,7 +23,9 @@ func (p *Policer) Run(ctx context.Context) {
 	}()
 
 	p.metrics.SetPolicerConsistency(false)
-	p.hadToReplicate.Store(false)
+	p.metrics.SetPolicerOptimalPlacement(false)
+	p.hadReplicaShortage.Store(false)
+	p.hadPlacementMismatch.Store(false)
 
 	p.shardPolicyWorker(ctx)
 }
@@ -92,18 +94,24 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	cursor = engine.NewCursor(stopAddr.Container(), stopAddr.Object())
 
 	cycleFinished := func() {
-		cleanCycle := !p.hadToReplicate.Swap(false)
-		if cleanCycle {
+		cleanShortageCycle := !p.hadReplicaShortage.Swap(false)
+		cleanPlacementCycle := !p.hadPlacementMismatch.Swap(false)
+		if cleanShortageCycle {
 			p.metrics.SetPolicerConsistency(true)
 		}
+		if cleanPlacementCycle {
+			p.metrics.SetPolicerOptimalPlacement(true)
+		}
 
-		p.log.Info("finished local storage cycle", zap.Bool("cleanCycle", cleanCycle))
+		p.log.Info("finished local storage cycle",
+			zap.Bool("cleanShortageCycle", cleanShortageCycle),
+			zap.Bool("cleanPlacementCycle", cleanPlacementCycle))
 
 		wrapped = false
 	}
 
 	for {
-		var hadReplicationBeforeReset bool
+		var hadShortageBeforeReset bool
 
 		select {
 		case <-ctx.Done():
@@ -146,7 +154,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 
 		for _, addr := range addrs {
 			if wrapped && addr.Address.Compare(stopAddr) > 0 {
-				hadReplicationBeforeReset = p.hadToReplicate.Load()
+				hadShortageBeforeReset = p.hadReplicaShortage.Load()
 				cycleFinished()
 			}
 			wg.Go(func() {
@@ -159,8 +167,8 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		// sliding window. Boost mode transitions only when a strict majority
 		// of the window agrees, so an equal split keeps the current state unchanged.
 		if boostMultiplier > 1 {
-			hadReplication := hadReplicationBeforeReset || p.hadToReplicate.Load()
-			withReplication := win.record(hadReplication)
+			hadShortage := hadShortageBeforeReset || p.hadReplicaShortage.Load()
+			withReplication := win.record(hadShortage)
 
 			if !boosted && withReplication >= boostMajority {
 				p.log.Info("missing replicas detected, entering boost mode",

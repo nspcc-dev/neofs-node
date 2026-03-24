@@ -297,7 +297,7 @@ headNextPart:
 	}
 
 	p.metrics.SetPolicerConsistency(false)
-	p.hadToReplicate.Store(true)
+	p.hadReplicaShortage.Store(true)
 
 	if parentHdr.GetID().IsZero() {
 		// can only happen for 1/1 rule: local part is never HEADed in for-loop above and remote one is unreachable

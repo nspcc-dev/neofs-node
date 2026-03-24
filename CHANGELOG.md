@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - `neofs-lancet meta remove` command (#3891)
 - `neofs-lancet fstree remove` command (#3892)
 - SN has new `root`, `ts`, `lock`, `link`, `gc` object counter metrics (#3740)
+- Optimal placement state metric (#3901)
 
 ### Fixed
 - Resending the header after chunks have already been sent in object service `Get` handler (#3833)
@@ -42,6 +43,7 @@ Changelog for NeoFS Node
 - Rename `neofs-lens` into `neofs-lancet` (#3894)
 - SN no longer accepts objects with invocation or verification script bigger than 1KiB (#3887)
 - Every object with non-zero payload is now paid, not only regular ones (#3856)
+- Separate policer placement state from replica shortage (#3901)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)

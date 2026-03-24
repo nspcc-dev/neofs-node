@@ -63,3 +63,7 @@ func (c *cfg) HealthStatus() control.HealthStatus {
 func (c *cfg) SetPolicerConsistency(consistent bool) {
 	c.metricsCollector.SetPolicerConsistencyState(consistent)
 }
+
+func (c *cfg) SetPolicerOptimalPlacement(optimal bool) {
+	c.metricsCollector.SetPolicerOptimalPlacementState(optimal)
+}
