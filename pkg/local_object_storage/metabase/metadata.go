@@ -98,6 +98,7 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 			return err
 		}
 	}
+	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 	if h, ok := hdr.PayloadHomomorphicHash(); ok {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadHomomorphicHash, string(h.Value())); err != nil {
 			return err

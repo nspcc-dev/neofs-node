@@ -1222,7 +1222,7 @@ func assertSplitChain(t *testing.T, limit, ln uint64, sessionToken *session.Obje
 	require.Zero(t, firstParent.PayloadSize())
 	_, ok := firstParent.PayloadChecksum()
 	require.False(t, ok)
-	_, ok = firstParent.PayloadHomomorphicHash()
+	_, ok = firstParent.PayloadHomomorphicHash() //nolint:staticcheck // this is a test
 	require.False(t, ok)
 	require.Zero(t, firstParent.GetID())
 	require.Zero(t, firstParent.Signature())
@@ -1241,6 +1241,7 @@ func assertSplitChain(t *testing.T, limit, ln uint64, sessionToken *session.Obje
 	if cs, ok := lastParent.PayloadChecksum(); ok {
 		firstParentCp.SetPayloadChecksum(cs)
 	}
+	//nolint:staticcheck // this is a test and such objects are possible
 	if cs, ok := lastParent.PayloadHomomorphicHash(); ok {
 		firstParentCp.SetPayloadHomomorphicHash(cs)
 	}
@@ -1284,7 +1285,7 @@ func assertObjectIntegrity(t *testing.T, obj object.Object) {
 	got := sha256.Sum256(payload)
 	require.Equal(t, got[:], cs.Value())
 
-	if cs, ok := obj.PayloadHomomorphicHash(); ok {
+	if cs, ok := obj.PayloadHomomorphicHash(); ok { //nolint:staticcheck // this is a test and such objects are possible
 		require.Equal(t, checksum.TillichZemor, cs.Type())
 		got := tz.Sum(payload)
 		require.Equal(t, got[:], cs.Value())
@@ -1587,7 +1588,7 @@ func testInitialPlacementREP(t *testing.T, repRules []uint, initialRules []uint3
 	obj := *object.New(cidtest.ID(), creator.ID)
 	obj.SetPayload([]byte("Hello, world!"))
 	obj.SetPayloadSize(uint64(len(obj.Payload())))
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte(testutil.RandByteSlice(tz.Size))))
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte(testutil.RandByteSlice(tz.Size)))) //nolint:staticcheck // this is a test and such objects are possible
 	require.NoError(t, obj.SetVerificationFields(creator))
 
 	nodeCounts := make([]uint, len(repRules))

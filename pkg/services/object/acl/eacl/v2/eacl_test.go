@@ -269,6 +269,7 @@ func TestObjectHeaders(t *testing.T) {
 	const creationEpochStr = "11361641039719275900"
 	payloadHash := checksum.NewSHA256([sha256.Size]byte{250, 136, 163, 172, 95, 206, 95, 222, 135, 183, 75, 254, 82, 63, 114, 86, 175, 234, 218, 126, 249, 126, 15, 93, 228, 69, 103, 226, 188, 20, 53, 15})
 	const payloadHashStr = "SHA256:fa88a3ac5fce5fde87b74bfe523f7256afeada7ef97e0f5de44567e2bc14350f"
+	//nolint:staticcheck // this is a test and such objects are possible
 	homoHash := checksum.NewTillichZemor([tz.Size]byte{199, 94, 209, 171, 81, 255, 104, 105, 199, 78, 103, 145, 33, 82, 51, 104, 36, 71, 94, 186, 122, 163, 215, 213, 37, 126, 202, 109, 135, 119, 180, 166, 97, 152, 172,
 		81, 109, 199, 85, 214, 251, 33, 77, 105, 107, 117, 10, 177, 172, 16, 236, 68, 168, 250, 78, 238, 247, 11, 4, 175, 194, 125, 131, 30})
 	const homoHashStr = "TZ:c75ed1ab51ff6869c74e67912152336824475eba7aa3d7d5257eca6d8777b4a66198ac516dc755d6fb214d696b750ab1ac10ec44a8fa4eeef70b04afc27d831e"
@@ -337,7 +338,7 @@ func TestObjectHeaders(t *testing.T) {
 	obj.SetVersion(&ver)
 	obj.SetOwner(owner)
 	obj.SetPayloadChecksum(payloadHash)
-	obj.SetPayloadHomomorphicHash(homoHash)
+	obj.SetPayloadHomomorphicHash(homoHash) //nolint:staticcheck // this is a test and such objects are possible
 	obj.SetAttributes(
 		object.NewAttribute("foo", "bar"),
 		object.NewAttribute("hello", "world"),
@@ -352,6 +353,7 @@ func TestObjectHeaders(t *testing.T) {
 		const childPayloadLenStr = "17034386584505117111"
 		childPayloadHash := checksum.NewSHA256([sha256.Size]byte{70, 249, 108, 82, 211, 20, 129, 201, 177, 205, 253, 190, 156, 148, 7, 122, 165, 153, 54, 128, 96, 0, 246, 232, 5, 78, 111, 190, 68, 74, 167, 174})
 		const childPayloadHashStr = "SHA256:46f96c52d31481c9b1cdfdbe9c94077aa59936806000f6e8054e6fbe444aa7ae"
+		//nolint:staticcheck // this is a test and such objects are possible
 		childHomoHash := checksum.NewTillichZemor([tz.Size]byte{191, 33, 176, 230, 72, 226, 40, 54, 248, 99, 98, 74, 97, 223, 128, 145, 184, 14, 124, 85, 113, 204, 145, 55, 214, 96, 210, 161, 27, 170, 203, 191,
 			246, 83, 173, 163, 112, 152, 185, 131, 251, 218, 64, 145, 78, 29, 203, 105, 12, 150, 123, 54, 109, 23, 29, 140, 87, 196, 70, 81, 88, 110, 152, 99})
 		const childHomoHashStr = "TZ:bf21b0e648e22836f863624a61df8091b80e7c5571cc9137d660d2a11baacbbff653ada37098b983fbda40914e1dcb690c967b366d171d8c57c44651586e9863"
@@ -366,7 +368,7 @@ func TestObjectHeaders(t *testing.T) {
 		child.SetVersion(&ver)
 		child.SetType(object.TypeLock)
 		child.SetPayloadChecksum(childPayloadHash)
-		child.SetPayloadHomomorphicHash(childHomoHash)
+		child.SetPayloadHomomorphicHash(childHomoHash) //nolint:staticcheck // this is a test and such objects are possible
 		child.SetParent(&obj)
 
 		testWithObject(t, &id, child, [][2]string{

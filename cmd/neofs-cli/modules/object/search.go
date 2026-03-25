@@ -202,6 +202,7 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 		fs.AddPhyFilter()
 	}
 
+	// nolint:staticcheck // deprecated but that is what is checked there
 	for _, f := range fs {
 		if f.Header() == object.FilterPayloadHomomorphicHash {
 			return nil, fmt.Errorf("%s filter target is prohibited starting from API 2.23", object.FilterPayloadHomomorphicHash)
