@@ -100,11 +100,11 @@ func (t *validatingTarget) WriteHeader(obj *object.Object) error {
 
 		switch typ := cs.Type(); typ {
 		default:
-			return fmt.Errorf("(%T) unsupported payload checksum type %v", t, typ)
+			return fmt.Errorf("(%T) unknown payload checksum type %v", t, typ)
 		case checksum.SHA256:
 			t.hash = sha256.New()
 		case checksum.TillichZemor:
-			t.hash = tz.New()
+			return errors.New("object has unsupported Tillich-Zémor checksum")
 		}
 
 		t.checksum = cs.Value()
