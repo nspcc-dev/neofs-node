@@ -65,6 +65,10 @@ func (exec *execCtx) analyzeStatus(ctx context.Context, execCnr bool) {
 
 func verifyQuery(prm Prm) error {
 	for i := range prm.filters {
+		if prm.filters[i].Header() == object.FilterPayloadHomomorphicHash {
+			return fmt.Errorf("%s filter target is prohibited starting from API 2.23", object.FilterPayloadHomomorphicHash)
+		}
+
 		//nolint:exhaustive
 		switch prm.filters[i].Operation() {
 		case object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE:
