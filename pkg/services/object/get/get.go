@@ -47,7 +47,8 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 
 	if len(repRules) > 0 { // REP format does not require encoding
 		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), bufOpt).err
+		forwardOpt := withForwardGetRequestFunc(prm.forwardRequestFn)
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), bufOpt, forwardOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
@@ -266,6 +267,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	}
 
 	if prm.common.LocalOnly() {
+
 		if prm.buffer != nil {
 			n, err := s.localObjects.ReadHeader(prm.addr, prm.raw, prm.buffer)
 			if err == nil {
@@ -278,7 +280,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	}
 
 	if len(repRules) > 0 {
-		headOpt := headOnly(prm.forwardHeadResponseFn, prm.submitHeadResponseFn)
+		headOpt := headOnly(prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
 		err := s.get(ctx, prm.commonPrm, headOpt, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
@@ -295,7 +297,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		headOpt := headOnly(prm.forwardHeadResponseFn, prm.submitHeadResponseFn)
+		headOpt := headOnly(prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
 		return s.get(ctx, prm.commonPrm, headOpt, withPreSortedContainerNodes(ecNodeLists, repRules)).err
 	}
 

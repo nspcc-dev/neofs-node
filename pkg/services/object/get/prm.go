@@ -23,6 +23,8 @@ type Prm struct {
 
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
+
+	forwardRequestFn ForwardGetRequestFunc
 }
 
 // RangePrm groups parameters of GetRange service call.
@@ -56,6 +58,10 @@ type ForwardHeadRequestFunc = func(context.Context, coreclient.MultiAddressClien
 // SubmitHeadResponseFunc accepts result of [ForwardHeadRequestFunc].
 type SubmitHeadResponseFunc = func(mem.BufferSlice, []byte)
 
+// ForwardGetRequestFunc continues to serve current GET request from remote node
+// through passed connection.
+type ForwardGetRequestFunc = func(context.Context, coreclient.MultiAddressClient) error
+
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
@@ -63,7 +69,7 @@ type HeadPrm struct {
 	buffer      []byte
 	submitLenFn func(int)
 
-	forwardHeadResponseFn ForwardHeadRequestFunc
+	forwardHeadRequestFn ForwardHeadRequestFunc
 
 	submitHeadResponseFn SubmitHeadResponseFunc
 }
@@ -201,11 +207,24 @@ func (p Prm) GetBuffer() ([]byte, SubmitStreamFunc) {
 // Once results successfully received, it is forwarded untouched to handler
 // which must be set via [HeadPrm.SetSubmitHeadResponseFunc].
 func (p *HeadPrm) SetRequestForwarder(f ForwardHeadRequestFunc) {
-	p.forwardHeadResponseFn = f
+	p.forwardHeadRequestFn = f
 }
 
 // SetSubmitHeadResponseFunc specifies handler to pass results of
 // [HeadPrm.SetRequestForwarder] argument into.
 func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
 	p.submitHeadResponseFn = f
+}
+
+// SetRequestForwarder specifies request transport callback to use for streaming
+// responses from remote node.
+//
+// The f should return:
+//   - nil on completed object transmission
+//   - [object.SplitInfoError]/nil on split info response and unset/set raw flag in request
+//   - [apistatus.ErrObjectNotFound] on 404 status
+//   - nil on other API statuses
+//   - any other transport/protocol error otherwise
+func (p *Prm) SetRequestForwarder(f ForwardGetRequestFunc) {
+	p.forwardRequestFn = f
 }

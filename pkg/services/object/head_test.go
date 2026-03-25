@@ -10,6 +10,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	corenetmap "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -27,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestServer_Head_Local(t *testing.T) {
@@ -163,6 +165,97 @@ func TestServer_Head_Remote(t *testing.T) {
 
 		assertHeadRequestOK(t, srv, fsChain, req, *obj.CutPayload())
 	})
+
+	t.Run("REP forwarded", func(t *testing.T) {
+		var handlerFSChain mockHandlerFSChain
+		mockConns := newMockConnections()
+
+		nodes := make([]netmap.NodeInfo, 2)
+		for i := range nodes {
+			nodes[i].SetPublicKey([]byte("pub_" + strconv.Itoa(i)))
+			nodes[i].SetNetworkEndpoints("localhost:" + strconv.Itoa(9090+i)) // any
+		}
+
+		mockConns.setConn(nodes[0], emptyRemoteNode{})
+
+		handlerFSChain.repRules = []uint{uint(len(nodes))}
+		handlerFSChain.nodeLists = [][]netmap.NodeInfo{nodes}
+
+		handler := getsvc.New(&handlerFSChain,
+			getsvc.WithLocalStorageEngine(newSimpleStorage(t, fsChain)),
+			getsvc.WithClientConstructor(mockConns),
+			getsvc.WithKeyStorage(keyStorage),
+		)
+		handlers := headOnlyHandler{svc: handler}
+
+		srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
+
+		t.Run("header", func(t *testing.T) {
+			const payloadLen = 100 << 10
+			obj := object.New(cnr, signer.ID)
+			obj.SetAttributes(
+				object.NewAttribute("k1", "v1"),
+				object.NewAttribute("k2", "v2"),
+			)
+			obj.SetPayloadSize(payloadLen)
+			obj.SetPayload(testutil.RandByteSlice(payloadLen))
+			require.NoError(t, obj.SetVerificationFields(signer))
+
+			req := newUnsignedLocalHeadRequest(version.Current(), obj.Address())
+			req.MetaHeader.Ttl = 2
+			signHeadRequest(t, req, signer)
+
+			objMsg := obj.ProtoMessage()
+
+			metaHdr := newBlankMetaHeader()
+			nestMetaHeader(metaHdr, 5)
+
+			resp := &protoobject.HeadResponse{
+				Body: &protoobject.HeadResponse_Body{
+					Head: &protoobject.HeadResponse_Body_Header{
+						Header: &protoobject.HeaderWithSignature{
+							Header:    objMsg.Header,
+							Signature: objMsg.Signature,
+						},
+					},
+				},
+				MetaHeader:   metaHdr,
+				VerifyHeader: newAnyVerificationHeader(),
+			}
+
+			mockConns.setConn(nodes[1], newFixedHeadResponseConn(t, resp))
+
+			gotResp, err := callHead(t, srv, req)
+			require.NoError(t, err)
+			require.True(t, proto.Equal(resp, gotResp))
+		})
+
+		t.Run("split info", func(t *testing.T) {
+			req := newUnsignedLocalHeadRequest(version.Current(), obj.Address())
+			req.MetaHeader.Ttl = 2
+			signHeadRequest(t, req, signer)
+
+			// TODO: share
+			metaHdr := newBlankMetaHeader()
+			nestMetaHeader(metaHdr, 5)
+
+			resp := &protoobject.HeadResponse{
+				Body: &protoobject.HeadResponse_Body{
+					Head: &protoobject.HeadResponse_Body_SplitInfo{
+						SplitInfo: newTestSplitInfo(),
+					},
+				},
+				MetaHeader:   metaHdr,
+				VerifyHeader: newAnyVerificationHeader(),
+			}
+
+			mockConns.setConn(nodes[1], newFixedHeadResponseConn(t, resp))
+
+			gotResp, err := callHead(t, srv, req)
+			require.NoError(t, err)
+			require.True(t, proto.Equal(resp, gotResp))
+		})
+	})
 }
 
 type headOnlyHandler struct {
@@ -260,4 +353,39 @@ func assertHeadRequestOK(t *testing.T, srv *Server, fsChain corenetmap.State, re
 	}, resp.Body)
 
 	return resp
+}
+
+func newFixedHeadResponseConn(t *testing.T, resp *protoobject.HeadResponse) clientcore.MultiAddressClient {
+	// TODO: try share code with
+	// simulating a full gRPC request lifecycle starting from the client
+	lis := bufconn.Listen(32 << 10)
+
+	grpcSrv := grpc.NewServer(
+		grpc.ForceServerCodecV2(iprotobuf.BufferedCodec{}),
+	)
+	t.Cleanup(grpcSrv.Stop)
+
+	grpcSrv.RegisterService(&grpc.ServiceDesc{
+		ServiceName: protoobject.ObjectService_ServiceDesc.ServiceName,
+		Methods: []grpc.MethodDesc{
+			{
+				MethodName: "Head",
+				Handler: func(_ any, _ context.Context, _ func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
+					return resp, nil
+				},
+			},
+		},
+	}, nil)
+
+	go func() { _ = grpcSrv.Serve(lis) }()
+
+	c, err := grpc.NewClient("localhost:8080",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return lis.DialContext(ctx) }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()), // error otherwise
+	)
+	require.NoError(t, err) // lib misuse, not a request error
+
+	return &mockGRPCConn{
+		conn: c,
+	}
 }

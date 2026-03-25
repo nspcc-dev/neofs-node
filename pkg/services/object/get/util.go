@@ -185,6 +185,10 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 		return nil, nil, err
 	}
 
+	if exec.forwardGetRequestFn != nil {
+		return nil, nil, exec.forwardGetRequestFn(exec.ctx, c.client)
+	}
+
 	if exec.isForwardingEnabled() {
 		obj, err := exec.prm.forwarder(exec.ctx, c.client)
 		return obj, nil, err
