@@ -934,32 +934,22 @@ func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
 		}
 	}
 
-	var hdr *protoobject.Header
-	var idSig *refs.Signature
 	switch oneofNum {
 	default:
 		return nil, errors.New("missing any supported response body oneof field")
 	case protoobject.FieldHeadResponseBodyShortHeader:
 		return nil, fmt.Errorf("unsupported short header")
 	case protoobject.FieldHeadResponseBodyHeader:
-		var hdrSig protoobject.HeaderWithSignature
-		if err := proto.Unmarshal(oneofVal, &hdrSig); err != nil {
-			return nil, fmt.Errorf("unmarshal header with signature field: %w", err)
-		}
-		if hdrSig.Header == nil {
-			return nil, errors.New("missing header")
-		}
-		if hdrSig.Signature == nil {
-			// TODO(@cthulhu-rider): #1387 use "const" error
-			return nil, errors.New("missing signature")
+		hdr, err := handleHeaderWithSignature(oneofVal)
+		if err != nil {
+			return nil, fmt.Errorf("handle header with signature field: %w", err)
 		}
 
-		if err := checkHeaderAgainstID(hdrSig.Header, reqOID); err != nil {
+		if err := checkOrderedHeaderProtobufAgainstID(hdr, reqOID); err != nil {
 			return nil, err
 		}
 
-		hdr = hdrSig.Header
-		idSig = hdrSig.Signature
+		return hdr, nil
 	case protoobject.FieldHeadResponseBodySplitInfo:
 		err := iprotobuf.VerifyObjectSplitInfo(oneofVal)
 		if err != nil {
@@ -967,18 +957,32 @@ func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
 		}
 		return nil, nil
 	}
+}
+
+func handleHeaderWithSignature(buf []byte) ([]byte, error) {
+	var hdrSig protoobject.HeaderWithSignature
+	if err := proto.Unmarshal(buf, &hdrSig); err != nil {
+		return nil, fmt.Errorf("unmarshal header with signature field: %w", err)
+	}
+	if hdrSig.Header == nil {
+		return nil, errors.New("missing header")
+	}
+	if hdrSig.Signature == nil {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return nil, errors.New("missing signature")
+	}
 
 	mObj := &protoobject.Object{
-		Signature: idSig,
-		Header:    hdr,
+		Signature: hdrSig.Signature,
+		Header:    hdrSig.Header,
 	}
 	var obj = new(object.Object)
 	if err := obj.FromProtoMessage(mObj); err != nil {
 		return nil, err
 	}
 
-	b := make([]byte, hdr.MarshaledSize())
-	hdr.MarshalStable(b)
+	b := make([]byte, hdrSig.MarshaledSize())
+	hdrSig.MarshalStable(b)
 	return b, nil
 }
 
