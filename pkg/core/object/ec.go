@@ -98,12 +98,6 @@ func checkECPart(part object.Object, rules []netmap.ECRule) error {
 		return fmt.Errorf("diff creation epoch in parent (%d) and part (%d)", parentVal, partVal)
 	}
 
-	_, parentHH := parent.PayloadHomomorphicHash() //nolint:staticcheck // will be removed
-	_, partHH := part.PayloadHomomorphicHash()     //nolint:staticcheck // will be removed
-	if parentHH != partHH {
-		return fmt.Errorf("diff homomorphic hash presence in parent (%t) and part (%t)", parentHH, partHH)
-	}
-
 	pi, err := iec.GetRequiredPartInfo(part)
 	if err != nil {
 		return fmt.Errorf("unavailable part info: %w", err)
