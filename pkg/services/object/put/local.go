@@ -54,10 +54,11 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 	csType := cs.Type()
 	switch csType {
 	default:
-		return errors.New("unsupported payload checksum type")
+		return errors.New("unknown payload checksum type")
+	case checksum.TillichZemor:
+		return errors.New("object has unsupported Tillich-Zémor checksum")
 	case
-		checksum.SHA256,
-		checksum.TillichZemor:
+		checksum.SHA256:
 	}
 
 	maxPayloadSz := p.maxSizeSrc.MaxObjectSize()
