@@ -1,13 +1,18 @@
 package protobuf
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"unicode/utf8"
 
 	"google.golang.org/protobuf/encoding/protowire"
 )
+
+// same as in [protowire] package.
+var errVarintOverflow = errors.New("variable length integer overflow")
 
 // ParseVarint parses varint-encoded uint64 from buf. Returns parsed value and
 // number of bytes read.
@@ -21,39 +26,86 @@ func ParseVarint(buf []byte) (uint64, int, error) {
 	return u, n, nil
 }
 
-// ParseTag parses field tag from buf. Returns field number, type and number of
-// bytes read.
-func ParseTag(buf []byte) (protowire.Number, protowire.Type, int, error) {
-	u, n, err := ParseVarint(buf)
+// [ParseVarint] analogue for scanning.
+func (x *BuffersSlice) parseVarint() (uint64, error) {
+	var u uint64
+	var s uint
+	var i int
+	for b := range x.bytesSeq {
+		if i == binary.MaxVarintLen64 {
+			// Catch byte reads past MaxVarintLen64.
+			// See issue https://golang.org/issues/41185
+			return 0, errVarintOverflow // TODO: have something better
+		}
+		if b < 0x80 {
+			if i == binary.MaxVarintLen64-1 && b > 1 {
+				return 0, errVarintOverflow // overflow
+			}
+			return u | uint64(b)<<s, nil
+		}
+		u |= uint64(b&0x7f) << s
+		s += 7
+		i++
+	}
+	return 0, io.ErrUnexpectedEOF
+}
+
+func _parseTag(u uint64, err error) (protowire.Number, protowire.Type, error) {
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("parse varint: %w", err)
+		return 0, 0, fmt.Errorf("parse varint: %w", err)
 	}
 
 	num, typ := protowire.DecodeTag(u)
 	if err = checkFieldNumber(num); err != nil {
+		return 0, 0, err
+	}
+
+	return num, typ, nil
+}
+
+// ParseTag parses field tag from buf. Returns field number, type and number of
+// bytes read.
+func ParseTag(buf []byte) (protowire.Number, protowire.Type, int, error) {
+	u, n, err := ParseVarint(buf)
+	num, typ, err := _parseTag(u, err)
+	if err != nil {
 		return 0, 0, 0, err
 	}
 
 	return num, typ, n, nil
 }
 
+// [ParseTag] analogue for scanning.
+func (x *BuffersSlice) ParseTag() (protowire.Number, protowire.Type, error) {
+	return _parseTag(x.parseVarint())
+}
+
+func _checkLEN(u uint64, err error) (int, error) {
+	if err != nil {
+		return 0, fmt.Errorf("parse varint: %w", err)
+	}
+
+	if u > math.MaxInt {
+		return 0, fmt.Errorf("value %d overflows int", u)
+	}
+
+	return int(u), nil
+}
+
 // ParseLEN parses varint-encoded length from buf and check its overflow. Returns
 // parsed value and number of bytes read.
 func ParseLEN(buf []byte) (int, int, error) {
-	ln, n, err := ParseVarint(buf)
+	u, n, err := ParseVarint(buf)
+	ln, err := _checkLEN(u, err)
 	if err != nil {
-		return 0, 0, fmt.Errorf("parse varint: %w", err)
+		return 0, 0, err
 	}
 
-	if ln > math.MaxInt {
-		return 0, 0, fmt.Errorf("value %d overflows int", ln)
+	if rem := len(buf) - n; ln > rem {
+		return 0, 0, newTruncatedBufferError(ln, rem)
 	}
 
-	if rem := len(buf) - n; int(ln) > rem {
-		return 0, 0, newTruncatedBufferError(int(ln), rem)
-	}
-
-	return int(ln), n, nil
+	return ln, n, nil
 }
 
 // ParseLENField parses length of LEN field with preread number and type from
@@ -72,6 +124,26 @@ func ParseLENField(buf []byte, num protowire.Number, typ protowire.Type) (int, i
 	}
 
 	return ln, n, nil
+}
+
+// [ParseLENField] analogue for scanning.
+func (x *BuffersSlice) ParseLENField(num protowire.Number, typ protowire.Type) (BuffersSlice, error) {
+	err := checkFieldType(num, protowire.BytesType, typ)
+	if err != nil {
+		return BuffersSlice{}, err
+	}
+
+	ln, err := _checkLEN(x.parseVarint())
+	if err != nil {
+		return BuffersSlice{}, wrapParseFieldError(num, protowire.BytesType, err)
+	}
+
+	sub, err := x.MoveNext(ln)
+	if err != nil {
+		return BuffersSlice{}, wrapParseFieldError(num, protowire.BytesType, err)
+	}
+
+	return sub, nil
 }
 
 // ParseLENFieldBounds parses boundaries of LEN field with preread tag length,
@@ -109,19 +181,48 @@ func ParseStringField(buf []byte, num protowire.Number, typ protowire.Type) (int
 	return ln, n, nil
 }
 
+// [ParseStringField] analogue for scanning.
+func (x *BuffersSlice) ParseStringField(num protowire.Number, typ protowire.Type) ([]byte, error) {
+	sub, err := x.ParseLENField(num, typ)
+	if err != nil {
+		return nil, err
+	}
+
+	s := sub.ReadOnlyData()
+	if !utf8.Valid(s) {
+		return nil, NewInvalidUTF8Error(num)
+	}
+
+	return s, nil
+}
+
+func _checkEnum[T ~int32](u uint64, err error) (T, error) {
+	if err != nil {
+		return 0, fmt.Errorf("parse varint: %w", err)
+	}
+
+	if u > math.MaxInt32 {
+		return 0, fmt.Errorf("value %d overflows int32", u)
+	}
+
+	return T(u), nil
+}
+
 // ParseEnum parses enum value from buf. Returns parsed value and number of
 // bytes read.
 func ParseEnum[T ~int32](buf []byte) (T, int, error) {
 	u, n, err := ParseVarint(buf)
+	t, err := _checkEnum[T](u, err)
 	if err != nil {
-		return 0, 0, fmt.Errorf("parse varint: %w", err)
+		return 0, 0, err
 	}
 
-	if u > math.MaxInt32 {
-		return 0, 0, fmt.Errorf("value %d overflows int32", u)
-	}
+	return t, n, nil
+}
 
-	return T(u), n, nil
+// [ParseEnum] analogue for scanning.
+func (x *BuffersSlice) parseEnum() (int32, error) {
+	return _checkEnum[int32](x.parseVarint())
 }
 
 // ParseEnumField parses value of enum field with preread number and type from
@@ -142,19 +243,43 @@ func ParseEnumField[T ~int32](buf []byte, num protowire.Number, typ protowire.Ty
 	return e, n, nil
 }
 
+// [ParseEnumField] analogue for scanning.
+func (x *BuffersSlice) ParseEnumField(num protowire.Number, typ protowire.Type) (int32, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return 0, err
+	}
+
+	e, err := x.parseEnum()
+	if err != nil {
+		return 0, wrapParseFieldError(num, protowire.VarintType, err)
+	}
+
+	return e, nil
+}
+
+func _checkUint32(u uint64, err error) (uint32, error) {
+	if err != nil {
+		return 0, fmt.Errorf("parse varint: %w", err)
+	}
+
+	if u > math.MaxUint32 {
+		return 0, fmt.Errorf("value %d overflows uint32", u)
+	}
+
+	return uint32(u), nil
+}
+
 // ParseUint32 parses varint-encoded uint32 from buf. Returns parsed value and
 // number of bytes read.
 func ParseUint32(buf []byte) (uint32, int, error) {
 	u, n, err := ParseVarint(buf)
+	u32, err := _checkUint32(u, err)
 	if err != nil {
-		return 0, 0, fmt.Errorf("parse varint: %w", err)
+		return 0, 0, err
 	}
 
-	if u > math.MaxUint32 {
-		return 0, 0, fmt.Errorf("value %d overflows uint32", u)
-	}
-
-	return uint32(u), n, nil
+	return u32, n, nil
 }
 
 // ParseUint32Field parses value of uint32 field from buf. Returns parsed value
@@ -175,6 +300,21 @@ func ParseUint32Field(buf []byte, num protowire.Number, typ protowire.Type) (uin
 	return u, n, nil
 }
 
+// [ParseUint32Field] analogue for scanning.
+func (x *BuffersSlice) ParseUint32Field(num protowire.Number, typ protowire.Type) (uint32, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return 0, err
+	}
+
+	u, err := _checkUint32(x.parseVarint())
+	if err != nil {
+		return 0, wrapParseFieldError(num, protowire.VarintType, err)
+	}
+
+	return u, nil
+}
+
 // ParseUint64Field parses value of uint64 field with preread number and type
 // from buf. Returns value and its length.
 //
@@ -193,6 +333,33 @@ func ParseUint64Field(buf []byte, num protowire.Number, typ protowire.Type) (uin
 	return u, n, nil
 }
 
+// [ParseUint64Field] analogue for scanning.
+func (x *BuffersSlice) ParseUint64Field(num protowire.Number, typ protowire.Type) (uint64, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return 0, err
+	}
+
+	u, err := x.parseVarint()
+	if err != nil {
+		return 0, wrapParseFieldError(num, protowire.VarintType, fmt.Errorf("parse varint: %w", err))
+	}
+
+	return u, nil
+}
+
+func _checkBool(u uint64, err error) (bool, error) {
+	if err != nil {
+		return false, err
+	}
+
+	if u > 1 {
+		return false, fmt.Errorf("unexpected varint value for bool field %d", u)
+	}
+
+	return u == 1, nil
+}
+
 // ParseBoolField parses value of bool field with preread number and type from
 // buf. Returns parsed value.
 //
@@ -204,15 +371,27 @@ func ParseBoolField(buf []byte, num protowire.Number, typ protowire.Type) (bool,
 	}
 
 	u, _, err := ParseVarint(buf)
+	b, err := _checkBool(u, err)
 	if err != nil {
 		return false, wrapParseFieldError(num, protowire.VarintType, err)
 	}
 
-	if u > 1 {
-		return false, fmt.Errorf("unexpected varint value for bool field %d", u)
+	return b, nil
+}
+
+// [ParseBoolField] analogue for scanning.
+func (x *BuffersSlice) ParseBoolField(num protowire.Number, typ protowire.Type) (bool, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return false, err
 	}
 
-	return u == 1, nil
+	b, err := _checkBool(x.parseVarint())
+	if err != nil {
+		return false, wrapParseFieldError(num, protowire.VarintType, err)
+	}
+
+	return b, nil
 }
 
 // SkipField parses length of skipped field with preread number and type from
@@ -276,4 +455,20 @@ func SkipRepeatedEnum(buf []byte, num protowire.Number, typ protowire.Type) (int
 	}
 
 	return n + ln, nil
+}
+
+// [SkipRepeatedEnum] analogue for scanning.
+func (x *BuffersSlice) SkipRepeatedEnum(num protowire.Number, typ protowire.Type) error {
+	sub, err := x.ParseLENField(num, typ)
+	if err != nil {
+		return err
+	}
+
+	for !sub.IsEmpty() {
+		if _, err = sub.parseEnum(); err != nil {
+			return fmt.Errorf("parse next element: %w", err)
+		}
+	}
+
+	return nil
 }
