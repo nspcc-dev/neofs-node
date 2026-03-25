@@ -1952,6 +1952,8 @@ func verifySearchFilter(f *protoobject.SearchFilter) error {
 	switch f.Key {
 	case "":
 		return errors.New("missing attribute")
+	case object.FilterPayloadHomomorphicHash:
+		return fmt.Errorf("%s filter target is prohibited starting from API 2.23", object.FilterPayloadHomomorphicHash)
 	case object.FilterContainerID, object.FilterID:
 		return fmt.Errorf("prohibited attribute %s", f.Key)
 	case object.FilterRoot, object.FilterPhysical:
