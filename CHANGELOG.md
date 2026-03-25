@@ -31,6 +31,7 @@ Changelog for NeoFS Node
 - Improved IR list caching in SN (#3954)
 - Optimized local (TTL=1, EC parts) request processing (#3957)
 - `neofs-cli` does not allow searches based on homomorphic hash values (#3847)
+- `neofs-cli`, `neofs-node` do not allow searches based on homomorphic hash values (#3847)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
