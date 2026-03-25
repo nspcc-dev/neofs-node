@@ -7,20 +7,18 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/bigint"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 const (
-	MaxObjectSizeConfig           = "MaxObjectSize"
-	BasicIncomeRateConfig         = "BasicIncomeRate"
-	EpochDurationConfig           = "EpochDuration"
-	ContainerFeeConfig            = "ContainerFee"
-	ContainerAliasFeeConfig       = "ContainerAliasFee"
-	EigenTrustIterationsConfig    = "EigenTrustIterations"
-	EigenTrustAlphaConfig         = "EigenTrustAlpha"
-	WithdrawFeeConfig             = "WithdrawFee"
-	HomomorphicHashingDisabledKey = "HomomorphicHashingDisabled"
+	MaxObjectSizeConfig        = "MaxObjectSize"
+	BasicIncomeRateConfig      = "BasicIncomeRate"
+	EpochDurationConfig        = "EpochDuration"
+	ContainerFeeConfig         = "ContainerFee"
+	ContainerAliasFeeConfig    = "ContainerAliasFee"
+	EigenTrustIterationsConfig = "EigenTrustIterations"
+	EigenTrustAlphaConfig      = "EigenTrustAlpha"
+	WithdrawFeeConfig          = "WithdrawFee"
 )
 
 // MaxObjectSize receives max object size configuration
@@ -99,14 +97,6 @@ func (c *Client) EigenTrustAlpha() (float64, error) {
 	return strconv.ParseFloat(strAlpha, 64)
 }
 
-// HomomorphicHashDisabled returns global configuration value of homomorphic hashing
-// settings.
-//
-// Returns (false, nil) if config key is not found in the contract.
-func (c *Client) HomomorphicHashDisabled() (bool, error) {
-	return c.readBoolConfig(HomomorphicHashingDisabledKey)
-}
-
 // WithdrawFee returns global configuration value of fee paid by user to
 // withdraw assets from NeoFS contract.
 func (c *Client) WithdrawFee() (uint64, error) {
@@ -136,22 +126,6 @@ func (c *Client) readStringConfig(key string) (string, error) {
 
 	// StringAssert is guaranteed to return string if the error is nil.
 	return v.(string), nil
-}
-
-// reads boolean value by the given key from the NeoFS network configuration
-// stored in FS chain. Returns false if key is not presented.
-func (c *Client) readBoolConfig(key string) (bool, error) {
-	v, err := c.config([]byte(key), BoolAssert)
-	if err != nil {
-		if errors.Is(err, ErrConfigNotFound) {
-			return false, nil
-		}
-
-		return false, fmt.Errorf("read boolean configuration value %s from FS chain: %w", key, err)
-	}
-
-	// BoolAssert is guaranteed to return bool if the error is nil.
-	return v.(bool), nil
 }
 
 // SetConfigPrm groups parameters of SetConfig operation.
@@ -217,8 +191,6 @@ type NetworkConfiguration struct {
 
 	WithdrawalFee uint64
 
-	HomomorphicHashingDisabled bool
-
 	Raw []RawNetworkParameter
 }
 
@@ -279,8 +251,6 @@ func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 			}
 		case WithdrawFeeConfig:
 			res.WithdrawalFee = bytesToUint64(value)
-		case HomomorphicHashingDisabledKey:
-			res.HomomorphicHashingDisabled = bytesToBool(value)
 		}
 
 		return nil
@@ -294,10 +264,6 @@ func bytesToUint64(val []byte) uint64 {
 		return 0
 	}
 	return bigint.FromBytes(val).Uint64()
-}
-
-func bytesToBool(val []byte) bool {
-	return !islices.AllZeros(val)
 }
 
 // ErrConfigNotFound is returned when the requested key was not found
