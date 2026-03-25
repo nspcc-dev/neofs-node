@@ -79,6 +79,7 @@ func FormObjectForECPart(signer neofscrypto.Signer, parent object.Object, part [
 
 	obj.SetPayload(part)
 	obj.SetPayloadSize(uint64(len(part)))
+	//nolint:staticcheck // for old objects
 	if _, ok := parent.PayloadHomomorphicHash(); ok {
 		obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(part)))
 	}

@@ -78,6 +78,7 @@ func (t *validatingTarget) WriteHeader(obj *object.Object) error {
 			return ErrExceedingMaxSize
 		}
 
+		//nolint:staticcheck // will be removed
 		if t.homomorphicChecksumRequired {
 			cs, csSet := obj.PayloadHomomorphicHash()
 			switch {

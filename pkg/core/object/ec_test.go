@@ -149,7 +149,7 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		}},
 		{name: "homomorphic hash mismatch", err: fmt.Sprintf("invalid regular EC part object: diff homomorphic hash presence in parent (%t) and part (%t)",
 			true, false), corruptParent: func(obj *object.Object) {
-			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload())))
+			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload()))) //nolint:staticcheck // this is a test and such objects are possible
 		}, corruptPart: func(obj *object.Object) {}},
 		{name: "missing EC attributes", err: "missing EC attributes in regular object", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes()

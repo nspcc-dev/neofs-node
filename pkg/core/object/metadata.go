@@ -603,6 +603,7 @@ func combineValues(attr string, dbVal []byte, fltVal string) ([]byte, []byte, er
 			return dbVal, b, nil
 		}
 		dbVal = []byte(hex.EncodeToString(dbVal))
+	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 	case object.FilterPayloadHomomorphicHash:
 		if len(dbVal) != tz.Size {
 			return nil, nil, fmt.Errorf("invalid payload homomorphic hash len %d != %d", len(dbVal), tz.Size)
@@ -656,7 +657,10 @@ func restoreAttributeValue(attr string, stored []byte) (string, error) {
 	switch attr {
 	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
 		return base58.Encode(stored), nil
-	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
+	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
+	case object.FilterPayloadHomomorphicHash:
+		return hex.EncodeToString(stored), nil
+	case object.FilterPayloadChecksum:
 		return hex.EncodeToString(stored), nil
 	case object.FilterSplitID:
 		uid, err := uuid.FromBytes(stored)
@@ -711,6 +715,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 			if primValDB, err = base58.Decode(primVal); err != nil {
 				return nil, nil, fmt.Errorf("%w: decode %q attribute value from Base58: %w", errInvalidPrimaryFilter, attr, err)
 			}
+		//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 		case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 			var err error
 			if primValDB, err = hex.DecodeString(primVal); err != nil {
@@ -979,6 +984,7 @@ func CalculateCursor(filt *object.SearchFilter, lastItem client.SearchResultItem
 		if val, err = base58.Decode(lastItemVal); err != nil {
 			return nil, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
 		}
+	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		ln := hex.DecodedLen(len(lastItemVal))
 		if attr == object.FilterPayloadChecksum && ln != sha256.Size || attr == object.FilterPayloadHomomorphicHash && ln != tz.Size {

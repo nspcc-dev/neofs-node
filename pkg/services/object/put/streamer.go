@@ -71,6 +71,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
+	//nolint:staticcheck // will be removed
 	homomorphicChecksumRequired := !prm.cnr.IsHomomorphicHashingDisabled()
 
 	if prm.hdr.Signature() != nil {

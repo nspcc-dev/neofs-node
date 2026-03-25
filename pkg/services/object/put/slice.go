@@ -66,6 +66,7 @@ func (x *slicingTarget) WriteHeader(hdr *object.Object) error {
 		opts.SetSession(*x.sessionToken)
 	}
 	if !x.homoHashDisabled {
+		//nolint:staticcheck // will be removed
 		opts.CalculateHomomorphicChecksum()
 	}
 

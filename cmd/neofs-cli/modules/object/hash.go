@@ -109,7 +109,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		var csSet bool
 
 		if tz {
-			cs, csSet = hdr.PayloadHomomorphicHash()
+			cs, csSet = hdr.PayloadHomomorphicHash() //nolint:staticcheck // will be removed
 		} else {
 			cs, csSet = hdr.PayloadChecksum()
 		}
@@ -142,7 +142,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	hashPrm.SetRangeList(rngs...)
 
 	if tz {
-		hashPrm.TillichZemorAlgo()
+		hashPrm.TillichZemorAlgo() //nolint:staticcheck // will be removed
 	}
 
 	hs, err := cli.ObjectHash(ctx, cnr, obj, user.NewAutoIDSigner(*pk), hashPrm)

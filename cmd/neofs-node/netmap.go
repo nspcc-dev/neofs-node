@@ -485,7 +485,7 @@ func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
 	ni.SetWithdrawalFee(netInfoMorph.WithdrawalFee)
 
 	if netInfoMorph.HomomorphicHashingDisabled {
-		ni.DisableHomomorphicHashing()
+		ni.DisableHomomorphicHashing() //nolint:staticcheck // will be removed
 	}
 
 	for i := range netInfoMorph.Raw {

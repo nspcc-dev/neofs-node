@@ -422,6 +422,7 @@ func checkNNS(cnr containerSDK.Container, name, zone string) error {
 	return nil
 }
 
+//nolint:staticcheck // will be removed
 func checkHomomorphicHashing(ns NetworkState, cnr containerSDK.Container) error {
 	netSetting, err := ns.HomomorphicHashDisabled()
 	if err != nil {

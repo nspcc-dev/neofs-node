@@ -418,6 +418,7 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 	err = putBig(db, raw2)
 	require.NoError(t, err)
 
+	//nolint:staticcheck // this is a test and such objects are possible
 	t.Run("object with TZHash", func(t *testing.T) {
 		cs, _ := raw1.PayloadHomomorphicHash()
 		homoHash := [tz.Size]byte(cs.Value())
