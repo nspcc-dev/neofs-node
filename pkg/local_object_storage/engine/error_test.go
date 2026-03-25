@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -37,6 +38,7 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),
 				meta.WithEpochState(epochState{}),
+				meta.WithMaxBatchDelay(time.Microsecond),
 			))
 		require.NoError(t, err)
 	}
