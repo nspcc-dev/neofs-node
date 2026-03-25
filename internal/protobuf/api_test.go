@@ -11,6 +11,8 @@ import (
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
@@ -249,6 +251,77 @@ func TestVerifyXHeader(t *testing.T) {
 	})
 
 	err := iprotobuf.VerifyXHeader(slices.Concat(keyFld, valueFld))
+	require.NoError(t, err)
+}
+
+func TestVerifyObjectSplitInfo(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		require.NoError(t, iprotobuf.VerifyObjectSplitInfo(nil))
+		require.NoError(t, iprotobuf.VerifyObjectSplitInfo([]byte{}))
+	})
+
+	splitIDFld := slices.Concat([]byte{iprotobuf.TagBytes1, 16}, testutil.RandByteSlice(16))
+	lastIDFld := slices.Concat([]byte{iprotobuf.TagBytes2, 34, iprotobuf.TagBytes1, 32}, testutil.RandByteSlice(32))
+	linkIDFld := slices.Concat([]byte{iprotobuf.TagBytes3, 34, iprotobuf.TagBytes1, 32}, testutil.RandByteSlice(32))
+	firstIDFld := slices.Concat([]byte{iprotobuf.TagBytes4, 34, iprotobuf.TagBytes1, 32}, testutil.RandByteSlice(32))
+
+	t.Run("invalid tag", func(t *testing.T) {
+		testAPIVerifyFuncInvalidTag(t, iprotobuf.VerifyObjectSplitInfo, splitIDFld, lastIDFld, linkIDFld, firstIDFld)
+	})
+
+	t.Run("invalid split ID field", func(t *testing.T) {
+		testAPIVerifyFuncInvalidBytesField(t, iprotobuf.VerifyObjectSplitInfo, protoobject.FieldSplitInfoSplitID, lastIDFld, linkIDFld, firstIDFld)
+	})
+
+	t.Run("invalid last ID field", func(t *testing.T) {
+		testAPIVerifyFuncInvalidBytesField(t, iprotobuf.VerifyObjectSplitInfo, protoobject.FieldSplitInfoLastPart, splitIDFld, linkIDFld, firstIDFld)
+	})
+
+	t.Run("invalid link ID field", func(t *testing.T) {
+		testAPIVerifyFuncInvalidBytesField(t, iprotobuf.VerifyObjectSplitInfo, protoobject.FieldSplitInfoLink, splitIDFld, lastIDFld, firstIDFld)
+	})
+
+	t.Run("invalid first ID field", func(t *testing.T) {
+		testAPIVerifyFuncInvalidBytesField(t, iprotobuf.VerifyObjectSplitInfo, protoobject.FieldSplitInfoFirstPart, splitIDFld, lastIDFld, linkIDFld)
+	})
+
+	t.Run("unknown field", func(t *testing.T) {
+		testAPIVerifyFuncUnknownField(t, iprotobuf.VerifyObjectSplitInfo, splitIDFld, lastIDFld, linkIDFld, firstIDFld)
+	})
+
+	t.Run("unordered fields", func(t *testing.T) {
+		testAPIVerifyFuncUnorderedFields(t, iprotobuf.VerifyObjectSplitInfo, splitIDFld, lastIDFld, linkIDFld, firstIDFld)
+	})
+
+	err := iprotobuf.VerifyObjectSplitInfo(slices.Concat(splitIDFld, lastIDFld, linkIDFld, firstIDFld))
+	require.NoError(t, err)
+}
+
+func TestVerifyObjectID(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		require.NoError(t, iprotobuf.VerifyObjectID(nil))
+		require.NoError(t, iprotobuf.VerifyObjectID([]byte{}))
+	})
+
+	valueFld := slices.Concat([]byte{iprotobuf.TagBytes1, 32}, testutil.RandByteSlice(32))
+
+	t.Run("invalid tag", func(t *testing.T) {
+		testAPIVerifyFuncInvalidTag(t, iprotobuf.VerifyObjectID, valueFld)
+	})
+
+	t.Run("invalid value field", func(t *testing.T) {
+		testAPIVerifyFuncInvalidBytesField(t, iprotobuf.VerifyObjectID, protorefs.FieldObjectIDValue, valueFld)
+	})
+
+	t.Run("unknown field", func(t *testing.T) {
+		testAPIVerifyFuncUnknownField(t, iprotobuf.VerifyObjectID, valueFld)
+	})
+
+	t.Run("unordered fields", func(t *testing.T) {
+		testAPIVerifyFuncUnorderedFields(t, iprotobuf.VerifyObjectID, valueFld)
+	})
+
+	err := iprotobuf.VerifyObjectID(valueFld)
 	require.NoError(t, err)
 }
 
