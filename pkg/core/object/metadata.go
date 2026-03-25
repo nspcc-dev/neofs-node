@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/internal/signed256"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -251,8 +252,12 @@ func VerifyHeaderForMetadata(hdr object.Object) error {
 	if hdr.Owner().IsZero() {
 		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
 	}
-	if _, ok := hdr.PayloadChecksum(); !ok {
+	cs, ok := hdr.PayloadChecksum()
+	if !ok {
 		return errors.New("missing payload checksum")
+	}
+	if typ := cs.Type(); typ != checksum.SHA256 {
+		return fmt.Errorf("unsupported payload checksum type: %s", typ)
 	}
 	attrs := hdr.Attributes()
 	for i := range attrs {
