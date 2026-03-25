@@ -484,10 +484,6 @@ func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
 	ni.SetEigenTrustAlpha(netInfoMorph.EigenTrustAlpha)
 	ni.SetWithdrawalFee(netInfoMorph.WithdrawalFee)
 
-	if netInfoMorph.HomomorphicHashingDisabled {
-		ni.DisableHomomorphicHashing()
-	}
-
 	for i := range netInfoMorph.Raw {
 		ni.SetRawNetworkParameter(netInfoMorph.Raw[i].Name, netInfoMorph.Raw[i].Value)
 	}

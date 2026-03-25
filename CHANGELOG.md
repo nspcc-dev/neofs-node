@@ -63,6 +63,7 @@ a huge list of updates and fixes.
 - SN no longer accepts objects with invocation or verification script bigger than 1KiB (#3887)
 - Every object with non-zero payload is now paid, not only regular ones (#3856)
 - Separate policer placement state from replica shortage (#3901)
+- Storage nodes do not calculate homomorphic hashes for objects (#3847)
 
 ### Removed
 - `node.persistent_sessions.path` config option from SN config (#3846)
