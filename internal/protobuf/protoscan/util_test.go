@@ -117,7 +117,7 @@ func newTestObject(t testing.TB) object.Object {
 	obj.SetPayloadSize(math.MaxUint64)
 	obj.SetPayloadChecksum(checksum.New(math.MaxInt32, testutil.RandByteSlice(32)))
 	obj.SetType(math.MaxInt32)
-	obj.SetPayloadHomomorphicHash(checksum.New(math.MaxInt32, testutil.RandByteSlice(64)))
+	obj.SetPayloadHomomorphicHash(checksum.New(math.MaxInt32, testutil.RandByteSlice(64))) //nolint:staticcheck // this is a test for a proto library
 	obj.SetSessionToken(&stV1)
 	obj.SetAttributes(
 		object.NewAttribute("hello", "world"),

@@ -27,6 +27,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -646,6 +647,7 @@ func TestCompatibility(t *testing.T) {
 	o := objecttest.Object()
 	o.SetSplitID(nil) // no split info is expected for split V2 era
 	o.ResetRelations()
+	o.SetPayloadHomomorphicHash(checksum.NewTillichZemor([64]byte{})) //nolint:staticcheck // for old objects
 
 	// database from engine's metabases
 

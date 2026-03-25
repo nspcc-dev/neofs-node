@@ -80,6 +80,7 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return fmt.Errorf("read container by ID: %w", err)
 	}
 
+	//nolint:staticcheck // will be removed
 	if !cnr.IsHomomorphicHashingDisabled() {
 		csHomo, csHomoSet := obj.PayloadHomomorphicHash()
 		switch {

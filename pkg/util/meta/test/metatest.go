@@ -118,7 +118,7 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			obj.SetCreationEpoch(10 + uint64(nGroup))
 			obj.SetPayloadSize(20 + uint64(nGroup))
 			obj.SetPayloadChecksum(checksum.NewSHA256(checksums[nGlobal]))
-			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(hmmChecksums[nGlobal]))
+			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(hmmChecksums[nGlobal])) //nolint:staticcheck // db still may store it
 			si := strconv.Itoa(nGlobal)
 			obj.SetAttributes(
 				object.NewAttribute("attr_common", "val_common"),
@@ -934,6 +934,7 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 		obj.SetType(object.TypeTombstone)
 		obj.SetPayloadChecksum(checksum.NewSHA256([sha256.Size]byte{105, 23, 175, 222, 242, 223, 82, 69, 207, 193, 106,
 			168, 9, 238, 85, 29, 34, 68, 233, 54, 143, 217, 223, 248, 236, 227, 121, 195, 155, 187, 37, 242}))
+		//nolint:staticcheck // db still may store it
 		obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte{171, 152, 81, 127, 134, 240, 228, 236, 10, 131,
 			10, 114, 174, 138, 120, 108, 165, 104, 36, 100, 129, 235, 160, 213, 96, 230, 190, 15, 196, 5, 252, 194, 205, 48,
 			236, 57, 117, 238, 170, 36, 251, 104, 62, 124, 1, 206, 131, 226, 221, 111, 73, 54, 235, 100, 49, 32, 252, 255,
