@@ -52,6 +52,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -901,42 +902,70 @@ func handleHeadResponse(respBuf mem.BufferSlice, reqOID oid.ID) ([]byte, error) 
 }
 
 func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
-	var body protoobject.HeadResponse_Body
-	if err := proto.Unmarshal(buf, &body); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+	var oneofNum protowire.Number
+	var oneofVal []byte
+
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
+		if err != nil {
+			return nil, fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protoobject.FieldHeadResponseBodyHeader,
+			protoobject.FieldHeadResponseBodyShortHeader,
+			protoobject.FieldHeadResponseBodySplitInfo:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+			oneofNum = num
+			oneofVal = buf[off:][:ln]
+			off += ln
+		default:
+			if n, err = iprotobuf.SkipField(buf[off:], num, typ); err != nil {
+				return nil, err
+			}
+			off += n
+		}
 	}
 
 	var hdr *protoobject.Header
 	var idSig *refs.Signature
-	switch v := body.GetHead().(type) {
-	case nil:
-		return nil, fmt.Errorf("unexpected header type %T", v)
-	case *protoobject.HeadResponse_Body_ShortHeader:
+	switch oneofNum {
+	default:
+		return nil, errors.New("missing any supported response body oneof field")
+	case protoobject.FieldHeadResponseBodyShortHeader:
 		return nil, fmt.Errorf("unsupported short header")
-	case *protoobject.HeadResponse_Body_Header:
-		if v == nil || v.Header == nil {
-			return nil, errors.New("nil header oneof field")
+	case protoobject.FieldHeadResponseBodyHeader:
+		var hdrSig protoobject.HeaderWithSignature
+		if err := proto.Unmarshal(oneofVal, &hdrSig); err != nil {
+			return nil, fmt.Errorf("unmarshal header with signature field: %w", err)
 		}
-		if v.Header.Header == nil {
+		if hdrSig.Header == nil {
 			return nil, errors.New("missing header")
 		}
-		if v.Header.Signature == nil {
+		if hdrSig.Signature == nil {
 			// TODO(@cthulhu-rider): #1387 use "const" error
 			return nil, errors.New("missing signature")
 		}
 
-		if err := checkHeaderAgainstID(v.Header.Header, reqOID); err != nil {
+		if err := checkHeaderAgainstID(hdrSig.Header, reqOID); err != nil {
 			return nil, err
 		}
 
-		hdr = v.Header.Header
-		idSig = v.Header.Signature
-	case *protoobject.HeadResponse_Body_SplitInfo:
-		if v == nil || v.SplitInfo == nil {
-			return nil, errors.New("nil split info oneof field")
+		hdr = hdrSig.Header
+		idSig = hdrSig.Signature
+	case protoobject.FieldHeadResponseBodySplitInfo:
+		var si protoobject.SplitInfo
+		if err := proto.Unmarshal(oneofVal, &si); err != nil {
+			return nil, fmt.Errorf("unmarshal split info field: %w", err)
 		}
-		si := object.NewSplitInfo()
-		err := si.FromProtoMessage(v.SplitInfo)
+		err := new(object.SplitInfo).FromProtoMessage(&si)
 		return nil, err
 	}
 
