@@ -71,9 +71,6 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
-	//nolint:staticcheck // will be removed
-	homomorphicChecksumRequired := !prm.cnr.IsHomomorphicHashingDisabled()
-
 	if prm.hdr.Signature() != nil {
 		p.relay = prm.relay
 
@@ -86,8 +83,6 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			cachedCnr:    prm.cnr,
 			isECPart:     prm.ecPart.RuleIndex >= 0,
 			maxPayloadSz: p.maxPayloadSz,
-
-			homomorphicChecksumRequired: homomorphicChecksumRequired,
 		}
 
 		return nil
@@ -159,14 +154,12 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		nextTarget: newSlicingTarget(
 			p.ctx,
 			p.maxPayloadSz,
-			!homomorphicChecksumRequired,
 			sessionSigner,
 			sToken,
 			sTokenV2,
 			p.networkState.CurrentEpoch(),
 			p.newCommonTarget(prm),
 		),
-		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}
 
 	return nil
