@@ -19,6 +19,7 @@ import (
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
+	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -675,7 +676,10 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	p.WithBuffer(hdrBuf, func(ln int) { hdrLen = ln })
 
 	var proxyRespBuf mem.BufferSlice
-	p.SetSubmitHeadResponseFunc(func(respBuf mem.BufferSlice, hdr []byte) { proxyRespBuf, hdrBuf = respBuf, hdr })
+	var proxyHdrBuf iprotobuf.BuffersSlice
+	p.SetSubmitHeadResponseFunc(func(respBuf mem.BufferSlice, hdrBuf iprotobuf.BuffersSlice) {
+		proxyRespBuf, proxyHdrBuf = respBuf, hdrBuf
+	})
 
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
@@ -685,9 +689,11 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	var buffered bool
 	var sigf, hdrf iprotobuf.FieldBounds
 	if proxyRespBuf != nil {
-		if !recheckEACL || hdrBuf == nil {
+		if !recheckEACL || proxyHdrBuf.IsEmpty() {
 			return proxyRespBuf
 		}
+		// TODO: this can be optimized by passing iprotobuf.BuffersSlice into eACL checker
+		hdrBuf = proxyHdrBuf.ReadOnlyData()
 		hdrf.To = len(hdrBuf)
 		buffered = true
 	} else if buffered = hdrLen >= 0; buffered {
@@ -790,7 +796,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	if meta == nil {
 		return getsvc.HeadPrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (mem.BufferSlice, []byte, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -801,11 +807,11 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, iprotobuf.BuffersSlice{}, err
 		}
 
 		var respBuf mem.BufferSlice
-		var hdr []byte
+		var hdr iprotobuf.BuffersSlice
 		return respBuf, hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
 			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, req, addr.Object())
@@ -813,206 +819,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 		})
 	})
 	return p, nil
-}
-
-// returns:
-//   - response buffer and object header protobuf without an error on OK
-//   - (nil, nil, [object.SplitInfoError]) on OK with corresponding body field
-//   - (nil, nil, [apistatus.ErrObjectNotFound]) on 404 status
-//   - (respBuf, nil, nil) on other API statuses
-//   - (nil, nil, err) on any transport err
-func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest, reqOID oid.ID) (mem.BufferSlice, []byte, error) {
-	var respBuf mem.BufferSlice
-
-	err := conn.Invoke(ctx, protoobject.ObjectService_Head_FullMethodName, req, &respBuf,
-		grpc.StaticMethod(),
-		grpc.ForceCodecV2(iprotobuf.BufferedCodec{}),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("sending the request failed: %w", err)
-	}
-
-	hdr, err := handleHeadResponse(respBuf, reqOID)
-	if err != nil {
-		respBuf.Free()
-		return nil, nil, fmt.Errorf("handle response: %w", err)
-	}
-
-	return respBuf, hdr, nil
-}
-
-func handleHeadResponse(respBuf mem.BufferSlice, reqOID oid.ID) ([]byte, error) {
-	var buf []byte
-	if len(respBuf) == 1 {
-		buf = respBuf[0].ReadOnlyData()
-	} else { // emptiness checked above
-		// TODO: consider optimization
-		// This concats all buffers. We could iterate over each buffer io.MultiReader-like,
-		// but that's not trivial. Anyway, HEAD responses fit into single buffer mostly.
-		buf = respBuf.Materialize()
-	}
-
-	var code uint32
-	var hdr []byte
-
-	var off int
-	for len(buf[off:]) > 0 {
-		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
-		if err != nil {
-			return nil, fmt.Errorf("parse tag at offset %d: %w", off, err)
-		}
-
-		off += n
-
-		switch num {
-		case iprotobuf.FieldResponseBody:
-			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
-			if err != nil {
-				return nil, err
-			}
-			off += n
-			if hdr, err = handleHeadResponseBody(buf[off:][:ln], reqOID); err != nil {
-				return nil, fmt.Errorf("handle body: %w", err)
-			}
-			off += ln
-		case iprotobuf.FieldResponseMetaHeader:
-			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
-			if err != nil {
-				return nil, err
-			}
-			off += n
-			if code, err = iprotobuf.GetStatusCodeFromResponseMetaHeader(buf[off:][:ln]); err != nil {
-				return nil, fmt.Errorf("handle meta header: %w", err)
-			}
-			off += ln
-		default:
-			if n, err = iprotobuf.SkipField(buf[off:], num, typ); err != nil {
-				return nil, err
-			}
-			off += n
-		}
-	}
-
-	if code == protostatus.ObjectNotFound {
-		return nil, apistatus.ErrObjectNotFound
-	}
-
-	// TODO: forbid body if code != OK?
-	return hdr, nil
-}
-
-func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
-	var oneofNum protowire.Number
-	var oneofVal []byte
-
-	var off int
-	for len(buf[off:]) > 0 {
-		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
-		if err != nil {
-			return nil, fmt.Errorf("parse tag at offset %d: %w", off, err)
-		}
-
-		off += n
-
-		switch num {
-		case protoobject.FieldHeadResponseBodyHeader,
-			protoobject.FieldHeadResponseBodyShortHeader,
-			protoobject.FieldHeadResponseBodySplitInfo:
-			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
-			if err != nil {
-				return nil, err
-			}
-			off += n
-			oneofNum = num
-			oneofVal = buf[off:][:ln]
-			off += ln
-		default:
-			if n, err = iprotobuf.SkipField(buf[off:], num, typ); err != nil {
-				return nil, err
-			}
-			off += n
-		}
-	}
-
-	switch oneofNum {
-	default:
-		return nil, errors.New("missing any supported response body oneof field")
-	case protoobject.FieldHeadResponseBodyShortHeader:
-		return nil, fmt.Errorf("unsupported short header")
-	case protoobject.FieldHeadResponseBodyHeader:
-		hdr, ordered, err := handleHeaderWithSignature(oneofVal)
-		if err != nil {
-			return nil, fmt.Errorf("handle header with signature field: %w", err)
-		}
-
-		if err := checkHeaderProtobufAgainstID(hdr, reqOID, ordered); err != nil {
-			return nil, err
-		}
-
-		return hdr, nil
-	case protoobject.FieldHeadResponseBodySplitInfo:
-		err := iprotobuf.VerifyObjectSplitInfo(oneofVal)
-		if err != nil {
-			return nil, fmt.Errorf("handle split info field: %w", err)
-		}
-		return nil, nil
-	}
-}
-
-func handleHeaderWithSignature(buf []byte) ([]byte, bool, error) {
-	var hdr []byte
-	var hdrOrdered bool
-	var withSig bool
-
-	var off int
-	for len(buf[off:]) > 0 {
-		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
-		if err != nil {
-			return nil, false, fmt.Errorf("parse tag at offset %d: %w", off, err)
-		}
-
-		off += n
-
-		switch num {
-		case protoobject.FieldHeaderWithSignatureHeader:
-			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
-			if err != nil {
-				return nil, false, err
-			}
-			off += n
-			hdr = buf[off:][:ln]
-			if hdrOrdered, err = iprotobuf.VerifyObjectHeaderWithOrder(hdr); err != nil {
-				return nil, false, fmt.Errorf("invalid header field #%d: %w", num, err)
-			}
-			off += ln
-		case protoobject.FieldHeaderWithSignatureSignature:
-			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
-			if err != nil {
-				return nil, false, err
-			}
-			off += n
-			if err = iprotobuf.VerifySignature(buf[off:][:ln]); err != nil {
-				return nil, false, fmt.Errorf("invalid signature field #%d: %w", num, err)
-			}
-			withSig = true
-			off += ln
-		default:
-			if n, err = iprotobuf.SkipField(buf[off:], num, typ); err != nil {
-				return nil, false, err
-			}
-			off += n
-		}
-	}
-
-	if hdr == nil {
-		return nil, false, errors.New("missing header")
-	}
-	if !withSig {
-		// TODO(@cthulhu-rider): #1387 use "const" error
-		return nil, false, errors.New("missing signature")
-	}
-
-	return hdr, hdrOrdered, nil
 }
 
 func (s *Server) signHashResponse(resp *protoobject.GetRangeHashResponse, req *protoobject.GetRangeHashRequest) *protoobject.GetRangeHashResponse {
@@ -1511,7 +1317,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 		respStream: stream,
 	}
 
-	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (*object.Object, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1522,15 +1328,11 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := proxyCtx.continueWithConn(ctx, conn)
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err // TODO: log error
+		return c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			return proxyCtx.continueWithConn(ctx, conn) // TODO: log error
 		})
 	})
 	return p, nil
@@ -1548,110 +1350,6 @@ type getProxyContext struct {
 
 	respondedPayload int
 	payloadHashGot   hash.Hash
-}
-
-func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.ClientConn) error {
-	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, x.req)
-	if err != nil {
-		return fmt.Errorf("stream opening failed: %w", err)
-	}
-
-	var headWas bool
-	var readPayload int
-	for {
-		resp, err := getStream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				if !headWas {
-					return io.ErrUnexpectedEOF
-				}
-				return io.EOF
-			}
-			return fmt.Errorf("reading the response failed: %w", err)
-		}
-
-		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
-			return err
-		}
-
-		switch v := resp.GetBody().GetObjectPart().(type) {
-		default:
-			return fmt.Errorf("unexpected object part %T", v)
-		case *protoobject.GetResponse_Body_Init_:
-			if headWas {
-				return errors.New("incorrect message sequence")
-			}
-			headWas = true
-			if v == nil || v.Init == nil {
-				return errors.New("nil header oneof field")
-			}
-
-			if v.Init.Header == nil {
-				return errors.New("invalid response: missing header")
-			}
-			if v.Init.Header.PayloadHash == nil {
-				return errors.New("invalid response: invalid header: missing payload hash")
-			}
-			if err := checkHeaderAgainstID(v.Init.Header, x.reqOID); err != nil {
-				return err
-			}
-
-			mo := &protoobject.Object{
-				ObjectId:  v.Init.ObjectId,
-				Signature: v.Init.Signature,
-				Header:    v.Init.Header,
-			}
-			obj := new(object.Object)
-			err := obj.FromProtoMessage(mo)
-			if err != nil {
-				return err
-			}
-			x.onceHdr.Do(func() {
-				err = x.respStream.WriteHeader(obj)
-			})
-			if err != nil {
-				return fmt.Errorf("could not write object header in Get forwarder: %w", err)
-			}
-
-			x.payloadLenCheck = v.Init.Header.PayloadLength
-			x.payloadHashCheck = v.Init.Header.PayloadHash.Sum
-			x.payloadHashGot = sha256.New()
-		case *protoobject.GetResponse_Body_Chunk:
-			if !headWas {
-				return errors.New("incorrect message sequence")
-			}
-			fullChunk := v.Chunk
-			respChunk := chunkToSend(x.respondedPayload, readPayload, fullChunk)
-			if len(respChunk) == 0 {
-				readPayload += len(fullChunk)
-				continue
-			}
-
-			x.payloadHashGot.Write(respChunk) // never returns an error according to docs
-
-			if uint64(x.respondedPayload+len(respChunk)) == x.payloadLenCheck {
-				if !bytes.Equal(x.payloadHashGot.Sum(nil), x.payloadHashCheck) { // not merged via && for readability
-					return errors.New("received payload mismatches checksum from header")
-				}
-			}
-
-			if err := x.respStream.WriteChunk(respChunk); err != nil {
-				return fmt.Errorf("could not write object chunk in Get forwarder: %w", err)
-			}
-			readPayload += len(fullChunk)
-			x.respondedPayload += len(respChunk)
-		case *protoobject.GetResponse_Body_SplitInfo:
-			if v == nil || v.SplitInfo == nil {
-				return errors.New("nil split info oneof field")
-			}
-			si := object.NewSplitInfo()
-			err := si.FromProtoMessage(v.SplitInfo)
-			if err != nil {
-				return err
-			}
-			return object.NewSplitInfoError(si)
-		}
-	}
 }
 
 func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse, req *protoobject.GetRangeRequest) error {
@@ -2701,14 +2399,19 @@ func checkStatus(st *protostatus.Status) error {
 }
 
 func chunkToSend(global, local int, chunk []byte) []byte {
+	from, to := chunkBoundsToSend(global, local, len(chunk))
+	return chunk[from:to]
+}
+
+func chunkBoundsToSend(global, local, chunkLen int) (int, int) {
 	if global == local {
-		return chunk
+		return 0, chunkLen
 	}
-	if local+len(chunk) <= global {
+	if local+chunkLen <= global {
 		// chunk has already been sent
-		return nil
+		return 0, 0
 	}
-	return chunk[global-local:]
+	return global - local, chunkLen
 }
 
 func needSignGetResponse(req util.Request) bool {
@@ -2721,12 +2424,13 @@ func checkHeaderAgainstID(hdr *protoobject.Header, id oid.ID) error {
 	return checkOrderedHeaderProtobufAgainstID(b, id)
 }
 
-func checkHeaderProtobufAgainstID(b []byte, id oid.ID, ordered bool) error {
+func checkHeaderProtobufAgainstID(buffers iprotobuf.BuffersSlice, id oid.ID, ordered bool) error {
+	b := buffers.ReadOnlyData()
 	if !ordered {
 		// TODO: consider optimization
 		// Either require direct order in protocol (for example, current node does this) or use buffer from pool.
 		var hdr protoobject.Header
-		if err := proto.Unmarshal(b, &hdr); err != nil {
+		if err := proto.Unmarshal(buffers.ReadOnlyData(), &hdr); err != nil {
 			return fmt.Errorf("unmarshal: %w", err)
 		}
 		b = make([]byte, hdr.MarshaledSize())
@@ -2742,4 +2446,49 @@ func checkOrderedHeaderProtobufAgainstID(b []byte, id oid.ID) error {
 	}
 
 	return nil
+}
+
+// getStatusCodeFromResponseMetaHeader checks whether buf is a valid response
+// meta header. If so, status code field is returned. In case of nesting
+// headers, code from the root is returned.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed: if status field is repeated (including nested),
+// code from the last one is returned.
+func getStatusCodeFromResponseMetaHeader(buffers iprotobuf.BuffersSlice) (uint32, error) {
+	var code uint32
+	var gotOrigin bool
+	var opts protoscan.ScanMessageOptions
+
+	opts.InterceptNested = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
+		switch num {
+		case protosession.FieldResponseMetaHeaderOrigin:
+			var err error
+			code, err = getStatusCodeFromResponseMetaHeader(buffers)
+			if err != nil {
+				return fmt.Errorf("handle origin field: %w", err)
+			}
+			gotOrigin = true
+			return nil
+		case protosession.FieldResponseMetaHeaderStatus:
+			if gotOrigin {
+				break
+			}
+			var opts protoscan.ScanMessageOptions
+			opts.InterceptUint32 = func(num protowire.Number, u uint32) error {
+				if num == protostatus.FieldStatusCode {
+					code = u
+				}
+				return nil
+			}
+			err := protoscan.ScanMessage(buffers, protoscan.ResponseStatusScheme, opts)
+			if err != nil {
+				return fmt.Errorf("handle status field: %w", err)
+			}
+			return nil
+		}
+		return protoscan.ErrContinue
+	}
+
+	return code, protoscan.ScanMessage(buffers, protoscan.ResponseMetaHeaderScheme, opts)
 }
