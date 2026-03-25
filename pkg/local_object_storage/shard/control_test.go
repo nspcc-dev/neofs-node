@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -83,7 +84,9 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 
 	sh := New(
 		WithBlobstor(fsTree),
-		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta")), meta.WithEpochState(epochState{})))
+		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta")),
+			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond)))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -104,7 +107,9 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 
 	sh = New(
 		WithBlobstor(fsTree),
-		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
+		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")),
+			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond)),
 	)
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.metaBase.ResyncFromBlobstor(sh.blobStor, nil))
@@ -130,6 +135,7 @@ func TestResyncMetabase(t *testing.T) {
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
 			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		WithWriteCache(true),
 		WithWriteCacheOptions(
@@ -268,6 +274,7 @@ func TestResyncMetabase(t *testing.T) {
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
 			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		WithWriteCache(true),
 		WithWriteCacheOptions(

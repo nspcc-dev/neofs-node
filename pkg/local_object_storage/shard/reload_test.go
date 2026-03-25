@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -26,7 +27,8 @@ func TestShardReload(t *testing.T) {
 
 	metaOpts := []meta.Option{
 		meta.WithPath(filepath.Join(p, "meta")),
-		meta.WithEpochState(epochState{})}
+		meta.WithEpochState(epochState{}),
+		meta.WithMaxBatchDelay(time.Microsecond)}
 
 	opts := []Option{
 		WithLogger(l),
@@ -65,7 +67,9 @@ func TestShardReload(t *testing.T) {
 
 	t.Run("open meta at new path", func(t *testing.T) {
 		newShardOpts := func(metaPath string) []Option {
-			metaOpts := []meta.Option{meta.WithPath(metaPath), meta.WithEpochState(epochState{})}
+			metaOpts := []meta.Option{meta.WithPath(metaPath),
+				meta.WithEpochState(epochState{}),
+				meta.WithMaxBatchDelay(time.Microsecond)}
 			return append(opts, WithMetaBaseOptions(metaOpts...))
 		}
 

@@ -65,6 +65,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epoch),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(func(aa []oid.Address) {
 			require.NoError(t, sh.Delete(aa))
@@ -182,6 +183,7 @@ func TestExpiration(t *testing.T) {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{Value: 0}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {
@@ -244,6 +246,7 @@ func TestContainerPayments(t *testing.T) {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{Value: 0}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {
