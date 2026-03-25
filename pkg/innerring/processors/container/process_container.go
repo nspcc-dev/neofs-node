@@ -88,11 +88,10 @@ const (
 )
 
 var allowedSystemAttributes = map[string]struct{}{
-	sysAttrPrefix + "NAME":                        {},
-	sysAttrPrefix + "ZONE":                        {},
-	sysAttrPrefix + "DISABLE_HOMOMORPHIC_HASHING": {},
-	sysAttrPrefix + "LOCK_UNTIL":                  {},
-	sysAttrChainMeta:                              {},
+	sysAttrPrefix + "NAME":       {},
+	sysAttrPrefix + "ZONE":       {},
+	sysAttrPrefix + "LOCK_UNTIL": {},
+	sysAttrChainMeta:             {},
 }
 
 func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
@@ -138,12 +137,6 @@ func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, ses
 
 	if err = cnr.PlacementPolicy().Verify(); err != nil {
 		return fmt.Errorf("invalid storage policy: %w", err)
-	}
-
-	// check homomorphic hashing setting
-	err = checkHomomorphicHashing(cp.netState, cnr)
-	if err != nil {
-		return fmt.Errorf("incorrect homomorphic hashing setting: %w", err)
 	}
 
 	if domainZone != "" { // if PutNamed event => check if values in-container domain name and zone correspond to args
@@ -417,20 +410,6 @@ func checkNNS(cnr containerSDK.Container, name, zone string) error {
 
 	if zone != d.Zone() {
 		return fmt.Errorf("zones differ %s/%s", zone, d.Zone())
-	}
-
-	return nil
-}
-
-//nolint:staticcheck // will be removed
-func checkHomomorphicHashing(ns NetworkState, cnr containerSDK.Container) error {
-	netSetting, err := ns.HomomorphicHashDisabled()
-	if err != nil {
-		return fmt.Errorf("could not get setting in contract: %w", err)
-	}
-
-	if cnrSetting := cnr.IsHomomorphicHashingDisabled(); netSetting != cnrSetting {
-		return fmt.Errorf("network setting: %t, container setting: %t", netSetting, cnrSetting)
 	}
 
 	return nil
