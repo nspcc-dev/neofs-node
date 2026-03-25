@@ -940,12 +940,12 @@ func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
 	case protoobject.FieldHeadResponseBodyShortHeader:
 		return nil, fmt.Errorf("unsupported short header")
 	case protoobject.FieldHeadResponseBodyHeader:
-		hdr, err := handleHeaderWithSignature(oneofVal)
+		hdr, ordered, err := handleHeaderWithSignature(oneofVal)
 		if err != nil {
 			return nil, fmt.Errorf("handle header with signature field: %w", err)
 		}
 
-		if err := checkOrderedHeaderProtobufAgainstID(hdr, reqOID); err != nil {
+		if err := checkHeaderProtobufAgainstID(hdr, reqOID, ordered); err != nil {
 			return nil, err
 		}
 
@@ -959,31 +959,60 @@ func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
 	}
 }
 
-func handleHeaderWithSignature(buf []byte) ([]byte, error) {
-	var hdrSig protoobject.HeaderWithSignature
-	if err := proto.Unmarshal(buf, &hdrSig); err != nil {
-		return nil, fmt.Errorf("unmarshal header with signature field: %w", err)
+func handleHeaderWithSignature(buf []byte) ([]byte, bool, error) {
+	var hdr []byte
+	var hdrOrdered bool
+	var withSig bool
+
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
+		if err != nil {
+			return nil, false, fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protoobject.FieldHeaderWithSignatureHeader:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, false, err
+			}
+			off += n
+			hdr = buf[off:][:ln]
+			if hdrOrdered, err = iprotobuf.VerifyObjectHeaderWithOrder(hdr); err != nil {
+				return nil, false, fmt.Errorf("invalid header field #%d: %w", num, err)
+			}
+			off += ln
+		case protoobject.FieldHeaderWithSignatureSignature:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, false, err
+			}
+			off += n
+			if err = iprotobuf.VerifySignature(buf[off:][:ln]); err != nil {
+				return nil, false, fmt.Errorf("invalid signature field #%d: %w", num, err)
+			}
+			withSig = true
+			off += ln
+		default:
+			if n, err = iprotobuf.SkipField(buf[off:], num, typ); err != nil {
+				return nil, false, err
+			}
+			off += n
+		}
 	}
-	if hdrSig.Header == nil {
-		return nil, errors.New("missing header")
+
+	if hdr == nil {
+		return nil, false, errors.New("missing header")
 	}
-	if hdrSig.Signature == nil {
+	if !withSig {
 		// TODO(@cthulhu-rider): #1387 use "const" error
-		return nil, errors.New("missing signature")
+		return nil, false, errors.New("missing signature")
 	}
 
-	mObj := &protoobject.Object{
-		Signature: hdrSig.Signature,
-		Header:    hdrSig.Header,
-	}
-	var obj = new(object.Object)
-	if err := obj.FromProtoMessage(mObj); err != nil {
-		return nil, err
-	}
-
-	b := make([]byte, hdrSig.MarshaledSize())
-	hdrSig.MarshalStable(b)
-	return b, nil
+	return hdr, hdrOrdered, nil
 }
 
 func (s *Server) signHashResponse(resp *protoobject.GetRangeHashResponse, req *protoobject.GetRangeHashRequest) *protoobject.GetRangeHashResponse {
@@ -2689,6 +2718,21 @@ func needSignGetResponse(req util.Request) bool {
 func checkHeaderAgainstID(hdr *protoobject.Header, id oid.ID) error {
 	b := make([]byte, hdr.MarshaledSize())
 	hdr.MarshalStable(b)
+	return checkOrderedHeaderProtobufAgainstID(b, id)
+}
+
+func checkHeaderProtobufAgainstID(b []byte, id oid.ID, ordered bool) error {
+	if !ordered {
+		// TODO: consider optimization
+		// Either require direct order in protocol (for example, current node does this) or use buffer from pool.
+		var hdr protoobject.Header
+		if err := proto.Unmarshal(b, &hdr); err != nil {
+			return fmt.Errorf("unmarshal: %w", err)
+		}
+		b = make([]byte, hdr.MarshaledSize())
+		hdr.MarshalStable(b)
+	}
+
 	return checkOrderedHeaderProtobufAgainstID(b, id)
 }
 
