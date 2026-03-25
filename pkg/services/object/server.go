@@ -960,12 +960,11 @@ func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
 		hdr = hdrSig.Header
 		idSig = hdrSig.Signature
 	case protoobject.FieldHeadResponseBodySplitInfo:
-		var si protoobject.SplitInfo
-		if err := proto.Unmarshal(oneofVal, &si); err != nil {
-			return nil, fmt.Errorf("unmarshal split info field: %w", err)
+		err := iprotobuf.VerifyObjectSplitInfo(oneofVal)
+		if err != nil {
+			return nil, fmt.Errorf("handle split info field: %w", err)
 		}
-		err := new(object.SplitInfo).FromProtoMessage(&si)
-		return nil, err
+		return nil, nil
 	}
 
 	mObj := &protoobject.Object{

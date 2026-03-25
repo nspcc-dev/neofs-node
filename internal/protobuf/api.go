@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
+	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -41,6 +42,11 @@ const (
 	FieldResponseBody               = 1
 	FieldResponseMetaHeader         = 2
 	FieldResponseVerificationHeader = 3
+)
+
+// Various lengths.
+const (
+	splitIDLen = 16
 )
 
 // ParseAPIVersionField parses version.Version from the next field with known
@@ -359,6 +365,89 @@ func VerifyXHeader(buf []byte) error {
 		}
 
 		off += n
+	}
+	return nil
+}
+
+// VerifyObjectSplitInfo checks whether buf is a valid object split info
+// protobuf.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed.
+func VerifyObjectSplitInfo(buf []byte) error {
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := ParseTag(buf[off:])
+		if err != nil {
+			return fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protoobject.FieldSplitInfoSplitID:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return err
+			}
+			if ln != splitIDLen {
+				return fmt.Errorf("invalid split ID len: %d instead of %d", ln, splitIDLen)
+			}
+			off += n + ln
+		case protoobject.FieldSplitInfoLastPart, protoobject.FieldSplitInfoLink, protoobject.FieldSplitInfoFirstPart:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return err
+			}
+			off += n
+			if err = VerifyObjectID(buf[off:][:ln]); err != nil {
+				return fmt.Errorf("invalid object ID field #%d: %w", num, err)
+			}
+			off += ln
+		default:
+			if n, err = SkipField(buf[off:], num, typ); err != nil {
+				return err
+			}
+			off += n
+		}
+	}
+	return nil
+}
+
+// VerifyObjectID checks whether buf is a valid object ID protobuf.
+//
+// Absense of any fields is ignored. Unknown fields are allowed and checked.
+// Repeating fields is allowed.
+func VerifyObjectID(buf []byte) error {
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := ParseTag(buf[off:])
+		if err != nil {
+			return fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case protorefs.FieldObjectIDValue:
+			ln, n, err := ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return err
+			}
+			if ln != oid.Size {
+				return fmt.Errorf("invalid value len: %d instead of %d", ln, oid.Size)
+			}
+			off += n
+			if islices.AllZeros(buf[off:][:ln]) {
+				return oid.ErrZero
+			}
+			off += ln
+		default:
+			if n, err = SkipField(buf[off:], num, typ); err != nil {
+				return err
+			}
+			off += n
+		}
 	}
 	return nil
 }
