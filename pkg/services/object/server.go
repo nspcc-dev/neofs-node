@@ -51,9 +51,8 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/encoding"
-	encproto "google.golang.org/grpc/encoding/proto"
 	"google.golang.org/grpc/mem"
+	"google.golang.org/protobuf/proto"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -841,22 +840,76 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *pr
 }
 
 func handleHeadResponse(respBuf mem.BufferSlice, reqOID oid.ID) ([]byte, error) {
-	var resp protoobject.HeadResponse
-	if err := encoding.GetCodecV2(encproto.Name).Unmarshal(respBuf, &resp); err != nil {
-		return nil, fmt.Errorf("unmarshal response: %w", err)
+	var buf []byte
+	if len(respBuf) == 1 {
+		buf = respBuf[0].ReadOnlyData()
+	} else { // emptiness checked above
+		// TODO: consider optimization
+		// This concats all buffers. We could iterate over each buffer io.MultiReader-like,
+		// but that's not trivial. Anyway, HEAD responses fit into single buffer mostly.
+		buf = respBuf.Materialize()
 	}
 
-	switch resp.GetMetaHeader().GetStatus().GetCode() {
-	case protostatus.OK:
-	case protostatus.ObjectNotFound:
+	var code uint32
+	var hdr []byte
+
+	var off int
+	for len(buf[off:]) > 0 {
+		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
+		if err != nil {
+			return nil, fmt.Errorf("parse tag at offset %d: %w", off, err)
+		}
+
+		off += n
+
+		switch num {
+		case iprotobuf.FieldResponseBody:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+			if hdr, err = handleHeadResponseBody(buf[off:][:ln], reqOID); err != nil {
+				return nil, fmt.Errorf("handle body: %w", err)
+			}
+			off += ln
+		case iprotobuf.FieldResponseMetaHeader:
+			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
+			var mh protosession.ResponseMetaHeader
+			if err := proto.Unmarshal(buf[off:][:ln], &mh); err != nil {
+				return nil, fmt.Errorf("unmarshal meta header: %w", err)
+			}
+			code = mh.GetStatus().GetCode()
+			off += ln
+		default:
+			if n, err = iprotobuf.SkipField(buf[off:], num, typ); err != nil {
+				return nil, err
+			}
+			off += n
+		}
+	}
+
+	if code == protostatus.ObjectNotFound {
 		return nil, apistatus.ErrObjectNotFound
-	default:
-		return nil, nil
+	}
+
+	// TODO: forbid body if code != OK?
+	return hdr, nil
+}
+
+func handleHeadResponseBody(buf []byte, reqOID oid.ID) ([]byte, error) {
+	var body protoobject.HeadResponse_Body
+	if err := proto.Unmarshal(buf, &body); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
 	var hdr *protoobject.Header
 	var idSig *refs.Signature
-	switch v := resp.GetBody().GetHead().(type) {
+	switch v := body.GetHead().(type) {
 	case nil:
 		return nil, fmt.Errorf("unexpected header type %T", v)
 	case *protoobject.HeadResponse_Body_ShortHeader:
@@ -2586,7 +2639,10 @@ func needSignGetResponse(req util.Request) bool {
 func checkHeaderAgainstID(hdr *protoobject.Header, id oid.ID) error {
 	b := make([]byte, hdr.MarshaledSize())
 	hdr.MarshalStable(b)
+	return checkOrderedHeaderProtobufAgainstID(b, id)
+}
 
+func checkOrderedHeaderProtobufAgainstID(b []byte, id oid.ID) error {
 	if oid.NewFromObjectHeaderBinary(b) != id {
 		return errors.New("received header mismatches ID")
 	}
