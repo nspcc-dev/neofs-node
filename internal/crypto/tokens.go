@@ -7,6 +7,7 @@ import (
 	"time"
 
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -66,7 +67,14 @@ func AuthenticateTokenV2[T interface {
 	Signature() (neofscrypto.Signature, bool)
 	Issuer() user.ID
 	Iat() time.Time
+	Origin() *sessionv2.Token
 }](token T, fsChain HistoricN3ScriptRunner) error {
+	if origin := token.Origin(); origin != nil {
+		if err := AuthenticateTokenV2(origin, fsChain); err != nil {
+			return fmt.Errorf("origin token: %w", err)
+		}
+	}
+
 	issuer := token.Issuer()
 	if issuer.IsZero() {
 		return errors.New("missing issuer")

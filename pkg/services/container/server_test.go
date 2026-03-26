@@ -807,4 +807,42 @@ func TestService_TokenV2(t *testing.T) {
 		require.EqualValues(t, 1024, sts.Code)
 		require.Equal(t, "session was not issued by the container owner", sts.Message)
 	})
+
+	t.Run("forged origin issuer", func(t *testing.T) {
+		var origin sessionv2.Token
+		origin.SetVersion(sessionv2.TokenCurrentVersion)
+
+		now := time.Now()
+		origin.SetIat(now)
+		origin.SetNbf(now)
+		origin.SetExp(now.Add(10 * time.Minute))
+
+		ctxS, err := sessionv2.NewContext(id, []sessionv2.Verb{sessionv2.VerbContainerDelete})
+		require.NoError(t, err)
+		require.NoError(t, origin.SetContexts([]sessionv2.Context{ctxS}))
+		require.NoError(t, origin.AddSubject(sessionv2.NewTargetUser(other.ID)))
+		origin.SetIssuer(owner.ID)
+
+		forgedOriginSig, err := other.RFC6979.Sign(origin.SignedData())
+		require.NoError(t, err)
+		origin.AttachSignature(neofscrypto.NewSignatureFromRawKey(
+			neofscrypto.ECDSA_DETERMINISTIC_SHA256,
+			other.PublicKeyBytes,
+			forgedOriginSig,
+		))
+
+		tok := buildToken(t, other)
+		tok.SetOrigin(&origin)
+
+		req := makeDelete(t, tok)
+		resp, err := svc.Delete(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+
+		sts := resp.GetMetaHeader().GetStatus()
+		require.NotNil(t, sts, "forged origin token must be rejected")
+		require.EqualValues(t, 1024, sts.Code)
+		require.Equal(t, "issuer mismatches signature", sts.Message)
+	})
 }
