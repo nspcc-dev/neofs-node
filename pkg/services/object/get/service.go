@@ -81,10 +81,15 @@ type cfg struct {
 		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 		// Returns [apistatus.ErrObjectNotFound] if the range is out of payload bounds.
 		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error)
+		// ReadECPart is a buffered alternative for GetECPart similar to ReadObject.
+		ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error)
 		Head(oid.Address, bool) (*object.Object, error)
 		ReadHeader(oid.Address, bool, []byte) (int, error)
 		// HeadECPart is similar to GetECPart but returns only the header.
 		HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error)
+		// ReadECPartHeader is a buffered alternative for HeadECPart similar to
+		// ReadHeader.
+		ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error)
 	}
 	localStorage interface {
 		get(*execCtx) (*object.Object, io.ReadCloser, error)

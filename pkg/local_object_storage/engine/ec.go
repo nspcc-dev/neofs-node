@@ -16,6 +16,26 @@ import (
 	"go.uber.org/zap"
 )
 
+// ReadECPart is a buffered alternative for [StorageEngine.GetECPart] similar to
+// [StorageEngine.ReadObject].
+func (e *StorageEngine) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddReadECPartDuration)()
+	}
+
+	var n int
+	var stream io.ReadCloser
+	return n, stream, e.getECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+		var err error
+		n, stream, err = s.ReadECPart(cnr, parent, pi, buf)
+		return err
+	}, func(s shardInterface, partAddr oid.Address) error {
+		var err error
+		n, stream, err = s.ReadObject(partAddr, true, buf)
+		return err
+	})
+}
+
 // GetECPart looks up for object that carries EC part produced within cnr for
 // parent object and indexed by pi in the underlying metabase, checks its
 // availability and reads it from the underlying BLOB storage. The result is a
@@ -41,10 +61,27 @@ func (e *StorageEngine) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (o
 		defer elapsed(e.metrics.AddGetECPartDuration)()
 	}
 
+	var hdr object.Object
+	var stream io.ReadCloser
+	return hdr, stream, e.getECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+		var err error
+		hdr, stream, err = s.GetECPart(cnr, parent, pi)
+		return err
+	}, func(s shardInterface, partAddr oid.Address) error {
+		h, str, err := s.GetStream(partAddr, true)
+		if err == nil {
+			hdr, stream = *h, str
+		}
+		return err
+	})
+}
+
+func (e *StorageEngine) getECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, resolveFn func(shardInterface, cid.ID, oid.ID, iec.PartInfo) error,
+	getFn func(shardInterface, oid.Address) error) error {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 	if e.blockErr != nil {
-		return object.Object{}, nil, e.blockErr
+		return e.blockErr
 	}
 
 	s := e.sortShardsFn(e, parent)
@@ -52,14 +89,14 @@ func (e *StorageEngine) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (o
 	var partID oid.ID
 loop:
 	for i := range s {
-		obj, rdr, err := s[i].shardIface.GetECPart(cnr, parent, pi)
+		err := resolveFn(s[i].shardIface, cnr, parent, pi)
 		switch {
 		case err == nil:
-			return obj, rdr, nil
+			return nil
 		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved):
-			return object.Object{}, nil, err
+			return err
 		case errors.Is(err, meta.ErrObjectIsExpired):
-			return object.Object{}, nil, apistatus.ErrObjectNotFound // like Get
+			return apistatus.ErrObjectNotFound // like Get
 		case errors.As(err, (*ierrors.ObjectID)(&partID)):
 			if partID.IsZero() {
 				panic("zero object ID returned as error")
@@ -75,7 +112,7 @@ loop:
 			break loop
 		case errors.Is(err, apistatus.ErrObjectNotFound):
 		case errors.As(err, new(*object.SplitInfoError)):
-			return object.Object{}, nil, err
+			return err
 		default:
 			e.log.Info("failed to get EC part from shard, ignore error",
 				zap.Stringer("container", cnr), zap.Stringer("parent", parent),
@@ -85,15 +122,15 @@ loop:
 	}
 
 	if partID.IsZero() {
-		return object.Object{}, nil, apistatus.ErrObjectNotFound
+		return apistatus.ErrObjectNotFound
 	}
 
 	for i := range s {
 		// get an object bypassing the metabase. We can miss deletion or expiration mark. Get behaves like this, so here too.
-		obj, rdr, err := s[i].shardIface.GetStream(oid.NewAddress(cnr, partID), true)
+		err := getFn(s[i].shardIface, oid.NewAddress(cnr, partID))
 		switch {
 		case err == nil:
-			return *obj, rdr, nil
+			return nil
 		case errors.Is(err, apistatus.ErrObjectNotFound):
 		default:
 			e.log.Info("failed to get EC part from shard bypassing metabase, ignore error",
@@ -104,7 +141,7 @@ loop:
 		}
 	}
 
-	return object.Object{}, nil, apistatus.ErrObjectNotFound
+	return apistatus.ErrObjectNotFound
 }
 
 // GetECPartRange looks up for object that carries EC part produced within cnr
@@ -204,16 +241,51 @@ loop:
 	return 0, nil, apistatus.ErrObjectNotFound
 }
 
+// ReadECPartHeader is a buffered alternative for [StorageEngine.HeadECPart]
+// similar to [StorageEngine.ReadHeader].
+func (e *StorageEngine) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddReadECPartHeaderDuration)()
+	}
+
+	var n int
+	return n, e.headECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+		var err error
+		n, err = s.ReadECPartHeader(cnr, parent, pi, buf)
+		return err
+	}, func(s shardInterface, partAddr oid.Address) error {
+		var err error
+		n, err = s.ReadHeader(partAddr, true, buf)
+		return err
+	})
+}
+
 // HeadECPart is similar to [StorageEngine.GetECPart] but returns only the header.
 func (e *StorageEngine) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadECPartDuration)()
 	}
 
+	var hdr object.Object
+	return hdr, e.headECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+		var err error
+		hdr, err = s.HeadECPart(cnr, parent, pi)
+		return err
+	}, func(s shardInterface, partAddr oid.Address) error {
+		h, err := s.Head(partAddr, true)
+		if err == nil {
+			hdr = *h
+		}
+		return err
+	})
+}
+
+func (e *StorageEngine) headECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, resolveFn func(shardInterface, cid.ID, oid.ID, iec.PartInfo) error,
+	headFn func(shardInterface, oid.Address) error) error {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 	if e.blockErr != nil {
-		return object.Object{}, e.blockErr
+		return e.blockErr
 	}
 
 	s := e.sortShardsFn(e, parent)
@@ -221,14 +293,14 @@ func (e *StorageEngine) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (
 	var partID oid.ID
 loop:
 	for i := range s {
-		hdr, err := s[i].shardIface.HeadECPart(cnr, parent, pi)
+		err := resolveFn(s[i].shardIface, cnr, parent, pi)
 		switch {
 		case err == nil:
-			return hdr, nil
+			return nil
 		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved):
-			return object.Object{}, err
+			return err
 		case errors.Is(err, meta.ErrObjectIsExpired):
-			return object.Object{}, apistatus.ErrObjectNotFound // like Get
+			return apistatus.ErrObjectNotFound // like Get
 		case errors.As(err, (*ierrors.ObjectID)(&partID)):
 			if partID.IsZero() {
 				panic("zero object ID returned as error")
@@ -252,15 +324,15 @@ loop:
 	}
 
 	if partID.IsZero() {
-		return object.Object{}, apistatus.ErrObjectNotFound
+		return apistatus.ErrObjectNotFound
 	}
 
 	for i := range s {
 		// get an object bypassing the metabase. We can miss deletion or expiration mark. Get behaves like this, so here too.
-		hdr, err := s[i].shardIface.Head(oid.NewAddress(cnr, partID), true)
+		err := headFn(s[i].shardIface, oid.NewAddress(cnr, partID))
 		switch {
 		case err == nil:
-			return *hdr, nil
+			return nil
 		case errors.Is(err, apistatus.ErrObjectNotFound):
 		default:
 			e.log.Info("failed to get EC part header from shard bypassing metabase, ignore error",
@@ -271,5 +343,5 @@ loop:
 		}
 	}
 
-	return object.Object{}, apistatus.ErrObjectNotFound
+	return apistatus.ErrObjectNotFound
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -83,6 +84,10 @@ func TestShard_GetECPart(t *testing.T) {
 			_, _, err := s.GetECPart(cnr, parentID, pi)
 			require.ErrorContains(t, err, "resolve part ID in metabase")
 			tc.assertErr(t, err)
+
+			_, _, err = s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+			require.ErrorContains(t, err, "resolve part ID in metabase")
+			tc.assertErr(t, err)
 		})
 	}
 
@@ -103,13 +108,20 @@ func TestShard_GetECPart(t *testing.T) {
 
 			s := newSimpleTestShard(t, &bs, &mb, nil)
 
-			_, _, err := s.GetECPart(cnr, parentID, pi)
-			require.ErrorIs(t, err, tc.err)
-			require.ErrorContains(t, err, fmt.Sprintf("get from BLOB storage by ID %s", partID))
+			assertErr := func(err error) {
+				require.ErrorIs(t, err, tc.err)
+				require.ErrorContains(t, err, fmt.Sprintf("get from BLOB storage by ID %s", partID))
 
-			var oidErr ierrors.ObjectID
-			require.ErrorAs(t, err, &oidErr)
-			require.EqualValues(t, partID, oidErr)
+				var oidErr ierrors.ObjectID
+				require.ErrorAs(t, err, &oidErr)
+				require.EqualValues(t, partID, oidErr)
+			}
+
+			_, _, err := s.GetECPart(cnr, parentID, pi)
+			assertErr(err)
+
+			_, _, err = s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+			assertErr(err)
 		})
 	}
 
@@ -146,6 +158,14 @@ func TestShard_GetECPart(t *testing.T) {
 				assertGetECPartOK(t, partObj, hdr, rdr)
 
 				lb.AssertSingle(tc.logMsg)
+
+				buf := make([]byte, 40<<10)
+				n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+				require.NoError(t, err)
+				b, err := io.ReadAll(rdr)
+				require.NoError(t, err)
+				require.Equal(t, partObj.Marshal(), slices.Concat(buf[:n], b))
+				require.NoError(t, rdr.Close())
 			})
 		}
 
@@ -160,6 +180,14 @@ func TestShard_GetECPart(t *testing.T) {
 		hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
 		require.NoError(t, err)
 		assertGetECPartOK(t, partObj, hdr, rdr)
+
+		buf := make([]byte, 40<<10)
+		n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+		require.NoError(t, err)
+		b, err := io.ReadAll(rdr)
+		require.NoError(t, err)
+		require.Equal(t, partObj.Marshal(), slices.Concat(buf[:n], b))
+		require.NoError(t, rdr.Close())
 	})
 
 	for _, tc := range []struct {
@@ -196,6 +224,14 @@ func TestShard_GetECPart(t *testing.T) {
 			hdr, rdr, err := s.GetECPart(cnr, sysObj.GetID(), pi)
 			require.NoError(t, err)
 			assertGetECPartOK(t, sysObj, hdr, rdr)
+
+			buf := make([]byte, 40<<10)
+			n, rdr, err := s.ReadECPart(cnr, sysObj.GetID(), pi, buf)
+			require.NoError(t, err)
+			b, err := io.ReadAll(rdr)
+			require.NoError(t, err)
+			require.Equal(t, sysObj.Marshal(), slices.Concat(buf[:n], b))
+			require.NoError(t, rdr.Close())
 		})
 	}
 
@@ -230,9 +266,24 @@ func TestShard_GetECPart(t *testing.T) {
 		require.NoError(t, err)
 		assertGetECPartOK(t, linker, hdr, rdr)
 
+		buf := make([]byte, 40<<10)
+		n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+		require.NoError(t, err)
+		b, err := io.ReadAll(rdr)
+		require.NoError(t, err)
+		require.Equal(t, linker.Marshal(), slices.Concat(buf[:n], b))
+		require.NoError(t, rdr.Close())
+
 		hdr, rdr, err = s.GetECPart(cnr, linker.GetID(), pi)
 		require.NoError(t, err)
 		assertGetECPartOK(t, linker, hdr, rdr)
+
+		n, rdr, err = s.ReadECPart(cnr, linker.GetID(), pi, buf)
+		require.NoError(t, err)
+		b, err = io.ReadAll(rdr)
+		require.NoError(t, err)
+		require.Equal(t, linker.Marshal(), slices.Concat(buf[:n], b))
+		require.NoError(t, rdr.Close())
 	})
 
 	s := newSimpleTestShard(t, &bs, &mb, nil)
@@ -240,6 +291,14 @@ func TestShard_GetECPart(t *testing.T) {
 	hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
 	require.NoError(t, err)
 	assertGetECPartOK(t, partObj, hdr, rdr)
+
+	buf := make([]byte, 40<<10)
+	n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+	require.NoError(t, err)
+	b, err := io.ReadAll(rdr)
+	require.NoError(t, err)
+	require.Equal(t, partObj.Marshal(), slices.Concat(buf[:n], b))
+	require.NoError(t, rdr.Close())
 }
 
 func TestShard_GetECPartRange(t *testing.T) {
@@ -556,6 +615,9 @@ func TestShard_HeadECPart(t *testing.T) {
 			_, err := s.HeadECPart(cnr, parentID, pi)
 			require.ErrorContains(t, err, "resolve part ID in metabase")
 			tc.assertErr(t, err)
+			_, err = s.ReadECPartHeader(cnr, parentID, pi, nil)
+			require.ErrorContains(t, err, "resolve part ID in metabase")
+			tc.assertErr(t, err)
 		})
 	}
 
@@ -576,13 +638,19 @@ func TestShard_HeadECPart(t *testing.T) {
 
 			s := newSimpleTestShard(t, &bs, &mb, nil)
 
-			_, err := s.HeadECPart(cnr, parentID, pi)
-			require.ErrorIs(t, err, tc.err)
-			require.ErrorContains(t, err, fmt.Sprintf("get header from BLOB storage by ID %s", partID))
+			assertError := func(err error) {
+				require.ErrorIs(t, err, tc.err)
+				require.ErrorContains(t, err, fmt.Sprintf("get header from BLOB storage by ID %s", partID))
 
-			var oidErr ierrors.ObjectID
-			require.ErrorAs(t, err, &oidErr)
-			require.EqualValues(t, partID, oidErr)
+				var oidErr ierrors.ObjectID
+				require.ErrorAs(t, err, &oidErr)
+				require.EqualValues(t, partID, oidErr)
+			}
+
+			_, err := s.HeadECPart(cnr, parentID, pi)
+			assertError(err)
+			_, err = s.ReadECPartHeader(cnr, parentID, pi, nil)
+			assertError(err)
 		})
 	}
 
@@ -619,6 +687,11 @@ func TestShard_HeadECPart(t *testing.T) {
 				require.Equal(t, partHdr, hdr)
 
 				lb.AssertSingle(tc.logMsg)
+
+				buf := make([]byte, 40<<10)
+				n, err := s.ReadECPartHeader(cnr, parentID, pi, buf)
+				require.NoError(t, err)
+				require.Equal(t, partHdr.Marshal(), buf[:n])
 			})
 		}
 
@@ -633,6 +706,11 @@ func TestShard_HeadECPart(t *testing.T) {
 		hdr, err := s.HeadECPart(cnr, parentID, pi)
 		require.NoError(t, err)
 		require.Equal(t, partHdr, hdr)
+
+		buf := make([]byte, 40<<10)
+		n, err := s.ReadECPartHeader(cnr, parentID, pi, buf)
+		require.NoError(t, err)
+		require.Equal(t, partHdr.Marshal(), buf[:n])
 	})
 
 	for _, tc := range []struct {
@@ -668,6 +746,11 @@ func TestShard_HeadECPart(t *testing.T) {
 			hdr, err := s.HeadECPart(cnr, sysObj.GetID(), pi)
 			require.NoError(t, err)
 			require.Equal(t, sysObj, hdr)
+
+			buf := make([]byte, 40<<10)
+			n, err := s.ReadECPartHeader(cnr, sysObj.GetID(), pi, buf)
+			require.NoError(t, err)
+			require.Equal(t, sysObj.Marshal(), buf[:n])
 		})
 	}
 
@@ -676,6 +759,11 @@ func TestShard_HeadECPart(t *testing.T) {
 	hdr, err := s.HeadECPart(cnr, parentID, pi)
 	require.NoError(t, err)
 	require.Equal(t, partHdr, hdr)
+
+	buf := make([]byte, 40<<10)
+	n, err := s.ReadECPartHeader(cnr, parentID, pi, buf)
+	require.NoError(t, err)
+	require.Equal(t, partHdr.Marshal(), buf[:n])
 }
 
 func testGetECPartRangeStream(t *testing.T, obj object.Object, parent oid.ID, pi iec.PartInfo, s *Shard) {
