@@ -114,6 +114,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 			meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
 			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		))
 
 	require.NoError(t, s.Open())
@@ -134,6 +135,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("metabase%d", i))),
 				meta.WithPermissions(0700),
 				meta.WithEpochState(epochState{}),
+				meta.WithMaxBatchDelay(time.Microsecond),
 			),
 			shard.WithExpiredObjectsCallback(engine.processExpiredObjects),
 			shard.WithContainerPayments(containerPaymantsStub{}),

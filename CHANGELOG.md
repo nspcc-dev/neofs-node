@@ -56,7 +56,7 @@ Changelog for NeoFS Node
 - `replicator.pool_size` option (#3899)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.17.0.20260320132435-55419a28ca95` (#3785, #3817, #3808, #3830, #3883, #3896, #3887)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.18` (#3785, #3817, #3808, #3830, #3883, #3896, #3887, #3906)
 - `github.com/nspcc-dev/neo-go` module to `v0.118.0` (#3896)
 - Go 1.25+ is required to build now (#3525)
 - `github.com/klauspost/compress` dependency from v1.18.0 to v1.18.4 (#3850)

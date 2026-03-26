@@ -105,12 +105,16 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 }
 
 func objectStatus(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64) uint8 {
+	return objectStatusNested(metaCursor, id, currEpoch, 0)
+}
+
+func objectStatusNested(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64, nestingLevel int) uint8 {
 	var status = objectStatusDirect(metaCursor, id, currEpoch)
 
 	if status == statusAvailable || status == statusGCMarked {
 		var parent = findParent(metaCursor, id)
-		if !parent.IsZero() {
-			parentStatus := objectStatus(metaCursor, parent, currEpoch)
+		if !parent.IsZero() && nestingLevel < maxObjectNestingLevel {
+			parentStatus := objectStatusNested(metaCursor, parent, currEpoch, nestingLevel+1)
 			status = max(parentStatus, status)
 		}
 	}

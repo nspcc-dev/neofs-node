@@ -2,12 +2,12 @@ package shard_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -50,12 +50,12 @@ func (p *testContainerPayments) UnpaidSince(id cid.ID) (int64, error) {
 }
 
 func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
+	const gcInterval = 200 * time.Millisecond
 	var sh *shard.Shard
 
 	epoch := &epochState{
 		Value: 2,
 	}
-
 	rootPath := t.TempDir()
 	opts := []shard.Option{
 		shard.WithLogger(zaptest.NewLogger(t)),
@@ -65,120 +65,115 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epoch),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(func(aa []oid.Address) {
 			require.NoError(t, sh.Delete(aa))
 		}),
-		shard.WithGCRemoverSleepInterval(200 * time.Millisecond),
+		shard.WithGCRemoverSleepInterval(gcInterval),
 		shard.WithContainerPayments(&testContainerPayments{}),
 	}
 
-	sh = shard.New(opts...)
-	require.NoError(t, sh.Open())
-	require.NoError(t, sh.Init())
+	synctest.Test(t, func(t *testing.T) {
+		sh = shard.New(opts...)
+		require.NoError(t, sh.Open())
+		require.NoError(t, sh.Init())
 
-	t.Cleanup(func() {
-		releaseShard(sh, t)
-	})
+		t.Cleanup(func() {
+			releaseShard(sh, t)
+		})
 
-	cnr := cidtest.ID()
+		cnr := cidtest.ID()
 
-	var expAttrObj, expAttrLocker object.Attribute
-	expAttrObj.SetKey(object.AttributeExpirationEpoch)
-	expAttrLocker.SetKey(object.AttributeExpirationEpoch)
-	expAttrObj.SetValue("1")
+		var expAttrObj, expAttrLocker object.Attribute
+		expAttrObj.SetKey(object.AttributeExpirationEpoch)
+		expAttrLocker.SetKey(object.AttributeExpirationEpoch)
+		expAttrObj.SetValue("1")
 
-	obj := generateObjectWithCID(cnr)
-	obj.SetAttributes(expAttrObj)
-	objID := obj.GetID()
+		obj := generateObjectWithCID(cnr)
+		obj.SetAttributes(expAttrObj)
+		objID := obj.GetID()
 
-	expAttrLocker.SetValue("3")
+		expAttrLocker.SetValue("3")
 
-	lock := generateObjectWithCID(cnr)
-	lock.SetAttributes(expAttrLocker)
-	lock.AssociateLocked(objID)
-
-	err := sh.Put(obj, nil)
-	require.NoError(t, err)
-
-	err = sh.Put(lock, nil)
-	require.NoError(t, err)
-
-	_, err = sh.Get(obj.Address(), false)
-	require.NoError(t, err)
-
-	epoch.Value = 5
-	sh.NotificationChannel() <- shard.EventNewEpoch(epoch.Value)
-
-	require.Eventually(t, func() bool {
-		_, err = sh.Get(obj.Address(), false)
-		return shard.IsErrObjectExpired(err)
-	}, 3*time.Second, 1*time.Second, "lock expiration should make the object expired")
-
-	epoch.Value = 6
-	sh.NotificationChannel() <- shard.EventNewEpoch(epoch.Value)
-
-	require.Eventually(t, func() bool {
-		_, err = sh.Get(obj.Address(), false)
-		return shard.IsErrNotFound(err)
-	}, 3*time.Second, 1*time.Second, "expired object should eventually be deleted")
-}
-
-func TestGC_ContainerCleanup(t *testing.T) {
-	sh := newCustomShard(t, t.TempDir(), false,
-		nil,
-		shard.WithGCRemoverSleepInterval(10*time.Millisecond),
-		shard.WithLogger(zaptest.NewLogger(t)))
-	defer releaseShard(sh, t)
-
-	const numOfObjs = 10
-	cID := cidtest.ID()
-	oo := make([]oid.Address, 0, numOfObjs)
-
-	for i := range numOfObjs {
-		obj := generateObjectWithCID(cID)
-		addAttribute(obj, fmt.Sprintf("foo%d", i), fmt.Sprintf("bar%d", i))
-		if i%2 == 0 {
-			addPayload(obj, 1<<5) // small
-		} else {
-			addPayload(obj, 1<<20) // big
-		}
+		lock := generateObjectWithCID(cnr)
+		lock.SetAttributes(expAttrLocker)
+		lock.AssociateLocked(objID)
 
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		oo = append(oo, obj.Address())
-	}
-
-	containers, err := sh.ListContainers()
-	require.NoError(t, err)
-	require.Len(t, containers, 1)
-
-	for _, o := range oo {
-		_, err = sh.Get(o, false)
+		err = sh.Put(lock, nil)
 		require.NoError(t, err)
-	}
 
-	require.NoError(t, sh.InhumeContainer(cID))
-
-	require.Eventually(t, func() bool {
-		containers, err = sh.ListContainers()
+		_, err = sh.Get(obj.Address(), false)
 		require.NoError(t, err)
+
+		epoch.Value = 5
+		sh.NotificationChannel() <- shard.EventNewEpoch(epoch.Value)
+
+		time.Sleep(gcInterval)
+
+		_, err = sh.Get(obj.Address(), false)
+		require.True(t, shard.IsErrNotFound(err))
+	})
+}
+
+func TestGC_ContainerCleanup(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		sh := newCustomShard(t, t.TempDir(), false,
+			nil,
+			shard.WithGCRemoverSleepInterval(10*time.Millisecond),
+			shard.WithLogger(zaptest.NewLogger(t)))
+		defer releaseShard(sh, t)
+
+		const numOfObjs = 10
+		cID := cidtest.ID()
+		oo := make([]oid.Address, 0, numOfObjs)
+
+		for i := range numOfObjs {
+			obj := generateObjectWithCID(cID)
+			addAttribute(obj, fmt.Sprintf("foo%d", i), fmt.Sprintf("bar%d", i))
+			if i%2 == 0 {
+				addPayload(obj, 1<<5) // small
+			} else {
+				addPayload(obj, 1<<20) // big
+			}
+
+			err := sh.Put(obj, nil)
+			require.NoError(t, err)
+
+			oo = append(oo, obj.Address())
+		}
+
+		containers, err := sh.ListContainers()
+		require.NoError(t, err)
+		require.Len(t, containers, 1)
 
 		for _, o := range oo {
 			_, err = sh.Get(o, false)
-			if !errors.Is(err, apistatus.ObjectNotFound{}) {
-				return false
-			}
+			require.NoError(t, err)
 		}
 
-		return len(containers) == 0
-	}, time.Second, 100*time.Millisecond)
+		require.NoError(t, sh.InhumeContainer(cID))
+
+		time.Sleep(time.Second)
+
+		containers, err = sh.ListContainers()
+		require.NoError(t, err)
+		require.Zero(t, len(containers))
+
+		for _, o := range oo {
+			_, err = sh.Get(o, false)
+			require.ErrorIs(t, err, apistatus.ObjectNotFound{})
+		}
+	})
 }
 
 func TestExpiration(t *testing.T) {
 	rootPath := t.TempDir()
 	var sh *shard.Shard
+	const gcInterval = 100 * time.Millisecond
 
 	opts := []shard.Option{
 		shard.WithLogger(zaptest.NewLogger(t)),
@@ -188,32 +183,33 @@ func TestExpiration(t *testing.T) {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{Value: 0}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {
 				require.NoError(t, sh.Delete(addresses))
 			},
 		),
-		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),
+		shard.WithGCRemoverSleepInterval(gcInterval),
 		shard.WithContainerPayments(&testContainerPayments{}),
 	}
 
-	sh = shard.New(opts...)
-	require.NoError(t, sh.Open())
-	require.NoError(t, sh.Init())
+	synctest.Test(t, func(t *testing.T) {
+		sh = shard.New(opts...)
+		require.NoError(t, sh.Open())
+		require.NoError(t, sh.Init())
 
-	t.Cleanup(func() {
-		releaseShard(sh, t)
-	})
-	ch := sh.NotificationChannel()
+		t.Cleanup(func() {
+			releaseShard(sh, t)
+		})
+		ch := sh.NotificationChannel()
 
-	var expAttr object.Attribute
-	expAttr.SetKey(object.AttributeExpirationEpoch)
+		var expAttr object.Attribute
+		expAttr.SetKey(object.AttributeExpirationEpoch)
 
-	obj := generateObject()
+		obj := generateObject()
 
-	for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink} {
-		t.Run(fmt.Sprintf("type: %s", typ), func(t *testing.T) {
+		for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink} {
 			exp := uint64(i * 10)
 
 			expAttr.SetValue(strconv.FormatUint(exp, 10))
@@ -229,12 +225,11 @@ func TestExpiration(t *testing.T) {
 
 			ch <- shard.EventNewEpoch(exp + 1)
 
-			require.Eventually(t, func() bool {
-				_, err = sh.Get(obj.Address(), false)
-				return shard.IsErrNotFound(err)
-			}, 3*time.Second, 100*time.Millisecond, "expiration should lead to object removal")
-		})
-	}
+			time.Sleep(gcInterval * 2)
+			_, err = sh.Get(obj.Address(), false)
+			require.True(t, shard.IsErrNotFound(err), fmt.Sprintf("expiration should lead to object removal for %s", typ))
+		}
+	})
 }
 
 func TestContainerPayments(t *testing.T) {
@@ -251,6 +246,7 @@ func TestContainerPayments(t *testing.T) {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{Value: 0}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {

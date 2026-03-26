@@ -3,6 +3,7 @@ package shard_test
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -303,7 +304,8 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(path, "meta")),
-			meta.WithEpochState(epochState{})),
+			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond)),
 		shard.WithMetricsWriter(mm),
 	)
 	require.NoError(t, sh.Open())

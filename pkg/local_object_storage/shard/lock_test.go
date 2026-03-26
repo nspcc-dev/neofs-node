@@ -3,6 +3,7 @@ package shard_test
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -32,6 +33,7 @@ func TestShard_Lock(t *testing.T) {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 	}
 
@@ -140,6 +142,7 @@ func TestShard_Lock_Removed(t *testing.T) {
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, "meta")),
 				meta.WithEpochState(epochState{}),
+				meta.WithMaxBatchDelay(time.Microsecond),
 			),
 		)
 

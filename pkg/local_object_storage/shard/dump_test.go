@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
+	"testing/synctest"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -190,45 +190,45 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 }
 
 func TestStream(t *testing.T) {
-	sh1 := newCustomShard(t, filepath.Join(t.TempDir(), "shard1"), false, nil)
-	defer releaseShard(sh1, t)
+	synctest.Test(t, func(t *testing.T) {
+		sh1 := newCustomShard(t, filepath.Join(t.TempDir(), "shard1"), false, nil)
+		defer releaseShard(sh1, t)
 
-	sh2 := newCustomShard(t, filepath.Join(t.TempDir(), "shard2"), false, nil)
-	defer releaseShard(sh2, t)
+		sh2 := newCustomShard(t, filepath.Join(t.TempDir(), "shard2"), false, nil)
+		defer releaseShard(sh2, t)
 
-	const objCount = 5
-	objects := make([]*object.Object, objCount)
-	for i := range objCount {
-		cnr := cidtest.ID()
-		obj := generateObjectWithCID(cnr)
-		objects[i] = obj
+		const objCount = 5
+		objects := make([]*object.Object, objCount)
+		for i := range objCount {
+			cnr := cidtest.ID()
+			obj := generateObjectWithCID(cnr)
+			objects[i] = obj
 
-		err := sh1.Put(objects[i], nil)
-		require.NoError(t, err)
-	}
+			err := sh1.Put(objects[i], nil)
+			require.NoError(t, err)
+		}
 
-	require.NoError(t, sh1.SetMode(mode.ReadOnly))
+		require.NoError(t, sh1.SetMode(mode.ReadOnly))
 
-	r, w := io.Pipe()
-	finish := make(chan struct{})
+		r, w := io.Pipe()
+		finish := make(chan struct{})
 
-	go func() {
-		res, err := sh1.Dump(w, false)
-		require.NoError(t, err)
-		require.Equal(t, objCount, res)
-		require.NoError(t, w.Close())
-		close(finish)
-	}()
+		go func() {
+			res, err := sh1.Dump(w, false)
+			require.NoError(t, err)
+			require.Equal(t, objCount, res)
+			require.NoError(t, w.Close())
+			close(finish)
+		}()
 
-	checkRestore(t, sh2, "", r, objects)
-	require.Eventually(t, func() bool {
+		checkRestore(t, sh2, "", r, objects)
+		synctest.Wait()
 		select {
 		case <-finish:
-			return true
 		default:
-			return false
+			t.Error("didn't finish")
 		}
-	}, time.Second, time.Millisecond)
+	})
 }
 
 func restoreFile(t *testing.T, sh *shard.Shard, path string, ignoreErrors bool) (int, int, error) {

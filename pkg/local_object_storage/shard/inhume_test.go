@@ -33,7 +33,7 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 
-	_, err = testGet(t, sh, obj.Address(), hasWriteCache)
+	_, err = sh.Get(obj.Address(), false)
 	require.NoError(t, err)
 
 	err = sh.Put(ts, nil)

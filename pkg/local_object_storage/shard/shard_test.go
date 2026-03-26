@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -61,6 +62,7 @@ func _newShardWithFSTree(t testing.TB, rootPath string, enableWriteCache bool, w
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
 			meta.WithLogger(zaptest.NewLogger(t)),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(

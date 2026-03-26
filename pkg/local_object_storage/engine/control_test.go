@@ -46,7 +46,8 @@ func TestInitializationFailure(t *testing.T) {
 				}),
 				meta.WithPath(c.metabase),
 				meta.WithPermissions(0700),
-				meta.WithEpochState(epochState{})),
+				meta.WithEpochState(epochState{}),
+				meta.WithMaxBatchDelay(time.Microsecond)),
 			shard.WithWriteCache(true),
 			shard.WithWriteCacheOptions(writecache.WithPath(c.writecache)),
 		}
@@ -211,6 +212,7 @@ func TestReload(t *testing.T) {
 		rcfg.AddShard(newMeta, []shard.Option{shard.WithMetaBaseOptions(
 			meta.WithPath(newMeta),
 			meta.WithEpochState(epochState{}),
+			meta.WithMaxBatchDelay(time.Microsecond),
 		), shard.WithBlobstor(
 			newStorage(filepath.Join(addPath, "fstree")),
 		)})
@@ -253,6 +255,7 @@ func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []str
 				meta.WithPath(filepath.Join(addPath, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),
 				meta.WithEpochState(epochState{}),
+				meta.WithMaxBatchDelay(time.Microsecond),
 			),
 		)
 		require.NoError(t, err)

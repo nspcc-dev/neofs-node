@@ -7,7 +7,6 @@ import (
 	"io"
 	"testing"
 	"testing/iotest"
-	"time"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
@@ -43,7 +42,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		res, err := testGet(t, sh, addr, hasWriteCache)
+		res, err := sh.Get(addr, false)
 		require.NoError(t, err)
 		require.Equal(t, obj, res)
 
@@ -61,7 +60,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		res, err := testGet(t, sh, addr, hasWriteCache)
+		res, err := sh.Get(addr, false)
 		require.NoError(t, err)
 		require.Equal(t, obj, res)
 
@@ -88,7 +87,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(child, nil)
 		require.NoError(t, err)
 
-		res, err := testGet(t, sh, childAddr, hasWriteCache)
+		res, err := sh.Get(childAddr, false)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(child, res))
 
@@ -96,7 +95,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 
 		_, _, streamErr := sh.GetStream(parentAddr, false)
 		require.Error(t, streamErr)
-		_, err = testGet(t, sh, parentAddr, hasWriteCache)
+		_, err = sh.Get(parentAddr, false)
 		require.Equal(t, streamErr, err)
 
 		var si *object.SplitInfoError
@@ -109,19 +108,6 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		require.Equal(t, id1, id2)
 		require.Equal(t, splitID, si.SplitInfo().SplitID())
 	})
-}
-
-func testGet(t *testing.T, sh *shard.Shard, addr oid.Address, hasWriteCache bool) (*object.Object, error) {
-	res, err := sh.Get(addr, false)
-	if hasWriteCache {
-		require.Eventually(t, func() bool {
-			if shard.IsErrNotFound(err) {
-				res, err = sh.Get(addr, false)
-			}
-			return !shard.IsErrNotFound(err)
-		}, time.Second, time.Millisecond*100)
-	}
-	return res, err
 }
 
 func testGetBytes(t testing.TB, sh *shard.Shard, addr oid.Address, objBin []byte) {
