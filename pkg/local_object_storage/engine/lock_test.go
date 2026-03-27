@@ -239,7 +239,6 @@ func testLockRemoved(t *testing.T, shardNum int) {
 			require.NoError(t, err)
 		}
 
-		require.NoError(t, s.Open())
 		require.NoError(t, s.Init())
 
 		return s
@@ -355,7 +354,6 @@ func TestSplitObjectLockExpiration(t *testing.T) {
 		)
 		require.NoError(t, err)
 	}
-	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 	t.Cleanup(func() { _ = e.Close() })
 
@@ -454,7 +452,6 @@ func TestSimpleLockExpiration(t *testing.T) {
 		)
 		require.NoError(t, err)
 	}
-	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 	t.Cleanup(func() { _ = e.Close() })
 

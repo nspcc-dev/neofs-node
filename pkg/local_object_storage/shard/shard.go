@@ -32,6 +32,8 @@ type Shard struct {
 	metaBase *meta.DB
 	// TODO: make metaBase of metabase type
 	metaBaseIface metabase
+
+	metaBaseOpenErr error
 }
 
 // Option represents Shard's constructor option.
@@ -155,11 +157,9 @@ func New(opts ...Option) *Shard {
 	return s
 }
 
-// WithID returns option to set the default shard identifier.
-func WithID(id *ID) Option {
-	return func(c *cfg) {
-		c.info.ID = id
-	}
+// ID returns Shard identifier.
+func (s *Shard) ID() common.ID {
+	return s.info.ID
 }
 
 // WithBlobstor provides storage.

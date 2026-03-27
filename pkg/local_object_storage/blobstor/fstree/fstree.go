@@ -38,7 +38,8 @@ type FSTree struct {
 	shardIDSet bool
 	noSync     bool
 	readOnly   bool
-	shardID    string
+	shardID    common.ID
+	subtype    string
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
@@ -111,6 +112,7 @@ func New(opts ...Option) *FSTree {
 		combinedSizeThreshold: 128 * 1024,
 		combinedWriteInterval: 10 * time.Millisecond,
 		log:                   zap.NewNop(),
+		subtype:               SubtypeBlobstor,
 	}
 	for i := range opts {
 		opts[i](f)
@@ -561,6 +563,11 @@ func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.Rea
 // Type is fstree storage type used in logs and configuration.
 const Type = "fstree"
 
+const (
+	SubtypeBlobstor   = "blobstor"
+	SubtypeWriteCache = "write-cache"
+)
+
 // Type implements common.Storage.
 func (*FSTree) Type() string {
 	return Type
@@ -572,12 +579,12 @@ func (t *FSTree) Path() string {
 }
 
 // ShardID returns the shard ID associated with this FSTree.
-func (t *FSTree) ShardID() string {
+func (t *FSTree) ShardID() common.ID {
 	if !t.shardIDSet {
 		descPath := t.descriptorPath()
 		f, err := os.Open(descPath)
 		if err != nil {
-			return ""
+			return common.ID{}
 		}
 		defer f.Close()
 
@@ -585,28 +592,20 @@ func (t *FSTree) ShardID() string {
 		dec := json.NewDecoder(f)
 		dec.DisallowUnknownFields()
 		if err = dec.Decode(&d); err != nil {
-			return ""
+			return common.ID{}
 		}
-		return d.ShardID
+		id, err := common.DecodeIDString(d.ShardID)
+		if err != nil {
+			return common.ID{}
+		}
+		return id
 	}
 	return t.shardID
-}
-
-// SetShardID sets the shard ID to be written to the on-disk descriptor.
-// Must be called after the shard ID was generated and before Init().
-func (t *FSTree) SetShardID(id string) {
-	t.shardID = id
-	t.shardIDSet = true
 }
 
 // SetCompressor implements common.Storage.
 func (t *FSTree) SetCompressor(cc *compression.Config) {
 	t.Config = cc
-}
-
-// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (t *FSTree) SetLogger(l *zap.Logger) {
-	t.log = l.With(zap.String("substorage", Type))
 }
 
 // CleanUpTmp removes all temporary files garbage.

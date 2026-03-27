@@ -6,6 +6,7 @@ import (
 	"os"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
+	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,7 @@ func writeObject(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	err = db.Init()
+	err = db.Init(blobstorcommon.ID{})
 	if err != nil {
 		return fmt.Errorf("can't init metabase: %w", err)
 	}

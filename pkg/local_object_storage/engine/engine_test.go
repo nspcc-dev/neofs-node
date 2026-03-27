@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -100,13 +99,9 @@ func newStorage(root string) common.Storage {
 }
 
 func testNewShard(t testing.TB, id int) *shard.Shard {
-	sid, err := generateShardID()
-	require.NoError(t, err)
-
 	dir := t.TempDir()
 
 	s := shard.New(
-		shard.WithID(sid),
 		shard.WithLogger(zap.L()),
 		shard.WithBlobstor(
 			newStorage(filepath.Join(dir, fmt.Sprintf("%d.fstree", id)))),
@@ -143,7 +138,6 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, engine.Open())
 	require.NoError(t, engine.Init())
 
 	return engine
@@ -199,7 +193,7 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 
 type unimplementedShard struct{}
 
-func (unimplementedShard) ID() *shard.ID {
+func (unimplementedShard) ID() common.ID {
 	panic("unimplemented")
 }
 
@@ -314,9 +308,12 @@ type mockShard struct {
 	headECPart     map[headECPartKey]headECPartValue
 }
 
-func (x *mockShard) ID() *shard.ID {
-	si := strconv.Itoa(x.i)
-	return shard.NewIDFromBytes([]byte(si))
+func (x *mockShard) ID() common.ID {
+	id, err := common.NewIDFromBytes(fmt.Appendf(nil, "%016d", x.i))
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.ReadCloser, error) {

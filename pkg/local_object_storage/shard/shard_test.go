@@ -56,7 +56,6 @@ func _newShardWithFSTree(t testing.TB, rootPath string, enableWriteCache bool, w
 	)
 
 	opts := append([]shard.Option{
-		shard.WithID(shard.NewIDFromBytes([]byte("testShard"))),
 		shard.WithLogger(zap.L()),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),

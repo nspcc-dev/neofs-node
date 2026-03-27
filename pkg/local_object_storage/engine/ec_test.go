@@ -12,11 +12,11 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/mr-tron/base58"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -29,6 +29,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
+
+func testShardIDString(n int) string {
+	id, err := common.NewIDFromBytes(fmt.Appendf(nil, "%016d", n))
+	if err != nil {
+		panic(err)
+	}
+	return id.String()
+}
 
 func TestStorageEngine_GetECPart(t *testing.T) {
 	cnr := cidtest.ID()
@@ -231,7 +239,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -255,7 +263,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -279,7 +287,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -303,7 +311,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -336,7 +344,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		})
@@ -365,7 +373,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		})
@@ -399,7 +407,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		}, {
@@ -411,7 +419,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
 				"partID":    partID.String(),
-				"shardID":   base58.Encode([]byte("2")),
+				"shardID":   testShardIDString(2),
 				"error":     "some shard error",
 			},
 		}})
@@ -697,7 +705,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some shard error",
 			},
 		})
@@ -719,7 +727,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some shard error",
 			},
 		})
@@ -741,7 +749,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some shard error",
 			},
 		})
@@ -763,7 +771,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some shard error",
 			},
 		})
@@ -795,7 +803,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
 				"partID":    partID.String(),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		})
@@ -823,7 +831,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
 				"partID":    partID.String(),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		})
@@ -856,7 +864,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
 				"partID":    partID.String(),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		}, {
@@ -868,7 +876,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
 				"partID":    partID.String(),
-				"shardID":   base58.Encode([]byte("2")),
+				"shardID":   testShardIDString(2),
 				"error":     "some shard error",
 			},
 		}})
@@ -1143,7 +1151,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -1167,7 +1175,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -1191,7 +1199,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -1215,7 +1223,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("0")),
+				"shardID":   testShardIDString(0),
 				"error":     "some shard error",
 			},
 		})
@@ -1248,7 +1256,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		})
@@ -1277,7 +1285,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		})
@@ -1311,7 +1319,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"parent":    parentID.String(),
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
-				"shardID":   base58.Encode([]byte("1")),
+				"shardID":   testShardIDString(1),
 				"error":     "some error: " + partID.String(),
 			},
 		}, {
@@ -1323,7 +1331,7 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 				"ecRule":    json.Number("123"),
 				"partIdx":   json.Number("456"),
 				"partID":    partID.String(),
-				"shardID":   base58.Encode([]byte("2")),
+				"shardID":   testShardIDString(2),
 				"error":     "some shard error",
 			},
 		}})

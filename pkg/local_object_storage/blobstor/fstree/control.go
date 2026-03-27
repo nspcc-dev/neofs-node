@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"go.uber.org/zap"
 )
 
 // currentVersion contains current FSTree config version.
@@ -25,6 +27,7 @@ type fsDescriptor struct {
 	Version int    `json:"version"`
 	Depth   uint64 `json:"depth"`
 	ShardID string `json:"shard_id"`
+	Subtype string `json:"subtype"`
 }
 
 func (t *FSTree) descriptorPath() string {
@@ -32,16 +35,26 @@ func (t *FSTree) descriptorPath() string {
 }
 
 // Init implements common.Storage.
-func (t *FSTree) Init() error {
+func (t *FSTree) Init(id common.ID) error {
 	err := util.MkdirAllX(t.RootPath, t.Permissions)
 	if err != nil {
 		return fmt.Errorf("mkdir all for %q: %w", t.RootPath, err)
+	}
+
+	if !id.IsZero() {
+		t.shardID = id
+		t.shardIDSet = true
 	}
 
 	err = t.checkConfig()
 	if err != nil {
 		return err
 	}
+
+	t.log = t.log.With(
+		zap.String("substorage", t.subtype),
+		zap.String("shard_id", t.shardID.String()),
+	)
 
 	if !t.readOnly {
 		var w = newSpecificWriter(t)
@@ -67,11 +80,19 @@ func (t *FSTree) checkConfig() error {
 		if t.readOnly {
 			return fmt.Errorf("descriptor %q is missing, can't open read-only storage", descPath)
 		}
+		if !t.shardIDSet {
+			t.shardID, err = common.NewID()
+			if err != nil {
+				return fmt.Errorf("generate shard ID: %w", err)
+			}
+			t.shardIDSet = true
+		}
 		// create new descriptor
 		d := fsDescriptor{
 			Version: currentVersion,
 			Depth:   t.Depth,
-			ShardID: t.shardID,
+			ShardID: t.shardID.String(),
+			Subtype: t.subtype,
 		}
 		data, err := json.Marshal(d)
 		if err != nil {
@@ -102,6 +123,10 @@ func (t *FSTree) checkConfig() error {
 	if d.Version != currentVersion {
 		return fmt.Errorf("unsupported layout version: %d (current version: %d)", d.Version, currentVersion)
 	}
+	if d.Subtype != t.subtype {
+		return fmt.Errorf("subtype mismatch: on-disk subtype=%s, configured subtype=%s", d.Subtype, t.subtype)
+	}
+
 	if t.depthSet {
 		if d.Depth != t.Depth {
 			return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
@@ -110,18 +135,28 @@ func (t *FSTree) checkConfig() error {
 		t.Depth = d.Depth
 	}
 	if t.shardIDSet {
-		if d.ShardID != t.shardID {
-			return fmt.Errorf("shard ID mismatch: on-disk shard ID=%s, configured shard ID=%s", d.ShardID, t.shardID)
+		if d.ShardID != t.shardID.String() {
+			return fmt.Errorf("shard ID mismatch: on-disk shard ID=%s, configured shard ID=%s", d.ShardID, t.shardID.String())
 		}
 	} else {
-		t.shardID = d.ShardID
-		t.shardIDSet = true
+		if d.ShardID == "" {
+			t.shardID = common.ID{}
+			t.shardIDSet = false
+			return nil
+		}
+		id, err := common.DecodeIDString(d.ShardID)
+		if err != nil {
+			return fmt.Errorf("invalid shard ID %q in descriptor: %w", d.ShardID, err)
+		}
+		t.shardID = id
+		t.shardIDSet = !id.IsZero()
 	}
 	return nil
 }
 
 // migrateDescriptorFrom1Version migrates descriptor from version 1 to version 2.
-// In version 1, ShardID was path-based and needs to be updated during migration.
+// In version 1, ShardID was path-based and needs to be updated during migration,
+// and a new subtype field was presented.
 func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string) error {
 	if t.depthSet {
 		if d.Depth != t.Depth {
@@ -131,15 +166,27 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 		t.Depth = d.Depth
 	}
 
+	if !t.shardIDSet && d.ShardID != "" {
+		id, err := common.DecodeIDString(d.ShardID)
+		if err == nil {
+			t.shardID = id
+			t.shardIDSet = !id.IsZero()
+		}
+	}
+
 	if !t.shardIDSet {
-		t.shardID = d.ShardID
+		id, err := common.NewID()
+		if err != nil {
+			return fmt.Errorf("generate shard ID during migration: %w", err)
+		}
+		t.shardID = id
 		t.shardIDSet = true
 	}
 
 	if !t.readOnly {
 		d.Version = currentVersion
-		// update shard ID
-		d.ShardID = t.shardID
+		d.ShardID = t.shardID.String()
+		d.Subtype = t.subtype
 		data, err := json.Marshal(d)
 		if err != nil {
 			return fmt.Errorf("encode descriptor to JSON during migration: %w", err)

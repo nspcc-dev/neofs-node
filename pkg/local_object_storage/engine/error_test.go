@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -20,14 +21,14 @@ import (
 
 const errSmallSize = 256
 
-func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string, [2]*shard.ID) {
+func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string, [2]common.ID) {
 	if dir == "" {
 		dir = t.TempDir()
 	}
 
 	e := New(append([]Option{WithShardPoolSize(1)}, opts...)...)
 
-	var ids [2]*shard.ID
+	var ids [2]common.ID
 	var err error
 
 	for i := range ids {
@@ -42,13 +43,12 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 			))
 		require.NoError(t, err)
 	}
-	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 
 	return e, dir, ids
 }
 
-func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) (*StorageEngine, string, [2]*shard.ID) {
+func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) (*StorageEngine, string, [2]common.ID) {
 	return newEngine(t, dir, WithLogger(zaptest.NewLogger(t)), WithErrorThreshold(errThreshold))
 }
 
@@ -181,7 +181,7 @@ func TestBlobstorFailback(t *testing.T) {
 	checkShardState(t, e, id[1], 0, mode.ReadWrite)
 }
 
-func checkShardState(t *testing.T, e *StorageEngine, id *shard.ID, errCount uint32, mode mode.Mode) {
+func checkShardState(t *testing.T, e *StorageEngine, id common.ID, errCount uint32, mode mode.Mode) {
 	e.mtx.RLock()
 	sh := e.shards[id.String()]
 	e.mtx.RUnlock()

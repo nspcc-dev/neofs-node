@@ -137,9 +137,6 @@ func openEngine(readOnly bool) (*engine.StorageEngine, error) {
 		}
 	}
 
-	if err := ls.Open(); err != nil {
-		return nil, err
-	}
 	if err := ls.Init(); err != nil {
 		return nil, err
 	}

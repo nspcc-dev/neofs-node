@@ -66,7 +66,7 @@ func BenchmarkPut(b *testing.B) {
 				b.Run(name, func(b *testing.B) {
 					ptt := creat(b)
 					require.NoError(b, ptt.Open(false))
-					require.NoError(b, ptt.Init())
+					require.NoError(b, ptt.Init(common.ID{}))
 					b.Cleanup(func() { _ = ptt.Close() })
 
 					benchmark(b, ptt, tc.objSize, tc.nThreads)
@@ -141,7 +141,7 @@ func prepareObjects(b *testing.B, creat func(testing.TB) common.Storage, objSize
 
 	ptt := creat(b)
 	require.NoError(b, ptt.Open(false))
-	require.NoError(b, ptt.Init())
+	require.NoError(b, ptt.Init(common.ID{}))
 	b.Cleanup(func() { _ = ptt.Close() })
 
 	obj := object.New(cid.ID{1, 2, 3}, usertest.ID())

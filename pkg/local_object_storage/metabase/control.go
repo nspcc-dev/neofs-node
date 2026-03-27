@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -71,8 +70,15 @@ func (db *DB) openBolt() error {
 //
 // Does nothing if metabase has already been initialized and filled. To roll back the database to its initial state,
 // use Reset.
-func (db *DB) Init() error {
-	return db.init(false)
+func (db *DB) Init(id common.ID) error {
+	if !id.IsZero() {
+		db.log = db.log.With(zap.Stringer("shard_id", id))
+	}
+	if err := db.init(false); err != nil {
+		return err
+	}
+
+	return db.ensureShardID(id)
 }
 
 // Reset resets metabase. Works similar to Init but cleans up all static buckets and
@@ -232,13 +238,9 @@ func (db *DB) ResyncFromBlobstor(bs common.Storage, onIterationError func(oid.Ad
 		return fmt.Errorf("could not reset metabase: %w", err)
 	}
 
-	strBlobstorShardID := bs.ShardID()
-	if strBlobstorShardID != "" {
-		blobstorShardID, err := base58.Decode(strBlobstorShardID)
-		if err != nil {
-			return fmt.Errorf("invalid blobstor shard ID %q: %w", strBlobstorShardID, err)
-		}
-		err = db.WriteShardID(blobstorShardID)
+	blobstorShardID := bs.ShardID()
+	if !blobstorShardID.IsZero() {
+		err = db.WriteShardID(blobstorShardID.Bytes())
 		if err != nil {
 			return fmt.Errorf("could not write shard ID: %w", err)
 		}

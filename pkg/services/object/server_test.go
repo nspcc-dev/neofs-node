@@ -747,7 +747,6 @@ func newSimpleStorage(t *testing.T, fsChain FSChain) *engine.StorageEngine {
 	)
 	require.NoError(t, err)
 
-	require.NoError(t, storage.Open())
 	require.NoError(t, storage.Init())
 	t.Cleanup(func() { storage.Close() })
 
