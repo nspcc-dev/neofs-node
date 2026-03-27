@@ -129,7 +129,8 @@
           "path": "tmp/0/meta",
           "perm": "0644",
           "max_batch_size": 100,
-          "max_batch_delay": "10ms"
+          "max_batch_delay": "10ms",
+          "search_iteration_limit": -1
         },
         "compress": true,
         "compression_exclude_content_types": [
@@ -157,7 +158,8 @@
           "path": "tmp/1/meta",
           "perm": "0644",
           "max_batch_size": 200,
-          "max_batch_delay": "20ms"
+          "max_batch_delay": "20ms",
+          "search_iteration_limit": 5000
         },
         "compress": false,
         "blobstor": {
