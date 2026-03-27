@@ -441,6 +441,106 @@ func TestDB_SearchObjects(t *testing.T) {
 	t.Run("filtered results", func(t *testing.T) {
 		metatest.TestSearchObjects(t, &searchTestDB{db: db}, true)
 	})
+	t.Run("search iteration limit", func(t *testing.T) {
+		const primaryAttr, primaryVal = "primary", "group"
+		const secondaryAttr = "secondary"
+
+		newObject := func(cnr cid.ID) *object.Object {
+			obj := object.New(cnr, usertest.ID())
+			obj.SetID(oidtest.ID())
+			obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
+			return obj
+		}
+		buildFilters := func(secondaryVal string) object.SearchFilters {
+			var fs object.SearchFilters
+			fs.AddFilter(primaryAttr, primaryVal, object.MatchStringEqual)
+			fs.AddFilter(secondaryAttr, secondaryVal, object.MatchStringEqual)
+			return fs
+		}
+		runSearch := func(t *testing.T, db *DB, cnr cid.ID, fs object.SearchFilters) ([]client.SearchResultItem, []byte, error) {
+			ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, nil, "")
+			require.NoError(t, err)
+			return db.Search(cnr, ofs, nil, cursor, 1000)
+		}
+
+		t.Run("exceeded without matches", func(t *testing.T) {
+			db := newDB(t, WithSearchIterationLimit(3))
+			cnr := cidtest.ID()
+			for range 4 {
+				obj := newObject(cnr)
+				appendAttribute(obj, primaryAttr, primaryVal)
+				require.NoError(t, db.Put(obj))
+			}
+
+			_, _, err := runSearch(t, db, cnr, buildFilters("missing"))
+			require.ErrorIs(t, err, ErrSearchIterationLimitExceeded)
+		})
+
+		t.Run("empty result below limit", func(t *testing.T) {
+			db := newDB(t, WithSearchIterationLimit(10))
+			cnr := cidtest.ID()
+			for range 4 {
+				obj := newObject(cnr)
+				appendAttribute(obj, primaryAttr, primaryVal)
+				require.NoError(t, db.Put(obj))
+			}
+
+			res, cursor, err := runSearch(t, db, cnr, buildFilters("missing"))
+			require.NoError(t, err)
+			require.Empty(t, res)
+			require.Nil(t, cursor)
+		})
+
+		t.Run("zero disables limit", func(t *testing.T) {
+			db := newDB(t, WithSearchIterationLimit(0))
+			cnr := cidtest.ID()
+			for range 4 {
+				obj := newObject(cnr)
+				appendAttribute(obj, primaryAttr, primaryVal)
+				require.NoError(t, db.Put(obj))
+			}
+
+			res, cursor, err := runSearch(t, db, cnr, buildFilters("missing"))
+			require.NoError(t, err)
+			require.Empty(t, res)
+			require.Nil(t, cursor)
+		})
+
+		t.Run("match on last allowed iteration", func(t *testing.T) {
+			db := newDB(t, WithSearchIterationLimit(3))
+			cnr := cidtest.ID()
+			for i := range 3 {
+				obj := newObject(cnr)
+				appendAttribute(obj, primaryAttr, primaryVal)
+				if i == 2 {
+					appendAttribute(obj, secondaryAttr, "hit")
+				}
+				require.NoError(t, db.Put(obj))
+			}
+
+			res, cursor, err := runSearch(t, db, cnr, buildFilters("hit"))
+			require.NoError(t, err)
+			require.Len(t, res, 1)
+			require.Nil(t, cursor)
+		})
+
+		t.Run("single early match does not disable limit", func(t *testing.T) {
+			db := newDB(t, WithSearchIterationLimit(3))
+			cnr := cidtest.ID()
+			for i := range 5 {
+				obj := newObject(cnr)
+				obj.SetID(oid.ID{byte(i + 1)})
+				appendAttribute(obj, primaryAttr, primaryVal)
+				if i == 0 {
+					appendAttribute(obj, secondaryAttr, "hit")
+				}
+				require.NoError(t, db.Put(obj))
+			}
+
+			_, _, err := runSearch(t, db, cnr, buildFilters("hit"))
+			require.ErrorIs(t, err, ErrSearchIterationLimitExceeded)
+		})
+	})
 	t.Run("GC", func(t *testing.T) {
 		s := testEpochState(10)
 		db := newDB(t, WithEpochState(s))

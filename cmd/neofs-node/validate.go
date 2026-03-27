@@ -65,6 +65,10 @@ func validateConfig(c *config.Config) error {
 		if !sc.Mode.IsValid() {
 			return fmt.Errorf("unknown shard mode: %s (shard %d)", sc.Mode, shardNum)
 		}
+		if sc.Metabase.SearchIterationLimit != nil && *sc.Metabase.SearchIterationLimit < 0 {
+			return fmt.Errorf("invalid search iteration limit: %d (shard %d), expected non-negative value",
+				*sc.Metabase.SearchIterationLimit, shardNum)
+		}
 		if *sc.WriteCache.Enabled {
 			err = addPath(paths, "writecache", shardNum, sc.WriteCache.Path)
 			if err != nil {

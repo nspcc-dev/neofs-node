@@ -154,6 +154,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				meta.WithPermissions(shCfg.Metabase.Perm),
 				meta.WithMaxBatchSize(int(shCfg.Metabase.MaxBatchSize)),
 				meta.WithMaxBatchDelay(shCfg.Metabase.MaxBatchDelay),
+				meta.WithSearchIterationLimit(uint64(*shCfg.Metabase.SearchIterationLimit)),
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: time.Second,
 				}),
