@@ -4,6 +4,24 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.52.0
+
+## [0.52.0] - 2026-03-27 - Woodo
+
+Delivering performance optimizations and initial placement feature this
+release also brings with it much more powerful maintenance tools and
+a huge list of updates and fixes.
+
+### Added
 - `neofs-lancet meta resync` command (#3849, #3890)
 - `policer.boost_multiplier` SN config option (#3855)
 - `neofs-lancet storage flush-write-caches` command (#3872)
@@ -83,9 +101,10 @@ Storage nodes no longer automatically migrate metabases from version 5
 (NeoFS 0.46.0) to 6 (NeoFS 0.48.0) and from version 6 to version 7 (NeoFS
 0.48.1), migrate using SN 0.51.1 or resynchronize with 0.52.0 if needed.
 
-Storage nodes clean up objects that belong to unpdaid containers.
+Storage nodes clean up objects that belong to unpaid containers. This means
+data will permanently be deleted from shards, recovery isn't possible.
 
-`copies_number` parameter of object PUT request no longer has an effect. Use
+`copies_number` parameter of object PUT request no longer has any effect. Use
 `max_replicas` setting of container's initial placement policy instead.
 
 CLI `--await` flag is now deprecated for `container` commands. For servers
@@ -2962,7 +2981,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.52.0...master
+[0.52.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.1...v0.52.0
 [0.51.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.0...v0.51.1
 [0.51.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...v0.51.0
 [0.50.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.1...v0.50.2
