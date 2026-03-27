@@ -216,7 +216,10 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		}
 
 		p.dropRedundantLocalObject(addr)
+		return
 	}
+
+	p.dropRedundantLocalCopies(addrWithAttrs)
 }
 
 type processPlacementContext struct {
@@ -365,6 +368,26 @@ func (p *Policer) dropRedundantLocalObject(addr oid.Address) {
 	err := p.localStorage.Delete(addr)
 	if err != nil {
 		p.log.Warn("could not inhume mark redundant copy as garbage",
+			zap.Error(err))
+	}
+}
+
+func (p *Policer) dropRedundantLocalCopies(obj objectcore.AddressWithAttributes) {
+	if len(obj.ShardIDs) < 2 {
+		return
+	}
+
+	switch obj.Type {
+	case object.TypeTombstone, object.TypeLock, object.TypeLink:
+		return
+	default:
+	}
+
+	err := p.localStorage.DeleteRedundantCopies(obj.Address, obj.ShardIDs)
+	if err != nil {
+		p.log.Warn("could not mark redundant local shard copies as garbage",
+			zap.Stringer("object", obj.Address),
+			zap.Strings("shards", obj.ShardIDs),
 			zap.Error(err))
 	}
 }
