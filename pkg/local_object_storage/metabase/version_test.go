@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/bbolt"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -54,13 +55,13 @@ func TestVersion(t *testing.T) {
 	t.Run("simple", func(t *testing.T) {
 		db := newDB(t)
 		require.NoError(t, db.Open(false))
-		require.NoError(t, db.Init())
+		require.NoError(t, db.Init(common.ID{}))
 		check(t, db)
 		require.NoError(t, db.Close())
 
 		t.Run("reopen", func(t *testing.T) {
 			require.NoError(t, db.Open(false))
-			require.NoError(t, db.Init())
+			require.NoError(t, db.Init(common.ID{}))
 			check(t, db)
 			require.NoError(t, db.Close())
 		})
@@ -72,7 +73,7 @@ func TestVersion(t *testing.T) {
 		require.NoError(t, db.Close())
 
 		require.NoError(t, db.Open(false))
-		require.NoError(t, db.Init())
+		require.NoError(t, db.Init(common.ID{}))
 		check(t, db)
 		require.NoError(t, db.Close())
 	})
@@ -85,7 +86,7 @@ func TestVersion(t *testing.T) {
 		require.NoError(t, db.Close())
 
 		require.NoError(t, db.Open(false))
-		require.Error(t, db.Init())
+		require.Error(t, db.Init(common.ID{}))
 		require.NoError(t, db.Close())
 
 		t.Run("reset", func(t *testing.T) {
@@ -119,7 +120,7 @@ func newDB(t testing.TB, opts ...Option) *DB {
 	)
 
 	require.NoError(t, bdb.Open(false))
-	require.NoError(t, bdb.Init())
+	require.NoError(t, bdb.Init(common.ID{}))
 
 	t.Cleanup(func() {
 		bdb.Close()

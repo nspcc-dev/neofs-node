@@ -127,7 +127,6 @@ func initApp(c *cfg) {
 
 	initAndLog(c, "container", initContainerService)
 	initAndLog(c, "storage engine", func(c *cfg) {
-		fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
 		fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Init())
 	})
 

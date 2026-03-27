@@ -10,11 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Open opens all StorageEngine's components.
-func (e *StorageEngine) Open() error {
-	return e.open()
-}
-
 func (e *StorageEngine) open() error {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
@@ -35,23 +30,10 @@ func (e *StorageEngine) open() error {
 	return nil
 }
 
-// Init initializes all StorageEngine's components.
+// Init initializes the engine runtime state for already attached shards.
 func (e *StorageEngine) Init() error {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
-
-	for id, sh := range e.shards {
-		if err := sh.Init(); err != nil {
-			if !e.isIgnoreUninitedShards {
-				return fmt.Errorf("init shard %s: %w", id, err)
-			}
-			e.log.Debug("could not init shard",
-				zap.String("id", id),
-				zap.Error(err),
-			)
-			delete(e.shards, id)
-		}
-	}
 
 	err := e.deleteNotFoundContainers()
 	if err != nil {
@@ -251,29 +233,12 @@ loop:
 	}
 
 	for _, newID := range shardsToAdd {
-		sh, err := e.createShard(rcfg.shards[newID])
+		sh, err := e.attachShard(rcfg.shards[newID])
 		if err != nil {
 			return fmt.Errorf("could not add new shard with '%s' metabase path: %w", newID, err)
 		}
 
-		idStr := sh.ID().String()
-
-		err = sh.Open()
-		if err == nil {
-			err = sh.Init()
-		}
-		if err != nil {
-			_ = sh.Close()
-			return fmt.Errorf("could not init %s shard: %w", idStr, err)
-		}
-
-		err = e.addShard(sh)
-		if err != nil {
-			_ = sh.Close()
-			return fmt.Errorf("could not add %s shard: %w", idStr, err)
-		}
-
-		e.log.Info("added new shard", zap.String("id", idStr))
+		e.log.Info("added new shard", zap.Stringer("id", sh.ID()))
 	}
 
 	return nil

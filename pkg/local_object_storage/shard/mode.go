@@ -3,6 +3,7 @@ package shard
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"go.uber.org/zap"
@@ -85,7 +86,7 @@ func (s *Shard) setModeStorage(m mode.Mode) error {
 	err := s.blobStor.Close()
 	if err == nil {
 		if err = s.blobStor.Open(m.ReadOnly()); err == nil && s.initedStorage {
-			err = s.blobStor.Init()
+			err = s.blobStor.Init(common.ID{})
 		}
 	}
 	if err != nil {

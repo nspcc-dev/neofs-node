@@ -7,22 +7,19 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Storage represents key-value object storage.
 // It is used as a building block for a blobstor of a shard.
 type Storage interface {
 	Open(readOnly bool) error
-	Init() error
+	Init(ID) error
 	Close() error
 
 	Type() string
 	Path() string
 	ShardID() ID
-	SetLogger(*zap.Logger)
 	SetCompressor(cc *compression.Config)
-	SetShardID(id ID)
 
 	// GetBytes reads object by address into memory buffer in a canonical NeoFS
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.
@@ -58,7 +55,7 @@ func CopyBatched(dst, src Storage, batchSize int) error {
 
 	defer func() { _ = src.Close() }()
 
-	err = src.Init()
+	err = src.Init(ID{})
 	if err != nil {
 		return fmt.Errorf("initialize source sub-storage: %w", err)
 	}
@@ -70,7 +67,7 @@ func CopyBatched(dst, src Storage, batchSize int) error {
 
 	defer func() { _ = dst.Close() }()
 
-	err = dst.Init()
+	err = dst.Init(ID{})
 	if err != nil {
 		return fmt.Errorf("initialize destination sub-storage: %w", err)
 	}

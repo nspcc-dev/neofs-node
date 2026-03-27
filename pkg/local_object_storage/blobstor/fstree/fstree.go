@@ -39,6 +39,7 @@ type FSTree struct {
 	noSync     bool
 	readOnly   bool
 	shardID    common.ID
+	subtype    string
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
@@ -97,6 +98,8 @@ const (
 
 var _ common.Storage = (*FSTree)(nil)
 
+const subtypeBlobstor = "blobstor"
+
 func New(opts ...Option) *FSTree {
 	f := &FSTree{
 		Info: Info{
@@ -111,6 +114,7 @@ func New(opts ...Option) *FSTree {
 		combinedSizeThreshold: 128 * 1024,
 		combinedWriteInterval: 10 * time.Millisecond,
 		log:                   zap.NewNop(),
+		subtype:               subtypeBlobstor,
 	}
 	for i := range opts {
 		opts[i](f)
@@ -596,26 +600,9 @@ func (t *FSTree) ShardID() common.ID {
 	return t.shardID
 }
 
-// SetShardID sets the shard ID to be written to the on-disk descriptor.
-// Must be called after the shard ID was generated and before Init().
-func (t *FSTree) SetShardID(id common.ID) {
-	if id.IsZero() {
-		t.shardID = common.ID{}
-		t.shardIDSet = false
-		return
-	}
-	t.shardID = id
-	t.shardIDSet = true
-}
-
 // SetCompressor implements common.Storage.
 func (t *FSTree) SetCompressor(cc *compression.Config) {
 	t.Config = cc
-}
-
-// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (t *FSTree) SetLogger(l *zap.Logger) {
-	t.log = l.With(zap.String("substorage", Type))
 }
 
 // CleanUpTmp removes all temporary files garbage.

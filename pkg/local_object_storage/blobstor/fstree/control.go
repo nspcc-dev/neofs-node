@@ -10,10 +10,16 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"go.uber.org/zap"
 )
 
 // currentVersion contains current FSTree config version.
-const currentVersion = 2
+const currentVersion = 3
+
+var migrateFrom = map[int]func(*FSTree, *fsDescriptor, string) error{
+	1: (*FSTree).migrateDescriptorFrom1Version,
+	2: (*FSTree).migrateDescriptorFrom2Version,
+}
 
 // Open implements common.Storage.
 func (t *FSTree) Open(ro bool) error {
@@ -26,23 +32,50 @@ type fsDescriptor struct {
 	Version int    `json:"version"`
 	Depth   uint64 `json:"depth"`
 	ShardID string `json:"shard_id"`
+	Subtype string `json:"subtype"`
 }
 
 func (t *FSTree) descriptorPath() string {
 	return filepath.Join(t.RootPath, ".fstree.json")
 }
 
+func writeDescriptor(path string, d fsDescriptor) error {
+	data, err := json.Marshal(d)
+	if err != nil {
+		return fmt.Errorf("encode descriptor to JSON: %w", err)
+	}
+
+	tmp := path + ".tmp"
+	if err = os.WriteFile(tmp, data, 0o600); err != nil {
+		return fmt.Errorf("write descriptor tmp: %w", err)
+	}
+	if err = os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("rename descriptor tmp: %w", err)
+	}
+	return nil
+}
+
 // Init implements common.Storage.
-func (t *FSTree) Init() error {
+func (t *FSTree) Init(id common.ID) error {
 	err := util.MkdirAllX(t.RootPath, t.Permissions)
 	if err != nil {
 		return fmt.Errorf("mkdir all for %q: %w", t.RootPath, err)
+	}
+
+	if !id.IsZero() {
+		t.shardID = id
+		t.shardIDSet = true
 	}
 
 	err = t.checkConfig()
 	if err != nil {
 		return err
 	}
+
+	t.log = t.log.With(
+		zap.String("substorage", t.subtype),
+		zap.String("shard_id", t.shardID.String()),
+	)
 
 	if !t.readOnly {
 		var w = newSpecificWriter(t)
@@ -68,28 +101,21 @@ func (t *FSTree) checkConfig() error {
 		if t.readOnly {
 			return fmt.Errorf("descriptor %q is missing, can't open read-only storage", descPath)
 		}
-		// create new descriptor
-		var shardID string
-		if !t.shardID.IsZero() {
-			shardID = t.shardID.String()
+		if !t.shardIDSet {
+			t.shardID, err = common.NewID()
+			if err != nil {
+				return fmt.Errorf("generate shard ID: %w", err)
+			}
+			t.shardIDSet = true
 		}
+		// create new descriptor
 		d := fsDescriptor{
 			Version: currentVersion,
 			Depth:   t.Depth,
-			ShardID: shardID,
+			ShardID: t.shardID.String(),
+			Subtype: t.subtype,
 		}
-		data, err := json.Marshal(d)
-		if err != nil {
-			return fmt.Errorf("encode descriptor to JSON: %w", err)
-		}
-		tmp := descPath + ".tmp"
-		if err = os.WriteFile(tmp, data, 0o600); err != nil {
-			return fmt.Errorf("write descriptor tmp: %w", err)
-		}
-		if err = os.Rename(tmp, descPath); err != nil {
-			return fmt.Errorf("rename descriptor tmp: %w", err)
-		}
-		return nil
+		return writeDescriptor(descPath, d)
 	}
 	var d fsDescriptor
 	dec := json.NewDecoder(f)
@@ -100,13 +126,22 @@ func (t *FSTree) checkConfig() error {
 	}
 	_ = f.Close()
 
-	if d.Version == 1 {
-		return t.migrateDescriptorFrom1Version(&d, descPath)
-	}
-
-	if d.Version != currentVersion {
+	if d.Version > currentVersion {
 		return fmt.Errorf("unsupported layout version: %d (current version: %d)", d.Version, currentVersion)
 	}
+	for d.Version < currentVersion {
+		migrate, ok := migrateFrom[d.Version]
+		if !ok {
+			return fmt.Errorf("unsupported layout version: %d (current version: %d)", d.Version, currentVersion)
+		}
+		if err := migrate(t, &d, descPath); err != nil {
+			return err
+		}
+	}
+	if d.Subtype != t.subtype {
+		return fmt.Errorf("subtype mismatch: on-disk subtype=%s, configured subtype=%s", d.Subtype, t.subtype)
+	}
+
 	if t.depthSet {
 		if d.Depth != t.Depth {
 			return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
@@ -137,14 +172,6 @@ func (t *FSTree) checkConfig() error {
 // migrateDescriptorFrom1Version migrates descriptor from version 1 to version 2.
 // In version 1, ShardID was path-based and needs to be updated during migration.
 func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string) error {
-	if t.depthSet {
-		if d.Depth != t.Depth {
-			return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
-		}
-	} else {
-		t.Depth = d.Depth
-	}
-
 	if !t.shardIDSet && d.ShardID != "" {
 		id, err := common.DecodeIDString(d.ShardID)
 		if err == nil {
@@ -153,20 +180,33 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 		}
 	}
 
-	if !t.readOnly {
-		d.Version = currentVersion
-		// update shard ID
-		d.ShardID = t.shardID.String()
-		data, err := json.Marshal(d)
+	if !t.shardIDSet {
+		id, err := common.NewID()
 		if err != nil {
-			return fmt.Errorf("encode descriptor to JSON during migration: %w", err)
+			return fmt.Errorf("generate shard ID during migration: %w", err)
 		}
-		tmp := descPath + ".tmp"
-		if err = os.WriteFile(tmp, data, 0o600); err != nil {
-			return fmt.Errorf("write descriptor tmp during migration: %w", err)
+		t.shardID = id
+		t.shardIDSet = true
+	}
+
+	d.Version = 2
+	d.ShardID = t.shardID.String()
+	if !t.readOnly {
+		if err := writeDescriptor(descPath, *d); err != nil {
+			return fmt.Errorf("write migrated descriptor: %w", err)
 		}
-		if err = os.Rename(tmp, descPath); err != nil {
-			return fmt.Errorf("rename descriptor tmp during migration: %w", err)
+	}
+	return nil
+}
+
+// migrateDescriptorFrom2Version migrates descriptor from version 2 to version 3
+// by pinning the storage subtype in the descriptor.
+func (t *FSTree) migrateDescriptorFrom2Version(d *fsDescriptor, descPath string) error {
+	d.Version = currentVersion
+	d.Subtype = t.subtype
+	if !t.readOnly {
+		if err := writeDescriptor(descPath, *d); err != nil {
+			return fmt.Errorf("write migrated descriptor: %w", err)
 		}
 	}
 	return nil

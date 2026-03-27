@@ -99,13 +99,9 @@ func newStorage(root string) common.Storage {
 }
 
 func testNewShard(t testing.TB, id int) *shard.Shard {
-	sid, err := generateShardID()
-	require.NoError(t, err)
-
 	dir := t.TempDir()
 
 	s := shard.New(
-		shard.WithID(sid),
 		shard.WithLogger(zap.L()),
 		shard.WithBlobstor(
 			newStorage(filepath.Join(dir, fmt.Sprintf("%d.fstree", id)))),
@@ -142,7 +138,6 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, engine.Open())
 	require.NoError(t, engine.Init())
 
 	return engine

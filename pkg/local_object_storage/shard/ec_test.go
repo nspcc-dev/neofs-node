@@ -12,6 +12,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -205,7 +206,7 @@ func TestShard_GetECPart(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init())
+			require.NoError(t, mb.Init(common.ID{}))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)
@@ -243,7 +244,7 @@ func TestShard_GetECPart(t *testing.T) {
 		)
 		require.NoError(t, mb.Open(false))
 		t.Cleanup(func() { _ = mb.Close() })
-		require.NoError(t, mb.Init())
+		require.NoError(t, mb.Init(common.ID{}))
 
 		payload := testutil.RandByteSlice(32) // any
 
@@ -523,7 +524,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init())
+			require.NoError(t, mb.Init(common.ID{}))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)
@@ -728,7 +729,7 @@ func TestShard_HeadECPart(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init())
+			require.NoError(t, mb.Init(common.ID{}))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)

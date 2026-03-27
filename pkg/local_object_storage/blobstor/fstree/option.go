@@ -3,6 +3,8 @@ package fstree
 import (
 	"io/fs"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Option func(*FSTree)
@@ -23,6 +25,18 @@ func WithPerm(p fs.FileMode) Option {
 func WithPath(p string) Option {
 	return func(f *FSTree) {
 		f.RootPath = p
+	}
+}
+
+func WithLogger(l *zap.Logger) Option {
+	return func(f *FSTree) {
+		f.log = l
+	}
+}
+
+func WithSubtype(st string) Option {
+	return func(f *FSTree) {
+		f.subtype = st
 	}
 }
 

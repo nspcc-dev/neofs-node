@@ -32,11 +32,7 @@ func TestInitializationFailure(t *testing.T) {
 	badDir := filepath.Join(t.TempDir(), "missing")
 
 	testShard := func(c paths) []shard.Option {
-		sid, err := generateShardID()
-		require.NoError(t, err)
-
 		return []shard.Option{
-			shard.WithID(sid),
 			shard.WithLogger(zaptest.NewLogger(t)),
 			shard.WithBlobstor(
 				newStorage(c.storage)),
@@ -57,7 +53,7 @@ func TestInitializationFailure(t *testing.T) {
 		badDir := filepath.Join(badDir, t.Name())
 		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
 		require.NoError(t, os.Chmod(badDir, 0))
-		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
+		testEngineFailInitAndReload(t, badDir, true, testShard(paths{
 			storage:    filepath.Join(badDir, "0"),
 			metabase:   filepath.Join(existsDir, t.Name(), "1"),
 			writecache: filepath.Join(existsDir, t.Name(), "2"),
@@ -67,7 +63,7 @@ func TestInitializationFailure(t *testing.T) {
 		badDir := filepath.Join(badDir, t.Name())
 		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
 		require.NoError(t, os.Chmod(badDir, 0))
-		testEngineFailInitAndReload(t, badDir, true, testShard(paths{
+		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
 			storage:    filepath.Join(existsDir, t.Name(), "0"),
 			metabase:   filepath.Join(badDir, "1"),
 			writecache: filepath.Join(existsDir, t.Name(), "2"),
@@ -77,7 +73,7 @@ func TestInitializationFailure(t *testing.T) {
 		badDir := filepath.Join(badDir, t.Name())
 		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
 		require.NoError(t, os.Chmod(badDir, 0))
-		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
+		testEngineFailInitAndReload(t, badDir, true, testShard(paths{
 			storage:    filepath.Join(existsDir, t.Name(), "0"),
 			metabase:   filepath.Join(existsDir, t.Name(), "1"),
 			writecache: filepath.Join(badDir, "2"),
@@ -92,9 +88,8 @@ func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s [
 	_, err := e.AddShard(s...)
 	if errOnAdd {
 		require.Error(t, err)
-		// This branch is only taken when we cannot update shard ID in the metabase.
-		// The id cannot be encountered during normal operation, but it is ok for tests:
-		// it is only compared for equality with other ids and we have 0 shards here.
+		// AddShard initializes the shard eagerly, so unrecoverable blobstor/write-cache
+		// failures surface here before the shard is attached.
 		configID = "id"
 	} else {
 		require.NoError(t, err)
@@ -107,10 +102,7 @@ func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s [
 		configID = calculateShardID(e.shards[id].DumpInfo())
 		e.mtx.RUnlock()
 
-		err = e.Open()
-		if err == nil {
-			require.Error(t, e.Init())
-		}
+		require.NoError(t, e.Init())
 	}
 
 	require.NoError(t, os.Chmod(badDir, os.ModePerm))
@@ -265,7 +257,6 @@ func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []str
 
 	require.Equal(t, num, len(e.shards))
 
-	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 
 	return e, currShards

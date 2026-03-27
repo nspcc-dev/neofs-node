@@ -5,6 +5,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -41,12 +42,10 @@ type Cache interface {
 	Iterate(func(oid.Address, []byte) error, bool) error
 	Put(oid.Address, *object.Object, []byte) error
 	SetMode(mode.Mode) error
-	SetLogger(*zap.Logger)
-	SetShardIDMetrics(string)
 	DumpInfo() Info
 	Flush(bool) error
 
-	Init() error
+	Init(common.ID) error
 	Open(readOnly bool) error
 	Close() error
 	ObjectStatus(address oid.Address) (ObjectStatus, error)
@@ -108,16 +107,6 @@ func New(opts ...Option) Cache {
 	return c
 }
 
-// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (c *cache) SetLogger(l *zap.Logger) {
-	c.log = l.With(zap.String("substorage", wcStorageType))
-}
-
-// SetShardIDMetrics sets shard id for metrics. It is used after the shard ID was generated.
-func (c *cache) SetShardIDMetrics(id string) {
-	c.metrics.id = id
-}
-
 func (c *cache) DumpInfo() Info {
 	return Info{
 		Path: c.path,
@@ -147,8 +136,14 @@ func (c *cache) Open(readOnly bool) error {
 }
 
 // Init runs necessary services. No-op in read-only mode.
-func (c *cache) Init() error {
-	err := c.fsTree.Init()
+func (c *cache) Init(id common.ID) error {
+	c.metrics.id = id.String()
+	c.log = c.log.With(
+		zap.String("substorage", wcStorageType),
+		zap.Stringer("shard_id", id),
+	)
+
+	err := c.fsTree.Init(id)
 	if err != nil {
 		return fmt.Errorf("init FSTree: %w", err)
 	}

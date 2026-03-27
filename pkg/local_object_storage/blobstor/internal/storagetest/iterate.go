@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,7 @@ import (
 func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
-	require.NoError(t, s.Init())
+	require.NoError(t, s.Init(common.ID{}))
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	objects := prepare(t, 10, s, minSize, maxSize)

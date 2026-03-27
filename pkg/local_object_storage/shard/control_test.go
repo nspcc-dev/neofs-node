@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -125,14 +124,11 @@ func TestResyncMetabase(t *testing.T) {
 
 	defer os.RemoveAll(p)
 
-	shID, err := common.NewID()
-	require.NoError(t, err)
 	sh := New(
 		WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
-		WithID(shID),
 		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
@@ -145,8 +141,6 @@ func TestResyncMetabase(t *testing.T) {
 			writecache.WithLogger(zaptest.NewLogger(t)),
 		),
 	)
-
-	require.NoError(t, sh.UpdateID())
 
 	// open Blobstor
 	require.NoError(t, sh.Open())
@@ -190,6 +184,7 @@ func TestResyncMetabase(t *testing.T) {
 	tombObj.AssociateDeleted(tombedID)
 	tombedAddress := oid.NewAddress(tombObj.GetContainerID(), tombedID)
 
+	var err error
 	for _, v := range mObjs {
 		err = sh.Put(v.obj, nil)
 		require.NoError(t, err)
@@ -271,7 +266,6 @@ func TestResyncMetabase(t *testing.T) {
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
-		WithID(shID),
 		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
@@ -284,8 +278,6 @@ func TestResyncMetabase(t *testing.T) {
 			writecache.WithLogger(zaptest.NewLogger(t)),
 		),
 	)
-
-	require.NoError(t, sh.UpdateID())
 
 	// open Blobstor
 	require.NoError(t, sh.Open())
