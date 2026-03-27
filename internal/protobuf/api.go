@@ -34,6 +34,13 @@ const (
 		1 + 3 + object.MaxHeaderLen
 )
 
+// Common response field numbers.
+const (
+	FieldResponseBody               = 1
+	FieldResponseMetaHeader         = 2
+	FieldResponseVerificationHeader = 3
+)
+
 // ParseAPIVersionField parses version.Version from the next field with known
 // number and type at given offset. Also returns field length.
 func ParseAPIVersionField(buf []byte, fNum protowire.Number, fTyp protowire.Type) (version.Version, int, error) {
@@ -254,3 +261,21 @@ func ParseAttribute(buf []byte, fNum protowire.Number, fTyp protowire.Type) ([]b
 
 	return k, v, nf + lnf, nil
 }
+
+// // VerifyObjectSplitInfo checks whether buf is a valid object split info
+// // protobuf.
+// //
+// // Absense of any fields is ignored. Unknown fields are allowed and checked.
+// // Repeating fields is allowed.
+// func VerifyObjectSplitInfo(buf []byte) error {
+// 	return verifyMessage(buf, objectSplitInfoMessageScheme)
+// }
+//
+// // VerifyObjectHeaderWithOrder checks whether buf is a valid object header
+// // protobuf. If so, direct field order flag is returned.
+// //
+// // Absense of any fields is ignored. Unknown fields are allowed and checked.
+// // Repeating fields is allowed.
+// func VerifyObjectHeaderWithOrder(buf []byte) (bool, error) {
+// 	return verifyMessageWithOrder(buf, objectHeaderScheme, true, interceptors{})
+// }

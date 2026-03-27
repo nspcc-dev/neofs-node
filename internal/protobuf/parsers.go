@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"unicode/utf8"
 
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -91,6 +92,23 @@ func ParseLENFieldBounds(buf []byte, off int, tagLn int, num protowire.Number, t
 	return f, nil
 }
 
+// ParseStringField parses string field with preread number and type from buf.
+// Returns parsed value and number of bytes read.
+//
+// If there is an error, its text contains num and typ.
+func ParseStringField(buf []byte, num protowire.Number, typ protowire.Type) (int, int, error) {
+	ln, n, err := ParseLENField(buf, num, typ)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if !utf8.Valid(buf[n:][:ln]) {
+		return 0, 0, NewInvalidUTF8Error(num)
+	}
+
+	return ln, n, nil
+}
+
 // ParseEnum parses enum value from buf. Returns parsed value and number of
 // bytes read.
 func ParseEnum[T ~int32](buf []byte) (T, int, error) {
@@ -175,6 +193,28 @@ func ParseUint64Field(buf []byte, num protowire.Number, typ protowire.Type) (uin
 	return u, n, nil
 }
 
+// ParseBoolField parses value of bool field with preread number and type from
+// buf. Returns parsed value.
+//
+// If there is an error, its text contains num and typ.
+func ParseBoolField(buf []byte, num protowire.Number, typ protowire.Type) (bool, error) {
+	err := checkFieldType(num, protowire.VarintType, typ)
+	if err != nil {
+		return false, err
+	}
+
+	u, _, err := ParseVarint(buf)
+	if err != nil {
+		return false, wrapParseFieldError(num, protowire.VarintType, err)
+	}
+
+	if u > 1 {
+		return false, fmt.Errorf("unexpected varint value for bool field %d", u)
+	}
+
+	return u == 1, nil
+}
+
 // SkipField parses length of skipped field with preread number and type from
 // buf and checks its overflow. Returns number of bytes read.
 //
@@ -210,4 +250,30 @@ func SkipField(buf []byte, num protowire.Number, typ protowire.Type) (int, error
 	}
 
 	return 0, wrapParseFieldError(num, typ, err)
+}
+
+// SkipRepeatedVarint parses repeated enum field with preread number and type
+// from buf, checks its overflow and verifies each element is a non-negative
+// int32. Returns number of bytes read.
+//
+// If verification of each element is not needed, use [SkipField].
+//
+// If there is an error, its text contains num and typ.
+func SkipRepeatedEnum(buf []byte, num protowire.Number, typ protowire.Type) (int, error) {
+	ln, n, err := ParseLENField(buf, num, typ)
+	if err != nil {
+		return n, err
+	}
+
+	buf = buf[n:][:ln]
+
+	var off int
+	for len(buf[off:]) > 0 {
+		if _, n, err = ParseEnum[int32](buf[off:]); err != nil {
+			return 0, fmt.Errorf("parse next element: %w", err)
+		}
+		off += n
+	}
+
+	return n + ln, nil
 }
