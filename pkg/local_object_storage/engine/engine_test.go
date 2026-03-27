@@ -154,7 +154,7 @@ func generateObjectWithCID(cnr cid.ID) *object.Object {
 	obj.SetID(oidtest.ID())
 	obj.SetPayload([]byte{1, 2, 3, 4, 5})
 	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload())))
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload()))) //nolint:staticcheck // this is a test and such objects are possible
 
 	return obj
 }

@@ -2,6 +2,8 @@ module github.com/nspcc-dev/neofs-node
 
 go 1.25.0
 
+replace github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.17.0.20260325133051-c1dbddc28fdf => ../neofs-sdk-go
+
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cheggaaa/pb v1.0.29
@@ -21,7 +23,7 @@ require (
 	github.com/nspcc-dev/neo-go v0.118.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.26.1
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.18
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.17.0.20260327202214-2179ca1cb8d8
 	github.com/nspcc-dev/tzhash v1.8.4
 	github.com/panjf2000/ants/v2 v2.11.5
 	github.com/prometheus/client_golang v1.23.2

@@ -100,7 +100,7 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	obj := object.New(cnr, usertest.ID())
 	obj.SetID(oidtest.ID())
 	obj.SetPayloadChecksum(csum)
-	obj.SetPayloadHomomorphicHash(csumTZ)
+	obj.SetPayloadHomomorphicHash(csumTZ) //nolint:staticcheck // this is a test and such objects are possible
 	obj.SetPayload(payload)
 	obj.SetPayloadSize(uint64(len(payload)))
 
