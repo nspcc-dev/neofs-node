@@ -50,6 +50,10 @@ var (
 	maxUint256Neg = new(big.Int).Neg(maxUint256)
 )
 
+// ErrSearchIterationLimitExceeded is returned when filtered search exceeded the
+// configured number of index iterations without producing any results.
+var ErrSearchIterationLimitExceeded = errors.New("search iteration limit exceeded")
+
 func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
 }
@@ -341,9 +345,14 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
 
+	var iterations uint64
 	for ; bytes.HasPrefix(primKey, cursor.PrimaryKeysPrefix); primKey, _ = primCursor.Next() {
+		iterations++
 		if !handleKV(primKey, nil) {
 			break
+		}
+		if db.searchIterationLimit > 0 && iterations >= db.searchIterationLimit && len(resHolder.Objects) == 0 {
+			return nil, nil, fmt.Errorf("container %s: %w (limit: %d)", cnr, ErrSearchIterationLimitExceeded, db.searchIterationLimit)
 		}
 	}
 
