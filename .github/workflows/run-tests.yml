@@ -41,8 +41,6 @@ jobs:
     if: ${{ github.event.inputs.test_set == 'sanity' || (github.event.inputs.test_set != 'all' && github.event_name == 'pull_request') }}
     uses: nspcc-dev/neofs-testcases/.github/workflows/system-tests.yml@master
     with:
-      neofs_network_domain: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
-      neofs_http_gate: ${{ vars.TEST_RESULTS_HTTP_GATE }}
       neofs_store_objects_cid: ${{ vars.TEST_RESULTS_CID }}
       neofs_pr_expiration_period: ${{ vars.PR_EXPIRATION_PERIOD }}
       neofs_master_expiration_period: ${{ vars.MASTER_EXPIRATION_PERIOD }}
@@ -61,8 +59,6 @@ jobs:
     if: ${{ !(github.event.inputs.test_set == 'sanity' || (github.event.inputs.test_set != 'all' && github.event_name == 'pull_request')) }}
     uses: nspcc-dev/neofs-testcases/.github/workflows/system-tests.yml@master
     with:
-      neofs_network_domain: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
-      neofs_http_gate: ${{ vars.TEST_RESULTS_HTTP_GATE }}
       neofs_store_objects_cid: ${{ vars.TEST_RESULTS_CID }}
       neofs_pr_expiration_period: ${{ vars.PR_EXPIRATION_PERIOD }}
       neofs_master_expiration_period: ${{ vars.MASTER_EXPIRATION_PERIOD }}
