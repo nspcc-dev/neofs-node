@@ -35,7 +35,7 @@ func TestServer_Get_Local(t *testing.T) {
 	signer := usertest.User()
 	cnr := cidtest.ID()
 	var fsChain nopFSChain
-	var mtrc nopMetrics
+	mtrc := new(metricsCollector)
 	var aclChecker nopACLChecker
 	var reqInfoExt nopReqInfoExtractor
 
@@ -66,7 +66,7 @@ func TestServer_Get_Local(t *testing.T) {
 
 			require.NoError(t, storage.Put(obj, nil))
 
-			assertGetOK(t, srv, *obj, signer)
+			assertGetOK(t, srv, mtrc, *obj, signer)
 
 			t.Run("cut payload in header", func(t *testing.T) {
 				handlers.mockObject = obj.Marshal()
@@ -74,7 +74,7 @@ func TestServer_Get_Local(t *testing.T) {
 				handlers.mockHeaderLen = len(obj.CutPayload().Marshal())
 
 				t.Run("no payload", func(t *testing.T) {
-					assertGetOK(t, srv, *obj, signer)
+					assertGetOK(t, srv, mtrc, *obj, signer)
 				})
 
 				if pldLen == 0 {
@@ -86,11 +86,11 @@ func TestServer_Get_Local(t *testing.T) {
 					for range tagLen {
 						handlers.mockHeaderLen++
 					}
-					assertGetOK(t, srv, *obj, signer)
+					assertGetOK(t, srv, mtrc, *obj, signer)
 				})
 
 				handlers.mockHeaderLen = len(handlers.mockObject) - 1
-				assertGetOK(t, srv, *obj, signer)
+				assertGetOK(t, srv, mtrc, *obj, signer)
 			})
 
 			handlers.mockObject = nil
@@ -123,7 +123,7 @@ func TestServer_Get_Local(t *testing.T) {
 		}
 		signGetRequest(t, req, signer)
 
-		assertGetRequest(t, srv, req, part)
+		assertGetRequest(t, srv, mtrc, req, part)
 
 		handlerFSChain.ecRules = nil
 	})
@@ -194,25 +194,25 @@ func callGet(t *testing.T, srv *Server, req *protoobject.GetRequest) (grpc.Serve
 	return protoobject.NewObjectServiceClient(c).Get(context.Background(), req)
 }
 
-func assertGetOK(t *testing.T, srv *Server, obj object.Object, signer neofscrypto.Signer) {
+func assertGetOK(t *testing.T, srv *Server, mtrc *metricsCollector, obj object.Object, signer neofscrypto.Signer) {
 	t.Run("signed responses", func(t *testing.T) {
-		resps := assertGetOKVersioned(t, srv, obj, signer, version.New(2, 17))
+		resps := assertGetOKVersioned(t, srv, mtrc, obj, signer, version.New(2, 17))
 		for _, resp := range resps {
 			require.NotNil(t, resp.VerifyHeader)
 			require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
 		}
 	})
 
-	resps := assertGetOKVersioned(t, srv, obj, signer, version.Current())
+	resps := assertGetOKVersioned(t, srv, mtrc, obj, signer, version.Current())
 	require.False(t, slices.ContainsFunc(resps, func(resp *protoobject.GetResponse) bool { return resp.VerifyHeader != nil }))
 }
 
-func assertGetOKVersioned(t *testing.T, srv *Server, obj object.Object, signer neofscrypto.Signer, ver version.Version) []*protoobject.GetResponse {
+func assertGetOKVersioned(t *testing.T, srv *Server, mtrc *metricsCollector, obj object.Object, signer neofscrypto.Signer, ver version.Version) []*protoobject.GetResponse {
 	req := newLocalGetRequest(t, ver, obj.Address(), signer)
-	return assertGetRequest(t, srv, req, obj)
+	return assertGetRequest(t, srv, mtrc, req, obj)
 }
 
-func assertGetRequest(t *testing.T, srv *Server, req *protoobject.GetRequest, obj object.Object) []*protoobject.GetResponse {
+func assertGetRequest(t *testing.T, srv *Server, mtrc *metricsCollector, req *protoobject.GetRequest, obj object.Object) []*protoobject.GetResponse {
 	stream, err := callGet(t, srv, req)
 	require.NoError(t, err)
 
@@ -230,6 +230,9 @@ func assertGetRequest(t *testing.T, srv *Server, req *protoobject.GetRequest, ob
 	}
 
 	assertGetStreamResponses(t, obj, resps)
+
+	require.EqualValues(t, obj.PayloadSize(), mtrc.getPayloadLen())
+	mtrc.reset()
 
 	return resps
 }

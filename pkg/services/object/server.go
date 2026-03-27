@@ -1255,6 +1255,13 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
 	}
 
+	var sent int
+	defer func() {
+		if sent > 0 {
+			s.metrics.AddGetPayload(sent)
+		}
+	}()
+
 	for first := true; ; first = false {
 		n, err := io.ReadFull(stream, chunkBuf[prereadPldLen:])
 		streamDone := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
@@ -1272,7 +1279,8 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 				return fmt.Errorf("parse payload field tag: %w", err)
 			}
 
-			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+prereadPldLen, n-prereadPldLen)
+			n -= prereadPldLen
+			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+prereadPldLen, n)
 			prereadPldLen = 0
 		} else if n == 0 {
 			chunkRespBuf.Free()
@@ -1282,7 +1290,7 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 		}
 
 		if needSignResp {
-			n, err = s.signResponse(chunkRespBuf.SliceBuffer[bodyf.To:], chunkRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+			n, err := s.signResponse(chunkRespBuf.SliceBuffer[bodyf.To:], chunkRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
 			if err != nil {
 				chunkRespBuf.Free()
 				return fmt.Errorf("sign chunk response: %w", err)
@@ -1291,8 +1299,12 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 		}
 
 		chunkRespBuf.SetBounds(bodyf.From, bodyf.To)
-		if err = gStream.SendMsg(chunkRespBuf); err != nil || streamDone {
+		if err = gStream.SendMsg(chunkRespBuf); err != nil {
 			return err
+		}
+		sent += n
+		if streamDone {
+			return nil
 		}
 
 		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()

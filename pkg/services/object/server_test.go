@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -205,6 +206,23 @@ type nopMetrics struct{}
 func (nopMetrics) HandleOpExecResult(stat.Method, bool, time.Duration) {}
 func (nopMetrics) AddPutPayload(int)                                   {}
 func (nopMetrics) AddGetPayload(int)                                   {}
+
+type metricsCollector struct {
+	nopMetrics
+	getPayloadCounter atomic.Uint64
+}
+
+func (x *metricsCollector) getPayloadLen() uint64 {
+	return x.getPayloadCounter.Load()
+}
+
+func (x *metricsCollector) reset() {
+	x.getPayloadCounter.Store(0)
+}
+
+func (x *metricsCollector) AddGetPayload(n int) {
+	x.getPayloadCounter.Add(uint64(n))
+}
 
 type testFSChain struct {
 	nopFSChain
