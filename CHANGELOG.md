@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `storage.shard.metabase.search_iteration_limit` SN config option limiting fruitless SearchV2 metabase iterations (#3915)
 
 ### Fixed
 
