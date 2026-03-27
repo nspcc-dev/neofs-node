@@ -309,6 +309,7 @@ func TestContainerPayments(t *testing.T) {
 			Fields: map[string]any{
 				"epoch":       json.Number(strconv.FormatInt(currEpoch, 10)),
 				"cID":         cID.String(),
+				"shard_id":    sh.ID().String(),
 				"unpaidSince": json.Number(strconv.FormatInt(unpaidSince, 10)),
 			},
 		}
@@ -333,7 +334,8 @@ func TestContainerPayments(t *testing.T) {
 			Level:   zap.DebugLevel,
 			Message: "payments system is disabled, skipping container payments check",
 			Fields: map[string]any{
-				"epoch": json.Number(strconv.FormatInt(currEpoch, 10)),
+				"epoch":    json.Number(strconv.FormatInt(currEpoch, 10)),
+				"shard_id": sh.ID().String(),
 			},
 		}
 		lb.AssertContains(expLog)

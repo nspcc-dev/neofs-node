@@ -33,7 +33,7 @@ func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
 	err := m.Close()
 	if err == nil {
 		if err = m.Open(newMode.ReadOnly()); err == nil {
-			err = m.Init()
+			err = m.Init(common.ID{})
 		}
 	}
 
@@ -59,7 +59,7 @@ func TestBlobstorGeneric(t *testing.T) {
 
 		// fstree must be initialized to create a descriptor
 		require.NoError(t, fsTree.Open(false))
-		require.NoError(t, fsTree.Init())
+		require.NoError(t, fsTree.Init(common.ID{}))
 		require.NoError(t, fsTree.Close())
 
 		return NewModeAwareStorage(fsTree)

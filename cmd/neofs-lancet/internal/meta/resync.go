@@ -51,7 +51,7 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	err = db.Init()
+	err = db.Init(blobstorcommon.ID{})
 	if err != nil {
 		return fmt.Errorf("init metabase: %w", err)
 	}
@@ -74,7 +74,7 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to open FSTree: %w", err)
 	}
 
-	err = fst.Init()
+	err = fst.Init(blobstorcommon.ID{})
 	if err != nil {
 		return fmt.Errorf("init blobstor: %w", err)
 	}

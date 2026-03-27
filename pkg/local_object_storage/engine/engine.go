@@ -37,6 +37,8 @@ type StorageEngine struct {
 	blockMtx sync.RWMutex
 	blockErr error
 
+	inited bool
+
 	sortShardsFn func(*StorageEngine, oid.ID) []shardWrapper
 }
 

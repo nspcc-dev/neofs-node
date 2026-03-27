@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
@@ -16,20 +15,13 @@ func (c *cache) openStore(readOnly bool) error {
 	}
 
 	c.fsTree = fstree.New(
+		fstree.WithLogger(c.log),
 		fstree.WithPath(c.path),
 		fstree.WithPerm(os.ModePerm),
 		fstree.WithDepth(1),
+		fstree.WithSubtype(fstree.SubtypeWriteCache),
 		fstree.WithNoSync(c.noSync),
 		fstree.WithCombinedCountLimit(1))
-	c.fsTree.SetLogger(c.log)
-	var id common.ID
-	if c.metrics.id != "" {
-		id, err = common.DecodeIDString(c.metrics.id)
-		if err != nil {
-			return fmt.Errorf("decode shard ID: %w", err)
-		}
-	}
-	c.fsTree.SetShardID(id)
 	if err := c.fsTree.Open(readOnly); err != nil {
 		return fmt.Errorf("could not open FSTree: %w", err)
 	}

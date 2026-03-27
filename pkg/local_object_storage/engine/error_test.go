@@ -43,7 +43,6 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 			))
 		require.NoError(t, err)
 	}
-	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 
 	return e, dir, ids

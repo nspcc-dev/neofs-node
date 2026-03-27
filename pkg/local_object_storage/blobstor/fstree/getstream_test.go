@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -234,7 +235,7 @@ func TestGetStreamAfterErrors(t *testing.T) {
 func setupFSTree(t *testing.T) *FSTree {
 	tree := New(WithPath(t.TempDir()))
 	require.NoError(t, tree.Open(false))
-	require.NoError(t, tree.Init())
+	require.NoError(t, tree.Init(common.ID{}))
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })
 	return tree
 }

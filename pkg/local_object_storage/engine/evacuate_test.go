@@ -45,7 +45,6 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 			))
 		require.NoError(t, err)
 	}
-	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 
 	objects := make([]*object.Object, 0, objPerShard*len(ids))

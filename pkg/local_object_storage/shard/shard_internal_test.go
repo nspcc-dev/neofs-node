@@ -15,7 +15,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 func newSimpleTestShard(_ testing.TB, bs common.Storage, mb metabase, wc writecache.Cache) *Shard {
@@ -247,7 +246,7 @@ func (unimplementedBLOBStore) Open(bool) error {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) Init() error {
+func (unimplementedBLOBStore) Init(common.ID) error {
 	panic("unimplemented")
 }
 
@@ -267,15 +266,7 @@ func (unimplementedBLOBStore) ShardID() common.ID {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) SetLogger(*zap.Logger) {
-	panic("unimplemented")
-}
-
 func (unimplementedBLOBStore) SetCompressor(*compression.Config) {
-	panic("unimplemented")
-}
-
-func (unimplementedBLOBStore) SetShardID(common.ID) {
 	panic("unimplemented")
 }
 
@@ -377,14 +368,6 @@ func (unimplementedWriteCache) SetMode(mode.Mode) error {
 	panic("unimplemented")
 }
 
-func (unimplementedWriteCache) SetLogger(*zap.Logger) {
-	panic("unimplemented")
-}
-
-func (unimplementedWriteCache) SetShardIDMetrics(string) {
-	panic("unimplemented")
-}
-
 func (unimplementedWriteCache) DumpInfo() writecache.Info {
 	panic("unimplemented")
 }
@@ -393,7 +376,7 @@ func (unimplementedWriteCache) Flush(bool) error {
 	panic("unimplemented")
 }
 
-func (unimplementedWriteCache) Init() error {
+func (unimplementedWriteCache) Init(common.ID) error {
 	panic("unimplemented")
 }
 

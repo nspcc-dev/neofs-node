@@ -70,8 +70,15 @@ func (db *DB) openBolt() error {
 //
 // Does nothing if metabase has already been initialized and filled. To roll back the database to its initial state,
 // use Reset.
-func (db *DB) Init() error {
-	return db.init(false)
+func (db *DB) Init(id common.ID) error {
+	if !id.IsZero() {
+		db.log = db.log.With(zap.Stringer("shard_id", id))
+	}
+	if err := db.init(false); err != nil {
+		return err
+	}
+
+	return db.ensureShardID(id)
 }
 
 // Reset resets metabase. Works similar to Init but cleans up all static buckets and

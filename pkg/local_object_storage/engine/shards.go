@@ -62,14 +62,9 @@ func (m *metricsWithID) AddToPayloadSize(size int64) {
 // Returns any error encountered that did not allow adding a shard.
 // Otherwise returns the ID of the added shard.
 func (e *StorageEngine) AddShard(opts ...shard.Option) (common.ID, error) {
-	sh, err := e.createShard(opts)
+	sh, err := e.attachShard(opts)
 	if err != nil {
-		return common.ID{}, fmt.Errorf("could not create a shard: %w", err)
-	}
-
-	err = e.addShard(sh)
-	if err != nil {
-		return common.ID{}, fmt.Errorf("could not add %s shard: %w", sh.ID().String(), err)
+		return common.ID{}, err
 	}
 
 	if e.metrics != nil {
@@ -79,18 +74,36 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (common.ID, error) {
 	return sh.ID(), nil
 }
 
-func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
-	id, err := generateShardID()
+func (e *StorageEngine) attachShard(opts []shard.Option) (*shard.Shard, error) {
+	sh, err := e.createShard(opts)
 	if err != nil {
-		return nil, fmt.Errorf("could not generate shard ID: %w", err)
+		return nil, fmt.Errorf("could not create a shard: %w", err)
 	}
 
+	err = sh.Open()
+	if err == nil {
+		err = sh.Init()
+	}
+	if err != nil {
+		_ = sh.Close()
+		return nil, fmt.Errorf("could not initialize shard: %w", err)
+	}
+
+	err = e.addShard(sh)
+	if err != nil {
+		_ = sh.Close()
+		return nil, fmt.Errorf("could not add %s shard: %w", sh.ID().String(), err)
+	}
+
+	return sh, nil
+}
+
+func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
 	e.mtx.RLock()
 
 	if e.metrics != nil {
 		opts = append(opts, shard.WithMetricsWriter(
 			&metricsWithID{
-				id: id.String(),
 				mw: e.metrics,
 			},
 		))
@@ -99,16 +112,11 @@ func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
 	e.mtx.RUnlock()
 
 	sh := shard.New(append(opts,
-		shard.WithID(id),
 		shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 		shard.WithReportErrorFunc(e.reportShardErrorBackground),
 	)...)
 
-	if err := sh.UpdateID(); err != nil {
-		return nil, fmt.Errorf("could not update shard ID: %w", err)
-	}
-
-	return sh, err
+	return sh, nil
 }
 
 func (e *StorageEngine) addShard(sh *shard.Shard) error {
@@ -170,10 +178,6 @@ func (e *StorageEngine) removeShards(ids ...string) {
 		}
 		close(sh.putCh)
 	}
-}
-
-func generateShardID() (common.ID, error) {
-	return common.NewID()
 }
 
 func (e *StorageEngine) sortedShards(id oid.ID) []shardWrapper {

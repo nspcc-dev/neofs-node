@@ -51,7 +51,6 @@ func TestChildrenExpiration(t *testing.T) {
 			)
 			require.NoError(t, err)
 		}
-		require.NoError(t, e.Open())
 		require.NoError(t, e.Init())
 		t.Cleanup(func() {
 			_ = e.Close()
@@ -184,7 +183,6 @@ func TestGC(t *testing.T) {
 			)
 			require.NoError(t, err)
 		}
-		require.NoError(t, e.Open())
 		require.NoError(t, e.Init())
 		t.Cleanup(func() { _ = e.Close() })
 
@@ -326,7 +324,6 @@ func TestSplitObjectExpirationWithoutLink(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		require.NoError(t, e.Open())
 		require.NoError(t, e.Init())
 		t.Cleanup(func() { _ = e.Close() })
 
@@ -409,7 +406,6 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		require.NoError(t, e.Open())
 		require.NoError(t, e.Init())
 		t.Cleanup(func() { _ = e.Close() })
 
