@@ -84,7 +84,6 @@ policer:
   head_timeout: 15s  # timeout for the Policer HEAD remote operation
   replication_cooldown: 101ms # cooldown time b/w replication tasks submitting
   object_batch_size: 11 # replication's objects batch size
-  max_workers: 21 # replication's worker pool's maximum size
   boost_multiplier: 5 # batch size multiplier when missing replicas are detected (defaults to 3)
 
 replicator:

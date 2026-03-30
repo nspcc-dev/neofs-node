@@ -95,7 +95,6 @@
     "head_timeout": "15s",
     "replication_cooldown": "101ms",
     "object_batch_size": "11",
-    "max_workers": "21",
     "boost_multiplier": "5"
   },
   "replicator": {
