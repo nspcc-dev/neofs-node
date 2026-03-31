@@ -366,7 +366,7 @@ func (c *Client) CallWithAlphabetWitness(ctx context.Context, contract util.Uint
 
 	c.logNotaryCall(method, vub, mainTx, fbTx)
 
-	aer, err := notaryActor.WaitAny(ctx, vub, mainTx, mainTx)
+	aer, err := notaryActor.WaitAny(ctx, vub, mainTx, fbTx)
 	if err != nil {
 		if errors.Is(err, waiter.ErrContextDone) {
 			return ErrTxAwaitTimeout
