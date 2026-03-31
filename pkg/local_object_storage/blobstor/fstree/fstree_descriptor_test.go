@@ -196,7 +196,32 @@ func TestFSTreeDescriptor_MigrationFrom1Version(t *testing.T) {
 }
 
 func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
-	t.Run("add subtype and keep shard id", func(t *testing.T) {
+	t.Run("add explicit subtype and keep shard id", func(t *testing.T) {
+		for _, tc := range []string{SubtypeBlobstor, "write-cache"} {
+			t.Run(tc, func(t *testing.T) {
+				dir := t.TempDir()
+				id, err := common.NewID()
+				require.NoError(t, err)
+
+				desc := filepath.Join(dir, ".fstree.json")
+				data := []byte(`{"version":2,"depth":2,"shard_id":"` + id.String() + `"}`)
+				require.NoError(t, os.WriteFile(desc, data, 0o600))
+
+				fs := New(
+					WithPath(dir),
+					WithDepth(2),
+					WithSubtype(tc),
+				)
+				require.NoError(t, fs.Init(id))
+
+				b, err := os.ReadFile(desc)
+				require.NoError(t, err)
+				require.JSONEq(t, `{"version":3,"depth":2,"shard_id":"`+id.String()+`","subtype":"`+tc+`"}`, string(b))
+			})
+		}
+	})
+
+	t.Run("require explicit subtype", func(t *testing.T) {
 		dir := t.TempDir()
 		id, err := common.NewID()
 		require.NoError(t, err)
@@ -208,13 +233,9 @@ func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
 		fs := New(
 			WithPath(dir),
 			WithDepth(2),
-			WithSubtype("write-cache"),
 		)
-		require.NoError(t, fs.Init(id))
-
-		b, err := os.ReadFile(desc)
-		require.NoError(t, err)
-		require.JSONEq(t, `{"version":3,"depth":2,"shard_id":"`+id.String()+`","subtype":"write-cache"}`, string(b))
+		err = fs.Init(id)
+		require.EqualError(t, err, "can't migrate FSTree descriptor from v2 to v3 without explicit subtype")
 	})
 
 	t.Run("validate depth after migration", func(t *testing.T) {
@@ -229,6 +250,7 @@ func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
 		fs := New(
 			WithPath(dir),
 			WithDepth(3),
+			WithSubtype(SubtypeBlobstor),
 		)
 		err = fs.Init(id)
 		require.EqualError(t, err, "layout mismatch: on-disk depth=2, configured depth=3")
@@ -248,6 +270,7 @@ func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
 		fs := New(
 			WithPath(dir),
 			WithDepth(2),
+			WithSubtype(SubtypeBlobstor),
 		)
 		err = fs.Init(id2)
 		require.EqualError(t, err, "shard ID mismatch: on-disk shard ID="+id1.String()+", configured shard ID="+id2.String())

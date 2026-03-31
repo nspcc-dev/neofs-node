@@ -59,6 +59,7 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 	fst := fstree.New(
 		fstree.WithPath(vBlobstorPath),
 		fstree.WithPerm(0600),
+		fstree.WithSubtype(fstree.SubtypeBlobstor),
 	)
 	defer fst.Close()
 
