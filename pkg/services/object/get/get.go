@@ -129,7 +129,8 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule,
 	hashPrm *RangeHashPrm) error {
 	if len(repRules) > 0 { // REP format does not require encoding
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm)).err
+		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm), bufOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}

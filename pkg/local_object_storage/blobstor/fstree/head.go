@@ -2,6 +2,7 @@ package fstree
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -46,6 +48,30 @@ func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	return n, nil
 }
 
+func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadCloser, error) {
+	if len(buf) < 2*objectwire.NonPayloadFieldsBufferLength {
+		return nil, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
+	}
+
+	p := t.treePath(addr)
+
+	f, err := os.Open(p)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		}
+		return nil, nil, fmt.Errorf("read file %q: %w", p, err)
+	}
+
+	initial, stream, err := t.readHeader(addr.Object(), f, buf)
+	if err != nil {
+		stream.Close()
+		return nil, nil, err
+	}
+
+	return t.preprocessStreamHead(stream, initial)
+}
+
 // ReadObject reads first bytes of the referenced object's binary containing its
 // full header from t into buf. Returns number of bytes read and stream of
 // remaining bytes. The stream must be finally closed by the caller.
@@ -56,27 +82,7 @@ func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 //
 // Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
 func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
-	if len(buf) < 2*objectwire.NonPayloadFieldsBufferLength {
-		return 0, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
-	}
-
-	p := t.treePath(addr)
-
-	f, err := os.Open(p)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
-		}
-		return 0, nil, fmt.Errorf("read file %q: %w", p, err)
-	}
-
-	initial, stream, err := t.readHeader(addr.Object(), f, buf)
-	if err != nil {
-		stream.Close()
-		return 0, nil, err
-	}
-
-	initial, stream, err = t.preprocessStreamHead(stream, initial)
+	initial, stream, err := t._readObject(addr, buf)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -86,6 +92,151 @@ func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, e
 	}
 
 	return copy(buf, initial), stream, nil
+}
+
+// ReadPayloadRange is [FSTree.ReadObject] analogue for payload range reading.
+// Zero range means full payload.
+//
+// If given range is out of payload bounds, ReadPayloadRange returns
+// [apistatus.ErrObjectOutOfRange].
+func (t *FSTree) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byte) (io.ReadCloser, error) {
+	if err := verifyRequestedRange(off, ln); err != nil {
+		return nil, err
+	}
+
+	initial, stream, err := t._readObject(addr, hdrBuf)
+	if err != nil {
+		return nil, err
+	}
+
+	// stream can be nil
+	pldLen, pldFldOff, err := objectwire.GetPayloadLengthAndFieldOffset(initial)
+	if err != nil {
+		if stream != nil {
+			stream.Close()
+		}
+		return nil, fmt.Errorf("get payload length and field in read header: %w", err)
+	}
+
+	if ln != 0 && !checkPayloadBounds(pldLen, off, ln) {
+		if stream != nil {
+			stream.Close()
+		}
+		return nil, apistatus.ErrObjectOutOfRange
+	}
+
+	// FIXME: cover pldFldOff < 0
+
+	_, n, err := iprotobuf.ParseVarint(initial[pldFldOff:])
+	if err != nil {
+		if !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+			if stream != nil {
+				stream.Close()
+			}
+			return nil, fmt.Errorf("parse payload field len: %w", err)
+		}
+
+		if pldFldOff+binary.MaxVarintLen64 > len(initial) {
+			if pldFldOff >= binary.MaxVarintLen64 {
+				n = copy(initial[pldFldOff-binary.MaxVarintLen64:], initial[pldFldOff:])
+				pldFldOff -= binary.MaxVarintLen64
+			} else {
+				initial = make([]byte, binary.MaxVarintLen64)
+				n = copy(initial, initial[pldFldOff:])
+				pldFldOff = 0
+			}
+		}
+
+		extra, err := io.ReadFull(stream, initial[pldFldOff+n:])
+		if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+			if stream != nil {
+				stream.Close()
+			}
+			return nil, fmt.Errorf("read stream: %w", err)
+		}
+
+		initial = initial[:pldFldOff+n+extra]
+
+		_, n, err = iprotobuf.ParseVarint(initial[pldFldOff:])
+		if err != nil {
+			if stream != nil {
+				stream.Close()
+			}
+			return nil, fmt.Errorf("parse payload field len: %w", err)
+		}
+	}
+
+	initial = initial[pldFldOff+n:]
+
+	if stream == nil && uint64(len(initial)) != pldLen {
+		return nil, fmt.Errorf("diff len of object payload: in header %d, in field tag %d", pldLen, len(initial))
+	}
+
+	type readerCloser struct {
+		io.Reader
+		io.Closer
+	}
+
+	// check range is already bufferred
+
+	if off == 0 {
+		if ln == 0 { // full
+			if stream == nil {
+				return io.NopCloser(bytes.NewReader(initial)), nil
+			}
+			if len(initial) == 0 {
+				return stream, nil
+			}
+			return readerCloser{Reader: io.MultiReader(bytes.NewReader(initial)), Closer: stream}, nil
+		}
+
+		if ln <= uint64(len(initial)) {
+			if stream != nil {
+				stream.Close()
+			}
+			return io.NopCloser(bytes.NewReader(initial[:ln])), nil
+		}
+
+		// stream is non-nil here according to conditions above
+
+		if len(initial) == 0 {
+			return stream, nil
+		}
+
+		if err := checkTooBigRange(off, ln); err != nil {
+			stream.Close()
+			return nil, err
+		}
+
+		return readerCloser{Reader: io.LimitReader(io.MultiReader(bytes.NewReader(initial), stream), int64(ln)), Closer: stream}, nil
+	}
+
+	if stream == nil {
+		// range is within slice according to conditions above
+		return io.NopCloser(bytes.NewReader(initial[off:][:ln])), nil
+	}
+
+	if err := checkTooBigRange(off, ln); err != nil {
+		stream.Close()
+		return nil, err
+	}
+
+	if off >= uint64(len(initial)) {
+		if off > uint64(len(initial)) {
+			if seeker, ok := stream.(io.Seeker); ok {
+				_, err = seeker.Seek(int64(off)-int64(len(initial)), io.SeekCurrent)
+			} else {
+				_, err = io.CopyN(io.Discard, stream, int64(off)-int64(len(initial)))
+			}
+			if err != nil {
+				stream.Close()
+				return nil, fmt.Errorf("seek payload stream: %w", err)
+			}
+		}
+		return readerCloser{Reader: io.LimitReader(stream, int64(ln)), Closer: stream}, nil
+	}
+
+	return readerCloser{Reader: io.LimitReader(io.MultiReader(bytes.NewReader(initial[off:]), stream), int64(ln)), Closer: stream}, nil
 }
 
 // getObjectStream reads an object from the storage by address as a stream.
@@ -280,11 +431,15 @@ func (p *payloadReader) Close() error {
 // is reached, but only if whence is io.SeekStart. If whence is not io.SeekStart,
 // it returns an error indicating that seeking is not supported.
 func (p *payloadReader) Seek(offset int64, whence int) (int64, error) {
-	if seeker, ok := p.Reader.(io.Seeker); ok {
+	return seekReader(p.Reader, offset, whence)
+}
+
+func seekReader(r io.Reader, offset int64, whence int) (int64, error) {
+	if seeker, ok := r.(io.Seeker); ok {
 		return seeker.Seek(offset, whence)
 	}
 	if whence == io.SeekStart {
-		return io.CopyN(io.Discard, p.Reader, offset)
+		return io.CopyN(io.Discard, r, offset)
 	}
 	return 0, errors.New("payload reader does not support seeking")
 }

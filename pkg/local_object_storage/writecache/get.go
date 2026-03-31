@@ -78,6 +78,19 @@ func (c *cache) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, er
 	return c.fsTree.ReadObject(addr, buf)
 }
 
+// ReadPayloadRange is [Cache.ReadObject] analogue for payload range reading.
+// Zero range means full payload.
+//
+// If given range is out of payload bounds, ReadPayloadRange returns
+// [apistatus.ErrObjectOutOfRange].
+func (c *cache) ReadPayloadRange(addr oid.Address, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return nil, apistatus.ErrObjectNotFound
+	}
+
+	return c.fsTree.ReadPayloadRange(addr, off, ln, buf)
+}
+
 func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})

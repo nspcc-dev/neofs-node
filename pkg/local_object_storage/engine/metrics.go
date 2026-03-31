@@ -14,6 +14,7 @@ type MetricRegister interface {
 	AddHeadDuration(d time.Duration)
 	AddReadHeaderDuration(d time.Duration)
 	AddReadObjectDuration(d time.Duration)
+	AddReadPayloadRangeDuration(d time.Duration)
 	AddGetStreamDuration(d time.Duration)
 	AddGetRangeStreamDuration(d time.Duration)
 	AddInhumeDuration(d time.Duration)

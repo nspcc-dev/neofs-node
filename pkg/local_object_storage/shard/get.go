@@ -249,3 +249,35 @@ func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int, io
 
 	return n, stream, err
 }
+
+// ReadPayloadRange is [Shard.ReadObject] analogue for payload range reading.
+// Zero range means full payload.
+//
+// If given range is out of payload bounds, ReadPayloadRange returns
+// [apistatus.ErrObjectOutOfRange].
+func (s *Shard) ReadPayloadRange(addr oid.Address, off, ln uint64, skipMeta bool, buf []byte) (io.ReadCloser, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	var stream io.ReadCloser
+
+	cb := func(stor common.Storage) error {
+		var err error
+		stream, err = stor.ReadPayloadRange(addr, off, ln, buf)
+		return err
+	}
+
+	wc := func(c writecache.Cache) error {
+		var err error
+		stream, err = c.ReadPayloadRange(addr, off, ln, buf)
+		return err
+	}
+
+	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
+	if err != nil && gotMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
+
+	return stream, err
+}

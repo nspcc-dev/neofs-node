@@ -33,10 +33,16 @@ func VersionLE(req Request, mjr, mnr uint32) bool {
 	return gotMjr < mjr || gotMjr == mjr && ver.GetMinor() <= mnr
 }
 
+// NeedSignResponse determines whether response to req should be signed
+// according to used API version.
+func NeedSignResponse(req Request) bool {
+	return VersionLE(req, 2, 21)
+}
+
 // SignResponseIfNeeded checks whether response for the req should be signed. If
 // so, calculated verification header is returned. Otherwise, nil returns.
 func SignResponseIfNeeded[R sdkcrypto.ProtoMessage](signer *ecdsa.PrivateKey, r sdkcrypto.SignedResponse[R], req Request) *protosession.ResponseVerificationHeader {
-	if VersionLE(req, 2, 21) {
+	if NeedSignResponse(req) {
 		return SignResponse(signer, r)
 	}
 

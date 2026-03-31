@@ -1544,6 +1544,9 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
+
+	needSignResp := needSignGetResponse(req)
+
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
@@ -1584,11 +1587,71 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		}
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
+
+	var stream io.ReadCloser
+	defer func() {
+		if stream != nil {
+			stream.Close()
+		}
+	}()
+
+	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
+
+	p.WithBuffer(hdrBuf, func(s io.ReadCloser) { stream = s })
+
 	err = s.handlers.GetRange(gStream.Context(), p)
+
+	hdrRespBuf.Free()
+
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
+
+	if stream == nil {
+		return nil
+	}
+
+	err = s.copyRangeStream(gStream, stream, needSignResp)
+	if err != nil {
+		return s.sendStatusRangeResponse(gStream, err, req)
+	}
+
 	return nil
+}
+
+func (s *Server) copyRangeStream(gStream protoobject.ObjectService_GetRangeServer, stream io.Reader, needSignResp bool) error {
+	for {
+		// chunk response buffers for GET completely suitable for RANGE
+		respBuf, buf := getBufferForChunkGetResponse()
+
+		n, err := io.ReadFull(stream, buf)
+		streamDone := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+		if err != nil && !streamDone {
+			respBuf.Free()
+			return fmt.Errorf("read payload stream: %w", err)
+		}
+
+		if n == 0 {
+			respBuf.Free()
+			return nil
+		}
+
+		bodyf := shiftPayloadChunkInRangeResponseBuffer(respBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
+
+		if needSignResp {
+			n, err := s.signResponse(respBuf.SliceBuffer[bodyf.To:], respBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+			if err != nil {
+				respBuf.Free()
+				return fmt.Errorf("sign chunk response: %w", err)
+			}
+			bodyf.To += n
+		}
+
+		respBuf.SetBounds(bodyf.From, bodyf.To)
+		if err = gStream.SendMsg(respBuf); err != nil || streamDone {
+			return err
+		}
+	}
 }
 
 // converts original request into parameters accepted by the internal handler.

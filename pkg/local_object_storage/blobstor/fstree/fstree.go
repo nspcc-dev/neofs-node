@@ -516,8 +516,8 @@ func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, err
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
 func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
-	if ln == 0 && off != 0 {
-		return nil, fmt.Errorf("invalid range off=%d,ln=0", off)
+	if err := verifyRequestedRange(off, ln); err != nil {
+		return nil, err
 	}
 
 	// TODO: we need only one header field. Consider decoding only it + jumping to payload
@@ -532,14 +532,14 @@ func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.Rea
 		return stream, nil
 	}
 
-	if off >= pldLen || pldLen-off < ln {
+	if !checkPayloadBounds(pldLen, off, ln) {
 		stream.Close()
 		return nil, apistatus.ErrObjectOutOfRange
 	}
 
-	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
+	if err := checkTooBigRange(off, ln); err != nil {
 		stream.Close()
-		return nil, fmt.Errorf("range overflowing int64 is not supported by this server: off=%d,len=%d", off, ln)
+		return nil, err
 	}
 
 	if off > 0 {
