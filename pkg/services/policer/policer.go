@@ -2,7 +2,6 @@ package policer
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -18,7 +17,6 @@ import (
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -56,10 +54,6 @@ type Policer struct {
 	hadPlacementMismatch atomic.Bool
 
 	signer neofscrypto.Signer
-
-	checkECPartsProgressMtx sync.Mutex
-	checkECPartsProgressMap map[oid.Address]struct{}
-	checkECPartsWorkerPool  *ants.Pool
 }
 
 // Option is an option for Policer constructor.
@@ -147,11 +141,6 @@ func defaultCfg() *cfg {
 
 // New creates, initializes and returns Policer instance.
 func New(signer neofscrypto.Signer, opts ...Option) *Policer {
-	checkECPartsWorkerPool, err := ants.NewPool(100, ants.WithNonblocking(true))
-	if err != nil {
-		panic(fmt.Errorf("ants.NewPool: %w", err))
-	}
-
 	c := defaultCfg()
 
 	for i := range opts {
@@ -161,10 +150,8 @@ func New(signer neofscrypto.Signer, opts ...Option) *Policer {
 	c.log = c.log.With(zap.String("component", "Object Policer"))
 
 	return &Policer{
-		cfg:                     c,
-		signer:                  signer,
-		checkECPartsProgressMap: make(map[oid.Address]struct{}, checkECPartsWorkerPool.Cap()),
-		checkECPartsWorkerPool:  checkECPartsWorkerPool,
+		cfg:    c,
+		signer: signer,
 	}
 }
 
