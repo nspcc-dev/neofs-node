@@ -484,7 +484,7 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 			retries++
 			mainH, fbH, untilActual, err = nAct.Notarize(mainTx, nil)
 			if await {
-				_, err = nAct.Wait(mainH, fbH, untilActual, err)
+				_, err = nAct.WaitSuccess(mainH, fbH, untilActual, err)
 			}
 			if err != nil {
 				if alreadyOnChainError(err) {
