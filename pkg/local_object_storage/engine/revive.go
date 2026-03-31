@@ -24,7 +24,7 @@ func (e *StorageEngine) ReviveObject(address oid.Address) (ReviveStatus, error) 
 
 	for _, sh := range e.unsortedShards() {
 		reviveStatus, err := sh.ReviveObject(address)
-		id := *sh.ID()
+		id := sh.ID()
 		res.Shards = append(res.Shards, ReviveShardStatus{
 			ID:     id.String(),
 			Status: reviveStatus,

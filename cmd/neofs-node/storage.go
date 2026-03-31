@@ -112,6 +112,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 			wcMaxBatchCount = sRead.CombinedCountLimit
 			wcMaxBatchThreshold = uint64(sRead.CombinedSizeThreshold)
 			s = fstree.New(
+				fstree.WithLogger(c.log),
 				fstree.WithPath(sRead.Path),
 				fstree.WithPerm(sRead.Perm),
 				fstree.WithDepth(sRead.Depth),

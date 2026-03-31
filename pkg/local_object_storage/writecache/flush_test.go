@@ -170,7 +170,7 @@ func TestFlushPerformance(t *testing.T) {
 				require.NoError(t, storageSetMode(s, mode.ReadWrite))
 
 				require.NoError(t, wc.Open(false))
-				require.NoError(t, wc.Init())
+				require.NoError(t, wc.Init(common.ID{}))
 				start := time.Now()
 				waitForFlush(t, wc, objects)
 				duration := time.Since(start)
@@ -211,7 +211,7 @@ func TestFlushErrorRetry(t *testing.T) {
 			s.SetCompressor(comp)
 
 			require.NoError(t, s.Open(false))
-			require.NoError(t, s.Init())
+			require.NoError(t, s.Init(common.ID{}))
 
 			logger, logBuf := testutil.NewBufferedLogger(t, zap.DebugLevel)
 			wc := New(WithPath(filepath.Join(dir, "writecache")),
@@ -219,7 +219,7 @@ func TestFlushErrorRetry(t *testing.T) {
 				WithFlushWorkersCount(workerCount),
 				WithLogger(logger))
 			require.NoError(t, wc.Open(false))
-			require.NoError(t, wc.Init())
+			require.NoError(t, wc.Init(common.ID{}))
 
 			defer wc.Close()
 
@@ -251,8 +251,10 @@ func TestFlushErrorRetry(t *testing.T) {
 				Level:   zap.WarnLevel,
 				Message: "flush scheduler paused due to error",
 				Fields: map[string]any{
-					"component": "WriteCache",
-					"delay":     json.Number("10"),
+					"component":  "WriteCache",
+					"delay":      json.Number("10"),
+					"shard_id":   "",
+					"substorage": wcStorageType,
 				},
 			})
 			logBuf.AssertContainsMsg(zap.ErrorLevel, "can't flush objects")
@@ -282,7 +284,7 @@ func TestFlushScheduler(t *testing.T) {
 	require.NoError(t, storageSetMode(s, mode.ReadWrite))
 
 	require.NoError(t, wc.Open(false))
-	require.NoError(t, wc.Init())
+	require.NoError(t, wc.Init(common.ID{}))
 
 	waitForFlush(t, wc, objects)
 
@@ -356,7 +358,7 @@ func storageSetMode(s common.Storage, m mode.Mode) error {
 	err := s.Close()
 	if err == nil {
 		if err = s.Open(m.ReadOnly()); err == nil {
-			err = s.Init()
+			err = s.Init(common.ID{})
 		}
 	}
 	return err
@@ -381,7 +383,7 @@ func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
 	err := m.Close()
 	if err == nil {
 		if err = m.Open(newMode.ReadOnly()); err == nil {
-			err = m.Init()
+			err = m.Init(common.ID{})
 		}
 	}
 

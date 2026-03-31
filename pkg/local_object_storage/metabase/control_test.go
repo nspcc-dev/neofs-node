@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -60,7 +61,7 @@ func TestOpenRO(t *testing.T) {
 	)
 
 	require.NoError(t, db.Open(false))
-	require.NoError(t, db.Init())
+	require.NoError(t, db.Init(common.ID{}))
 
 	obj := generateObject(t)
 	addr := obj.Address()

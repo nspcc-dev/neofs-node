@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"go.uber.org/zap"
@@ -34,74 +35,77 @@ func (s *Shard) handleMetabaseFailure(stage string, err error) error {
 
 // Open opens all Shard's components.
 func (s *Shard) Open() error {
-	components := []interface{ Open(bool) error }{
-		s.blobStor, s.metaBase,
+	if err := s.blobStor.Open(false); err != nil {
+		return fmt.Errorf("could not open %T: %w", s.blobStor, err)
 	}
+
+	metaErr := s.metaBase.Open(false)
 
 	if s.hasWriteCache() {
-		components = append(components, s.writeCache)
-	}
-
-	for i, component := range components {
-		if err := component.Open(false); err != nil {
-			if component == s.metaBase {
-				// We must first open all other components to avoid
-				// opening non-existent DB in read-only mode.
-				for j := i + 1; j < len(components); j++ {
-					if err := components[j].Open(false); err != nil {
-						// Other components must be opened, fail.
-						return fmt.Errorf("could not open %T: %w", components[j], err)
-					}
-				}
-				err = s.handleMetabaseFailure("open", err)
-				if err != nil {
-					return err
-				}
-
-				break
-			}
-
-			return fmt.Errorf("could not open %T: %w", component, err)
+		if err := s.writeCache.Open(false); err != nil {
+			return fmt.Errorf("could not open %T: %w", s.writeCache, err)
 		}
 	}
-	return nil
+
+	if metaErr == nil {
+		return nil
+	}
+
+	if !s.initedStorage {
+		s.metaBaseOpenErr = metaErr
+		return nil
+	}
+	return s.handleMetabaseFailure("open", metaErr)
 }
 
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
-	type initializer interface {
-		Init() error
+	if err := s.compression.Init(); err != nil {
+		return fmt.Errorf("could not initialize %T: %w", &s.compression, err)
 	}
 
-	var components = []initializer{&s.compression, s.blobStor}
-
-	if !s.GetMode().NoMetabase() {
-		components = append(components, s.metaBase)
+	if err := s.blobStor.Init(common.ID{}); err != nil {
+		return fmt.Errorf("could not initialize %T: %w", s.blobStor, err)
 	}
+	s.initedStorage = true
+
+	shardID := s.blobStor.ShardID()
+	if shardID.IsZero() {
+		return fmt.Errorf("%T returned empty shard ID after init", s.blobStor)
+	}
+
+	s.info.ID = shardID
+	if s.metricsWriter != nil {
+		s.metricsWriter.SetShardID(shardID.String())
+	}
+	l := s.log.With(zap.String("shard_id", shardID.String()))
+	s.log = l
+	s.gcCfg.log = s.gcCfg.log.With(zap.String("shard_id", shardID.String()))
 
 	if s.hasWriteCache() {
-		components = append(components, s.writeCache)
+		if err := s.writeCache.Init(shardID); err != nil {
+			return fmt.Errorf("could not initialize %T: %w", s.writeCache, err)
+		}
 	}
 
-	for _, component := range components {
-		if err := component.Init(); err != nil {
-			if component == s.metaBase {
-				if errors.Is(err, meta.ErrOutdatedVersion) {
-					return fmt.Errorf("metabase initialization: %w", err)
-				}
+	if s.metaBaseOpenErr != nil {
+		err := s.handleMetabaseFailure("open", s.metaBaseOpenErr)
+		if err != nil {
+			return err
+		}
+		s.metaBaseOpenErr = nil
+	}
 
-				err = s.handleMetabaseFailure("init", err)
-				if err != nil {
-					return err
-				}
-
-				break
+	if !s.GetMode().NoMetabase() {
+		if err := s.metaBase.Init(shardID); err != nil {
+			if errors.Is(err, meta.ErrOutdatedVersion) {
+				return fmt.Errorf("metabase initialization: %w", err)
 			}
 
-			return fmt.Errorf("could not initialize %T: %w", component, err)
-		}
-		if component == s.blobStor {
-			s.initedStorage = true
+			err = s.handleMetabaseFailure("init", err)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -170,7 +174,7 @@ func (s *Shard) Reload(opts ...Option) error {
 		return err
 	}
 	if ok {
-		err = s.metaBase.Init()
+		err = s.metaBase.Init(s.ID())
 		if err != nil {
 			s.log.Error("can't initialize metabase, move to a degraded-read-only mode", zap.Error(err))
 			_ = s.setMode(mode.DegradedReadOnly)

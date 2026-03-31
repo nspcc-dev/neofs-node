@@ -43,8 +43,6 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 			)
 			require.NoError(t, err)
 		}
-		require.NoError(t, e.Open())
-
 		o1 := objecttest.Object()
 		o2 := objecttest.Object()
 		o2.SetPayload(make([]byte, errSmallSize+1))

@@ -14,7 +14,7 @@ import (
 func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
-	require.NoError(t, s.Init())
+	require.NoError(t, s.Init(common.ID{}))
 
 	objects := prepare(t, 10, s, minSize, maxSize)
 	objectsBatch := prepareBatch(t, 10, s, minSize, maxSize)

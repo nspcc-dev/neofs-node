@@ -5,6 +5,7 @@ import (
 	"io"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
+	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
@@ -36,7 +37,7 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer fst.Close()
 
-	err = fst.Init()
+	err = fst.Init(blobstorcommon.ID{})
 	if err != nil {
 		return fmt.Errorf("failed to init FSTree: %w", err)
 	}

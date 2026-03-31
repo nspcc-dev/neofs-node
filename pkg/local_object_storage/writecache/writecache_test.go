@@ -3,6 +3,7 @@ package writecache
 import (
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
@@ -24,6 +25,6 @@ func TestCache_InitReadOnly(t *testing.T) {
 
 	t.Cleanup(func() { wc.Close() })
 
-	err = wc.Init()
+	err = wc.Init(common.ID{})
 	require.NoError(t, err)
 }

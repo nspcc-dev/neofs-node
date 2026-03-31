@@ -3,6 +3,7 @@ package storagetest
 import (
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -11,7 +12,7 @@ import (
 func TestGet(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
-	require.NoError(t, s.Init())
+	require.NoError(t, s.Init(common.ID{}))
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	t.Run("missing object", func(t *testing.T) {

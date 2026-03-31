@@ -3,6 +3,7 @@ package storagetest
 import (
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,7 @@ import (
 type Component interface {
 	Open(bool) error
 	SetMode(mode.Mode) error
-	Init() error
+	Init(common.ID) error
 	Close() error
 }
 
@@ -65,7 +66,7 @@ func TestCloseAfterOpen(t *testing.T, cons Constructor) {
 		// Open in read-only must be done after the db is here.
 		s := cons(t)
 		require.NoError(t, s.Open(false))
-		require.NoError(t, s.Init())
+		require.NoError(t, s.Init(common.ID{}))
 		require.NoError(t, s.Close())
 
 		require.NoError(t, s.Open(true))
@@ -78,7 +79,7 @@ func TestCloseTwice(t *testing.T, cons Constructor) {
 	// Use-case: move to maintenance mode twice, first time failed.
 	s := cons(t)
 	require.NoError(t, s.Open(false))
-	require.NoError(t, s.Init())
+	require.NoError(t, s.Init(common.ID{}))
 	require.NoError(t, s.Close())
 	require.NoError(t, s.Close()) // already closed, no-op
 }
@@ -104,7 +105,7 @@ func TestSetMode(t *testing.T, cons Constructor, m mode.Mode) {
 		s := cons(t)
 		// Use-case: notmal node operation.
 		require.NoError(t, s.Open(false))
-		require.NoError(t, s.Init())
+		require.NoError(t, s.Init(common.ID{}))
 		require.NoError(t, s.SetMode(m))
 	})
 }
@@ -113,7 +114,7 @@ func TestModeTransition(t *testing.T, cons Constructor, from, to mode.Mode) {
 	// Use-case: normal node operation.
 	s := cons(t)
 	require.NoError(t, s.Open(false))
-	require.NoError(t, s.Init())
+	require.NoError(t, s.Init(common.ID{}))
 	require.NoError(t, s.SetMode(from))
 	require.NoError(t, s.SetMode(to))
 	require.NoError(t, s.Close())

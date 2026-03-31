@@ -44,7 +44,7 @@ func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
 	fsTree.SetCompressor(comp)
 
 	require.NoError(tb, fsTree.Open(false))
-	require.NoError(tb, fsTree.Init())
+	require.NoError(tb, fsTree.Init(common.ID{}))
 
 	modeAwareStorage := NewModeAwareStorage(fsTree)
 
@@ -54,7 +54,7 @@ func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
 			WithStorage(modeAwareStorage),
 		}, opts...)...)
 	require.NoError(tb, wc.Open(false))
-	require.NoError(tb, wc.Init())
+	require.NoError(tb, wc.Init(common.ID{}))
 
 	return wc, modeAwareStorage
 }

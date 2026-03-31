@@ -3,6 +3,7 @@ package meta
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
 
@@ -32,7 +33,7 @@ func (db *DB) SetMode(m mode.Mode) error {
 		err = db.Open(false)
 	}
 	if err == nil && !m.NoMetabase() && !m.ReadOnly() {
-		err = db.Init()
+		err = db.Init(common.ID{})
 	}
 
 	if err != nil {
