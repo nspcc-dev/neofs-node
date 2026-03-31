@@ -81,7 +81,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 }
 
 func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
-	engine := New()
+	engine := New(WithObjectPutRetryTimeout(100 * time.Millisecond))
 
 	for _, s := range shards {
 		err := engine.addShard(s)
