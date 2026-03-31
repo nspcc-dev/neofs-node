@@ -37,6 +37,7 @@ func WithLogger(l *zap.Logger) Option {
 func WithSubtype(st string) Option {
 	return func(f *FSTree) {
 		f.subtype = st
+		f.subtypeSet = true
 	}
 }
 

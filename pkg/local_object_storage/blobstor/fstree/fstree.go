@@ -36,10 +36,12 @@ type FSTree struct {
 
 	depthSet   bool
 	shardIDSet bool
-	noSync     bool
-	readOnly   bool
-	shardID    common.ID
-	subtype    string
+	subtypeSet bool
+
+	noSync   bool
+	readOnly bool
+	shardID  common.ID
+	subtype  string
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
@@ -98,7 +100,7 @@ const (
 
 var _ common.Storage = (*FSTree)(nil)
 
-const subtypeBlobstor = "blobstor"
+const SubtypeBlobstor = "blobstor"
 
 func New(opts ...Option) *FSTree {
 	f := &FSTree{
@@ -114,7 +116,7 @@ func New(opts ...Option) *FSTree {
 		combinedSizeThreshold: 128 * 1024,
 		combinedWriteInterval: 10 * time.Millisecond,
 		log:                   zap.NewNop(),
-		subtype:               subtypeBlobstor,
+		subtype:               SubtypeBlobstor,
 	}
 	for i := range opts {
 		opts[i](f)

@@ -138,8 +138,12 @@ func (t *FSTree) checkConfig() error {
 			return err
 		}
 	}
-	if d.Subtype != t.subtype {
-		return fmt.Errorf("subtype mismatch: on-disk subtype=%s, configured subtype=%s", d.Subtype, t.subtype)
+	if t.subtypeSet {
+		if d.Subtype != t.subtype {
+			return fmt.Errorf("subtype mismatch: on-disk subtype=%s, configured subtype=%s", d.Subtype, t.subtype)
+		}
+	} else {
+		t.subtype = d.Subtype
 	}
 
 	if t.depthSet {
@@ -202,6 +206,9 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 // migrateDescriptorFrom2Version migrates descriptor from version 2 to version 3
 // by pinning the storage subtype in the descriptor.
 func (t *FSTree) migrateDescriptorFrom2Version(d *fsDescriptor, descPath string) error {
+	if !t.subtypeSet {
+		return errors.New("can't migrate FSTree descriptor from v2 to v3 without explicit subtype")
+	}
 	d.Version = currentVersion
 	d.Subtype = t.subtype
 	if !t.readOnly {
