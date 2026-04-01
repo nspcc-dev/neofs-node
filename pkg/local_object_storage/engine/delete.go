@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"slices"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -23,6 +25,55 @@ func (e *StorageEngine) Delete(addr oid.Address) error {
 		return e.blockErr
 	}
 	return e.processAddrDelete(addr, func(sh *shard.Shard, addrs []oid.Address) error {
+		return sh.MarkGarbage(addrs...)
+	})
+}
+
+// DeleteRedundantCopies marks redundant object copies to be removed from all
+// listed shards except the most preferred one according to HRW ordering.
+//
+// Returns an error if executions are blocked (see BlockExecution) or if none of
+// the provided shards is found in the engine.
+func (e *StorageEngine) DeleteRedundantCopies(addr oid.Address, shardIDs []string) error {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddDeleteDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+
+	if len(shardIDs) < 2 {
+		return nil
+	}
+
+	var deleteShards []shardWrapper
+	keep := true
+	for _, sh := range e.sortedShards(addr.Object()) {
+		if !slices.Contains(shardIDs, sh.ID().String()) {
+			continue
+		}
+
+		if keep {
+			keep = false
+			continue
+		}
+
+		deleteShards = append(deleteShards, sh)
+	}
+
+	if keep {
+		return errShardNotFound
+	}
+
+	if len(deleteShards) == 0 {
+		return nil
+	}
+
+	return e.processAddrDeleteOnShards(deleteShards, addr, func(sh *shard.Shard, addrs []oid.Address) error {
 		return sh.MarkGarbage(addrs...)
 	})
 }

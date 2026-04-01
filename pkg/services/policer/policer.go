@@ -31,6 +31,7 @@ type replicatorIface interface {
 type localStorage interface {
 	ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
 	Delete(oid.Address) error
+	DeleteRedundantCopies(oid.Address, []string) error
 	Put(*object.Object, []byte) error
 	Head(oid.Address, bool) (*object.Object, error)
 	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)

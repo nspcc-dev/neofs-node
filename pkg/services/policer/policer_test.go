@@ -60,6 +60,10 @@ func (s *storageListerWithDelay) Delete(address oid.Address) error {
 	panic("do not call me")
 }
 
+func (s *storageListerWithDelay) DeleteRedundantCopies(address oid.Address, _ []string) error {
+	panic("do not call me")
+}
+
 func (s *storageListerWithDelay) Put(o *object.Object, i []byte) error {
 	panic("do not call me")
 }
@@ -1229,6 +1233,89 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	return lb
 }
 
+func TestPolicer_DropShardDuplicates(t *testing.T) {
+	t.Run("regular", func(t *testing.T) {
+		cnr := cidtest.ID()
+		objID := oidtest.ID()
+		addr := oid.NewAddress(cnr, objID)
+		nodes := testutil.Nodes(2)
+
+		localObj := objectcore.AddressWithAttributes{
+			Address:    addr,
+			Type:       object.TypeRegular,
+			Attributes: make([]string, 3),
+			ShardIDs:   []string{"redundant", "keeper"},
+		}
+
+		localNode := newTestLocalNode()
+		localNode.deleteRedundantCopies = func(got oid.Address, shardIDs []string) error {
+			require.Equal(t, addr, got)
+			require.ElementsMatch(t, []string{"redundant", "keeper"}, shardIDs)
+			localNode.delMtx.Lock()
+			localNode.delByShard[addr] = []string{"redundant"}
+			localNode.delMtx.Unlock()
+			return nil
+		}
+
+		mockNet := newMockNetwork()
+		mockNet.pubKey = nodes[0].PublicKey()
+		mockNet.setObjectNodesRepResult(cnr, objID, nodes, 1)
+
+		p := New(neofscryptotest.Signer(),
+			WithNetwork(mockNet),
+			WithLogger(zap.NewNop()),
+		)
+		p.localStorage = localNode
+
+		p.processObject(context.Background(), localObj)
+
+		require.Empty(t, localNode.deletedObjects())
+		require.Equal(t, []string{"redundant"}, localNode.deletedShardCopies(addr))
+	})
+
+	t.Run("broadcast", func(t *testing.T) {
+		for _, typ := range []object.Type{object.TypeTombstone, object.TypeLock, object.TypeLink} {
+			t.Run(typ.String(), func(t *testing.T) {
+				cnr := cidtest.ID()
+				objID := oidtest.ID()
+				addr := oid.NewAddress(cnr, objID)
+				nodes := testutil.Nodes(2)
+
+				localObj := objectcore.AddressWithAttributes{
+					Address:    addr,
+					Type:       typ,
+					Attributes: make([]string, 3),
+					ShardIDs:   []string{"A", "B"},
+				}
+
+				localNode := newTestLocalNode()
+				localNode.deleteRedundantCopies = func(oid.Address, []string) error {
+					t.Fatal("DeleteRedundantCopies must not be called for broadcast objects")
+					return nil
+				}
+
+				mockNet := newMockNetwork()
+				mockNet.pubKey = nodes[0].PublicKey()
+				mockNet.setObjectNodesRepResult(cnr, objID, nodes, 1)
+				conns := newMockAPIConnections()
+				conns.setHeadResult(nodes[1], addr, nil)
+
+				p := New(neofscryptotest.Signer(),
+					WithNetwork(mockNet),
+					WithLogger(zap.NewNop()),
+				)
+				p.localStorage = localNode
+				p.apiConns = conns
+
+				p.processObject(context.Background(), localObj)
+
+				require.Empty(t, localNode.deletedObjects())
+				require.Empty(t, localNode.deletedShardCopies(addr))
+			})
+		}
+	})
+}
+
 func waitForPolicerResult(t *testing.T, p *Policer, lb *testutil.LogBuffer, mockNet *mockNetwork, localNode *testLocalNode, addr oid.Address, expRedundant bool, expectTask bool, r *testReplicator, waitLog ...*testutil.LogEntry) {
 	t.Helper()
 
@@ -1301,13 +1388,16 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 type testLocalNode struct {
 	objList []objectcore.AddressWithAttributes
 
-	delMtx sync.RWMutex
-	del    map[oid.Address]struct{}
+	delMtx                sync.RWMutex
+	del                   map[oid.Address]struct{}
+	delByShard            map[oid.Address][]string
+	deleteRedundantCopies func(oid.Address, []string) error
 }
 
 func newTestLocalNode() *testLocalNode {
 	return &testLocalNode{
-		del: make(map[oid.Address]struct{}),
+		del:        make(map[oid.Address]struct{}),
+		delByShard: make(map[oid.Address][]string),
 	}
 }
 
@@ -1396,6 +1486,13 @@ func (x *testLocalNode) deletedObjects() []oid.Address {
 	return res
 }
 
+func (x *testLocalNode) deletedShardCopies(addr oid.Address) []string {
+	x.delMtx.RLock()
+	res := slices.Clone(x.delByShard[addr])
+	x.delMtx.RUnlock()
+	return res
+}
+
 func (x *testLocalNode) Delete(addr oid.Address) error {
 	x.delMtx.Lock()
 	x.del[addr] = struct{}{}
@@ -1417,6 +1514,21 @@ func (x *testLocalNode) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object,
 
 func (x *testLocalNode) GetRange(oid.Address, uint64, uint64) ([]byte, error) {
 	panic("unimplemented")
+}
+
+func (x *testLocalNode) DeleteRedundantCopies(addr oid.Address, shardIDs []string) error {
+	if x.deleteRedundantCopies != nil {
+		return x.deleteRedundantCopies(addr, shardIDs)
+	}
+
+	if len(shardIDs) < 2 {
+		return nil
+	}
+
+	x.delMtx.Lock()
+	x.delByShard[addr] = append(x.delByShard[addr], shardIDs[1:]...)
+	x.delMtx.Unlock()
+	return nil
 }
 
 type getNodesKey struct {
