@@ -4,7 +4,6 @@ package policer
 // - [WithHeadTimeout];
 // - [WithObjectCacheTime];
 // - [WithReplicationCooldown];
-// - [WithMaxCapacity];
 // - [WithObjectBatchSize];
 // - [WithObjectCacheSize];
 // - [WithBoostMultiplier].
@@ -19,7 +18,6 @@ func (p *Policer) Reload(opts ...Option) {
 
 	p.headTimeout = cfg.headTimeout
 	p.repCooldown = cfg.repCooldown
-	p.maxCapacity = cfg.maxCapacity
 	p.batchSize = cfg.batchSize
 	p.boostMultiplier = cfg.boostMultiplier
 }

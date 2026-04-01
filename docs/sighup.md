@@ -55,7 +55,6 @@ policer:
   head_timeout:
   replication_cooldown:
   object_batch_size:
-  max_workers:
   boost_multiplier:
 ```
 

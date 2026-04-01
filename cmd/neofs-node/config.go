@@ -583,7 +583,6 @@ func (c *cfg) policerOpts() []policer.Option {
 	pCfg := c.appCfg.Policer
 
 	return []policer.Option{
-		policer.WithMaxCapacity(pCfg.MaxWorkers),
 		policer.WithHeadTimeout(pCfg.HeadTimeout),
 		policer.WithReplicationCooldown(pCfg.ReplicationCooldown),
 		policer.WithObjectBatchSize(pCfg.ObjectBatchSize),

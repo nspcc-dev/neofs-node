@@ -119,7 +119,6 @@ type cfg struct {
 	headTimeout     time.Duration
 	repCooldown     time.Duration
 	batchSize       uint32
-	maxCapacity     uint32
 	boostMultiplier uint32
 
 	log     *zap.Logger
@@ -232,14 +231,6 @@ func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 func WithReplicator(v *replicator.Replicator) Option {
 	return func(c *cfg) {
 		c.replicator = v
-	}
-}
-
-// WithMaxCapacity returns option to set max capacity
-// that can be set to the pool.
-func WithMaxCapacity(capacity uint32) Option {
-	return func(c *cfg) {
-		c.maxCapacity = capacity
 	}
 }
 

@@ -10,10 +10,12 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- `policer.max_workers` configuration (#3920)
 
 ### Updated
 
 ### Updating from v0.52.0
+Drop `policer.max_workers` configuration, it's no-op since 0.52.0.
 
 ## [0.52.0] - 2026-03-27 - Woodo
 
