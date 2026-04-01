@@ -115,6 +115,7 @@ storage:
       perm: 0644  # permissions for metabase files(directories: +x for current user and group)
       max_batch_size: 200
       max_batch_delay: 20ms
+      search_iteration_limit: 5000 # max number of consecutive objects to be iterated without a match during search operations; -1 means no limit, 0 means default
 
     compress: false  # turn on/off zstd(level 3) compression of stored objects
 
@@ -144,6 +145,7 @@ storage:
         path: tmp/0/meta  # metabase path
         max_batch_size: 100
         max_batch_delay: 10ms
+        search_iteration_limit: -1 # max number of consecutive objects to be iterated without a match during search operations; -1 means no limit, 0 means default
 
       compress: true  # turn on/off zstd(level 3) compression of stored objects
       compression_exclude_content_types:

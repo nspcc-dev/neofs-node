@@ -230,14 +230,16 @@ metabase:
   perm: 0644
   max_batch_size: 200
   max_batch_delay: 20ms
+  search_iteration_limit: 5000
 ```
 
-| Parameter         | Type       | Default value | Description                                                            |
-|-------------------|------------|---------------|------------------------------------------------------------------------|
-| `path`            | `string`   |               | Path to the metabase file.                                             |
-| `perm`            | file mode  | `0640`        | Permissions to set for the database file.                              |
-| `max_batch_size`  | `int`      | `1000`        | Maximum amount of write operations to perform in a single transaction. |
-| `max_batch_delay` | `duration` | `10ms`        | Maximum delay before a batch starts.                                   |
+| Parameter                | Type       | Default value | Description                                                                                                                    |
+|--------------------------|------------|---------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `path`                   | `string`   |               | Path to the metabase file.                                                                                                     |
+| `perm`                   | file mode  | `0640`        | Permissions to set for the database file.                                                                                      |
+| `max_batch_size`         | `int`      | `1000`        | Maximum amount of write operations to perform in a single transaction.                                                         |
+| `max_batch_delay`        | `duration` | `10ms`        | Maximum delay before a batch starts.                                                                                           |
+| `search_iteration_limit` | `int`      | `10000`       | Maximum number of consecutive objects to iterate without a match during search operations. -1 means no limit, 0 means default. |
 
 ### `writecache` subsection
 
