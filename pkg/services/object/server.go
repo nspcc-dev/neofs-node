@@ -2264,7 +2264,6 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			return nil, nil, err
 		}
 	default:
-		var signed bool
 		var resErr error
 		mProcessedNodes := make(map[string]struct{})
 		var sets [][]sdkclient.SearchResultItem
@@ -2276,6 +2275,12 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			sets, mores = append(sets, set), append(mores, more)
 			mtx.Unlock()
 		}
+
+		req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
+		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
+			return nil, nil, fmt.Errorf("sign request: %w", err)
+		}
+
 		err = s.fsChain.ForEachContainerNode(cID, func(node sdknetmap.NodeInfo) bool {
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
@@ -2290,14 +2295,6 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 					} // TODO: else log error
 				})
 				return true
-			}
-			if !signed {
-				req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
-				if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
-					resErr = fmt.Errorf("sign request: %w", err)
-					return false
-				}
-				signed = true
 			}
 			wg.Add(1)
 			if resErr = s.searchWorkers.Submit(func() {
