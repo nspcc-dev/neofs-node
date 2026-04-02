@@ -54,7 +54,7 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*object.Object, error) {
 		return nil
 	}
 
-	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+	skipMeta = true
 	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
 	if err != nil && gotMeta {
 		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
