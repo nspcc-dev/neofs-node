@@ -50,6 +50,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -204,10 +205,11 @@ type Server struct {
 	reqInfoProc   ACLInfoExtractor
 	nodeClients   searchsvc.ClientConstructor
 	searchWorkers *ants.Pool
+	logger        *zap.Logger
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) *Server {
+func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor, logger *zap.Logger) *Server {
 	return &Server{
 		handlers:      hs,
 		fsChain:       fsChain,
@@ -221,6 +223,7 @@ func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Sto
 		reqInfoProc:   rp,
 		nodeClients:   cs,
 		searchWorkers: sp,
+		logger:        logger,
 	}
 }
 
@@ -2305,11 +2308,13 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
 					add(set, more)
 				} else {
+					s.logger.Warn("SSSSSSSSSSSSSSS remote failed", zap.Error(err))
 					var inc = new(apistatus.Incomplete)
 					inc.SetMessage(fmt.Sprintf("last error: %s", err.Error()))
 					incomplete.Store(inc)
 				}
 			}); resErr != nil {
+				s.logger.Warn("SSSSSSSSSSSSSSS pool error", zap.Error(resErr))
 				wg.Done()
 			}
 			return resErr == nil

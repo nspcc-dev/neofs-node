@@ -323,7 +323,7 @@ func initObjectService(c *cfg) {
 		putSvc:  sPut,
 		keys:    keyStorage,
 	}
-	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
+	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor, c.log)
 	os.server = server
 
 	svcDesc := protoobject.ObjectService_ServiceDesc
