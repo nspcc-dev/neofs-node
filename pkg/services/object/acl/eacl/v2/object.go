@@ -12,7 +12,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"google.golang.org/protobuf/encoding/protowire"
 )
 
 type sysObjHdr struct {
@@ -108,20 +107,11 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eaclSD
 	res := make([]eaclSDK.Header, 0, 10)
 
 	var off int
-	var prevNum protowire.Number
 	for {
 		num, typ, n, err := iprotobuf.ParseTag(buf[off:])
 		if err != nil {
 			return nil, err
 		}
-
-		if num < prevNum {
-			return nil, iprotobuf.NewUnorderedFieldsError(prevNum, num)
-		}
-		if num == prevNum && num != protoobject.FieldHeaderAttributes {
-			return nil, iprotobuf.NewRepeatedFieldError(num)
-		}
-		prevNum = num
 
 		off += n
 

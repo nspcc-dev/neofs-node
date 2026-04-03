@@ -64,6 +64,12 @@ type execCtx struct {
 
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
+
+	forwardHeadRequestFn ForwardHeadRequestFunc
+
+	submitHeadResponseFn SubmitHeadResponseFunc
+
+	forwardGetRequestFn ForwardGetRequestFunc
 }
 
 type execOption func(*execCtx)
@@ -76,9 +82,11 @@ const (
 	statusNotFound
 )
 
-func headOnly() execOption {
+func headOnly(forwardRequestFn ForwardHeadRequestFunc, submitResponseFn SubmitHeadResponseFunc) execOption {
 	return func(c *execCtx) {
 		c.head = true
+		c.forwardHeadRequestFn = forwardRequestFn
+		c.submitHeadResponseFn = submitResponseFn
 	}
 }
 
@@ -111,6 +119,12 @@ func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc) execOption 
 	return func(ctx *execCtx) {
 		ctx.localGetBuffer = buf
 		ctx.submitLocalGetStreamFn = submitStreamFn
+	}
+}
+
+func withForwardGetRequestFunc(f ForwardGetRequestFunc) execOption {
+	return func(ctx *execCtx) {
+		ctx.forwardGetRequestFn = f
 	}
 }
 
@@ -453,4 +467,5 @@ func (exec execCtx) isRangeHashForwardingEnabled() bool {
 func (exec *execCtx) disableForwarding() {
 	exec.prm.SetRequestForwarder(nil)
 	exec.prm.SetRangeHashRequestForwarder(nil)
+	exec.forwardGetRequestFn = nil
 }
