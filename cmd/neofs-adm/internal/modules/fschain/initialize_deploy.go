@@ -43,15 +43,14 @@ const (
 )
 
 const (
-	netmapEpochKey                   = "EpochDuration"
-	netmapMaxObjectSizeKey           = "MaxObjectSize"
-	netmapContainerFeeKey            = "ContainerFee"
-	netmapContainerAliasFeeKey       = "ContainerAliasFee"
-	netmapEigenTrustIterationsKey    = "EigenTrustIterations"
-	netmapEigenTrustAlphaKey         = "EigenTrustAlpha"
-	netmapBasicIncomeRateKey         = "BasicIncomeRate"
-	netmapWithdrawFeeKey             = "WithdrawFee"
-	netmapHomomorphicHashDisabledKey = "HomomorphicHashingDisabled"
+	netmapEpochKey                = "EpochDuration"
+	netmapMaxObjectSizeKey        = "MaxObjectSize"
+	netmapContainerFeeKey         = "ContainerFee"
+	netmapContainerAliasFeeKey    = "ContainerAliasFee"
+	netmapEigenTrustIterationsKey = "EigenTrustIterations"
+	netmapEigenTrustAlphaKey      = "EigenTrustAlpha"
+	netmapBasicIncomeRateKey      = "BasicIncomeRate"
+	netmapWithdrawFeeKey          = "WithdrawFee"
 
 	defaultEigenTrustIterations = 4
 	defaultEigenTrustAlpha      = "0.1"
@@ -419,18 +418,6 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 				i64 = viper.GetInt64(kf.flag)
 			}
 			configParam = append(configParam, kf.key, i64)
-		}
-		for _, kf := range []struct {
-			key  string
-			flag string
-		}{
-			{netmapHomomorphicHashDisabledKey, homomorphicHashDisabledInitFlag},
-		} {
-			bval, err := unwrap.Bool(c.ReadOnlyInvoker.Call(ctrHash, "config", kf.key))
-			if err != nil {
-				bval = viper.GetBool(kf.flag)
-			}
-			configParam = append(configParam, kf.key, bval)
 		}
 		configParam = append(configParam, netmapEigenTrustIterationsKey, int64(defaultEigenTrustIterations),
 			netmapEigenTrustAlphaKey, defaultEigenTrustAlpha,

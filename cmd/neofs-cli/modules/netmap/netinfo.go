@@ -51,7 +51,7 @@ var netInfoCmd = &cobra.Command{
 		cmd.Printf(format, "Epoch duration", netInfo.EpochDuration())
 		cmd.Printf(format, "Maximum object size", netInfo.MaxObjectSize())
 		cmd.Printf(format, "Withdrawal fee", netInfo.WithdrawalFee())
-		cmd.Printf(format, "Homomorphic hashing disabled", netInfo.HomomorphicHashingDisabled())
+		cmd.Printf(format, "Homomorphic hashing disabled", netInfo.HomomorphicHashingDisabled()) //nolint:staticcheck // networks may still have this setting
 
 		cmd.Println("NeoFS network configuration (other)")
 		for name, value := range netInfo.RawNetworkParameters() {

@@ -126,6 +126,6 @@ func newObject(t testing.TB) *object.Object {
 	x.SetPayloadSize(3)
 	x.SetType(object.TypeRegular)
 	x.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(x.Payload())))
-	x.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(x.Payload())))
+	x.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(x.Payload()))) //nolint:staticcheck // this is a test and such objects are possible
 	return x
 }

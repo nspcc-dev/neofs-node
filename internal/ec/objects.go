@@ -8,10 +8,8 @@ import (
 	"strings"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
-	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/tzhash/tz"
 )
 
 // PartInfo groups information about single EC part produced according to some [Rule].
@@ -79,9 +77,6 @@ func FormObjectForECPart(signer neofscrypto.Signer, parent object.Object, part [
 
 	obj.SetPayload(part)
 	obj.SetPayloadSize(uint64(len(part)))
-	if _, ok := parent.PayloadHomomorphicHash(); ok {
-		obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(part)))
-	}
 
 	if err := obj.SetVerificationFields(signer); err != nil {
 		return object.Object{}, fmt.Errorf("set verification fields: %w", err)
