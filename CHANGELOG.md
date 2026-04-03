@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Post-initial placement replication (#3923)
 
 ### Fixed
 - Policer removes redundant local shard copies that could remain on disk forever (#3908)
