@@ -910,6 +910,25 @@ func (x mockNodeState) CurrentEpoch() uint64 {
 	return x.epoch
 }
 
+type testPostPlacementReplicator struct {
+	t        *testing.T
+	services nodeServices
+}
+
+func (x testPostPlacementReplicator) HandlePostPlacement(_ context.Context, obj *object.Object, nodes []netmap.NodeInfo) {
+	if pi, err := iec.GetPartInfo(*obj); err == nil && pi.Index >= 0 {
+		nodes = nodes[:1]
+	}
+
+	for i := range nodes {
+		nodeInfo, err := convertNodeInfo(nodes[i])
+		require.NoError(x.t, err)
+		svc, err := x.services.lookupNode(nodeInfo)
+		require.NoError(x.t, err)
+		require.NoError(x.t, svc.ValidateAndStoreObjectLocally(*obj)) //nolint:contextcheck
+	}
+}
+
 type inMemLocalStorage struct {
 	mtx  sync.RWMutex
 	objs []object.Object
@@ -1034,8 +1053,22 @@ func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ 
 	return (*testPayloadStream)(stream), nil
 }
 
-func (m *serviceClient) ReplicateObject(context.Context, oid.ID, io.ReadSeeker, neofscrypto.Signer, bool) (*neofscrypto.Signature, error) {
-	panic("unimplemented")
+func (m *serviceClient) ReplicateObject(_ context.Context, _ oid.ID, src io.ReadSeeker, _ neofscrypto.Signer, _ bool) (*neofscrypto.Signature, error) {
+	objBin, err := io.ReadAll(src)
+	if err != nil {
+		return nil, err
+	}
+
+	var msg protoobject.Object
+	if err := proto.Unmarshal(objBin, &msg); err != nil {
+		return nil, err
+	}
+
+	var obj object.Object
+	if err := obj.FromProtoMessage(&msg); err != nil {
+		return nil, err
+	}
+	return nil, (*Service)(m).ValidateAndStoreObjectLocally(obj) //nolint:contextcheck
 }
 
 func (m *serviceClient) ObjectDelete(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectDelete) (oid.ID, error) {
@@ -1116,6 +1149,145 @@ func (x *testCluster) resetAllStoredObjects() {
 	for i := range x.nodeLocalStorages {
 		x.nodeLocalStorages[i].objs = nil
 	}
+}
+
+type placementTestEnv struct {
+	cluster   testCluster
+	nodeLists [][]netmap.NodeInfo
+}
+
+func newPlacementTestEnv(t *testing.T, cnr container.Container, repRules []uint, ecRules []iec.Rule, withPostPlacement, withSessions bool) placementTestEnv {
+	nodeCounts := make([]uint, len(repRules)+len(ecRules))
+	for i := range nodeCounts {
+		const cbf = 3
+		if i < len(repRules) {
+			nodeCounts[i] = repRules[i] * cbf
+		} else {
+			rule := ecRules[i-len(repRules)]
+			nodeCounts[i] = uint(rule.DataPartNum+rule.ParityPartNum) * cbf
+		}
+	}
+
+	nodeLists := allocNodes(nodeCounts)
+
+	cluster := testCluster{
+		nodeServices:      make(nodeServices, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeNetworks:      make([]mockNetwork, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeSessions:      make([]mockNodeSession, islices.TwoDimSliceElementCount(nodeLists)),
+		nodeLocalStorages: make([]inMemLocalStorage, islices.TwoDimSliceElementCount(nodeLists)),
+	}
+
+	blankNodeState := mockNetwork{
+		mockNodeState: mockNodeState{
+			epoch: currentEpoch,
+		},
+		cnrNodes: mockContainerNodes{
+			unsorted:  nodeLists,
+			sorted:    nodeLists,
+			repCounts: repRules,
+			ecRules:   ecRules,
+		},
+	}
+
+	var nodeIdx int
+	for i := range nodeLists {
+		for j := range nodeLists[i] {
+			nodeSigner := neofscryptotest.Signer()
+			nodeLists[i][j].SetPublicKey(nodeSigner.PublicKeyBytes)
+
+			cluster.nodeNetworks[nodeIdx] = blankNodeState
+			cluster.nodeNetworks[nodeIdx].localPub = nodeSigner.PublicKeyBytes
+
+			if withSessions {
+				cluster.nodeSessions[nodeIdx] = mockNodeSession{
+					signer:    nodeSigner,
+					expiresAt: cluster.nodeNetworks[nodeIdx].epoch + 1,
+				}
+			}
+
+			keyStorage := objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])
+			opts := []Option{
+				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
+				WithKeyStorage(keyStorage),
+				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
+				WithMaxSizeSource(mockMaxSize(maxObjectSize)),
+				WithContainerSource(mockContainer(cnr)),
+				WithNetworkState(&cluster.nodeNetworks[nodeIdx]),
+				WithClientConstructor(cluster.nodeServices),
+				WithSplitChainVerifier(mockSplitVerifier{}),
+				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
+				WithTombstoneVerifier(mockTombstoneVerifier{}),
+			}
+
+			if withPostPlacement {
+				opts = append(opts, WithPostPlacementReplicator(testPostPlacementReplicator{
+					t:        t,
+					services: cluster.nodeServices,
+				}))
+			}
+
+			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
+				quotas{math.MaxUint64, math.MaxUint64},
+				&payments{},
+				opts...,
+			)
+
+			nodeIdx++
+		}
+	}
+
+	return placementTestEnv{
+		cluster:   cluster,
+		nodeLists: nodeLists,
+	}
+}
+
+func nodeIndexForList(nodeLists [][]netmap.NodeInfo, localList int) int {
+	if localList < 0 {
+		return 0
+	}
+
+	var nodeIdx int
+	for i := range nodeLists {
+		nodeIdx += len(nodeLists[i])
+		if i == localList {
+			return nodeIdx - 1
+		}
+	}
+	return 0
+}
+
+func newSignedRegularObject(t *testing.T, owner user.Signer, ownerID user.ID) object.Object {
+	obj := *object.New(cidtest.ID(), ownerID)
+	obj.SetPayload([]byte("Hello, world!"))
+	obj.SetPayloadSize(uint64(len(obj.Payload())))
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte(testutil.RandByteSlice(tz.Size))))
+	obj.SetAttributes(
+		object.NewAttribute("attr1", "val1"),
+		object.NewAttribute("attr2", "val2"),
+	)
+	require.NoError(t, obj.SetVerificationFields(owner))
+	return obj
+}
+
+func newSessionRegularObject(ownerID user.ID) object.Object {
+	obj := *object.New(cidtest.ID(), ownerID)
+	obj.SetPayload([]byte("Hello, world!"))
+	obj.SetPayloadSize(uint64(len(obj.Payload())))
+	obj.SetAttributes(
+		object.NewAttribute("attr1", "val1"),
+		object.NewAttribute("attr2", "val2"),
+	)
+	return obj
+}
+
+func newSessionTokenV2ForNode(t *testing.T, cluster testCluster, nodeLists [][]netmap.NodeInfo, localList int, owner user.Signer) *sessionv2.Token {
+	sessionTokenV2 := newSessionTokenV2(t, cidtest.ID(), owner, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+	nodeIdx := nodeIndexForList(nodeLists, localList)
+	pk := cluster.nodeSessions[nodeIdx].signer.ECDSAPrivateKey.PublicKey
+	require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
+	require.NoError(t, sessionTokenV2.Sign(owner))
+	return sessionTokenV2
 }
 
 func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st *session.Object, st2 *sessionv2.Token) {
@@ -1472,7 +1644,7 @@ func newSessionTokenV2(t *testing.T, cnrID cid.ID, owner user.Signer, nodes []mo
 
 func TestInitialPlacement(t *testing.T) {
 	t.Run("REP", func(t *testing.T) {
-		for tcIdx, tc := range []struct {
+		testCases := []struct {
 			repRules     []uint
 			initialRules []uint32
 		}{
@@ -1481,15 +1653,30 @@ func TestInitialPlacement(t *testing.T) {
 			{repRules: []uint{3, 3, 3}, initialRules: []uint32{1, 1, 1}},
 			{repRules: []uint{3, 3, 3}, initialRules: []uint32{1, 0, 1}},
 			{repRules: []uint{1, 2, 3}, initialRules: []uint32{1, 1, 1}},
-		} {
-			t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
-				testInitialPlacementREP(t, tc.repRules, tc.initialRules)
-			})
 		}
+
+		t.Run("initial", func(t *testing.T) {
+			for tcIdx, tc := range testCases {
+				t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+					testInitialPlacementREP(t, tc.repRules, tc.initialRules)
+				})
+			}
+		})
+
+		t.Run("post-placement", func(t *testing.T) {
+			for tcIdx, tc := range testCases {
+				t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+					var ip netmap.InitialPlacementPolicy
+					ip.SetReplicaLimits(tc.initialRules)
+
+					testPostInitialPlacement(t, tc.repRules, ip, -1)
+				})
+			}
+		})
 	})
 
 	t.Run("EC", func(t *testing.T) {
-		for tcIdx, tc := range []struct {
+		testCases := []struct {
 			ecRules      []iec.Rule
 			initialRules []bool
 		}{
@@ -1502,15 +1689,37 @@ func TestInitialPlacement(t *testing.T) {
 				{DataPartNum: 2, ParityPartNum: 2},
 				{DataPartNum: 1, ParityPartNum: 1},
 			}, initialRules: []bool{true, true, false}},
-		} {
-			t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
-				testInitialPlacementEC(t, tc.ecRules, tc.initialRules)
-			})
 		}
+
+		t.Run("initial", func(t *testing.T) {
+			for tcIdx, tc := range testCases {
+				t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+					testInitialPlacementEC(t, tc.ecRules, tc.initialRules)
+				})
+			}
+		})
+
+		t.Run("post-placement", func(t *testing.T) {
+			for tcIdx, tc := range testCases {
+				t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+					repLimits := make([]uint32, len(tc.initialRules))
+					for i := range tc.initialRules {
+						if tc.initialRules[i] {
+							repLimits[i] = 1
+						}
+					}
+
+					var ip netmap.InitialPlacementPolicy
+					ip.SetReplicaLimits(repLimits)
+
+					testPostInitialPlacementEC(t, tc.ecRules, ip, 0)
+				})
+			}
+		})
 	})
 
 	t.Run("MaxReplicas", func(t *testing.T) {
-		for tcIdx, tc := range []struct {
+		testCases := []struct {
 			repRules      []uint
 			ecRules       []iec.Rule
 			initialLimits []uint32
@@ -1559,16 +1768,37 @@ func TestInitialPlacement(t *testing.T) {
 				localNum:      2,
 				ecLists:       []int{1},
 			},
-		} {
-			t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
-				var ip netmap.InitialPlacementPolicy
-				ip.SetReplicaLimits(tc.initialLimits)
-				ip.SetMaxReplicas(tc.maxReplicas)
-				ip.SetPreferLocal(tc.localNum > 0)
-
-				testInitialPlacement(t, tc.repRules, tc.ecRules, ip, tc.localNum-1, tc.repNodes, tc.ecLists)
-			})
 		}
+
+		t.Run("initial", func(t *testing.T) {
+			for tcIdx, tc := range testCases {
+				t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+					var ip netmap.InitialPlacementPolicy
+					ip.SetReplicaLimits(tc.initialLimits)
+					ip.SetMaxReplicas(tc.maxReplicas)
+					ip.SetPreferLocal(tc.localNum > 0)
+
+					testInitialPlacement(t, tc.repRules, tc.ecRules, ip, tc.localNum-1, tc.repNodes, tc.ecLists)
+				})
+			}
+		})
+
+		t.Run("post-placement", func(t *testing.T) {
+			for tcIdx, tc := range testCases {
+				t.Run(strconv.Itoa(tcIdx), func(t *testing.T) {
+					var ip netmap.InitialPlacementPolicy
+					ip.SetReplicaLimits(tc.initialLimits)
+					ip.SetMaxReplicas(tc.maxReplicas)
+					ip.SetPreferLocal(tc.localNum > 0)
+
+					if len(tc.ecRules) > 0 {
+						testPostInitialPlacementEC(t, tc.ecRules, ip, tc.localNum-1)
+					} else {
+						testPostInitialPlacement(t, tc.repRules, ip, tc.localNum-1)
+					}
+				})
+			}
+		})
 	})
 }
 
@@ -1584,72 +1814,16 @@ func testInitialPlacementREP(t *testing.T, repRules []uint, initialRules []uint3
 	var cnr container.Container
 	cnr.SetPlacementPolicy(pp)
 
-	obj := *object.New(cidtest.ID(), creator.ID)
-	obj.SetPayload([]byte("Hello, world!"))
-	obj.SetPayloadSize(uint64(len(obj.Payload())))
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte(testutil.RandByteSlice(tz.Size))))
-	require.NoError(t, obj.SetVerificationFields(creator))
+	env := newPlacementTestEnv(t, cnr, repRules, nil, false, false)
+	obj := newSignedRegularObject(t, creator, creator.ID)
 
-	nodeCounts := make([]uint, len(repRules))
-	for i := range repRules {
-		nodeCounts[i] = repRules[i] * 3 // default CBF
-	}
+	storeObjectWithSession(t, env.cluster.nodeServices[0], obj, nil, nil)
 
-	nodeLists := allocNodes(nodeCounts)
+	nodeObjLists := env.cluster.allStoredObjects()
 
-	cluster := testCluster{
-		nodeServices:      make(nodeServices, islices.TwoDimSliceElementCount(nodeLists)),
-		nodeNetworks:      make([]mockNetwork, islices.TwoDimSliceElementCount(nodeLists)),
-		nodeSessions:      make([]mockNodeSession, islices.TwoDimSliceElementCount(nodeLists)),
-		nodeLocalStorages: make([]inMemLocalStorage, islices.TwoDimSliceElementCount(nodeLists)),
-	}
-
-	blankNodeState := mockNetwork{
-		mockNodeState: mockNodeState{
-			epoch: currentEpoch,
-		},
-		cnrNodes: mockContainerNodes{
-			unsorted:  nodeLists,
-			sorted:    nodeLists,
-			repCounts: repRules,
-		},
-	}
-
-	var nodeIdx int
-	for i := range nodeLists {
-		for j := range nodeLists[i] {
-			nodeSigner := neofscryptotest.Signer()
-			nodeLists[i][j].SetPublicKey(nodeSigner.PublicKeyBytes)
-
-			cluster.nodeNetworks[nodeIdx] = blankNodeState
-			cluster.nodeNetworks[nodeIdx].localPub = nodeSigner.PublicKeyBytes
-
-			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
-				quotas{math.MaxUint64, math.MaxUint64},
-				&payments{},
-				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
-				WithKeyStorage(objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])),
-				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
-				WithMaxSizeSource(mockMaxSize(maxObjectSize)),
-				WithContainerSource(mockContainer(cnr)),
-				WithNetworkState(&cluster.nodeNetworks[nodeIdx]),
-				WithClientConstructor(cluster.nodeServices),
-				WithSplitChainVerifier(mockSplitVerifier{}),
-				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
-				WithTombstoneVerifier(mockTombstoneVerifier{}),
-			)
-
-			nodeIdx++
-		}
-	}
-
-	storeObjectWithSession(t, cluster.nodeServices[0], obj, nil, nil)
-
-	nodeObjLists := cluster.allStoredObjects()
-
-	nodeIdx = 0
-	for i := range nodeLists {
-		for j := range nodeLists[i] {
+	nodeIdx := 0
+	for i := range env.nodeLists {
+		for j := range env.nodeLists[i] {
 			if j < int(initialRules[i]) {
 				require.Len(t, nodeObjLists[nodeIdx], 1)
 				require.Equal(t, nodeObjLists[nodeIdx][0], obj)
@@ -1659,6 +1833,42 @@ func testInitialPlacementREP(t *testing.T, repRules []uint, initialRules []uint3
 			nodeIdx++
 		}
 	}
+}
+
+func testPostInitialPlacement(t *testing.T, repRules []uint, ip netmap.InitialPlacementPolicy, localList int) {
+	creator := usertest.User()
+
+	var pp netmap.PlacementPolicy
+	pp.SetInitial(ip)
+
+	var cnr container.Container
+	cnr.SetPlacementPolicy(pp)
+
+	env := newPlacementTestEnv(t, cnr, repRules, nil, true, false)
+	nodeIdx := nodeIndexForList(env.nodeLists, localList)
+	obj := newSignedRegularObject(t, creator, creator.ID)
+
+	storeObjectWithSession(t, env.cluster.nodeServices[nodeIdx], obj, nil, nil)
+
+	require.Eventually(t, func() bool {
+		nodeObjLists := env.cluster.allStoredObjects()
+
+		nodeIdx = 0
+		for i := range env.nodeLists {
+			for j := range env.nodeLists[i] {
+				if j < int(repRules[i]) {
+					if len(nodeObjLists[nodeIdx]) != 1 || !bytes.Equal(nodeObjLists[nodeIdx][0].Marshal(), obj.Marshal()) {
+						return false
+					}
+				} else if len(nodeObjLists[nodeIdx]) != 0 {
+					return false
+				}
+				nodeIdx++
+			}
+		}
+
+		return true
+	}, time.Second, 10*time.Millisecond)
 }
 
 func testInitialPlacementEC(t *testing.T, ecRules []iec.Rule, initialRules []bool) {
@@ -1685,89 +1895,20 @@ func testInitialPlacementEC(t *testing.T, ecRules []iec.Rule, initialRules []boo
 
 	var cnr container.Container
 	cnr.SetPlacementPolicy(pp)
+	env := newPlacementTestEnv(t, cnr, nil, ecRules, false, true)
+	sessionTokenV2 := newSessionTokenV2ForNode(t, env.cluster, env.nodeLists, -1, creator)
+	obj := newSessionRegularObject(creator.ID)
 
-	nodeCounts := make([]uint, len(ecRules))
-	for i := range ecRules {
-		nodeCounts[i] = uint((ecRules[i].DataPartNum + ecRules[i].ParityPartNum)) * 3 // default CBF
-	}
+	storeObjectWithSession(t, env.cluster.nodeServices[0], obj, nil, sessionTokenV2)
 
-	nodeLists := allocNodes(nodeCounts)
+	nodeObjLists := env.cluster.allStoredObjects()
 
-	cluster := testCluster{
-		nodeServices:      make(nodeServices, islices.TwoDimSliceElementCount(nodeLists)),
-		nodeNetworks:      make([]mockNetwork, islices.TwoDimSliceElementCount(nodeLists)),
-		nodeSessions:      make([]mockNodeSession, islices.TwoDimSliceElementCount(nodeLists)),
-		nodeLocalStorages: make([]inMemLocalStorage, islices.TwoDimSliceElementCount(nodeLists)),
-	}
-
-	blankNodeState := mockNetwork{
-		mockNodeState: mockNodeState{
-			epoch: currentEpoch,
-		},
-		cnrNodes: mockContainerNodes{
-			unsorted: nodeLists,
-			sorted:   nodeLists,
-			ecRules:  ecRules,
-		},
-	}
-
-	var nodeIdx int
-	for i := range nodeLists {
-		for j := range nodeLists[i] {
-			nodeSigner := neofscryptotest.Signer()
-			nodeLists[i][j].SetPublicKey(nodeSigner.PublicKeyBytes)
-
-			cluster.nodeNetworks[nodeIdx] = blankNodeState
-			cluster.nodeNetworks[nodeIdx].localPub = nodeSigner.PublicKeyBytes
-
-			cluster.nodeSessions[nodeIdx] = mockNodeSession{
-				signer:    nodeSigner,
-				expiresAt: cluster.nodeNetworks[nodeIdx].epoch + 1,
-			}
-
-			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
-				quotas{math.MaxUint64, math.MaxUint64},
-				&payments{},
-				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
-				WithKeyStorage(objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])),
-				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
-				WithMaxSizeSource(mockMaxSize(maxObjectSize)),
-				WithContainerSource(mockContainer(cnr)),
-				WithNetworkState(&cluster.nodeNetworks[nodeIdx]),
-				WithClientConstructor(cluster.nodeServices),
-				WithSplitChainVerifier(mockSplitVerifier{}),
-				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
-				WithTombstoneVerifier(mockTombstoneVerifier{}),
-			)
-
-			nodeIdx++
-		}
-	}
-
-	sessionTokenV2 := newSessionTokenV2(t, cidtest.ID(), creator, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
-
-	pk := cluster.nodeSessions[0].signer.ECDSAPrivateKey.PublicKey
-	require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
-	require.NoError(t, sessionTokenV2.Sign(creator))
-
-	obj := *object.New(cidtest.ID(), creator.ID)
-	obj.SetPayload([]byte("Hello, world!"))
-	obj.SetPayloadSize(uint64(len(obj.Payload())))
-	obj.SetAttributes(
-		object.NewAttribute("attr1", "val1"),
-		object.NewAttribute("attr2", "val2"),
-	)
-
-	storeObjectWithSession(t, cluster.nodeServices[0], obj, nil, sessionTokenV2)
-
-	nodeObjLists := cluster.allStoredObjects()
-
-	nodeIdx = 0
-	for i := range nodeLists {
+	nodeIdx := 0
+	for i := range env.nodeLists {
 		if initialRules[i] {
 			var parts []object.Object
 
-			for j := range nodeLists[i] {
+			for j := range env.nodeLists[i] {
 				if j < int(ecRules[i].DataPartNum+ecRules[i].ParityPartNum) {
 					require.Len(t, nodeObjLists[nodeIdx], 1)
 
@@ -1797,10 +1938,86 @@ func testInitialPlacementEC(t *testing.T, ecRules []iec.Rule, initialRules []boo
 			continue
 		}
 
-		for range nodeLists[i] {
+		for range env.nodeLists[i] {
 			require.Empty(t, nodeObjLists[nodeIdx])
 			nodeIdx++
 		}
+	}
+}
+
+func testPostInitialPlacementEC(t *testing.T, ecRules []iec.Rule, ip netmap.InitialPlacementPolicy, localList int) {
+	creator := usertest.User()
+
+	cnrECRules := make([]netmap.ECRule, len(ecRules))
+	for i := range ecRules {
+		cnrECRules[i] = netmap.NewECRule(uint32(ecRules[i].DataPartNum), uint32(ecRules[i].ParityPartNum))
+	}
+
+	var pp netmap.PlacementPolicy
+	pp.SetECRules(cnrECRules)
+	pp.SetInitial(ip)
+
+	var cnr container.Container
+	cnr.SetPlacementPolicy(pp)
+	env := newPlacementTestEnv(t, cnr, nil, ecRules, true, true)
+	nodeIdx := nodeIndexForList(env.nodeLists, localList)
+	sessionTokenV2 := newSessionTokenV2ForNode(t, env.cluster, env.nodeLists, localList, creator)
+	obj := newSessionRegularObject(creator.ID)
+
+	storeObjectWithSession(t, env.cluster.nodeServices[nodeIdx], obj, nil, sessionTokenV2)
+
+	require.Eventually(t, func() bool {
+		nodeObjLists := env.cluster.allStoredObjects()
+		nodeOff := 0
+		for i := range env.nodeLists {
+			totalParts := int(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
+			for j := range env.nodeLists[i] {
+				nodeObjects := nodeObjLists[nodeOff+j]
+				if j < totalParts {
+					if len(nodeObjects) != 1 {
+						return false
+					}
+				} else if len(nodeObjects) != 0 {
+					return false
+				}
+			}
+			nodeOff += len(env.nodeLists[i])
+		}
+
+		return true
+	}, time.Second, 10*time.Millisecond)
+
+	nodeObjLists := env.cluster.allStoredObjects()
+	nodeIdx = 0
+	for i := range env.nodeLists {
+		var parts []object.Object
+
+		for j := range env.nodeLists[i] {
+			if j < int(ecRules[i].DataPartNum+ecRules[i].ParityPartNum) {
+				require.Len(t, nodeObjLists[nodeIdx], 1)
+
+				gotRuleIdx, gotPartIdx := checkAndGetECPartInfo(t, nodeObjLists[nodeIdx][0])
+				require.EqualValues(t, i, gotRuleIdx)
+				require.EqualValues(t, j, gotPartIdx)
+
+				parts = append(parts, nodeObjLists[nodeIdx][0])
+			} else {
+				require.Empty(t, nodeObjLists[nodeIdx])
+			}
+			nodeIdx++
+		}
+
+		restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
+
+		assertObjectIntegrity(t, restoredObj)
+		require.Equal(t, obj.GetContainerID(), restoredObj.GetContainerID())
+		require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
+		require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
+		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
+		require.Equal(t, object.TypeRegular, restoredObj.Type())
+		require.Equal(t, obj.Attributes(), restoredObj.Attributes())
+		require.False(t, restoredObj.HasParent())
+		require.True(t, bytes.Equal(obj.Payload(), restoredObj.Payload()))
 	}
 }
 

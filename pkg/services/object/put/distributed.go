@@ -79,6 +79,8 @@ type distributedTarget struct {
 	ecPart iec.PartInfo
 
 	initialPolicy *netmap.InitialPlacementPolicy
+
+	postPlacementReplicator PostPlacementReplicator
 }
 
 type nodeDesc struct {
@@ -190,6 +192,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	// TODO: handle rules in parallel. https://github.com/nspcc-dev/neofs-node/issues/3503
 
 	repRules := t.containerNodes.PrimaryCounts()
+	fullRepRules := repRules
 	ecRules := t.containerNodes.ECRules()
 	if typ := obj.Type(); typ == object.TypeTombstone || typ == object.TypeLock || typ == object.TypeLink || len(obj.Children()) > 0 {
 		broadcast := typ != object.TypeLock || !t.localOnly
@@ -240,6 +243,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	var maxReplicas uint
 	var ecLimits []uint32
 	var ruleOrder []int
+	appliedECRules := make([]bool, len(ecRules))
 	ruleNum := len(repRules) + len(ecRules)
 
 	if initial {
@@ -331,6 +335,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			t.placementIterator.log.Info("PUT by EC rule failure", zap.Stringer("object", obj.Address()), zap.Error(err))
 			return false, nil
 		}
+		appliedECRules[ecRuleIdx] = true
 		if maxReplicas > 0 {
 			leftReplicas--
 			return leftReplicas == 0, nil
@@ -428,10 +433,73 @@ nextRule:
 	}
 
 	if len(repRules) > 0 {
-		return t.submitMetaCollection(obj.Address(), &t.metaCollection)
+		err = t.submitMetaCollection(obj.Address(), &t.metaCollection)
+		if err != nil {
+			return err
+		}
 	}
 
+	t.replicateRemainingPrimaryNodes(obj, objNodeLists[:len(fullRepRules)], fullRepRules, repProg)
+	t.replicateRemainingECRules(obj, ecRules, objNodeLists[len(fullRepRules):], appliedECRules)
+
 	return nil
+}
+
+func (t *distributedTarget) replicateRemainingPrimaryNodes(obj object.Object, nodeLists [][]netmap.NodeInfo, repRules []uint, prog *repProgress) {
+	if t.initialPolicy == nil || t.postPlacementReplicator == nil || len(nodeLists) == 0 || prog == nil {
+		return
+	}
+
+	remainingNodes := prog.remainingPrimaryNodes(nodeLists, repRules)
+	if len(remainingNodes) == 0 {
+		return
+	}
+
+	t.postPlacementReplicator.HandlePostPlacement(t.opCtx, &obj, remainingNodes)
+}
+
+func (t *distributedTarget) replicateRemainingECRules(obj object.Object, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo, applied []bool) {
+	if t.initialPolicy == nil || t.postPlacementReplicator == nil || t.sessionSigner == nil || len(ecRules) == 0 {
+		return
+	}
+
+	encodedByRule := make(map[iec.Rule][][]byte, len(ecRules))
+
+	for ruleIdx := range ecRules {
+		if applied[ruleIdx] {
+			continue
+		}
+
+		payloadParts, ok := encodedByRule[ecRules[ruleIdx]]
+		if !ok {
+			var err error
+			payloadParts, err = iec.Encode(ecRules[ruleIdx], obj.Payload())
+			if err != nil {
+				t.placementIterator.log.Info("failed to encode object for post-placement EC replication",
+					zap.Stringer("object", obj.Address()),
+					zap.Int("rule_idx", ruleIdx),
+					zap.Stringer("rule", ecRules[ruleIdx]),
+					zap.Error(err))
+				continue
+			}
+			encodedByRule[ecRules[ruleIdx]] = payloadParts
+		}
+
+		totalParts := len(payloadParts)
+		for partIdx := range payloadParts {
+			partObj, err := formObjectForECPart(t.sessionSigner, obj, ruleIdx, partIdx, payloadParts)
+			if err != nil {
+				t.placementIterator.log.Info("failed to form EC part object for post-placement replication",
+					zap.Stringer("object", obj.Address()),
+					zap.Int("rule_idx", ruleIdx),
+					zap.Int("part_idx", partIdx),
+					zap.Error(err))
+				continue
+			}
+
+			t.postPlacementReplicator.HandlePostPlacement(t.opCtx, &partObj, ecNodesForPart(nodeLists[ruleIdx], partIdx, totalParts))
+		}
+	}
 }
 
 func (t *distributedTarget) resetMetaCollection() {
@@ -717,6 +785,47 @@ func newRepProgress(nodeLists [][]netmap.NodeInfo) *repProgress {
 		nodeResults:   make(map[string]nodeResult, islices.TwoDimSliceElementCount(nodeLists)),
 		nodesCounters: make([]nodeCounters, len(nodeLists)),
 	}
+}
+
+func (p *repProgress) remainingPrimaryNodes(nodeLists [][]netmap.NodeInfo, repRules []uint) []netmap.NodeInfo {
+	var totalPrimaries int
+	for i := range nodeLists {
+		totalPrimaries += primaryNodesCount(nodeLists[i], repRules, i)
+	}
+
+	remainingNodes := make([]netmap.NodeInfo, 0, totalPrimaries)
+	seen := make(map[string]struct{}, totalPrimaries)
+
+	p.nodeResultsMtx.RLock()
+	defer p.nodeResultsMtx.RUnlock()
+
+	for i := range nodeLists {
+		for j := range primaryNodesCount(nodeLists[i], repRules, i) {
+			node := nodeLists[i][j]
+			pk := string(node.PublicKey())
+			if _, ok := seen[pk]; ok {
+				continue
+			}
+			seen[pk] = struct{}{}
+
+			res, ok := p.nodeResults[pk]
+			if ok && res.succeeded {
+				continue
+			}
+
+			remainingNodes = append(remainingNodes, node)
+		}
+	}
+
+	return remainingNodes
+}
+
+func primaryNodesCount(nodes []netmap.NodeInfo, repRules []uint, i int) int {
+	if i >= len(repRules) || int(repRules[i]) >= len(nodes) {
+		return len(nodes)
+	}
+
+	return int(repRules[i])
 }
 
 func repToNode(l *zap.Logger, prog *repProgress, pubKeyStr string, listInd int, nr nodeResult, f func(nodeDesc) error) {
