@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Policer removes redundant local shard copies that could remain on disk forever (#3908)
+- Treat only HALTed main transactions as successfully executed, retry the rest (#3868)
 
 ### Changed
 

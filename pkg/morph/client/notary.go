@@ -366,7 +366,7 @@ func (c *Client) CallWithAlphabetWitness(ctx context.Context, contract util.Uint
 
 	c.logNotaryCall(method, vub, mainTx, fbTx)
 
-	aer, err := notaryActor.WaitAny(ctx, vub, mainTx, mainTx)
+	aer, err := notaryActor.WaitAny(ctx, vub, mainTx, fbTx)
 	if err != nil {
 		if errors.Is(err, waiter.ErrContextDone) {
 			return ErrTxAwaitTimeout
@@ -379,7 +379,7 @@ func (c *Client) CallWithAlphabetWitness(ctx context.Context, contract util.Uint
 	}
 
 	if !aer.VMState.HasFlag(vmstate.Halt) {
-		return fmt.Errorf("%w: %s", actor.ErrExecFailed, aer.FaultException)
+		return &neorpc.FaultException{Message: aer.FaultException}
 	}
 
 	return nil
@@ -484,7 +484,7 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 			retries++
 			mainH, fbH, untilActual, err = nAct.Notarize(mainTx, nil)
 			if await {
-				_, err = nAct.Wait(mainH, fbH, untilActual, err)
+				_, err = nAct.WaitSuccess(mainH, fbH, untilActual, err)
 			}
 			if err != nil {
 				if alreadyOnChainError(err) {
@@ -834,21 +834,6 @@ func alreadyOnChainError(err error) bool {
 	const alreadyOnChainErrorMessage = "already on chain"
 
 	return strings.Contains(err.Error(), alreadyOnChainErrorMessage)
-}
-
-// Neo-Go VM (as of v0.117.0) can return different variations of GAS problem
-// depending on instruction throwing expeception.
-// See https://github.com/nspcc-dev/neo-go/issues/4170.
-func insufficientAmountOfGasErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "insufficient amount of gas") ||
-		strings.Contains(msg, "gas limit exceeded") ||
-		strings.Contains(msg, "GAS limit exceeded") ||
-		strings.Contains(msg, "insufficient gas") ||
-		strings.Contains(msg, "gas limit is exceeded")
 }
 
 // CalculateNotaryDepositAmount calculates notary deposit amount

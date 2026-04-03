@@ -317,7 +317,7 @@ func (c *Client) Invoke(ctx context.Context, contract util.Uint160, await, payBy
 
 	txHash, vub, err := act.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), args...)
 	if await {
-		_, err = conn.rpcActor.Wait(ctx, txHash, vub, err)
+		_, err = conn.rpcActor.WaitSuccess(ctx, txHash, vub, err)
 	}
 	if err != nil {
 		return fmt.Errorf("could not invoke %s: %w", method, err)

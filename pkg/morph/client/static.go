@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"go.uber.org/zap"
@@ -198,11 +200,16 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 	return s.execWithBackoff(invokeFunc)
 }
 
+// execWithBackoff retries invokeFunc until it succeeds or until it fails with
+// neorpc.ErrMempoolCapReached or neorpc.GASLimitExceededException. Note that if
+// invocation fails with the "GAS limit exceeded" error, but the error is not
+// wrapped in the corresponding neorpc.FaultException, further attempts will be
+// taken.
 func (s StaticClient) execWithBackoff(invokeFunc func() error) error {
 	return backoff.RetryNotify(func() error {
 		err := invokeFunc()
 		if err != nil {
-			if errors.Is(err, neorpc.ErrMempoolCapReached) || insufficientAmountOfGasErr(err) {
+			if errors.Is(err, neorpc.ErrMempoolCapReached) || errors.Is(err, neorpc.GASLimitExceededException) || (errors.Is(err, actor.ErrExecFailed) && strings.Contains(err.Error(), neorpc.GASLimitExceededException.Message)) {
 				return err
 			}
 			return backoff.Permanent(err)
