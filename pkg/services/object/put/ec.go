@@ -29,12 +29,9 @@ func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Ob
 }
 
 func (t *distributedTarget) formAndSaveObjectForECPart(signer neofscrypto.Signer, obj object.Object, ruleIdx, partIdx int, payloadParts [][]byte, nodeList []netmap.NodeInfo) error {
-	partObj, err := iec.FormObjectForECPart(signer, obj, payloadParts[partIdx], iec.PartInfo{
-		RuleIndex: ruleIdx,
-		Index:     partIdx,
-	})
+	partObj, err := formObjectForECPart(signer, obj, ruleIdx, partIdx, payloadParts)
 	if err != nil {
-		return fmt.Errorf("form object for part: %w", err)
+		return err
 	}
 
 	var encObj encodedObject
@@ -77,6 +74,18 @@ func (t *distributedTarget) formAndSaveObjectForECPart(signer neofscrypto.Signer
 	return nil
 }
 
+func formObjectForECPart(signer neofscrypto.Signer, obj object.Object, ruleIdx, partIdx int, payloadParts [][]byte) (object.Object, error) {
+	partObj, err := iec.FormObjectForECPart(signer, obj, payloadParts[partIdx], iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     partIdx,
+	})
+	if err != nil {
+		return object.Object{}, fmt.Errorf("form object for part: %w", err)
+	}
+
+	return partObj, nil
+}
+
 func (t *distributedTarget) saveECPart(part object.Object, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo,
 	metaC *metaCollection) error {
 	return t.distributeObjectWithMeta(part, encObj, metaC, func(obj object.Object, encObj encodedObject) error {
@@ -116,4 +125,12 @@ func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc
 	n.placementVector = len(t.containerNodes.PrimaryCounts()) + ruleIdx
 
 	return t.sendObject(obj, enc, n, metaC)
+}
+
+func ecNodesForPart(nodeList []netmap.NodeInfo, partIdx, totalParts int) []netmap.NodeInfo {
+	res := make([]netmap.NodeInfo, 0, len(nodeList))
+	for i := range iec.NodeSequenceForPart(partIdx, totalParts, len(nodeList)) {
+		res = append(res, nodeList[i])
+	}
+	return res
 }
