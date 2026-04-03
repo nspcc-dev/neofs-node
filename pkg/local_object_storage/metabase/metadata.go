@@ -287,14 +287,14 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 
 // Search selects up to count container's objects from the given container
 // matching the specified filters.
-func (db *DB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
 	var newCursor []byte
 	var err error
 	if len(fs) == 0 {
-		res, newCursor, err = db.searchUnfiltered(cnr, cursor, count)
+		res, newCursor, err = db.searchUnfiltered(cnr, cursor, count, bufferPool)
 	} else {
-		res, newCursor, err = db.search(cnr, fs, attrs, cursor, count)
+		res, newCursor, err = db.search(cnr, fs, attrs, cursor, count, bufferPool)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -302,21 +302,27 @@ func (db *DB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, c
 	return res, newCursor, nil
 }
 
-func (db *DB) search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
 	var newCursor []byte
+	buf := bufferPool.Get(count)
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
-		res, newCursor, err = db.searchTx(tx, cnr, fs, attrs, cursor, count)
+		res, newCursor, err = db.searchTx(tx, cnr, fs, attrs, cursor, count, buf)
 		return err
 	})
 	if err != nil {
+		bufferPool.Put(buf)
 		return nil, nil, fmt.Errorf("view BoltDB: %w", err)
+	}
+	if len(res) == 0 {
+		bufferPool.Put(buf)
+		return nil, nil, nil
 	}
 	return res, newCursor, nil
 }
 
-func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, buf []client.SearchResultItem) ([]client.SearchResultItem, []byte, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
 		return nil, nil, nil
@@ -338,7 +344,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	var gcCheck objectcore.AdditionalObjectChecker = func(id oid.ID) (match bool) {
 		return objectStatus(gcMetaCursor, id, curEpoch) == statusAvailable
 	}
-	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
+	resHolder := objectcore.SearchResult{Objects: buf[:0]}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
 
 	for ; bytes.HasPrefix(primKey, cursor.PrimaryKeysPrefix); primKey, _ = primCursor.Next() {
@@ -347,12 +353,16 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 		}
 	}
 
-	return resHolder.Objects, resHolder.UpdatedSearchCursor, resHolder.Err
+	if resHolder.Err != nil {
+		return nil, nil, resHolder.Err
+	}
+
+	return resHolder.Objects, resHolder.UpdatedSearchCursor, nil
 }
 
 // TODO: can be merged with filtered code?
-func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	res := make([]client.SearchResultItem, count)
+func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]client.SearchResultItem, []byte, error) {
+	res := bufferPool.Get(count)
 	var n uint16
 	var newCursor []byte
 	curEpoch := db.epochState.CurrentEpoch()
@@ -384,7 +394,12 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 		return nil
 	})
 	if err != nil {
+		bufferPool.Put(res)
 		return nil, nil, fmt.Errorf("view BoltDB: %w", err)
+	}
+	if n == 0 {
+		bufferPool.Put(res)
+		return nil, nil, nil
 	}
 	return res[:n], newCursor, nil
 }

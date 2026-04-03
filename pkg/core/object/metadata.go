@@ -26,22 +26,52 @@ func IsIntegerSearchOp(op object.SearchMatchType) bool {
 	return op == object.MatchNumGT || op == object.MatchNumGE || op == object.MatchNumLT || op == object.MatchNumLE
 }
 
+// TODO: docs.
+type SearchBufferPool interface {
+	Get(ln uint16) []client.SearchResultItem
+	Put([]client.SearchResultItem)
+}
+
+type FakeSearchBufferPool struct{}
+
+func (FakeSearchBufferPool) Get(ln uint16) []client.SearchResultItem {
+	return make([]client.SearchResultItem, ln)
+}
+
+func (FakeSearchBufferPool) Put([]client.SearchResultItem) {}
+
 // MergeSearchResults merges up to lim elements from sorted search result sets
 // into the one sorted set. Items are compared by the 1st attribute (if
 // withAttr), and then by IDs when equal. If cmpInt is set, attributes are
 // compared numerically. Otherwise, lexicographically. Additional booleans show
 // whether corresponding sets can be continued. If the merged set can be
 // continued itself, true is returned.
-func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]client.SearchResultItem, mores []bool) ([]client.SearchResultItem, bool, error) {
+func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]client.SearchResultItem, mores []bool, bufferPool SearchBufferPool) ([]client.SearchResultItem, bool, error) {
+	freeSets := func(sets [][]client.SearchResultItem) {
+		for i := range sets {
+			bufferPool.Put(sets[i])
+		}
+	}
 	if lim == 0 || len(sets) == 0 {
+		freeSets(sets)
 		return nil, false, nil
 	}
 	if len(sets) == 1 {
+		freeSets(sets[1:])
 		ul := uint16(len(sets[0]))
 		return sets[0][:min(ul, lim)], ul > lim || ul == lim && slices.Contains(mores, true), nil
 	}
 	lim = calcMaxUniqueSearchResults(lim, sets)
-	res := make([]client.SearchResultItem, 0, lim)
+	res := bufferPool.Get(lim)[:0]
+	res, more, err := mergeSearchResults(res, firstAttr, cmpInt, sets, mores, lim)
+	freeSets(sets)
+	if err != nil {
+		bufferPool.Put(res)
+	}
+	return res, more, err
+}
+
+func mergeSearchResults(res []client.SearchResultItem, firstAttr string, cmpInt bool, sets [][]client.SearchResultItem, mores []bool, lim uint16) ([]client.SearchResultItem, bool, error) {
 	var more bool
 	var minInt, curInt *big.Int
 	if cmpInt {

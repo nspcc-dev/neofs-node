@@ -147,7 +147,8 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	// TODO: upd docs.
+	SearchObjects(_ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -2196,6 +2197,9 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			Attributes: res[i].Attributes,
 		}
 	}
+	if len(res) > 0 {
+		seachResultBufferPool.Put(res)
+	}
 	if newCursor != nil {
 		resBody.Cursor = base64.StdEncoding.EncodeToString(newCursor)
 	}
@@ -2255,11 +2259,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	)
 	switch {
 	case ttl == 1:
-		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err != nil {
+		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count, seachResultBufferPool); err != nil {
 			return nil, nil, err
 		}
 	case handleWithMetaService:
-		res, newCursor, err = s.meta.Search(cID, ofs, attrs, cursor, count)
+		res, newCursor, err = s.meta.Search(cID, ofs, attrs, cursor, count, seachResultBufferPool)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2285,8 +2289,10 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			mProcessedNodes[strKey] = struct{}{}
 			if s.fsChain.IsOwnPublicKey(nodePub) {
 				wg.Go(func() {
-					if set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err == nil {
-						add(set, crsr != nil)
+					if set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count, seachResultBufferPool); err == nil {
+						if len(set) > 0 {
+							add(set, crsr != nil)
+						}
 					} // TODO: else log error
 				})
 				return true
@@ -2303,7 +2309,9 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			if resErr = s.searchWorkers.Submit(func() {
 				defer wg.Done()
 				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
-					add(set, more)
+					if len(set) > 0 {
+						add(set, more)
+					}
 				} else {
 					var inc = new(apistatus.Incomplete)
 					inc.SetMessage(fmt.Sprintf("last error: %s", err.Error()))
@@ -2325,6 +2333,9 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			}
 		}
 		if err != nil {
+			for i := range sets {
+				seachResultBufferPool.Put(sets[i])
+			}
 			return nil, nil, err
 		}
 		var (
@@ -2340,7 +2351,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		}
 		cmpInt := firstAttr != "" && objectcore.IsIntegerSearchOp(fs[0].Operation())
 		var more bool
-		if res, more, err = objectcore.MergeSearchResults(count, firstAttr, cmpInt, sets, mores); err != nil {
+		if res, more, err = objectcore.MergeSearchResults(count, firstAttr, cmpInt, sets, mores, seachResultBufferPool); err != nil {
 			return nil, nil, fmt.Errorf("merge results from container nodes: %w", err)
 		}
 		if more {
@@ -2349,6 +2360,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				res[len(res)-1].Attributes = []string{body.Filters[0].Value}
 			}
 			if newCursor, err = objectcore.CalculateCursor(firstFilter, res[len(res)-1]); err != nil {
+				seachResultBufferPool.Put(res)
 				return nil, nil, fmt.Errorf("recalculate cursor: %w", err)
 			}
 		}
@@ -2426,20 +2438,28 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn,
 		return nil, false, fmt.Errorf("invalid response body: cursor is set with less items than requested %d < %d", n, req.Body.Count)
 	}
 
+	if len(resp.Body.Result) == 0 {
+		return nil, false, nil
+	}
+
 	// TODO: we can theoretically do without type conversion, thus avoiding
 	//  additional allocation. At the same time, this will require generic code for merging.
-	res := make([]sdkclient.SearchResultItem, n)
+	res := seachResultBufferPool.Get(uint16(n)) // TODO: from pool
 	filteredAttributeless := len(req.Body.Attributes) == 0 && len(req.Body.Filters) > 0
 	for i, r := range resp.Body.Result {
 		switch {
 		case r == nil:
+			seachResultBufferPool.Put(res)
 			return nil, false, fmt.Errorf("invalid response body: nil element #%d", i)
 		case r.Id == nil:
+			seachResultBufferPool.Put(res)
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: missing ID", i)
 		case !filteredAttributeless && len(r.Attributes) != len(req.Body.Attributes) || filteredAttributeless && len(r.Attributes) > 1:
+			seachResultBufferPool.Put(res)
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: wrong attribute count %d", i, len(r.Attributes))
 		}
 		if err := res[i].ID.FromProtoMessage(r.Id); err != nil {
+			seachResultBufferPool.Put(res)
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: invalid ID: %w", i, err)
 		}
 		res[i].Attributes = r.Attributes

@@ -15,7 +15,7 @@ import (
 
 // Search selects up to count container's objects from the given container
 // matching the specified filters.
-func (m *Meta) Search(cID cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (m *Meta) Search(cID cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]client.SearchResultItem, []byte, error) {
 	m.stM.RLock()
 	s, ok := m.storages[cID]
 	m.stM.RUnlock()
@@ -25,18 +25,18 @@ func (m *Meta) Search(cID cid.ID, fs []objectcore.SearchFilter, attrs []string, 
 		return nil, nil, nil
 	}
 
-	return s.search(fs, attrs, cursor, count)
+	return s.search(fs, attrs, cursor, count, bufferPool)
 }
 
-func (s *containerStorage) search(fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (s *containerStorage) search(fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]client.SearchResultItem, []byte, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
 	if len(fs) == 0 {
-		return searchUnfiltered(s.db, cursor, count)
+		return searchUnfiltered(s.db, cursor, count, bufferPool)
 	}
 
-	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
+	resHolder := objectcore.SearchResult{Objects: bufferPool.Get(count)[:0]}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, &attrGetter{db: s.db}, nil, fs, attrs, cursor, count)
 
 	var rng storage.SeekRange
@@ -52,13 +52,22 @@ func (s *containerStorage) search(fs []objectcore.SearchFilter, attrs []string, 
 
 		return handleKV(k, v)
 	})
+	if resHolder.Err != nil {
+		bufferPool.Put(resHolder.Objects)
+		return nil, nil, resHolder.Err
+	}
 
-	return resHolder.Objects, resHolder.UpdatedSearchCursor, resHolder.Err
+	if len(resHolder.Objects) == 0 {
+		bufferPool.Put(resHolder.Objects)
+		return nil, nil, nil
+	}
+
+	return resHolder.Objects, resHolder.UpdatedSearchCursor, nil
 }
 
 // lock must be taken.
-func searchUnfiltered(st storage.Store, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	res := make([]client.SearchResultItem, 0, count)
+func searchUnfiltered(st storage.Store, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]client.SearchResultItem, []byte, error) {
+	res := bufferPool.Get(count)[:0]
 	var err error
 	var newCursor []byte
 
@@ -87,8 +96,17 @@ func searchUnfiltered(st storage.Store, cursor *objectcore.SearchCursor, count u
 
 		return true
 	})
+	if err != nil {
+		bufferPool.Put(res)
+		return nil, nil, err
+	}
 
-	return res, newCursor, err
+	if len(res) == 0 {
+		bufferPool.Put(res)
+		return nil, nil, nil
+	}
+
+	return res, newCursor, nil
 }
 
 type attrGetter struct {

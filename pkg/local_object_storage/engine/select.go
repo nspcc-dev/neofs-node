@@ -56,7 +56,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 // Search performs Search op on all underlying shards and returns merged result.
 //
 // Fails instantly if executions are blocked (see [StorageEngine.BlockExecution]).
-func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, bufferPool objectcore.SearchBufferPool) ([]client.SearchResultItem, []byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -69,19 +69,24 @@ func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs [
 	if len(shs) == 0 {
 		return nil, nil, nil
 	}
-	items, nextCursor, err := shs[0].Search(cnr, fs, attrs, cursor, count)
+	items, nextCursor, err := shs[0].Search(cnr, fs, attrs, cursor, count, bufferPool)
 	if err != nil {
 		e.reportShardError(shs[0], "could not select objects from shard", err)
 	}
 	if len(shs) == 1 {
 		return items, nextCursor, nil
 	}
+	sets, mores := make([][]client.SearchResultItem, 0, len(shs)), make([]bool, 0, len(shs))
+	if len(items) > 0 {
+		sets, mores = append(sets, items), append(mores, nextCursor != nil)
+	}
 	shs = shs[1:]
-	sets, mores := make([][]client.SearchResultItem, 1, len(shs)), make([]bool, 1, len(shs))
-	sets[0], mores[0] = items, nextCursor != nil
 	for i := range shs {
-		if items, nextCursor, err = shs[i].Search(cnr, fs, attrs, cursor, count); err != nil {
+		if items, nextCursor, err = shs[i].Search(cnr, fs, attrs, cursor, count, bufferPool); err != nil {
 			e.reportShardError(shs[i], "could not select objects from shard", err)
+			continue
+		}
+		if len(items) == 0 {
 			continue
 		}
 		sets, mores = append(sets, items), append(mores, nextCursor != nil)
@@ -96,12 +101,13 @@ func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs [
 		firstFilter = &fs[0].SearchFilter
 	}
 	cmpInt := firstAttr != "" && objectcore.IsIntegerSearchOp(fs[0].Operation())
-	res, more, err := objectcore.MergeSearchResults(count, firstAttr, cmpInt, sets, mores)
+	res, more, err := objectcore.MergeSearchResults(count, firstAttr, cmpInt, sets, mores, bufferPool)
 	if err != nil || !more {
 		return res, nil, err
 	}
 	c, err := objectcore.CalculateCursor(firstFilter, res[len(res)-1])
 	if err != nil {
+		bufferPool.Put(res)
 		return nil, nil, fmt.Errorf("recalculate cursor: %w", err)
 	}
 	// note: if the last res element is the last element of some shard, we could
