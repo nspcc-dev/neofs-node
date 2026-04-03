@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -63,6 +64,13 @@ type Transport interface {
 
 type ClientConstructor interface {
 	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
+}
+
+// PostPlacementReplicator performs replication of objects that
+// were initially placed using relaxed limits and should be brought to the full
+// placement policy immediately after PUT succeeds.
+type PostPlacementReplicator interface {
+	HandlePostPlacement(*object.Object, []netmapsdk.NodeInfo)
 }
 
 // ContainerNodes provides access to storage nodes matching storage policy of
@@ -138,6 +146,8 @@ type cfg struct {
 	cnrClient *chaincontainer.Client
 
 	metaSvc *meta.Meta
+
+	postPlacementReplicator PostPlacementReplicator
 
 	quotaLimiter QuotaLimiter
 	payments     PaymentChecker
@@ -262,5 +272,11 @@ func WithNetworkMagic(m uint32) Option {
 func WithNNSResolver(resolver session.NNSResolver) Option {
 	return func(c *cfg) {
 		c.nnsResolver = resolver
+	}
+}
+
+func WithPostPlacementReplicator(v PostPlacementReplicator) Option {
+	return func(c *cfg) {
+		c.postPlacementReplicator = v
 	}
 }
