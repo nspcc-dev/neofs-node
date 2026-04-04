@@ -338,7 +338,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	var gcCheck objectcore.AdditionalObjectChecker = func(id oid.ID) (match bool) {
 		return objectStatus(gcMetaCursor, id, curEpoch) == statusAvailable
 	}
-	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
+	resHolder := objectcore.SearchResult{}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
 
 	for ; bytes.HasPrefix(primKey, cursor.PrimaryKeysPrefix); primKey, _ = primCursor.Next() {
