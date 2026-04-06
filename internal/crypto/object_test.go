@@ -100,6 +100,10 @@ func TestAuthenticateObject(t *testing.T) {
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
 				require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil), "owner mismatches signature")
+				t.Run("before v2.18", func(t *testing.T) {
+					tc.object.SetVersion(&oldVersion)
+					require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil))
+				})
 			})
 		}
 	})
@@ -157,6 +161,10 @@ func TestAuthenticateObject(t *testing.T) {
 			} {
 				t.Run(tc.scheme.String(), func(t *testing.T) {
 					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil), "different object owner and session issuer")
+					t.Run("before v2.18", func(t *testing.T) {
+						tc.object.SetVersion(&oldVersion)
+						require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil))
+					})
 				})
 			}
 		})
@@ -207,6 +215,8 @@ var (
 	wrongOwnerObjectECDSASHA512        object.Object
 	wrongOwnerObjectECDSARFC6979       object.Object
 	wrongOwnerObjectECDSAWalletConnect object.Object
+
+	oldVersion = version.New(2, 17)
 )
 
 func getUnsignedObject() object.Object {

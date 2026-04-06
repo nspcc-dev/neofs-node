@@ -31,7 +31,7 @@ func ValidNewObject(v *version.Version) bool {
 }
 
 // OwnerSignatureMatchRequired returns true if an object with the given version
-// must have the owner matching the signature's public key. Objects below version
+// must have the owner matching the authentication data. Objects below version
 // 2.18 may have a mismatching owner due to a bug that allowed creating such
 // objects, so they should not be rejected.
 func OwnerSignatureMatchRequired(v *version.Version) bool {
