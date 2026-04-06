@@ -58,7 +58,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		if err := AuthenticateToken(sessionToken, fsChain); err != nil {
 			return fmt.Errorf("session token: %w", err)
 		}
-		if sessionToken.Issuer() != obj.Owner() {
+		if sessionToken.Issuer() != obj.Owner() && version.OwnerSignatureMatchRequired(obj.Version()) {
 			return errors.New("different object owner and session issuer")
 		}
 	}
