@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - `different object owner and session issuer` for stored objects (#3929)
 
 ### Changed
+- `object search` CLI command is now the same as `object searchv2` (#3931)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
@@ -20,6 +21,9 @@ Changelog for NeoFS Node
 
 ### Updating from v0.52.0
 Drop `policer.max_workers` configuration, it's no-op since 0.52.0.
+
+Use CLI `object search` command instead of `object searchv2`, functionally
+they are the same now and v2 variant will be removed in future.
 
 ## [0.52.0] - 2026-03-27 - Woodo
 
