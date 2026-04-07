@@ -46,6 +46,8 @@ type cfg struct {
 	boltBatchSize  int
 	boltBatchDelay time.Duration
 
+	searchIterationLimit uint64
+
 	info Info
 
 	log *zap.Logger
@@ -61,10 +63,11 @@ func defaultCfg() *cfg {
 		info: Info{
 			Permission: os.ModePerm, // 0777
 		},
-		boltBatchDelay: 10 * time.Millisecond,
-		boltBatchSize:  1000,
-		log:            zap.L(),
-		initCtx:        context.Background(),
+		boltBatchDelay:       10 * time.Millisecond,
+		boltBatchSize:        1000,
+		searchIterationLimit: 10000,
+		log:                  zap.L(),
+		initCtx:              context.Background(),
 	}
 }
 
@@ -133,6 +136,15 @@ func WithMaxBatchDelay(d time.Duration) Option {
 		if d != 0 {
 			c.boltBatchDelay = d
 		}
+	}
+}
+
+// WithSearchIterationLimit returns an option to specify the maximum number of
+// filtered search index fruitless iterations allowed before search aborts with
+// [ErrSearchIterationLimitExceeded].
+func WithSearchIterationLimit(limit uint64) Option {
+	return func(c *cfg) {
+		c.searchIterationLimit = limit
 	}
 }
 

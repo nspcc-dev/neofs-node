@@ -70,6 +70,8 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, fs.FileMode(0644), meta.Perm)
 				require.Equal(t, internal.Size(100), meta.MaxBatchSize)
 				require.Equal(t, 10*time.Millisecond, meta.MaxBatchDelay)
+				require.NotNil(t, meta.SearchIterationLimit)
+				require.EqualValues(t, 0, *meta.SearchIterationLimit)
 
 				require.True(t, *sc.Compress)
 				require.Equal(t, []string{"audio/*", "video/*"}, sc.CompressionExcludeContentTypes)
@@ -94,6 +96,8 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, fs.FileMode(0644), meta.Perm)
 				require.EqualValues(t, 200, meta.MaxBatchSize)
 				require.Equal(t, 20*time.Millisecond, meta.MaxBatchDelay)
+				require.NotNil(t, meta.SearchIterationLimit)
+				require.EqualValues(t, 5000, *meta.SearchIterationLimit)
 
 				require.False(t, *sc.Compress)
 				require.Equal(t, []string(nil), sc.CompressionExcludeContentTypes)
