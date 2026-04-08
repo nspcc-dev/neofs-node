@@ -110,7 +110,7 @@ func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs [
 	return res[:count], c, nil
 }
 
-func (e *StorageEngine) collectRawWithAttribute(cnr cid.ID, attr string, val []byte) ([]oid.Address, error) {
+func (e *StorageEngine) collectRawWithAttribute(cnr cid.ID, attr string, val []byte) ([]oid.ID, error) {
 	var (
 		err    error
 		shards = e.unsortedShards()
@@ -123,14 +123,14 @@ func (e *StorageEngine) collectRawWithAttribute(cnr cid.ID, attr string, val []b
 			return nil, fmt.Errorf("shard %s: %w", sh.ID(), err)
 		}
 	}
-	return mergeOIDs(cnr, ids), nil
+	return mergeOIDs(ids), nil
 }
 
 // mergeOIDs merges given set of lists of object IDs into a single flat
 // list of addresses in the same given container. ids are expected to be
 // sorted and the result contains no duplicates from different original
 // list (lists are expected to not contain any inner duplicates).
-func mergeOIDs(cnr cid.ID, ids [][]oid.ID) []oid.Address {
+func mergeOIDs(ids [][]oid.ID) []oid.ID {
 	var numOfRes int
 
 	for i := range ids {
@@ -143,7 +143,7 @@ func mergeOIDs(cnr cid.ID, ids [][]oid.ID) []oid.Address {
 
 	var (
 		idx = make([]int, len(ids))
-		res = make([]oid.Address, 0, numOfRes)
+		res = make([]oid.ID, 0, numOfRes)
 	)
 
 	var haveUnhandledID = func() bool {
@@ -179,7 +179,7 @@ func mergeOIDs(cnr cid.ID, ids [][]oid.ID) []oid.Address {
 				}
 			}
 		}
-		res = append(res, oid.NewAddress(cnr, minID))
+		res = append(res, minID)
 		idx[minIdx]++
 	}
 

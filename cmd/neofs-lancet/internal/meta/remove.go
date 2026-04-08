@@ -2,9 +2,11 @@ package meta
 
 import (
 	"fmt"
+	"slices"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
 	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
@@ -49,13 +51,36 @@ func removeFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't init metabase: %w", err)
 	}
 
-	res, err := db.Delete(addrs)
-	if err != nil {
-		return fmt.Errorf("can't remove objects: %w", err)
+	var (
+		cnr  cid.ID
+		oids []oid.ID
+	)
+
+	var delGroup = func(cnr cid.ID, oids []oid.ID) error {
+		res, err := db.Delete(cnr, oids)
+		if err != nil {
+			return fmt.Errorf("can't remove objects: %w", err)
+		}
+		for _, r := range res.RemovedObjects {
+			cmd.Println("Removed:", r.ID.String())
+		}
+		return nil
 	}
 
-	for _, r := range res.RemovedObjects {
-		cmd.Println("Removed:", r.Address.String())
+	slices.SortFunc(addrs, oid.Address.Compare)
+
+	for i := range addrs {
+		if cnr != addrs[i].Container() {
+			if len(oids) != 0 {
+				err = delGroup(cnr, oids)
+				if err != nil {
+					return err
+				}
+			}
+			cnr = addrs[i].Container()
+			oids = oids[:0]
+		}
+		oids = append(oids, addrs[i].Object())
 	}
-	return nil
+	return delGroup(cnr, oids)
 }

@@ -79,7 +79,7 @@ func TestShard_Lock(t *testing.T) {
 	})
 
 	t.Run("force objects inhuming", func(t *testing.T) {
-		err = sh.MarkGarbage(lock.Address())
+		err = sh.MarkGarbage(lock.GetContainerID(), []oid.ID{lock.GetID()})
 		require.NoError(t, err)
 
 		// it should be possible to remove
@@ -191,7 +191,7 @@ func TestShard_Lock_Removed(t *testing.T) {
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, sh *shard.Shard) {
 			require.NoError(t, sh.Put(&obj, nil))
-			err := sh.MarkGarbage(objAddr)
+			err := sh.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
 			require.NoError(t, err)
 		}},
 	} {
