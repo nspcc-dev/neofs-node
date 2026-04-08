@@ -29,7 +29,6 @@ import (
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
@@ -51,6 +50,8 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	grpccodes "google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -59,7 +60,6 @@ type Handlers interface {
 	Get(context.Context, getsvc.Prm) error
 	Put(context.Context) (*putsvc.Streamer, error)
 	Head(context.Context, getsvc.HeadPrm) error
-	Search(context.Context, searchsvc.Prm) error
 	Delete(context.Context, deletesvc.Prm) error
 	GetRange(context.Context, getsvc.RangePrm) error
 	GetRangeHash(context.Context, getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error)
@@ -163,6 +163,11 @@ type ACLInfoExtractor interface {
 	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
 }
 
+// ClientConstructor returns a client for given node.
+type ClientConstructor interface {
+	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
+}
+
 const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
 const accessDeniedEACLReasonFmt = "access to operation %s is denied by extended ACL check: %v"
 
@@ -202,12 +207,12 @@ type Server struct {
 	metrics       MetricCollector
 	aclChecker    aclsvc.ACLChecker
 	reqInfoProc   ACLInfoExtractor
-	nodeClients   searchsvc.ClientConstructor
+	nodeClients   ClientConstructor
 	searchWorkers *ants.Pool
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) *Server {
+func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor) *Server {
 	return &Server{
 		handlers:      hs,
 		fsChain:       fsChain,
@@ -1714,192 +1719,8 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req
 	}
 }
 
-func (s *Server) sendSearchResponse(stream protoobject.ObjectService_SearchServer, resp *protoobject.SearchResponse, req *protoobject.SearchRequest) error {
-	resp.VerifyHeader = util.SignResponseIfNeeded(&s.signer, resp, req)
-	return stream.Send(resp)
-}
-
-func (s *Server) sendStatusSearchResponse(stream protoobject.ObjectService_SearchServer, err error, req *protoobject.SearchRequest) error {
-	return s.sendSearchResponse(stream, &protoobject.SearchResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	}, req)
-}
-
-type searchStream struct {
-	base protoobject.ObjectService_SearchServer
-	srv  *Server
-	req  *protoobject.SearchRequest
-}
-
-func (s *searchStream) WriteIDs(ids []oid.ID) error {
-	for len(ids) > 0 {
-		// gRPC can retain message for some time, this is why we create full new message each time
-		r := &protoobject.SearchResponse{
-			Body: &protoobject.SearchResponse_Body{},
-		}
-
-		cut := min(maxObjAddrRespAmount, len(ids))
-
-		r.Body.IdList = make([]*refs.ObjectID, cut)
-		for i := range cut {
-			r.Body.IdList[i] = ids[i].ProtoMessage()
-		}
-		if err := s.srv.sendSearchResponse(s.base, r, s.req); err != nil {
-			return err
-		}
-
-		ids = ids[cut:]
-	}
-	return nil
-}
-
-func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.ObjectService_SearchServer) error {
-	var (
-		err error
-		t   = time.Now()
-	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.sendStatusSearchResponse(gStream, err, req)
-	}
-
-	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.sendStatusSearchResponse(gStream, apistatus.ErrNodeUnderMaintenance, req)
-	}
-
-	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
-	if err != nil {
-		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
-		}
-		return s.sendStatusSearchResponse(gStream, err, req)
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusSearchResponse(gStream, err, req)
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-		err = eACLErr(reqInfo, err)
-		return s.sendStatusSearchResponse(gStream, err, req)
-	}
-
-	p, err := convertSearchPrm(gStream.Context(), s.signer, req, &searchStream{
-		base: gStream,
-		srv:  s,
-		req:  req,
-	})
-	if err != nil {
-		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
-		}
-		return s.sendStatusSearchResponse(gStream, err, req)
-	}
-	err = s.handlers.Search(gStream.Context(), p)
-	if err != nil {
-		return s.sendStatusSearchResponse(gStream, err, req)
-	}
-	return nil
-}
-
-// converts original request into parameters accepted by the internal handler.
-// Note that the stream is untouched within this call, errors are not reported
-// into it.
-func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoobject.SearchRequest, stream *searchStream) (searchsvc.Prm, error) {
-	body := req.GetBody()
-	mc := body.GetContainerId()
-	if mc == nil {
-		return searchsvc.Prm{}, errors.New("missing container ID")
-	}
-
-	var id cid.ID
-	if err := id.FromProtoMessage(mc); err != nil {
-		return searchsvc.Prm{}, fmt.Errorf("invalid container ID: %w", err)
-	}
-
-	cp, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		return searchsvc.Prm{}, err
-	}
-
-	mfs := body.GetFilters()
-	ofs := object.NewSearchFilters()
-	err = ofs.FromProtoMessage(mfs)
-	if err != nil {
-		return searchsvc.Prm{}, err
-	}
-
-	var p searchsvc.Prm
-	p.SetCommonParameters(cp)
-	p.WithContainerID(id)
-	p.WithSearchFilters(ofs)
-	p.SetWriter(stream)
-	if cp.LocalOnly() {
-		return p, nil
-	}
-
-	var onceResign sync.Once
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return searchsvc.Prm{}, errors.New("missing meta header")
-	}
-	p.SetRequestForwarder(func(c client.MultiAddressClient) ([]oid.ID, error) {
-		var err error
-		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
-			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		var res []oid.ID
-		return res, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			var err error
-			res, err = searchOnRemoteNode(ctx, conn, req)
-			return err // TODO: log error
-		})
-	})
-	return p, nil
-}
-
-func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.SearchRequest) ([]oid.ID, error) {
-	searchStream, err := protoobject.NewObjectServiceClient(conn).Search(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	var res []oid.ID
-	for {
-		resp, err := searchStream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return res, nil
-			}
-			return nil, fmt.Errorf("reading the response failed: %w", err)
-		}
-
-		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
-			return nil, fmt.Errorf("remote node response: %w", err)
-		}
-
-		chunk := resp.GetBody().GetIdList()
-		var id oid.ID
-		for i := range chunk {
-			if err := id.FromProtoMessage(chunk[i]); err != nil {
-				return nil, fmt.Errorf("invalid object ID: %w", err)
-			}
-			res = append(res, id)
-		}
-	}
+func (s *Server) Search(_ *protoobject.SearchRequest, _ protoobject.ObjectService_SearchServer) error {
+	return grpcstatus.Error(grpccodes.Unimplemented, "no longer supported, use SearchV2")
 }
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.

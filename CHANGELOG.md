@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
+- Deprecated `Search` method support from storage nodes (#3931)
 
 ### Updated
 
@@ -24,6 +25,9 @@ Drop `policer.max_workers` configuration, it's no-op since 0.52.0.
 
 Use CLI `object search` command instead of `object searchv2`, functionally
 they are the same now and v2 variant will be removed in future.
+
+Storage nodes no longer implement deprecated and insecure `Search` method,
+migrate to `Searchv2` if needed.
 
 ## [0.52.0] - 2026-03-27 - Woodo
 

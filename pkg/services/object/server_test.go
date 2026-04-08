@@ -32,7 +32,6 @@ import (
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -75,10 +74,6 @@ func (x noCallObjectService) Put(context.Context) (*putsvc.Streamer, error) {
 }
 
 func (x noCallObjectService) Head(context.Context, getsvc.HeadPrm) error {
-	panic("must not be called")
-}
-
-func (x noCallObjectService) Search(context.Context, searchsvc.Prm) error {
 	panic("must not be called")
 }
 
