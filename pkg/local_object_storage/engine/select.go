@@ -12,12 +12,12 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// Select selects the objects from local storage that match select parameters.
+// selectOld selects the objects from local storage that match select parameters.
 //
 // Returns any error encountered that did not allow to completely select the objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
+func (e *StorageEngine) selectOld(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -33,7 +33,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 	uniqueMap := make(map[oid.Address]struct{})
 
 	for _, sh := range e.unsortedShards() {
-		res, err := sh.Select(cnr, filters)
+		res, err := sh.Select(cnr, filters) // nolint:staticcheck
 		if err != nil {
 			if errors.Is(err, objectcore.ErrInvalidSearchQuery) {
 				return addrList, err

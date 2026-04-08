@@ -53,7 +53,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err = e.Put(tomb, nil)
 		require.NoError(t, err)
 
-		addrs, err := e.Select(cnr, fs)
+		addrs, err := e.selectOld(cnr, fs)
 		require.NoError(t, err)
 		require.Empty(t, addrs)
 	})
@@ -92,13 +92,13 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
 		t.Run("empty search should return ts", func(t *testing.T) {
-			addrs, err := e.Select(cnr, object.SearchFilters{})
+			addrs, err := e.selectOld(cnr, object.SearchFilters{})
 			require.NoError(t, err)
 			require.Equal(t, []oid.Address{tomb.Address()}, addrs)
 		})
 
 		t.Run("root search should fail", func(t *testing.T) {
-			addrs, err := e.Select(cnr, fs)
+			addrs, err := e.selectOld(cnr, fs)
 			require.NoError(t, err)
 			require.Empty(t, addrs)
 		})

@@ -25,6 +25,8 @@ func NewCursor(cnr cid.ID, obj oid.ID) *Cursor {
 var ErrEndOfListing = meta.ErrEndOfListing
 
 // List returns all objects physically stored in the Shard.
+//
+// Deprecated: test-only, should not be used in production.
 func (s *Shard) List() ([]oid.Address, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -44,7 +46,7 @@ func (s *Shard) List() ([]oid.Address, error) {
 	var res []oid.Address
 
 	for i := range lst {
-		addrs, err := s.metaBase.Select(lst[i], filters) // consider making List in metabase
+		addrs, err := s.metaBase.Select(lst[i], filters) // nolint:staticcheck
 		if err != nil {
 			s.log.Debug("can't select all objects",
 				zap.Stringer("cid", lst[i]),

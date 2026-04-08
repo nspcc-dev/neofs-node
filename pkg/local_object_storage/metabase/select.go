@@ -21,6 +21,8 @@ import (
 // integers.
 //
 // Returns [object.ErrInvalidSearchQuery] if specified query is invalid.
+//
+// Deprecated: test-only to simplify checks.
 func (db *DB) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()

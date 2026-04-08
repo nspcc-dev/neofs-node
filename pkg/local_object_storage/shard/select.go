@@ -16,6 +16,8 @@ import (
 // did not allow to completely select the objects.
 //
 // Returns [object.ErrInvalidSearchQuery] if specified query is invalid.
+//
+// Deprecated: test-only to simplify checks.
 func (s *Shard) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()

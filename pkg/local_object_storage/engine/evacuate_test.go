@@ -54,7 +54,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 		err := e.Put(objects[i], nil)
 		require.NoError(t, err)
 
-		res, err := e.shards[ids[len(ids)-1].String()].List()
+		res, err := e.shards[ids[len(ids)-1].String()].List() // nolint:staticcheck
 		require.NoError(t, err)
 		if len(res) == objPerShard {
 			break
@@ -169,7 +169,7 @@ func TestEvacuateNetwork(t *testing.T) {
 
 		var totalCount int
 		for _, id := range evacuateIDs {
-			res, err := e.shards[id.String()].List()
+			res, err := e.shards[id.String()].List() // nolint:staticcheck
 			require.NoError(t, err)
 
 			totalCount += len(res)
