@@ -23,3 +23,9 @@ func NewRepeatedFieldError(n protowire.Number) error {
 func NewUnsupportedFieldError(n protowire.Number, t protowire.Type) error {
 	return fmt.Errorf("unsupported field #%d of type %v", n, t)
 }
+
+// NewInvalidUTF8Error returns common error for string field #n containing
+// invalid UTF-8.
+func NewInvalidUTF8Error(n protowire.Number) error {
+	return fmt.Errorf("string field #%d contains invalid UTF-8", n)
+}

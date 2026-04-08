@@ -177,6 +177,18 @@ func (c *clientCacheWrapper) get(ctx context.Context, info coreclient.NodeInfo) 
 }
 
 func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser, error) {
+	if exec.forwardHeadRequestFn != nil {
+		respBuf, hdr, err := exec.forwardHeadRequestFn(exec.ctx, c.client)
+		if err == nil {
+			exec.submitHeadResponseFn(respBuf, hdr)
+		}
+		return nil, nil, err
+	}
+
+	if exec.forwardGetRequestFn != nil {
+		return nil, nil, exec.forwardGetRequestFn(exec.ctx, c.client)
+	}
+
 	if exec.isForwardingEnabled() {
 		obj, err := exec.prm.forwarder(exec.ctx, c.client)
 		return obj, nil, err

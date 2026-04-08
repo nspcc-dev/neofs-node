@@ -17,6 +17,8 @@ var (
 	uint32OverflowVarint = []byte{128, 128, 128, 128, 16} // 4294967296
 
 	uint64OverflowVarint = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 2}
+
+	invalidUTF8 = []byte("\xF4\x90\x80\x80")
 )
 
 var varintTestcases = []struct {
@@ -250,6 +252,61 @@ func TestParseLENFieldBounds(t *testing.T) {
 		require.EqualValues(t, off, f.From)
 		require.EqualValues(t, f.From+tagLn+tc.ln, f.ValueFrom)
 		require.EqualValues(t, f.ValueFrom+int(tc.val), f.To)
+	}
+}
+
+func TestParseStringField(t *testing.T) {
+	t.Run("wrong type", func(t *testing.T) {
+		_, _, err := iprotobuf.ParseStringField([]byte{}, 42, protowire.VarintType)
+		require.EqualError(t, err, "wrong type of field #42: expected LEN, got VARINT")
+	})
+
+	t.Run("invalid len", func(t *testing.T) {
+		for _, tc := range invalidVarintTestcases {
+			t.Run(tc.name, func(t *testing.T) {
+				_, _, err := iprotobuf.ParseStringField(tc.buf, 42, protowire.BytesType)
+				require.ErrorContains(t, err, "parse field #42 of LEN type: parse varint")
+				require.ErrorContains(t, err, tc.err)
+			})
+		}
+	})
+
+	t.Run("buffer overflow", func(t *testing.T) {
+		t.Run("int overflow", func(t *testing.T) {
+			buf := make([]byte, binary.MaxVarintLen64)
+			n := binary.PutUvarint(buf, uint64(math.MaxInt+1))
+
+			_, _, err := iprotobuf.ParseStringField(buf[:n], 42, protowire.BytesType)
+			require.EqualError(t, err, "parse field #42 of LEN type: value "+strconv.FormatUint(math.MaxInt+1, 10)+" overflows int")
+		})
+
+		for i, tc := range varintTestcases {
+			if tc.val == 0 || tc.val > 1<<20 {
+				continue
+			}
+
+			buf := slices.Concat(tc.buf, make([]byte, tc.val-1))
+			_, _, err := iprotobuf.ParseStringField(buf, 42, protowire.BytesType)
+			require.EqualError(t, err, "parse field #42 of LEN type: unexpected EOF: need "+strconv.FormatUint(tc.val, 10)+" bytes, left "+strconv.FormatUint(tc.val-1, 10)+" in buffer", i)
+		}
+	})
+
+	t.Run("invalid UTF-8", func(t *testing.T) {
+		buf := protowire.AppendBytes(nil, invalidUTF8)
+		_, _, err := iprotobuf.ParseStringField(buf, 42, protowire.BytesType)
+		require.EqualError(t, err, "string field #42 contains invalid UTF-8")
+	})
+
+	for i, tc := range varintTestcases {
+		if tc.val > 1<<20 {
+			continue
+		}
+
+		buf := make([]byte, tc.val)
+		u, n, err := iprotobuf.ParseStringField(slices.Concat(tc.buf, buf), 42, protowire.BytesType)
+		require.NoError(t, err, i)
+		require.EqualValues(t, tc.val, u, i)
+		require.EqualValues(t, tc.ln, n, i)
 	}
 }
 
