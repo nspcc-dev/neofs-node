@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 
@@ -64,9 +65,9 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, err
 			return fmt.Errorf("marking objects for %s container: %w", cnr, err)
 		}
 
-		err := updateCounter(metaBucket, gcCounter, int64(len(objsInCnr))) // TODO: double-counting already marked objects?
+		err := updateCounter(metaBucket, gcCounter, int64(counterDiff.NewGarbage))
 		if err != nil {
-			return fmt.Errorf("update %s container's gc counter to %d: %w", cnr, len(objsInCnr), err)
+			return fmt.Errorf("update %s container's gc counter to %d: %w", cnr, counterDiff.NewGarbage, err)
 		}
 		err = updateCounter(metaBucket, payloadCounter, counterDiff.PayloadDiff)
 		if err != nil {
@@ -85,9 +86,15 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, diff *ContainerGarbageDiff
 		metaBucket = metaCursor.Bucket()
 	)
 	addr.SetContainer(cnr)
-	diff.NewGarbage += len(objs)
 
 	for _, id := range objs {
+		var garbKey = mkGarbageKey(id)
+
+		k, _ := metaCursor.Seek(garbKey)
+		if bytes.Equal(k, garbKey) {
+			continue
+		}
+
 		addr.SetObject(id)
 
 		obj, err := get(metaCursor, addr, false, true, currEpoch)
@@ -96,11 +103,11 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, diff *ContainerGarbageDiff
 				diff.PayloadDiff -= int64(obj.PayloadSize())
 			}
 		}
-
-		err = metaBucket.Put(mkGarbageKey(id), nil)
+		err = metaBucket.Put(garbKey, nil)
 		if err != nil {
 			return err
 		}
+		diff.NewGarbage++
 	}
 
 	return nil
