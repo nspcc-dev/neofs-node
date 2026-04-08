@@ -9,6 +9,13 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
+// TrashBin groups objects and containers that should be deleted. Empty objects
+// list means container is empty and can be deleted completely.
+type TrashBin struct {
+	Container cid.ID
+	Objects   []oid.ID
+}
+
 // IterateOverGarbage iterates over all objects marked with GC mark in
 // the given container.
 //
@@ -66,23 +73,22 @@ func (db *DB) iterateIDs(c *bbolt.Cursor, h func(oid.ID) error, offset oid.ID) e
 // removed. The second return value describes garbage containers whose _all_
 // garbage objects were included in the first return value and, therefore,
 // these containers can be deleted (if their objects are handled and deleted too).
-func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
+func (db *DB) GetGarbage(limit int) ([]TrashBin, error) {
 	if limit <= 0 {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return nil, nil, ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
 
-	const reasonableLimit = 1000
-	initCap := min(limit, reasonableLimit)
-
-	resObjects := make([]oid.Address, 0, initCap)
-	resContainers := make([]cid.ID, 0)
+	var (
+		res    []TrashBin
+		objNum int
+	)
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
@@ -93,7 +99,6 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 			var (
 				cur           = b.Cursor()
 				deadContainer bool
-				err           error
 				objPrefix     = metaPrefixGarbage
 			)
 			if containerMarkedGC(b.Cursor()) {
@@ -101,16 +106,19 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 				objPrefix = metaPrefixID
 			}
 
-			resObjects, err = listGarbageObjects(cur, objPrefix, cnr, resObjects, limit)
-			if err != nil {
-				return fmt.Errorf("listing objects for %s container: %w", cnr, err)
+			objs := listGarbageObjects(cur, objPrefix, cnr, limit)
+			if len(objs) != 0 {
+				res = append(res, TrashBin{Container: cnr, Objects: objs})
+				objNum += len(objs)
+				if objNum >= limit {
+					return ErrInterruptIterator
+				}
+				return nil
 			}
-			if len(resObjects) >= limit {
-				return ErrInterruptIterator
-			} else if deadContainer {
+			if deadContainer {
 				// all the objects from the container were listed,
 				// container can be removed
-				resContainers = append(resContainers, cnr)
+				res = append(res, TrashBin{Container: cnr})
 			}
 			return nil
 		})
@@ -121,16 +129,18 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 		return nil
 	})
 
-	return resObjects, resContainers, err
+	return res, err
 }
 
-func listGarbageObjects(cur *bbolt.Cursor, prefix byte, cnr cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {
+func listGarbageObjects(cur *bbolt.Cursor, prefix byte, cnr cid.ID, limit int) []oid.ID {
+	var objs []oid.ID
+
 	for obj := range iterPrefixedIDs(cur, []byte{prefix}, oid.ID{}) {
 		if len(objs) >= limit {
 			break
 		}
-		objs = append(objs, oid.NewAddress(cnr, obj))
+		objs = append(objs, obj)
 	}
 
-	return objs, nil
+	return objs
 }
