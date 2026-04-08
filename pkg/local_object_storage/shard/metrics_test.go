@@ -138,7 +138,7 @@ func TestCounters(t *testing.T) {
 		inhumedNumber := objNumber / 4
 
 		for i := range inhumedNumber {
-			err := sh.MarkGarbage(oo[i].Address())
+			err := sh.MarkGarbage(oo[i].GetContainerID(), []oid.ID{oo[i].GetID()})
 			require.NoError(t, err)
 		}
 
@@ -191,8 +191,10 @@ func TestCounters(t *testing.T) {
 
 		deletedNumber := int(phy / 4)
 
-		err := sh.Delete(addrFromObjs(oo[:deletedNumber]))
-		require.NoError(t, err)
+		for _, obj := range oo[:deletedNumber] {
+			err := sh.Delete(obj.GetContainerID(), []oid.ID{obj.GetID()})
+			require.NoError(t, err)
+		}
 
 		require.Equal(t, phy-uint64(deletedNumber), mm.objectCounters[phyObj])
 		require.Equal(t, root-uint64(deletedNumber), mm.objectCounters[rootObj])
@@ -228,7 +230,7 @@ func TestCounters(t *testing.T) {
 			phyBefore := mm.objectCounters[phyObj]
 			sumPldSizeBefore := mm.payloadSize
 
-			require.NoError(t, sh.Delete([]oid.Address{parent.Address()}))
+			require.NoError(t, sh.Delete(cnr, []oid.ID{parent.GetID()}))
 
 			require.EqualValues(t, child.PayloadSize(), mm.containerSize[cnr])
 			require.Equal(t, phyBefore, mm.objectCounters[phyObj])
@@ -316,14 +318,4 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 	})
 
 	return sh, mm
-}
-
-func addrFromObjs(oo []*object.Object) []oid.Address {
-	aa := make([]oid.Address, len(oo))
-
-	for i := range oo {
-		aa[i] = oo[i].Address()
-	}
-
-	return aa
 }

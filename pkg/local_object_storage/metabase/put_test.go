@@ -157,9 +157,9 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 		})
 		t.Run("mark garbage", func(t *testing.T) {
 			// any GC mark should be considered as a GC counter increasing
-			n, err := db.MarkGarbage(addr)
+			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
 			require.NoError(t, err)
-			require.EqualValues(t, 1, n[0].NewGarbage)
+			require.EqualValues(t, 1, n.NewGarbage)
 		})
 	})
 
@@ -185,7 +185,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			require.NoError(t, err)
 			require.NotContains(t, collected, addr)
 		})
-		_, err = db.Delete([]oid.Address{tsAddr})
+		_, err = db.Delete(ts.GetContainerID(), []oid.ID{ts.GetID()})
 		require.NoError(t, err)
 
 		assertObjectAvailability(t, db, addr, obj)
@@ -307,9 +307,9 @@ func TestDB_Put_Lock(t *testing.T) {
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 
-			n, err := db.MarkGarbage(objAddr)
+			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
 			require.NoError(t, err)
-			require.EqualValues(t, 1, n[0].NewGarbage)
+			require.EqualValues(t, 1, n.NewGarbage)
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

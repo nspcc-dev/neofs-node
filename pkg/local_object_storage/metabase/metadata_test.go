@@ -573,7 +573,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		// all available
 		check(t, ids)
 		t.Run("garbage mark", func(t *testing.T) {
-			_, err := db.MarkGarbage(oid.NewAddress(cnr, ids[1]))
+			_, err := db.MarkGarbage(cnr, []oid.ID{ids[1]})
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:1], ids[2:]))
 			// resurrect the object
@@ -599,7 +599,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			check(t, slices.Concat(ids[:3], ids[4:]))
 		})
 		t.Run("rm", func(t *testing.T) {
-			_, err := db.Delete([]oid.Address{oid.NewAddress(cnr, ids[4])})
+			_, err := db.Delete(cnr, []oid.ID{ids[4]})
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:3], ids[5:]))
 		})

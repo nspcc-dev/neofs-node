@@ -4,20 +4,21 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // Delete removes data from the shard's writeCache, metaBase and
 // blobStor.
-func (s *Shard) Delete(addrs []oid.Address) error {
+func (s *Shard) Delete(cnr cid.ID, addrs []oid.ID) error {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	return s.deleteObjs(addrs)
+	return s.deleteObjs(cnr, addrs)
 }
 
-func (s *Shard) deleteObjs(addrs []oid.Address) error {
+func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 	if s.info.Mode.ReadOnly() {
 		return ErrReadOnlyMode
 	} else if s.info.Mode.NoMetabase() {
@@ -31,21 +32,21 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 	hasWriteCache := s.hasWriteCache()
 	if hasWriteCache {
 		for _, addr := range addrs {
-			err := s.writeCache.Delete(addr)
+			err := s.writeCache.Delete(oid.NewAddress(cnr, addr))
 			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
 				s.log.Warn("can't delete object from write cache", zap.Error(err))
 			}
 		}
 	}
 
-	res, err := s.metaBase.Delete(addrs)
+	res, err := s.metaBase.Delete(cnr, addrs)
 	if err != nil {
 		return err // stop on metabase error ?
 	}
 
 	if hasWriteCache {
 		for i := range res.RemovedObjects[len(addrs):] { // the rest are addrs, removed above
-			err := s.writeCache.Delete(res.RemovedObjects[i].Address)
+			err := s.writeCache.Delete(oid.NewAddress(cnr, res.RemovedObjects[i].ID))
 			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
 				s.log.Warn("can't delete object from write cache", zap.Error(err))
 			}
@@ -62,24 +63,24 @@ func (s *Shard) deleteObjs(addrs []oid.Address) error {
 	var totalRemovedPayload uint64
 
 	for i := range res.RemovedObjects {
-		removedPayload := res.RemovedObjects[i].PayloadLen
-		totalRemovedPayload += removedPayload
-		s.addToContainerSize(res.RemovedObjects[i].Address.Container().EncodeToString(), -int64(removedPayload))
+		totalRemovedPayload += res.RemovedObjects[i].PayloadLen
 
-		err = s.blobStor.Delete(res.RemovedObjects[i].Address)
+		var addr = oid.NewAddress(cnr, res.RemovedObjects[i].ID)
+		err = s.blobStor.Delete(addr)
 		if err == nil {
-			logOp(s.log, deleteOp, res.RemovedObjects[i].Address)
+			logOp(s.log, deleteOp, addr)
 		} else {
 			if IsErrNotFound(err) {
 				continue
 			}
 
 			s.log.Debug("can't remove object from blobStor",
-				zap.Stringer("object_address", res.RemovedObjects[i].Address),
+				zap.Stringer("object_address", addr),
 				zap.Error(err))
 		}
 	}
 
+	s.addToContainerSize(cnr.EncodeToString(), -int64(totalRemovedPayload))
 	s.addToPayloadCounter(-int64(totalRemovedPayload))
 
 	return nil

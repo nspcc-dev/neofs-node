@@ -8,6 +8,7 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -151,13 +152,9 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
-	// delete accumulated objects
-	err = s.deleteObjs(gObjs)
+	err = s.deleteAddresses(gObjs)
 	if err != nil {
-		s.log.Warn("could not delete the objects",
-			zap.Error(err),
-		)
-
+		s.log.Warn("can't delete objects", zap.Error(err))
 		return
 	}
 
@@ -172,6 +169,33 @@ func (s *Shard) removeGarbage() {
 			)
 		}
 	}
+}
+
+func (s *Shard) deleteAddresses(addrs []oid.Address) error {
+	var (
+		cnr  cid.ID
+		oids []oid.ID
+	)
+
+	if len(addrs) == 0 {
+		return nil
+	}
+
+	for i := range addrs {
+		// addrs should be naturally grouped by containers, no need for additional sorting
+		if cnr != addrs[i].Container() {
+			if len(oids) != 0 {
+				err := s.deleteObjs(cnr, oids)
+				if err != nil {
+					return err
+				}
+			}
+			cnr = addrs[i].Container()
+			oids = oids[:0]
+		}
+		oids = append(oids, addrs[i].Object())
+	}
+	return s.deleteObjs(cnr, oids)
 }
 
 func (s *Shard) collectExpiredObjects() {
@@ -218,13 +242,9 @@ func (s *Shard) collectExpiredObjects() {
 	}
 
 	log.Debug("collected expired tombstones", zap.Int("num", len(toDeleteTombstones)))
-	if len(toDeleteTombstones) > 0 {
-		err = s.deleteObjs(toDeleteTombstones)
-		if err != nil {
-			log.Warn("could not delete tombstones",
-				zap.Error(err),
-			)
-		}
+	err = s.deleteAddresses(toDeleteTombstones)
+	if err != nil {
+		log.Warn("can't delete tombstones", zap.Error(err))
 	}
 
 	log.Debug("collected expired objects", zap.Int("num", len(expiredObjects)))

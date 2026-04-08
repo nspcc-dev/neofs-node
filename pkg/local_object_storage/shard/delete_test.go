@@ -37,7 +37,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		_, err = sh.Get(obj.Address(), false)
 		require.NoError(t, err)
 
-		err = sh.Delete([]oid.Address{obj.Address()})
+		err = sh.Delete(obj.GetContainerID(), []oid.ID{obj.GetID()})
 		require.NoError(t, err)
 
 		_, err = sh.Get(obj.Address(), false)
@@ -55,7 +55,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		_, err = sh.Get(obj.Address(), false)
 		require.NoError(t, err)
 
-		err = sh.Delete([]oid.Address{obj.Address()})
+		err = sh.Delete(obj.GetContainerID(), []oid.ID{obj.GetID()})
 		require.NoError(t, err)
 
 		_, err = sh.Get(obj.Address(), false)

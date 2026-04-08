@@ -221,9 +221,8 @@ func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error
 
 	if isFatal && len(goodShards) > 0 {
 		// Revert potential damage.
-		var addrs = []oid.Address{addr}
 		for _, sh := range goodShards {
-			var err = sh.Delete(addrs)
+			var err = sh.Delete(addr.Container(), []oid.ID{addr.Object()})
 			if err != nil {
 				e.log.Warn("failed to rollback incorrect put",
 					zap.Stringer("shard", sh.ID()),

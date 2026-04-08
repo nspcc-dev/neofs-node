@@ -3,7 +3,6 @@ package meta_test
 import (
 	"errors"
 	"math/rand/v2"
-	"slices"
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -36,7 +35,7 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// try to remove parent, should be no-op, error-free
-	res, err := db.Delete([]oid.Address{parent.Address()})
+	res, err := db.Delete(cnr, []oid.ID{idParent})
 	require.NoError(t, err)
 	require.Zero(t, res.Counters.Phy)
 
@@ -47,7 +46,7 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// delete object
-	err = metaDelete(db, child.Address())
+	_, err = db.Delete(cnr, []oid.ID{child.GetID()})
 	require.NoError(t, err)
 
 	// check if the child is still inhumed (deletion should not affect
@@ -64,7 +63,6 @@ func TestDB_Delete(t *testing.T) {
 
 	t.Run("EC", func(t *testing.T) {
 		cnr1 := cidtest.ID()
-		cnr2 := cidtest.ID()
 		const anyRuleIdx = 1
 		anySigner := neofscryptotest.Signer()
 
@@ -88,26 +86,23 @@ func TestDB_Delete(t *testing.T) {
 			return parent, ecParts
 		}
 
-		parent1, ecParts1 := newGroup(cnr1, 3)
-		parent2, ecParts2 := newGroup(cnr2, 5)
+		parent1, ecParts1 := newGroup(cnr1, 5)
 
-		parent1Addr := parent1.Address()
-		parent2Addr := parent2.Address()
+		parent1ID := parent1.GetID()
 
-		res, err := db.Delete([]oid.Address{parent1Addr, parent2Addr})
+		res, err := db.Delete(cnr1, []oid.ID{parent1ID})
 		require.NoError(t, err)
 
-		all := 2 + len(ecParts1) + len(ecParts2)
-		require.EqualValues(t, -(all - 2), res.Counters.Phy)
+		all := 1 + len(ecParts1)
+		require.EqualValues(t, -(all - 1), res.Counters.Phy)
 		require.Len(t, res.RemovedObjects, all)
 
-		require.ElementsMatch(t, res.RemovedObjects[:2], []meta.RemovedObject{
-			{Address: parent1Addr, PayloadLen: 0},
-			{Address: parent2Addr, PayloadLen: 0},
+		require.ElementsMatch(t, res.RemovedObjects[:1], []meta.RemovedObject{
+			{ID: parent1ID, PayloadLen: 0},
 		})
-		for _, partObj := range slices.Concat(ecParts1, ecParts2) {
+		for _, partObj := range ecParts1 {
 			require.Contains(t, res.RemovedObjects, meta.RemovedObject{
-				Address:    partObj.Address(),
+				ID:         partObj.GetID(),
 				PayloadLen: partObj.PayloadSize(),
 			})
 		}
@@ -132,15 +127,15 @@ func TestContainerInfo(t *testing.T) {
 	require.Equal(t, uint64(1), info.ObjectsNumber)
 	require.Equal(t, payloadSize, info.StorageSize)
 
-	addr := obj.Address()
+	objID := obj.GetID()
 
-	res, err := db.Delete([]oid.Address{addr})
+	res, err := db.Delete(cID, []oid.ID{objID})
 	require.NoError(t, err)
 
 	require.Equal(t, -1, res.Counters.Phy)
 	require.Len(t, res.RemovedObjects, 1)
 	require.Equal(t, payloadSize, res.RemovedObjects[0].PayloadLen)
-	require.Equal(t, addr, res.RemovedObjects[0].Address)
+	require.Equal(t, objID, res.RemovedObjects[0].ID)
 
 	info, err = db.GetContainerInfo(cID)
 	require.NoError(t, err)
@@ -178,7 +173,7 @@ func TestDeleteAllChildren(t *testing.T) {
 	require.True(t, errors.As(err, &siErr))
 
 	// remove all children in single call
-	err = metaDelete(db, child1.Address(), child2.Address())
+	_, err = db.Delete(cnr, []oid.ID{child1.GetID(), child2.GetID()})
 	require.NoError(t, err)
 
 	// parent should not be found now
@@ -196,7 +191,8 @@ func TestGraveOnlyDelete(t *testing.T) {
 	require.NoError(t, metaInhume(db, addr, oidtest.Address()))
 
 	// delete the object data
-	require.NoError(t, metaDelete(db, addr))
+	_, err := db.Delete(addr.Container(), []oid.ID{addr.Object()})
+	require.NoError(t, err)
 }
 
 func TestExpiredObject(t *testing.T) {
@@ -204,71 +200,10 @@ func TestExpiredObject(t *testing.T) {
 
 	checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
 		// removing expired object should be error-free
-		require.NoError(t, metaDelete(db, exp.Address()))
+		_, err := db.Delete(exp.GetContainerID(), []oid.ID{exp.GetID()})
+		require.NoError(t, err)
 
-		require.NoError(t, metaDelete(db, nonExp.Address()))
-	})
-}
-
-func metaDelete(db *meta.DB, addrs ...oid.Address) error {
-	_, err := db.Delete(addrs)
-	return err
-}
-
-func BenchmarkDB_Delete(b *testing.B) {
-	db := newDB(b)
-	const containerNum = 100
-	const objectsPerContainer = 100
-	const totalObjects = containerNum * objectsPerContainer
-
-	bench := func(b *testing.B, addrs []oid.Address) {
-		for b.Loop() {
-			_, err := db.Delete(addrs)
-			require.NoError(b, err)
-		}
-	}
-
-	b.Run("grouped", func(b *testing.B) {
-		bench := func(b *testing.B, sortFn func(a, b cid.ID) int) {
-			cnrs := cidtest.IDs(containerNum)
-			slices.SortFunc(cnrs, sortFn)
-
-			addrs := make([]oid.Address, 0, totalObjects)
-			for i := range cnrs {
-				for range objectsPerContainer {
-					addrs = append(addrs, oid.NewAddress(cnrs[i], oidtest.ID()))
-				}
-			}
-
-			bench(b, addrs)
-		}
-		b.Run("sorted", func(b *testing.B) {
-			bench(b, cid.ID.Compare)
-		})
-		b.Run("reverse", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return b.Compare(a) })
-		})
-	})
-
-	b.Run("mixed", func(b *testing.B) {
-		bench := func(b *testing.B, sortFn func(a, b cid.ID) int) {
-			cnrs := cidtest.IDs(containerNum)
-			slices.SortFunc(cnrs, sortFn)
-
-			addrs := make([]oid.Address, 0, totalObjects)
-			for range objectsPerContainer {
-				for i := range cnrs {
-					addrs = append(addrs, oid.NewAddress(cnrs[i], oidtest.ID()))
-				}
-			}
-
-			bench(b, addrs)
-		}
-		b.Run("sorted", func(b *testing.B) {
-			bench(b, cid.ID.Compare)
-		})
-		b.Run("reverse", func(b *testing.B) {
-			bench(b, func(a, b cid.ID) int { return b.Compare(a) })
-		})
+		_, err = db.Delete(nonExp.GetContainerID(), []oid.ID{nonExp.GetID()})
+		require.NoError(t, err)
 	})
 }
