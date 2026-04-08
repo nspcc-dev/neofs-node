@@ -61,14 +61,6 @@ type NetworkState interface {
 	// which did not allow reading the value.
 	Epoch() (uint64, error)
 
-	// HomomorphicHashDisabled must return boolean that
-	// represents homomorphic network state:
-	// 	* true if hashing is disabled;
-	// 	* false if hashing is enabled.
-	//
-	// which did not allow reading the value.
-	HomomorphicHashDisabled() (bool, error)
-
 	// NetMap must return actual network map.
 	NetMap() (*netmap.NetMap, error)
 

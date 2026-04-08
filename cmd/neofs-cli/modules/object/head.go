@@ -167,7 +167,7 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 	cmd.Printf("Owner: %s\n", obj.Owner())
 	cmd.Printf("CreatedAt: %d\n", obj.CreationEpoch())
 	cmd.Printf("Size: %d\n", obj.PayloadSize())
-	common.PrintChecksum(cmd, "HomoHash", obj.PayloadHomomorphicHash)
+	common.PrintChecksum(cmd, "HomoHash", obj.PayloadHomomorphicHash) //nolint:staticcheck // old objects may still have it
 	common.PrintChecksum(cmd, "Checksum", obj.PayloadChecksum)
 	cmd.Printf("Type: %s\n", obj.Type())
 

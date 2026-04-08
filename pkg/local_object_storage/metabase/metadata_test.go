@@ -106,7 +106,7 @@ func TestPutMetadata(t *testing.T) {
 	pldHmmHashBytes := [64]byte{124, 127, 67, 236, 186, 166, 150, 202, 4, 115, 163, 58, 242, 73, 149, 35, 153, 93, 4, 247, 62, 18, 13, 150,
 		53, 141, 131, 172, 207, 164, 187, 240, 16, 30, 18, 30, 136, 0, 197, 213, 185, 62, 153, 223, 42, 213, 207, 86, 131, 144, 121,
 		127, 251, 248, 253, 176, 145, 101, 69, 75, 12, 97, 27, 19}
-	pldHmmHash := checksum.NewTillichZemor(pldHmmHashBytes)
+	pldHmmHash := checksum.NewTillichZemor(pldHmmHashBytes) //nolint:staticcheck // this is a test and such objects are possible
 	splitID := []byte{240, 204, 35, 185, 222, 70, 69, 124, 160, 224, 208, 185, 9, 114, 37, 109}
 	var attrs []object.Attribute
 	addAttr := func(k, v string) { attrs = append(attrs, object.NewAttribute(k, v)) }
@@ -133,7 +133,7 @@ func TestPutMetadata(t *testing.T) {
 	obj.SetParentID(parentID)
 	obj.SetFirstID(firstID)
 	obj.SetPayloadChecksum(pldHash)
-	obj.SetPayloadHomomorphicHash(pldHmmHash)
+	obj.SetPayloadHomomorphicHash(pldHmmHash) //nolint:staticcheck // this is a test and such objects are possible
 	obj.SetSplitID(object.NewSplitIDFromV2(splitID))
 	obj.SetAttributes(attrs...)
 

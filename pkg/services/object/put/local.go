@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/tzhash/tz"
 )
 
 // ObjectStorage is an object storage interface.
@@ -54,10 +53,11 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 	csType := cs.Type()
 	switch csType {
 	default:
-		return errors.New("unsupported payload checksum type")
+		return errors.New("unknown payload checksum type")
+	case checksum.TillichZemor:
+		return errors.New("object has unsupported Tillich-Zémor checksum")
 	case
-		checksum.SHA256,
-		checksum.TillichZemor:
+		checksum.SHA256:
 	}
 
 	maxPayloadSz := p.maxSizeSrc.MaxObjectSize()
@@ -75,45 +75,19 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return ErrExceedingMaxSize
 	}
 
-	cnr, err := p.cnrSrc.Get(cnrID)
-	if err != nil {
-		return fmt.Errorf("read container by ID: %w", err)
-	}
-
-	if !cnr.IsHomomorphicHashingDisabled() {
-		csHomo, csHomoSet := obj.PayloadHomomorphicHash()
-		switch {
-		case !csHomoSet:
-			return errors.New("missing homomorphic payload checksum")
-		case csHomo.Type() != checksum.TillichZemor:
-			return fmt.Errorf("wrong/unsupported type of homomorphic payload checksum, expected %s", checksum.TillichZemor)
-		case len(csHomo.Value()) != tz.Size:
-			return fmt.Errorf("invalid/unsupported length of %s homomorphic payload checksum, expected %d",
-				csHomo.Type(), tz.Size)
-		}
-	}
-
 	if err := p.fmtValidator.Validate(&obj, false, true); err != nil {
 		return fmt.Errorf("validate object format: %w", err)
 	}
 
-	err = p.fmtValidator.ValidateContent(&obj)
+	err := p.fmtValidator.ValidateContent(&obj)
 	if err != nil {
 		return fmt.Errorf("validate payload content: %w", err)
 	}
 
-	//nolint:exhaustive
-	switch csType {
-	case checksum.SHA256:
-		h := sha256.Sum256(payload)
-		if !bytes.Equal(h[:], cs.Value()) {
-			return errors.New("payload SHA-256 checksum mismatch")
-		}
-	case checksum.TillichZemor:
-		h := tz.Sum(payload)
-		if !bytes.Equal(h[:], cs.Value()) {
-			return errors.New("payload Tillich-Zemor checksum mismatch")
-		}
+	// checksum must be only SHA256, this was checked above
+	h := sha256.Sum256(payload)
+	if !bytes.Equal(h[:], cs.Value()) {
+		return errors.New("payload SHA-256 checksum mismatch")
 	}
 
 	return putObjectLocally(p.localStore, &obj, nil)

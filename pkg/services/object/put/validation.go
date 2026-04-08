@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
 )
 
@@ -42,8 +41,6 @@ type validatingTarget struct {
 	isECPart        bool
 	cachedRepNumber uint64
 	cachedECRules   []netmap.ECRule
-
-	homomorphicChecksumRequired bool
 }
 
 var (
@@ -78,20 +75,6 @@ func (t *validatingTarget) WriteHeader(obj *object.Object) error {
 			return ErrExceedingMaxSize
 		}
 
-		if t.homomorphicChecksumRequired {
-			cs, csSet := obj.PayloadHomomorphicHash()
-			switch {
-			case !csSet:
-				return errors.New("missing homomorphic payload checksum")
-			case cs.Type() != checksum.TillichZemor:
-				return fmt.Errorf("wrong/unsupported type of homomorphic payload checksum: %s instead of %s",
-					cs.Type(), checksum.TillichZemor)
-			case len(cs.Value()) != tz.Size:
-				return fmt.Errorf("invalid/unsupported length of %s homomorphic payload checksum: %d instead of %d",
-					cs.Type(), len(cs.Value()), tz.Size)
-			}
-		}
-
 		cs, csSet := obj.PayloadChecksum()
 		if !csSet {
 			return errors.New("missing payload checksum")
@@ -99,11 +82,11 @@ func (t *validatingTarget) WriteHeader(obj *object.Object) error {
 
 		switch typ := cs.Type(); typ {
 		default:
-			return fmt.Errorf("(%T) unsupported payload checksum type %v", t, typ)
+			return fmt.Errorf("(%T) unknown payload checksum type %v", t, typ)
 		case checksum.SHA256:
 			t.hash = sha256.New()
 		case checksum.TillichZemor:
-			t.hash = tz.New()
+			return errors.New("object has unsupported Tillich-Zémor checksum")
 		}
 
 		t.checksum = cs.Value()

@@ -139,6 +139,7 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 			}
 			var ch = checksum.NewSHA256([sha256.Size]byte(attrVal))
 			obj.SetPayloadChecksum(ch)
+		//nolint:staticcheck // old objects may still have it
 		case object.FilterPayloadHomomorphicHash:
 			if len(attrVal) != tz.Size {
 				return nil, fmt.Errorf("invalid homo checksum in meta of %s/%s: length %d", cnr, objID, len(attrVal))
