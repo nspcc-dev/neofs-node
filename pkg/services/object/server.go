@@ -159,7 +159,6 @@ type ACLInfoExtractor interface {
 	HashRequestToInfo(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
 	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	SearchRequestToInfo(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
 	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
 }
 
