@@ -766,7 +766,7 @@ func blindlyProcess(fs object.SearchFilters) bool {
 			return true
 		}
 
-		// TODO: #1148 check other cases
+		// TODO: #3159 check other cases
 		//  e.g. (a == b) && (a != b)
 	}
 

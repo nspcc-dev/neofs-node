@@ -233,7 +233,8 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterType, "", object.MatchNotPresent)
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 	})
 
 	t.Run("tombstone objects", func(t *testing.T) {
@@ -254,7 +255,8 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterType, "", object.MatchNotPresent)
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 	})
 
 	t.Run("objects with parent", func(t *testing.T) {
@@ -270,7 +272,8 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterParentID, "", object.MatchNotPresent)
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 
 		fs = object.SearchFilters{}
 		fs.AddFirstSplitObjectFilter(object.MatchStringEqual, firstChild)
@@ -370,7 +373,8 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 			"",
 			object.MatchNotPresent)
 
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 	})
 
 	t.Run("invalid hashes", func(t *testing.T) {
@@ -433,7 +437,8 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 			"",
 			object.MatchNotPresent)
 
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 	})
 
 	t.Run("object with payload length", func(t *testing.T) {
@@ -450,7 +455,8 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterPayloadSize, "", object.MatchNotPresent)
 
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 	})
 
 	t.Run("object with creation epoch", func(t *testing.T) {
@@ -467,7 +473,8 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 		fs = object.SearchFilters{}
 		fs.AddFilter(object.FilterCreationEpoch, "", object.MatchNotPresent)
 
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 
 		fs = object.SearchFilters{}
 		fs.AddCreationEpochFilter(object.MatchCommonPrefix, 1)
@@ -486,7 +493,8 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 
 		fs = object.SearchFilters{}
 		fs.AddObjectVersionFilter(object.MatchNotPresent, version.Version{})
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 	})
 }
 
@@ -513,7 +521,8 @@ func TestDB_SelectSplitID(t *testing.T) {
 	t.Run("not present", func(t *testing.T) {
 		fs := object.SearchFilters{}
 		fs.AddFilter(object.FilterSplitID, "", object.MatchNotPresent)
-		testSelect(t, db, cnr, fs)
+		_, err := db.Select(cnr, fs)
+		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 	})
 
 	t.Run("split id", func(t *testing.T) {

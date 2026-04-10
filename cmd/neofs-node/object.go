@@ -32,7 +32,6 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/tombstone"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -60,8 +59,6 @@ import (
 type objectSvc struct {
 	put *putsvc.Service
 
-	search *searchsvc.Service
-
 	get *getsvc.Service
 
 	delete *deletesvc.Service
@@ -84,10 +81,6 @@ func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
 
 func (s *objectSvc) Head(ctx context.Context, prm getsvc.HeadPrm) error {
 	return s.get.Head(ctx, prm)
-}
-
-func (s *objectSvc) Search(ctx context.Context, prm searchsvc.Prm) error {
-	return s.search.Search(ctx, prm)
 }
 
 func (s *objectSvc) Get(ctx context.Context, prm getsvc.Prm) error {
@@ -236,14 +229,6 @@ func initObjectService(c *cfg) {
 	fatalOnErr(err)
 	c.cfgObject.containerNodes = cnrNodes
 
-	sSearch := searchsvc.New(newRemoteContainerNodes(cnrNodes, c.IsLocalKey),
-		searchsvc.WithLogger(c.log),
-		searchsvc.WithLocalStorageEngine(ls),
-		searchsvc.WithClientConstructor(coreConstructor),
-		searchsvc.WithKeyStorage(keyStorage),
-		searchsvc.WithNNSResolver(nnsResolver),
-	)
-
 	mNumber, err := c.cli.MagicNumber()
 	fatalOnErr(err)
 
@@ -281,7 +266,6 @@ func initObjectService(c *cfg) {
 
 	objSvc := &objectSvc{
 		put:    sPut,
-		search: sSearch,
 		get:    sGet,
 		delete: sDelete,
 	}
@@ -529,35 +513,6 @@ func (h headerSource) Head(address oid.Address) (*object.Object, error) {
 	l.Debug("returning header from network")
 
 	return hw.h, nil
-}
-
-type remoteContainerNodes struct {
-	*containerNodes
-	isLocalPubKey func([]byte) bool
-}
-
-func newRemoteContainerNodes(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool) *remoteContainerNodes {
-	return &remoteContainerNodes{
-		containerNodes: cnrNodes,
-		isLocalPubKey:  isLocalPubKey,
-	}
-}
-
-// ForEachRemoteContainerNode iterates over all remote nodes matching the
-// referenced container's storage policy in the current epoch and passes their
-// descriptors into f. Elements may be repeated.
-//
-// Returns [apistatus.ErrContainerNotFound] if referenced container was not
-// found.
-//
-// Implements [searchsvc.Containers] interface.
-func (x *remoteContainerNodes) ForEachRemoteContainerNode(cnr cid.ID, f func(netmapsdk.NodeInfo)) error {
-	return x.forEachContainerNode(cnr, false, func(node netmapsdk.NodeInfo) bool {
-		if !x.isLocalPubKey(node.PublicKey()) {
-			f(node)
-		}
-		return true
-	})
 }
 
 type fsChainForObjects struct {

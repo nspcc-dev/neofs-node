@@ -1,10 +1,10 @@
 ## neofs-cli object searchv2
 
-Search object (new)
+Search object (deprecated)
 
 ### Synopsis
 
-Search object (new)
+Search object (compatibility, deprecated)
 
 ```
 neofs-cli object searchv2 [flags]

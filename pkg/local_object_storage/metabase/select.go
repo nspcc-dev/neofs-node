@@ -21,16 +21,14 @@ import (
 // integers.
 //
 // Returns [object.ErrInvalidSearchQuery] if specified query is invalid.
+//
+// Deprecated: test-only to simplify checks.
 func (db *DB) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
 		return nil, ErrDegradedMode
-	}
-
-	if blindlyProcess(filters) {
-		return nil, nil
 	}
 
 	var (
@@ -63,20 +61,6 @@ func (db *DB) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, e
 	}
 
 	return addrList, nil
-}
-
-// returns true if query leads to a deliberately empty result.
-func blindlyProcess(fs object.SearchFilters) bool {
-	for i := range fs {
-		if fs[i].Operation() == object.MatchNotPresent && fs[i].IsNonAttribute() {
-			return true
-		}
-
-		// TODO: #1148 check other cases
-		//  e.g. (a == b) && (a != b)
-	}
-
-	return false
 }
 
 // CollectRawWithAttribute allows to fetch the list of objects precisely

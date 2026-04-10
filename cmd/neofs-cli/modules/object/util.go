@@ -151,11 +151,6 @@ type SessionPrm interface {
 	WithinSessionV2(sessionv2.Token)
 }
 
-// forwards all parameters to _readVerifiedSession and object as nil.
-func readSessionGlobal(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) error {
-	return _readVerifiedSession(cmd, dst, key, cnr, nil)
-}
-
 // forwards all parameters to _readVerifiedSession.
 func readSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj oid.ID) error {
 	return _readVerifiedSession(cmd, dst, key, cnr, &obj)

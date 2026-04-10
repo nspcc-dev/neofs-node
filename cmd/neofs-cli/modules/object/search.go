@@ -15,9 +15,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,12 +35,12 @@ var (
 		Short: "Search object",
 		Long:  "Search object",
 		Args:  cobra.NoArgs,
-		RunE:  searchObject,
+		RunE:  searchV2,
 	}
 	searchV2Cmd = &cobra.Command{
 		Use:   objectSearchCmd.Use + "v2",
-		Short: objectSearchCmd.Short + " (new)", // TODO: drop suffix on old search deprecation
-		Long:  objectSearchCmd.Long + " (new)",  // TODO: desc in details
+		Short: objectSearchCmd.Short + " (deprecated)",               // TODO: drop suffix on old search deprecation
+		Long:  objectSearchCmd.Long + " (compatibility, deprecated)", // TODO: desc in details
 		Args:  objectSearchCmd.Args,
 		RunE:  searchV2,
 	}
@@ -72,71 +70,12 @@ func initObjectSearchCmd() {
 	flags.Bool("phy", false, "Search physically stored objects")
 	flags2.Bool("phy", false, "Search physically stored objects")
 
+	flags.StringSliceVar(&searchAttributesFlag.v, searchAttributesFlag.f, nil, "Additional attributes to display for suitable objects")
 	flags2.StringSliceVar(&searchAttributesFlag.v, searchAttributesFlag.f, nil, "Additional attributes to display for suitable objects")
+	flags.Uint16Var(&searchCountFlag.v, searchCountFlag.f, 0, "Max number of resulting items. Must not exceed 1000")
 	flags2.Uint16Var(&searchCountFlag.v, searchCountFlag.f, 0, "Max number of resulting items. Must not exceed 1000")
+	flags.StringVar(&searchCursorFlag.v, searchCursorFlag.f, "", "Cursor to continue previous search")
 	flags2.StringVar(&searchCursorFlag.v, searchCursorFlag.f, "", "Cursor to continue previous search")
-}
-
-func searchObject(cmd *cobra.Command, _ []string) error {
-	var cnr cid.ID
-	err := readCID(cmd, &cnr)
-	if err != nil {
-		return err
-	}
-
-	sf, err := parseSearchFilters(cmd)
-	if err != nil {
-		return err
-	}
-
-	pk, err := key.GetOrGenerate(cmd)
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
-	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-
-	var prm client.PrmObjectSearch
-	err = Prepare(cmd, &prm)
-	if err != nil {
-		return err
-	}
-
-	err = readSessionGlobal(cmd, &prm, pk, cnr)
-	if err != nil {
-		return err
-	}
-
-	prm.SetFilters(sf)
-
-	rdr, err := cli.ObjectSearchInit(ctx, cnr, user.NewAutoIDSigner(*pk), prm)
-	if err != nil {
-		return fmt.Errorf("rpc error: init object search: %w", err)
-	}
-
-	var ids []oidSDK.ID
-
-	err = rdr.Iterate(func(id oidSDK.ID) bool {
-		ids = append(ids, id)
-		return false
-	})
-	if err != nil {
-		return fmt.Errorf("rpc error: search objects using NeoFS API: %w", err)
-	}
-
-	cmd.Printf("Found %d objects.\n", len(ids))
-	for i := range ids {
-		cmd.Println(ids[i].String())
-	}
-
-	return nil
 }
 
 var searchUnaryOpVocabulary = map[string]object.SearchMatchType{
