@@ -463,23 +463,9 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
 }
 
-// SearchRequestToInfo resolves RequestInfo from the request to check it using
-// [ACLChecker].
-func (b Service) SearchRequestToInfo(request *protoobject.SearchRequest) (RequestInfo, error) {
-	return b.searchRequestToInfo(request)
-}
-
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
 func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, error) {
-	return b.searchRequestToInfo(request)
-}
-
-// unifies V1 and V2 search request processing.
-func (b Service) searchRequestToInfo(request interface {
-	GetMetaHeader() *protosession.RequestMetaHeader
-	GetVerifyHeader() *protosession.RequestVerificationHeader
-}) (RequestInfo, error) {
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err

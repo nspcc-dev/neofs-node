@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Policer removes redundant local shard copies that could remain on disk forever (#3908)
 - Treat only HALTed main transactions as successfully executed, retry the rest (#3868)
 - `different object owner and session issuer` for stored objects (#3929)
+- SearchV2 method returning zero result instead of "bad request" error for incorrect numeric filters (#3934)
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)
