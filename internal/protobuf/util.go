@@ -1,6 +1,7 @@
 package protobuf
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -12,6 +13,9 @@ const (
 	fixed32Len = 4
 	fixed64Len = 8
 )
+
+// same as in [protowire] package.
+var errVarintOverflow = errors.New("variable length integer overflow")
 
 type wireType protowire.Type
 
