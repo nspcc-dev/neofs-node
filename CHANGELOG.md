@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Policer removes redundant local shard copies that could remain on disk forever (#3908)
 - Treat only HALTed main transactions as successfully executed, retry the rest (#3868)
 - `different object owner and session issuer` for stored objects (#3929)
+- Garbage double-counting in metrics (#3933)
 
 ### Changed
 

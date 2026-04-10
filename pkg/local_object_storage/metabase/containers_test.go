@@ -8,6 +8,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -161,7 +162,7 @@ func TestDB_ContainerSize(t *testing.T) {
 			volume := cids[cnr]
 
 			for i, obj := range list {
-				_, err := db.MarkGarbage(obj.Address())
+				_, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
 				require.NoError(t, err)
 
 				volume -= int(obj.PayloadSize())

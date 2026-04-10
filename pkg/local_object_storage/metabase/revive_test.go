@@ -5,6 +5,7 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -62,7 +63,7 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.True(t, exists)
 
 		// inhume with GC mark
-		_, err = db.MarkGarbage(raw.Address())
+		_, err = db.MarkGarbage(raw.GetContainerID(), []oid.ID{raw.GetID()})
 		require.NoError(t, err)
 
 		_, err = metaExists(db, raw.Address())

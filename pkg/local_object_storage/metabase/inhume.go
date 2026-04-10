@@ -1,9 +1,9 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
-	"slices"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -18,80 +18,66 @@ var ErrLockObjectRemoval = logicerr.New("lock object removal")
 
 // ContainerGarbageDiff groups [DB.MarkGarbage] operation counters changes by a container.
 type ContainerGarbageDiff struct {
-	CID         cid.ID
 	NewGarbage  int
 	PayloadDiff int64
 }
 
 // MarkGarbage marks objects to be physically removed from shard.
-func (db *DB) MarkGarbage(addrs ...oid.Address) ([]ContainerGarbageDiff, error) {
+func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return nil, ErrDegradedMode
+		return ContainerGarbageDiff{}, ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return nil, ErrReadOnlyMode
+		return ContainerGarbageDiff{}, ErrReadOnlyMode
 	}
 
 	var (
-		currEpoch              = db.epochState.CurrentEpoch()
-		err                    error
-		objsInCnr              []oid.ID
-		containersCountersDiff []ContainerGarbageDiff
+		currEpoch   = db.epochState.CurrentEpoch()
+		err         error
+		objsInCnr   = make([]oid.ID, 0, len(addrs))
+		counterDiff ContainerGarbageDiff
 	)
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		metaBucket := tx.Bucket(metaBucketKey(cnr))
+		if metaBucket == nil {
+			return nil
+		}
+		metaCursor := metaBucket.Cursor()
+		if containerMarkedGC(metaCursor) {
+			return nil
+		}
+
 		// collect children
 		// TODO: Do not extend addrs, do in the main loop. This likely would be more efficient regarding memory.
 		for i := range addrs {
-			objsInCnr = objsInCnr[:0]
-
-			cnr := addrs[i].Container()
-			if slices.ContainsFunc(addrs[:i], func(a oid.Address) bool { return a.Container() == cnr }) {
-				continue // already handled, see loop below
-			}
-
-			metaBucket := tx.Bucket(metaBucketKey(cnr))
-			if metaBucket == nil {
-				continue
-			}
-			metaCursor := metaBucket.Cursor()
-
-			for j := range addrs[i:] {
-				if j != 0 && addrs[i+j].Container() != cnr {
-					continue
-				}
-				parObj := addrs[i+j].Object()
-				partIDs, err := collectChildren(metaCursor, cnr, parObj)
-				if err != nil {
-					return fmt.Errorf("collect EC parts: %w", err)
-				}
-				objsInCnr = append(objsInCnr, parObj)
-				objsInCnr = append(objsInCnr, partIDs...)
-			}
-
-			var diff = ContainerGarbageDiff{CID: cnr}
-			err = markGarbageInContainer(metaCursor, &diff, cnr, objsInCnr, currEpoch)
+			parObj := addrs[i]
+			partIDs, err := collectChildren(metaCursor, cnr, parObj)
 			if err != nil {
-				return fmt.Errorf("marking objects for %s container: %w", cnr, err)
+				return fmt.Errorf("collect EC parts: %w", err)
 			}
+			objsInCnr = append(objsInCnr, parObj)
+			objsInCnr = append(objsInCnr, partIDs...)
+		}
+		err = markGarbageInContainer(metaCursor, &counterDiff, cnr, objsInCnr, currEpoch)
+		if err != nil {
+			return fmt.Errorf("marking objects for %s container: %w", cnr, err)
+		}
 
-			err := updateCounter(metaBucket, gcCounter, int64(len(objsInCnr)))
-			if err != nil {
-				return fmt.Errorf("update %s container's gc counter to %d: %w", cnr, len(objsInCnr), err)
-			}
-			err = updateCounter(metaBucket, payloadCounter, diff.PayloadDiff)
-			if err != nil {
-				return fmt.Errorf("update %s container's user payload counter to %d: %w", cnr, diff.PayloadDiff, err)
-			}
-
-			containersCountersDiff = append(containersCountersDiff, diff)
+		err := updateCounter(metaBucket, gcCounter, int64(counterDiff.NewGarbage))
+		if err != nil {
+			return fmt.Errorf("update %s container's gc counter to %d: %w", cnr, counterDiff.NewGarbage, err)
+		}
+		err = updateCounter(metaBucket, payloadCounter, counterDiff.PayloadDiff)
+		if err != nil {
+			return fmt.Errorf("update %s container's user payload counter to %d: %w", cnr, counterDiff.PayloadDiff, err)
 		}
 
 		return nil
 	})
 
-	return containersCountersDiff, err
+	return counterDiff, err
 }
 
 func markGarbageInContainer(metaCursor *bbolt.Cursor, diff *ContainerGarbageDiff, cnr cid.ID, objs []oid.ID, currEpoch uint64) error {
@@ -100,9 +86,15 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, diff *ContainerGarbageDiff
 		metaBucket = metaCursor.Bucket()
 	)
 	addr.SetContainer(cnr)
-	diff.NewGarbage += len(objs)
 
 	for _, id := range objs {
+		var garbKey = mkGarbageKey(id)
+
+		k, _ := metaCursor.Seek(garbKey)
+		if bytes.Equal(k, garbKey) {
+			continue
+		}
+
 		addr.SetObject(id)
 
 		obj, err := get(metaCursor, addr, false, true, currEpoch)
@@ -111,11 +103,11 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, diff *ContainerGarbageDiff
 				diff.PayloadDiff -= int64(obj.PayloadSize())
 			}
 		}
-
-		err = metaBucket.Put(mkGarbageKey(id), nil)
+		err = metaBucket.Put(garbKey, nil)
 		if err != nil {
 			return err
 		}
+		diff.NewGarbage++
 	}
 
 	return nil

@@ -17,7 +17,7 @@ import (
 
 // RemovedObjects describes single item handled by [DB.Delete].
 type RemovedObject struct {
-	Address    oid.Address
+	ID         oid.ID
 	PayloadLen uint64
 }
 
@@ -37,7 +37,7 @@ type DeleteRes struct {
 // Delete also looks up for objects that are hardly linked with elements of
 // addrs list but not in the list themselves. If there are any, they are also
 // deleted.
-func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
+func (db *DB) Delete(cnr cid.ID, addrs []oid.ID) (DeleteRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -52,14 +52,19 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 	var removed []RemovedObject
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		var metaBucket = tx.Bucket(metaBucketKey(cnr))
+		if metaBucket == nil {
+			return nil
+		}
+		var metaCursor = metaBucket.Cursor()
 		// We need to clear slice because tx can try to execute multiple times.
-		diff, removed, err = db.deleteGroup(tx, addrs)
+		diff, removed, err = db.deleteGroup(metaCursor, cnr, addrs)
 		return err
 	})
 	if err == nil {
 		for i := range addrs {
 			storagelog.Write(db.log,
-				storagelog.AddressField(addrs[i]),
+				storagelog.AddressField(oid.NewAddress(cnr, addrs[i])),
 				storagelog.OpField("metabase DELETE"))
 		}
 	}
@@ -75,23 +80,24 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 // objects that were stored. The second return value is a logical objects
 // removed number: objects that were available (without Tombstones, GCMarks
 // non-expired, etc.)
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (CountersDiff, []RemovedObject, error) {
+func (db *DB) deleteGroup(metaCursor *bbolt.Cursor, cnr cid.ID, addrs []oid.ID) (CountersDiff, []RemovedObject, error) {
 	var errorCount int
 	var firstErr error
 	var diff CountersDiff
 
-	removedObjs, err := supplementRemovedObjects(tx, addrs)
+	removedObjs, err := supplementRemovedObjects(metaCursor, addrs)
 	if err != nil {
 		return diff, nil, fmt.Errorf("extend removed objects: %w", err)
 	}
 
 	for i := range removedObjs {
-		objectDiff, err := db.delete(tx, removedObjs[i].Address)
+		objectDiff, err := db.delete(metaCursor, cnr, removedObjs[i].ID)
 		if err != nil {
 			errorCount++
-			db.log.Warn("failed to delete object", zap.Stringer("addr", removedObjs[i].Address), zap.Error(err))
+			var addr = oid.NewAddress(cnr, removedObjs[i].ID)
+			db.log.Warn("failed to delete object", zap.Stringer("addr", addr), zap.Error(err))
 			if firstErr == nil {
-				firstErr = fmt.Errorf("%s object delete fail: %w", removedObjs[i].Address, err)
+				firstErr = fmt.Errorf("%s object delete fail: %w", addr, err)
 			}
 
 			continue
@@ -111,15 +117,8 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (CountersDiff, []Re
 }
 
 // delete removes object indexes from the metabase.
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (CountersDiff, error) {
-	cID := addr.Container()
-	metaBucket := tx.Bucket(metaBucketKey(cID))
-	if metaBucket == nil {
-		return CountersDiff{}, nil
-	}
-	var metaCursor = metaBucket.Cursor()
-
-	diff, err := deleteMetadata(metaCursor, db.log, addr.Container(), addr.Object(), false)
+func (db *DB) delete(metaCursor *bbolt.Cursor, cnr cid.ID, addr oid.ID) (CountersDiff, error) {
+	diff, err := deleteMetadata(metaCursor, db.log, cnr, addr, false)
 	if err != nil {
 		if !errors.Is(err, errNonPhy) {
 			return CountersDiff{}, fmt.Errorf("can't remove metadata indexes: %w", err)
@@ -131,40 +130,18 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address) (CountersDiff, error) {
 
 // forms list of objects from addrs and their missing parts.
 // [RemovedObject.PayloadLen] is not initialized.
-func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObject, error) {
-	cnrMetaBktKey := make([]byte, 1+cid.Size)
-	cnrMetaBktKey[0] = metadataPrefix
-
-	res := make([]RemovedObject, len(addrs))
+func supplementRemovedObjects(cur *bbolt.Cursor, addrs []oid.ID) ([]RemovedObject, error) {
+	var (
+		err error
+		res = make([]RemovedObject, len(addrs))
+	)
 	for i := range addrs {
-		res[i].Address = addrs[i]
+		res[i].ID = addrs[i]
 	}
-
-	slices.SortFunc(res, func(a, b RemovedObject) int {
-		return a.Address.Compare(b.Address) // Container-only sorting is sufficient here, but Compare() is more convenient anyway.
-	})
-
-	var err error
-	var cnrMetaBkt *bbolt.Bucket
-	var cnrMetaCrs *bbolt.Cursor
-	for i := range res {
-		cnr := res[i].Address.Container()
-
-		if i == 0 || cnr != res[i-1].Address.Container() {
-			copy(cnrMetaBktKey[1:], cnr[:])
-
-			cnrMetaBkt = tx.Bucket(cnrMetaBktKey)
-			if cnrMetaBkt == nil {
-				continue
-			}
-			cnrMetaCrs = cnrMetaBkt.Cursor()
-		} else if cnrMetaBkt == nil {
-			continue
-		}
-
-		res, err = supplementRemovedECParts(res, cnrMetaCrs, addrs, res[i].Address)
+	for i := range addrs {
+		res, err = supplementRemovedECParts(res, cur, addrs, addrs[i])
 		if err != nil {
-			return nil, fmt.Errorf("collect EC parts for %s: %w", res[i].Address, err)
+			return nil, fmt.Errorf("collect EC parts for %s: %w", addrs[i], err)
 		}
 	}
 
@@ -172,10 +149,7 @@ func supplementRemovedObjects(tx *bbolt.Tx, addrs []oid.Address) ([]RemovedObjec
 }
 
 // extends res with EC parts of addr which are not in addrs and returns updated res.
-func supplementRemovedECParts(res []RemovedObject, cnrMetaCrs *bbolt.Cursor, addrs []oid.Address, addr oid.Address) ([]RemovedObject, error) {
-	cnr := addr.Container()
-	parent := addr.Object()
-
+func supplementRemovedECParts(res []RemovedObject, cnrMetaCrs *bbolt.Cursor, addrs []oid.ID, parent oid.ID) ([]RemovedObject, error) {
 	var partCrs *bbolt.Cursor
 	var ecPref []byte
 	for id := range iterAttrVal(cnrMetaCrs, object.FilterParentID, parent[:]) {
@@ -198,9 +172,9 @@ func supplementRemovedECParts(res []RemovedObject, cnrMetaCrs *bbolt.Cursor, add
 			continue
 		}
 
-		if !slices.ContainsFunc(addrs, func(addr oid.Address) bool { return addr.Container() == cnr && addr.Object() == id }) {
+		if !slices.Contains(addrs, id) {
 			res = append(res, RemovedObject{
-				Address: oid.NewAddress(cnr, id),
+				ID: id,
 			})
 		}
 	}

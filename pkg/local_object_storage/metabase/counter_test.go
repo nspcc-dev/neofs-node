@@ -96,7 +96,7 @@ func TestCounters(t *testing.T) {
 				oo := putTypedObjs(t, db, typ, objCount, false, payloadSize)
 
 				for i := objCount - 1; i >= 0; i-- {
-					res, err := db.Delete([]oid.Address{oo[i].Address()})
+					res, err := db.Delete(oo[i].GetContainerID(), []oid.ID{oo[i].GetID()})
 					require.NoError(t, err)
 					require.Equal(t, -1, res.Counters.Phy)
 
@@ -267,7 +267,7 @@ func TestCounters(t *testing.T) {
 			require.Zero(t, c.Lock)
 			require.Zero(t, c.GC)
 
-			_, err := db.MarkGarbage(par.Address())
+			_, err := db.MarkGarbage(par.GetContainerID(), []oid.ID{par.GetID()})
 			require.NoError(t, err)
 
 			c, err = db.ObjectCounters()
@@ -291,12 +291,12 @@ func TestCounters(t *testing.T) {
 			}
 
 			// no parent removals, `Delete` is not expected to face parents
-			chainAddrs := make([]oid.Address, 0, len(chain))
+			chainAddrs := make([]oid.ID, 0, len(chain))
 			for _, ch := range chain {
-				chainAddrs = append(chainAddrs, ch.Address())
+				chainAddrs = append(chainAddrs, ch.GetID())
 			}
 
-			_, err = db.Delete(chainAddrs)
+			_, err = db.Delete(cnr, chainAddrs)
 			require.NoError(t, err)
 
 			c, err = db.ObjectCounters()

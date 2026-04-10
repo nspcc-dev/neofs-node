@@ -142,7 +142,7 @@ func (s *Shard) removeGarbage() {
 
 	s.collectExpiredObjects()
 
-	gObjs, gContainers, err := s.metaBase.GetGarbage(s.rmBatchSize)
+	bins, err := s.metaBase.GetGarbage(s.rmBatchSize)
 	if err != nil {
 		s.log.Warn("fetching garbage objects",
 			zap.Error(err),
@@ -151,25 +151,22 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
-	// delete accumulated objects
-	err = s.deleteObjs(gObjs)
-	if err != nil {
-		s.log.Warn("could not delete the objects",
-			zap.Error(err),
-		)
-
-		return
-	}
-
-	// objects are removed, clean up empty container (all the object
-	// were deleted from the disk) information from the metabase
-	for _, cID := range gContainers {
-		err = s.metaBase.DeleteContainer(cID)
-		if err != nil {
-			s.log.Warn("clean up container in metabase",
-				zap.Stringer("cID", cID),
-				zap.Error(err),
-			)
+	for _, bin := range bins {
+		if len(bin.Objects) == 0 {
+			// objects are removed, clean up empty container (all the object
+			// were deleted from the disk) information from the metabase
+			err = s.metaBase.DeleteContainer(bin.Container)
+			if err != nil {
+				s.log.Warn("clean up container in metabase",
+					zap.Stringer("cID", bin.Container),
+					zap.Error(err),
+				)
+			}
+		} else {
+			err := s.deleteObjs(bin.Container, bin.Objects)
+			if err != nil {
+				s.log.Warn("can't delete objects", zap.Error(err))
+			}
 		}
 	}
 }
@@ -190,8 +187,9 @@ func (s *Shard) collectExpiredObjects() {
 	}
 
 	var (
-		toDeleteTombstones []oid.Address
-		expiredObjects     []oid.Address
+		tombBins       []meta.TrashBin
+		tombCount      int
+		expiredObjects []oid.Address
 	)
 	log := s.log.With(zap.Uint64("epoch", epoch))
 	log.Debug("started expired objects handling")
@@ -200,7 +198,13 @@ func (s *Shard) collectExpiredObjects() {
 	err := s.metaBase.IterateExpired(epoch, func(addr oid.Address, typ object.Type) error {
 		switch typ {
 		case object.TypeTombstone:
-			toDeleteTombstones = append(toDeleteTombstones, addr)
+			if len(tombBins) != 0 &&
+				tombBins[len(tombBins)-1].Container == addr.Container() {
+				tombBins[len(tombBins)-1].Objects = append(tombBins[len(tombBins)-1].Objects, addr.Object())
+			} else {
+				tombBins = append(tombBins, meta.TrashBin{Container: addr.Container(), Objects: []oid.ID{addr.Object()}})
+			}
+			tombCount++
 		default:
 			expiredObjects = append(expiredObjects, addr)
 		}
@@ -217,16 +221,13 @@ func (s *Shard) collectExpiredObjects() {
 		s.gc.processedEpoch.Store(epoch)
 	}
 
-	log.Debug("collected expired tombstones", zap.Int("num", len(toDeleteTombstones)))
-	if len(toDeleteTombstones) > 0 {
-		err = s.deleteObjs(toDeleteTombstones)
+	log.Debug("collected expired tombstones", zap.Int("num", tombCount))
+	for _, bin := range tombBins {
+		err = s.deleteObjs(bin.Container, bin.Objects)
 		if err != nil {
-			log.Warn("could not delete tombstones",
-				zap.Error(err),
-			)
+			log.Warn("can't delete tombstones", zap.Error(err))
 		}
 	}
-
 	log.Debug("collected expired objects", zap.Int("num", len(expiredObjects)))
 	if len(expiredObjects) > 0 && s.expiredObjectsCallback != nil {
 		s.expiredObjectsCallback(expiredObjects)

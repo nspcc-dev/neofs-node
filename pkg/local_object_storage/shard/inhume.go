@@ -17,7 +17,7 @@ var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 // mark that overrides any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
 // to [Shard.Inhume], but doesn't need a tombstone.
-func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
+func (s *Shard) MarkGarbage(cnr cid.ID, addrs []oid.ID) error {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -27,7 +27,7 @@ func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
 		return ErrDegradedMode
 	}
 
-	inhumed, err := s.metaBase.MarkGarbage(addrs...)
+	inhumed, err := s.metaBase.MarkGarbage(cnr, addrs)
 	if err != nil {
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.Error(err),
@@ -36,17 +36,15 @@ func (s *Shard) MarkGarbage(addrs ...oid.Address) error {
 		return fmt.Errorf("metabase inhume: %w", err)
 	}
 
-	for _, cnrDiff := range inhumed {
-		cnrStr := cnrDiff.CID.EncodeToString()
+	cnrStr := cnr.EncodeToString()
 
-		s.addObjectCounter(gcObjType, cnrDiff.NewGarbage)
-		s.addToContainerSize(cnrStr, cnrDiff.PayloadDiff)
-		s.addToPayloadCounter(cnrDiff.PayloadDiff)
-	}
+	s.addObjectCounter(gcObjType, inhumed.NewGarbage)
+	s.addToContainerSize(cnrStr, inhumed.PayloadDiff)
+	s.addToPayloadCounter(inhumed.PayloadDiff)
 
 	if s.hasWriteCache() {
 		for i := range addrs {
-			_ = s.writeCache.Delete(addrs[i])
+			_ = s.writeCache.Delete(oid.NewAddress(cnr, addrs[i]))
 		}
 	}
 

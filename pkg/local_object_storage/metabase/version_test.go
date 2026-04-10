@@ -371,12 +371,12 @@ func TestMigrate7to8(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Verify GetGarbage sees the container via meta marker (should list all objects and list the container)
-	gObjs, gCnrs, err := db.GetGarbage(inhumeObjsNum + 5)
+	// Verify GetGarbage sees the container via meta marker (should list all objects)
+	trash, err := db.GetGarbage(inhumeObjsNum + 5)
 	require.NoError(t, err)
-	require.Len(t, gObjs, inhumeObjsNum)
-	require.Len(t, gCnrs, 1)
-	require.Equal(t, inhumeCnr, gCnrs[0])
+	require.Len(t, trash, 1)
+	require.Equal(t, inhumeCnr, trash[0].Container)
+	require.Len(t, trash[0].Objects, inhumeObjsNum)
 }
 
 type ObjectCounters8Version struct {
