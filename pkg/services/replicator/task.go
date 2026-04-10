@@ -1,6 +1,8 @@
 package replicator
 
 import (
+	"slices"
+
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -34,7 +36,7 @@ func (t *Task) SetObject(obj *object.Object) {
 
 // SetNodes sets a list of potential object holders.
 func (t *Task) SetNodes(v []netmap.NodeInfo) {
-	t.nodes = v
+	t.nodes = slices.Clone(v)
 }
 
 // Nodes returns a list of potential object holders.

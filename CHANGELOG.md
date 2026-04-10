@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)
+- Optimized post-initial placement replication (#3923)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
