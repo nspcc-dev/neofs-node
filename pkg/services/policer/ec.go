@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -43,8 +42,7 @@ func (p *Policer) processECPart(ctx context.Context, addr oid.Address, parent oi
 		return
 	}
 
-	p.tryScheduleCheckECPartsTask(ctx, addr.Container(), parent, rule, addr.Object(), pi)
-
+	p.checkECParts(ctx, addr.Container(), parent, rule, pi.RuleIndex, pi.Index, addr.Object())
 	p.processECPartByRule(ctx, rule, addr, pi.Index, nodeLists[pi.RuleIndex])
 }
 
@@ -142,38 +140,6 @@ func (x *singleReplication) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 	}
 	x.done = true
 	x.netAddresses = slices.Collect(node.NetworkEndpoints())
-}
-
-func (p *Policer) tryScheduleCheckECPartsTask(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, localPartID oid.ID, localPartInfo iec.PartInfo) {
-	p.checkECPartsProgressMtx.Lock()
-	defer p.checkECPartsProgressMtx.Unlock()
-
-	addr := oid.NewAddress(cnr, parent)
-	if _, ok := p.checkECPartsProgressMap[addr]; ok {
-		return
-	}
-
-	err := p.checkECPartsWorkerPool.Submit(func() {
-		defer func() {
-			p.checkECPartsProgressMtx.Lock()
-			delete(p.checkECPartsProgressMap, addr)
-			p.checkECPartsProgressMtx.Unlock()
-		}()
-
-		p.checkECParts(ctx, cnr, parent, rule, localPartInfo.RuleIndex, localPartInfo.Index, localPartID)
-	})
-	if err != nil {
-		if errors.Is(err, ants.ErrPoolOverload) {
-			p.log.Info("pool of workers for EC parts checking is full, skip the task",
-				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("local_part_id", localPartID))
-			return
-		}
-
-		p.log.Warn("unexpected error returned from pool of workers for EC part checking", zap.Error(err))
-		return
-	}
-
-	p.checkECPartsProgressMap[addr] = struct{}{}
 }
 
 func (p *Policer) checkECParts(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx, localPartIdx int, localPartID oid.ID) {
