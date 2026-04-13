@@ -43,10 +43,6 @@ func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]clie
 	lim = calcMaxUniqueSearchResults(lim, sets)
 	res := make([]client.SearchResultItem, 0, lim)
 	var more bool
-	var minInt, curInt *big.Int
-	if cmpInt {
-		minInt, curInt = new(big.Int), new(big.Int)
-	}
 	var minOID, curOID oid.ID
 	var minUsr, curUsr user.ID
 	var err error
@@ -58,7 +54,7 @@ func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]clie
 			if minInd < 0 {
 				minInd = i
 				if cmpInt {
-					if _, ok := minInt.SetString(sets[i][0].Attributes[0], 10); !ok {
+					if _, _, err = splitIntString(sets[i][0].Attributes[0]); err != nil {
 						return nil, false, fmt.Errorf("non-int attribute in result #%d", i)
 					}
 				}
@@ -71,10 +67,10 @@ func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]clie
 			if firstAttr != "" {
 				var cmpAttr int
 				if cmpInt {
-					if _, ok := curInt.SetString(sets[i][0].Attributes[0], 10); !ok {
+					cmpAttr, err = compareIntStrings(sets[i][0].Attributes[0], sets[minInd][0].Attributes[0])
+					if err != nil {
 						return nil, false, fmt.Errorf("non-int attribute in result #%d", i)
 					}
-					cmpAttr = curInt.Cmp(minInt)
 				} else {
 					switch firstAttr {
 					default:
@@ -100,18 +96,12 @@ func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]clie
 				if cmpAttr != 0 {
 					if cmpAttr < 0 {
 						minInd = i
-						if cmpInt {
-							minInt, curInt = curInt, new(big.Int)
-						}
 					}
 					continue
 				}
 			}
 			if cmpID < 0 {
 				minInd = i
-				if cmpInt {
-					minInt, curInt = curInt, new(big.Int)
-				}
 			}
 		}
 		if minInd < 0 {
@@ -148,6 +138,81 @@ func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]clie
 		sets[minInd] = sets[minInd][1:]
 	}
 	return res, more, nil
+}
+
+func compareIntStrings(a, b string) (int, error) {
+	na, da, err := splitIntString(a)
+	if err != nil {
+		return 0, err
+	}
+	nb, db, err := splitIntString(b)
+	if err != nil {
+		return 0, err
+	}
+
+	if na != nb {
+		if na {
+			return -1, nil
+		}
+		return 1, nil
+	}
+
+	if len(da) != len(db) {
+		if len(da) < len(db) {
+			if na {
+				return 1, nil
+			}
+			return -1, nil
+		}
+		if na {
+			return -1, nil
+		}
+		return 1, nil
+	}
+
+	cmp := strings.Compare(da, db)
+	if na {
+		cmp = -cmp
+	}
+	return cmp, nil
+}
+
+func splitIntString(s string) (bool, string, error) {
+	if s == "" {
+		return false, "", errors.New("empty")
+	}
+
+	var (
+		i   int
+		neg bool
+	)
+	switch s[0] {
+	case '-':
+		neg = true
+		i = 1
+	case '+':
+		i = 1
+	}
+	if i == len(s) {
+		return false, "", errors.New("missing digits")
+	}
+
+	for i < len(s) && s[i] == '0' {
+		i++
+	}
+	start := i
+	for i < len(s) {
+		if s[i] < '0' || s[i] > '9' {
+			return false, "", errors.New("invalid digit")
+		}
+		i++
+	}
+
+	if start == len(s) {
+		return false, "0", nil
+	}
+
+	return neg, s[start:], nil
 }
 
 func calcMaxUniqueSearchResults(lim uint16, sets [][]client.SearchResultItem) uint16 {
