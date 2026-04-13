@@ -198,23 +198,6 @@ func TestService_GetRequestToInfo_BearerTokenIssuer(t *testing.T) {
 	})
 }
 
-func TestService_SearchRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, (*aclsvc.Service).SearchRequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.SearchRequest {
-		req := &protoobject.SearchRequest{
-			Body: &protoobject.SearchRequest_Body{
-				ContainerId: cnrID.ProtoMessage(),
-			},
-			MetaHeader: meta,
-		}
-
-		var err error
-		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
-		require.NoError(t, err)
-
-		return req
-	})
-}
-
 func TestService_SearchV2RequestToInfo_BearerTokenIssuer(t *testing.T) {
 	testBearerTokenIssuer(t, (*aclsvc.Service).SearchV2RequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.SearchV2Request {
 		req := &protoobject.SearchV2Request{

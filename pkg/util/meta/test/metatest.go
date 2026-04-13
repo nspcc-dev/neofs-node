@@ -1057,7 +1057,7 @@ func _assertSearchResultWithLimit(t testing.TB, db DB, cnr cid.ID, fs object.Sea
 		ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, attrs, strCursor)
 		if err != nil {
 			if len(all) == 0 {
-				require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
+				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}

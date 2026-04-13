@@ -774,9 +774,9 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 	if blindlyProcess(fs) {
 		return nil, nil, ErrUnreachableQuery
 	}
-	ofs, ok := parseIntFilters(fs)
-	if !ok {
-		return nil, nil, ErrUnreachableQuery
+	ofs, err := parseIntFilters(fs)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if oidSorted {
@@ -838,7 +838,7 @@ func blindlyProcess(fs object.SearchFilters) bool {
 	return false
 }
 
-func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, bool) {
+func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, error) {
 	ofs := make([]SearchFilter, len(fs))
 	for i := range fs {
 		ofs[i].SearchFilter = fs[i]
@@ -849,16 +849,22 @@ func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, bool) {
 		}
 		n, ok := new(big.Int).SetString(val, 10)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("non-integer value in numeric filter number %d", i)
 		}
 		if c := n.Cmp(maxUint256); c >= 0 {
-			if c > 0 || m == object.MatchNumGT {
-				return nil, false
+			if c > 0 {
+				return nil, fmt.Errorf("too big integer in numeric filter number %d", i)
+			}
+			if m == object.MatchNumGT {
+				return nil, ErrUnreachableQuery
 			}
 			ofs[i].AutoMatch = m == object.MatchNumLE
 		} else if c = n.Cmp(maxUint256Neg); c <= 0 {
-			if c < 0 || m == object.MatchNumLT {
-				return nil, false
+			if c < 0 {
+				return nil, fmt.Errorf("too low integer in numeric filter number %d", i)
+			}
+			if m == object.MatchNumLT {
+				return nil, ErrUnreachableQuery
 			}
 			ofs[i].AutoMatch = m == object.MatchNumGE
 		}
@@ -870,7 +876,7 @@ func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, bool) {
 		}
 		// TODO: #1148 there are more auto-cases (like <=X AND >=X, <X AND >X), cover more here
 	}
-	return ofs, true
+	return ofs, nil
 }
 
 // BigIntBytes returns integer's raw representation. Int must belong to

@@ -159,7 +159,6 @@ type ACLInfoExtractor interface {
 	HashRequestToInfo(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
 	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	SearchRequestToInfo(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
 	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
 }
 
@@ -2049,7 +2048,9 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		if errors.Is(err, objectcore.ErrUnreachableQuery) {
 			return nil, nil, nil
 		}
-		return nil, nil, err
+		var bad = new(apistatus.BadRequest)
+		bad.SetMessage(err.Error())
+		return nil, nil, bad
 	}
 
 	var cID cid.ID
