@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -558,9 +559,51 @@ func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.
 	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
 }
 
-// ForEachContainerNode implements [objectService.FSChain] interface.
-func (x *fsChainForObjects) ForEachContainerNode(cnr cid.ID, f func(netmapsdk.NodeInfo) bool) error {
-	return x.containerNodes.forEachContainerNode(cnr, false, f)
+// ForSearchableContainerNode implements [objectService.FSChain] interface.
+func (x *fsChainForObjects) ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmapsdk.NodeInfo) bool) error {
+	curEpoch, err := x.containerNodes.network.Epoch()
+	if err != nil {
+		return fmt.Errorf("read current NeoFS epoch: %w", err)
+	}
+
+	cnrCtx := containerPolicyContext{id: cnr, containers: x.containerNodes.containers, network: x.containerNodes.network, getNodesFunc: x.containerNodes.getContainerNodesFunc}
+
+	resCur, err := cnrCtx.applyAtEpoch(curEpoch, x.containerNodes.cache)
+	if err != nil {
+		return fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, err)
+	}
+	if resCur.err != nil {
+		return fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, resCur.err)
+	}
+	for i := range resCur.nodeSets {
+		var (
+			nodeSet = resCur.nodeSets[i]
+			ecIndex = i - len(resCur.repCounts)
+		)
+
+		if !allNodes && ecIndex >= 0 {
+			var (
+				partsN    = int(resCur.ecRules[ecIndex].ParityPartNum + resCur.ecRules[ecIndex].DataPartNum)
+				requiredN = int(resCur.ecRules[ecIndex].ParityPartNum + 1)
+				searchN   = max(requiredN, len(nodeSet)-partsN+requiredN) // CBF 2 and alike.
+			)
+
+			if searchN < len(nodeSet) { // Stay safe in case of missing nodes.
+				nodeSet = slices.Clone(nodeSet)
+				rand.Shuffle(len(nodeSet), func(i, j int) {
+					nodeSet[i], nodeSet[j] = nodeSet[j], nodeSet[i]
+				})
+				nodeSet = nodeSet[:requiredN]
+			}
+		}
+		for _, node := range nodeSet {
+			if !f(node) {
+				return nil
+			}
+		}
+	}
+
+	return nil
 }
 
 // IsOwnPublicKey checks whether given binary-encoded public key is assigned to

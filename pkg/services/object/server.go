@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,14 +106,15 @@ type FSChain interface {
 	// found.
 	ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error
 
-	// ForEachContainerNode iterates over all nodes matching the referenced
-	// container's storage policy for now and passes their descriptors into f.
-	// IterateContainerNodeKeys breaks without an error when f returns false.
-	// Elements may be repeated.
+	// ForSearchableContainerNode iterates over a container node subset
+	// sufficient for reliable SEARCH reply. This number depends on policy
+	// and request, allNodes flag disables optimizations. Nodes descriptors
+	// are passed into f, elements can be repeated. If f returns false
+	// function breaks the iteration without any error.
 	//
 	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
 	// found.
-	ForEachContainerNode(cnr cid.ID, f func(sdknetmap.NodeInfo) bool) error
+	ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(sdknetmap.NodeInfo) bool) error
 
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
@@ -2104,7 +2107,12 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			return nil, nil, fmt.Errorf("sign request: %w", err)
 		}
 
-		err = s.fsChain.ForEachContainerNode(cID, func(node sdknetmap.NodeInfo) bool {
+		var optimizedNodes = (len(body.Filters) != 0) &&
+			slices.ContainsFunc(body.Filters, func(filt *protoobject.SearchFilter) bool {
+				return !strings.HasPrefix(filt.Key, "$Object:") && !strings.HasPrefix(filt.Key, "__NEOFS__")
+			})
+
+		err = s.fsChain.ForSearchableContainerNode(cID, !optimizedNodes, func(node sdknetmap.NodeInfo) bool {
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
 			if _, ok := mProcessedNodes[strKey]; ok {
