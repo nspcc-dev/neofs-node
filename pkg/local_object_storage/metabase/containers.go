@@ -117,7 +117,7 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 		return ErrReadOnlyMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		if err := tx.DeleteBucket(metaBucketKey(cID)); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("metadata bucket cleanup: %w", err)
 		}
