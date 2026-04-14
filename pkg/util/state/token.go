@@ -90,7 +90,13 @@ func (p PersistentStorage) RemoveOldTokens(epoch uint64) {
 		// iterating over accounts
 		c := rootBucket.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
-			if epochFromToken(v) <= epoch {
+			tokenEpoch, err := epochFromToken(v)
+			if err != nil {
+				p.l.Warn("could not parse token epoch", zap.Error(err))
+				continue
+			}
+
+			if tokenEpoch <= epoch {
 				err := c.Delete()
 				var id user.ID
 				copy(id[:], k)

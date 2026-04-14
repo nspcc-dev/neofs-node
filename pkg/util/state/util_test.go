@@ -18,11 +18,21 @@ func TestPack(t *testing.T) {
 	raw, err := ts.packToken(exp, &key.PrivateKey)
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(exp), epochFromToken(raw))
+	gotEpoch, err := epochFromToken(raw)
+	require.NoError(t, err)
+	require.Equal(t, uint64(exp), gotEpoch)
 
 	unpacked, err := ts.unpackToken(raw)
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(exp), unpacked.ExpiredAt())
 	require.Equal(t, true, key.Equal(unpacked.SessionKey()))
+
+	zeroEpoch, err := epochFromToken(nil)
+	require.ErrorIs(t, err, errInvalidPackedToken)
+	require.Equal(t, uint64(0), zeroEpoch)
+
+	nilTok, err := ts.unpackToken(nil)
+	require.Nil(t, nilTok)
+	require.ErrorIs(t, err, errInvalidPackedToken)
 }

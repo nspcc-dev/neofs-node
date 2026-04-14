@@ -45,7 +45,13 @@ func (p PersistentStorage) MigrateSessionTokensToAccounts() error {
 			return nil
 		}
 
-		owners := make(map[user.ID]int)
+		type ownerBucketInfo struct {
+			id         user.ID
+			key        []byte
+			tokenCount int
+		}
+
+		var owners []ownerBucketInfo
 		c := rootBucket.Cursor()
 		for ownerKeyBytes, v := c.First(); ownerKeyBytes != nil; ownerKeyBytes, v = c.Next() {
 			if v != nil {
@@ -58,10 +64,16 @@ func (p PersistentStorage) MigrateSessionTokensToAccounts() error {
 			}
 
 			var ownerID user.ID
-			if len(ownerKeyBytes) != len(ownerID) {
+			switch {
+			case len(ownerKeyBytes) == len(ownerID):
+				copy(ownerID[:], ownerKeyBytes)
+			case len(ownerKeyBytes) == len(ownerID)+2 && ownerKeyBytes[0] == 0x0a && int(ownerKeyBytes[1]) == len(ownerID):
+				copy(ownerID[:], ownerKeyBytes[2:])
+			default:
+				p.l.Warn("unexpected owner bucket key format during migration",
+					zap.String("ownerKey", hex.EncodeToString(ownerKeyBytes)))
 				continue
 			}
-			copy(ownerID[:], ownerKeyBytes)
 
 			tokenCount := 0
 			tokenCursor := ownerBucket.Cursor()
@@ -97,19 +109,23 @@ func (p PersistentStorage) MigrateSessionTokensToAccounts() error {
 				}
 				tokenCount++
 			}
-			owners[ownerID] = tokenCount
+			owners = append(owners, ownerBucketInfo{
+				id:         ownerID,
+				key:        append([]byte(nil), ownerKeyBytes...),
+				tokenCount: tokenCount,
+			})
 		}
 
-		for ownerID, tokenCount := range owners {
-			err := rootBucket.DeleteBucket(ownerID[:])
+		for _, owner := range owners {
+			err := rootBucket.DeleteBucket(owner.key)
 			if err != nil {
 				p.l.Warn("could not delete old token bucket during migration",
-					zap.Stringer("ownerID", ownerID),
-					zap.Int("tokenCount", tokenCount),
+					zap.Stringer("ownerID", owner.id),
+					zap.Int("tokenCount", owner.tokenCount),
 					zap.Error(err),
 				)
 			} else {
-				deletedCount += tokenCount
+				deletedCount += owner.tokenCount
 			}
 		}
 		return nil

@@ -4,12 +4,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 )
 
 const keyOffset = 8
+
+var errInvalidPackedToken = errors.New("invalid packed token")
 
 func (p PersistentStorage) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error) {
 	rawKey, err := x509.MarshalECPrivateKey(key)
@@ -35,7 +38,10 @@ func (p PersistentStorage) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte,
 func (p PersistentStorage) unpackToken(raw []byte) (*session.PrivateToken, error) {
 	var err error
 
-	epoch := epochFromToken(raw)
+	epoch, err := epochFromToken(raw)
+	if err != nil {
+		return nil, err
+	}
 	rawKey := raw[keyOffset:]
 
 	if p.gcm != nil {
@@ -53,6 +59,9 @@ func (p PersistentStorage) unpackToken(raw []byte) (*session.PrivateToken, error
 	return session.NewPrivateToken(key, epoch), nil
 }
 
-func epochFromToken(rawToken []byte) uint64 {
-	return binary.LittleEndian.Uint64(rawToken)
+func epochFromToken(rawToken []byte) (uint64, error) {
+	if len(rawToken) < keyOffset {
+		return 0, fmt.Errorf("%w: too short: %d bytes", errInvalidPackedToken, len(rawToken))
+	}
+	return binary.LittleEndian.Uint64(rawToken), nil
 }
