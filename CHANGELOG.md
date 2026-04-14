@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Treat only HALTed main transactions as successfully executed, retry the rest (#3868)
 - `different object owner and session issuer` for stored objects (#3929)
 - SearchV2 method returning zero result instead of "bad request" error for incorrect numeric filters (#3934)
+- Garbage double-counting in metrics (#3933)
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)

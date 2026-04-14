@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -24,8 +25,8 @@ func (e *StorageEngine) Delete(addr oid.Address) error {
 	if e.blockErr != nil {
 		return e.blockErr
 	}
-	return e.processAddrDelete(addr, func(sh *shard.Shard, addrs []oid.Address) error {
-		return sh.MarkGarbage(addrs...)
+	return e.processAddrDelete(addr, func(sh *shard.Shard, cnr cid.ID, addrs []oid.ID) error {
+		return sh.MarkGarbage(cnr, addrs)
 	})
 }
 
@@ -73,8 +74,8 @@ func (e *StorageEngine) DeleteRedundantCopies(addr oid.Address, shardIDs []strin
 		return nil
 	}
 
-	return e.processAddrDeleteOnShards(deleteShards, addr, func(sh *shard.Shard, addrs []oid.Address) error {
-		return sh.MarkGarbage(addrs...)
+	return e.processAddrDeleteOnShards(deleteShards, addr, func(sh *shard.Shard, cnr cid.ID, addrs []oid.ID) error {
+		return sh.MarkGarbage(cnr, addrs)
 	})
 }
 

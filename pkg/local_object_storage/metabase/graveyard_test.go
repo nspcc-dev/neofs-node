@@ -63,7 +63,7 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	err = putBig(db, obj1)
 	require.NoError(t, err)
 
-	_, err = db.MarkGarbage(obj1.Address())
+	_, err = db.MarkGarbage(obj1.GetContainerID(), []oid.ID{obj1.GetID()})
 	require.NoError(t, err)
 
 	var counter int
@@ -131,7 +131,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	require.NoError(t, err)
 
 	// inhume with GC mark
-	_, err = db.MarkGarbage(obj3.Address(), obj4.Address())
+	_, err = db.MarkGarbage(cnr, []oid.ID{obj3.GetID(), obj4.GetID()})
 	require.NoError(t, err)
 
 	var buriedGC []oid.Address
@@ -182,8 +182,8 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	err = putBig(db, obj4)
 	require.NoError(t, err)
 
-	_, err = db.MarkGarbage(obj1.Address(), obj2.Address(),
-		obj3.Address(), obj4.Address())
+	_, err = db.MarkGarbage(cnr, []oid.ID{obj1.GetID(), obj2.GetID(),
+		obj3.GetID(), obj4.GetID()})
 
 	require.NoError(t, err)
 
@@ -266,21 +266,17 @@ func TestDB_GetGarbage(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := range numOfObjs {
-		garbageObjs, garbageContainers, err := db.GetGarbage(i + 1)
+		trash, err := db.GetGarbage(i + 1)
 		require.NoError(t, err)
-		require.Len(t, garbageObjs, i+1)
-
-		// we inhumed 5 objects container and requested 5 garbage objects
-		// max, so no info about if we have the 6-th one to delete,
-		// so can't say if this container can be deleted totally
-		require.Len(t, garbageContainers, 0)
+		require.Len(t, trash, 1)
+		require.Equal(t, cID, trash[0].Container)
+		require.Len(t, trash[0].Objects, i+1)
 	}
 
 	// check the whole container garbage case
-	garbageObjs, garbageContainers, err := db.GetGarbage(numOfObjs + 1)
+	trash, err := db.GetGarbage(numOfObjs + 1)
 	require.NoError(t, err)
-
-	require.Len(t, garbageObjs, numOfObjs) // still only numOfObjs are removed
-	require.Len(t, garbageContainers, 1)   // but container can be deleted now
-	require.Equal(t, garbageContainers[0], cID)
+	require.Len(t, trash, 1)
+	require.Equal(t, cID, trash[0].Container)
+	require.Len(t, trash[0].Objects, numOfObjs) // still only numOfObjs are removed
 }

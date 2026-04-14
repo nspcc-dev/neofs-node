@@ -141,10 +141,11 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			require.ErrorIs(t, err, meta.ErrEndOfListing)
 		})
 		t.Run("get garbage", func(t *testing.T) {
-			gObjs, gCnrs, err := db.GetGarbage(100)
+			trash, err := db.GetGarbage(100)
 			require.NoError(t, err)
-			require.Empty(t, gCnrs)
-			require.Equal(t, []oid.Address{addr}, gObjs)
+			require.Len(t, trash, 1)
+			require.Equal(t, cnr, trash[0].Container)
+			require.Equal(t, []oid.ID{addr.Object()}, trash[0].Objects)
 		})
 		t.Run("iterate garbage", func(t *testing.T) {
 			var collected []oid.Address
@@ -156,10 +157,10 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			require.Equal(t, []oid.Address{addr}, collected)
 		})
 		t.Run("mark garbage", func(t *testing.T) {
-			// any GC mark should be considered as a GC counter increasing
-			n, err := db.MarkGarbage(addr)
+			// obj is already marked as garbage, so counter is not increased
+			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
 			require.NoError(t, err)
-			require.EqualValues(t, 1, n[0].NewGarbage)
+			require.EqualValues(t, 0, n.NewGarbage)
 		})
 	})
 
@@ -172,9 +173,10 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 	t.Run("after revival", func(t *testing.T) {
 		// tombstone is deleted and the garbage was cleared
 		t.Run("get garbage", func(t *testing.T) {
-			gObjs, _, err := db.GetGarbage(100)
+			trash, err := db.GetGarbage(100)
 			require.NoError(t, err)
-			require.NotContains(t, gObjs, addr)
+			require.Len(t, trash, 0)
+			//			require.NotContains(t, gObjs, addr)
 		})
 		t.Run("iterate garbage", func(t *testing.T) {
 			var collected []oid.Address
@@ -185,7 +187,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			require.NoError(t, err)
 			require.NotContains(t, collected, addr)
 		})
-		_, err = db.Delete([]oid.Address{tsAddr})
+		_, err = db.Delete(ts.GetContainerID(), []oid.ID{ts.GetID()})
 		require.NoError(t, err)
 
 		assertObjectAvailability(t, db, addr, obj)
@@ -219,9 +221,12 @@ func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj o
 		require.ErrorIs(t, err, meta.ErrEndOfListing)
 	})
 	t.Run("get garbage", func(t *testing.T) {
-		gObjs, _, err := db.GetGarbage(100)
+		trash, err := db.GetGarbage(100)
 		require.NoError(t, err)
-		require.NotContains(t, gObjs, addr)
+		require.Len(t, trash, 0)
+		//			require.Equal(t, cnr, trash[0].Container)
+		//			require.Equal(t, []oid.Address{addr}, trash[0].Objects)
+		//		require.NotContains(t, gObjs, addr)
 	})
 	t.Run("iterate garbage", func(t *testing.T) {
 		var collected []oid.Address
@@ -307,9 +312,9 @@ func TestDB_Put_Lock(t *testing.T) {
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 
-			n, err := db.MarkGarbage(objAddr)
+			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
 			require.NoError(t, err)
-			require.EqualValues(t, 1, n[0].NewGarbage)
+			require.EqualValues(t, 1, n.NewGarbage)
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

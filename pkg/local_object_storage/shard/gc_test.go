@@ -68,7 +68,9 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(func(aa []oid.Address) {
-			require.NoError(t, sh.Delete(aa))
+			for _, a := range aa {
+				require.NoError(t, sh.Delete(a.Container(), []oid.ID{a.Object()}))
+			}
 		}),
 		shard.WithGCRemoverSleepInterval(gcInterval),
 		shard.WithContainerPayments(&testContainerPayments{}),
@@ -186,8 +188,10 @@ func TestExpiration(t *testing.T) {
 			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(
-			func(addresses []oid.Address) {
-				require.NoError(t, sh.Delete(addresses))
+			func(aa []oid.Address) {
+				for _, a := range aa {
+					require.NoError(t, sh.Delete(a.Container(), []oid.ID{a.Object()}))
+				}
 			},
 		),
 		shard.WithGCRemoverSleepInterval(gcInterval),
@@ -249,8 +253,10 @@ func TestContainerPayments(t *testing.T) {
 			meta.WithMaxBatchDelay(time.Microsecond),
 		),
 		shard.WithExpiredObjectsCallback(
-			func(addresses []oid.Address) {
-				require.NoError(t, sh.Delete(addresses))
+			func(aa []oid.Address) {
+				for _, a := range aa {
+					require.NoError(t, sh.Delete(a.Container(), []oid.ID{a.Object()}))
+				}
 			},
 		),
 		shard.WithGCRemoverSleepInterval(100 * time.Millisecond),

@@ -43,13 +43,13 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 }
 
 // processAddrDelete processes deletion (inhume or immediate delete) of an object by its address.
-func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*shard.Shard, []oid.Address) error) error {
+func (e *StorageEngine) processAddrDelete(addr oid.Address, deleteFunc func(*shard.Shard, cid.ID, []oid.ID) error) error {
 	return e.processAddrDeleteOnShards(e.sortedShards(addr.Object()), addr, deleteFunc)
 }
 
-func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oid.Address, deleteFunc func(*shard.Shard, []oid.Address) error) error {
+func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oid.Address, deleteFunc func(*shard.Shard, cid.ID, []oid.ID) error) error {
 	var (
-		children []oid.Address
+		children []oid.ID
 		err      error
 		root     bool
 		siNoLink *object.SplitInfo
@@ -126,13 +126,13 @@ func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oi
 					break
 				}
 
-				children = measuredObjsToAddresses(addr.Container(), link.Objects())
+				children = measuredObjsToOIDs(addr.Container(), link.Objects())
 			} else {
 				// v1 split
-				children = oIDsToAddresses(addr.Container(), linkObj.Children())
+				children = linkObj.Children()
 			}
 
-			children = append(children, linkAddr)
+			children = append(children, linkID)
 
 			break
 		}
@@ -141,7 +141,7 @@ func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oi
 			continue
 		}
 
-		err = deleteFunc(sh.Shard, []oid.Address{addr})
+		err = deleteFunc(sh.Shard, addr.Container(), []oid.ID{addr.Object()})
 		if err != nil {
 			if !errors.Is(err, logicerr.Error) {
 				e.reportShardError(sh, "could not inhume object in shard", err, zap.Stringer("addr", addr))
@@ -159,14 +159,14 @@ func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oi
 	}
 
 	var (
-		addrs  = append(children, addr)
+		addrs  = append(children, addr.Object())
 		ok     bool
 		retErr error
 	)
 
 	// has not found the object on any shard, so delete on the most probable one
 	for _, sh := range shards {
-		err = deleteFunc(sh.Shard, addrs)
+		err = deleteFunc(sh.Shard, addr.Container(), addrs)
 		if err != nil {
 			var errLocked apistatus.ObjectLocked
 
@@ -193,7 +193,7 @@ func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oi
 	return retErr
 }
 
-func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *object.SplitInfo) []oid.Address {
+func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *object.SplitInfo) []oid.ID {
 	e.log.Info("root object has no link object in split upload",
 		zap.Stringer("addrBeingInhumed", addr))
 
@@ -203,7 +203,7 @@ func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *object.
 	case !firstID.IsZero():
 		res, err := e.collectRawWithAttribute(addr.Container(), object.FilterFirstSplitObject, firstID[:])
 		if err == nil {
-			res = append(res, oid.NewAddress(addr.Container(), firstID))
+			res = append(res, firstID)
 			return res
 		}
 		e.log.Warn("failed to collect objects with first ID", zap.Stringer("addrBeingInhumed", addr), zap.Error(err))
@@ -276,27 +276,10 @@ func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 	}
 }
 
-func measuredObjsToAddresses(cID cid.ID, mm []object.MeasuredObject) []oid.Address {
-	var addr oid.Address
-	addr.SetContainer(cID)
-
-	res := make([]oid.Address, 0, len(mm))
+func measuredObjsToOIDs(cID cid.ID, mm []object.MeasuredObject) []oid.ID {
+	res := make([]oid.ID, 0, len(mm))
 	for i := range mm {
-		addr.SetObject(mm[i].ObjectID())
-		res = append(res, addr)
-	}
-
-	return res
-}
-
-func oIDsToAddresses(cID cid.ID, oo []oid.ID) []oid.Address {
-	var addr oid.Address
-	addr.SetContainer(cID)
-
-	res := make([]oid.Address, 0, len(oo))
-	for _, o := range oo {
-		addr.SetObject(o)
-		res = append(res, addr)
+		res = append(res, mm[i].ObjectID())
 	}
 
 	return res

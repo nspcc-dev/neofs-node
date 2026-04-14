@@ -81,7 +81,6 @@ func TestDB_ResolveECPart(t *testing.T) {
 	}
 
 	parentObj := newBlankObject(cnr, parentID)
-	parentAddr := parentObj.Address()
 
 	newPart := func(t *testing.T, pi iec.PartInfo) object.Object {
 		// artificially make parts of diff len, in reality they are the same
@@ -108,8 +107,6 @@ func TestDB_ResolveECPart(t *testing.T) {
 
 	tomb := newBlankObject(cnr, oidtest.OtherID(partID, locker.GetID()))
 	tomb.AssociateDeleted(parentID)
-
-	partAddr := oid.NewAddress(cnr, partID)
 
 	type testcase struct {
 		name      string
@@ -148,12 +145,12 @@ func TestDB_ResolveECPart(t *testing.T) {
 			require.NoError(t, db.Put(&tomb))
 		}},
 		{name: "garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
-			_, err := db.MarkGarbage(partAddr)
+			_, err := db.MarkGarbage(cnr, []oid.ID{partID})
 			require.NoError(t, err)
 		}},
 		{name: "stored with garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&partObj))
-			_, err := db.MarkGarbage(parentAddr)
+			_, err := db.MarkGarbage(cnr, []oid.ID{parentID})
 			require.NoError(t, err)
 		}},
 		{name: "container garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -171,7 +168,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "expired with garbage mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
-			_, err := db.MarkGarbage(partAddr)
+			_, err := db.MarkGarbage(cnr, []oid.ID{partID})
 			require.NoError(t, err)
 		}},
 		{name: "expired with container garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -263,7 +260,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		{name: "stored with garbage mark and locker", preset: func(t *testing.T) *meta.DB {
 			db := newDB(t)
 			require.NoError(t, db.Put(&partObj))
-			_, err := db.MarkGarbage(partAddr)
+			_, err := db.MarkGarbage(cnr, []oid.ID{partID})
 			require.NoError(t, err)
 			require.NoError(t, db.Put(&locker))
 			return db
@@ -712,10 +709,12 @@ func testInhumeEC(t *testing.T) {
 	signer := neofscryptotest.Signer()
 
 	parent := *generateObjectWithCID(t, cnr)
-	parentAddr := parent.Address()
 
-	var parts []object.Object
-	var partAddrs []oid.Address
+	var (
+		parts     []object.Object
+		partAddrs []oid.Address
+		partIDs   []oid.ID
+	)
 	for i := range partNum {
 		part, err := iec.FormObjectForECPart(signer, parent, nil, iec.PartInfo{
 			RuleIndex: 123, // any
@@ -726,6 +725,7 @@ func testInhumeEC(t *testing.T) {
 		require.NoError(t, db.Put(&part))
 
 		parts = append(parts, part)
+		partIDs = append(partIDs, parts[i].GetID())
 		partAddrs = append(partAddrs, parts[i].Address())
 	}
 
@@ -734,7 +734,7 @@ func testInhumeEC(t *testing.T) {
 	err := db.Put(createTSForObject(cnr, parent.GetID()))
 	require.NoError(t, err)
 
-	allAddrs := append(partAddrs, parentAddr)
+	allAddrs := append(partAddrs, parent.Address())
 
 	for _, addr := range allAddrs {
 		_, err = db.Exists(addr, true)
@@ -745,17 +745,19 @@ func testInhumeEC(t *testing.T) {
 		assertObjectAlreadyRemovedError(t, err)
 	}
 
-	g, _, err := db.GetGarbage(100)
+	trash, err := db.GetGarbage(100)
 	require.NoError(t, err)
-	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
+	require.Len(t, trash, 1)
+	require.Equal(t, cnr, trash[0].Container)
+	require.ElementsMatch(t, append(partIDs, parent.GetID()), trash[0].Objects)
 
-	g = g[:0]
+	var g []oid.ID
 	err = db.IterateOverGarbage(func(id oid.ID) error {
-		g = append(g, oid.NewAddress(cnr, id))
+		g = append(g, id)
 		return nil
 	}, cnr, oid.ID{})
 	require.NoError(t, err)
-	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
+	require.ElementsMatch(t, g, append(partIDs, parent.GetID()))
 }
 
 func testMarkGarbageEC(t *testing.T) {
@@ -768,8 +770,11 @@ func testMarkGarbageEC(t *testing.T) {
 	parent := *generateObjectWithCID(t, cnr)
 	parentAddr := parent.Address()
 
-	var parts []object.Object
-	var partAddrs []oid.Address
+	var (
+		parts     []object.Object
+		partAddrs []oid.Address
+		partIDs   []oid.ID
+	)
 	for i := range partNum {
 		part, err := iec.FormObjectForECPart(signer, parent, nil, iec.PartInfo{
 			RuleIndex: 123, // any
@@ -780,12 +785,13 @@ func testMarkGarbageEC(t *testing.T) {
 		require.NoError(t, db.Put(&part))
 
 		parts = append(parts, part)
+		partIDs = append(partIDs, parts[i].GetID())
 		partAddrs = append(partAddrs, parts[i].Address())
 	}
 
 	assertECGroupAvailable(t, db, parent, parts)
 
-	inhumed, err := db.MarkGarbage(parentAddr)
+	inhumed, err := db.MarkGarbage(cnr, []oid.ID{parent.GetID()})
 	require.NoError(t, err)
 
 	allAddrs := append(partAddrs, parentAddr)
@@ -799,19 +805,21 @@ func testMarkGarbageEC(t *testing.T) {
 		assertObjectNotFoundError(t, err)
 	}
 
-	g, _, err := db.GetGarbage(100)
+	trash, err := db.GetGarbage(100)
 	require.NoError(t, err)
-	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
+	require.Len(t, trash, 1)
+	require.Equal(t, cnr, trash[0].Container)
+	require.ElementsMatch(t, append(partIDs, parent.GetID()), trash[0].Objects)
 
-	g = g[:0]
+	var g []oid.ID
 	err = db.IterateOverGarbage(func(id oid.ID) error {
-		g = append(g, oid.NewAddress(cnr, id))
+		g = append(g, id)
 		return nil
 	}, cnr, oid.ID{})
 	require.NoError(t, err)
-	require.ElementsMatch(t, g, append(partAddrs, parentAddr))
+	require.ElementsMatch(t, g, append(partIDs, parent.GetID()))
 
-	require.EqualValues(t, len(parts)+1, inhumed[0].NewGarbage) // parent also has a GC mark in the shard now
+	require.EqualValues(t, len(parts)+1, inhumed.NewGarbage) // parent also has a GC mark in the shard now
 }
 
 func assertECGroupAvailable(t *testing.T, db *meta.DB, parent object.Object, parts []object.Object) {
