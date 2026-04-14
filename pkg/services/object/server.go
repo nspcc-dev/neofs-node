@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"slices"
+	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -105,14 +106,15 @@ type FSChain interface {
 	// found.
 	ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error
 
-	// ForEachContainerNode iterates over all nodes matching the referenced
-	// container's storage policy for now and passes their descriptors into f.
-	// IterateContainerNodeKeys breaks without an error when f returns false.
-	// Elements may be repeated.
+	// ForSearchableContainerNode iterates over a container node subset
+	// sufficient for reliable SEARCH reply. This number depends on policy
+	// and request, allNodes flag disables optimizations. Nodes descriptors
+	// are passed into f, elements can be repeated. If f returns false
+	// function breaks the iteration without any error.
 	//
 	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
 	// found.
-	ForEachContainerNode(cnr cid.ID, f func(sdknetmap.NodeInfo) bool) error
+	ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(sdknetmap.NodeInfo) bool) error
 
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
@@ -2071,7 +2073,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 
 	var (
 		count      = uint16(body.Count) // legit according to the limit
-		incomplete atomic.Value
+		incomplete error
 		newCursor  []byte
 		res        []sdkclient.SearchResultItem
 	)
@@ -2086,64 +2088,75 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			return nil, nil, err
 		}
 	default:
-		var signed bool
-		var resErr error
-		mProcessedNodes := make(map[string]struct{})
-		var sets [][]sdkclient.SearchResultItem
-		var mores []bool
-		var mtx sync.Mutex
-		var wg sync.WaitGroup
-		add := func(set []sdkclient.SearchResultItem, more bool) {
-			mtx.Lock()
-			sets, mores = append(sets, set), append(mores, more)
-			mtx.Unlock()
+		type nodeSearchResult struct {
+			set  []sdkclient.SearchResultItem
+			more bool
+			err  error
 		}
-		err = s.fsChain.ForEachContainerNode(cID, func(node sdknetmap.NodeInfo) bool {
+		var (
+			mores           []bool
+			mProcessedNodes = make(map[string]struct{})
+			poolErr         error
+			resCh           = make(chan nodeSearchResult)
+			sets            [][]sdkclient.SearchResultItem
+			expectedRes     int
+		)
+
+		req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
+		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
+			return nil, nil, fmt.Errorf("sign request: %w", err)
+		}
+
+		var optimizedNodes = (len(body.Filters) != 0) &&
+			slices.ContainsFunc(body.Filters, func(filt *protoobject.SearchFilter) bool {
+				return !strings.HasPrefix(filt.Key, "$Object:") && !strings.HasPrefix(filt.Key, "__NEOFS__")
+			})
+
+		err = s.fsChain.ForSearchableContainerNode(cID, !optimizedNodes, func(node sdknetmap.NodeInfo) bool {
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
 			if _, ok := mProcessedNodes[strKey]; ok {
 				return true
 			}
 			mProcessedNodes[strKey] = struct{}{}
+			expectedRes++
 			if s.fsChain.IsOwnPublicKey(nodePub) {
-				wg.Go(func() {
-					if set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err == nil {
-						add(set, crsr != nil)
-					} // TODO: else log error
-				})
+				go func() {
+					set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count)
+					resCh <- nodeSearchResult{set, crsr != nil, err}
+				}()
 				return true
 			}
-			if !signed {
-				req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
-				if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
-					resErr = fmt.Errorf("sign request: %w", err)
-					return false
-				}
-				signed = true
+			if poolErr = s.searchWorkers.Submit(func() {
+				set, more, err := s.searchOnRemoteNode(ctx, node, req)
+				resCh <- nodeSearchResult{set, more, err}
+			}); poolErr != nil {
+				expectedRes--
 			}
-			wg.Add(1)
-			if resErr = s.searchWorkers.Submit(func() {
-				defer wg.Done()
-				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
-					add(set, more)
-				} else {
-					var inc = new(apistatus.Incomplete)
-					inc.SetMessage(fmt.Sprintf("last error: %s", err.Error()))
-					incomplete.Store(inc)
-				}
-			}); resErr != nil {
-				wg.Done()
-			}
-			return resErr == nil
+			return poolErr == nil
 		})
-		wg.Wait()
+		for range expectedRes { // Always wait for all threads started above.
+			searchRes := <-resCh
+			if poolErr != nil {
+				continue
+			}
+			if searchRes.err != nil {
+				var inc = new(apistatus.Incomplete)
+				inc.SetMessage(fmt.Sprintf("last error: %s", err.Error()))
+				incomplete = inc
+				continue
+			}
+			sets = append(sets, searchRes.set)
+			mores = append(mores, searchRes.more)
+		}
+		close(resCh)
 		if err == nil {
-			if errors.Is(resErr, ants.ErrPoolOverload) {
+			if errors.Is(poolErr, ants.ErrPoolOverload) {
 				var busy = new(apistatus.Busy)
-				busy.SetMessage(resErr.Error())
+				busy.SetMessage(poolErr.Error())
 				err = busy
 			} else {
-				err = resErr
+				err = poolErr
 			}
 		}
 		if err != nil {
@@ -2182,12 +2195,8 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			res[i].Attributes = nil
 		}
 	}
-	var incValue = incomplete.Load()
-	if incValue != nil {
-		return res, newCursor, incValue.(error)
-	}
 
-	return res, newCursor, nil
+	return res, newCursor, incomplete
 }
 
 func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
