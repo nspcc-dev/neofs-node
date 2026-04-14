@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - `different object owner and session issuer` for stored objects (#3929)
 - SearchV2 method returning zero result instead of "bad request" error for incorrect numeric filters (#3934)
 - Garbage double-counting in metrics (#3933)
+- Panic in session token storage epoch parsing (#3941)
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)

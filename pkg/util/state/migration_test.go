@@ -27,6 +27,11 @@ func TestMigrateSessionTokensToAccounts(t *testing.T) {
 	ownerID2 := usertest.ID()
 	ownerID3 := usertest.ID()
 	ownerID4 := usertest.ID()
+	ownerID5 := usertest.ID()
+	encodedOwnerID5 := make([]byte, 2+len(ownerID5))
+	encodedOwnerID5[0] = 0x0a
+	encodedOwnerID5[1] = byte(len(ownerID5))
+	copy(encodedOwnerID5[2:], ownerID5[:])
 
 	key1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
@@ -34,10 +39,13 @@ func TestMigrateSessionTokensToAccounts(t *testing.T) {
 	require.NoError(t, err)
 	key3, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
+	key5, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
 
 	pubKeyID1 := user.NewFromECDSAPublicKey(key1.PublicKey)
 	pubKeyID2 := user.NewFromECDSAPublicKey(key2.PublicKey)
 	pubKeyID3 := user.NewFromECDSAPublicKey(key3.PublicKey)
+	pubKeyID5 := user.NewFromECDSAPublicKey(key5.PublicKey)
 
 	uuid1 := []byte("0123456789abcdef")
 	uuid2 := []byte("fedcba9876543210")
@@ -45,6 +53,7 @@ func TestMigrateSessionTokensToAccounts(t *testing.T) {
 	epoch1 := uint64(100)
 	epoch2 := uint64(200)
 	epoch3 := uint64(300)
+	epoch5 := uint64(500)
 
 	err = db.Update(func(tx *bbolt.Tx) error {
 		rootBucket, err := tx.CreateBucketIfNotExists(sessionsBucket)
@@ -86,6 +95,16 @@ func TestMigrateSessionTokensToAccounts(t *testing.T) {
 		_, err = rootBucket.CreateBucket(ownerID4[:])
 		require.NoError(t, err)
 
+		// Owner 5 with one UUID token and protobuf-encoded owner ID
+		ownerBucket5, err := rootBucket.CreateBucket(encodedOwnerID5)
+		require.NoError(t, err)
+
+		packedToken5, err := tempStorage.packToken(epoch5, key5)
+		require.NoError(t, err)
+
+		err = ownerBucket5.Put([]byte("proto-owner-uuid"), packedToken5)
+		require.NoError(t, err)
+
 		return nil
 	})
 	require.NoError(t, err)
@@ -102,8 +121,8 @@ func TestMigrateSessionTokensToAccounts(t *testing.T) {
 		Level:   zap.InfoLevel,
 		Message: "session token storage migration completed",
 		Fields: map[string]any{
-			"migrated": json.Number("3"),
-			"deleted":  json.Number("4"),
+			"migrated": json.Number("4"),
+			"deleted":  json.Number("5"),
 		},
 	})
 
@@ -122,6 +141,11 @@ func TestMigrateSessionTokensToAccounts(t *testing.T) {
 	require.Equal(t, epoch3, token3.ExpiredAt())
 	require.Equal(t, key3, token3.SessionKey())
 
+	token5 := storage.GetToken(pubKeyID5)
+	require.NotNil(t, token5)
+	require.Equal(t, epoch5, token5.ExpiredAt())
+	require.Equal(t, key5, token5.SessionKey())
+
 	require.NoError(t, storage.db.View(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 		if rootBucket == nil {
@@ -132,6 +156,7 @@ func TestMigrateSessionTokensToAccounts(t *testing.T) {
 		require.Nil(t, rootBucket.Bucket(ownerID2[:]))
 		require.Nil(t, rootBucket.Bucket(ownerID3[:]))
 		require.Nil(t, rootBucket.Bucket(ownerID4[:]))
+		require.Nil(t, rootBucket.Bucket(encodedOwnerID5))
 
 		return nil
 	}))
