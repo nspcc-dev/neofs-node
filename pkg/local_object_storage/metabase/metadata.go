@@ -269,13 +269,14 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 	}
 
 	if !parent.IsZero() && getParentInfo(c, cnr, parent) == nil {
-		_, err = deleteMetadata(c, l, cnr, parent, true)
+		parDiff, err := deleteMetadata(c, l, cnr, parent, true)
 		if err != nil {
 			l.Warn("parent removal",
 				zap.Stringer("child", oid.NewAddress(cnr, id)),
 				zap.Stringer("parent", oid.NewAddress(cnr, parent)),
 				zap.Error(err))
 		}
+		diff.add(parDiff)
 	}
 
 	if !nonPhy && !garbage {
