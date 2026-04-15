@@ -36,6 +36,11 @@ The lowest not used bucket index: 20.
 
 # History
 
+## Version 11
+
+No schema changes, updating counters to fix potential issues caused by GC mark
+double counting.
+
 ## Version 10
 
 Object counters are stored inside metadata bucket per container now. New ROOT,

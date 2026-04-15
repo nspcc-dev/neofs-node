@@ -599,7 +599,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			check(t, slices.Concat(ids[:3], ids[4:]))
 		})
 		t.Run("rm", func(t *testing.T) {
-			_, err := db.Delete(cnr, []oid.ID{ids[4]})
+			_, _, err := db.Delete(cnr, []oid.ID{ids[4]})
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:3], ids[5:]))
 		})

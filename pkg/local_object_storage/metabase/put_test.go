@@ -187,7 +187,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 			require.NoError(t, err)
 			require.NotContains(t, collected, addr)
 		})
-		_, err = db.Delete(ts.GetContainerID(), []oid.ID{ts.GetID()})
+		_, _, err = db.Delete(ts.GetContainerID(), []oid.ID{ts.GetID()})
 		require.NoError(t, err)
 
 		assertObjectAvailability(t, db, addr, obj)

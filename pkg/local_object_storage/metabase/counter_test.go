@@ -96,9 +96,9 @@ func TestCounters(t *testing.T) {
 				oo := putTypedObjs(t, db, typ, objCount, false, payloadSize)
 
 				for i := objCount - 1; i >= 0; i-- {
-					res, err := db.Delete(oo[i].GetContainerID(), []oid.ID{oo[i].GetID()})
+					_, diff, err := db.Delete(oo[i].GetContainerID(), []oid.ID{oo[i].GetID()})
 					require.NoError(t, err)
-					require.Equal(t, -1, res.Counters.Phy)
+					require.Equal(t, -1, diff.Phy)
 
 					c, err = db.ObjectCounters()
 					require.NoError(t, err)
@@ -296,7 +296,7 @@ func TestCounters(t *testing.T) {
 				chainAddrs = append(chainAddrs, ch.GetID())
 			}
 
-			_, err = db.Delete(cnr, chainAddrs)
+			_, _, err = db.Delete(cnr, chainAddrs)
 			require.NoError(t, err)
 
 			c, err = db.ObjectCounters()

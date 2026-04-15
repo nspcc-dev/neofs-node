@@ -35,9 +35,9 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// try to remove parent, should be no-op, error-free
-	res, err := db.Delete(cnr, []oid.ID{idParent})
+	_, diff, err := db.Delete(cnr, []oid.ID{idParent})
 	require.NoError(t, err)
-	require.Zero(t, res.Counters.Phy)
+	require.Zero(t, diff.Phy)
 
 	// inhume child so it will be on graveyard
 	ts := generateObjectWithCID(t, cnr)
@@ -46,7 +46,7 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// delete object
-	_, err = db.Delete(cnr, []oid.ID{child.GetID()})
+	_, _, err = db.Delete(cnr, []oid.ID{child.GetID()})
 	require.NoError(t, err)
 
 	// check if the child is still inhumed (deletion should not affect
@@ -90,21 +90,16 @@ func TestDB_Delete(t *testing.T) {
 
 		parent1ID := parent1.GetID()
 
-		res, err := db.Delete(cnr1, []oid.ID{parent1ID})
+		res, diff, err := db.Delete(cnr1, []oid.ID{parent1ID})
 		require.NoError(t, err)
 
 		all := 1 + len(ecParts1)
-		require.EqualValues(t, -(all - 1), res.Counters.Phy)
-		require.Len(t, res.RemovedObjects, all)
+		require.EqualValues(t, -(all - 1), diff.Phy)
+		require.Len(t, res, all)
 
-		require.ElementsMatch(t, res.RemovedObjects[:1], []meta.RemovedObject{
-			{ID: parent1ID, PayloadLen: 0},
-		})
+		require.Equal(t, res[0], parent1ID)
 		for _, partObj := range ecParts1 {
-			require.Contains(t, res.RemovedObjects, meta.RemovedObject{
-				ID:         partObj.GetID(),
-				PayloadLen: partObj.PayloadSize(),
-			})
+			require.Contains(t, res, partObj.GetID())
 		}
 	})
 }
@@ -129,13 +124,13 @@ func TestContainerInfo(t *testing.T) {
 
 	objID := obj.GetID()
 
-	res, err := db.Delete(cID, []oid.ID{objID})
+	res, diff, err := db.Delete(cID, []oid.ID{objID})
 	require.NoError(t, err)
 
-	require.Equal(t, -1, res.Counters.Phy)
-	require.Len(t, res.RemovedObjects, 1)
-	require.Equal(t, payloadSize, res.RemovedObjects[0].PayloadLen)
-	require.Equal(t, objID, res.RemovedObjects[0].ID)
+	require.Equal(t, -1, diff.Phy)
+	require.Len(t, res, 1)
+	require.Equal(t, -int64(payloadSize), diff.Payload)
+	require.Equal(t, objID, res[0])
 
 	info, err = db.GetContainerInfo(cID)
 	require.NoError(t, err)
@@ -173,7 +168,7 @@ func TestDeleteAllChildren(t *testing.T) {
 	require.True(t, errors.As(err, &siErr))
 
 	// remove all children in single call
-	_, err = db.Delete(cnr, []oid.ID{child1.GetID(), child2.GetID()})
+	_, _, err = db.Delete(cnr, []oid.ID{child1.GetID(), child2.GetID()})
 	require.NoError(t, err)
 
 	// parent should not be found now
@@ -191,7 +186,7 @@ func TestGraveOnlyDelete(t *testing.T) {
 	require.NoError(t, metaInhume(db, addr, oidtest.Address()))
 
 	// delete the object data
-	_, err := db.Delete(addr.Container(), []oid.ID{addr.Object()})
+	_, _, err := db.Delete(addr.Container(), []oid.ID{addr.Object()})
 	require.NoError(t, err)
 }
 
@@ -200,10 +195,10 @@ func TestExpiredObject(t *testing.T) {
 
 	checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
 		// removing expired object should be error-free
-		_, err := db.Delete(exp.GetContainerID(), []oid.ID{exp.GetID()})
+		_, _, err := db.Delete(exp.GetContainerID(), []oid.ID{exp.GetID()})
 		require.NoError(t, err)
 
-		_, err = db.Delete(nonExp.GetContainerID(), []oid.ID{nonExp.GetID()})
+		_, _, err = db.Delete(nonExp.GetContainerID(), []oid.ID{nonExp.GetID()})
 		require.NoError(t, err)
 	})
 }

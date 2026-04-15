@@ -181,10 +181,6 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 		}
 
 		diff.GC--
-		err = updateCounter(metaBkt, gcCounter, -1)
-		if err != nil {
-			return diff, fmt.Errorf("failed to update garbage counter: %w", err)
-		}
 	}
 
 	if !haveObject {
@@ -241,49 +237,35 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 
 	if !nonPhy {
 		diff.Phy--
-		err = updateCounter(metaBkt, phyCounter, -1)
-		if err != nil {
-			return diff, fmt.Errorf("failed to update phy counter: %w", err)
-		}
 	}
 
 	switch typ {
 	case object.TypeRegular:
 		if isRoot {
 			diff.Root--
-			err = updateCounter(metaBkt, rootCounter, -1)
 		}
 	case object.TypeTombstone:
 		diff.TS--
-		err = updateCounter(metaBkt, tsCounter, -1)
 	case object.TypeLink:
 		diff.Link--
-		err = updateCounter(metaBkt, linkCounter, -1)
 	case object.TypeLock:
 		diff.Lock--
-		err = updateCounter(metaBkt, lockCounter, -1)
 	default:
-	}
-	if err != nil {
-		return diff, fmt.Errorf("failed to update typed counter: %w", err)
 	}
 
 	if !parent.IsZero() && getParentInfo(c, cnr, parent) == nil {
-		_, err = deleteMetadata(c, l, cnr, parent, true)
+		parDiff, err := deleteMetadata(c, l, cnr, parent, true)
 		if err != nil {
 			l.Warn("parent removal",
 				zap.Stringer("child", oid.NewAddress(cnr, id)),
 				zap.Stringer("parent", oid.NewAddress(cnr, parent)),
 				zap.Error(err))
 		}
+		diff.add(parDiff)
 	}
 
 	if !nonPhy && !garbage {
-		diff.Payload = -int64(size)
-		err = updateCounter(metaBkt, payloadCounter, -int64(size))
-		if err != nil {
-			return diff, fmt.Errorf("failed to update payload counter: %w", err)
-		}
+		diff.Payload -= int64(size)
 	}
 
 	return diff, nil

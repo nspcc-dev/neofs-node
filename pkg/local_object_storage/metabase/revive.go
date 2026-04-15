@@ -110,9 +110,13 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 				return errors.New("reported as deleted, but no tombstone found")
 			}
 			var tombAddress = oid.NewAddress(cnr, tombOID)
-			_, err := db.delete(metaCursor, cnr, tombOID)
+			diff, err := db.delete(metaCursor, cnr, tombOID)
 			if err != nil {
 				return err
+			}
+			err = applyDiff(metaCursor.Bucket(), diff)
+			if err != nil {
+				return fmt.Errorf("failed to update counters: %w", err)
 			}
 			res.setStatusGraveyard(tombAddress.EncodeToString())
 			res.tombstoneAddr = tombAddress
