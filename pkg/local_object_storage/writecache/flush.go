@@ -237,7 +237,7 @@ func (c *cache) flushBatch(addrs []oid.Address) error {
 			c.log.Error("can't remove object from write-cache", zap.Error(err))
 		}
 	}
-	return err
+	return nil
 }
 
 func (c *cache) getObject(addr oid.Address) ([]byte, error) {
