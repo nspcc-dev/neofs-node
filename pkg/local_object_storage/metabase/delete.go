@@ -51,7 +51,7 @@ func (db *DB) Delete(cnr cid.ID, addrs []oid.ID) (DeleteRes, error) {
 	var err error
 	var removed []RemovedObject
 
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		var metaBucket = tx.Bucket(metaBucketKey(cnr))
 		if metaBucket == nil {
 			return nil

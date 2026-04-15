@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - Optimized integer comparison in SearchV2 (#3938)
 - Optimized number of nodes for SEARCH in EC containers (#3940)
 - Optimized post-initial placement replication (#3923)
+- All regular state-modifying DB operations are batched now (was Put-only, #3942)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
