@@ -27,10 +27,15 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*object.Object, error)
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
 
+	debugLogger := e.log.With(zap.String("component", "DEBUG TS panic, engine"), zap.Stringer("addr", addr))
+
 	var res *object.Object
 	return res, e.headFunc(addr, raw, func(sh *shard.Shard, addr oid.Address, raw bool) error {
 		var err error
 		res, err = sh.Head(addr, raw)
+
+		debugLogger.Info("DEBUG: received object from shard", zap.Stringer("shardID", sh.ID()), zap.Bool("objIsNil", res == nil), zap.Error(err))
+
 		return err
 	})
 }

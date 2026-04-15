@@ -236,6 +236,8 @@ func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netm
 // Returns ErrNotFound if the header was not received for the call.
 // Returns SplitInfoError if object is virtual and raw flag is set.
 func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
+	debugLogger := s.log.With(zap.String("component", "DEBUG TS panic, get Service"), zap.Stringer("addr", prm.addr))
+
 	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
 	if err != nil {
 		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
@@ -246,6 +248,8 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	if err != nil {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
+
+	debugLogger.Info("DEBUG: get Service got HEAD request", zap.Int("ruleIndex", pi.RuleIndex), zap.Int("repRulesLen", len(repRules)), zap.Int("ecRulesLen", len(ecRules)))
 
 	if pi.RuleIndex >= 0 {
 		if err := checkPartRequestAgainstPolicy(ecRules, pi); err != nil {
@@ -262,10 +266,12 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 			return err
 		}
 
-		return s.copyLocalECPartHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
+		return s.copyLocalECPartHeader(debugLogger, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 
 	if prm.common.LocalOnly() {
+		debugLogger.Info("DEBUG: i am in `prm.common.LocalOnly()`? why?")
+
 		if prm.buffer != nil {
 			n, err := s.localObjects.ReadHeader(prm.addr, prm.raw, prm.buffer)
 			if err == nil {
@@ -278,7 +284,9 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	}
 
 	if len(repRules) > 0 {
-		err := s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
+		debugLogger.Info("DEBUG: i am in `len(repRules) > 0`? why?")
+
+		err := s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withLogger(debugLogger)).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
@@ -286,15 +294,19 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 
 	ecNodeLists := nodeLists[len(repRules):]
 	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
+		debugLogger.Info("DEBUG: i am in `prm.forwarder != nil`? why?")
+
 		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "HEAD", prm.objWriter)
 	}
 
 	if prm.raw {
+		debugLogger.Info("DEBUG: i am in `prm.raw`")
+
 		repRules = make([]uint, len(ecRules))
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(ecNodeLists, repRules)).err
+		return s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(ecNodeLists, repRules), withLogger(debugLogger)).err
 	}
 
 	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
@@ -338,19 +350,19 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 	// analyze local result
 	switch exec.status {
 	case statusOK:
-		exec.log.Debug("operation finished successfully")
+		exec.log.Info("operation finished successfully")
 	case statusVIRTUAL:
-		exec.log.Debug("requested object is virtual")
+		exec.log.Info("requested object is virtual")
 		exec.assemble()
 		if errors.Is(exec.err, errNoLinkNoLastPart) && execCnr {
 			exec.executeOnContainer()
 			exec.analyzeStatus(false)
 		}
 	case statusAPIResponse:
-		exec.log.Debug("received api response locally, return directly", zap.Error(exec.err))
+		exec.log.Info("received api response locally, return directly", zap.Error(exec.err))
 		return
 	default:
-		exec.log.Debug("operation finished with error",
+		exec.log.Info("operation finished with error",
 			zap.Error(exec.err),
 		)
 

@@ -11,11 +11,11 @@ import (
 
 func (exec *execCtx) executeOnContainer() {
 	if exec.isLocal() {
-		exec.log.Debug("return result directly")
+		exec.log.Info("return result directly")
 		return
 	}
 
-	exec.log.Debug("trying to execute in container...")
+	exec.log.Info("trying to execute in container...")
 
 	addr := exec.address()
 
@@ -27,7 +27,7 @@ func (exec *execCtx) executeOnContainer() {
 		if err != nil {
 			exec.status = statusUndefined
 			exec.err = err
-			exec.log.Debug("failed to list storage nodes for the object", zap.Error(err))
+			exec.log.Info("failed to list storage nodes for the object", zap.Error(err))
 			return
 		}
 	}
@@ -51,7 +51,7 @@ func (exec *execCtx) executeOnContainer() {
 		for ; j < jLim; j++ {
 			select {
 			case <-ctx.Done():
-				exec.log.Debug("interrupt placement iteration by context",
+				exec.log.Info("interrupt placement iteration by context",
 					zap.Error(ctx.Err()),
 				)
 
@@ -83,7 +83,7 @@ func (exec *execCtx) executeOnContainer() {
 			info.SetPublicKey(bKey)
 
 			if exec.processNode(info) {
-				exec.log.Debug("completing the operation")
+				exec.log.Info("completing the operation")
 				return
 			}
 		}

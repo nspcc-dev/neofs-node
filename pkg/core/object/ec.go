@@ -11,6 +11,8 @@ import (
 )
 
 func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool) (bool, error) {
+	fmt.Printf("DEBUG: validating %s object\n", hdr.GetID())
+
 	attrs := hdr.Attributes()
 	var ecAttr string
 	if len(attrs) > 0 {
@@ -36,6 +38,10 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 			return false, fmt.Errorf("object with EC attributes %s in container without EC rules", ecAttr)
 		}
 		return false, nil
+	}
+
+	if ecAttr != "" {
+		fmt.Printf("DEBUG: %s object is EC and `hdr.Parent()==nil`: %t, `isParent`: %t\n", hdr.GetID(), hdr.Parent() == nil, isParent)
 	}
 
 	switch typ := hdr.Type(); typ {

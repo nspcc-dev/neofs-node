@@ -40,6 +40,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -248,7 +249,9 @@ func initObjectService(c *cfg) {
 	mNumber, err := c.cli.MagicNumber()
 	fatalOnErr(err)
 
-	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
+	debugLogger := c.log.With(zap.String("component", "DEBUG TS panic, objectSource"))
+
+	os := &objectSource{l: debugLogger, signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
 		initQuotas(c.cCli, c.cfgObject.quotasTTL),
 		c.containerPayments,
@@ -491,10 +494,16 @@ type headerSource struct {
 }
 
 type headerWriter struct {
-	h *object.Object
+	l    *zap.Logger
+	addr oid.Address
+	h    *object.Object
 }
 
 func (h *headerWriter) WriteHeader(o *object.Object) error {
+	if h.l != nil {
+		h.l.Info("DEBUG: `headerWriter` is receiving the object", zap.Stringer("addr", h.addr), zap.Bool("objIsNil", o == nil))
+	}
+
 	h.h = o
 	return nil
 }
@@ -654,6 +663,8 @@ func (x storageForObjectService) GetSessionV2PrivateKey(subjects []sessionv2.Tar
 }
 
 type objectSource struct {
+	l *zap.Logger
+
 	get    *getsvc.Service
 	signer neofscrypto.Signer
 	server interface {
@@ -662,14 +673,24 @@ type objectSource struct {
 }
 
 func (o objectSource) Head(ctx context.Context, addr oid.Address) (*object.Object, error) {
-	var hw headerWriter
+	var hw = headerWriter{l: o.l, addr: addr}
 
 	var hPrm getsvc.HeadPrm
 	hPrm.SetHeaderWriter(&hw)
 	hPrm.WithAddress(addr)
 	hPrm.WithRawFlag(true)
 
+	o.l.Info("DEBUG: heading object in objectSource", zap.Stringer("addr", addr))
+
 	err := o.get.Head(ctx, hPrm)
+
+	if err != nil {
+		o.l.Info("DEBUG: getsvc.Service returned err", zap.Stringer("addr", addr), zap.Bool("objIsNil", hw.h == nil), zap.Error(err))
+	}
+	if hw.h == nil {
+		o.l.Info("DEBUG: getsvc.Service returned nil object, CANCEL PANIC", zap.Stringer("addr", addr), zap.Error(err))
+		err = apistatus.ObjectNotFound{}
+	}
 
 	return hw.h, err
 }

@@ -52,11 +52,13 @@ func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, p
 }
 
 // similar to copyLocalECPart but returns only the header.
-func (s *Service) copyLocalECPartHeader(dst internal.HeaderWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+func (s *Service) copyLocalECPartHeader(l *zap.Logger, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
 	hdr, err := s.localObjects.HeadECPart(cnr, parent, pi)
 	if err != nil {
 		return fmt.Errorf("get object header from local storage: %w", err)
 	}
+
+	l.Info("DEBUG: `copyLocalECPartHeader` return object, it cannot be nil")
 
 	if err := dst.WriteHeader(&hdr); err != nil {
 		return fmt.Errorf("write header: %w", err)

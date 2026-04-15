@@ -14,11 +14,15 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // Head returns an object's header from the storage by address without reading the full payload.
 func (t *FSTree) Head(addr oid.Address) (*object.Object, error) {
+	debugLogger := t.log.With(zap.String("component", "DEBUG TS panic, FStree"), zap.Stringer("addr", addr))
+
 	obj, reader, err := t.getObjectStream(addr)
+	debugLogger.Info("DEBUG: fetched object", zap.Bool("objIsNil", obj == nil), zap.Error(err))
 	if err != nil {
 		return nil, err
 	}

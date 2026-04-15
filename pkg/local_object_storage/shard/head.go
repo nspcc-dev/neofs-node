@@ -10,6 +10,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 func (s *Shard) checkExistence(addr oid.Address, raw bool) (*object.SplitInfoError, []oid.Address, error) {
@@ -65,7 +66,14 @@ func (s *Shard) checkExistence(addr oid.Address, raw bool) (*object.SplitInfoErr
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Head(addr oid.Address, raw bool) (*object.Object, error) {
+	debugLogger := s.log.With(zap.String("component", "DEBUG TS panic, shard"), zap.Stringer("addr", addr))
+
 	errSplitInfo, children, err := s.checkExistence(addr, raw)
+	if errSplitInfo != nil {
+		debugLogger.Info("DEBUG: `checkExistence`", zap.String("errSplitInfo", errSplitInfo.Error()), zap.Stringers("children", children), zap.Error(err))
+	} else {
+		debugLogger.Info("DEBUG: `checkExistence`", zap.Stringers("children", children), zap.Error(err))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -78,32 +86,47 @@ func (s *Shard) Head(addr oid.Address, raw bool) (*object.Object, error) {
 		if s.hasWriteCache() {
 			childHead, err := s.writeCache.Head(child)
 			if err == nil {
+				par := childHead.Parent()
+				debugLogger.Info("DEBUG: returning object from write-cache by a child", zap.Stringer("childAddr", childHead.GetID()), zap.Bool("parIsNil", par == nil))
+
 				return childHead.Parent(), nil
 			}
 		}
 
 		childHead, err := s.blobStor.Head(child)
 		if err == nil {
+			par := childHead.Parent()
+			debugLogger.Info("DEBUG: returning object from blobStor by a child", zap.Stringer("childAddr", childHead.GetID()), zap.Bool("parIsNil", par == nil))
+
 			return childHead.Parent(), nil
 		}
 	}
 
 	if len(children) != 0 {
 		if errSplitInfo == nil {
+			debugLogger.Info("DEBUG: returning 404 cause children not found and `errSplitInfo` is empty", zap.Stringers("children", children))
+
 			return nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
 		}
 		// SI present, but no objects found -> let caller handle SI.
+
+		debugLogger.Info("DEBUG: returning errSplitInfo cause no children found", zap.Error(errSplitInfo))
+
 		return nil, errSplitInfo
 	}
 
 	if s.hasWriteCache() {
 		obj, err := s.writeCache.Head(addr)
 		if err == nil {
+			debugLogger.Info("DEBUG: returning direct writecache's HEAD", zap.Bool("objIsNil", obj == nil), zap.Error(err))
 			return obj, err
 		}
 	}
 
-	return s.blobStor.Head(addr)
+	obj, err := s.blobStor.Head(addr)
+	debugLogger.Info("DEBUG: returning direct blobStor's HEAD", zap.Bool("objIsNil", obj == nil), zap.Error(err))
+
+	return obj, err
 }
 
 // ReadHeader reads first bytes of the referenced object's binary containing its

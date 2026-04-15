@@ -17,6 +17,8 @@ func (exec *execCtx) executeLocal() {
 
 	exec.collectedHeader, exec.collectedReader, err = exec.svc.localStorage.get(exec)
 
+	exec.log.Info("DEBUG: local storage get in `executeLocal`", zap.Bool("objIsNil", exec.collectedHeader == nil), zap.Bool("readerIsNil", exec.collectedReader == nil), zap.Error(err))
+
 	var errSplitInfo *object.SplitInfoError
 
 	switch {
@@ -24,10 +26,12 @@ func (exec *execCtx) executeLocal() {
 		exec.status = statusUndefined
 		exec.err = err
 
-		exec.log.Debug("local get failed",
+		exec.log.Info("local get failed",
 			zap.Error(err),
 		)
 	case err == nil:
+		exec.log.Info("DEBUG: err==nil case in `execCtx`")
+
 		exec.status = statusOK
 		exec.err = nil
 
@@ -35,6 +39,8 @@ func (exec *execCtx) executeLocal() {
 			exec.writeCollectedObject()
 		}
 	case errors.Is(err, apistatus.Error):
+		exec.log.Info("DEBUG: `errors.Is(err, apistatus.Error)` case in `execCtx`")
+
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
 			exec.status = statusNotFound
 			exec.err = err
@@ -48,6 +54,8 @@ func (exec *execCtx) executeLocal() {
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
 		exec.err = object.NewSplitInfoError(exec.infoSplit)
+
+		exec.log.Info("DEBUG: `errors.As(err, &errSplitInfo)` case in `execCtx`", zap.Error(exec.err))
 	}
 }
 

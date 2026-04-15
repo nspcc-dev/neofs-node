@@ -10,17 +10,18 @@ import (
 )
 
 func (exec *execCtx) processNode(info client.NodeInfo) bool {
-	exec.log.Debug("processing node...", zap.Stringers("address group", info.AddressGroup()))
+	exec.log.Info("processing node...", zap.Stringers("address group", info.AddressGroup()))
 
 	remoteClient, err := exec.svc.clientCache.get(exec.context(), info)
 	if err != nil {
 		exec.status = statusUndefined
 		exec.err = err
-		exec.log.Debug("could not construct remote node client", zap.Error(err))
+		exec.log.Info("could not construct remote node client", zap.Error(err))
 		return false
 	}
 
 	obj, reader, err := remoteClient.getObject(exec)
+	exec.log.Info("DEBUG: fetched object from remote node", zap.Bool("objIsNil", obj == nil), zap.Stringers("address group", info.AddressGroup()), zap.Error(err))
 
 	var errSplitInfo *object.SplitInfoError
 
@@ -29,7 +30,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		exec.status = statusUndefined
 		exec.err = apistatus.ErrObjectNotFound
 
-		exec.log.Debug("remote call failed", zap.Stringers("address group", info.AddressGroup()),
+		exec.log.Info("remote call failed", zap.Stringers("address group", info.AddressGroup()),
 			zap.Error(err),
 		)
 	case err == nil:
