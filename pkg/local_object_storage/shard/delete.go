@@ -39,33 +39,31 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 		}
 	}
 
-	res, err := s.metaBase.Delete(cnr, addrs)
+	res, diff, err := s.metaBase.Delete(cnr, addrs)
 	if err != nil {
 		return err // stop on metabase error ?
 	}
 
 	if hasWriteCache {
-		for i := range res.RemovedObjects[len(addrs):] { // the rest are addrs, removed above
-			err := s.writeCache.Delete(oid.NewAddress(cnr, res.RemovedObjects[i].ID))
+		for _, id := range res[len(addrs):] { // the rest are addrs, removed above
+			err := s.writeCache.Delete(oid.NewAddress(cnr, id))
 			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
 				s.log.Warn("can't delete object from write cache", zap.Error(err))
 			}
 		}
 	}
 
-	s.addObjectCounter(physicalObjType, res.Counters.Phy)
-	s.addObjectCounter(rootObjType, res.Counters.Root)
-	s.addObjectCounter(tsObjType, res.Counters.TS)
-	s.addObjectCounter(lockObjType, res.Counters.Lock)
-	s.addObjectCounter(linkObjType, res.Counters.Link)
-	s.addObjectCounter(gcObjType, res.Counters.GC)
+	s.addObjectCounter(physicalObjType, diff.Phy)
+	s.addObjectCounter(rootObjType, diff.Root)
+	s.addObjectCounter(tsObjType, diff.TS)
+	s.addObjectCounter(lockObjType, diff.Lock)
+	s.addObjectCounter(linkObjType, diff.Link)
+	s.addObjectCounter(gcObjType, diff.GC)
+	s.addToContainerSize(cnr.EncodeToString(), diff.Payload)
+	s.addToPayloadCounter(diff.Payload)
 
-	var totalRemovedPayload uint64
-
-	for i := range res.RemovedObjects {
-		totalRemovedPayload += res.RemovedObjects[i].PayloadLen
-
-		var addr = oid.NewAddress(cnr, res.RemovedObjects[i].ID)
+	for _, id := range res {
+		var addr = oid.NewAddress(cnr, id)
 		err = s.blobStor.Delete(addr)
 		if err == nil {
 			logOp(s.log, deleteOp, addr)
@@ -79,9 +77,6 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 				zap.Error(err))
 		}
 	}
-
-	s.addToContainerSize(cnr.EncodeToString(), -int64(totalRemovedPayload))
-	s.addToPayloadCounter(-int64(totalRemovedPayload))
 
 	return nil
 }

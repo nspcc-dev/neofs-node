@@ -57,12 +57,12 @@ func removeFunc(cmd *cobra.Command, _ []string) error {
 	)
 
 	var delGroup = func(cnr cid.ID, oids []oid.ID) error {
-		res, err := db.Delete(cnr, oids)
+		res, _, err := db.Delete(cnr, oids)
 		if err != nil {
 			return fmt.Errorf("can't remove objects: %w", err)
 		}
-		for _, r := range res.RemovedObjects {
-			cmd.Println("Removed:", r.ID.String())
+		for _, id := range res {
+			cmd.Println("Removed:", id.String())
 		}
 		return nil
 	}
