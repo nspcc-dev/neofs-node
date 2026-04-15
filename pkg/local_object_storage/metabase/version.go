@@ -24,7 +24,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 10
+const currentMetaVersion = 11
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -49,9 +49,10 @@ var (
 	// and it's hardly acceptable, so in general it's better to log and
 	// continue rather than return an error.
 	migrateFrom = map[uint64]func(*DB) error{
-		7: migrateFrom7Version,
-		8: migrateFrom8Version,
-		9: migrateFrom9Version,
+		7:  migrateFrom7Version,
+		8:  migrateFrom8Version,
+		9:  migrateFrom9Version,
+		10: migrateFrom10Version,
 	}
 
 	versionKey = []byte("version")
@@ -391,6 +392,16 @@ func migrateFrom9Version(db *DB) error {
 		}
 
 		return updateVersion(tx, 10)
+	})
+}
+
+func migrateFrom10Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		err := syncCounter(tx, true)
+		if err != nil {
+			return fmt.Errorf("resync object counters: %w", err)
+		}
+		return updateVersion(tx, 11)
 	})
 }
 

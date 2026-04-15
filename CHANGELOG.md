@@ -36,6 +36,9 @@ they are the same now and v2 variant will be removed in future.
 Storage nodes no longer implement deprecated and insecure `Search` method,
 migrate to `Searchv2` if needed.
 
+Metabase will migrate to version 11 with this release to update object
+counters, this can take a while for shards with high object numbers.
+
 ## [0.52.0] - 2026-03-27 - Woodo
 
 Delivering performance optimizations and initial placement feature this
