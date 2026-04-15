@@ -40,7 +40,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -687,7 +686,6 @@ func (o objectSource) Head(ctx context.Context, addr oid.Address) (*object.Objec
 		o.l.Info("DEBUG: getsvc.Service returned err", zap.Stringer("addr", addr), zap.Bool("objIsNil", hw.h == nil), zap.Error(err))
 	} else if hw.h == nil {
 		o.l.Info("DEBUG: getsvc.Service returned nil object, CANCEL PANIC", zap.Stringer("addr", addr), zap.Error(err))
-		err = apistatus.ObjectNotFound{}
 	}
 
 	return hw.h, err
