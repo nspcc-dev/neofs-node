@@ -112,6 +112,10 @@ func (db *DB) deleteGroup(metaCursor *bbolt.Cursor, cnr cid.ID, addrs []oid.ID) 
 		success := all - errorCount
 		return diff, nil, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
 	}
+	err = applyDiff(metaCursor.Bucket(), diff)
+	if err != nil {
+		return diff, nil, fmt.Errorf("failed to update counters: %w", err)
+	}
 
 	return diff, removedObjs, nil
 }
