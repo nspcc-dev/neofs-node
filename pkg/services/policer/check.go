@@ -343,8 +343,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Uint32("shortage", shortage),
 		)
 
-		var result replicationResultCounter
-		result.TaskResult = plc.checkedNodes
+		result := newReplicationResultTracker(plc.checkedNodes)
 		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, &result)
 		if result.done {
 			p.metrics.IncPolicerObjectReplicated(false)
@@ -361,8 +360,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Int("misplaced", len(candidates)),
 		)
 
-		var result replicationResultCounter
-		result.TaskResult = plc.checkedNodes
+		result := newReplicationResultTracker(plc.checkedNodes)
 		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, &result)
 		if result.done {
 			p.metrics.IncPolicerObjectReplicated(false)
@@ -421,12 +419,16 @@ func (p *Policer) tryToReplicate(ctx context.Context, addr oid.Address, shortage
 	p.replicator.HandleTask(ctx, task, res)
 }
 
-type replicationResultCounter struct {
+type replicationResultTracker struct {
 	replicator.TaskResult
 	done bool
 }
 
-func (x *replicationResultCounter) SubmitSuccessfulReplication(node netmap.NodeInfo) {
+func newReplicationResultTracker(res replicator.TaskResult) replicationResultTracker {
+	return replicationResultTracker{TaskResult: res}
+}
+
+func (x *replicationResultTracker) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 	x.done = true
 	if x.TaskResult != nil {
 		x.TaskResult.SubmitSuccessfulReplication(node)
