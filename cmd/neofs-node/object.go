@@ -683,11 +683,9 @@ func (o objectSource) Head(ctx context.Context, addr oid.Address) (*object.Objec
 	o.l.Info("DEBUG: heading object in objectSource", zap.Stringer("addr", addr))
 
 	err := o.get.Head(ctx, hPrm)
-
 	if err != nil {
 		o.l.Info("DEBUG: getsvc.Service returned err", zap.Stringer("addr", addr), zap.Bool("objIsNil", hw.h == nil), zap.Error(err))
-	}
-	if hw.h == nil {
+	} else if hw.h == nil {
 		o.l.Info("DEBUG: getsvc.Service returned nil object, CANCEL PANIC", zap.Stringer("addr", addr), zap.Error(err))
 		err = apistatus.ObjectNotFound{}
 	}
