@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -283,7 +284,9 @@ var (
 
 	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
-	maxUint256Neg = new(big.Int).Neg(maxUint256)
+	maxUint256Neg       = new(big.Int).Neg(maxUint256)
+	maxUint256Dec       = maxUint256.String()
+	maxUint256NegDigits = strings.TrimPrefix(maxUint256Neg.String(), "-")
 )
 
 // SearchCursor is a cursor used for continuous search in the meta indexes
@@ -847,11 +850,12 @@ func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, error) {
 		if !IsIntegerSearchOp(m) {
 			continue
 		}
-		n, ok := new(big.Int).SetString(val, 10)
-		if !ok {
+		neg, digits, err := splitIntString(val)
+		if err != nil {
 			return nil, fmt.Errorf("non-integer value in numeric filter number %d", i)
 		}
-		if c := n.Cmp(maxUint256); c >= 0 {
+		c := compareNormalizedDigits(digits, maxUint256Dec)
+		if !neg && c >= 0 {
 			if c > 0 {
 				return nil, fmt.Errorf("too big integer in numeric filter number %d", i)
 			}
@@ -859,16 +863,21 @@ func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, error) {
 				return nil, ErrUnreachableQuery
 			}
 			ofs[i].AutoMatch = m == object.MatchNumLE
-		} else if c = n.Cmp(maxUint256Neg); c <= 0 {
-			if c < 0 {
+		} else if neg {
+			c = compareNormalizedDigits(digits, maxUint256NegDigits)
+			if c > 0 {
 				return nil, fmt.Errorf("too low integer in numeric filter number %d", i)
 			}
-			if m == object.MatchNumLT {
+			if c == 0 && m == object.MatchNumLT {
 				return nil, ErrUnreachableQuery
 			}
-			ofs[i].AutoMatch = m == object.MatchNumGE
+			ofs[i].AutoMatch = c == 0 && m == object.MatchNumGE
 		}
 		if !ofs[i].AutoMatch {
+			n, err := parseBigIntFast(neg, digits)
+			if err != nil {
+				return nil, fmt.Errorf("non-integer value in numeric filter number %d", i)
+			}
 			if i == 0 || IsIntegerSearchOp(fs[0].Operation()) && fs[i].Header() == fs[0].Header() {
 				ofs[i].Raw = BigIntBytes(n)
 			}
@@ -877,6 +886,33 @@ func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, error) {
 		// TODO: #1148 there are more auto-cases (like <=X AND >=X, <X AND >X), cover more here
 	}
 	return ofs, nil
+}
+
+func compareNormalizedDigits(a, b string) int {
+	if len(a) != len(b) {
+		if len(a) < len(b) {
+			return -1
+		}
+		return 1
+	}
+	return strings.Compare(a, b)
+}
+
+func parseBigIntFast(neg bool, digits string) (*big.Int, error) {
+	if !neg && len(digits) <= 20 {
+		if v, err := strconv.ParseUint(digits, 10, 64); err == nil {
+			return new(big.Int).SetUint64(v), nil
+		}
+	}
+
+	n, ok := new(big.Int).SetString(digits, 10)
+	if !ok {
+		return nil, errors.New("invalid decimal integer")
+	}
+	if neg {
+		n.Neg(n)
+	}
+	return n, nil
 }
 
 // BigIntBytes returns integer's raw representation. Int must belong to
