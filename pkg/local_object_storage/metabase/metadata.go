@@ -280,7 +280,7 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 	}
 
 	if !nonPhy && !garbage {
-		diff.Payload = -int64(size)
+		diff.Payload -= int64(size)
 		err = updateCounter(metaBkt, payloadCounter, -int64(size))
 		if err != nil {
 			return diff, fmt.Errorf("failed to update payload counter: %w", err)
