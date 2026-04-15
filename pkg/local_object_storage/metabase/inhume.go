@@ -36,7 +36,6 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, err
 	var (
 		currEpoch   = db.epochState.CurrentEpoch()
 		err         error
-		objsInCnr   = make([]oid.ID, 0, len(addrs))
 		counterDiff ContainerGarbageDiff
 	)
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
@@ -48,6 +47,7 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, err
 		if containerMarkedGC(metaCursor) {
 			return nil
 		}
+		var objsInCnr = make([]oid.ID, 0, len(addrs))
 
 		// collect children
 		// TODO: Do not extend addrs, do in the main loop. This likely would be more efficient regarding memory.
@@ -60,12 +60,12 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, err
 			objsInCnr = append(objsInCnr, parObj)
 			objsInCnr = append(objsInCnr, partIDs...)
 		}
-		err = markGarbageInContainer(metaCursor, &counterDiff, cnr, objsInCnr, currEpoch)
+		counterDiff, err = markGarbageInContainer(metaCursor, cnr, objsInCnr, currEpoch)
 		if err != nil {
 			return fmt.Errorf("marking objects for %s container: %w", cnr, err)
 		}
 
-		err := updateCounter(metaBucket, gcCounter, int64(counterDiff.NewGarbage))
+		err = updateCounter(metaBucket, gcCounter, int64(counterDiff.NewGarbage))
 		if err != nil {
 			return fmt.Errorf("update %s container's gc counter to %d: %w", cnr, counterDiff.NewGarbage, err)
 		}
@@ -80,9 +80,10 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, err
 	return counterDiff, err
 }
 
-func markGarbageInContainer(metaCursor *bbolt.Cursor, diff *ContainerGarbageDiff, cnr cid.ID, objs []oid.ID, currEpoch uint64) error {
+func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID, currEpoch uint64) (ContainerGarbageDiff, error) {
 	var (
 		addr       oid.Address
+		diff       ContainerGarbageDiff
 		metaBucket = metaCursor.Bucket()
 	)
 	addr.SetContainer(cnr)
@@ -105,12 +106,12 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, diff *ContainerGarbageDiff
 		}
 		err = metaBucket.Put(garbKey, nil)
 		if err != nil {
-			return err
+			return diff, err
 		}
 		diff.NewGarbage++
 	}
 
-	return nil
+	return diff, nil
 }
 
 // InhumeContainer marks every object in a container as removed.
