@@ -67,3 +67,19 @@ func (c *cfg) SetPolicerConsistency(consistent bool) {
 func (c *cfg) SetPolicerOptimalPlacement(optimal bool) {
 	c.metricsCollector.SetPolicerOptimalPlacementState(optimal)
 }
+
+func (c *cfg) IncPolicerCycleCount() {
+	c.metricsCollector.IncPolicerCycleCount()
+}
+
+func (c *cfg) IncPolicerObjectProcessed(isEC bool) {
+	c.metricsCollector.IncPolicerObjectProcessed(isEC)
+}
+
+func (c *cfg) IncPolicerObjectReplicated(isEC bool) {
+	c.metricsCollector.IncPolicerObjectReplicated(isEC)
+}
+
+func (c *cfg) IncPolicerObjectDeleted(isEC bool) {
+	c.metricsCollector.IncPolicerObjectDeleted(isEC)
+}
