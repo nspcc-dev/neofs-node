@@ -8,6 +8,13 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// defaultQueueSize is the default capacity of an asynchronous replication queue.
+	defaultQueueSize = 4096
+	// defaultWorkers is the default number of background replication workers.
+	defaultWorkers = 8
+)
+
 // LocalNodeKey provides information about the NeoFS network to Replicator for work.
 type LocalNodeKey interface {
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
@@ -19,6 +26,8 @@ type LocalNodeKey interface {
 // local objects to remote nodes.
 type Replicator struct {
 	*cfg
+
+	taskQueue chan Task
 }
 
 // Option is an option for Policer constructor.
@@ -51,7 +60,8 @@ func New(opts ...Option) *Replicator {
 	c.log = c.log.With(zap.String("component", "Object Replicator"))
 
 	return &Replicator{
-		cfg: c,
+		cfg:       c,
+		taskQueue: make(chan Task, defaultQueueSize),
 	}
 }
 

@@ -65,6 +65,32 @@ type objectSvc struct {
 	delete *deletesvc.Service
 }
 
+type putPostInitialPlacementReplicator struct {
+	log        *zap.Logger
+	replicator *replicator.Replicator
+}
+
+func (r putPostInitialPlacementReplicator) HandlePostPlacement(obj *object.Object, nodes []netmapsdk.NodeInfo) {
+	copies := uint32(len(nodes))
+	if pi, err := iec.GetPartInfo(*obj); err == nil && pi.Index >= 0 {
+		copies = 1
+	}
+
+	var task replicator.Task
+	task.SetObjectAddress(obj.Address())
+	task.SetObject(obj)
+	task.SetNodes(nodes)
+	task.SetCopiesNumber(copies)
+
+	if err := r.replicator.EnqueueTask(task); err != nil {
+		r.log.Warn("could not enqueue post-placement replication",
+			zap.Stringer("object", obj.Address()),
+			zap.Uint32("expected", copies),
+			zap.Error(err),
+		)
+	}
+}
+
 func (c *cfg) MaxObjectSize() uint64 {
 	sz, err := c.nCli.MaxObjectSize()
 	if err != nil {
@@ -212,7 +238,7 @@ func initObjectService(c *cfg) {
 		policer.WithBoostMultiplier(c.appCfg.Policer.BoostMultiplier),
 	)
 
-	c.workers = append(c.workers, c.policer)
+	c.workers = append(c.workers, c.policer, c.replicator)
 
 	nnsResolver := nns.NewResolver(c.cli)
 
@@ -246,6 +272,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithRemoteWorkerPool(c.cfgObject.pool.putRemote),
+		putsvc.WithPostPlacementReplicator(putPostInitialPlacementReplicator{log: c.log, replicator: c.replicator}),
 		putsvc.WithLogger(c.log),
 		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(os)),
