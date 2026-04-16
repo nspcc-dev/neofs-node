@@ -3,10 +3,10 @@ package objectcore
 import (
 	"encoding/base64"
 	"fmt"
-	"math/big"
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -48,7 +48,8 @@ func BenchmarkPreprocessSearchQuery(b *testing.B) {
 	cursorIntKey := make([]byte, len("attr")+attributeDelimiterLen+intValLen+oid.Size)
 	off := copy(cursorIntKey, "attr")
 	off += copy(cursorIntKey[off:], MetaAttributeDelimiter)
-	copy(cursorIntKey[off:], BigIntBytes(big.NewInt(123)))
+	v := signed256.NewInt(123)
+	copy(cursorIntKey[off:], IntBytes(&v))
 	copy(cursorIntKey[off+intValLen:], intCursorID[:])
 
 	nonIntCursorKey := make([]byte, len("attr")+attributeDelimiterLen+len("hello")+attributeDelimiterLen+oid.Size)

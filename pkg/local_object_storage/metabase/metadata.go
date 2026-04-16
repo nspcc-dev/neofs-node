@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
 	"slices"
 	"strconv"
 
 	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -43,12 +43,6 @@ const (
 )
 
 const binPropMarker = "1" // ROOT, PHY, etc.
-
-var (
-	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
-	maxUint256Neg = new(big.Int).Neg(maxUint256)
-)
 
 // ErrSearchIterationLimitExceeded is returned when filtered search exceeded the
 // configured number of index iterations without producing any results.
@@ -90,11 +84,13 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 		return err
 	}
 	creationEpoch := hdr.CreationEpoch()
-	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterCreationEpoch, strconv.FormatUint(creationEpoch, 10), new(big.Int).SetUint64(creationEpoch)); err != nil {
+	var creationEpochInt signed256.Int
+	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterCreationEpoch, strconv.FormatUint(creationEpoch, 10), creationEpochInt.SetUint64(creationEpoch)); err != nil {
 		return err
 	}
 	payloadLen := hdr.PayloadSize()
-	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterPayloadSize, strconv.FormatUint(payloadLen, 10), new(big.Int).SetUint64(payloadLen)); err != nil {
+	var payloadLenInt signed256.Int
+	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterPayloadSize, strconv.FormatUint(payloadLen, 10), payloadLenInt.SetUint64(payloadLen)); err != nil {
 		return err
 	}
 	if h, ok := hdr.PayloadChecksum(); ok {
@@ -135,8 +131,8 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	attrs := hdr.Attributes()
 	for i := range attrs {
 		ak, av := attrs[i].Key(), attrs[i].Value()
-		if n, isInt := parseInt(av); isInt && intWithinLimits(n) {
-			err = putIntAttribute(metaBkt, &keyBuf, id, ak, av, n)
+		if n, isInt := parseInt(av); isInt {
+			err = putIntAttribute(metaBkt, &keyBuf, id, ak, av, &n)
 		} else {
 			err = putPlainAttribute(metaBkt, &keyBuf, id, ak, av)
 		}
@@ -223,12 +219,12 @@ func deleteMetadata(c *bbolt.Cursor, l *zap.Logger, cnr cid.ID, id oid.ID, isPar
 		off += copy(kAttrID[off:], objectcore.MetaAttributeDelimiter)
 		copy(kAttrID[off:], id[:])
 		ks = append(ks, kIDAttr, kAttrID)
-		if n, ok := new(big.Int).SetString(string(attrV), 10); ok && intWithinLimits(n) {
+		if n, ok := parseInt(string(attrV)); ok {
 			kAttrIDInt := make([]byte, 1+len(attrK)+attributeDelimiterLen+intValLen+oid.Size)
 			kAttrIDInt[0] = metaPrefixAttrIDInt
 			off := 1 + copy(kAttrIDInt[1:], attrK)
 			off += copy(kAttrIDInt[off:], objectcore.MetaAttributeDelimiter)
-			putInt(kAttrIDInt[off:off+intValLen], n)
+			putInt(kAttrIDInt[off:off+intValLen], &n)
 			copy(kAttrIDInt[off+intValLen:], id[:])
 			ks = append(ks, kAttrIDInt)
 		}
@@ -412,25 +408,12 @@ func metaBucketKey(cnr cid.ID) []byte {
 	return k[:]
 }
 
-func putInt(b []byte, n *big.Int) {
+func putInt(b []byte, n *signed256.Int) {
 	if len(b) < intValLen {
 		panic(fmt.Errorf("insufficient buffer len %d", len(b)))
 	}
-	neg := n.Sign() < 0
-	if neg {
-		b[0] = 0
-	} else {
-		b[0] = 1
-	}
-	n.FillBytes(b[1:intValLen])
-	if neg {
-		for i := range b[1:] {
-			b[1+i] = ^b[1+i]
-		}
-	}
+	n.FillBytes(b[:intValLen])
 }
-
-func intWithinLimits(n *big.Int) bool { return n.Cmp(maxUint256Neg) >= 0 && n.Cmp(maxUint256) <= 0 }
 
 // makes PREFIX_ATTR_DELIM_VAL_OID with unset VAL space, and returns offset of
 // the VAL. Reuses previously allocated buffer if it is sufficient.
@@ -480,7 +463,7 @@ func putPlainAttribute[V []byte | string](bkt *bbolt.Bucket, buf *keyBuffer, id 
 	return nil
 }
 
-func putIntAttribute(bkt *bbolt.Bucket, buf *keyBuffer, id oid.ID, attr, origin string, parsed *big.Int) error {
+func putIntAttribute(bkt *bbolt.Bucket, buf *keyBuffer, id oid.ID, attr, origin string, parsed *signed256.Int) error {
 	k, off := prepareMetaAttrIDKey(buf, id, attr, intValLen, true)
 	putInt(k[off:off+intValLen], parsed)
 	if err := bkt.Put(k, nil); err != nil {

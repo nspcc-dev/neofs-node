@@ -6,12 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"math"
-	"math/big"
 	"slices"
 	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -400,7 +400,8 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 					fs.AddFilter("attr", "123", op)
 					pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
 					if op == object.MatchNumGT || op == object.MatchNumGE {
-						assertCursor(t, fs, []string{"attr"}, "", pref, slices.Concat(pref, BigIntBytes(big.NewInt(123))))
+						v := signed256.NewInt(123)
+						assertCursor(t, fs, []string{"attr"}, "", pref, slices.Concat(pref, IntBytes(&v)))
 					} else {
 						assertCursor(t, fs, []string{"attr"}, "", pref, pref)
 					}
@@ -419,11 +420,16 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 			})
 		})
 		id := oidtest.ID()
-		for _, n := range []*big.Int{
-			maxUint256Neg, big.NewInt(math.MinInt64), big.NewInt(-1), big.NewInt(0),
-			big.NewInt(1), big.NewInt(math.MaxInt64), maxUint256,
+		for _, n := range []signed256.Int{
+			minSigned256,
+			signed256.NewInt(math.MinInt64),
+			signed256.NewInt(-1),
+			signed256.NewInt(0),
+			signed256.NewInt(1),
+			signed256.NewInt(math.MaxInt64),
+			maxSigned256,
 		} {
-			ib := BigIntBytes(n)
+			ib := IntBytes(&n)
 			b := slices.Concat([]byte("attr"), []byte{0x00}, ib, id[:])
 			var fs object.SearchFilters
 			fs.AddFilter("attr", n.String(), object.MatchNumGE)
@@ -436,7 +442,7 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 			pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
 			require.Equal(t, pref, c.PrimaryKeysPrefix)
 
-			if n.Cmp(maxUint256Neg) == 0 {
+			if n.Cmp(&minSigned256) == 0 {
 				var of = SearchFilter{
 					SearchFilter: fs[0],
 					AutoMatch:    true,
@@ -445,7 +451,6 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 			} else {
 				var of = SearchFilter{
 					SearchFilter: fs[0],
-					Parsed:       n,
 					Raw:          ib,
 				}
 				require.Equal(t, of, ofs[0])
@@ -536,7 +541,12 @@ var invalidNonIntCursorTestcases = []struct{ name, err, cursor string }{
 		cursor: "YXR0cgBoZWxsb/+IlGDk7Bu+PC410JNSmNyajZ0lphLjqtgWDLyNn5Gh4w=="},
 }
 
-func intWithinLimits(n *big.Int) bool { return n.Cmp(maxUint256Neg) >= 0 && n.Cmp(maxUint256) <= 0 }
+func signedAdd(t testing.TB, x, y signed256.Int) signed256.Int {
+	var z signed256.Int
+	err := z.Add(&x, &y)
+	require.NoError(t, err)
+	return z
+}
 
 func TestApplyFilter(t *testing.T) {
 	t.Run("unsupported matcher", func(t *testing.T) {
@@ -591,65 +601,51 @@ func TestApplyFilter(t *testing.T) {
 		}
 	})
 	t.Run("int", func(t *testing.T) {
-		check := func(dbVal *big.Int, matcher object.SearchMatchType, fltVal *big.Int, exp bool) {
-			require.Equal(t, exp, intMatches(dbVal, matcher, fltVal))
-			if intWithinLimits(dbVal) && intWithinLimits(fltVal) {
-				require.Equal(t, exp, intBytesMatch(BigIntBytes(dbVal), matcher, BigIntBytes(fltVal)))
-			}
+		minusOne := signed256.NewInt(-1)
+		zero := signed256.NewInt(0)
+		one := signed256.NewInt(1)
+		minPlusOne := signedAdd(t, minSigned256, one)
+		maxMinusOne := signedAdd(t, maxSigned256, minusOne)
+		maxUint64 := signed256.NewUint64(math.MaxUint64)
+
+		check := func(dbVal, fltVal signed256.Int, matcher object.SearchMatchType, exp bool) {
+			require.Equal(t, exp, intMatches(dbVal, matcher, &fltVal))
+			require.Equal(t, exp, intBytesMatch(IntBytes(&dbVal), matcher, IntBytes(&fltVal)))
 		}
-		one := big.NewInt(1)
-		max64 := new(big.Int).SetUint64(math.MaxUint64)
-		ltMin := new(big.Int).Sub(maxUint256Neg, one)
-		gtMax := new(big.Int).Add(maxUint256, one)
-		ns := []*big.Int{
-			maxUint256Neg,
-			new(big.Int).Add(maxUint256Neg, big.NewInt(1)),
-			new(big.Int).Neg(max64),
-			big.NewInt(-1),
-			big.NewInt(0),
+		ns := []signed256.Int{
+			minSigned256,
+			minPlusOne,
+			signed256.MustParseDecimal("-18446744073709551615"),
+			minusOne,
+			zero,
 			one,
-			max64,
-			new(big.Int).Sub(maxUint256, big.NewInt(1)),
-			maxUint256,
+			maxUint64,
+			maxMinusOne,
+			maxSigned256,
 		}
 		for i, n := range ns {
-			check(n, object.MatchNumGT, ltMin, true)
-			check(n, object.MatchNumGE, ltMin, true)
+			check(n, minSigned256, object.MatchNumGT, i != 0)
+			check(n, minSigned256, object.MatchNumGE, true)
 
-			check(n, object.MatchNumLT, gtMax, true)
-			check(n, object.MatchNumLE, gtMax, true)
+			check(n, maxSigned256, object.MatchNumLT, i != len(ns)-1)
+			check(n, maxSigned256, object.MatchNumLE, true)
 
-			check(n, object.MatchNumGT, n, false)
-			check(n, object.MatchNumGE, n, true)
-			check(n, object.MatchNumLT, n, false)
-			check(n, object.MatchNumLE, n, true)
+			check(n, n, object.MatchNumGT, false)
+			check(n, n, object.MatchNumGE, true)
+			check(n, n, object.MatchNumLT, false)
+			check(n, n, object.MatchNumLE, true)
 
 			for j := range i {
-				check(n, object.MatchNumGT, ns[j], true)
-				check(n, object.MatchNumGE, ns[j], true)
-				check(n, object.MatchNumLT, ns[j], false)
-				check(n, object.MatchNumLE, ns[j], false)
+				check(n, ns[j], object.MatchNumGT, true)
+				check(n, ns[j], object.MatchNumGE, true)
+				check(n, ns[j], object.MatchNumLT, false)
+				check(n, ns[j], object.MatchNumLE, false)
 			}
 			for j := i + 1; j < len(ns); j++ {
-				check(n, object.MatchNumGT, ns[j], false)
-				check(n, object.MatchNumGE, ns[j], false)
-				check(n, object.MatchNumLT, ns[j], true)
-				check(n, object.MatchNumLE, ns[j], true)
-			}
-
-			minusOne := new(big.Int).Sub(n, one)
-			check(n, object.MatchNumGT, minusOne, true)
-			check(n, object.MatchNumGE, minusOne, true)
-			if minusOne.Cmp(maxUint256Neg) >= 0 {
-				check(n, object.MatchNumLT, minusOne, false)
-				check(n, object.MatchNumLE, minusOne, false)
-			}
-			plusOne := new(big.Int).Add(n, one)
-			check(n, object.MatchNumLT, plusOne, true)
-			check(n, object.MatchNumLE, plusOne, true)
-			if plusOne.Cmp(maxUint256) <= 0 {
-				check(n, object.MatchNumGT, plusOne, false)
-				check(n, object.MatchNumGE, plusOne, false)
+				check(n, ns[j], object.MatchNumGT, false)
+				check(n, ns[j], object.MatchNumGE, false)
+				check(n, ns[j], object.MatchNumLT, true)
+				check(n, ns[j], object.MatchNumLE, true)
 			}
 		}
 	})

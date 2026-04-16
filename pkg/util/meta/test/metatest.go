@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"math/big"
 	"slices"
 	"strconv"
 	"testing"
@@ -1032,11 +1031,6 @@ func cloneFilters(src []objectcore.SearchFilter) []objectcore.SearchFilter {
 	}
 	dst := slices.Clone(src)
 	for k, f := range src {
-		var n *big.Int
-		if f.Parsed != nil {
-			n = new(big.Int).Set(f.Parsed)
-		}
-		dst[k].Parsed = n
 		dst[k].Raw = slices.Clone(f.Raw)
 	}
 	return dst
