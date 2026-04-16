@@ -85,7 +85,18 @@ func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, e
 		stream = nopReadCloser{}
 	}
 
-	return copy(buf, initial), stream, nil
+	n := copy(buf, initial)
+	if len(initial) > n {
+		// data was pre-read according to the provided buffer, but its
+		// uncompressed form does not fit the buffer, reslice it, and do not
+		// lose any payload
+		return n, readerCloser{
+			Reader: io.MultiReader(bytes.NewReader(initial[n:]), stream),
+			Closer: stream,
+		}, nil
+	}
+
+	return n, stream, nil
 }
 
 // getObjectStream reads an object from the storage by address as a stream.

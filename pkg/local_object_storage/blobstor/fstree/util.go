@@ -4,6 +4,10 @@ import (
 	"io"
 )
 
+type readerCloser struct {
+	io.Reader
+	io.Closer
+}
 type readerTwoClosers struct {
 	io.ReadCloser
 	baseCloser io.Closer

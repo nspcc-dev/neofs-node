@@ -86,6 +86,24 @@ func TestGetStream(t *testing.T) {
 				testStream(t, size)
 			})
 		}
+
+		t.Run("uncompressed object overflows buffer", func(t *testing.T) {
+			testData := make([]byte, 2*iobject.NonPayloadFieldsBufferLength+1)
+
+			addr := oidtest.Address()
+			require.NoError(t, tree.Put(addr, testData))
+
+			buff := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
+			n, reader, err := tree.ReadObject(addr, buff)
+			require.NoError(t, err)
+			require.EqualValues(t, len(buff), n)
+
+			require.NotNil(t, reader)
+			additionallyRead, err := io.ReadAll(reader)
+			require.NoError(t, err)
+			require.Equal(t, testData, append(buff, additionallyRead...))
+			require.NoError(t, reader.Close())
+		})
 	})
 
 	t.Run("specific combined object", func(t *testing.T) {
