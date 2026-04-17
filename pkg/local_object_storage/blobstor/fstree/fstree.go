@@ -555,10 +555,7 @@ func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.Rea
 		}
 	}
 
-	return struct {
-		io.Reader
-		io.Closer
-	}{
+	return readerCloser{
 		Reader: io.LimitReader(stream, int64(ln)),
 		Closer: stream,
 	}, nil

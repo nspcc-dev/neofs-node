@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - SearchV2 method returning zero result instead of "bad request" error for incorrect numeric filters (#3934)
 - Garbage double-counting in metrics (#3933)
 - Panic in session token storage epoch parsing (#3941)
+- Compressed object GET failure in some cases (#3936)
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)
