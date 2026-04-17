@@ -15,8 +15,8 @@ import (
 
 type nopIR struct{}
 
-func (nopIR) InnerRingKeys() ([][]byte, error) {
-	return nil, nil
+func (nopIR) InnerRingKeys() [][]byte {
+	return nil
 }
 
 type nopFSChain struct {
