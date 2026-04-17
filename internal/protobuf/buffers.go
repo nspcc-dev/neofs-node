@@ -1,6 +1,8 @@
 package protobuf
 
 import (
+	"hash"
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -94,4 +96,181 @@ func (x *MemBufferPool) Get() *MemBuffer {
 	item.pool = x.syncPool
 	item.refs.Store(1)
 	return item
+}
+
+// TODO: docs.
+type BuffersSlice struct {
+	buffers mem.BufferSlice
+	curOff  int
+	lastTo  int
+}
+
+func (x *BuffersSlice) Reset(buffers mem.BufferSlice) {
+	x.buffers = buffers
+	x.curOff = 0
+	x.lastTo = buffers[len(buffers)-1].Len()
+}
+
+// TODO: docs.
+func NewBuffersSlice(buffers mem.BufferSlice) BuffersSlice {
+	if len(buffers) == 0 {
+		return BuffersSlice{}
+	}
+
+	return BuffersSlice{
+		buffers: buffers,
+		curOff:  0,
+		lastTo:  buffers[len(buffers)-1].Len(),
+	}
+}
+
+func (x BuffersSlice) IsEmpty() bool {
+	return x.Len() == 0
+}
+
+func (x *BuffersSlice) buffersSeq(yield func([]byte) bool) {
+	if len(x.buffers) == 1 {
+		yield(x.buffers[0].ReadOnlyData()[x.curOff:x.lastTo])
+		return
+	}
+
+	if !yield(x.buffers[0].ReadOnlyData()[x.curOff:]) {
+		return
+	}
+
+	for i := range len(x.buffers) - 2 {
+		if !yield(x.buffers[i+1].ReadOnlyData()) {
+			return
+		}
+	}
+
+	yield(x.buffers[len(x.buffers)-1].ReadOnlyData()[:x.lastTo])
+}
+
+func (x *BuffersSlice) bytesSeq(yield func(byte) bool) {
+	var buf []byte
+	for !x.IsEmpty() {
+		buf = x.buffers[0].ReadOnlyData()
+		if len(x.buffers) == 1 {
+			buf = buf[:x.lastTo]
+		}
+
+		for x.curOff < len(buf) {
+			cnt := yield(buf[x.curOff])
+			x.curOff++
+			if !cnt {
+				if x.curOff == len(buf) {
+					x.buffers = x.buffers[1:]
+					x.curOff = 0
+				}
+				return
+			}
+		}
+
+		x.buffers = x.buffers[1:]
+		x.curOff = 0
+	}
+}
+
+func (x *BuffersSlice) MoveNext(n int) (BuffersSlice, error) {
+	if len(x.buffers) == 0 {
+		if n > 0 {
+			return BuffersSlice{}, io.ErrUnexpectedEOF
+		}
+		return BuffersSlice{}, nil
+	}
+
+	sub := *x
+	var ln int
+
+	for i := 0; ; i++ {
+		if i == 0 {
+			if len(x.buffers) == 1 {
+				ln = x.lastTo - x.curOff
+			} else {
+				ln = x.buffers[0].Len() - x.curOff
+			}
+		} else if i < len(x.buffers)-1 {
+			ln = x.buffers[i].Len()
+		} else {
+			ln = x.lastTo
+		}
+
+		if n > ln {
+			if i == len(x.buffers)-1 {
+				break
+			}
+			n -= ln
+			continue
+		}
+
+		if n < ln {
+			x.buffers = x.buffers[i:]
+			if i == 0 {
+				x.curOff += n
+			} else {
+				x.curOff = 0
+			}
+		} else {
+			x.buffers = x.buffers[i+1:]
+			x.curOff = 0
+		}
+
+		sub.buffers = sub.buffers[:i+1]
+		sub.lastTo = n
+		if i == 0 {
+			sub.lastTo += sub.curOff
+		}
+		return sub, nil
+	}
+
+	return BuffersSlice{}, io.ErrUnexpectedEOF
+}
+
+// TODO: docs.
+func (x *BuffersSlice) ReadOnlyData() []byte {
+	if len(x.buffers) == 0 {
+		return []byte{}
+	}
+
+	if len(x.buffers) == 1 {
+		return x.buffers[0].ReadOnlyData()[x.curOff:x.lastTo]
+	}
+
+	buf := make([]byte, x.Len())
+	return buf[:x.CopyTo(buf)]
+}
+
+func (x BuffersSlice) Len() int {
+	if len(x.buffers) == 0 {
+		return 0
+	}
+
+	var ln int
+	for buf := range x.buffersSeq {
+		ln += len(buf)
+	}
+
+	return ln
+}
+
+func (x BuffersSlice) HashTo(h hash.Hash) {
+	if len(x.buffers) == 0 {
+		return
+	}
+
+	for buf := range x.buffersSeq {
+		h.Write(buf)
+	}
+}
+
+func (x BuffersSlice) CopyTo(dst []byte) int {
+	if len(x.buffers) == 0 {
+		return 0
+	}
+	var n int
+	for buf := range x.buffersSeq {
+		n += copy(dst[n:], buf)
+	}
+	return n
 }
