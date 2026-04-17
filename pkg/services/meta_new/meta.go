@@ -24,7 +24,7 @@ const (
 	// notificationBuffSize is a nesessary buffer for neo-go's client proper
 	// notification work; it is required to always read notifications without
 	// any blocking or making additional RPC.
-	notificationBuffSize = 100
+	notificationBuffSize = 10000
 )
 
 func newNotifier() objectNotifier {
