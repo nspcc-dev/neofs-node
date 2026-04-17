@@ -6,6 +6,8 @@ import (
 	"errors"
 	"slices"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -27,22 +29,38 @@ const (
 	notificationBuffSize = 10000
 )
 
-func newNotifier() objectNotifier {
-	return objectNotifier{
-		subs: make(map[oid.Address]chan<- struct{}),
+func newNotifier(metaSvc *Meta) *objectNotifier {
+	return &objectNotifier{
+		metaSvc: metaSvc,
+		subs:    make(map[oid.Address]objSubInfo),
 	}
 }
 
+type objSubInfo struct {
+	ch                       chan<- struct{}
+	timeSubscriptionStarted  time.Time
+	blockSubscriptionStarted uint32
+}
+
 type objectNotifier struct {
+	metaSvc *Meta
+
 	m    sync.Mutex
-	subs map[oid.Address]chan<- struct{}
+	subs map[oid.Address]objSubInfo
 }
 
 func (on *objectNotifier) subscribe(addr oid.Address, ch chan<- struct{}) {
+	subTime := time.Now()
+	subBlock := on.metaSvc.chainHeigh.Load()
+
 	on.m.Lock()
 	defer on.m.Unlock()
 
-	on.subs[addr] = ch
+	on.subs[addr] = objSubInfo{
+		ch:                       ch,
+		timeSubscriptionStarted:  subTime,
+		blockSubscriptionStarted: subBlock,
+	}
 }
 
 func (on *objectNotifier) unsubscribe(addr oid.Address) {
@@ -53,14 +71,29 @@ func (on *objectNotifier) unsubscribe(addr oid.Address) {
 }
 
 func (on *objectNotifier) notifyReceived(addr oid.Address) {
-	on.m.Lock()
-	defer on.m.Unlock()
+	var (
+		timeTook   time.Duration
+		blocksTook uint32
+		currHeight = on.metaSvc.chainHeigh.Load()
+	)
 
-	ch, ok := on.subs[addr]
+	on.m.Lock()
+
+	sub, ok := on.subs[addr]
 	if ok {
-		close(ch)
+		close(sub.ch)
 		delete(on.subs, addr)
+
+		timeTook = time.Since(sub.timeSubscriptionStarted)
+		blocksTook = currHeight - sub.blockSubscriptionStarted
 	}
+
+	on.m.Unlock()
+
+	on.metaSvc.l.Info("DEBUG: object notification handled", zap.Stringer("addr", addr), zap.Duration("timeTook", timeTook), zap.Uint32("blocksTook", blocksTook))
+
+	on.metaSvc.metrics.objAcceptTime.Observe(timeTook.Seconds())
+	on.metaSvc.metrics.objAcceptBlocks.Observe(float64(blocksTook))
 }
 
 // Meta handles object meta information received from FS chain and object
@@ -69,12 +102,15 @@ func (on *objectNotifier) notifyReceived(addr oid.Address) {
 type Meta struct {
 	l *zap.Logger
 
+	metrics metrics
+
+	chainHeigh  atomic.Uint32
 	ch          *sidechain.SideChain
 	magicNumber uint32
 	bCh         chan *block.Header
 	evsCh       chan *state.ContainedNotificationEvent
 
-	notifier objectNotifier
+	notifier *objectNotifier
 }
 
 const blockBuffSize = 1024
@@ -103,13 +139,18 @@ func New(p Parameters) (*Meta, error) {
 		return nil, err
 	}
 
-	return &Meta{
-		l:        p.Logger,
-		ch:       p.Chain,
-		bCh:      make(chan *block.Header, blockBuffSize),
-		evsCh:    make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		notifier: newNotifier(),
-	}, nil
+	m := &Meta{
+		l:     p.Logger,
+		ch:    p.Chain,
+		bCh:   make(chan *block.Header, blockBuffSize),
+		evsCh: make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+	}
+	notifier := newNotifier(m)
+	m.notifier = notifier
+
+	m.addMetrics()
+
+	return m, nil
 }
 
 func (m *Meta) MagicNumber() uint32 {

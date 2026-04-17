@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -504,6 +505,8 @@ func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCo
 		t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 	}
 
+	start := time.Now()
+
 	err := t.metaSvc.SubmitObjectPut(t.metaCollection.metaTransaction, t.metaCollection.signatures)
 	if err != nil {
 		if await {
@@ -511,6 +514,9 @@ func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCo
 		}
 		return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
 	}
+
+	submittingTook := time.Since(start)
+	start = time.Now()
 
 	if await {
 		select {
@@ -521,7 +527,9 @@ func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCo
 		}
 	}
 
-	t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
+	awaitingTook := time.Since(start)
+
+	t.placementIterator.log.Info("DEBUG: submitted object meta information", zap.Stringer("addr", addr), zap.Duration("submittingTook", submittingTook), zap.Duration("awaitingTook", awaitingTook))
 
 	return nil
 }
