@@ -122,6 +122,10 @@ func objectStatusNested(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64, n
 }
 
 func objectStatusDirect(metaCursor *bbolt.Cursor, oID oid.ID, currEpoch uint64) uint8 {
+	if containerMarkedGC(metaCursor) {
+		return statusGCMarked
+	}
+
 	if isExpired(metaCursor, oID, currEpoch) {
 		if objectLocked(currEpoch, metaCursor, oID) {
 			return statusAvailable
@@ -218,10 +222,6 @@ func mkGarbageKey(id oid.ID) []byte {
 // inGarbage checks for tombstone and garbage marks of the given ID using
 // the given meta bucket cursor.
 func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
-	if containerMarkedGC(metaCursor) {
-		return statusGCMarked
-	}
-
 	deleted, _ := associatedWithTypedObject(0, metaCursor, id, object.TypeTombstone)
 	if deleted {
 		return statusTombstoned

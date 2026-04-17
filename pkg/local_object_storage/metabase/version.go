@@ -206,6 +206,9 @@ func syncCounter7Version(tx *bbolt.Tx, force bool) error {
 
 	err = iteratePhyObjects(tx, func(c *bbolt.Cursor, obj oid.ID) error {
 		phyCounter++
+		if containerMarkedGC(c) {
+			return nil
+		}
 
 		typ, err := fetchTypeForID(c, obj)
 		// check if an object is available: not with GCMark

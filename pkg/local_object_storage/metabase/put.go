@@ -24,7 +24,8 @@ const maxObjectNestingLevel = 2
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [object.TypeLock]
 // type and there is an object of [object.TypeTombstone] type associated with
-// the same target.
+// the same target. Returns [apistatus.ErrObjectAlreadyRemoved] if the target
+// container is marked with GC.
 func (db *DB) PutCounted(obj *object.Object) (CountersDiff, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -118,6 +119,12 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 		return diff, err
 	}
 
+	cnr := obj.GetContainerID()
+	metaBkt := tx.Bucket(metaBucketKey(cnr))
+	if metaBkt != nil && containerMarkedGC(metaBkt.Cursor()) {
+		return diff, logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
+	}
+
 	exists, err := db.exists(tx, obj.Address(), currEpoch, false)
 
 	switch {
@@ -146,10 +153,11 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 		diff.Payload += int64(obj.PayloadSize())
 	}
 
-	cnr := obj.GetContainerID()
-	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnr))
-	if err != nil {
-		return diff, fmt.Errorf("create meta bucket for %s container: %w", cnr, err)
+	if metaBkt == nil {
+		metaBkt, err = tx.CreateBucketIfNotExists(metaBucketKey(cnr))
+		if err != nil {
+			return diff, fmt.Errorf("create meta bucket for %s container: %w", cnr, err)
+		}
 	}
 
 	switch obj.Type() {

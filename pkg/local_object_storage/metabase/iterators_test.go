@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -33,12 +34,20 @@ func TestDB_IterateExpired(t *testing.T) {
 	locker.AssociateLocked(expiredLocked.Object())
 	require.NoError(t, db.Put(locker))
 
-	err := db.IterateExpired(epoch, func(addr oid.Address, typ object.Type) error {
+	gcExpired := generateObjectWithCID(t, cidtest.ID())
+	gcExpired.SetType(object.TypeRegular)
+	addAttribute(gcExpired, object.AttributeExpirationEpoch, strconv.FormatUint(epoch-1, 10))
+	require.NoError(t, putBig(db, gcExpired))
+	_, err := db.InhumeContainer(gcExpired.GetContainerID())
+	require.NoError(t, err)
+
+	err = db.IterateExpired(epoch, func(addr oid.Address, typ object.Type) error {
 		if alive, ok := mAlive[typ]; ok {
 			require.NotEqual(t, alive, addr)
 		}
 
 		require.NotEqual(t, expiredLocked, addr)
+		require.NotEqual(t, gcExpired.Address(), addr)
 
 		exp, ok := mExpired[typ]
 		require.True(t, ok)

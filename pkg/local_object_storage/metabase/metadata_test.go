@@ -415,6 +415,18 @@ func TestDB_SearchObjects(t *testing.T) {
 		t.Run("paginated", func(t *testing.T) {
 			assertSearchResult(t, db, cnr, nil, nil, all)
 		})
+		t.Run("container marked as garbage", func(t *testing.T) {
+			gcCnr := cidtest.ID()
+			obj := object.New(gcCnr, usertest.ID())
+			obj.SetID(oidtest.ID())
+			obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
+			require.NoError(t, db.Put(obj))
+
+			_, err := db.InhumeContainer(gcCnr)
+			require.NoError(t, err)
+
+			assertSearchResult(t, db, gcCnr, nil, nil, nil)
+		})
 		t.Run("corrupted element", func(t *testing.T) {
 			err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 				mbk := [1 + cid.Size]byte{0xFF}
