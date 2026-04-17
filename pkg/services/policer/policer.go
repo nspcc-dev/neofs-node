@@ -105,6 +105,14 @@ type (
 		// metric based on background check progress. `true` is for the
 		// optimal placement, `false` for the opposite one.
 		SetPolicerOptimalPlacement(bool)
+		// IncPolicerCycleCount increments number of completed policer cycles.
+		IncPolicerCycleCount()
+		// IncPolicerObjectProcessed increments processed objects counter.
+		IncPolicerObjectProcessed(isEC bool)
+		// IncPolicerObjectReplicated increments replicated objects counter.
+		IncPolicerObjectReplicated(isEC bool)
+		// IncPolicerObjectDeleted increments deleted objects counter.
+		IncPolicerObjectDeleted(isEC bool)
 	}
 )
 
@@ -130,12 +138,22 @@ type cfg struct {
 	network Network
 }
 
+type nopMetricsCollector struct{}
+
+func (nopMetricsCollector) SetPolicerConsistency(bool)      {}
+func (nopMetricsCollector) SetPolicerOptimalPlacement(bool) {}
+func (nopMetricsCollector) IncPolicerCycleCount()           {}
+func (nopMetricsCollector) IncPolicerObjectProcessed(bool)  {}
+func (nopMetricsCollector) IncPolicerObjectReplicated(bool) {}
+func (nopMetricsCollector) IncPolicerObjectDeleted(bool)    {}
+
 func defaultCfg() *cfg {
 	return &cfg{
 		log:           zap.L(),
 		batchSize:     10,
 		rebalanceFreq: 1 * time.Second,
 		repCooldown:   1 * time.Second,
+		metrics:       nopMetricsCollector{},
 	}
 }
 

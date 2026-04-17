@@ -93,6 +93,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	cursor = engine.NewCursor(stopAddr.Container(), stopAddr.Object())
 
 	cycleFinished := func() {
+		p.metrics.IncPolicerCycleCount()
 		cleanShortageCycle := !p.hadReplicaShortage.Swap(false)
 		cleanPlacementCycle := !p.hadPlacementMismatch.Swap(false)
 		if cleanShortageCycle {

@@ -87,6 +87,8 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			zap.Stringer("object", addr), zap.Error(err))
 		return
 	}
+	isEC := ecp.RuleIndex >= 0
+	p.metrics.IncPolicerObjectProcessed(isEC)
 
 	selectNodesAddr := addr
 	if ecp.RuleIndex >= 0 {
@@ -106,7 +108,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			zap.Error(err),
 		)
 		if container.IsErrNotFound(err) {
-			err = p.localStorage.Delete(addrWithAttrs.Address)
+			err = p.deleteLocalObject(addrWithAttrs.Address, isEC)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
@@ -125,7 +127,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		}
 		p.log.Info("object with EC attributes in container without EC rules detected, deleting",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", ecp.RuleIndex), zap.Int("partIdx", ecp.Index))
-		if err := p.localStorage.Delete(addr); err != nil {
+		if err := p.deleteLocalObject(addr, true); err != nil {
 			p.log.Error("failed to delete local object with excessive EC attributes",
 				zap.Stringer("object", addr), zap.Error(err))
 		}
@@ -147,7 +149,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		} else if len(repRules) == 0 {
 			p.log.Info("object with lacking EC attributes detected, deleting",
 				zap.Stringer("object", addr))
-			if err := p.localStorage.Delete(addr); err != nil {
+			if err := p.deleteLocalObject(addr, false); err != nil {
 				p.log.Error("failed to delete local object with lacking EC attributes",
 					zap.Stringer("object", addr), zap.Error(err))
 			}
@@ -215,7 +217,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			)
 		}
 
-		p.dropRedundantLocalObject(addr)
+		p.dropRedundantLocalObject(addr, false)
 		return
 	}
 
@@ -341,7 +343,11 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Uint32("shortage", shortage),
 		)
 
-		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, plc.checkedNodes)
+		result := newReplicationResultTracker(plc.checkedNodes)
+		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, &result)
+		if result.done {
+			p.metrics.IncPolicerObjectReplicated(false)
+		}
 	} else if len(candidates) > 0 {
 		// The required number of replicas exists, but some primary placement
 		// nodes are missing the object. Replicate to them so that the placement
@@ -354,7 +360,11 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Int("misplaced", len(candidates)),
 		)
 
-		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, plc.checkedNodes)
+		result := newReplicationResultTracker(plc.checkedNodes)
+		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, &result)
+		if result.done {
+			p.metrics.IncPolicerObjectReplicated(false)
+		}
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
@@ -364,12 +374,20 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 	}
 }
 
-func (p *Policer) dropRedundantLocalObject(addr oid.Address) {
-	err := p.localStorage.Delete(addr)
+func (p *Policer) dropRedundantLocalObject(addr oid.Address, isEC bool) {
+	err := p.deleteLocalObject(addr, isEC)
 	if err != nil {
 		p.log.Warn("could not inhume mark redundant copy as garbage",
 			zap.Error(err))
 	}
+}
+
+func (p *Policer) deleteLocalObject(addr oid.Address, isEC bool) error {
+	err := p.localStorage.Delete(addr)
+	if err == nil {
+		p.metrics.IncPolicerObjectDeleted(isEC)
+	}
+	return err
 }
 
 func (p *Policer) dropRedundantLocalCopies(obj objectcore.AddressWithAttributes) {
@@ -399,4 +417,20 @@ func (p *Policer) tryToReplicate(ctx context.Context, addr oid.Address, shortage
 	task.SetCopiesNumber(shortage)
 
 	p.replicator.HandleTask(ctx, task, res)
+}
+
+type replicationResultTracker struct {
+	replicator.TaskResult
+	done bool
+}
+
+func newReplicationResultTracker(res replicator.TaskResult) replicationResultTracker {
+	return replicationResultTracker{TaskResult: res}
+}
+
+func (x *replicationResultTracker) SubmitSuccessfulReplication(node netmap.NodeInfo) {
+	x.done = true
+	if x.TaskResult != nil {
+		x.TaskResult.SubmitSuccessfulReplication(node)
+	}
 }
