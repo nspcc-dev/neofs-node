@@ -2,6 +2,7 @@ package meta
 
 import (
 	"context"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -10,6 +11,7 @@ import (
 )
 
 func (m *Meta) blockHandler(ctx context.Context, buff <-chan *block.Header) {
+	var prevBlockFetchTime time.Time
 	for {
 		if len(buff) >= blockBuffSize-1 {
 			m.l.Warn("block header buffer has been completely filled")
@@ -19,9 +21,21 @@ func (m *Meta) blockHandler(ctx context.Context, buff <-chan *block.Header) {
 		case <-ctx.Done():
 			return
 		case b := <-buff:
+			var (
+				firstIteration     = prevBlockFetchTime.IsZero()
+				blockReceivedAfter = time.Since(prevBlockFetchTime)
+			)
+			prevBlockFetchTime = time.Now()
+
 			h := b.Hash()
 			ind := b.Index
 			m.l.Debug("received block", zap.Stringer("block hash", h), zap.Uint32("index", ind))
+
+			m.chainHeight.Store(ind)
+
+			if !firstIteration {
+				m.metrics.newBlockFetchTime.Observe(blockReceivedAfter.Seconds())
+			}
 		}
 	}
 }

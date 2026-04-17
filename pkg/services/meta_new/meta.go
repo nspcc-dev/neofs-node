@@ -92,7 +92,7 @@ type objectNotifier struct {
 func (on *objectNotifier) subscribe(o object.Object, ch chan<- struct{}, h util.Uint256) {
 	var (
 		subTime  = time.Now()
-		subBlock = on.metaSvc.chainHeigh.Load()
+		subBlock = on.metaSvc.chainHeight.Load()
 		addr     = o.Address()
 	)
 
@@ -119,7 +119,7 @@ func (on *objectNotifier) notifyReceived(addr oid.Address) {
 	var (
 		timeTook   time.Duration
 		blocksTook uint32
-		currHeight = on.metaSvc.chainHeigh.Load()
+		currHeight = on.metaSvc.chainHeight.Load()
 	)
 
 	on.m.Lock()
@@ -151,11 +151,12 @@ func (on *objectNotifier) notifyReceived(addr oid.Address) {
 // Meta handles object meta information received from metadata chain and object
 // storages. It must be created using [New].
 type Meta struct {
-	l *zap.Logger
+	l       *zap.Logger
+	metrics metrics
 
 	net NeoFSNetwork
 
-	chainHeigh  atomic.Uint32
+	chainHeight atomic.Uint32
 	chain       MetaChain
 	magicNumber uint32
 	bCh         chan *block.Header
@@ -246,6 +247,8 @@ func New(p Parameters) (*Meta, error) {
 	notifier := newNotifier(m)
 	m.notifier = notifier
 
+	m.addMetrics()
+
 	return m, nil
 }
 
@@ -297,7 +300,13 @@ func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]neofs
 
 	tx.Scripts[0].InvocationScript = invokBuff.Bytes()
 
-	return m.chain.AddTx(tx)
+	m.l.Debug("sending transaction to chain...", zap.String("txHash", tx.Hash().StringLE()))
+	now := time.Now()
+	err := m.chain.AddTx(tx)
+	took := time.Since(now)
+	m.l.Debug("sent transaction to chain", zap.String("txHash", tx.Hash().StringLE()), zap.Duration("took", took), zap.Error(err))
+
+	return err
 }
 
 // Run starts notification handling. Must be called only on instances created
