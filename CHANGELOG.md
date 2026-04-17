@@ -17,7 +17,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)
-- Optimized integer comparison in SearchV2 (#3938)
+- Optimized integer comparison in SearchV2 (#3938, #3947)
 - Optimized number of nodes for SEARCH in EC containers (#3940)
 - Optimized post-initial placement replication (#3923)
 - All regular state-modifying DB operations are batched now (was Put-only, #3942)

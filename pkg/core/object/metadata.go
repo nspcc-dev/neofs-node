@@ -7,12 +7,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -281,9 +281,10 @@ var (
 	MetaAttributeDelimiter = []byte{0x00}
 	metaOIDPrefix          = []byte{metaPrefixID}
 
-	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
-	maxUint256Neg = new(big.Int).Neg(maxUint256)
+	maxSigned256       = signed256.Max()
+	minSigned256       = signed256.Min()
+	maxSigned256Digits = maxSigned256.String()
+	minSigned256Digits = strings.TrimPrefix(minSigned256.String(), "-")
 )
 
 // SearchCursor is a cursor used for continuous search in the meta indexes
@@ -301,8 +302,6 @@ type SearchFilter struct {
 	object.SearchFilter
 	// AutoMatch means every existing value is acceptable for filters.
 	AutoMatch bool
-	// Parsed is parsed integer value from filter.
-	Parsed *big.Int
 	// RawValue is raw attribute value in the original form.
 	Raw []byte
 }
@@ -345,7 +344,9 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 	var more bool
 	var id, dbVal, primDBVal []byte
 	var wasPrimMatch bool
-	dbValInt := new(big.Int)
+	var dbValInt signed256.Int
+	fltVals := make([]signed256.Int, len(fs))
+	fltValReady := make([]bool, len(fs))
 
 	return func(k, v []byte) bool {
 		defer func() {
@@ -439,10 +440,24 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 				var matches bool
 				if IsIntegerSearchOp(m) {
 					if !dbValIsInt {
-						_, dbValIsInt = dbValInt.SetString(string(dbVal), 10)
+						dbValInt, err = signed256.ParseDecimal(string(dbVal))
+						dbValIsInt = err == nil
 					}
 					if dbValIsInt {
-						matches = fs[j].AutoMatch || intMatches(dbValInt, m, fs[j].Parsed)
+						if !fs[j].AutoMatch {
+							if !fltValReady[j] {
+								v, err := parseNumericFilterValue(fs[j])
+								if err != nil {
+									resHolder.Err = fmt.Errorf("invalid numeric filter: %w", err)
+									return false
+								}
+								fltVals[j] = v
+								fltValReady[j] = true
+							}
+							matches = intMatches(dbValInt, m, &fltVals[j])
+						} else {
+							matches = true
+						}
 					}
 				} else {
 					checkedDBVal, fltVal, err := combineValues(attr, dbVal, val) // TODO: deduplicate DB value preparation
@@ -630,22 +645,11 @@ func matchValues(dbVal []byte, matcher object.SearchMatchType, fltVal []byte) bo
 // RestoreIntAttribute restores from raw signed uint256 format its string
 // representation.
 func RestoreIntAttribute(b []byte) (string, error) {
-	if len(b) != intValLen {
-		return "", fmt.Errorf("invalid len %d", len(b))
+	n, err := signed256.DecodeBytes(b)
+	if err != nil {
+		return "", err
 	}
-	switch b[0] {
-	default:
-		return "", fmt.Errorf("invalid sign byte %d", b[0])
-	case 1:
-		return new(big.Int).SetBytes(b[1:]).String(), nil
-	case 0:
-		cp := slices.Clone(b[1:])
-		for i := range cp {
-			cp[i] = ^cp[i]
-		}
-		n := new(big.Int).SetBytes(cp)
-		return n.Neg(n).String(), nil
-	}
+	return n.String(), nil
 }
 
 func restoreAttributeValue(attr string, stored []byte) (string, error) {
@@ -664,7 +668,7 @@ func restoreAttributeValue(attr string, stored []byte) (string, error) {
 	return string(stored), nil
 }
 
-func intMatches(dbVal *big.Int, matcher object.SearchMatchType, fltVal *big.Int) bool {
+func intMatches(dbVal signed256.Int, matcher object.SearchMatchType, fltVal *signed256.Int) bool {
 	switch matcher {
 	default:
 		panic(fmt.Errorf("unexpected integer matcher %d", matcher))
@@ -774,9 +778,15 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 	if blindlyProcess(fs) {
 		return nil, nil, ErrUnreachableQuery
 	}
-	ofs, err := parseIntFilters(fs)
-	if err != nil {
-		return nil, nil, err
+	var ofs []SearchFilter
+	var err error
+	if hasIntFilters(fs) {
+		ofs, err = parseIntFilters(fs)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		ofs = wrapSearchFilters(fs)
 	}
 
 	if oidSorted {
@@ -809,6 +819,23 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 		}
 	}
 	return ofs, &SearchCursor{PrimaryKeysPrefix: primKeysPrefix, PrimarySeekKey: primSeekKey}, nil
+}
+
+func hasIntFilters(fs object.SearchFilters) bool {
+	for i := range fs {
+		if IsIntegerSearchOp(fs[i].Operation()) {
+			return true
+		}
+	}
+	return false
+}
+
+func wrapSearchFilters(fs object.SearchFilters) []SearchFilter {
+	ofs := make([]SearchFilter, len(fs))
+	for i := range fs {
+		ofs[i].SearchFilter = fs[i]
+	}
+	return ofs
 }
 
 func decodeOIDFromCursor(cursor string) ([]byte, error) {
@@ -847,11 +874,12 @@ func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, error) {
 		if !IsIntegerSearchOp(m) {
 			continue
 		}
-		n, ok := new(big.Int).SetString(val, 10)
-		if !ok {
+		neg, digits, err := splitIntString(val)
+		if err != nil {
 			return nil, fmt.Errorf("non-integer value in numeric filter number %d", i)
 		}
-		if c := n.Cmp(maxUint256); c >= 0 {
+		c := compareNormalizedDigits(digits, maxSigned256Digits)
+		if !neg && c >= 0 {
 			if c > 0 {
 				return nil, fmt.Errorf("too big integer in numeric filter number %d", i)
 			}
@@ -859,51 +887,61 @@ func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, error) {
 				return nil, ErrUnreachableQuery
 			}
 			ofs[i].AutoMatch = m == object.MatchNumLE
-		} else if c = n.Cmp(maxUint256Neg); c <= 0 {
-			if c < 0 {
+		} else if neg {
+			c = compareNormalizedDigits(digits, minSigned256Digits)
+			if c > 0 {
 				return nil, fmt.Errorf("too low integer in numeric filter number %d", i)
 			}
-			if m == object.MatchNumLT {
+			if c == 0 && m == object.MatchNumLT {
 				return nil, ErrUnreachableQuery
 			}
-			ofs[i].AutoMatch = m == object.MatchNumGE
+			ofs[i].AutoMatch = c == 0 && m == object.MatchNumGE
 		}
 		if !ofs[i].AutoMatch {
 			if i == 0 || IsIntegerSearchOp(fs[0].Operation()) && fs[i].Header() == fs[0].Header() {
-				ofs[i].Raw = BigIntBytes(n)
+				n, err := signed256.ParseNormalizedDecimal(neg, digits)
+				if err != nil {
+					return nil, fmt.Errorf("non-integer value in numeric filter number %d", i)
+				}
+				ofs[i].Raw = IntBytes(&n)
 			}
-			ofs[i].Parsed = n
 		}
 		// TODO: #1148 there are more auto-cases (like <=X AND >=X, <X AND >X), cover more here
 	}
 	return ofs, nil
 }
 
-// BigIntBytes returns integer's raw representation. Int must belong to
-// [-maxUint256; maxUint256] interval. Result's length is fixed: 33 bytes,
-// first describes sign.
-func BigIntBytes(n *big.Int) []byte {
-	b := make([]byte, intValLen)
-	putInt(b, n)
-	return b
+func compareNormalizedDigits(a, b string) int {
+	if len(a) != len(b) {
+		if len(a) < len(b) {
+			return -1
+		}
+		return 1
+	}
+	return strings.Compare(a, b)
 }
 
-func putInt(b []byte, n *big.Int) {
+func parseNumericFilterValue(f SearchFilter) (signed256.Int, error) {
+	neg, digits, err := splitIntString(f.Value())
+	if err != nil {
+		return signed256.Int{}, err
+	}
+	return signed256.ParseNormalizedDecimal(neg, digits)
+}
+
+// IntBytes returns integer's raw representation. Int must belong to
+// [-maxUint256; maxUint256] interval. Result's length is fixed: 33 bytes,
+// first describes sign.
+func IntBytes(n *signed256.Int) []byte {
+	res := n.EncodeBytes()
+	return res[:]
+}
+
+func putInt(b []byte, n *signed256.Int) {
 	if len(b) < intValLen {
 		panic(fmt.Errorf("insufficient buffer len %d", len(b)))
 	}
-	neg := n.Sign() < 0
-	if neg {
-		b[0] = 0
-	} else {
-		b[0] = 1
-	}
-	n.FillBytes(b[1:intValLen])
-	if neg {
-		for i := range b[1:] {
-			b[1+i] = ^b[1+i]
-		}
-	}
+	n.FillBytes(b[:intValLen])
 }
 
 // CalculateCursor calculates cursor for the given last search result item.
@@ -925,14 +963,14 @@ func CalculateCursor(filt *object.SearchFilter, lastItem client.SearchResultItem
 	switch attr {
 	default:
 		if IsIntegerSearchOp(filt.Operation()) {
-			n, ok := new(big.Int).SetString(lastItemVal, 10)
-			if !ok {
+			n, err := signed256.ParseDecimal(lastItemVal)
+			if err != nil {
 				return nil, fmt.Errorf("non-int attribute value %q with int matcher", lastItemVal)
 			}
 			res := make([]byte, len(attr)+attributeDelimiterLen+intValLen+oid.Size)
 			off := copy(res, attr)
 			off += copy(res[off:], MetaAttributeDelimiter)
-			putInt(res[off:off+intValLen], n)
+			putInt(res[off:off+intValLen], &n)
 			copy(res[off+intValLen:], lastItem.ID[:])
 			return res, nil
 		}

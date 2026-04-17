@@ -3,9 +3,9 @@ package meta
 import (
 	"bytes"
 	"crypto/sha256"
-	"math/big"
 
 	"github.com/nspcc-dev/bbolt"
+	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -107,7 +107,10 @@ func isObjectType(cur *bbolt.Cursor, obj oid.ID, typ object.Type) bool {
 	return bytes.Equal(k, typeKey)
 }
 
-func parseInt(s string) (*big.Int, bool) { return new(big.Int).SetString(s, 10) }
+func parseInt(s string) (signed256.Int, bool) {
+	n, err := signed256.ParseDecimal(s)
+	return n, err == nil
+}
 
 type keyBuffer []byte
 

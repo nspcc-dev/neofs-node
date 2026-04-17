@@ -2,13 +2,13 @@ package meta
 
 import (
 	"math"
-	"math/big"
 	"math/rand"
 	"path"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
+	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/stretchr/testify/require"
 )
@@ -21,22 +21,32 @@ func TestIntBucketOrder(t *testing.T) {
 		_ = db.Close()
 	})
 
-	ns := []*big.Int{
-		maxUint256Neg,
-		new(big.Int).Add(maxUint256Neg, big.NewInt(1)),
-		big.NewInt(math.MinInt64),
-		big.NewInt(-1),
-		big.NewInt(0),
-		big.NewInt(1),
-		new(big.Int).SetUint64(math.MaxUint64),
-		new(big.Int).Sub(maxUint256, big.NewInt(1)),
-		maxUint256,
+	minSigned := signed256.Min()
+	maxSigned := signed256.Max()
+	one := signed256.NewInt(1)
+	minPlusOne := signed256.Int{}
+	require.NoError(t, minPlusOne.Add(&minSigned, &one))
+	minusOne := signed256.NewInt(-1)
+	maxMinusOne := signed256.Int{}
+	require.NoError(t, maxMinusOne.Add(&maxSigned, &minusOne))
+	maxUint64 := signed256.NewUint64(math.MaxUint64)
+
+	ns := []signed256.Int{
+		minSigned,
+		minPlusOne,
+		signed256.NewInt(math.MinInt64),
+		minusOne,
+		signed256.NewInt(0),
+		one,
+		maxUint64,
+		maxMinusOne,
+		maxSigned,
 	}
 	rand.Shuffle(len(ns), func(i, j int) { ns[i], ns[j] = ns[j], ns[i] })
 
 	changeSet := make(map[string][]byte)
 	for _, n := range ns {
-		changeSet[string(objectcore.BigIntBytes(n))] = []byte{}
+		changeSet[string(objectcore.IntBytes(&n))] = []byte{}
 	}
 	err = db.PutChangeSet(changeSet, nil)
 	require.NoError(t, err)

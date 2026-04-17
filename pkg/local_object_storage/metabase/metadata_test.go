@@ -5,13 +5,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
-	"math/big"
 	"math/rand"
 	"slices"
 	"testing"
 
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
+	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	metatest "github.com/nspcc-dev/neofs-node/pkg/util/meta/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -219,16 +219,27 @@ func TestPutMetadata(t *testing.T) {
 
 func TestIntBucketOrder(t *testing.T) {
 	db := newDB(t)
-	ns := []*big.Int{
-		maxUint256Neg,
-		new(big.Int).Add(maxUint256Neg, big.NewInt(1)),
-		big.NewInt(math.MinInt64),
-		big.NewInt(-1),
-		big.NewInt(0),
-		big.NewInt(1),
-		new(big.Int).SetUint64(math.MaxUint64),
-		new(big.Int).Sub(maxUint256, big.NewInt(1)),
-		maxUint256,
+	minSigned := signed256.Min()
+	maxSigned := signed256.Max()
+	minusOne := signed256.NewInt(-1)
+	zero := signed256.NewInt(0)
+	one := signed256.NewInt(1)
+	minPlusOne := signed256.Int{}
+	require.NoError(t, minPlusOne.Add(&minSigned, &one))
+	maxMinusOne := signed256.Int{}
+	require.NoError(t, maxMinusOne.Add(&maxSigned, &minusOne))
+	maxUint64 := signed256.NewUint64(math.MaxUint64)
+
+	ns := []signed256.Int{
+		minSigned,
+		minPlusOne,
+		signed256.NewInt(math.MinInt64),
+		minusOne,
+		zero,
+		one,
+		maxUint64,
+		maxMinusOne,
+		maxSigned,
 	}
 	rand.Shuffle(len(ns), func(i, j int) { ns[i], ns[j] = ns[j], ns[i] })
 
@@ -238,7 +249,7 @@ func TestIntBucketOrder(t *testing.T) {
 			return err
 		}
 		for _, n := range ns {
-			if err := b.Put(objectcore.BigIntBytes(n), nil); err != nil {
+			if err := b.Put(objectcore.IntBytes(&n), nil); err != nil {
 				return err
 			}
 		}
@@ -277,11 +288,6 @@ func cloneFilters(src []objectcore.SearchFilter) []objectcore.SearchFilter {
 	}
 	dst := slices.Clone(src)
 	for k, f := range src {
-		var n *big.Int
-		if f.Parsed != nil {
-			n = new(big.Int).Set(f.Parsed)
-		}
-		dst[k].Parsed = n
 		dst[k].Raw = slices.Clone(f.Raw)
 	}
 	return dst
