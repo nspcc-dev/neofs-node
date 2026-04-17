@@ -53,10 +53,7 @@ func (c senderClassifier) classify(idCnr cid.ID, cnrOwner, reqAuthor user.ID, re
 }
 
 func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
-	innerRingKeys, err := c.innerRing.InnerRingKeys()
-	if err != nil {
-		return false, err
-	}
+	innerRingKeys := c.innerRing.InnerRingKeys()
 
 	// if request owner key in the inner ring list, return RoleSystem
 	for i := range innerRingKeys {

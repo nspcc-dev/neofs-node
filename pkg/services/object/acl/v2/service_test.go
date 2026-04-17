@@ -47,8 +47,8 @@ func (x *mockFSChain) HasUserInNNS(string, util.Uint160) (bool, error) {
 type mockIR struct {
 }
 
-func (x *mockIR) InnerRingKeys() ([][]byte, error) {
-	return nil, nil
+func (x *mockIR) InnerRingKeys() [][]byte {
+	return nil
 }
 
 type mockTimeProvider struct{}
