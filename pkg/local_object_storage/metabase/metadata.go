@@ -307,8 +307,11 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	if metaBkt == nil {
 		return nil, nil, nil
 	}
-
 	primCursor := metaBkt.Cursor()
+	if containerMarkedGC(primCursor) {
+		return nil, nil, nil
+	}
+
 	primKey, _ := primCursor.Seek(cursor.PrimarySeekKey)
 	if bytes.Equal(primKey, cursor.PrimarySeekKey) { // points to the last response element, so go next
 		primKey, _ = primCursor.Next()
@@ -360,8 +363,11 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 		if mb == nil {
 			return nil
 		}
-
 		mbc := mb.Cursor()
+		if containerMarkedGC(mbc) {
+			return nil
+		}
+
 		k, _ := mbc.Seek(cursor.PrimarySeekKey)
 		if cursor != nil && bytes.Equal(k, cursor.PrimarySeekKey) { // cursor is the last response element, so go next
 			k, _ = mbc.Next()

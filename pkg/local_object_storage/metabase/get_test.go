@@ -125,6 +125,17 @@ func TestDB_Get(t *testing.T) {
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
+	t.Run("container marked as garbage", func(t *testing.T) {
+		obj := generateObject(t)
+		require.NoError(t, putBig(db, obj))
+
+		_, err := db.InhumeContainer(obj.GetContainerID())
+		require.NoError(t, err)
+
+		_, err = metaGet(db, obj.Address(), false)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+	})
+
 	t.Run("expired object", func(t *testing.T) {
 		checkExpiredObjects(t, db, func(exp, nonExp *object.Object) {
 			gotExp, err := metaGet(db, exp.Address(), false)

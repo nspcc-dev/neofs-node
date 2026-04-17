@@ -50,13 +50,17 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 			res.HeaderIndex = append(res.HeaderIndex, HeaderField{K: slices.Clone(k), V: slices.Clone(v)})
 		}
 
-		var objLocked = objectLocked(currEpoch, metaCursor, oID)
+		var objLocked bool
+		removedStatus := inGarbage(metaCursor, oID)
+		if containerMarkedGC(metaCursor) {
+			removedStatus = statusGCMarked
+		} else {
+			objLocked = objectLocked(currEpoch, metaCursor, oID)
+		}
 
 		if objLocked {
 			res.State = append(res.State, "LOCKED")
 		}
-
-		removedStatus := inGarbage(metaCursor, oID)
 
 		var existsRegular bool
 

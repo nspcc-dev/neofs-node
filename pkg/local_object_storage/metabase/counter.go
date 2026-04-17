@@ -271,6 +271,18 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 	)
 
 	c := b.Cursor()
+	if containerMarkedGC(c) {
+		for range iterAttrVal(c, object.FilterPhysical, []byte(binPropMarker)) {
+			phyCounter++
+		}
+
+		err := resetContainerCounters(b, phyCounter)
+		if err != nil {
+			return fmt.Errorf("reset container counters: %w", err)
+		}
+		return nil
+	}
+
 	cInt := b.Cursor()
 	for obj := range iterAttrVal(c, object.FilterPhysical, []byte(binPropMarker)) {
 		phyCounter++
@@ -281,15 +293,6 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 		size, _ := strconv.ParseUint(string(sizeRaw), 10, 64)
 		usersPayloadCounter += size
 	}
-	if containerMarkedGC(c) {
-		err := resetContainerCounters(b, phyCounter)
-		if err != nil {
-			return fmt.Errorf("reset container counters: %w", err)
-		}
-
-		return nil
-	}
-
 	for range iterAttrVal(c, object.FilterRoot, []byte(binPropMarker)) {
 		rootCounter++
 	}

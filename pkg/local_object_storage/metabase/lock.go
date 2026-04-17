@@ -59,6 +59,9 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 		if mBucket == nil {
 			return nil
 		}
+		if containerMarkedGC(mBucket.Cursor()) {
+			return nil
+		}
 
 		locked = objectLocked(currEpoch, mBucket.Cursor(), addr.Object())
 		return nil
