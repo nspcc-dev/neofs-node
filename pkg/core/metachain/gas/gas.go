@@ -20,7 +20,7 @@ import (
 
 // DefaultBalance is a balance of every account in redefined [GAS] native
 // contract.
-const DefaultBalance = 100
+const DefaultBalance = 100 * native.GASFactor
 
 var _ = (native.IGAS)(&GAS{})
 
@@ -32,9 +32,6 @@ func (g *GAS) Metadata() *interop.ContractMD {
 // balance, has no-op `Burn`, `Mint`, `Transfer` operations.
 type GAS struct {
 	interop.ContractMD
-	symbol   string
-	decimals int64
-	factor   int64
 }
 
 // NewGAS returns [GAS] custom native contract.
@@ -45,9 +42,6 @@ func NewGAS() *GAS {
 	g.ContractMD = *interop.NewContractMD(nativenames.Gas, nativeids.GasToken, func(m *manifest.Manifest, hf config.Hardfork) {
 		m.SupportedStandards = []string{manifest.NEP17StandardName}
 	})
-	g.symbol = "GAS"
-	g.decimals = 8
-	g.factor = native.GASFactor
 
 	desc := native.NewDescriptor("symbol", smartcontract.StringType)
 	md := native.NewMethodAndPrice(g.Symbol, 0, callflag.NoneFlag)
@@ -75,7 +69,6 @@ func NewGAS() *GAS {
 		append(transferParams, manifest.NewParameter("data", smartcontract.AnyType))...,
 	)
 	md = native.NewMethodAndPrice(g.Transfer, 1<<17, callflag.States|callflag.AllowCall|callflag.AllowNotify)
-	md.StorageFee = 50
 	g.AddMethod(md, desc)
 
 	eDesc := native.NewEventDescriptor("Transfer", transferParams...)
@@ -112,19 +105,19 @@ func (g *GAS) ActiveIn() *config.Hardfork {
 
 // BalanceOf returns native GAS token balance for the acc.
 func (g *GAS) BalanceOf(d *dao.Simple, acc util.Uint160) *big.Int {
-	return big.NewInt(DefaultBalance * native.GASFactor)
+	return big.NewInt(DefaultBalance)
 }
 
 func (g *GAS) Symbol(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
-	return stackitem.NewByteArray([]byte(g.symbol))
+	return stackitem.NewByteArray([]byte("GAS"))
 }
 
 func (g *GAS) Decimals(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
-	return stackitem.NewBigInteger(big.NewInt(g.decimals))
+	return stackitem.NewBigInteger(big.NewInt(8))
 }
 
 func (g *GAS) TotalSupply(ic *interop.Context, _ []stackitem.Item) stackitem.Item {
-	return stackitem.NewBigInteger(big.NewInt(DefaultBalance * native.GASFactor))
+	return stackitem.NewBigInteger(big.NewInt(DefaultBalance))
 }
 
 func toUint160(s stackitem.Item) util.Uint160 {
@@ -154,13 +147,11 @@ func (g *GAS) Transfer(ic *interop.Context, args []stackitem.Item) stackitem.Ite
 		args[3],
 	}
 	cs, err := ic.GetContract(to)
-	if err != nil {
-		panic(err)
-	}
-
-	err = contract.CallFromNative(ic, g.Hash, cs, manifest.MethodOnNEP17Payment, paymentArgs, false)
-	if err != nil {
-		panic(fmt.Errorf("failed to call %s: %w", manifest.MethodOnNEP17Payment, err))
+	if err == nil {
+		err = contract.CallFromNative(ic, g.Hash, cs, manifest.MethodOnNEP17Payment, paymentArgs, false)
+		if err != nil {
+			panic(fmt.Errorf("failed to call %s: %w", manifest.MethodOnNEP17Payment, err))
+		}
 	}
 
 	return stackitem.NewBool(true)
@@ -169,7 +160,7 @@ func (g *GAS) Transfer(ic *interop.Context, args []stackitem.Item) stackitem.Ite
 // balanceOf is the only difference with default native GAS implementation:
 // it always returns fixed number of tokens.
 func (g *GAS) balanceOf(ic *interop.Context, args []stackitem.Item) stackitem.Item {
-	return stackitem.NewBigInteger(big.NewInt(DefaultBalance * native.GASFactor))
+	return stackitem.NewBigInteger(g.BalanceOf(nil, util.Uint160{}))
 }
 
 func (g *GAS) Mint(ic *interop.Context, h util.Uint160, amount *big.Int, callOnPayment bool) {

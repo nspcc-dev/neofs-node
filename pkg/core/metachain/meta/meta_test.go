@@ -41,7 +41,7 @@ func newMetaClient(t *testing.T) (*neotest.ContractInvoker, *neotest.ContractInv
 	})
 	e := neotest.NewExecutor(t, ch, validators, committee)
 
-	return e.ValidatorInvoker(e.NativeHash(t, meta.MetaDataContractName)), e.CommitteeInvoker(e.NativeHash(t, meta.MetaDataContractName))
+	return e.ValidatorInvoker(meta.Hash), e.CommitteeInvoker(meta.Hash)
 }
 
 func TestMetaDataContract_Containers(t *testing.T) {
@@ -178,29 +178,84 @@ func TestMetaDataContract_Objects(t *testing.T) {
 
 		t.Run("correct meta data", func(t *testing.T) {
 			t.Run("notification", func(t *testing.T) {
-				m := testMeta(cID[:], oID[:])
-				rawMeta, err := stackitem.Serialize(m)
-				require.NoError(t, err)
+				t.Run("put", func(t *testing.T) {
+					m := testMeta(cID[:], oID[:])
+					rawMeta, err := stackitem.Serialize(m)
+					require.NoError(t, err)
 
-				h := invokeWithCustomSigner(t, metaCommitteeI, snMultisigner, stackitem.Null{}, "submitObjectPut", rawMeta)
-				res := metaCommitteeI.GetTxExecResult(t, h)
-				require.Len(t, res.Events, 1)
-				require.Equal(t, "ObjectPut", res.Events[0].Name)
-				notificationArgs := res.Events[0].Item.Value().([]stackitem.Item)
-				require.Len(t, notificationArgs, 3)
-				require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
-				require.Equal(t, oID[:], notificationArgs[1].Value().([]byte))
+					h := invokeWithCustomSigner(t, metaCommitteeI, snMultisigner, stackitem.Null{}, "submitObjectPut", rawMeta)
+					res := metaCommitteeI.GetTxExecResult(t, h)
+					require.Len(t, res.Events, 1)
+					require.Equal(t, "ObjectPut", res.Events[0].Name)
+					notificationArgs := res.Events[0].Item.Value().([]stackitem.Item)
+					require.Len(t, notificationArgs, 3)
+					require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
+					require.Equal(t, oID[:], notificationArgs[1].Value().([]byte))
 
-				metaValuesExp := m.Value().([]stackitem.MapElement)
-				metaValuesGot := notificationArgs[2].Value().([]stackitem.MapElement)
-				require.Equal(t, metaValuesExp, metaValuesGot)
+					metaValuesExp := m.Value().([]stackitem.MapElement)
+					metaValuesGot := notificationArgs[2].Value().([]stackitem.MapElement)
+					require.Equal(t, metaValuesExp, metaValuesGot)
+				})
+
+				t.Run("delete", func(t *testing.T) {
+					m := testMeta(cID[:], oID[:])
+					deletedObj := oidtest.ID()
+					m.Add(stackitem.Make("deleted"), stackitem.Make(deletedObj[:]))
+					m.Add(stackitem.Make("type"), stackitem.Make(int(object.TypeTombstone)))
+					rawMeta, err := stackitem.Serialize(m)
+					require.NoError(t, err)
+
+					h := invokeWithCustomSigner(t, metaCommitteeI, snMultisigner, stackitem.Null{}, "submitObjectPut", rawMeta)
+					res := metaCommitteeI.GetTxExecResult(t, h)
+					require.Len(t, res.Events, 2)
+					require.Equal(t, "ObjectPut", res.Events[0].Name)
+					notificationArgs := res.Events[0].Item.Value().([]stackitem.Item)
+					require.Len(t, notificationArgs, 3)
+					require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
+					require.Equal(t, oID[:], notificationArgs[1].Value().([]byte))
+					metaValuesExp := m.Value().([]stackitem.MapElement)
+					metaValuesGot := notificationArgs[2].Value().([]stackitem.MapElement)
+					require.Equal(t, metaValuesExp, metaValuesGot)
+
+					require.Equal(t, "ObjectDeleted", res.Events[1].Name)
+					notificationArgs = res.Events[1].Item.Value().([]stackitem.Item)
+					require.Len(t, notificationArgs, 2)
+					require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
+					require.Equal(t, deletedObj[:], notificationArgs[1].Value().([]byte))
+				})
+
+				t.Run("lock", func(t *testing.T) {
+					m := testMeta(cID[:], oID[:])
+					lockedObj := oidtest.ID()
+					m.Add(stackitem.Make("locked"), stackitem.Make(lockedObj[:]))
+					m.Add(stackitem.Make("type"), stackitem.Make(int(object.TypeLock)))
+					rawMeta, err := stackitem.Serialize(m)
+					require.NoError(t, err)
+
+					h := invokeWithCustomSigner(t, metaCommitteeI, snMultisigner, stackitem.Null{}, "submitObjectPut", rawMeta)
+					res := metaCommitteeI.GetTxExecResult(t, h)
+					require.Len(t, res.Events, 2)
+					require.Equal(t, "ObjectPut", res.Events[0].Name)
+					notificationArgs := res.Events[0].Item.Value().([]stackitem.Item)
+					require.Len(t, notificationArgs, 3)
+					require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
+					require.Equal(t, oID[:], notificationArgs[1].Value().([]byte))
+					metaValuesExp := m.Value().([]stackitem.MapElement)
+					metaValuesGot := notificationArgs[2].Value().([]stackitem.MapElement)
+					require.Equal(t, metaValuesExp, metaValuesGot)
+
+					require.Equal(t, "ObjectLocked", res.Events[1].Name)
+					notificationArgs = res.Events[1].Item.Value().([]stackitem.Item)
+					require.Len(t, notificationArgs, 2)
+					require.Equal(t, cID[:], notificationArgs[0].Value().([]byte))
+					require.Equal(t, lockedObj[:], notificationArgs[1].Value().([]byte))
+				})
 			})
 
 			t.Run("storage", func(t *testing.T) {
 				anotherOID := oidtest.ID()
 				lockedObj := oidtest.ID()
 				m := testMeta(cID[:], anotherOID[:])
-				m.Drop(m.Index(stackitem.Make("deleted")))
 				m.Add(stackitem.Make("locked"), stackitem.Make(lockedObj[:]))
 				m.Add(stackitem.Make("type"), stackitem.Make(int(object.TypeLock)))
 
@@ -285,19 +340,15 @@ func TestMetaDataContract_Objects(t *testing.T) {
 }
 
 func testMeta(cid, oid []byte) *stackitem.Map {
-	deleted := oidtest.ID()
-
 	return stackitem.NewMapWithValue(
 		[]stackitem.MapElement{
 			{Key: stackitem.Make("network"), Value: stackitem.Make(netmode.UnitTestNet)},
 			{Key: stackitem.Make("cid"), Value: stackitem.Make(cid)},
 			{Key: stackitem.Make("oid"), Value: stackitem.Make(oid)},
-			{Key: stackitem.Make("type"), Value: stackitem.Make(1)},
 			{Key: stackitem.Make("firstPart"), Value: stackitem.Make(oid)},
 			{Key: stackitem.Make("previousPart"), Value: stackitem.Make(oid)},
 			{Key: stackitem.Make("size"), Value: stackitem.Make(123)},
-			{Key: stackitem.Make("deleted"), Value: stackitem.Make(deleted[:])},
-			{Key: stackitem.Make("validUntil"), Value: stackitem.Make(math.MaxInt)},
+			{Key: stackitem.Make("validUntil"), Value: stackitem.Make(math.MaxUint32)},
 		})
 }
 

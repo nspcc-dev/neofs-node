@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"sort"
@@ -79,7 +80,7 @@ func (p *PlacementVector) FromStackItem(it stackitem.Item) error {
 
 	rep, err := stackitem.ToUint8(arr[0])
 	if err != nil {
-		return fmt.Errorf("first fiels not an uint8: %w", err)
+		return fmt.Errorf("first field not an uint8: %w", err)
 	}
 	p.REP = rep
 
@@ -93,13 +94,12 @@ func (p *PlacementVector) FromStackItem(it stackitem.Item) error {
 		if err != nil {
 			return fmt.Errorf("incorrect %d key: %w", i, err)
 		}
-		var k keys.PublicKey
-		err = k.DecodeBytes(kRaw)
+		k, err := keys.NewPublicKeyFromBytes(kRaw, elliptic.P256())
 		if err != nil {
 			return fmt.Errorf("%d key is not a key: %w", i, err)
 		}
 
-		p.Nodes = append(p.Nodes, &k)
+		p.Nodes = append(p.Nodes, k)
 	}
 
 	return nil

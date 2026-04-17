@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -25,107 +24,102 @@ import (
 )
 
 type objectMeta struct {
-	cID  []byte
-	oID  []byte
+	cID  util.Uint256
+	oID  util.Uint256
 	size uint64
 	typ  uint8
 
-	firstPart    []byte
-	previousPart []byte
-	locked       []byte
-	deleted      []byte
+	firstPart    util.Uint256
+	previousPart util.Uint256
+	locked       util.Uint256
+	deleted      util.Uint256
 }
 
 func (m *objectMeta) parse(ic *interop.Context, metaInfo []stackitem.MapElement) error {
 	// required
 
-	cID, err := requiredInMap(metaInfo, "cid").TryBytes()
-	if err != nil || len(cID) != smartcontract.Hash256Len {
+	cID, err := stackitem.ToUint256(requiredInMap(metaInfo, "cid"))
+	if err != nil {
 		panic("invalid container ID")
 	}
 	m.cID = cID
 
-	oID, err := requiredInMap(metaInfo, "oid").TryBytes()
-	if err != nil || len(oID) != smartcontract.Hash256Len {
+	oID, err := stackitem.ToUint256(requiredInMap(metaInfo, "oid"))
+	if err != nil {
 		panic("incorrect object ID")
 	}
 	m.oID = oID
 
-	sizeB, err := requiredInMap(metaInfo, "size").TryInteger()
+	m.size, err = stackitem.ToUint64(requiredInMap(metaInfo, "size"))
 	if err != nil {
 		panic("incorrect object size")
 	}
-	size := sizeB.Int64()
-	if size < 0 {
-		panic(fmt.Sprintf("negative object size: %d", size))
-	}
-	m.size = uint64(size)
 
-	vub, err := requiredInMap(metaInfo, "validUntil").TryInteger()
+	vub, err := stackitem.ToUint32(requiredInMap(metaInfo, "validUntil"))
 	if err != nil {
 		panic("incorrect vub")
 	}
-	if v, current := vub.Int64(), ic.BlockHeight(); v <= int64(current) {
-		panic(fmt.Sprintf("incorrect vub: object cannot be accepted: %d <= %d (current height)", v, current))
+	if vub <= ic.BlockHeight()+1 {
+		panic(fmt.Sprintf("incorrect vub: object cannot be accepted: %d <= %d (current height)", vub, ic.BlockHeight()+1))
 	}
 
-	magic, err := requiredInMap(metaInfo, "network").TryInteger()
+	magic, err := stackitem.ToInt64(requiredInMap(metaInfo, "network"))
 	if err != nil {
 		panic(fmt.Sprintf("incorrect network magic: %s", err.Error()))
 	}
-	if v, actual := magic.Int64(), ic.Network; v != int64(actual) {
-		panic(fmt.Sprintf("incorrect network magic: %d != %d (actual network magic number)", v, actual))
+	if magic != int64(ic.Network) {
+		panic(fmt.Sprintf("incorrect network magic: %d != %d (actual network magic number)", magic, ic.Network))
 	}
 
 	// optional
 	if v, ok := getFromMap(metaInfo, "type"); ok {
-		typ, err := v.TryInteger()
+		typ, err := stackitem.ToUint8(v)
 		if err != nil {
 			panic(fmt.Sprintf("incorrect object type: %s", err.Error()))
 		}
-		switch object.Type(typ.Int64()) {
+		switch object.Type(typ) {
 		case object.TypeRegular, object.TypeTombstone, object.TypeLock, object.TypeLink:
 		default:
-			panic(fmt.Errorf("incorrect object type: %d", typ.Int64()))
+			panic(fmt.Errorf("incorrect object type: %d", typ))
 		}
-		m.typ = uint8(typ.Int64())
+		m.typ = typ
 	}
 
 	if v, ok := getFromMap(metaInfo, "firstPart"); ok {
-		first, err := objectIDFromStackItem(v)
+		first, err := stackitem.ToUint256(v)
 		if err != nil {
 			panic(fmt.Errorf("incorrect first part object ID: %w", err))
 		}
-		m.firstPart = first[:]
+		m.firstPart = first
 	}
 	if v, ok := getFromMap(metaInfo, "previousPart"); ok {
-		prev, err := objectIDFromStackItem(v)
+		prev, err := stackitem.ToUint256(v)
 		if err != nil {
 			panic(fmt.Errorf("incorrect previous part object ID: %w", err))
 		}
-		m.previousPart = prev[:]
+		m.previousPart = prev
 	}
 	if v, ok := getFromMap(metaInfo, "locked"); ok {
-		locked, err := objectIDFromStackItem(v)
+		locked, err := stackitem.ToUint256(v)
 		if err != nil {
 			panic(fmt.Sprintf("incorrect locked object: %s", err))
 		}
-		if m.typ != 3 {
+		if object.Type(m.typ) != object.TypeLock {
 			panic("non-LOCK object with associated locked object")
 		}
 
-		m.locked = locked[:]
+		m.locked = locked
 	}
 	if v, ok := getFromMap(metaInfo, "deleted"); ok {
-		deleted, err := objectIDFromStackItem(v)
+		deleted, err := stackitem.ToUint256(v)
 		if err != nil {
 			panic(fmt.Sprintf("incorrect deleted object: %s", err))
 		}
-		if m.typ != 1 {
+		if object.Type(m.typ) != object.TypeTombstone {
 			panic("non-TS object with associated deleted object")
 		}
 
-		m.deleted = deleted[:]
+		m.deleted = deleted
 	}
 
 	return nil
@@ -155,11 +149,11 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 		panic(err)
 	}
 
-	if ic.DAO.GetStorageItem(m.ID, append([]byte{metaContainersPrefix}, o.cID...)) == nil {
+	if ic.DAO.GetStorageItem(m.ID, append([]byte{metaContainersPrefix}, o.cID.BytesBE()...)) == nil {
 		panic("container does not support chained metadata")
 	}
 
-	cnrListRaw := ic.DAO.GetStorageItem(m.ID, append([]byte{containerPlacementPrefix}, o.cID...))
+	cnrListRaw := ic.DAO.GetStorageItem(m.ID, append([]byte{containerPlacementPrefix}, o.cID.BytesBE()...))
 	placementI, err := stackitem.Deserialize(cnrListRaw)
 	if err != nil {
 		panic(fmt.Errorf("cannot deserialize container placement list: %w", err))
@@ -177,21 +171,41 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 
 	err = storeObject(ic, o, metaInfoRaw)
 	if err != nil {
-		panic(fmt.Errorf("cannot store %s/%s object: %w", base58.Encode(o.cID), base58.Encode(o.oID), err))
+		panic(fmt.Errorf("cannot store %s/%s object: %w", base58.Encode(o.cID.BytesBE()), base58.Encode(o.oID.BytesBE()), err))
 	}
 
-	err = ic.AddNotification(m.Hash, putObjectEvent, stackitem.NewArray([]stackitem.Item{
-		stackitem.NewByteArray(o.cID),
-		stackitem.NewByteArray(o.oID),
+	err = ic.AddNotification(m.Hash, objectPutEvent, stackitem.NewArray([]stackitem.Item{
+		stackitem.NewByteArray(o.cID.BytesBE()),
+		stackitem.NewByteArray(o.oID.BytesBE()),
 		stackitem.NewMapWithValue(metaInfo)}))
 	if err != nil {
 		panic(err)
 	}
 
+	switch {
+	case !o.locked.Equals(util.Uint256{}):
+		err = ic.AddNotification(m.Hash, objectLockedEvent, stackitem.NewArray([]stackitem.Item{
+			stackitem.NewByteArray(o.cID.BytesBE()),
+			stackitem.NewByteArray(o.locked.BytesBE()),
+		}))
+		if err != nil {
+			panic(fmt.Errorf("locked notification: %w", err))
+		}
+	case !o.deleted.Equals(util.Uint256{}):
+		err = ic.AddNotification(m.Hash, objectDeletedEvent, stackitem.NewArray([]stackitem.Item{
+			stackitem.NewByteArray(o.cID.BytesBE()),
+			stackitem.NewByteArray(o.deleted.BytesBE()),
+		}))
+		if err != nil {
+			panic(fmt.Errorf("deleted notification: %w", err))
+		}
+	default:
+	}
+
 	return stackitem.Null{}
 }
 
-func storageKey(storagePrefix storage.KeyPrefix, contractID int32, key []byte) []byte {
+func makeStorageKey(storagePrefix storage.KeyPrefix, contractID int32, key []byte) []byte {
 	// 1 for prefix + 4 for Uint32 + len(key) for key
 	k := make([]byte, 5+len(key))
 	k[0] = byte(storagePrefix)
@@ -202,11 +216,11 @@ func storageKey(storagePrefix storage.KeyPrefix, contractID int32, key []byte) [
 }
 
 func putStorageItem(ic *interop.Context, key, value []byte) {
-	ic.DAO.Store.Put(storageKey(ic.DAO.Version.StoragePrefix, MetaDataContractID, key), value)
+	ic.DAO.Store.Put(makeStorageKey(ic.DAO.Version.StoragePrefix, MetaDataContractID, key), value)
 }
 
 func getStorageItem(ic *interop.Context, key []byte) state.StorageItem {
-	v, err := ic.DAO.Store.Get(storageKey(ic.DAO.Version.StoragePrefix, MetaDataContractID, key))
+	v, err := ic.DAO.Store.Get(makeStorageKey(ic.DAO.Version.StoragePrefix, MetaDataContractID, key))
 	if err != nil {
 		return nil
 	}
@@ -214,16 +228,16 @@ func getStorageItem(ic *interop.Context, key []byte) state.StorageItem {
 }
 
 func deleteStorageItem(ic *interop.Context, key []byte) {
-	ic.DAO.Store.Delete(storageKey(ic.DAO.Version.StoragePrefix, MetaDataContractID, key))
+	ic.DAO.Store.Delete(makeStorageKey(ic.DAO.Version.StoragePrefix, MetaDataContractID, key))
 }
 
 func storeObject(ic *interop.Context, parsed objectMeta, rawMeta []byte) error {
 	key := make([]byte, 1+cid.Size+oid.Size)
-	copy(key[1:], parsed.cID)
+	copy(key[1:], parsed.cID.BytesBE())
 
-	if parsed.deleted != nil {
+	if !parsed.deleted.Equals(util.Uint256{}) {
 		key[0] = lockedByIndex
-		copy(key[1+32:], parsed.deleted)
+		copy(key[1+32:], parsed.deleted.BytesBE())
 
 		if l := getStorageItem(ic, key); l != nil {
 			return errors.New("locked object deletion")
@@ -233,15 +247,15 @@ func storeObject(ic *interop.Context, parsed objectMeta, rawMeta []byte) error {
 		deleteStorageItem(ic, key)
 	}
 
-	copy(key[1+32:], parsed.oID)
+	copy(key[1+32:], parsed.oID.BytesBE())
 
 	key[0] = addrIndex
 	putStorageItem(ic, key, rawMeta)
 
-	if parsed.locked != nil {
+	if !parsed.locked.Equals(util.Uint256{}) {
 		key[0] = lockedByIndex
-		copy(key[1+32:], parsed.locked)
-		putStorageItem(ic, key, parsed.oID)
+		copy(key[1+32:], parsed.locked.BytesBE())
+		putStorageItem(ic, key, parsed.oID.BytesBE())
 	}
 
 	return nil
@@ -271,19 +285,19 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 
 	sigsVectorsRaw, ok := args[1].Value().([]stackitem.Item)
 	if !ok {
-		panic(fmt.Errorf("unexpected second argument value: %T expected, %T given", sigsVectorsRaw, args[1].Value()))
+		panic(fmt.Errorf("unexpected second argument value: %T expected, %s given", sigsVectorsRaw, args[1].Type()))
 	}
 	var sigVectors = make([][][]byte, 0, len(sigsVectorsRaw))
 	for i := range sigsVectorsRaw {
 		vectorRaw, ok := sigsVectorsRaw[i].Value().([]stackitem.Item)
 		if !ok {
-			panic(fmt.Errorf("unexpected %d signatures vector value: %T expected, %T given", i, vectorRaw, sigsVectorsRaw[i].Value()))
+			panic(fmt.Errorf("unexpected %d signatures vector value: %s expected, %s given", i, stackitem.ArrayT, sigsVectorsRaw[i].Type()))
 		}
 		vector := make([][]byte, 0, len(vectorRaw))
 		for j := range vectorRaw {
 			sig, ok := vectorRaw[j].Value().([]byte)
 			if !ok {
-				panic(fmt.Errorf("unexpected %d signature value in %d signatures vector: %T expected, %T given", j, i, sig, sigsVectorsRaw[j].Value()))
+				panic(fmt.Errorf("unexpected %d signature value in %d signatures vector: %s expected, %s given", j, i, stackitem.ByteArrayT, sigsVectorsRaw[j].Type()))
 			}
 			vector = append(vector, sig)
 		}
@@ -327,14 +341,14 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 	return stackitem.NewBool(true)
 }
 
-func verifScript(hash util.Uint160, cID []byte, placementVectorsNumber int) []byte {
+func verifScript(hash util.Uint160, cID util.Uint256, placementVectorsNumber int) []byte {
 	var (
 		verifScriptBuf = io.NewBufBinWriter()
 		writer         = verifScriptBuf.BinWriter
 	)
 	emit.Int(writer, int64(placementVectorsNumber)) // sigs array length
 	emit.Opcodes(writer, opcode.PACK)
-	emit.Bytes(writer, cID)
+	emit.Bytes(writer, cID.BytesBE())
 	emit.Int(writer, 2) // number or args
 	emit.Opcodes(writer, opcode.PACK)
 	emit.AppCallNoArgs(writer, hash, "verifyPlacementSignatures", callflag.ReadOnly)
@@ -342,7 +356,7 @@ func verifScript(hash util.Uint160, cID []byte, placementVectorsNumber int) []by
 	return verifScriptBuf.Bytes()
 }
 
-func isSignedBySNs(ic *interop.Context, contract util.Uint160, cID []byte, placementVectorsNumber int) error {
+func isSignedBySNs(ic *interop.Context, contract util.Uint160, cID util.Uint256, placementVectorsNumber int) error {
 	if l := len(ic.Tx.Scripts); l != 1 {
 		return fmt.Errorf("expected exactly 1 witness script, got %d", l)
 	}

@@ -9,8 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
-	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
 
 var (
@@ -84,17 +82,25 @@ func NewMetadata(neo native.INEO) *MetaData {
 	md = native.NewMethodAndPrice(m.verifyPlacementSignatures, 1<<15, callflag.ReadOnly)
 	m.AddMethod(md, desc)
 
-	eDesc := native.NewEventDescriptor(putObjectEvent,
+	eDesc := native.NewEventDescriptor(objectPutEvent,
 		manifest.NewParameter("container", smartcontract.Hash256Type),
 		manifest.NewParameter("object", smartcontract.Hash256Type),
 		manifest.NewParameter("meta", smartcontract.MapType),
 	)
 	eMD := native.NewEvent(eDesc)
 	m.AddEvent(eMD)
+	eDesc = native.NewEventDescriptor(objectDeletedEvent,
+		manifest.NewParameter("container", smartcontract.Hash256Type),
+		manifest.NewParameter("object", smartcontract.Hash256Type),
+	)
+	eMD = native.NewEvent(eDesc)
+	m.AddEvent(eMD)
+	eDesc = native.NewEventDescriptor(objectLockedEvent,
+		manifest.NewParameter("container", smartcontract.Hash256Type),
+		manifest.NewParameter("object", smartcontract.Hash256Type),
+	)
+	eMD = native.NewEvent(eDesc)
+	m.AddEvent(eMD)
 
 	return m
-}
-
-func objectIDFromStackItem(i stackitem.Item) (util.Uint256, error) {
-	return stackitem.ToUint256(i)
 }

@@ -22,8 +22,7 @@ const (
 
 const (
 	// event names.
-	putObjectEvent = "ObjectPut"
-
-	// limits.
-	maxREPsClauses = 255
+	objectPutEvent     = "ObjectPut"
+	objectDeletedEvent = "ObjectDeleted"
+	objectLockedEvent  = "ObjectLocked"
 )
