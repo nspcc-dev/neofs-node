@@ -1066,6 +1066,8 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 }
 
 type getStream struct {
+	// TODO: deduplicate with base
+	protoobject.ObjectService_GetServer
 	base    protoobject.ObjectService_GetServer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
@@ -1152,11 +1154,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	p, err := convertGetPrm(s.signer, req, &getStream{
-		base:         gStream,
-		srv:          s,
-		reqInfo:      reqInfo,
-		recheckEACL:  recheckEACL,
-		signResponse: needSignResp,
+		ObjectService_GetServer: gStream,
+		base:                    gStream,
+		srv:                     s,
+		reqInfo:                 reqInfo,
+		recheckEACL:             recheckEACL,
+		signResponse:            needSignResp,
 	})
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {

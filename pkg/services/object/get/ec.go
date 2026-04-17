@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -14,16 +16,22 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/mem"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 type tooManyPartsUnavailableError int
@@ -192,8 +200,34 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 // removal. Returns [apistatus.ErrObjectNotFound] otherwise.
 func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter) error {
+	localPrivKey, err := s.keyStore.GetKey(nil)
+	if err != nil {
+		return fmt.Errorf("get local SN private key: %w", err)
+	}
+
 	// TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
 	for i := range rules {
+		if grpcStream, ok := dst.(grpc.ServerStream); ok { // TODO: w/o polymorphism
+			if err := s.streamFirstECPart(ctx, grpcStream, *localPrivKey, cnr, parent, rules[i], i, sortedNodeLists[i]); err == nil {
+				fmt.Println("GOT")
+				for partIdx := 1; partIdx < int(rules[i].DataPartNum); partIdx++ {
+					err = s.streamFullECPartRange(ctx, grpcStream, *localPrivKey, cnr, parent, rules[i], i, sortedNodeLists[i], partIdx)
+					if err != nil {
+						// TODO: log err
+						fmt.Println("RANGE ERR", err)
+						break
+					}
+				}
+				if err == nil {
+					// FIXME: works wrong for linker
+					return nil
+				}
+				continue
+			} else { // TODO: else log err
+				fmt.Println("GET ERR", err)
+			}
+		}
+
 		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, sTok, rules[i], i, sortedNodeLists[i])
 		if err == nil {
 			if obj.Type() == object.TypeLink && obj.GetID() != parent {
@@ -1348,6 +1382,280 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 	}
 
 	return rc, nil
+}
+
+func (s *Service) streamFirstECPart(ctx context.Context, dst grpc.ServerStream, localPrivKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) error {
+	for nodeIdx := range iec.NodeSequenceForPart(0, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
+		conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
+		if err != nil {
+			// TODO: log err
+			continue
+		}
+
+		var reqBuf *iprotobuf.MemBuffer
+
+		err = conn.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			stream, err := conn.NewStream(ctx, &grpc.StreamDesc{
+				StreamName:    "Get",
+				Handler:       nil,
+				ServerStreams: true,
+				ClientStreams: false,
+			}, protoobject.ObjectService_Get_FullMethodName,
+				grpc.StaticMethod(),
+				grpc.ForceCodecV2(iprotobuf.BufferedCodec{}),
+			)
+			if err != nil {
+				return fmt.Errorf("open stream: %w", err)
+			}
+
+			if reqBuf == nil {
+				reqBuf = getECPartRequestBufferPool.Get()
+				n, err := s.composeGetFirstECPartRequest(reqBuf.SliceBuffer, localPrivKey, cnr, parent, ruleIdx, 0)
+				if err != nil {
+					// TODO: return permanent error
+					return fmt.Errorf("compose request: %w", err)
+				}
+				reqBuf.SetBounds(0, n)
+			}
+
+			if err = stream.SendMsg(reqBuf); err != nil {
+				return fmt.Errorf("send request: %w", err)
+			}
+
+			if err = stream.CloseSend(); err != nil {
+				return fmt.Errorf("close send: %w", err)
+			}
+
+			for {
+				var bs mem.BufferSlice
+
+				if err = stream.RecvMsg(&bs); err != nil {
+					if errors.Is(err, io.EOF) {
+						return nil
+					}
+					return fmt.Errorf("recv next response: %w", err)
+				}
+
+				// FIXME: pull out parent header
+
+				if err = dst.SendMsg(bs); err != nil {
+					// FIXME: return permanent error
+					return fmt.Errorf("%w: %w", errStreamFailure, err)
+				}
+			}
+		})
+		if err == nil {
+			return nil
+		}
+		fmt.Println("GET FROM NODE ERR", err)
+	}
+
+	return errors.New("unable to connect to any node")
+}
+
+func (s *Service) streamFullECPartRange(ctx context.Context, dst grpc.ServerStream, localPrivKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) error {
+	for nodeIdx := range iec.NodeSequenceForPart(partIdx, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
+		conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
+		if err != nil {
+			// TODO: log err
+			continue
+		}
+
+		var reqBuf *iprotobuf.MemBuffer
+
+		err = conn.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			stream, err := conn.NewStream(ctx, &grpc.StreamDesc{
+				StreamName:    "Get",
+				Handler:       nil,
+				ServerStreams: true,
+				ClientStreams: false,
+			}, protoobject.ObjectService_Get_FullMethodName,
+				grpc.StaticMethod(),
+				grpc.ForceCodecV2(iprotobuf.BufferedCodec{}),
+			)
+			if err != nil {
+				return fmt.Errorf("open stream: %w", err)
+			}
+
+			if reqBuf == nil {
+				// zero range is requested, so request is the same as GET
+				reqBuf = getECPartRequestBufferPool.Get()
+				n, err := s.composeGetFirstECPartRequest(reqBuf.SliceBuffer, localPrivKey, cnr, parent, ruleIdx, partIdx)
+				if err != nil {
+					// TODO: return permanent error
+					return fmt.Errorf("compose request: %w", err)
+				}
+				reqBuf.SetBounds(0, n)
+			}
+
+			if err = stream.SendMsg(reqBuf); err != nil {
+				return fmt.Errorf("send request: %w", err)
+			}
+
+			if err = stream.CloseSend(); err != nil {
+				return fmt.Errorf("close send: %w", err)
+			}
+
+			if err = stream.RecvMsg(new(mem.BufferSlice)); err != nil {
+				if errors.Is(err, io.EOF) {
+					return fmt.Errorf("%w: stream is closed without heading response", io.ErrUnexpectedEOF)
+				}
+				return fmt.Errorf("recv heading response: %w", err)
+			}
+
+			for {
+				var bs mem.BufferSlice
+
+				if err = stream.RecvMsg(&bs); err != nil {
+					if errors.Is(err, io.EOF) {
+						return nil
+					}
+					return fmt.Errorf("recv next response: %w", err)
+				}
+
+				if err = dst.SendMsg(bs); err != nil {
+					// FIXME: return permanent error
+					return fmt.Errorf("%w: %w", errStreamFailure, err)
+				}
+			}
+		})
+		if err == nil {
+			return nil
+		}
+		// TODO: log err
+	}
+
+	return errors.New("unable to connect to any node")
+}
+
+func (s *Service) composeGetFirstECPartRequest(buf []byte, localPrivKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID, ruleIdx int, partIdx int) (int, error) {
+	originSig, err := neofsecdsa.Signer(localPrivKey).Sign(nil)
+	if err != nil {
+		return 0, fmt.Errorf("sign empty data: %w", err)
+	}
+
+	// body
+	buf[0] = iprotobuf.TagBytes1
+	buf[1] = 74
+	from := 2
+	buf[2] = iprotobuf.TagBytes1 // address
+	buf[3] = 72
+	buf[4] = iprotobuf.TagBytes1 // CID
+	buf[5] = 34
+	buf[6] = iprotobuf.TagBytes1 // value
+	buf[7] = 32
+	copy(buf[8:], cnr[:])
+	buf[40] = iprotobuf.TagBytes2 // OID
+	buf[41] = 34
+	buf[42] = iprotobuf.TagBytes1 // value
+	buf[43] = 32
+	copy(buf[44:], parent[:])
+
+	off := 76
+
+	bodySig, err := neofsecdsa.Signer(localPrivKey).Sign(buf[from:off])
+	if err != nil {
+		return 0, fmt.Errorf("sign body: %w", err)
+	}
+
+	// meta header
+	ruleIdxStr := strconv.Itoa(ruleIdx)
+	xHdrRuleIdxLen := 1 + 1 + len(iec.AttributeRuleIdx) + 1 + protowire.SizeBytes(len(ruleIdxStr))
+	partIdxStr := strconv.Itoa(partIdx)
+	xHdrPartIdxLen := 1 + 1 + len(iec.AttributePartIdx) + 1 + protowire.SizeBytes(len(partIdxStr))
+
+	metaHdrLen := 1 + protowire.SizeBytes(xHdrRuleIdxLen) +
+		1 + protowire.SizeBytes(xHdrPartIdxLen)
+
+	buf[off] = iprotobuf.TagBytes2
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(metaHdrLen))
+
+	from = off
+
+	buf[off] = iprotobuf.TagBytes4 // X-header (rule idx)
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(xHdrRuleIdxLen))
+	buf[off] = iprotobuf.TagBytes1 // key
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(iec.AttributeRuleIdx)))
+	off += copy(buf[off:], iec.AttributeRuleIdx)
+	buf[off] = iprotobuf.TagBytes2 // value
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(ruleIdxStr)))
+	off += copy(buf[off:], ruleIdxStr)
+
+	buf[off] = iprotobuf.TagBytes4 // X-header (part idx)
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(xHdrPartIdxLen))
+	buf[off] = iprotobuf.TagBytes1 // key
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(iec.AttributePartIdx)))
+	off += copy(buf[off:], iec.AttributePartIdx)
+	buf[off] = iprotobuf.TagBytes2 // value
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(partIdxStr)))
+	off += copy(buf[off:], partIdxStr)
+
+	metaHdrSig, err := neofsecdsa.Signer(localPrivKey).Sign(buf[from:off])
+	if err != nil {
+		return 0, fmt.Errorf("sign meta header: %w", err)
+	}
+
+	// verification header
+	pubKeyBin := elliptic.MarshalCompressed(elliptic.P256(), localPrivKey.X, localPrivKey.Y)
+
+	pubKeyFldLen := 1 + protowire.SizeBytes(len(pubKeyBin))
+
+	bodySigFldLen := pubKeyFldLen + 1 + protowire.SizeBytes(len(bodySig))
+	metaHdrSigFldLen := pubKeyFldLen + 1 + protowire.SizeBytes(len(metaHdrSig))
+	originSigFldLen := pubKeyFldLen + 1 + protowire.SizeBytes(len(originSig))
+
+	verifHdrLen := 1 + protowire.SizeBytes(bodySigFldLen) +
+		1 + protowire.SizeBytes(metaHdrSigFldLen) +
+		1 + protowire.SizeBytes(originSigFldLen)
+
+	buf[off] = iprotobuf.TagBytes3
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(verifHdrLen))
+
+	buf[off] = iprotobuf.TagBytes1 // body signature
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(bodySigFldLen))
+	buf[off] = iprotobuf.TagBytes1 // key
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(pubKeyBin)))
+	off += copy(buf[off:], pubKeyBin)
+	buf[off] = iprotobuf.TagBytes2 // value
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(bodySig)))
+	off += copy(buf[off:], bodySig)
+
+	buf[off] = iprotobuf.TagBytes2 // meta header signature
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(metaHdrSigFldLen))
+	buf[off] = iprotobuf.TagBytes1 // key
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(pubKeyBin)))
+	off += copy(buf[off:], pubKeyBin)
+	buf[off] = iprotobuf.TagBytes2 // value
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(metaHdrSig)))
+	off += copy(buf[off:], metaHdrSig)
+
+	buf[off] = iprotobuf.TagBytes3 // origin signature
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(originSigFldLen))
+	buf[off] = iprotobuf.TagBytes1 // key
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(pubKeyBin)))
+	off += copy(buf[off:], pubKeyBin)
+	buf[off] = iprotobuf.TagBytes2 // value
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(len(originSig)))
+	off += copy(buf[off:], originSig)
+
+	return off, nil
 }
 
 // returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.
