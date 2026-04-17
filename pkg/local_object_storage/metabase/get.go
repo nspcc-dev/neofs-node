@@ -56,8 +56,12 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 		if metaBucket == nil {
 			return logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
+		metaCursor := metaBucket.Cursor()
+		if containerMarkedGC(metaCursor) {
+			return logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
 
-		hdr, err = get(metaBucket.Cursor(), addr, true, raw, currEpoch)
+		hdr, err = get(metaCursor, addr, true, raw, currEpoch)
 
 		return err
 	})

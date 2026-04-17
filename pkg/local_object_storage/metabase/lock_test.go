@@ -76,6 +76,19 @@ func TestDB_IsLocked(t *testing.T) {
 		err = putBig(db, &ts)
 		require.NoError(t, err)
 	})
+
+	t.Run("container marked as garbage", func(t *testing.T) {
+		db := newDB(t)
+
+		obj, _ := putObjAndLockIt(t, db)
+
+		_, err := db.InhumeContainer(obj.GetContainerID())
+		require.NoError(t, err)
+
+		locked, err := db.IsLocked(obj.Address())
+		require.NoError(t, err)
+		require.False(t, locked)
+	})
 }
 
 func TestDB_Lock_Expired(t *testing.T) {

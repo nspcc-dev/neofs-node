@@ -179,6 +179,18 @@ func TestDB_Exists(t *testing.T) {
 		})
 	})
 
+	t.Run("container marked as garbage", func(t *testing.T) {
+		obj := generateObject(t)
+		require.NoError(t, putBig(db, obj))
+
+		_, err := db.InhumeContainer(obj.GetContainerID())
+		require.NoError(t, err)
+
+		exists, err := metaExists(db, obj.Address())
+		require.False(t, exists)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+	})
+
 	t.Run("EC", testExistsEC)
 }
 

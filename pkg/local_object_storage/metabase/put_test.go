@@ -194,6 +194,34 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 	})
 }
 
+func TestDB_Put_InGarbageMarkedContainer(t *testing.T) {
+	db := newDB(t)
+
+	cnr := cidtest.ID()
+	existing := generateObjectWithCID(t, cnr)
+	require.NoError(t, putBig(db, existing))
+
+	_, err := db.InhumeContainer(cnr)
+	require.NoError(t, err)
+
+	inserted := generateObjectWithCID(t, cnr)
+	err = db.Put(inserted)
+	require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+
+	_, err = db.Get(inserted.Address(), false)
+	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+
+	exists, err := db.Exists(inserted.Address(), false)
+	require.False(t, exists)
+	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+
+	st, err := db.ObjectStatus(inserted.Address())
+	require.NoError(t, err)
+	require.NoError(t, st.Error)
+	// object is not in the storage but container inhumed
+	require.Equal(t, []string{"GC MARKED"}, st.State)
+}
+
 func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj object.Object) {
 	t.Run("get", func(t *testing.T) {
 		res, err := db.Get(addr, false)
@@ -618,6 +646,31 @@ func TestDB_PutBatch(t *testing.T) {
 
 		// Locked object should still be available
 		exists, err = db.Exists(lockedObj.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+
+	t.Run("batch with objects from GC-marked container", func(t *testing.T) {
+		db := newDB(t)
+
+		deadCnr := cidtest.ID()
+		aliveCnr := cidtest.ID()
+
+		existing := generateObjectWithCID(t, deadCnr)
+		require.NoError(t, db.Put(existing))
+		_, err := db.InhumeContainer(deadCnr)
+		require.NoError(t, err)
+
+		deadObj := generateObjectWithCID(t, deadCnr)
+		aliveObj := generateObjectWithCID(t, aliveCnr)
+
+		require.NoError(t, db.PutBatch([]*object.Object{deadObj, aliveObj}))
+
+		exists, err := db.Exists(deadObj.Address(), false)
+		require.False(t, exists)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+
+		exists, err = db.Exists(aliveObj.Address(), false)
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
