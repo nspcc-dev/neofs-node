@@ -75,6 +75,14 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 
 		return fmt.Errorf("heading object: %w", err)
 	}
+	if header == nil {
+		// ObjectSource.Head contractually returns a non-nil header when
+		// err is nil, but the gRPC path under high load has been observed
+		// to return (nil, nil) in production (#3937) and dereferencing it
+		// a line below panics the whole node. Fail this one verification
+		// rather than the process.
+		return fmt.Errorf("heading object %s: source returned no header and no error", addr)
+	}
 
 	switch header.Type() {
 	case object.TypeLink, object.TypeTombstone, object.TypeLock:
