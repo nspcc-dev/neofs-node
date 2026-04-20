@@ -21,7 +21,7 @@ import (
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -34,6 +34,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -93,7 +94,7 @@ type MetricCollector interface {
 // FSChain provides access to the FS chain required to serve NeoFS API Object
 // service.
 type FSChain interface {
-	container.Source
+	containercore.Source
 	netmap.StateDetailed
 	icrypto.N3ScriptRunner
 
@@ -659,7 +660,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, req, &resp)
+	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -747,7 +748,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -767,6 +768,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	var p getsvc.HeadPrm
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
+	p.WithContainer(cnr)
 	p.WithRawFlag(body.Raw)
 	p.SetHeaderWriter(&headResponse{
 		dst: resp,
@@ -907,7 +909,7 @@ func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return s.makeStatusHashResponse(err, req), nil
 	}
 
-	p, err := convertHashPrm(s.signer, s.storage, req)
+	p, err := convertHashPrm(s.signer, reqInfo.Container, s.storage, req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -929,7 +931,7 @@ func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 }
 
 // converts original request into parameters accepted by the internal handler.
-func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRangeHashRequest) (getsvc.RangeHashPrm, error) {
+func convertHashPrm(signer ecdsa.PrivateKey, cnr container.Container, ss sessions, req *protoobject.GetRangeHashRequest) (getsvc.RangeHashPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -992,6 +994,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
+	p.WithContainer(cnr)
 	p.SetRangeList(rngs)
 	p.SetSalt(body.GetSalt())
 
@@ -1151,7 +1154,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		recheckEACL = true
 	}
 
-	p, err := convertGetPrm(s.signer, req, &getStream{
+	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
 		base:         gStream,
 		srv:          s,
 		reqInfo:      reqInfo,
@@ -1320,7 +1323,7 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream *getStream) (getsvc.Prm, error) {
+func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream) (getsvc.Prm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -1340,6 +1343,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	var p getsvc.Prm
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
+	p.WithContainer(cnr)
 	p.WithRawFlag(body.Raw)
 	p.SetObjectWriter(stream)
 	if cp.LocalOnly() {
@@ -1577,7 +1581,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
-	p, err := convertRangePrm(s.signer, req, &rangeStream{
+	p, err := convertRangePrm(s.signer, reqInfo.Container, req, &rangeStream{
 		base: gStream,
 		srv:  s,
 		req:  req,
@@ -1600,7 +1604,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, stream *rangeStream) (getsvc.RangePrm, error) {
+func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream) (getsvc.RangePrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -1629,6 +1633,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 	var p getsvc.RangePrm
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
+	p.WithContainer(cnr)
 	p.WithRawFlag(body.Raw)
 	p.SetChunkWriter(stream)
 	var rng object.Range

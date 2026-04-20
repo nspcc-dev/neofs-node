@@ -9,6 +9,7 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -60,7 +61,8 @@ type commonPrm struct {
 
 	common *util.CommonPrm
 
-	addr oid.Address
+	addr      oid.Address
+	container container.Container
 
 	raw bool
 
@@ -133,6 +135,11 @@ func (p *commonPrm) SetRangeHashRequestForwarder(f RangeRequestForwarder) {
 // WithAddress sets object address to be read.
 func (p *commonPrm) WithAddress(addr oid.Address) {
 	p.addr = addr
+}
+
+// WithContainer sets container data to be used.
+func (p *commonPrm) WithContainer(cnr container.Container) {
+	p.container = cnr
 }
 
 // WithRawFlag sets flag of raw reading.

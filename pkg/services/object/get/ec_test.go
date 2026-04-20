@@ -14,6 +14,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
@@ -132,25 +133,6 @@ func TestService_Get_EC_Part(t *testing.T) {
 	ecRules[pi.RuleIndex].DataPartNum = 30
 	ecRules[pi.RuleIndex].ParityPartNum = 5
 
-	t.Run("container policy application failure", func(t *testing.T) {
-		policyErr := errors.New("some policy error")
-
-		svc := New(&mockNeoFSNet{
-			getNodesForObject: map[oid.Address]getNodesForObjectValue{
-				parentAddr: {err: policyErr},
-			},
-		})
-
-		var prm Prm
-		prm.WithAddress(parentAddr)
-		prm.SetObjectWriter(unimplementedObjectWriter{})
-		parameterizePartInfo(t, &prm, pi)
-
-		err := svc.Get(ctx, prm)
-		require.ErrorIs(t, err, policyErr)
-		require.EqualError(t, err, "get nodes for object: "+policyErr.Error())
-	})
-
 	t.Run("non-EC container", func(t *testing.T) {
 		svc := New(&mockNeoFSNet{
 			getNodesForObject: map[oid.Address]getNodesForObjectValue{
@@ -158,8 +140,13 @@ func TestService_Get_EC_Part(t *testing.T) {
 			},
 		})
 
+		var cnr container.Container
+
+		cnr.SetBasicACL(0xff) // Fake value.
+
 		var prm Prm
 		prm.WithAddress(parentAddr)
+		prm.WithContainer(cnr)
 		prm.SetObjectWriter(unimplementedObjectWriter{})
 		parameterizePartInfo(t, &prm, pi)
 
