@@ -16,6 +16,7 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -161,9 +162,16 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	st, err := getVerifiedSession(cmd, session.VerbObjectSearch, pk, cnr)
+	stV2, err := getVerifiedSessionV2(cmd, sessionv2.VerbObjectSearch, pk, cnr)
 	if err != nil {
 		return err
+	}
+	var st *session.Object
+	if stV2 == nil {
+		st, err = getVerifiedSession(cmd, session.VerbObjectSearch, pk, cnr)
+		if err != nil {
+			return err
+		}
 	}
 
 	ctx, cancel := commonflags.GetCommandContext(cmd)
@@ -183,7 +191,9 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 	if bt != nil {
 		opts.WithBearerToken(*bt)
 	}
-	if st != nil {
+	if stV2 != nil {
+		opts.WithSessionTokenV2(*stV2)
+	} else if st != nil {
 		opts.WithSessionToken(*st)
 	}
 	res, cursor, err := cli.SearchObjects(ctx, cnr, fs, searchAttributesFlag.v, searchCursorFlag.v, neofsecdsa.Signer(*pk), opts)
