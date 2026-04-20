@@ -36,6 +36,13 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		return s.copyLocalECPart(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 
+	if prm.common.LocalOnly() &&
+		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
+		len(prm.container.PlacementPolicy().Replicas()) != 0 {
+		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
+		return s.get(ctx, prm.commonPrm, bufOpt).err // It handles locality internally.
+	}
+
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
 	if err != nil {
 		return fmt.Errorf("get nodes for object: %w", err)
@@ -108,6 +115,13 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
 		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
+	}
+
+	if prm.common.LocalOnly() &&
+		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
+		len(prm.container.PlacementPolicy().Replicas()) != 0 {
+		// It handles locality internally.
+		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng)).err
 	}
 
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
