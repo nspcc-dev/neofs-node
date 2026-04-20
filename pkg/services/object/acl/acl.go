@@ -85,37 +85,37 @@ func NewChecker(prm *CheckerPrm) *Checker {
 // CheckBasicACL is a main check function for basic ACL.
 func (c *Checker) CheckBasicACL(info v2.RequestInfo) bool {
 	// check basic ACL permissions
-	return info.BasicACL().IsOpAllowed(info.Operation(), info.RequestRole())
+	return info.BasicACL.IsOpAllowed(info.Operation, info.RequestRole)
 }
 
 // StickyBitCheck validates owner field in the request if sticky bit is enabled.
 func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 	// According to NeoFS specification sticky bit has no effect on system nodes
 	// for correct intra-container work with objects (in particular, replication).
-	if info.RequestRole() == acl.RoleContainer {
+	if info.RequestRole == acl.RoleContainer {
 		return true
 	}
 
-	if !info.BasicACL().Sticky() {
+	if !info.BasicACL.Sticky() {
 		return true
 	}
 
-	if len(info.SenderKey()) == 0 {
+	if len(info.SenderKey) == 0 {
 		return false
 	}
 
-	return isOwnerFromKey(owner, info.SenderKey())
+	return isOwnerFromKey(owner, info.SenderKey)
 }
 
 // CheckEACL is a main check function for extended ACL.
 func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
-	basicACL := reqInfo.BasicACL()
+	basicACL := reqInfo.BasicACL
 	if !basicACL.Extendable() {
 		return nil
 	}
 
 	var eaclRole eaclSDK.Role
-	switch op := reqInfo.RequestRole(); op {
+	switch op := reqInfo.RequestRole; op {
 	default:
 		eaclRole = eaclSDK.Role(op)
 	case acl.RoleOwner:
@@ -131,14 +131,15 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	}
 
 	// if bearer token is not allowed, then ignore it
-	if !basicACL.AllowedBearerRules(reqInfo.Operation()) {
-		reqInfo.CleanBearer()
+	if !basicACL.AllowedBearerRules(reqInfo.Operation) {
+		// TODO: return error, bearer isn't allowed.
+		reqInfo.Bearer = nil
 	}
 
 	var table eaclSDK.Table
-	cnr := reqInfo.ContainerID()
+	cnr := reqInfo.Cnr
 
-	bearerTok := reqInfo.Bearer()
+	bearerTok := reqInfo.Bearer
 	if bearerTok == nil {
 		var err error
 		table, err = c.eaclSrc.GetEACL(cnr)
@@ -157,7 +158,7 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	hdrSrcOpts = append(hdrSrcOpts,
 		eaclV2.WithLocalObjectStorage(c.localStorage),
 		eaclV2.WithCID(cnr),
-		eaclV2.WithOID(reqInfo.ObjectID()),
+		eaclV2.WithOID(reqInfo.Obj),
 		eaclV2.WithHeaderSource(c.headerSource),
 	)
 
@@ -169,7 +170,7 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 		hdrSrcOpts = append(hdrSrcOpts,
 			eaclV2.WithServiceResponse(
 				msg.(eaclV2.Response),
-				reqInfo.Request().(eaclV2.Request),
+				reqInfo.SrcRequest.(eaclV2.Request),
 			),
 		)
 	}
@@ -181,13 +182,13 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 
 	vu := new(eaclSDK.ValidationUnit).
 		WithRole(eaclRole).
-		WithOperation(eaclSDK.Operation(reqInfo.Operation())).
+		WithOperation(eaclSDK.Operation(reqInfo.Operation)).
 		WithContainerID(&cnr).
-		WithSenderKey(reqInfo.SenderKey()).
+		WithSenderKey(reqInfo.SenderKey).
 		WithHeaderSource(hdrSrc).
 		WithEACLTable(&table)
 
-	if sa := reqInfo.SenderAccount(); sa != nil && !sa.IsZero() {
+	if sa := reqInfo.SenderAccount; sa != nil && !sa.IsZero() {
 		vu.WithAccount(*sa)
 	}
 

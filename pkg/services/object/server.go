@@ -174,14 +174,14 @@ const accessDeniedEACLReasonFmt = "access to operation %s is denied by extended 
 
 func basicACLErr(info aclsvc.RequestInfo) error {
 	var errAccessDenied apistatus.ObjectAccessDenied
-	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedACLReasonFmt, info.Operation()))
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedACLReasonFmt, info.Operation))
 
 	return errAccessDenied
 }
 
 func eACLErr(info aclsvc.RequestInfo, err error) error {
 	var errAccessDenied apistatus.ObjectAccessDenied
-	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedEACLReasonFmt, info.Operation(), err))
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedEACLReasonFmt, info.Operation, err))
 
 	return errAccessDenied
 }
