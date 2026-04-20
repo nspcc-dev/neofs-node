@@ -647,10 +647,10 @@ func (b Service) findRequestInfo(req interface {
 		return info, err
 	}
 
-	info.BasicACL = cnr.BasicACL()
+	info.Container = cnr
 	info.RequestRole = role
 	info.Operation = op
-	info.Cnr = idCnr
+	info.ContainerID = idCnr
 
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation

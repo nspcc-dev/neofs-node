@@ -44,7 +44,7 @@ func TestStickyCheck(t *testing.T) {
 		var basicACL acl.Basic
 		basicACL.MakeSticky()
 
-		info.BasicACL = basicACL
+		info.Container.SetBasicACL(basicACL)
 
 		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
 	})
@@ -60,7 +60,7 @@ func TestStickyCheck(t *testing.T) {
 				var basicACL acl.Basic
 				basicACL.MakeSticky()
 
-				info.BasicACL = basicACL
+				info.Container.SetBasicACL(basicACL)
 			}
 
 			if withKey {

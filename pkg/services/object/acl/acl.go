@@ -85,7 +85,7 @@ func NewChecker(prm *CheckerPrm) *Checker {
 // CheckBasicACL is a main check function for basic ACL.
 func (c *Checker) CheckBasicACL(info v2.RequestInfo) bool {
 	// check basic ACL permissions
-	return info.BasicACL.IsOpAllowed(info.Operation, info.RequestRole)
+	return info.Container.BasicACL().IsOpAllowed(info.Operation, info.RequestRole)
 }
 
 // StickyBitCheck validates owner field in the request if sticky bit is enabled.
@@ -96,7 +96,7 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 		return true
 	}
 
-	if !info.BasicACL.Sticky() {
+	if !info.Container.BasicACL().Sticky() {
 		return true
 	}
 
@@ -109,7 +109,7 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 
 // CheckEACL is a main check function for extended ACL.
 func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
-	basicACL := reqInfo.BasicACL
+	basicACL := reqInfo.Container.BasicACL()
 	if !basicACL.Extendable() {
 		return nil
 	}
@@ -137,7 +137,7 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	}
 
 	var table eaclSDK.Table
-	cnr := reqInfo.Cnr
+	cnr := reqInfo.ContainerID
 
 	bearerTok := reqInfo.Bearer
 	if bearerTok == nil {
