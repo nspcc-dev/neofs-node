@@ -3,6 +3,7 @@ package policer
 import (
 	"context"
 	"errors"
+	"sync"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -16,15 +17,23 @@ import (
 )
 
 // tracks Policer's check progress.
-type nodeCache map[uint64]bool
+type nodeCache struct {
+	nodes                 map[uint64]bool
+	metrics               MetricsCollector
+	isEC                  bool
+	replicationMetricOnce sync.Once
+}
 
-func newNodeCache() *nodeCache {
-	m := make(map[uint64]bool)
-	return (*nodeCache)(&m)
+func newNodeCache(metrics MetricsCollector, isEC bool) *nodeCache {
+	return &nodeCache{
+		nodes:   make(map[uint64]bool),
+		metrics: metrics,
+		isEC:    isEC,
+	}
 }
 
 func (n *nodeCache) set(node netmap.NodeInfo, val bool) {
-	(*n)[node.Hash()] = val
+	n.nodes[node.Hash()] = val
 }
 
 // submits storage node as a candidate to store the object replica in case of
@@ -44,7 +53,7 @@ func (n *nodeCache) submitReplicaHolder(node netmap.NodeInfo) {
 //	 0 if node already holds the object
 //	<0 if node has not been processed yet
 func (n *nodeCache) processStatus(node netmap.NodeInfo) int8 {
-	val, ok := (*n)[node.Hash()]
+	val, ok := n.nodes[node.Hash()]
 	if !ok {
 		return -1
 	}
@@ -62,12 +71,15 @@ func (n *nodeCache) processStatus(node netmap.NodeInfo) int8 {
 // SubmitSuccessfulReplication implements replicator.TaskResult.
 func (n *nodeCache) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 	n.submitReplicaHolder(node)
+	n.replicationMetricOnce.Do(func() {
+		n.metrics.IncPolicerObjectReplicated(n.isEC)
+	})
 }
 
 // checks whether at least one remote container node holds particular object
 // replica (including as a result of successful replication).
 func (n nodeCache) atLeastOneHolder() bool {
-	for _, v := range n {
+	for _, v := range n.nodes {
 		if v {
 			return true
 		}
@@ -91,7 +103,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 	p.metrics.IncPolicerObjectProcessed(isEC)
 
 	selectNodesAddr := addr
-	if ecp.RuleIndex >= 0 {
+	if isEC {
 		if ln := len(addrWithAttrs.Attributes[2]); ln != oid.Size {
 			p.log.Error("received EC parent OID with unexpected len from local storage, skip object",
 				zap.Stringer("object", addr), zap.Int("len", ln))
@@ -120,14 +132,14 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		return
 	}
 
-	if ecp.RuleIndex >= 0 {
+	if isEC {
 		if len(ecRules) > 0 {
 			p.processECPart(ctx, addr, selectNodesAddr.Object(), ecp, ecRules, nn[len(repRules):])
 			return
 		}
 		p.log.Info("object with EC attributes in container without EC rules detected, deleting",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", ecp.RuleIndex), zap.Int("partIdx", ecp.Index))
-		if err := p.deleteLocalObject(addr, true); err != nil {
+		if err := p.deleteLocalObject(addr, isEC); err != nil {
 			p.log.Error("failed to delete local object with excessive EC attributes",
 				zap.Stringer("object", addr), zap.Error(err))
 		}
@@ -159,7 +171,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 
 	c := &processPlacementContext{
 		object:       addrWithAttrs,
-		checkedNodes: newNodeCache(),
+		checkedNodes: newNodeCache(p.metrics, false),
 	}
 
 	for i := range repRules {
@@ -343,11 +355,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Uint32("shortage", shortage),
 		)
 
-		result := newReplicationResultTracker(plc.checkedNodes)
-		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, &result)
-		if result.done {
-			p.metrics.IncPolicerObjectReplicated(false)
-		}
+		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, plc.checkedNodes)
 	} else if len(candidates) > 0 {
 		// The required number of replicas exists, but some primary placement
 		// nodes are missing the object. Replicate to them so that the placement
@@ -360,11 +368,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Int("misplaced", len(candidates)),
 		)
 
-		result := newReplicationResultTracker(plc.checkedNodes)
-		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, &result)
-		if result.done {
-			p.metrics.IncPolicerObjectReplicated(false)
-		}
+		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, plc.checkedNodes)
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
@@ -417,20 +421,4 @@ func (p *Policer) tryToReplicate(ctx context.Context, addr oid.Address, shortage
 	task.SetCopiesNumber(shortage)
 
 	p.replicator.HandleTask(ctx, task, res)
-}
-
-type replicationResultTracker struct {
-	replicator.TaskResult
-	done bool
-}
-
-func newReplicationResultTracker(res replicator.TaskResult) replicationResultTracker {
-	return replicationResultTracker{TaskResult: res}
-}
-
-func (x *replicationResultTracker) SubmitSuccessfulReplication(node netmap.NodeInfo) {
-	x.done = true
-	if x.TaskResult != nil {
-		x.TaskResult.SubmitSuccessfulReplication(node)
-	}
 }
