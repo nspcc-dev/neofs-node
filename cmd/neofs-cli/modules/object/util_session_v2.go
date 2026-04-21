@@ -37,40 +37,35 @@ func getSessionV2(cmd *cobra.Command) (*session.Token, error) {
 	return &tok, nil
 }
 
-func getVerifiedSessionV2(cmd *cobra.Command, cmdVerb session.Verb, key *ecdsa.PrivateKey, cnr cid.ID) (*session.Token, error) {
-	tok, err := getSessionV2(cmd)
-	if err != nil || tok == nil {
-		return tok, err
-	}
-
+func verifySessionV2(cmd *cobra.Command, tok *session.Token, cmdVerb session.Verb, key *ecdsa.PrivateKey, cnr cid.ID) error {
 	common.PrintVerbose(cmd, "Validating V2 session token...")
 
 	if err := tok.Validate(noopNNSResolver{}); err != nil {
-		return nil, fmt.Errorf("invalid V2 session token: %w", err)
+		return fmt.Errorf("invalid V2 session token: %w", err)
 	}
 
 	if !tok.AssertVerb(cmdVerb, cnr) {
-		return nil, fmt.Errorf("v2 session token does not authorize %v for container %s", cmdVerb, cnr)
+		return fmt.Errorf("v2 session token does not authorize %v for container %s", cmdVerb, cnr)
 	}
 
 	signer := user.NewAutoIDSigner(*key)
 	if tok.Issuer() != signer.UserID() {
-		return nil, fmt.Errorf("v2 session token issuer %v does not match provided key/wallet %s", tok.Issuer(), signer.UserID())
+		return fmt.Errorf("v2 session token issuer %v does not match provided key/wallet %s", tok.Issuer(), signer.UserID())
 	}
 
 	if err := icrypto.AuthenticateTokenV2(tok, nil); err != nil {
 		// CLI has no tool to verify N3 signature, so check is delegated to the server
 		var errScheme icrypto.ErrUnsupportedScheme
 		if !errors.As(err, &errScheme) || neofscrypto.Scheme(errScheme) != neofscrypto.N3 {
-			return nil, fmt.Errorf("verify session token signature: %w", err)
+			return fmt.Errorf("verify session token signature: %w", err)
 		}
 	}
 
 	common.PrintVerbose(cmd, "V2 session token validated successfully")
-	return tok, nil
+	return nil
 }
 
-func _readVerifiedSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) error {
+func attachVerifiedSessionV2(cmd *cobra.Command, tok *session.Token, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) error {
 	var cmdVerb session.Verb
 
 	switch dst.(type) {
@@ -88,8 +83,8 @@ func _readVerifiedSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Priva
 		cmdVerb = session.VerbObjectRangeHash
 	}
 
-	tok, err := getVerifiedSessionV2(cmd, cmdVerb, key, cnr)
-	if err != nil || tok == nil {
+	err := verifySessionV2(cmd, tok, cmdVerb, key, cnr)
+	if err != nil {
 		return err
 	}
 
@@ -99,24 +94,16 @@ func _readVerifiedSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Priva
 	return nil
 }
 
-func tryReadSessionV2(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) (bool, error) {
+func tryReadSessionV2(cmd *cobra.Command) *session.Token {
 	path, _ := cmd.Flags().GetString(commonflags.SessionToken)
 	if path == "" {
-		return false, nil
+		return nil
 	}
 
 	tok, err := getSessionV2(cmd)
 	if err != nil {
-		return false, nil
+		common.PrintVerbose(cmd, "Failed to read V2 session: %v", err)
+		return nil
 	}
-	if tok == nil {
-		return false, nil
-	}
-
-	err = _readVerifiedSessionV2(cmd, dst, key, cnr)
-	if err != nil {
-		return true, err
-	}
-
-	return true, nil
+	return tok
 }

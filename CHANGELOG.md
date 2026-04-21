@@ -15,7 +15,7 @@ Changelog for NeoFS Node
 - Garbage double-counting in metrics (#3933)
 - Panic in session token storage epoch parsing (#3941)
 - Compressed object GET failure in some cases (#3936)
-- Support v2 session tokens in cli object search (#3955)
+- Support v2 session tokens in cli object search (#3955, #3962)
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)

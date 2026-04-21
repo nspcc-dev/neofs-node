@@ -200,11 +200,11 @@ func getSession(cmd *cobra.Command) (*session.Object, error) {
 //	*internal.PayloadRangePrm
 //	*internal.HashPayloadRangesPrm
 func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) error {
-	isV2, err := tryReadSessionV2(cmd, dst, key, cnr)
-	if err != nil {
-		return fmt.Errorf("v2 session validation failed: %w", err)
-	}
-	if isV2 {
+	if tokV2 := tryReadSessionV2(cmd); tokV2 != nil {
+		err := attachVerifiedSessionV2(cmd, tokV2, dst, key, cnr)
+		if err != nil {
+			return fmt.Errorf("v2 session validation failed: %w", err)
+		}
 		common.PrintVerbose(cmd, "Using V2 session token")
 		return nil
 	}
