@@ -3,7 +3,6 @@ package policer
 import (
 	"context"
 	"errors"
-	"sync"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -18,17 +17,14 @@ import (
 
 // tracks Policer's check progress.
 type nodeCache struct {
-	nodes                 map[uint64]bool
-	metrics               MetricsCollector
-	isEC                  bool
-	replicationMetricOnce sync.Once
+	nodes   map[uint64]bool
+	metrics MetricsCollector
 }
 
-func newNodeCache(metrics MetricsCollector, isEC bool) *nodeCache {
+func newNodeCache(metrics MetricsCollector) *nodeCache {
 	return &nodeCache{
 		nodes:   make(map[uint64]bool),
 		metrics: metrics,
-		isEC:    isEC,
 	}
 }
 
@@ -70,10 +66,10 @@ func (n *nodeCache) processStatus(node netmap.NodeInfo) int8 {
 //
 // SubmitSuccessfulReplication implements replicator.TaskResult.
 func (n *nodeCache) SubmitSuccessfulReplication(node netmap.NodeInfo) {
+	const isEC = false
+
 	n.submitReplicaHolder(node)
-	n.replicationMetricOnce.Do(func() {
-		n.metrics.IncPolicerObjectReplicated(n.isEC)
-	})
+	n.metrics.IncPolicerObjectReplicated(isEC)
 }
 
 // checks whether at least one remote container node holds particular object
@@ -171,7 +167,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 
 	c := &processPlacementContext{
 		object:       addrWithAttrs,
-		checkedNodes: newNodeCache(p.metrics, false),
+		checkedNodes: newNodeCache(p.metrics),
 	}
 
 	for i := range repRules {

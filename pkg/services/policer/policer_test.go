@@ -188,7 +188,7 @@ func TestConsistencyAndPlacement(t *testing.T) {
 				Address: addr,
 				Type:    object.TypeRegular,
 			},
-			checkedNodes: newNodeCache(mockM, false),
+			checkedNodes: newNodeCache(mockM),
 		}
 
 		p.processNodes(context.Background(), plc, nodes, 2)

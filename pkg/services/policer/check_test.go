@@ -8,7 +8,7 @@ import (
 )
 
 func TestNodeCache(t *testing.T) {
-	cache := newNodeCache(&mockMetrics{}, false)
+	cache := newNodeCache(&mockMetrics{})
 	node := netmaptest.NodeInfo()
 
 	require.Negative(t, cache.processStatus(node))
