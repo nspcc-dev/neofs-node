@@ -7,7 +7,8 @@ const PutTimeoutDefault = time.Minute
 
 // Replicator contains configuration for replicator.
 type Replicator struct {
-	PutTimeout time.Duration `mapstructure:"put_timeout"`
+	PutTimeout              time.Duration `mapstructure:"put_timeout"`
+	DisablePostInitialQueue bool          `mapstructure:"disable_post_initial_queue"`
 }
 
 // Normalize sets default values for Replicator fields if they are not set.

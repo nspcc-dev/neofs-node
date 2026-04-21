@@ -359,11 +359,13 @@ Configuration for the Replicator service.
 ```yaml
 replicator:
   put_timeout: 15s
+  disable_post_initial_queue: true
 ```
 
-| Parameter     | Type       | Default value                          | Description                                 |
-|---------------|------------|----------------------------------------|---------------------------------------------|
-| `put_timeout` | `duration` | `1m`                                   | Timeout for performing the `PUT` operation. |
+| Parameter                    | Type       | Default value | Description                                                                                              |
+|------------------------------|------------|---------------|----------------------------------------------------------------------------------------------------------|
+| `put_timeout`                | `duration` | `1m`          | Timeout for performing the `PUT` operation.                                                              |
+| `disable_post_initial_queue` | `bool`     | `false`       | Disables enqueueing of post-initial replication tasks into the replicator queue after initial placement. |
 
 # `object` section
 Contains object-service related parameters.

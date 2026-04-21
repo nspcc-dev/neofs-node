@@ -98,7 +98,8 @@
     "boost_multiplier": "5"
   },
   "replicator": {
-    "put_timeout": "15s"
+    "put_timeout": "15s",
+    "disable_post_initial_queue": true
   },
   "object": {
     "delete": {
