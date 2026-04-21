@@ -79,6 +79,9 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 	}
 
 	metaCursor = metaBucket.Cursor()
+	if containerMarkedGC(metaCursor) {
+		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
 
 	// check tombstones, garbage and object expiration first
 	switch objectStatus(metaCursor, id, currEpoch) {
@@ -218,10 +221,6 @@ func mkGarbageKey(id oid.ID) []byte {
 // inGarbage checks for tombstone and garbage marks of the given ID using
 // the given meta bucket cursor.
 func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
-	if containerMarkedGC(metaCursor) {
-		return statusGCMarked
-	}
-
 	deleted, _ := associatedWithTypedObject(0, metaCursor, id, object.TypeTombstone)
 	if deleted {
 		return statusTombstoned

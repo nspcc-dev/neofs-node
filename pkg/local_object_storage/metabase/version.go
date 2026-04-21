@@ -206,6 +206,9 @@ func syncCounter7Version(tx *bbolt.Tx, force bool) error {
 
 	err = iteratePhyObjects(tx, func(c *bbolt.Cursor, obj oid.ID) error {
 		phyCounter++
+		if containerMarkedGC(c) {
+			return nil
+		}
 
 		typ, err := fetchTypeForID(c, obj)
 		// check if an object is available: not with GCMark
@@ -314,11 +317,13 @@ func migrateFrom7Version(db *DB) error {
 				metaCursor = metaBkt.Cursor()
 				objsNumber uint64
 			)
-			k, _ := metaCursor.Seek(phyPrefix)
-			for ; bytes.HasPrefix(k, phyPrefix); k, _ = metaCursor.Next() {
-				id := oid.ID(k[len(phyPrefix):])
-				if objectStatus(metaBkt.Cursor(), id, currEpoch) == statusAvailable {
-					objsNumber++
+			if !containerMarkedGC(metaCursor) {
+				k, _ := metaCursor.Seek(phyPrefix)
+				for ; bytes.HasPrefix(k, phyPrefix); k, _ = metaCursor.Next() {
+					id := oid.ID(k[len(phyPrefix):])
+					if objectStatus(metaBkt.Cursor(), id, currEpoch) == statusAvailable {
+						objsNumber++
+					}
 				}
 			}
 

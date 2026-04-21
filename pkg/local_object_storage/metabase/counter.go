@@ -271,9 +271,13 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 	)
 
 	c := b.Cursor()
+	deadContainer := containerMarkedGC(c)
 	cInt := b.Cursor()
 	for obj := range iterAttrVal(c, object.FilterPhysical, []byte(binPropMarker)) {
 		phyCounter++
+		if deadContainer {
+			continue
+		}
 		if inGarbage(cInt, obj) != statusAvailable {
 			continue
 		}
@@ -281,7 +285,7 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 		size, _ := strconv.ParseUint(string(sizeRaw), 10, 64)
 		usersPayloadCounter += size
 	}
-	if containerMarkedGC(c) {
+	if deadContainer {
 		err := resetContainerCounters(b, phyCounter)
 		if err != nil {
 			return fmt.Errorf("reset container counters: %w", err)

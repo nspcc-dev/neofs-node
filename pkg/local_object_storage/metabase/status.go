@@ -57,6 +57,9 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		}
 
 		removedStatus := inGarbage(metaCursor, oID)
+		if containerMarkedGC(metaCursor) {
+			removedStatus = statusGCMarked
+		}
 
 		var existsRegular bool
 

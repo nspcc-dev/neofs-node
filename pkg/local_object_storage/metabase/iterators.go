@@ -119,7 +119,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 
 	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
 		cnrID, prefix := parseContainerIDWithPrefix(name)
-		if cnrID.IsZero() || prefix != metadataPrefix {
+		if cnrID.IsZero() || prefix != metadataPrefix || containerMarkedGC(b.Cursor()) {
 			return nil
 		}
 

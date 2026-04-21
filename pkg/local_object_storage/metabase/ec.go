@@ -117,6 +117,9 @@ func (db *DB) resolveECPartWithPayloadLen(metaBktCrs *bbolt.Cursor, parent oid.I
 
 func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec.PartInfo) (oid.ID, error) {
 	metaBkt := crs.Bucket()
+	if containerMarkedGC(crs) {
+		return oid.ID{}, apistatus.ErrObjectNotFound
+	}
 
 	switch objectStatus(crs, parent, db.epochState.CurrentEpoch()) {
 	case statusGCMarked:
