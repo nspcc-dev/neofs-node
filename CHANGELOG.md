@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - All regular state-modifying DB operations are batched now (was Put-only, #3942)
 - Optimized metabase object checks for container-level GC marks (#3953)
 - Rejected metabase PUT requests into GC-marked containers (#3953)
+- Improved IR list caching in SN (#3954)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)

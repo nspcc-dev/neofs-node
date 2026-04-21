@@ -91,7 +91,7 @@ func (r putPostInitialPlacementReplicator) HandlePostPlacement(obj *object.Objec
 	}
 }
 
-func (c *cfg) MaxObjectSize() uint64 {
+func (c *cfg) MaxObjectSize() (uint64, error) {
 	sz, err := c.nCli.MaxObjectSize()
 	if err != nil {
 		c.log.Error("could not get max object size value",
@@ -99,7 +99,7 @@ func (c *cfg) MaxObjectSize() uint64 {
 		)
 	}
 
-	return sz
+	return sz, err
 }
 
 func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
@@ -145,13 +145,15 @@ func (i *delNetInfo) LocalNodeID() user.ID {
 }
 
 type innerRingFetcherWithNotary struct {
+	cfg     *cfg
 	fschain *morphClient.Client
 }
 
 func (fn *innerRingFetcherWithNotary) InnerRingKeys() ([][]byte, error) {
 	keys, err := fn.fschain.NeoFSAlphabetList()
 	if err != nil {
-		return nil, fmt.Errorf("can't get inner ring keys from alphabet role: %w", err)
+		fn.cfg.log.Error("can't get inner ring key list", zap.Error(err))
+		return nil, fmt.Errorf("can't get inner ring key list: %w", err)
 	}
 
 	result := make([][]byte, 0, len(keys))
@@ -208,6 +210,7 @@ func initObjectService(c *cfg) {
 	}
 
 	irFetcher := &innerRingFetcherWithNotary{
+		cfg:     c,
 		fschain: c.cfgMorph.client,
 	}
 
@@ -267,7 +270,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithContainerClient(c.cCli),
-		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
+		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c.MaxObjectSize)),
 		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
@@ -308,7 +311,7 @@ func initObjectService(c *cfg) {
 
 	aclSvc := v2.New(fsChain,
 		v2.WithLogger(c.log),
-		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
+		v2.WithIRFetcher(newCachedIRFetcher(irFetcher.InnerRingKeys)),
 		v2.WithNetmapper(netmapSourceWithNodes{
 			Source:         c.netMapSource,
 			fsChain:        fsChain,

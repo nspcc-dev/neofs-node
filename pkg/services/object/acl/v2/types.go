@@ -24,5 +24,5 @@ type ACLChecker interface {
 type InnerRingFetcher interface {
 	// InnerRingKeys must return list of public keys of
 	// the actual inner ring.
-	InnerRingKeys() ([][]byte, error)
+	InnerRingKeys() [][]byte
 }

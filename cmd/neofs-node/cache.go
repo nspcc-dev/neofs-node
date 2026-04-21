@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	sdkcontainer "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -410,77 +409,62 @@ func (s *ttlContainerLister) reset() {
 	s.inner.reset()
 }
 
-type cachedIRFetcher struct {
-	tc ttlNetCache[struct{}, [][]byte]
-}
+type cachedIRFetcher singleValueTTLCache[[][]byte]
 
-func newCachedIRFetcher(f interface{ InnerRingKeys() ([][]byte, error) }) *cachedIRFetcher {
-	const (
-		irFetcherCacheSize = 1 // we intend to store only one value
-
-		// Without the cache in the testnet we can see several hundred simultaneous
-		// requests (neofs-node #1278), so limiting the request rate solves the issue.
-		//
-		// Exact request rate doesn't really matter because Inner Ring list update
-		// happens extremely rare, but there is no FS chain events for that as
-		// for now (neofs-contract v0.15.0 notary disabled env) to monitor it.
-		irFetcherCacheTTL = 30 * time.Second
-	)
-
-	irFetcherCache := newNetworkTTLCache(irFetcherCacheSize, irFetcherCacheTTL,
-		func(key struct{}) ([][]byte, error) {
-			return f.InnerRingKeys()
-		},
-	)
-
-	return &cachedIRFetcher{tc: irFetcherCache}
+func newCachedIRFetcher(f func() ([][]byte, error)) *cachedIRFetcher {
+	return &cachedIRFetcher{
+		src: f,
+	}
 }
 
 // InnerRingKeys returns cached list of Inner Ring keys. If keys are missing in
 // the cache or expired, then it returns keys from FS chain and updates
 // the cache.
-func (f *cachedIRFetcher) InnerRingKeys() ([][]byte, error) {
-	val, err := f.tc.get(struct{}{})
-	if err != nil {
-		return nil, err
-	}
-
-	return val, nil
+func (f *cachedIRFetcher) InnerRingKeys() [][]byte {
+	return (*singleValueTTLCache[[][]byte])(f).Value()
 }
 
-type ttlMaxObjectSizeCache struct {
-	mtx         sync.RWMutex
-	lastUpdated time.Time
-	lastSize    uint64
-	src         putsvc.MaxSizeSource
+type ttlMaxObjectSizeCache singleValueTTLCache[uint64]
+
+func (c *ttlMaxObjectSizeCache) MaxObjectSize() uint64 {
+	return (*singleValueTTLCache[uint64])(c).Value()
 }
 
-func newCachedMaxObjectSizeSource(src putsvc.MaxSizeSource) putsvc.MaxSizeSource {
+func newCachedMaxObjectSizeSource(src func() (uint64, error)) *ttlMaxObjectSizeCache {
 	return &ttlMaxObjectSizeCache{
 		src: src,
 	}
 }
 
-func (c *ttlMaxObjectSizeCache) MaxObjectSize() uint64 {
+type singleValueTTLCache[T any] struct {
+	mtx         sync.RWMutex
+	lastUpdated time.Time
+	lastValue   T
+	src         func() (T, error)
+}
+
+func (c *singleValueTTLCache[T]) Value() T {
 	const ttl = time.Second * 30
 
 	c.mtx.RLock()
 	prevUpdated := c.lastUpdated
-	size := c.lastSize
+	value := c.lastValue
 	c.mtx.RUnlock()
 
 	if time.Since(prevUpdated) < ttl {
-		return size
+		return value
 	}
 
 	c.mtx.Lock()
-	size = c.lastSize
 	if !c.lastUpdated.After(prevUpdated) {
-		size = c.src.MaxObjectSize()
-		c.lastSize = size
-		c.lastUpdated = time.Now()
+		value, err := c.src()
+		if err == nil {
+			c.lastValue = value
+			c.lastUpdated = time.Now()
+		}
 	}
+	value = c.lastValue
 	c.mtx.Unlock()
 
-	return size
+	return value
 }
