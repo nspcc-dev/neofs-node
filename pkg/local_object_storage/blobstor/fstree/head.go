@@ -157,6 +157,9 @@ func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadC
 	offset := combinedDataOff
 	for {
 		if bytes.Equal(thisOID, id[:]) {
+			if l == 0 {
+				return nil, nil, io.ErrUnexpectedEOF
+			}
 			size := min(offset+int(l), offset+objectwire.NonPayloadFieldsBufferLength)
 			if n < size {
 				_, err = io.ReadFull(f, buf[n:size])
