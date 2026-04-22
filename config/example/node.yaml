@@ -88,6 +88,7 @@ policer:
 
 replicator:
   put_timeout: 15s  # timeout for the Replicator PUT remote operation (defaults to 1m)
+  disable_post_initial_queue: true  # disable queueing of post-initial replication tasks
 
 object:
   delete:

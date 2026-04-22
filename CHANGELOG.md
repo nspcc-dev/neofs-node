@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - `storage.shard.metabase.search_iteration_limit` SN config option limiting fruitless SearchV2 metabase iterations (#3915)
 - Policer cycle/object metrics with replica vs EC breakdown (#3945)
+- `replicator.disable_post_initial_queue` SN config option (#3959)
 
 ### Fixed
 - Policer removes redundant local shard copies that could remain on disk forever (#3908)

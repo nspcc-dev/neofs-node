@@ -68,9 +68,17 @@ type objectSvc struct {
 type putPostInitialPlacementReplicator struct {
 	log        *zap.Logger
 	replicator *replicator.Replicator
+	disabled   bool
 }
 
 func (r putPostInitialPlacementReplicator) HandlePostPlacement(obj *object.Object, nodes []netmapsdk.NodeInfo) {
+	if r.disabled {
+		r.log.Debug("post-placement replication is disabled",
+			zap.Stringer("object", obj.Address()),
+		)
+		return
+	}
+
 	copies := uint32(len(nodes))
 	if pi, err := iec.GetPartInfo(*obj); err == nil && pi.Index >= 0 {
 		copies = 1
@@ -275,7 +283,11 @@ func initObjectService(c *cfg) {
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithRemoteWorkerPool(c.cfgObject.pool.putRemote),
-		putsvc.WithPostPlacementReplicator(putPostInitialPlacementReplicator{log: c.log, replicator: c.replicator}),
+		putsvc.WithPostPlacementReplicator(putPostInitialPlacementReplicator{
+			log:        c.log,
+			replicator: c.replicator,
+			disabled:   c.appCfg.Replicator.DisablePostInitialQueue,
+		}),
 		putsvc.WithLogger(c.log),
 		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(os)),
