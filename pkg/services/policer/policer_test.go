@@ -147,6 +147,9 @@ func TestConsistencyAndPlacement(t *testing.T) {
 		require.Eventually(t, func() bool {
 			return mockM.consistency.Load() && mockM.optimalPlacement.Load()
 		}, 3*time.Second, 50*time.Millisecond)
+		require.EqualValues(t, 1, mockM.processedRep.Load())
+		require.EqualValues(t, 0, mockM.processedEC.Load())
+		require.GreaterOrEqual(t, mockM.cycleCount.Load(), uint64(1))
 
 		delayCh <- struct{}{}
 	})
@@ -185,7 +188,7 @@ func TestConsistencyAndPlacement(t *testing.T) {
 				Address: addr,
 				Type:    object.TypeRegular,
 			},
-			checkedNodes: newNodeCache(),
+			checkedNodes: newNodeCache(mockM),
 		}
 
 		p.processNodes(context.Background(), plc, nodes, 2)
@@ -194,12 +197,30 @@ func TestConsistencyAndPlacement(t *testing.T) {
 		require.False(t, mockM.optimalPlacement.Load())
 		require.True(t, p.hadPlacementMismatch.Load())
 		require.False(t, p.hadReplicaShortage.Load())
+		require.EqualValues(t, 1, mockM.replicatedRep.Load())
+		require.EqualValues(t, 0, mockM.replicatedEC.Load())
 
 		var exp replicator.Task
 		exp.SetObjectAddress(addr)
 		exp.SetCopiesNumber(1)
 		exp.SetNodes([]netmap.NodeInfo{nodes[1]})
 		require.Equal(t, exp, r.task.Load().(replicator.Task))
+	})
+
+	t.Run("deleted objects are split by mode", func(t *testing.T) {
+		localNode := newTestLocalNode()
+		mockM := &mockMetrics{}
+		p := New(neofscryptotest.Signer(), WithMetrics(mockM), WithLogger(zap.NewNop()))
+		p.localStorage = localNode
+
+		repAddr := oid.NewAddress(cidtest.ID(), oidtest.ID())
+		ecAddr := oid.NewAddress(cidtest.ID(), oidtest.ID())
+
+		p.dropRedundantLocalObject(repAddr, false)
+		p.dropRedundantLocalObject(ecAddr, true)
+
+		require.EqualValues(t, 1, mockM.deletedRep.Load())
+		require.EqualValues(t, 1, mockM.deletedEC.Load())
 	})
 }
 
@@ -1421,6 +1442,13 @@ func newMockNetwork() *mockNetwork {
 type mockMetrics struct {
 	consistency      atomic.Bool
 	optimalPlacement atomic.Bool
+	cycleCount       atomic.Uint64
+	processedRep     atomic.Uint64
+	processedEC      atomic.Uint64
+	replicatedRep    atomic.Uint64
+	replicatedEC     atomic.Uint64
+	deletedRep       atomic.Uint64
+	deletedEC        atomic.Uint64
 }
 
 func (m *mockMetrics) SetPolicerConsistency(b bool) {
@@ -1429,6 +1457,34 @@ func (m *mockMetrics) SetPolicerConsistency(b bool) {
 
 func (m *mockMetrics) SetPolicerOptimalPlacement(b bool) {
 	m.optimalPlacement.Store(b)
+}
+
+func (m *mockMetrics) IncPolicerCycleCount() {
+	m.cycleCount.Add(1)
+}
+
+func (m *mockMetrics) IncPolicerObjectProcessed(isEC bool) {
+	if isEC {
+		m.processedEC.Add(1)
+		return
+	}
+	m.processedRep.Add(1)
+}
+
+func (m *mockMetrics) IncPolicerObjectReplicated(isEC bool) {
+	if isEC {
+		m.replicatedEC.Add(1)
+		return
+	}
+	m.replicatedRep.Add(1)
+}
+
+func (m *mockMetrics) IncPolicerObjectDeleted(isEC bool) {
+	if isEC {
+		m.deletedEC.Add(1)
+		return
+	}
+	m.deletedRep.Add(1)
 }
 
 func (x *mockNetwork) IsLocalNodePublicKey(key []byte) bool {

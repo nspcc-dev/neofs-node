@@ -16,15 +16,20 @@ import (
 )
 
 // tracks Policer's check progress.
-type nodeCache map[uint64]bool
+type nodeCache struct {
+	nodes   map[uint64]bool
+	metrics MetricsCollector
+}
 
-func newNodeCache() *nodeCache {
-	m := make(map[uint64]bool)
-	return (*nodeCache)(&m)
+func newNodeCache(metrics MetricsCollector) *nodeCache {
+	return &nodeCache{
+		nodes:   make(map[uint64]bool),
+		metrics: metrics,
+	}
 }
 
 func (n *nodeCache) set(node netmap.NodeInfo, val bool) {
-	(*n)[node.Hash()] = val
+	n.nodes[node.Hash()] = val
 }
 
 // submits storage node as a candidate to store the object replica in case of
@@ -44,7 +49,7 @@ func (n *nodeCache) submitReplicaHolder(node netmap.NodeInfo) {
 //	 0 if node already holds the object
 //	<0 if node has not been processed yet
 func (n *nodeCache) processStatus(node netmap.NodeInfo) int8 {
-	val, ok := (*n)[node.Hash()]
+	val, ok := n.nodes[node.Hash()]
 	if !ok {
 		return -1
 	}
@@ -61,13 +66,16 @@ func (n *nodeCache) processStatus(node netmap.NodeInfo) int8 {
 //
 // SubmitSuccessfulReplication implements replicator.TaskResult.
 func (n *nodeCache) SubmitSuccessfulReplication(node netmap.NodeInfo) {
+	const isEC = false
+
 	n.submitReplicaHolder(node)
+	n.metrics.IncPolicerObjectReplicated(isEC)
 }
 
 // checks whether at least one remote container node holds particular object
 // replica (including as a result of successful replication).
 func (n nodeCache) atLeastOneHolder() bool {
-	for _, v := range n {
+	for _, v := range n.nodes {
 		if v {
 			return true
 		}
@@ -87,9 +95,11 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			zap.Stringer("object", addr), zap.Error(err))
 		return
 	}
+	isEC := ecp.RuleIndex >= 0
+	p.metrics.IncPolicerObjectProcessed(isEC)
 
 	selectNodesAddr := addr
-	if ecp.RuleIndex >= 0 {
+	if isEC {
 		if ln := len(addrWithAttrs.Attributes[2]); ln != oid.Size {
 			p.log.Error("received EC parent OID with unexpected len from local storage, skip object",
 				zap.Stringer("object", addr), zap.Int("len", ln))
@@ -106,7 +116,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			zap.Error(err),
 		)
 		if container.IsErrNotFound(err) {
-			err = p.localStorage.Delete(addrWithAttrs.Address)
+			err = p.deleteLocalObject(addrWithAttrs.Address, isEC)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
@@ -118,14 +128,14 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		return
 	}
 
-	if ecp.RuleIndex >= 0 {
+	if isEC {
 		if len(ecRules) > 0 {
 			p.processECPart(ctx, addr, selectNodesAddr.Object(), ecp, ecRules, nn[len(repRules):])
 			return
 		}
 		p.log.Info("object with EC attributes in container without EC rules detected, deleting",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", ecp.RuleIndex), zap.Int("partIdx", ecp.Index))
-		if err := p.localStorage.Delete(addr); err != nil {
+		if err := p.deleteLocalObject(addr, isEC); err != nil {
 			p.log.Error("failed to delete local object with excessive EC attributes",
 				zap.Stringer("object", addr), zap.Error(err))
 		}
@@ -147,7 +157,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		} else if len(repRules) == 0 {
 			p.log.Info("object with lacking EC attributes detected, deleting",
 				zap.Stringer("object", addr))
-			if err := p.localStorage.Delete(addr); err != nil {
+			if err := p.deleteLocalObject(addr, false); err != nil {
 				p.log.Error("failed to delete local object with lacking EC attributes",
 					zap.Stringer("object", addr), zap.Error(err))
 			}
@@ -157,7 +167,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 
 	c := &processPlacementContext{
 		object:       addrWithAttrs,
-		checkedNodes: newNodeCache(),
+		checkedNodes: newNodeCache(p.metrics),
 	}
 
 	for i := range repRules {
@@ -215,7 +225,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			)
 		}
 
-		p.dropRedundantLocalObject(addr)
+		p.dropRedundantLocalObject(addr, false)
 		return
 	}
 
@@ -364,12 +374,20 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 	}
 }
 
-func (p *Policer) dropRedundantLocalObject(addr oid.Address) {
-	err := p.localStorage.Delete(addr)
+func (p *Policer) dropRedundantLocalObject(addr oid.Address, isEC bool) {
+	err := p.deleteLocalObject(addr, isEC)
 	if err != nil {
 		p.log.Warn("could not inhume mark redundant copy as garbage",
 			zap.Error(err))
 	}
+}
+
+func (p *Policer) deleteLocalObject(addr oid.Address, isEC bool) error {
+	err := p.localStorage.Delete(addr)
+	if err == nil {
+		p.metrics.IncPolicerObjectDeleted(isEC)
+	}
+	return err
 }
 
 func (p *Policer) dropRedundantLocalCopies(obj objectcore.AddressWithAttributes) {

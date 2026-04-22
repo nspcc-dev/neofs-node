@@ -24,7 +24,7 @@ func (p *Policer) processECPart(ctx context.Context, addr oid.Address, parent oi
 	if pi.RuleIndex >= len(ecRules) {
 		p.log.Warn("local object with invalid EC rule index detected, deleting",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("totalRules", len(ecRules)))
-		if err := p.localStorage.Delete(addr); err != nil {
+		if err := p.deleteLocalObject(addr, true); err != nil {
 			p.log.Error("failed to delete local object with invalid EC rule index",
 				zap.Stringer("object", addr), zap.Error(err))
 		}
@@ -35,7 +35,7 @@ func (p *Policer) processECPart(ctx context.Context, addr oid.Address, parent oi
 	if pi.Index >= int(rule.DataPartNum+rule.ParityPartNum) {
 		p.log.Warn("local object with invalid EC part index detected, deleting",
 			zap.Stringer("object", addr), zap.Stringer("rule", rule), zap.Int("partIdx", pi.Index))
-		if err := p.localStorage.Delete(addr); err != nil {
+		if err := p.deleteLocalObject(addr, true); err != nil {
 			p.log.Error("failed to delete local object with invalid EC part index",
 				zap.Stringer("object", addr), zap.Error(err))
 		}
@@ -75,7 +75,7 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 				zap.Stringer("cid", addr.Container()), zap.Stringer("partOID", addr.Object()),
 				zap.Stringer("rule", rule), zap.Int("partIdx", partIdx),
 				zap.Strings("node", slices.Collect(nodes[i].NetworkEndpoints())))
-			p.dropRedundantLocalObject(addr)
+			p.dropRedundantLocalObject(addr, true)
 			return
 		}
 
@@ -117,10 +117,11 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 	var repRes singleReplication
 	p.tryToReplicate(ctx, addr, 1, candidates, &repRes)
 	if repRes.done {
+		p.metrics.IncPolicerObjectReplicated(true)
 		p.log.Info("EC part successfully moved to more optimal node, drop",
 			zap.Stringer("cid", addr.Container()), zap.Stringer("partOID", addr.Object()),
 			zap.Stringer("rule", rule), zap.Int("partIdx", partIdx), zap.Strings("newHolder", repRes.netAddresses))
-		p.dropRedundantLocalObject(addr)
+		p.dropRedundantLocalObject(addr, true)
 		return
 	}
 
@@ -487,6 +488,7 @@ func (p *Policer) recreateECPart(ctx context.Context, parent object.Object, rule
 	p.replicator.HandleTask(ctx, task, &repRes)
 
 	if repRes.done {
+		p.metrics.IncPolicerObjectReplicated(true)
 		p.log.Info("EC part successfully recreated",
 			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
 			zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()),
