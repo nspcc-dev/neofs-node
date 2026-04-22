@@ -13,7 +13,7 @@ func TestCache_InitReadOnly(t *testing.T) {
 
 	obj := objecttest.Object()
 
-	err := wc.Put(obj.Address(), &obj, nil)
+	err := wc.Put(obj.Address(), &obj, []byte{1, 2, 3})
 	require.NoError(t, err)
 
 	err = wc.Close()

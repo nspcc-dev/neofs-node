@@ -344,6 +344,9 @@ func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	if t.readOnly {
 		return common.ErrReadOnly
 	}
+	if len(data) == 0 {
+		return io.ErrUnexpectedEOF
+	}
 
 	p := t.treePath(addr)
 
@@ -367,6 +370,9 @@ func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 
 	writeDataUnits := make([]writeDataUnit, 0, len(objs))
 	for addr, data := range objs {
+		if len(data) == 0 {
+			continue
+		}
 		p := t.treePath(addr)
 		if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
 			return fmt.Errorf("mkdirall for %q: %w", p, err)
@@ -478,6 +484,9 @@ func (t *FSTree) extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 		}
 		isCombined = true
 		if bytes.Equal(thisOID, id[:]) {
+			if l == 0 {
+				return nil, io.ErrUnexpectedEOF
+			}
 			return t.readFullObject(f, nil, int64(l))
 		}
 		_, err = f.Seek(int64(l), 1)

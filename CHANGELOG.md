@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Panic in session token storage epoch parsing (#3941)
 - Compressed object GET failure in some cases (#3936)
 - Support v2 session tokens in cli object search (#3955, #3962)
+- Write cache may flush empty objects to FSTree in some scenarious (#3937)
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)

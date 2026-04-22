@@ -176,7 +176,9 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 	}
 	data, err := c.getObject(addr)
 	if err != nil {
-		if ignoreErrors {
+		// an object can be removed b/w iterating over it
+		// and reading its payload; not an error
+		if errors.Is(err, apistatus.ErrObjectNotFound) || ignoreErrors {
 			return nil
 		}
 		return err
@@ -245,13 +247,10 @@ func (c *cache) getObject(addr oid.Address) ([]byte, error) {
 
 	data, err := c.fsTree.GetBytes(addr)
 	if err != nil {
-		if errors.As(err, new(apistatus.ObjectNotFound)) {
-			// an object can be removed b/w iterating over it
-			// and reading its payload; not an error
-			return nil, nil
+		if !errors.As(err, new(apistatus.ObjectNotFound)) {
+			c.reportFlushError("can't read a file", sAddr, err)
 		}
 
-		c.reportFlushError("can't read a file", sAddr, err)
 		return nil, err
 	}
 
