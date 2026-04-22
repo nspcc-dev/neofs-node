@@ -162,17 +162,6 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	stV2, err := getVerifiedSessionV2(cmd, sessionv2.VerbObjectSearch, pk, cnr)
-	if err != nil {
-		return err
-	}
-	var st *session.Object
-	if stV2 == nil {
-		st, err = getVerifiedSession(cmd, session.VerbObjectSearch, pk, cnr)
-		if err != nil {
-			return err
-		}
-	}
 
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
@@ -191,10 +180,21 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 	if bt != nil {
 		opts.WithBearerToken(*bt)
 	}
+	stV2 := tryReadSessionV2(cmd)
 	if stV2 != nil {
+		err = verifySessionV2(cmd, stV2, sessionv2.VerbObjectSearch, pk, cnr)
+		if err != nil {
+			return err
+		}
 		opts.WithSessionTokenV2(*stV2)
-	} else if st != nil {
-		opts.WithSessionToken(*st)
+	} else {
+		st, err := getVerifiedSession(cmd, session.VerbObjectSearch, pk, cnr)
+		if err != nil {
+			return err
+		}
+		if st != nil {
+			opts.WithSessionToken(*st)
+		}
 	}
 	res, cursor, err := cli.SearchObjects(ctx, cnr, fs, searchAttributesFlag.v, searchCursorFlag.v, neofsecdsa.Signer(*pk), opts)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
