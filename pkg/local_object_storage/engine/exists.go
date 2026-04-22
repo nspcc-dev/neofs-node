@@ -17,8 +17,8 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 	for _, sh := range e.sortedShards(addr.Object()) {
 		exists, err := sh.Exists(addr, false)
 		if err != nil {
-			if shard.IsErrRemoved(err) {
-				return false, apistatus.ObjectAlreadyRemoved{}
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+				return false, err
 			}
 
 			if errors.Is(err, ierrors.ErrParentObject) {
@@ -29,7 +29,7 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 				return false, nil
 			}
 
-			if !shard.IsErrNotFound(err) {
+			if !errors.Is(err, apistatus.ErrObjectNotFound) {
 				e.reportShardError(sh, "could not check existence of object in shard", err)
 			}
 			continue
