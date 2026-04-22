@@ -90,7 +90,11 @@ func (on *objectNotifier) notifyReceived(addr oid.Address) {
 
 	on.m.Unlock()
 
-	on.metaSvc.l.Info("DEBUG: object notification handled", zap.Stringer("addr", addr), zap.Duration("timeTook", timeTook), zap.Uint32("blocksTook", blocksTook))
+	if ok {
+		on.metaSvc.l.Info("DEBUG: object notification handled", zap.Stringer("addr", addr), zap.Duration("timeTook", timeTook), zap.Uint32("blocksTook", blocksTook))
+	} else {
+		on.metaSvc.l.Info("DEBUG: no subscribers? why?")
+	}
 
 	on.metaSvc.metrics.objAcceptTime.Observe(timeTook.Seconds())
 	on.metaSvc.metrics.objAcceptBlocks.Observe(float64(blocksTook))
