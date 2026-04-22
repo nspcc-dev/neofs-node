@@ -17,21 +17,17 @@ func (e *StorageEngine) existsPhysical(addr oid.Address) (bool, error) {
 	for _, sh := range e.sortedShards(addr.Object()) {
 		exists, err := sh.Exists(addr, false)
 		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
-				return false, err
-			}
-
-			if errors.Is(err, ierrors.ErrParentObject) {
-				return false, err
-			}
-
 			if shard.IsErrObjectExpired(err) {
 				return true, nil
 			}
 
-			if !errors.Is(err, apistatus.ErrObjectNotFound) {
-				e.reportShardError(sh, "could not check existence of object in shard", err)
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) ||
+				errors.Is(err, ierrors.ErrParentObject) ||
+				errors.Is(err, apistatus.ErrObjectNotFound) {
+				return false, err
 			}
+
+			e.reportShardError(sh, "could not check existence of object in shard", err)
 			continue
 		}
 
