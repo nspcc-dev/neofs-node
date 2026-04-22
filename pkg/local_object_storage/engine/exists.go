@@ -26,7 +26,7 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 			}
 
 			if shard.IsErrObjectExpired(err) {
-				return false, nil
+				return true, nil
 			}
 
 			if !errors.Is(err, apistatus.ErrObjectNotFound) {
