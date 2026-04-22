@@ -85,10 +85,10 @@ func EncodeReplicationMetaInfo(numberOfPlacementVectors int, cID cid.ID, oID, fi
 		kvs = append(kvs, kv(previousPartKey, previousPart[:]))
 	}
 	if !deleted.IsZero() {
-		kvs = append(kvs, kv(deletedKey, deleted))
+		kvs = append(kvs, kv(deletedKey, deleted[:]))
 	}
 	if !locked.IsZero() {
-		kvs = append(kvs, kv(lockedKey, locked))
+		kvs = append(kvs, kv(lockedKey, locked[:]))
 	}
 	if typ != object.TypeRegular {
 		kvs = append(kvs, kv(typeKey, uint32(typ)))
