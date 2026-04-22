@@ -30,7 +30,7 @@ func initMeta_new(c *cfg) {
 		standByCommittee = append(standByCommittee, c.StringCompressed())
 	}
 
-	seedList, err := incPort(fsChainProtocol.SeedList, 1)
+	seedList, err := incPort(fsChainProtocol.SeedList, 4)
 	fatalOnErr(err)
 
 	p2pAddrs, err := incPort([]string{c.appCfg.GRPC[len(c.appCfg.GRPC)-1].Endpoint}, 2)

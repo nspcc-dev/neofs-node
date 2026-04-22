@@ -784,19 +784,19 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			return nil, fmt.Errorf("fetchin FS chain version: %w", err)
 		}
 
-		metaSeeds, err := incPort(cfg.FSChain.Consensus.SeedNodes)
+		metaSeeds, err := incPort(cfg.FSChain.Consensus.SeedNodes, 4)
 		if err != nil {
 			return nil, fmt.Errorf("parsing consensus seed nodes: %w", err)
 		}
-		metaRPCs, err := incPort(cfg.FSChain.Consensus.RPC.Listen)
+		metaRPCs, err := incPort(cfg.FSChain.Consensus.RPC.Listen, 1)
 		if err != nil {
 			return nil, fmt.Errorf("parsing consensus RPCs: %w", err)
 		}
-		metaRPCsTLS, err := incPort(cfg.FSChain.Consensus.RPC.TLS.Listen)
+		metaRPCsTLS, err := incPort(cfg.FSChain.Consensus.RPC.TLS.Listen, 1)
 		if err != nil {
 			return nil, fmt.Errorf("parsing consensus RPCs (TLS): %w", err)
 		}
-		metaP2Ps, err := incPort(cfg.FSChain.Consensus.P2P.Listen)
+		metaP2Ps, err := incPort(cfg.FSChain.Consensus.P2P.Listen, 1)
 		if err != nil {
 			return nil, fmt.Errorf("parsing consensus P2Ps: %w", err)
 		}
@@ -1049,7 +1049,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	return server, nil
 }
 
-func incPort(addrs []string) ([]string, error) {
+func incPort(addrs []string, by uint64) ([]string, error) {
 	res := slices.Clone(addrs)
 	for i := range res {
 		host, port, err := net.SplitHostPort(res[i])
@@ -1060,7 +1060,7 @@ func incPort(addrs []string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("[%d] address ('%s') cannot be parsed: %w", i, port, err)
 		}
-		portU++
+		portU += by
 		res[i] = net.JoinHostPort(host, strconv.FormatUint(portU, 10))
 	}
 
