@@ -95,13 +95,10 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 
 	csum, err := checksum.NewFromData(checksum.SHA256, payload)
 	require.NoError(t, err)
-	csumTZ, err := checksum.NewFromData(checksum.TillichZemor, payload)
-	require.NoError(t, err)
 
 	obj := object.New(cnr, usertest.ID())
 	obj.SetID(oidtest.ID())
 	obj.SetPayloadChecksum(csum)
-	obj.SetPayloadHomomorphicHash(csumTZ) //nolint:staticcheck // this is a test and such objects are possible
 	obj.SetPayload(payload)
 	obj.SetPayloadSize(uint64(len(payload)))
 

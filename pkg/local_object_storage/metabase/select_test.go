@@ -16,7 +16,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -417,30 +416,6 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 	raw2.SetVersion(&v21)
 	err = putBig(db, raw2)
 	require.NoError(t, err)
-
-	//nolint:staticcheck // this is a test and such objects are possible
-	t.Run("object with TZHash", func(t *testing.T) {
-		cs, _ := raw1.PayloadHomomorphicHash()
-		homoHash := [tz.Size]byte(cs.Value())
-
-		fs := object.SearchFilters{}
-		fs.AddHomomorphicHashFilter(object.MatchStringEqual, homoHash)
-
-		testSelect(t, db, cnr, fs, raw1.Address())
-
-		fs = object.SearchFilters{}
-		fs.AddHomomorphicHashFilter(object.MatchStringNotEqual, homoHash)
-
-		testSelect(t, db, cnr, fs, raw2.Address())
-
-		fs = object.SearchFilters{}
-		fs.AddFilter(object.FilterPayloadHomomorphicHash,
-			"",
-			object.MatchNotPresent)
-
-		_, err := db.Select(cnr, fs)
-		require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
-	})
 
 	t.Run("object with payload length", func(t *testing.T) {
 		fs := object.SearchFilters{}
