@@ -94,7 +94,29 @@ func main() {
 		}()
 	}
 
-	innerRing, err := innerring.New(ctx, log, cfg, intErr)
+	var debugLogger *zap.Logger
+	{
+		c := zap.NewProductionConfig()
+		c.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		c.Encoding = cfg.Logger.Encoding
+		if !cfg.Logger.Sampling.Enabled {
+			c.Sampling = nil
+		}
+		if (term.IsTerminal(int(os.Stdout.Fd())) && !cfg.IsSet("logger.timestamp")) || cfg.Logger.Timestamp {
+			c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		} else {
+			c.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
+		}
+
+		log, err := c.Build(
+			zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
+		)
+		exitErr(err)
+
+		debugLogger = log
+	}
+
+	innerRing, err := innerring.New(ctx, log, debugLogger, cfg, intErr)
 	exitErr(err)
 
 	// start inner ring

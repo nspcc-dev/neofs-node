@@ -328,7 +328,7 @@ func (s *Server) registerCloser(f func() error) {
 }
 
 // New creates instance of inner ring server structure.
-func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<- error) (*Server, error) {
+func New(ctx context.Context, log *zap.Logger, debugLogger *zap.Logger, cfg *config.Config, errChan chan<- error) (*Server, error) {
 	// Never shadow this var, we have defers relying on it.
 	var err error
 	server := &Server{log: log}
@@ -841,7 +841,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			P2PNotaryRequestPayloadPoolSize: 1000, // default for blockchain.New()
 		}
 
-		server.metaChain, err = metachain.NewMetaChain(&metaChainCfg, &cfg.Wallet, errChan, log.With(zap.String("component", "metadata chain")))
+		server.metaChain, err = metachain.NewMetaChain(&metaChainCfg, &cfg.Wallet, errChan, debugLogger.With(zap.String("component", "metadata chain")))
 		if err != nil {
 			return nil, fmt.Errorf("init meta sidechain blockchain: %w", err)
 		}
@@ -896,14 +896,14 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 				}
 			}
 
-			server.log.Debug("made meta chain notary deposit, awaiting...", zap.String("txHash", txHash.StringLE()), zap.Uint32("vub", vub))
+			debugLogger.Debug("made meta chain notary deposit, awaiting...", zap.String("txHash", txHash.StringLE()), zap.Uint32("vub", vub))
 
 			_, err = act.WaitSuccess(ctx, txHash, vub, nil)
 			if err != nil {
 				return fmt.Errorf("waiting for meta chain notary deposit %s TX to be persisted: %w", txHash.StringLE(), err)
 			}
 
-			server.log.Debug("meta chain notary deposit successful", zap.String("tx_hash", txHash.StringLE()))
+			debugLogger.Debug("meta chain notary deposit successful", zap.String("tx_hash", txHash.StringLE()))
 
 			return nil
 		})

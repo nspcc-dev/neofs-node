@@ -19,7 +19,7 @@ import (
 )
 
 func initMeta_new(c *cfg) {
-	l := c.log.With(zap.String("component", "metadata chain"))
+	l := c.debugLogger.With(zap.String("component", "metadata chain"))
 
 	v, err := c.cfgMorph.client.GetVersion()
 	fatalOnErr(err)
@@ -143,7 +143,7 @@ func initMeta_new(c *cfg) {
 	})
 
 	c.metaService, err = meta.New(meta.Parameters{
-		Logger: c.log.With(zap.String("component", "metadata")),
+		Logger: c.debugLogger.With(zap.String("component", "metadata service")),
 		Chain:  c.sidechain,
 	})
 	fatalOnErr(err)
