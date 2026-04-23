@@ -31,15 +31,15 @@ const (
 )
 
 type objEvent struct {
-	cID            cid.ID
-	oID            oid.ID
-	size           *big.Int
-	network        *big.Int
-	firstObject    []byte
-	prevObject     []byte
-	deletedObjects []byte
-	lockedObjects  []byte
-	typ            object.Type
+	cID           cid.ID
+	oID           oid.ID
+	size          *big.Int
+	network       *big.Int
+	firstObject   []byte
+	prevObject    []byte
+	deletedObject []byte
+	lockedObject  []byte
+	typ           object.Type
 }
 
 func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error) {
@@ -125,26 +125,18 @@ func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error)
 			if v == nil {
 				return res, fmt.Errorf("missing '%s' key for %s object type", deletedKey, res.typ)
 			}
-			stackDeleted := v.Value().([]stackitem.Item)
-			for i, d := range stackDeleted {
-				rawDeleted, ok := d.Value().([]byte)
-				if !ok {
-					return res, fmt.Errorf("unexpected %d deleted object type: %T", i, d.Value())
-				}
-				res.deletedObjects = append(res.deletedObjects, rawDeleted...)
+			res.deletedObject, ok = v.Value().([]byte)
+			if !ok {
+				return res, fmt.Errorf("unexpected deleted object type: %T", v.Value())
 			}
 		case object.TypeLock:
 			v = getFromMap(meta, lockedKey)
 			if v == nil {
 				return res, fmt.Errorf("missing '%s' key for %s object type", lockedKey, res.typ)
 			}
-			stackLocked := v.Value().([]stackitem.Item)
-			for i, d := range stackLocked {
-				rawLocked, ok := d.Value().([]byte)
-				if !ok {
-					return res, fmt.Errorf("unexpected %d locked object type: %T", i, d.Value())
-				}
-				res.lockedObjects = append(res.deletedObjects, rawLocked...)
+			res.lockedObject, ok = v.Value().([]byte)
+			if !ok {
+				return res, fmt.Errorf("unexpected deleted object type: %T", v.Value())
 			}
 		case object.TypeLink, object.TypeRegular:
 		default:
