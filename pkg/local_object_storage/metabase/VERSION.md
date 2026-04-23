@@ -38,8 +38,8 @@ The lowest not used bucket index: 20.
 
 ## Version 11
 
-No schema changes, updating counters to fix potential issues caused by GC mark
-double counting.
+Object counters are updated (resynced) to fix potential issues caused by GC mark
+double counting. Homomorphic hash field indexes have been deleted.
 
 ## Version 10
 

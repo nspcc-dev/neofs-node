@@ -328,35 +328,6 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			check(object.MatchCommonPrefix, "8a61b9ff3de0983ed7ad7aa21db22ff91e5a2a07128cd45e3646282f90e4efd7", []uint{0})
 			check(object.MatchCommonPrefix, "4a", nil)
 		})
-		t.Run("payload homomorphic checksum", func(t *testing.T) {
-			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check(t, "$Object:homomorphicHash", m, v, matchInds)
-			}
-			check(object.MatchStringEqual, "a73a37d54475df580b324d70f3d1ac922200af91f196dd9cb0f8f1cca5fefdf0cb3dbc4aaac639416e3fdd4c540e616e6b44ac6b56a3b194e8011925192a8be2", []uint{0})
-			check(object.MatchStringEqual, "f72b6eb562c6dd5e69930ab51ca8a98b13bfa18013cd89df3254dbc615f86b8f8c042649fe76e01f54bea7216957fe6716ec0a33d6b6de25ec15a53f295196d1", []uint{1})
-			check(object.MatchStringEqual, "55a8577889ed275d15509b202b084fb7876c08408b8c61a1ba9ab26834f08c667ccde2acf55fcfc1755cb2a6f8316e1c6185bd48549b150767979cf76ede4b1c", []uint{2})
-			check(object.MatchStringEqual, "4d97f1f4f17119efae4579ef916ca1535e68c4fa381c431ab4112cb5671ddb21e44dc78f02ae2b26c95d5f74bb5eb4350e00cdc5b270f60bf46deaafc1b84575", []uint{3})
-			check(object.MatchStringEqual, "80089235980bfbf6c01a93c4f507b2f1ff2ec8b0c29cfe6970ce95cbeb1739bef6a43626783d58f56c224cfb606c360301f632a198db63f599fca7be2e0c2566", []uint{4})
-			check(object.MatchStringEqual, "f3b6eedc3f30b99309582a7e0ca09dd6a9234ce95bfa578ddfa6ef2a0fe9c56e8f6a86c82ce565d9216c02110c0fe44079a68275243ad2f9be6bf7dacdeed97c", []uint{5})
-			check(object.MatchStringNotEqual, "a73a37d54475df580b324d70f3d1ac922200af91f196dd9cb0f8f1cca5fefdf0cb3dbc4aaac639416e3fdd4c540e616e6b44ac6b56a3b194e8011925192a8be2", []uint{1, 2, 3, 4, 5})
-			check(object.MatchStringNotEqual, "f72b6eb562c6dd5e69930ab51ca8a98b13bfa18013cd89df3254dbc615f86b8f8c042649fe76e01f54bea7216957fe6716ec0a33d6b6de25ec15a53f295196d1", []uint{0, 2, 3, 4, 5})
-			check(object.MatchStringNotEqual, "55a8577889ed275d15509b202b084fb7876c08408b8c61a1ba9ab26834f08c667ccde2acf55fcfc1755cb2a6f8316e1c6185bd48549b150767979cf76ede4b1c", []uint{0, 1, 3, 4, 5})
-			check(object.MatchStringNotEqual, "4d97f1f4f17119efae4579ef916ca1535e68c4fa381c431ab4112cb5671ddb21e44dc78f02ae2b26c95d5f74bb5eb4350e00cdc5b270f60bf46deaafc1b84575", []uint{0, 1, 2, 4, 5})
-			check(object.MatchStringNotEqual, "80089235980bfbf6c01a93c4f507b2f1ff2ec8b0c29cfe6970ce95cbeb1739bef6a43626783d58f56c224cfb606c360301f632a198db63f599fca7be2e0c2566", []uint{0, 1, 2, 3, 5})
-			check(object.MatchStringNotEqual, "f3b6eedc3f30b99309582a7e0ca09dd6a9234ce95bfa578ddfa6ef2a0fe9c56e8f6a86c82ce565d9216c02110c0fe44079a68275243ad2f9be6bf7dacdeed97c", []uint{0, 1, 2, 3, 4})
-			check(object.MatchStringEqual, "f3b6eedc3f30b99309582a7e0ca09dd6a9234ce95bfa578ddfa6ef2a0fe9c56e8f6a86c82ce565d9216c02110c0fe44079a68275243ad2f9be6bf7dacdeed97d", nil) // other
-			check(object.MatchStringNotEqual, "f3b6eedc3f30b99309582a7e0ca09dd6a9234ce95bfa578ddfa6ef2a0fe9c56e8f6a86c82ce565d9216c02110c0fe44079a68275243ad2f9be6bf7dacdeed97d", all)
-			for _, m := range []object.SearchMatchType{
-				object.MatchNotPresent, object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
-			} {
-				check(m, "a73a37d54475df580b324d70f3d1ac922200af91f196dd9cb0f8f1cca5fefdf0cb3dbc4aaac639416e3fdd4c540e616e6b44ac6b56a3b194e8011925192a8be2", nil)
-			}
-			check(object.MatchCommonPrefix, "", all)
-			check(object.MatchCommonPrefix, "a7", []uint{0})
-			check(object.MatchCommonPrefix, "f3", []uint{5})
-			check(object.MatchCommonPrefix, "f3b6eedc3f30b99309582a7e0ca09dd6a9234ce95bfa578ddfa6ef2a0fe9c56e8f6a86c82ce565d9216c02110c0fe44079a68275243ad2f9be6bf7dacdeed97c", []uint{5})
-			check(object.MatchCommonPrefix, "f3b6eedc3f30b99309582a7e0ca09dd6a9234ce95bfa578ddfa6ef2a0fe9c56e8f6a86c82ce565d9216c02110c0fe44079a68275243ad2f9be6bf7dacdeed97d", nil)
-		})
 		t.Run("first ID", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
 				check(t, "$Object:split.first", m, v, matchInds)
@@ -952,7 +923,6 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			{name: "payload length", attr: "$Object:payloadLength", val: "7974916746359921405"},
 			{name: "type", attr: "$Object:objectType", val: "TOMBSTONE"},
 			{name: "payload hash", attr: "$Object:payloadHash", val: "6917afdef2df5245cfc16aa809ee551d2244e9368fd9dff8ece379c39bbb25f2"},
-			{name: "payload homomorphic hash", attr: "$Object:homomorphicHash", val: "ab98517f86f0e4ec0a830a72ae8a786ca568246481eba0d560e6be0fc405fcc2cd30ec3975eeaa24fb683e7c01ce83e2dd6f4936eb643120fcff5c331e4db435"},
 			{name: "split-parent", attr: "$Object:split.parent", val: "AqNnq29xxX33yEBX8XMtcwMyCCqD876BSjHsvroTUK5n"},
 			{name: "split-first", attr: "$Object:split.first", val: "3NpY5tNeZEBBma7TpesPCaT3uDNKPtvgdELXsuf8uMeG"},
 			{name: "user-defined", attr: userAttr2, val: userAttrVal2},

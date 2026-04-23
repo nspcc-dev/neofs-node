@@ -18,7 +18,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 )
 
 // Get returns partial object header data for specified address (as stored in
@@ -143,13 +142,6 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 			}
 			var ch = checksum.NewSHA256([sha256.Size]byte(attrVal))
 			obj.SetPayloadChecksum(ch)
-		//nolint:staticcheck // old objects may still have it
-		case object.FilterPayloadHomomorphicHash:
-			if len(attrVal) != tz.Size {
-				return nil, fmt.Errorf("invalid homo checksum in meta of %s/%s: length %d", cnr, objID, len(attrVal))
-			}
-			var ch = checksum.NewTillichZemor([tz.Size]byte(attrVal))
-			obj.SetPayloadHomomorphicHash(ch)
 		case object.FilterSplitID:
 			id := object.NewSplitIDFromV2(attrVal)
 			if id == nil {

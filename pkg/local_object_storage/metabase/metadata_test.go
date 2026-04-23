@@ -168,7 +168,6 @@ func TestPutMetadata(t *testing.T) {
 		assertAttr(t, mb, id, "$Object:ownerID", owner[:])
 		assertAttr(t, mb, id, "$Object:objectType", "LINK")
 		assertAttr(t, mb, id, "$Object:payloadHash", pldHashBytes[:])
-		assertAttr(t, mb, id, "$Object:homomorphicHash", pldHmmHashBytes[:])
 		assertAttr(t, mb, id, "$Object:split.parent", parentID[:])
 		assertAttr(t, mb, id, "$Object:split.first", firstID[:])
 		assertIntAttr(t, mb, id, "$Object:creationEpoch", "7311064694303989735", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	berrors "github.com/nspcc-dev/bbolt/errors"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -401,6 +402,11 @@ func migrateFrom9Version(db *DB) error {
 }
 
 func migrateFrom10Version(db *DB) error {
+	err := updateContainersInterruptable(db, []byte{metadataPrefix}, dropHomomorphicIndexes)
+	if err != nil {
+		return fmt.Errorf("drop homomorphic indexes: %w", err)
+	}
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		err := syncCounter(tx, true)
 		if err != nil {
@@ -408,6 +414,35 @@ func migrateFrom10Version(db *DB) error {
 		}
 		return updateVersion(tx, 11)
 	})
+}
+
+func dropHomomorphicIndexes(_ *zap.Logger, _ *bbolt.Tx, b *bbolt.Bucket, _ cid.ID, _ []byte, limit uint) (uint, []byte, error) {
+	var (
+		c            = b.Cursor()
+		k            []byte
+		attrIDPrefix = []byte{metaPrefixAttrIDPlain}
+		attrKeyLen   = len([]byte(object.FilterPayloadHomomorphicHash))
+		keysToDrop   [][]byte
+	)
+	attrIDPrefix = append(attrIDPrefix, []byte(object.FilterPayloadHomomorphicHash)...)
+	k, _ = c.Seek(attrIDPrefix)
+	for ; bytes.HasPrefix(k, attrIDPrefix); k, _ = c.Next() {
+		keysToDrop = append(keysToDrop, k)
+		if len(keysToDrop) == int(limit) {
+			break
+		}
+	}
+
+	for _, keyToDrop := range keysToDrop {
+		_ = b.Delete(keyToDrop)
+
+		v := keyToDrop[1+attrKeyLen+len(objectcore.MetaAttributeDelimiter) : len(keyToDrop)-(oid.Size+len(objectcore.MetaAttributeDelimiter))]
+		id := keyToDrop[len(keyToDrop)-oid.Size:]
+		reversedKey := slices.Concat([]byte{metaPrefixIDAttr}, id, []byte(object.FilterPayloadHomomorphicHash), objectcore.MetaAttributeDelimiter, v)
+		_ = b.Delete(reversedKey)
+	}
+
+	return uint(len(keysToDrop)), nil, nil
 }
 
 func moveGarbageToMeta(log *zap.Logger, tx *bbolt.Tx) error {
