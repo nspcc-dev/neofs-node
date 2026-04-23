@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/internal/signed256"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -251,8 +252,12 @@ func VerifyHeaderForMetadata(hdr object.Object) error {
 	if hdr.Owner().IsZero() {
 		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
 	}
-	if _, ok := hdr.PayloadChecksum(); !ok {
+	cs, ok := hdr.PayloadChecksum()
+	if !ok {
 		return errors.New("missing payload checksum")
+	}
+	if typ := cs.Type(); typ != checksum.SHA256 {
+		return fmt.Errorf("unsupported payload checksum type: %s", typ)
 	}
 	attrs := hdr.Attributes()
 	for i := range attrs {
@@ -603,6 +608,7 @@ func combineValues(attr string, dbVal []byte, fltVal string) ([]byte, []byte, er
 			return dbVal, b, nil
 		}
 		dbVal = []byte(hex.EncodeToString(dbVal))
+	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 	case object.FilterPayloadHomomorphicHash:
 		if len(dbVal) != tz.Size {
 			return nil, nil, fmt.Errorf("invalid payload homomorphic hash len %d != %d", len(dbVal), tz.Size)
@@ -656,7 +662,10 @@ func restoreAttributeValue(attr string, stored []byte) (string, error) {
 	switch attr {
 	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
 		return base58.Encode(stored), nil
-	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
+	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
+	case object.FilterPayloadHomomorphicHash:
+		return hex.EncodeToString(stored), nil
+	case object.FilterPayloadChecksum:
 		return hex.EncodeToString(stored), nil
 	case object.FilterSplitID:
 		uid, err := uuid.FromBytes(stored)
@@ -711,6 +720,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 			if primValDB, err = base58.Decode(primVal); err != nil {
 				return nil, nil, fmt.Errorf("%w: decode %q attribute value from Base58: %w", errInvalidPrimaryFilter, attr, err)
 			}
+		//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 		case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 			var err error
 			if primValDB, err = hex.DecodeString(primVal); err != nil {
@@ -979,6 +989,7 @@ func CalculateCursor(filt *object.SearchFilter, lastItem client.SearchResultItem
 		if val, err = base58.Decode(lastItemVal); err != nil {
 			return nil, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
 		}
+	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		ln := hex.DecodedLen(len(lastItemVal))
 		if attr == object.FilterPayloadChecksum && ln != sha256.Size || attr == object.FilterPayloadHomomorphicHash && ln != tz.Size {

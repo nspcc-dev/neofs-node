@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -21,7 +20,6 @@ const getRangeHashSaltFlag = "salt"
 
 const (
 	hashSha256 = "sha256"
-	hashTz     = "tz"
 	rangeSep   = ":"
 )
 
@@ -46,7 +44,7 @@ func initObjectHashCmd() {
 	_ = objectHashCmd.MarkFlagRequired(commonflags.OIDFlag)
 
 	flags.String("range", "", "Range to take hash from in the form offset1:length1,... Full object payload length if not specified")
-	flags.String("type", hashSha256, "Hash type. Either 'sha256' or 'tz'")
+	flags.String("type", hashSha256, "Hash type. Deprecated: can be omitted, only 'sha256' is currently supported")
 	flags.String(getRangeHashSaltFlag, "", "Salt in hex format")
 }
 
@@ -63,7 +61,8 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	typ, err := getHashType(cmd)
+	// only validation of deprecated no-op flag
+	_, err = getHashType(cmd)
 	if err != nil {
 		return err
 	}
@@ -89,7 +88,6 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	}
 	defer cli.Close()
 
-	tz := typ == hashTz
 	fullHash := len(ranges) == 0
 	if fullHash {
 		common.PrintVerbose(cmd, "Get the hash of the full object payload.")
@@ -105,15 +103,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("rpc error: read object header via client: %w", err)
 		}
 
-		var cs checksum.Checksum
-		var csSet bool
-
-		if tz {
-			cs, csSet = hdr.PayloadHomomorphicHash()
-		} else {
-			cs, csSet = hdr.PayloadChecksum()
-		}
-
+		cs, csSet := hdr.PayloadChecksum()
 		if csSet {
 			cmd.Println(hex.EncodeToString(cs.Value()))
 		} else {
@@ -141,10 +131,6 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	}
 	hashPrm.SetRangeList(rngs...)
 
-	if tz {
-		hashPrm.TillichZemorAlgo()
-	}
-
 	hs, err := cli.ObjectHash(ctx, cnr, obj, user.NewAutoIDSigner(*pk), hashPrm)
 	if err != nil {
 		return fmt.Errorf("rpc error: read payload hashes via client: %w", err)
@@ -160,7 +146,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 func getHashType(cmd *cobra.Command) (string, error) {
 	rawType := cmd.Flag("type").Value.String()
 	switch typ := strings.ToLower(rawType); typ {
-	case hashSha256, hashTz:
+	case hashSha256:
 		return typ, nil
 	default:
 		return "", fmt.Errorf("invalid hash type: %s", typ)

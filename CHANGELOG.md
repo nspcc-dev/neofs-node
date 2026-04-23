@@ -28,6 +28,8 @@ Changelog for NeoFS Node
 - Optimized metabase object checks for container-level GC marks (#3953)
 - Rejected metabase PUT requests into GC-marked containers (#3953)
 - Improved IR list caching in SN (#3954)
+- `neofs-cli`, `neofs-node` do not allow searches based on homomorphic hash values (#3847)
+- Storage nodes do not calculate homomorphic hashes for objects (#3847)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)

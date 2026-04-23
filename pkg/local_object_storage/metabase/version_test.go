@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -13,13 +14,16 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -628,4 +632,100 @@ func TestMigrate9To10(t *testing.T) {
 
 		return nil
 	}))
+}
+
+//nolint:staticcheck // the whole tests is about checking deprecated values
+func TestMigrate10To11(t *testing.T) {
+	var (
+		db  = newDB(t)
+		cID = cidtest.ID()
+		o1  = objecttest.Object()
+		o2  = objecttest.Object()
+	)
+
+	o1.SetContainerID(cID)
+	o1.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte{}))
+	o2.SetContainerID(cID)
+	o2.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte{}))
+
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		bkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
+		require.NoError(t, err)
+		err = PutMetadataForObject(tx, o1, true)
+		if err != nil {
+			return err
+		}
+		err = PutMetadataForObject(tx, o2, true)
+		if err != nil {
+			return err
+		}
+
+		{ // copied from old `PutMetadataForObject` version with homomorphic hashes
+			var keyBuf keyBuffer
+			if h, ok := o1.PayloadHomomorphicHash(); ok {
+				if err = putPlainAttribute(bkt, &keyBuf, o1.GetID(), object.FilterPayloadHomomorphicHash, string(h.Value())); err != nil {
+					return err
+				}
+			}
+			if h, ok := o2.PayloadHomomorphicHash(); ok {
+				if err = putPlainAttribute(bkt, &keyBuf, o2.GetID(), object.FilterPayloadHomomorphicHash, string(h.Value())); err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+
+	countFields := func(db *bbolt.DB) (int, error) {
+		var numOfFields int
+		err := db.View(func(tx *bbolt.Tx) error {
+			b := tx.Bucket(metaBucketKey(cID))
+			return b.ForEach(func(_, _ []byte) error {
+				numOfFields++
+				return nil
+			})
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		return numOfFields, nil
+	}
+
+	numOfFieldsBefore, err := countFields(db.boltDB)
+	require.NoError(t, err)
+
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		return dropHomomorphicIndexes(tx)
+	})
+	require.NoError(t, err)
+
+	numOfFieldsAfter, err := countFields(db.boltDB)
+	require.NoError(t, err)
+
+	require.Equal(t, numOfFieldsBefore-4, numOfFieldsAfter) // two indexes deleted for two objects
+
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(metaBucketKey(cID))
+		c := b.Cursor()
+
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			switch k[0] {
+			case metaPrefixAttrIDPlain:
+				if bytes.HasPrefix(k[1:], []byte(object.FilterPayloadHomomorphicHash)) {
+					return fmt.Errorf("found ATTR -> ID key: %x", k)
+				}
+			case metaPrefixIDAttr:
+				if bytes.HasPrefix(k[1+oid.Size:], []byte(object.FilterPayloadHomomorphicHash)) {
+					return fmt.Errorf("found ID -> ATTR key: %x", k)
+				}
+			default:
+			}
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
 }

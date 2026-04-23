@@ -141,7 +141,6 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		if err != nil {
 			return fmt.Errorf("fetching network info: %w", err)
 		}
-		cnr.ApplyNetworkConfig(ni)
 
 		var call = cli.ContainerPut
 

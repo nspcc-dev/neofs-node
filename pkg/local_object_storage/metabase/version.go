@@ -402,11 +402,48 @@ func migrateFrom9Version(db *DB) error {
 
 func migrateFrom10Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		err := syncCounter(tx, true)
+		err := dropHomomorphicIndexes(tx)
+		if err != nil {
+			return fmt.Errorf("drop homomorphic indexes: %w", err)
+		}
+		err = syncCounter(tx, true)
 		if err != nil {
 			return fmt.Errorf("resync object counters: %w", err)
 		}
 		return updateVersion(tx, 11)
+	})
+}
+
+func dropHomomorphicIndexes(tx *bbolt.Tx) error {
+	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+		if name[0] != metadataPrefix {
+			return nil
+		}
+		var (
+			c    = b.Cursor()
+			keys [][]byte
+		)
+		for dbKey, _ := c.First(); dbKey != nil; dbKey, _ = c.Next() {
+			switch dbKey[0] {
+			case metaPrefixAttrIDPlain:
+				if bytes.HasPrefix(dbKey[1:], []byte(object.FilterPayloadHomomorphicHash)) {
+					keys = append(keys, dbKey)
+				}
+			case metaPrefixIDAttr:
+				if bytes.HasPrefix(dbKey[1+oid.Size:], []byte(object.FilterPayloadHomomorphicHash)) {
+					keys = append(keys, dbKey)
+				}
+			default:
+			}
+		}
+		for _, key := range keys {
+			err := b.Delete(key)
+			if err != nil {
+				return fmt.Errorf("delete %x key: %w", key, err)
+			}
+		}
+
+		return nil
 	})
 }
 
