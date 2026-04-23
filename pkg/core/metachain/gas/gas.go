@@ -20,7 +20,7 @@ import (
 
 // DefaultBalance is a balance of every account in redefined [GAS] native
 // contract.
-const DefaultBalance = 100 * native.GASFactor
+const DefaultBalance = 10000 * native.GASFactor
 
 var _ = (native.IGAS)(&GAS{})
 
