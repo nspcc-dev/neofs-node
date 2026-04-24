@@ -34,25 +34,25 @@ func TestStickyCheck(t *testing.T) {
 		SetEACLSource(emptyEACLSource{}).SetHeaderSource(emptyHeaderSource{}))
 
 	t.Run("system role", func(t *testing.T) {
-		var info v2.RequestInfo
-
-		info.SetSenderKey(make([]byte, 33)) // any non-empty key
-		info.SetRequestRole(acl.RoleContainer)
+		var info = v2.RequestInfo{
+			RequestRole: acl.RoleContainer,
+			SenderKey:   make([]byte, 33), // any non-empty key
+		}
 
 		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
 
 		var basicACL acl.Basic
 		basicACL.MakeSticky()
 
-		info.SetBasicACL(basicACL)
+		info.Container.SetBasicACL(basicACL)
 
 		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
 	})
 
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
-		var info v2.RequestInfo
-
-		info.SetRequestRole(acl.RoleOthers) // should be non-system role
+		var info = v2.RequestInfo{
+			RequestRole: acl.RoleOthers, // should be non-system role
+		}
 
 		assertFn := func(isSticky, withKey, withOwner, expected bool) {
 			info := info
@@ -60,13 +60,13 @@ func TestStickyCheck(t *testing.T) {
 				var basicACL acl.Basic
 				basicACL.MakeSticky()
 
-				info.SetBasicACL(basicACL)
+				info.Container.SetBasicACL(basicACL)
 			}
 
 			if withKey {
-				info.SetSenderKey(make([]byte, 33))
+				info.SenderKey = make([]byte, 33)
 			} else {
-				info.SetSenderKey(nil)
+				info.SenderKey = nil
 			}
 
 			var ownerID user.ID

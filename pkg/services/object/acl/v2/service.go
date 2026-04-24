@@ -599,13 +599,13 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		return RequestInfo{}, user.ID{}, err
 	}
 
-	replication := reqInfo.requestRole == acl.RoleContainer && request.GetMetaHeader().GetTtl() == 1
+	replication := reqInfo.RequestRole == acl.RoleContainer && request.GetMetaHeader().GetTtl() == 1
 	if tombstone {
 		// the only exception when writing tombstone should not be treated as deletion
 		// is intra-container replication: container nodes must be able to replicate
 		// such objects while deleting is prohibited
 		if replication {
-			reqInfo.operation = acl.OpObjectPut
+			reqInfo.Operation = acl.OpObjectPut
 		}
 	}
 
@@ -647,23 +647,23 @@ func (b Service) findRequestInfo(req interface {
 		return info, err
 	}
 
-	info.basicACL = cnr.BasicACL()
-	info.requestRole = role
-	info.operation = op
-	info.idCnr = idCnr
+	info.Container = cnr
+	info.RequestRole = role
+	info.Operation = op
+	info.ContainerID = idCnr
 
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation
-	info.senderKey = reqAuthorPub
-	info.senderAccount = &reqAuthor
+	info.SenderKey = reqAuthorPub
+	info.SenderAccount = &reqAuthor
 
 	// add bearer token if it is present in request
-	info.bearer = bTok
+	info.Bearer = bTok
 
-	info.srcRequest = req
+	info.SrcRequest = req
 
 	if !obj.IsZero() {
-		info.obj = &obj
+		info.Obj = &obj
 	}
 
 	return info, nil

@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Optimized metabase object checks for container-level GC marks (#3953)
 - Rejected metabase PUT requests into GC-marked containers (#3953)
 - Improved IR list caching in SN (#3954)
+- Optimized local (TTL=1, EC parts) request processing (#3957)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)

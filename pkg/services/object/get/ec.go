@@ -17,6 +17,7 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -1351,7 +1352,7 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 }
 
 // returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.
-func checkECPartInfoRequest(xHdrs []string) (iec.PartInfo, error) {
+func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartInfo, error) {
 	var res iec.PartInfo
 
 	var ruleIdxStr, partIdxStr string
@@ -1387,6 +1388,22 @@ func checkECPartInfoRequest(xHdrs []string) (iec.PartInfo, error) {
 		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributePartIdx, err)
 	}
 
+	if cnr.BasicACL() != 0 { // Uninitialized in tests, safe to do anyway, invalid requests will fail.
+		var ecRules = cnr.PlacementPolicy().ECRules()
+
+		if len(ecRules) == 0 {
+			return res, errors.New("EC part requested in container without EC policy")
+		}
+
+		if int(ruleIdx) >= len(ecRules) {
+			return res, fmt.Errorf("EC rule index overflows container policy: idx=%d,rules=%d", ruleIdx, len(ecRules))
+		}
+
+		if total := ecRules[ruleIdx].DataPartNum() + ecRules[ruleIdx].ParityPartNum(); int(partIdx) >= int(total) {
+			return res, fmt.Errorf("EC part index overflows container policy: idx=%d,parts=%d", partIdx, total)
+		}
+	}
+
 	res.RuleIndex = int(ruleIdx)
 	res.Index = int(partIdx)
 
@@ -1419,22 +1436,6 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 	}
 
 	return fmt.Errorf("not all EC attributes received: requested %d, got %d", expected, found)
-}
-
-func checkPartRequestAgainstPolicy(ecRules []iec.Rule, pi iec.PartInfo) error {
-	if len(ecRules) == 0 {
-		return errors.New("EC part requested in container without EC policy")
-	}
-
-	if pi.RuleIndex >= len(ecRules) {
-		return fmt.Errorf("EC rule index overflows container policy: idx=%d,rules=%d", pi.RuleIndex, len(ecRules))
-	}
-
-	if total := ecRules[pi.RuleIndex].DataPartNum + ecRules[pi.RuleIndex].ParityPartNum; pi.Index >= int(total) {
-		return fmt.Errorf("EC part index overflows container policy: idx=%d,parts=%d", pi.Index, total)
-	}
-
-	return nil
 }
 
 func calcECRangeBufferLen(fullPartLen uint64, firstIdx int, firstOff uint64, lastIdx int, lastTo uint64) uint64 {

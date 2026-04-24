@@ -16,22 +16,13 @@ import (
 
 // Get serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) Get(ctx context.Context, prm Prm) error {
-	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
+	pi, err := checkECPartInfoRequest(prm.common.XHeaders(), prm.container)
 	if err != nil {
 		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
 		return fmt.Errorf("invalid request: %w", err)
 	}
 
-	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
-	if err != nil {
-		return fmt.Errorf("get nodes for object: %w", err)
-	}
-
 	if pi.RuleIndex >= 0 {
-		if err := checkPartRequestAgainstPolicy(ecRules, pi); err != nil {
-			// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
-			return fmt.Errorf("invalid request: %w", err)
-		}
 		// TODO: deny if node is not in the container?
 
 		if prm.localGetBuffer != nil {
@@ -43,6 +34,18 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		}
 
 		return s.copyLocalECPart(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
+	}
+
+	if prm.common.LocalOnly() &&
+		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
+		len(prm.container.PlacementPolicy().Replicas()) != 0 {
+		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
+		return s.get(ctx, prm.commonPrm, bufOpt).err // It handles locality internally.
+	}
+
+	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
+	if err != nil {
+		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
 	if len(repRules) > 0 { // REP format does not require encoding
@@ -103,24 +106,27 @@ func (s *Service) proxyGetRequest(ctx context.Context, sortedNodeLists [][]netma
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
-	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
+	pi, err := checkECPartInfoRequest(prm.common.XHeaders(), prm.container)
 	if err != nil {
 		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
 		return fmt.Errorf("invalid request: %w", err)
 	}
 
+	if pi.RuleIndex >= 0 {
+		// TODO: deny if node is not in the container?
+		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
+	}
+
+	if prm.common.LocalOnly() &&
+		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
+		len(prm.container.PlacementPolicy().Replicas()) != 0 {
+		// It handles locality internally.
+		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng)).err
+	}
+
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
 	if err != nil {
 		return fmt.Errorf("get nodes for object: %w", err)
-	}
-
-	if pi.RuleIndex >= 0 {
-		if err := checkPartRequestAgainstPolicy(ecRules, pi); err != nil {
-			// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
-			return fmt.Errorf("invalid request: %w", err)
-		}
-		// TODO: deny if node is not in the container?
-		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
 
 	return s.getRange(ctx, prm, nodeLists, repRules, ecRules, nil)
@@ -236,22 +242,13 @@ func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netm
 // Returns ErrNotFound if the header was not received for the call.
 // Returns SplitInfoError if object is virtual and raw flag is set.
 func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
-	pi, err := checkECPartInfoRequest(prm.common.XHeaders())
+	pi, err := checkECPartInfoRequest(prm.common.XHeaders(), prm.container)
 	if err != nil {
 		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
 		return fmt.Errorf("invalid request: %w", err)
 	}
 
-	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
-	if err != nil {
-		return fmt.Errorf("get nodes for object: %w", err)
-	}
-
 	if pi.RuleIndex >= 0 {
-		if err := checkPartRequestAgainstPolicy(ecRules, pi); err != nil {
-			// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
-			return fmt.Errorf("invalid request: %w", err)
-		}
 		// TODO: deny if node is not in the container?
 
 		if prm.buffer != nil {
@@ -275,6 +272,11 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		}
 
 		return s.copyLocalObjectHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.raw)
+	}
+
+	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
+	if err != nil {
+		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
 	if len(repRules) > 0 {
