@@ -17,6 +17,8 @@ var (
 	uint32OverflowVarint = []byte{128, 128, 128, 128, 16} // 4294967296
 
 	uint64OverflowVarint = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 2}
+
+	maxUint64Varint = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 1}
 )
 
 var varintTestcases = []struct {
@@ -29,7 +31,7 @@ var varintTestcases = []struct {
 	{val: 128, ln: 2, buf: []byte{128, 1}},
 	{val: 16256, ln: 2, buf: []byte{128, 127}},
 	{val: 16384, ln: 3, buf: []byte{128, 128, 1}},
-	{val: math.MaxUint64, ln: 10, buf: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 1}},
+	{val: math.MaxUint64, ln: 10, buf: maxUint64Varint},
 }
 
 var invalidVarintTestcases = []struct {
