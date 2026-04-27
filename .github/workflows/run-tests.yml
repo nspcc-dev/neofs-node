@@ -51,8 +51,7 @@ jobs:
       marks: sanity
       tests_parallel_level: 3
       os: >
-        [{"runner": "ubuntu-latest", "binary": "linux-amd64"},
-         {"runner": "macos-latest", "binary": "darwin-arm64"}]
+        [{"runner": "ubuntu-latest", "binary": "linux-amd64"}]
     secrets: inherit
 
   run_all_tests:
