@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -70,7 +71,7 @@ func (s *Shard) Restore(r io.Reader, ignoreErrors bool) (int, int, error) {
 		}
 
 		err = s.Put(obj, nil)
-		if err != nil && !IsErrObjectExpired(err) && !IsErrRemoved(err) {
+		if err != nil && !IsErrObjectExpired(err) && !errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
 			return count, failCount, err
 		}
 

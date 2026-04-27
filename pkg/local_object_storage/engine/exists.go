@@ -9,7 +9,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
+func (e *StorageEngine) existsPhysical(addr oid.Address) (bool, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddExistsDuration)()
 	}
@@ -17,21 +17,17 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 	for _, sh := range e.sortedShards(addr.Object()) {
 		exists, err := sh.Exists(addr, false)
 		if err != nil {
-			if shard.IsErrRemoved(err) {
-				return false, apistatus.ObjectAlreadyRemoved{}
-			}
-
-			if errors.Is(err, ierrors.ErrParentObject) {
-				return false, nil
-			}
-
 			if shard.IsErrObjectExpired(err) {
-				return false, nil
+				return true, nil
 			}
 
-			if !shard.IsErrNotFound(err) {
-				e.reportShardError(sh, "could not check existence of object in shard", err)
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) ||
+				errors.Is(err, ierrors.ErrParentObject) ||
+				errors.Is(err, apistatus.ErrObjectNotFound) {
+				return false, err
 			}
+
+			e.reportShardError(sh, "could not check existence of object in shard", err)
 			continue
 		}
 

@@ -84,11 +84,11 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 
 	if s.hasWriteCache() {
 		err := wc(s.writeCache)
-		if err == nil || IsErrOutOfRange(err) {
+		if err == nil || errors.Is(err, apistatus.ErrObjectOutOfRange) {
 			return exists, err
 		}
 
-		if IsErrNotFound(err) {
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
 			s.log.Debug("object is missing in write-cache",
 				zap.Stringer("addr", addr),
 				zap.Bool("skip_meta", skipMeta))

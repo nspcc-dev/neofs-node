@@ -87,7 +87,7 @@ func (db *DB) PutBatch(objs []*object.Object) error {
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		for i, obj := range objs {
 			if _, err := db.put(tx, obj, 0, currEpoch); err != nil {
-				if IsErrRemoved(err) || errors.Is(err, ErrObjectIsExpired) ||
+				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ErrObjectIsExpired) ||
 					errors.Is(err, apistatus.ErrObjectLocked) {
 					db.log.Warn("skipping object in batch due to non-critical error",
 						storagelog.AddressField(obj.Address()),

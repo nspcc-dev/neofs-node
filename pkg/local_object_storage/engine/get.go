@@ -75,7 +75,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 				metaError = err
 			}
 			switch {
-			case shard.IsErrNotFound(err):
+			case errors.Is(err, apistatus.ErrObjectNotFound):
 				continue // ignore, go to next shard
 			case errors.As(err, &siErr):
 				if splitInfo == nil {
@@ -91,8 +91,8 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 				continue
 			case
 				errors.Is(err, ierrors.ErrParentObject),
-				shard.IsErrRemoved(err),
-				shard.IsErrOutOfRange(err):
+				errors.Is(err, apistatus.ErrObjectAlreadyRemoved),
+				errors.Is(err, apistatus.ErrObjectOutOfRange):
 				return err // stop, return it back
 			case shard.IsErrObjectExpired(err):
 				// object is found but should not
@@ -125,8 +125,8 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 		}
 
 		err := shardFunc(sh.Shard, true)
-		if shard.IsErrOutOfRange(err) {
-			return apistatus.ObjectOutOfRange{}
+		if errors.Is(err, apistatus.ErrObjectOutOfRange) {
+			return err
 		}
 		if err == nil {
 			if shardWithMeta.Shard != nil {

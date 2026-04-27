@@ -80,13 +80,13 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 
 	metaCursor = metaBucket.Cursor()
 	if containerMarkedGC(metaCursor) {
-		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
+		return false, logicerr.Wrap(fmt.Errorf("%w: %w", apistatus.ObjectNotFound{}, errors.New("container marked as garbage")))
 	}
 
 	// check tombstones, garbage and object expiration first
 	switch objectStatus(metaCursor, id, currEpoch) {
 	case statusGCMarked:
-		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
+		return false, logicerr.Wrap(fmt.Errorf("%w: %w", apistatus.ObjectNotFound{}, errors.New("object marked as garbage")))
 	case statusTombstoned:
 		return false, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
 	case statusExpired:

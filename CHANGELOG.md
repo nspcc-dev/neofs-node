@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Compressed object GET failure in some cases (#3936)
 - Support v2 session tokens in cli object search (#3955, #3962)
 - Write cache may flush empty objects to FSTree in some scenarious (#3937)
+- Warnings in logs of node receiving garbage objects to store from peers (#3916)
 
 ### Changed
 - `object search` CLI command is now the same as `object searchv2` (#3931)

@@ -59,11 +59,11 @@ func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oi
 	for _, sh := range shards {
 		exists, err := sh.Exists(addr, true)
 		if err != nil {
-			if shard.IsErrNotFound(err) {
+			if errors.Is(err, apistatus.ErrObjectNotFound) {
 				continue
 			}
 
-			if shard.IsErrRemoved(err) {
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
 				// inhumed once - no need to be inhumed again
 				return nil
 			}
