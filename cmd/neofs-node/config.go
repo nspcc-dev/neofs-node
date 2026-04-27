@@ -81,9 +81,8 @@ type internals struct {
 	ctxCancel   func()
 	internalErr chan error // channel for internal application errors at runtime
 
-	logLevel    zap.AtomicLevel
-	log         *zap.Logger
-	debugLogger *zap.Logger
+	logLevel zap.AtomicLevel
+	log      *zap.Logger
 
 	wg      *sync.WaitGroup
 	workers []worker
@@ -398,26 +397,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
 	)
 	fatalOnErr(err)
-
-	{
-		logCfg := zap.NewProductionConfig()
-		logCfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-		logCfg.Encoding = c.appCfg.Logger.Encoding
-		if !c.appCfg.Logger.Sampling.Enabled {
-			logCfg.Sampling = nil
-		}
-
-		if (term.IsTerminal(int(os.Stdout.Fd())) && !c.appCfg.IsSet("logger.timestamp")) || c.appCfg.Logger.Timestamp {
-			logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-		} else {
-			logCfg.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
-		}
-
-		c.debugLogger, err = logCfg.Build(
-			zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
-		)
-		fatalOnErr(err)
-	}
 
 	var buffers sync.Pool
 	buffers.New = func() any {
