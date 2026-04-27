@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -33,7 +34,7 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 	if hasWriteCache {
 		for _, addr := range addrs {
 			err := s.writeCache.Delete(oid.NewAddress(cnr, addr))
-			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
+			if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) && !errors.Is(err, writecache.ErrReadOnly) {
 				s.log.Warn("can't delete object from write cache", zap.Error(err))
 			}
 		}
@@ -47,7 +48,7 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 	if hasWriteCache {
 		for _, id := range res[len(addrs):] { // the rest are addrs, removed above
 			err := s.writeCache.Delete(oid.NewAddress(cnr, id))
-			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
+			if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) && !errors.Is(err, writecache.ErrReadOnly) {
 				s.log.Warn("can't delete object from write cache", zap.Error(err))
 			}
 		}
@@ -68,7 +69,7 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 		if err == nil {
 			logOp(s.log, deleteOp, addr)
 		} else {
-			if IsErrNotFound(err) {
+			if errors.Is(err, apistatus.ErrObjectNotFound) {
 				continue
 			}
 

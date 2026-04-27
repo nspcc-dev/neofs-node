@@ -117,7 +117,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 		time.Sleep(gcInterval)
 
 		_, err = sh.Get(obj.Address(), false)
-		require.True(t, shard.IsErrNotFound(err))
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	})
 }
 
@@ -231,7 +231,7 @@ func TestExpiration(t *testing.T) {
 
 			time.Sleep(gcInterval * 2)
 			_, err = sh.Get(obj.Address(), false)
-			require.True(t, shard.IsErrNotFound(err), fmt.Sprintf("expiration should lead to object removal for %s", typ))
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound, fmt.Sprintf("expiration should lead to object removal for %s", typ))
 		}
 	})
 }

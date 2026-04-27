@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -22,13 +23,9 @@ func TestReset(t *testing.T) {
 
 	addrToInhume := oidtest.Address()
 
-	assertExists := func(addr oid.Address, expExists bool, assertErr func(error) bool) {
+	assertExists := func(addr oid.Address, expExists bool, expErr error) {
 		exists, err := metaExists(db, addr)
-		if assertErr != nil {
-			require.True(t, assertErr(err))
-		} else {
-			require.NoError(t, err)
-		}
+		require.ErrorIs(t, err, expErr)
 		require.Equal(t, expExists, exists)
 	}
 
@@ -42,7 +39,7 @@ func TestReset(t *testing.T) {
 	require.NoError(t, err)
 
 	assertExists(addr, true, nil)
-	assertExists(addrToInhume, false, meta.IsErrRemoved)
+	assertExists(addrToInhume, false, apistatus.ErrObjectAlreadyRemoved)
 
 	err = db.Reset()
 	require.NoError(t, err)

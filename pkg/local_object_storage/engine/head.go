@@ -78,7 +78,7 @@ func (e *StorageEngine) headFunc(addr oid.Address, raw bool, fn func(*shard.Shar
 			var siErr *object.SplitInfoError
 
 			switch {
-			case shard.IsErrNotFound(err):
+			case errors.Is(err, apistatus.ErrObjectNotFound):
 				continue // ignore, go to next shard
 			case errors.As(err, &siErr):
 				if splitInfo == nil {
@@ -92,7 +92,7 @@ func (e *StorageEngine) headFunc(addr oid.Address, raw bool, fn func(*shard.Shar
 					return logicerr.Wrap(object.NewSplitInfoError(splitInfo))
 				}
 				continue
-			case shard.IsErrRemoved(err):
+			case errors.Is(err, apistatus.ErrObjectAlreadyRemoved):
 				return err // stop, return it back
 			case shard.IsErrObjectExpired(err):
 				// object is found but should not

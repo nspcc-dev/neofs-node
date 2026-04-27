@@ -73,7 +73,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		ok, err := e.exists(addr)
+		ok, err := e.existsPhysical(addr)
 		if err != nil || ok {
 			b.Fatalf("%t %v", ok, err)
 		}
