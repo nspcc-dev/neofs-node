@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
@@ -278,7 +279,17 @@ func (rh *resyncHandler) handle(addr oid.Address, data []byte) error {
 		return rh.onError(addr, err)
 	}
 	if obj.Address() != addr {
-		return rh.onError(addr, fmt.Errorf("unmarshalled object address %s does not match expected address %s", obj.Address(), addr))
+		objAddrStr := obj.Address().String()
+		expectedAddrStr := addr.String()
+
+		if !strings.EqualFold(objAddrStr, expectedAddrStr) {
+			return rh.onError(addr, fmt.Errorf("unmarshalled object address %s does not match expected address %s", objAddrStr, expectedAddrStr))
+		}
+
+		rh.db.log.Info("unmarshalled object address differs by case",
+			zap.String("unmarshalled", objAddrStr),
+			zap.String("expected", expectedAddrStr),
+		)
 	}
 
 	rh.batch = append(rh.batch, obj)
