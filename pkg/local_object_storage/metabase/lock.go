@@ -11,9 +11,7 @@ import (
 // zero currEpoch skips expiration check. Returns associated object ID if it's
 // present.
 func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) (bool, oid.ID) {
-	var idStr = idObj.EncodeToString()
-
-	for associateID := range iterAttrVal(metaCursor, object.AttributeAssociatedObject, []byte(idStr)) {
+	for associateID := range iterAttrVal(metaCursor, object.AttributeAssociatedObject, idObj[:]) {
 		var cur = metaCursor.Bucket().Cursor()
 
 		if isObjectType(cur, associateID, typ) {

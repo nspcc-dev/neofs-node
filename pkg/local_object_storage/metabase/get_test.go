@@ -41,27 +41,25 @@ func TestDB_Get(t *testing.T) {
 	})
 
 	t.Run("put tombstone object", func(t *testing.T) {
-		raw.SetType(object.TypeTombstone)
-		raw.SetID(oidtest.ID())
+		tombObj := generateTypedObject(t, object.TypeTombstone, 10)
 
-		err := putBig(db, raw)
+		err := putBig(db, tombObj)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, raw.Address(), false)
+		newObj, err := metaGet(db, tombObj.Address(), false)
 		require.NoError(t, err)
-		require.Equal(t, raw.CutPayload(), newObj)
+		require.Equal(t, tombObj.CutPayload(), newObj)
 	})
 
 	t.Run("put lock object", func(t *testing.T) {
-		raw.SetType(object.TypeLock)
-		raw.SetID(oidtest.ID())
+		lockObj := generateTypedObject(t, object.TypeLock, 10)
 
-		err := putBig(db, raw)
+		err := putBig(db, lockObj)
 		require.NoError(t, err)
 
-		newObj, err := metaGet(db, raw.Address(), false)
+		newObj, err := metaGet(db, lockObj.Address(), false)
 		require.NoError(t, err)
-		require.Equal(t, raw.CutPayload(), newObj)
+		require.Equal(t, lockObj.CutPayload(), newObj)
 	})
 
 	t.Run("put virtual object", func(t *testing.T) {
@@ -253,7 +251,7 @@ func TestDB_GetContainer(t *testing.T) {
 
 	// TS
 	o8 := generateObjectWithCID(t, cID) // 5
-	o8.SetType(object.TypeTombstone)
+	o8.AssociateDeleted(oidtest.ID())
 	err = metaPut(db, o8)
 	require.NoError(t, err)
 

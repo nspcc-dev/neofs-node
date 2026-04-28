@@ -21,8 +21,7 @@ func TestStorageEngine_ReviveObject(t *testing.T) {
 	addr := obj.Address()
 
 	ts := generateObjectWithCID(cnr)
-	ts.SetType(object.TypeTombstone)
-	addAttribute(ts, object.AttributeAssociatedObject, obj.GetID().EncodeToString())
+	ts.AssociateDeleted(obj.GetID())
 	addAttribute(ts, object.AttributeExpirationEpoch, "0")
 	tsAddr := ts.Address()
 

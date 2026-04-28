@@ -407,6 +407,11 @@ func migrateFrom10Version(db *DB) error {
 		return fmt.Errorf("drop homomorphic indexes: %w", err)
 	}
 
+	err = updateContainersInterruptable(db, []byte{metadataPrefix}, migrateAssociatedObjectValueToIDBytes)
+	if err != nil {
+		return fmt.Errorf("rewrite %q attribute values in metadata: %w", object.AttributeAssociatedObject, err)
+	}
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		err := syncCounter(tx, true)
 		if err != nil {
@@ -443,6 +448,127 @@ func dropHomomorphicIndexes(_ *zap.Logger, _ *bbolt.Tx, b *bbolt.Bucket, _ cid.I
 	}
 
 	return uint(len(keysToDrop)), nil, nil
+}
+
+func migrateAssociatedObjectValueToIDBytes(l *zap.Logger, _ *bbolt.Tx, b *bbolt.Bucket, cnr cid.ID, afterKey []byte, rem uint) (uint, []byte, error) {
+	c := b.Cursor()
+	pref := append(append([]byte{metaPrefixAttrIDPlain}, object.AttributeAssociatedObject...), 0)
+
+	k, _ := c.Seek(pref)
+	if afterKey != nil {
+		k, _ = c.Seek(afterKey)
+		if bytes.Equal(k, afterKey) {
+			k, _ = c.Next()
+		}
+	}
+
+	type keyRewrite struct {
+		oldAttrID []byte
+		newAttrID []byte
+		oldIDAttr []byte
+		newIDAttr []byte
+	}
+
+	var (
+		scanned uint
+		nextKey []byte
+		buf     keyBuffer
+		updates []keyRewrite
+	)
+
+	for ; k != nil && bytes.HasPrefix(k, pref); k, _ = c.Next() {
+		scanned++
+		nextKey = slices.Clone(k)
+
+		val, idRaw, err := splitAttributeValueObjectID(k[len(pref):])
+		if err != nil {
+			l.Warn("skip malformed associated object metadata entry during migration",
+				zap.Stringer("container", cnr),
+				zap.String("key", hex.EncodeToString(k)),
+				zap.Error(err))
+			if scanned == rem {
+				break
+			}
+			continue
+		}
+
+		if _, err = oid.DecodeBytes(val); err == nil {
+			if scanned == rem {
+				break
+			}
+			continue
+		}
+
+		var associated oid.ID
+		if err = associated.DecodeString(string(val)); err != nil {
+			l.Warn("skip malformed associated object metadata entry during migration",
+				zap.Stringer("container", cnr),
+				zap.String("key", hex.EncodeToString(k)),
+				zap.Error(err))
+			if scanned == rem {
+				break
+			}
+			continue
+		}
+
+		var id oid.ID
+		copy(id[:], idRaw)
+
+		newAttrID, off := prepareMetaAttrIDKey(&buf, id, object.AttributeAssociatedObject, oid.Size, false)
+		copy(newAttrID[off:], associated[:])
+		newAttrID = slices.Clone(newAttrID)
+		oldIDAttr := prepareMetaIDAttrKey(&buf, id, object.AttributeAssociatedObject, len(val))
+		copy(oldIDAttr[len(oldIDAttr)-len(val):], val)
+		oldIDAttr = slices.Clone(oldIDAttr)
+		newIDAttr := prepareMetaIDAttrKey(&buf, id, object.AttributeAssociatedObject, oid.Size)
+		copy(newIDAttr[len(newIDAttr)-oid.Size:], associated[:])
+		newIDAttr = slices.Clone(newIDAttr)
+
+		updates = append(updates, keyRewrite{
+			oldAttrID: slices.Clone(k),
+			newAttrID: newAttrID,
+			oldIDAttr: oldIDAttr,
+			newIDAttr: newIDAttr,
+		})
+
+		if scanned == rem {
+			break
+		}
+	}
+
+	for i := range updates {
+		if err := b.Put(updates[i].newAttrID, nil); err != nil {
+			return 0, nil, fmt.Errorf("put migrated attribute-to-ID key %s: %w", hex.EncodeToString(updates[i].newAttrID), err)
+		}
+		if err := b.Put(updates[i].newIDAttr, nil); err != nil {
+			return 0, nil, fmt.Errorf("put migrated ID-to-attribute key %s: %w", hex.EncodeToString(updates[i].newIDAttr), err)
+		}
+		if err := b.Delete(updates[i].oldAttrID); err != nil {
+			return 0, nil, fmt.Errorf("delete migrated attribute-to-ID key %s: %w", hex.EncodeToString(updates[i].oldAttrID), err)
+		}
+		if err := b.Delete(updates[i].oldIDAttr); err != nil {
+			return 0, nil, fmt.Errorf("delete migrated ID-to-attribute key %s: %w", hex.EncodeToString(updates[i].oldIDAttr), err)
+		}
+	}
+
+	if scanned < rem {
+		nextKey = nil
+	}
+
+	return scanned, nextKey, nil
+}
+
+func splitAttributeValueObjectID(b []byte) ([]byte, []byte, error) {
+	if len(b) < oid.Size+1 {
+		return nil, nil, fmt.Errorf("too short len %d", len(b))
+	}
+
+	valEnd := len(b) - oid.Size - 1
+	if b[valEnd] != 0 {
+		return nil, nil, errors.New("wrong value-object delimiter")
+	}
+
+	return b[:valEnd], b[valEnd+1:], nil
 }
 
 func moveGarbageToMeta(log *zap.Logger, tx *bbolt.Tx) error {

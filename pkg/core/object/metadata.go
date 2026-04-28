@@ -591,7 +591,7 @@ func combineValues(attr string, dbVal []byte, fltVal string) ([]byte, []byte, er
 		//  - decoded filter byte is always 21 while the DB one is always 53
 		// so we'd get false mismatch. To avoid this, we have to decode each DB val.
 		dbVal = []byte(base58.Encode(dbVal))
-	case object.FilterFirstSplitObject, object.FilterParentID:
+	case object.FilterFirstSplitObject, object.FilterParentID, object.AttributeAssociatedObject:
 		if len(dbVal) != oid.Size {
 			return nil, nil, fmt.Errorf("invalid OID len %d != %d", len(dbVal), oid.Size)
 		}
@@ -660,7 +660,7 @@ func RestoreIntAttribute(b []byte) (string, error) {
 
 func restoreAttributeValue(attr string, stored []byte) (string, error) {
 	switch attr {
-	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
+	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID, object.AttributeAssociatedObject:
 		return base58.Encode(stored), nil
 	//nolint:staticcheck // this is not DB's responsibility to force API rules, DB still may have these values inside
 	case object.FilterPayloadHomomorphicHash:
@@ -715,7 +715,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 		switch attr := fs[0].Header(); attr {
 		default:
 			primValDB = []byte(primVal)
-		case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
+		case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID, object.AttributeAssociatedObject:
 			var err error
 			if primValDB, err = base58.Decode(primVal); err != nil {
 				return nil, nil, fmt.Errorf("%w: decode %q attribute value from Base58: %w", errInvalidPrimaryFilter, attr, err)
