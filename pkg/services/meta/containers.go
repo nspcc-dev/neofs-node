@@ -252,10 +252,6 @@ func fillObjectIndex(batch map[string][]byte, h object.Object, isParent bool) {
 	if v := h.Version(); v != nil {
 		ver = *v
 	}
-	var pldHmmHash []byte
-	if hash, ok := h.PayloadHomomorphicHash(); ok {
-		pldHmmHash = hash.Value()
-	}
 
 	oidKey := [1 + oid.Size]byte{oidIndex}
 	copy(oidKey[1:], id[:])
@@ -267,7 +263,6 @@ func fillObjectIndex(batch map[string][]byte, h object.Object, isParent bool) {
 	putIntAttribute(batch, id, object.FilterCreationEpoch, strconv.FormatUint(creationEpoch, 10), new(big.Int).SetUint64(creationEpoch))
 	putIntAttribute(batch, id, object.FilterPayloadSize, strconv.FormatUint(pSize, 10), new(big.Int).SetUint64(pSize))
 	putPlainAttribute(batch, id, object.FilterPayloadChecksum, string(pldHash.Value()))
-	putPlainAttribute(batch, id, object.FilterPayloadHomomorphicHash, string(pldHmmHash))
 	if !fPart.IsZero() {
 		putPlainAttribute(batch, id, object.FilterFirstSplitObject, string(fPart[:]))
 	}

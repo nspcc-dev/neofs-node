@@ -98,11 +98,6 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 			return err
 		}
 	}
-	if h, ok := hdr.PayloadHomomorphicHash(); ok {
-		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadHomomorphicHash, string(h.Value())); err != nil {
-			return err
-		}
-	}
 	if splitID := hdr.SplitID().ToV2(); len(splitID) > 0 {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterSplitID, string(splitID)); err != nil {
 			return err

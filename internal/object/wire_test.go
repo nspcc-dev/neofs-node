@@ -239,7 +239,7 @@ func BenchmarkGetParentNonPayloadFieldBounds(b *testing.B) {
 		obj.SetPayloadSize(math.MaxUint64)
 		obj.SetPayloadChecksum(pldHash)
 		obj.SetType(math.MaxInt32)
-		obj.SetPayloadHomomorphicHash(pldHomoHash)
+		obj.SetPayloadHomomorphicHash(pldHomoHash) //nolint:staticcheck // this is a test and such objects are possible
 		obj.SetAttributes(
 			object.NewAttribute("key1", "val1"),
 			object.NewAttribute("key2", "val2"),

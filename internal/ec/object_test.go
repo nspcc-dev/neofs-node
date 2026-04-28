@@ -14,7 +14,6 @@ import (
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -151,7 +150,7 @@ func TestFormObjectForECPart(t *testing.T) {
 	require.Equal(t, object.TypeRegular, obj.Type())
 	require.Zero(t, obj.SessionToken())
 
-	_, ok = obj.PayloadHomomorphicHash()
+	_, ok = obj.PayloadHomomorphicHash() //nolint:staticcheck // this is a test
 	require.False(t, ok)
 
 	require.Len(t, obj.Attributes(), 2)
@@ -159,18 +158,6 @@ func TestFormObjectForECPart(t *testing.T) {
 	pi, err := iec.GetPartInfo(obj)
 	require.NoError(t, err)
 	require.Equal(t, partInfo, pi)
-
-	t.Run("with homomorphic hash", func(t *testing.T) {
-		anyHash := checksum.NewTillichZemor([tz.Size]byte{1, 2, 3})
-		parent.SetPayloadHomomorphicHash(anyHash)
-
-		obj, err := iec.FormObjectForECPart(signer, parent, part, partInfo)
-		require.NoError(t, err)
-
-		phh, ok := obj.PayloadHomomorphicHash()
-		require.True(t, ok)
-		require.Equal(t, checksum.NewTillichZemor(tz.Sum(part)), phh)
-	})
 }
 
 func TestDecodePartInfoFromAttributes(t *testing.T) {

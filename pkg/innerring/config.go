@@ -211,7 +211,6 @@ func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.WithdrawalFee = 0        // in GAS per withdrawal (Fixed8)
 	netCfg.EigenTrustIterations = 4
 	netCfg.EigenTrustAlpha = 0.1
-	netCfg.HomomorphicHashingDisabled = false
 }
 
 func checkDurationPositive(val time.Duration, key string) error {

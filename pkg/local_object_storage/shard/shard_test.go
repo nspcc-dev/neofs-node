@@ -104,7 +104,7 @@ func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 	obj.SetID(oidtest.ID())
 	obj.SetPayload(data)
 	obj.SetPayloadChecksum(csum)
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(csum.Value())))
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(csum.Value()))) //nolint:staticcheck // this is a test and such objects are possible
 
 	return obj
 }

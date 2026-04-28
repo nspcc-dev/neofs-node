@@ -652,7 +652,7 @@ func getUnsignedObject() object.Object {
 
 	obj.SetPayload(payload)
 	obj.CalculateAndSetPayloadChecksum()
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(payload)))
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(payload))) //nolint:staticcheck // this is a test and such objects are possible
 
 	obj.SetID(oid.ID{231, 249, 6, 213, 114, 154, 74, 74, 49, 179, 107, 109, 34, 56, 68, 54, 226, 226, 16, 54, 217, 41, 138, 188, 245,
 		97, 133, 227, 199, 159, 163, 21}) // header checksum

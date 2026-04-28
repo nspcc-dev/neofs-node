@@ -83,6 +83,7 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 			})
 		}
 
+		//nolint:staticcheck // if we store old objects with it, we should support old eACL rules
 		cs, ok = obj.PayloadHomomorphicHash()
 		if ok {
 			res = append(res, sysObjHdr{
@@ -179,6 +180,7 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eaclSD
 			}
 			off += n
 
+			//nolint:staticcheck // if we store old objects with it, we should support old eACL rules
 			res = append(res, sysObjHdr{k: eaclSDK.FilterObjectPayloadHomomorphicChecksum, v: cs.String()})
 		case protoobject.FieldHeaderSessionToken:
 			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)

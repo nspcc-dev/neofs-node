@@ -25,7 +25,7 @@ neofs-cli object hash [flags]
       --session string        Filepath to a JSON- or binary-encoded token of the object RANGEHASH session
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)
-      --type string           Hash type. Either 'sha256' or 'tz' (default "sha256")
+      --type string           Hash type. Deprecated: can be omitted, only 'sha256' is currently supported (default "sha256")
   -w, --wallet string         Path to the wallet
   -x, --xhdr strings          Request X-Headers in form of Key=Value
 ```
