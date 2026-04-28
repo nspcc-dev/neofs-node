@@ -8,6 +8,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,6 +66,13 @@ func TestDB_IterateExpired(t *testing.T) {
 func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uint64) oid.Address {
 	obj := generateObject(t)
 	obj.SetType(typ)
+	switch typ {
+	case object.TypeTombstone:
+		obj.AssociateDeleted(oidtest.ID())
+	case object.TypeLock:
+		obj.AssociateLocked(oidtest.ID())
+	default:
+	}
 	addAttribute(obj, object.AttributeExpirationEpoch, strconv.FormatUint(expiresAt, 10))
 
 	require.NoError(t, putBig(db, obj))

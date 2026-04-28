@@ -198,7 +198,7 @@ func handleLinkObject(diff *CountersDiff) error {
 func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, currEpoch uint64, obj object.Object) error {
 	target := obj.AssociatedObject()
 	if target.IsZero() {
-		return nil
+		return fmt.Errorf("%s object has zero associated object", obj.Type())
 	}
 	cID := obj.GetContainerID()
 	oID := obj.GetID()

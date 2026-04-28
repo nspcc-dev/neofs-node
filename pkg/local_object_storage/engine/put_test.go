@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -23,11 +22,11 @@ import (
 func TestStorageEngine_PutBinary(t *testing.T) {
 	addr := oidtest.Address()
 
-	obj := objecttest.Object()
+	obj := *generateObjectWithCID(cidtest.ID())
 	obj.SetContainerID(addr.Container())
 	obj.SetID(addr.Object())
 
-	obj2 := objecttest.Object()
+	obj2 := *generateObjectWithCID(cidtest.ID())
 	require.NotEqual(t, obj, obj2)
 	obj2.SetContainerID(addr.Container())
 	obj2.SetID(addr.Object())
@@ -104,6 +103,13 @@ func testPutLock(t *testing.T, shardNum int) {
 
 			obj := obj
 			obj.SetType(typ)
+			switch typ {
+			case object.TypeTombstone:
+				obj.AssociateDeleted(oidtest.ID())
+			case object.TypeLock:
+				obj.AssociateLocked(oidtest.ID())
+			default:
+			}
 
 			require.NoError(t, s.Put(&obj, nil))
 
@@ -282,7 +288,7 @@ func testPutTombstone(t *testing.T, shardNum int) {
 		}},
 		{name: "target is lock", preset: func(t *testing.T, s *StorageEngine) {
 			obj := obj
-			obj.SetType(object.TypeLock)
+			obj.AssociateLocked(oidtest.ID())
 			require.NoError(t, s.Put(&obj, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, meta.ErrLockObjectRemoval)

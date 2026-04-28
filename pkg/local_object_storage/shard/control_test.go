@@ -2,6 +2,7 @@ package shard
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,13 +12,14 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -90,11 +92,11 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
-	obj := objecttest.Object()
-	obj.SetType(object.TypeRegular)
+	obj := generateTypedObject(cidtest.ID(), object.TypeRegular)
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
+	obj.SetPayloadSize(6)
 
-	err := sh.Put(&obj, nil)
+	err := sh.Put(obj, nil)
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
 
@@ -155,8 +157,7 @@ func TestResyncMetabase(t *testing.T) {
 	locked[0] = oidtest.ID()
 	cnrLocked := cidtest.ID()
 	for i := range uint64(objNum) {
-		obj := objecttest.Object()
-		obj.SetType(object.TypeRegular)
+		obj := generateTypedObject(cidtest.ID(), object.TypeRegular)
 
 		if i < objNum/2 {
 			payload := make([]byte, 1024)
@@ -174,13 +175,13 @@ func TestResyncMetabase(t *testing.T) {
 		addr := obj.Address()
 
 		mObjs[addr] = objAddr{
-			obj:  &obj,
+			obj:  obj,
 			addr: addr,
 		}
 	}
 
 	tombedID := oidtest.ID()
-	tombObj := objecttest.Object()
+	tombObj := generateTypedObject(cidtest.ID(), object.TypeTombstone)
 	tombObj.AssociateDeleted(tombedID)
 	tombedAddress := oid.NewAddress(tombObj.GetContainerID(), tombedID)
 
@@ -190,16 +191,15 @@ func TestResyncMetabase(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = sh.Put(&tombObj, nil)
+	err = sh.Put(tombObj, nil)
 	require.NoError(t, err)
 
 	// LOCK object handling
 	for _, lockedObj := range locked {
-		lockObj := objecttest.Object()
-		lockObj.SetContainerID(cnrLocked)
+		lockObj := generateTypedObject(cnrLocked, object.TypeLock)
 		lockObj.AssociateLocked(lockedObj)
 
-		err = sh.Put(&lockObj, nil)
+		err = sh.Put(lockObj, nil)
 		require.NoError(t, err)
 	}
 
@@ -249,7 +249,7 @@ func TestResyncMetabase(t *testing.T) {
 	}
 
 	checkAllObjs(true)
-	checkObj(tombObj.Address(), &tombObj)
+	checkObj(tombObj.Address(), tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 
@@ -302,7 +302,21 @@ func TestResyncMetabase(t *testing.T) {
 	require.Equal(t, phyBefore, c.Phy)
 
 	checkAllObjs(true)
-	checkObj(tombObj.Address(), &tombObj)
+	checkObj(tombObj.Address(), tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
+}
+
+func generateTypedObject(cnr cid.ID, typ object.Type) *object.Object {
+	data := make([]byte, 32)
+	_, _ = rand.Read(data)
+
+	obj := object.New(cnr, usertest.ID())
+	obj.SetID(oidtest.ID())
+	obj.SetType(typ)
+	obj.SetPayload(data)
+	obj.SetPayloadSize(uint64(len(data)))
+	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(data)))
+
+	return obj
 }

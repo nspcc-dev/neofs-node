@@ -404,10 +404,8 @@ func TestSplitObjectLockExpiration(t *testing.T) {
 
 	t.Run("split object lock with expiring locker", func(t *testing.T) {
 		lockObj := generateObjectWithCID(cnr)
-		lockObj.SetType(object.TypeLock)
-		addExpirationAttribute(lockObj, es.CurrentEpoch()+1)
-
 		lockObj.AssociateLocked(parentID)
+		addExpirationAttribute(lockObj, es.CurrentEpoch()+1)
 
 		require.NoError(t, e.Put(lockObj, nil))
 
@@ -461,7 +459,6 @@ func TestSimpleLockExpiration(t *testing.T) {
 	objAddr := obj.Address()
 
 	lock := generateObjectWithCID(cnr)
-	lock.SetType(object.TypeLock)
 	lock.AssociateLocked(objID)
 	addExpirationAttribute(lock, es.CurrentEpoch()+1)
 

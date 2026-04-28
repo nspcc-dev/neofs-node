@@ -162,6 +162,12 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 			obj.SetParentID(id)
 		case object.FilterPhysical, object.FilterRoot:
 			// Not real attributes, ignored.
+		case object.AttributeAssociatedObject:
+			id, err := oid.DecodeBytes(attrVal)
+			if err != nil {
+				return nil, fmt.Errorf("invalid associated object in meta of %s/%s: %w", cnr, objID, err)
+			}
+			attrs = append(attrs, object.NewAttribute(string(attrKey), id.EncodeToString()))
 		default:
 			attrs = append(attrs, object.NewAttribute(string(attrKey), string(attrVal)))
 		}

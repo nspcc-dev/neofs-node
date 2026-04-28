@@ -36,6 +36,7 @@ Changelog for NeoFS Node
 - Storage nodes do not calculate homomorphic hashes for objects (#3847)
 - Optimized GET/HEAD request forwarding (#3877)
 - Optimized netmap caching in node (#3966)
+- Store in metabase associated object ID in bytes instead of Base58 (#3971)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)

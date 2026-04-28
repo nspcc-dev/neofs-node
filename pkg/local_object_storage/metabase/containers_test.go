@@ -92,6 +92,13 @@ func TestDB_ContainersCount(t *testing.T) {
 		for range upload.amount {
 			obj := generateObject(t)
 			obj.SetType(upload.typ)
+			switch upload.typ {
+			case object.TypeTombstone:
+				obj.AssociateDeleted(oidtest.ID())
+			case object.TypeLock:
+				obj.AssociateLocked(oidtest.ID())
+			default:
+			}
 
 			err := putBig(db, obj)
 			require.NoError(t, err)
@@ -198,9 +205,8 @@ func TestDB_DeleteContainer(t *testing.T) {
 		require.NoError(t, err)
 
 		// put a big one
-		o2 := objecttest.Object()
-		o2.SetContainerID(cID)
-		err = putBig(db, &o2)
+		o2 := generateObjectWithCID(t, cID)
+		err = putBig(db, o2)
 		require.NoError(t, err)
 
 		// TS

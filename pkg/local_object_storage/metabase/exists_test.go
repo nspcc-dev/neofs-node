@@ -48,7 +48,7 @@ func TestDB_Exists(t *testing.T) {
 
 	t.Run("tombstone object", func(t *testing.T) {
 		ts := generateObject(t)
-		ts.SetType(object.TypeTombstone)
+		ts.AssociateDeleted(oidtest.ID())
 
 		err := putBig(db, ts)
 		require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestDB_Exists(t *testing.T) {
 
 	t.Run("lock object", func(t *testing.T) {
 		lock := generateObject(t)
-		lock.SetType(object.TypeLock)
+		lock.AssociateLocked(oidtest.ID())
 
 		err := putBig(db, lock)
 		require.NoError(t, err)

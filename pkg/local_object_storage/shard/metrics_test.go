@@ -156,6 +156,7 @@ func TestCounters(t *testing.T) {
 
 	t.Run("inhume_TS", func(t *testing.T) {
 		tombObj := objecttest.Object()
+		tombObj.ResetRelations()
 		tombObj.SetPayload(nil)
 		tombObj.SetPayloadSize(0)
 		tombObj.SetContainerID(oo[0].GetContainerID())

@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -37,9 +36,9 @@ func TestDB_IsLocked(t *testing.T) {
 
 	// existing but not locked obj
 
-	anotherObj := objecttest.Object()
+	anotherObj := generateObject(t)
 
-	err = db.Put(&anotherObj)
+	err = db.Put(anotherObj)
 	require.NoError(t, err)
 
 	locked, err = db.IsLocked(anotherObj.Address())
@@ -52,28 +51,29 @@ func TestDB_IsLocked(t *testing.T) {
 
 		cnr := cidtest.ID()
 
-		o := objecttest.Object()
+		o := generateObject(t)
 		o.SetContainerID(cnr)
-		o.SetType(object.TypeRegular)
-		l := objecttest.Object()
+		l := generateObject(t)
+		l.SetType(object.TypeLock)
 		l.SetContainerID(cnr)
 		l.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, fmt.Sprintf("%d", currEpoch)))
 		l.AssociateLocked(o.GetID())
 
-		err := putBig(db, &o)
+		err := putBig(db, o)
 		require.NoError(t, err)
-		err = putBig(db, &l)
+		err = putBig(db, l)
 		require.NoError(t, err)
 
-		ts := objecttest.Object()
+		ts := generateObject(t)
+		ts.SetType(object.TypeTombstone)
 		ts.SetContainerID(cnr)
 		ts.AssociateDeleted(o.GetID())
-		err = putBig(db, &ts)
+		err = putBig(db, ts)
 		require.ErrorIs(t, err, apistatus.ErrObjectLocked)
 
 		es.e = currEpoch + 1
 
-		err = putBig(db, &ts)
+		err = putBig(db, ts)
 		require.NoError(t, err)
 	})
 
@@ -105,10 +105,11 @@ func TestDB_Lock_Expired(t *testing.T) {
 	require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
 	// lock the obj
-	l := objecttest.Object()
+	l := generateObject(t)
+	l.SetType(object.TypeLock)
 	l.SetContainerID(addr.Container())
 	l.AssociateLocked(addr.Object())
-	require.NoError(t, metaPut(db, &l))
+	require.NoError(t, metaPut(db, l))
 
 	// object is expired but locked, thus, must be available
 	_, err = metaGet(db, addr, false)
@@ -120,10 +121,10 @@ func TestDB_Lock_Expired(t *testing.T) {
 func putObjAndLockIt(t *testing.T, db *meta.DB) (object.Object, object.Object) {
 	cnr := cidtest.ID()
 
-	o := objecttest.Object()
+	o := *generateObject(t)
 	o.SetContainerID(cnr)
-	o.SetType(object.TypeRegular)
-	l := objecttest.Object()
+	l := *generateObject(t)
+	l.SetType(object.TypeLock)
 	l.SetContainerID(cnr)
 	l.AssociateLocked(o.GetID())
 
