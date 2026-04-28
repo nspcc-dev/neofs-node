@@ -35,6 +35,7 @@ Changelog for NeoFS Node
 - `neofs-cli`, `neofs-node` do not allow searches based on homomorphic hash values (#3847)
 - Storage nodes do not calculate homomorphic hashes for objects (#3847)
 - Optimized GET/HEAD request forwarding (#3877)
+- Optimized local RANGE request execution (#3967)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)

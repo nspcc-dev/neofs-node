@@ -313,6 +313,13 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
+		if exec.localRangeBuffer != nil {
+			r, err := e.engine.ReadPayloadRange(exec.address(), rng.GetOffset(), rng.GetLength(), exec.localRangeBuffer)
+			if err == nil {
+				exec.submitLocalRangeStreamFn(r)
+			}
+			return nil, nil, err
+		}
 		r, err := e.engine.GetRangeStream(exec.address(), rng.GetOffset(), rng.GetLength())
 		return nil, r, err
 	}

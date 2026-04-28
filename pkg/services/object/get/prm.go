@@ -19,6 +19,9 @@ import (
 // SubmitStreamFunc is a callback for partially read object stream.
 type SubmitStreamFunc = func(int, io.ReadCloser)
 
+// SubmitDataStreamFunc is a handler of data stream.
+type SubmitDataStreamFunc = func(io.ReadCloser)
+
 // Prm groups parameters of Get service call.
 type Prm struct {
 	commonPrm
@@ -34,6 +37,9 @@ type RangePrm struct {
 	commonPrm
 
 	rng *object.Range
+
+	localBuffer         []byte
+	submitLocalStreamFn SubmitDataStreamFunc
 }
 
 // RangeHashPrm groups parameters of GetRange service call.
@@ -234,4 +240,12 @@ func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
 //   - any other transport/protocol error otherwise
 func (p *Prm) SetRequestForwarder(f ForwardGetRequestFunc) {
 	p.forwardRequestFn = f
+}
+
+// WithBuffer specifies a buffer to use for header reading and a callback for
+// payload range stream. If passed, the stream must be finally closed by the
+// caller.
+func (p *RangePrm) WithBuffer(buffer []byte, submitStreamFn SubmitDataStreamFunc) {
+	p.localBuffer = buffer
+	p.submitLocalStreamFn = submitStreamFn
 }

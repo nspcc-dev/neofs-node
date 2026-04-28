@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"slices"
 	"strconv"
 	"testing"
@@ -525,15 +524,6 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		Index:     456,
 	}
 
-	t.Run("too big bounds", func(t *testing.T) {
-		s := newEngineWithFixedShardOrder([]shardInterface{unimplementedShard{}}) // to ensure shards are not accessed
-
-		_, _, err := s.GetECPartRange(cnr, parentID, pi, math.MaxInt64+1, 1)
-		require.EqualError(t, err, "range overflowing int64 is not supported by this server: off=9223372036854775808,len=1")
-		_, _, err = s.GetECPartRange(cnr, parentID, pi, 1, math.MaxInt64+1)
-		require.EqualError(t, err, "range overflowing int64 is not supported by this server: off=1,len=9223372036854775808")
-	})
-
 	t.Run("blocked", func(t *testing.T) {
 		s := newEngineWithFixedShardOrder([]shardInterface{unimplementedShard{}}) // to ensure shards are not accessed
 
@@ -556,7 +546,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 
 	partID := partObj.GetID()
 
-	partShardKey := getECPartRangeKey{cnr: cnr, parent: parentID, pi: pi, off: int64(off), ln: int64(ln)}
+	partShardKey := getECPartRangeKey{cnr: cnr, parent: parentID, pi: pi, off: off, ln: ln}
 
 	shardOK := &mockShard{
 		getECPartRange: map[getECPartRangeKey]getECPartRangeValue{
@@ -620,7 +610,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 			partShardKey: {err: apistatus.ErrObjectNotFound},
 		},
 		getRangeStream: map[getRangeStreamKey]getRangeStreamValue{
-			{cnr: cnr, id: partID, off: int64(off), ln: int64(ln)}: {err: apistatus.ErrObjectNotFound},
+			{cnr: cnr, id: partID, off: off, ln: ln}: {err: apistatus.ErrObjectNotFound},
 		},
 	}
 
@@ -787,7 +777,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 			},
 		}, &mockShard{
 			getRangeStream: map[getRangeStreamKey]getRangeStreamValue{
-				{cnr: cnr, id: partID, off: int64(off), ln: int64(ln)}: {obj: partObj},
+				{cnr: cnr, id: partID, off: off, ln: ln}: {obj: partObj},
 			},
 		}})
 		s.log = l
@@ -848,7 +838,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		}, &mockShard{
 			i: 2,
 			getRangeStream: map[getRangeStreamKey]getRangeStreamValue{
-				{cnr: cnr, id: partID, off: int64(off), ln: int64(ln)}: {err: errors.New("some shard error")},
+				{cnr: cnr, id: partID, off: off, ln: ln}: {err: errors.New("some shard error")},
 			},
 		}})
 		s.log = l

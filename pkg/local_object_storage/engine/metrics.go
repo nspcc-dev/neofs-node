@@ -14,6 +14,7 @@ type MetricRegister interface {
 	AddHeadDuration(d time.Duration)
 	AddReadHeaderDuration(d time.Duration)
 	AddReadObjectDuration(d time.Duration)
+	AddReadPayloadRangeDuration(d time.Duration)
 	AddGetStreamDuration(d time.Duration)
 	AddGetRangeStreamDuration(d time.Duration)
 	AddInhumeDuration(d time.Duration)
@@ -26,6 +27,7 @@ type MetricRegister interface {
 	AddGetECPartRangeDuration(d time.Duration)
 	AddHeadECPartDuration(d time.Duration)
 	AddReadECPartHeaderDuration(d time.Duration)
+	AddReadECPartRangeDuration(d time.Duration)
 
 	SetObjectCounter(shardID, objectType string, v uint64)
 	AddToObjectCounter(shardID, objectType string, delta int)

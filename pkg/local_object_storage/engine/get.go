@@ -279,3 +279,29 @@ func (e *StorageEngine) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCl
 		return err
 	})
 }
+
+// ReadPayloadRange is [StorageEngine.ReadObject] analogue for payload range
+// reading. Zero range means full payload.
+//
+// If given range is out of payload bounds, ReadPayloadRange returns
+// [apistatus.ErrObjectOutOfRange].
+func (e *StorageEngine) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byte) (io.ReadCloser, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddReadPayloadRangeDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
+
+	var stream io.ReadCloser
+
+	return stream, e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
+		var err error
+		stream, err = s.ReadPayloadRange(addr, off, ln, ignoreMetadata, hdrBuf)
+		return err
+	})
+}

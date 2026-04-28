@@ -114,19 +114,32 @@ func (c *cache) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, erro
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (c *cache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error) {
+func (c *cache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (uint64, io.ReadCloser, error) {
 	if ln == 0 && off != 0 {
-		return nil, fmt.Errorf("invalid range off=%d,ln=0", off)
+		return 0, nil, fmt.Errorf("invalid range off=%d,ln=0", off)
 	}
 
 	if !c.objCounters.HasAddress(addr) {
-		return nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		return 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
 	}
 
-	stream, err := c.fsTree.GetRangeStream(addr, off, ln)
+	pldLen, stream, err := c.fsTree.GetRangeStream(addr, off, ln)
 	if err != nil {
-		return nil, fmt.Errorf("get range stream from underlying FS tree: %w", err)
+		return 0, nil, fmt.Errorf("get range stream from underlying FS tree: %w", err)
 	}
 
-	return stream, nil
+	return pldLen, stream, nil
+}
+
+// ReadPayloadRange is [Cache.ReadObject] analogue for payload range reading.
+// Zero range means full payload. Returns full payload range length.
+//
+// If given range is out of payload bounds, ReadPayloadRange returns
+// [apistatus.ErrObjectOutOfRange].
+func (c *cache) ReadPayloadRange(addr oid.Address, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return nil, apistatus.ErrObjectNotFound
+	}
+
+	return c.fsTree.ReadPayloadRange(addr, off, ln, buf)
 }

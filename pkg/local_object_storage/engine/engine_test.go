@@ -205,7 +205,7 @@ func (unimplementedShard) ReadObject(oid.Address, bool, []byte) (int, io.ReadClo
 	panic("unimplemented")
 }
 
-func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, int64, int64) (uint64, io.ReadCloser, error) {
+func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, uint64, uint64) (uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -217,7 +217,7 @@ func (unimplementedShard) ReadECPart(cid.ID, oid.ID, iec.PartInfo, []byte) (int,
 	panic("unimplemented")
 }
 
-func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, int64, int64) (uint64, io.ReadCloser, error) {
+func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64) (uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -237,6 +237,14 @@ func (unimplementedShard) ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte)
 	panic("unimplemented")
 }
 
+func (unimplementedShard) ReadRange(cid.ID, oid.ID, uint64, uint64, []byte) (io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) ReadECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64, []byte) (io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
 type getECPartKey struct {
 	cnr    cid.ID
 	parent oid.ID
@@ -251,8 +259,8 @@ type getECPartValue struct {
 type getRangeStreamKey struct {
 	cnr cid.ID
 	id  oid.ID
-	off int64
-	ln  int64
+	off uint64
+	ln  uint64
 }
 
 type getRangeStreamValue struct {
@@ -264,8 +272,8 @@ type getECPartRangeKey struct {
 	cnr    cid.ID
 	parent oid.ID
 	pi     iec.PartInfo
-	off    int64
-	ln     int64
+	off    uint64
+	ln     uint64
 }
 
 type getECPartRangeValue struct {
@@ -298,6 +306,7 @@ type headECPartKey = getECPartKey
 type headECPartValue = headValue
 
 type mockShard struct {
+	unimplementedShard
 	i              int
 	eCPartSleep    time.Duration
 	getECPart      map[getECPartKey]getECPartValue
@@ -340,7 +349,7 @@ func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int
 	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
 }
 
-func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error) {
+func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln uint64) (uint64, io.ReadCloser, error) {
 	val, ok := x.getRangeStream[getRangeStreamKey{
 		cnr: cnr,
 		id:  id,
@@ -394,7 +403,7 @@ func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf [
 	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
 }
 
-func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln int64) (uint64, io.ReadCloser, error) {
+func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
 	time.Sleep(x.eCPartSleep)
 	val, ok := x.getECPartRange[getECPartRangeKey{
 		cnr:    cnr,
@@ -551,6 +560,14 @@ func (x unimplementedMetrics) AddGetECPartRangeDuration(d time.Duration) {
 }
 
 func (x unimplementedMetrics) AddHeadECPartDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddReadPayloadRangeDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddReadECPartRangeDuration(time.Duration) {
 	panic("unimplemented")
 }
 

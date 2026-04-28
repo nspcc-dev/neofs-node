@@ -115,6 +115,15 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
+
+		if prm.localBuffer != nil {
+			stream, err := s.localObjects.ReadECPartRange(prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localBuffer)
+			if err == nil {
+				prm.submitLocalStreamFn(stream)
+			}
+			return err
+		}
+
 		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
 
@@ -122,7 +131,8 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
 		// It handles locality internally.
-		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng)).err
+		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
+		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng), bufOpt).err
 	}
 
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
@@ -136,7 +146,8 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule,
 	hashPrm *RangeHashPrm) error {
 	if len(repRules) > 0 { // REP format does not require encoding
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm)).err
+		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm), bufOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
