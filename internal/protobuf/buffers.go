@@ -1,6 +1,7 @@
 package protobuf
 
 import (
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -127,18 +128,22 @@ func (x BuffersSlice) IsEmpty() bool {
 	return true
 }
 
+// Len returns number of bytes remaining in x.
+func (x BuffersSlice) Len() int {
+	var ln int
+	for _, b := range x.buffersSeq2 {
+		ln += len(b)
+	}
+	return ln
+}
+
 // ReadOnlyData returns read-only buffer of data remaining in x.
 func (x *BuffersSlice) ReadOnlyData() []byte {
 	if len(x.buffers) == 1 {
 		return x.buffers[0].ReadOnlyData()[x.firstOff:x.lastTo]
 	}
 
-	var ln int
-	for _, b := range x.buffersSeq2 {
-		ln += len(b)
-	}
-
-	buf := make([]byte, 0, ln)
+	buf := make([]byte, 0, x.Len())
 	for _, b := range x.buffersSeq2 {
 		buf = append(buf, b...)
 	}
@@ -175,6 +180,34 @@ func (x *BuffersSlice) MoveNext(n int) (BuffersSlice, bool) {
 	}
 
 	return BuffersSlice{}, false
+}
+
+// CopyTo copies all bytes remaining in x into buf. Returns number of bytes copied.
+//
+// CopyTo panics if buf cannot fit all the bytes.
+func (x BuffersSlice) CopyTo(buf []byte) int {
+	var n int
+	for _, b := range x.buffersSeq2 {
+		n2 := copy(buf[n:], b)
+		if n2 < len(b) {
+			panic("insufficient buffer size")
+		}
+		n += n2
+	}
+	return n
+}
+
+// WriteTo implements [io.WriterTo] by writing all data in x into w.
+func (x BuffersSlice) WriteTo(w io.Writer) (int64, error) {
+	var n int64
+	for _, b := range x.buffersSeq2 {
+		n2, err := w.Write(b)
+		n += int64(n2)
+		if err != nil {
+			return n, err
+		}
+	}
+	return n, nil
 }
 
 // bytesSeq is an [iter.Seq] over bytes remaining in x.

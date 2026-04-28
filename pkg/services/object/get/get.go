@@ -50,15 +50,16 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 
 	if len(repRules) > 0 { // REP format does not require encoding
 		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), bufOpt).err
+		forwardOpt := withForwardGetRequestFunc(prm.forwardRequestFn)
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), bufOpt, forwardOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
-	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
-		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "GET", nil)
+	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
+		return s.forwardGetRequest(ctx, ecNodeLists, prm.forwardRequestFn, prm.submitLocalGetStreamFn)
 	}
 
 	if prm.raw {
@@ -280,15 +281,16 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 	}
 
 	if len(repRules) > 0 {
-		err := s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
+		headOpt := headOnly(prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
+		err := s.get(ctx, prm.commonPrm, headOpt, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
-	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
-		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "HEAD", prm.objWriter)
+	if prm.forwardHeadRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
+		return s.forwardHeadRequest(ctx, ecNodeLists, prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
 	}
 
 	if prm.raw {
@@ -296,7 +298,8 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, headOnly(), withPreSortedContainerNodes(ecNodeLists, repRules)).err
+		headOpt := headOnly(prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
+		return s.get(ctx, prm.commonPrm, headOpt, withPreSortedContainerNodes(ecNodeLists, repRules)).err
 	}
 
 	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),

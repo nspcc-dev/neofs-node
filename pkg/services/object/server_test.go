@@ -828,3 +828,16 @@ type emptyRemoteNode struct {
 func (emptyRemoteNode) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHead) (*object.Object, error) {
 	return nil, apistatus.ErrObjectNotFound
 }
+
+func (emptyRemoteNode) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+	return errors.New("any transport error")
+}
+
+type mockGRPCConn struct {
+	unimplementedConn
+	conn *grpc.ClientConn
+}
+
+func (x *mockGRPCConn) ForEachGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
+	return f(ctx, x.conn)
+}
