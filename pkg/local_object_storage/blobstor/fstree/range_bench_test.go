@@ -48,7 +48,7 @@ func BenchmarkFSTree_GetRangeStream(b *testing.B) {
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
 					for b.Loop() {
-						stream, err := fsTree.GetRangeStream(addr, tc.from, tc.length)
+						_, stream, err := fsTree.GetRangeStream(addr, tc.from, tc.length)
 						if err == nil {
 							_, err = io.ReadFull(stream, buf)
 						}
@@ -64,7 +64,7 @@ func BenchmarkFSTree_GetRangeStream(b *testing.B) {
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
 					for b.Loop() {
-						stream, err := fsTree.GetRangeStream(addr, tc.from, tc.length)
+						_, stream, err := fsTree.GetRangeStream(addr, tc.from, tc.length)
 						if err == nil {
 							_, err = io.ReadFull(stream, buf)
 						}
@@ -80,7 +80,7 @@ func BenchmarkFSTree_GetRangeStream(b *testing.B) {
 
 					b.ResetTimer()
 					for k := range b.N {
-						stream, err := fsTree.GetRangeStream(addrs[k%len(addrs)], tc.from, tc.length)
+						_, stream, err := fsTree.GetRangeStream(addrs[k%len(addrs)], tc.from, tc.length)
 						if err == nil {
 							_, err = io.ReadFull(stream, buf)
 						}

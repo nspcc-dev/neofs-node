@@ -189,9 +189,8 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 		return nil, nil, exec.forwardGetRequestFn(exec.ctx, c.client)
 	}
 
-	if exec.isForwardingEnabled() {
-		obj, err := exec.prm.forwarder(exec.ctx, c.client)
-		return obj, nil, err
+	if exec.forwardRangeRequestFn != nil {
+		return nil, nil, exec.forwardRangeRequestFn(exec.ctx, c.client)
 	}
 
 	key, err := exec.key()
@@ -313,6 +312,13 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
+		if exec.localRangeBuffer != nil {
+			r, err := e.engine.ReadPayloadRange(exec.address(), rng.GetOffset(), rng.GetLength(), exec.localRangeBuffer)
+			if err == nil {
+				exec.submitLocalRangeStreamFn(r)
+			}
+			return nil, nil, err
+		}
 		r, err := e.engine.GetRangeStream(exec.address(), rng.GetOffset(), rng.GetLength())
 		return nil, r, err
 	}

@@ -17,6 +17,7 @@ type (
 		headDuration                  prometheus.Histogram
 		readHeaderDuration            prometheus.Histogram
 		readObjectDuration            prometheus.Histogram
+		readPayloadRangeDuration      prometheus.Histogram
 		getStreamDuration             prometheus.Histogram
 		getRangeStreamDuration        prometheus.Histogram
 		inhumeDuration                prometheus.Histogram
@@ -29,6 +30,7 @@ type (
 		getECPartRangeDuration        prometheus.Histogram
 		headECPartDuration            prometheus.Histogram
 		readECPartHeaderDuration      prometheus.Histogram
+		readECPartRangeDuration       prometheus.Histogram
 
 		containerSize prometheus.GaugeVec
 		payloadSize   prometheus.GaugeVec
@@ -101,6 +103,13 @@ func newEngineMetrics() engineMetrics {
 			Subsystem: engineSubsystem,
 			Name:      "read_object_time",
 			Help:      "Engine 'read object' operations handling time",
+		})
+
+		readPayloadRangeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "read_payload_range_time",
+			Help:      "Engine 'read payload range' operations handling time",
 		})
 
 		getStreamDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -186,6 +195,13 @@ func newEngineMetrics() engineMetrics {
 			Name:      "read_ec_part_header_time",
 			Help:      "Engine 'read EC part header' operations handling time",
 		})
+
+		readECPartRangeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "read_ec_part_range_time",
+			Help:      "Engine 'read EC part range' operations handling time",
+		})
 	)
 
 	var (
@@ -221,6 +237,7 @@ func newEngineMetrics() engineMetrics {
 		headDuration:                  headDuration,
 		readHeaderDuration:            readHeaderDuration,
 		readObjectDuration:            readObjectDuration,
+		readPayloadRangeDuration:      readPayloadRangeDuration,
 		getStreamDuration:             getStreamDuration,
 		getRangeStreamDuration:        getRangeStreamDuration,
 		inhumeDuration:                inhumeDuration,
@@ -233,6 +250,7 @@ func newEngineMetrics() engineMetrics {
 		getECPartRangeDuration:        getECPartRangeDuration,
 		headECPartDuration:            headECPartDuration,
 		readECPartHeaderDuration:      readECPartHeaderDuration,
+		readECPartRangeDuration:       readECPartRangeDuration,
 		containerSize:                 *containerSize,
 		payloadSize:                   *payloadSize,
 		capacitySize:                  *capacitySize,
@@ -249,6 +267,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.headDuration)
 	prometheus.MustRegister(m.readHeaderDuration)
 	prometheus.MustRegister(m.readObjectDuration)
+	prometheus.MustRegister(m.readPayloadRangeDuration)
 	prometheus.MustRegister(m.getStreamDuration)
 	prometheus.MustRegister(m.getRangeStreamDuration)
 	prometheus.MustRegister(m.inhumeDuration)
@@ -261,6 +280,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.getECPartRangeDuration)
 	prometheus.MustRegister(m.headECPartDuration)
 	prometheus.MustRegister(m.readECPartHeaderDuration)
+	prometheus.MustRegister(m.readECPartRangeDuration)
 	prometheus.MustRegister(m.containerSize)
 	prometheus.MustRegister(m.payloadSize)
 	prometheus.MustRegister(m.capacitySize)
@@ -300,6 +320,10 @@ func (m engineMetrics) AddReadHeaderDuration(d time.Duration) {
 
 func (m engineMetrics) AddReadObjectDuration(d time.Duration) {
 	m.readObjectDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddReadPayloadRangeDuration(d time.Duration) {
+	m.readPayloadRangeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddGetStreamDuration(d time.Duration) {
@@ -348,6 +372,10 @@ func (m engineMetrics) AddHeadECPartDuration(d time.Duration) {
 
 func (m engineMetrics) AddReadECPartHeaderDuration(d time.Duration) {
 	m.readECPartHeaderDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddReadECPartRangeDuration(d time.Duration) {
+	m.readECPartRangeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddToContainerSize(cnrID string, size int64) {

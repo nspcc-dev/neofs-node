@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 	"testing"
-	"testing/iotest"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -35,23 +34,10 @@ func TestShard_GetRangeStream(t *testing.T) {
 	objAddr := obj.Address()
 
 	bs := mockBLOBStore{
-		getStream: map[oid.Address]getStreamValue{
-			objAddr: {obj: obj},
+		getRangeStream: map[oid.Address]getRangeStreamValue{
+			objAddr: {pld: obj.Payload()},
 		},
 	}
-
-	t.Run("invalid ranges", func(t *testing.T) {
-		s := newSimpleTestShard(t, unimplementedBLOBStore{}, unimplementedMetabase{}, unimplementedWriteCache{})
-
-		t.Run("negative offset", func(t *testing.T) {
-			_, _, err := s.GetRangeStream(cnr, id, -1, 2)
-			require.EqualError(t, err, "invalid range: off=-1,len=2")
-		})
-		t.Run("negative len", func(t *testing.T) {
-			_, _, err := s.GetRangeStream(cnr, id, 2, -1)
-			require.EqualError(t, err, "invalid range: off=2,len=-1")
-		})
-	})
 
 	t.Run("BLOB storage failures", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -63,7 +49,7 @@ func TestShard_GetRangeStream(t *testing.T) {
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				bs := mockBLOBStore{
-					getStream: map[oid.Address]getStreamValue{
+					getRangeStream: map[oid.Address]getRangeStreamValue{
 						objAddr: {err: tc.err},
 					},
 				}
@@ -77,96 +63,24 @@ func TestShard_GetRangeStream(t *testing.T) {
 		}
 
 		t.Run("range out of bounds", func(t *testing.T) {
-			var cf closeFlag
-
 			bs := mockBLOBStore{
-				getStream: map[oid.Address]getStreamValue{
-					objAddr: {
-						obj: obj,
-						rc: struct {
-							io.Reader
-							io.Closer
-						}{
-							Closer: &cf,
-						},
-					},
+				getRangeStream: map[oid.Address]getRangeStreamValue{
+					objAddr: {pld: obj.Payload()},
 				},
 			}
 
 			s := newSimpleTestShard(t, &bs, unimplementedMetabase{}, nil)
 
-			for _, rng := range [][2]int64{
+			for _, rng := range [][2]uint64{
 				{0, payloadLen + 1},
 				{payloadLen - 1, 2},
 				{payloadLen, 0},
 				{payloadLen, 1},
 				{math.MaxInt64, math.MaxInt64},
 			} {
-				cf = false
-
 				_, _, err := s.GetRangeStream(cnr, id, rng[0], rng[1])
 				require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange, rng)
-
-				require.True(t, bool(cf))
 			}
-		})
-
-		t.Run("skip first bytes", func(t *testing.T) {
-			t.Run("seek", func(t *testing.T) {
-				var cf closeFlag
-				seekErr := errors.New("seek error")
-
-				bs := mockBLOBStore{
-					getStream: map[oid.Address]getStreamValue{
-						objAddr: {
-							obj: obj,
-							rc: errSeeker{
-								ReadCloser: struct {
-									io.Reader
-									io.Closer
-								}{
-									Closer: &cf,
-								},
-								err: seekErr,
-							},
-						},
-					},
-				}
-
-				s := newSimpleTestShard(t, &bs, unimplementedMetabase{}, nil)
-
-				_, _, err := s.GetRangeStream(cnr, id, 1, 1)
-				require.ErrorIs(t, err, seekErr)
-				require.ErrorContains(t, err, "seek offset in payload stream")
-
-				require.True(t, bool(cf))
-			})
-
-			var cf closeFlag
-			readErr := errors.New("read error")
-
-			bs := mockBLOBStore{
-				getStream: map[oid.Address]getStreamValue{
-					objAddr: {
-						obj: obj,
-						rc: struct {
-							io.Reader
-							io.Closer
-						}{
-							Reader: iotest.ErrReader(readErr),
-							Closer: &cf,
-						},
-					},
-				},
-			}
-
-			s := newSimpleTestShard(t, &bs, unimplementedMetabase{}, nil)
-
-			_, _, err := s.GetRangeStream(cnr, id, 1, 1)
-			require.ErrorIs(t, err, readErr)
-			require.ErrorContains(t, err, "discard first bytes in payload stream")
-
-			require.True(t, bool(cf))
 		})
 	})
 
@@ -190,7 +104,7 @@ func TestShard_GetRangeStream(t *testing.T) {
 					l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 
 					wc := mockWriteCache{
-						getStream: map[oid.Address]getStreamValue{
+						getRangeStream: map[oid.Address]getRangeStreamValue{
 							objAddr: {err: tc.err},
 						},
 					}
@@ -198,7 +112,7 @@ func TestShard_GetRangeStream(t *testing.T) {
 					s := newSimpleTestShard(t, &bs, &unimplementedMetabase{}, &wc)
 					s.log = l
 
-					off, ln := int64(payloadLen/2), int64(payloadLen/2)
+					off, ln := uint64(payloadLen/2), uint64(payloadLen/2)
 					pldLen, rc, err := s.GetRangeStream(cnr, id, off, ln)
 					require.NoError(t, err)
 					assertGetRangeStreamOK(t, obj, off, ln, pldLen, rc)
@@ -208,96 +122,24 @@ func TestShard_GetRangeStream(t *testing.T) {
 			}
 
 			t.Run("range out of bounds", func(t *testing.T) {
-				var cf closeFlag
-
 				wc := mockWriteCache{
-					getStream: map[oid.Address]getStreamValue{
-						objAddr: {
-							obj: obj,
-							rc: struct {
-								io.Reader
-								io.Closer
-							}{
-								Closer: &cf,
-							},
-						},
+					getRangeStream: map[oid.Address]getRangeStreamValue{
+						objAddr: {pld: obj.Payload()},
 					},
 				}
 
 				s := newSimpleTestShard(t, unimplementedBLOBStore{}, unimplementedMetabase{}, &wc)
 
-				for _, rng := range [][2]int64{
+				for _, rng := range [][2]uint64{
 					{0, payloadLen + 1},
 					{payloadLen - 1, 2},
 					{payloadLen, 0},
 					{payloadLen, 1},
 					{math.MaxInt64, math.MaxInt64},
 				} {
-					cf = false
-
 					_, _, err := s.GetRangeStream(cnr, id, rng[0], rng[1])
 					require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange, rng)
-
-					require.True(t, bool(cf))
 				}
-			})
-
-			t.Run("skip first bytes", func(t *testing.T) {
-				t.Run("seek", func(t *testing.T) {
-					var cf closeFlag
-					seekErr := errors.New("seek error")
-
-					wc := mockWriteCache{
-						getStream: map[oid.Address]getStreamValue{
-							objAddr: {
-								obj: obj,
-								rc: errSeeker{
-									ReadCloser: struct {
-										io.Reader
-										io.Closer
-									}{
-										Closer: &cf,
-									},
-									err: seekErr,
-								},
-							},
-						},
-					}
-
-					s := newSimpleTestShard(t, unimplementedBLOBStore{}, unimplementedMetabase{}, &wc)
-
-					_, _, err := s.GetRangeStream(cnr, id, 1, 1)
-					require.ErrorIs(t, err, seekErr)
-					require.ErrorContains(t, err, "seek offset in payload stream")
-
-					require.True(t, bool(cf))
-				})
-
-				var cf closeFlag
-				readErr := errors.New("read error")
-
-				wc := mockWriteCache{
-					getStream: map[oid.Address]getStreamValue{
-						objAddr: {
-							obj: obj,
-							rc: struct {
-								io.Reader
-								io.Closer
-							}{
-								Reader: iotest.ErrReader(readErr),
-								Closer: &cf,
-							},
-						},
-					},
-				}
-
-				s := newSimpleTestShard(t, unimplementedBLOBStore{}, unimplementedMetabase{}, &wc)
-
-				_, _, err := s.GetRangeStream(cnr, id, 1, 1)
-				require.ErrorIs(t, err, readErr)
-				require.ErrorContains(t, err, "discard first bytes in payload stream")
-
-				require.True(t, bool(cf))
 			})
 		})
 
@@ -306,19 +148,9 @@ func TestShard_GetRangeStream(t *testing.T) {
 			obj.SetPayloadSize(0)
 			obj.SetPayload(nil)
 
-			var cf closeFlag
-
 			wc := mockWriteCache{
-				getStream: map[oid.Address]getStreamValue{
-					objAddr: {
-						obj: obj,
-						rc: struct {
-							io.Reader
-							io.Closer
-						}{
-							Closer: &cf,
-						},
-					},
+				getRangeStream: map[oid.Address]getRangeStreamValue{
+					objAddr: {pld: obj.Payload()},
 				},
 			}
 
@@ -327,21 +159,17 @@ func TestShard_GetRangeStream(t *testing.T) {
 			t.Run("non-zero range", func(t *testing.T) {
 				_, _, err := s.GetRangeStream(cnr, id, 0, 1)
 				require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
-				require.True(t, bool(cf))
-				cf = false
 			})
 
 			pldLen, rc, err := s.GetRangeStream(cnr, id, 0, 0)
 			require.NoError(t, err)
 			require.Zero(t, pldLen)
 			require.Zero(t, rc)
-
-			require.True(t, bool(cf))
 		})
 
 		wc := mockWriteCache{
-			getStream: map[oid.Address]getStreamValue{
-				objAddr: {obj: obj},
+			getRangeStream: map[oid.Address]getRangeStreamValue{
+				objAddr: {pld: obj.Payload()},
 			},
 		}
 
@@ -354,19 +182,9 @@ func TestShard_GetRangeStream(t *testing.T) {
 		obj.SetPayloadSize(0)
 		obj.SetPayload(nil)
 
-		var cf closeFlag
-
 		bs := mockBLOBStore{
-			getStream: map[oid.Address]getStreamValue{
-				objAddr: {
-					obj: obj,
-					rc: struct {
-						io.Reader
-						io.Closer
-					}{
-						Closer: &cf,
-					},
-				},
+			getRangeStream: map[oid.Address]getRangeStreamValue{
+				objAddr: {pld: obj.Payload()},
 			},
 		}
 
@@ -375,16 +193,12 @@ func TestShard_GetRangeStream(t *testing.T) {
 		t.Run("non-zero range", func(t *testing.T) {
 			_, _, err := s.GetRangeStream(cnr, id, 0, 1)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
-			require.True(t, bool(cf))
-			cf = false
 		})
 
 		pldLen, rc, err := s.GetRangeStream(cnr, id, 0, 0)
 		require.NoError(t, err)
 		require.Zero(t, pldLen)
 		require.Zero(t, rc)
-
-		require.True(t, bool(cf))
 	})
 
 	s := newSimpleTestShard(t, &bs, &unimplementedMetabase{}, nil)
@@ -392,8 +206,8 @@ func TestShard_GetRangeStream(t *testing.T) {
 }
 
 func testGetRangeStream(t *testing.T, obj object.Object, s *Shard) {
-	full := int64(obj.PayloadSize())
-	for _, rng := range [][2]int64{
+	full := obj.PayloadSize()
+	for _, rng := range [][2]uint64{
 		{0, 0},
 		{0, 1},
 		{0, full},
@@ -410,14 +224,14 @@ func testGetRangeStream(t *testing.T, obj object.Object, s *Shard) {
 	}
 }
 
-func assertGetRangeStreamOK(t testing.TB, obj object.Object, off, ln int64, pldLen uint64, rc io.ReadCloser) {
+func assertGetRangeStreamOK(t testing.TB, obj object.Object, off, ln uint64, pldLen uint64, rc io.ReadCloser) {
 	require.EqualValues(t, obj.PayloadSize(), pldLen)
 
 	b, err := io.ReadAll(rc)
 	require.NoError(t, err)
 
 	if off == 0 && ln == 0 {
-		ln = int64(pldLen)
+		ln = pldLen
 	}
 
 	require.True(t, bytes.Equal(obj.Payload()[off:][:ln], b))

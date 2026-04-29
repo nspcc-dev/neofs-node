@@ -1384,6 +1384,10 @@ type rangeStream struct {
 	base protoobject.ObjectService_GetRangeServer
 	srv  *Server
 	req  *protoobject.GetRangeRequest
+
+	respondedPayload int
+
+	signResponse bool
 }
 
 func (s *rangeStream) WriteChunk(chunk []byte) error {
@@ -1435,10 +1439,13 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
+	needSignResponse := needSignGetResponse(req)
+
 	p, err := convertRangePrm(s.signer, reqInfo.Container, req, &rangeStream{
-		base: gStream,
-		srv:  s,
-		req:  req,
+		base:         gStream,
+		srv:          s,
+		req:          req,
+		signResponse: needSignResponse,
 	})
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
@@ -1448,11 +1455,71 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		}
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
+
+	var stream io.ReadCloser
+	defer func() {
+		if stream != nil {
+			stream.Close()
+		}
+	}()
+
+	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
+
+	p.WithBuffer(hdrBuf, func(s io.ReadCloser) { stream = s })
+
 	err = s.handlers.GetRange(gStream.Context(), p)
+
+	hdrRespBuf.Free()
+
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
+
+	if stream == nil {
+		return nil
+	}
+
+	err = s.copyRangeStream(gStream, stream, needSignResponse)
+	if err != nil {
+		return s.sendStatusRangeResponse(gStream, err, req)
+	}
+
 	return nil
+}
+
+func (s *Server) copyRangeStream(gStream protoobject.ObjectService_GetRangeServer, stream io.Reader, needSignResp bool) error {
+	for {
+		// chunk response buffers for GET completely suitable for RANGE
+		respBuf, buf := getBufferForChunkGetResponse()
+
+		n, err := io.ReadFull(stream, buf)
+		streamDone := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+		if err != nil && !streamDone {
+			respBuf.Free()
+			return fmt.Errorf("read payload stream: %w", err)
+		}
+
+		if n == 0 {
+			respBuf.Free()
+			return nil
+		}
+
+		bodyf := shiftPayloadChunkInRangeResponseBuffer(respBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
+
+		if needSignResp {
+			n, err := s.signResponse(respBuf.SliceBuffer[bodyf.To:], respBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+			if err != nil {
+				respBuf.Free()
+				return fmt.Errorf("sign chunk response: %w", err)
+			}
+			bodyf.To += n
+		}
+
+		respBuf.SetBounds(bodyf.From, bodyf.To)
+		if err = gStream.SendMsg(respBuf); err != nil || streamDone {
+			return err
+		}
+	}
 }
 
 // converts original request into parameters accepted by the internal handler.
@@ -1499,12 +1566,11 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 	}
 
 	var onceResign sync.Once
-	var respondedPayload int
 	meta := req.GetMetaHeader()
 	if meta == nil {
 		return getsvc.RangePrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (*object.Object, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1515,68 +1581,12 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
-			return nil, err
-		}
-
-		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := continueRangeFromRemoteNode(ctx, conn, req, stream, &respondedPayload)
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err // TODO: log error
-		})
-	})
-	return p, nil
-}
-
-func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRangeRequest,
-	stream *rangeStream, respondedPayload *int) error {
-	rangeStream, err := protoobject.NewObjectServiceClient(conn).GetRange(ctx, req)
-	if err != nil {
-		return fmt.Errorf("stream opening failed: %w", err)
-	}
-
-	var readPayload int
-	for {
-		resp, err := rangeStream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return io.EOF
-			}
-			return fmt.Errorf("reading the response failed: %w", err)
-		}
-
-		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
 
-		switch v := resp.GetBody().GetRangePart().(type) {
-		default:
-			return fmt.Errorf("unexpected range type %T", v)
-		case *protoobject.GetRangeResponse_Body_Chunk:
-			fullChunk := v.Chunk
-			respChunk := chunkToSend(*respondedPayload, readPayload, fullChunk)
-			if len(respChunk) == 0 {
-				readPayload += len(fullChunk)
-				continue
-			}
-			if err := stream.WriteChunk(respChunk); err != nil {
-				return fmt.Errorf("could not write object chunk in Get forwarder: %w", err)
-			}
-			readPayload += len(fullChunk)
-			*respondedPayload += len(respChunk)
-		case *protoobject.GetRangeResponse_Body_SplitInfo:
-			if v == nil || v.SplitInfo == nil {
-				return errors.New("nil split info oneof field")
-			}
-			si := object.NewSplitInfo()
-			err := si.FromProtoMessage(v.SplitInfo)
-			if err != nil {
-				return err
-			}
-			return object.NewSplitInfoError(si)
-		}
-	}
+		return c.ForEachGRPCConn(ctx, stream.continueWithConn)
+	})
+	return p, nil
 }
 
 func (s *Server) Search(_ *protoobject.SearchRequest, _ protoobject.ObjectService_SearchServer) error {
@@ -2212,11 +2222,6 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 
 func checkStatus(st *protostatus.Status) error {
 	return apistatus.ToError(st)
-}
-
-func chunkToSend(global, local int, chunk []byte) []byte {
-	from, to := chunkBoundsToSend(global, local, len(chunk))
-	return chunk[from:to]
 }
 
 func chunkBoundsToSend(global, local, chunkLen int) (int, int) {

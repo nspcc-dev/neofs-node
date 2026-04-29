@@ -19,6 +19,9 @@ import (
 // SubmitStreamFunc is a callback for partially read object stream.
 type SubmitStreamFunc = func(int, io.ReadCloser)
 
+// SubmitDataStreamFunc is a handler of data stream.
+type SubmitDataStreamFunc = func(io.ReadCloser)
+
 // Prm groups parameters of Get service call.
 type Prm struct {
 	commonPrm
@@ -34,6 +37,11 @@ type RangePrm struct {
 	commonPrm
 
 	rng *object.Range
+
+	localBuffer         []byte
+	submitLocalStreamFn SubmitDataStreamFunc
+
+	forwardRequestFn ForwardRangeRequestFunc
 }
 
 // RangeHashPrm groups parameters of GetRange service call.
@@ -64,6 +72,10 @@ type SubmitHeadResponseFunc = func(mem.BufferSlice, iprotobuf.BuffersSlice)
 // through passed connection.
 type ForwardGetRequestFunc = func(context.Context, coreclient.MultiAddressClient) error
 
+// ForwardRangeRequestFunc continues to serve current RANGE request from remote node
+// through passed connection.
+type ForwardRangeRequestFunc = func(context.Context, coreclient.MultiAddressClient) error
+
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
@@ -86,7 +98,6 @@ type commonPrm struct {
 
 	raw bool
 
-	forwarder      RequestForwarder
 	rangeForwarder RangeRequestForwarder
 
 	// signerKey is a cached key that should be used for spawned
@@ -142,10 +153,6 @@ func (p *RangeHashPrm) SetSalt(salt []byte) {
 // SetCommonParameters sets common parameters of the operation.
 func (p *commonPrm) SetCommonParameters(common *util.CommonPrm) {
 	p.common = common
-}
-
-func (p *commonPrm) SetRequestForwarder(f RequestForwarder) {
-	p.forwarder = f
 }
 
 func (p *commonPrm) SetRangeHashRequestForwarder(f RangeRequestForwarder) {
@@ -233,5 +240,26 @@ func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
 //   - nil on other API statuses
 //   - any other transport/protocol error otherwise
 func (p *Prm) SetRequestForwarder(f ForwardGetRequestFunc) {
+	p.forwardRequestFn = f
+}
+
+// WithBuffer specifies a buffer to use for header reading and a callback for
+// payload range stream. If passed, the stream must be finally closed by the
+// caller.
+func (p *RangePrm) WithBuffer(buffer []byte, submitStreamFn SubmitDataStreamFunc) {
+	p.localBuffer = buffer
+	p.submitLocalStreamFn = submitStreamFn
+}
+
+// SetRequestForwarder specifies request transport callback to use for streaming
+// responses from remote node.
+//
+// The f should return:
+//   - nil on completed object transmission
+//   - [object.SplitInfoError] on OK with corresponding body field
+//   - [apistatus.ErrObjectNotFound] on 404 status
+//   - nil on other API statuses
+//   - any other transport/protocol error otherwise
+func (p *RangePrm) SetRequestForwarder(f ForwardRangeRequestFunc) {
 	p.forwardRequestFn = f
 }

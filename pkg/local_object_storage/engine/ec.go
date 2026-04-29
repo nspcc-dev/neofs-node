@@ -2,9 +2,8 @@ package engine
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"math"
+	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
@@ -144,6 +143,21 @@ loop:
 	return apistatus.ErrObjectNotFound
 }
 
+// ReadECPartRange is a buffered alternative for [StorageEngine.GetECPartRange]
+// similar to [StorageEngine.ReadECPart].
+func (e *StorageEngine) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+	var stream io.ReadCloser
+	return stream, e.getECPartRangeFunc(cnr, parent, pi, off, ln, MetricRegister.AddReadECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
+		var err error
+		stream, err = s.ReadECPartRange(cnr, parent, pi, off, ln, buf)
+		return err
+	}, func(s shardInterface, cnr cid.ID, partID oid.ID, off, ln uint64) error {
+		var err error
+		stream, err = s.ReadRange(cnr, partID, off, ln, buf)
+		return err
+	})
+}
+
 // GetECPartRange looks up for object that carries EC part produced within cnr
 // for parent object and indexed by pi in the underlying shards, checks its
 // availability and, if available, reads it. Returns full payload len. If zero,
@@ -170,18 +184,31 @@ loop:
 //
 // Range bounds are limited by int64.
 func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
-	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
-		return 0, nil, fmt.Errorf("range overflowing int64 is not supported by this server: off=%d,len=%d", off, ln)
-	}
+	var pldLen uint64
+	var stream io.ReadCloser
+	return pldLen, stream, e.getECPartRangeFunc(cnr, parent, pi, off, ln, MetricRegister.AddGetECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
+		var err error
+		pldLen, stream, err = s.GetECPartRange(cnr, parent, pi, off, ln)
+		return err
+	}, func(s shardInterface, cnr cid.ID, partID oid.ID, off, ln uint64) error {
+		var err error
+		pldLen, stream, err = s.GetRangeStream(cnr, partID, off, ln)
+		return err
+	})
+}
 
+func (e *StorageEngine) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, metricFn func(MetricRegister, time.Duration),
+	resolveFn func(shardInterface, cid.ID, oid.ID, iec.PartInfo, uint64, uint64) error,
+	rangeFn func(shardInterface, cid.ID, oid.ID, uint64, uint64) error,
+) error {
 	if e.metrics != nil {
-		defer elapsed(e.metrics.AddGetECPartRangeDuration)()
+		defer elapsed(func(d time.Duration) { metricFn(e.metrics, d) })()
 	}
 
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 	if e.blockErr != nil {
-		return 0, nil, e.blockErr
+		return e.blockErr
 	}
 
 	s := e.sortShardsFn(e, parent)
@@ -189,14 +216,14 @@ func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInf
 	var partID oid.ID
 loop:
 	for i := range s {
-		pldLen, rc, err := s[i].shardIface.GetECPartRange(cnr, parent, pi, int64(off), int64(ln))
+		err := resolveFn(s[i].shardIface, cnr, parent, pi, off, ln)
 		switch {
 		case err == nil:
-			return pldLen, rc, nil
+			return nil
 		case errors.Is(err, apistatus.ErrObjectAlreadyRemoved), errors.Is(err, apistatus.ErrObjectOutOfRange), errors.As(err, new(*object.SplitInfoError)):
-			return 0, nil, err
+			return err
 		case errors.Is(err, meta.ErrObjectIsExpired):
-			return 0, nil, apistatus.ErrObjectNotFound
+			return apistatus.ErrObjectNotFound
 		case errors.As(err, (*ierrors.ObjectID)(&partID)):
 			if partID.IsZero() {
 				panic("zero object ID returned as error")
@@ -218,17 +245,17 @@ loop:
 	}
 
 	if partID.IsZero() {
-		return 0, nil, apistatus.ErrObjectNotFound
+		return apistatus.ErrObjectNotFound
 	}
 
 	for i := range s {
 		// get an object bypassing the metabase. We can miss deletion or expiration mark. GetECPart behaves like this, so here too.
-		pldLen, rc, err := s[i].shardIface.GetRangeStream(cnr, partID, int64(off), int64(ln))
+		err := rangeFn(s[i].shardIface, cnr, partID, off, ln)
 		switch {
 		case err == nil:
-			return pldLen, rc, nil
+			return nil
 		case errors.Is(err, apistatus.ErrObjectOutOfRange):
-			return 0, nil, err
+			return err
 		case errors.Is(err, apistatus.ErrObjectNotFound):
 		default:
 			e.log.Info("failed to RANGE EC part in shard bypassing metabase, ignore error",
@@ -238,7 +265,7 @@ loop:
 		}
 	}
 
-	return 0, nil, apistatus.ErrObjectNotFound
+	return apistatus.ErrObjectNotFound
 }
 
 // ReadECPartHeader is a buffered alternative for [StorageEngine.HeadECPart]

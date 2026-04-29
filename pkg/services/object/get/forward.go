@@ -63,3 +63,27 @@ func (s *Service) forwardHeadRequest(ctx context.Context, sortedNodeLists [][]ne
 
 	return apistatus.ErrObjectNotFound
 }
+
+func (s *Service) forwardRangeRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, forwardRequestFn ForwardRangeRequestFunc) error {
+	for i := range sortedNodeLists {
+		for j := range sortedNodeLists[i] {
+			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
+			if err != nil {
+				s.log.Debug("get conn to remote node",
+					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
+				continue
+			}
+
+			err = forwardRequestFn(ctx, conn)
+			if err == nil || errors.Is(err, ctx.Err()) {
+				return err
+			}
+
+			if !errors.Is(err, apistatus.ErrObjectNotFound) {
+				s.log.Info("failed to RANGE object from remote node", zap.Error(err))
+			}
+		}
+	}
+
+	return apistatus.ErrObjectNotFound
+}

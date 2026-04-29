@@ -25,19 +25,44 @@ import (
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io.ReadCloser, error) {
-	if off < 0 || ln < 0 {
-		return 0, nil, fmt.Errorf("invalid range: off=%d,len=%d", off, ln)
-	}
+func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln uint64) (uint64, io.ReadCloser, error) {
+	var pldLen uint64
+	var stream io.ReadCloser
+	return pldLen, stream, s.getRangeStreamFunc(cnr, id, off, ln, func(writeCache writecache.Cache, addr oid.Address, off, ln uint64) error {
+		var err error
+		pldLen, stream, err = writeCache.GetRangeStream(addr, off, ln)
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address, off, ln uint64) error {
+		var err error
+		pldLen, stream, err = blobStorage.GetRangeStream(addr, off, ln)
+		return err
+	})
+}
 
+// ReadRange is a buffered alternative for [Shard.GetRangeStream]
+// similar to [Shard.ReadHeader].
+func (s *Shard) ReadRange(cnr cid.ID, id oid.ID, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+	var stream io.ReadCloser
+	return stream, s.getRangeStreamFunc(cnr, id, off, ln, func(writeCache writecache.Cache, addr oid.Address, off, ln uint64) error {
+		var err error
+		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf)
+		return err
+	}, func(blobStorage common.Storage, addr oid.Address, off, ln uint64) error {
+		var err error
+		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf)
+		return err
+	})
+}
+
+func (s *Shard) getRangeStreamFunc(cnr cid.ID, id oid.ID, off, ln uint64,
+	writeCacheFn func(writecache.Cache, oid.Address, uint64, uint64) error,
+	blobStorageFn func(common.Storage, oid.Address, uint64, uint64) error,
+) error {
 	addr := oid.NewAddress(cnr, id)
 	if s.hasWriteCache() {
-		// TODO: support GetRangeStream https://github.com/nspcc-dev/neofs-node/issues/3593
-		hdr, rc, err := s.writeCache.GetStream(addr)
-		if err == nil {
-			pldLen := hdr.PayloadSize()
-			rc, err = slicePayloadReader(rc, pldLen, off, ln)
-			return pldLen, rc, err
+		err := writeCacheFn(s.writeCache, addr, off, ln)
+		if err == nil || errors.Is(err, apistatus.ErrObjectOutOfRange) {
+			return err
 		}
 
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -49,51 +74,12 @@ func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln int64) (uint64, io
 		}
 	}
 
-	// TODO: support GetRangeStream https://github.com/nspcc-dev/neofs-node/issues/3593
-	hdr, rc, err := s.blobStor.GetStream(oid.NewAddress(cnr, id))
+	err := blobStorageFn(s.blobStor, addr, off, ln)
 	if err != nil {
-		return 0, nil, fmt.Errorf("get from BLOB storage: %w", err)
+		return fmt.Errorf("get from BLOB storage: %w", err)
 	}
 
-	pldLen := hdr.PayloadSize()
-	rc, err = slicePayloadReader(rc, pldLen, off, ln)
-	return pldLen, rc, err
-}
-
-func slicePayloadReader(rc io.ReadCloser, pldLen uint64, off, ln int64) (io.ReadCloser, error) {
-	if ln == 0 && off == 0 {
-		if pldLen == 0 {
-			rc.Close()
-			return nil, nil
-		}
-		return rc, nil
-	}
-
-	if uint64(off) >= pldLen || pldLen-uint64(off) < uint64(ln) {
-		rc.Close()
-		return nil, apistatus.ErrObjectOutOfRange
-	}
-
-	if off > 0 {
-		if s, ok := rc.(io.Seeker); ok {
-			// TODO: Seems like rc implements io.Seeker in all current cases. Consider extension of resulting interface.
-			if _, err := s.Seek(off, io.SeekStart); err != nil {
-				rc.Close()
-				return nil, fmt.Errorf("seek offset in payload stream: %w", err)
-			}
-		} else if _, err := io.CopyN(io.Discard, rc, off); err != nil {
-			rc.Close()
-			return nil, fmt.Errorf("discard first bytes in payload stream: %w", err)
-		}
-	}
-
-	return struct {
-		io.Reader
-		io.Closer
-	}{
-		Reader: io.LimitReader(rc, ln),
-		Closer: rc,
-	}, nil
+	return nil
 }
 
 // GetRangeStreamWithMetadataLookup reads payload range of the referenced object
@@ -121,13 +107,13 @@ func (s *Shard) GetRangeStreamWithMetadataLookup(addr oid.Address, off, ln uint6
 
 	cb := func(stor common.Storage) error {
 		var err error
-		stream, err = stor.GetRangeStream(addr, off, ln)
+		_, stream, err = stor.GetRangeStream(addr, off, ln)
 		return err
 	}
 
 	wc := func(c writecache.Cache) error {
 		var err error
-		stream, err = c.GetRangeStream(addr, off, ln)
+		_, stream, err = c.GetRangeStream(addr, off, ln)
 		return err
 	}
 
