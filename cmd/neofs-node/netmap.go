@@ -175,9 +175,7 @@ func initNetmapService(c *cfg) {
 
 	server := netmapService.New(&c.key.PrivateKey, c)
 
-	for _, srv := range c.cfgGRPC.servers {
-		protonetmap.RegisterNetmapServiceServer(srv, server)
-	}
+	protonetmap.RegisterNetmapServiceServer(c.cfgGRPC.gs, server)
 
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
 		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())
