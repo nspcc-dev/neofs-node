@@ -114,7 +114,7 @@ type Meta struct {
 	notifier *objectNotifier
 }
 
-const blockBuffSize = 1024
+const blockBuffSize = 10000
 
 // Parameters groups arguments for [New] call.
 type Parameters struct {
