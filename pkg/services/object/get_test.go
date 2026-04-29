@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"slices"
@@ -13,8 +14,10 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -29,6 +32,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestServer_Get_Local(t *testing.T) {
@@ -129,6 +133,142 @@ func TestServer_Get_Local(t *testing.T) {
 	})
 }
 
+func TestServer_Get_Remote(t *testing.T) {
+	signer := usertest.User()
+	cnr := cidtest.ID()
+	var fsChain nopFSChain
+	var mtrc metricsCollector
+	var aclChecker nopACLChecker
+	var reqInfoExt nopReqInfoExtractor
+
+	const payloadLen = 100 << 10
+	obj := object.New(cnr, signer.ID)
+	obj.SetAttributes(
+		object.NewAttribute("k1", "v1"),
+		object.NewAttribute("k2", "v2"),
+	)
+	obj.SetPayloadSize(payloadLen)
+	obj.SetPayload(testutil.RandByteSlice(payloadLen))
+	require.NoError(t, obj.SetVerificationFields(signer))
+
+	storage := newSimpleStorage(t, fsChain)
+
+	require.NoError(t, storage.Put(obj, nil))
+
+	keyStorage := util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)
+
+	t.Run("REP forwarded", func(t *testing.T) {
+		var handlerFSChain mockHandlerFSChain
+		mockConns := newMockConnections()
+
+		nodes := make([]netmap.NodeInfo, 2)
+		for i := range nodes {
+			nodes[i].SetPublicKey([]byte("pub_" + strconv.Itoa(i)))
+			nodes[i].SetNetworkEndpoints("localhost:" + strconv.Itoa(9090+i)) // any
+		}
+
+		mockConns.setConn(nodes[0], emptyRemoteNode{})
+
+		handlerFSChain.repRules = []uint{uint(len(nodes))}
+		handlerFSChain.nodeLists = [][]netmap.NodeInfo{nodes}
+
+		handler := getsvc.New(&handlerFSChain,
+			getsvc.WithLocalStorageEngine(newSimpleStorage(t, fsChain)),
+			getsvc.WithClientConstructor(mockConns),
+			getsvc.WithKeyStorage(keyStorage),
+		)
+		handlers := getOnlyHandler{svc: handler}
+
+		srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil)
+
+		t.Run("object", func(t *testing.T) {
+			const payloadLen = 100 << 10
+			obj := *object.New(cnr, signer.ID)
+			obj.SetAttributes(
+				object.NewAttribute("k1", "v1"),
+				object.NewAttribute("k2", "v2"),
+			)
+			obj.SetPayloadSize(payloadLen)
+			obj.SetPayload(testutil.RandByteSlice(payloadLen))
+			require.NoError(t, obj.SetVerificationFields(signer))
+
+			req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
+			req.MetaHeader.Ttl = 2
+			signGetRequest(t, req, signer)
+
+			objMsg := obj.ProtoMessage()
+
+			metaHdr := newBlankMetaHeader()
+			metaHdr = nestMetaHeader(metaHdr, 5)
+
+			resps := []*protoobject.GetResponse{
+				{
+					Body: &protoobject.GetResponse_Body{
+						ObjectPart: &protoobject.GetResponse_Body_Init_{
+							Init: &protoobject.GetResponse_Body_Init{
+								ObjectId:  objMsg.ObjectId,
+								Signature: objMsg.Signature,
+								Header:    objMsg.Header,
+							},
+						},
+					},
+					MetaHeader:   metaHdr,
+					VerifyHeader: newAnyVerificationHeader(),
+				},
+			}
+
+			for chunk := range slices.Chunk(obj.Payload(), payloadLen/9) {
+				resps = append(resps, &protoobject.GetResponse{
+					Body: &protoobject.GetResponse_Body{
+						ObjectPart: &protoobject.GetResponse_Body_Chunk{
+							Chunk: chunk,
+						},
+					},
+					VerifyHeader: newAnyVerificationHeader(),
+				})
+			}
+
+			mockConns.setConn(nodes[1], newFixedGetResponsesConn(t, resps))
+
+			gotResps := collectGetResponses(t, srv, req)
+			require.Equal(t, len(resps), len(gotResps))
+			require.True(t, slices.EqualFunc(resps, gotResps, func(resp *protoobject.GetResponse, gotResp *protoobject.GetResponse) bool {
+				return proto.Equal(resp, gotResp)
+			}))
+		})
+
+		t.Run("split info", func(t *testing.T) {
+			req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
+			req.Body.Raw = true
+			req.MetaHeader.Ttl = 2
+			signGetRequest(t, req, signer)
+
+			metaHdr := newBlankMetaHeader()
+			metaHdr = nestMetaHeader(metaHdr, 5)
+
+			resps := []*protoobject.GetResponse{
+				{
+					Body: &protoobject.GetResponse_Body{
+						ObjectPart: &protoobject.GetResponse_Body_SplitInfo{
+							SplitInfo: newTestSplitInfo(),
+						},
+					},
+					MetaHeader:   metaHdr,
+					VerifyHeader: newAnyVerificationHeader(),
+				},
+			}
+
+			mockConns.setConn(nodes[1], newFixedGetResponsesConn(t, resps))
+
+			gotResps := collectGetResponses(t, srv, req)
+			require.Equal(t, len(resps), len(gotResps))
+			require.True(t, slices.EqualFunc(resps, gotResps, func(resp *protoobject.GetResponse, gotResp *protoobject.GetResponse) bool {
+				return proto.Equal(resp, gotResp)
+			}))
+		})
+	})
+}
+
 type getOnlyHandler struct {
 	noCallObjectService
 	svc *getsvc.Service
@@ -213,6 +353,17 @@ func assertGetOKVersioned(t *testing.T, srv *Server, mtrc *metricsCollector, obj
 }
 
 func assertGetRequest(t *testing.T, srv *Server, mtrc *metricsCollector, req *protoobject.GetRequest, obj object.Object) []*protoobject.GetResponse {
+	resps := collectGetResponses(t, srv, req)
+
+	assertGetStreamResponses(t, obj, resps)
+
+	require.EqualValues(t, obj.PayloadSize(), mtrc.getPayloadLen())
+	mtrc.reset()
+
+	return resps
+}
+
+func collectGetResponses(t *testing.T, srv *Server, req *protoobject.GetRequest) []*protoobject.GetResponse {
 	stream, err := callGet(t, srv, req)
 	require.NoError(t, err)
 
@@ -228,11 +379,6 @@ func assertGetRequest(t *testing.T, srv *Server, mtrc *metricsCollector, req *pr
 
 		resps = append(resps, resp)
 	}
-
-	assertGetStreamResponses(t, obj, resps)
-
-	require.EqualValues(t, obj.PayloadSize(), mtrc.getPayloadLen())
-	mtrc.reset()
 
 	return resps
 }
@@ -289,4 +435,23 @@ func assertGetStreamResponses(t *testing.T, obj object.Object, resps []*protoobj
 	// bytes.Equal checks len equality, but it's more convenient to distinguish this case
 	require.EqualValues(t, len(obj.Payload()), len(gotPayload))
 	require.True(t, bytes.Equal(obj.Payload(), gotPayload))
+}
+
+func newFixedGetResponsesConn(t *testing.T, resps []*protoobject.GetResponse) clientcore.MultiAddressClient {
+	return newRawServiceOnlyConn(t, &grpc.ServiceDesc{
+		ServiceName: protoobject.ObjectService_ServiceDesc.ServiceName,
+		Streams: []grpc.StreamDesc{
+			{
+				StreamName: "Get",
+				Handler: func(srv any, stream grpc.ServerStream) error {
+					for i := range resps {
+						if err := stream.SendMsg(resps[i]); err != nil {
+							return fmt.Errorf("send message #%d: %w", i, err)
+						}
+					}
+					return nil
+				},
+			},
+		},
+	})
 }

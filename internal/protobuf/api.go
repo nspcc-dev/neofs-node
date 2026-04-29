@@ -34,6 +34,13 @@ const (
 		1 + 3 + object.MaxHeaderLen
 )
 
+// Common response field numbers.
+const (
+	FieldResponseBody               = 1
+	FieldResponseMetaHeader         = 2
+	FieldResponseVerificationHeader = 3
+)
+
 // ParseAPIVersionField parses version.Version from the next field with known
 // number and type at given offset. Also returns field length.
 func ParseAPIVersionField(buf []byte, fNum protowire.Number, fTyp protowire.Type) (version.Version, int, error) {

@@ -3,9 +3,11 @@ package protoscan
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/internal/protobuf"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
@@ -249,6 +251,125 @@ var (
 			protoobject.FieldObjectID:        ObjectIDScheme,
 			protoobject.FieldObjectSignature: SignatureScheme,
 			protoobject.FieldObjectHeader:    ObjectHeaderScheme,
+		},
+	}
+	ObjectHeaderWithSignatureScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protoobject.FieldHeaderWithSignatureHeader:    NewMessageField("header", FieldTypeNestedMessage),
+			protoobject.FieldHeaderWithSignatureSignature: NewMessageField("signature", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protoobject.FieldHeaderWithSignatureHeader:    ObjectHeaderScheme,
+			protoobject.FieldHeaderWithSignatureSignature: SignatureScheme,
+		},
+	}
+	ObjectSplitInfoScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protoobject.FieldSplitInfoSplitID:   NewMessageField("split ID", FieldTypeBytes),
+			protoobject.FieldSplitInfoLastPart:  NewMessageField("last part", FieldTypeNestedMessage),
+			protoobject.FieldSplitInfoLink:      NewMessageField("link", FieldTypeNestedMessage),
+			protoobject.FieldSplitInfoFirstPart: NewMessageField("first part", FieldTypeNestedMessage),
+		},
+		BinaryFields: map[protowire.Number]BinaryFieldKind{
+			protoobject.FieldSplitInfoSplitID: BinaryFieldKindUUIDV4,
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protoobject.FieldSplitInfoLastPart:  ObjectIDScheme,
+			protoobject.FieldSplitInfoLink:      ObjectIDScheme,
+			protoobject.FieldSplitInfoFirstPart: ObjectIDScheme,
+		},
+	}
+)
+
+// Responses.
+var (
+	ResponseStatusDetailScheme = newSimpleFieldsScheme(
+		newSimpleField(protostatus.FieldStatusDetailID, "ID", FieldTypeUint32),
+		newSimpleField(protostatus.FieldStatusDetailValue, "value", FieldTypeBytes),
+	)
+	ResponseStatusScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protostatus.FieldStatusCode:    NewMessageField("code", FieldTypeUint32),
+			protostatus.FieldStatusMessage: NewMessageField("message", FieldTypeString),
+			protostatus.FieldStatusDetails: NewMessageField("details", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protostatus.FieldStatusDetails: ResponseStatusDetailScheme,
+		},
+	}
+	ResponseMetaHeaderScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protosession.FieldResponseMetaHeaderVersion:  NewMessageField("version", FieldTypeNestedMessage),
+			protosession.FieldResponseMetaHeaderEpoch:    NewMessageField("epoch", FieldTypeUint64),
+			protosession.FieldResponseMetaHeaderTTL:      NewMessageField("TTL", FieldTypeUint32),
+			protosession.FieldResponseMetaHeaderXHeaders: NewMessageField("X-headers", FieldTypeNestedMessage),
+			protosession.FieldResponseMetaHeaderOrigin:   NewMessageField("origin", FieldTypeNestedMessage),
+			protosession.FieldResponseMetaHeaderStatus:   NewMessageField("status", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protosession.FieldResponseMetaHeaderVersion:  VersionScheme,
+			protosession.FieldResponseMetaHeaderXHeaders: ObjectAttributeScheme,
+			protosession.FieldResponseMetaHeaderStatus:   ResponseStatusScheme,
+		},
+		RecursiveField: protosession.FieldResponseMetaHeaderOrigin,
+	}
+	ResponseVerificationHeaderScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protosession.FieldResponseVerificationHeaderBodySignature:   NewMessageField("body signature", FieldTypeNestedMessage),
+			protosession.FieldResponseVerificationHeaderMetaSignature:   NewMessageField("meta signature", FieldTypeNestedMessage),
+			protosession.FieldResponseVerificationHeaderOriginSignature: NewMessageField("origin signature", FieldTypeNestedMessage),
+			protosession.FieldResponseVerificationHeaderOrigin:          NewMessageField("origin", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protosession.FieldResponseVerificationHeaderBodySignature:   SignatureScheme,
+			protosession.FieldResponseVerificationHeaderMetaSignature:   SignatureScheme,
+			protosession.FieldResponseVerificationHeaderOriginSignature: SignatureScheme,
+		},
+		RecursiveField: protosession.FieldResponseVerificationHeaderOrigin,
+	}
+	ResponseScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protobuf.FieldResponseBody:               NewMessageField("body", FieldTypeNestedMessage),
+			protobuf.FieldResponseMetaHeader:         NewMessageField("meta header", FieldTypeNestedMessage),
+			protobuf.FieldResponseVerificationHeader: NewMessageField("verification header", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protobuf.FieldResponseMetaHeader:         ResponseMetaHeaderScheme,
+			protobuf.FieldResponseVerificationHeader: ResponseVerificationHeaderScheme,
+		},
+	}
+	ObjectHeadResponseBodyScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protoobject.FieldHeadResponseBodyHeader:      NewMessageField("header", FieldTypeNestedMessage),
+			protoobject.FieldHeadResponseBodyShortHeader: NewMessageField("short header", FieldTypeNestedMessage),
+			protoobject.FieldHeadResponseBodySplitInfo:   NewMessageField("split info", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protoobject.FieldHeadResponseBodyHeader:    ObjectHeaderWithSignatureScheme,
+			protoobject.FieldHeadResponseBodySplitInfo: ObjectSplitInfoScheme,
+		},
+	}
+	ObjectGetResponseInitScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protoobject.FieldGetResponseBodyInitObjectID:  NewMessageField("ID", FieldTypeNestedMessage),
+			protoobject.FieldGetResponseBodyInitSignature: NewMessageField("signature", FieldTypeNestedMessage),
+			protoobject.FieldGetResponseBodyInitHeader:    NewMessageField("header", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protoobject.FieldGetResponseBodyInitObjectID:  ObjectIDScheme,
+			protoobject.FieldGetResponseBodyInitSignature: SignatureScheme,
+			protoobject.FieldGetResponseBodyInitHeader:    ObjectHeaderScheme,
+		},
+	}
+	ObjectGetResponseBodyScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protoobject.FieldGetResponseBodyInit:      NewMessageField("init", FieldTypeNestedMessage),
+			protoobject.FieldGetResponseBodyChunk:     NewMessageField("chunk", FieldTypeBytes),
+			protoobject.FieldGetResponseBodySplitInfo: NewMessageField("split info", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protoobject.FieldGetResponseBodyInit:      ObjectGetResponseInitScheme,
+			protoobject.FieldGetResponseBodySplitInfo: ObjectSplitInfoScheme,
 		},
 	}
 )
