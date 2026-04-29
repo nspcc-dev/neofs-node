@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -235,8 +236,9 @@ func (c *cfg) CurrentEpoch() uint64 { return c.networkState.CurrentEpoch() }
 type cfgGRPC struct {
 	mu sync.Mutex
 
+	gs        *grpc.Server
 	listeners []net.Listener
-	servers   []*grpc.Server
+	servers   []*http.Server
 
 	// serviceRegistrators stores functions that register gRPC service
 	// implementations into a gRPC server.
@@ -249,10 +251,7 @@ func (g *cfgGRPC) registerService(f func(*grpc.Server)) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.serviceRegistrators = append(g.serviceRegistrators, f)
-	for _, srv := range g.servers {
-		f(srv)
-	}
+	f(g.gs)
 }
 
 type cfgMeta struct {

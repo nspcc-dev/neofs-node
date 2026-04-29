@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/resolver"
 )
@@ -106,11 +106,11 @@ func initGRPC(c *cfg) {
 	// at the time of shutdown (including those created by reload).
 	c.onShutdown(func() {
 		c.cfgGRPC.mu.Lock()
-		srvs := make([]*grpc.Server, len(c.cfgGRPC.servers))
+		srvs := make([]*http.Server, len(c.cfgGRPC.servers))
 		copy(srvs, c.cfgGRPC.servers)
 		c.cfgGRPC.mu.Unlock()
 		for _, srv := range srvs {
-			stopGRPC("NeoFS Public API", srv, c.log)
+			srv.Close()
 		}
 	})
 }
@@ -157,18 +157,6 @@ func buildGRPCServers(c *cfg, maxRecvMsgSizeOpt grpc.ServerOption) error {
 	if len(c.appCfg.GRPC) == 0 {
 		return errors.New("could not listen to any gRPC endpoints")
 	}
-	for _, sc := range c.appCfg.GRPC {
-		srv, lis, err := buildSingleGRPCServer(c, sc, maxRecvMsgSizeOpt)
-		if err != nil {
-			return err
-		}
-		c.cfgGRPC.listeners = append(c.cfgGRPC.listeners, lis)
-		c.cfgGRPC.servers = append(c.cfgGRPC.servers, srv)
-	}
-	return nil
-}
-
-func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.ServerOption) (*grpc.Server, net.Listener, error) {
 	serverOpts := []grpc.ServerOption{
 		grpc.MaxSendMsgSize(maxMsgSize),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
@@ -185,30 +173,43 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 		serverOpts = append(serverOpts, maxRecvMsgSizeOpt)
 	}
 
+	c.cfgGRPC.gs = grpc.NewServer(serverOpts...)
+
+	for _, sc := range c.appCfg.GRPC {
+		srv, lis, err := buildSingleGRPCServer(c, c.cfgGRPC.gs, sc, maxRecvMsgSizeOpt)
+		if err != nil {
+			return err
+		}
+		c.cfgGRPC.listeners = append(c.cfgGRPC.listeners, lis)
+		c.cfgGRPC.servers = append(c.cfgGRPC.servers, srv)
+	}
+	return nil
+}
+
+func buildSingleGRPCServer(c *cfg, h http.Handler, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.ServerOption) (*http.Server, net.Listener, error) {
+	var http2protos http.Protocols
+
+	http2protos.SetHTTP2(true)
+	http2protos.SetUnencryptedHTTP2(true)
+
+	var srv = &http.Server{
+		Handler:   h,
+		Protocols: &http2protos,
+	}
+
 	tlsCfg := sc.TLS
 
 	if tlsCfg.Key != "" {
 		certFile, keyFile := tlsCfg.Certificate, tlsCfg.Key
 
-		if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
+		crt, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
 			c.log.Error("could not read certificate from file", zap.Error(err))
 			return nil, nil, err
 		}
-
-		// read certificate from disk on each handshake to pick up renewals automatically.
-		creds := credentials.NewTLS(&tls.Config{
-			GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-				cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-				if err != nil {
-					return nil, fmt.Errorf("reload TLS certificate: %w", err)
-				}
-				return &tls.Config{
-					Certificates: []tls.Certificate{cert},
-				}, nil
-			},
-		})
-
-		serverOpts = append(serverOpts, grpc.Creds(creds))
+		srv.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{crt},
+		}
 	}
 
 	lis, err := net.Listen("tcp", sc.Endpoint)
@@ -221,7 +222,7 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 		lis = netutil.LimitListener(lis, connLimit)
 	}
 
-	return grpc.NewServer(serverOpts...), lis, nil
+	return srv, lis, nil
 }
 
 // reloadGRPC performs a fine-grained reload: only gRPC servers whose
@@ -239,7 +240,7 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 	defer c.cfgGRPC.mu.Unlock()
 
 	type serverEntry struct {
-		srv  *grpc.Server
+		srv  *http.Server
 		lis  net.Listener
 		snap grpcServerSnapshot
 	}
@@ -254,11 +255,11 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 		}
 	}
 
-	newServers := make([]*grpc.Server, 0, len(newCfg))
+	newServers := make([]*http.Server, 0, len(newCfg))
 	newListeners := make([]net.Listener, 0, len(newCfg))
 	// freshServers/freshListeners hold only newly created servers that need
 	// service registration and must start serving.
-	var freshServers []*grpc.Server
+	var freshServers []*http.Server
 	var freshListeners []net.Listener
 
 	for _, newSnap := range newCfg {
@@ -269,10 +270,10 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 				newListeners = append(newListeners, old.lis)
 				continue
 			}
-			stopGRPC("NeoFS Public API", old.srv, c.log)
+			old.srv.Close()
 		}
 
-		srv, lis, err := buildSingleGRPCServer(c, newSnap.GRPC, maxRecvMsgSizeOpt)
+		srv, lis, err := buildSingleGRPCServer(c, c.cfgGRPC.gs, newSnap.GRPC, maxRecvMsgSizeOpt)
 		if err != nil {
 			c.log.Error("failed to start gRPC server",
 				zap.String("endpoint", newSnap.Endpoint), zap.Error(err))
@@ -286,7 +287,7 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 
 	// stop servers that were removed from the config entirely
 	for _, entry := range oldByEndpoint {
-		stopGRPC("NeoFS Public API", entry.srv, c.log)
+		entry.srv.Close()
 	}
 
 	if len(newServers) == 0 {
@@ -296,20 +297,15 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 	c.cfgGRPC.servers = newServers
 	c.cfgGRPC.listeners = newListeners
 
-	for _, reg := range c.cfgGRPC.serviceRegistrators {
-		for _, srv := range freshServers {
-			reg(srv)
-		}
-	}
-	serveGRPCList(c, freshServers, freshListeners)
+	serveGRPCList(c, c.cfgGRPC.gs, freshServers, freshListeners)
 	return nil
 }
 
 func serveGRPC(c *cfg) {
-	serveGRPCList(c, c.cfgGRPC.servers, c.cfgGRPC.listeners)
+	serveGRPCList(c, c.cfgGRPC.gs, c.cfgGRPC.servers, c.cfgGRPC.listeners)
 }
 
-func serveGRPCList(c *cfg, servers []*grpc.Server, listeners []net.Listener) {
+func serveGRPCList(c *cfg, gs *grpc.Server, servers []*http.Server, listeners []net.Listener) {
 	for i := range servers {
 		srv := servers[i]
 		lis := listeners[i]
@@ -325,7 +321,13 @@ func serveGRPCList(c *cfg, servers []*grpc.Server, listeners []net.Listener) {
 				zap.Stringer("endpoint", lis.Addr()),
 			)
 
-			if err := srv.Serve(lis); err != nil {
+			var err error
+			if srv.TLSConfig == nil {
+				err = srv.Serve(lis)
+			} else {
+				err = srv.ServeTLS(lis, "", "")
+			}
+			if err != nil {
 				c.log.Error("gRPC server failed", zap.Stringer("endpoint", lis.Addr()), zap.Error(err))
 			}
 		})
