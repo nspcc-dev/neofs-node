@@ -35,7 +35,7 @@ Changelog for NeoFS Node
 - `neofs-cli` does not allow searches based on homomorphic hash values (#3847)
 - `neofs-cli`, `neofs-node` do not allow searches based on homomorphic hash values (#3847)
 - Storage nodes do not calculate homomorphic hashes for objects (#3847)
-- Optimized GET/HEAD request forwarding (#3877)
+- Optimized GET/HEAD/RANGE request forwarding (#3877, #3967)
 - Optimized netmap caching in node (#3966)
 - Store in metabase associated object ID in bytes instead of Base58 (#3971)
 - Optimized local RANGE request execution (#3967)

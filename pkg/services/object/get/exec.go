@@ -70,6 +70,8 @@ type execCtx struct {
 
 	forwardGetRequestFn ForwardGetRequestFunc
 
+	forwardRangeRequestFn ForwardRangeRequestFunc
+
 	localRangeBuffer         []byte
 	submitLocalRangeStreamFn SubmitDataStreamFunc
 }
@@ -127,6 +129,12 @@ func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc) execOption 
 func withForwardGetRequestFunc(f ForwardGetRequestFunc) execOption {
 	return func(ctx *execCtx) {
 		ctx.forwardGetRequestFn = f
+	}
+}
+
+func withForwardRangeRequestFunc(f ForwardRangeRequestFunc) execOption {
+	return func(ctx *execCtx) {
+		ctx.forwardRangeRequestFn = f
 	}
 }
 
@@ -457,12 +465,6 @@ func (exec *execCtx) writeCollectedObject() {
 	if ok := exec.writeCollectedHeader(); ok {
 		exec.writeObjectPayload(exec.collectedHeader, exec.collectedReader)
 	}
-}
-
-// isForwardingEnabled returns true if common execution
-// parameters has request forwarding closure set.
-func (exec execCtx) isForwardingEnabled() bool {
-	return exec.prm.forwarder != nil
 }
 
 // isRangeHashForwardingEnabled returns true if common execution
