@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -74,37 +73,6 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		ecRules, ecNodeLists, prm.objWriter)
 }
 
-func (s *Service) proxyGetRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, proxyFn RequestForwarder,
-	req string, headWriter internal.HeaderWriter) error {
-	for i := range sortedNodeLists {
-		for j := range sortedNodeLists[i] {
-			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
-			if err != nil {
-				s.log.Debug("get conn to remote node",
-					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
-				continue
-			}
-
-			hdr, err := proxyFn(ctx, conn)
-			if err == nil {
-				if headWriter != nil {
-					return headWriter.WriteHeader(hdr)
-				}
-				return nil
-			}
-
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) ||
-				errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
-				return err
-			}
-
-			s.log.Info("request proxy failed", zap.String("request", req), zap.Error(err))
-		}
-	}
-
-	return apistatus.ErrObjectNotFound
-}
-
 // GetRange serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 	pi, err := checkECPartInfoRequest(prm.common.XHeaders(), prm.container)
@@ -147,7 +115,8 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 	hashPrm *RangeHashPrm) error {
 	if len(repRules) > 0 { // REP format does not require encoding
 		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm), bufOpt).err
+		forwardOpt := withForwardRangeRequestFunc(prm.forwardRequestFn)
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm), bufOpt, forwardOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
@@ -162,8 +131,8 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 		return err
 	}
 
-	if prm.forwarder != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
-		return s.proxyGetRequest(ctx, ecNodeLists, prm.forwarder, "RANGE", nil)
+	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
+		return s.forwardRangeRequest(ctx, ecNodeLists, prm.forwardRequestFn)
 	}
 
 	if prm.raw {
