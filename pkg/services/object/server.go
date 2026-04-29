@@ -2149,7 +2149,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			}
 			if searchRes.err != nil {
 				var inc = new(apistatus.Incomplete)
-				inc.SetMessage(fmt.Sprintf("last error: %s", err.Error()))
+				inc.SetMessage(fmt.Sprintf("last error: %s", searchRes.err.Error()))
 				incomplete = inc
 				continue
 			}
