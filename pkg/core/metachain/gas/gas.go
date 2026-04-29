@@ -1,0 +1,171 @@
+package gas
+
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/nspcc-dev/neo-go/pkg/config"
+	"github.com/nspcc-dev/neo-go/pkg/core/dao"
+	"github.com/nspcc-dev/neo-go/pkg/core/interop"
+	"github.com/nspcc-dev/neo-go/pkg/core/interop/contract"
+	"github.com/nspcc-dev/neo-go/pkg/core/native"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/nativeids"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+)
+
+// DefaultBalance is a balance of every account in redefined [GAS] native
+// contract.
+const DefaultBalance = 100 * native.GASFactor
+
+var _ = (native.IGAS)(&GAS{})
+
+func (g *GAS) Metadata() *interop.ContractMD {
+	return &g.ContractMD
+}
+
+// GAS represents GAS custom native contract. It always returns [DefaultBalance] as a
+// balance, has no-op `Burn`, `Mint`, `Transfer` operations.
+type GAS struct {
+	interop.ContractMD
+}
+
+// NewGAS returns [GAS] custom native contract.
+func NewGAS() *GAS {
+	g := &GAS{}
+	defer g.BuildHFSpecificMD(g.ActiveIn())
+
+	g.ContractMD = *interop.NewContractMD(nativenames.Gas, nativeids.GasToken, func(m *manifest.Manifest, hf config.Hardfork) {
+		m.SupportedStandards = []string{manifest.NEP17StandardName}
+	})
+
+	desc := native.NewDescriptor("symbol", smartcontract.StringType)
+	md := native.NewMethodAndPrice(g.symbol, 0, callflag.NoneFlag)
+	g.AddMethod(md, desc)
+
+	desc = native.NewDescriptor("decimals", smartcontract.IntegerType)
+	md = native.NewMethodAndPrice(g.decimals, 0, callflag.NoneFlag)
+	g.AddMethod(md, desc)
+
+	desc = native.NewDescriptor("totalSupply", smartcontract.IntegerType)
+	md = native.NewMethodAndPrice(g.totalSupply, 1<<15, callflag.ReadStates)
+	g.AddMethod(md, desc)
+
+	desc = native.NewDescriptor("balanceOf", smartcontract.IntegerType,
+		manifest.NewParameter("account", smartcontract.Hash160Type))
+	md = native.NewMethodAndPrice(g.balanceOf, 1<<15, callflag.ReadStates)
+	g.AddMethod(md, desc)
+
+	transferParams := []manifest.Parameter{
+		manifest.NewParameter("from", smartcontract.Hash160Type),
+		manifest.NewParameter("to", smartcontract.Hash160Type),
+		manifest.NewParameter("amount", smartcontract.IntegerType),
+	}
+	desc = native.NewDescriptor("transfer", smartcontract.BoolType,
+		append(transferParams, manifest.NewParameter("data", smartcontract.AnyType))...,
+	)
+	md = native.NewMethodAndPrice(g.transfer, 1<<17, callflag.States|callflag.AllowCall|callflag.AllowNotify)
+	md.StorageFee = 50
+	g.AddMethod(md, desc)
+
+	eDesc := native.NewEventDescriptor("Transfer", transferParams...)
+	eMD := native.NewEvent(eDesc)
+	g.AddEvent(eMD)
+
+	return g
+}
+
+// Initialize initializes a GAS contract.
+func (g *GAS) Initialize(ic *interop.Context, hf *config.Hardfork, newMD *interop.HFSpecificContractMD) error {
+	return nil
+}
+
+// InitializeCache implements the [interop.Contract] interface.
+func (g *GAS) InitializeCache(_ interop.IsHardforkEnabled, blockHeight uint32, d *dao.Simple) error {
+	return nil
+}
+
+// OnPersist implements the [interop.Contract] interface.
+func (g *GAS) OnPersist(ic *interop.Context) error {
+	return nil
+}
+
+// PostPersist implements the [interop.Contract] interface.
+func (g *GAS) PostPersist(ic *interop.Context) error {
+	return nil
+}
+
+// ActiveIn implements the [interop.Contract] interface.
+func (g *GAS) ActiveIn() *config.Hardfork {
+	return nil
+}
+
+// BalanceOf returns native GAS token balance for the acc.
+func (g *GAS) BalanceOf(d *dao.Simple, acc util.Uint160) *big.Int {
+	return big.NewInt(DefaultBalance)
+}
+
+func (g *GAS) symbol(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
+	return stackitem.Make([]byte("GAS"))
+}
+
+func (g *GAS) decimals(_ *interop.Context, _ []stackitem.Item) stackitem.Item {
+	return stackitem.Make(8)
+}
+
+func (g *GAS) totalSupply(ic *interop.Context, _ []stackitem.Item) stackitem.Item {
+	return stackitem.Make(DefaultBalance)
+}
+
+func toUint160(s stackitem.Item) util.Uint160 {
+	u, err := stackitem.ToUint160(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+func toBigInt(s stackitem.Item) *big.Int {
+	bi, err := s.TryInteger()
+	if err != nil {
+		panic(err)
+	}
+	return bi
+}
+
+func (g *GAS) transfer(ic *interop.Context, args []stackitem.Item) stackitem.Item {
+	from := toUint160(args[0])
+	to := toUint160(args[1])
+	amount := toBigInt(args[2])
+
+	paymentArgs := []stackitem.Item{
+		stackitem.Make(from),
+		stackitem.Make(amount),
+		args[3],
+	}
+	cs, err := ic.GetContract(to)
+	if err == nil {
+		err = contract.CallFromNative(ic, g.Hash, cs, manifest.MethodOnNEP17Payment, paymentArgs, false)
+		if err != nil {
+			panic(fmt.Errorf("failed to call %s: %w", manifest.MethodOnNEP17Payment, err))
+		}
+	}
+
+	return stackitem.Make(true)
+}
+
+// balanceOf is the only difference with default native GAS implementation:
+// it always returns fixed number of tokens.
+func (g *GAS) balanceOf(ic *interop.Context, args []stackitem.Item) stackitem.Item {
+	return stackitem.Make(DefaultBalance)
+}
+
+func (g *GAS) Mint(ic *interop.Context, h util.Uint160, amount *big.Int, callOnPayment bool) {
+}
+
+func (g *GAS) Burn(ic *interop.Context, h util.Uint160, amount *big.Int) {
+}
