@@ -16,7 +16,7 @@ func (m *Meta) blockHandler(ctx context.Context, buff <-chan *block.Header, wg *
 
 	prevBlockFetchTime := time.Now()
 	for {
-		if len(buff) == blockBuffSize {
+		if len(buff) >= blockBuffSize-1 {
 			m.l.Warn("block header buffer has been completely filled")
 		}
 
@@ -41,7 +41,7 @@ func (m *Meta) blockHandler(ctx context.Context, buff <-chan *block.Header, wg *
 func (m *Meta) notificationHandler(ctx context.Context, buff <-chan *state.ContainedNotificationEvent, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
-		if len(buff) == notificationBuffSize {
+		if len(buff) >= notificationBuffSize-1 {
 			m.l.Warn("notification buffer has been completely filled")
 		}
 
