@@ -188,9 +188,6 @@ func (s *shared) resetCaches() {
 	if s.containerListCache != nil {
 		s.containerListCache.reset()
 	}
-	if s.netmapCache != nil {
-		s.netmapCache.reset()
-	}
 }
 
 type cfg struct {

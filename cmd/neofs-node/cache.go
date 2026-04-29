@@ -138,19 +138,19 @@ func (c *ttlNetCache[K, V]) reset() {
 
 // entity that provides LRU cache interface.
 type lruNetCache struct {
-	cache *lru.Cache[uint64, *netmapSDK.NetMap]
+	mtx     sync.RWMutex
+	netmaps []*netmapSDK.NetMap
+	size    int
 
 	netRdr netValueReader[uint64, *netmapSDK.NetMap]
 }
 
 // newNetworkLRUCache returns wrapper over netValueReader with LRU cache.
 func newNetworkLRUCache(sz int, netRdr netValueReader[uint64, *netmapSDK.NetMap]) *lruNetCache {
-	cache, err := lru.New[uint64, *netmapSDK.NetMap](sz)
-	fatalOnErr(err)
-
 	return &lruNetCache{
-		cache:  cache,
-		netRdr: netRdr,
+		netmaps: make([]*netmapSDK.NetMap, sz),
+		netRdr:  netRdr,
+		size:    sz,
 	}
 }
 
@@ -160,8 +160,13 @@ func newNetworkLRUCache(sz int, netRdr netValueReader[uint64, *netmapSDK.NetMap]
 //
 // returned value should not be modified.
 func (c *lruNetCache) get(key uint64) (*netmapSDK.NetMap, error) {
-	val, ok := c.cache.Get(key)
-	if ok {
+	var idx = int(key) % c.size
+
+	c.mtx.RLock()
+	var val = c.netmaps[idx]
+	c.mtx.RUnlock()
+
+	if val != nil && val.Epoch() == key {
 		return val, nil
 	}
 
@@ -172,14 +177,12 @@ func (c *lruNetCache) get(key uint64) (*netmapSDK.NetMap, error) {
 
 	if val != nil && len(val.Nodes()) != 0 {
 		// cache only non-empty netmap
-		c.cache.Add(key, val)
+		c.mtx.Lock()
+		c.netmaps[idx] = val
+		c.mtx.Unlock()
 	}
 
 	return val, nil
-}
-
-func (c *lruNetCache) reset() {
-	c.cache.Purge()
 }
 
 // wrapper over TTL cache of values read from the network
@@ -289,10 +292,6 @@ func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmapSDK.NetMap, err
 
 func (s *lruNetmapSource) Epoch() (uint64, error) {
 	return s.netState.CurrentEpoch(), nil
-}
-
-func (s *lruNetmapSource) reset() {
-	s.cache.reset()
 }
 
 // wrapper over TTL cache of values read from the network
