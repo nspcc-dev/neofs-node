@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -195,8 +196,8 @@ func parseCnrNotification(ev state.ContainedNotificationEvent) (cnrEvent, error)
 // NotifyObjectSuccess subscribes channel for object notification chain inclusion.
 // Channel must be read before subscription is made and writing to it must be
 // non-blocking.
-func (m *Meta) NotifyObjectSuccess(ch chan<- struct{}, addr oid.Address) {
-	m.notifier.subscribe(addr, ch)
+func (m *Meta) NotifyObjectSuccess(ch chan<- struct{}, addr oid.Address, h util.Uint256) {
+	m.notifier.subscribe(addr, ch, h)
 }
 
 // UnsubscribeFromObject unsibscribes from object notification. Should be called

@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-node/pkg/services/sidechain"
@@ -37,6 +38,7 @@ func newNotifier(metaSvc *Meta) *objectNotifier {
 }
 
 type objSubInfo struct {
+	txH                      util.Uint256
 	ch                       chan<- struct{}
 	timeSubscriptionStarted  time.Time
 	blockSubscriptionStarted uint32
@@ -49,7 +51,7 @@ type objectNotifier struct {
 	subs map[oid.Address]objSubInfo
 }
 
-func (on *objectNotifier) subscribe(addr oid.Address, ch chan<- struct{}) {
+func (on *objectNotifier) subscribe(addr oid.Address, ch chan<- struct{}, h util.Uint256) {
 	subTime := time.Now()
 	subBlock := on.metaSvc.chainHeigh.Load()
 
@@ -57,6 +59,7 @@ func (on *objectNotifier) subscribe(addr oid.Address, ch chan<- struct{}) {
 	defer on.m.Unlock()
 
 	on.subs[addr] = objSubInfo{
+		txH:                      h,
 		ch:                       ch,
 		timeSubscriptionStarted:  subTime,
 		blockSubscriptionStarted: subBlock,
@@ -91,7 +94,7 @@ func (on *objectNotifier) notifyReceived(addr oid.Address) {
 	on.m.Unlock()
 
 	if ok {
-		on.metaSvc.l.Info("DEBUG: object notification handled", zap.Stringer("addr", addr), zap.Duration("timeTook", timeTook), zap.Uint32("blocksTook", blocksTook))
+		on.metaSvc.l.Info("DEBUG: object notification handled", zap.Stringer("addr", addr), zap.Duration("timeTook", timeTook), zap.Uint32("blocksTook", blocksTook), zap.String("txHash", sub.txH.StringLE()))
 		on.metaSvc.metrics.objAcceptTime.Observe(timeTook.Seconds())
 		on.metaSvc.metrics.objAcceptBlocks.Observe(float64(blocksTook))
 	}
@@ -197,7 +200,13 @@ func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]neofs
 
 	tx.Scripts[0].InvocationScript = invokBuff.Bytes()
 
-	return m.ch.AddTx(tx)
+	m.l.Info("DEBUG: sending transaction to chain...", zap.String("txHash", tx.Hash().StringLE()))
+	now := time.Now()
+	err := m.ch.AddTx(tx)
+	took := time.Since(now)
+	m.l.Info("DEBUG: sent transaction to chain", zap.String("txHash", tx.Hash().StringLE()), zap.Duration("took", took), zap.Error(err))
+
+	return err
 }
 
 // Run starts notification handling. Must be called only on instances created

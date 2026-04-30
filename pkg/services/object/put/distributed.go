@@ -501,8 +501,10 @@ func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCo
 
 	var objAccepted chan struct{}
 	if await {
+		h := t.metaCollection.metaTransaction.Hash()
+
 		objAccepted = make(chan struct{}, 1)
-		t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
+		t.metaSvc.NotifyObjectSuccess(objAccepted, addr, h)
 	}
 
 	start := time.Now()
