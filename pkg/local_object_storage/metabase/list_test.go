@@ -148,14 +148,14 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 		// add one tombstone
 		obj = generateObjectWithCID(t, containerID)
-		obj.SetType(object.TypeTombstone)
+		obj.AssociateDeleted(oidtest.ID())
 		err = putBig(db, obj)
 		require.NoError(t, err)
 		expected = append(expected, objectcore.AddressWithAttributes{Address: obj.Address(), Type: object.TypeTombstone})
 
 		// add one lock
 		obj = generateObjectWithCID(t, containerID)
-		obj.SetType(object.TypeLock)
+		obj.AssociateLocked(oidtest.ID())
 		err = putBig(db, obj)
 		require.NoError(t, err)
 		expected = append(expected, objectcore.AddressWithAttributes{Address: obj.Address(), Type: object.TypeLock})

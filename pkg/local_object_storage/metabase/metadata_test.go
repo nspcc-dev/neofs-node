@@ -108,10 +108,12 @@ func TestPutMetadata(t *testing.T) {
 		127, 251, 248, 253, 176, 145, 101, 69, 75, 12, 97, 27, 19}
 	pldHmmHash := checksum.NewTillichZemor(pldHmmHashBytes) //nolint:staticcheck // this is a test and such objects are possible
 	splitID := []byte{240, 204, 35, 185, 222, 70, 69, 124, 160, 224, 208, 185, 9, 114, 37, 109}
+	associatedID := oidtest.ID()
 	var attrs []object.Attribute
 	addAttr := func(k, v string) { attrs = append(attrs, object.NewAttribute(k, v)) }
 	addAttr("attr_1", "val_1")
 	addAttr("attr_2", "val_2")
+	addAttr(object.AttributeAssociatedObject, associatedID.EncodeToString())
 	addAttr("num_negative_overflow", "-115792089237316195423570985008687907853269984665640564039457584007913129639936")
 	addAttr("num_negative_min", "-115792089237316195423570985008687907853269984665640564039457584007913129639935")
 	addAttr("num_negative_min64", "-9223372036854775808")
@@ -170,6 +172,7 @@ func TestPutMetadata(t *testing.T) {
 		assertAttr(t, mb, id, "$Object:payloadHash", pldHashBytes[:])
 		assertAttr(t, mb, id, "$Object:split.parent", parentID[:])
 		assertAttr(t, mb, id, "$Object:split.first", firstID[:])
+		assertAttr(t, mb, id, object.AttributeAssociatedObject, associatedID[:])
 		assertIntAttr(t, mb, id, "$Object:creationEpoch", "7311064694303989735", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 101, 118, 30, 154, 145, 227, 159, 231})
 		assertIntAttr(t, mb, id, "$Object:payloadLength", "2091724451450177666", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

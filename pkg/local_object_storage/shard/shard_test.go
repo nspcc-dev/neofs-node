@@ -91,6 +91,15 @@ func generateObject() *object.Object {
 	return generateObjectWithCID(cidtest.ID())
 }
 
+func generateTypedObject(cnr cid.ID, typ object.Type) *object.Object {
+	data := make([]byte, 32)
+	_, _ = rand.Read(data)
+	obj := generateObjectWithPayload(cnr, data)
+	obj.SetType(typ)
+	obj.SetPayloadSize(uint64(len(data)))
+	return obj
+}
+
 func generateObjectWithCID(cnr cid.ID) *object.Object {
 	data := make([]byte, 32)
 	_, _ = rand.Read(data)

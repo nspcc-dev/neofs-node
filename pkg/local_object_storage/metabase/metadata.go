@@ -126,10 +126,19 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	attrs := hdr.Attributes()
 	for i := range attrs {
 		ak, av := attrs[i].Key(), attrs[i].Value()
-		if n, isInt := parseInt(av); isInt {
-			err = putIntAttribute(metaBkt, &keyBuf, id, ak, av, &n)
-		} else {
-			err = putPlainAttribute(metaBkt, &keyBuf, id, ak, av)
+		switch ak {
+		case object.AttributeAssociatedObject:
+			var associated oid.ID
+			if err = associated.DecodeString(av); err != nil {
+				return fmt.Errorf("decode %q attribute value as object ID: %w", ak, err)
+			}
+			err = putPlainAttribute(metaBkt, &keyBuf, id, ak, associated[:])
+		default:
+			if n, isInt := parseInt(av); isInt {
+				err = putIntAttribute(metaBkt, &keyBuf, id, ak, av, &n)
+			} else {
+				err = putPlainAttribute(metaBkt, &keyBuf, id, ak, av)
+			}
 		}
 		if err != nil {
 			return err

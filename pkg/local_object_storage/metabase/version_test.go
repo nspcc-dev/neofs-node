@@ -2,6 +2,8 @@ package meta
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -132,6 +134,20 @@ func newDB(t testing.TB, opts ...Option) *DB {
 	})
 
 	return bdb
+}
+
+func generateTypedObject(cnr cid.ID, typ object.Type) object.Object {
+	data := make([]byte, 32)
+	_, _ = rand.Read(data)
+
+	obj := object.New(cnr, usertest.ID())
+	obj.SetID(oidtest.ID())
+	obj.SetType(typ)
+	obj.SetPayload(data)
+	obj.SetPayloadSize(uint64(len(data)))
+	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(data)))
+
+	return *obj
 }
 
 func TestSlicesCloneNil(t *testing.T) {
@@ -492,35 +508,20 @@ func TestMigrate8to9(t *testing.T) {
 
 func TestMigrate9To10(t *testing.T) {
 	cID := cidtest.ID()
-	oTombstoned := objecttest.Object()
-	oTombstoned.ResetRelations()
-	oTombstoned.SetType(object.TypeRegular)
-	oTombstoned.SetContainerID(cID)
+	oTombstoned := generateTypedObject(cID, object.TypeRegular)
 	oTombstoned.SetPayloadSize(11)
 
-	o := objecttest.Object()
-	o.ResetRelations()
-	o.SetType(object.TypeRegular)
-	o.SetContainerID(cID)
+	o := generateTypedObject(cID, object.TypeRegular)
 	o.SetPayloadSize(22)
 
-	ts := objecttest.Object()
-	ts.ResetRelations()
-	ts.SetType(object.TypeTombstone)
-	ts.SetContainerID(cID)
+	ts := generateTypedObject(cID, object.TypeTombstone)
 	ts.AssociateDeleted(oTombstoned.GetID())
 	ts.SetPayloadSize(33)
 
-	link := objecttest.Object()
-	link.ResetRelations()
-	link.SetType(object.TypeLink)
-	link.SetContainerID(cID)
+	link := generateTypedObject(cID, object.TypeLink)
 	link.SetPayloadSize(44)
 
-	lock := objecttest.Object()
-	lock.ResetRelations()
-	lock.SetType(object.TypeLock)
-	lock.SetContainerID(cID)
+	lock := generateTypedObject(cID, object.TypeLock)
 	lock.SetPayloadSize(55)
 
 	// every object except tombstoned one
@@ -656,6 +657,11 @@ func TestMigrate10To11(t *testing.T) {
 		objs = append(objs, o)
 	}
 
+	associatedTarget := oidtest.ID()
+	associatedObj := objecttest.Object()
+	associatedObj.SetContainerID(cID1)
+	associatedObj.AssociateLocked(associatedTarget)
+
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		bkt1, err := tx.CreateBucketIfNotExists(metaBucketKey(cID1))
 		require.NoError(t, err)
@@ -667,6 +673,10 @@ func TestMigrate10To11(t *testing.T) {
 			if err != nil {
 				return err
 			}
+		}
+
+		if err = PutMetadataForObject(tx, associatedObj, true); err != nil {
+			return err
 		}
 
 		for i, o := range objs {
@@ -687,6 +697,13 @@ func TestMigrate10To11(t *testing.T) {
 				}
 			}
 		}
+
+		newAttrIDKey := makeAssociatedAttrIDKey(associatedObj.GetID(), associatedTarget[:])
+		newIDAttrKey := makeAssociatedIDAttrKey(associatedObj.GetID(), associatedTarget[:])
+		require.NoError(t, bkt1.Delete(newAttrIDKey))
+		require.NoError(t, bkt1.Delete(newIDAttrKey))
+		require.NoError(t, bkt1.Put(makeAssociatedAttrIDKey(associatedObj.GetID(), []byte(associatedTarget.EncodeToString())), nil))
+		require.NoError(t, bkt1.Put(makeAssociatedIDAttrKey(associatedObj.GetID(), []byte(associatedTarget.EncodeToString())), nil))
 
 		return nil
 	})
@@ -720,6 +737,9 @@ func TestMigrate10To11(t *testing.T) {
 	err = updateContainersInterruptable(db, []byte{metadataPrefix}, dropHomomorphicIndexes)
 	require.NoError(t, err)
 
+	err = updateContainersInterruptable(db, []byte{metadataPrefix}, migrateAssociatedObjectValueToIDBytes)
+	require.NoError(t, err)
+
 	numOfFieldsAfter, err := countFields(db.boltDB)
 	require.NoError(t, err)
 
@@ -748,4 +768,48 @@ func TestMigrate10To11(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(metaBucketKey(cID1))
+		c := b.Cursor()
+
+		require.Equal(t, associatedTarget[:], getObjAttribute(c, associatedObj.GetID(), object.AttributeAssociatedObject))
+
+		var collected []oid.ID
+		for id := range iterAttrVal(c, object.AttributeAssociatedObject, associatedTarget[:]) {
+			collected = append(collected, id)
+		}
+		require.Equal(t, []oid.ID{associatedObj.GetID()}, collected)
+
+		for id := range iterAttrVal(c, object.AttributeAssociatedObject, []byte(associatedTarget.EncodeToString())) {
+			t.Fatalf("unexpected legacy string index hit after migration: %s", id)
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func makeAssociatedAttrIDKey(id oid.ID, value []byte) []byte {
+	res := make([]byte, 1+len(object.AttributeAssociatedObject)+1+len(value)+1+oid.Size)
+	res[0] = metaPrefixAttrIDPlain
+	off := 1 + copy(res[1:], object.AttributeAssociatedObject)
+	res[off] = 0
+	off++
+	off += copy(res[off:], value)
+	res[off] = 0
+	off++
+	copy(res[off:], id[:])
+	return res
+}
+
+func makeAssociatedIDAttrKey(id oid.ID, value []byte) []byte {
+	res := make([]byte, 1+oid.Size+len(object.AttributeAssociatedObject)+1+len(value))
+	res[0] = metaPrefixIDAttr
+	off := 1 + copy(res[1:], id[:])
+	off += copy(res[off:], object.AttributeAssociatedObject)
+	res[off] = 0
+	off++
+	copy(res[off:], value)
+	return res
 }

@@ -153,7 +153,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	require.NoError(t, err)
 
 	ts := generateObjectWithCID(t, cnr)
-	ts.SetType(object.TypeTombstone)
+	ts.AssociateDeleted(oidtest.ID())
 	err = putBig(db, ts)
 	require.NoError(t, err)
 
@@ -165,7 +165,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	require.NoError(t, err)
 
 	lock := generateObjectWithCID(t, cnr)
-	lock.SetType(object.TypeLock)
+	lock.AssociateLocked(oidtest.ID())
 	err = putBig(db, lock)
 	require.NoError(t, err)
 

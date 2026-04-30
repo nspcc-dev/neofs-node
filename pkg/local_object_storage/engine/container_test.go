@@ -13,7 +13,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,14 +43,14 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 			)
 			require.NoError(t, err)
 		}
-		o1 := objecttest.Object()
-		o2 := objecttest.Object()
+		o1 := generateObjectWithCID(cidtest.ID())
+		o2 := generateObjectWithCID(cidtest.ID())
 		o2.SetPayload(make([]byte, errSmallSize+1))
 
-		err := e.Put(&o1, nil)
+		err := e.Put(o1, nil)
 		require.NoError(t, err)
 
-		err = e.Put(&o2, nil)
+		err = e.Put(o2, nil)
 		require.NoError(t, err)
 
 		require.NoError(t, e.Init())
