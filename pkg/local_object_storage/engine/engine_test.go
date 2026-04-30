@@ -20,7 +20,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -37,47 +36,6 @@ type epochState struct {
 
 func (s epochState) CurrentEpoch() uint64 {
 	return s.e
-}
-
-func BenchmarkExists(b *testing.B) {
-	b.Run("2 shards", func(b *testing.B) {
-		benchmarkExists(b, 2)
-	})
-	b.Run("4 shards", func(b *testing.B) {
-		benchmarkExists(b, 4)
-	})
-	b.Run("8 shards", func(b *testing.B) {
-		benchmarkExists(b, 8)
-	})
-}
-
-func benchmarkExists(b *testing.B, shardNum int) {
-	shards := make([]*shard.Shard, shardNum)
-	for i := range shardNum {
-		shards[i] = testNewShard(b, i)
-	}
-
-	e := testNewEngineWithShards(shards...)
-	b.Cleanup(func() {
-		_ = e.Close()
-	})
-
-	addr := oidtest.Address()
-	for range 100 {
-		obj := generateObjectWithCID(cidtest.ID())
-		err := e.Put(obj, nil)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-
-	b.ReportAllocs()
-	for b.Loop() {
-		ok, err := e.existsPhysical(addr)
-		if err != nil || ok {
-			b.Fatalf("%t %v", ok, err)
-		}
-	}
 }
 
 func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
