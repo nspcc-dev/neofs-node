@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
+	"sync"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -11,6 +13,16 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
+
+const (
+	searchParallelThreshold     = 4
+)
+
+type shardSearchResult struct {
+	items []client.SearchResultItem
+	more  bool
+	err   error
+}
 
 // selectOld selects the objects from local storage that match select parameters.
 //
@@ -69,6 +81,14 @@ func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs [
 	if len(shs) == 0 {
 		return nil, nil, nil
 	}
+	if len(shs) <= searchParallelThreshold {
+		return e.searchSequential(cnr, fs, attrs, cursor, count, shs)
+	}
+
+	return e.searchParallel(cnr, fs, attrs, cursor, count, shs)
+}
+
+func (e *StorageEngine) searchSequential(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, shs []shardWrapper) ([]client.SearchResultItem, []byte, error) {
 	items, nextCursor, err := shs[0].Search(cnr, fs, attrs, cursor, count)
 	if err != nil {
 		e.reportShardError(shs[0], "could not select objects from shard", err)
@@ -86,6 +106,67 @@ func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs [
 		}
 		sets, mores = append(sets, items), append(mores, nextCursor != nil)
 	}
+
+	return finalizeSearch(fs, attrs, count, sets, mores)
+}
+
+func (e *StorageEngine) searchParallel(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16, shs []shardWrapper) ([]client.SearchResultItem, []byte, error) {
+	results := make([]shardSearchResult, len(shs))
+	workers := (len(shs) + searchParallelThreshold - 1) / searchParallelThreshold
+	chunkSize := (len(shs) + workers - 1) / workers
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for w := range workers {
+		start := w * chunkSize
+		end := start + chunkSize
+		end = min(end, len(shs))
+
+		go func(start, end int) {
+			defer wg.Done()
+
+			for idx := start; idx < end; idx++ {
+				var cClone *objectcore.SearchCursor
+				if cursor != nil {
+					cClone = &objectcore.SearchCursor{
+						PrimaryKeysPrefix: slices.Clone(cursor.PrimaryKeysPrefix),
+						PrimarySeekKey:    slices.Clone(cursor.PrimarySeekKey),
+					}
+				}
+
+				items, nextCursor, err := shs[idx].Search(cnr, fs, attrs, cClone, count)
+				results[idx] = shardSearchResult{
+					items: items,
+					more:  nextCursor != nil,
+					err:   err,
+				}
+			}
+		}(start, end)
+	}
+
+	wg.Wait()
+
+	sets := make([][]client.SearchResultItem, 0, len(shs))
+	mores := make([]bool, 0, len(shs))
+
+	for i := range shs {
+		if results[i].err != nil {
+			e.reportShardError(shs[i], "could not select objects from shard", results[i].err)
+			continue
+		}
+		sets = append(sets, results[i].items)
+		mores = append(mores, results[i].more)
+	}
+
+	if len(sets) == 0 {
+		return nil, nil, nil
+	}
+
+	return finalizeSearch(fs, attrs, count, sets, mores)
+}
+
+func finalizeSearch(fs []objectcore.SearchFilter, attrs []string, count uint16, sets [][]client.SearchResultItem, mores []bool) ([]client.SearchResultItem, []byte, error) {
 	var (
 		firstAttr   string
 		firstFilter *object.SearchFilter
