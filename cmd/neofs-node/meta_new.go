@@ -74,10 +74,10 @@ func initMeta_new(c *cfg) {
 		},
 		ApplicationConfiguration: config.ApplicationConfiguration{
 			P2P: config.P2P{
-				Addresses:              p2pAddrs,
-				MinPeers:               max(1, len(seedList)),
-				BroadcastTxsBatchDelay: 5 * time.Millisecond,
-				AttemptConnPeers:       100,
+				Addresses:        p2pAddrs,
+				MinPeers:         max(1, len(seedList)),
+				AttemptConnPeers: 100,
+				BroadcastFactor:  100,
 			},
 			Relay:             true,
 			Oracle:            config.OracleConfiguration{},

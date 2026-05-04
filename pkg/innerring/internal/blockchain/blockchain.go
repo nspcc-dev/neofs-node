@@ -211,6 +211,8 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	cfgBaseApp.P2P.AttemptConnPeers = int(cfg.P2P.Peers.Attempts)
 	cfgBaseApp.P2P.MaxPeers = int(cfg.P2P.Peers.Max)
 
+	cfgBaseApp.P2P.BroadcastFactor = 100
+
 	cfgBaseApp.RPC.Enabled = true
 	cfgBaseApp.RPC.Addresses = cfg.RPC.Listen
 	cfgBaseApp.RPC.MaxWebSocketClients = int(cfg.RPC.MaxWebSocketClients)
