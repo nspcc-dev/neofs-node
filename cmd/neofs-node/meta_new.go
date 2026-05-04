@@ -19,7 +19,7 @@ import (
 )
 
 func initMeta_new(c *cfg) {
-	l := c.log.With(zap.String("component", "metadata chain"))
+	l := c.log.With(zap.String("component", "metadata chain (SN)"))
 
 	v, err := c.cfgMorph.client.GetVersion()
 	fatalOnErr(err)

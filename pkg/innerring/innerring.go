@@ -841,7 +841,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			P2PNotaryRequestPayloadPoolSize: 1000, // default for blockchain.New()
 		}
 
-		server.metaChain, err = metachain.NewMetaChain(&metaChainCfg, &cfg.Wallet, errChan, log.With(zap.String("component", "metadata chain")))
+		server.metaChain, err = metachain.NewMetaChain(&metaChainCfg, &cfg.Wallet, errChan, log.With(zap.String("component", "metadata chain (IR)")))
 		if err != nil {
 			return nil, fmt.Errorf("init meta sidechain blockchain: %w", err)
 		}
