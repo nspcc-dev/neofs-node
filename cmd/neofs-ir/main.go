@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
@@ -103,6 +104,10 @@ func main() {
 
 	log.Info("application started",
 		zap.String("version", misc.Version))
+
+	if _, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+		log.Warn("failed to notify systemd about readiness", zap.Error(err))
+	}
 
 	select {
 	case <-ctx.Done():

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -71,6 +72,10 @@ func main() {
 	bootUp(c)
 
 	c.setHealthStatus(control.HealthStatus_READY)
+
+	if _, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+		c.log.Warn("failed to notify systemd about readiness", zap.Error(err))
+	}
 
 	wait(c)
 
