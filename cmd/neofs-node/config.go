@@ -20,6 +20,7 @@ import (
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/internal/chaintime"
+	"github.com/nspcc-dev/neofs-node/internal/sdnotify"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -669,6 +670,10 @@ func (c *cfg) configWatcher(ctx context.Context) {
 		case <-ch:
 			c.log.Info("SIGHUP has been received, rereading configuration...")
 
+			if err := sdnotify.Send(sdnotify.Reloading); err != nil {
+				c.log.Warn("failed to notify systemd about reloading", zap.Error(err))
+			}
+
 			oldMetrics := writeMetricConfig(c.appCfg)
 			oldProfiler := writeProfilerConfig(c.appCfg)
 			oldGRPC := writeGRPCConfig(c.appCfg)
@@ -744,6 +749,10 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			}
 
 			c.log.Info("configuration has been reloaded successfully")
+
+			if err := sdnotify.Send(sdnotify.Ready); err != nil {
+				c.log.Warn("failed to notify systemd about readiness after reload", zap.Error(err))
+			}
 		case <-ctx.Done():
 			return
 		}

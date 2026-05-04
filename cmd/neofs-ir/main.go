@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/sdnotify"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
@@ -104,11 +105,18 @@ func main() {
 	log.Info("application started",
 		zap.String("version", misc.Version))
 
+	if err := sdnotify.Send(sdnotify.Ready); err != nil {
+		log.Warn("failed to notify systemd about readiness", zap.Error(err))
+	}
 	select {
 	case <-ctx.Done():
 		log.Info("application is shutting down...", zap.String("cause", context.Cause(ctx).Error()))
 	case err = <-intErr:
 		log.Info("internal error", zap.Error(err))
+	}
+
+	if err := sdnotify.Send(sdnotify.Stopping); err != nil {
+		log.Warn("failed to notify systemd about stopping", zap.Error(err))
 	}
 
 	innerRing.Stop()
