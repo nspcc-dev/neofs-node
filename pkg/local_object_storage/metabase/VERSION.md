@@ -41,6 +41,9 @@ The lowest not used bucket index: 20.
 Object counters are updated (resynced) to fix potential issues caused by GC mark
 double counting. Homomorphic hash field indexes have been deleted.
 
+`__NEOFS__ASSOCIATE` attribute value is rewritten from base58 string to raw
+32-byte object ID in metadata indexes.
+
 ## Version 10
 
 Object counters are stored inside metadata bucket per container now. New ROOT,

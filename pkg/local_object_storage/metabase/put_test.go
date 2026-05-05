@@ -222,6 +222,24 @@ func TestDB_Put_InGarbageMarkedContainer(t *testing.T) {
 	require.Equal(t, []string{"GC MARKED"}, st.State)
 }
 
+func TestDB_Put_InvalidAssociatedObject(t *testing.T) {
+	db := newDB(t)
+
+	lock := generateObject(t)
+	lock.SetType(object.TypeLock)
+	lock.SetAttributes(object.NewAttribute(object.AttributeAssociatedObject, "not-an-oid"))
+
+	err := db.Put(lock)
+	require.EqualError(t, err, "LOCK object has zero associated object")
+
+	tomb := generateObject(t)
+	tomb.SetType(object.TypeTombstone)
+	tomb.SetAttributes(object.NewAttribute(object.AttributeAssociatedObject, "not-an-oid"))
+
+	err = db.Put(tomb)
+	require.EqualError(t, err, "TOMBSTONE object has zero associated object")
+}
+
 func assertObjectAvailability(t *testing.T, db *meta.DB, addr oid.Address, obj object.Object) {
 	t.Run("get", func(t *testing.T) {
 		res, err := db.Get(addr, false)
@@ -299,6 +317,13 @@ func TestDB_Put_Lock(t *testing.T) {
 
 			obj := obj
 			obj.SetType(typ)
+			switch typ {
+			case object.TypeTombstone:
+				obj.AssociateDeleted(oidtest.ID())
+			case object.TypeLock:
+				obj.AssociateLocked(oidtest.ID())
+			default:
+			}
 
 			require.NoError(t, db.Put(&obj))
 
@@ -425,7 +450,7 @@ func TestDB_Put_Tombstone(t *testing.T) {
 		}},
 		{name: "target is lock", preset: func(t *testing.T, db *meta.DB) {
 			obj := obj
-			obj.SetType(object.TypeLock)
+			obj.AssociateLocked(oidtest.ID())
 			require.NoError(t, db.Put(&obj))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
@@ -692,7 +717,7 @@ func TestDB_PutBatch(t *testing.T) {
 		obj2 := generateObjectWithCID(t, cnr)
 
 		tombstone := generateObjectWithCID(t, cnr)
-		tombstone.SetType(object.TypeTombstone)
+		tombstone.AssociateDeleted(oidtest.ID())
 		require.NoError(t, db.Put(tombstone))
 
 		invalidLock := generateObjectWithCID(t, cnr)

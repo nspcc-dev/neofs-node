@@ -204,9 +204,8 @@ func TestGC(t *testing.T) {
 		objAddr := obj.Address()
 
 		lockObj := generateObjectWithCID(cnr)
-		lockObj.SetType(object.TypeLock)
-		addExpirationAttribute(lockObj, es.CurrentEpoch()+1) // lock expires after object
 		lockObj.AssociateLocked(obj.GetID())
+		addExpirationAttribute(lockObj, es.CurrentEpoch()+1) // lock expires after object
 		require.NoError(t, e.Put(lockObj, nil))
 
 		tickEpoch(es, e)
@@ -225,7 +224,7 @@ func TestGC(t *testing.T) {
 
 		// t.Run("expired tombstone removed", func(t *testing.T) {
 		tomb := generateObjectWithCID(cnr)
-		tomb.SetType(object.TypeTombstone)
+		tomb.AssociateDeleted(oidtest.ID())
 		addExpirationAttribute(tomb, es.CurrentEpoch())
 		require.NoError(t, e.Put(tomb, nil))
 
@@ -259,7 +258,6 @@ func TestGC(t *testing.T) {
 		obj = generateObjectWithCID(cnr)
 		require.NoError(t, e.Put(obj, nil))
 		tomb = generateObjectWithCID(cnr)
-		tomb.SetType(object.TypeTombstone)
 		tomb.AssociateDeleted(obj.GetID())
 		addExpirationAttribute(tomb, es.CurrentEpoch())
 		require.NoError(t, e.Put(tomb, nil))
@@ -278,7 +276,6 @@ func TestGC(t *testing.T) {
 		objAddr = obj.Address()
 
 		tomb = generateObjectWithCID(cnr)
-		tomb.SetType(object.TypeTombstone)
 		tomb.AssociateDeleted(obj.GetID())
 		addExpirationAttribute(tomb, es.CurrentEpoch()+1) // tombstone expires after object
 		require.NoError(t, e.Put(tomb, nil))

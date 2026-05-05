@@ -20,6 +20,7 @@ import (
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -219,6 +220,9 @@ func TestExpiration(t *testing.T) {
 			expAttr.SetValue(strconv.FormatUint(exp, 10))
 			obj.SetAttributes(expAttr)
 			obj.SetType(typ)
+			if typ == object.TypeTombstone {
+				obj.AssociateDeleted(oidtest.ID())
+			}
 			require.NoError(t, obj.SetIDWithSignature(neofscryptotest.Signer()))
 
 			err := sh.Put(obj, nil)
