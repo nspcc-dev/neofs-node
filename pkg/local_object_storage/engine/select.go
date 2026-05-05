@@ -16,12 +16,18 @@ import (
 
 const (
 	searchParallelThreshold     = 4
+	collectRawParallelThreshold = 4
 )
 
 type shardSearchResult struct {
 	items []client.SearchResultItem
 	more  bool
 	err   error
+}
+
+type shardCollectRawResult struct {
+	ids []oid.ID
+	err error
 }
 
 // selectOld selects the objects from local storage that match select parameters.
@@ -192,19 +198,58 @@ func finalizeSearch(fs []objectcore.SearchFilter, attrs []string, count uint16, 
 }
 
 func (e *StorageEngine) collectRawWithAttribute(cnr cid.ID, attr string, val []byte) ([]oid.ID, error) {
-	var (
-		err    error
-		shards = e.unsortedShards()
-		ids    = make([][]oid.ID, len(shards))
-	)
+	shards := e.unsortedShards()
+	if len(shards) == 0 {
+		return nil, nil
+	}
 
-	for i, sh := range shards {
-		ids[i], err = sh.CollectRawWithAttribute(cnr, attr, val)
-		if err != nil {
-			return nil, fmt.Errorf("shard %s: %w", sh.ID(), err)
+	var results []shardCollectRawResult
+	if len(shards) <= collectRawParallelThreshold {
+		results = collectRawWithAttributeSequential(cnr, attr, val, shards)
+	} else {
+		results = collectRawWithAttributeParallel(cnr, attr, val, shards)
+	}
+
+	ids := make([][]oid.ID, len(shards))
+	for i := range shards {
+		if results[i].err != nil {
+			return nil, fmt.Errorf("shard %s: %w", shards[i].ID(), results[i].err)
 		}
+		ids[i] = results[i].ids
 	}
 	return mergeOIDs(ids), nil
+}
+
+func collectRawWithAttributeSequential(cnr cid.ID, attr string, val []byte, shards []shardWrapper) []shardCollectRawResult {
+	res := make([]shardCollectRawResult, len(shards))
+	for i := range shards {
+		res[i].ids, res[i].err = shards[i].CollectRawWithAttribute(cnr, attr, val)
+	}
+	return res
+}
+
+func collectRawWithAttributeParallel(cnr cid.ID, attr string, val []byte, shards []shardWrapper) []shardCollectRawResult {
+	res := make([]shardCollectRawResult, len(shards))
+	workers := (len(shards) + collectRawParallelThreshold - 1) / collectRawParallelThreshold
+	chunkSize := (len(shards) + workers - 1) / workers
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for w := range workers {
+		start := w * chunkSize
+		end := start + chunkSize
+		end = min(end, len(shards))
+
+		go func(start, end int) {
+			defer wg.Done()
+			for i := start; i < end; i++ {
+				res[i].ids, res[i].err = shards[i].CollectRawWithAttribute(cnr, attr, val)
+			}
+		}(start, end)
+	}
+
+	wg.Wait()
+	return res
 }
 
 // mergeOIDs merges given set of lists of object IDs into a single flat list.
