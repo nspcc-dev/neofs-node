@@ -20,7 +20,7 @@ func bindEnvForStruct(v *viper.Viper, s any, envPrefix string) {
 }
 
 func processStruct(v *viper.Viper, val reflect.Value, prefix, envPrefix string) {
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	if val.Kind() != reflect.Struct {
@@ -132,7 +132,7 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 }
 
 func collectStructFields(v *viper.Viper, val reflect.Value, envPrefix string) (map[string]any, bool) {
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	if val.Kind() != reflect.Struct {
@@ -216,7 +216,7 @@ func processPrimitiveSlice(v *viper.Viper, key, envPrefix string) []any {
 }
 
 func isStruct(val reflect.Value) bool {
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	return val.Kind() == reflect.Struct
@@ -231,7 +231,7 @@ func isStructSliceType(t reflect.Type) bool {
 }
 
 func indirectType(t reflect.Type) reflect.Type {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		return t.Elem()
 	}
 	return t
