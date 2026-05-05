@@ -117,7 +117,7 @@ func newValidBlockchainConfig(tb testing.TB, full bool) *irconfig.Config {
 func resetConfig(tb testing.TB, field any) {
 	v := reflect.ValueOf(field)
 
-	if v.Kind() != reflect.Ptr {
+	if v.Kind() != reflect.Pointer {
 		tb.Fatal("ResetField: argument must be a pointer")
 	}
 
