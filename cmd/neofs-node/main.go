@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	"github.com/nspcc-dev/neofs-node/internal/sdnotify"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
@@ -72,9 +73,17 @@ func main() {
 
 	c.setHealthStatus(control.HealthStatus_READY)
 
+	if err := sdnotify.Send(sdnotify.Ready); err != nil {
+		c.log.Warn("failed to notify systemd about readiness", zap.Error(err))
+	}
+
 	wait(c)
 
 	c.setHealthStatus(control.HealthStatus_SHUTTING_DOWN)
+
+	if err := sdnotify.Send(sdnotify.Stopping); err != nil {
+		c.log.Warn("failed to notify systemd about stopping", zap.Error(err))
+	}
 
 	shutdown(c)
 }
