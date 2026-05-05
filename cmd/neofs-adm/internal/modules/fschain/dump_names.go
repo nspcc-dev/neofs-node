@@ -3,6 +3,7 @@ package fschain
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -70,7 +71,7 @@ func dumpNames(cmd *cobra.Command, _ []string) error {
 		if len(iParts) != len(jParts) {
 			return len(iParts) < len(jParts)
 		}
-		for k := len(iParts) - 1; k >= 0; k-- {
+		for k := range slices.Backward(iParts) {
 			var c = strings.Compare(iParts[k], jParts[k])
 			if c != 0 {
 				return c == -1
