@@ -253,3 +253,39 @@ loop:
 
 	return idf, sigf, hdrf, nil
 }
+
+// GetPayloadLengthAndFieldOffset reads payload length header and seeks payload
+// field in buf. If payload field is missing, negative offset returns.
+// Otherwise, the offset points to protobuf LV.
+//
+// If any field is missing, no error is returned.
+//
+// Message should have ascending field order, otherwise error returns.
+func GetPayloadLengthAndFieldOffset(buf []byte) (uint64, int, error) {
+	// TODO: traverse buffer at once
+	hf, err := iprotobuf.GetLENFieldBounds(buf, protoobject.FieldObjectHeader)
+	if err != nil {
+		return 0, 0, fmt.Errorf("seek header field: %w", err)
+	}
+
+	var pldLen uint64
+	if !hf.IsMissing() {
+		pldLen, err = iprotobuf.GetUint64Field(buf[hf.ValueFrom:hf.To], protoobject.FieldHeaderPayloadLength)
+		if err != nil {
+			return 0, 0, fmt.Errorf("seek payload length field in header: %w", err)
+		}
+	}
+
+	off, tagLn, typ, err := iprotobuf.SeekFieldByNumber(buf, protoobject.FieldObjectPayload)
+	if err != nil {
+		return 0, 0, fmt.Errorf("seek payload field: %w", err)
+	}
+	if off < 0 {
+		return pldLen, off, nil
+	}
+	if typ != protowire.BytesType {
+		return 0, 0, fmt.Errorf("wrong payload field type: expected %d, got %d", protowire.BytesType, typ)
+	}
+
+	return pldLen, off + tagLn, nil
+}

@@ -1,7 +1,9 @@
 package fstree
 
 import (
+	"fmt"
 	"io"
+	"math"
 )
 
 type readerCloser struct {
@@ -23,3 +25,10 @@ type nopReadCloser struct{}
 func (nopReadCloser) Read([]byte) (int, error) { return 0, io.EOF }
 
 func (nopReadCloser) Close() error { return nil }
+
+func checkTooBigRange(off, ln uint64) error {
+	if off > math.MaxInt64 || ln > math.MaxInt64 { // 8 exabytes, amply
+		return fmt.Errorf("range overflowing int64 is not supported by this server: off=%d,len=%d", off, ln)
+	}
+	return nil
+}

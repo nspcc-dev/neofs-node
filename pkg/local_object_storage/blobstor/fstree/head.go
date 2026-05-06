@@ -46,6 +46,30 @@ func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	return n, nil
 }
 
+func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadCloser, error) {
+	if len(buf) < 2*objectwire.NonPayloadFieldsBufferLength {
+		return nil, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
+	}
+
+	p := t.treePath(addr)
+
+	f, err := os.Open(p)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		}
+		return nil, nil, fmt.Errorf("read file %q: %w", p, err)
+	}
+
+	initial, stream, err := t.readHeader(addr.Object(), f, buf)
+	if err != nil {
+		stream.Close()
+		return nil, nil, err
+	}
+
+	return t.preprocessStreamHead(stream, initial)
+}
+
 // ReadObject reads first bytes of the referenced object's binary containing its
 // full header from t into buf. Returns number of bytes read and stream of
 // remaining bytes. The stream must be finally closed by the caller.
@@ -56,27 +80,7 @@ func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 //
 // Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
 func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
-	if len(buf) < 2*objectwire.NonPayloadFieldsBufferLength {
-		return 0, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
-	}
-
-	p := t.treePath(addr)
-
-	f, err := os.Open(p)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
-		}
-		return 0, nil, fmt.Errorf("read file %q: %w", p, err)
-	}
-
-	initial, stream, err := t.readHeader(addr.Object(), f, buf)
-	if err != nil {
-		stream.Close()
-		return 0, nil, err
-	}
-
-	initial, stream, err = t.preprocessStreamHead(stream, initial)
+	initial, stream, err := t._readObject(addr, buf)
 	if err != nil {
 		return 0, nil, err
 	}

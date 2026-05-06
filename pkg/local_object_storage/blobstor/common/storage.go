@@ -25,11 +25,12 @@ type Storage interface {
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.
 	GetBytes(oid.Address) ([]byte, error)
 	Get(oid.Address) (*object.Object, error)
-	GetRangeStream(addr oid.Address, off uint64, ln uint64) (io.ReadCloser, error)
+	GetRangeStream(addr oid.Address, off uint64, ln uint64) (uint64, io.ReadCloser, error)
 	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
 	Head(oid.Address) (*object.Object, error)
 	ReadHeader(oid.Address, []byte) (int, error)
 	ReadObject(oid.Address, []byte) (int, io.ReadCloser, error)
+	ReadPayloadRange(oid.Address, uint64, uint64, []byte) (io.ReadCloser, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
 	PutBatch(map[oid.Address][]byte) error

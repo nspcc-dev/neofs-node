@@ -327,8 +327,8 @@ func TestShard_GetECPartRange(t *testing.T) {
 		},
 	}
 	bs := mockBLOBStore{
-		getStream: map[oid.Address]getStreamValue{
-			partAddr: {obj: partObj},
+		getRangeStream: map[oid.Address]getRangeStreamValue{
+			partAddr: {pld: partObj.Payload()},
 		},
 	}
 
@@ -379,7 +379,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 			s := newSimpleTestShard(t, &bs, &mb, nil)
 			s.log = l
 
-			off, ln := int64(partLen/3), int64(partLen/2)
+			off, ln := partLen/3, partLen/2
 			gotLen, rdr, err := s.GetECPartRange(cnr, parentID, pi, off, ln)
 			require.NoError(t, err)
 			assertGetECPartRangeOK(t, partObj, off, ln, gotLen, rdr)
@@ -409,7 +409,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 					id: partID, ln: 0,
 				}
 
-				_, _, err := s.GetECPartRange(cnr, parentID, pi, int64(rng[0]), int64(rng[1]))
+				_, _, err := s.GetECPartRange(cnr, parentID, pi, rng[0], rng[1])
 				require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange, rng)
 			}
 		})
@@ -425,7 +425,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 	} {
 		t.Run("BLOB storage/"+tc.name, func(t *testing.T) {
 			bs := mockBLOBStore{
-				getStream: map[oid.Address]getStreamValue{
+				getRangeStream: map[oid.Address]getRangeStreamValue{
 					partAddr: {err: tc.err},
 				},
 			}
@@ -462,7 +462,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 				l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
 
 				wc := mockWriteCache{
-					getStream: map[oid.Address]getStreamValue{
+					getRangeStream: map[oid.Address]getRangeStreamValue{
 						oid.NewAddress(cnr, partID): {err: tc.err},
 					},
 				}
@@ -470,7 +470,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 				s := newSimpleTestShard(t, &bs, &mb, &wc)
 				s.log = l
 
-				off, ln := int64(partLen/3), int64(partLen/2)
+				off, ln := partLen/3, partLen/2
 				gotLen, rdr, err := s.GetECPartRange(cnr, parentID, pi, off, ln)
 				require.NoError(t, err)
 				assertGetECPartRangeOK(t, partObj, off, ln, gotLen, rdr)
@@ -480,8 +480,8 @@ func TestShard_GetECPartRange(t *testing.T) {
 		}
 
 		wc := mockWriteCache{
-			getStream: map[oid.Address]getStreamValue{
-				partAddr: {obj: partObj},
+			getRangeStream: map[oid.Address]getRangeStreamValue{
+				partAddr: {pld: partObj.Payload()},
 			},
 		}
 
@@ -768,8 +768,8 @@ func TestShard_HeadECPart(t *testing.T) {
 }
 
 func testGetECPartRangeStream(t *testing.T, obj object.Object, parent oid.ID, pi iec.PartInfo, s *Shard) {
-	full := int64(obj.PayloadSize())
-	for _, rng := range [][2]int64{
+	full := obj.PayloadSize()
+	for _, rng := range [][2]uint64{
 		{0, 0},
 		{0, 1},
 		{0, full},
@@ -793,7 +793,7 @@ func assertGetECPartOK(t testing.TB, exp, hdr object.Object, rdr io.ReadCloser) 
 	require.Equal(t, exp, hdr)
 }
 
-func assertGetECPartRangeOK(t testing.TB, exp object.Object, off, ln int64, pldLen uint64, rc io.ReadCloser) {
+func assertGetECPartRangeOK(t testing.TB, exp object.Object, off, ln uint64, pldLen uint64, rc io.ReadCloser) {
 	require.EqualValues(t, exp.PayloadSize(), pldLen)
 
 	if pldLen == 0 {
@@ -808,7 +808,7 @@ func assertGetECPartRangeOK(t testing.TB, exp object.Object, off, ln int64, pldL
 	require.NoError(t, err)
 
 	if off == 0 && ln == 0 {
-		ln = int64(pldLen)
+		ln = pldLen
 	}
 
 	require.Len(t, b, int(ln))

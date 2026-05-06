@@ -372,4 +372,13 @@ var (
 			protoobject.FieldGetResponseBodySplitInfo: ObjectSplitInfoScheme,
 		},
 	}
+	ObjectGetRangeResponseBodyScheme = MessageScheme{
+		Fields: map[protowire.Number]MessageField{
+			protoobject.FieldRangeResponseBodyChunk:     NewMessageField("chunk", FieldTypeBytes),
+			protoobject.FieldRangeResponseBodySplitInfo: NewMessageField("split info", FieldTypeNestedMessage),
+		},
+		NestedMessageFields: map[protowire.Number]MessageScheme{
+			protoobject.FieldRangeResponseBodySplitInfo: ObjectSplitInfoScheme,
+		},
+	}
 )
