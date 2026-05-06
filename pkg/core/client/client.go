@@ -37,9 +37,9 @@ type Client interface {
 type MultiAddressClient interface {
 	Client
 
-	// ForEachGRPCConn executes op over gRPC connections to given multi-address
+	// ForAnyGRPCConn executes op over gRPC connections to given multi-address
 	// endpoint-by-endpoint until success.
-	ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error
+	ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error
 }
 
 // NodeInfo groups information about a NeoFS storage node needed for Client construction.

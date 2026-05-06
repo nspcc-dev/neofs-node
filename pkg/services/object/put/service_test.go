@@ -1127,7 +1127,7 @@ func (m *serviceClient) AnnounceIntermediateTrust(context.Context, uint64, apire
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+func (m *serviceClient) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
 	panic("unimplemented")
 }
 

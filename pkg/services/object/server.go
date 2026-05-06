@@ -286,7 +286,7 @@ func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ct
 }
 
 func (x *putStream) sendToRemoteNode(c client.MultiAddressClient) error {
-	return c.ForEachGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+	return c.ForAnyGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		return putToRemoteNode(ctx, conn, x.initReq, x.chunkReqs) // TODO: log error
 	})
 }
@@ -817,7 +817,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 
 		var respBuf mem.BufferSlice
 		var hdr iprotobuf.BuffersSlice
-		return respBuf, hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return respBuf, hdr, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
 			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, req, addr.Object())
 			return err // TODO: log error
@@ -985,7 +985,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, cnr container.Container, ss session
 		}
 
 		var hs [][]byte
-		return hs, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return hs, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
 			hs, err = getHashesFromRemoteNode(ctx, conn, req)
 			return err // TODO: log error
@@ -1338,7 +1338,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 			return err
 		}
 
-		return c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			return proxyCtx.continueWithConn(ctx, conn) // TODO: log error
 		})
 	})
@@ -1584,7 +1584,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 			return err
 		}
 
-		return c.ForEachGRPCConn(ctx, stream.continueWithConn)
+		return c.ForAnyGRPCConn(ctx, stream.continueWithConn)
 	})
 	return p, nil
 }
@@ -2089,7 +2089,7 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 
 	var items []sdkclient.SearchResultItem
 	var more bool
-	return items, more, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+	return items, more, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		var err error
 		items, more, err = searchOnRemoteAddress(ctx, conn, req)
 		return err // TODO: log error

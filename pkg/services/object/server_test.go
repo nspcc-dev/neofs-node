@@ -817,7 +817,7 @@ func (unimplementedConn) AnnounceIntermediateTrust(context.Context, uint64, repu
 	panic("unimplemented")
 }
 
-func (unimplementedConn) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+func (unimplementedConn) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
 	panic("unimplemented")
 }
 
@@ -829,7 +829,7 @@ func (emptyRemoteNode) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, 
 	return nil, apistatus.ErrObjectNotFound
 }
 
-func (emptyRemoteNode) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+func (emptyRemoteNode) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
 	return errors.New("any transport error")
 }
 
@@ -838,6 +838,6 @@ type mockGRPCConn struct {
 	conn *grpc.ClientConn
 }
 
-func (x *mockGRPCConn) ForEachGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
+func (x *mockGRPCConn) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
 	return f(ctx, x.conn)
 }

@@ -282,7 +282,7 @@ func (x *connections) all(f func(ma string, c *client.Client) bool) {
 	x.mtx.RUnlock()
 }
 
-func (x *connections) forEach(ctx context.Context, f func(context.Context, *client.Client) error) error {
+func (x *connections) forAny(ctx context.Context, f func(context.Context, *client.Client) error) error {
 	var firstErr error
 	for ma, c := range x.all {
 		err := f(ctx, c)
@@ -299,15 +299,15 @@ func (x *connections) forEach(ctx context.Context, f func(context.Context, *clie
 	return newMultiEndpointError(x.nodeID, firstErr)
 }
 
-func (x *connections) ForEachGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
-	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+func (x *connections) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
+	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return f(ctx, c.Conn())
 	})
 }
 
 func (x *connections) ObjectPutInit(ctx context.Context, hdr object.Object, signer user.Signer, opts client.PrmObjectPutInit) (client.ObjectWriter, error) {
 	var res client.ObjectWriter
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectPutInit(ctx, hdr, signer, opts)
 		return err
@@ -315,7 +315,7 @@ func (x *connections) ObjectPutInit(ctx context.Context, hdr object.Object, sign
 }
 
 func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.ReadSeeker, signer neofscrypto.Signer, signedReplication bool) (*neofscrypto.Signature, error) {
-	// same as forEach but with specific error handling
+	// same as forAny but with specific error handling
 	var firstErr error
 	for ma, c := range x.all {
 		sig, err := c.ReplicateObject(ctx, id, src, signer, signedReplication)
@@ -337,7 +337,7 @@ func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 
 func (x *connections) ObjectDelete(ctx context.Context, cnr cid.ID, obj oid.ID, signer user.Signer, opts client.PrmObjectDelete) (oid.ID, error) {
 	var res oid.ID
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectDelete(ctx, cnr, obj, signer, opts)
 		return err
@@ -347,7 +347,7 @@ func (x *connections) ObjectDelete(ctx context.Context, cnr cid.ID, obj oid.ID, 
 func (x *connections) ObjectGetInit(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectGet) (object.Object, *client.PayloadReader, error) {
 	var res1 object.Object
 	var res2 *client.PayloadReader
-	return res1, res2, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res1, res2, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res1, res2, err = c.ObjectGetInit(ctx, cnr, id, signer, opts)
 		return err
@@ -356,7 +356,7 @@ func (x *connections) ObjectGetInit(ctx context.Context, cnr cid.ID, id oid.ID, 
 
 func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHead) (*object.Object, error) {
 	var res *object.Object
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectHead(ctx, cnr, id, signer, opts)
 		return err
@@ -365,7 +365,7 @@ func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, sig
 
 func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer user.Signer, opts client.PrmObjectSearch) (*client.ObjectListReader, error) {
 	var res *client.ObjectListReader
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectSearchInit(ctx, cnr, signer, opts)
 		return err
@@ -374,7 +374,7 @@ func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer u
 
 func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID, off, ln uint64, signer user.Signer, opts client.PrmObjectRange) (*client.ObjectRangeReader, error) {
 	var res *client.ObjectRangeReader
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectRangeInit(ctx, cnr, id, off, ln, signer, opts)
 		return err
@@ -383,7 +383,7 @@ func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID
 
 func (x *connections) ObjectHash(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHash) ([][]byte, error) {
 	var res [][]byte
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectHash(ctx, cnr, id, signer, opts)
 		return err
@@ -391,13 +391,13 @@ func (x *connections) ObjectHash(ctx context.Context, cnr cid.ID, id oid.ID, sig
 }
 
 func (x *connections) AnnounceLocalTrust(ctx context.Context, epoch uint64, ts []apireputation.Trust, opts client.PrmAnnounceLocalTrust) error {
-	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceLocalTrust(ctx, epoch, ts, opts)
 	})
 }
 
 func (x *connections) AnnounceIntermediateTrust(ctx context.Context, epoch uint64, t apireputation.PeerToPeerTrust, opts client.PrmAnnounceIntermediateTrust) error {
-	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceIntermediateTrust(ctx, epoch, t, opts)
 	})
 }
@@ -406,7 +406,7 @@ func (x *connections) SearchObjects(ctx context.Context, cnr cid.ID, fs object.S
 	signer neofscrypto.Signer, opts client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
 	var resItems []client.SearchResultItem
 	var resCursor string
-	return resItems, resCursor, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return resItems, resCursor, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		resItems, resCursor, err = c.SearchObjects(ctx, cnr, fs, attrs, cursor, signer, opts)
 		return err
