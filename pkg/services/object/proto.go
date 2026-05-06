@@ -217,6 +217,14 @@ func shiftHeaderInGetResponseBuffer(respBuf, hdrBuf []byte) iprotobuf.FieldBound
 }
 
 func shiftPayloadChunkInGetResponseBuffer(respBuf []byte, off, ln int) iprotobuf.FieldBounds {
+	return shiftPayloadChunkInResponseBuffer(respBuf, iprotobuf.TagBytes2, off, ln)
+}
+
+func shiftPayloadChunkInRangeResponseBuffer(respBuf []byte, off, ln int) iprotobuf.FieldBounds {
+	return shiftPayloadChunkInResponseBuffer(respBuf, iprotobuf.TagBytes1, off, ln)
+}
+
+func shiftPayloadChunkInResponseBuffer(respBuf []byte, chunkFldTag byte, off, ln int) iprotobuf.FieldBounds {
 	bodyFldPrefixLen := 1 + protowire.SizeVarint(uint64(ln))
 
 	var bodyf iprotobuf.FieldBounds
@@ -228,7 +236,7 @@ func shiftPayloadChunkInGetResponseBuffer(respBuf []byte, off, ln int) iprotobuf
 	respBuf[bodyf.From] = iprotobuf.TagBytes1 // body
 	binary.PutUvarint(respBuf[bodyf.From+1:], uint64(bodyFldPrefixLen+ln))
 
-	respBuf[bodyf.ValueFrom] = iprotobuf.TagBytes2 // chunk
+	respBuf[bodyf.ValueFrom] = chunkFldTag
 	binary.PutUvarint(respBuf[bodyf.ValueFrom+1:], uint64(ln))
 
 	bodyf.To = off + ln

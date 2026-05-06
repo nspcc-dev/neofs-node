@@ -212,3 +212,7 @@ func (unimplementedLocalStorage) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (objec
 func (unimplementedLocalStorage) ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error) {
 	panic("unimplemented")
 }
+
+func (unimplementedLocalStorage) ReadECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64, []byte) (io.ReadCloser, error) {
+	panic("unimplemented")
+}

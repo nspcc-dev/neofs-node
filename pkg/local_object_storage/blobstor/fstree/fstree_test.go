@@ -41,7 +41,34 @@ func TestFSTree_GetRangeStream(t *testing.T) {
 	testGetRangeStream(t, setupFSTree(t))
 }
 
+func TestFSTree_ReadPayloadRange(t *testing.T) {
+	t.Run("compressed", func(t *testing.T) {
+		comp := compression.Config{Enabled: true}
+		require.NoError(t, comp.Init())
+
+		fst := setupFSTree(t)
+		fst.SetCompressor(&comp)
+
+		testReadPayloadRange(t, fst)
+	})
+
+	testReadPayloadRange(t, setupFSTree(t))
+}
+
 func testGetRangeStream(t *testing.T, fst *FSTree) {
+	testGetRangeStreamFunc(t, fst, func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+		_, stream, err := fst.GetRangeStream(addr, off, ln)
+		return stream, err
+	})
+}
+
+func testReadPayloadRange(t *testing.T, fst *FSTree) {
+	testGetRangeStreamFunc(t, fst, func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+		return fst.ReadPayloadRange(addr, off, ln, make([]byte, 40<<10))
+	})
+}
+
+func testGetRangeStreamFunc(t *testing.T, fst *FSTree, fn func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error)) {
 	const pldLen = 1024
 	pld := testutil.RandByteSlice(pldLen)
 
@@ -51,14 +78,14 @@ func testGetRangeStream(t *testing.T, fst *FSTree) {
 
 	addr := obj.Address()
 
-	_, err := fst.GetRangeStream(addr, 0, 0)
+	_, err := fn(fst, addr, 0, 0)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-	_, err = fst.GetRangeStream(addr, 1, pldLen-1)
+	_, err = fn(fst, addr, 1, pldLen-1)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 	require.NoError(t, fst.Put(addr, obj.Marshal()))
 
-	_, err = fst.GetRangeStream(addr, 1, 0)
+	_, err = fn(fst, addr, 1, 0)
 	require.EqualError(t, err, "invalid range off=1,ln=0")
 
 	for _, tc := range []struct{ off, ln uint64 }{
@@ -67,7 +94,7 @@ func testGetRangeStream(t *testing.T, fst *FSTree) {
 		{off: 1, ln: pldLen - 1},
 		{off: pldLen - 1, ln: 1},
 	} {
-		stream, err := fst.GetRangeStream(addr, tc.off, tc.ln)
+		stream, err := fn(fst, addr, tc.off, tc.ln)
 		require.NoError(t, err, tc)
 
 		if tc.off == 0 && tc.ln == 0 {
@@ -84,15 +111,15 @@ func testGetRangeStream(t *testing.T, fst *FSTree) {
 		{off: 1, ln: pldLen},
 		{off: pldLen - 1, ln: 2},
 	} {
-		_, err := fst.GetRangeStream(addr, tc.off, tc.ln)
+		_, err := fn(fst, addr, tc.off, tc.ln)
 		require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 	}
 
 	require.NoError(t, fst.Delete(addr))
 
-	_, err = fst.GetRangeStream(addr, 0, 0)
+	_, err = fn(fst, addr, 0, 0)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-	_, err = fst.GetRangeStream(addr, 1, pldLen-1)
+	_, err = fn(fst, addr, 1, pldLen-1)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 }
 

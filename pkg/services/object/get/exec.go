@@ -69,6 +69,9 @@ type execCtx struct {
 	submitHeadResponseFn SubmitHeadResponseFunc
 
 	forwardGetRequestFn ForwardGetRequestFunc
+
+	localRangeBuffer         []byte
+	submitLocalRangeStreamFn SubmitDataStreamFunc
 }
 
 type execOption func(*execCtx)
@@ -124,6 +127,13 @@ func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc) execOption 
 func withForwardGetRequestFunc(f ForwardGetRequestFunc) execOption {
 	return func(ctx *execCtx) {
 		ctx.forwardGetRequestFn = f
+	}
+}
+
+func withLocalRangeBuffer(buf []byte, submitStreamFn SubmitDataStreamFunc) execOption {
+	return func(ctx *execCtx) {
+		ctx.localRangeBuffer = buf
+		ctx.submitLocalRangeStreamFn = submitStreamFn
 	}
 }
 

@@ -83,6 +83,8 @@ type cfg struct {
 		GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error)
 		// ReadECPart is a buffered alternative for GetECPart similar to ReadObject.
 		ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error)
+		// ReadECPartRange is a buffered alternative for GetECPartRange similar to ReadECPart.
+		ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error)
 		Head(oid.Address, bool) (*object.Object, error)
 		ReadHeader(oid.Address, bool, []byte) (int, error)
 		// HeadECPart is similar to GetECPart but returns only the header.
