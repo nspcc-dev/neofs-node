@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // Builder groups methods to route values in the network.
@@ -16,7 +17,7 @@ type Builder interface {
 	// Empty passed list means being at the starting point of the route.
 	//
 	// Must return empty list and no error if the endpoint of the route is reached.
-	NextStage(epoch uint64, t reputation.Trust, passed []common.ServerInfo) ([]common.ServerInfo, error)
+	NextStage(epoch uint64, t reputation.Trust, passed [][]byte) ([]netmap.NodeInfo, error)
 }
 
 // RemoteWriterProvider describes the component
@@ -26,5 +27,5 @@ type RemoteWriterProvider interface {
 	// corresponding to info.
 	//
 	// Nil info matches the end of the route.
-	InitRemote(ctx context.Context, info common.ServerInfo) (common.WriterProvider, error)
+	InitRemote(ctx context.Context, info netmap.NodeInfo) (common.WriterProvider, error)
 }

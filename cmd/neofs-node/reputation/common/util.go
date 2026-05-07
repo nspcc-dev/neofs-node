@@ -27,23 +27,6 @@ func (NopReputationWriter) Close() error {
 	return nil
 }
 
-// OnlyKeyRemoteServerInfo is an implementation of reputation.ServerInfo
-// interface but with only public key data.
-type OnlyKeyRemoteServerInfo struct {
-	Key []byte
-}
-
-func (i *OnlyKeyRemoteServerInfo) PublicKey() []byte {
-	return i.Key
-}
-
-func (*OnlyKeyRemoteServerInfo) IterateAddresses(func(string) bool) {
-}
-
-func (*OnlyKeyRemoteServerInfo) NumberOfAddresses() int {
-	return 0
-}
-
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"
 
 func PanicOnPrmValue(n string, v any) {

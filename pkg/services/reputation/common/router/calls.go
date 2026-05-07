@@ -15,11 +15,11 @@ import (
 type routeContext struct {
 	common.Context
 
-	passedRoute []common.ServerInfo
+	passedRoute [][]byte
 }
 
 // NewRouteContext wraps the main context of value passing with its traversal route and epoch.
-func NewRouteContext(ctx common.Context, passed []common.ServerInfo) common.Context {
+func NewRouteContext(ctx common.Context, passed [][]byte) common.Context {
 	return &routeContext{
 		Context:     ctx,
 		passedRoute: passed,
@@ -58,7 +58,7 @@ func (r *Router) InitWriter(ctx common.Context) (common.Writer, error) {
 	if routeCtx, ok = ctx.(*routeContext); !ok {
 		routeCtx = &routeContext{
 			Context:     ctx,
-			passedRoute: []common.ServerInfo{r.localSrvInfo},
+			passedRoute: [][]byte{r.localSrvInfo.PublicKey()},
 		}
 	}
 
@@ -76,16 +76,10 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 	route, err := w.router.routeBuilder.NextStage(w.routeCtx.Epoch(), t, w.routeCtx.passedRoute)
 	if err != nil {
 		return err
-	} else if len(route) == 0 {
-		route = []common.ServerInfo{nil}
 	}
 
 	for _, remoteInfo := range route {
-		var key string
-
-		if remoteInfo != nil {
-			key = hex.EncodeToString(remoteInfo.PublicKey())
-		}
+		var key = hex.EncodeToString(remoteInfo.PublicKey())
 
 		remoteWriter, ok := w.mServers[key]
 		if !ok {

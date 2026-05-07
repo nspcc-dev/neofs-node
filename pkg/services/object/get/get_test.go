@@ -13,7 +13,6 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -440,7 +439,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 
 			var na network.AddressGroup
 
-			err := na.FromIterator(netmapcore.Node(ni))
+			err := na.FromNodeInfo(ni)
 			require.NoError(t, err)
 
 			as[j] = na.String()

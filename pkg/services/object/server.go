@@ -2074,7 +2074,7 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 	// TODO: copy-pasted from old search implementation, consider deduplicating in
 	//  the client constructor
 	var endpoints network.AddressGroup
-	if err := endpoints.FromIterator(network.NodeEndpointsIterator(node)); err != nil {
+	if err := endpoints.FromNodeInfo(node); err != nil {
 		// critical error that may ultimately block the storage service. Normally it
 		// should not appear because entry into the network map under strict control.
 		return nil, false, fmt.Errorf("failed to decode network endpoints of the storage node from the network map: %w", err)

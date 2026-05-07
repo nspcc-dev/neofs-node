@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
 // NextStage builds Manager list for trusted node and returns it directly.
 //
 // If passed route has more than one point, then endpoint of the route is reached.
-func (b *Builder) NextStage(epoch uint64, t reputation.Trust, passed []common.ServerInfo) ([]common.ServerInfo, error) {
+func (b *Builder) NextStage(epoch uint64, t reputation.Trust, passed [][]byte) ([]netmap.NodeInfo, error) {
 	passedLen := len(passed)
 
 	b.log.Debug("building next stage for trust route",

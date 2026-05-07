@@ -1019,7 +1019,7 @@ broadcast:
 func convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
 	var res client.NodeInfo
 	var endpoints network.AddressGroup
-	if err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeInfo)); err != nil {
+	if err := endpoints.FromNodeInfo(nodeInfo); err != nil {
 		return res, err
 	}
 	res.SetAddressGroup(endpoints)

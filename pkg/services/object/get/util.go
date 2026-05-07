@@ -451,7 +451,7 @@ func (c *clientCacheWrapper) _connect(ctx context.Context, node netmap.NodeInfo)
 	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
 	// TODO: we may waste resources doing this per request. Make once on network map change instead.
 	var ag network.AddressGroup
-	if err := ag.FromIterator(network.NodeEndpointsIterator(node)); err != nil {
+	if err := ag.FromNodeInfo(node); err != nil {
 		return nil, coreclient.NodeInfo{}, fmt.Errorf("decode SN network addresses: %w", err)
 	}
 

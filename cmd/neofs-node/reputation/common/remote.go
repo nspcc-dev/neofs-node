@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +30,7 @@ type clientKeyRemoteProvider interface {
 //
 // remoteTrustProvider requires to be provided with clientKeyRemoteProvider.
 type remoteTrustProvider struct {
-	netmapKeys      netmap.AnnouncedKeys
+	netmapKeys      netmapcore.AnnouncedKeys
 	deadEndProvider reputationcommon.WriterProvider
 	clientCache     clientCache
 	remoteProvider  clientKeyRemoteProvider
@@ -42,7 +43,7 @@ type remoteTrustProvider struct {
 // Passing incorrect parameter values will result in constructor
 // failure (error or panic depending on the implementation).
 type RemoteProviderPrm struct {
-	NetmapKeys      netmap.AnnouncedKeys
+	NetmapKeys      netmapcore.AnnouncedKeys
 	DeadEndProvider reputationcommon.WriterProvider
 	ClientCache     clientCache
 	WriterProvider  clientKeyRemoteProvider
@@ -72,13 +73,8 @@ func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriter
 	}
 }
 
-func (rtp *remoteTrustProvider) InitRemote(ctx context.Context, srv reputationcommon.ServerInfo) (reputationcommon.WriterProvider, error) {
+func (rtp *remoteTrustProvider) InitRemote(ctx context.Context, srv netmap.NodeInfo) (reputationcommon.WriterProvider, error) {
 	rtp.log.Debug("initializing remote writer provider")
-
-	if srv == nil {
-		rtp.log.Debug("route has reached dead-end provider")
-		return rtp.deadEndProvider, nil
-	}
 
 	if rtp.netmapKeys.IsLocalKey(srv.PublicKey()) {
 		// if local => return no-op writer

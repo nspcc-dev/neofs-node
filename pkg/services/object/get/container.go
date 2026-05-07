@@ -67,7 +67,7 @@ func (exec *execCtx) executeOnContainer() {
 
 			mProcessedNodes[strKey] = struct{}{}
 
-			if err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeLists[i][j])); err != nil {
+			if err := endpoints.FromNodeInfo(nodeLists[i][j]); err != nil {
 				// critical error that may ultimately block the storage service. Normally it
 				// should not appear because entry into the network map under strict control
 				exec.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",

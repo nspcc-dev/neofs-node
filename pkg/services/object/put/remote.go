@@ -6,7 +6,6 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -99,7 +98,7 @@ func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *Remot
 func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, id oid.ID, src io.ReadSeeker, nodeInfo netmap.NodeInfo) error {
 	var nodeInfoForCons clientcore.NodeInfo
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfoForCons, netmapCore.Node(nodeInfo))
+	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfoForCons, nodeInfo)
 	if err != nil {
 		return fmt.Errorf("parse remote node info: %w", err)
 	}

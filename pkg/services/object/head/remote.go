@@ -7,7 +7,6 @@ import (
 	"math"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -88,7 +87,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 
 	var info clientcore.NodeInfo
 
-	err = clientcore.NodeInfoFromRawNetmapElement(&info, netmapCore.Node(prm.node))
+	err = clientcore.NodeInfoFromRawNetmapElement(&info, prm.node)
 	if err != nil {
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
@@ -122,7 +121,7 @@ func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr c
 
 	var info clientcore.NodeInfo
 
-	err = clientcore.NodeInfoFromRawNetmapElement(&info, netmapCore.Node(node))
+	err = clientcore.NodeInfoFromRawNetmapElement(&info, node)
 	if err != nil {
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}

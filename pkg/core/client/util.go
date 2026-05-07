@@ -4,24 +4,21 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // NodeInfoFromRawNetmapElement fills NodeInfo structure from the interface of raw netmap member's descriptor.
 //
 // Args must not be nil.
-func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
-	PublicKey() []byte
-	IterateAddresses(func(string) bool)
-	NumberOfAddresses() int
-}) error {
+func NodeInfoFromRawNetmapElement(dst *NodeInfo, ni netmap.NodeInfo) error {
 	var a network.AddressGroup
 
-	err := a.FromIterator(info)
+	err := a.FromNodeInfo(ni)
 	if err != nil {
 		return fmt.Errorf("parse network address: %w", err)
 	}
 
-	dst.SetPublicKey(info.PublicKey())
+	dst.SetPublicKey(ni.PublicKey())
 	dst.SetAddressGroup(a)
 
 	return nil
