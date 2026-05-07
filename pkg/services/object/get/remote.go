@@ -3,14 +3,16 @@ package getsvc
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 
-func (exec *execCtx) processNode(info client.NodeInfo) bool {
-	exec.log.Debug("processing node...", zap.Stringers("address group", info.AddressGroup()))
+func (exec *execCtx) processNode(info netmap.NodeInfo) bool {
+	var nodeLog = zapEndpoints(info)
+
+	exec.log.Debug("processing node...", nodeLog)
 
 	remoteClient, err := exec.svc.clientCache.get(exec.context(), info)
 	if err != nil {
@@ -29,9 +31,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		exec.status = statusUndefined
 		exec.err = apistatus.ErrObjectNotFound
 
-		exec.log.Debug("remote call failed", zap.Stringers("address group", info.AddressGroup()),
-			zap.Error(err),
-		)
+		exec.log.Debug("remote call failed", nodeLog, zap.Error(err))
 	case err == nil:
 		exec.status = statusOK
 		exec.err = nil

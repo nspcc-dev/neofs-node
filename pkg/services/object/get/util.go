@@ -10,7 +10,6 @@ import (
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -21,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -165,7 +165,7 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj
 }
 
-func (c *clientCacheWrapper) get(ctx context.Context, info coreclient.NodeInfo) (getClient, error) {
+func (c *clientCacheWrapper) get(ctx context.Context, info netmap.NodeInfo) (getClient, error) {
 	clt, err := c.cache.Get(ctx, info)
 	if err != nil {
 		return nil, err
@@ -443,28 +443,12 @@ func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node 
 }
 
 func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
-	conn, _, err := c._connect(ctx, node)
-	return conn, err
-}
-
-func (c *clientCacheWrapper) _connect(ctx context.Context, node netmap.NodeInfo) (coreclient.MultiAddressClient, coreclient.NodeInfo, error) {
-	// TODO: code is copied from pkg/services/object/get/container.go:63. Worth sharing?
-	// TODO: we may waste resources doing this per request. Make once on network map change instead.
-	var ag network.AddressGroup
-	if err := ag.FromNodeInfo(node); err != nil {
-		return nil, coreclient.NodeInfo{}, fmt.Errorf("decode SN network addresses: %w", err)
-	}
-
-	var ni coreclient.NodeInfo
-	ni.SetAddressGroup(ag)
-	ni.SetPublicKey(node.PublicKey())
-
-	conn, err := c.cache.Get(ctx, ni)
+	conn, err := c.cache.Get(ctx, node)
 	if err != nil {
-		return nil, coreclient.NodeInfo{}, fmt.Errorf("get conn: %w", err)
+		return nil, fmt.Errorf("get conn: %w", err)
 	}
 
-	return conn, ni, nil
+	return conn, nil
 }
 
 // TODO: share.
@@ -490,4 +474,8 @@ func localNodeInSet(n NeoFSNetwork, nodes []netmap.NodeInfo) bool {
 	return slices.ContainsFunc(nodes, func(node netmap.NodeInfo) bool {
 		return n.IsLocalNodePublicKey(node.PublicKey())
 	})
+}
+
+func zapEndpoints(info netmap.NodeInfo) zap.Field {
+	return zap.Strings("address group", slices.Collect(info.NetworkEndpoints()))
 }

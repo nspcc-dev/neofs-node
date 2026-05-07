@@ -13,11 +13,9 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -86,7 +84,7 @@ type distributedTarget struct {
 type nodeDesc struct {
 	local           bool
 	placementVector int
-	info            client.NodeInfo
+	info            netmap.NodeInfo
 }
 
 // errIncompletePut is returned if processing on a container fails.
@@ -679,7 +677,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()),
-			zap.Stringer("node", node.info.AddressGroup()))
+			zap.String("node", addressLogString(node.info)))
 
 		sigs, err := decodeSignatures(sigsRaw)
 		if err != nil {
@@ -770,9 +768,8 @@ type placementIterator struct {
 }
 
 type nodeResult struct {
-	convertErr error
-	desc       nodeDesc
-	succeeded  bool
+	desc      nodeDesc
+	succeeded bool
 }
 
 type nodeCounters struct {
@@ -851,9 +848,9 @@ func repToNode(l *zap.Logger, prog *repProgress, pubKeyStr string, listInd int, 
 	if err != nil {
 		prog.lastRespErr.Store(err)
 		if listInd >= 0 {
-			svcutil.LogServiceError(l, "PUT", nr.desc.info.AddressGroup(), err)
+			svcutil.LogServiceError(l, "PUT", nr.desc.info.NetworkEndpoints(), err)
 		} else {
-			svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.AddressGroup(), err)
+			svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.NetworkEndpoints(), err)
 		}
 		return
 	}
@@ -902,29 +899,12 @@ func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listI
 				continue
 			}
 			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-				nr.desc.info, nr.convertErr = convertNodeInfo(nodeList[j])
+				nr.desc.info = nodeList[j]
 			}
 			prog.nodeResultsMtx.Lock()
 			prog.nodeResults[pks] = nr
 			prog.nodeResultsMtx.Unlock()
-			if nr.convertErr == nil {
-				prog.nextNodeGroupKeys = append(prog.nextNodeGroupKeys, pks)
-				continue
-			}
-			// critical error that may ultimately block the storage service. Normally it
-			// should not appear because entry into the network map under strict control
-			l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
-				zap.String("public key", netmap.StringifyPublicKey(nodeList[j])), zap.Error(nr.convertErr))
-			if minReps > prog.nodesCounters[listInd].stored {
-				minRequired = minReps - prog.nodesCounters[listInd].stored
-			}
-			if listLen-prog.nodesCounters[listInd].processed-1 < minRequired { // -1 includes current node failure
-				err := fmt.Errorf("%w (last node error: failed to decode network addresses: %w)",
-					errNotEnoughNodes{listIndex: listInd, required: minRequired, left: listLen - prog.nodesCounters[listInd].processed - 1},
-					nr.convertErr)
-				return prog.nodesCounters[listInd].stored, false, errIncompletePut{singleErr: err}
-			}
-			// continue to try the best to save required number of replicas
+			prog.nextNodeGroupKeys = append(prog.nextNodeGroupKeys, pks)
 		}
 		for j := range prog.nextNodeGroupKeys {
 			pks := prog.nextNodeGroupKeys[j]
@@ -985,18 +965,12 @@ broadcast:
 				continue
 			}
 			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-				nr.desc.info, nr.convertErr = convertNodeInfo(nodeLists[i][j])
+				nr.desc.info = nodeLists[i][j]
 			}
 			prog.nodeResultsMtx.Lock()
 			prog.nodeResults[pks] = nr
 			prog.nodeResultsMtx.Unlock()
-			if nr.convertErr != nil {
-				// critical error that may ultimately block the storage service. Normally it
-				// should not appear because entry into the network map under strict control
-				l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
-					zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])), zap.Error(nr.convertErr))
-				continue // to send as many replicas as possible
-			}
+
 			if nr.desc.local {
 				prog.wg.Go(func() { repToNode(l, prog, pks, -1, nr, f) })
 				continue
@@ -1014,15 +988,4 @@ broadcast:
 	}
 	prog.wg.Wait()
 	return nil
-}
-
-func convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
-	var res client.NodeInfo
-	var endpoints network.AddressGroup
-	if err := endpoints.FromNodeInfo(nodeInfo); err != nil {
-		return res, err
-	}
-	res.SetAddressGroup(endpoints)
-	res.SetPublicKey(nodeInfo.PublicKey())
-	return res, nil
 }

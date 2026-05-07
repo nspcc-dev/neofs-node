@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
@@ -19,7 +19,7 @@ type transport struct {
 
 // SendReplicationRequestToNode connects to described node and sends prepared
 // replication request message to it.
-func (x *transport) SendReplicationRequestToNode(ctx context.Context, req []byte, node coreclient.NodeInfo) ([]byte, error) {
+func (x *transport) SendReplicationRequestToNode(ctx context.Context, req []byte, node netmap.NodeInfo) ([]byte, error) {
 	c, err := x.clients.Get(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("connect to remote node: %w", err)

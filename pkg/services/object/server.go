@@ -24,7 +24,6 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
@@ -169,7 +168,7 @@ type ACLInfoExtractor interface {
 
 // ClientConstructor returns a client for given node.
 type ClientConstructor interface {
-	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, sdknetmap.NodeInfo) (client.MultiAddressClient, error)
 }
 
 const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
@@ -2071,18 +2070,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 }
 
 func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
-	// TODO: copy-pasted from old search implementation, consider deduplicating in
-	//  the client constructor
-	var endpoints network.AddressGroup
-	if err := endpoints.FromNodeInfo(node); err != nil {
-		// critical error that may ultimately block the storage service. Normally it
-		// should not appear because entry into the network map under strict control.
-		return nil, false, fmt.Errorf("failed to decode network endpoints of the storage node from the network map: %w", err)
-	}
-	var info client.NodeInfo
-	info.SetAddressGroup(endpoints)
-	info.SetPublicKey(node.PublicKey())
-	c, err := s.nodeClients.Get(ctx, info)
+	c, err := s.nodeClients.Get(ctx, node)
 	if err != nil {
 		return nil, false, fmt.Errorf("get node client: %w", err)
 	}

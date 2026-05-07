@@ -2,10 +2,8 @@ package client
 
 import (
 	"context"
-	"encoding/hex"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -40,40 +38,4 @@ type MultiAddressClient interface {
 	// ForAnyGRPCConn executes op over gRPC connections to given multi-address
 	// endpoint-by-endpoint until success.
 	ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error
-}
-
-// NodeInfo groups information about a NeoFS storage node needed for Client construction.
-type NodeInfo struct {
-	addrGroup network.AddressGroup
-
-	key []byte
-}
-
-// SetAddressGroup sets a group of network addresses.
-func (x *NodeInfo) SetAddressGroup(v network.AddressGroup) {
-	x.addrGroup = v
-}
-
-// AddressGroup returns a group of network addresses.
-func (x NodeInfo) AddressGroup() network.AddressGroup {
-	return x.addrGroup
-}
-
-// SetPublicKey sets a public key in a binary format.
-//
-// Argument must not be mutated.
-func (x *NodeInfo) SetPublicKey(v []byte) {
-	x.key = v
-}
-
-// PublicKey returns a public key in a binary format.
-//
-// Result must not be mutated.
-func (x *NodeInfo) PublicKey() []byte {
-	return x.key
-}
-
-// String implements fmt.Stringer using the node public key.
-func (x NodeInfo) String() string {
-	return hex.EncodeToString(x.key)
 }

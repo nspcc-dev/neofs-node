@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
+	"strings"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -18,7 +20,7 @@ import (
 )
 
 type ClientConstructor interface {
-	Get(context.Context, clientcore.NodeInfo) (clientcore.Client, error)
+	Get(context.Context, netmap.NodeInfo) (clientcore.Client, error)
 }
 
 // RemoteHeader represents utility for getting
@@ -76,6 +78,10 @@ func (p *RemoteHeadPrm) WithIDVerification(f bool) {
 	p.checkOID = f
 }
 
+func addressLogString(ni netmap.NodeInfo) string {
+	return strings.Join(slices.Collect(ni.NetworkEndpoints()), ", ")
+}
+
 // Head requests object header from the remote node. Returns:
 //   - [apistatus.ErrObjectNotFound] error if the requested object is missing
 //   - [apistatus.ErrNodeUnderMaintenance] error if remote node is currently under maintenance
@@ -85,16 +91,9 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", h, err)
 	}
 
-	var info clientcore.NodeInfo
-
-	err = clientcore.NodeInfoFromRawNetmapElement(&info, prm.node)
+	c, err := h.clientCache.Get(ctx, prm.node)
 	if err != nil {
-		return nil, fmt.Errorf("parse client node info: %w", err)
-	}
-
-	c, err := h.clientCache.Get(ctx, info)
-	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, info.AddressGroup(), err)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, addressLogString(prm.node), err)
 	}
 
 	var opts client.PrmObjectHead
@@ -106,7 +105,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 
 	res, err := c.ObjectHead(ctx, prm.commonHeadPrm.addr.Container(), prm.commonHeadPrm.addr.Object(), user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not head object in %s: read object header from NeoFS: %w", h, info.AddressGroup(), err)
+		return nil, fmt.Errorf("(%T) could not head object in %s: read object header from NeoFS: %w", h, addressLogString(prm.node), err)
 	}
 
 	return res, nil
@@ -119,14 +118,7 @@ func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr c
 		return nil, fmt.Errorf("get local SN private key: %w", err)
 	}
 
-	var info clientcore.NodeInfo
-
-	err = clientcore.NodeInfoFromRawNetmapElement(&info, node)
-	if err != nil {
-		return nil, fmt.Errorf("parse client node info: %w", err)
-	}
-
-	conn, err := h.clientCache.Get(ctx, info)
+	conn, err := h.clientCache.Get(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("get conn: %w", err)
 	}

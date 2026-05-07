@@ -43,6 +43,7 @@ Changelog for NeoFS Node
 ### Removed
 - `policer.max_workers` configuration (#3920)
 - Deprecated `Search` method support from storage nodes (#3931)
+- Internal conversions of node addresses received from network map (#3981)
 
 ### Updated
 

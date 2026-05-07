@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"slices"
+	"strings"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -33,4 +34,8 @@ func newCompletionError(cause error, incomplete, overloaded bool) error {
 	}
 
 	return cause
+}
+
+func addressLogString(ni netmap.NodeInfo) string {
+	return strings.Join(slices.Collect(ni.NetworkEndpoints()), ", ")
 }

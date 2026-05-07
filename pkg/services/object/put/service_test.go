@@ -940,9 +940,7 @@ func (x testPostPlacementReplicator) HandlePostPlacement(obj *object.Object, nod
 	}
 
 	for i := range nodes {
-		nodeInfo, err := convertNodeInfo(nodes[i])
-		require.NoError(x.t, err)
-		svc, err := x.services.lookupNode(nodeInfo)
+		svc, err := x.services.lookupNode(nodes[i])
 		require.NoError(x.t, err)
 		require.NoError(x.t, svc.ValidateAndStoreObjectLocally(*obj)) //nolint:contextcheck
 	}
@@ -999,7 +997,7 @@ func (x *inMemLocalStorage) IsLocked(oid.Address) (bool, error) {
 
 type nodeServices []*Service
 
-func (x nodeServices) lookupNode(node clientcore.NodeInfo) (*Service, error) {
+func (x nodeServices) lookupNode(node netmap.NodeInfo) (*Service, error) {
 	ind := slices.IndexFunc(x, func(svc *Service) bool {
 		return svc.neoFSNet.IsLocalNodePublicKey(node.PublicKey())
 	})
@@ -1009,7 +1007,7 @@ func (x nodeServices) lookupNode(node clientcore.NodeInfo) (*Service, error) {
 	return x[ind], nil
 }
 
-func (x nodeServices) Get(_ context.Context, node clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (x nodeServices) Get(_ context.Context, node netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
 	svc, err := x.lookupNode(node)
 	if err != nil {
 		return nil, err
@@ -1017,7 +1015,7 @@ func (x nodeServices) Get(_ context.Context, node clientcore.NodeInfo) (clientco
 	return (*serviceClient)(svc), nil
 }
 
-func (x nodeServices) SendReplicationRequestToNode(_ context.Context, reqBin []byte, node clientcore.NodeInfo) ([]byte, error) {
+func (x nodeServices) SendReplicationRequestToNode(_ context.Context, reqBin []byte, node netmap.NodeInfo) ([]byte, error) {
 	var req protoobject.ReplicateRequest
 	if err := proto.Unmarshal(reqBin, &req); err != nil {
 		return nil, fmt.Errorf("invalid request: %w", err)

@@ -1,14 +1,16 @@
 package util
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"iter"
+	"slices"
+
 	"go.uber.org/zap"
 )
 
 // LogServiceError writes error message of object service to provided logger.
-func LogServiceError(l *zap.Logger, req string, node network.AddressGroup, err error) {
+func LogServiceError(l *zap.Logger, req string, addrs iter.Seq[string], err error) {
 	l.Error("object service error",
-		zap.Stringer("node", node),
+		zap.Strings("node", slices.Collect(addrs)),
 		zap.String("request", req),
 		zap.Error(err),
 	)

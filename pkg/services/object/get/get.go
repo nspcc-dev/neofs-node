@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -194,10 +195,10 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, proxyFn RangeRequestForwarder) ([][]byte, error) {
 	for i := range sortedNodeLists {
 		for j := range sortedNodeLists[i] {
-			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
+			conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodeLists[i][j])
 			if err != nil {
 				s.log.Debug("get conn to remote node",
-					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
+					zap.Strings("addresses", slices.Collect(sortedNodeLists[i][j].NetworkEndpoints())), zap.Error(err))
 				continue
 			}
 

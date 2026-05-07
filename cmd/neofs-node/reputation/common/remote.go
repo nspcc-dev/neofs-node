@@ -14,7 +14,7 @@ import (
 )
 
 type clientCache interface {
-	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, netmap.NodeInfo) (client.MultiAddressClient, error)
 }
 
 // clientKeyRemoteProvider must provide a remote writer and take into account
@@ -82,14 +82,7 @@ func (rtp *remoteTrustProvider) InitRemote(ctx context.Context, srv netmap.NodeI
 		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 
-	var info client.NodeInfo
-
-	err := client.NodeInfoFromRawNetmapElement(&info, srv)
-	if err != nil {
-		return nil, fmt.Errorf("parse client node info: %w", err)
-	}
-
-	c, err := rtp.clientCache.Get(ctx, info)
+	c, err := rtp.clientCache.Get(ctx, srv)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}

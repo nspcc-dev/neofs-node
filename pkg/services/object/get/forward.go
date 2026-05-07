@@ -13,10 +13,10 @@ func (s *Service) forwardGetRequest(ctx context.Context, sortedNodeLists [][]net
 	submitResponseFn SubmitStreamFunc) error {
 	for i := range sortedNodeLists {
 		for j := range sortedNodeLists[i] {
-			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
+			conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodeLists[i][j])
 			if err != nil {
 				s.log.Debug("get conn to remote node",
-					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
+					zapEndpoints(sortedNodeLists[i][j]), zap.Error(err))
 				continue
 			}
 
@@ -38,10 +38,10 @@ func (s *Service) forwardHeadRequest(ctx context.Context, sortedNodeLists [][]ne
 	submitResponseFn SubmitHeadResponseFunc) error {
 	for i := range sortedNodeLists {
 		for j := range sortedNodeLists[i] {
-			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
+			conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodeLists[i][j])
 			if err != nil {
 				s.log.Debug("get conn to remote node",
-					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
+					zapEndpoints(sortedNodeLists[i][j]), zap.Error(err))
 				continue
 			}
 
@@ -67,10 +67,10 @@ func (s *Service) forwardHeadRequest(ctx context.Context, sortedNodeLists [][]ne
 func (s *Service) forwardRangeRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, forwardRequestFn ForwardRangeRequestFunc) error {
 	for i := range sortedNodeLists {
 		for j := range sortedNodeLists[i] {
-			conn, node, err := s.conns.(*clientCacheWrapper)._connect(ctx, sortedNodeLists[i][j])
+			conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodeLists[i][j])
 			if err != nil {
 				s.log.Debug("get conn to remote node",
-					zap.Stringer("addresses", node.AddressGroup()), zap.Error(err))
+					zapEndpoints(sortedNodeLists[i][j]), zap.Error(err))
 				continue
 			}
 

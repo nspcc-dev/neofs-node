@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -103,14 +104,13 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.Contains(t, [][]byte{
 			cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey(),
 		}, node.info.PublicKey())
-		require.Len(t, node.info.AddressGroup(), 2)
 		var expNetAddrs []string
 		if bytes.Equal(node.info.PublicKey(), cnrNodes[0][0].PublicKey()) {
 			expNetAddrs = []string{"localhost:10000", "localhost:10001"}
 		} else {
 			expNetAddrs = []string{"localhost:10002", "localhost:10003"}
 		}
-		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
+		require.ElementsMatch(t, expNetAddrs, slices.Collect(node.info.NetworkEndpoints()))
 	}
 	require.True(t, withLocal)
 	for _, node := range handlerCalls[3:6] {
@@ -118,7 +118,6 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.Contains(t, [][]byte{
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][2].PublicKey(), cnrNodes[1][3].PublicKey(),
 		}, node.info.PublicKey())
-		require.Len(t, node.info.AddressGroup(), 2)
 		var expNetAddrs []string
 		switch key := node.info.PublicKey(); {
 		case bytes.Equal(key, cnrNodes[1][0].PublicKey()):
@@ -128,14 +127,13 @@ func TestIterateNodesForObject(t *testing.T) {
 		case bytes.Equal(key, cnrNodes[1][3].PublicKey()):
 			expNetAddrs = []string{"localhost:10106", "localhost:10107"}
 		}
-		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
+		require.ElementsMatch(t, expNetAddrs, slices.Collect(node.info.NetworkEndpoints()))
 	}
 	for _, node := range handlerCalls[6:] {
 		require.False(t, node.local)
 		require.Contains(t, [][]byte{
 			cnrNodes[2][1].PublicKey(), cnrNodes[2][2].PublicKey(), cnrNodes[2][3].PublicKey(),
 		}, node.info.PublicKey())
-		require.Len(t, node.info.AddressGroup(), 2)
 		var expNetAddrs []string
 		switch key := node.info.PublicKey(); {
 		case bytes.Equal(key, cnrNodes[2][1].PublicKey()):
@@ -145,7 +143,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		case bytes.Equal(key, cnrNodes[2][3].PublicKey()):
 			expNetAddrs = []string{"localhost:10206", "localhost:10207"}
 		}
-		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
+		require.ElementsMatch(t, expNetAddrs, slices.Collect(node.info.NetworkEndpoints()))
 	}
 
 	t.Run("broadcast", func(t *testing.T) {
@@ -262,43 +260,6 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.Len(t, handlerCalls, 2)
 		require.ElementsMatch(t, handlerCalls, [][]byte{
 			cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey(),
-		})
-	})
-	t.Run("not enough nodes due to decoding network endpoints failure", func(t *testing.T) {
-		// nodes: [A B] [C D E] [F]
-		// policy: [2 2 1]
-		// node C fails network op, E has incorrect network endpoints. Service should try it but fail
-		objID := oidtest.ID()
-		cnrNodes := allocNodes([]uint{2, 3, 1})
-		cnrNodes[1][2].SetNetworkEndpoints("definitely invalid network address")
-		var wp testWorkerPool
-		iter := placementIterator{
-			log:        zaptest.NewLogger(t),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
-		}
-		var handlerMtx sync.Mutex
-		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, []uint{2, 2, 1}, cnrNodes, false, func(node nodeDesc) error {
-			handlerMtx.Lock()
-			handlerCalls = append(handlerCalls, node.info.PublicKey())
-			handlerMtx.Unlock()
-			if bytes.Equal(node.info.PublicKey(), cnrNodes[1][0].PublicKey()) {
-				return errors.New("any node error")
-			}
-			return nil
-		})
-		require.ErrorContains(t, err, "incomplete object PUT by placement: "+
-			"number of replicas cannot be met for list #1: 1 required, 0 nodes remaining "+
-			"(last node error: failed to decode network addresses:")
-		// assert that we processed 1st list and did not even try to access
-		// nodes from the 2nd one
-		require.Len(t, handlerCalls, 4)
-		require.ElementsMatch(t, handlerCalls[:2], [][]byte{
-			cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey(),
-		})
-		require.ElementsMatch(t, handlerCalls[2:], [][]byte{
-			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
 	})
 	t.Run("not enough nodes left after RPC failures", func(t *testing.T) {

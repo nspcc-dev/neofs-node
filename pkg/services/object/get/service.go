@@ -98,7 +98,7 @@ type cfg struct {
 	}
 
 	clientCache interface {
-		get(context.Context, client.NodeInfo) (getClient, error)
+		get(context.Context, netmapsdk.NodeInfo) (getClient, error)
 	}
 	// TODO: merge with clientCache
 	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client
@@ -160,7 +160,7 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 }
 
 type ClientConstructor interface {
-	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, netmapsdk.NodeInfo) (client.MultiAddressClient, error)
 }
 
 // WithClientConstructor returns option to set constructor of remote node clients.

@@ -159,7 +159,7 @@ func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Req
 
 type noCallClients struct{}
 
-func (noCallClients) Get(context.Context, clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (noCallClients) Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
 	panic("must not be called")
 }
 
@@ -762,7 +762,7 @@ func (x *mockConnections) setConn(node netmap.NodeInfo, conn clientcore.MultiAdd
 	x.conns[string(node.PublicKey())] = conn
 }
 
-func (x *mockConnections) Get(_ context.Context, info clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (x *mockConnections) Get(_ context.Context, info netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
 	conn, ok := x.conns[string(info.PublicKey())]
 	if !ok {
 		return nil, errors.New("missing node connection")
