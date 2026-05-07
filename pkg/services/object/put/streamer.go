@@ -1,17 +1,20 @@
 package putsvc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	meta "github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -256,6 +259,13 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		}
 	}
 
+	cnrNodes := prm.containerNodes.Unsorted()
+	for _, vector := range cnrNodes {
+		slices.SortFunc(vector, func(a, b netmap.NodeInfo) int {
+			return bytes.Compare(a.PublicKey(), b.PublicKey())
+		})
+	}
+
 	return &distributedTarget{
 		opCtx:   p.ctx,
 		fsState: p.networkState,
@@ -280,7 +290,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		cnrClient:               p.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 		metaCollection: metaCollection{
-			signatures: make([][]neofscrypto.Signature, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
+			sortedNodes: cnrNodes,
+			signatures:  make([][]meta.IndexedSignature, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
 		},
 		metaSigner:    prm.localSignerRFC6979,
 		localOnly:     prm.common.LocalOnly(),

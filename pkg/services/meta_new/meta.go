@@ -2,9 +2,7 @@ package meta
 
 import (
 	"context"
-	"crypto/elliptic"
 	"errors"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,11 +10,11 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/services/sidechain"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -166,21 +164,13 @@ func (m *Meta) Height() uint32 {
 	return m.ch.Height()
 }
 
-func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]neofscrypto.Signature) error {
-	for i := range signatures {
-		slices.SortFunc(signatures[i], func(a, b neofscrypto.Signature) int {
-			k1, err := keys.NewPublicKeyFromBytes(a.PublicKeyBytes(), elliptic.P256())
-			if err != nil {
-				panic(err)
-			}
-			k2, err := keys.NewPublicKeyFromBytes(b.PublicKeyBytes(), elliptic.P256())
-			if err != nil {
-				panic(err)
-			}
-			return k1.Cmp(k2)
-		})
-	}
+// TODO
+type IndexedSignature struct {
+	Index     uint8
+	Signature neofscrypto.Signature
+}
 
+func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]IndexedSignature) error {
 	var (
 		invokBuff = io.NewBufBinWriter()
 		writer    = invokBuff.BinWriter
@@ -188,7 +178,10 @@ func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]neofs
 	for i := len(signatures) - 1; i >= 0; i-- {
 		vectorLen := len(signatures[i])
 		for j := vectorLen - 1; j >= 0; j-- {
-			emit.Bytes(writer, signatures[i][j].Value())
+			emit.Array(writer,
+				stackitem.Make(signatures[i][j].Index),             // singature's index
+				stackitem.Make(signatures[i][j].Signature.Value()), // signature
+			)
 		}
 		emit.Int(writer, int64(vectorLen))
 		emit.Opcodes(writer, opcode.PACK)

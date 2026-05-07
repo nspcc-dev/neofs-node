@@ -20,12 +20,13 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
+	meta "github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
@@ -33,11 +34,13 @@ import (
 )
 
 type metaCollection struct {
+	sortedNodes [][]netmapsdk.NodeInfo // by public keys, required for metadata optimization
+
 	dataToSign      []byte
 	metaTransaction *transaction.Transaction
 
 	signaturesMtx sync.RWMutex
-	signatures    [][]neofscrypto.Signature
+	signatures    [][]meta.IndexedSignature
 }
 
 type distributedTarget struct {
@@ -583,8 +586,16 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}
 
+			ind := slices.IndexFunc(t.metaCollection.sortedNodes[node.placementVector], func(info netmapsdk.NodeInfo) bool {
+				return bytes.Equal(info.PublicKey(), node.info.PublicKey())
+			})
+			if ind < 0 {
+				// unexpected at all
+				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+			}
+
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig))
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig)})
 			metaC.signaturesMtx.Unlock()
 		}
 
@@ -635,8 +646,16 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				continue
 			}
 
+			ind := slices.IndexFunc(t.metaCollection.sortedNodes[node.placementVector], func(info netmapsdk.NodeInfo) bool {
+				return bytes.Equal(info.PublicKey(), node.info.PublicKey())
+			})
+			if ind < 0 {
+				// unexpected at all
+				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+			}
+
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig)
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: sig})
 			metaC.signaturesMtx.Unlock()
 
 			return nil
