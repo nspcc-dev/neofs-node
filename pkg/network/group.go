@@ -126,7 +126,7 @@ func WriteToNodeInfo(g AddressGroup, ni *netmap.NodeInfo) {
 
 	for addr := range slices.Values(g) {
 		ni.SetNetworkEndpoints()
-		addrs = append(addrs, addr.String())
+		addrs = append(addrs, addr.URIAddr())
 	}
 
 	ni.SetNetworkEndpoints(addrs...)
