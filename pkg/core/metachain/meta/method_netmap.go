@@ -4,7 +4,6 @@ import (
 	"crypto/elliptic"
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/interop"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -159,9 +158,9 @@ func (m *MetaData) updateContainerList(ic *interop.Context, args []stackitem.Ite
 		panic(common.ErrAlphabetWitnessFailed)
 	}
 
-	for _, vector := range newPlacement {
-		sort.Sort(vector.Nodes)
-	}
+	//for _, vector := range newPlacement {
+	//	sort.Sort(vector.Nodes)
+	//}
 
 	err = ic.DAO.PutStorageConvertible(m.ID, append([]byte{containerPlacementPrefix}, cID.BytesBE()...), &newPlacement)
 	if err != nil {

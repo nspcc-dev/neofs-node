@@ -1,9 +1,10 @@
 package processors
 
 import (
+	"bytes"
 	"crypto/elliptic"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -22,6 +23,10 @@ func UpdateMetaPlacement(metaClient *notary.Actor, cid cid.ID, vectors [][]netma
 		var cnrVector meta.PlacementVector
 		cnrVector.REP = uint8(policy.ReplicaNumberByIndex(i))
 
+		slices.SortFunc(v, func(a, b netmap.NodeInfo) int {
+			return bytes.Compare(a.PublicKey(), b.PublicKey())
+		})
+
 		kk := make(keys.PublicKeys, 0, len(v))
 		for _, n := range v {
 			k, err := keys.NewPublicKeyFromBytes(n.PublicKey(), elliptic.P256())
@@ -31,7 +36,6 @@ func UpdateMetaPlacement(metaClient *notary.Actor, cid cid.ID, vectors [][]netma
 			kk = append(kk, k)
 		}
 
-		sort.Sort(kk)
 		cnrVector.Nodes = kk
 
 		placement = append(placement, cnrVector)

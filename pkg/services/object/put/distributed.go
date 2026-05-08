@@ -587,7 +587,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 			}
 
 			ind := slices.IndexFunc(t.metaCollection.sortedNodes[node.placementVector], func(info netmapsdk.NodeInfo) bool {
-				return bytes.Equal(info.PublicKey(), node.info.PublicKey())
+				return t.placementIterator.neoFSNet.IsLocalNodePublicKey(info.PublicKey())
 			})
 			if ind < 0 {
 				// unexpected at all
@@ -651,7 +651,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 			})
 			if ind < 0 {
 				// unexpected at all
-				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+				return fmt.Errorf("remote node for replication is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
 			}
 
 			metaC.signaturesMtx.Lock()
