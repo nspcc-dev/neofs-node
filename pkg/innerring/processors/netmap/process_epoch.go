@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -56,7 +57,7 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 
 	if mapChanged {
 		l.Debug("updating placements in Container contract...")
-		err = np.updatePlacementInContract(*networkMap, l)
+		err = np.updatePlacementInContract(*networkMap, epoch, l)
 		if err != nil {
 			l.Error("can't update placements in Container contract", zap.Error(err))
 		} else {
@@ -67,7 +68,7 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	np.handleNotaryDeposit(ev)
 }
 
-func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) error {
+func (np *Processor) updatePlacementInContract(nm netmap.NetMap, epoch uint64, l *zap.Logger) error {
 	cids, err := np.containerWrp.List(nil)
 	if err != nil {
 		return fmt.Errorf("can't get containers list: %w", err)
@@ -98,6 +99,26 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 		}
 		for i := repRuleNum; i < len(vectors); i++ { // EC rules
 			replicas[i] = 1 // each EC part is stored in a single copy
+		}
+
+		if np.metaClient != nil {
+			var metaPolicy string
+			for k, v := range cnr.Attributes() {
+				if k == "__NEOFS__METAINFO_CONSISTENCY" && (v == "optimistic" || v == "strict") {
+					metaPolicy = v
+					break
+				}
+			}
+			if metaPolicy != "" {
+				np.log.Debug("updating meta container placements...", zap.Stringer("cid", cID))
+
+				err = processors.UpdateMetaPlacement(np.metaClient, cID, vectors, policy, uint32(epoch))
+				if err != nil {
+					np.log.Error("could not update meta container placement", zap.Stringer("cid", cID), zap.Error(err))
+				} else {
+					np.log.Debug("updated meta container placements...", zap.Stringer("cid", cID))
+				}
+			}
 		}
 
 		err = np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)

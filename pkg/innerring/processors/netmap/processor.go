@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -54,6 +55,7 @@ type (
 		alphabetState AlphabetState
 		curMap        atomic.Value
 
+		metaClient   *notary.Actor
 		netmapClient *nmClient.Client
 		containerWrp *container.Client
 
@@ -67,6 +69,7 @@ type (
 	Params struct {
 		Log              *zap.Logger
 		PoolSize         int
+		MetaClient       *notary.Actor
 		NetmapClient     *nmClient.Client
 		EpochTimer       EpochTimerReseter
 		EpochState       EpochState
@@ -123,6 +126,7 @@ func New(p *Params) (*Processor, error) {
 		alphabetState: p.AlphabetState,
 		netmapClient:  p.NetmapClient,
 		containerWrp:  p.ContainerWrapper,
+		metaClient:    p.MetaClient,
 
 		handleAlphabetSync: p.AlphabetSyncHandler,
 
