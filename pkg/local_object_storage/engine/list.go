@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"sync"
+
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -11,6 +13,13 @@ import (
 // when the storage can't return any more objects after the provided
 // cursor. Use nil cursor object to start listing again.
 var ErrEndOfListing = shard.ErrEndOfListing
+
+const listParallelThreshold = 4
+
+type shardListResult struct {
+	items []objectcore.AddressWithAttributes
+	err   error
+}
 
 // Cursor is a type for continuous object listing. It's returned from
 // [StorageEngine.ListWithCursor] and can be reused as a parameter for it for
@@ -63,14 +72,19 @@ func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor, attrs ...st
 	var result, buf []objectcore.AddressWithAttributes
 
 	cnr, obj := cursor.shardCursor.ContainerID(), cursor.shardCursor.LastObjectID()
-	for _, sh := range shards {
-		cursor.shardCursor.Reset(cnr, obj)
-		res, _, err := sh.ListWithCursor(int(count), cursor.shardCursor, attrs...)
-		if err != nil || len(res) == 0 {
+	var shardResults []shardListResult
+	if len(shards) <= listParallelThreshold {
+		shardResults = listSequential(shards, int(count), cnr, obj, attrs...)
+	} else {
+		shardResults = listParallel(shards, int(count), cnr, obj, attrs...)
+	}
+
+	for i := range shards {
+		if shardResults[i].err != nil || len(shardResults[i].items) == 0 {
 			continue
 		}
 		prev := result
-		result = mergeListResults(buf, result, res, sh.ID().String(), int(count))
+		result = mergeListResults(buf, result, shardResults[i].items, shards[i].ID().String(), int(count))
 		if prev != nil {
 			buf = prev[:0]
 		}
@@ -83,6 +97,41 @@ func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor, attrs ...st
 	last := result[len(result)-1]
 	cursor.shardCursor.Reset(last.Address.Container(), last.Address.Object())
 	return result, cursor, nil
+}
+
+func listSequential(shards []shardWrapper, count int, cnr cid.ID, obj oid.ID, attrs ...string) []shardListResult {
+	res := make([]shardListResult, len(shards))
+	crs := shard.NewCursor(cnr, obj)
+	for i := range shards {
+		crs.Reset(cnr, obj)
+		res[i].items, _, res[i].err = shards[i].ListWithCursor(count, crs, attrs...)
+	}
+	return res
+}
+
+func listParallel(shards []shardWrapper, count int, cnr cid.ID, obj oid.ID, attrs ...string) []shardListResult {
+	res := make([]shardListResult, len(shards))
+	workers := (len(shards) + listParallelThreshold - 1) / listParallelThreshold
+	chunkSize := (len(shards) + workers - 1) / workers
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for w := range workers {
+		start := w * chunkSize
+		end := start + chunkSize
+		end = min(end, len(shards))
+
+		go func(start, end int) {
+			defer wg.Done()
+			for i := start; i < end; i++ {
+				crs := shard.NewCursor(cnr, obj)
+				res[i].items, _, res[i].err = shards[i].ListWithCursor(count, crs, attrs...)
+			}
+		}(start, end)
+	}
+
+	wg.Wait()
+	return res
 }
 
 // mergeListResults merges a sorted accumulated result with a new sorted slice
