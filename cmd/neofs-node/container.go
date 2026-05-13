@@ -266,7 +266,7 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 				continue
 			}
 
-			err = c.cCli.PutReport(cnr, size, objsNum, c.PublicKey())
+			err = c.cCli.PutReport(cnr, size, objsNum, c.publicKey())
 			if err != nil {
 				l.Warn("put report to contract error", zap.Stringer("cid", cnr), zap.Error(err))
 				continue
@@ -522,20 +522,17 @@ func (p *paymentChecker) UnpaidSince(cID cid.ID) (int64, error) {
 	return epoch, nil
 }
 
-func (c *cfg) PublicKey() []byte {
-	return nodeKeyFromNetmap(c)
+func (c *cfg) publicKey() []byte {
+	ni, ok := c.cfgNetmap.state.getNodeInfo()
+	if ok {
+		return ni.PublicKey()
+	}
+
+	return nil
 }
 
 func (c *cfg) IsLocalKey(key []byte) bool {
-	return bytes.Equal(key, c.PublicKey())
-}
-
-func (c *cfg) IterateAddresses(f func(string) bool) {
-	c.iterateNetworkAddresses(f)
-}
-
-func (c *cfg) NumberOfAddresses() int {
-	return c.addressNum()
+	return bytes.Equal(key, c.publicKey())
 }
 
 type containersInChain basics

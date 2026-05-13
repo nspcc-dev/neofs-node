@@ -4,6 +4,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,11 +32,14 @@ func TestAddressGroup_FromStringSlice(t *testing.T) {
 	})
 }
 
-func TestAddressGroup_FromIterator(t *testing.T) {
-	addrs := testIterator{
-		"/dns4/node1.neofs/tcp/8080",
-		"/dns4/node2.neofs/tcp/1234/tls",
-	}
+func TestAddressGroup_FromNodeInfo(t *testing.T) {
+	var (
+		addrs = []string{
+			"/dns4/node1.neofs/tcp/8080",
+			"/dns4/node2.neofs/tcp/1234/tls",
+		}
+		ni netmap.NodeInfo
+	)
 	expected := make(AddressGroup, len(addrs))
 	for i := range addrs {
 		expected[i] = Address{buildMultiaddr(addrs[i], t)}
@@ -44,26 +48,16 @@ func TestAddressGroup_FromIterator(t *testing.T) {
 
 	var ag AddressGroup
 	t.Run("empty", func(t *testing.T) {
-		require.Error(t, ag.FromIterator(testIterator{}))
+		require.Error(t, ag.FromNodeInfo(ni))
 	})
 
-	require.NoError(t, ag.FromIterator(addrs))
+	ni.SetNetworkEndpoints(addrs...)
+	require.NoError(t, ag.FromNodeInfo(ni))
 	require.Equal(t, expected, ag)
 
 	t.Run("error is returned, group is unchanged", func(t *testing.T) {
-		require.Error(t, ag.FromIterator(testIterator{"invalid"}))
+		ni.SetNetworkEndpoints("invalid")
+		require.Error(t, ag.FromNodeInfo(ni))
 		require.Equal(t, expected, ag)
 	})
-}
-
-type testIterator []string
-
-func (t testIterator) IterateAddresses(f func(string) bool) {
-	for i := range t {
-		f(t[i])
-	}
-}
-
-func (t testIterator) NumberOfAddresses() int {
-	return len(t)
 }

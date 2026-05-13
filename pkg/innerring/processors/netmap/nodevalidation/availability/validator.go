@@ -111,6 +111,7 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 const pingTimeout = 15 * time.Second
 
 func createSDKClient(e string) (*client.Client, error) {
+	// FIXME: pending removal in #3982.
 	var a network.Address
 	err := a.FromString(e)
 	if err != nil {

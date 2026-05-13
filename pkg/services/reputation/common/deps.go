@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
@@ -61,15 +61,5 @@ type WriterProvider interface {
 type ManagerBuilder interface {
 	// BuildManagers must compose list of managers. It depends on
 	// particular epoch and PeerID of the current route point.
-	BuildManagers(epoch uint64, p apireputation.PeerID) ([]ServerInfo, error)
-}
-
-// ServerInfo describes a set of
-// characteristics of a point in a route.
-type ServerInfo interface {
-	// PublicKey returns public key of the node
-	// from the route in a binary representation.
-	PublicKey() []byte
-
-	network.MultiAddressIterator
+	BuildManagers(epoch uint64, p apireputation.PeerID) ([]netmap.NodeInfo, error)
 }

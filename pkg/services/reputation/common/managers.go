@@ -53,21 +53,6 @@ func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) ManagerBuilder {
 	}
 }
 
-// implements Server on apiNetmap.NodeInfo.
-type nodeServer apiNetmap.NodeInfo
-
-func (x nodeServer) PublicKey() []byte {
-	return (apiNetmap.NodeInfo)(x).PublicKey()
-}
-
-func (x nodeServer) IterateAddresses(f func(string) bool) {
-	(apiNetmap.NodeInfo)(x).NetworkEndpoints()(f)
-}
-
-func (x nodeServer) NumberOfAddresses() int {
-	return (apiNetmap.NodeInfo)(x).NumberOfNetworkEndpoints()
-}
-
 type hashableUint uint64
 
 func (h hashableUint) Hash() uint64 {
@@ -76,7 +61,7 @@ func (h hashableUint) Hash() uint64 {
 
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
-func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([]ServerInfo, error) {
+func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([]apiNetmap.NodeInfo, error) {
 	mb.log.Debug("start building managers",
 		zap.Uint64("epoch", epoch),
 		zap.Stringer("peer", p),
@@ -102,7 +87,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([
 				managerIndex = 0
 			}
 
-			return []ServerInfo{nodeServer(nodes[managerIndex])}, nil
+			return []apiNetmap.NodeInfo{nodes[managerIndex]}, nil
 		}
 	}
 

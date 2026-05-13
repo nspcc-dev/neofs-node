@@ -59,11 +59,11 @@ type Option func(*cfg)
 type Transport interface {
 	// SendReplicationRequestToNode sends a prepared replication request message to
 	// the specified remote node.
-	SendReplicationRequestToNode(ctx context.Context, req []byte, node client.NodeInfo) ([]byte, error)
+	SendReplicationRequestToNode(ctx context.Context, req []byte, node netmapsdk.NodeInfo) ([]byte, error)
 }
 
 type ClientConstructor interface {
-	Get(context.Context, client.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, netmapsdk.NodeInfo) (client.MultiAddressClient, error)
 }
 
 // PostPlacementReplicator performs replication of objects that

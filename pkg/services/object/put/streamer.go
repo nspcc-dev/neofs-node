@@ -242,7 +242,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		relay = func(node nodeDesc) error {
 			c, err := p.clientConstructor.Get(p.ctx, node.info)
 			if err != nil {
-				return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
+				return fmt.Errorf("could not create SDK client %s: %w", addressLogString(node.info), err)
 			}
 
 			return p.relay(c)

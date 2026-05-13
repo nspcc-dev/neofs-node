@@ -44,16 +44,6 @@ func (x AddressGroup) Swap(i, j int) {
 	x[i], x[j] = x[j], x[i]
 }
 
-// MultiAddressIterator is an interface of network address group.
-type MultiAddressIterator interface {
-	// IterateAddresses must iterate over network addresses and pass each one
-	// to the handler until it returns false.
-	IterateAddresses(func(string) bool)
-
-	// NumberOfAddresses must return number of addresses in group.
-	NumberOfAddresses() int
-}
-
 // FromStringSlice forms AddressGroup from a string slice.
 //
 // Returns an error in the absence of addresses or if any of the addresses are incorrect.
@@ -75,20 +65,20 @@ func (x *AddressGroup) FromStringSlice(addr []string) error {
 	return nil
 }
 
-// FromIterator forms AddressGroup from MultiAddressIterator structure.
+// FromNodeInfo forms AddressGroup from [netmap.NodeInfo] structure.
 // The result is sorted with sort.Sort.
 //
 // Returns an error in the absence of addresses or if any of the addresses are incorrect.
-func (x *AddressGroup) FromIterator(iter MultiAddressIterator) error {
+func (x *AddressGroup) FromNodeInfo(ni netmap.NodeInfo) error {
 	as := *x
 
-	addrNum := iter.NumberOfAddresses()
+	addrNum := ni.NumberOfNetworkEndpoints()
 	if addrNum <= 0 {
 		return errors.New("missing network addresses")
 	}
 
 	as = slices.Grow(as, addrNum)[:0]
-	err := iterateParsedAddresses(iter, func(a Address) error {
+	err := iterateParsedAddresses(ni, func(a Address) error {
 		as = append(as, a)
 		return nil
 	})
@@ -103,8 +93,8 @@ func (x *AddressGroup) FromIterator(iter MultiAddressIterator) error {
 
 // iterateParsedAddresses parses each address from MultiAddressIterator and passes it to f
 // until 1st parsing failure or f's error.
-func iterateParsedAddresses(iter MultiAddressIterator, f func(s Address) error) error {
-	for s := range iter.IterateAddresses {
+func iterateParsedAddresses(ni netmap.NodeInfo, f func(s Address) error) error {
+	for s := range ni.NetworkEndpoints() {
 		var a Address
 
 		err := a.FromString(s)

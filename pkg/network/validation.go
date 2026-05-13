@@ -30,18 +30,6 @@ var (
 	errUnsupportedPresentationProtocol = errors.New("unsupported presentation protocol in multiaddress")
 )
 
-// NodeEndpointsIterator is a wrapper over netmap.NodeInfo which implements
-// MultiAddressIterator.
-type NodeEndpointsIterator netmap.NodeInfo
-
-func (x NodeEndpointsIterator) IterateAddresses(f func(string) bool) {
-	(netmap.NodeInfo)(x).NetworkEndpoints()(f)
-}
-
-func (x NodeEndpointsIterator) NumberOfAddresses() int {
-	return (netmap.NodeInfo)(x).NumberOfNetworkEndpoints()
-}
-
 // VerifyMultiAddress validates multiaddress of n.
 //
 // If n's address contains more than 3 protocols
@@ -56,7 +44,7 @@ func (x NodeEndpointsIterator) NumberOfAddresses() int {
 //  2. tcp
 //  3. tls(optional, may be absent)
 func VerifyMultiAddress(ni netmap.NodeInfo) error {
-	return iterateParsedAddresses(NodeEndpointsIterator(ni), checkProtocols)
+	return iterateParsedAddresses(ni, checkProtocols)
 }
 
 func checkProtocols(a Address) error {

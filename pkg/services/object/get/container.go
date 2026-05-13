@@ -3,9 +3,6 @@ package getsvc
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
@@ -37,7 +34,6 @@ func (exec *execCtx) executeOnContainer() {
 
 	exec.status = statusUndefined
 	mProcessedNodes := make(map[string]struct{})
-	var endpoints network.AddressGroup
 	var j, jLim uint
 	primary := true
 
@@ -67,22 +63,10 @@ func (exec *execCtx) executeOnContainer() {
 
 			mProcessedNodes[strKey] = struct{}{}
 
-			if err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeLists[i][j])); err != nil {
-				// critical error that may ultimately block the storage service. Normally it
-				// should not appear because entry into the network map under strict control
-				exec.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
-					zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])), zap.Error(err))
-				continue
-			}
-
 			// TODO: #1142 consider parallel execution
 			// TODO: #1142 consider optimization: if status == SPLIT we can continue until
 			//  we reach the best result - split info with linking object ID.
-			var info client.NodeInfo
-			info.SetAddressGroup(endpoints)
-			info.SetPublicKey(bKey)
-
-			if exec.processNode(info) {
+			if exec.processNode(nodeLists[i][j]) {
 				exec.log.Debug("completing the operation")
 				return
 			}

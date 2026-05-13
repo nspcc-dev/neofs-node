@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -24,7 +22,7 @@ type RemoteSender struct {
 	clientConstructor ClientConstructor
 }
 
-func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *object.Object,
+func putObjectToNode(ctx context.Context, nodeInfo netmap.NodeInfo, obj *object.Object,
 	keyStorage *util.KeyStorage, clientConstructor ClientConstructor, commonPrm *util.CommonPrm) error {
 	var opts client.PrmObjectPutInit
 	opts.MarkLocal()
@@ -54,7 +52,7 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 
 	c, err := clientConstructor.Get(ctx, nodeInfo)
 	if err != nil {
-		return fmt.Errorf("could not create SDK client %s: %w", nodeInfo, err)
+		return fmt.Errorf("could not create SDK client %s: %w", addressLogString(nodeInfo), err)
 	}
 
 	if bt := commonPrm.BearerToken(); bt != nil {
@@ -64,12 +62,12 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 
 	w, err := c.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), opts)
 	if err != nil {
-		return fmt.Errorf("could not put object to %s: init object writing on client: %w", nodeInfo.AddressGroup(), err)
+		return fmt.Errorf("could not put object to %s: init object writing on client: %w", addressLogString(nodeInfo), err)
 	}
 
 	_, err = w.Write(obj.Payload())
 	if err != nil {
-		return fmt.Errorf("could not put object to %s: write object payload into stream: %w", nodeInfo.AddressGroup(), err)
+		return fmt.Errorf("could not put object to %s: write object payload into stream: %w", addressLogString(nodeInfo), err)
 	}
 
 	err = w.Close()
@@ -79,7 +77,7 @@ func putObjectToNode(ctx context.Context, nodeInfo clientcore.NodeInfo, obj *obj
 		}); ok {
 			ce.ReportError(err)
 		}
-		return fmt.Errorf("could not put object to %s: finish object stream: %w", nodeInfo.AddressGroup(), err)
+		return fmt.Errorf("could not put object to %s: finish object stream: %w", addressLogString(nodeInfo), err)
 	}
 
 	return nil
@@ -97,19 +95,12 @@ func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *Remot
 // [io.ReadSeeker] into local storage of the node described by specified
 // [netmap.NodeInfo].
 func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, id oid.ID, src io.ReadSeeker, nodeInfo netmap.NodeInfo) error {
-	var nodeInfoForCons clientcore.NodeInfo
-
-	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfoForCons, netmapCore.Node(nodeInfo))
-	if err != nil {
-		return fmt.Errorf("parse remote node info: %w", err)
-	}
-
 	key, err := s.keyStorage.GetKey(nil)
 	if err != nil {
 		return fmt.Errorf("fetch local node's private key: %w", err)
 	}
 
-	c, err := s.clientConstructor.Get(ctx, nodeInfoForCons)
+	c, err := s.clientConstructor.Get(ctx, nodeInfo)
 	if err != nil {
 		return fmt.Errorf("init NeoFS API client of the remote node: %w", err)
 	}

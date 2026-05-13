@@ -12,9 +12,6 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -78,8 +75,8 @@ func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []
 	return nodeLists, primaryNums, nil, nil
 }
 
-func (c *testClientCache) get(_ context.Context, info client.NodeInfo) (getClient, error) {
-	v, ok := c.clients[info.AddressGroup().String()]
+func (c *testClientCache) get(_ context.Context, info netmap.NodeInfo) (getClient, error) {
+	v, ok := c.clients[string(info.PublicKey())]
 	if !ok {
 		return nil, errors.New("could not construct client")
 	}
@@ -438,12 +435,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 			ni.SetNetworkEndpoints(a)
 			ni.SetPublicKey(bPubKey)
 
-			var na network.AddressGroup
-
-			err := na.FromIterator(netmapcore.Node(ni))
-			require.NoError(t, err)
-
-			as[j] = na.String()
+			as[j] = string(ni.PublicKey())
 
 			ns[j] = ni
 		}

@@ -136,27 +136,6 @@ func (s *networkState) getNodeInfo() (res netmapSDK.NodeInfo, ok bool) {
 	return
 }
 
-func nodeKeyFromNetmap(c *cfg) []byte {
-	ni, ok := c.cfgNetmap.state.getNodeInfo()
-	if ok {
-		return ni.PublicKey()
-	}
-
-	return nil
-}
-
-func (c *cfg) iterateNetworkAddresses(f func(string) bool) {
-	ni := c.cfgNodeInfo.localInfo
-	ni.NetworkEndpoints()(f)
-}
-
-func (c *cfg) addressNum() int {
-	c.cfgNodeInfo.localInfoLock.RLock()
-	defer c.cfgNodeInfo.localInfoLock.RUnlock()
-
-	return c.cfgNodeInfo.localInfo.NumberOfNetworkEndpoints()
-}
-
 func initNetmapService(c *cfg) {
 	c.cfgNodeInfo.localInfoLock.Lock()
 

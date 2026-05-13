@@ -3,7 +3,7 @@ package router
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
@@ -16,7 +16,7 @@ type Prm struct {
 	// Characteristics of the local node's server.
 	//
 	// Must not be nil.
-	LocalServerInfo common.ServerInfo
+	LocalServerInfo netmap.NodeInfo
 
 	// Component for sending values to a fixed route point.
 	//
@@ -47,7 +47,7 @@ type Router struct {
 
 	routeBuilder Builder
 
-	localSrvInfo common.ServerInfo
+	localSrvInfo netmap.NodeInfo
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"
@@ -62,8 +62,6 @@ func New(prm Prm, opts ...Option) *Router {
 		panicOnPrmValue("RemoteWriterProvider", prm.RemoteWriterProvider)
 	case prm.Builder == nil:
 		panicOnPrmValue("Builder", prm.Builder)
-	case prm.LocalServerInfo == nil:
-		panicOnPrmValue("LocalServerInfo", prm.LocalServerInfo)
 	}
 
 	o := defaultOpts()

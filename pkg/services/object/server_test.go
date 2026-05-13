@@ -159,7 +159,7 @@ func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Req
 
 type noCallClients struct{}
 
-func (noCallClients) Get(context.Context, clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (noCallClients) Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
 	panic("must not be called")
 }
 
@@ -762,7 +762,7 @@ func (x *mockConnections) setConn(node netmap.NodeInfo, conn clientcore.MultiAdd
 	x.conns[string(node.PublicKey())] = conn
 }
 
-func (x *mockConnections) Get(_ context.Context, info clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+func (x *mockConnections) Get(_ context.Context, info netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
 	conn, ok := x.conns[string(info.PublicKey())]
 	if !ok {
 		return nil, errors.New("missing node connection")
@@ -817,7 +817,7 @@ func (unimplementedConn) AnnounceIntermediateTrust(context.Context, uint64, repu
 	panic("unimplemented")
 }
 
-func (unimplementedConn) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+func (unimplementedConn) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
 	panic("unimplemented")
 }
 
@@ -829,7 +829,7 @@ func (emptyRemoteNode) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, 
 	return nil, apistatus.ErrObjectNotFound
 }
 
-func (emptyRemoteNode) ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+func (emptyRemoteNode) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
 	return errors.New("any transport error")
 }
 
@@ -838,6 +838,6 @@ type mockGRPCConn struct {
 	conn *grpc.ClientConn
 }
 
-func (x *mockGRPCConn) ForEachGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
+func (x *mockGRPCConn) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
 	return f(ctx, x.conn)
 }

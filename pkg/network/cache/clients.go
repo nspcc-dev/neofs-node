@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"iter"
 	"maps"
 	"slices"
 	"sync"
@@ -79,9 +80,8 @@ func snCacheKey(pub []byte) string { return string(pub) }
 // Get initializes connections to network addresses of described SN and returns
 // interface to access them. All opened connections are cached and kept alive
 // until [Clients.CloseAll].
-func (x *Clients) Get(ctx context.Context, info clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
-	pub := info.PublicKey()
-	cacheKey := snCacheKey(pub)
+func (x *Clients) Get(ctx context.Context, info netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
+	cacheKey := snCacheKey(info.PublicKey())
 
 	x.mtx.RLock()
 	c, ok := x.conns[cacheKey]
@@ -96,7 +96,7 @@ func (x *Clients) Get(ctx context.Context, info clientcore.NodeInfo) (clientcore
 		return c, nil
 	}
 
-	c, err := x.initConnections(ctx, pub, info.AddressGroup())
+	c, err := x.initConnections(ctx, info.PublicKey(), info.NetworkEndpoints())
 	if err != nil {
 		return nil, fmt.Errorf("init connections: %w", err)
 	}
@@ -138,21 +138,13 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 		return nil
 	}
 
-	as := make(network.AddressGroup, 0, sn.NumberOfNetworkEndpoints())
-	var a network.Address
-	for ma := range sn.NetworkEndpoints() {
-		if err := a.FromString(ma); err != nil {
-			// TODO: if at least one address is OK, SN can be operational
-			return fmt.Errorf("parse network address %q: %w", ma, err)
-		}
-		as = append(as, a)
-	}
+	var as = slices.Collect(sn.NetworkEndpoints())
 
 	conns.mtx.Lock()
 	defer conns.mtx.Unlock()
 
 	maps.DeleteFunc(conns.m, func(ma string, c *client.Client) bool {
-		if slices.ContainsFunc(as, func(a network.Address) bool { return a.String() == ma }) {
+		if slices.Contains(as, ma) {
 			return false
 		}
 		if err := c.Close(); err != nil {
@@ -165,13 +157,12 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 		return true
 	})
 
-	for i := range as {
-		ma := as[i].String()
+	for _, ma := range as {
 		if _, ok := conns.m[ma]; ok {
 			continue
 		}
 		x.log.Info("initializing connection to new SN address in the new network map...", zap.String("address", ma))
-		c, err := x.initConnection(ctx, pub, as[i].URIAddr())
+		c, err := x.initConnection(ctx, pub, ma)
 		if err != nil {
 			x.log.Info("failed to init connection to new SN address in the new network map",
 				zap.String("address", ma), zap.Error(err))
@@ -184,22 +175,21 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 	return nil
 }
 
-func (x *Clients) initConnections(ctx context.Context, pub []byte, as network.AddressGroup) (*connections, error) {
-	m := make(map[string]*client.Client, len(as))
+func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Seq[string]) (*connections, error) {
+	m := make(map[string]*client.Client)
 	l := x.log.With(zap.String("public key", hex.EncodeToString(pub)))
-	for i := range as {
-		cacheKey := as[i].String()
-		l.Info("initializing connection to the SN...", zap.String("address", cacheKey))
-		c, err := x.initConnection(ctx, pub, as[i].URIAddr())
+	for s := range addrs {
+		l.Info("initializing connection to the SN...", zap.String("address", s))
+		c, err := x.initConnection(ctx, pub, s)
 		if err != nil {
 			// TODO: if at least one address is OK, SN can be operational
 			for cl := range maps.Values(m) {
 				_ = cl.Close()
 			}
-			return nil, fmt.Errorf("init conn to %q: %w", as[i], err)
+			return nil, fmt.Errorf("init conn to %q: %w", s, err)
 		}
-		l.Info("connection to the SN successfully initialized", zap.String("address", cacheKey))
-		m[cacheKey] = c
+		l.Info("connection to the SN successfully initialized", zap.String("address", s))
+		m[s] = c
 	}
 	var hexKey = hex.EncodeToString(pub)
 	return &connections{
@@ -210,7 +200,13 @@ func (x *Clients) initConnections(ctx context.Context, pub []byte, as network.Ad
 }
 
 func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*client.Client, error) {
-	target, withTLS, err := uriutil.Parse(uri)
+	// FIXME: pending removal in #3982.
+	var a network.Address
+	if err := a.FromString(uri); err != nil {
+		return nil, fmt.Errorf("parse network address %q: %w", uri, err)
+	}
+
+	target, withTLS, err := uriutil.Parse(a.URIAddr())
 	if err != nil {
 		return nil, fmt.Errorf("parse URI: %w", err)
 	}
@@ -282,7 +278,7 @@ func (x *connections) all(f func(ma string, c *client.Client) bool) {
 	x.mtx.RUnlock()
 }
 
-func (x *connections) forEach(ctx context.Context, f func(context.Context, *client.Client) error) error {
+func (x *connections) forAny(ctx context.Context, f func(context.Context, *client.Client) error) error {
 	var firstErr error
 	for ma, c := range x.all {
 		err := f(ctx, c)
@@ -299,15 +295,15 @@ func (x *connections) forEach(ctx context.Context, f func(context.Context, *clie
 	return newMultiEndpointError(x.nodeID, firstErr)
 }
 
-func (x *connections) ForEachGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
-	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+func (x *connections) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
+	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return f(ctx, c.Conn())
 	})
 }
 
 func (x *connections) ObjectPutInit(ctx context.Context, hdr object.Object, signer user.Signer, opts client.PrmObjectPutInit) (client.ObjectWriter, error) {
 	var res client.ObjectWriter
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectPutInit(ctx, hdr, signer, opts)
 		return err
@@ -315,7 +311,7 @@ func (x *connections) ObjectPutInit(ctx context.Context, hdr object.Object, sign
 }
 
 func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.ReadSeeker, signer neofscrypto.Signer, signedReplication bool) (*neofscrypto.Signature, error) {
-	// same as forEach but with specific error handling
+	// same as forAny but with specific error handling
 	var firstErr error
 	for ma, c := range x.all {
 		sig, err := c.ReplicateObject(ctx, id, src, signer, signedReplication)
@@ -337,7 +333,7 @@ func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 
 func (x *connections) ObjectDelete(ctx context.Context, cnr cid.ID, obj oid.ID, signer user.Signer, opts client.PrmObjectDelete) (oid.ID, error) {
 	var res oid.ID
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectDelete(ctx, cnr, obj, signer, opts)
 		return err
@@ -347,7 +343,7 @@ func (x *connections) ObjectDelete(ctx context.Context, cnr cid.ID, obj oid.ID, 
 func (x *connections) ObjectGetInit(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectGet) (object.Object, *client.PayloadReader, error) {
 	var res1 object.Object
 	var res2 *client.PayloadReader
-	return res1, res2, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res1, res2, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res1, res2, err = c.ObjectGetInit(ctx, cnr, id, signer, opts)
 		return err
@@ -356,7 +352,7 @@ func (x *connections) ObjectGetInit(ctx context.Context, cnr cid.ID, id oid.ID, 
 
 func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHead) (*object.Object, error) {
 	var res *object.Object
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectHead(ctx, cnr, id, signer, opts)
 		return err
@@ -365,7 +361,7 @@ func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, sig
 
 func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer user.Signer, opts client.PrmObjectSearch) (*client.ObjectListReader, error) {
 	var res *client.ObjectListReader
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectSearchInit(ctx, cnr, signer, opts)
 		return err
@@ -374,7 +370,7 @@ func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer u
 
 func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID, off, ln uint64, signer user.Signer, opts client.PrmObjectRange) (*client.ObjectRangeReader, error) {
 	var res *client.ObjectRangeReader
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectRangeInit(ctx, cnr, id, off, ln, signer, opts)
 		return err
@@ -383,7 +379,7 @@ func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID
 
 func (x *connections) ObjectHash(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHash) ([][]byte, error) {
 	var res [][]byte
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectHash(ctx, cnr, id, signer, opts)
 		return err
@@ -391,13 +387,13 @@ func (x *connections) ObjectHash(ctx context.Context, cnr cid.ID, id oid.ID, sig
 }
 
 func (x *connections) AnnounceLocalTrust(ctx context.Context, epoch uint64, ts []apireputation.Trust, opts client.PrmAnnounceLocalTrust) error {
-	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceLocalTrust(ctx, epoch, ts, opts)
 	})
 }
 
 func (x *connections) AnnounceIntermediateTrust(ctx context.Context, epoch uint64, t apireputation.PeerToPeerTrust, opts client.PrmAnnounceIntermediateTrust) error {
-	return x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceIntermediateTrust(ctx, epoch, t, opts)
 	})
 }
@@ -406,7 +402,7 @@ func (x *connections) SearchObjects(ctx context.Context, cnr cid.ID, fs object.S
 	signer neofscrypto.Signer, opts client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
 	var resItems []client.SearchResultItem
 	var resCursor string
-	return resItems, resCursor, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return resItems, resCursor, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
 		resItems, resCursor, err = c.SearchObjects(ctx, cnr, fs, attrs, cursor, signer, opts)
 		return err

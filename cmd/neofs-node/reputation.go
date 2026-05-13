@@ -124,7 +124,7 @@ func initReputationService(c *cfg) {
 
 	localTrustRouter := reputationrouter.New(
 		reputationrouter.Prm{
-			LocalServerInfo:      c,
+			LocalServerInfo:      c.cfgNodeInfo.localInfo,
 			RemoteWriterProvider: remoteLocalTrustProvider,
 			Builder:              localRouteBuilder,
 		},
@@ -132,7 +132,7 @@ func initReputationService(c *cfg) {
 
 	intermediateTrustRouter := reputationrouter.New(
 		reputationrouter.Prm{
-			LocalServerInfo:      c,
+			LocalServerInfo:      c.cfgNodeInfo.localInfo,
 			RemoteWriterProvider: remoteIntermediateTrustProvider,
 			Builder:              intermediateRouteBuilder,
 		},
@@ -278,7 +278,7 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protorep
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())
-	passedRoute = append(passedRoute, s)
+	passedRoute = append(passedRoute, s.binPublicKey)
 
 	body := req.GetBody()
 
@@ -293,7 +293,7 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protorep
 	}
 
 	for _, trust := range body.GetTrusts() {
-		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(trust, passedRoute[0].PublicKey()), passedRoute, w)
+		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(trust, passedRoute[0]), passedRoute, w)
 		if err != nil {
 			return s.makeLocalResponse(fmt.Errorf("could not write one of local trusts: %w", err), req)
 		}
@@ -316,7 +316,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())
-	passedRoute = append(passedRoute, s)
+	passedRoute = append(passedRoute, s.binPublicKey)
 
 	body := req.GetBody()
 
@@ -340,7 +340,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 }
 
 func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
-	passedRoute []reputationcommon.ServerInfo, w reputationcommon.Writer) error {
+	passedRoute [][]byte, w reputationcommon.Writer) error {
 	err := reputationrouter.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
 	if err != nil {
 		return fmt.Errorf("wrong route of reputation trust value: %w", err)
@@ -365,11 +365,9 @@ func apiToLocalTrust(t *protoreputation.Trust, trustingPeer []byte) reputation.T
 	return localTrust
 }
 
-func reverseRoute(hdr *protosession.RequestVerificationHeader) (passedRoute []reputationcommon.ServerInfo) {
+func reverseRoute(hdr *protosession.RequestVerificationHeader) (passedRoute [][]byte) {
 	for hdr != nil {
-		passedRoute = append(passedRoute, &common.OnlyKeyRemoteServerInfo{
-			Key: hdr.GetBodySignature().GetKey(),
-		})
+		passedRoute = append(passedRoute, hdr.GetBodySignature().GetKey())
 
 		hdr = hdr.GetOrigin()
 	}

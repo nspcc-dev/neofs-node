@@ -113,16 +113,11 @@ func (t *distributedTarget) distributeECPart(part object.Object, enc encodedObje
 }
 
 func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc encodedObject, node netmap.NodeInfo, metaC *metaCollection) error {
-	var n nodeDesc
-	n.local = t.placementIterator.neoFSNet.IsLocalNodePublicKey(node.PublicKey())
-	if !n.local {
-		var err error
-		if n.info, err = convertNodeInfo(node); err != nil {
-			return fmt.Errorf("convert node info: %w", err)
-		}
+	var n = nodeDesc{
+		info:            node,
+		local:           t.placementIterator.neoFSNet.IsLocalNodePublicKey(node.PublicKey()),
+		placementVector: len(t.containerNodes.PrimaryCounts()) + ruleIdx,
 	}
-
-	n.placementVector = len(t.containerNodes.PrimaryCounts()) + ruleIdx
 
 	return t.sendObject(obj, enc, n, metaC)
 }
