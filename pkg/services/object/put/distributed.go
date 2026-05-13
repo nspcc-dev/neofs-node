@@ -540,8 +540,7 @@ func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj e
 
 		err = t.writeObjectLocally(obj, encObj)
 		if err != nil {
-			err = fmt.Errorf("write object locally: %w", err)
-			svcutil.LogServiceError(l, "PUT", nil, err)
+			svcutil.LogServiceError(l, "PUT", slices.Values([]string{"local"}), err)
 		}
 	} else {
 		err = placementFn(obj, encObj)
