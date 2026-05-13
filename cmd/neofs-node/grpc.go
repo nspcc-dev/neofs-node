@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -174,9 +175,10 @@ func buildGRPCServers(c *cfg, maxRecvMsgSizeOpt grpc.ServerOption) error {
 	}
 
 	c.cfgGRPC.gs = grpc.NewServer(serverOpts...)
+	c.cfgGRPC.mux = http.NewServeMux()
 
 	for _, sc := range c.appCfg.GRPC {
-		srv, lis, err := buildSingleGRPCServer(c, c.cfgGRPC.gs, sc, maxRecvMsgSizeOpt)
+		srv, lis, err := buildSingleGRPCServer(c, muxHandler{c.cfgGRPC.gs, c.cfgGRPC.mux}, sc, maxRecvMsgSizeOpt)
 		if err != nil {
 			return err
 		}
@@ -184,6 +186,19 @@ func buildGRPCServers(c *cfg, maxRecvMsgSizeOpt grpc.ServerOption) error {
 		c.cfgGRPC.servers = append(c.cfgGRPC.servers, srv)
 	}
 	return nil
+}
+
+type muxHandler struct {
+	gs  *grpc.Server
+	mux *http.ServeMux
+}
+
+func (h muxHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
+		h.gs.ServeHTTP(w, r)
+	} else {
+		h.mux.ServeHTTP(w, r)
+	}
 }
 
 func buildSingleGRPCServer(c *cfg, h http.Handler, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.ServerOption) (*http.Server, net.Listener, error) {
@@ -273,7 +288,7 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 			old.srv.Close()
 		}
 
-		srv, lis, err := buildSingleGRPCServer(c, c.cfgGRPC.gs, newSnap.GRPC, maxRecvMsgSizeOpt)
+		srv, lis, err := buildSingleGRPCServer(c, muxHandler{c.cfgGRPC.gs, c.cfgGRPC.mux}, newSnap.GRPC, maxRecvMsgSizeOpt)
 		if err != nil {
 			c.log.Error("failed to start gRPC server",
 				zap.String("endpoint", newSnap.Endpoint), zap.Error(err))

@@ -235,6 +235,7 @@ type cfgGRPC struct {
 	mu sync.Mutex
 
 	gs        *grpc.Server
+	mux       *http.ServeMux
 	listeners []net.Listener
 	servers   []*http.Server
 
