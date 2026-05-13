@@ -33,8 +33,7 @@ type execCtx struct {
 
 	ctx context.Context
 
-	prm          RangePrm
-	prmRangeHash *RangeHashPrm
+	prm RangePrm
 
 	statusError
 
@@ -100,11 +99,6 @@ func withPayloadRange(r *object.Range) execOption {
 	}
 }
 
-func withHash(p *RangeHashPrm) execOption {
-	return func(ctx *execCtx) {
-		ctx.prmRangeHash = p
-	}
-}
 
 func withLogger(l *zap.Logger) execOption {
 	return func(ctx *execCtx) {
@@ -467,16 +461,9 @@ func (exec *execCtx) writeCollectedObject() {
 	}
 }
 
-// isRangeHashForwardingEnabled returns true if common execution
-// parameters has GETRANGEHASH request forwarding closure set.
-func (exec execCtx) isRangeHashForwardingEnabled() bool {
-	return exec.prm.rangeForwarder != nil
-}
-
 // disableForwarding removes request forwarding closure from common
 // parameters, so it won't be inherited in new execution contexts.
 func (exec *execCtx) disableForwarding() {
 	exec.prm.SetRequestForwarder(nil)
-	exec.prm.SetRangeHashRequestForwarder(nil)
 	exec.forwardGetRequestFn = nil
 }

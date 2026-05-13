@@ -109,11 +109,10 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
-	return s.getRange(ctx, prm, nodeLists, repRules, ecRules, nil)
+	return s.getRange(ctx, prm, nodeLists, repRules, ecRules)
 }
 
-func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule,
-	hashPrm *RangeHashPrm) error {
+func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule) error {
 	if len(repRules) > 0 { // REP format does not require encoding
 		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
 		forwardOpt := withForwardRangeRequestFunc(prm.forwardRequestFn)
@@ -124,14 +123,6 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
-	if hashPrm != nil && prm.rangeForwarder != nil && !localNodeInSets(s.neoFSNet, nodeLists) {
-		hashes, err := s.proxyHashRequest(ctx, ecNodeLists, prm.rangeForwarder)
-		if err == nil {
-			hashPrm.forwardedRangeHashResponse = hashes
-		}
-		return err
-	}
-
 	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
 		return s.forwardRangeRequest(ctx, ecNodeLists, prm.forwardRequestFn)
 	}
@@ -146,77 +137,6 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 
 	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
 		ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
-}
-
-func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHashRes, error) {
-	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
-	if err != nil {
-		return nil, fmt.Errorf("get nodes for object: %w", err)
-	}
-
-	hashes := make([][]byte, 0, len(prm.rngs))
-
-	for _, rng := range prm.rngs {
-		h := prm.hashGen()
-
-		// For big ranges we could fetch range-hashes from different nodes and concatenate them locally.
-		// However,
-		// 1. Potential gains are insignificant when operating in the Internet given typical latencies and losses.
-		// 2. Parallel solution is more complex in terms of code.
-		// 3. TZ-hash is likely to be disabled in private installations.
-		rngPrm := RangePrm{
-			commonPrm: prm.commonPrm,
-		}
-
-		rngPrm.SetRange(&rng)
-		rngPrm.SetChunkWriter(&hasherWrapper{
-			hash: util.NewSaltingWriter(h, prm.salt),
-		})
-
-		if err := s.getRange(ctx, rngPrm, nodeLists, repRules, ecRules, &prm); err != nil {
-			return nil, err
-		}
-
-		if prm.forwardedRangeHashResponse != nil {
-			// forwarder request case; no need to collect the other
-			// parts, the whole response has already been received
-			hashes = prm.forwardedRangeHashResponse
-			break
-		}
-
-		hashes = append(hashes, h.Sum(nil))
-	}
-
-	return &RangeHashRes{
-		hashes: hashes,
-	}, nil
-}
-
-func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, proxyFn RangeRequestForwarder) ([][]byte, error) {
-	for i := range sortedNodeLists {
-		for j := range sortedNodeLists[i] {
-			conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodeLists[i][j])
-			if err != nil {
-				s.log.Debug("get conn to remote node",
-					zap.Strings("addresses", slices.Collect(sortedNodeLists[i][j].NetworkEndpoints())), zap.Error(err))
-				continue
-			}
-
-			hashes, err := proxyFn(ctx, conn)
-			if err == nil {
-				return hashes, nil
-			}
-
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) ||
-				errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-
-			s.log.Info("request proxy failed", zap.String("request", "HASH"), zap.Error(err))
-		}
-	}
-
-	return nil, apistatus.ErrObjectNotFound
 }
 
 // Head reads object header from container.

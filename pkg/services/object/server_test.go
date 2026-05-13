@@ -85,10 +85,6 @@ func (x noCallObjectService) GetRange(context.Context, getsvc.RangePrm) error {
 	panic("must not be called")
 }
 
-func (x noCallObjectService) GetRangeHash(context.Context, getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error) {
-	panic("must not be called")
-}
-
 type noCallTestFSChain struct{}
 
 func (*noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
@@ -141,9 +137,6 @@ func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest
 func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest) (v2.RequestInfo, error) {
-	panic("must not be called")
-}
 func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
@@ -178,9 +171,6 @@ func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.R
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
-	return v2.RequestInfo{}, nil
-}
-func (nopReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
@@ -802,10 +792,6 @@ func (unimplementedConn) SearchObjects(context.Context, cid.ID, object.SearchFil
 }
 
 func (unimplementedConn) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64, uint64, user.Signer, client.PrmObjectRange) (*client.ObjectRangeReader, error) {
-	panic("unimplemented")
-}
-
-func (unimplementedConn) ObjectHash(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHash) ([][]byte, error) {
 	panic("unimplemented")
 }
 

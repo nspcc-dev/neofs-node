@@ -140,7 +140,6 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			dst.incompleteObjectHeaders = !completed
 		case
 			*protoobject.GetRangeRequest,
-			*protoobject.GetRangeHashRequest,
 			*protoobject.DeleteRequest:
 			if h.obj == nil {
 				return errMissingOID

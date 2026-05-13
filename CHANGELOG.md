@@ -44,6 +44,7 @@ Changelog for NeoFS Node
 - `policer.max_workers` configuration (#3920)
 - Deprecated `Search` method support from storage nodes (#3931)
 - Internal conversions of node addresses received from network map (#3981)
+- `GetRangeHash` method support from storage nodes and related `object hash` CLI command (#3991)
 
 ### Updated
 - NeoGo dependency to 0.119.0 (#3993)
@@ -60,6 +61,9 @@ migrate to `Searchv2` if needed.
 
 Metabase will migrate to version 11 with this release to update object
 counters, this can take a while for shards with high object numbers.
+
+Storage nodes no longer implement deprecated `GetRangeHash` method and
+`neofs-cli object hash` command has been removed.
 
 ## [0.52.0] - 2026-03-27 - Woodo
 

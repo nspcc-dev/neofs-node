@@ -3,7 +3,6 @@ package getsvc
 import (
 	"context"
 	"crypto/ecdsa"
-	"hash"
 	"io"
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
@@ -44,21 +43,7 @@ type RangePrm struct {
 	forwardRequestFn ForwardRangeRequestFunc
 }
 
-// RangeHashPrm groups parameters of GetRange service call.
-type RangeHashPrm struct {
-	commonPrm
-
-	hashGen func() hash.Hash
-
-	rngs []object.Range
-
-	salt []byte
-
-	forwardedRangeHashResponse [][]byte
-}
-
 type RequestForwarder func(context.Context, coreclient.MultiAddressClient) (*object.Object, error)
-type RangeRequestForwarder func(context.Context, coreclient.MultiAddressClient) ([][]byte, error)
 
 // ForwardHeadRequestFunc sends currently served HEAD request to remote node
 // through passed connection and returns buffered response with requested
@@ -98,8 +83,6 @@ type commonPrm struct {
 
 	raw bool
 
-	rangeForwarder RangeRequestForwarder
-
 	// signerKey is a cached key that should be used for spawned
 	// requests (if any), could be nil if incoming request handling
 	// routine does not include any key fetching operations
@@ -135,28 +118,9 @@ func (p *RangePrm) SetRange(rng *object.Range) {
 	p.rng = rng
 }
 
-// SetRangeList sets a list of object payload ranges.
-func (p *RangeHashPrm) SetRangeList(rngs []object.Range) {
-	p.rngs = rngs
-}
-
-// SetHashGenerator sets constructor of hashing algorithm.
-func (p *RangeHashPrm) SetHashGenerator(v func() hash.Hash) {
-	p.hashGen = v
-}
-
-// SetSalt sets binary salt to XOR object's payload ranges before hash calculation.
-func (p *RangeHashPrm) SetSalt(salt []byte) {
-	p.salt = salt
-}
-
 // SetCommonParameters sets common parameters of the operation.
 func (p *commonPrm) SetCommonParameters(common *util.CommonPrm) {
 	p.common = common
-}
-
-func (p *commonPrm) SetRangeHashRequestForwarder(f RangeRequestForwarder) {
-	p.rangeForwarder = f
 }
 
 // WithAddress sets object address to be read.

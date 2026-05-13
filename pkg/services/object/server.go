@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -48,7 +47,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
 	grpccodes "google.golang.org/grpc/codes"
@@ -65,7 +63,6 @@ type Handlers interface {
 	Head(context.Context, getsvc.HeadPrm) error
 	Delete(context.Context, deletesvc.Prm) error
 	GetRange(context.Context, getsvc.RangePrm) error
-	GetRangeHash(context.Context, getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error)
 }
 
 // Various NeoFS protocol status codes.
@@ -83,7 +80,6 @@ const (
 //   - [stat.MethodObjectDelete]
 //   - [stat.MethodObjectSearch]
 //   - [stat.MethodObjectRange]
-//   - [stat.MethodObjectHash]
 type MetricCollector interface {
 	// HandleOpExecResult handles measured execution results of the given op.
 	HandleOpExecResult(_ stat.Method, success bool, _ time.Duration)
@@ -160,7 +156,6 @@ type ACLInfoExtractor interface {
 	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
 	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
 	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
-	HashRequestToInfo(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
 	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
 	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
@@ -825,185 +820,9 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 	return p, nil
 }
 
-func (s *Server) signHashResponse(resp *protoobject.GetRangeHashResponse, req *protoobject.GetRangeHashRequest) *protoobject.GetRangeHashResponse {
-	resp.VerifyHeader = util.SignResponseIfNeeded(&s.signer, resp, req)
-	return resp
-}
-
-func (s *Server) makeStatusHashResponse(err error, req *protoobject.GetRangeHashRequest) *protoobject.GetRangeHashResponse {
-	return s.signHashResponse(&protoobject.GetRangeHashResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	}, req)
-}
-
-// GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
-func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHashRequest) (*protoobject.GetRangeHashResponse, error) {
-	var (
-		err error
-		t   = time.Now()
-	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHashResponse(err, req), nil
-	}
-
-	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusHashResponse(apistatus.ErrNodeUnderMaintenance, req), nil
-	}
-
-	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
-	if err != nil {
-		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
-		}
-		return s.makeStatusHashResponse(err, req), nil
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHashResponse(err, req), nil
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHashResponse(err, req), nil
-	}
-
-	p, err := convertHashPrm(s.signer, reqInfo.Container, s.storage, req)
-	if err != nil {
-		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
-		}
-		return s.makeStatusHashResponse(err, req), nil
-	}
-	res, err := s.handlers.GetRangeHash(ctx, p)
-	if err != nil {
-		return s.makeStatusHashResponse(err, req), nil
-	}
-
-	return s.signHashResponse(&protoobject.GetRangeHashResponse{
-		Body: &protoobject.GetRangeHashResponse_Body{
-			Type:     req.Body.Type,
-			HashList: res.Hashes(),
-		}}, req), nil
-}
-
-// converts original request into parameters accepted by the internal handler.
-func convertHashPrm(signer ecdsa.PrivateKey, cnr container.Container, ss sessions, req *protoobject.GetRangeHashRequest) (getsvc.RangeHashPrm, error) {
-	body := req.GetBody()
-	ma := body.GetAddress()
-	if ma == nil { // includes nil body
-		return getsvc.RangeHashPrm{}, errors.New("missing object address")
-	}
-
-	var addr oid.Address
-	if err := addr.FromProtoMessage(ma); err != nil {
-		return getsvc.RangeHashPrm{}, fmt.Errorf("invalid object address: %w", err)
-	}
-
-	cp, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		return getsvc.RangeHashPrm{}, err
-	}
-
-	var p getsvc.RangeHashPrm
-
-	switch t := body.GetType(); t {
-	default:
-		return getsvc.RangeHashPrm{}, fmt.Errorf("unknown checksum type %v", t)
-	case refs.ChecksumType_SHA256:
-		p.SetHashGenerator(sha256.New)
-	case refs.ChecksumType_TZ:
-		p.SetHashGenerator(tz.New)
-	}
-
-	if tokV2 := cp.SessionTokenV2(); tokV2 != nil {
-		signerKey, err := ss.GetSessionV2PrivateKey(tokV2.Subjects())
-		if err != nil {
-			if !errors.Is(err, apistatus.ErrSessionTokenNotFound) {
-				return getsvc.RangeHashPrm{}, fmt.Errorf("fetching session v2 key: %w", err)
-			}
-			cp.ForgetTokens()
-			signerKey = signer
-		}
-		p.WithCachedSignerKey(&signerKey)
-	} else if tok := cp.SessionToken(); tok != nil {
-		authUser, err := tok.AuthUser()
-		if err != nil {
-			return getsvc.RangeHashPrm{}, fmt.Errorf("getting auth user from token: %w", err)
-		}
-		signerKey, err := ss.GetSessionPrivateKey(authUser)
-		if err != nil {
-			if !errors.Is(err, apistatus.ErrSessionTokenNotFound) {
-				return getsvc.RangeHashPrm{}, fmt.Errorf("fetching session key: %w", err)
-			}
-			cp.ForgetTokens()
-			signerKey = signer
-		}
-		p.WithCachedSignerKey(&signerKey)
-	}
-
-	mr := body.GetRanges()
-	rngs := make([]object.Range, len(mr))
-	for i := range mr {
-		rngs[i].SetOffset(mr[i].Offset)
-		rngs[i].SetLength(mr[i].Length)
-	}
-
-	p.SetCommonParameters(cp)
-	p.WithAddress(addr)
-	p.WithContainer(cnr)
-	p.SetRangeList(rngs)
-	p.SetSalt(body.GetSalt())
-
-	if cp.LocalOnly() {
-		return p, nil
-	}
-
-	var onceResign sync.Once
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.RangeHashPrm{}, errors.New("missing meta header")
-	}
-	p.SetRangeHashRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) ([][]byte, error) {
-		var err error
-		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Version: newCurrentProtoVersionMessage(),
-				Ttl:     meta.GetTtl() - 1,
-				Origin:  meta,
-			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		var hs [][]byte
-		return hs, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			var err error
-			hs, err = getHashesFromRemoteNode(ctx, conn, req)
-			return err // TODO: log error
-		})
-	})
-	return p, nil
-}
-
-func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.GetRangeHashRequest) ([][]byte, error) {
-	resp, err := protoobject.NewObjectServiceClient(conn).GetRangeHash(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
-	}
-
-	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
-		return nil, err
-	}
-	// TODO: verify number of hashes
-	return resp.GetBody().GetHashList(), nil
+// GetRangeHash is deprecated and no longer supported by the node.
+func (s *Server) GetRangeHash(_ context.Context, _ *protoobject.GetRangeHashRequest) (*protoobject.GetRangeHashResponse, error) {
+	return nil, grpcstatus.Error(grpccodes.Unimplemented, "no longer supported")
 }
 
 func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse, sign bool) error {

@@ -17,21 +17,19 @@ type (
 	}
 
 	objectServiceMetrics struct {
-		getCounter       methodCount
-		putCounter       methodCount
-		headCounter      methodCount
-		searchCounter    methodCount
-		deleteCounter    methodCount
-		rangeCounter     methodCount
-		rangeHashCounter methodCount
+		getCounter    methodCount
+		putCounter    methodCount
+		headCounter   methodCount
+		searchCounter methodCount
+		deleteCounter methodCount
+		rangeCounter  methodCount
 
-		getDuration       prometheus.Histogram
-		putDuration       prometheus.Histogram
-		headDuration      prometheus.Histogram
-		searchDuration    prometheus.Histogram
-		deleteDuration    prometheus.Histogram
-		rangeDuration     prometheus.Histogram
-		rangeHashDuration prometheus.Histogram
+		getDuration    prometheus.Histogram
+		putDuration    prometheus.Histogram
+		headDuration   prometheus.Histogram
+		searchDuration prometheus.Histogram
+		deleteDuration prometheus.Histogram
+		rangeDuration  prometheus.Histogram
 
 		putPayload prometheus.Counter
 		getPayload prometheus.Counter
@@ -78,13 +76,12 @@ func (m methodCount) inc(success bool) {
 
 func newObjectServiceMetrics() objectServiceMetrics {
 	var ( // Request counter metrics.
-		getCounter       = newMethodCallCounter("get")
-		putCounter       = newMethodCallCounter("put")
-		headCounter      = newMethodCallCounter("head")
-		searchCounter    = newMethodCallCounter("search")
-		deleteCounter    = newMethodCallCounter("delete")
-		rangeCounter     = newMethodCallCounter("range")
-		rangeHashCounter = newMethodCallCounter("range_hash")
+		getCounter    = newMethodCallCounter("get")
+		putCounter    = newMethodCallCounter("put")
+		headCounter   = newMethodCallCounter("head")
+		searchCounter = newMethodCallCounter("search")
+		deleteCounter = newMethodCallCounter("delete")
+		rangeCounter  = newMethodCallCounter("range")
 	)
 
 	var ( // Request duration metrics.
@@ -129,13 +126,6 @@ func newObjectServiceMetrics() objectServiceMetrics {
 			Name:      "rpc_range_time",
 			Help:      "RPC 'range request' handling time",
 		})
-
-		rangeHashDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "rpc_range_hash_time",
-			Help:      "RPC 'range hash' handling time",
-		})
 	)
 
 	var ( // Object payload metrics.
@@ -173,24 +163,22 @@ func newObjectServiceMetrics() objectServiceMetrics {
 	)
 
 	return objectServiceMetrics{
-		getCounter:        getCounter,
-		putCounter:        putCounter,
-		headCounter:       headCounter,
-		searchCounter:     searchCounter,
-		deleteCounter:     deleteCounter,
-		rangeCounter:      rangeCounter,
-		rangeHashCounter:  rangeHashCounter,
-		getDuration:       getDuration,
-		putDuration:       putDuration,
-		headDuration:      headDuration,
-		searchDuration:    searchDuration,
-		deleteDuration:    deleteDuration,
-		rangeDuration:     rangeDuration,
-		rangeHashDuration: rangeHashDuration,
-		putPayload:        putPayload,
-		getPayload:        getPayload,
-		shardMetrics:      shardsMetrics,
-		shardsReadonly:    shardsReadonly,
+		getCounter:     getCounter,
+		putCounter:     putCounter,
+		headCounter:    headCounter,
+		searchCounter:  searchCounter,
+		deleteCounter:  deleteCounter,
+		rangeCounter:   rangeCounter,
+		getDuration:    getDuration,
+		putDuration:    putDuration,
+		headDuration:   headDuration,
+		searchDuration: searchDuration,
+		deleteDuration: deleteDuration,
+		rangeDuration:  rangeDuration,
+		putPayload:     putPayload,
+		getPayload:     getPayload,
+		shardMetrics:   shardsMetrics,
+		shardsReadonly: shardsReadonly,
 	}
 }
 
@@ -201,7 +189,6 @@ func (m objectServiceMetrics) register() {
 	m.searchCounter.mustRegister()
 	m.deleteCounter.mustRegister()
 	m.rangeCounter.mustRegister()
-	m.rangeHashCounter.mustRegister()
 
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.putDuration)
@@ -209,7 +196,6 @@ func (m objectServiceMetrics) register() {
 	prometheus.MustRegister(m.searchDuration)
 	prometheus.MustRegister(m.deleteDuration)
 	prometheus.MustRegister(m.rangeDuration)
-	prometheus.MustRegister(m.rangeHashDuration)
 
 	prometheus.MustRegister(m.putPayload)
 	prometheus.MustRegister(m.getPayload)
@@ -240,9 +226,6 @@ func (m objectServiceMetrics) HandleOpExecResult(op stat.Method, success bool, d
 	case stat.MethodObjectRange:
 		m.rangeCounter.inc(success)
 		m.rangeDuration.Observe(d.Seconds())
-	case stat.MethodObjectHash:
-		m.rangeHashCounter.inc(success)
-		m.rangeHashDuration.Observe(d.Seconds())
 	}
 }
 

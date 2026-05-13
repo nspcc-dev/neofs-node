@@ -62,10 +62,6 @@ type partWriter struct {
 	chunkWriter ChunkWriter
 }
 
-type hasherWrapper struct {
-	hash io.Writer
-}
-
 // fallbackRangeReader wraps a range reader obtained via ObjectRangeInit and
 // falls back to a full GET in case apistatus.ErrObjectAccessDenied is
 // returned while reading.
@@ -229,11 +225,6 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 		return hdr, nil, nil
 	}
 
-	if rngH := exec.prmRangeHash; rngH != nil && exec.isRangeHashForwardingEnabled() {
-		exec.prmRangeHash.forwardedRangeHashResponse, err = exec.prm.rangeForwarder(exec.ctx, c.client)
-		return nil, nil, err
-	}
-
 	// we don't specify payload writer because we accumulate
 	// the object locally (even huge).
 	if rng := exec.ctxRange(); rng != nil {
@@ -340,11 +331,6 @@ func (w *partWriter) WriteChunk(p []byte) error {
 
 func (w *partWriter) WriteHeader(o *object.Object) error {
 	return w.headWriter.WriteHeader(o)
-}
-
-func (h *hasherWrapper) WriteChunk(p []byte) error {
-	_, err := h.hash.Write(p)
-	return err
 }
 
 func prettyRange(rng *object.Range) string {

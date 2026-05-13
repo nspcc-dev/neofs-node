@@ -377,15 +377,6 @@ func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID
 	})
 }
 
-func (x *connections) ObjectHash(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHash) ([][]byte, error) {
-	var res [][]byte
-	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
-		var err error
-		res, err = c.ObjectHash(ctx, cnr, id, signer, opts)
-		return err
-	})
-}
-
 func (x *connections) AnnounceLocalTrust(ctx context.Context, epoch uint64, ts []apireputation.Trust, opts client.PrmAnnounceLocalTrust) error {
 	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceLocalTrust(ctx, epoch, ts, opts)
