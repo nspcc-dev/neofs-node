@@ -420,8 +420,9 @@ func TestService_Get_EC(t *testing.T) {
 		mockKeyStorage: mockKeyStorage{
 			privKey: nodeKey,
 		},
-		sTok:  &sTok,
-		nodes: make(map[string]*Service),
+		sTok:      &sTok,
+		parentHdr: parentHdr,
+		nodes:     make(map[string]*Service),
 	}
 	for i := range nodeSvcs {
 		tc.nodes[string(nodeLists[0][i].Marshal())] = nodeSvcs[i]
@@ -511,6 +512,48 @@ func TestService_Get_EC(t *testing.T) {
 		}
 	}
 
+	t.Run("payload-only ranged GET validates header", func(t *testing.T) {
+		writer := &validatingChunkWriter{}
+
+		var prm Prm
+		prm.WithAddress(parentAddr)
+		prm.SetCommonParameters(cp)
+		prm.SetObjectWriter(writer)
+		prm.MarkPayloadOnly()
+		rng := object.NewRange()
+		rng.SetOffset(3)
+		rng.SetLength(17)
+		prm.SetRange(rng)
+
+		svc := newService(t)
+
+		err = svc.Get(ctx, prm)
+		require.NoError(t, err)
+		require.Equal(t, 1, writer.validateCount)
+		require.Zero(t, writer.writeHeaderCount)
+		require.Equal(t, parentPayload[3:20], writer.buf.Bytes())
+	})
+
+	t.Run("out-of-range does not write header", func(t *testing.T) {
+		var w mockObjectWriter
+
+		var prm Prm
+		prm.WithAddress(parentAddr)
+		prm.SetCommonParameters(cp)
+		prm.SetObjectWriter(&w)
+		rng := object.NewRange()
+		rng.SetOffset(uint64(len(parentPayload)))
+		rng.SetLength(1)
+		prm.SetRange(rng)
+
+		svc := newService(t)
+
+		err = svc.Get(ctx, prm)
+		require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
+		require.Zero(t, w.writeHeaderCount)
+		require.Zero(t, w.writeChunkCount)
+	})
+
 	var w mockObjectWriter
 	prm.SetObjectWriter(&w)
 
@@ -533,10 +576,33 @@ func parameterizePartInfoString(t testing.TB, p *Prm, ruleIdx, partIdx string) {
 	})
 }
 
+type validatingChunkWriter struct {
+	validateErr      error
+	validateCount    int
+	writeHeaderCount int
+	buf              bytes.Buffer
+}
+
+func (x *validatingChunkWriter) ValidateHeader(*object.Object) error {
+	x.validateCount++
+	return x.validateErr
+}
+
+func (x *validatingChunkWriter) WriteHeader(*object.Object) error {
+	x.writeHeaderCount++
+	return nil
+}
+
+func (x *validatingChunkWriter) WriteChunk(p []byte) error {
+	_, err := x.buf.Write(p)
+	return err
+}
+
 type testECServiceConn struct {
 	unimplementedServiceConns
 	mockKeyStorage
-	sTok *session.Object
+	sTok      *session.Object
+	parentHdr object.Object
 
 	nodes map[string]*Service
 }
@@ -581,4 +647,25 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 	}
 
 	return w.hdr, io.NopCloser(&w.buf), nil
+}
+
+func (x *testECServiceConn) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+	sTok *session.Object) (object.Object, error) {
+	if ctx == nil {
+		return object.Object{}, errors.New("[test] missing context")
+	}
+	if !pk.Equal(&x.privKey) {
+		return object.Object{}, errors.New("[test] unexpected private key")
+	}
+	if !assert.ObjectsAreEqual(sTok, x.sTok) {
+		return object.Object{}, errors.New("[test] unexpected session token")
+	}
+	if _, ok := x.nodes[string(node.Marshal())]; !ok {
+		return object.Object{}, errors.New("[test] unexpected node")
+	}
+	if x.parentHdr.GetID() != id || x.parentHdr.GetContainerID() != cnr {
+		return object.Object{}, errors.New("[test] unexpected object requested")
+	}
+
+	return *x.parentHdr.CutPayload(), nil
 }

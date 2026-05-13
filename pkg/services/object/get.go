@@ -51,10 +51,7 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
 			if errors.Is(err, io.EOF) {
-				if !prog.headWas {
-					return io.ErrUnexpectedEOF
-				}
-				return nil
+				return x.validateEOF(prog)
 			}
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
@@ -70,6 +67,21 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 			return nil
 		}
 	}
+}
+
+func (x *getProxyContext) validateEOF(prog getStreamProgress) error {
+	reqBody := x.req.GetBody()
+	if reqRange := reqBody.GetRange(); reqRange != nil && reqRange.GetLength() > 0 {
+		if uint64(x.respondedPayload) < reqRange.GetLength() {
+			return io.ErrUnexpectedEOF
+		}
+	} else if prog.headWas && x.payloadLenCheck > 0 && uint64(x.respondedPayload) < x.payloadLenCheck {
+		return io.ErrUnexpectedEOF
+	}
+	if !reqBody.GetPayloadOnly() && !prog.headWas {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 
 func (x *getProxyContext) handleGetResponse(streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
@@ -222,6 +234,9 @@ func (x *getProxyContext) handleInitResponse(respBuf mem.BufferSlice, buffers ip
 				err = eACLErr(x.respStream.reqInfo, err)
 				return
 			}
+		}
+		if x.suppressInit {
+			return
 		}
 		err = x.respStream.base.SendMsg(respBuf)
 		sent = true

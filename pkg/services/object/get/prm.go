@@ -25,6 +25,9 @@ type SubmitDataStreamFunc = func(io.ReadCloser)
 type Prm struct {
 	commonPrm
 
+	rng         *object.Range
+	payloadOnly bool
+
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
 
@@ -101,9 +104,25 @@ type ObjectWriter interface {
 	ChunkWriter
 }
 
+// HeaderValidator is an optional interface for validating object headers
+// before suppressing them from the response.
+type HeaderValidator interface {
+	ValidateHeader(*object.Object) error
+}
+
 // SetObjectWriter sets target component to write the object.
 func (p *Prm) SetObjectWriter(w ObjectWriter) {
 	p.objWriter = w
+}
+
+// SetRange sets range of the requested payload data.
+func (p *Prm) SetRange(rng *object.Range) {
+	p.rng = rng
+}
+
+// MarkPayloadOnly requests payload without an object header.
+func (p *Prm) MarkPayloadOnly() {
+	p.payloadOnly = true
 }
 
 // SetChunkWriter sets target component to write the object payload range.
@@ -171,6 +190,16 @@ func (p *Prm) WithBuffer(buffer []byte, submitStreamFn SubmitStreamFunc) {
 // GetBuffer returns buffer settings set using [Prm.WithBuffer].
 func (p Prm) GetBuffer() ([]byte, SubmitStreamFunc) {
 	return p.localGetBuffer, p.submitLocalGetStreamFn
+}
+
+// Range returns payload range settings.
+func (p Prm) Range() *object.Range {
+	return p.rng
+}
+
+// PayloadOnly reports whether only payload was requested.
+func (p Prm) PayloadOnly() bool {
+	return p.payloadOnly
 }
 
 // SetRequestForwarder specifies request transport callback to use for receiving

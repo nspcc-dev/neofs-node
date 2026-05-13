@@ -855,9 +855,14 @@ type getStream struct {
 
 	recheckEACL  bool
 	signResponse bool
+	payloadOnly  bool
 }
 
-func (s *getStream) WriteHeader(hdr *object.Object) error {
+func (s *getStream) ValidateHeader(hdr *object.Object) error {
+	if !s.recheckEACL {
+		return nil
+	}
+
 	mo := hdr.ProtoMessage()
 	resp := &protoobject.GetResponse{
 		Body: &protoobject.GetResponse_Body{
@@ -868,11 +873,31 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 			}},
 		},
 	}
-	if s.recheckEACL {
-		err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo)
-		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-			return eACLErr(s.reqInfo, err)
-		}
+
+	err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo)
+	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+		return eACLErr(s.reqInfo, err)
+	}
+	return nil
+}
+
+func (s *getStream) WriteHeader(hdr *object.Object) error {
+	if err := s.ValidateHeader(hdr); err != nil {
+		return err
+	}
+	if s.payloadOnly {
+		return nil
+	}
+
+	mo := hdr.ProtoMessage()
+	resp := &protoobject.GetResponse{
+		Body: &protoobject.GetResponse_Body{
+			ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
+				ObjectId:  mo.ObjectId,
+				Signature: mo.Signature,
+				Header:    mo.Header,
+			}},
+		},
 	}
 	return s.srv.sendGetResponse(s.base, resp, s.signResponse)
 }
@@ -940,6 +965,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		reqInfo:      reqInfo,
 		recheckEACL:  recheckEACL,
 		signResponse: needSignResp,
+		payloadOnly:  req.GetBody().GetPayloadOnly(),
 	})
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
@@ -954,8 +980,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
 	// Then small objects would fit into a single buffer, and for large ones it'd be possible to
 	// encode the first chunk response using the heading buffer.
-	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
-	defer hdrRespBuf.Free()
+	var hdrRespBuf *iprotobuf.MemBuffer
+	var hdrBuf []byte
+	if p.Range() == nil && !p.PayloadOnly() {
+		hdrRespBuf, hdrBuf = getBufferForHeadResponse()
+		defer hdrRespBuf.Free()
+	}
 
 	hdrLen := -1
 	var stream io.ReadCloser
@@ -965,7 +995,9 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 	}()
 
-	p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+	if hdrBuf != nil {
+		p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+	}
 
 	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
@@ -1115,6 +1147,18 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		return getsvc.Prm{}, fmt.Errorf("invalid object address: %w", err)
 	}
 
+	rng := body.GetRange()
+	if rng != nil {
+		rln := rng.GetLength()
+		if rln == 0 {
+			if rng.GetOffset() != 0 {
+				return getsvc.Prm{}, errors.New("zero range length")
+			}
+		} else if rng.GetOffset()+rln <= rng.GetOffset() {
+			return getsvc.Prm{}, errors.New("range overflow")
+		}
+	}
+
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
 		return getsvc.Prm{}, err
@@ -1126,6 +1170,15 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	p.WithContainer(cnr)
 	p.WithRawFlag(body.Raw)
 	p.SetObjectWriter(stream)
+	if rng != nil {
+		var objRng object.Range
+		objRng.SetOffset(rng.GetOffset())
+		objRng.SetLength(rng.GetLength())
+		p.SetRange(&objRng)
+	}
+	if body.GetPayloadOnly() {
+		p.MarkPayloadOnly()
+	}
 	if cp.LocalOnly() {
 		return p, nil
 	}
@@ -1137,14 +1190,18 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	}
 
 	proxyCtx := getProxyContext{
-		req:        req,
-		reqOID:     addr.Object(),
-		respStream: stream,
+		req:          req,
+		reqOID:       addr.Object(),
+		respStream:   stream,
+		suppressInit: body.GetPayloadOnly(),
 	}
 
 	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
+			if proxyCtx.suppressInit {
+				req.Body.PayloadOnly = false
+			}
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
 				Ttl:    meta.GetTtl() - 1,
@@ -1164,9 +1221,10 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 }
 
 type getProxyContext struct {
-	req        *protoobject.GetRequest
-	reqOID     oid.ID
-	respStream *getStream
+	req          *protoobject.GetRequest
+	reqOID       oid.ID
+	respStream   *getStream
+	suppressInit bool
 
 	onceHdr sync.Once
 

@@ -12,10 +12,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	sdkobject "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
+
+const payloadOnlyFlag = "payload-only"
 
 var objectGetCmd = &cobra.Command{
 	Use:   "get",
@@ -38,9 +41,11 @@ func initObjectGetCmd() {
 	_ = objectGetCmd.MarkFlagRequired(commonflags.OIDFlag)
 
 	flags.String(fileFlag, "", "File to write object payload to(with -b together with signature and header). Default: stdout.")
+	flags.String(rangeFlag, "", rangeFlagUsage)
 	flags.Bool(rawFlag, false, rawFlagDesc)
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 	flags.Bool(binaryFlag, false, "Serialize whole object structure into given file(id + signature + header + payload).")
+	flags.Bool(payloadOnlyFlag, false, "Request only payload for a payload range")
 }
 
 func getObject(cmd *cobra.Command, _ []string) error {
@@ -65,6 +70,14 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		defer func() { _ = f.Close() }()
 
 		out = f
+	}
+
+	ranges, err := getRangeList(cmd)
+	if err != nil {
+		return err
+	}
+	if len(ranges) > 1 {
+		return fmt.Errorf("at most one range can be specified, got: %d", len(ranges))
 	}
 
 	pk, err := key.GetOrGenerate(cmd)
@@ -100,6 +113,16 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
 
 	binary, _ := cmd.Flags().GetBool(binaryFlag)
+	payloadOnly, _ := cmd.Flags().GetBool(payloadOnlyFlag)
+	if len(ranges) != 0 {
+		if binary {
+			return fmt.Errorf("--%s cannot be used with --%s", binaryFlag, rangeFlag)
+		}
+		prm.SetRange(ranges[0].GetOffset(), ranges[0].GetLength())
+	}
+	if payloadOnly {
+		prm.MarkPayloadOnly()
+	}
 
 	hdr, rdr, err := cli.ObjectGetInit(ctx, cnr, obj, user.NewAutoIDSigner(*pk), prm)
 	if err == nil {
@@ -110,8 +133,8 @@ func getObject(cmd *cobra.Command, _ []string) error {
 			}
 		}
 
-		if filename != "" && !noProgress {
-			p = pb.New64(int64(hdr.PayloadSize()))
+		if filename != "" && !noProgress && !payloadOnly {
+			p = pb.New64(payloadReadSize(hdr.PayloadSize(), ranges))
 			p.Output = cmd.OutOrStdout()
 			p.Start()
 
@@ -141,7 +164,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Print header only if file is not streamed to stdout.
-	if filename != "" {
+	if filename != "" && !payloadOnly {
 		err = printHeader(cmd, &hdr)
 		if err != nil {
 			return err
@@ -154,4 +177,19 @@ func strictOutput(cmd *cobra.Command) bool {
 	toJSON, _ := cmd.Flags().GetBool(commonflags.JSON)
 	toProto, _ := cmd.Flags().GetBool("proto")
 	return toJSON || toProto
+}
+
+func payloadReadSize(payloadSize uint64, ranges []*sdkobject.Range) int64 {
+	if len(ranges) == 0 {
+		return int64(payloadSize)
+	}
+
+	rng := ranges[0]
+	if ln := rng.GetLength(); ln != 0 {
+		return int64(ln)
+	}
+	if off := rng.GetOffset(); off < payloadSize {
+		return int64(payloadSize - off)
+	}
+	return 0
 }

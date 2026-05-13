@@ -123,6 +123,11 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 		return true
 	}
 
+	if !exec.writeCollectedHeader() {
+		exec.log.Debug("failed to write parent header")
+		return true
+	}
+
 	return exec.rangeFromLink(link)
 }
 

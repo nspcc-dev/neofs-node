@@ -72,7 +72,17 @@ type fallbackRangeReader struct {
 	key    *ecdsa.PrivateKey
 	rng    *object.Range
 
-	fallbackDone bool
+	delivered       uint64
+	fallbackPending bool
+	fallbackDone    bool
+}
+
+func (exec execCtx) fallbackGetExec() execCtx {
+	exec.prm.rng = nil
+	exec.payloadOnly = false
+	exec.legacyRange = false
+
+	return exec
 }
 
 func newFallbackRangeReader(exec *execCtx, c *clientWrapper, key *ecdsa.PrivateKey, rng *object.Range, rdr io.ReadCloser) io.ReadCloser {
@@ -86,39 +96,74 @@ func newFallbackRangeReader(exec *execCtx, c *clientWrapper, key *ecdsa.PrivateK
 }
 
 func (f *fallbackRangeReader) Read(p []byte) (int, error) {
+	if f.fallbackPending && !f.fallbackDone {
+		return f.fallbackRead(p)
+	}
+
 	n, err := f.ReadCloser.Read(p)
+	f.delivered += uint64(n)
 	if err == nil || !errors.Is(err, apistatus.ErrObjectAccessDenied) || f.fallbackDone {
 		return n, err
 	}
+	if n > 0 {
+		f.fallbackPending = true
+		return n, nil
+	}
 
+	return f.fallbackRead(p)
+}
+
+func (f *fallbackRangeReader) fallbackBounds(payloadSize uint64) (from, to uint64, err error) {
+	base := f.rng.GetOffset()
+	from = base + f.delivered
+	if from < base {
+		return 0, 0, apistatus.ErrObjectOutOfRange
+	}
+
+	if ln := f.rng.GetLength(); ln != 0 {
+		to = base + ln
+		if to < base || to < from {
+			return 0, 0, apistatus.ErrObjectOutOfRange
+		}
+	} else {
+		to = payloadSize
+	}
+
+	if payloadSize < from || payloadSize < to {
+		return 0, 0, apistatus.ErrObjectOutOfRange
+	}
+
+	return from, to, nil
+}
+
+func (f *fallbackRangeReader) fallbackRead(p []byte) (int, error) {
+	// TODO: drop fallback once legacy RANGE is aligned with GET access semantics, see #3547.
 	f.exec.log.Debug("range read access denied, falling back to full GET")
+	f.fallbackPending = false
 	f.fallbackDone = true
 
-	hdr, rdr, getErr := f.client.get(f.exec, f.key)
+	oldRdr := f.ReadCloser
+	if oldRdr != nil {
+		defer func() { _ = oldRdr.Close() }()
+	}
+
+	fallbackExec := f.exec.fallbackGetExec()
+	hdr, rdr, getErr := f.client.get(&fallbackExec, f.key)
 	if getErr != nil {
 		return 0, fmt.Errorf("fallback GET after access denial failed: %w", getErr)
 	}
 
-	pLen := hdr.PayloadSize()
-	from := f.rng.GetOffset()
-	ln := f.rng.GetLength()
-	var to uint64
-	if ln != 0 {
-		to = from + ln
-	} else {
-		to = pLen
-	}
-
-	if to < from || pLen < from || pLen < to {
+	from, to, err := f.fallbackBounds(hdr.PayloadSize())
+	if err != nil {
 		_ = rdr.Close()
-		return 0, apistatus.ErrObjectOutOfRange
+		return 0, err
 	}
 
 	if from > 0 {
 		_, err = io.CopyN(io.Discard, rdr, int64(from))
 		if err != nil {
 			_ = rdr.Close()
-			return n, fmt.Errorf("discard %d bytes in stream: %w", from, err)
+			return 0, fmt.Errorf("discard %d bytes in stream: %w", from, err)
 		}
 	}
 
@@ -195,31 +240,9 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 	}
 
 	if exec.headOnly() {
-		addr := exec.address()
-		id := addr.Object()
-
-		var opts client.PrmObjectHead
-		if exec.prm.common.TTL() < 2 {
-			opts.MarkLocal()
-		}
-		if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
-			if stV2.AssertVerb(sessionv2.VerbObjectHead, addr.Container()) {
-				opts.WithinSessionV2(*stV2)
-			}
-		} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
-			opts.WithinSession(*st)
-		}
-		if bt := exec.prm.common.BearerToken(); bt != nil {
-			opts.WithBearerToken(*bt)
-		}
-		opts.WithXHeaders(exec.prm.common.XHeaders()...)
-		if exec.isRaw() {
-			opts.MarkRaw()
-		}
-
-		hdr, err := c.client.ObjectHead(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
+		hdr, err := c.head(exec, key)
 		if err != nil {
-			return nil, nil, fmt.Errorf("read object header from NeoFS: %w", err)
+			return nil, nil, err
 		}
 
 		return hdr, nil, nil
@@ -230,14 +253,49 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 	if rng := exec.ctxRange(); rng != nil {
 		addr := exec.address()
 		id := addr.Object()
-		ln := rng.GetLength()
 
-		var opts client.PrmObjectRange
+		if exec.legacyRange {
+			ln := rng.GetLength()
+
+			var opts client.PrmObjectRange
+			if exec.prm.common.TTL() < 2 {
+				opts.MarkLocal()
+			}
+			if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+				if stV2.AssertVerb(sessionv2.VerbObjectRange, addr.Container()) {
+					opts.WithinSessionV2(*stV2)
+				}
+			} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+				opts.WithinSession(*st)
+			}
+			if bt := exec.prm.common.BearerToken(); bt != nil {
+				opts.WithBearerToken(*bt)
+			}
+			opts.WithXHeaders(exec.prm.common.XHeaders()...)
+			if exec.isRaw() {
+				opts.MarkRaw()
+			}
+
+			rdr, err := c.client.ObjectRangeInit(exec.context(), addr.Container(), id, rng.GetOffset(), ln, user.NewAutoIDSigner(*key), opts)
+			if err != nil {
+				return nil, nil, fmt.Errorf("init payload reading: %w", err)
+			}
+
+			hdr, err := c.head(exec, key)
+			if err != nil {
+				_ = rdr.Close()
+				return nil, nil, err
+			}
+
+			return hdr, newFallbackRangeReader(exec, c, key, rng, rdr), nil
+		}
+
+		var opts client.PrmObjectGet
 		if exec.prm.common.TTL() < 2 {
 			opts.MarkLocal()
 		}
 		if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
-			if stV2.AssertVerb(sessionv2.VerbObjectRange, addr.Container()) {
+			if stV2.AssertVerb(sessionv2.VerbObjectGet, addr.Container()) {
 				opts.WithinSessionV2(*stV2)
 			}
 		} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
@@ -250,16 +308,47 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 		if exec.isRaw() {
 			opts.MarkRaw()
 		}
+		opts.SetRange(rng.GetOffset(), rng.GetLength())
 
-		rdr, err := c.client.ObjectRangeInit(exec.context(), addr.Container(), id, rng.GetOffset(), ln, user.NewAutoIDSigner(*key), opts)
+		hdr, rdr, err := c.client.ObjectGetInit(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("init payload reading: %w", err)
 		}
-		// fallback to full GET in case of access denial error.
-		return nil, newFallbackRangeReader(exec, c, key, rng, rdr), nil
+		return &hdr, rdr, nil
 	}
 
 	return c.get(exec, key)
+}
+
+func (c *clientWrapper) head(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, error) {
+	addr := exec.address()
+	id := addr.Object()
+
+	var opts client.PrmObjectHead
+	if exec.prm.common.TTL() < 2 {
+		opts.MarkLocal()
+	}
+	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+		if stV2.AssertVerb(sessionv2.VerbObjectHead, addr.Container()) {
+			opts.WithinSessionV2(*stV2)
+		}
+	} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
+		opts.WithinSession(*st)
+	}
+	if bt := exec.prm.common.BearerToken(); bt != nil {
+		opts.WithBearerToken(*bt)
+	}
+	opts.WithXHeaders(exec.prm.common.XHeaders()...)
+	if exec.isRaw() {
+		opts.MarkRaw()
+	}
+
+	hdr, err := c.client.ObjectHead(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
+	if err != nil {
+		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
+	}
+
+	return hdr, nil
 }
 
 func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, io.ReadCloser, error) {
@@ -283,6 +372,9 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 	opts.WithXHeaders(exec.prm.common.XHeaders()...)
 	if exec.isRaw() {
 		opts.MarkRaw()
+	}
+	if exec.payloadOnly && exec.ctxRange() == nil {
+		opts.MarkPayloadOnly()
 	}
 
 	hdr, rdr, err := c.client.ObjectGetInit(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
@@ -311,7 +403,18 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 			return nil, nil, err
 		}
 		r, err := e.engine.GetRangeStream(exec.address(), rng.GetOffset(), rng.GetLength())
-		return nil, r, err
+		if err != nil {
+			return nil, r, err
+		}
+		// TODO: avoid extra local HEAD once we can get header with range stream from engine in one call.
+		h, hErr := e.engine.Head(exec.address(), exec.isRaw())
+		if hErr != nil {
+			if r != nil {
+				_ = r.Close()
+			}
+			return nil, nil, hErr
+		}
+		return h, r, nil
 	}
 
 	if exec.localGetBuffer != nil {

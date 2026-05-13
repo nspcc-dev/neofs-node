@@ -39,6 +39,7 @@ Changelog for NeoFS Node
 - Optimized netmap caching in node (#3966)
 - Store in metabase associated object ID in bytes instead of Base58 (#3971)
 - Optimized local RANGE request execution (#3967)
+- GET now supports payload ranges (#3991)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
@@ -64,6 +65,9 @@ counters, this can take a while for shards with high object numbers.
 
 Storage nodes no longer implement deprecated `GetRangeHash` method and
 `neofs-cli object hash` command has been removed.
+
+GET now supports payload ranges. Migrate from deprecated RANGE requests to GET
+with range parameters.
 
 ## [0.52.0] - 2026-03-27 - Woodo
 

@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -25,6 +23,17 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
 
+		if prm.rng != nil {
+			if prm.payloadOnly && prm.localGetBuffer != nil {
+				stream, err := s.localObjects.ReadECPartRange(prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localGetBuffer)
+				if err == nil {
+					prm.submitLocalGetStreamFn(0, stream)
+				}
+				return err
+			}
+			return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
+		}
+
 		if prm.localGetBuffer != nil {
 			n, stream, err := s.localObjects.ReadECPart(prm.addr.Container(), prm.addr.Object(), pi, prm.localGetBuffer)
 			if err == nil {
@@ -39,8 +48,11 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if prm.common.LocalOnly() &&
 		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
-		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
-		return s.get(ctx, prm.commonPrm, bufOpt).err // It handles locality internally.
+		opts := []execOption{withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly)}
+		if prm.rng == nil && !prm.payloadOnly {
+			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
+		}
+		return s.get(ctx, prm.commonPrm, opts...).err // It handles locality internally.
 	}
 
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
@@ -49,9 +61,16 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	if len(repRules) > 0 { // REP format does not require encoding
-		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
-		forwardOpt := withForwardGetRequestFunc(prm.forwardRequestFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), bufOpt, forwardOpt).err
+		opts := []execOption{
+			withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules),
+			withPayloadRange(prm.rng),
+			withPayloadOnly(prm.payloadOnly),
+			withForwardGetRequestFunc(prm.forwardRequestFn),
+		}
+		if prm.rng == nil && !prm.payloadOnly {
+			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
+		}
+		err := s.get(ctx, prm.commonPrm, opts...).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
@@ -67,7 +86,29 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules)).err
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly)).err
+	}
+
+	if prm.rng != nil {
+		hdr, err := s.getECObjectHeader(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), ecRules, ecNodeLists, nil, nil)
+		if err != nil {
+			return err
+		}
+		if err := validatePayloadRange(&hdr, prm.rng); err != nil {
+			return err
+		}
+		hdr = *hdr.CutPayload()
+		if prm.payloadOnly {
+			if v, ok := prm.objWriter.(HeaderValidator); ok {
+				if err := v.ValidateHeader(&hdr); err != nil {
+					return err
+				}
+			}
+		} else if err := prm.objWriter.WriteHeader(&hdr); err != nil {
+			return err
+		}
+		return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
+			ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
 
 	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
@@ -101,7 +142,7 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
 		// It handles locality internally.
 		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
-		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng), bufOpt).err
+		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt).err
 	}
 
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
@@ -116,7 +157,7 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 	if len(repRules) > 0 { // REP format does not require encoding
 		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
 		forwardOpt := withForwardRangeRequestFunc(prm.forwardRequestFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm), bufOpt, forwardOpt).err
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt, forwardOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
@@ -132,11 +173,32 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng)).err
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true)).err
 	}
 
 	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
 		ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
+}
+
+func validatePayloadRange(hdr *object.Object, rng *object.Range) error {
+	if rng == nil {
+		return nil
+	}
+
+	off := rng.GetOffset()
+	ln := rng.GetLength()
+	pldLen := hdr.PayloadSize()
+
+	if ln == 0 {
+		if off == 0 {
+			return nil
+		}
+		return apistatus.ErrObjectOutOfRange
+	}
+	if off >= pldLen || pldLen-off < ln {
+		return apistatus.ErrObjectOutOfRange
+	}
+	return nil
 }
 
 // Head reads object header from container.
@@ -260,7 +322,7 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 			zap.Error(exec.err),
 		)
 
-		if execCnr && !exec.headerWritten {
+		if execCnr && !exec.responseStarted {
 			exec.executeOnContainer()
 			exec.analyzeStatus(false)
 		}
