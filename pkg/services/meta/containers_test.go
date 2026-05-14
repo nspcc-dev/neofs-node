@@ -126,11 +126,11 @@ func TestObjectExpiration(t *testing.T) {
 			network: big.NewInt(testNetworkMagic),
 		}
 		eLock := objEvent{
-			cID:           cID,
-			oID:           lock.GetID(),
-			size:          big.NewInt(testObjectSize),
-			network:       big.NewInt(testNetworkMagic),
-			lockedObjects: oID[:],
+			cID:          cID,
+			oID:          lock.GetID(),
+			size:         big.NewInt(testObjectSize),
+			network:      big.NewInt(testNetworkMagic),
+			lockedObject: oID[:],
 		}
 
 		st.putObjects(context.Background(), zaptest.NewLogger(t), 0, []objEvent{eObj}, &net)
@@ -260,7 +260,7 @@ func TestBigObjects(t *testing.T) {
 
 	for _, bigO := range bigObjs {
 		rID := bigO.root.GetID()
-		tsEv.deletedObjects = rID[:]
+		tsEv.deletedObject = rID[:]
 
 		st.putObjects(ctx, l, 0, []objEvent{tsEv}, &net)
 

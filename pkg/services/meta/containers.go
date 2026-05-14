@@ -94,11 +94,11 @@ func (s *containerStorage) putMPTIndexes(bInd uint32, ch <-chan eventWithMptKVs)
 		// batching that is implemented for MPT ignores key's first byte
 
 		s.mptOpsBatch[string(append([]byte{0, oidIndex}, commsuffix...))] = []byte{}
-		if len(e.deletedObjects) > 0 {
-			s.mptOpsBatch[string(append([]byte{0, deletedIndex}, commsuffix...))] = e.deletedObjects
+		if len(e.deletedObject) > 0 {
+			s.mptOpsBatch[string(append([]byte{0, deletedIndex}, commsuffix...))] = e.deletedObject
 		}
-		if len(e.lockedObjects) > 0 {
-			s.mptOpsBatch[string(append([]byte{0, lockedIndex}, commsuffix...))] = e.lockedObjects
+		if len(e.lockedObject) > 0 {
+			s.mptOpsBatch[string(append([]byte{0, lockedIndex}, commsuffix...))] = e.lockedObject
 		}
 		s.mptOpsBatch[string(append([]byte{0, sizeIndex}, commsuffix...))] = e.size.Bytes()
 		if len(e.firstObject) > 0 {
@@ -158,18 +158,18 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, l *zap.Logger, ee 
 		commsuffix := e.oID[:]
 
 		batch[string(append([]byte{oidIndex}, commsuffix...))] = []byte{}
-		if len(e.deletedObjects) > 0 {
-			batch[string(append([]byte{deletedIndex}, commsuffix...))] = e.deletedObjects
-			evWithMpt.additionalKVs, err = s.deleteObjectsOps(batch, e.deletedObjects, false)
+		if len(e.deletedObject) > 0 {
+			batch[string(append([]byte{deletedIndex}, commsuffix...))] = e.deletedObject
+			evWithMpt.additionalKVs, err = s.deleteObjectsOps(batch, e.deletedObject, false)
 			if err != nil {
 				l.Error("cleaning deleted object", zap.Stringer("oid", e.oID), zap.Error(err))
 				continue
 			}
 		}
-		if len(e.lockedObjects) > 0 {
-			batch[string(append([]byte{lockedIndex}, commsuffix...))] = e.lockedObjects
+		if len(e.lockedObject) > 0 {
+			batch[string(append([]byte{lockedIndex}, commsuffix...))] = e.lockedObject
 
-			for locked := range slices.Chunk(e.lockedObjects, oid.Size) {
+			for locked := range slices.Chunk(e.lockedObject, oid.Size) {
 				batch[string(append([]byte{lockedByIndex}, locked...))] = commsuffix
 			}
 		}
@@ -189,13 +189,13 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, l *zap.Logger, ee 
 }
 
 func isOpAllowed(db storage.Store, e objEvent) error {
-	if len(e.deletedObjects) == 0 && len(e.lockedObjects) == 0 {
+	if len(e.deletedObject) == 0 && len(e.lockedObject) == 0 {
 		return nil
 	}
 
 	key := make([]byte, 1+oid.Size)
 
-	for obj := range slices.Chunk(e.deletedObjects, oid.Size) {
+	for obj := range slices.Chunk(e.deletedObject, oid.Size) {
 		copy(key[1:], obj)
 
 		// delete object that does not exist
@@ -220,7 +220,7 @@ func isOpAllowed(db storage.Store, e objEvent) error {
 		return fmt.Errorf("%s object-to-delete is locked by %s", oid.ID(obj), oid.ID(v))
 	}
 
-	for obj := range slices.Chunk(e.lockedObjects, oid.Size) {
+	for obj := range slices.Chunk(e.lockedObject, oid.Size) {
 		copy(key[1:], obj)
 
 		// lock object that does not exist

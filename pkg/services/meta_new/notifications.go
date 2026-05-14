@@ -1,0 +1,175 @@
+package meta
+
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+)
+
+const (
+	objPutEvName = "ObjectPut"
+
+	// meta map keys from metadata chain.
+	sizeKey         = "size"
+	networkMagicKey = "network"
+	firstPartKey    = "firstPart"
+	previousPartKey = "previousPart"
+	deletedKey      = "deleted"
+	lockedKey       = "locked"
+	typeKey         = "type"
+)
+
+type objEvent struct {
+	cID           cid.ID
+	oID           oid.ID
+	size          *big.Int
+	network       uint32
+	firstObject   []byte
+	prevObject    []byte
+	deletedObject []byte
+	lockedObject  []byte
+	typ           object.Type
+}
+
+func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error) {
+	const expectedNotificationArgs = 3
+	var (
+		res objEvent
+		err error
+	)
+
+	arr, ok := ev.Item.Value().([]stackitem.Item)
+	if !ok {
+		return res, fmt.Errorf("unexpected notification stack item: %T", ev.Item.Value())
+	}
+	if len(arr) != expectedNotificationArgs {
+		return res, fmt.Errorf("unexpected number of items on stack: %d, expected: %d", len(arr), expectedNotificationArgs)
+	}
+
+	cID, ok := arr[0].Value().([]byte)
+	if !ok {
+		return res, fmt.Errorf("unexpected container ID stack item: %T", arr[0].Value())
+	}
+	oID, ok := arr[1].Value().([]byte)
+	if !ok {
+		return res, fmt.Errorf("unexpected object ID stack item: %T", arr[1].Value())
+	}
+	meta, ok := arr[2].(*stackitem.Map)
+	if !ok {
+		return res, fmt.Errorf("unexpected meta stack item: %T", arr[2])
+	}
+
+	if len(cID) != cid.Size {
+		return res, fmt.Errorf("unexpected container ID len: %d", len(cID))
+	}
+	if len(oID) != oid.Size {
+		return res, fmt.Errorf("unexpected object ID len: %d", len(oID))
+	}
+
+	res.cID = cid.ID(cID)
+	res.oID = oid.ID(oID)
+
+	v := getFromMap(meta, sizeKey)
+	if v == nil {
+		return res, fmt.Errorf("missing '%s' key", sizeKey)
+	}
+	res.size, ok = v.Value().(*big.Int)
+	if !ok {
+		return res, fmt.Errorf("unexpected object size type: %T", v.Value())
+	}
+
+	v = getFromMap(meta, networkMagicKey)
+	if v == nil {
+		return res, fmt.Errorf("missing '%s' key", networkMagicKey)
+	}
+	res.network, err = stackitem.ToUint32(v)
+	if err != nil {
+		return res, fmt.Errorf("unexpected network type: %T", v.Value())
+	}
+
+	v = getFromMap(meta, firstPartKey)
+	if v != nil {
+		res.firstObject, ok = v.Value().([]byte)
+		if !ok {
+			return res, fmt.Errorf("unexpected first part type: %T", v.Value())
+		}
+	}
+
+	v = getFromMap(meta, previousPartKey)
+	if v != nil {
+		res.prevObject, ok = v.Value().([]byte)
+		if !ok {
+			return res, fmt.Errorf("unexpected previous part type: %T", v.Value())
+		}
+	}
+
+	v = getFromMap(meta, typeKey)
+	if v != nil {
+		typ, ok := v.Value().(*big.Int)
+		if !ok {
+			return res, fmt.Errorf("unexpected object type field: %T", v.Value())
+		}
+		res.typ = object.Type(typ.Uint64())
+
+		switch res.typ {
+		case object.TypeTombstone:
+			v = getFromMap(meta, deletedKey)
+			if v == nil {
+				return res, fmt.Errorf("missing '%s' key for %s object type", deletedKey, res.typ)
+			}
+			res.deletedObject, ok = v.Value().([]byte)
+			if !ok {
+				return res, fmt.Errorf("unexpected deleted object type: %T", v.Value())
+			}
+		case object.TypeLock:
+			v = getFromMap(meta, lockedKey)
+			if v == nil {
+				return res, fmt.Errorf("missing '%s' key for %s object type", lockedKey, res.typ)
+			}
+			res.lockedObject, ok = v.Value().([]byte)
+			if !ok {
+				return res, fmt.Errorf("unexpected deleted object type: %T", v.Value())
+			}
+		case object.TypeLink, object.TypeRegular:
+		default:
+			return res, fmt.Errorf("unknown '%s' object type", res.typ)
+		}
+	}
+
+	return res, nil
+}
+
+func getFromMap(m *stackitem.Map, key string) stackitem.Item {
+	i := m.Index(stackitem.Make(key))
+	if i < 0 {
+		return nil
+	}
+
+	return m.Value().([]stackitem.MapElement)[i].Value
+}
+
+type storageTask struct {
+	addr oid.Address
+	// cached object if object creation was initialized by _this_ storage node,
+	// and header is already stored in memory, otherwise it is nil
+	o *object.Object
+}
+
+// NotifyObjectSuccess subscribes channel for object notification chain inclusion.
+// Channel must be read before subscription is made and writing to it must be
+// non-blocking.
+func (m *Meta) NotifyObjectSuccess(ch chan<- struct{}, obj object.Object, h util.Uint256) {
+	m.notifier.subscribe(obj, ch, h)
+}
+
+// UnsubscribeFromObject unsibscribes from object notification. Should be called
+// if notification is not required as a memory clean up.
+func (m *Meta) UnsubscribeFromObject(addr oid.Address) {
+	m.notifier.unsubscribe(addr)
+}

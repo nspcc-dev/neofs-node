@@ -10,53 +10,14 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
-
-func initMeta(c *cfg) {
-	if c.cfgMorph.client == nil {
-		initMorphComponents(c)
-	}
-
-	c.cfgMeta.network = &neofsNetwork{
-		key:        c.binPublicKey,
-		cnrClient:  c.cCli,
-		containers: c.cnrSrc,
-		network:    c.netMapSource,
-		header:     c.cfgObject.getSvc,
-	}
-
-	var err error
-	p := meta.Parameters{
-		Logger:        c.log.With(zap.String("service", "meta data")),
-		Network:       c.cfgMeta.network,
-		Timeout:       c.appCfg.FSChain.DialTimeout,
-		NeoEnpoints:   c.appCfg.FSChain.Endpoints,
-		ContainerHash: c.containerSH,
-		NetmapHash:    c.netmapSH,
-		RootPath:      c.appCfg.Meta.Path,
-	}
-	if p.RootPath == "" {
-		p.RootPath = "metadata"
-	}
-	c.metaService, err = meta.New(p)
-	fatalOnErr(err)
-
-	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		err = c.metaService.Run(ctx)
-		if err != nil {
-			c.internalErr <- fmt.Errorf("meta data service error: %w", err)
-		}
-	}))
-}
 
 type neofsNetwork struct {
 	key []byte
@@ -90,7 +51,7 @@ func (c *neofsNetwork) Head(ctx context.Context, cID cid.ID, oID oid.ID) (object
 	return *hw.h, nil
 }
 
-func (c *neofsNetwork) IsMineWithMeta(id cid.ID, cData []byte) (bool, error) {
+func (c *neofsNetwork) IsMineWithMeta(id cid.ID, _ []byte) (bool, error) {
 	curEpoch, err := c.network.Epoch()
 	if err != nil {
 		return false, fmt.Errorf("read current NeoFS epoch: %w", err)
@@ -99,10 +60,9 @@ func (c *neofsNetwork) IsMineWithMeta(id cid.ID, cData []byte) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
 	}
-	var cnr container.Container
-	err = cnr.Unmarshal(cData)
+	cnr, err := c.containers.Get(id)
 	if err != nil {
-		return false, fmt.Errorf("unmarshal container: %w", err)
+		return false, fmt.Errorf("get container: %w", err)
 	}
 	return c.isMineWithMeta(id, cnr, networkMap), nil
 }

@@ -9,7 +9,7 @@ import (
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
+	metanew "github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -141,11 +141,9 @@ type cfg struct {
 
 	log *zap.Logger
 
-	networkMagic uint32
-
 	cnrClient *chaincontainer.Client
 
-	metaSvc *meta.Meta
+	metaSvc *metanew.Meta
 
 	postPlacementReplicator PostPlacementReplicator
 
@@ -162,7 +160,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
+func NewService(transport Transport, neoFSNet NeoFSNetwork, m *metanew.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -260,12 +258,6 @@ func WithContainerClient(v *chaincontainer.Client) Option {
 func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
-	}
-}
-
-func WithNetworkMagic(m uint32) Option {
-	return func(c *cfg) {
-		c.networkMagic = m
 	}
 }
 

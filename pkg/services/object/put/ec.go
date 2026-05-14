@@ -61,9 +61,14 @@ func (t *distributedTarget) formAndSaveObjectForECPart(signer neofscrypto.Signer
 
 	var metaC *metaCollection
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		tx, dataToSign, err := t.encodeObjectMetadata(partObj)
+		if err != nil {
+			return fmt.Errorf("encode object metadata: %w", err)
+		}
 		metaC = &metaCollection{
-			objectData: t.encodeObjectMetadata(partObj),
-			signatures: make([][][]byte, len(t.containerNodes.PrimaryCounts())+len(t.containerNodes.ECRules())),
+			metaTransaction: tx,
+			dataToSign:      dataToSign,
+			signatures:      make([][]neofscrypto.Signature, len(t.containerNodes.PrimaryCounts())+len(t.containerNodes.ECRules())),
 		}
 	}
 

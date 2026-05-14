@@ -35,12 +35,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
+	metanew "github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/services/sidechain"
 	"github.com/nspcc-dev/neofs-node/pkg/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
@@ -174,7 +175,8 @@ type shared struct {
 
 	control *controlSvc.Server
 
-	metaService *meta.Meta
+	metaService *metanew.Meta
+	sidechain   *sidechain.SideChain
 
 	containerPayments *paymentChecker
 }
@@ -200,7 +202,6 @@ type cfg struct {
 	// configuration of the internal
 	// services
 	cfgGRPC           cfgGRPC
-	cfgMeta           cfgMeta
 	cfgMorph          cfgMorph
 	cfgBalance        cfgBalance
 	cfgContainer      cfgContainer
@@ -251,10 +252,6 @@ func (g *cfgGRPC) registerService(f func(*grpc.Server)) {
 	for _, srv := range g.servers {
 		f(srv)
 	}
-}
-
-type cfgMeta struct {
-	network meta.NeoFSNetwork
 }
 
 type cfgMorph struct {
@@ -728,16 +725,6 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			err = c.reloadNodeAttributes()
 			if err != nil {
 				c.log.Error("invalid node attributes configuration", zap.Error(err))
-				continue
-			}
-
-			// Meta service
-
-			var p meta.Parameters
-			p.NeoEnpoints = c.appCfg.FSChain.Endpoints
-			err = c.metaService.Reload(p)
-			if err != nil {
-				c.log.Error("failed to reload meta service configuration", zap.Error(err))
 				continue
 			}
 

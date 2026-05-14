@@ -419,7 +419,7 @@ func TestObjectPut(t *testing.T) {
 		o.SetPayloadSize(size)
 		o.SetType(typ)
 
-		metaRaw := objectcore.EncodeReplicationMetaInfo(cID, oID, fPart, pPart, size, typ, nil, nil, testVUB, m.magicNumber)
+		metaRaw := objectcore.EncodeObjectMetadata(cID, oID, fPart, pPart, size, typ, oid.ID{}, oid.ID{}, testVUB, m.magicNumber)
 		metaStack, err := stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
@@ -450,7 +450,7 @@ func TestObjectPut(t *testing.T) {
 		o.SetID(objToDeleteOID)
 		o.SetPayloadSize(size)
 
-		metaRaw := objectcore.EncodeReplicationMetaInfo(cID, objToDeleteOID, oid.ID{}, oid.ID{}, size, object.TypeRegular, nil, nil, testVUB, m.magicNumber)
+		metaRaw := objectcore.EncodeObjectMetadata(cID, objToDeleteOID, oid.ID{}, oid.ID{}, size, object.TypeRegular, oid.ID{}, oid.ID{}, testVUB, m.magicNumber)
 		metaStack, err := stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
@@ -471,14 +471,13 @@ func TestObjectPut(t *testing.T) {
 		tsCID := cID
 		tsOID := oidtest.ID()
 		tsSize := uint64(testObjectSize)
-		deleted := []oid.ID{objToDeleteOID}
 
 		ts := objecttest.Object()
 		ts.SetContainerID(tsCID)
 		ts.SetID(tsOID)
 		ts.SetPayloadSize(tsSize)
 
-		metaRaw = objectcore.EncodeReplicationMetaInfo(tsCID, tsOID, oid.ID{}, oid.ID{}, tsSize, object.TypeTombstone, deleted, nil, testVUB, m.magicNumber)
+		metaRaw = objectcore.EncodeObjectMetadata(tsCID, tsOID, oid.ID{}, oid.ID{}, tsSize, object.TypeTombstone, objToDeleteOID, oid.ID{}, testVUB, m.magicNumber)
 		metaStack, err = stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
@@ -547,12 +546,12 @@ func TestValidation(t *testing.T) {
 	t.Run("delete non-existent", func(t *testing.T) {
 		objToDelete := oidtest.ID()
 		ev := objEvent{
-			cID:            cID,
-			oID:            oidtest.ID(),
-			size:           big.NewInt(testObjectSize),
-			network:        big.NewInt(testNetworkMagic),
-			deletedObjects: objToDelete[:],
-			typ:            object.TypeTombstone,
+			cID:           cID,
+			oID:           oidtest.ID(),
+			size:          big.NewInt(testObjectSize),
+			network:       big.NewInt(testNetworkMagic),
+			deletedObject: objToDelete[:],
+			typ:           object.TypeTombstone,
 		}
 
 		require.ErrorContains(t, isOpAllowed(s.db, ev), "object-to-delete is missing")
@@ -561,12 +560,12 @@ func TestValidation(t *testing.T) {
 	t.Run("lock non-existent", func(t *testing.T) {
 		objToLock := oidtest.ID()
 		ev := objEvent{
-			cID:           cID,
-			oID:           oidtest.ID(),
-			size:          big.NewInt(testObjectSize),
-			network:       big.NewInt(testNetworkMagic),
-			lockedObjects: objToLock[:],
-			typ:           object.TypeLock,
+			cID:          cID,
+			oID:          oidtest.ID(),
+			size:         big.NewInt(testObjectSize),
+			network:      big.NewInt(testNetworkMagic),
+			lockedObject: objToLock[:],
+			typ:          object.TypeLock,
 		}
 
 		require.ErrorContains(t, isOpAllowed(s.db, ev), "presence check")
@@ -608,12 +607,12 @@ func TestValidation(t *testing.T) {
 
 		ee = []objEvent{
 			{
-				cID:           cID,
-				oID:           lock.GetID(),
-				size:          big.NewInt(testObjectSize),
-				network:       big.NewInt(testNetworkMagic),
-				lockedObjects: slices.Concat(oID1[:], oID2[:]),
-				typ:           object.TypeLock,
+				cID:          cID,
+				oID:          lock.GetID(),
+				size:         big.NewInt(testObjectSize),
+				network:      big.NewInt(testNetworkMagic),
+				lockedObject: slices.Concat(oID1[:], oID2[:]),
+				typ:          object.TypeLock,
 			},
 		}
 		net.setObjects(map[oid.Address]object.Object{
@@ -627,12 +626,12 @@ func TestValidation(t *testing.T) {
 		ts.SetType(object.TypeTombstone)
 
 		e := objEvent{
-			cID:            cID,
-			oID:            ts.GetID(),
-			size:           big.NewInt(testObjectSize),
-			network:        big.NewInt(testNetworkMagic),
-			deletedObjects: slices.Concat(oID1[:], oID2[:]),
-			typ:            object.TypeTombstone,
+			cID:           cID,
+			oID:           ts.GetID(),
+			size:          big.NewInt(testObjectSize),
+			network:       big.NewInt(testNetworkMagic),
+			deletedObject: slices.Concat(oID1[:], oID2[:]),
+			typ:           object.TypeTombstone,
 		}
 		net.setObjects(map[oid.Address]object.Object{
 			oid.NewAddress(cID, ts.GetID()): ts,

@@ -23,8 +23,8 @@ type m struct {
 
 	first   oid.ID
 	prev    oid.ID
-	deleted []oid.ID
-	locked  []oid.ID
+	deleted oid.ID
+	locked  oid.ID
 	typ     object.Type
 }
 
@@ -37,8 +37,8 @@ func TestMetaInfo(t *testing.T) {
 		magic:   rand.Uint32(),
 		first:   oidtest.ID(),
 		prev:    oidtest.ID(),
-		deleted: oidtest.IDs(10),
-		locked:  oidtest.IDs(10),
+		deleted: oidtest.ID(),
+		locked:  oidtest.ID(),
 		typ:     object.TypeTombstone,
 	}
 
@@ -49,9 +49,9 @@ func TestMetaInfo(t *testing.T) {
 	t.Run("no optional", func(t *testing.T) {
 		meta.first = oid.ID{}
 		meta.prev = oid.ID{}
-		meta.deleted = nil
-		meta.deleted = nil
-		meta.locked = nil
+		meta.deleted = oid.ID{}
+		meta.deleted = oid.ID{}
+		meta.locked = oid.ID{}
 		meta.typ = object.TypeRegular
 
 		testMeta(t, meta, false)
@@ -59,7 +59,7 @@ func TestMetaInfo(t *testing.T) {
 }
 
 func testMeta(t *testing.T, m m, full bool) {
-	raw := EncodeReplicationMetaInfo(m.cID, m.oID, m.first, m.prev, m.size, m.typ, m.deleted, m.locked, m.vub, m.magic)
+	raw := EncodeObjectMetadata(m.cID, m.oID, m.first, m.prev, m.size, m.typ, m.deleted, m.locked, m.vub, m.magic)
 	item, err := stackitem.Deserialize(raw)
 	require.NoError(t, err)
 
@@ -94,26 +94,11 @@ func testMeta(t *testing.T, m m, full bool) {
 	require.Equal(t, m.prev[:], mm[6].Value.Value().([]byte))
 
 	require.Equal(t, deletedKey, string(mm[7].Key.Value().([]byte)))
-	require.Equal(t, m.deleted, stackItemToOIDs(t, mm[7].Value))
+	require.Equal(t, m.deleted[:], mm[7].Value.Value().([]byte))
 
 	require.Equal(t, lockedKey, string(mm[8].Key.Value().([]byte)))
-	require.Equal(t, m.locked, stackItemToOIDs(t, mm[8].Value))
+	require.Equal(t, m.locked[:], mm[8].Value.Value().([]byte))
 
 	require.Equal(t, typeKey, string(mm[9].Key.Value().([]byte)))
 	require.Equal(t, int(m.typ), int(mm[9].Value.Value().(*big.Int).Uint64()))
-}
-
-func stackItemToOIDs(t *testing.T, value stackitem.Item) []oid.ID {
-	value, ok := value.(*stackitem.Array)
-	require.True(t, ok)
-
-	vv := value.Value().([]stackitem.Item)
-	res := make([]oid.ID, 0, len(vv))
-
-	for _, v := range vv {
-		raw := v.Value().([]byte)
-		res = append(res, oid.ID(raw))
-	}
-
-	return res
 }
