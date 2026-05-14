@@ -23,10 +23,9 @@ func NewCustomNatives(cfg neogoconfig.ProtocolConfiguration) []interop.Contract 
 	ledger := native.NewLedger()
 
 	g := gas.NewGAS()
-	n := native.NewNEO(cfg)
+	n := native.NewNEO(cfg, g)
 	p := native.NewPolicy()
 
-	n.GAS = g
 	n.Policy = p
 
 	mgmt.NEO = n

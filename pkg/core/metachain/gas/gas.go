@@ -166,5 +166,8 @@ func (g *GAS) balanceOf(ic *interop.Context, args []stackitem.Item) stackitem.It
 func (g *GAS) Mint(ic *interop.Context, h util.Uint160, amount *big.Int, callOnPayment bool) {
 }
 
+func (g *GAS) MintDeferrable(ic *interop.Context, h util.Uint160, amount *big.Int, callOnPayment bool, continuation func()) {
+}
+
 func (g *GAS) Burn(ic *interop.Context, h util.Uint160, amount *big.Int) {
 }
