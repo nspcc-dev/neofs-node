@@ -44,20 +44,20 @@ var (
   neofs-cli object searchv2 --cid <cid> --filters filters.json`
 
 	objectSearchCmd = &cobra.Command{
-		Use:   "search",
-		Short: "Search object",
-		Long:  "Search object",
+		Use:     "search",
+		Short:   "Search object",
+		Long:    "Search object",
 		Example: searchExample,
-		Args:  cobra.NoArgs,
-		RunE:  searchV2,
+		Args:    cobra.NoArgs,
+		RunE:    searchV2,
 	}
 	searchV2Cmd = &cobra.Command{
-		Use:   objectSearchCmd.Use + "v2",
-		Short: objectSearchCmd.Short + " (deprecated)",               // TODO: drop suffix on old search deprecation
-		Long:  objectSearchCmd.Long + " (compatibility, deprecated)", // TODO: desc in details
+		Use:     objectSearchCmd.Use + "v2",
+		Short:   objectSearchCmd.Short + " (deprecated)",               // TODO: drop suffix on old search deprecation
+		Long:    objectSearchCmd.Long + " (compatibility, deprecated)", // TODO: desc in details
 		Example: searchV2Example,
-		Args:  objectSearchCmd.Args,
-		RunE:  searchV2,
+		Args:    objectSearchCmd.Args,
+		RunE:    searchV2,
 	}
 )
 
