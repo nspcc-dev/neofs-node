@@ -31,10 +31,23 @@ var (
 var (
 	searchFilters []string
 
+	searchFiltersUsage = "Repeated filter expressions ('key OP value' or 'key NOPRESENT') or files with protobuf JSON"
+
+	searchExample = `  neofs-cli object search --cid <cid> --filters 'FilePath EQ cat.jpg'
+  neofs-cli object search --cid <cid> --filters 'Timestamp GE 1710000000' --filters 'Timestamp LE 1719999999'
+  neofs-cli object search --cid <cid> --filters 'FileName NOPRESENT'
+  neofs-cli object search --cid <cid> --filters filters.json`
+
+	searchV2Example = `  neofs-cli object searchv2 --cid <cid> --filters 'FilePath EQ cat.jpg'
+  neofs-cli object searchv2 --cid <cid> --filters 'Timestamp GE 1710000000' --filters 'Timestamp LE 1719999999'
+  neofs-cli object searchv2 --cid <cid> --filters 'FileName NOPRESENT'
+  neofs-cli object searchv2 --cid <cid> --filters filters.json`
+
 	objectSearchCmd = &cobra.Command{
 		Use:   "search",
 		Short: "Search object",
 		Long:  "Search object",
+		Example: searchExample,
 		Args:  cobra.NoArgs,
 		RunE:  searchV2,
 	}
@@ -42,6 +55,7 @@ var (
 		Use:   objectSearchCmd.Use + "v2",
 		Short: objectSearchCmd.Short + " (deprecated)",               // TODO: drop suffix on old search deprecation
 		Long:  objectSearchCmd.Long + " (compatibility, deprecated)", // TODO: desc in details
+		Example: searchV2Example,
 		Args:  objectSearchCmd.Args,
 		RunE:  searchV2,
 	}
@@ -61,10 +75,8 @@ func initObjectSearchCmd() {
 	flags2.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	_ = searchV2Cmd.MarkFlagRequired(commonflags.CIDFlag)
 
-	flags.StringSliceVarP(&searchFilters, "filters", "f", nil,
-		"Repeated filter expressions or files with protobuf JSON")
-	flags2.StringSliceVarP(&searchFilters, "filters", "f", nil,
-		"Repeated filter expressions or files with protobuf JSON")
+	flags.StringSliceVarP(&searchFilters, "filters", "f", nil, searchFiltersUsage)
+	flags2.StringSliceVarP(&searchFilters, "filters", "f", nil, searchFiltersUsage)
 
 	flags.Bool("root", false, "Search for user objects")
 	flags2.Bool("root", false, "Search for user objects")

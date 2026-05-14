@@ -10,6 +10,15 @@ Search object
 neofs-cli object search [flags]
 ```
 
+### Examples
+
+```
+  neofs-cli object search --cid <cid> --filters 'FilePath EQ cat.jpg'
+  neofs-cli object search --cid <cid> --filters 'Timestamp GE 1710000000' --filters 'Timestamp LE 1719999999'
+  neofs-cli object search --cid <cid> --filters 'FileName NOPRESENT'
+  neofs-cli object search --cid <cid> --filters filters.json
+```
+
 ### Options
 
 ```
@@ -19,7 +28,7 @@ neofs-cli object search [flags]
       --cid string            Container ID.
       --count uint16          Max number of resulting items. Must not exceed 1000
       --cursor string         Cursor to continue previous search
-  -f, --filters strings       Repeated filter expressions or files with protobuf JSON
+  -f, --filters strings       Repeated filter expressions ('key OP value' or 'key NOPRESENT') or files with protobuf JSON
   -g, --generate-key          Generate new private key
   -h, --help                  help for search
       --phy                   Search physically stored objects
