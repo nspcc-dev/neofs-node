@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"io"
 	"time"
@@ -17,7 +18,7 @@ import (
 
 // ReadECPart is a buffered alternative for [StorageEngine.GetECPart] similar to
 // [StorageEngine.ReadObject].
-func (e *StorageEngine) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadECPartDuration)()
 	}
@@ -55,7 +56,7 @@ func (e *StorageEngine) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, b
 //
 // If object is locked (e.g. via [StorageEngine.Lock] or stored locker object),
 // GetECPart ignores expiration, tombstone and garbage marks.
-func (e *StorageEngine) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
+func (e *StorageEngine) GetECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetECPartDuration)()
 	}
@@ -145,7 +146,7 @@ loop:
 
 // ReadECPartRange is a buffered alternative for [StorageEngine.GetECPartRange]
 // similar to [StorageEngine.ReadECPart].
-func (e *StorageEngine) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error) {
 	var stream io.ReadCloser
 
 	err := e.getECPartRangeFunc(cnr, parent, pi, off, ln, MetricRegister.AddReadECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
@@ -186,7 +187,7 @@ func (e *StorageEngine) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartIn
 // [apistatus.ErrObjectOutOfRange].
 //
 // Range bounds are limited by int64.
-func (e *StorageEngine) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
+func (e *StorageEngine) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
 	var pldLen uint64
 	var stream io.ReadCloser
 
@@ -276,7 +277,7 @@ loop:
 
 // ReadECPartHeader is a buffered alternative for [StorageEngine.HeadECPart]
 // similar to [StorageEngine.ReadHeader].
-func (e *StorageEngine) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error) {
+func (e *StorageEngine) ReadECPartHeader(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadECPartHeaderDuration)()
 	}
@@ -294,7 +295,7 @@ func (e *StorageEngine) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartI
 }
 
 // HeadECPart is similar to [StorageEngine.GetECPart] but returns only the header.
-func (e *StorageEngine) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
+func (e *StorageEngine) HeadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadECPartDuration)()
 	}

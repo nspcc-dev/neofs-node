@@ -707,7 +707,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 }
 
 func (t *distributedTarget) writeObjectLocally(obj object.Object, encObj encodedObject) error {
-	if err := putObjectLocally(t.localStorage, &obj, &encObj); err != nil {
+	if err := putObjectLocally(t.opCtx, t.localStorage, &obj, &encObj); err != nil {
 		return err
 	}
 

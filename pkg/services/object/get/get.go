@@ -26,14 +26,14 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		// TODO: deny if node is not in the container?
 
 		if prm.localGetBuffer != nil {
-			n, stream, err := s.localObjects.ReadECPart(prm.addr.Container(), prm.addr.Object(), pi, prm.localGetBuffer)
+			n, stream, err := s.localObjects.ReadECPart(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.localGetBuffer)
 			if err == nil {
 				prm.submitLocalGetStreamFn(n, stream)
 			}
 			return err
 		}
 
-		return s.copyLocalECPart(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
+		return s.copyLocalECPart(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 
 	if prm.common.LocalOnly() &&
@@ -86,14 +86,14 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		// TODO: deny if node is not in the container?
 
 		if prm.localBuffer != nil {
-			stream, err := s.localObjects.ReadECPartRange(prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localBuffer)
+			stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localBuffer)
 			if err == nil {
 				prm.submitLocalStreamFn(stream)
 			}
 			return err
 		}
 
-		return s.copyLocalECPartRange(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
+		return s.copyLocalECPartRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
 
 	if prm.common.LocalOnly() &&
@@ -234,26 +234,26 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		// TODO: deny if node is not in the container?
 
 		if prm.buffer != nil {
-			n, err := s.localObjects.ReadECPartHeader(prm.addr.Container(), prm.addr.Object(), pi, prm.buffer)
+			n, err := s.localObjects.ReadECPartHeader(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.buffer)
 			if err == nil {
 				prm.submitLenFn(n)
 			}
 			return err
 		}
 
-		return s.copyLocalECPartHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
+		return s.copyLocalECPartHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
 	}
 
 	if prm.common.LocalOnly() {
 		if prm.buffer != nil {
-			n, err := s.localObjects.ReadHeader(prm.addr, prm.raw, prm.buffer)
+			n, err := s.localObjects.ReadHeader(ctx, prm.addr, prm.raw, prm.buffer)
 			if err == nil {
 				prm.submitLenFn(n)
 			}
 			return err
 		}
 
-		return s.copyLocalObjectHeader(prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.raw)
+		return s.copyLocalObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.raw)
 	}
 
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)

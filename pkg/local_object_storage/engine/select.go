@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 
@@ -17,7 +18,7 @@ import (
 // Returns any error encountered that did not allow to completely select the objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) selectOld(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
+func (e *StorageEngine) selectOld(_ context.Context, cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -56,7 +57,7 @@ func (e *StorageEngine) selectOld(cnr cid.ID, filters object.SearchFilters) ([]o
 // Search performs Search op on all underlying shards and returns merged result.
 //
 // Fails instantly if executions are blocked (see [StorageEngine.BlockExecution]).
-func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (e *StorageEngine) Search(_ context.Context, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}

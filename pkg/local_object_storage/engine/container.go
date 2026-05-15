@@ -16,7 +16,7 @@ import (
 // objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ContainerInfo(cnr cid.ID) (uint64, uint64, error) {
+func (e *StorageEngine) ContainerInfo(_ context.Context, cnr cid.ID) (uint64, uint64, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
@@ -49,7 +49,7 @@ func (e *StorageEngine) ContainerInfo(cnr cid.ID) (uint64, uint64, error) {
 // ListContainers returns a unique container IDs presented in the engine objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
+func (e *StorageEngine) ListContainers(_ context.Context) ([]cid.ID, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListContainersDuration)()
 	}

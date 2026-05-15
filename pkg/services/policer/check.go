@@ -116,7 +116,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			zap.Error(err),
 		)
 		if container.IsErrNotFound(err) {
-			err = p.deleteLocalObject(addrWithAttrs.Address, isEC)
+			err = p.deleteLocalObject(ctx, addrWithAttrs.Address, isEC)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
@@ -135,7 +135,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		}
 		p.log.Info("object with EC attributes in container without EC rules detected, deleting",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", ecp.RuleIndex), zap.Int("partIdx", ecp.Index))
-		if err := p.deleteLocalObject(addr, isEC); err != nil {
+		if err := p.deleteLocalObject(ctx, addr, isEC); err != nil {
 			p.log.Error("failed to delete local object with excessive EC attributes",
 				zap.Stringer("object", addr), zap.Error(err))
 		}
@@ -157,7 +157,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		} else if len(repRules) == 0 {
 			p.log.Info("object with lacking EC attributes detected, deleting",
 				zap.Stringer("object", addr))
-			if err := p.deleteLocalObject(addr, false); err != nil {
+			if err := p.deleteLocalObject(ctx, addr, false); err != nil {
 				p.log.Error("failed to delete local object with lacking EC attributes",
 					zap.Stringer("object", addr), zap.Error(err))
 			}
@@ -225,11 +225,11 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			)
 		}
 
-		p.dropRedundantLocalObject(addr, false)
+		p.dropRedundantLocalObject(ctx, addr, false)
 		return
 	}
 
-	p.dropRedundantLocalCopies(addrWithAttrs)
+	p.dropRedundantLocalCopies(ctx, addrWithAttrs)
 }
 
 type processPlacementContext struct {
@@ -374,23 +374,23 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 	}
 }
 
-func (p *Policer) dropRedundantLocalObject(addr oid.Address, isEC bool) {
-	err := p.deleteLocalObject(addr, isEC)
+func (p *Policer) dropRedundantLocalObject(ctx context.Context, addr oid.Address, isEC bool) {
+	err := p.deleteLocalObject(ctx, addr, isEC)
 	if err != nil {
 		p.log.Warn("could not inhume mark redundant copy as garbage",
 			zap.Error(err))
 	}
 }
 
-func (p *Policer) deleteLocalObject(addr oid.Address, isEC bool) error {
-	err := p.localStorage.Delete(addr)
+func (p *Policer) deleteLocalObject(ctx context.Context, addr oid.Address, isEC bool) error {
+	err := p.localStorage.Delete(ctx, addr)
 	if err == nil {
 		p.metrics.IncPolicerObjectDeleted(isEC)
 	}
 	return err
 }
 
-func (p *Policer) dropRedundantLocalCopies(obj objectcore.AddressWithAttributes) {
+func (p *Policer) dropRedundantLocalCopies(ctx context.Context, obj objectcore.AddressWithAttributes) {
 	if len(obj.ShardIDs) < 2 {
 		return
 	}
@@ -401,7 +401,7 @@ func (p *Policer) dropRedundantLocalCopies(obj objectcore.AddressWithAttributes)
 	default:
 	}
 
-	err := p.localStorage.DeleteRedundantCopies(obj.Address, obj.ShardIDs)
+	err := p.localStorage.DeleteRedundantCopies(ctx, obj.Address, obj.ShardIDs)
 	if err != nil {
 		p.log.Warn("could not mark redundant local shard copies as garbage",
 			zap.Stringer("object", obj.Address),

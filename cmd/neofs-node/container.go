@@ -219,7 +219,7 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 
 		l.Debug("sending container reports to contract...")
 
-		idList, err := st.ListContainers()
+		idList, err := st.ListContainers(context.TODO())
 		if err != nil {
 			l.Warn("engine's list containers failure", zap.Error(err))
 			return
@@ -238,7 +238,7 @@ func reportHandler(c *cfg, logger *zap.Logger) timer.Tick {
 
 		var successes int
 		for _, cnr := range idList {
-			size, objsNum, err := st.ContainerInfo(cnr)
+			size, objsNum, err := st.ContainerInfo(context.TODO(), cnr)
 			if err != nil {
 				l.Warn("container's stat fetching error", zap.Stringer("cid", cnr), zap.Error(err))
 				return

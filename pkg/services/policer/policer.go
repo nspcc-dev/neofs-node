@@ -27,13 +27,13 @@ type replicatorIface interface {
 
 // interface of [engine.StorageEngine] used by [Policer] for overriding in tests.
 type localStorage interface {
-	ListWithCursor(uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
-	Delete(oid.Address) error
-	DeleteRedundantCopies(oid.Address, []string) error
-	Put(*object.Object, []byte) error
-	Head(oid.Address, bool) (*object.Object, error)
-	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
-	GetRange(oid.Address, uint64, uint64) ([]byte, error)
+	ListWithCursor(context.Context, uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
+	Delete(context.Context, oid.Address) error
+	DeleteRedundantCopies(context.Context, oid.Address, []string) error
+	Put(context.Context, *object.Object, []byte) error
+	Head(context.Context, oid.Address, bool) (*object.Object, error)
+	HeadECPart(context.Context, cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
+	GetRange(context.Context, oid.Address, uint64, uint64) ([]byte, error)
 }
 
 // interface of [headsvc.RemoteHeader] used by [Policer] for overriding in tests.

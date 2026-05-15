@@ -16,7 +16,7 @@ import (
 //
 // If some address is not a valid object address in a binary format, an error returns.
 // If request is unsigned or signed by disallowed key, permission error returns.
-func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest) (*control.DropObjectsResponse, error) {
+func (s *Server) DropObjects(ctx context.Context, req *control.DropObjectsRequest) (*control.DropObjectsResponse, error) {
 	// verify request
 	if err := s.isValidRequest(req); err != nil {
 		return nil, status.Error(codes.PermissionDenied, err.Error())
@@ -42,7 +42,7 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 
 	var firstErr error
 	for i := range addrList {
-		err := s.storage.Drop(addrList[i])
+		err := s.storage.Drop(ctx, addrList[i])
 		if err != nil && firstErr == nil {
 			firstErr = err
 		}

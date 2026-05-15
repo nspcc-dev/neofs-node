@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *Server) ObjectStatus(_ context.Context, request *control.ObjectStatusRequest) (*control.ObjectStatusResponse, error) {
+func (s *Server) ObjectStatus(ctx context.Context, request *control.ObjectStatusRequest) (*control.ObjectStatusResponse, error) {
 	err := s.isValidRequest(request)
 	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, err.Error())
@@ -29,7 +29,7 @@ func (s *Server) ObjectStatus(_ context.Context, request *control.ObjectStatusRe
 		return nil, status.Errorf(codes.InvalidArgument, "parsing object address: %s", err)
 	}
 
-	st, err := s.storage.ObjectStatus(addr)
+	st, err := s.storage.ObjectStatus(ctx, addr)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "storage engine error: %s", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *Server) ReviveObject(_ context.Context, request *control.ReviveObjectRequest) (*control.ReviveObjectResponse, error) {
+func (s *Server) ReviveObject(ctx context.Context, request *control.ReviveObjectRequest) (*control.ReviveObjectResponse, error) {
 	err := s.isValidRequest(request)
 	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, err.Error())
@@ -27,7 +27,7 @@ func (s *Server) ReviveObject(_ context.Context, request *control.ReviveObjectRe
 		return nil, status.Errorf(codes.InvalidArgument, "parsing object address: %s", err)
 	}
 
-	res, err := s.storage.ReviveObject(addr)
+	res, err := s.storage.ReviveObject(ctx, addr)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

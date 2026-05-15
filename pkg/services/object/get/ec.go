@@ -38,8 +38,8 @@ func (x tooManyPartsUnavailableError) Error() string {
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
-func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
-	hdr, rc, err := s.localObjects.GetECPart(cnr, parent, pi)
+func (s *Service) copyLocalECPart(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+	hdr, rc, err := s.localObjects.GetECPart(ctx, cnr, parent, pi)
 	if err != nil {
 		return fmt.Errorf("get object from local storage: %w", err)
 	}
@@ -53,8 +53,8 @@ func (s *Service) copyLocalECPart(dst ObjectWriter, cnr cid.ID, parent oid.ID, p
 }
 
 // similar to copyLocalECPart but returns only the header.
-func (s *Service) copyLocalECPartHeader(dst internal.HeaderWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
-	hdr, err := s.localObjects.HeadECPart(cnr, parent, pi)
+func (s *Service) copyLocalECPartHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+	hdr, err := s.localObjects.HeadECPart(ctx, cnr, parent, pi)
 	if err != nil {
 		return fmt.Errorf("get object header from local storage: %w", err)
 	}
@@ -121,14 +121,14 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 			var err error
 			if buf != nil {
 				var n int
-				n, err = s.localObjects.ReadHeader(oid.NewAddress(cnr, id), false, buf)
+				n, err = s.localObjects.ReadHeader(ctx, oid.NewAddress(cnr, id), false, buf)
 				if err == nil {
 					submitLenFn(n)
 					return object.Object{}, nil
 				}
 			} else {
 				var hdr *object.Object
-				hdr, err = s.localStorage.(*storageEngineWrapper).engine.Head(oid.NewAddress(cnr, id), false)
+				hdr, err = s.localStorage.(*storageEngineWrapper).engine.Head(ctx, oid.NewAddress(cnr, id), false)
 				if err == nil {
 					return *hdr, nil
 				}
@@ -493,7 +493,7 @@ func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID
 		}
 
 		if local {
-			partHdr, rc, err = s.localObjects.GetECPart(cnr, parent, pi)
+			partHdr, rc, err = s.localObjects.GetECPart(ctx, cnr, parent, pi)
 		} else {
 			partHdr, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
 		}
@@ -656,8 +656,8 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 // Returns [apistatus.ErrObjectOutOfRange] if the range is out of payload range.
-func (s *Service) copyLocalECPartRange(dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
-	pldLen, rc, err := s.localObjects.GetECPartRange(cnr, parent, pi, off, ln)
+func (s *Service) copyLocalECPartRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
+	pldLen, rc, err := s.localObjects.GetECPartRange(ctx, cnr, parent, pi, off, ln)
 	if err != nil {
 		return fmt.Errorf("get object payload range from local storage: %w", err)
 	}
@@ -1236,7 +1236,7 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 		}
 
 		if local {
-			_, rc, err = s.localObjects.GetECPartRange(cnr, parent, pi, off, ln)
+			_, rc, err = s.localObjects.GetECPartRange(ctx, cnr, parent, pi, off, ln)
 			if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) {
 				return rc, err
 			}

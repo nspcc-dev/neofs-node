@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"context"
+
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -50,7 +52,7 @@ func (c *Cursor) ObjectID() oid.ID {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
+func (e *StorageEngine) ListWithCursor(_ context.Context, count uint32, cursor *Cursor, attrs ...string) ([]objectcore.AddressWithAttributes, *Cursor, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}

@@ -38,7 +38,7 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 		cursor *engine.Cursor
 	)
 	for {
-		addrs, cursor, err = storage.ListWithCursor(1024, cursor)
+		addrs, cursor, err = storage.ListWithCursor(cmd.Context(), 1024, cursor)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				return nil

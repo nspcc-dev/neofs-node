@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -17,7 +19,7 @@ type ObjectStatus struct {
 }
 
 // ObjectStatus returns the status of the object in the StorageEngine. It contains status of the object in all shards.
-func (e *StorageEngine) ObjectStatus(address oid.Address) (ObjectStatus, error) {
+func (e *StorageEngine) ObjectStatus(_ context.Context, address oid.Address) (ObjectStatus, error) {
 	var res ObjectStatus
 
 	for _, sh := range e.sortedShards(address.Object()) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/nspcc-dev/bbolt"
@@ -36,7 +37,7 @@ func initLocalStorage(c *cfg) {
 
 	subscribeToContainerRemoval(c, func(id cid.ID, owner user.ID) {
 		if owner.IsZero() {
-			err := ls.InhumeContainer(id)
+			err := ls.InhumeContainer(context.TODO(), id)
 			if err != nil {
 				c.log.Warn("inhuming container after a chain event",
 					zap.Stringer("cID", id), zap.Error(err))
@@ -46,7 +47,7 @@ func initLocalStorage(c *cfg) {
 		c.log.Info("caught container removal, marking its local objects for GC...",
 			zap.Stringer("container", id), zap.Stringer("owner", owner))
 
-		if err := ls.InhumeContainer(id); err != nil {
+		if err := ls.InhumeContainer(context.TODO(), id); err != nil {
 			c.log.Warn("failed to mark local objects from the removed container for GC",
 				zap.Stringer("container", id), zap.Error(err))
 			return

@@ -302,8 +302,9 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 }
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser, error) {
+	ctx := exec.context()
 	if exec.headOnly() {
-		r, err := e.engine.Head(exec.address(), exec.isRaw())
+		r, err := e.engine.Head(ctx, exec.address(), exec.isRaw())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -313,25 +314,25 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 
 	if rng := exec.ctxRange(); rng != nil {
 		if exec.localRangeBuffer != nil {
-			r, err := e.engine.ReadPayloadRange(exec.address(), rng.GetOffset(), rng.GetLength(), exec.localRangeBuffer)
+			r, err := e.engine.ReadPayloadRange(ctx, exec.address(), rng.GetOffset(), rng.GetLength(), exec.localRangeBuffer)
 			if err == nil {
 				exec.submitLocalRangeStreamFn(r)
 			}
 			return nil, nil, err
 		}
-		r, err := e.engine.GetRangeStream(exec.address(), rng.GetOffset(), rng.GetLength())
+		r, err := e.engine.GetRangeStream(ctx, exec.address(), rng.GetOffset(), rng.GetLength())
 		return nil, r, err
 	}
 
 	if exec.localGetBuffer != nil {
-		n, stream, err := e.engine.ReadObject(exec.address(), exec.localGetBuffer)
+		n, stream, err := e.engine.ReadObject(ctx, exec.address(), exec.localGetBuffer)
 		if err == nil {
 			exec.submitLocalGetStreamFn(n, stream)
 		}
 		return nil, nil, err
 	}
 
-	return e.engine.GetStream(exec.address())
+	return e.engine.GetStream(ctx, exec.address())
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {

@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -18,18 +19,18 @@ type ObjectStorage interface {
 	//
 	// Optional objBin parameter carries object encoded in a canonical NeoFS binary
 	// format.
-	Put(obj *object.Object, objBin []byte) error
+	Put(ctx context.Context, obj *object.Object, objBin []byte) error
 	// IsLocked must clarify object's lock status.
 	IsLocked(oid.Address) (bool, error)
 }
 
-func putObjectLocally(storage ObjectStorage, obj *object.Object, enc *encodedObject) error {
+func putObjectLocally(ctx context.Context, storage ObjectStorage, obj *object.Object, enc *encodedObject) error {
 	var objBin []byte
 	if enc != nil && enc.pldOff > 0 {
 		objBin = enc.b[enc.hdrOff:]
 	}
 
-	if err := storage.Put(obj, objBin); err != nil {
+	if err := storage.Put(ctx, obj, objBin); err != nil {
 		return fmt.Errorf("could not put object to local storage: %w", err)
 	}
 
@@ -90,5 +91,5 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return errors.New("payload SHA-256 checksum mismatch")
 	}
 
-	return putObjectLocally(p.localStore, &obj, nil)
+	return putObjectLocally(context.TODO(), p.localStore, &obj, nil)
 }

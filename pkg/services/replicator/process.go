@@ -44,7 +44,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		objBin = task.obj.Marshal()
 		stream = bytes.NewReader(objBin)
 	} else {
-		objBin, err = p.localStorage.GetBytes(task.addr)
+		objBin, err = p.localStorage.GetBytes(ctx, task.addr)
 		if err != nil {
 			p.log.Error("could not get object from local storage",
 				zap.Stringer("object", task.addr),
@@ -75,7 +75,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 				log.Debug("cannot put object to local storage: object not provided in task")
 				continue
 			}
-			if err = p.localStorage.Put(task.obj, objBin); err != nil {
+			if err = p.localStorage.Put(ctx, task.obj, objBin); err != nil {
 				log.Error("could not put object to local storage", zap.Error(err))
 				continue
 			}

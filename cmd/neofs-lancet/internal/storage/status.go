@@ -34,7 +34,7 @@ func statusObject(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	defer storage.Close()
-	status, err := storage.ObjectStatus(addr)
+	status, err := storage.ObjectStatus(cmd.Context(), addr)
 	if err != nil {
 		return fmt.Errorf("could not fetch object: %w", err)
 	}
