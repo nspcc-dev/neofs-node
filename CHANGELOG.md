@@ -46,6 +46,7 @@ Changelog for NeoFS Node
 - Internal conversions of node addresses received from network map (#3981)
 
 ### Updated
+- NeoGo dependency to 0.119.0 (#3993)
 
 ### Updating from v0.52.0
 Drop `policer.max_workers` configuration, it's no-op since 0.52.0.
