@@ -128,7 +128,7 @@ type mockLocalObjects struct {
 	getECPart map[getECPartKey]getECPartValue
 }
 
-func (x *mockLocalObjects) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
+func (x *mockLocalObjects) GetECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
 	v, ok := x.getECPart[getECPartKey{
 		cnr:    cnr,
 		parent: parent,
@@ -185,34 +185,34 @@ func (x unimplementedServiceConns) Head(context.Context, netmap.NodeInfo, ecdsa.
 
 type unimplementedLocalStorage struct{}
 
-func (x unimplementedLocalStorage) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64) (uint64, io.ReadCloser, error) {
+func (x unimplementedLocalStorage) GetECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _, _ uint64) (uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error) {
+func (unimplementedLocalStorage) GetECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo) (object.Object, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) ReadECPart(cid.ID, oid.ID, iec.PartInfo, []byte) (int, io.ReadCloser, error) {
+func (unimplementedLocalStorage) ReadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ []byte) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) Head(oid.Address, bool) (*object.Object, error) {
+func (unimplementedLocalStorage) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) ReadHeader(oid.Address, bool, []byte) (int, error) {
+func (unimplementedLocalStorage) ReadHeader(_ context.Context, _ oid.Address, _ bool, _ []byte) (int, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
+func (unimplementedLocalStorage) HeadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo) (object.Object, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error) {
+func (unimplementedLocalStorage) ReadECPartHeader(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ []byte) (int, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) ReadECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64, []byte) (io.ReadCloser, error) {
+func (unimplementedLocalStorage) ReadECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _, _ uint64, _ []byte) (io.ReadCloser, error) {
 	panic("unimplemented")
 }

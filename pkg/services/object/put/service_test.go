@@ -952,7 +952,7 @@ type inMemLocalStorage struct {
 	err  error
 }
 
-func (x *inMemLocalStorage) Put(obj *object.Object, objBin []byte) error {
+func (x *inMemLocalStorage) Put(_ context.Context, obj *object.Object, objBin []byte) error {
 	if x.err != nil {
 		return x.err
 	}
