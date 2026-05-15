@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
@@ -34,14 +35,14 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 
 	e, _, _ := newEngine(t, t.TempDir())
 
-	err := e.Put(&obj, objBin)
+	err := e.Put(context.Background(), &obj, objBin)
 	require.NoError(t, err)
 
-	gotObj, err := e.Get(addr)
+	gotObj, err := e.Get(context.Background(), addr)
 	require.NoError(t, err)
 	require.Equal(t, &obj, gotObj)
 
-	b, err := e.GetBytes(addr)
+	b, err := e.GetBytes(context.Background(), addr)
 	require.NoError(t, err)
 	require.Equal(t, objBin, b)
 
@@ -49,14 +50,14 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 	addr.SetObject(oidtest.ID())
 	obj.SetID(addr.Object()) // to avoid 'already exists' outcome
 	invalidObjBin := []byte("definitely not an object")
-	err = e.Put(&obj, invalidObjBin)
+	err = e.Put(context.Background(), &obj, invalidObjBin)
 	require.NoError(t, err)
 
-	b, err = e.GetBytes(addr)
+	b, err = e.GetBytes(context.Background(), addr)
 	require.NoError(t, err)
 	require.Equal(t, invalidObjBin, b)
 
-	_, err = e.Get(addr)
+	_, err = e.Get(context.Background(), addr)
 	require.Error(t, err)
 }
 
@@ -111,15 +112,15 @@ func testPutLock(t *testing.T, shardNum int) {
 			default:
 			}
 
-			require.NoError(t, s.Put(&obj, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
 
-			require.ErrorIs(t, s.Put(&lock, nil), apistatus.ErrLockNonRegularObject)
+			require.ErrorIs(t, s.Put(context.Background(), &lock, nil), apistatus.ErrLockNonRegularObject)
 
-			locked, err := s.IsLocked(objAddr)
+			locked, err := s.IsLocked(context.Background(), objAddr)
 			require.NoError(t, err)
 			require.False(t, locked)
 
-			_, err = s.Get(lockAddr)
+			_, err = s.Get(context.Background(), lockAddr)
 			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		}
 	})
@@ -149,7 +150,7 @@ func testPutLock(t *testing.T, shardNum int) {
 				Index:     i,
 			})
 			require.NoError(t, err)
-			require.NoError(t, s.Put(&partObj, nil))
+			require.NoError(t, s.Put(context.Background(), &partObj, nil))
 		}
 
 		var lock object.Object
@@ -159,9 +160,9 @@ func testPutLock(t *testing.T, shardNum int) {
 
 		require.NoError(t, lock.SetVerificationFields(creator))
 
-		require.NoError(t, s.Put(&lock, nil))
+		require.NoError(t, s.Put(context.Background(), &lock, nil))
 
-		locked, err := s.IsLocked(parentAddr)
+		locked, err := s.IsLocked(context.Background(), parentAddr)
 		require.NoError(t, err)
 		require.True(t, locked)
 
@@ -181,23 +182,23 @@ func testPutLock(t *testing.T, shardNum int) {
 	}{
 		{name: "no target", preset: func(t *testing.T, s *StorageEngine) {}},
 		{name: "with target", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
 		}},
 		{name: "with target and tombstone", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
-			require.NoError(t, s.Put(&tomb, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
+			require.NoError(t, s.Put(context.Background(), &tomb, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&tomb, nil))
+			require.NoError(t, s.Put(context.Background(), &tomb, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
 
-			err := s.Delete(objAddr)
+			err := s.Delete(context.Background(), objAddr)
 			require.NoError(t, err)
 		}},
 	} {
@@ -206,9 +207,9 @@ func testPutLock(t *testing.T, shardNum int) {
 
 			tc.preset(t, s)
 
-			putErr := s.Put(&lock, nil)
-			locked, lockedErr := s.IsLocked(objAddr)
-			got, getErr := s.Get(lockAddr)
+			putErr := s.Put(context.Background(), &lock, nil)
+			locked, lockedErr := s.IsLocked(context.Background(), objAddr)
+			got, getErr := s.Get(context.Background(), lockAddr)
 
 			if tc.assertPutErr != nil {
 				tc.assertPutErr(t, putErr)
@@ -273,23 +274,23 @@ func testPutTombstone(t *testing.T, shardNum int) {
 	}{
 		{name: "no target", preset: func(t *testing.T, s *StorageEngine) {}},
 		{name: "with target", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
 		}},
 		{name: "with target and lock", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
-			require.NoError(t, s.Put(&lock, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
+			require.NoError(t, s.Put(context.Background(), &lock, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
 		}},
 		{name: "lock without target", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&lock, nil))
+			require.NoError(t, s.Put(context.Background(), &lock, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectLocked)
 		}},
 		{name: "target is lock", preset: func(t *testing.T, s *StorageEngine) {
 			obj := obj
 			obj.AssociateLocked(oidtest.ID())
-			require.NoError(t, s.Put(&obj, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
 		}},
@@ -299,7 +300,7 @@ func testPutTombstone(t *testing.T, shardNum int) {
 				object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 			)
 			obj.AssociateDeleted(oidtest.ID())
-			require.NoError(t, s.Put(&obj, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
 		}, assertPutErr: func(t *testing.T, err error) {
 			require.EqualError(t, err, "could not put object to any shard")
 		}, skip: "https://github.com/nspcc-dev/neofs-node/issues/3498"},
@@ -313,9 +314,9 @@ func testPutTombstone(t *testing.T, shardNum int) {
 
 			tc.preset(t, s)
 
-			putTombErr := s.Put(&tomb, nil)
-			gotTomb, getTombErr := s.Get(tombAddr)
-			_, getObjErr := s.Get(objAddr)
+			putTombErr := s.Put(context.Background(), &tomb, nil)
+			gotTomb, getTombErr := s.Get(context.Background(), tombAddr)
+			_, getObjErr := s.Get(context.Background(), objAddr)
 
 			if tc.assertPutErr != nil {
 				tc.assertPutErr(t, putTombErr)

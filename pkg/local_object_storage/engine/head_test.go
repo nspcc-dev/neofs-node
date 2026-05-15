@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"testing"
 
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -52,7 +53,7 @@ func TestHeadRaw(t *testing.T) {
 		require.NoError(t, err)
 
 		// head with raw flag should return SplitInfoError
-		_, err = e.Head(parentAddr, true)
+		_, err = e.Head(context.Background(), parentAddr, true)
 		require.Error(t, err)
 
 		var si *object.SplitInfoError

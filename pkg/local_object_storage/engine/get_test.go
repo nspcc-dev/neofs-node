@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"io"
 	"testing"
 
@@ -16,10 +17,10 @@ func TestStorageEngine_GetBytes(t *testing.T) {
 
 	objBin := obj.Marshal()
 
-	err := e.Put(obj, nil)
+	err := e.Put(context.Background(), obj, nil)
 	require.NoError(t, err)
 
-	b, err := e.GetBytes(addr)
+	b, err := e.GetBytes(context.Background(), addr)
 	require.NoError(t, err)
 	require.Equal(t, objBin, b)
 }
@@ -29,10 +30,10 @@ func TestStorageEngine_GetStream(t *testing.T) {
 	obj := generateObjectWithCID(cidtest.ID())
 	addr := obj.Address()
 
-	err := e.Put(obj, nil)
+	err := e.Put(context.Background(), obj, nil)
 	require.NoError(t, err)
 
-	header, reader, err := e.GetStream(addr)
+	header, reader, err := e.GetStream(context.Background(), addr)
 	assertGetStreamOK(t, header, reader, err, *obj)
 }
 

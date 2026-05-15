@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -87,10 +88,10 @@ func TestChildrenExpiration(t *testing.T) {
 		link.SetChildren(child1ID, child2ID, child3ID)
 		link.SetSplitID(splitID)
 
-		require.NoError(t, e.Put(child1, nil))
-		require.NoError(t, e.Put(child2, nil))
-		require.NoError(t, e.Put(child3, nil))
-		require.NoError(t, e.Put(link, nil))
+		require.NoError(t, e.Put(context.Background(), child1, nil))
+		require.NoError(t, e.Put(context.Background(), child2, nil))
+		require.NoError(t, e.Put(context.Background(), child3, nil))
+		require.NoError(t, e.Put(context.Background(), link, nil))
 
 		tickEpoch(es, e)
 
@@ -135,10 +136,10 @@ func TestChildrenExpiration(t *testing.T) {
 		linkObj.CalculateAndSetPayloadChecksum()
 		require.NoError(t, linkObj.CalculateAndSetID())
 
-		require.NoError(t, e.Put(child1, nil))
-		require.NoError(t, e.Put(child2, nil))
-		require.NoError(t, e.Put(child3, nil))
-		require.NoError(t, e.Put(&linkObj, nil))
+		require.NoError(t, e.Put(context.Background(), child1, nil))
+		require.NoError(t, e.Put(context.Background(), child2, nil))
+		require.NoError(t, e.Put(context.Background(), child3, nil))
+		require.NoError(t, e.Put(context.Background(), &linkObj, nil))
 
 		tickEpoch(es, e)
 
@@ -155,7 +156,7 @@ func checkObjectsAsyncRemoval(t *testing.T, e *StorageEngine, cnr cid.ID, objs .
 	for _, obj := range objs {
 		addr.SetObject(obj)
 
-		_, err := e.Get(addr)
+		_, err := e.Get(context.Background(), addr)
 		require.ErrorAs(t, err, new(statusSDK.ObjectNotFound))
 	}
 }
@@ -191,7 +192,7 @@ func TestGC(t *testing.T) {
 		// t.Run("expired object", func(t *testing.T) {
 		obj := generateObjectWithCID(cnr)
 		addExpirationAttribute(obj, es.CurrentEpoch())
-		require.NoError(t, e.Put(obj, nil))
+		require.NoError(t, e.Put(context.Background(), obj, nil))
 
 		tickEpoch(es, e)
 
@@ -200,13 +201,13 @@ func TestGC(t *testing.T) {
 		// t.Run("object with lock - prevents deletion until lock expires", func(t *testing.T) {
 		obj = generateObjectWithCID(cnr)
 		addExpirationAttribute(obj, es.CurrentEpoch())
-		require.NoError(t, e.Put(obj, nil))
+		require.NoError(t, e.Put(context.Background(), obj, nil))
 		objAddr := obj.Address()
 
 		lockObj := generateObjectWithCID(cnr)
 		lockObj.AssociateLocked(obj.GetID())
 		addExpirationAttribute(lockObj, es.CurrentEpoch()+1) // lock expires after object
-		require.NoError(t, e.Put(lockObj, nil))
+		require.NoError(t, e.Put(context.Background(), lockObj, nil))
 
 		tickEpoch(es, e)
 
@@ -214,7 +215,7 @@ func TestGC(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// object must stay because it's locked
-		_, err := e.Get(objAddr)
+		_, err := e.Get(context.Background(), objAddr)
 		require.NoError(t, err)
 
 		tickEpoch(es, e)
@@ -226,7 +227,7 @@ func TestGC(t *testing.T) {
 		tomb := generateObjectWithCID(cnr)
 		tomb.AssociateDeleted(oidtest.ID())
 		addExpirationAttribute(tomb, es.CurrentEpoch())
-		require.NoError(t, e.Put(tomb, nil))
+		require.NoError(t, e.Put(context.Background(), tomb, nil))
 
 		tickEpoch(es, e)
 
@@ -234,7 +235,7 @@ func TestGC(t *testing.T) {
 
 		// t.Run("object inhume by tombstone", func(t *testing.T) {
 		obj = generateObjectWithCID(cnr)
-		require.NoError(t, e.Put(obj, nil))
+		require.NoError(t, e.Put(context.Background(), obj, nil))
 		tomb = generateObjectWithCID(cnr)
 
 		var a object.Attribute
@@ -245,9 +246,9 @@ func TestGC(t *testing.T) {
 		objAddr = obj.Address()
 		tomb.AssociateDeleted(obj.GetID())
 
-		require.NoError(t, e.Put(tomb, nil))
+		require.NoError(t, e.Put(context.Background(), tomb, nil))
 
-		_, err = e.Get(objAddr)
+		_, err = e.Get(context.Background(), objAddr)
 		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
 
 		tickEpoch(es, e)
@@ -256,13 +257,13 @@ func TestGC(t *testing.T) {
 
 		// t.Run("object associated with expired tombstone", func(t *testing.T) {
 		obj = generateObjectWithCID(cnr)
-		require.NoError(t, e.Put(obj, nil))
+		require.NoError(t, e.Put(context.Background(), obj, nil))
 		tomb = generateObjectWithCID(cnr)
 		tomb.AssociateDeleted(obj.GetID())
 		addExpirationAttribute(tomb, es.CurrentEpoch())
-		require.NoError(t, e.Put(tomb, nil))
+		require.NoError(t, e.Put(context.Background(), tomb, nil))
 
-		_, err = e.Get(obj.Address())
+		_, err = e.Get(context.Background(), obj.Address())
 		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
 
 		tickEpoch(es, e)
@@ -272,13 +273,13 @@ func TestGC(t *testing.T) {
 		// t.Run("object with tombstone expires", func(t *testing.T) {
 		obj = generateObjectWithCID(cnr)
 		addExpirationAttribute(obj, es.CurrentEpoch())
-		require.NoError(t, e.Put(obj, nil))
+		require.NoError(t, e.Put(context.Background(), obj, nil))
 		objAddr = obj.Address()
 
 		tomb = generateObjectWithCID(cnr)
 		tomb.AssociateDeleted(obj.GetID())
 		addExpirationAttribute(tomb, es.CurrentEpoch()+1) // tombstone expires after object
-		require.NoError(t, e.Put(tomb, nil))
+		require.NoError(t, e.Put(context.Background(), tomb, nil))
 
 		tickEpoch(es, e)
 
@@ -286,9 +287,9 @@ func TestGC(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// object covered by tombstone
-		_, err = e.Get(objAddr)
+		_, err = e.Get(context.Background(), objAddr)
 		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
-		_, err = e.Get(tomb.Address())
+		_, err = e.Get(context.Background(), tomb.Address())
 		require.NoError(t, err)
 
 		tickEpoch(es, e)
@@ -358,10 +359,10 @@ func TestSplitObjectExpirationWithoutLink(t *testing.T) {
 		}
 
 		for i := range children {
-			require.NoError(t, e.Put(children[i], nil))
+			require.NoError(t, e.Put(context.Background(), children[i], nil))
 		}
 
-		_, err = e.Get(parentAddr)
+		_, err = e.Get(context.Background(), parentAddr)
 		var splitErr *object.SplitInfoError
 		require.ErrorAs(t, err, &splitErr)
 		// Do not put link, so parent will have SplitInfo without link
@@ -450,15 +451,15 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 		linkAddr := linkObj.Address()
 
 		// Put link object and all children
-		require.NoError(t, e.Put(&linkObj, nil))
+		require.NoError(t, e.Put(context.Background(), &linkObj, nil))
 		for i := range children {
-			require.NoError(t, e.Put(children[i], nil))
+			require.NoError(t, e.Put(context.Background(), children[i], nil))
 		}
 
-		_, err = e.Get(linkAddr)
+		_, err = e.Get(context.Background(), linkAddr)
 		require.NoError(t, err)
 
-		_, err = e.Get(parentAddr)
+		_, err = e.Get(context.Background(), parentAddr)
 		var splitErr *object.SplitInfoError
 		require.ErrorAs(t, err, &splitErr)
 		require.Equal(t, linkObj.GetID(), splitErr.SplitInfo().GetLink())
@@ -468,10 +469,10 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 		// Now delete the link object to simulate missing link scenario
 		require.NoError(t, fstr.Delete(linkAddr))
 
-		_, err = e.Get(linkAddr)
+		_, err = e.Get(context.Background(), linkAddr)
 		require.ErrorIs(t, err, statusSDK.ErrObjectNotFound)
 
-		_, err = e.Get(parentAddr)
+		_, err = e.Get(context.Background(), parentAddr)
 		require.ErrorAs(t, err, &splitErr)
 		require.Equal(t, linkObj.GetID(), splitErr.SplitInfo().GetLink()) // Pretends to be here, but not in fact.
 		require.Equal(t, childIDs[len(childIDs)-1], splitErr.SplitInfo().GetLastPart())

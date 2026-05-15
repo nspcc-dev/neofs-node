@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -70,21 +71,21 @@ func TestLockUserScenario(t *testing.T) {
 	tombForLockObj.AssociateDeleted(lockerID)
 
 	// 1.
-	err = e.Put(obj, nil)
+	err = e.Put(context.Background(), obj, nil)
 	require.NoError(t, err)
 
 	// 2.
 	lockerObj.AssociateLocked(id)
 
-	err = e.Put(lockerObj, nil)
+	err = e.Put(context.Background(), lockerObj, nil)
 	require.NoError(t, err)
 
 	// 3.
-	err = e.Put(tombObj, nil)
+	err = e.Put(context.Background(), tombObj, nil)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	err = e.Put(tombForLockObj, nil)
+	err = e.Put(context.Background(), tombForLockObj, nil)
 	require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
 
 	// 5.
@@ -93,7 +94,7 @@ func TestLockUserScenario(t *testing.T) {
 	// delay for GC
 	time.Sleep(time.Second)
 
-	err = e.Put(tombObj, nil)
+	err = e.Put(context.Background(), tombObj, nil)
 	require.NoError(t, err)
 }
 
@@ -120,7 +121,7 @@ func TestLockExpiration(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(cnr)
 
-	err = e.Put(obj, nil)
+	err = e.Put(context.Background(), obj, nil)
 	require.NoError(t, err)
 
 	// 2.
@@ -132,14 +133,14 @@ func TestLockExpiration(t *testing.T) {
 	lock.SetAttributes(a)
 	lock.AssociateLocked(obj.GetID())
 
-	err = e.Put(lock, nil)
+	err = e.Put(context.Background(), lock, nil)
 	require.NoError(t, err)
 
 	var tombForObj = generateObjectWithCID(cnr)
 	tombForObj.SetAttributes(a)
 	tombForObj.AssociateDeleted(obj.GetID())
 
-	err = e.Put(tombForObj, nil)
+	err = e.Put(context.Background(), tombForObj, nil)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 3.
@@ -150,7 +151,7 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	err = e.Put(tombForObj, nil)
+	err = e.Put(context.Background(), tombForObj, nil)
 	require.NoError(t, err)
 }
 
@@ -175,14 +176,14 @@ func TestLockForceRemoval(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(cnr)
 
-	err = e.Put(obj, nil)
+	err = e.Put(context.Background(), obj, nil)
 	require.NoError(t, err)
 
 	// 2.
 	lock := generateObjectWithCID(cnr)
 	lock.AssociateLocked(obj.GetID())
 
-	err = e.Put(lock, nil)
+	err = e.Put(context.Background(), lock, nil)
 	require.NoError(t, err)
 
 	// 3.
@@ -195,15 +196,15 @@ func TestLockForceRemoval(t *testing.T) {
 	tombForLockObj.SetAttributes(a)
 	tombForLockObj.AssociateDeleted(obj.GetID())
 
-	err = e.Put(tombForLockObj, nil)
+	err = e.Put(context.Background(), tombForLockObj, nil)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	err = e.Delete(lock.Address())
+	err = e.Delete(context.Background(), lock.Address())
 	require.NoError(t, err)
 
 	// 5.
-	err = e.Put(tombForLockObj, nil)
+	err = e.Put(context.Background(), tombForLockObj, nil)
 	require.NoError(t, err)
 }
 
@@ -274,32 +275,32 @@ func testLockRemoved(t *testing.T, shardNum int) {
 		assertLockErr func(t *testing.T, err error)
 	}{
 		{name: "with target and tombstone", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
-			require.NoError(t, s.Put(&tomb, nil))
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
+			require.NoError(t, s.Put(context.Background(), &tomb, nil))
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&tomb, nil))
+			require.NoError(t, s.Put(context.Background(), &tomb, nil))
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and tombstone", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
-			err := s.Put(&tomb, nil)
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
+			err := s.Put(context.Background(), &tomb, nil)
 			require.NoError(t, err)
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "tombstone without target", preset: func(t *testing.T, s *StorageEngine) {
-			err := s.Put(&tomb, nil)
+			err := s.Put(context.Background(), &tomb, nil)
 			require.NoError(t, err)
 		}, assertLockErr: func(t *testing.T, err error) {
 			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
-			require.NoError(t, s.Put(&obj, nil))
-			err := s.Delete(objAddr)
+			require.NoError(t, s.Put(context.Background(), &obj, nil))
+			err := s.Delete(context.Background(), objAddr)
 			require.NoError(t, err)
 		}},
 	} {
@@ -308,10 +309,10 @@ func testLockRemoved(t *testing.T, shardNum int) {
 
 			tc.preset(t, s)
 
-			lockErr := s.Put(lockObj, nil)
-			locked, lockedErr := s.IsLocked(objAddr)
-			_, lockHeadErr := s.Head(lockAddr, false)
-			_, lockGetErr := s.Get(lockAddr)
+			lockErr := s.Put(context.Background(), lockObj, nil)
+			locked, lockedErr := s.IsLocked(context.Background(), objAddr)
+			_, lockHeadErr := s.Head(context.Background(), lockAddr, false)
+			_, lockGetErr := s.Get(context.Background(), lockAddr)
 
 			if tc.assertLockErr != nil {
 				tc.assertLockErr(t, lockErr)
@@ -393,11 +394,11 @@ func TestSplitObjectLockExpiration(t *testing.T) {
 	link.SetChildren(childIDs...)
 
 	for i := range children {
-		require.NoError(t, e.Put(children[i], nil))
+		require.NoError(t, e.Put(context.Background(), children[i], nil))
 	}
-	require.NoError(t, e.Put(link, nil))
+	require.NoError(t, e.Put(context.Background(), link, nil))
 
-	_, err := e.Get(parentAddr)
+	_, err := e.Get(context.Background(), parentAddr)
 	var splitErr *object.SplitInfoError
 	require.ErrorAs(t, err, &splitErr)
 	require.Equal(t, splitID, splitErr.SplitInfo().SplitID())
@@ -407,23 +408,23 @@ func TestSplitObjectLockExpiration(t *testing.T) {
 		lockObj.AssociateLocked(parentID)
 		addExpirationAttribute(lockObj, es.CurrentEpoch()+1)
 
-		require.NoError(t, e.Put(lockObj, nil))
+		require.NoError(t, e.Put(context.Background(), lockObj, nil))
 
-		l, err := e.IsLocked(parentAddr)
+		l, err := e.IsLocked(context.Background(), parentAddr)
 		require.NoError(t, err)
 		require.True(t, l)
 
 		// Advance epoch but keep lock valid
 		tickEpoch(es, e)
 
-		l, err = e.IsLocked(parentAddr)
+		l, err = e.IsLocked(context.Background(), parentAddr)
 		require.NoError(t, err)
 		require.True(t, l)
 
 		// Advance epoch again - now lock should expire
 		tickEpoch(es, e)
 
-		l, err = e.IsLocked(parentAddr)
+		l, err = e.IsLocked(context.Background(), parentAddr)
 		require.NoError(t, err)
 		require.False(t, l)
 	})
@@ -462,24 +463,24 @@ func TestSimpleLockExpiration(t *testing.T) {
 	lock.AssociateLocked(objID)
 	addExpirationAttribute(lock, es.CurrentEpoch()+1)
 
-	require.NoError(t, e.Put(obj, nil))
-	require.NoError(t, e.Put(lock, nil))
+	require.NoError(t, e.Put(context.Background(), obj, nil))
+	require.NoError(t, e.Put(context.Background(), lock, nil))
 
-	locked, err := e.IsLocked(objAddr)
+	locked, err := e.IsLocked(context.Background(), objAddr)
 	require.NoError(t, err)
 	require.True(t, locked)
 
 	// Advance epoch but keep lock valid
 	tickEpoch(es, e)
 
-	locked, err = e.IsLocked(objAddr)
+	locked, err = e.IsLocked(context.Background(), objAddr)
 	require.NoError(t, err)
 	require.True(t, locked)
 
 	// Advance epoch again - now lock should expire
 	tickEpoch(es, e)
 
-	locked, err = e.IsLocked(objAddr)
+	locked, err = e.IsLocked(context.Background(), objAddr)
 	require.NoError(t, err)
 	require.False(t, locked)
 }

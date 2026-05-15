@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,10 +52,10 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		e := errors.New("any error")
 		require.NoError(t, s.BlockExecution(e))
 
-		_, _, err := s.GetECPart(cnr, parentID, pi)
+		_, _, err := s.GetECPart(context.Background(), cnr, parentID, pi)
 		require.Equal(t, e, err)
 
-		_, _, err = s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+		_, _, err = s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
 		require.Equal(t, e, err)
 	})
 
@@ -83,10 +84,10 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
 		s.metrics = &m
 
-		_, _, _ = s.GetECPart(cnr, parentID, pi)
+		_, _, _ = s.GetECPart(context.Background(), cnr, parentID, pi)
 		require.GreaterOrEqual(t, time.Duration(m.getECPart.Load()), sleepTime)
 
-		_, _, _ = s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+		_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
 		require.GreaterOrEqual(t, time.Duration(m.readECPart.Load()), sleepTime)
 	})
 
@@ -101,13 +102,13 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		s.log = l
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _, _ = s.GetECPart(cnr, parentID, pi)
+			_, _, _ = s.GetECPart(context.Background(), cnr, parentID, pi)
 		})
 
 		lb.AssertEmpty()
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _, _ = s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+			_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
 		})
 
 		lb.AssertEmpty()
@@ -139,13 +140,13 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 	}
 
 	checkOK := func(t *testing.T, s *StorageEngine) {
-		hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
+		hdr, rdr, err := s.GetECPart(context.Background(), cnr, parentID, pi)
 		require.NoError(t, err)
 		assertGetECPartOK(t, partObj, hdr, rdr)
 	}
 	checkOKBuffered := func(t *testing.T, s *StorageEngine) {
 		buf := make([]byte, 40<<10)
-		n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+		n, rdr, err := s.ReadECPart(context.Background(), cnr, parentID, pi, buf)
 		require.NoError(t, err)
 		require.Equal(t, partObj.CutPayload().Marshal(), buf[:n])
 		tail, err := io.ReadAll(rdr)
@@ -154,11 +155,11 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		require.NoError(t, rdr.Close())
 	}
 	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
-		_, _, err := s.GetECPart(cnr, parentID, pi)
+		_, _, err := s.GetECPart(context.Background(), cnr, parentID, pi)
 		require.ErrorIs(t, err, e)
 	}
 	checkErrorIsBuffered := func(t *testing.T, s *StorageEngine, e error) {
-		_, _, err := s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+		_, _, err := s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
 		require.ErrorIs(t, err, e)
 	}
 
@@ -472,9 +473,9 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 			sysObj.SetPayload([]byte{})
 			addAttribute(&sysObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(123))
 
-			require.NoError(t, s.Put(&sysObj, nil))
+			require.NoError(t, s.Put(context.Background(), &sysObj, nil))
 
-			hdr, rdr, err := s.GetECPart(cnr, sysObj.GetID(), pi)
+			hdr, rdr, err := s.GetECPart(context.Background(), cnr, sysObj.GetID(), pi)
 			require.NoError(t, err)
 			assertGetECPartOK(t, sysObj, hdr, rdr)
 		})
@@ -491,13 +492,13 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		linker.SetParentID(parentID)
 		linker.SetPayload(payload)
 
-		require.NoError(t, s.Put(&linker, nil))
+		require.NoError(t, s.Put(context.Background(), &linker, nil))
 
-		hdr, rdr, err := s.GetECPart(cnr, parentID, pi)
+		hdr, rdr, err := s.GetECPart(context.Background(), cnr, parentID, pi)
 		require.NoError(t, err)
 		assertGetECPartOK(t, linker, hdr, rdr)
 
-		hdr, rdr, err = s.GetECPart(cnr, linker.GetID(), pi)
+		hdr, rdr, err = s.GetECPart(context.Background(), cnr, linker.GetID(), pi)
 		require.NoError(t, err)
 		assertGetECPartOK(t, linker, hdr, rdr)
 	})
@@ -530,7 +531,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		e := errors.New("any error")
 		require.NoError(t, s.BlockExecution(e))
 
-		_, _, err := s.GetECPartRange(cnr, parentID, pi, 0, 1)
+		_, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, 0, 1)
 		require.Equal(t, e, err)
 	})
 
@@ -563,7 +564,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
 		s.metrics = &m
 
-		_, _, _ = s.GetECPartRange(cnr, parentID, pi, off, ln)
+		_, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
 		require.GreaterOrEqual(t, time.Duration(m.getECPartRange.Load()), sleepTime)
 	})
 
@@ -578,7 +579,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		s.log = l
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _, _ = s.GetECPartRange(cnr, parentID, pi, off, ln)
+			_, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
 		})
 
 		lb.AssertEmpty()
@@ -615,12 +616,12 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 	}
 
 	checkOK := func(t *testing.T, s *StorageEngine) {
-		pldLen, rc, err := s.GetECPartRange(cnr, parentID, pi, off, ln)
+		pldLen, rc, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
 		require.NoError(t, err)
 		assertGetECPartRangeOK(t, partObj, off, ln, pldLen, rc)
 	}
 	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
-		_, _, err := s.GetECPartRange(cnr, parentID, pi, off, ln)
+		_, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
 		require.ErrorIs(t, err, e)
 	}
 
@@ -921,13 +922,13 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 			sysObj.SetPayload([]byte{})
 			addAttribute(&sysObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(123))
 
-			require.NoError(t, s.Put(&sysObj, nil))
+			require.NoError(t, s.Put(context.Background(), &sysObj, nil))
 
-			gotLen, rc, err := s.GetECPartRange(cnr, sysObj.GetID(), pi, 0, 0)
+			gotLen, rc, err := s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, 0, 0)
 			require.NoError(t, err)
 			assertGetECPartRangeOK(t, sysObj, 0, 0, gotLen, rc)
 
-			_, _, err = s.GetECPartRange(cnr, sysObj.GetID(), pi, 0, 1)
+			_, _, err = s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, 0, 1)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 		})
 	}
@@ -956,10 +957,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		e := errors.New("any error")
 		require.NoError(t, s.BlockExecution(e))
 
-		_, err := s.HeadECPart(cnr, parentID, pi)
+		_, err := s.HeadECPart(context.Background(), cnr, parentID, pi)
 		require.Equal(t, e, err)
 
-		_, err = s.ReadECPartHeader(cnr, parentID, pi, nil)
+		_, err = s.ReadECPartHeader(context.Background(), cnr, parentID, pi, nil)
 		require.Equal(t, e, err)
 	})
 
@@ -990,10 +991,10 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
 		s.metrics = &m
 
-		_, _ = s.HeadECPart(cnr, parentID, pi)
+		_, _ = s.HeadECPart(context.Background(), cnr, parentID, pi)
 		require.GreaterOrEqual(t, time.Duration(m.headECPart.Load()), sleepTime)
 
-		_, _ = s.ReadECPartHeader(cnr, parentID, pi, make([]byte, 40<<10))
+		_, _ = s.ReadECPartHeader(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
 		require.GreaterOrEqual(t, time.Duration(m.readECPartHeader.Load()), sleepTime)
 	})
 
@@ -1008,13 +1009,13 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 		s.log = l
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _ = s.HeadECPart(cnr, parentID, pi)
+			_, _ = s.HeadECPart(context.Background(), cnr, parentID, pi)
 		})
 
 		lb.AssertEmpty()
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _ = s.ReadECPartHeader(cnr, parentID, pi, nil)
+			_, _ = s.ReadECPartHeader(context.Background(), cnr, parentID, pi, nil)
 		})
 
 		lb.AssertEmpty()
@@ -1046,22 +1047,22 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 	}
 
 	checkOK := func(t *testing.T, s *StorageEngine) {
-		hdr, err := s.HeadECPart(cnr, parentID, pi)
+		hdr, err := s.HeadECPart(context.Background(), cnr, parentID, pi)
 		require.NoError(t, err)
 		require.Equal(t, partHdr, hdr)
 	}
 	checkOKBuffered := func(t *testing.T, s *StorageEngine) {
 		buf := make([]byte, 40<<10)
-		n, err := s.ReadECPartHeader(cnr, parentID, pi, buf)
+		n, err := s.ReadECPartHeader(context.Background(), cnr, parentID, pi, buf)
 		require.NoError(t, err)
 		require.Equal(t, partHdr.Marshal(), buf[:n])
 	}
 	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
-		_, err = s.ReadECPartHeader(cnr, parentID, pi, make([]byte, 40<<10))
+		_, err = s.ReadECPartHeader(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
 		require.ErrorIs(t, err, e)
 	}
 	checkErrorIsBuffered := func(t *testing.T, s *StorageEngine, e error) {
-		_, err = s.ReadECPartHeader(cnr, parentID, pi, make([]byte, 40<<10))
+		_, err = s.ReadECPartHeader(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
 		require.ErrorIs(t, err, e)
 	}
 
@@ -1374,14 +1375,14 @@ func TestStorageEngine_HeadECPart(t *testing.T) {
 			tc.associate(&sysObj, oidtest.ID())
 			addAttribute(&sysObj, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(123))
 
-			require.NoError(t, s.Put(&sysObj, nil))
+			require.NoError(t, s.Put(context.Background(), &sysObj, nil))
 
-			hdr, err := s.HeadECPart(cnr, sysObj.GetID(), pi)
+			hdr, err := s.HeadECPart(context.Background(), cnr, sysObj.GetID(), pi)
 			require.NoError(t, err)
 			require.Equal(t, sysObj, hdr)
 
 			buf := make([]byte, 40<<10)
-			n, err := s.ReadECPartHeader(cnr, sysObj.GetID(), pi, buf)
+			n, err := s.ReadECPartHeader(context.Background(), cnr, sysObj.GetID(), pi, buf)
 			require.NoError(t, err)
 			require.Equal(t, sysObj.Marshal(), buf[:n])
 		})
@@ -1464,7 +1465,7 @@ func testPutTombstoneEC(t *testing.T) {
 		assertSearch := func(t *testing.T, addrs []oid.Address) {
 			fs, crs, err := objectcore.PreprocessSearchQuery(nil, nil, "")
 			require.NoError(t, err)
-			res, newCrs, err := s.Search(cnr, fs, nil, crs, 1000)
+			res, newCrs, err := s.Search(context.Background(), cnr, fs, nil, crs, 1000)
 			require.NoError(t, err)
 			require.Zero(t, newCrs)
 			require.Len(t, res, len(addrs))
@@ -1474,33 +1475,33 @@ func testPutTombstoneEC(t *testing.T) {
 		}
 
 		assertGetErrors := func(t *testing.T, target error) {
-			_, err := s.Get(parentAddr)
+			_, err := s.Get(context.Background(), parentAddr)
 			require.ErrorIs(t, err, target)
-			_, _, err = s.GetStream(parentAddr)
+			_, _, err = s.GetStream(context.Background(), parentAddr)
 			require.ErrorIs(t, err, target)
-			_, err = s.GetBytes(parentAddr)
+			_, err = s.GetBytes(context.Background(), parentAddr)
 			require.ErrorIs(t, err, target)
-			_, err = s.GetRange(parentAddr, 0, 1)
+			_, err = s.GetRange(context.Background(), parentAddr, 0, 1)
 			require.ErrorIs(t, err, target)
-			_, err = s.Head(parentAddr, false)
+			_, err = s.Head(context.Background(), parentAddr, false)
 			require.ErrorIs(t, err, target)
-			_, err = s.Head(parentAddr, true)
+			_, err = s.Head(context.Background(), parentAddr, true)
 			require.ErrorIs(t, err, target)
 
 			for i := range parts {
-				_, err := s.Get(partAddrs[i])
+				_, err := s.Get(context.Background(), partAddrs[i])
 				require.ErrorIs(t, err, target)
-				_, _, err = s.GetStream(partAddrs[i])
+				_, _, err = s.GetStream(context.Background(), partAddrs[i])
 				require.ErrorIs(t, err, target)
-				_, err = s.GetBytes(partAddrs[i])
+				_, err = s.GetBytes(context.Background(), partAddrs[i])
 				require.ErrorIs(t, err, target)
-				_, err = s.GetRange(partAddrs[i], 0, 1)
+				_, err = s.GetRange(context.Background(), partAddrs[i], 0, 1)
 				require.ErrorIs(t, err, target)
-				_, err = s.Head(partAddrs[i], false)
+				_, err = s.Head(context.Background(), partAddrs[i], false)
 				require.ErrorIs(t, err, target)
-				_, err = s.Head(partAddrs[i], true)
+				_, err = s.Head(context.Background(), partAddrs[i], true)
 				require.ErrorIs(t, err, target)
-				_, _, err = s.GetECPart(cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
+				_, _, err = s.GetECPart(context.Background(), cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
 				require.ErrorIs(t, err, target)
 			}
 		}
@@ -1511,55 +1512,55 @@ func testPutTombstoneEC(t *testing.T) {
 
 		// store parts
 		for i := range parts {
-			require.NoError(t, s.Put(&parts[i], nil))
+			require.NoError(t, s.Put(context.Background(), &parts[i], nil))
 		}
 
 		// check before removal
-		_, err := s.Get(parentAddr)
+		_, err := s.Get(context.Background(), parentAddr)
 		require.ErrorIs(t, err, ierrors.ErrParentObject)
 		require.ErrorAs(t, err, new(iec.ErrParts))
-		_, _, err = s.GetStream(parentAddr)
+		_, _, err = s.GetStream(context.Background(), parentAddr)
 		require.ErrorIs(t, err, ierrors.ErrParentObject)
 		require.ErrorAs(t, err, new(iec.ErrParts))
-		_, err = s.GetBytes(parentAddr)
+		_, err = s.GetBytes(context.Background(), parentAddr)
 		require.ErrorIs(t, err, ierrors.ErrParentObject)
 		require.ErrorAs(t, err, new(iec.ErrParts))
-		_, err = s.GetRange(parentAddr, 0, 1)
+		_, err = s.GetRange(context.Background(), parentAddr, 0, 1)
 		require.ErrorIs(t, err, ierrors.ErrParentObject)
 		require.ErrorAs(t, err, new(iec.ErrParts))
 
-		hdr, err := s.Head(parentAddr, false)
+		hdr, err := s.Head(context.Background(), parentAddr, false)
 		require.NoError(t, err)
 		require.Equal(t, parent.CutPayload(), hdr)
-		hdr, err = s.Head(parentAddr, true)
+		hdr, err = s.Head(context.Background(), parentAddr, true)
 		require.NoError(t, err)
 		require.Equal(t, parent.CutPayload(), hdr)
 
 		for i := range parts {
-			obj, err := s.Get(partAddrs[i])
+			obj, err := s.Get(context.Background(), partAddrs[i])
 			require.NoError(t, err)
 			require.Equal(t, parts[i], *obj)
 
-			hdr, rdr, err := s.GetStream(partAddrs[i])
+			hdr, rdr, err := s.GetStream(context.Background(), partAddrs[i])
 			assertGetStreamOK(t, hdr, rdr, err, parts[i])
 
-			b, err := s.GetBytes(partAddrs[i])
+			b, err := s.GetBytes(context.Background(), partAddrs[i])
 			require.NoError(t, err)
 			require.Equal(t, parts[i].Marshal(), b)
 
 			const off, ln = 3, 12
-			b, err = s.GetRange(partAddrs[i], off, ln)
+			b, err = s.GetRange(context.Background(), partAddrs[i], off, ln)
 			require.NoError(t, err)
 			require.Equal(t, parts[i].Payload()[off:][:ln], b)
 
-			hdr, err = s.Head(partAddrs[i], false)
+			hdr, err = s.Head(context.Background(), partAddrs[i], false)
 			require.NoError(t, err)
 			require.Equal(t, parts[i].CutPayload(), hdr)
-			hdr, err = s.Head(partAddrs[i], true)
+			hdr, err = s.Head(context.Background(), partAddrs[i], true)
 			require.NoError(t, err)
 			require.Equal(t, parts[i].CutPayload(), hdr)
 
-			h, rdr, err := s.GetECPart(cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
+			h, rdr, err := s.GetECPart(context.Background(), cnr, parent.GetID(), iec.PartInfo{RuleIndex: ruleIdx, Index: i})
 			assertGetStreamOK(t, &h, rdr, err, parts[i])
 		}
 
@@ -1571,7 +1572,7 @@ func testPutTombstoneEC(t *testing.T) {
 		tomb := *generateObjectWithCID(cnr)
 		tomb.AssociateDeleted(parent.GetID())
 		addAttribute(&tomb, "__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(tombLastEpoch))
-		require.NoError(t, s.Put(&tomb, nil))
+		require.NoError(t, s.Put(context.Background(), &tomb, nil))
 
 		// check marked
 		assertGetErrors(t, apistatus.ErrObjectAlreadyRemoved)
@@ -1582,7 +1583,7 @@ func testPutTombstoneEC(t *testing.T) {
 
 		time.Sleep(2 * gcInterval)
 
-		_, err = s.Get(parentAddr)
+		_, err = s.Get(context.Background(), parentAddr)
 		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 		assertGetErrors(t, apistatus.ErrObjectNotFound)

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -51,7 +52,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 	for i := 0; ; i++ {
 		objects = append(objects, generateObjectWithCID(cidtest.ID()))
 
-		err := e.Put(objects[i], nil)
+		err := e.Put(context.Background(), objects[i], nil)
 		require.NoError(t, err)
 
 		res, err := e.shards[ids[len(ids)-1].String()].List() // nolint:staticcheck
@@ -72,7 +73,7 @@ func TestEvacuateShard(t *testing.T) {
 
 	checkHasObjects := func(t *testing.T) {
 		for i := range objects {
-			_, err := e.Get(objects[i].Address())
+			_, err := e.Get(context.Background(), objects[i].Address())
 			require.NoError(t, err)
 		}
 	}
@@ -80,14 +81,14 @@ func TestEvacuateShard(t *testing.T) {
 	checkHasObjects(t)
 
 	t.Run("must be read-only", func(t *testing.T) {
-		count, err := e.Evacuate(ids[2:3], false, nil)
+		count, err := e.Evacuate(context.Background(), ids[2:3], false, nil)
 		require.ErrorIs(t, err, shard.ErrMustBeReadOnly)
 		require.Equal(t, 0, count)
 	})
 
 	require.NoError(t, e.shards[evacuateShardID].SetMode(mode.ReadOnly))
 
-	count, err := e.Evacuate(ids[2:3], false, nil)
+	count, err := e.Evacuate(context.Background(), ids[2:3], false, nil)
 	require.NoError(t, err)
 	require.Equal(t, objPerShard, count)
 
@@ -98,7 +99,7 @@ func TestEvacuateShard(t *testing.T) {
 	checkHasObjects(t)
 
 	// Calling it again is OK, but all objects are already moved, so no new PUTs should be done.
-	count, err = e.Evacuate(ids[2:3], false, nil)
+	count, err = e.Evacuate(context.Background(), ids[2:3], false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
 
@@ -139,11 +140,11 @@ func TestEvacuateNetwork(t *testing.T) {
 
 		require.NoError(t, e.shards[evacuateShardID].SetMode(mode.ReadOnly))
 
-		count, err := e.Evacuate(ids[0:1], false, nil)
+		count, err := e.Evacuate(context.Background(), ids[0:1], false, nil)
 		require.ErrorIs(t, err, errMustHaveTwoShards)
 		require.Equal(t, 0, count)
 
-		count, err = e.Evacuate(ids[0:1], false, acceptOneOf(objects, 2))
+		count, err = e.Evacuate(context.Background(), ids[0:1], false, acceptOneOf(objects, 2))
 		require.ErrorIs(t, err, errReplication)
 		require.Equal(t, 2, count)
 	})
@@ -153,12 +154,12 @@ func TestEvacuateNetwork(t *testing.T) {
 		require.NoError(t, e.shards[ids[0].String()].SetMode(mode.ReadOnly))
 		require.NoError(t, e.shards[ids[1].String()].SetMode(mode.ReadOnly))
 
-		count, err := e.Evacuate(ids[1:2], false, acceptOneOf(objects, 2))
+		count, err := e.Evacuate(context.Background(), ids[1:2], false, acceptOneOf(objects, 2))
 		require.ErrorIs(t, err, errReplication)
 		require.Equal(t, 2, count)
 
 		t.Run("no errors", func(t *testing.T) {
-			count, err := e.Evacuate(ids[1:2], false, acceptOneOf(objects, 3))
+			count, err := e.Evacuate(context.Background(), ids[1:2], false, acceptOneOf(objects, 3))
 			require.NoError(t, err)
 			require.Equal(t, 3, count)
 		})
@@ -179,12 +180,12 @@ func TestEvacuateNetwork(t *testing.T) {
 			require.NoError(t, e.shards[ids[i].String()].SetMode(mode.ReadOnly))
 		}
 
-		count, err := e.Evacuate(evacuateIDs, false, acceptOneOf(objects, totalCount-1))
+		count, err := e.Evacuate(context.Background(), evacuateIDs, false, acceptOneOf(objects, totalCount-1))
 		require.ErrorIs(t, err, errReplication)
 		require.Equal(t, totalCount-1, count)
 
 		t.Run("no errors", func(t *testing.T) {
-			count, err = e.Evacuate(evacuateIDs, false, acceptOneOf(objects, totalCount))
+			count, err = e.Evacuate(context.Background(), evacuateIDs, false, acceptOneOf(objects, totalCount))
 			require.NoError(t, err)
 			require.Equal(t, totalCount, count)
 		})

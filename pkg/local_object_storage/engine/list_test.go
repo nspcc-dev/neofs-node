@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -34,7 +35,7 @@ func TestListWithCursor(t *testing.T) {
 		containerID := cidtest.ID()
 		obj := generateObjectWithCID(containerID)
 
-		err := e.Put(obj, nil)
+		err := e.Put(context.Background(), obj, nil)
 		require.NoError(t, err)
 		expected = append(expected, objectcore.AddressWithAttributes{Type: object.TypeRegular, Address: obj.Address()})
 	}
@@ -43,20 +44,20 @@ func TestListWithCursor(t *testing.T) {
 		return a.Address.Compare(b.Address)
 	})
 
-	addrs, cursor, err := e.ListWithCursor(1, nil)
+	addrs, cursor, err := e.ListWithCursor(context.Background(), 1, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, addrs)
 	got = append(got, addrs...)
 
 	for range total - 1 {
-		addrs, cursor, err = e.ListWithCursor(1, cursor)
+		addrs, cursor, err = e.ListWithCursor(context.Background(), 1, cursor)
 		if errors.Is(err, ErrEndOfListing) {
 			break
 		}
 		got = append(got, addrs...)
 	}
 
-	_, _, err = e.ListWithCursor(1, cursor)
+	_, _, err = e.ListWithCursor(context.Background(), 1, cursor)
 	require.ErrorIs(t, err, ErrEndOfListing)
 
 	got = stripShardIDs(got)
@@ -105,7 +106,7 @@ func TestListWithCursor(t *testing.T) {
 			t.Run(fmt.Sprintf("shard=%d", shardNum), func(t *testing.T) {
 				s := testNewEngineWithShardNum(t, shardNum)
 				for i := range objs {
-					require.NoError(t, s.Put(&objs[i], nil))
+					require.NoError(t, s.Put(context.Background(), &objs[i], nil))
 				}
 
 				for _, count := range []uint32{
@@ -136,10 +137,10 @@ func TestListWithCursor_Dedup(t *testing.T) {
 	require.NoError(t, s1.Put(obj, nil))
 	require.NoError(t, s2.Put(obj, nil))
 
-	res, cursor, err := e.ListWithCursor(2, nil)
+	res, cursor, err := e.ListWithCursor(context.Background(), 2, nil)
 	require.NoError(t, err)
 
-	_, _, err = e.ListWithCursor(2, cursor)
+	_, _, err = e.ListWithCursor(context.Background(), 2, cursor)
 	require.ErrorIs(t, err, ErrEndOfListing)
 
 	require.Len(t, res, 1)
@@ -161,7 +162,7 @@ func collectListWithCursor(t *testing.T, s *StorageEngine, count uint32, attrs .
 	var crs *Cursor
 	var err error
 	for {
-		next, crs, err = s.ListWithCursor(count, crs, attrs...)
+		next, crs, err = s.ListWithCursor(context.Background(), count, crs, attrs...)
 		collected = append(collected, next...)
 		if errors.Is(err, ErrEndOfListing) {
 			return collected
