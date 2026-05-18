@@ -8,6 +8,9 @@ const (
 	TagBytes4 = 34
 	TagBytes5 = 42
 	TagBytes6 = 50
+	TagBytes7 = 58
+	TagBytes8 = 66
+	TagBytes9 = 74
 )
 
 // One-byte tags for VARINT fields.

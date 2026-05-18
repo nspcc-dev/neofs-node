@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -21,7 +22,10 @@ import (
 
 // Fixed message lengths.
 const (
-	ObjectIDLength = 1 + 1 + oid.Size
+	ObjectIDLength      = 1 + 1 + oid.Size
+	ContainerIDLength   = 1 + 1 + cid.Size
+	ObjectAddressLength = 1 + 1 + ObjectIDLength +
+		1 + 1 + ContainerIDLength
 )
 
 // Message length limits.
