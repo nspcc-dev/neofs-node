@@ -321,8 +321,13 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 			BasicIncomeRate: 100,
 		},
 		Experimental: config.Experimental{
-			ChainMetaData: false,
-			AllowEC:       true,
+			ChainMetaData: config.Metadata{
+				Enabled:  false,
+				SeedPort: 20334,
+				RPCPort:  30334,
+				P2PPort:  20334,
+			},
+			AllowEC: true,
 		},
 		Validator: config.Validator{
 			Enabled: true,
