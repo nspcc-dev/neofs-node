@@ -348,6 +348,8 @@ func initObjectService(c *cfg) {
 	server := objectService.New(objSvc, mNumber, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 	os.server = server
 
+	c.cfgGRPC.mux.HandleFunc("/get", server.GetHTTP)
+
 	svcDesc := protoobject.ObjectService_ServiceDesc
 	svcDesc.Methods = slices.Clone(protoobject.ObjectService_ServiceDesc.Methods)
 

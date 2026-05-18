@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -52,6 +53,7 @@ import (
 	grpccodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/mem"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -850,6 +852,7 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 
 type getStream struct {
 	base    protoobject.ObjectService_GetServer
+	w       io.Writer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
 
@@ -917,6 +920,135 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 	}
 	s.srv.metrics.AddGetPayload(len(chunk))
 	return nil
+}
+
+func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
+	var (
+		err         error
+		recheckEACL bool
+		t           = time.Now()
+	)
+	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
+
+	var req = new(protoobject.GetRequest)
+	var buf = make([]byte, 16*1024)
+
+	n, err := r.Body.Read(buf)
+	if err != nil || n == len(buf) {
+		w.WriteHeader(500)
+		return
+	}
+	buf = buf[:n]
+	err = proto.Unmarshal(buf, req)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	needSignResp := needSignGetResponse(req)
+
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+		w.WriteHeader(403)
+		return
+	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		w.WriteHeader(500)
+		return
+	}
+
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
+		w.WriteHeader(500)
+		return
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		w.WriteHeader(403)
+		return
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		if !errors.Is(err, aclsvc.ErrNotMatched) {
+			err = eACLErr(reqInfo, err) // needed for defer
+			w.WriteHeader(403)
+			return
+		}
+		recheckEACL = true
+	}
+
+	p, err := convertGetPrmHTTP(s.signer, reqInfo.Container, req, buf, &getStream{
+		w:            w,
+		srv:          s,
+		reqInfo:      reqInfo,
+		recheckEACL:  recheckEACL,
+		signResponse: needSignResp,
+	})
+	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
+		w.WriteHeader(500)
+		return
+	}
+
+	// TODO: consider optimization
+	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
+	// Then small objects would fit into a single buffer, and for large ones it'd be possible to
+	// encode the first chunk response using the heading buffer.
+	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
+	defer hdrRespBuf.Free()
+
+	hdrLen := -1
+	var stream io.ReadCloser
+	defer func() {
+		if stream != nil {
+			stream.Close()
+		}
+	}()
+
+	p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+
+	err = s.handlers.Get(r.Context(), p)
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
+	if hdrLen < 0 {
+		w.WriteHeader(500)
+		return
+	}
+
+	idf, sigf, hdrf, err := iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
+	if recheckEACL { // previous check didn't match, but we have a header now.
+		err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			err = eACLErr(reqInfo, err) // defer
+			w.WriteHeader(403)
+			return
+		}
+	}
+
+	pldFldOff := max(idf.To, sigf.To, hdrf.To)
+
+	err = s.copyHTTPStream(w, hdrBuf, hdrLen, stream, pldFldOff) // defer
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
 }
 
 func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
@@ -1218,6 +1350,90 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		})
 	})
 	return p, nil
+}
+
+type httpWriter struct {
+	io.Writer
+}
+
+func (w httpWriter) WriteHeader(hdr *object.Object) error {
+	var b [32]byte
+
+	pref := protowire.AppendTag(b[:0], 3, protowire.BytesType)
+	hdrBin := hdr.CutPayload().Marshal()
+	pref = protowire.AppendVarint(pref, uint64(len(hdrBin)))
+
+	_, err := w.Write(pref)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(hdrBin)
+	if err != nil {
+		return err
+	}
+
+	pref = protowire.AppendTag(b[:0], 4, protowire.BytesType)
+	pref = protowire.AppendVarint(pref, hdr.PayloadSize())
+
+	_, err = w.Write(pref)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (w httpWriter) WriteChunk(data []byte) error {
+	_, err := w.Write(data)
+	return err
+}
+
+// converts original request into parameters accepted by the internal handler.
+// Note that the stream is untouched within this call, errors are not reported
+// into it.
+func convertGetPrmHTTP(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, buf []byte, stream *getStream) (getsvc.Prm, error) {
+	if req.MetaHeader != nil {
+		req.MetaHeader.Ttl -= 1
+	}
+	buf, err := proto.MarshalOptions{}.MarshalAppend(buf[:0], req)
+	if err != nil {
+		return getsvc.Prm{}, err
+	}
+	body := req.GetBody()
+	ma := body.GetAddress()
+	if ma == nil { // includes nil body
+		return getsvc.Prm{}, errors.New("missing object address")
+	}
+
+	var addr oid.Address
+	if err := addr.FromProtoMessage(ma); err != nil {
+		return getsvc.Prm{}, fmt.Errorf("invalid object address: %w", err)
+	}
+
+	cp, err := objutil.CommonPrmFromRequest(req)
+	if err != nil {
+		return getsvc.Prm{}, err
+	}
+
+	var p getsvc.Prm
+	p.SetCommonParameters(cp)
+	p.WithAddress(addr)
+	p.WithContainer(cnr)
+	p.WithRawFlag(body.Raw)
+	p.SetObjectWriter(httpWriter{stream.w})
+	if cp.LocalOnly() {
+		return p, nil
+	}
+
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
+		return c.ForAnyHTTPClient(ctx, func(ctx context.Context, conn *http.Client, pref string) error {
+			return continueHTTP(ctx, stream.w, req, buf, conn, pref) // TODO: log error
+		})
+	})
+	return p, nil
+}
+
+func (s *Server) copyHTTPStream(w io.Writer, hdrBuf []byte, hdrLen int, stream io.Reader, pldFldOff int) error {
+	return nil
 }
 
 type getProxyContext struct {

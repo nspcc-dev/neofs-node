@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"slices"
 	"strconv"
 	"sync"
@@ -1122,6 +1123,10 @@ func (m *serviceClient) AnnounceIntermediateTrust(context.Context, uint64, apire
 }
 
 func (m *serviceClient) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+	panic("unimplemented")
+}
+
+func (m *serviceClient) ForAnyHTTPClient(context.Context, func(context.Context, *http.Client, string) error) error {
 	panic("unimplemented")
 }
 

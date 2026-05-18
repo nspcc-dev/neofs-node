@@ -8,6 +8,7 @@ import (
 	"io"
 	"iter"
 	"maps"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -177,6 +178,7 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 
 func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Seq[string]) (*connections, error) {
 	m := make(map[string]*client.Client)
+	mh := make(map[string]*http.Client)
 	l := x.log.With(zap.String("public key", hex.EncodeToString(pub)))
 	for s := range addrs {
 		l.Info("initializing connection to the SN...", zap.String("address", s))
@@ -190,12 +192,14 @@ func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Se
 		}
 		l.Info("connection to the SN successfully initialized", zap.String("address", s))
 		m[s] = c
+		mh[s] = new(http.Client)
 	}
 	var hexKey = hex.EncodeToString(pub)
 	return &connections{
 		log:    x.log.With(zap.String("SN public key", hexKey)),
 		nodeID: hexKey,
 		m:      m,
+		mh:     mh,
 	}, nil
 }
 
@@ -260,6 +264,7 @@ type connections struct {
 
 	mtx sync.RWMutex
 	m   map[string]*client.Client // keys are multiaddrs
+	mh  map[string]*http.Client   // keys are multiaddrs
 }
 
 func (x *connections) closeAll() {
@@ -275,6 +280,12 @@ func (x *connections) closeAll() {
 func (x *connections) all(f func(ma string, c *client.Client) bool) {
 	x.mtx.RLock()
 	maps.All(x.m)(f)
+	x.mtx.RUnlock()
+}
+
+func (x *connections) allHTTP(yield func(ma string, c *http.Client) bool) {
+	x.mtx.RLock()
+	maps.All(x.mh)(yield)
 	x.mtx.RUnlock()
 }
 
@@ -295,10 +306,36 @@ func (x *connections) forAny(ctx context.Context, f func(context.Context, *clien
 	return newMultiEndpointError(x.nodeID, firstErr)
 }
 
+func (x *connections) forAnyHTTP(ctx context.Context, f func(context.Context, *http.Client, string) error) error {
+	var firstErr error
+	for ma, c := range x.allHTTP {
+		// FIXME: pending removal in #3982.
+		var a network.Address
+		if err := a.FromString(ma); err != nil {
+			return fmt.Errorf("parse network address %q: %w", ma, err)
+		}
+		err := f(ctx, c, a.URIAddr())
+		if err == nil {
+			return nil
+		}
+		if !isTempError(err) {
+			return newEndpointError(ma, err)
+		}
+		if firstErr == nil {
+			firstErr = newEndpointError(ma, err)
+		}
+	}
+	return newMultiEndpointError(x.nodeID, firstErr)
+}
+
 func (x *connections) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
 	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return f(ctx, c.Conn())
 	})
+}
+
+func (x *connections) ForAnyHTTPClient(ctx context.Context, f func(context.Context, *http.Client, string) error) error {
+	return x.forAnyHTTP(ctx, f)
 }
 
 func (x *connections) ObjectPutInit(ctx context.Context, hdr object.Object, signer user.Signer, opts client.PrmObjectPutInit) (client.ObjectWriter, error) {

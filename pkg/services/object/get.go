@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
@@ -23,6 +24,19 @@ import (
 type getStreamProgress struct {
 	headWas     bool
 	readPayload int
+}
+
+func continueHTTP(ctx context.Context, w io.Writer, req *protoobject.GetRequest, buf []byte, conn *http.Client, pref string) error {
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", pref+"/get", bytes.NewBuffer(buf))
+	if err != nil {
+		return err
+	}
+	r, err := conn.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(w, r.Body)
+	return err
 }
 
 // returns:
