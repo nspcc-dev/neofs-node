@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"iter"
@@ -279,20 +280,26 @@ func (x *connections) all(f func(ma string, c *client.Client) bool) {
 }
 
 func (x *connections) forAny(ctx context.Context, f func(context.Context, *client.Client) error) error {
-	var firstErr error
+	var firstUnavailableErr error
 	for ma, c := range x.all {
 		err := f(ctx, c)
 		if err == nil {
 			return nil
 		}
-		if !isTempError(err) {
+		if errors.Is(err, clientcore.ErrSkipConnection) {
+			continue
+		}
+		if !isUnavailableError(err) {
 			return newEndpointError(ma, err)
 		}
-		if firstErr == nil {
-			firstErr = newEndpointError(ma, err)
+		if firstUnavailableErr == nil {
+			firstUnavailableErr = newEndpointError(ma, err)
 		}
 	}
-	return newMultiEndpointError(x.nodeID, firstErr)
+	if firstUnavailableErr == nil {
+		return clientcore.ErrAllConnectionsSkipped
+	}
+	return newMultiEndpointError(x.nodeID, firstUnavailableErr)
 }
 
 func (x *connections) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
@@ -318,7 +325,7 @@ func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 		if err == nil {
 			return sig, nil
 		}
-		if !isTempError(err) {
+		if !isUnavailableError(err) {
 			return nil, newEndpointError(ma, err)
 		}
 		if _, errSeek := src.Seek(0, io.SeekStart); errSeek != nil {
@@ -401,7 +408,7 @@ func (x *connections) SearchObjects(ctx context.Context, cnr cid.ID, fs object.S
 	})
 }
 
-func isTempError(err error) bool {
+func isUnavailableError(err error) bool {
 	st, ok := status.FromError(err)
 	return ok && st.Code() == codes.Unavailable
 }
@@ -410,6 +417,32 @@ func newEndpointError(addr string, err error) error {
 	return fmt.Errorf("%s: %w", addr, err)
 }
 
+type multiEndpointError struct {
+	nodeID string
+	first  error
+}
+
+// Error implements built-in [error].
+func (x multiEndpointError) Error() string {
+	return fmt.Sprintf("all %s endpoints failed, first error: %s", x.nodeID, x.first)
+}
+
+// Unwrap implements interface for [errors] package.
+func (x multiEndpointError) Unwrap() error {
+	return x.first
+}
+
+// Is implements interface for [errors.Is].
+func (x multiEndpointError) Is(target error) bool {
+	if errors.Is(target, clientcore.ErrAllConnectionsSkipped) {
+		return true
+	}
+	return errors.Is(x.first, target)
+}
+
 func newMultiEndpointError(nodeID string, first error) error {
-	return fmt.Errorf("all %s endpoints failed, first error: %w", nodeID, first)
+	return multiEndpointError{
+		nodeID: nodeID,
+		first:  first,
+	}
 }

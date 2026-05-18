@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- Optimized EC GET request execution (#3996)
 
 ### Removed
 

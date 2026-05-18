@@ -20,6 +20,9 @@ func TestTags(t *testing.T) {
 			{tag: iprotobuf.TagBytes4, num: 4},
 			{tag: iprotobuf.TagBytes5, num: 5},
 			{tag: iprotobuf.TagBytes6, num: 6},
+			{tag: iprotobuf.TagBytes7, num: 7},
+			{tag: iprotobuf.TagBytes8, num: 8},
+			{tag: iprotobuf.TagBytes9, num: 9},
 		} {
 			require.EqualValues(t, protowire.EncodeTag(protowire.Number(tc.num), protowire.BytesType), tc.tag)
 

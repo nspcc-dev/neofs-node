@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -29,6 +30,14 @@ type Client interface {
 	AnnounceIntermediateTrust(ctx context.Context, epoch uint64, trust reputationSDK.PeerToPeerTrust, prm client.PrmAnnounceIntermediateTrust) error
 }
 
+// ErrSkipConnection is returned to skip connection.
+var ErrSkipConnection = errors.New("connection skipped")
+
+// ErrAllConnectionsSkipped allows to check whether
+// [MultiAddressClient.ForAnyGRPCConn] error is returns because all connections
+// are unavailable or skipped.
+var ErrAllConnectionsSkipped = errors.New("all connections skipped")
+
 // MultiAddressClient is an interface of the
 // Client that supports multihost work.
 type MultiAddressClient interface {
@@ -36,5 +45,9 @@ type MultiAddressClient interface {
 
 	// ForAnyGRPCConn executes op over gRPC connections to given multi-address
 	// endpoint-by-endpoint until success.
-	ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error
+	//
+	// If next endpoint is unavailable or f returns [ErrSkipConnection] for it,
+	// ForAnyGRPCConn continues. If this happens on all endpoints, ForAnyGRPCConn
+	// returns [ErrAllConnectionsSkipped].
+	ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error
 }
