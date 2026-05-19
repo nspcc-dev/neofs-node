@@ -1,2 +1,0 @@
-FAIL	github.com/nspcc-dev/neofs-node/pkg/services/object/get [build failed]
-FAIL

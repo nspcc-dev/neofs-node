@@ -1,6 +1,7 @@
 package acl
 
 import (
+	"context"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -23,7 +24,7 @@ func (e emptyEACLSource) GetEACL(_ cid.ID) (eaclSDK.Table, error) {
 
 type emptyHeaderSource struct{}
 
-func (e emptyHeaderSource) Head(address oid.Address) (*object.Object, error) {
+func (e emptyHeaderSource) Head(_ context.Context, _ oid.Address) (*object.Object, error) {
 	return nil, nil
 }
 

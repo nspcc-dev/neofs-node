@@ -21,7 +21,7 @@ type ObjectStorage interface {
 	// format.
 	Put(ctx context.Context, obj *object.Object, objBin []byte) error
 	// IsLocked must clarify object's lock status.
-	IsLocked(oid.Address) (bool, error)
+	IsLocked(ctx context.Context, addr oid.Address) (bool, error)
 }
 
 func putObjectLocally(ctx context.Context, storage ObjectStorage, obj *object.Object, enc *encodedObject) error {
@@ -40,7 +40,7 @@ func putObjectLocally(ctx context.Context, storage ObjectStorage, obj *object.Ob
 // ValidateAndStoreObjectLocally checks format of given object and, if it's
 // correct, stores it in the underlying local object storage. Serves operation
 // similar to local-only [Service.Put] one.
-func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
+func (p *Service) ValidateAndStoreObjectLocally(ctx context.Context, obj object.Object) error {
 	cnrID := obj.GetContainerID()
 	if cnrID.IsZero() {
 		return errors.New("missing container ID")
@@ -91,5 +91,5 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return errors.New("payload SHA-256 checksum mismatch")
 	}
 
-	return putObjectLocally(context.TODO(), p.localStore, &obj, nil)
+	return putObjectLocally(ctx, p.localStore, &obj, nil)
 }

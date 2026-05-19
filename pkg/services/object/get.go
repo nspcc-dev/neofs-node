@@ -217,7 +217,7 @@ func (x *getProxyContext) handleInitResponse(respBuf mem.BufferSlice, buffers ip
 	var sent bool
 	x.onceHdr.Do(func() {
 		if x.respStream.recheckEACL {
-			err = x.respStream.srv.aclChecker.CheckEACL(hdr.ReadOnlyData(), x.respStream.reqInfo)
+			err = x.respStream.srv.aclChecker.CheckEACL(x.respStream.base.Context(), hdr.ReadOnlyData(), x.respStream.reqInfo)
 			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 				err = eACLErr(x.respStream.reqInfo, err)
 				return

@@ -104,8 +104,8 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 // the task) or errExists (if object is already stored there).
 func (e *StorageEngine) putToShard(ctx context.Context, sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
 	var (
-		exitCh         = make(chan error)
-		pCtx, pCancel  = context.WithTimeout(ctx, e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
+		exitCh        = make(chan error)
+		pCtx, pCancel = context.WithTimeout(ctx, e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
 	)
 	defer pCancel()
 

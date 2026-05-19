@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -18,6 +19,7 @@ type Option func(*cfg)
 type binaryHeader []byte
 
 type cfg struct {
+	ctx          context.Context
 	storage      ObjectStorage
 	headerSource HeaderSource
 
@@ -28,13 +30,13 @@ type cfg struct {
 }
 
 type ObjectStorage interface {
-	Head(oid.Address) (*object.Object, error)
+	Head(ctx context.Context, addr oid.Address) (*object.Object, error)
 }
 
 // HeaderSource represents a source of the object headers.
 type HeaderSource interface {
 	// Head returns object (may be with or be without payload) by its address.
-	Head(oid.Address) (*object.Object, error)
+	Head(ctx context.Context, addr oid.Address) (*object.Object, error)
 }
 
 type Request interface {
@@ -55,6 +57,7 @@ type headerSource struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
+		ctx:     context.Background(),
 		storage: new(localStorage),
 	}
 }
@@ -203,7 +206,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 						addr.SetObject(firstID)
 						addr.SetContainer(h.cnr)
 
-						firstObject, err := h.headerSource.Head(addr)
+						firstObject, err := h.headerSource.Head(h.cfg.ctx, addr)
 						if err != nil {
 							return fmt.Errorf("fetching first object header: %w", err)
 						}
@@ -298,7 +301,7 @@ func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, b
 		addr.SetContainer(cnr)
 		addr.SetObject(*idObj)
 
-		obj, err := h.storage.Head(addr)
+		obj, err := h.storage.Head(h.ctx, addr)
 		if err == nil {
 			return headersFromObject(obj, cnr, idObj), true
 		}

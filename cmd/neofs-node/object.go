@@ -189,21 +189,6 @@ func (c *cfg) IsLocalNodeInNetmap() bool {
 	return c.localNodeInNetmap.Load()
 }
 
-// enginePutObjectStorage wraps [engine.StorageEngine] to implement
-// [putsvc.ObjectStorage] interface, bridging context-aware engine methods to
-// context-less interfaces where needed.
-type enginePutObjectStorage struct {
-	e *engine.StorageEngine
-}
-
-func (x *enginePutObjectStorage) Put(ctx context.Context, obj *object.Object, objBin []byte) error {
-	return x.e.Put(ctx, obj, objBin)
-}
-
-func (x *enginePutObjectStorage) IsLocked(addr oid.Address) (bool, error) {
-	return x.e.IsLocked(context.Background(), addr)
-}
-
 func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
 	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore, c.cfgNetmap.state)
@@ -294,7 +279,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithContainerClient(c.cCli),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c.MaxObjectSize)),
-		putsvc.WithObjectStorage(&enginePutObjectStorage{e: ls}),
+		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithRemoteWorkerPool(c.cfgObject.pool.putRemote),
@@ -687,8 +672,8 @@ func (x storageForObjectService) SearchObjects(cID cid.ID, fs []objectcore.Searc
 	return x.local.Search(context.Background(), cID, fs, attrs, cursor, count)
 }
 
-func (x storageForObjectService) VerifyAndStoreObjectLocally(obj object.Object) error {
-	return x.putSvc.ValidateAndStoreObjectLocally(obj)
+func (x storageForObjectService) VerifyAndStoreObjectLocally(ctx context.Context, obj object.Object) error {
+	return x.putSvc.ValidateAndStoreObjectLocally(ctx, obj)
 }
 
 func (x storageForObjectService) GetSessionPrivateKey(account user.ID) (ecdsa.PrivateKey, error) {

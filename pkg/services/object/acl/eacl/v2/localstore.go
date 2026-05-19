@@ -13,10 +13,10 @@ type localStorage struct {
 	ls *engine.StorageEngine
 }
 
-func (s *localStorage) Head(addr oid.Address) (*object.Object, error) {
+func (s *localStorage) Head(ctx context.Context, addr oid.Address) (*object.Object, error) {
 	if s.ls == nil {
 		return nil, io.ErrUnexpectedEOF
 	}
 
-	return s.ls.Head(context.TODO(), addr, false)
+	return s.ls.Head(ctx, addr, false)
 }

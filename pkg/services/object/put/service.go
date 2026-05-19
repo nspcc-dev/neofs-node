@@ -210,8 +210,18 @@ func WithMaxSizeSource(v MaxSizeSource) Option {
 func WithObjectStorage(v ObjectStorage) Option {
 	return func(c *cfg) {
 		c.localStore = v
-		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithLockSource(v))
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithLockSource(lockSourceFromObjectStorage{v}))
 	}
+}
+
+// lockSourceFromObjectStorage adapts ObjectStorage to objectcore.LockSource by
+// calling IsLocked with context.Background().
+type lockSourceFromObjectStorage struct {
+	s ObjectStorage
+}
+
+func (x lockSourceFromObjectStorage) IsLocked(addr oid.Address) (bool, error) {
+	return x.s.IsLocked(context.Background(), addr)
 }
 
 func WithContainerSource(v container.Source) Option {
