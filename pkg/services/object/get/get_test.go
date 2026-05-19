@@ -412,6 +412,99 @@ func TestGetLocalOnly(t *testing.T) {
 			testSplit(addr, splitInfo)
 		})
 	})
+
+	t.Run("RANGE split GET writes header", func(t *testing.T) {
+		storage := newTestStorage()
+		splitInfo := object.NewSplitInfo()
+		splitInfo.SetLink(oidtest.ID())
+
+		srcObj := generateObject(addr, nil, nil)
+		children, childIDs, payload := generateChain(2, addr.Container())
+		srcObj.SetPayload(payload)
+		srcObj.SetPayloadSize(uint64(len(payload)))
+		splitInfo.SetFirstPart(childIDs[0])
+
+		var linkChildren []object.MeasuredObject
+		for i := range children {
+			children[i].SetParentID(addr.Object())
+			children[i].SetParent(srcObj)
+			var child object.MeasuredObject
+			child.SetObjectID(children[i].GetID())
+			child.SetObjectSize(uint32(children[i].PayloadSize()))
+			linkChildren = append(linkChildren, child)
+		}
+
+		linkAddr := oid.NewAddress(addr.Container(), splitInfo.GetLink())
+		linkObj := generateObject(linkAddr, nil, nil)
+		linkObj.SetParentID(addr.Object())
+		linkObj.SetParent(srcObj)
+		linkObj.SetFirstID(childIDs[0])
+		var link object.Link
+		link.SetObjects(linkChildren)
+		linkObj.WriteLink(link)
+
+		storage.addVirtual(addr, splitInfo)
+		ns, as := testNodeMatrix(t, []int{1})
+		vectors := map[oid.Address][][]netmap.NodeInfo{
+			addr:     ns,
+			linkAddr: ns,
+		}
+		c := newTestClient()
+		c.addResult(linkAddr, linkObj, nil)
+		for i := range children {
+			childAddr := children[i].Address()
+			vectors[childAddr] = ns
+			c.addResult(childAddr, children[i], nil)
+		}
+
+		newSvc := func() *Service {
+			svc := &Service{cfg: new(cfg)}
+			svc.log = zaptest.NewLogger(t)
+			svc.localObjects = storage
+			svc.localStorage = storage
+			svc.neoFSNet = &testNeoFS{vectors: vectors}
+			svc.clientCache = &testClientCache{
+				clients: map[string]*testClient{
+					as[0][0]: c,
+				},
+			}
+			return svc
+		}
+
+		t.Run("regular range", func(t *testing.T) {
+			w := NewSimpleObjectWriter()
+			p := newPrm(false, w)
+			p.WithAddress(addr)
+
+			r := object.NewRange()
+			r.SetOffset(1)
+			r.SetLength(1)
+			p.SetRange(r)
+
+			err := newSvc().Get(ctx, p)
+			require.NoError(t, err)
+			require.Equal(t, srcObj.CutPayload(), w.Object().CutPayload())
+			require.Equal(t, payload[1:2], w.Object().Payload())
+		})
+
+		t.Run("payload-only range validates header", func(t *testing.T) {
+			w := &trackingWriter{}
+			p := newPrm(false, w)
+			p.WithAddress(addr)
+			p.MarkPayloadOnly()
+
+			r := object.NewRange()
+			r.SetOffset(1)
+			r.SetLength(1)
+			p.SetRange(r)
+
+			err := newSvc().Get(ctx, p)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, w.validateHeaderCount.Load())
+			require.Zero(t, w.writeHeaderCount.Load())
+			require.EqualValues(t, 1, w.writeChunkCount.Load())
+		})
+	})
 }
 
 func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
@@ -900,6 +993,20 @@ func TestGetRemoteSmall(t *testing.T) {
 				err = svc.GetRange(ctx, rngPrm)
 				require.NoError(t, err)
 				require.Equal(t, payload[off:off+ln], w.Object().Payload())
+
+				w = NewSimpleObjectWriter()
+				p = newPrm(false, w)
+				p.WithAddress(addr)
+
+				r := object.NewRange()
+				r.SetOffset(off)
+				r.SetLength(ln)
+				p.SetRange(r)
+
+				err = svc.Get(ctx, p)
+				require.NoError(t, err)
+				require.Equal(t, srcObj.CutPayload(), w.Object().CutPayload())
+				require.Equal(t, payload[off:off+ln], w.Object().Payload())
 			})
 		})
 
@@ -1100,6 +1207,20 @@ func TestGetRemoteSmall(t *testing.T) {
 				require.Equal(t, payload[off:off+ln], w.Object().Payload())
 
 				w = NewSimpleObjectWriter()
+				p = newPrm(false, w)
+				p.WithAddress(addr)
+
+				r := object.NewRange()
+				r.SetOffset(off)
+				r.SetLength(ln)
+				p.SetRange(r)
+
+				err = svc.Get(ctx, p)
+				require.NoError(t, err)
+				require.Equal(t, srcObj.CutPayload(), w.Object().CutPayload())
+				require.Equal(t, payload[off:off+ln], w.Object().Payload())
+
+				w = NewSimpleObjectWriter()
 				off = payloadSz - 2
 				ln = 1
 
@@ -1130,6 +1251,106 @@ func parameterizeXHeaders(t testing.TB, p *Prm, ss []string) {
 	p.SetCommonParameters(cp)
 }
 
+func TestWriteCollectedHeaderPayloadOnlyDoesNotStartResponse(t *testing.T) {
+	addr := oidtest.Address()
+
+	t.Run("valid header", func(t *testing.T) {
+		exec := &execCtx{
+			prm: RangePrm{
+				commonPrm: commonPrm{
+					objWriter: &trackingWriter{},
+				},
+			},
+			payloadOnly:     true,
+			collectedHeader: generateObject(addr, nil, []byte("payload")),
+			log:             zaptest.NewLogger(t),
+		}
+
+		ok := exec.writeCollectedHeader()
+		require.True(t, ok)
+		require.False(t, exec.responseStarted)
+		require.Equal(t, statusOK, exec.status)
+		require.NoError(t, exec.err)
+
+		w := exec.prm.objWriter.(*trackingWriter)
+		require.Zero(t, w.writeHeaderCount.Load())
+		require.EqualValues(t, 1, w.validateHeaderCount.Load())
+	})
+
+	t.Run("missing header", func(t *testing.T) {
+		exec := &execCtx{
+			prm: RangePrm{
+				commonPrm: commonPrm{
+					objWriter: &trackingWriter{},
+				},
+			},
+			payloadOnly: true,
+			log:         zaptest.NewLogger(t),
+		}
+
+		ok := exec.writeCollectedHeader()
+		require.False(t, ok)
+		require.False(t, exec.responseStarted)
+		require.Equal(t, statusUndefined, exec.status)
+		require.EqualError(t, exec.err, "missing object header")
+	})
+}
+
+func TestFallbackRangeReader(t *testing.T) {
+	t.Run("fallback get exec clears range and flags", func(t *testing.T) {
+		rng := object.NewRange()
+		rng.SetOffset(10)
+		rng.SetLength(20)
+
+		exec := execCtx{
+			prm: RangePrm{
+				rng: rng,
+			},
+			payloadOnly: true,
+			legacyRange: true,
+		}
+
+		fallback := exec.fallbackGetExec()
+		require.Nil(t, fallback.ctxRange())
+		require.False(t, fallback.payloadOnly)
+		require.False(t, fallback.legacyRange)
+	})
+
+	t.Run("partial chunk is returned before fallback", func(t *testing.T) {
+		buf := make([]byte, 16)
+		fr := &fallbackRangeReader{
+			ReadCloser: &partialErrorReader{
+				data: []byte("payload"),
+				err:  apistatus.ErrObjectAccessDenied,
+			},
+		}
+
+		n, err := fr.Read(buf)
+		require.NoError(t, err)
+		require.Equal(t, len("payload"), n)
+		require.Equal(t, []byte("payload"), buf[:n])
+		require.EqualValues(t, len("payload"), fr.delivered)
+		require.True(t, fr.fallbackPending)
+		require.False(t, fr.fallbackDone)
+	})
+
+	t.Run("fallback resumes after already delivered bytes", func(t *testing.T) {
+		rng := object.NewRange()
+		rng.SetOffset(10)
+		rng.SetLength(20)
+
+		fr := &fallbackRangeReader{
+			rng:       rng,
+			delivered: 7,
+		}
+
+		from, to, err := fr.fallbackBounds(100)
+		require.NoError(t, err)
+		require.EqualValues(t, 17, from)
+		require.EqualValues(t, 30, to)
+	})
+}
+
 type failingReader struct {
 	data      []byte
 	pos       int
@@ -1155,15 +1376,51 @@ func (r *failingReader) Close() error {
 	return nil
 }
 
+type errorReader struct {
+	err error
+}
+
+func (r *errorReader) Read([]byte) (int, error) {
+	return 0, r.err
+}
+
+func (r *errorReader) Close() error {
+	return nil
+}
+
+type partialErrorReader struct {
+	data []byte
+	err  error
+	read bool
+}
+
+func (r *partialErrorReader) Read(p []byte) (int, error) {
+	if r.read {
+		return 0, io.EOF
+	}
+	r.read = true
+	return copy(p, r.data), r.err
+}
+
+func (r *partialErrorReader) Close() error {
+	return nil
+}
+
 type trackingWriter struct {
-	writeHeaderCount atomic.Int32
-	writeChunkCount  atomic.Int32
-	failAfterChunks  int32
-	err              error
+	writeHeaderCount    atomic.Int32
+	writeChunkCount     atomic.Int32
+	validateHeaderCount atomic.Int32
+	failAfterChunks     int32
+	err                 error
 }
 
 func (w *trackingWriter) WriteHeader(*object.Object) error {
 	w.writeHeaderCount.Add(1)
+	return nil
+}
+
+func (w *trackingWriter) ValidateHeader(*object.Object) error {
+	w.validateHeaderCount.Add(1)
 	return nil
 }
 
@@ -1201,6 +1458,29 @@ func (s *testStorageWithFailingReader) get(*execCtx) (*object.Object, io.ReadClo
 }
 
 func (s *testStorageWithFailingReader) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
+	if s.obj == nil {
+		return nil, errors.New("object not found")
+	}
+	return s.obj.CutPayload(), nil
+}
+
+type testStorageWithImmediateReadError struct {
+	unimplementedLocalStorage
+	obj *object.Object
+	err error
+}
+
+func (s *testStorageWithImmediateReadError) get(*execCtx) (*object.Object, io.ReadCloser, error) {
+	if s.obj == nil {
+		return nil, nil, errors.New("object not found")
+	}
+
+	objWithoutPayload := s.obj.CutPayload()
+	objWithoutPayload.SetPayloadSize(s.obj.PayloadSize())
+	return objWithoutPayload, &errorReader{err: s.err}, nil
+}
+
+func (s *testStorageWithImmediateReadError) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
 	if s.obj == nil {
 		return nil, errors.New("object not found")
 	}
@@ -1309,4 +1589,55 @@ func TestDoubleWriteHeaderOnChunkWriteFailure(t *testing.T) {
 	t.Logf("WriteHeader called: %d times", writer.writeHeaderCount.Load())
 	t.Logf("WriteChunk called: %d times", writer.writeChunkCount.Load())
 	require.EqualValues(t, 1, writer.writeHeaderCount.Load())
+}
+
+func TestPayloadOnlyRangeReadFailureBeforeFirstChunkFallsBackRemote(t *testing.T) {
+	ctx := context.Background()
+	addr := oidtest.Address()
+
+	payload := []byte("payload data")
+	obj := generateObject(addr, nil, payload)
+
+	readErr := errors.New("simulated payload read error")
+	storage := &testStorageWithImmediateReadError{
+		obj: obj,
+		err: readErr,
+	}
+
+	anyNodeLists, nodeStrs := testNodeMatrix(t, []int{1})
+
+	clientCache := &testClientCache{
+		clients: make(map[string]*testClient),
+	}
+	remoteClient := newTestClient()
+	remoteClient.addResult(addr, obj, nil)
+	clientCache.clients[nodeStrs[0][0]] = remoteClient
+
+	svc := &Service{cfg: new(cfg)}
+	svc.log = zaptest.NewLogger(t)
+	svc.localObjects = storage
+	svc.localStorage = storage
+	svc.clientCache = clientCache
+	svc.neoFSNet = &testNeoFS{
+		vectors: map[oid.Address][][]netmap.NodeInfo{
+			addr: anyNodeLists,
+		},
+	}
+
+	writer := NewSimpleObjectWriter()
+
+	var prm Prm
+	prm.SetObjectWriter(writer)
+	prm.WithAddress(addr)
+	prm.common = new(util.CommonPrm)
+	prm.MarkPayloadOnly()
+
+	rng := object.NewRange()
+	rng.SetOffset(2)
+	rng.SetLength(5)
+	prm.SetRange(rng)
+
+	err := svc.Get(ctx, prm)
+	require.NoError(t, err)
+	require.Equal(t, payload[2:7], writer.Object().Payload())
 }

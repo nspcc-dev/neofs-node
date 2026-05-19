@@ -255,26 +255,6 @@ func TestService_RangeRequestToInfo_BearerTokenIssuer(t *testing.T) {
 	})
 }
 
-func TestService_HashRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, (*aclsvc.Service).HashRequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.GetRangeHashRequest {
-		req := &protoobject.GetRangeHashRequest{
-			Body: &protoobject.GetRangeHashRequest_Body{
-				Address: &refs.Address{
-					ContainerId: cnrID.ProtoMessage(),
-					ObjectId:    oidtest.ID().ProtoMessage(),
-				},
-			},
-			MetaHeader: meta,
-		}
-
-		var err error
-		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
-		require.NoError(t, err)
-
-		return req
-	})
-}
-
 func TestService_PutRequestToInfo_BearerTokenIssuer(t *testing.T) {
 	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.PutRequest) (aclsvc.RequestInfo, error) {
 		res, _, err := svc.PutRequestToInfo(req)

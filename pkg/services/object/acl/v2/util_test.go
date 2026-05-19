@@ -22,11 +22,9 @@ func TestIsVerbCompatible(t *testing.T) {
 			sessionSDK.VerbObjectGet,
 			sessionSDK.VerbObjectDelete,
 			sessionSDK.VerbObjectRange,
-			sessionSDK.VerbObjectRangeHash,
 		},
-		sessionSDK.VerbObjectRange:     {sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash},
-		sessionSDK.VerbObjectRangeHash: {sessionSDK.VerbObjectRangeHash},
-		sessionSDK.VerbObjectSearch:    {sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete},
+		sessionSDK.VerbObjectRange:  {sessionSDK.VerbObjectRange},
+		sessionSDK.VerbObjectSearch: {sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete},
 	}
 
 	verbs := []sessionSDK.ObjectVerb{
@@ -34,7 +32,6 @@ func TestIsVerbCompatible(t *testing.T) {
 		sessionSDK.VerbObjectDelete,
 		sessionSDK.VerbObjectHead,
 		sessionSDK.VerbObjectRange,
-		sessionSDK.VerbObjectRangeHash,
 		sessionSDK.VerbObjectGet,
 		sessionSDK.VerbObjectSearch,
 	}

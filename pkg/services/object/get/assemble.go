@@ -60,7 +60,8 @@ func (exec *execCtx) assemble() {
 				exec.overtakePayloadDirectly(children, nil, true)
 			}
 		} else {
-			if ok := exec.overtakePayloadInReverse(children[len(children)-1]); ok {
+			ok := exec.writeCollectedHeader()
+			if ok && exec.overtakePayloadInReverse(children[len(children)-1]) {
 				// payload of all children except the last are written, write last payload
 				exec.copyChild(exec.lastChildID, &exec.lastChildRange, false)
 			}

@@ -224,8 +224,6 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 		cmdVerb = session.VerbObjectSearch
 	case *client.PrmObjectRange:
 		cmdVerb = session.VerbObjectRange
-	case *client.PrmObjectHash:
-		cmdVerb = session.VerbObjectRangeHash
 	}
 
 	tok, err := getVerifiedSession(cmd, cmdVerb, key, cnr)

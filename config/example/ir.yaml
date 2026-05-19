@@ -179,7 +179,11 @@ settlement:
   basic_income_rate: 100 # Optional: override basic income rate value from network config; applied only in debug mode
 
 experimental:
-  chain_meta_data: false # Optional: allows creating containers with meta data handled via FS chain
+  chain_meta_data: # Optional: allows creating containers with meta data handled via FS chain, only supported with fschain.consensus configured
+    enabled: false
+    seed_port: 20334 # List of existing nodes to communicate with over Neo P2P protocol (addresses are taken from fschain.consensus.seed_nodes, but ports are changed to this value)
+    p2p_port: 20334 # Port for network addresses to listen Neo P2P on (addresses are taken from fschain.consensus.p2p, but ports are changed to this value)
+    rpc_port: 30334 # Port for network addresses to listen Neo RPC on (addresses are taken from fschain.consensus.rpc, but ports are changed to this value)
   allow_ec: true # Optional: allows creating containers with EC rules
 
 sn_validator:

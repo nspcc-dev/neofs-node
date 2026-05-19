@@ -506,22 +506,6 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionv2.VerbObjectRange, *obj)
 }
 
-// HashRequestToInfo resolves RequestInfo from the request to check it using
-// [ACLChecker].
-func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (RequestInfo, error) {
-	cnr, err := getContainerIDFromRequest(request)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	obj, err := getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	return b.findRequestInfo(request, cnr, acl.OpObjectHash, sessionSDK.VerbObjectRangeHash, sessionv2.VerbObjectRangeHash, *obj)
-}
-
 var ErrSkipRequest = errors.New("skip request")
 
 // PutRequestToInfo resolves RequestInfo from the request to check it using

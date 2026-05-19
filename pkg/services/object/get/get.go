@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -25,6 +23,17 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
 
+		if prm.rng != nil {
+			if prm.payloadOnly && prm.localGetBuffer != nil {
+				stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localGetBuffer)
+				if err == nil {
+					prm.submitLocalGetStreamFn(0, stream)
+				}
+				return err
+			}
+			return s.copyLocalECPartRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
+		}
+
 		if prm.localGetBuffer != nil {
 			n, stream, err := s.localObjects.ReadECPart(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.localGetBuffer)
 			if err == nil {
@@ -39,8 +48,11 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if prm.common.LocalOnly() &&
 		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
-		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
-		return s.get(ctx, prm.commonPrm, bufOpt).err // It handles locality internally.
+		opts := []execOption{withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly)}
+		if prm.rng == nil && !prm.payloadOnly {
+			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
+		}
+		return s.get(ctx, prm.commonPrm, opts...).err // It handles locality internally.
 	}
 
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
@@ -49,9 +61,16 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	if len(repRules) > 0 { // REP format does not require encoding
-		bufOpt := withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn)
-		forwardOpt := withForwardGetRequestFunc(prm.forwardRequestFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), bufOpt, forwardOpt).err
+		opts := []execOption{
+			withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules),
+			withPayloadRange(prm.rng),
+			withPayloadOnly(prm.payloadOnly),
+			withForwardGetRequestFunc(prm.forwardRequestFn),
+		}
+		if prm.rng == nil && !prm.payloadOnly {
+			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
+		}
+		err := s.get(ctx, prm.commonPrm, opts...).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
@@ -67,7 +86,29 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules)).err
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly)).err
+	}
+
+	if prm.rng != nil {
+		hdr, err := s.getECObjectHeader(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), ecRules, ecNodeLists, nil, nil)
+		if err != nil {
+			return err
+		}
+		if err := validatePayloadRange(&hdr, prm.rng); err != nil {
+			return err
+		}
+		hdr = *hdr.CutPayload()
+		if prm.payloadOnly {
+			if v, ok := prm.objWriter.(HeaderValidator); ok {
+				if err := v.ValidateHeader(&hdr); err != nil {
+					return err
+				}
+			}
+		} else if err := prm.objWriter.WriteHeader(&hdr); err != nil {
+			return err
+		}
+		return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
+			ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
 
 	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
@@ -101,7 +142,7 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
 		// It handles locality internally.
 		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
-		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng), bufOpt).err
+		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt).err
 	}
 
 	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
@@ -109,29 +150,20 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
-	return s.getRange(ctx, prm, nodeLists, repRules, ecRules, nil)
+	return s.getRange(ctx, prm, nodeLists, repRules, ecRules)
 }
 
-func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule,
-	hashPrm *RangeHashPrm) error {
+func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule) error {
 	if len(repRules) > 0 { // REP format does not require encoding
 		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
 		forwardOpt := withForwardRangeRequestFunc(prm.forwardRequestFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withHash(hashPrm), bufOpt, forwardOpt).err
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt, forwardOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
-	if hashPrm != nil && prm.rangeForwarder != nil && !localNodeInSets(s.neoFSNet, nodeLists) {
-		hashes, err := s.proxyHashRequest(ctx, ecNodeLists, prm.rangeForwarder)
-		if err == nil {
-			hashPrm.forwardedRangeHashResponse = hashes
-		}
-		return err
-	}
-
 	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
 		return s.forwardRangeRequest(ctx, ecNodeLists, prm.forwardRequestFn)
 	}
@@ -141,82 +173,32 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng)).err
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true)).err
 	}
 
 	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
 		ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 }
 
-func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHashRes, error) {
-	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
-	if err != nil {
-		return nil, fmt.Errorf("get nodes for object: %w", err)
+func validatePayloadRange(hdr *object.Object, rng *object.Range) error {
+	if rng == nil {
+		return nil
 	}
 
-	hashes := make([][]byte, 0, len(prm.rngs))
+	off := rng.GetOffset()
+	ln := rng.GetLength()
+	pldLen := hdr.PayloadSize()
 
-	for _, rng := range prm.rngs {
-		h := prm.hashGen()
-
-		// For big ranges we could fetch range-hashes from different nodes and concatenate them locally.
-		// However,
-		// 1. Potential gains are insignificant when operating in the Internet given typical latencies and losses.
-		// 2. Parallel solution is more complex in terms of code.
-		// 3. TZ-hash is likely to be disabled in private installations.
-		rngPrm := RangePrm{
-			commonPrm: prm.commonPrm,
+	if ln == 0 {
+		if off == 0 {
+			return nil
 		}
-
-		rngPrm.SetRange(&rng)
-		rngPrm.SetChunkWriter(&hasherWrapper{
-			hash: util.NewSaltingWriter(h, prm.salt),
-		})
-
-		if err := s.getRange(ctx, rngPrm, nodeLists, repRules, ecRules, &prm); err != nil {
-			return nil, err
-		}
-
-		if prm.forwardedRangeHashResponse != nil {
-			// forwarder request case; no need to collect the other
-			// parts, the whole response has already been received
-			hashes = prm.forwardedRangeHashResponse
-			break
-		}
-
-		hashes = append(hashes, h.Sum(nil))
+		return apistatus.ErrObjectOutOfRange
 	}
-
-	return &RangeHashRes{
-		hashes: hashes,
-	}, nil
-}
-
-func (s *Service) proxyHashRequest(ctx context.Context, sortedNodeLists [][]netmap.NodeInfo, proxyFn RangeRequestForwarder) ([][]byte, error) {
-	for i := range sortedNodeLists {
-		for j := range sortedNodeLists[i] {
-			conn, err := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodeLists[i][j])
-			if err != nil {
-				s.log.Debug("get conn to remote node",
-					zap.Strings("addresses", slices.Collect(sortedNodeLists[i][j].NetworkEndpoints())), zap.Error(err))
-				continue
-			}
-
-			hashes, err := proxyFn(ctx, conn)
-			if err == nil {
-				return hashes, nil
-			}
-
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) ||
-				errors.Is(err, apistatus.ErrObjectOutOfRange) || errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-
-			s.log.Info("request proxy failed", zap.String("request", "HASH"), zap.Error(err))
-		}
+	if off >= pldLen || pldLen-off < ln {
+		return apistatus.ErrObjectOutOfRange
 	}
-
-	return nil, apistatus.ErrObjectNotFound
+	return nil
 }
 
 // Head reads object header from container.
@@ -340,7 +322,7 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 			zap.Error(exec.err),
 		)
 
-		if execCnr && !exec.headerWritten {
+		if execCnr && !exec.responseStarted {
 			exec.executeOnContainer()
 			exec.analyzeStatus(false)
 		}

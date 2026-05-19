@@ -106,8 +106,16 @@ type Settlement struct {
 
 // Experimental configures experimental features.
 type Experimental struct {
-	ChainMetaData bool `mapstructure:"chain_meta_data"`
-	AllowEC       bool `mapstructure:"allow_ec"`
+	ChainMetaData Metadata `mapstructure:"chain_meta_data"`
+	AllowEC       bool     `mapstructure:"allow_ec"`
+}
+
+// Metadata configures metadata chain.
+type Metadata struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	SeedPort uint16 `mapstructure:"seed_port"`
+	RPCPort  uint16 `mapstructure:"rpc_port"`
+	P2PPort  uint16 `mapstructure:"p2p_port"`
 }
 
 // Mainnet configures mainnet chain settings.

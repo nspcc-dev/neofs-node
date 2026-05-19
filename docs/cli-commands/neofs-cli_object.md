@@ -24,7 +24,6 @@ Operations with Objects
 * [neofs-cli](neofs-cli.md)	 - Command Line Tool to work with NeoFS
 * [neofs-cli object delete](neofs-cli_object_delete.md)	 - Delete object from NeoFS
 * [neofs-cli object get](neofs-cli_object_get.md)	 - Get object from NeoFS
-* [neofs-cli object hash](neofs-cli_object_hash.md)	 - Get object hash
 * [neofs-cli object head](neofs-cli_object_head.md)	 - Get object header
 * [neofs-cli object lock](neofs-cli_object_lock.md)	 - Lock object in container
 * [neofs-cli object nodes](neofs-cli_object_nodes.md)	 - Show nodes for an object
