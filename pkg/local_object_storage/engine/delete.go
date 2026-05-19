@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // Delete marks the objects to be removed. This is a forced removal, it
@@ -51,22 +52,25 @@ func (e *StorageEngine) DeleteRedundantCopies(addr oid.Address, shardIDs []strin
 		return nil
 	}
 
-	var deleteShards []shardWrapper
-	keep := true
+	var (
+		deleteShards []shardWrapper
+		keeperShard  string
+	)
 	for _, sh := range e.sortedShards(addr.Object()) {
-		if !slices.Contains(shardIDs, sh.ID().String()) {
+		var id = sh.ID().String()
+		if !slices.Contains(shardIDs, id) {
 			continue
 		}
 
-		if keep {
-			keep = false
+		if keeperShard == "" {
+			keeperShard = id
 			continue
 		}
 
 		deleteShards = append(deleteShards, sh)
 	}
 
-	if keep {
+	if keeperShard == "" {
 		return errShardNotFound
 	}
 
@@ -75,6 +79,9 @@ func (e *StorageEngine) DeleteRedundantCopies(addr oid.Address, shardIDs []strin
 	}
 
 	return e.processAddrDeleteOnShards(deleteShards, addr, func(sh *shard.Shard, cnr cid.ID, addrs []oid.ID) error {
+		e.log.Info("removing redundant local object copy",
+			zap.String("keeper_shard", keeperShard),
+			zap.Stringer("redundant_shard", sh.ID()))
 		return sh.MarkGarbage(cnr, addrs)
 	})
 }
