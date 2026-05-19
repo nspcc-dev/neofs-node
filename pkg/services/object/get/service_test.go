@@ -67,11 +67,15 @@ type mockObjectWriter struct {
 	writeHeaderErr error
 	writeChunkErr  error
 
+	writeHeaderCount int
+	writeChunkCount  int
+
 	hdr object.Object
 	buf bytes.Buffer
 }
 
 func (x *mockObjectWriter) WriteHeader(hdr *object.Object) error {
+	x.writeHeaderCount++
 	if x.writeHeaderErr != nil {
 		return x.writeHeaderErr
 	}
@@ -80,6 +84,7 @@ func (x *mockObjectWriter) WriteHeader(hdr *object.Object) error {
 }
 
 func (x *mockObjectWriter) WriteChunk(data []byte) error {
+	x.writeChunkCount++
 	if x.writeChunkErr != nil {
 		return x.writeChunkErr
 	}

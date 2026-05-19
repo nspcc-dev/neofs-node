@@ -38,8 +38,6 @@ func getContainerIDFromRequest(req any) (cid.ID, error) {
 		mID = v.GetBody().GetAddress().GetContainerId()
 	case *protoobject.GetRangeRequest:
 		mID = v.GetBody().GetAddress().GetContainerId()
-	case *protoobject.GetRangeHashRequest:
-		mID = v.GetBody().GetAddress().GetContainerId()
 	default:
 		return cid.ID{}, errors.New("unknown request type")
 	}
@@ -78,12 +76,11 @@ func assertVerb(tok sessionSDK.Object, reqVerb sessionSDK.ObjectVerb) bool {
 			sessionSDK.VerbObjectHead,
 			sessionSDK.VerbObjectGet,
 			sessionSDK.VerbObjectDelete,
-			sessionSDK.VerbObjectRange,
-			sessionSDK.VerbObjectRangeHash)
+			sessionSDK.VerbObjectRange)
 	case sessionSDK.VerbObjectSearch:
 		return tok.AssertVerb(sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete)
 	case sessionSDK.VerbObjectRange:
-		return tok.AssertVerb(sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash)
+		return tok.AssertVerb(sessionSDK.VerbObjectRange)
 	}
 }
 

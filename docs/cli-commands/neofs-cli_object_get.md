@@ -22,6 +22,8 @@ neofs-cli object get [flags]
   -h, --help                  help for get
       --no-progress           Do not show progress bar
       --oid string            Object ID.
+      --payload-only          Request only payload for a payload range
+      --range string          Range to take data from in the form offset:length
       --raw                   Set raw request option
   -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
       --session string        Filepath to a JSON- or binary-encoded token of the object GET session

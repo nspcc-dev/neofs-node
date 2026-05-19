@@ -372,16 +372,8 @@ func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID
 	var res *client.ObjectRangeReader
 	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
+		//nolint:staticcheck
 		res, err = c.ObjectRangeInit(ctx, cnr, id, off, ln, signer, opts)
-		return err
-	})
-}
-
-func (x *connections) ObjectHash(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHash) ([][]byte, error) {
-	var res [][]byte
-	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
-		var err error
-		res, err = c.ObjectHash(ctx, cnr, id, signer, opts)
 		return err
 	})
 }

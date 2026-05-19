@@ -20,6 +20,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	rangeSep       = ":"
+	rangeFlag      = "range"
+	rangeFlagUsage = "Range to take data from in the form offset:length"
+)
+
 var objectRangeCmd = &cobra.Command{
 	Use:   "range",
 	Short: "Get payload range data of an object",
@@ -108,6 +114,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 		prm.MarkRaw()
 	}
 
+	//nolint:staticcheck
 	rdr, err := cli.ObjectRangeInit(ctx, cnr, obj, ranges[0].GetOffset(), ranges[0].GetLength(), user.NewAutoIDSigner(*pk), prm)
 	if err != nil {
 		err = fmt.Errorf("init payload reading: %w", err)

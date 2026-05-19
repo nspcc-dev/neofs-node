@@ -1112,10 +1112,6 @@ func (m *serviceClient) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64,
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectHash(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectHash) ([][]byte, error) {
-	panic("unimplemented")
-}
-
 func (m *serviceClient) AnnounceLocalTrust(context.Context, uint64, []apireputation.Trust, client.PrmAnnounceLocalTrust) error {
 	// TODO: interfaces are oversaturated. This will never be needed to server object PUT. Refactor this.
 	panic("unimplemented")

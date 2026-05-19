@@ -19,11 +19,11 @@ import (
 func PrettyPrintTableBACL(cmd *cobra.Command, bacl *acl.Basic) {
 	// Header
 	w := tabwriter.NewWriter(cmd.OutOrStdout(), 1, 4, 4, ' ', 0)
-	fmt.Fprintln(w, "\tRangeHASH\tRange\tSearch\tDelete\tPut\tHead\tGet")
+	fmt.Fprintln(w, "\tRange\tSearch\tDelete\tPut\tHead\tGet")
 	// Bits
 	bits := []string{
 		boolToString(bacl.Sticky()) + " " + boolToString(!bacl.Extendable()),
-		getRoleBitsForOperation(bacl, acl.OpObjectHash), getRoleBitsForOperation(bacl, acl.OpObjectRange),
+		getRoleBitsForOperation(bacl, acl.OpObjectRange),
 		getRoleBitsForOperation(bacl, acl.OpObjectSearch), getRoleBitsForOperation(bacl, acl.OpObjectDelete),
 		getRoleBitsForOperation(bacl, acl.OpObjectPut), getRoleBitsForOperation(bacl, acl.OpObjectHead),
 		getRoleBitsForOperation(bacl, acl.OpObjectGet),
@@ -31,7 +31,7 @@ func PrettyPrintTableBACL(cmd *cobra.Command, bacl *acl.Basic) {
 	fmt.Fprintln(w, strings.Join(bits, "\t"))
 	// Footer
 	footer := []string{"X F"}
-	for range 7 {
+	for range 6 {
 		footer = append(footer, "U S O B")
 	}
 	fmt.Fprintln(w, strings.Join(footer, "\t"))

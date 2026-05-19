@@ -79,8 +79,6 @@ func attachVerifiedSessionV2(cmd *cobra.Command, tok *session.Token, dst Session
 		cmdVerb = session.VerbObjectSearch
 	case *client.PrmObjectRange:
 		cmdVerb = session.VerbObjectRange
-	case *client.PrmObjectHash:
-		cmdVerb = session.VerbObjectRangeHash
 	}
 
 	err := verifySessionV2(cmd, tok, cmdVerb, key, cnr)

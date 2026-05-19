@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -33,8 +34,7 @@ type execCtx struct {
 
 	ctx context.Context
 
-	prm          RangePrm
-	prmRangeHash *RangeHashPrm
+	prm RangePrm
 
 	statusError
 
@@ -57,10 +57,10 @@ type execCtx struct {
 	nodeLists [][]netmap.NodeInfo
 	repRules  []uint
 
-	// headerWritten is set to true after WriteHeader is successfully called.
-	// If an error occurs after that, the stream is already corrupted and
-	// no retry should be attempted.
-	headerWritten bool
+	// responseStarted is set to true after the first response bytes are
+	// successfully written. If an error occurs after that, the stream is
+	// already corrupted and no retry should be attempted.
+	responseStarted bool
 
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
@@ -74,6 +74,9 @@ type execCtx struct {
 
 	localRangeBuffer         []byte
 	submitLocalRangeStreamFn SubmitDataStreamFunc
+
+	payloadOnly bool
+	legacyRange bool
 }
 
 type execOption func(*execCtx)
@@ -100,9 +103,15 @@ func withPayloadRange(r *object.Range) execOption {
 	}
 }
 
-func withHash(p *RangeHashPrm) execOption {
-	return func(ctx *execCtx) {
-		ctx.prmRangeHash = p
+func withPayloadOnly(v bool) execOption {
+	return func(c *execCtx) {
+		c.payloadOnly = v
+	}
+}
+
+func withLegacyRange(v bool) execOption {
+	return func(c *execCtx) {
+		c.legacyRange = v
 	}
 }
 
@@ -277,7 +286,12 @@ func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool 
 	p.addr.SetContainer(exec.containerID())
 	p.addr.SetObject(id)
 
-	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng), withLogger(log))
+	exec.statusError = exec.svc.get(exec.context(), p.commonPrm,
+		withPayloadRange(rng),
+		withPayloadOnly(exec.payloadOnly),
+		withLegacyRange(exec.legacyRange),
+		withLogger(log),
+	)
 
 	hdr := childWriter.hdr
 	ok := exec.status == statusOK
@@ -355,16 +369,44 @@ func mergeSplitInfo(dst, src *object.SplitInfo) {
 }
 
 func (exec *execCtx) writeCollectedHeader() bool {
-	if exec.ctxRange() != nil {
+	// TODO: some payload-only paths can skip header collection, can be optimized.
+	if exec.collectedHeader == nil {
+		exec.status = statusUndefined
+		exec.err = errors.New("missing object header")
+
+		exec.log.Debug("could not write header",
+			zap.Error(exec.err),
+		)
+		return false
+	}
+
+	hdr := exec.collectedHeader.CutPayload()
+	if exec.payloadOnly {
+		if v, ok := exec.prm.objWriter.(HeaderValidator); ok {
+			err := v.ValidateHeader(hdr)
+			if err != nil {
+				exec.err = err
+				if errors.Is(err, apistatus.Error) {
+					exec.status = statusAPIResponse
+				} else {
+					exec.status = statusUndefined
+				}
+
+				exec.log.Debug("could not validate header",
+					zap.Error(err),
+				)
+				return false
+			}
+		}
+		exec.status = statusOK
+		exec.err = nil
 		return true
 	}
 
-	err := exec.prm.objWriter.WriteHeader(
-		exec.collectedHeader.CutPayload(),
-	)
+	err := exec.prm.objWriter.WriteHeader(hdr)
 
 	if err == nil {
-		exec.headerWritten = true
+		exec.responseStarted = true
 		exec.status = statusOK
 		exec.err = nil
 	} else {
@@ -392,9 +434,17 @@ func (exec *execCtx) writeObjectPayload(obj *object.Object, reader io.ReadCloser
 				exec.log.Debug("error while closing payload reader", zap.Error(err))
 			}
 		}()
-		err = copyPayloadStream(exec.prm.objWriter, reader)
+		err = copyPayloadStream(chunkWriteObserver{
+			ChunkWriter: exec.prm.objWriter,
+			onWrite: func() {
+				exec.responseStarted = true
+			},
+		}, reader)
 	} else {
 		err = exec.prm.objWriter.WriteChunk(obj.Payload())
+		if err == nil && len(obj.Payload()) > 0 {
+			exec.responseStarted = true
+		}
 	}
 
 	if err == nil {
@@ -441,6 +491,21 @@ func copyPayloadStream(w ChunkWriter, r io.Reader) error {
 	return err
 }
 
+type chunkWriteObserver struct {
+	ChunkWriter
+	onWrite func()
+}
+
+func (w chunkWriteObserver) WriteChunk(p []byte) error {
+	if err := w.ChunkWriter.WriteChunk(p); err != nil {
+		return err
+	}
+	if len(p) > 0 && w.onWrite != nil {
+		w.onWrite()
+	}
+	return nil
+}
+
 // returns number of written bytes. Returns errResponseStreamFailure on w failure.
 func copyPayloadStreamBuffer(w ChunkWriter, r io.Reader, buf []byte) (uint64, error) {
 	for done := uint64(0); ; {
@@ -467,16 +532,9 @@ func (exec *execCtx) writeCollectedObject() {
 	}
 }
 
-// isRangeHashForwardingEnabled returns true if common execution
-// parameters has GETRANGEHASH request forwarding closure set.
-func (exec execCtx) isRangeHashForwardingEnabled() bool {
-	return exec.prm.rangeForwarder != nil
-}
-
 // disableForwarding removes request forwarding closure from common
 // parameters, so it won't be inherited in new execution contexts.
 func (exec *execCtx) disableForwarding() {
 	exec.prm.SetRequestForwarder(nil)
-	exec.prm.SetRangeHashRequestForwarder(nil)
 	exec.forwardGetRequestFn = nil
 }

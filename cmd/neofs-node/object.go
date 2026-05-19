@@ -130,10 +130,6 @@ func (s *objectSvc) GetRange(ctx context.Context, prm getsvc.RangePrm) error {
 	return s.get.GetRange(ctx, prm)
 }
 
-func (s *objectSvc) GetRangeHash(ctx context.Context, prm getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error) {
-	return s.get.GetRangeHash(ctx, prm)
-}
-
 type delNetInfo struct {
 	netmap.State
 	tsLifetime uint64
@@ -437,14 +433,6 @@ func (c *reputationClient) ObjectGetInit(ctx context.Context, containerID cid.ID
 
 func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (*object.Object, error) {
 	res, err := c.MultiAddressClient.ObjectHead(ctx, containerID, objectID, signer, prm)
-
-	c.submitResult(err)
-
-	return res, err
-}
-
-func (c *reputationClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHash) ([][]byte, error) {
-	res, err := c.MultiAddressClient.ObjectHash(ctx, containerID, objectID, signer, prm)
 
 	c.submitResult(err)
 

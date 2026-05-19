@@ -26,7 +26,6 @@ func init() {
 		objectSearchCmd,
 		searchV2Cmd,
 		objectHeadCmd,
-		objectHashCmd,
 		objectRangeCmd,
 		objectLockCmd}
 
@@ -43,7 +42,6 @@ func init() {
 	initObjectGetCmd()
 	initObjectSearchCmd()
 	initObjectHeadCmd()
-	initObjectHashCmd()
 	initObjectRangeCmd()
 	initCommandObjectLock()
 	initObjectNodesCmd()
