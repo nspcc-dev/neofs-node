@@ -10,7 +10,7 @@ Changelog for NeoFS Node
 - `sd_notify` support: both storage and inner ring nodes now notify systemd when the service is ready, allowing `Type=notify` in systemd unit files (#3943)
 
 ### Fixed
-- Policer removes redundant local shard copies that could remain on disk forever (#3908)
+- Policer removes redundant local shard copies that could remain on disk forever (#3908, #3997)
 - Treat only HALTed main transactions as successfully executed, retry the rest (#3868)
 - `different object owner and session issuer` for stored objects (#3929)
 - SearchV2 method returning zero result instead of "bad request" error for incorrect numeric filters (#3934)
