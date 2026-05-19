@@ -488,7 +488,7 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(_ context.Context
 }
 
 // CopyLocalECPartRange implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan struct{}) (uint64, error) {
 	// TODO: handle request fields once and reuse
 	addr := x.request.GetBody().GetAddress()
 	cnr, err := cid.DecodeBytes(addr.GetContainerId().GetValue())
@@ -526,10 +526,7 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 		select {
 		case <-ctx.Done():
 			return 0, ctx.Err()
-		case abort := <-controlCh:
-			if abort {
-				return 0, getsvc.ErrAborted
-			}
+		case <-controlCh:
 		}
 	}
 
@@ -721,7 +718,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPldLen, nil
 }
 
-func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64) (uint64, error) {
+func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan struct{}) (uint64, error) {
 	if err := x.initGetPartRequest(partInfo); err != nil {
 		return 0, err
 	}
@@ -737,6 +734,14 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 		// TODO: if error is due to incorrect request, error should be returned. How to catch this?
 		x.server.log.Warn("GET object API failure (call)", zap.String("node", conn.Target()), zap.Error(err))
 		return 0, nil
+	}
+
+	if controlCh != nil {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-controlCh:
+		}
 	}
 
 	var copied uint64
@@ -934,7 +939,7 @@ func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.Buff
 	return parentID, parentSig, parentHdr, parentPldLen, partPldLen, nil
 }
 
-func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn coreclient.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
+func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn coreclient.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan struct{}) (uint64, error) {
 	var copiedPld uint64
 
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
@@ -961,9 +966,9 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn corecli
 	return copiedPld, nil
 }
 
-func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
+func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan struct{}) (uint64, error) {
 	if x.rangeViaGet {
-		return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln)
+		return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, controlCh)
 	}
 
 	request, err := x.makeGetECPartRangeRequest(partInfo, off, ln)
@@ -987,10 +992,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 		select {
 		case <-ctx.Done():
 			return 0, ctx.Err()
-		case abort := <-controlCh:
-			if abort {
-				return 0, getsvc.ErrAborted
-			}
+		case <-controlCh:
 		}
 	}
 
@@ -1033,7 +1035,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 				return 0, errors.New("received access denied status in non-first message")
 			}
 			x.rangeViaGet = true
-			return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln)
+			return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, controlCh)
 		}
 
 		if code != protostatus.OK {

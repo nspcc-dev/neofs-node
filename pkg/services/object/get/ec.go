@@ -10,7 +10,6 @@ import (
 	"math"
 	"slices"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -1436,76 +1435,77 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 		return partial
 	}
 
-	controlChs := make([]chan bool, rule.DataPartNum-2) // -1 because 1st part already copied, -1 because 2nd part doesn't need a trigger
-	for i := range controlChs {
-		controlChs[i] = make(chan bool, 1)
+	type task struct {
+		partIdx   int
+		controlCh <-chan struct{}
 	}
+	taskCh := make(chan task, 1)
 
-	abortNextTo := func(i int) {
-		for j := i + 1; j < int(rule.DataPartNum); j++ {
-			controlChs[j-2] <- true
+	var resErr atomic.Value
+	ctx, cancel := context.WithCancel(ctx)
+
+	work := func() {
+		defer cancel()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case t := <-taskCh:
+				var ln uint64
+				var nextControlCh chan struct{}
+				if t.partIdx < int(rule.DataPartNum)-1 {
+					ln = partPldLen
+
+					nextControlCh = make(chan struct{}, 1)
+					taskCh <- task{
+						partIdx:   t.partIdx + 1,
+						controlCh: nextControlCh,
+					}
+				} else {
+					// last part can be suffixed with zeros which should not be transmitted
+					ln = fullPldLen - partPldLen*uint64(rule.DataPartNum-1)
+				}
+
+				partInfo := iec.PartInfo{
+					RuleIndex: ruleIdx,
+					Index:     t.partIdx,
+				}
+				copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, ln, t.controlCh)
+				if err != nil {
+					resErr.CompareAndSwap(nil, fmt.Errorf("part#%d: %w", t.partIdx, err))
+					return
+				}
+
+				if copiedPartPld > 0 {
+					// data is copied sequentially, so no concurrency here
+					partial.copiedPayloadLength += copiedPartPld
+					if partial.copiedPayloadLength > fullPldLen {
+						resErr.CompareAndSwap(nil, fmt.Errorf("payload overflow: full %d bytes, copied %d", fullPldLen, partial.copiedPayloadLength))
+						return
+					}
+				}
+
+				if copiedPartPld < ln || nextControlCh == nil {
+					return
+				}
+
+				close(nextControlCh)
+			}
 		}
 	}
 
-	var resErr error
-
-	var wg sync.WaitGroup
-	for i := 1; i < int(rule.DataPartNum); i++ {
-		wg.Go(func() {
-			var ln uint64
-			if i < int(rule.DataPartNum)-1 {
-				ln = partPldLen
-			} else {
-				// last part can be suffixed with zeros which should not be transmitted
-				ln = fullPldLen - partPldLen*uint64(rule.DataPartNum-1)
-			}
-
-			var controlCh <-chan bool
-			if i > 1 {
-				controlCh = controlChs[i-2]
-			}
-
-			partInfo := iec.PartInfo{
-				RuleIndex: ruleIdx,
-				Index:     i,
-			}
-			copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, ln, controlCh)
-			if err != nil {
-				if errors.Is(err, ErrAborted) {
-					return
-				}
-				resErr = fmt.Errorf("part#%d: %w", i, err)
-				abortNextTo(i)
-				return
-			}
-
-			if copiedPartPld > 0 {
-				// data is copied sequentially, so no concurrency here
-				partial.copiedPayloadLength += copiedPartPld
-				if partial.copiedPayloadLength > fullPldLen {
-					abortNextTo(i)
-					resErr = fmt.Errorf("payload overflow: full %d bytes, copied %d", fullPldLen, partial.copiedPayloadLength)
-					return
-				}
-			}
-
-			if copiedPartPld < ln {
-				abortNextTo(i)
-				return
-			}
-
-			if i < int(rule.DataPartNum)-1 {
-				close(controlChs[i-1])
-			}
-		})
+	taskCh <- task{
+		partIdx:   1,
+		controlCh: nil, // do not wait
 	}
-	wg.Wait()
 
-	if resErr != nil {
-		if errors.Is(resErr, ErrResponded) {
-			return nil
-		}
-		return resErr
+	go work()
+	work()
+
+	<-ctx.Done()
+
+	if val := resErr.Load(); val != nil {
+		return val.(error)
 	}
 
 	if partial.copiedPayloadLength == fullPldLen {
@@ -1584,7 +1584,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPld, nil
 }
 
-func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, partInfo iec.PartInfo, sortedNodes []netmap.NodeInfo, ln uint64, controlCh <-chan bool) (uint64, error) {
+func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, partInfo iec.PartInfo, sortedNodes []netmap.NodeInfo, ln uint64, controlCh <-chan struct{}) (uint64, error) {
 	var err error
 	var copiedLen uint64
 

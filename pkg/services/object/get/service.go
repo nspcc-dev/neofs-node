@@ -59,9 +59,6 @@ var ErrResponded = errors.New(" responded")
 // ErrResponseStreamFailure is returned when response stream no longer works.
 var ErrResponseStreamFailure = errors.New("stream failure")
 
-// ErrAborted is returned to abort something.
-var ErrAborted = errors.New("aborted")
-
 // ErrLinker is returned when object of LINK type is received.
 var ErrLinker = errors.New("linker")
 
@@ -106,14 +103,13 @@ type GetECRequestTransport interface {
 	// Otherwise, no error is returned. Copying can be incomplete in this case.
 	//
 	// If controlCh is passed, CopyRemoteECPartRange blocks copying data until signal
-	// from it. On true, CopyRemoteECPartRange returns [ErrAborted] instantly
-	// without copying. Otherwise, i.e. if on false or close, copying starts.
+	// from it.
 	//
 	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
 	// never for the same one.
-	CopyRemoteECPartRange(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error)
+	CopyRemoteECPartRange(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan struct{}) (uint64, error)
 	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
-	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool) (uint64, error)
+	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan struct{}) (uint64, error)
 }
 
 // Service utility serving requests of Object.Get service.
