@@ -206,7 +206,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 						addr.SetObject(firstID)
 						addr.SetContainer(h.cnr)
 
-						firstObject, err := h.headerSource.Head(h.cfg.ctx, addr)
+						firstObject, err := h.headerSource.Head(h.ctx, addr)
 						if err != nil {
 							return fmt.Errorf("fetching first object header: %w", err)
 						}

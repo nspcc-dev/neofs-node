@@ -525,7 +525,7 @@ func (h *headerWriter) WriteHeader(o *object.Object) error {
 	return nil
 }
 
-func (h headerSource) Head(address oid.Address) (*object.Object, error) {
+func (h headerSource) Head(ctx context.Context, address oid.Address) (*object.Object, error) {
 	l := h.l.With(zap.Stringer("address", address))
 	l.Debug("requesting header")
 
@@ -546,7 +546,7 @@ func (h headerSource) Head(address oid.Address) (*object.Object, error) {
 	prm.WithAddress(address)
 	prm.WithRawFlag(true)
 
-	err := h.getsvc.Head(context.Background(), prm)
+	err := h.getsvc.Head(ctx, prm)
 	if err != nil {
 		return nil, fmt.Errorf("reading header: %w", err)
 	}
