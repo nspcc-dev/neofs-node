@@ -147,7 +147,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	SearchObjects(_ context.Context, _ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -1826,7 +1826,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	)
 	switch {
 	case ttl == 1:
-		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err != nil {
+		if res, newCursor, err = s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count); err != nil {
 			return nil, nil, err
 		}
 	case handleWithMetaService:
@@ -1869,7 +1869,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			expectedRes++
 			if s.fsChain.IsOwnPublicKey(nodePub) {
 				go func() {
-					set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count)
+					set, crsr, err := s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count)
 					resCh <- nodeSearchResult{set, crsr != nil, err}
 				}()
 				return true

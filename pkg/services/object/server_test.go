@@ -106,7 +106,7 @@ func (c *noCallTestFSChain) InvokeContainedScript(*transaction.Transaction, *blo
 
 type noCallTestStorage struct{}
 
-func (noCallTestStorage) SearchObjects(cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
+func (noCallTestStorage) SearchObjects(context.Context, cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
 	panic("must not be called")
 }
 func (noCallTestStorage) VerifyAndStoreObjectLocally(context.Context, object.Object) error {
@@ -653,7 +653,7 @@ func (nopStorage) GetSessionPrivateKey(user.ID) (ecdsa.PrivateKey, error) {
 func (s nopStorage) GetSessionV2PrivateKey([]sessionv2.Target) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
-func (nopStorage) SearchObjects(cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
+func (nopStorage) SearchObjects(context.Context, cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
 	return nil, nil, nil
 }
 
