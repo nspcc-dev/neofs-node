@@ -53,7 +53,7 @@ type DeleteHandler interface {
 // LockSource is a source of lock relations between the objects.
 type LockSource interface {
 	// IsLocked must clarify object's lock status.
-	IsLocked(address oid.Address) (bool, error)
+	IsLocked(ctx context.Context, address oid.Address) (bool, error)
 }
 
 // Locker is an object lock storage interface.
@@ -142,13 +142,13 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containe
 // allowAllVersions defines whether the object version is checked.
 //
 // Returns nil error if the object has valid structure.
-func (v *FormatValidator) Validate(obj *object.Object, unprepared, allowAllVersions bool) error {
-	return v.validate(obj, unprepared, allowAllVersions, 0)
+func (v *FormatValidator) Validate(ctx context.Context, obj *object.Object, unprepared, allowAllVersions bool) error {
+	return v.validate(ctx, obj, unprepared, allowAllVersions, 0)
 }
 
 const maxObjectNestingLevel = 2
 
-func (v *FormatValidator) validate(obj *object.Object, unprepared, allowAllVersions bool, nestingLevel int) error {
+func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unprepared, allowAllVersions bool, nestingLevel int) error {
 	if obj == nil {
 		return errNilObject
 	}
@@ -243,7 +243,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, allowAllVersi
 	if err := v.checkAttributes(obj); err != nil {
 		return fmt.Errorf("invalid attributes: %w", err)
 	}
-	if err := v.checkExpiration(*obj, expirationRequired); err != nil {
+	if err := v.checkExpiration(ctx, *obj, expirationRequired); err != nil {
 		return fmt.Errorf("expiration attribute: %w", err)
 	}
 
@@ -267,7 +267,7 @@ func (v *FormatValidator) validate(obj *object.Object, unprepared, allowAllVersi
 
 		// it is possible to have a split of a split
 		prepared := firstSet || splitID != nil || isEC
-		return v.validate(par, !prepared, allowAllVersions, nestingLevel+1)
+		return v.validate(ctx, par, !prepared, allowAllVersions, nestingLevel+1)
 	}
 
 	return nil
@@ -293,7 +293,7 @@ func (i ContentMeta) Objects() []oid.ID {
 // ValidateContent validates payload content according to the object type.
 // Since it operates on a finalized object it also checks for some attributes
 // that can be omitted by [FormatValidator.Validate] for unprepared objects.
-func (v *FormatValidator) ValidateContent(o *object.Object) error {
+func (v *FormatValidator) ValidateContent(ctx context.Context, o *object.Object) error {
 	switch o.Type() {
 	case object.TypeRegular:
 		// ignore regular objects, they do not need payload formatting
@@ -319,7 +319,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			return fmt.Errorf("reading link object's payload: %w", err)
 		}
 
-		err = v.sv.VerifySplit(context.Background(), cnr, firstObjID, testLink.Objects())
+		err = v.sv.VerifySplit(ctx, cnr, firstObjID, testLink.Objects())
 		if err != nil {
 			return fmt.Errorf("link object's split chain verification: %w", err)
 		}
@@ -333,7 +333,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 		}
 
 		if o.Type() == object.TypeTombstone {
-			return v.tv.VerifyTombStoneWithoutPayload(context.Background(), *o)
+			return v.tv.VerifyTombStoneWithoutPayload(ctx, *o)
 		}
 	default:
 		// ignore all other object types, they do not need payload formatting
@@ -343,7 +343,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 
 var errExpired = errors.New("object has expired")
 
-func (v *FormatValidator) checkExpiration(obj object.Object, expirationRequired bool) error {
+func (v *FormatValidator) checkExpiration(ctx context.Context, obj object.Object, expirationRequired bool) error {
 	exp, err := Expiration(obj)
 	if err != nil {
 		if errors.Is(err, ErrNoExpiration) {
@@ -367,7 +367,7 @@ func (v *FormatValidator) checkExpiration(obj object.Object, expirationRequired 
 		addr.SetContainer(cID)
 		addr.SetObject(oID)
 
-		locked, err := v.e.IsLocked(addr)
+		locked, err := v.e.IsLocked(ctx, addr)
 		if err != nil {
 			return fmt.Errorf("locking status check for an expired object: %w", err)
 		}

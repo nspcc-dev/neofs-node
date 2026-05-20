@@ -56,7 +56,7 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		fin, sent, err := x.handleGetResponse(&prog, respBuf)
+		fin, sent, err := x.handleGetResponse(ctx, &prog, respBuf)
 		if !sent {
 			respBuf.Free()
 		}
@@ -84,7 +84,7 @@ func (x *getProxyContext) validateEOF(prog getStreamProgress) error {
 	return nil
 }
 
-func (x *getProxyContext) handleGetResponse(streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
+func (x *getProxyContext) handleGetResponse(ctx context.Context, streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
 	var code uint32
 	var body iprotobuf.BuffersSlice
 
@@ -121,7 +121,7 @@ func (x *getProxyContext) handleGetResponse(streamProg *getStreamProgress, respB
 
 	// TODO: forbid body if code != OK?
 
-	sent, err := x.handleResponseBody(streamProg, respBuf, body)
+	sent, err := x.handleResponseBody(ctx, streamProg, respBuf, body)
 	if err != nil {
 		return false, sent, fmt.Errorf("handle body: %w", err)
 	}
@@ -129,7 +129,7 @@ func (x *getProxyContext) handleGetResponse(streamProg *getStreamProgress, respB
 	return false, sent, nil
 }
 
-func (x *getProxyContext) handleResponseBody(streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+func (x *getProxyContext) handleResponseBody(ctx context.Context, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
 	var oneofNum protowire.Number
 	var oneofFld iprotobuf.BuffersSlice
 
@@ -170,7 +170,7 @@ func (x *getProxyContext) handleResponseBody(streamProg *getStreamProgress, resp
 	default:
 		return false, errors.New("none of the supported oneof fields are specified")
 	case protoobject.FieldGetResponseBodyInit:
-		return x.handleInitResponse(respBuf, oneofFld)
+		return x.handleInitResponse(ctx, respBuf, oneofFld)
 	case protoobject.FieldGetResponseBodyChunk:
 		return x.handleChunkResponse(streamProg, respBuf, oneofFld)
 	case protoobject.FieldGetResponseBodySplitInfo:
@@ -178,7 +178,7 @@ func (x *getProxyContext) handleResponseBody(streamProg *getStreamProgress, resp
 	}
 }
 
-func (x *getProxyContext) handleInitResponse(respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
 	var hdr iprotobuf.BuffersSlice
 
 	var opts protoscan.ScanMessageOptions
@@ -229,7 +229,7 @@ func (x *getProxyContext) handleInitResponse(respBuf mem.BufferSlice, buffers ip
 	var sent bool
 	x.onceHdr.Do(func() {
 		if x.respStream.recheckEACL {
-			err = x.respStream.srv.aclChecker.CheckEACL(x.respStream.base.Context(), hdr.ReadOnlyData(), x.respStream.reqInfo)
+			err = x.respStream.srv.aclChecker.CheckEACL(ctx, hdr.ReadOnlyData(), x.respStream.reqInfo)
 			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 				err = eACLErr(x.respStream.reqInfo, err)
 				return

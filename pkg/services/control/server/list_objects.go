@@ -22,9 +22,8 @@ func (s *Server) ListObjects(req *control.ListObjectsRequest, stream control.Con
 		return status.Error(codes.Internal, err.Error())
 	}
 
-	ctx := stream.Context()
-
 	var (
+		ctx       = stream.Context()
 		cursor    *engine.Cursor
 		addresses []objectcore.AddressWithAttributes
 	)

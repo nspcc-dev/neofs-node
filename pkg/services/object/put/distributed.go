@@ -161,7 +161,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	// does not matter what this node thinks about it
 	if !tombOrLink || t.localNodeInContainer {
 		var err error
-		if err = t.fmt.ValidateContent(t.obj); err != nil {
+		if err = t.fmt.ValidateContent(t.opCtx, t.obj); err != nil {
 			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 		}
 	}

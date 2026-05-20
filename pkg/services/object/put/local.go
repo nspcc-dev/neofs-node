@@ -76,11 +76,11 @@ func (p *Service) ValidateAndStoreObjectLocally(ctx context.Context, obj object.
 		return ErrExceedingMaxSize
 	}
 
-	if err := p.fmtValidator.Validate(&obj, false, true); err != nil {
+	if err := p.fmtValidator.Validate(ctx, &obj, false, true); err != nil {
 		return fmt.Errorf("validate object format: %w", err)
 	}
 
-	err := p.fmtValidator.ValidateContent(&obj)
+	err := p.fmtValidator.ValidateContent(ctx, &obj)
 	if err != nil {
 		return fmt.Errorf("validate payload content: %w", err)
 	}

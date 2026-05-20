@@ -122,9 +122,11 @@ func (s noCallTestStorage) GetSessionV2PrivateKey([]sessionv2.Target) (ecdsa.Pri
 
 type noCallTestACLChecker struct{}
 
-func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool                        { panic("must not be called") }
-func (noCallTestACLChecker) CheckEACL(context.Context, any, v2.RequestInfo) error     { panic("must not be called") }
-func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool              { panic("must not be called") }
+func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool { panic("must not be called") }
+func (noCallTestACLChecker) CheckEACL(context.Context, any, v2.RequestInfo) error {
+	panic("must not be called")
+}
+func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic("must not be called") }
 
 type noCallTestReqInfoExtractor struct{}
 
