@@ -841,8 +841,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			return nil, fmt.Errorf("init meta sidechain blockchain: %w", err)
 		}
 		server.workers = append(server.workers, func(ctx context.Context) error {
-			defer server.metaChain.Stop()
 			return server.metaChain.Run(ctx)
+		})
+		server.registerCloser(func() error {
+			server.metaChain.Stop()
+			return nil
 		})
 
 		alphabetList, err := server.fsChainClient.NeoFSAlphabetList()
