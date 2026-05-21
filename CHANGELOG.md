@@ -49,7 +49,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - NeoGo dependency to 0.119.0 (#3993)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.18.0.20260513135441-5c10a9626760` (#3991)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.19` (#3991, #3999)
 
 ### Updating from v0.52.0
 Drop `policer.max_workers` configuration, it's no-op since 0.52.0.
