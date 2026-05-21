@@ -4,10 +4,25 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.53.0
+
+## [0.53.0] - 2026-05-21 - Sido
+
+### Added
 - `storage.shard.metabase.search_iteration_limit` SN config option limiting fruitless SearchV2 metabase iterations (#3915)
 - Policer cycle/object metrics with replica vs EC breakdown (#3945)
 - `replicator.disable_post_initial_queue` SN config option (#3959)
 - `sd_notify` support: both storage and inner ring nodes now notify systemd when the service is ready, allowing `Type=notify` in systemd unit files (#3943)
+- GET now supports payload ranges (#3991)
 
 ### Fixed
 - Policer removes redundant local shard copies that could remain on disk forever (#3908, #3997)
@@ -37,9 +52,8 @@ Changelog for NeoFS Node
 - Storage nodes do not calculate homomorphic hashes for objects (#3847)
 - Optimized GET/HEAD/RANGE request forwarding (#3877, #3967)
 - Optimized netmap caching in node (#3966)
-- Store in metabase associated object ID in bytes instead of Base58 (#3971)
+- Store associated object ID as bytes instead of Base58 in metabase (#3971)
 - Optimized local RANGE request execution (#3967)
-- GET now supports payload ranges (#3991)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
@@ -49,7 +63,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - NeoGo dependency to 0.119.0 (#3993)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.18.0.20260513135441-5c10a9626760` (#3991)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.19` (#3991, #3999)
 
 ### Updating from v0.52.0
 Drop `policer.max_workers` configuration, it's no-op since 0.52.0.
@@ -61,13 +75,14 @@ Storage nodes no longer implement deprecated and insecure `Search` method,
 migrate to `Searchv2` if needed.
 
 Metabase will migrate to version 11 with this release to update object
-counters, this can take a while for shards with high object numbers.
+counters, this can take a while for shards with a lot of objects.
 
 Storage nodes no longer implement deprecated `GetRangeHash` method and
 `neofs-cli object hash` command has been removed.
 
 GET now supports payload ranges. Migrate from deprecated RANGE requests to GET
-with range parameters.
+with range parameters, old ones are still supported but will be removed
+eventually.
 
 ## [0.52.0] - 2026-03-27 - Woodo
 
@@ -3035,7 +3050,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.52.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.53.0...master
+[0.53.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.52.0...v0.53.0
 [0.52.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.1...v0.52.0
 [0.51.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.0...v0.51.1
 [0.51.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.50.2...v0.51.0
