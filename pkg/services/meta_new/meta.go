@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	metabase "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -267,7 +268,7 @@ func (m *Meta) TransactionTestInvocation(tx *transaction.Transaction) error {
 	return m.chain.TransactionTestInvocation(tx)
 }
 
-// IndexedSignature is undexed signature, pointing at place of signature's
+// IndexedSignature is indexed signature, pointing at place of signature's
 // public keys in a sorted (by these public keys) placement vector. It will be
 // used as an optimized signatures check.
 type IndexedSignature struct {
@@ -279,16 +280,19 @@ type IndexedSignature struct {
 // completed excepting [transaction.Witness.InvocationScript] that will be
 // filled using provided signatures. signatures must be a two two-dimensional
 // array that corresponds to placement vectors for a container that tx was
-// made for.
-func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]neofscrypto.Signature) error {
+// made for. Signature optimized sorting is not this func's responsibility.
+func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]IndexedSignature) error {
 	var (
 		invokBuff = io.NewBufBinWriter()
 		writer    = invokBuff.BinWriter
 	)
-	for _, vector := range slices.Backward(signatures) {
-		vectorLen := len(vector)
+	for _, signature := range slices.Backward(signatures) {
+		vectorLen := len(signature)
 		for j := vectorLen - 1; j >= 0; j-- {
-			emit.Bytes(writer, vector[j].Value())
+			emit.Array(writer,
+				stackitem.Make(signature[j].Index),             // singature's index
+				stackitem.Make(signature[j].Signature.Value()), // signature
+			)
 		}
 		emit.Int(writer, int64(vectorLen))
 		emit.Opcodes(writer, opcode.PACK)

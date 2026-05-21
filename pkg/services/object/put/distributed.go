@@ -30,11 +30,13 @@ import (
 )
 
 type metaCollection struct {
+	sortedNodes [][]netmap.NodeInfo // by public keys, required for metadata optimization
+
 	dataToSign      []byte
 	metaTransaction *transaction.Transaction
 
 	signaturesMtx sync.RWMutex
-	signatures    [][]neofscrypto.Signature
+	signatures    [][]meta.IndexedSignature
 }
 
 type distributedTarget struct {
@@ -50,7 +52,7 @@ type distributedTarget struct {
 
 	metaSvc        *meta.Meta
 	metaSigner     neofscrypto.Signer
-	metaCollection metaCollection
+	metaCollection *metaCollection
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
@@ -207,7 +209,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
-				return t.sendObject(obj, encObj, node, &t.metaCollection)
+				return t.sendObject(obj, encObj, node, t.metaCollection)
 			})
 		})
 	}
@@ -230,7 +232,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			return nil
 		}
 
-		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
+		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, t.metaCollection)
 	}
 
 	if t.sessionSigner == nil {
@@ -425,7 +427,7 @@ nextRule:
 		}
 
 		stored, overloaded, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
-			return t.sendObject(obj, encObj, node, &t.metaCollection)
+			return t.sendObject(obj, encObj, node, t.metaCollection)
 		})
 		if err != nil {
 			if maxReplicas > 0 {
@@ -443,7 +445,7 @@ nextRule:
 	}
 
 	if len(repRules) > 0 {
-		err = t.submitMetaCollection(obj, &t.metaCollection)
+		err = t.submitMetaCollection(obj, t.metaCollection)
 		if err != nil {
 			return err
 		}
@@ -514,7 +516,7 @@ func (t *distributedTarget) replicateRemainingECRules(obj object.Object, ecRules
 }
 
 func (t *distributedTarget) resetMetaCollection() {
-	if len(t.metaCollection.signatures) == 0 {
+	if t.metaCollection == nil {
 		return
 	}
 
@@ -541,7 +543,7 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 		}
 	}
 
-	return t.distributeObjectWithMeta(obj, encObj, &t.metaCollection, placementFn)
+	return t.distributeObjectWithMeta(obj, encObj, t.metaCollection, placementFn)
 }
 
 func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj encodedObject, metaC *metaCollection,
@@ -668,8 +670,16 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}
 
+			ind := slices.IndexFunc(t.metaCollection.sortedNodes[node.placementVector], func(info netmap.NodeInfo) bool {
+				return bytes.Equal(info.PublicKey(), node.info.PublicKey())
+			})
+			if ind < 0 {
+				// unexpected at all
+				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+			}
+
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig))
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig)})
 			metaC.signaturesMtx.Unlock()
 		}
 
@@ -720,8 +730,16 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				continue
 			}
 
+			ind := slices.IndexFunc(t.metaCollection.sortedNodes[node.placementVector], func(info netmap.NodeInfo) bool {
+				return bytes.Equal(info.PublicKey(), node.info.PublicKey())
+			})
+			if ind < 0 {
+				// unexpected at all
+				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+			}
+
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig)
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: sig})
 			metaC.signaturesMtx.Unlock()
 
 			return nil
