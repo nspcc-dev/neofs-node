@@ -40,6 +40,7 @@ Changelog for NeoFS Node
 - Store in metabase associated object ID in bytes instead of Base58 (#3971)
 - Optimized local RANGE request execution (#3967)
 - GET now supports payload ranges (#3991)
+- Optimized EC GET request execution (#3996)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)

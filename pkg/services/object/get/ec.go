@@ -15,6 +15,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -192,13 +193,45 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal. Returns [apistatus.ErrObjectNotFound] otherwise.
 func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter) error {
+	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter, transport GetECRequestTransport) error {
+	var partial partialObjectCopy
+	if transport != nil {
+		err := s.streamECObject(ctx, transport, rules[0], 0, sortedNodeLists[0])
+		var split *object.SplitInfoError
+		switch {
+		case err == nil: // default behaves the same, but this case detects success faster
+			return nil
+		case errors.Is(err, ErrLinker):
+		// TODO: reuse linker from response
+		case errors.As(err, &partial):
+		// TODO: optimize following code by taking into account partial success
+		case errors.As(err, &split):
+			info := split.SplitInfo()
+			if info == nil {
+				return errors.New("no info in size-split error")
+			}
+			return s.copySplitECObjectByInfo(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, 0, *info)
+		default:
+			return err
+		}
+	}
+
 	// TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
 	for i := range rules {
 		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, sTok, rules[i], i, sortedNodeLists[i])
 		if err == nil {
 			if obj.Type() == object.TypeLink && obj.GetID() != parent {
 				return s.copySplitECObjectByLinker(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, i, obj)
+			}
+			if transport != nil && partial.copiedHeader {
+				pld := obj.Payload()
+				if partial.copiedPayloadLength >= uint64(len(pld)) {
+					return fmt.Errorf("unexpected full object payload len %d bytes while %d have already been copied", len(pld), partial.copiedPayloadLength)
+				}
+				if err := dst.WriteChunk(pld[partial.copiedPayloadLength:]); err != nil {
+					return fmt.Errorf("write payload: %w", err)
+				}
+				return nil
 			}
 			if err := copyObject(dst, obj); err != nil {
 				return fmt.Errorf("copy object: %w", err)
@@ -290,7 +323,7 @@ func (s *Service) copySplitECObjectByLinker(ctx context.Context, dst ObjectWrite
 func (s *Service) copySizeSplitECObjectByParts(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, sTok *session.Object,
 	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, fromRule int, parentHdr *object.Object, sizeSplitParts []object.MeasuredObject) error {
 	if err := dst.WriteHeader(parentHdr); err != nil {
-		return fmt.Errorf("%w: write parent header: %w", errStreamFailure, err)
+		return fmt.Errorf("%w: write parent header: %w", ErrResponseStreamFailure, err)
 	}
 
 nextPart:
@@ -305,7 +338,7 @@ nextPart:
 					return fmt.Errorf("get size-split part #%d=%s: unexpected linker", partIdx, partID)
 				}
 				if err := dst.WriteChunk(obj.Payload()); err != nil {
-					return fmt.Errorf("failed to write size-split part #%d=%s: %w: %w", partIdx, partID, errStreamFailure, err)
+					return fmt.Errorf("failed to write size-split part #%d=%s: %w: %w", partIdx, partID, ErrResponseStreamFailure, err)
 				}
 				continue nextPart
 			}
@@ -694,7 +727,7 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 				fullPldLen, off, ln, nil)
 		}
 		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
-			errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
+			errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ErrResponseStreamFailure) || errors.Is(err, ctx.Err()) {
 			return err
 		}
 
@@ -886,7 +919,7 @@ nextPart:
 			}
 
 			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
-				errors.Is(err, errStreamFailure) || errors.Is(err, partCtx.Err()) {
+				errors.Is(err, ErrResponseStreamFailure) || errors.Is(err, partCtx.Err()) {
 				return err
 			}
 
@@ -1013,7 +1046,7 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 	failedPartIdx, failedPartWritten, written, err := s.copyECPartsRanges(stageCtx, dst, localNodeKey, cnr, parent, sTok, rule, ruleIdx, sortedNodes,
 		fullPartLen, firstPartIdx, firstPartOff, lastPartIdx, lastPartTo, firstPartStream)
 	if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
-		errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, errStreamFailure) || errors.Is(err, ctx.Err()) {
+		errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ErrResponseStreamFailure) || errors.Is(err, ctx.Err()) {
 		return written, err
 	}
 
@@ -1062,7 +1095,7 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 		}
 
 		if err := dst.WriteChunk(parts[partIdx][from:to]); err != nil {
-			return written, fmt.Errorf("%w: write [%d:%d] range of EC part #%d: %w", errStreamFailure, from, to, partIdx, err)
+			return written, fmt.Errorf("%w: write [%d:%d] range of EC part #%d: %w", ErrResponseStreamFailure, from, to, partIdx, err)
 		}
 
 		written += to - from
@@ -1138,7 +1171,7 @@ func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localN
 		rc.Close()
 		if err != nil {
 			if n == partLen { // should never happen
-				err = fmt.Errorf("%w: received needed range with error for EC part #%d: %w", errStreamFailure, curIdx, err)
+				err = fmt.Errorf("%w: received needed range with error for EC part #%d: %w", ErrResponseStreamFailure, curIdx, err)
 			}
 			return curIdx, n, written, err
 		}
@@ -1349,6 +1382,241 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 	}
 
 	return rc, nil
+}
+
+func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) error {
+	copiedHdr, fullPldLen, partPldLen, copiedPldLen, err := s.streamFirstECPart(ctx, transport, rule, ruleIdx, sortedNodes)
+	if err != nil {
+		if errors.Is(err, ErrResponded) {
+			return nil
+		}
+		return fmt.Errorf("part#0: %w", err)
+	}
+
+	if !copiedHdr {
+		return partialObjectCopy{}
+	}
+
+	if rule.DataPartNum == 1 && copiedPldLen == partPldLen {
+		return nil
+	}
+
+	partial := partialObjectCopy{
+		copiedHeader:        true,
+		copiedPayloadLength: copiedPldLen,
+	}
+
+	if copiedPldLen < partPldLen || rule.DataPartNum == 1 {
+		return partial
+	}
+
+	if rule.DataPartNum == 2 {
+		partInfo := iec.PartInfo{
+			RuleIndex: ruleIdx,
+			Index:     1,
+		}
+		copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, fullPldLen-partPldLen, nil)
+		if err != nil {
+			if errors.Is(err, ErrResponded) {
+				return nil
+			}
+			return fmt.Errorf("part#1: %w", err)
+		}
+
+		partial.copiedPayloadLength += copiedPartPld
+		if partial.copiedPayloadLength > fullPldLen {
+			return fmt.Errorf("payload overflow: full %d bytes, copied %d", fullPldLen, partial.copiedPayloadLength)
+		}
+
+		if partial.copiedPayloadLength == fullPldLen {
+			return nil
+		}
+
+		return partial
+	}
+
+	type task struct {
+		partIdx   int
+		controlCh <-chan struct{}
+	}
+	taskCh := make(chan task, 1)
+
+	var resErr atomic.Value
+	ctx, cancel := context.WithCancel(ctx)
+
+	work := func() {
+		defer cancel()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case t := <-taskCh:
+				var ln uint64
+				var nextControlCh chan struct{}
+				if t.partIdx < int(rule.DataPartNum)-1 {
+					ln = partPldLen
+
+					nextControlCh = make(chan struct{}, 1)
+					taskCh <- task{
+						partIdx:   t.partIdx + 1,
+						controlCh: nextControlCh,
+					}
+				} else {
+					// last part can be suffixed with zeros which should not be transmitted
+					ln = fullPldLen - partPldLen*uint64(rule.DataPartNum-1)
+				}
+
+				partInfo := iec.PartInfo{
+					RuleIndex: ruleIdx,
+					Index:     t.partIdx,
+				}
+				copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, ln, t.controlCh)
+				if err != nil {
+					resErr.CompareAndSwap(nil, fmt.Errorf("part#%d: %w", t.partIdx, err))
+					return
+				}
+
+				if copiedPartPld > 0 {
+					// data is copied sequentially, so no concurrency here
+					partial.copiedPayloadLength += copiedPartPld
+					if partial.copiedPayloadLength > fullPldLen {
+						resErr.CompareAndSwap(nil, fmt.Errorf("payload overflow: full %d bytes, copied %d", fullPldLen, partial.copiedPayloadLength))
+						return
+					}
+				}
+
+				if copiedPartPld < ln || nextControlCh == nil {
+					return
+				}
+
+				close(nextControlCh)
+			}
+		}
+	}
+
+	taskCh <- task{
+		partIdx:   1,
+		controlCh: nil, // do not wait
+	}
+
+	go work()
+	work()
+
+	<-ctx.Done()
+
+	if val := resErr.Load(); val != nil {
+		return val.(error)
+	}
+
+	if partial.copiedPayloadLength == fullPldLen {
+		return nil
+	}
+
+	return partial
+}
+
+func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) (bool, uint64, uint64, uint64, error) {
+	var err error
+	var copiedHdr bool
+	var parentPldLen uint64
+	var partPldLen uint64
+	var copiedPartPld uint64
+
+	partInfo := iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     0,
+	}
+
+	for nodeIdx := range iec.NodeSequenceForPart(0, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
+		local := s.neoFSNet.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey())
+
+		if !copiedHdr {
+			if local {
+				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyLocalECPartParentHeaderAndPayload(ctx, s.localObjects.(*engine.StorageEngine), partInfo)
+			} else {
+				conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
+				if connErr != nil {
+					s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
+					continue
+				}
+
+				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, partInfo)
+			}
+			if err != nil {
+				return false, 0, 0, 0, err
+			}
+
+			// TODO: verify partPldLen against parentPldLen
+
+			if copiedHdr && copiedPartPld == partPldLen {
+				break
+			}
+
+			continue
+		}
+
+		var copiedFromNode uint64
+		if local {
+			copiedFromNode, err = transport.CopyLocalECPartRange(ctx, s.localObjects.(*engine.StorageEngine), partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil)
+		} else {
+			conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
+			if connErr != nil {
+				s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
+				continue
+			}
+
+			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil)
+		}
+		if err != nil {
+			return false, 0, 0, 0, err
+		}
+
+		copiedPartPld += copiedFromNode
+		if copiedPartPld > partPldLen {
+			return false, 0, 0, 0, fmt.Errorf("part payload overflow: full %d bytes, copied %d", partPldLen, copiedPartPld)
+		}
+
+		if copiedPartPld == partPldLen {
+			break
+		}
+	}
+
+	return copiedHdr, parentPldLen, partPldLen, copiedPartPld, nil
+}
+
+func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, partInfo iec.PartInfo, sortedNodes []netmap.NodeInfo, ln uint64, controlCh <-chan struct{}) (uint64, error) {
+	var err error
+	var copiedLen uint64
+
+	for nodeIdx := range iec.NodeSequenceForPart(partInfo.Index, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
+		var copiedLenNode uint64
+		if s.neoFSNet.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey()) {
+			copiedLenNode, err = transport.CopyLocalECPartRange(ctx, s.localObjects.(*engine.StorageEngine), partInfo, copiedLen, ln-copiedLen, controlCh)
+		} else {
+			conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
+			if connErr != nil {
+				s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
+				continue
+			}
+
+			copiedLenNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedLen, ln-copiedLen, controlCh)
+		}
+
+		if err != nil {
+			return 0, err
+		}
+
+		copiedLen += copiedLenNode
+		if copiedLen > ln {
+			return 0, fmt.Errorf("part payload range overflow: requested %d bytes, copied %d", ln, copiedLen)
+		}
+
+		if copiedLen == ln {
+			break
+		}
+	}
+
+	return copiedLen, nil
 }
 
 // returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.

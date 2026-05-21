@@ -1,10 +1,13 @@
 package object
 
 import (
+	"crypto/ecdsa"
 	"encoding/binary"
 	"fmt"
 	"io"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -25,6 +28,16 @@ const (
 	maxChunkOffsetInGetResponse  = 1 + maxGetResponseChunkVarintLen + // 1 for iprotobuf.TagBytes1
 		1 + maxGetResponseChunkVarintLen // 1 for iprotobuf.TagBytes2
 	getResponseChunkBufferLen = maxChunkOffsetInGetResponse + maxGetResponseChunkLen + maxResponseVerificationHeaderLen
+)
+
+// Fixed message lengths.
+const (
+	getByAddressRequestBodyLen       = 1 + 1 + iprotobuf.ObjectAddressLength
+	compressedECDSAPublicKeyLen      = smartcontract.PublicKeyLen
+	ecdsaWithSHA256SignatureValueLen = 1 + keys.SignatureLen
+	ecdsaWithSHA512SignatureLen      = 1 + 1 + compressedECDSAPublicKeyLen +
+		1 + 1 + ecdsaWithSHA256SignatureValueLen // scheme is 0
+	requestVerificationHeaderECDSAWIthSHA512Len = (1 + 1 + ecdsaWithSHA512SignatureLen) * 3
 )
 
 var currentVersionResponseMetaHeader []byte
@@ -267,4 +280,76 @@ func getBufferForChunkGetResponse() (*iprotobuf.MemBuffer, []byte) {
 	item := getResponseChunkBufferPool.Get()
 	chunkBuf := item.SliceBuffer[maxChunkOffsetInGetResponse:]
 	return item, chunkBuf[:len(chunkBuf)-maxResponseVerificationHeaderLen]
+}
+
+func calculateXHeaderLength(key, val string) int {
+	return 1 + protowire.SizeBytes(len(key)) + // 1 for iprotobuf.TagBytes1
+		1 + protowire.SizeBytes(len(val)) // 1 for iprotobuf.TagBytes2
+}
+
+func writeRequestMetaXHeader(buf []byte, ln int, key, val string) int {
+	buf[0] = iprotobuf.TagBytes4
+	off := 1 + binary.PutUvarint(buf[1:], uint64(ln))
+	return off + writeXHeader(buf[off:], key, val)
+}
+
+func writeXHeader(buf []byte, key, val string) int {
+	off := writeBytesField(buf, iprotobuf.TagBytes1, key)
+	return off + writeBytesField(buf[off:], iprotobuf.TagBytes2, val)
+}
+
+func writeBytesField[T string | []byte](buf []byte, tag byte, val T) int {
+	buf[0] = tag
+	off := 1 + binary.PutUvarint(buf[1:], uint64(len(val)))
+	return off + copy(buf[off:], val)
+}
+
+func writeStablyMarshalledField(buf []byte, tag byte, ln int, fld interface {
+	MarshalStable([]byte)
+}) int {
+	buf[0] = tag
+	off := 1 + binary.PutUvarint(buf[1:], uint64(ln))
+	fld.MarshalStable(buf[off:])
+	return off + ln
+}
+
+func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) {
+	sig, err := neofsecdsa.Signer(privKey).Sign(data)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sig) != ecdsaWithSHA256SignatureValueLen {
+		return nil, fmt.Errorf("wrong signature len: expected %d, got %d", ecdsaWithSHA256SignatureValueLen, len(sig))
+	}
+
+	return sig, nil
+}
+
+func writeRequestVerificationHeader(buf []byte, pubKey, bodySIg, metaSig, originSig []byte) int {
+	buf[0] = iprotobuf.TagBytes3
+	off := 1 + binary.PutUvarint(buf[1:], requestVerificationHeaderECDSAWIthSHA512Len)
+	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes1, pubKey, bodySIg)
+	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes2, pubKey, metaSig)
+	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes3, pubKey, originSig)
+	return off
+}
+
+func writeRequestVerificationSignature(buf []byte, tag byte, pubKey, sig []byte) int {
+	buf[0] = tag
+	buf[1] = ecdsaWithSHA512SignatureLen
+	return 2 + writeECDSAWithSHA512Signature(buf[2:], pubKey, sig)
+}
+
+func writeECDSAWithSHA512Signature(buf []byte, pubKey, sig []byte) int {
+	// key
+	buf[0] = iprotobuf.TagBytes1 // key
+	buf[1] = compressedECDSAPublicKeyLen
+	off := 2 + copy(buf[2:], pubKey)
+	// value
+	buf[off] = iprotobuf.TagBytes2
+	off++
+	buf[off] = ecdsaWithSHA256SignatureValueLen
+	off++
+	return off + copy(buf[off:], sig) // scheme is 0
 }

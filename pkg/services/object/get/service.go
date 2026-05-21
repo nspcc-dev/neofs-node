@@ -3,6 +3,8 @@ package getsvc
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"errors"
 	"io"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -48,6 +50,66 @@ type NeoFSNetwork interface {
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node providing [Service].
 	IsLocalNodePublicKey([]byte) bool
+}
+
+// ErrResponded is returned when server successfully finished processing of some
+// request.
+var ErrResponded = errors.New(" responded")
+
+// ErrResponseStreamFailure is returned when response stream no longer works.
+var ErrResponseStreamFailure = errors.New("stream failure")
+
+// ErrLinker is returned when object of LINK type is received.
+var ErrLinker = errors.New("linker")
+
+// GetECRequestTransport is used to serve GET requests for EC objects.
+type GetECRequestTransport interface {
+	// CopyRemoteECPartParentHeaderAndPayload requests originally requested object's
+	// EC part identified by partInfo from remote storage node using conn to it. If
+	// succeeded, CopyRemoteECPartParentHeaderAndPayload sends parent header and
+	// part payload to the client, and returns:
+	//  - flag whether parent header was copied or not;
+	//  - payload length of original requested object in bytes;
+	//  - payload length of part object in bytes;
+	//  - number of part's payload bytes copied.
+	//
+	// If response stream fails, [ErrResponseStreamFailure] is returned.
+	//
+	// If the node responds with split object info,
+	// CopyRemoteECPartParentHeaderAndPayload converts it to
+	// [*object.SplitInfoError] and returns.
+	//
+	// If the node responds with any failure status other than 'not found', the
+	// response is copied to the client and [ErrResponded] is returned.
+	//
+	// If the node responds with object of LINK type, [ErrLinker] is returned.
+	//
+	// Otherwise, no error is returned. Copying can be incomplete in this case.
+	//
+	// CopyRemoteECPartParentHeaderAndPayload is never called concurrently.
+	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	// CopyLocalECPartParentHeaderAndPayload works like CopyRemoteECPartParentHeaderAndPayload but locally.
+	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	// CopyRemoteECPartRange requests specified payload range of originally
+	// requested object's EC part identified by partInfo pair from remote storage
+	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
+	// range to the client, and returns number of bytes copied.
+	//
+	// If response stream fails, [ErrResponseStreamFailure] is returned.
+	//
+	// If the node responds with any failure status other than 'not found', the
+	// response is copied to the client and [ErrResponded] is returned.
+	//
+	// Otherwise, no error is returned. Copying can be incomplete in this case.
+	//
+	// If controlCh is passed, CopyRemoteECPartRange blocks copying data until signal
+	// from it.
+	//
+	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
+	// never for the same one.
+	CopyRemoteECPartRange(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan struct{}) (uint64, error)
+	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
+	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan struct{}) (uint64, error)
 }
 
 // Service utility serving requests of Object.Get service.
@@ -184,4 +246,11 @@ func WithNNSResolver(resolver sessionv2.NNSResolver) Option {
 	return func(c *cfg) {
 		c.nnsResolver = resolver
 	}
+}
+
+func (s *Service) logSNConnFailure(node netmapsdk.NodeInfo, err error) {
+	s.log.Warn("remote SN connection failure",
+		zap.String("publicKey", hex.EncodeToString(node.PublicKey())),
+		zap.Error(err),
+	)
 }
