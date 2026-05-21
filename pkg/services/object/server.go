@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -922,7 +923,49 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 	return nil
 }
 
+func writeHTTPGetError(w http.ResponseWriter, httpCode int, err error) {
+	w.Header().Set("Content-Type", "application/protobuf")
+	if err != nil {
+		if st := util.ToStatus(err); st != nil {
+			if b, mErr := proto.Marshal(st); mErr == nil {
+				w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+				w.WriteHeader(httpCode)
+				_, _ = w.Write(b)
+				return
+			}
+		}
+	}
+	w.WriteHeader(httpCode)
+}
+
+type httpGetResponseWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+func (w *httpGetResponseWriter) WriteHeader(code int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *httpGetResponseWriter) Write(p []byte) (int, error) {
+	if !w.wroteHeader {
+		w.wroteHeader = true
+	}
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *httpGetResponseWriter) Written() bool {
+	return w.wroteHeader
+}
+
 func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
+	trackedW := &httpGetResponseWriter{ResponseWriter: w}
+	w = trackedW
+
 	var (
 		err         error
 		recheckEACL bool
@@ -931,29 +974,37 @@ func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 
 	var req = new(protoobject.GetRequest)
-	var buf = make([]byte, 16*1024)
 
-	n, err := r.Body.Read(buf)
-	if err != nil || n == len(buf) {
-		w.WriteHeader(500)
+	buf, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+	if err != nil {
+		writeHTTPGetError(w, 500, err)
 		return
 	}
-	buf = buf[:n]
-	err = proto.Unmarshal(buf, req)
-	if err != nil {
-		w.WriteHeader(400)
+	if len(buf) == 0 {
+		bad := new(apistatus.BadRequest)
+		bad.SetMessage("empty request body")
+		err = bad
+		writeHTTPGetError(w, 400, err)
+		return
+	}
+	if err = proto.Unmarshal(buf, req); err != nil {
+		bad := new(apistatus.BadRequest)
+		bad.SetMessage("malformed request: " + err.Error())
+		err = bad
+		writeHTTPGetError(w, 400, err)
 		return
 	}
 
 	needSignResp := needSignGetResponse(req)
 
 	if err = icrypto.VerifyRequestSignatures(req); err != nil {
-		w.WriteHeader(403)
+		writeHTTPGetError(w, 403, err)
 		return
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		w.WriteHeader(500)
+		err = new(apistatus.NodeUnderMaintenance)
+		writeHTTPGetError(w, 503, err)
 		return
 	}
 
@@ -964,19 +1015,19 @@ func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
 			bad.SetMessage(err.Error())
 			err = bad // defer
 		}
-		w.WriteHeader(500)
+		writeHTTPGetError(w, 500, err)
 		return
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		w.WriteHeader(403)
+		writeHTTPGetError(w, 403, err)
 		return
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		if !errors.Is(err, aclsvc.ErrNotMatched) {
 			err = eACLErr(reqInfo, err) // needed for defer
-			w.WriteHeader(403)
+			writeHTTPGetError(w, 403, err)
 			return
 		}
 		recheckEACL = true
@@ -995,7 +1046,7 @@ func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
 			bad.SetMessage(err.Error())
 			err = bad // defer
 		}
-		w.WriteHeader(500)
+		writeHTTPGetError(w, 500, err)
 		return
 	}
 
@@ -1018,18 +1069,35 @@ func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err = s.handlers.Get(r.Context(), p)
 	if err != nil {
-		w.WriteHeader(500)
+		httpCode := 500
+		if errors.Is(err, apistatus.ErrBadRequest) {
+			httpCode = 400
+		} else if errors.Is(err, apistatus.ErrObjectNotFound) {
+			httpCode = 404
+		} else if errors.Is(err, apistatus.ErrObjectAccessDenied) {
+			httpCode = 403
+		} else if errors.Is(err, apistatus.ErrNodeUnderMaintenance) {
+			httpCode = 503
+		}
+		if !trackedW.Written() {
+			writeHTTPGetError(w, httpCode, err)
+		}
 		return
 	}
 
 	if hdrLen < 0 {
-		w.WriteHeader(500)
+		err = errors.New("internal: empty get response")
+		if !trackedW.Written() {
+			writeHTTPGetError(w, 500, err)
+		}
 		return
 	}
 
 	idf, sigf, hdrf, err := iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
 	if err != nil {
-		w.WriteHeader(500)
+		if !trackedW.Written() {
+			writeHTTPGetError(w, 500, err)
+		}
 		return
 	}
 
@@ -1037,7 +1105,9 @@ func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
 		err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 			err = eACLErr(reqInfo, err) // defer
-			w.WriteHeader(403)
+			if !trackedW.Written() {
+				writeHTTPGetError(w, 403, err)
+			}
 			return
 		}
 	}
@@ -1046,7 +1116,9 @@ func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err = s.copyHTTPStream(w, hdrBuf, hdrLen, stream, pldFldOff) // defer
 	if err != nil {
-		w.WriteHeader(500)
+		if !trackedW.Written() {
+			writeHTTPGetError(w, 500, err)
+		}
 		return
 	}
 }
@@ -1391,13 +1463,6 @@ func (w httpWriter) WriteChunk(data []byte) error {
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
 func convertGetPrmHTTP(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, buf []byte, stream *getStream) (getsvc.Prm, error) {
-	if req.MetaHeader != nil {
-		req.MetaHeader.Ttl -= 1
-	}
-	buf, err := proto.MarshalOptions{}.MarshalAppend(buf[:0], req)
-	if err != nil {
-		return getsvc.Prm{}, err
-	}
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -1424,7 +1489,28 @@ func convertGetPrmHTTP(signer ecdsa.PrivateKey, cnr container.Container, req *pr
 		return p, nil
 	}
 
+	var onceResign sync.Once
+	meta := req.GetMetaHeader()
+	if meta == nil {
+		return getsvc.Prm{}, errors.New("missing meta header")
+	}
+
 	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
+		var resignErr error
+		onceResign.Do(func() {
+			req.MetaHeader = &protosession.RequestMetaHeader{
+				Ttl:    meta.GetTtl() - 1,
+				Origin: meta,
+			}
+			req.VerifyHeader, resignErr = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			if resignErr != nil {
+				return
+			}
+			buf, resignErr = proto.MarshalOptions{}.MarshalAppend(buf[:0], req)
+		})
+		if resignErr != nil {
+			return resignErr
+		}
 		return c.ForAnyHTTPClient(ctx, func(ctx context.Context, conn *http.Client, pref string) error {
 			return continueHTTP(ctx, stream.w, req, buf, conn, pref) // TODO: log error
 		})
@@ -1433,6 +1519,46 @@ func convertGetPrmHTTP(signer ecdsa.PrivateKey, cnr container.Container, req *pr
 }
 
 func (s *Server) copyHTTPStream(w io.Writer, hdrBuf []byte, hdrLen int, stream io.Reader, pldFldOff int) error {
+	payloadSize := uint64(0)
+	payloadValueStart := hdrLen
+	if pldFldOff < hdrLen {
+		num, typ, tagSz := protowire.ConsumeTag(hdrBuf[pldFldOff:hdrLen])
+		if tagSz < 0 || num != 4 || typ != protowire.BytesType {
+			return fmt.Errorf("bad payload field tag at offset %d", pldFldOff)
+		}
+		var lenSz int
+		payloadSize, lenSz = protowire.ConsumeVarint(hdrBuf[pldFldOff+tagSz : hdrLen])
+		if lenSz < 0 {
+			return errors.New("bad payload length varint")
+		}
+		payloadValueStart = pldFldOff + tagSz + lenSz
+	}
+
+	var pref [16]byte
+	p := protowire.AppendTag(pref[:0], 3, protowire.BytesType)
+	p = protowire.AppendVarint(p, uint64(pldFldOff))
+	if _, err := w.Write(p); err != nil {
+		return err
+	}
+	if _, err := w.Write(hdrBuf[:pldFldOff]); err != nil {
+		return err
+	}
+
+	p = protowire.AppendTag(pref[:0], 4, protowire.BytesType)
+	p = protowire.AppendVarint(p, payloadSize)
+	if _, err := w.Write(p); err != nil {
+		return err
+	}
+	if payloadValueStart < hdrLen {
+		if _, err := w.Write(hdrBuf[payloadValueStart:hdrLen]); err != nil {
+			return err
+		}
+	}
+	if stream != nil {
+		if _, err := io.Copy(w, stream); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

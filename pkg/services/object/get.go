@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
@@ -19,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 type getStreamProgress struct {
@@ -27,16 +29,48 @@ type getStreamProgress struct {
 }
 
 func continueHTTP(ctx context.Context, w io.Writer, req *protoobject.GetRequest, buf []byte, conn *http.Client, pref string) error {
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", pref+"/get", bytes.NewBuffer(buf))
+	switch {
+	case strings.HasPrefix(pref, "http://"), strings.HasPrefix(pref, "https://"):
+	case strings.HasPrefix(pref, "grpcs://"):
+		pref = "https://" + strings.TrimPrefix(pref, "grpcs://")
+	case strings.HasPrefix(pref, "grpc://"):
+		pref = "http://" + strings.TrimPrefix(pref, "grpc://")
+	default:
+		pref = "http://" + pref
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, pref+"/get", bytes.NewBuffer(buf))
 	if err != nil {
 		return err
 	}
+	httpReq.Header.Set("Content-Type", "application/protobuf")
+	httpReq.ContentLength = int64(len(buf))
 	r, err := conn.Do(httpReq)
 	if err != nil {
 		return err
 	}
+	defer r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		return getHTTPStatusError(r)
+	}
 	_, err = io.Copy(w, r.Body)
 	return err
+}
+
+func getHTTPStatusError(r *http.Response) error {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+	if err != nil {
+		return fmt.Errorf("read forwarded peer error response %s: %w", r.Status, err)
+	}
+	if len(body) > 0 {
+		var st protostatus.Status
+		if err := proto.Unmarshal(body, &st); err == nil {
+			if stErr := apistatus.ToError(&st); stErr != nil {
+				return stErr
+			}
+			return fmt.Errorf("forwarded peer returned status %s: %s", r.Status, st.GetMessage())
+		}
+	}
+	return fmt.Errorf("forwarded peer returned status %s", r.Status)
 }
 
 // returns:
