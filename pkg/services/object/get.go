@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"strings"
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
@@ -23,6 +25,34 @@ import (
 type getStreamProgress struct {
 	headWas     bool
 	readPayload int
+}
+
+func continueHTTP(ctx context.Context, w io.Writer, req *protoobject.GetRequest, buf []byte, conn *http.Client, pref string) error {
+	switch {
+	case strings.HasPrefix(pref, "http://"), strings.HasPrefix(pref, "https://"):
+	case strings.HasPrefix(pref, "grpcs://"):
+		pref = "https://" + strings.TrimPrefix(pref, "grpcs://")
+	case strings.HasPrefix(pref, "grpc://"):
+		pref = "http://" + strings.TrimPrefix(pref, "grpc://")
+	default:
+		pref = "http://" + pref
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", pref+"/get", bytes.NewBuffer(buf))
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", "application/protobuf")
+	httpReq.ContentLength = int64(len(buf))
+	r, err := conn.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		return fmt.Errorf("forwarded peer returned status %s", r.Status)
+	}
+	_, err = io.Copy(w, r.Body)
+	return err
 }
 
 // returns:

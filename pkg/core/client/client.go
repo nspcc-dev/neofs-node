@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"io"
+	"net/http"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -37,4 +38,6 @@ type MultiAddressClient interface {
 	// ForAnyGRPCConn executes op over gRPC connections to given multi-address
 	// endpoint-by-endpoint until success.
 	ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error
+
+	ForAnyHTTPClient(context.Context, func(context.Context, *http.Client, string) error) error
 }

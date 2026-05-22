@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -819,6 +820,10 @@ func (emptyRemoteNode) ForAnyGRPCConn(context.Context, func(context.Context, *gr
 	return errors.New("any transport error")
 }
 
+func (emptyRemoteNode) ForAnyHTTPClient(context.Context, func(context.Context, *http.Client, string) error) error {
+	return errors.New("any transport error")
+}
+
 type mockGRPCConn struct {
 	unimplementedConn
 	conn *grpc.ClientConn
@@ -826,4 +831,8 @@ type mockGRPCConn struct {
 
 func (x *mockGRPCConn) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
 	return f(ctx, x.conn)
+}
+
+func (x *mockGRPCConn) ForAnyHTTPClient(context.Context, func(context.Context, *http.Client, string) error) error {
+	return errors.New("unimplemented")
 }

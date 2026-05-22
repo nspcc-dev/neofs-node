@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +54,7 @@ import (
 	grpccodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/mem"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -850,6 +853,7 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 
 type getStream struct {
 	base    protoobject.ObjectService_GetServer
+	w       io.Writer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
 
@@ -917,6 +921,165 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 	}
 	s.srv.metrics.AddGetPayload(len(chunk))
 	return nil
+}
+
+func writeHTTPGetError(w http.ResponseWriter, httpCode int, err error) {
+	w.Header().Set("Content-Type", "application/protobuf")
+	if err != nil {
+		if st := util.ToStatus(err); st != nil {
+			if b, mErr := proto.Marshal(st); mErr == nil {
+				w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+				w.WriteHeader(httpCode)
+				_, _ = w.Write(b)
+				return
+			}
+		}
+	}
+	w.WriteHeader(httpCode)
+}
+
+func (s *Server) GetHTTP(w http.ResponseWriter, r *http.Request) {
+	var (
+		err         error
+		recheckEACL bool
+		t           = time.Now()
+	)
+	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
+
+	var req = new(protoobject.GetRequest)
+
+	buf, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+	if err != nil {
+		writeHTTPGetError(w, 500, err)
+		return
+	}
+	if len(buf) == 0 {
+		bad := new(apistatus.BadRequest)
+		bad.SetMessage("empty request body")
+		err = bad
+		writeHTTPGetError(w, 400, err)
+		return
+	}
+	if err = proto.Unmarshal(buf, req); err != nil {
+		bad := new(apistatus.BadRequest)
+		bad.SetMessage("malformed request: " + err.Error())
+		err = bad
+		writeHTTPGetError(w, 400, err)
+		return
+	}
+
+	needSignResp := needSignGetResponse(req)
+
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+		writeHTTPGetError(w, 403, err)
+		return
+	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		err = new(apistatus.NodeUnderMaintenance)
+		writeHTTPGetError(w, 503, err)
+		return
+	}
+
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
+		writeHTTPGetError(w, 500, err)
+		return
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		writeHTTPGetError(w, 403, err)
+		return
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		if !errors.Is(err, aclsvc.ErrNotMatched) {
+			err = eACLErr(reqInfo, err) // needed for defer
+			writeHTTPGetError(w, 403, err)
+			return
+		}
+		recheckEACL = true
+	}
+
+	p, err := convertGetPrmHTTP(s.signer, reqInfo.Container, req, buf, &getStream{
+		w:            w,
+		srv:          s,
+		reqInfo:      reqInfo,
+		recheckEACL:  recheckEACL,
+		signResponse: needSignResp,
+	})
+	if err != nil {
+		if !errors.Is(err, apistatus.Error) {
+			var bad = new(apistatus.BadRequest)
+			bad.SetMessage(err.Error())
+			err = bad // defer
+		}
+		writeHTTPGetError(w, 500, err)
+		return
+	}
+
+	// TODO: consider optimization
+	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
+	// Then small objects would fit into a single buffer, and for large ones it'd be possible to
+	// encode the first chunk response using the heading buffer.
+	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
+	defer hdrRespBuf.Free()
+
+	hdrLen := -1
+	var stream io.ReadCloser
+	defer func() {
+		if stream != nil {
+			stream.Close()
+		}
+	}()
+
+	p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+
+	err = s.handlers.Get(r.Context(), p)
+	if err != nil {
+		httpCode := 500
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			httpCode = 404
+		} else if errors.Is(err, apistatus.ErrObjectAccessDenied) {
+			httpCode = 403
+		}
+		writeHTTPGetError(w, httpCode, err)
+		return
+	}
+
+	if hdrLen < 0 {
+		err = errors.New("internal: empty get response")
+		writeHTTPGetError(w, 500, err)
+		return
+	}
+
+	idf, sigf, hdrf, err := iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
+	if err != nil {
+		writeHTTPGetError(w, 500, err)
+		return
+	}
+
+	if recheckEACL { // previous check didn't match, but we have a header now.
+		err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			err = eACLErr(reqInfo, err) // defer
+			writeHTTPGetError(w, 403, err)
+			return
+		}
+	}
+
+	pldFldOff := max(idf.To, sigf.To, hdrf.To)
+
+	err = s.copyHTTPStream(w, hdrBuf, hdrLen, stream, pldFldOff) // defer
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
 }
 
 func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
@@ -1218,6 +1381,146 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		})
 	})
 	return p, nil
+}
+
+type httpWriter struct {
+	io.Writer
+}
+
+func (w httpWriter) WriteHeader(hdr *object.Object) error {
+	var b [32]byte
+
+	pref := protowire.AppendTag(b[:0], 3, protowire.BytesType)
+	hdrBin := hdr.CutPayload().Marshal()
+	pref = protowire.AppendVarint(pref, uint64(len(hdrBin)))
+
+	_, err := w.Write(pref)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(hdrBin)
+	if err != nil {
+		return err
+	}
+
+	pref = protowire.AppendTag(b[:0], 4, protowire.BytesType)
+	pref = protowire.AppendVarint(pref, hdr.PayloadSize())
+
+	_, err = w.Write(pref)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (w httpWriter) WriteChunk(data []byte) error {
+	_, err := w.Write(data)
+	return err
+}
+
+// converts original request into parameters accepted by the internal handler.
+// Note that the stream is untouched within this call, errors are not reported
+// into it.
+func convertGetPrmHTTP(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, buf []byte, stream *getStream) (getsvc.Prm, error) {
+	body := req.GetBody()
+	ma := body.GetAddress()
+	if ma == nil { // includes nil body
+		return getsvc.Prm{}, errors.New("missing object address")
+	}
+
+	var addr oid.Address
+	if err := addr.FromProtoMessage(ma); err != nil {
+		return getsvc.Prm{}, fmt.Errorf("invalid object address: %w", err)
+	}
+
+	cp, err := objutil.CommonPrmFromRequest(req)
+	if err != nil {
+		return getsvc.Prm{}, err
+	}
+
+	var p getsvc.Prm
+	p.SetCommonParameters(cp)
+	p.WithAddress(addr)
+	p.WithContainer(cnr)
+	p.WithRawFlag(body.Raw)
+	p.SetObjectWriter(httpWriter{stream.w})
+	if cp.LocalOnly() {
+		return p, nil
+	}
+
+	var onceResign sync.Once
+	meta := req.GetMetaHeader()
+	if meta == nil {
+		return getsvc.Prm{}, errors.New("missing meta header")
+	}
+
+	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
+		var resignErr error
+		onceResign.Do(func() {
+			req.MetaHeader = &protosession.RequestMetaHeader{
+				Ttl:    meta.GetTtl() - 1,
+				Origin: meta,
+			}
+			req.VerifyHeader, resignErr = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			if resignErr != nil {
+				return
+			}
+			buf, resignErr = proto.MarshalOptions{}.MarshalAppend(buf[:0], req)
+		})
+		if resignErr != nil {
+			return resignErr
+		}
+		return c.ForAnyHTTPClient(ctx, func(ctx context.Context, conn *http.Client, pref string) error {
+			return continueHTTP(ctx, stream.w, req, buf, conn, pref) // TODO: log error
+		})
+	})
+	return p, nil
+}
+
+func (s *Server) copyHTTPStream(w io.Writer, hdrBuf []byte, hdrLen int, stream io.Reader, pldFldOff int) error {
+	var pref [16]byte
+	p := protowire.AppendTag(pref[:0], 3, protowire.BytesType)
+	p = protowire.AppendVarint(p, uint64(pldFldOff))
+	if _, err := w.Write(p); err != nil {
+		return err
+	}
+	if _, err := w.Write(hdrBuf[:pldFldOff]); err != nil {
+		return err
+	}
+
+	if pldFldOff >= hdrLen {
+		p = protowire.AppendTag(pref[:0], 4, protowire.BytesType)
+		p = protowire.AppendVarint(p, 0)
+		_, err := w.Write(p)
+		return err
+	}
+
+	num, typ, tagSz := protowire.ConsumeTag(hdrBuf[pldFldOff:hdrLen])
+	if tagSz < 0 || num != 4 || typ != protowire.BytesType {
+		return fmt.Errorf("bad payload field tag at offset %d", pldFldOff)
+	}
+	payloadSize, lenSz := protowire.ConsumeVarint(hdrBuf[pldFldOff+tagSz : hdrLen])
+	if lenSz < 0 {
+		return errors.New("bad payload length varint")
+	}
+	payloadValueStart := pldFldOff + tagSz + lenSz
+
+	p = protowire.AppendTag(pref[:0], 4, protowire.BytesType)
+	p = protowire.AppendVarint(p, payloadSize)
+	if _, err := w.Write(p); err != nil {
+		return err
+	}
+	if payloadValueStart < hdrLen {
+		if _, err := w.Write(hdrBuf[payloadValueStart:hdrLen]); err != nil {
+			return err
+		}
+	}
+	if stream != nil {
+		if _, err := io.Copy(w, stream); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type getProxyContext struct {
