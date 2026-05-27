@@ -1,7 +1,9 @@
 package innerring
 
 import (
+	"bytes"
 	"context"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"math"
@@ -9,24 +11,166 @@ import (
 	"net"
 	"path"
 	"slices"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	metachaingas "github.com/nspcc-dev/neofs-node/pkg/core/metachain/gas"
+	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/meta"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/metachain"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
-func enableMetadataChain(ctx context.Context, server *Server, cfg *config.Config, errChan chan<- error) (*notary.Actor, error) {
+type metadataNotaryClient struct {
+	indexer *innerRingIndexer
+	l       *zap.Logger
+	metaCli *rpcclient.WSClient
+	nodeKey *keys.PrivateKey
+}
+
+func (nc *metadataNotaryClient) buildNotaryActor() *notary.Actor {
+	keysIndex, err := nc.indexer.update()
+	if err != nil {
+		nc.l.Warn("check alphabet list", zap.Error(err))
+		return nil
+	}
+	if keysIndex.alphabetIndex == -1 {
+		nc.l.Debug("node is not part of Alphabet list, do not register metadata container")
+		return nil
+	}
+
+	alphaAcc := wallet.NewAccountFromPrivateKey(nc.nodeKey)
+	err = alphaAcc.ConvertMultisig(sc.GetMajorityHonestNodeCount(len(keysIndex.alphabetList)), keysIndex.alphabetList)
+	if err != nil {
+		nc.l.Warn("converting meta committee multi account", zap.Error(err))
+		return nil
+	}
+
+	metaActor, err := notary.NewActor(nc.metaCli, []actor.SignerAccount{
+		{
+			Signer: transaction.Signer{
+				Account: alphaAcc.ScriptHash(),
+				Scopes:  transaction.CalledByEntry,
+			},
+			Account: alphaAcc,
+		},
+	}, wallet.NewAccountFromPrivateKey(nc.nodeKey))
+	if err != nil {
+		nc.l.Warn("build meta committee actor", zap.Error(err))
+		return nil
+	}
+
+	return metaActor
+}
+
+func (nc *metadataNotaryClient) RegisterMetadataContainer(cID cid.ID, nonce uint32) error {
+	act := nc.buildNotaryActor()
+	if act == nil {
+		return nil
+	}
+
+	return callMetaContractAndWait(act, nonce, "registerMetaContainer", cID[:])
+}
+
+func (nc *metadataNotaryClient) UpdateContainerPlacement(cID cid.ID, vectors [][]netmap.NodeInfo, policy netmap.PlacementPolicy, nonce uint32) error {
+	act := nc.buildNotaryActor()
+	if act == nil {
+		return nil
+	}
+
+	var (
+		placement meta.Placement
+		replicas  = policy.Replicas()
+	)
+	for i, v := range vectors {
+		var cnrVector meta.PlacementVector
+		rep := uint8(1)
+		if i < len(replicas) {
+			rep = uint8(policy.ReplicaNumberByIndex(i))
+		}
+		cnrVector.REP = rep
+
+		slices.SortFunc(v, func(a, b netmap.NodeInfo) int {
+			return bytes.Compare(a.PublicKey(), b.PublicKey())
+		})
+
+		kk := make(keys.PublicKeys, 0, len(v))
+		for _, n := range v {
+			k, err := keys.NewPublicKeyFromBytes(n.PublicKey(), elliptic.P256())
+			if err != nil {
+				return fmt.Errorf("could not parse public key for %s meta container placement: %w", cID, err)
+			}
+			kk = append(kk, k)
+		}
+
+		sort.Sort(kk)
+		cnrVector.Nodes = kk
+
+		placement = append(placement, cnrVector)
+	}
+
+	return callMetaContractAndWait(act, nonce, "updateContainerList", cID[:], &placement)
+}
+
+func callMetaContractAndWait(act *notary.Actor, nonce uint32, method string, params ...any) error {
+	_, err := act.WaitSuccess(act.Notarize(act.MakeTunedCall(meta.Hash, method, nil, func(r *result.Invoke, t *transaction.Transaction) error {
+		if r.State != vmstate.Halt.String() {
+			return fmt.Errorf("script failed (%s state) due to an error: %s", r.State, r.FaultException)
+		}
+
+		vub, err := calculateVUB(act)
+		if err != nil {
+			return fmt.Errorf("could not calculate vub: %w", err)
+		}
+
+		t.ValidUntilBlock = vub
+		t.Nonce = nonce
+
+		// Add 10% GAS to prevent this errors:
+		// "at instruction 1689 (SYSCALL): System.Runtime.Log failed: insufficient amount of gas"
+		t.SystemFee += t.SystemFee / 10
+
+		return nil
+	}, params...)))
+	if err != nil {
+		return fmt.Errorf("notary request invocation : %w", err)
+	}
+	return err
+}
+
+func calculateVUB(cli *notary.Actor) (uint32, error) {
+	bc, err := cli.GetBlockCount()
+	if err != nil {
+		return 0, fmt.Errorf("can't get current blockchain height: %w", err)
+	}
+
+	const (
+		defaultNotaryValidTime = 50
+		defaultNotaryRoundTime = 100
+	)
+
+	minIndex := bc + defaultNotaryValidTime
+	rounded := (minIndex/defaultNotaryRoundTime + 1) * defaultNotaryRoundTime
+
+	return rounded, nil
+}
+
+func enableMetadataChain(ctx context.Context, server *Server, cfg *config.Config, errChan chan<- error) (*metadataNotaryClient, error) {
 	v, err := server.fsChainClient.GetVersion()
 	if err != nil {
 		return nil, fmt.Errorf("fetching FS chain version: %w", err)
@@ -90,31 +234,9 @@ func enableMetadataChain(ctx context.Context, server *Server, cfg *config.Config
 		server.metaChain.Stop()
 		return nil
 	})
-
-	alphabetList, err := server.fsChainClient.NeoFSAlphabetList()
-	if err != nil {
-		return nil, fmt.Errorf("fetching FS chain Alphabet: %w", err)
-	}
 	metaCli, err := server.metaChain.BuildWSClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("build meta chain client: %w", err)
-	}
-	alphaAcc := wallet.NewAccountFromPrivateKey(server.key)
-	err = alphaAcc.ConvertMultisig(sc.GetMajorityHonestNodeCount(len(alphabetList)), alphabetList)
-	if err != nil {
-		return nil, fmt.Errorf("build meta committee acc: %w", err)
-	}
-	metaActor, err := notary.NewActor(metaCli, []actor.SignerAccount{
-		{
-			Signer: transaction.Signer{
-				Account: alphaAcc.ScriptHash(),
-				Scopes:  transaction.CalledByEntry,
-			},
-			Account: alphaAcc,
-		},
-	}, wallet.NewAccountFromPrivateKey(server.key))
-	if err != nil {
-		return nil, fmt.Errorf("build meta committee actor: %w", err)
 	}
 
 	server.workers = append(server.workers, func(ctx context.Context) error {
@@ -155,7 +277,12 @@ func enableMetadataChain(ctx context.Context, server *Server, cfg *config.Config
 		return nil
 	})
 
-	return metaActor, nil
+	return &metadataNotaryClient{
+		l:       server.log.With(zap.String("component", "metadata chain alphabet client")),
+		metaCli: metaCli,
+		indexer: server.statusIndex,
+		nodeKey: server.key,
+	}, nil
 }
 
 func changePort(addrs []string, port uint16) ([]string, error) {

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -33,7 +33,7 @@ type (
 		objectPool    *ants.Pool
 		alphabetState AlphabetState
 		cnrClient     *container.Client // notary must be enabled
-		metaClient    *notary.Actor
+		metaClient    processors.MetadataChain
 		netState      NetworkState
 		metaEnabled   bool
 		allowEC       bool
@@ -47,7 +47,7 @@ type (
 		PoolSize        int
 		AlphabetState   AlphabetState
 		ContainerClient *container.Client
-		MetaClient      *notary.Actor
+		MetaClient      processors.MetadataChain
 		NetworkState    NetworkState
 		MetaEnabled     bool
 		AllowEC         bool

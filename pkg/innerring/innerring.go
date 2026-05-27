@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/internal/chaintime"
@@ -764,7 +763,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		nodeValidators = append(nodeValidators, external.New(cfg.Validator.URL, server.key))
 	}
 
-	var metaActor *notary.Actor
+	var metaActor *metadataNotaryClient
 	if cfg.Experimental.ChainMetaData.Enabled {
 		if !isLocalConsensus {
 			return nil, errors.New("experimental meta-on-chain is not supported for non-consensus IR nodes")

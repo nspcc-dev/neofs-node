@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -112,7 +111,7 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, epoch uint64, l
 			if metaPolicy != "" {
 				np.log.Debug("updating meta container placements...", zap.Stringer("cid", cID))
 
-				err = processors.UpdateMetaPlacement(np.metaClient, cID, vectors, policy, uint32(epoch))
+				err = np.metaClient.UpdateContainerPlacement(cID, vectors, policy, uint32(epoch))
 				if err != nil {
 					np.log.Error("could not update meta container placement", zap.Stringer("cid", cID), zap.Error(err))
 				} else {
