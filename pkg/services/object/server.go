@@ -798,14 +798,16 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 		return p, nil
 	}
 
-	var onceResign sync.Once
 	meta := req.GetMetaHeader()
 	if meta == nil {
 		return getsvc.HeadPrm{}, errors.New("missing meta header")
 	}
+
+	var updatedRequest bool
+
 	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
-		var err error
-		onceResign.Do(func() {
+		if !updatedRequest {
+			updatedRequest = true
 			if serverInContainer {
 				req = &protoobject.HeadRequest{
 					Body: req.Body,
@@ -822,7 +824,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 				}
 			}
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
+		}
 		if err != nil {
 			return nil, iprotobuf.BuffersSlice{}, err
 		}
@@ -1217,7 +1219,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		return p, nil
 	}
 
-	var onceResign sync.Once
 	meta := req.GetMetaHeader()
 	if meta == nil {
 		return getsvc.Prm{}, errors.New("missing meta header")
@@ -1229,22 +1230,24 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		suppressInit: body.GetPayloadOnly(),
 	}
 
+	var updatedRequest bool
+
 	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
-		if stream.serverInContainer {
+		if stream.serverInContainer && !updatedRequest {
+			updatedRequest = true
+
+			req = &protoobject.GetRequest{
+				Body: req.Body,
+				MetaHeader: &protosession.RequestMetaHeader{
+					Version: version.Current().ProtoMessage(),
+					Ttl:     1,
+				},
+			}
+			if proxyCtx.suppressInit {
+				req.Body.PayloadOnly = false
+			}
 			var err error
-			onceResign.Do(func() {
-				req = &protoobject.GetRequest{
-					Body: req.Body,
-					MetaHeader: &protosession.RequestMetaHeader{
-						Version: version.Current().ProtoMessage(),
-						Ttl:     1,
-					},
-				}
-				if proxyCtx.suppressInit {
-					req.Body.PayloadOnly = false
-				}
-				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-			})
+			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 			if err != nil {
 				return err
 			}
@@ -1258,18 +1261,20 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 
 		// TODO: double-check following code is required
 
-		var err error
-		onceResign.Do(func() {
+		if !updatedRequest {
+			updatedRequest = true
+
 			req.Body.PayloadOnly = false
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
+			var err error
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {

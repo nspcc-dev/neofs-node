@@ -216,6 +216,8 @@ func (p Prm) PayloadOnly() bool {
 //
 // Once results successfully received, it is forwarded untouched to handler
 // which must be set via [HeadPrm.SetSubmitHeadResponseFunc].
+//
+// The f is never called concurrently.
 func (p *HeadPrm) SetRequestForwarder(f ForwardHeadRequestFunc) {
 	p.forwardHeadRequestFn = f
 }
@@ -234,6 +236,8 @@ func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
 //   - [apistatus.ErrObjectNotFound] on 404 status
 //   - nil on other API statuses
 //   - any other transport/protocol error otherwise
+//
+// The f is never called concurrently.
 func (p *Prm) SetRequestForwarder(f ForwardGetRequestFunc) {
 	p.forwardRequestFn = f
 }
