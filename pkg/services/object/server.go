@@ -51,7 +51,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	grpccodes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/mem"
+	"google.golang.org/grpc/peer"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
@@ -329,10 +331,12 @@ func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.Put
 		Ttl:    meta.GetTtl() - 1,
 		Origin: meta,
 	}
-	var err error
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(x.signer), req, nil)
-	if err != nil {
-		return nil, err
+	if req.MetaHeader.Ttl > 1 {
+		var err error
+		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(x.signer), req, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return req, nil
 }
@@ -456,9 +460,11 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
-			return err
+		if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+			if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
+				return err
+			}
 		}
 
 		if s.fsChain.LocalNodeUnderMaintenance() {
@@ -525,8 +531,10 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusDeleteResponse(err, req), nil
+	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(ctx) {
+		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.makeStatusDeleteResponse(err, req), nil
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -631,10 +639,12 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
-	needSignResp := needSignGetResponse(req)
+	needSignResp := needSignGetResponse(ctx, req)
 
-	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHeadResponse(err, needSignResp)
+	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(ctx) {
+		if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.makeStatusHeadResponse(err, needSignResp)
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -811,7 +821,10 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// skip signing direct 1:1 hops; identity is from mTLS.
+			if req.MetaHeader.Ttl > 1 {
+				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			}
 		})
 		if err != nil {
 			return nil, iprotobuf.BuffersSlice{}, err
@@ -935,10 +948,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 
-	needSignResp := needSignGetResponse(req)
+	needSignResp := needSignGetResponse(gStream.Context(), req)
 
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+		if err = icrypto.VerifyRequestSignatures(req); err != nil {
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -1228,7 +1243,10 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// skip signing direct 1:1 hops; identity is from mTLS.
+			if req.MetaHeader.Ttl > 1 {
+				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			}
 		})
 		if err != nil {
 			return err
@@ -1309,8 +1327,10 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.sendStatusRangeResponse(gStream, err, req)
+	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.sendStatusRangeResponse(gStream, err, req)
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -1336,7 +1356,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
-	needSignResponse := needSignGetResponse(req)
+	needSignResponse := needSignGetResponse(gStream.Context(), req)
 
 	p, err := convertRangePrm(s.signer, reqInfo.Container, req, &rangeStream{
 		base:         gStream,
@@ -1485,7 +1505,10 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// skip signing direct 1:1 hops; identity is from mTLS.
+			if req.MetaHeader.Ttl > 1 {
+				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			}
 		})
 		if err != nil {
 			return err
@@ -1692,8 +1715,10 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.signSearchResponse(nil, err, req), nil
+	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(ctx) {
+		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.signSearchResponse(nil, err, req), nil
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -1881,9 +1906,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		)
 
 		req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
-		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
-			return nil, nil, fmt.Errorf("sign request: %w", err)
-		}
+		// hardcoded TTL=1 1:1 hop, signature is replaced by mTLS identity.
 
 		var optimizedNodes = (len(body.Filters) != 0) &&
 			slices.ContainsFunc(body.Filters, func(filt *protoobject.SearchFilter) bool {
@@ -2131,8 +2154,28 @@ func chunkBoundsToSend(global, local, chunkLen int) (int, int) {
 	return global - local, chunkLen
 }
 
-func needSignGetResponse(req util.Request) bool {
+func needSignGetResponse(ctx context.Context, req util.Request) bool {
+	if req.GetMetaHeader().GetTtl() <= 1 && peerAuthenticatedAsNode(ctx) {
+		return false
+	}
 	return util.VersionLE(req, 2, 17)
+}
+
+// peerAuthenticatedAsNode reports whether the request arrived over the inter-node
+// mTLS listener: a TLS peer certificate means the handshake verifier already
+// matched the peer against the network map, so it is a trusted storage node.
+// Only such 1:1 (TTL<=1) hops may skip signature checks; plain-listener clients
+// carry no peer certificate and are always verified.
+func peerAuthenticatedAsNode(ctx context.Context) bool {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return false
+	}
+	tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return false
+	}
+	return len(tlsInfo.State.PeerCertificates) > 0
 }
 
 func checkHeaderProtobufAgainstID(buffers iprotobuf.BuffersSlice, id oid.ID, ordered bool) error {
