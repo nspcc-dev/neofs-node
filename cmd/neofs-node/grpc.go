@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/resolver"
 )
@@ -185,30 +184,17 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 		serverOpts = append(serverOpts, maxRecvMsgSizeOpt)
 	}
 
-	tlsCfg := sc.TLS
-
-	if tlsCfg.Key != "" {
-		certFile, keyFile := tlsCfg.Certificate, tlsCfg.Key
-
-		if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
+	if sc.TLS.Key != "" {
+		if _, err := tls.LoadX509KeyPair(sc.TLS.Certificate, sc.TLS.Key); err != nil {
 			c.log.Error("could not read certificate from file", zap.Error(err))
 			return nil, nil, err
 		}
 
-		// read certificate from disk on each handshake to pick up renewals automatically.
-		creds := credentials.NewTLS(&tls.Config{
-			GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-				cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-				if err != nil {
-					return nil, fmt.Errorf("reload TLS certificate: %w", err)
-				}
-				return &tls.Config{
-					Certificates: []tls.Certificate{cert},
-				}, nil
-			},
-		})
-
-		serverOpts = append(serverOpts, grpc.Creds(creds))
+		serverOpts = append(serverOpts, grpc.Creds(newNodeAuthCreds(c, sc.TLS.Certificate, sc.TLS.Key)))
+		c.log.Info("gRPC endpoint serves clients (server-side TLS) and inter-node mTLS", zap.String("endpoint", sc.Endpoint))
+	} else {
+		serverOpts = append(serverOpts, grpc.Creds(newNodeAuthCreds(c, "", "")))
+		c.log.Info("gRPC endpoint serves clients (plain) and inter-node mTLS", zap.String("endpoint", sc.Endpoint))
 	}
 
 	lis, err := net.Listen("tcp", sc.Endpoint)
