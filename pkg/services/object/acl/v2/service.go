@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -293,6 +296,15 @@ func getCredentialsFromSessionToken(token sessionv2.Token) (user.ID, []byte, err
 	return token.OriginalIssuer(), key, nil
 }
 
+func getCredentialsFromPeerPublicKey(key []byte) (user.ID, []byte, error) {
+	pub, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
+	if err != nil {
+		return user.ID{}, nil, fmt.Errorf("invalid peer public key: %w", err)
+	}
+
+	return user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pub)), key, nil
+}
+
 type sessionTokenV2WithEncodedBody struct {
 	sessionv2.Token
 	body []byte
@@ -505,6 +517,8 @@ func (b Service) findRequestInfo(req interface {
 		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionToken(*tokens.Session)
 	} else if tokens.SessionV1 != nil {
 		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionV1Token(*tokens.SessionV1)
+	} else if tokens.AuthenticatedPeerPublicKey != nil {
+		reqAuthor, reqAuthorPub, err = getCredentialsFromPeerPublicKey(tokens.AuthenticatedPeerPublicKey)
 	} else {
 		reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader())
 	}
