@@ -146,17 +146,17 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 
 	// container put
 	p.SetRequestType(containerEvent.PutNotaryEvent)
-	p.SetParser(containerEvent.ParsePutNotary)
+	p.SetUnaryParser(containerEvent.ParsePutNotary)
 	pp = append(pp, p)
 
 	// container named put
 	p.SetRequestType(containerEvent.PutNamedNotaryEvent)
-	p.SetParser(containerEvent.ParsePutNamedNotary)
+	p.SetUnaryParser(containerEvent.ParsePutNamedNotary)
 	pp = append(pp, p)
 
 	// create container
 	p.SetRequestType(fschaincontracts.CreateContainerMethod)
-	p.SetParser(containerEvent.RestoreCreateContainerRequest)
+	p.SetUnaryParser(containerEvent.RestoreCreateContainerRequest)
 	pp = append(pp, p)
 
 	p.SetRequestType(fschaincontracts.CreateContainerV2Method)
@@ -165,47 +165,47 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 
 	// container delete
 	p.SetRequestType(containerEvent.DeleteNotaryEvent)
-	p.SetParser(containerEvent.ParseDeleteNotary)
+	p.SetUnaryParser(containerEvent.ParseDeleteNotary)
 	pp = append(pp, p)
 
 	// remove container
 	p.SetRequestType(fschaincontracts.RemoveContainerMethod)
-	p.SetParser(containerEvent.RestoreRemoveContainerRequest)
+	p.SetUnaryParser(containerEvent.RestoreRemoveContainerRequest)
 	pp = append(pp, p)
 
 	// set EACL
 	p.SetRequestType(containerEvent.SetEACLNotaryEvent)
-	p.SetParser(containerEvent.ParseSetEACLNotary)
+	p.SetUnaryParser(containerEvent.ParseSetEACLNotary)
 	pp = append(pp, p)
 
 	// put eACL
 	p.SetRequestType(fschaincontracts.PutContainerEACLMethod)
-	p.SetParser(containerEvent.RestorePutContainerEACLRequest)
+	p.SetUnaryParser(containerEvent.RestorePutContainerEACLRequest)
 	pp = append(pp, p)
 
 	// announce load
 	p.SetRequestType(fschaincontracts.PutContainerReportMethod)
-	p.SetParser(containerEvent.ParsePutReport)
+	p.SetUnaryParser(containerEvent.ParsePutReport)
 	pp = append(pp, p)
 
 	// object put meta data
 	p.SetRequestType(containerEvent.ObjectPutNotaryEvent)
-	p.SetParser(containerEvent.ParseObjectPut)
+	p.SetUnaryParser(containerEvent.ParseObjectPut)
 	pp = append(pp, p)
 
 	// migrate protobuf->struct
 	p.SetRequestType(fschaincontracts.AddContainerStructsMethod)
-	p.SetParser(containerEvent.RestoreAddStructsRequest)
+	p.SetUnaryParser(containerEvent.RestoreAddStructsRequest)
 	pp = append(pp, p)
 
 	// set attribute
 	p.SetRequestType(fschaincontracts.SetContainerAttributeMethod)
-	p.SetParser(containerEvent.RestoreSetAttributeRequest)
+	p.SetUnaryParser(containerEvent.RestoreSetAttributeRequest)
 	pp = append(pp, p)
 
 	// remove attribute
 	p.SetRequestType(fschaincontracts.RemoveContainerAttributeMethod)
-	p.SetParser(containerEvent.RestoreRemoveAttributeRequest)
+	p.SetUnaryParser(containerEvent.RestoreRemoveAttributeRequest)
 	pp = append(pp, p)
 
 	return pp

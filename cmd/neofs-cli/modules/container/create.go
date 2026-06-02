@@ -183,6 +183,20 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			}
 		}
 
+		if flagVarsSetEACL.srcPath != "" {
+			eaclTable, err := common.ReadEACL(cmd, flagVarsSetEACL.srcPath)
+			if err != nil {
+				return err
+			}
+
+			cID := cid.NewFromMarshalledContainer(cnr.Marshal())
+			eaclTable.SetCID(cID)
+
+			common.PrintVerbose(cmd, "setting eACL for calculated container ID: %s", cID)
+
+			putPrm.WithEACL(eaclTable, nil)
+		}
+
 		id, err := call(ctx, cnr, user.NewAutoIDSignerRFC6979(*key), putPrm)
 		if err != nil {
 			if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
@@ -222,6 +236,7 @@ func initContainerCreateCmd() {
 	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
 		"Skip placement validity check")
 	flags.BoolVar(&containerGlobalName, "global-name", false, "Name becomes a domain name, that is registered with the default zone in NNS contract. Requires name attribute.")
+	flags.StringVar(&flagVarsSetEACL.srcPath, "eacl", "", "path to file with JSON or binary encoded EACL table that will be set after container creation")
 }
 
 func parseAttributes(dst *container.Container, attributes []string) error {

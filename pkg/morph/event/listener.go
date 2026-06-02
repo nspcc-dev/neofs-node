@@ -338,14 +338,17 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 		return
 	}
 
+	typ := notaryEvent[0].Type()
+	sh := notaryEvent[0].ScriptHash()
 	log := l.log.With(
-		zap.String("contract", notaryEvent.ScriptHash().StringLE()),
-		zap.Stringer("method", notaryEvent.Type()),
+		zap.String("contract", sh.StringLE()),
+		zap.Stringer("method", typ),
+		zap.Int("numberOfCalls", len(notaryEvent)),
 	)
 
 	notaryKey := notaryRequestTypes{}
-	notaryKey.SetRequestType(notaryEvent.Type())
-	notaryKey.SetScriptHash(notaryEvent.ScriptHash())
+	notaryKey.SetRequestType(typ)
+	notaryKey.SetScriptHash(sh)
 
 	// get notary parser
 	l.mtx.RLock()
@@ -507,6 +510,15 @@ func (l *listener) SetNotaryParser(pi NotaryParserInfo) {
 	l.notaryEventsPreparator.allowNotaryEvent(pi.notaryScriptWithHash)
 
 	log.Info("registered new event parser")
+}
+
+func acceptOnlySingleCall(unaryParser NotaryUnaryParser) NotaryParser {
+	return func(events []NotaryEvent) (Event, error) {
+		if len(events) != 1 {
+			return nil, fmt.Errorf("transaction must have single contract call, got: %d", len(events))
+		}
+		return unaryParser(events[0])
+	}
 }
 
 // RegisterNotaryHandler registers the handler for particular notification notary request event.

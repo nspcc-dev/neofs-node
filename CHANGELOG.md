@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Possibility to set eACL in the same RPC that creates new container (#4006)
 
 ### Fixed
 

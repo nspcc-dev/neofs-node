@@ -181,12 +181,12 @@ func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 
 	// new node
 	p.SetRequestType(netmapEvent.AddNodeNotaryEvent)
-	p.SetParser(netmapEvent.ParseAddNodeNotary)
+	p.SetUnaryParser(netmapEvent.ParseAddNodeNotary)
 	pp = append(pp, p)
 
 	// update state
 	p.SetRequestType(netmapEvent.UpdateStateNotaryEvent)
-	p.SetParser(netmapEvent.ParseUpdatePeerNotary)
+	p.SetUnaryParser(netmapEvent.ParseUpdatePeerNotary)
 	pp = append(pp, p)
 
 	return pp

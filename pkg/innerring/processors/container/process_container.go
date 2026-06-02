@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"go.uber.org/zap"
@@ -39,6 +40,32 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 		cp.log.Error("container creation request failed check",
 			zap.Stringer("container", id), zap.Error(err))
 		return
+	}
+
+	if req.EACLTable != nil {
+		cp.log.Debug("optional ACL table setting eACL table with container creation", zap.Stringer("cid", id))
+
+		var table eacl.Table
+		err = table.Unmarshal(req.EACLTable.EACL)
+		if err != nil {
+			cp.log.Error("invalid eACL table in container put request", zap.Stringer("cid", id), zap.Error(err))
+			return
+		}
+		if id != table.GetCID() {
+			cp.log.Error("additional eACL table in container put request has different container",
+				zap.Stringer("cid", id), zap.Stringer("cid_in_eacl", table.GetCID()))
+			return
+		}
+
+		err = cp.checkSetEACL(*req.EACLTable, table, id, cnr)
+		if err != nil {
+			cp.log.Error("additional eACL with container creation check failed",
+				zap.Stringer("container", id), zap.Error(err))
+			return
+		}
+
+		// optional eACL setting operation is included in the full main
+		// transaction, no need for any additional eACL approval there
 	}
 
 	cp.approvePutContainer(req.MainTransaction, cnr, id)

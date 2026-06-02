@@ -35,7 +35,7 @@ type mockContainerContract struct {
 	cnr container.Container
 }
 
-func (mockContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte) (cid.ID, error) {
+func (mockContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte) (cid.ID, error) {
 	panic("unimplemented")
 }
 

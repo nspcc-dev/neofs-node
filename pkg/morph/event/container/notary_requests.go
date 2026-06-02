@@ -21,18 +21,31 @@ type CreateContainerV2Request struct {
 	InvocationScript   []byte
 	VerificationScript []byte
 	SessionToken       []byte
+
+	// EACLTable is set if container eACL was set in the same
+	// transaction container was created. It is nil otherwise.
+	EACLTable *PutContainerEACLRequest
 }
 
 // RestoreCreateContainerV2Request restores [CreateContainerV2Request] from the
 // notary one.
-func RestoreCreateContainerV2Request(notaryReq event.NotaryEvent) (event.Event, error) {
+func RestoreCreateContainerV2Request(contractCalls []event.NotaryEvent) (event.Event, error) {
 	const argNum = 4
 	var (
-		res CreateContainerV2Request
-		err error
+		res              CreateContainerV2Request
+		withOptionalEacl bool
+		err              error
 	)
+	switch l := len(contractCalls); l {
+	case 1:
+	case 2:
+		withOptionalEacl = true
+	default:
+		return nil, fmt.Errorf("unexpected number of contract calls: %d", l)
+	}
 
-	args, err := event.GetArgs(notaryReq, argNum)
+	cnrCall := contractCalls[0]
+	args, err := event.GetArgs(cnrCall, argNum)
 	if err != nil {
 		return nil, err
 	}
@@ -40,16 +53,26 @@ func RestoreCreateContainerV2Request(notaryReq event.NotaryEvent) (event.Event, 
 	if res.Container, err = containerInfoFromPushedItem(args[0]); err != nil {
 		return nil, event.WrapInvalidArgError(0, "Container", err)
 	}
-	if res.InvocationScript, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+	if res.InvocationScript, err = event.GetValueFromArg(args, 1, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.VerificationScript, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+	if res.VerificationScript, err = event.GetValueFromArg(args, 2, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.SessionToken, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+	if res.SessionToken, err = event.GetValueFromArg(args, 3, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	res.MainTransaction = *notaryReq.Raw().MainTransaction
+	res.MainTransaction = *cnrCall.Raw().MainTransaction
+
+	if withOptionalEacl {
+		ev, err := RestorePutContainerEACLRequest(contractCalls[1])
+		if err != nil {
+			return nil, fmt.Errorf("additional eACL setting parcing: %w", err)
+		}
+
+		evParsed := ev.(PutContainerEACLRequest)
+		res.EACLTable = &evParsed
+	}
 
 	return res, nil
 }

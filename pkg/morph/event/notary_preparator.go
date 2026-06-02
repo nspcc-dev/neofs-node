@@ -30,6 +30,7 @@ var (
 	errIncorrectNotaryPlaceholder = errors.New("received main tx has incorrect Notary contract placeholder")
 	errIncorrectAttributesAmount  = errors.New("received main tx has incorrect attributes amount")
 	errIncorrectAttribute         = errors.New("received main tx has incorrect attribute")
+	errNoValidCalls               = errors.New("received main tx has no valid contract calls")
 
 	errIncorrectFBAttributesAmount = errors.New("received fallback tx has incorrect attributes amount")
 	errIncorrectFBAttributes       = errors.New("received fallback tx has incorrect attributes")
@@ -97,7 +98,14 @@ func notaryPreparator(localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc B
 	}
 }
 
-// Prepare converts raw notary requests to NotaryEvent.
+// Prepare converts raw notary requests to []NotaryEvent. Main transaction
+// of any notary request must have simple script with a single (of more)
+// contract method infocation(s), any other type of scripts are prohibetted
+// and lead to an error returned. Every notary event returned from a single
+// Prepare call always belong to the same notary request (and the same main
+// transaction) and returns the same original notary request
+// ([NotaryEvent.Raw] method) they are parsed from. If no error returned,
+// at least single NotaryEvent is returned in resulting slice.
 //
 // Returns ErrTXAlreadyHandled if transaction shouldn't be
 // parsed and handled. It is not "error case". Every handled
@@ -107,7 +115,7 @@ func notaryPreparator(localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc B
 //
 // Returns ErrUnknownEvent if main transactions is not an
 // expected contract call.
-func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
+func (p preparator) Prepare(nr *payload.P2PNotaryRequest) ([]NotaryEvent, error) {
 	if _, ok := p.alreadyHandledTXs.Get(nr.MainTransaction.Hash()); ok {
 		// received already signed and sent TX
 		return nil, ErrTXAlreadyHandled
@@ -175,16 +183,35 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		return nil, err
 	}
 
-	h, m, _, args, err := scparser.ParseAppCall(nr.MainTransaction.Script)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse main transaction script: %w", err)
-	}
-	eventType := NotaryTypeFromString(m)
+	var (
+		script    = nr.MainTransaction.Script
+		scriptLen = len(script)
+		scCtx     = scparser.NewContext(script, 0)
+		res       []NotaryEvent
+		i         int
+	)
+	for ctxPos := scCtx.NextIP(); ctxPos < scriptLen; ctxPos, i = scCtx.NextIP(), i+1 {
+		ev, err := p.parseEvent(scCtx, nr)
+		if err != nil {
+			return nil, fmt.Errorf("parsing %d call: %w", i, err)
+		}
 
+		res = append(res, ev)
+	}
+	// not required checks but this must always be this way
+	if scCtx.NextIP() != scriptLen {
+		return nil, fmt.Errorf("unexpected parsing position: next instruction at %d, script length is %d", scCtx.NextIP(), scriptLen)
+	}
+	if len(res) == 0 {
+		return nil, errNoValidCalls
+	}
+
+	// events are filtered by the first "main" call, the same way parsers and
+	// handlers are subscribed
 	p.m.RLock()
 	_, allowed := p.allowedEvents[notaryScriptWithHash{
-		scriptHashValue:   scriptHashValue{h},
-		notaryRequestType: notaryRequestType{eventType},
+		scriptHashValue:   scriptHashValue{res[0].ScriptHash()},
+		notaryRequestType: notaryRequestType{res[0].Type()},
 	}]
 	p.m.RUnlock()
 	if !allowed {
@@ -193,12 +220,7 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 
 	p.alreadyHandledTXs.Add(nr.MainTransaction.Hash(), struct{}{})
 
-	return parsedNotaryEvent{
-		hash:       h,
-		notaryType: eventType,
-		params:     args,
-		raw:        nr,
-	}, nil
+	return res, nil
 }
 
 func (p preparator) allowNotaryEvent(filter notaryScriptWithHash) {
@@ -305,6 +327,20 @@ func (p preparator) validateAttributes(aa []transaction.Attribute, alphaKeys key
 	}
 
 	return nil
+}
+
+func (p preparator) parseEvent(scCtx *scparser.Context, nr *payload.P2PNotaryRequest) (parsedNotaryEvent, error) {
+	sh, method, _, params, err := scparser.GetAppCallFromContext(scCtx)
+	if err != nil {
+		return parsedNotaryEvent{}, err
+	}
+
+	return parsedNotaryEvent{
+		hash:       sh,
+		notaryType: NotaryTypeFromString(method),
+		params:     params,
+		raw:        nr,
+	}, nil
 }
 
 type parsedNotaryEvent struct {
