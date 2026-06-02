@@ -323,8 +323,6 @@ type cfgLocalStorage struct {
 
 type cfgObjectRoutines struct {
 	putRemote *ants.Pool
-
-	search *ants.Pool
 }
 
 type cfgControlService struct {
@@ -610,9 +608,6 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	pool.putRemote, err = ants.NewPool(cfg.Object.Put.PoolSizeRemote, optNonBlocking)
 	fatalOnErr(err)
 
-	pool.search, err = ants.NewPool(cfg.Object.Search.PoolSize, optNonBlocking)
-	fatalOnErr(err)
-
 	return pool
 }
 
@@ -621,8 +616,6 @@ func (c *cfg) reloadObjectPoolSizes() {
 	defer c.cfgObject.poolLock.Unlock()
 
 	c.cfgObject.pool.putRemote.Tune(c.appCfg.Object.Put.PoolSizeRemote)
-
-	c.cfgObject.pool.search.Tune(c.appCfg.Object.Search.PoolSize)
 }
 
 func (c *cfg) LocalNodeInfo() (netmap.NodeInfo, error) {

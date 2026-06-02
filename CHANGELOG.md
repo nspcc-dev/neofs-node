@@ -12,10 +12,12 @@ Changelog for NeoFS Node
 - Optimized EC GET request execution (#3996)
 
 ### Removed
+- Search worker pool and its configuration (#XXX)
 
 ### Updated
 
 ### Updating from v0.53.0
+Drop `object.search.pool_size` SN configuration.
 
 ## [0.53.0] - 2026-05-21 - Sido
 
