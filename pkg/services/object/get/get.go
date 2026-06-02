@@ -112,7 +112,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, ecNodeLists, prm.objWriter)
+		ecRules, ecNodeLists, prm.objWriter, prm.ecTransport)
 }
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.

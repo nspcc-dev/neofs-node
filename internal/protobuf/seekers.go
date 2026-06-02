@@ -96,3 +96,23 @@ func GetUint64Field(buf []byte, num protowire.Number) (uint64, error) {
 	u, _, err := ParseUint64Field(buf[off+tagLn:], num, typ)
 	return u, err
 }
+
+// GetEnumField seeks enum field in buf by number and parses it. If field is
+// missing, no error is returned.
+//
+// Message should have ascending field order, otherwise error returns.
+//
+// If there is an error, its text contains num.
+func GetEnumField[T ~int32](buf []byte, num protowire.Number) (T, error) {
+	off, tagLn, typ, err := SeekFieldByNumber(buf, num)
+	if err != nil {
+		return 0, err
+	}
+
+	if off < 0 {
+		return 0, nil
+	}
+
+	u, _, err := ParseEnumField[T](buf[off+tagLn:], num, typ)
+	return u, err
+}

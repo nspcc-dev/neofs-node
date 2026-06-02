@@ -16,11 +16,20 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-func handleSplitInfo(raw bool, respStream grpc.ServerStream, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+func handleSplitInfoAndRespond(raw bool, respStream grpc.ServerStream, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+	err := handleSplitInfo(buffers, !raw)
+	if err != nil {
+		return false, err
+	}
+
+	return true, respStream.SendMsg(respBuf)
+}
+
+func handleSplitInfo(buffers iprotobuf.BuffersSlice, compose bool) error {
 	var si object.SplitInfo
 	var opts protoscan.ScanMessageOptions
 
-	if !raw {
+	if compose {
 		opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
 			if num == protoobject.FieldSplitInfoSplitID {
 				id := object.NewSplitIDFromV2(buffers.ReadOnlyData())
@@ -56,14 +65,14 @@ func handleSplitInfo(raw bool, respStream grpc.ServerStream, respBuf mem.BufferS
 
 	err := protoscan.ScanMessage(buffers, protoscan.ObjectSplitInfoScheme, opts)
 	if err != nil {
-		return false, fmt.Errorf("handle split info field: %w", err)
+		return fmt.Errorf("handle split info field: %w", err)
 	}
 
-	if !raw {
-		return false, object.NewSplitInfoError(&si)
+	if compose {
+		return object.NewSplitInfoError(&si)
 	}
 
-	return true, respStream.SendMsg(respBuf)
+	return nil
 }
 
 func (s *Server) sendChunkResponse(respStream grpc.ServerStream, respBuf mem.BufferSlice, chunkBuffers iprotobuf.BuffersSlice,
@@ -122,4 +131,13 @@ func (s *Server) sendChunkResponse(respStream grpc.ServerStream, respBuf mem.Buf
 	*responded += respChunkLen
 
 	return remoteSent, nil
+}
+
+type copyReadError struct {
+	error
+	written int
+}
+
+func (x copyReadError) Unwrap() error {
+	return x.error
 }

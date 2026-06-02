@@ -196,7 +196,23 @@ func GetParentNonPayloadFieldBounds(buf []byte) (iprotobuf.FieldBounds, iprotobu
 		return idf, sigf, hdrf, nil
 	}
 
-	splitf, err := iprotobuf.GetLENFieldBounds(buf[rootHdrf.ValueFrom:rootHdrf.To], protoobject.FieldHeaderSplit)
+	return getParentNonPayloadFieldBounds(buf, rootHdrf.ValueFrom, rootHdrf.To)
+}
+
+// GetParentNonPayloadFieldBoundsHeader is GetParentNonPayloadFieldBounds
+// analogue accepting header.
+func GetParentNonPayloadFieldBoundsHeader(buf []byte) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
+	if len(buf) == 0 {
+		return iprotobuf.FieldBounds{}, iprotobuf.FieldBounds{}, iprotobuf.FieldBounds{}, errEmptyData
+	}
+
+	return getParentNonPayloadFieldBounds(buf, 0, len(buf))
+}
+
+func getParentNonPayloadFieldBounds(buf []byte, hdrFrom, hdrTo int) (iprotobuf.FieldBounds, iprotobuf.FieldBounds, iprotobuf.FieldBounds, error) {
+	var idf, sigf, hdrf iprotobuf.FieldBounds
+
+	splitf, err := iprotobuf.GetLENFieldBounds(buf[hdrFrom:hdrTo], protoobject.FieldHeaderSplit)
 	if err != nil {
 		return idf, sigf, hdrf, err
 	}
@@ -205,8 +221,9 @@ func GetParentNonPayloadFieldBounds(buf []byte) (iprotobuf.FieldBounds, iprotobu
 		return idf, sigf, hdrf, nil
 	}
 
-	buf = buf[:rootHdrf.ValueFrom+splitf.To]
-	off := rootHdrf.ValueFrom + splitf.ValueFrom
+	buf = buf[:hdrFrom+splitf.To]
+	off := hdrFrom + splitf.ValueFrom
+
 	var prevNum protowire.Number
 loop:
 	for {
@@ -254,8 +271,8 @@ loop:
 	return idf, sigf, hdrf, nil
 }
 
-// GetPayloadLengthAndFieldOffset reads payload length header and seeks payload
-// field in buf. If payload field is missing, negative offset returns.
+// GetPayloadLengthAndFieldOffset reads payload length header's field and seeks
+// payload field in buf. If payload field is missing, negative offset returns.
 // Otherwise, the offset points to protobuf LV.
 //
 // If any field is missing, no error is returned.
@@ -270,7 +287,7 @@ func GetPayloadLengthAndFieldOffset(buf []byte) (uint64, int, error) {
 
 	var pldLen uint64
 	if !hf.IsMissing() {
-		pldLen, err = iprotobuf.GetUint64Field(buf[hf.ValueFrom:hf.To], protoobject.FieldHeaderPayloadLength)
+		pldLen, err = GetPayloadLengthHeader(buf[hf.ValueFrom:hf.To])
 		if err != nil {
 			return 0, 0, fmt.Errorf("seek payload length field in header: %w", err)
 		}
@@ -288,4 +305,20 @@ func GetPayloadLengthAndFieldOffset(buf []byte) (uint64, int, error) {
 	}
 
 	return pldLen, off + tagLn, nil
+}
+
+// GetPayloadLengthHeader reads payload length header's field. If field is
+// missing, no error is returned.
+//
+// Message should have ascending field order, otherwise error returns.
+func GetPayloadLengthHeader(buf []byte) (uint64, error) {
+	return iprotobuf.GetUint64Field(buf, protoobject.FieldHeaderPayloadLength)
+}
+
+// GetTypeHeader reads object type header's field. If field is missing, no error
+// is returned.
+//
+// Message should have ascending field order, otherwise error returns.
+func GetTypeHeader(buf []byte) (object.Type, error) {
+	return iprotobuf.GetEnumField[object.Type](buf, protoobject.FieldHeaderObjectType)
 }

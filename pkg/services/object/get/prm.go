@@ -32,6 +32,8 @@ type Prm struct {
 	submitLocalGetStreamFn SubmitStreamFunc
 
 	forwardRequestFn ForwardGetRequestFunc
+
+	ecTransport GetECRequestTransport
 }
 
 // RangePrm groups parameters of GetRange service call.
@@ -255,4 +257,9 @@ func (p *RangePrm) WithBuffer(buffer []byte, submitStreamFn SubmitDataStreamFunc
 //   - any other transport/protocol error otherwise
 func (p *RangePrm) SetRequestForwarder(f ForwardRangeRequestFunc) {
 	p.forwardRequestFn = f
+}
+
+// WithECTransport specifies transport layer to for EC handling.
+func (p *Prm) WithECTransport(transport GetECRequestTransport) {
+	p.ecTransport = transport
 }

@@ -568,3 +568,18 @@ func localNodeInSet(n NeoFSNetwork, nodes []netmap.NodeInfo) bool {
 func zapEndpoints(info netmap.NodeInfo) zap.Field {
 	return zap.Strings("address group", slices.Collect(info.NetworkEndpoints()))
 }
+
+// partialObjectCopy contains information about incomplete copying of some
+// object.
+type partialObjectCopy struct {
+	// Whether header was copied or not.
+	copiedHeader bool
+	// Number of payload bytes copied.
+	copiedPayloadLength uint64
+}
+
+// Error implements [error].
+func (x partialObjectCopy) Error() string {
+	return fmt.Sprintf("incomplete object copy (copied header: %t, copied payload: %d bytes)",
+		x.copiedHeader, x.copiedPayloadLength)
+}
