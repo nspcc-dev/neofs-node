@@ -12,7 +12,7 @@ import (
 
 func TestApiclientSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
+		empty := configtest.EmptyConfig(t)
 
 		require.Equal(t, apiclientconfig.StreamTimeoutDefault, empty.APIClient.StreamTimeout)
 		require.Equal(t, apiclientconfig.MinConnTimeDefault, empty.APIClient.MinConnectionTime)
@@ -29,9 +29,9 @@ func TestApiclientSection(t *testing.T) {
 		require.Equal(t, 10*time.Second, c.APIClient.PingTimeout)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

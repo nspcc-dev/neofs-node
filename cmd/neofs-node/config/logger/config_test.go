@@ -11,7 +11,7 @@ import (
 
 func TestLoggerSection_Level(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		emptyConfig := configtest.EmptyConfig()
+		emptyConfig := configtest.EmptyConfig(t)
 		require.Equal(t, loggerconfig.LevelDefault, emptyConfig.Logger.Level)
 		require.Equal(t, loggerconfig.EncodingDefault, emptyConfig.Logger.Encoding)
 		require.False(t, emptyConfig.Logger.Timestamp)
@@ -26,9 +26,9 @@ func TestLoggerSection_Level(t *testing.T) {
 		require.True(t, c.Logger.Sampling.Enabled)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

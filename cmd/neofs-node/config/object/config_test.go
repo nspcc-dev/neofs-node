@@ -11,7 +11,7 @@ import (
 
 func TestObjectSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
+		empty := configtest.EmptyConfig(t)
 
 		require.Equal(t, objectconfig.PutPoolSizeDefault, empty.Object.Put.PoolSizeRemote)
 		require.EqualValues(t, objectconfig.DefaultTombstoneLifetime, empty.Object.Delete.TombstoneLifetime)
@@ -26,9 +26,9 @@ func TestObjectSection(t *testing.T) {
 		require.Equal(t, 50, c.Object.Search.PoolSize)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

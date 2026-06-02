@@ -14,7 +14,7 @@ func TestValidate(t *testing.T) {
 	const exampleConfigPrefix = "../../config/"
 	t.Run("examples", func(t *testing.T) {
 		p := filepath.Join(exampleConfigPrefix, "example/node")
-		configtest.ForEachFileType(p, func(c *config.Config) {
+		configtest.ForEachFileType(t, p, func(c *config.Config) {
 			var err error
 			require.NotPanics(t, func() {
 				err = validateConfig(c)

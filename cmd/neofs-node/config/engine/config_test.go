@@ -16,7 +16,7 @@ import (
 
 func TestEngineSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
+		empty := configtest.EmptyConfig(t)
 
 		require.ErrorIs(t,
 			engineconfig.IterateShards(&empty.Storage, true, nil),
@@ -119,9 +119,9 @@ func TestEngineSection(t *testing.T) {
 		require.Equal(t, 2, num)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

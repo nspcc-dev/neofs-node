@@ -13,7 +13,7 @@ import (
 
 func TestPprof(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		emptyConfig := configtest.EmptyConfig()
+		emptyConfig := configtest.EmptyConfig(t)
 		require.Equal(t, pprofconfig.Pprof{
 			Service: serviceconfig.Service{
 				Enabled:         false,
@@ -39,9 +39,9 @@ func TestPprof(t *testing.T) {
 		}, c.Pprof)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

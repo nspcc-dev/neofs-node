@@ -2,63 +2,52 @@ package configtest
 
 import (
 	"bufio"
-	"log"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	"github.com/stretchr/testify/require"
 )
 
-func fromFile(path string) *config.Config {
+func fromFile(t *testing.T, path string) *config.Config {
 	os.Clearenv() // ENVs have priority over config files, so we do this in tests
 
-	cfg, err := config.New(config.WithConfigFile(path))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return cfg
+	return newConfig(t, config.WithConfigFile(path))
 }
 
-func fromEnvFile(path string) *config.Config {
+func fromEnvFile(t *testing.T, path string) *config.Config {
 	loadEnv(path) // github.com/joho/godotenv can do that as well
 
-	cfg, err := config.New()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return cfg
+	return newConfig(t)
 }
 
-func forEachFile(paths []string, f func(*config.Config)) {
+func forEachFile(t *testing.T, paths []string, f func(*config.Config)) {
 	for i := range paths {
-		f(fromFile(paths[i]))
+		f(fromFile(t, paths[i]))
 	}
 }
 
 // ForEachFileType passes configs read from next files:
 //   - `<pref>.yaml`;
 //   - `<pref>.json`.
-func ForEachFileType(pref string, f func(*config.Config)) {
-	forEachFile([]string{
+func ForEachFileType(t *testing.T, pref string, f func(*config.Config)) {
+	forEachFile(t, []string{
 		pref + ".yaml",
 		pref + ".json",
 	}, f)
 }
 
 // ForEnvFileType creates config from `<pref>.env` file.
-func ForEnvFileType(pref string, f func(*config.Config)) {
-	f(fromEnvFile(pref + ".env"))
+func ForEnvFileType(t *testing.T, pref string, f func(*config.Config)) {
+	f(fromEnvFile(t, pref+".env"))
 }
 
 // EmptyConfig returns config without any values and sections.
-func EmptyConfig() *config.Config {
+func EmptyConfig(t *testing.T) *config.Config {
 	os.Clearenv()
 
-	cfg, err := config.New()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return cfg
+	return newConfig(t)
 }
 
 // loadEnv reads .env file, parses `X=Y` records and sets OS ENVs.
@@ -84,4 +73,10 @@ func loadEnv(path string) {
 			panic("can't set environment variable")
 		}
 	}
+}
+
+func newConfig(t *testing.T, opts ...config.Option) *config.Config {
+	cfg, err := config.New(opts...)
+	require.NoError(t, err)
+	return cfg
 }

@@ -12,7 +12,7 @@ import (
 
 func TestReplicatorSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
+		empty := configtest.EmptyConfig(t)
 
 		require.Equal(t, replicatorconfig.PutTimeoutDefault, empty.Replicator.PutTimeout)
 		require.False(t, empty.Replicator.DisablePostInitialQueue)
@@ -25,9 +25,9 @@ func TestReplicatorSection(t *testing.T) {
 		require.True(t, c.Replicator.DisablePostInitialQueue)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }
