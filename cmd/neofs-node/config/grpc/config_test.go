@@ -11,8 +11,7 @@ import (
 
 func TestGRPCSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty, err := config.New()
-		require.NoError(t, err)
+		empty := configtest.EmptyConfig(t)
 
 		require.Zero(t, empty.GRPC)
 	})
