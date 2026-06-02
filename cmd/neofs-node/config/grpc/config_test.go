@@ -11,8 +11,7 @@ import (
 
 func TestGRPCSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty, err := config.New()
-		require.NoError(t, err)
+		empty := configtest.EmptyConfig(t)
 
 		require.Zero(t, empty.GRPC)
 	})
@@ -49,9 +48,9 @@ func TestGRPCSection(t *testing.T) {
 		require.Equal(t, 3, num)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

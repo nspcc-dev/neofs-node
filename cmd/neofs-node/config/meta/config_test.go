@@ -10,7 +10,7 @@ import (
 
 func TestLoggerSection_Level(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		emptyConfig := configtest.EmptyConfig()
+		emptyConfig := configtest.EmptyConfig(t)
 		require.Equal(t, "", emptyConfig.Meta.Path)
 	})
 
@@ -20,9 +20,9 @@ func TestLoggerSection_Level(t *testing.T) {
 		require.Equal(t, "path/to/meta", c.Meta.Path)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

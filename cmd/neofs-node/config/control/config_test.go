@@ -11,7 +11,7 @@ import (
 
 func TestControlSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
+		empty := configtest.EmptyConfig(t)
 
 		require.Empty(t, empty.Control.AuthorizedKeys)
 		require.Empty(t, empty.Control.GRPC.Endpoint)
@@ -28,9 +28,9 @@ func TestControlSection(t *testing.T) {
 		require.Equal(t, "localhost:8090", c.Control.GRPC.Endpoint)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

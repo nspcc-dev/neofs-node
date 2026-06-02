@@ -12,7 +12,7 @@ import (
 
 func TestMetricsSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		emptyConfig := configtest.EmptyConfig()
+		emptyConfig := configtest.EmptyConfig(t)
 
 		require.Equal(t, serviceconfig.ShutdownTimeoutDefault, emptyConfig.Prometheus.ShutdownTimeout)
 		require.Equal(t, serviceconfig.MetricsAddressDefault, emptyConfig.Prometheus.Address)
@@ -27,9 +27,9 @@ func TestMetricsSection(t *testing.T) {
 		require.True(t, c.Prometheus.Enabled)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }
