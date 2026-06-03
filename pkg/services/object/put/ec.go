@@ -5,7 +5,7 @@ import (
 	"math"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	meta "github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"

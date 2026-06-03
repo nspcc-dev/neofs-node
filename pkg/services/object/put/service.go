@@ -9,7 +9,7 @@ import (
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	metanew "github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -143,7 +143,7 @@ type cfg struct {
 
 	cnrClient *chaincontainer.Client
 
-	metaSvc *metanew.Meta
+	metaSvc *meta.Meta
 
 	postPlacementReplicator PostPlacementReplicator
 
@@ -160,7 +160,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, neoFSNet NeoFSNetwork, m *metanew.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
+func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {

@@ -35,7 +35,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
-	metanew "github.com/nspcc-dev/neofs-node/pkg/services/meta_new"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -175,7 +175,7 @@ type shared struct {
 
 	control *controlSvc.Server
 
-	metaService *metanew.Meta
+	metaService *meta.Meta
 	sidechain   *sidechain.SideChain
 
 	containerPayments *paymentChecker
