@@ -60,6 +60,9 @@ func initMetaNew(c *cfg) {
 			VerifyTransactions:              true,
 		},
 		ApplicationConfiguration: config.ApplicationConfiguration{
+			RPC: config.RPC{
+				DirectRelay: true,
+			},
 			P2P: config.P2P{
 				Addresses:              c.appCfg.Meta.P2PAddresses,
 				MinPeers:               len(seedList),
