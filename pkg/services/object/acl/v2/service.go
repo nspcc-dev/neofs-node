@@ -433,45 +433,75 @@ func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, error) {
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, bool, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return RequestInfo{}, err
+		return RequestInfo{}, false, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return RequestInfo{}, err
+		return RequestInfo{}, false, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
+	reqInfo, err := b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
+	if err != nil {
+		return RequestInfo{}, false, err
+	}
+
+	srvInCnr, err := b.nm.ServerInContainer(cnr)
+	if err != nil {
+		return RequestInfo{}, false, fmt.Errorf("check whether server is in container: %w", err)
+	}
+
+	return reqInfo, srvInCnr, nil
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, error) {
+func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, bool, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return RequestInfo{}, err
+		return RequestInfo{}, false, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return RequestInfo{}, err
+		return RequestInfo{}, false, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
+	reqInfo, err := b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
+	if err != nil {
+		return RequestInfo{}, false, err
+	}
+
+	srvInCnr, err := b.nm.ServerInContainer(cnr)
+	if err != nil {
+		return RequestInfo{}, false, fmt.Errorf("check whether server is in container: %w", err)
+	}
+
+	return reqInfo, srvInCnr, nil
 }
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, error) {
+func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, bool, error) {
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return RequestInfo{}, err
+		return RequestInfo{}, false, err
 	}
 
-	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
+	reqInfo, err := b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
+	if err != nil {
+		return RequestInfo{}, false, err
+	}
+
+	srvInCnr, err := b.nm.ServerInContainer(id)
+	if err != nil {
+		return RequestInfo{}, false, fmt.Errorf("check whether server is in container: %w", err)
+	}
+
+	return reqInfo, srvInCnr, nil
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using

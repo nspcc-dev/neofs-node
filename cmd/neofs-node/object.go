@@ -684,7 +684,7 @@ type objectSource struct {
 	get    *getsvc.Service
 	signer neofscrypto.Signer
 	server interface {
-		ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]client.SearchResultItem, []byte, error)
+		ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) ([]client.SearchResultItem, []byte, error)
 	}
 }
 
@@ -726,7 +726,7 @@ func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters object.
 		return id, err
 	}
 
-	res, _, err := o.server.ProcessSearch(ctx, req)
+	res, _, err := o.server.ProcessSearch(ctx, req, false)
 	if err != nil {
 		return id, err
 	}

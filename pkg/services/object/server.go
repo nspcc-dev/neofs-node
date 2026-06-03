@@ -156,10 +156,10 @@ type Storage interface {
 type ACLInfoExtractor interface {
 	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
 	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
-	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
-	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
+	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, bool, error)
+	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, bool, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
+	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, bool, error)
 }
 
 // ClientConstructor returns a client for given node.
@@ -641,7 +641,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
+	reqInfo, srvInCnr, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -664,7 +664,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp)
+	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, srvInCnr)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -769,7 +769,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, serverInContainer bool) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -806,10 +806,20 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
 		var err error
 		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
+			if serverInContainer {
+				req = &protoobject.HeadRequest{
+					Body: req.Body,
+					MetaHeader: &protosession.RequestMetaHeader{
+						Version: version.Current().ProtoMessage(),
+						Ttl:     1,
+					},
+				}
+			} else {
+				req.MetaHeader = &protosession.RequestMetaHeader{
+					// TODO: #1165 think how to set the other fields
+					Ttl:    meta.GetTtl() - 1,
+					Origin: meta,
+				}
 			}
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
@@ -864,6 +874,8 @@ type getStream struct {
 	recheckEACL  bool
 	signResponse bool
 	payloadOnly  bool
+
+	serverInContainer bool
 }
 
 func (s *getStream) ValidateHeader(hdr *object.Object) error {
@@ -945,7 +957,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	reqInfo, srvInCnr, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -968,12 +980,13 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
-		base:         gStream,
-		srv:          s,
-		reqInfo:      reqInfo,
-		recheckEACL:  recheckEACL,
-		signResponse: needSignResp,
-		payloadOnly:  req.GetBody().GetPayloadOnly(),
+		base:              gStream,
+		srv:               s,
+		reqInfo:           reqInfo,
+		recheckEACL:       recheckEACL,
+		signResponse:      needSignResp,
+		payloadOnly:       req.GetBody().GetPayloadOnly(),
+		serverInContainer: srvInCnr,
 	})
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
@@ -1211,18 +1224,43 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	}
 
 	proxyCtx := getProxyContext{
-		req:          req,
 		reqOID:       addr.Object(),
 		respStream:   stream,
 		suppressInit: body.GetPayloadOnly(),
 	}
 
 	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
+		if stream.serverInContainer {
+			var err error
+			onceResign.Do(func() {
+				req = &protoobject.GetRequest{
+					Body: req.Body,
+					MetaHeader: &protosession.RequestMetaHeader{
+						Version: version.Current().ProtoMessage(),
+						Ttl:     1,
+					},
+				}
+				if proxyCtx.suppressInit {
+					req.Body.PayloadOnly = false
+				}
+				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		if stream.serverInContainer || !proxyCtx.suppressInit {
+			return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+				return proxyCtx.continueWithConn(ctx, req, conn) // TODO: log error
+			})
+		}
+
+		// TODO: double-check following code is required
+
 		var err error
 		onceResign.Do(func() {
-			if proxyCtx.suppressInit {
-				req.Body.PayloadOnly = false
-			}
+			req.Body.PayloadOnly = false
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
 				Ttl:    meta.GetTtl() - 1,
@@ -1235,14 +1273,13 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		}
 
 		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			return proxyCtx.continueWithConn(ctx, conn) // TODO: log error
+			return proxyCtx.continueWithConn(ctx, req, conn) // TODO: log error
 		})
 	})
 	return p, nil
 }
 
 type getProxyContext struct {
-	req          *protoobject.GetRequest
 	reqOID       oid.ID
 	respStream   *getStream
 	suppressInit bool
@@ -1700,7 +1737,7 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		return s.signSearchResponse(nil, apistatus.ErrNodeUnderMaintenance, req), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	reqInfo, srvInCnr, err := s.reqInfoProc.SearchV2RequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -1719,7 +1756,7 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		return s.signSearchResponse(nil, err, req), nil
 	}
 
-	respBody, err := s.processSearchRequest(ctx, req)
+	respBody, err := s.processSearchRequest(ctx, req, srvInCnr)
 
 	return s.signSearchResponse(respBody, err, req), nil
 }
@@ -1743,7 +1780,7 @@ func verifySearchFilter(f *protoobject.SearchFilter) error {
 	return nil
 }
 
-func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response_Body, error) {
+func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) (*protoobject.SearchV2Response_Body, error) {
 	body := req.GetBody()
 	if body == nil {
 		return nil, errors.New("missing body")
@@ -1782,7 +1819,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		return nil, errors.New("primary attribute must be filtered 1st")
 	}
 
-	res, newCursor, err := s.ProcessSearch(ctx, req)
+	res, newCursor, err := s.ProcessSearch(ctx, req, serverInContainer)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, err
 	}
@@ -1802,7 +1839,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	return resBody, err
 }
 
-func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]client.SearchResultItem, []byte, error) {
+func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) ([]client.SearchResultItem, []byte, error) {
 	ttl := req.MetaHeader.GetTtl()
 	if ttl == 0 {
 		return nil, nil, errors.New("zero TTL")
@@ -1880,7 +1917,17 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			expectedRes     int
 		)
 
-		req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
+		if serverInContainer {
+			req = &protoobject.SearchV2Request{
+				Body: req.Body,
+				MetaHeader: &protosession.RequestMetaHeader{
+					Version: version.Current().ProtoMessage(),
+					Ttl:     1,
+				},
+			}
+		} else {
+			req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
+		}
 		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
 			return nil, nil, fmt.Errorf("sign request: %w", err)
 		}

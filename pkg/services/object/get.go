@@ -86,8 +86,8 @@ func callRange(ctx context.Context, conn *grpc.ClientConn, request any) (grpc.Cl
 //   - [apistatus.ErrObjectNotFound] on 404 status
 //   - nil on other API statuses
 //   - any other transport/protocol error otherwise
-func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.ClientConn) error {
-	stream, err := callGet(ctx, conn, x.req)
+func (x *getProxyContext) continueWithConn(ctx context.Context, req *protoobject.GetRequest, conn *grpc.ClientConn) error {
+	stream, err := callGet(ctx, conn, req)
 	if err != nil {
 		return err
 	}
@@ -97,12 +97,12 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
 			if errors.Is(err, io.EOF) {
-				return x.validateEOF(prog)
+				return x.validateEOF(req.Body, prog)
 			}
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		fin, sent, err := x.handleGetResponse(ctx, &prog, respBuf)
+		fin, sent, err := x.handleGetResponse(ctx, req.Body.Raw, &prog, respBuf)
 		if !sent {
 			respBuf.Free()
 		}
@@ -115,8 +115,7 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 	}
 }
 
-func (x *getProxyContext) validateEOF(prog getStreamProgress) error {
-	reqBody := x.req.GetBody()
+func (x *getProxyContext) validateEOF(reqBody *protoobject.GetRequest_Body, prog getStreamProgress) error {
 	if reqRange := reqBody.GetRange(); reqRange != nil && reqRange.GetLength() > 0 {
 		if uint64(x.respondedPayload) < reqRange.GetLength() {
 			return io.ErrUnexpectedEOF
@@ -157,7 +156,7 @@ func handleResponseCodeAndBody(respBuf mem.BufferSlice) (uint32, iprotobuf.Buffe
 	return code, body, err
 }
 
-func (x *getProxyContext) handleGetResponse(ctx context.Context, streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
+func (x *getProxyContext) handleGetResponse(ctx context.Context, raw bool, streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
 	code, body, err := handleResponseCodeAndBody(respBuf)
 	if err != nil {
 		return false, false, err
@@ -173,7 +172,7 @@ func (x *getProxyContext) handleGetResponse(ctx context.Context, streamProg *get
 
 	// TODO: forbid body if code != OK?
 
-	sent, err := x.handleResponseBody(ctx, streamProg, respBuf, body)
+	sent, err := x.handleResponseBody(ctx, raw, streamProg, respBuf, body)
 	if err != nil {
 		return false, sent, fmt.Errorf("handle body: %w", err)
 	}
@@ -242,7 +241,7 @@ func handleRangeResponseBodyOneof(buffers iprotobuf.BuffersSlice) (protowire.Num
 	return oneofNum, oneofFld, err
 }
 
-func (x *getProxyContext) handleResponseBody(ctx context.Context, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+func (x *getProxyContext) handleResponseBody(ctx context.Context, raw bool, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
 	oneofNum, oneofFld, err := handleGetResponseBodyOneof(&streamProg.headWas, buffers)
 	if err != nil {
 		return false, err
@@ -256,7 +255,7 @@ func (x *getProxyContext) handleResponseBody(ctx context.Context, streamProg *ge
 	case protoobject.FieldGetResponseBodyChunk:
 		return x.handleChunkResponse(streamProg, respBuf, oneofFld)
 	case protoobject.FieldGetResponseBodySplitInfo:
-		return x.handleSplitInfo(respBuf, oneofFld)
+		return handleSplitInfoAndRespond(raw, x.respStream.base, respBuf, oneofFld)
 	}
 }
 
@@ -364,10 +363,6 @@ func (x *getProxyContext) handleChunkResponse(streamProg *getStreamProgress, res
 
 	return x.respStream.srv.sendChunkResponse(x.respStream.base, respBuf, chunkBuffers, respChunkLen, chunkLen,
 		x.respStream.signResponse, iprotobuf.TagBytes2, &streamProg.readPayload, &x.respondedPayload, shiftPayloadChunkInGetResponseBuffer)
-}
-
-func (x *getProxyContext) handleSplitInfo(respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
-	return handleSplitInfoAndRespond(x.req.GetBody().GetRaw(), x.respStream.base, respBuf, buffers)
 }
 
 type preparedRangeRequest struct {
