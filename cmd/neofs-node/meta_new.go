@@ -47,7 +47,6 @@ func initMetaNew(c *cfg) {
 				TimePerBlock: 50 * time.Millisecond,
 			},
 			Magic:                           fsChainProtocol.Network + 1,
-			Hardforks:                       nil,
 			P2PNotaryRequestPayloadPoolSize: 1000,
 			MaxTraceableBlocks:              fsChainProtocol.MaxTraceableBlocks,
 			MaxValidUntilBlockIncrement:     fsChainProtocol.MaxValidUntilBlockIncrement,
