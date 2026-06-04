@@ -29,9 +29,13 @@ func (exec *execCtx) processNode(info netmap.NodeInfo) bool {
 	switch {
 	default:
 		exec.status = statusUndefined
-		exec.err = apistatus.ErrObjectNotFound
+		exec.err = err
 
-		exec.log.Debug("remote call failed", nodeLog, zap.Error(err))
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			exec.log.Debug("remote node has no object", nodeLog)
+		} else {
+			exec.log.Warn("remote call failed", nodeLog, zap.Error(err))
+		}
 	case err == nil:
 		exec.status = statusOK
 		exec.err = nil

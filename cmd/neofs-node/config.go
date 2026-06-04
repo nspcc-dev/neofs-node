@@ -50,6 +50,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
+	"github.com/quic-go/quic-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/term"
@@ -235,6 +236,8 @@ type cfgGRPC struct {
 
 	listeners []net.Listener
 	servers   []*grpc.Server
+
+	quicListeners []*quic.Listener
 
 	// serviceRegistrators stores functions that register gRPC service
 	// implementations into a gRPC server.
