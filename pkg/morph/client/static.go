@@ -135,7 +135,7 @@ func (i *InvokePrmOptional) SetNonce(nonce uint32) {
 // processing, CallWithAlphabetWitness waits for it to be successfully executed.
 // Waiting is done within ctx, [ErrTxAwaitTimeout] is returned when it is done.
 func (s StaticClient) CallWithAlphabetWitness(ctx context.Context, method string, args []any) error {
-	return s.execWithBackoff(func() error {
+	return s.execWithBackoff(fmt.Sprintf("retrying to invoke non-alphabet '%s' notary call", method), func() error {
 		return s.client.CallWithAlphabetWitness(ctx, s.scScriptHash, method, args)
 	})
 }
@@ -148,8 +148,9 @@ func (s StaticClient) CallWithAlphabetWitness(ctx context.Context, method string
 //   - otherwise, calls NotaryInvokeNotAlpha.
 func (s StaticClient) Invoke(prm InvokePrm) error {
 	var (
-		invokeFunc func() error
-		err        error
+		invokeFunc      func() error
+		retryingMessage string
+		err             error
 	)
 
 	if s.tryNotary || prm.signByAlphabet {
@@ -159,6 +160,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 				vubP  *uint32
 				vub   uint32
 			)
+			retryingMessage = fmt.Sprintf("retrying to invoke alphabet '%s' notary call", prm.method)
 
 			if prm.hash != nil {
 				nonce, vub, err = s.client.CalculateNonceAndVUB(*prm.hash)
@@ -177,11 +179,14 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 				return err
 			}
 		} else {
+			retryingMessage = fmt.Sprintf("retrying to invoke non-alphabet '%s' notary call", prm.method)
 			invokeFunc = func() error {
 				return s.client.NotaryInvokeNotAlpha(s.scScriptHash, prm.await, s.feeInc, prm.method, prm.args...)
 			}
 		}
 	} else {
+		retryingMessage = fmt.Sprintf("retrying to invoke '%s'", prm.method)
+
 		invokeFunc = func() error {
 			return s.client.Invoke(
 				context.TODO(),
@@ -195,7 +200,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 		}
 	}
 
-	return s.execWithBackoff(invokeFunc)
+	return s.execWithBackoff(retryingMessage, invokeFunc)
 }
 
 // execWithBackoff retries invokeFunc until it succeeds or until it fails with
@@ -203,7 +208,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 // invocation fails with the "GAS limit exceeded" error, but the error is not
 // wrapped in the corresponding neorpc.FaultException, further attempts will be
 // taken.
-func (s StaticClient) execWithBackoff(invokeFunc func() error) error {
+func (s StaticClient) execWithBackoff(retryingMessage string, invokeFunc func() error) error {
 	return backoff.RetryNotify(func() error {
 		err := invokeFunc()
 		if err != nil {
@@ -214,7 +219,7 @@ func (s StaticClient) execWithBackoff(invokeFunc func() error) error {
 		}
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
-		s.client.logger.Debug("retrying due to error", zap.Error(err), zap.Duration("retry-after", d))
+		s.client.logger.Debug(retryingMessage, zap.Error(err), zap.Duration("retry-after", d))
 	})
 }
 

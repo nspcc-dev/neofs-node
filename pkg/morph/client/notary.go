@@ -505,7 +505,11 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 		},
 		expBackoff,
 		func(err error, d time.Duration) {
-			c.logger.Info("retrying due to error", zap.Error(err), zap.Duration("retry-after", d))
+			c.logger.Info("retrying to send signed notary request",
+				zap.String("tx_hash", mainH.StringLE()),
+				zap.String("fallback_hash", fbH.StringLE()),
+				zap.Error(err),
+				zap.Duration("retry-after", d))
 		})
 	if err != nil {
 		c.logger.Error("can't send notary request after retries",
