@@ -81,12 +81,16 @@ func (c *prefixConn) Read(p []byte) (int, error) {
 
 func serverTLSConfig(c *cfg, adminCertFile, adminKeyFile string) *tls.Config {
 	node := nodeServerTLSConfig(c)
+	cli := clientServerTLSConfig(c)
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		NextProtos: []string{"h2"},
 		GetConfigForClient: func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
 			if hello.ServerName == peerauth.TLSServerName {
 				return node, nil
+			}
+			if hello.ServerName == peerauth.ClientTLSServerName {
+				return cli, nil
 			}
 			if adminKeyFile == "" {
 				return nil, fmt.Errorf("no server TLS certificate configured for client %q", hello.ServerName)
@@ -114,6 +118,17 @@ func nodeServerTLSConfig(c *cfg) *tls.Config {
 		VerifyPeerCertificate: makeNetmapVerifier(c),
 		MinVersion:            tls.VersionTLS12,
 		NextProtos:            []string{"h2"},
+	}
+}
+
+// clientServerTLSConfig is the client-mTLS sub-config: the node serves its
+// identity cert and requires a client cert but does not check it against netmap.
+func clientServerTLSConfig(c *cfg) *tls.Config {
+	return &tls.Config{
+		Certificates: []tls.Certificate{c.tlsCert},
+		ClientAuth:   tls.RequireAnyClientCert,
+		MinVersion:   tls.VersionTLS12,
+		NextProtos:   []string{"h2"},
 	}
 }
 

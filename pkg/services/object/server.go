@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash"
@@ -23,6 +24,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
@@ -460,7 +462,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+		if s.needVerifyRequestSignature(gStream.Context(), req) {
 			if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 				return err
@@ -531,7 +533,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(ctx) {
+	if s.needVerifyRequestSignature(ctx, req) {
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 			return s.makeStatusDeleteResponse(err, req), nil
 		}
@@ -641,7 +643,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 	needSignResp := needSignGetResponse(ctx, req)
 
-	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(ctx) {
+	if s.needVerifyRequestSignature(ctx, req) {
 		if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 			return s.makeStatusHeadResponse(err, needSignResp)
 		}
@@ -950,7 +952,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	needSignResp := needSignGetResponse(gStream.Context(), req)
 
-	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+	if s.needVerifyRequestSignature(gStream.Context(), req) {
 		if err = icrypto.VerifyRequestSignatures(req); err != nil {
 			return s.sendStatusGetResponse(gStream, err, needSignResp)
 		}
@@ -1327,7 +1329,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+	if s.needVerifyRequestSignature(gStream.Context(), req) {
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 			return s.sendStatusRangeResponse(gStream, err, req)
 		}
@@ -1715,7 +1717,7 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(ctx) {
+	if s.needVerifyRequestSignature(ctx, req) {
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 			return s.signSearchResponse(nil, err, req), nil
 		}
@@ -2161,11 +2163,8 @@ func needSignGetResponse(ctx context.Context, req util.Request) bool {
 	return util.VersionLE(req, 2, 17)
 }
 
-// peerAuthenticatedAsNode reports whether the request arrived over the inter-node
-// mTLS listener: a TLS peer certificate means the handshake verifier already
-// matched the peer against the network map, so it is a trusted storage node.
-// Only such 1:1 (TTL<=1) hops may skip signature checks; plain-listener clients
-// carry no peer certificate and are always verified.
+// peerAuthenticatedAsNode reports whether the request came over an inter-node
+// mTLS connection (SNI peerauth.TLSServerName), as opposed to client-mTLS.
 func peerAuthenticatedAsNode(ctx context.Context) bool {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
@@ -2175,7 +2174,54 @@ func peerAuthenticatedAsNode(ctx context.Context) bool {
 	if !ok {
 		return false
 	}
-	return len(tlsInfo.State.PeerCertificates) > 0
+	return tlsInfo.State.ServerName == peerauth.TLSServerName && len(tlsInfo.State.PeerCertificates) > 0
+}
+
+// peerClientPubKey returns the public key of a client authenticated via
+// client-mTLS (SNI peerauth.ClientTLSServerName), or nil otherwise.
+func peerClientPubKey(ctx context.Context) []byte {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil
+	}
+	tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return nil
+	}
+	if tlsInfo.State.ServerName != peerauth.ClientTLSServerName || len(tlsInfo.State.PeerCertificates) == 0 {
+		return nil
+	}
+	pub, err := peerauth.CompressedPubKey(tlsInfo.State.PeerCertificates[0])
+	if err != nil {
+		return nil
+	}
+	return pub
+}
+
+type verifiableRequest interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
+	GetVerifyHeader() *protosession.RequestVerificationHeader
+}
+
+// needVerifyRequestSignature reports whether req's signature must be verified;
+// skipped only when mTLS authenticated the exact signer (inter-node 1:1 hop, or
+// client cert key == author key - the equality guards against forged authorship).
+func (s *Server) needVerifyRequestSignature(ctx context.Context, req verifiableRequest) bool {
+	if req.GetMetaHeader().GetTtl() <= 1 && peerAuthenticatedAsNode(ctx) {
+		return false
+	}
+	if clientPub := peerClientPubKey(ctx); clientPub != nil {
+		_, authorPub, err := icrypto.GetRequestAuthor(req.GetVerifyHeader())
+		if err == nil && bytes.Equal(authorPub, clientPub) {
+			return false
+		}
+		s.log.Debug("client mTLS: signature verification not skipped",
+			zap.String("certKey", hex.EncodeToString(clientPub)),
+			zap.String("authorKey", hex.EncodeToString(authorPub)),
+			zap.Error(err))
+		return true
+	}
+	return true
 }
 
 func checkHeaderProtobufAgainstID(buffers iprotobuf.BuffersSlice, id oid.ID, ordered bool) error {
