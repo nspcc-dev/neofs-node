@@ -12,7 +12,7 @@ import (
 
 func TestFSChainSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
+		empty := configtest.EmptyConfig(t)
 
 		require.Empty(t, empty.FSChain.Endpoints)
 		require.Equal(t, fschainconfig.DialTimeoutDefault, empty.FSChain.DialTimeout)
@@ -35,9 +35,9 @@ func TestFSChainSection(t *testing.T) {
 		require.Equal(t, 6*time.Second, c.FSChain.ReconnectionsDelay)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

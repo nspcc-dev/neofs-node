@@ -25,6 +25,7 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -56,7 +57,7 @@ func TestServer_Head_Local(t *testing.T) {
 	)
 	handlers := headOnlyHandler{svc: handler}
 
-	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
+	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
 	assertWithVersion := func(t *testing.T, ver version.Version) *protoobject.HeadResponse {
 		req := newLocalHeadRequest(t, ver, obj.Address(), signer)
@@ -136,7 +137,7 @@ func TestServer_Head_Remote(t *testing.T) {
 	)
 	handlers := headOnlyHandler{svc: handler}
 
-	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
+	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
 	t.Run("EC part", func(t *testing.T) {
 		nodes := make([]netmap.NodeInfo, 3)
@@ -188,7 +189,7 @@ func TestServer_Head_Remote(t *testing.T) {
 		)
 		handlers := headOnlyHandler{svc: handler}
 
-		srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
+		srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
 		t.Run("header", func(t *testing.T) {
 			const payloadLen = 100 << 10

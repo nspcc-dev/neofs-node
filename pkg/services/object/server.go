@@ -48,6 +48,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	grpccodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/mem"
@@ -207,23 +208,30 @@ type Server struct {
 	reqInfoProc   ACLInfoExtractor
 	nodeClients   ClientConstructor
 	searchWorkers *ants.Pool
+	log           *zap.Logger
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor) *Server {
+func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, log *zap.Logger) *Server {
+	pubKeyBytes := (*keys.PublicKey)(&signer.PublicKey).Bytes()
+	if len(pubKeyBytes) != compressedECDSAPublicKeyLen {
+		panic(fmt.Sprintf("wrong public key len: expected %d, got %d", compressedECDSAPublicKeyLen, len(pubKeyBytes)))
+	}
+
 	return &Server{
 		handlers:      hs,
 		fsChain:       fsChain,
 		storage:       st,
 		meta:          metaSvc,
 		signer:        signer,
-		pubKeyBytes:   (*keys.PublicKey)(&signer.PublicKey).Bytes(),
+		pubKeyBytes:   pubKeyBytes,
 		mNumber:       magicNumber,
 		metrics:       m,
 		aclChecker:    ac,
 		reqInfoProc:   rp,
 		nodeClients:   cs,
 		searchWorkers: sp,
+		log:           log,
 	}
 }
 
@@ -976,6 +984,13 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
+	p.WithECTransport(&getECTransport{
+		server:         s,
+		request:        req,
+		signResponses:  needSignResp,
+		responseStream: gStream,
+	})
+
 	// TODO: consider optimization
 	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
 	// Then small objects would fit into a single buffer, and for large ones it'd be possible to
@@ -1001,6 +1016,9 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
+		if errors.Is(err, getsvc.ErrResponseStreamFailure) {
+			return err
+		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
@@ -1023,7 +1041,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	pldFldOff := max(idf.To, sigf.To, hdrf.To)
 
-	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, stream, pldFldOff, needSignResp) // defer
+	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, pldFldOff, stream, pldFldOff, needSignResp) // defer
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
@@ -1031,12 +1049,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	return nil
 }
 
-func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte,
-	hdrLen int, stream io.Reader, pldFldOff int, needSignResp bool) error {
+func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte,
+	prefixLen, hdrTo int, stream io.Reader, pldFldOff int, needSignResp bool) error {
 	var chunkRespBuf *iprotobuf.MemBuffer
 	var chunkBuf []byte
 
-	prereadPldLen := hdrLen - pldFldOff
+	prereadPldLen := prefixLen - pldFldOff
 	if prereadPldLen > 0 {
 		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
 		copy(chunkBuf, hdrBuf[pldFldOff:][:prereadPldLen])
@@ -1046,7 +1064,7 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 		// `header.payload_length` field.
 	}
 
-	bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:pldFldOff])
+	bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:hdrTo])
 
 	if needSignResp {
 		n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
@@ -1069,7 +1087,7 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 		if chunkRespBuf != nil {
 			chunkRespBuf.Free()
 		}
-		return err
+		return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
 	}
 
 	if chunkRespBuf == nil {
@@ -1088,7 +1106,10 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 		streamDone := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 		if err != nil && !streamDone {
 			chunkRespBuf.Free()
-			return fmt.Errorf("read payload stream: %w", err)
+			return copyReadError{
+				error:   fmt.Errorf("read payload stream: %w", err),
+				written: sent,
+			}
 		}
 
 		n += prereadPldLen
@@ -1121,7 +1142,7 @@ func (s *Server) copyGetStream(gStream protoobject.ObjectService_GetServer, hdrR
 
 		chunkRespBuf.SetBounds(bodyf.From, bodyf.To)
 		if err = gStream.SendMsg(chunkRespBuf); err != nil {
-			return err
+			return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
 		}
 		sent += n
 		if streamDone {
@@ -1355,7 +1376,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return nil
 	}
 
-	err = s.copyRangeStream(gStream, stream, needSignResponse)
+	err = s.copyRangeStream(gStream, stream, needSignResponse, shiftPayloadChunkInRangeResponseBuffer)
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
@@ -1363,7 +1384,8 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	return nil
 }
 
-func (s *Server) copyRangeStream(gStream protoobject.ObjectService_GetRangeServer, stream io.Reader, needSignResp bool) error {
+func (s *Server) copyRangeStream(gStream grpc.ServerStream, stream io.Reader, needSignResp bool, shiftFn func([]byte, int, int) iprotobuf.FieldBounds) error {
+	var sent int
 	for {
 		// chunk response buffers for GET completely suitable for RANGE
 		respBuf, buf := getBufferForChunkGetResponse()
@@ -1372,7 +1394,10 @@ func (s *Server) copyRangeStream(gStream protoobject.ObjectService_GetRangeServe
 		streamDone := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 		if err != nil && !streamDone {
 			respBuf.Free()
-			return fmt.Errorf("read payload stream: %w", err)
+			return copyReadError{
+				error:   fmt.Errorf("read payload stream: %w", err),
+				written: sent,
+			}
 		}
 
 		if n == 0 {
@@ -1380,7 +1405,7 @@ func (s *Server) copyRangeStream(gStream protoobject.ObjectService_GetRangeServe
 			return nil
 		}
 
-		bodyf := shiftPayloadChunkInRangeResponseBuffer(respBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
+		bodyf := shiftFn(respBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
 
 		if needSignResp {
 			n, err := s.signResponse(respBuf.SliceBuffer[bodyf.To:], respBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
@@ -1392,8 +1417,14 @@ func (s *Server) copyRangeStream(gStream protoobject.ObjectService_GetRangeServe
 		}
 
 		respBuf.SetBounds(bodyf.From, bodyf.To)
-		if err = gStream.SendMsg(respBuf); err != nil || streamDone {
+		if err = gStream.SendMsg(respBuf); err != nil {
 			return err
+		}
+
+		sent += n
+
+		if streamDone {
+			return nil
 		}
 	}
 }

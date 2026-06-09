@@ -12,7 +12,7 @@ import (
 
 func TestPolicerSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
+		empty := configtest.EmptyConfig(t)
 
 		require.Equal(t, policerconfig.HeadTimeoutDefault, empty.Policer.HeadTimeout)
 		require.Equal(t, policerconfig.ReplicationCooldownDefault, empty.Policer.ReplicationCooldown)
@@ -29,9 +29,9 @@ func TestPolicerSection(t *testing.T) {
 		require.Equal(t, uint32(5), c.Policer.BoostMultiplier)
 	}
 
-	configtest.ForEachFileType(path, fileConfigTest)
+	configtest.ForEachFileType(t, path, fileConfigTest)
 
 	t.Run("ENV", func(t *testing.T) {
-		configtest.ForEnvFileType(path, fileConfigTest)
+		configtest.ForEnvFileType(t, path, fileConfigTest)
 	})
 }

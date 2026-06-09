@@ -28,6 +28,7 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -55,7 +56,7 @@ func TestServer_Get_Local(t *testing.T) {
 	)
 	handlers := &getOnlyHandler{svc: handler}
 
-	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil)
+	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
 	for _, pldLen := range []uint64{
 		0, 1,
@@ -179,7 +180,7 @@ func TestServer_Get_Remote(t *testing.T) {
 		)
 		handlers := getOnlyHandler{svc: handler}
 
-		srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil)
+		srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
 		t.Run("object", func(t *testing.T) {
 			const payloadLen = 100 << 10

@@ -175,5 +175,5 @@ func (s *rangeStream) handleChunkResponse(streamProg *rangeStreamProgress, respB
 }
 
 func (s *rangeStream) handleSplitInfo(respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
-	return handleSplitInfo(s.req.GetBody().GetRaw(), s.base, respBuf, buffers)
+	return handleSplitInfoAndRespond(s.req.GetBody().GetRaw(), s.base, respBuf, buffers)
 }

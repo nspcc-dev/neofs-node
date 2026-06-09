@@ -22,8 +22,6 @@ const (
 	streamChunkSize = 256 * 1024 // 256 KiB
 )
 
-var errStreamFailure = errors.New("stream failure")
-
 type statusError struct {
 	status int
 	err    error
@@ -512,7 +510,7 @@ func copyPayloadStreamBuffer(w ChunkWriter, r io.Reader, buf []byte) (uint64, er
 		n, err := r.Read(buf)
 		if n > 0 {
 			if writeErr := w.WriteChunk(buf[:n]); writeErr != nil {
-				return done, fmt.Errorf("%w: %w", errStreamFailure, writeErr)
+				return done, fmt.Errorf("%w: %w", ErrResponseStreamFailure, writeErr)
 			}
 			done += uint64(n)
 		}
