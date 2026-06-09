@@ -418,7 +418,9 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(_ context.Context
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.As(err, &splitErr) {
 			return false, 0, 0, 0, err
 		}
-		logError("local storage failure (read EC part)", err)
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			logError("local storage failure (read EC part)", err)
+		}
 		return false, 0, 0, 0, nil
 	}
 
@@ -513,7 +515,9 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
 			return 0, err
 		}
-		logError("local storage failure (read EC part range)", err)
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			logError("local storage failure (read EC part range)", err)
+		}
 		return 0, nil
 	}
 
