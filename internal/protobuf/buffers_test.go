@@ -182,6 +182,25 @@ func TestBuffersSlice_MoveNext(t *testing.T) {
 		require.False(t, ok)
 	})
 
+	t.Run("first from multiple", func(t *testing.T) {
+		bs := iprotobuf.NewBuffersSlice(mem.BufferSlice{
+			mem.SliceBuffer{0, 1, 2},
+			mem.SliceBuffer{3, 4},
+		})
+
+		sub, ok := bs.MoveNext(1)
+		require.True(t, ok)
+		require.EqualValues(t, 1, sub.Len())
+		require.Equal(t, []byte{0}, sub.ReadOnlyData())
+
+		sub, ok = bs.MoveNext(2)
+		require.True(t, ok)
+		require.EqualValues(t, 2, sub.Len())
+		require.Equal(t, []byte{1, 2}, sub.ReadOnlyData())
+
+		require.Equal(t, []byte{3, 4}, bs.ReadOnlyData())
+	})
+
 	buf1 := mem.SliceBuffer{0, 1, 2}
 	buf2 := mem.SliceBuffer{3, 4, 5}
 
