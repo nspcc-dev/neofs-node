@@ -389,6 +389,10 @@ type getECTransport struct {
 	getPartRangeRequests    map[iec.PartInfo]*preparedRangeRequest
 
 	rangeViaGet bool
+
+	// if rangeViaGet is set
+	getPartRequestsMtx sync.RWMutex
+	getPartRequests    map[iec.PartInfo]*mem.Buffer
 }
 
 // CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
@@ -721,15 +725,16 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPldLen, nil
 }
 
-func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64) (uint64, error) {
-	if err := x.initGetPartRequest(partInfo); err != nil {
-		return 0, err
+func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+	request, err := x.makeGetECPartRequest(partInfo)
+	if err != nil {
+		return 0, fmt.Errorf("make request: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stream, err := callGet(ctx, conn, x.getPartRequest)
+	stream, err := callGet(ctx, conn, request)
 	if err != nil {
 		if errors.Is(err, ctx.Err()) {
 			return 0, err
@@ -737,6 +742,17 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 		// TODO: if error is due to incorrect request, error should be returned. How to catch this?
 		x.server.log.Warn("GET object API failure (call)", zap.String("node", conn.Target()), zap.Error(err))
 		return 0, nil
+	}
+
+	if controlCh != nil {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case abort := <-controlCh:
+			if abort {
+				return 0, getsvc.ErrAborted
+			}
+		}
 	}
 
 	var copied uint64
@@ -963,7 +979,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn corecli
 
 func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
 	if x.rangeViaGet {
-		return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln)
+		return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, controlCh)
 	}
 
 	request, err := x.makeGetECPartRangeRequest(partInfo, off, ln)
@@ -1033,7 +1049,8 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 				return 0, errors.New("received access denied status in non-first message")
 			}
 			x.rangeViaGet = true
-			return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln)
+			// pass nil channel because trigger has already been caught
+			return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, nil)
 		}
 
 		if code != protostatus.OK {
@@ -1154,6 +1171,49 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 	req.buffer = reqBuf
 	req.offset = off
 	req.length = ln
+
+	return reqBuf, nil
+}
+
+func (x *getECTransport) makeGetECPartRequest(partInfo iec.PartInfo) (mem.Buffer, error) {
+	x.getPartRequestsMtx.RLock()
+	reqPtr := x.getPartRequests[partInfo]
+	if reqPtr != nil {
+		x.getPartRequestsMtx.RUnlock()
+		return *reqPtr, nil
+	}
+	x.getPartRequestsMtx.RUnlock()
+
+	x.getPartRequestsMtx.Lock()
+
+	reqPtr = x.getPartRequests[partInfo]
+	if reqPtr != nil {
+		x.getPartRequestsMtx.Unlock()
+		return *reqPtr, nil
+	}
+
+	if x.getPartRequests == nil {
+		x.getPartRequests = make(map[iec.PartInfo]*mem.Buffer, 1)
+	}
+	reqPtr = new(mem.Buffer)
+	x.getPartRequests[partInfo] = reqPtr
+
+	x.getPartRequestsMtx.Unlock()
+
+	reqObj := x.request.GetBody().GetAddress()
+	cnr := reqObj.GetContainerId().GetValue()
+	parent := reqObj.GetObjectId().GetValue()
+
+	reqMetaHdr := x.request.GetMetaHeader()
+	sessionToken := reqMetaHdr.GetSessionTokenV2()
+	sessionTokenV1 := reqMetaHdr.GetSessionToken()
+
+	reqBuf, err := x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1)
+	if err != nil {
+		return nil, err
+	}
+
+	*reqPtr = reqBuf
 
 	return reqBuf, nil
 }
