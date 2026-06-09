@@ -378,10 +378,11 @@ type preparedRangeRequest struct {
 }
 
 type getECTransport struct {
-	server         *Server
-	request        *protoobject.GetRequest
-	signResponses  bool
-	responseStream grpc.ServerStream
+	server            *Server
+	request           *protoobject.GetRequest
+	serverInContainer bool
+	signResponses     bool
+	responseStream    grpc.ServerStream
 
 	getPartRequest     mem.Buffer
 	getPartRequestInfo iec.PartInfo
@@ -570,7 +571,7 @@ func (x *getECTransport) initGetPartRequest(partInfo iec.PartInfo) error {
 	sessionTokenV1 := reqMetaHdr.GetSessionToken()
 
 	var err error
-	x.getPartRequest, err = x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1)
+	x.getPartRequest, err = x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1, x.serverInContainer)
 	if err != nil {
 		return fmt.Errorf("make GET request: %w", err)
 	}
@@ -1111,7 +1112,12 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken, srvInCnr bool) (mem.Buffer, error) {
+	if srvInCnr {
+		sessionToken = nil
+		sessionTokenV1 = nil
+	}
+
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 
@@ -1124,14 +1130,17 @@ func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo,
 	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, sessionTokenLen, sessionTokenV1Len)
 
 	reqLen := 1 + 1 + getByAddressRequestBodyLen + // first 1 for iprotobuf.TagBytes1
-		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		1 + 2 + requestVerificationHeaderECDSAWIthSHA512Len // 1 for iprotobuf.TagBytes3
+		1 + protowire.SizeBytes(metaHdrLen) // 1 for iprotobuf.TagBytes2
+
+	if !srvInCnr {
+		reqLen += 1 + 2 + requestVerificationHeaderECDSAWIthSHA512Len // 1 for iprotobuf.TagBytes3
+	}
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
 
 	n, err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr,
-		sessionTokenLen, sessionToken, sessionTokenV1Len, sessionTokenV1)
+		sessionTokenLen, sessionToken, sessionTokenV1Len, sessionTokenV1, srvInCnr)
 	if err != nil {
 		return nil, err
 	}
@@ -1174,7 +1183,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 	sessionToken := reqMetaHdr.GetSessionTokenV2()
 	sessionTokenV1 := reqMetaHdr.GetSessionToken()
 
-	reqBuf, err := x.server.makeGetECPartRangeRequest(cnr, parent, partInfo, off, ln, sessionToken, sessionTokenV1)
+	reqBuf, err := x.server.makeGetECPartRangeRequest(cnr, parent, partInfo, off, ln, sessionToken, sessionTokenV1, x.serverInContainer)
 	if err != nil {
 		// stream is closed by context cancellation
 		return nil, err
@@ -1220,7 +1229,7 @@ func (x *getECTransport) makeGetECPartRequest(partInfo iec.PartInfo) (mem.Buffer
 	sessionToken := reqMetaHdr.GetSessionTokenV2()
 	sessionTokenV1 := reqMetaHdr.GetSessionToken()
 
-	reqBuf, err := x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1)
+	reqBuf, err := x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1, x.serverInContainer)
 	if err != nil {
 		return nil, err
 	}
@@ -1230,7 +1239,12 @@ func (x *getECTransport) makeGetECPartRequest(partInfo iec.PartInfo) (mem.Buffer
 	return reqBuf, nil
 }
 
-func (s *Server) makeGetECPartRangeRequest(cnr, parent []byte, partInfo iec.PartInfo, off, ln uint64, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRangeRequest(cnr, parent []byte, partInfo iec.PartInfo, off, ln uint64, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken, srvInCnr bool) (mem.Buffer, error) {
+	if srvInCnr {
+		sessionToken = nil
+		sessionTokenV1 = nil
+	}
+
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 
@@ -1257,15 +1271,17 @@ func (s *Server) makeGetECPartRangeRequest(cnr, parent []byte, partInfo iec.Part
 	}
 
 	reqLen := 1 + protowire.SizeBytes(bodyLen) + // 1 for iprotobuf.TagBytes1
-		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		1 + 2 + requestVerificationHeaderECDSAWIthSHA512Len // 1 for iprotobuf.TagBytes3
+		1 + protowire.SizeBytes(metaHdrLen) // 1 for iprotobuf.TagBytes2
+	if !srvInCnr {
+		reqLen += 1 + 2 + requestVerificationHeaderECDSAWIthSHA512Len // 1 for iprotobuf.TagBytes3
+	}
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
 
 	n, err := s.writeGetECPartRangeRequest(buf, bodyLen, cnr, parent, rngLen, off, ln,
 		metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr,
-		sessionTokenLen, sessionToken, sessionTokenV1Len, sessionTokenV1)
+		sessionTokenLen, sessionToken, sessionTokenV1Len, sessionTokenV1, srvInCnr)
 	if err != nil {
 		return nil, err
 	}
@@ -1277,11 +1293,15 @@ func (s *Server) makeGetECPartRangeRequest(cnr, parent []byte, partInfo iec.Part
 }
 
 func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string,
-	sessionTokenLen int, sessionToken *protosession.SessionTokenV2, sessionTokenV1Len int, sessionTokenV1 *protosession.SessionToken) (int, error) {
-	// TODO: can be calculated once and reused
-	originSig, err := neofsecdsa.Signer(s.signer).Sign(nil)
-	if err != nil {
-		return 0, fmt.Errorf("sign empty data: %w", err)
+	sessionTokenLen int, sessionToken *protosession.SessionTokenV2, sessionTokenV1Len int, sessionTokenV1 *protosession.SessionToken, srvInCnr bool) (int, error) {
+	var err error
+	var originSig []byte
+	if !srvInCnr {
+		// TODO: can be calculated once and reused
+		originSig, err = neofsecdsa.Signer(s.signer).Sign(nil)
+		if err != nil {
+			return 0, fmt.Errorf("sign empty data: %w", err)
+		}
 	}
 
 	// body
@@ -1300,9 +1320,12 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, me
 	buf[43] = oid.Size
 	copy(buf[44:], parent)
 
-	bodySig, err := signECDSAWithSHA512(s.signer, buf[2:76])
-	if err != nil {
-		return 0, fmt.Errorf("sign body: %w", err)
+	var bodySig []byte
+	if !srvInCnr {
+		bodySig, err = signECDSAWithSHA512(s.signer, buf[2:76])
+		if err != nil {
+			return 0, fmt.Errorf("sign body: %w", err)
+		}
 	}
 
 	// meta header
@@ -1323,24 +1346,30 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, me
 		off += writeStablyMarshalledField(buf[off:], iprotobuf.TagBytes9, sessionTokenLen, sessionToken)
 	}
 
-	metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:off])
-	if err != nil {
-		return 0, fmt.Errorf("sign meta header: %w", err)
-	}
+	if !srvInCnr {
+		metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:off])
+		if err != nil {
+			return 0, fmt.Errorf("sign meta header: %w", err)
+		}
 
-	// verification header
-	off += writeRequestVerificationHeader(buf[off:], s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+		// verification header
+		off += writeRequestVerificationHeader(buf[off:], s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+	}
 
 	return off, nil
 }
 
 func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr []byte, parent []byte, rngLen int, off uint64, ln uint64,
 	metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string, sessionTokenLen int, sessionToken *protosession.SessionTokenV2,
-	sessionTokenV1Len int, sessionTokenV1 *protosession.SessionToken) (int, error) {
-	// TODO: can be calculated once and reused
-	originSig, err := neofsecdsa.Signer(s.signer).Sign(nil)
-	if err != nil {
-		return 0, fmt.Errorf("sign empty data: %w", err)
+	sessionTokenV1Len int, sessionTokenV1 *protosession.SessionToken, srvInCnr bool) (int, error) {
+	var err error
+	var originSig []byte
+	if !srvInCnr {
+		// TODO: can be calculated once and reused
+		originSig, err = neofsecdsa.Signer(s.signer).Sign(nil)
+		if err != nil {
+			return 0, fmt.Errorf("sign empty data: %w", err)
+		}
 	}
 
 	// body
@@ -1385,9 +1414,12 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr []byte,
 		}
 	}
 
-	bodySig, err := signECDSAWithSHA512(s.signer, buf[from:n])
-	if err != nil {
-		return 0, fmt.Errorf("sign body: %w", err)
+	var bodySig []byte
+	if !srvInCnr {
+		bodySig, err = signECDSAWithSHA512(s.signer, buf[from:n])
+		if err != nil {
+			return 0, fmt.Errorf("sign body: %w", err)
+		}
 	}
 
 	// meta header
@@ -1409,13 +1441,15 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr []byte,
 		n += writeStablyMarshalledField(buf[n:], iprotobuf.TagBytes9, sessionTokenLen, sessionToken)
 	}
 
-	metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:n])
-	if err != nil {
-		return 0, fmt.Errorf("sign meta header: %w", err)
-	}
+	if !srvInCnr {
+		metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:n])
+		if err != nil {
+			return 0, fmt.Errorf("sign meta header: %w", err)
+		}
 
-	// verification header
-	n += writeRequestVerificationHeader(buf[n:], s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+		// verification header
+		n += writeRequestVerificationHeader(buf[n:], s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+	}
 
 	return n, nil
 }

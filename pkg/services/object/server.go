@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -159,8 +160,8 @@ type ACLInfoExtractor interface {
 	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
 	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
 	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
-	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
-	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest, *ecdsa.PublicKey) (aclsvc.RequestInfo, bool, error)
+	RangeRequestToInfo(*protoobject.GetRangeRequest, *ecdsa.PublicKey) (aclsvc.RequestInfo, error)
 	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
 }
 
@@ -945,12 +946,18 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		err         error
 		recheckEACL bool
 		t           = time.Now()
+		ctx         = gStream.Context()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 
-	needSignResp := needSignGetResponse(gStream.Context(), req)
+	needSignResp := needSignGetResponse(ctx, req)
 
-	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+	clientPubFromCert, err := getClientPublicKeyFromCertificate(ctx)
+	if err != nil {
+		return s.sendStatusGetResponse(gStream, err, needSignResp) // TODO: proper status, defer metrics
+	}
+
+	if req.GetMetaHeader().GetTtl() > 1 || clientPubFromCert == nil {
 		if err = icrypto.VerifyRequestSignatures(req); err != nil {
 			return s.sendStatusGetResponse(gStream, err, needSignResp)
 		}
@@ -960,7 +967,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	reqInfo, srvInCnr, err := s.reqInfoProc.GetRequestToInfo(req, clientPubFromCert)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -1000,10 +1007,11 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	p.WithECTransport(&getECTransport{
-		server:         s,
-		request:        req,
-		signResponses:  needSignResp,
-		responseStream: gStream,
+		server:            s,
+		request:           req,
+		serverInContainer: srvInCnr,
+		signResponses:     needSignResp,
+		responseStream:    gStream,
 	})
 
 	// TODO: consider optimization
@@ -1327,7 +1335,15 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if req.GetMetaHeader().GetTtl() > 1 || !peerAuthenticatedAsNode(gStream.Context()) {
+
+	ctx := gStream.Context()
+
+	clientPubFromCert, err := getClientPublicKeyFromCertificate(ctx)
+	if err != nil {
+		return s.sendStatusRangeResponse(gStream, err, req) // TODO: proper status, defer metrics
+	}
+
+	if req.GetMetaHeader().GetTtl() > 1 || clientPubFromCert == nil {
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 			return s.sendStatusRangeResponse(gStream, err, req)
 		}
@@ -1337,7 +1353,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, clientPubFromCert)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -1356,7 +1372,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
-	needSignResponse := needSignGetResponse(gStream.Context(), req)
+	needSignResponse := needSignGetResponse(ctx, req)
 
 	p, err := convertRangePrm(s.signer, reqInfo.Container, req, &rangeStream{
 		base:         gStream,
@@ -1384,7 +1400,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 
 	p.WithBuffer(hdrBuf, func(s io.ReadCloser) { stream = s })
 
-	err = s.handlers.GetRange(gStream.Context(), p)
+	err = s.handlers.GetRange(ctx, p)
 
 	hdrRespBuf.Free()
 
@@ -2167,15 +2183,35 @@ func needSignGetResponse(ctx context.Context, req util.Request) bool {
 // Only such 1:1 (TTL<=1) hops may skip signature checks; plain-listener clients
 // carry no peer certificate and are always verified.
 func peerAuthenticatedAsNode(ctx context.Context) bool {
+	return getClientCertificate(ctx) != nil
+}
+
+func getClientPublicKeyFromCertificate(ctx context.Context) (*ecdsa.PublicKey, error) {
+	cert := getClientCertificate(ctx)
+	if cert == nil {
+		return nil, nil
+	}
+	// copy-paste from peerauth.CompressedPubKey
+	pub, ok := cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.New("peer certificate public key is not ECDSA")
+	}
+	return pub, nil
+}
+
+func getClientCertificate(ctx context.Context) *x509.Certificate {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		return false
+		return nil
 	}
 	tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo)
 	if !ok {
-		return false
+		return nil
 	}
-	return len(tlsInfo.State.PeerCertificates) > 0
+	if len(tlsInfo.State.PeerCertificates) == 0 {
+		return nil
+	}
+	return tlsInfo.State.PeerCertificates[0]
 }
 
 func checkHeaderProtobufAgainstID(buffers iprotobuf.BuffersSlice, id oid.ID, ordered bool) error {

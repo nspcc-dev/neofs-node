@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -433,18 +435,28 @@ func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, error) {
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest, clientPubFromCert *ecdsa.PublicKey) (RequestInfo, bool, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return RequestInfo{}, err
+		return RequestInfo{}, false, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return RequestInfo{}, err
+		return RequestInfo{}, false, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
+	reqInfo, err := b.findRequestInfo(request, clientPubFromCert, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
+	if err != nil {
+		return RequestInfo{}, false, err
+	}
+
+	srvInCnr, err := b.nm.ServerInContainer(cnr)
+	if err != nil {
+		return RequestInfo{}, false, err
+	}
+
+	return reqInfo, srvInCnr, nil
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
@@ -460,7 +472,7 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
+	return b.findRequestInfo(request, nil, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
 }
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
@@ -471,7 +483,7 @@ func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (Re
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
+	return b.findRequestInfo(request, nil, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
@@ -487,12 +499,12 @@ func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (Reques
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete, *obj)
+	return b.findRequestInfo(request, nil, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete, *obj)
 }
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (RequestInfo, error) {
+func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest, clientPubFromCert *ecdsa.PublicKey) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -503,7 +515,7 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 		return RequestInfo{}, err
 	}
 
-	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionv2.VerbObjectRange, *obj)
+	return b.findRequestInfo(request, clientPubFromCert, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionv2.VerbObjectRange, *obj)
 }
 
 var ErrSkipRequest = errors.New("skip request")
@@ -578,7 +590,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		op, verb, verbv2 = acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cnr, op, verb, verbv2, obj)
+	reqInfo, err := b.findRequestInfo(request, nil, cnr, op, verb, verbv2, obj)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, err
 	}
@@ -599,7 +611,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 func (b Service) findRequestInfo(req interface {
 	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
-}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, verb2 sessionv2.Verb, obj oid.ID) (RequestInfo, error) {
+}, clientPubFromCert *ecdsa.PublicKey, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, verb2 sessionv2.Verb, obj oid.ID) (RequestInfo, error) {
 	var (
 		info    RequestInfo
 		metaHdr = req.GetMetaHeader()
@@ -610,8 +622,13 @@ func (b Service) findRequestInfo(req interface {
 	}
 
 	if reqAuthor.IsZero() {
-		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
-			return info, fmt.Errorf("get request author: %w", err)
+		if clientPubFromCert != nil {
+			reqAuthorPub = elliptic.MarshalCompressed(elliptic.P256(), clientPubFromCert.X, clientPubFromCert.Y)
+			reqAuthor = user.NewFromECDSAPublicKey(*clientPubFromCert)
+		} else {
+			if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
+				return info, fmt.Errorf("get request author: %w", err)
+			}
 		}
 	}
 
