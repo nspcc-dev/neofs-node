@@ -409,6 +409,7 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 	}
 
 	hdrMemBuf, buf := getBufferForHeadResponse()
+	defer hdrMemBuf.Free()
 
 	prefixLen, stream, err := storage.ReadECPart(ctx, cnr, id, partInfo, buf)
 	if err != nil {
