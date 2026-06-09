@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
@@ -625,6 +626,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 
 	stream, err := callGet(ctx, conn, x.getPartRequest)
 	if err != nil {
+		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
 			return false, 0, 0, 0, err
 		}
@@ -642,6 +644,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	for {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
 				return false, 0, 0, 0, err
 			}
@@ -731,6 +734,7 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 
 	stream, err := callGet(ctx, conn, x.getPartRequest)
 	if err != nil {
+		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
 			return 0, err
 		}
@@ -746,6 +750,7 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 	for {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
 				return 0, err
 			}
@@ -976,6 +981,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 
 	stream, err := callRange(ctx, conn, request)
 	if err != nil {
+		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
 			return 0, err
 		}
@@ -999,6 +1005,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	for first := true; ; first = false {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
 				return 0, err
 			}

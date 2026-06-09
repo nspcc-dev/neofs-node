@@ -15,6 +15,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
@@ -159,7 +160,7 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 			return hdr, nil
 		}
 
-		err = convertContextStatus(err)
+		err = igrpc.ConvertContextStatus(err)
 
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 			return object.Object{}, err
@@ -594,7 +595,7 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 			if errors.Is(err, io.EOF) { // empty payload is caught above
 				err = io.ErrUnexpectedEOF
 			} else {
-				err = convertContextStatus(err)
+				err = igrpc.ConvertContextStatus(err)
 			}
 			return object.Object{}, nil, fmt.Errorf("read full payload: %w", err)
 		}
@@ -615,7 +616,7 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 		if errors.Is(err, io.EOF) { // empty payload is caught above
 			err = io.ErrUnexpectedEOF
 		} else {
-			err = convertContextStatus(err)
+			err = igrpc.ConvertContextStatus(err)
 		}
 		return object.Object{}, nil, fmt.Errorf("read full payload: %w", err)
 	}
@@ -652,7 +653,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 		iec.AttributePartIdx, partIdxAttr,
 	})
 	if err != nil {
-		err = convertContextStatus(err)
+		err = igrpc.ConvertContextStatus(err)
 		return object.Object{}, nil, fmt.Errorf("get object from remote SN: %w", err)
 	}
 
@@ -975,7 +976,7 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 			if errors.Is(err, io.EOF) {
 				err = io.ErrUnexpectedEOF
 			} else {
-				err = convertContextStatus(err)
+				err = igrpc.ConvertContextStatus(err)
 			}
 			return 0, 0, fmt.Errorf("read size-split linker payload stream: %w", err)
 		}
@@ -1137,7 +1138,7 @@ func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localN
 				return 0, 0, 0, fmt.Errorf("too big object range for this server: off=%d,ln=%d", partOff, partLen)
 			}
 			if _, err := io.CopyN(io.Discard, fullFirstPart, int64(partOff)); err != nil {
-				err = convertContextStatus(err)
+				err = igrpc.ConvertContextStatus(err)
 				return 0, 0, 0, fmt.Errorf("discard first %d bytes from first part payload stream: %w", partOff, err)
 			}
 
@@ -1244,7 +1245,7 @@ func (s *Service) readFullECPartRange(ctx context.Context, cnr cid.ID, parent oi
 		if errors.Is(err, io.EOF) {
 			err = io.ErrUnexpectedEOF
 		} else {
-			err = convertContextStatus(err)
+			err = igrpc.ConvertContextStatus(err)
 		}
 		return nil, fmt.Errorf("read stream: %w", err)
 	}
@@ -1310,7 +1311,7 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 			}, nil
 		}
 
-		err = convertContextStatus(err)
+		err = igrpc.ConvertContextStatus(err)
 
 		if !errors.Is(err, apistatus.ErrObjectAccessDenied) {
 			if errors.Is(err, io.EOF) {
@@ -1321,7 +1322,7 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 
 		_, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
 		if err != nil {
-			err = convertContextStatus(err)
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 				return nil, err
 			}
@@ -1341,7 +1342,7 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 		}
 
 		if _, err = io.CopyN(io.Discard, rc, int64(off)); err != nil {
-			err = convertContextStatus(err)
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
 				return nil, err
 			}
@@ -1378,7 +1379,7 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 		iec.AttributePartIdx, partIdxAttr,
 	})
 	if err != nil {
-		err = convertContextStatus(err)
+		err = igrpc.ConvertContextStatus(err)
 		return nil, fmt.Errorf("get range from remote node: %w", err)
 	}
 
@@ -1536,6 +1537,10 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 			} else {
 				conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 				if connErr != nil {
+					connErr = igrpc.ConvertContextStatus(connErr)
+					if errors.Is(connErr, ctx.Err()) {
+						return false, 0, 0, 0, connErr
+					}
 					s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
 					continue
 				}
@@ -1561,6 +1566,10 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 		} else {
 			conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 			if connErr != nil {
+				connErr = igrpc.ConvertContextStatus(connErr)
+				if errors.Is(connErr, ctx.Err()) {
+					return false, 0, 0, 0, connErr
+				}
 				s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
 				continue
 			}
@@ -1595,6 +1604,10 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 		} else {
 			conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 			if connErr != nil {
+				connErr = igrpc.ConvertContextStatus(connErr)
+				if errors.Is(connErr, ctx.Err()) {
+					return 0, connErr
+				}
 				s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
 				continue
 			}
