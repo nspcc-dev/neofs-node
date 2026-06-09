@@ -32,6 +32,7 @@ type (
 	}
 
 	indexes struct {
+		alphabetList                  keys.PublicKeys
 		innerRingIndex, innerRingSize int32
 		alphabetIndex                 int32
 	}
@@ -76,6 +77,7 @@ func (s *innerRingIndexer) update() (ind indexes, err error) {
 		return indexes{}, err
 	}
 
+	s.ind.alphabetList = alphabet
 	s.ind.alphabetIndex = keyPosition(s.key, alphabet)
 	s.lastAccess = time.Now()
 

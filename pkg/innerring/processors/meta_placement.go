@@ -1,93 +1,19 @@
 package processors
 
 import (
-	"bytes"
-	"crypto/elliptic"
-	"fmt"
-	"slices"
-	"sort"
-
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/meta"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-// UpdateMetaPlacement sends notary request using provided actor to update
-// container's placement in metadata sidechain.
-func UpdateMetaPlacement(metaClient *notary.Actor, cid cid.ID, vectors [][]netmap.NodeInfo, policy netmap.PlacementPolicy, nonce uint32) error {
-	var (
-		placement meta.Placement
-		replicas  = policy.Replicas()
-	)
-	for i, v := range vectors {
-		var cnrVector meta.PlacementVector
-		rep := uint8(1)
-		if i < len(replicas) {
-			rep = uint8(policy.ReplicaNumberByIndex(i))
-		}
-		cnrVector.REP = rep
+// MetadataChain describes metadata chain.
+type MetadataChain interface {
+	// UpdateContainerPlacement must update container placement list in
+	// metadata chain. Must block until updated is finished.
+	// Nonce will always be unique for the same other arguments.
+	UpdateContainerPlacement(cid cid.ID, vectors [][]netmap.NodeInfo, policy netmap.PlacementPolicy, nonce uint32) error
 
-		slices.SortFunc(v, func(a, b netmap.NodeInfo) int {
-			return bytes.Compare(a.PublicKey(), b.PublicKey())
-		})
-
-		kk := make(keys.PublicKeys, 0, len(v))
-		for _, n := range v {
-			k, err := keys.NewPublicKeyFromBytes(n.PublicKey(), elliptic.P256())
-			if err != nil {
-				return fmt.Errorf("could not parse public key for %s meta container placement: %w", cid, err)
-			}
-			kk = append(kk, k)
-		}
-
-		sort.Sort(kk)
-		cnrVector.Nodes = kk
-
-		placement = append(placement, cnrVector)
-	}
-
-	_, err := metaClient.WaitSuccess(metaClient.Notarize(metaClient.MakeTunedCall(meta.Hash, "updateContainerList", nil, func(r *result.Invoke, t *transaction.Transaction) error {
-		if r.State != vmstate.Halt.String() {
-			return fmt.Errorf("script failed (%s state) due to an error: %s", r.State, r.FaultException)
-		}
-
-		vub, err := CalculateVUB(metaClient)
-		if err != nil {
-			return fmt.Errorf("could not calculate vub: %w", err)
-		}
-
-		t.ValidUntilBlock = vub
-		t.Nonce = nonce
-
-		// Add 10% GAS to prevent this errors:
-		// "at instruction 1689 (SYSCALL): System.Runtime.Log failed: insufficient amount of gas"
-		t.SystemFee += t.SystemFee / 10
-
-		return nil
-	}, cid[:], &placement)))
-	return err
-}
-
-// CalculateVUB returns a suitable Valid Until Block value so that consensus
-// nodes should have enough time to send their signatures for notary requests.
-func CalculateVUB(cli *notary.Actor) (uint32, error) {
-	bc, err := cli.GetBlockCount()
-	if err != nil {
-		return 0, fmt.Errorf("can't get current blockchain height: %w", err)
-	}
-
-	const (
-		defaultNotaryValidTime = 50
-		defaultNotaryRoundTime = 100
-	)
-
-	minIndex := bc + defaultNotaryValidTime
-	rounded := (minIndex/defaultNotaryRoundTime + 1) * defaultNotaryRoundTime
-
-	return rounded, nil
+	// RegisterMetadataContainer must register container as a metadata-enabled one.
+	// Must block until updated is finished.
+	// Nonce will always be unique for any call.
+	RegisterMetadataContainer(cID cid.ID, nonce uint32) error
 }
