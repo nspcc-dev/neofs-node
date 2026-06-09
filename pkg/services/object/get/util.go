@@ -21,8 +21,6 @@ import (
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // TODO: share. We also use stop error for BoltDB iterators and so on.
@@ -539,19 +537,6 @@ func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) 
 	}
 
 	return conn, nil
-}
-
-// TODO: share.
-// see also https://github.com/nspcc-dev/neofs-sdk-go/issues/624.
-func convertContextStatus(err error) error {
-	switch st, _ := status.FromError(err); st.Code() {
-	default:
-		return err
-	case codes.Canceled:
-		return context.Canceled
-	case codes.DeadlineExceeded:
-		return context.DeadlineExceeded
-	}
 }
 
 func localNodeInSets(n NeoFSNetwork, nodeSets [][]netmap.NodeInfo) bool {
