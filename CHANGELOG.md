@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Incorrect protobuf scanning (#4013)
 
 ### Changed
 - Optimized EC GET request execution (#3996)

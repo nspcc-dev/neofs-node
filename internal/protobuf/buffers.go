@@ -169,7 +169,7 @@ func (x *BuffersSlice) MoveNext(n int) (BuffersSlice, bool) {
 			firstOff: x.firstOff,
 			lastTo:   n,
 		}
-		if len(x.buffers) == 1 {
+		if len(sub.buffers) == 1 {
 			sub.lastTo += x.firstOff
 		}
 
