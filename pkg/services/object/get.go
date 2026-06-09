@@ -392,7 +392,7 @@ type getECTransport struct {
 }
 
 // CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(_ context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
 	// TODO: handle request fields once and reuse
 	addr := x.request.GetBody().GetAddress()
 	cnr, err := cid.DecodeBytes(addr.GetContainerId().GetValue())
@@ -411,7 +411,7 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(_ context.Context
 
 	hdrMemBuf, buf := getBufferForHeadResponse()
 
-	prefixLen, stream, err := storage.ReadECPart(cnr, id, partInfo, buf)
+	prefixLen, stream, err := storage.ReadECPart(ctx, cnr, id, partInfo, buf)
 	if err != nil {
 		var splitErr *object.SplitInfoError
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.As(err, &splitErr) {
@@ -506,7 +506,7 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	}
 
 	hdrMemBuf, buf := getBufferForHeadResponse()
-	stream, err := storage.ReadECPartRange(cnr, id, partInfo, off, ln, buf)
+	stream, err := storage.ReadECPartRange(ctx, cnr, id, partInfo, off, ln, buf)
 	hdrMemBuf.Free()
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
