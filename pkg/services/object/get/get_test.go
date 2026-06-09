@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -45,6 +46,8 @@ type testClientCache struct {
 }
 
 type testClient struct {
+	delay time.Duration
+
 	results map[oid.Address]struct {
 		obj *object.Object
 		err error
@@ -94,6 +97,10 @@ func newTestClient() *testClient {
 }
 
 func (c *testClient) getObject(exec *execCtx) (*object.Object, io.ReadCloser, error) {
+	if c.delay > 0 {
+		time.Sleep(c.delay)
+	}
+
 	v, ok := c.results[exec.address()]
 	if !ok {
 		var errNotFound apistatus.ObjectNotFound

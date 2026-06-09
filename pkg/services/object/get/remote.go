@@ -45,7 +45,9 @@ func (exec *execCtx) processNode(info netmap.NodeInfo) bool {
 		if obj != nil || reader != nil {
 			exec.collectedHeader = obj
 			exec.collectedReader = reader
-			exec.writeCollectedObject()
+			if !exec.collectOnly {
+				exec.writeCollectedObject()
+			}
 		}
 	case errors.Is(err, apistatus.Error) && !errors.Is(err, apistatus.ErrObjectNotFound):
 		exec.status = statusAPIResponse

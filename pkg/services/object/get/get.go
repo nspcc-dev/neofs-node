@@ -294,6 +294,11 @@ func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) st
 
 	exec.execute() //nolint:contextcheck // It is in fact passed via execCtx
 
+	if exec.collectDst != nil {
+		exec.collectDst.hdr = exec.collectedHeader
+		exec.collectDst.rc = exec.collectedReader
+	}
+
 	return exec.statusError
 }
 
@@ -313,6 +318,9 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 		exec.log.Debug("operation finished successfully")
 	case statusVIRTUAL:
 		exec.log.Debug("requested object is virtual")
+		if exec.collectOnly {
+			return
+		}
 		exec.assemble()
 		if errors.Is(exec.err, errNoLinkNoLastPart) && execCnr {
 			exec.executeOnContainer()

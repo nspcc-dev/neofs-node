@@ -1,6 +1,7 @@
 package getsvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -75,6 +76,18 @@ type execCtx struct {
 
 	payloadOnly bool
 	legacyRange bool
+
+	// collectOnly keeps one fetched stream and skips writing/assembly.
+	// Virtual children are reported to the caller, not assembled recursively.
+	collectOnly bool
+
+	// collectDst receives collectOnly result from Service.get.
+	collectDst *collectResult
+}
+
+type collectResult struct {
+	hdr *object.Object
+	rc  io.ReadCloser
 }
 
 type execOption func(*execCtx)
@@ -116,6 +129,13 @@ func withLegacyRange(v bool) execOption {
 func withLogger(l *zap.Logger) execOption {
 	return func(ctx *execCtx) {
 		ctx.log = l
+	}
+}
+
+func withCollectOnlyResult(dst *collectResult) execOption {
+	return func(ctx *execCtx) {
+		ctx.collectOnly = true
+		ctx.collectDst = dst
 	}
 }
 
@@ -267,6 +287,48 @@ func (exec *execCtx) headOnly() bool {
 	return exec.head
 }
 
+// fetchChildStream fetches a single physical child stream. Virtual children are
+// returned as statusVIRTUAL for the caller to handle.
+func (exec *execCtx) fetchChildStream(ctx context.Context, id oid.ID, rng *object.Range) (*object.Object, io.ReadCloser, statusError) {
+	log := exec.log
+	if rng != nil {
+		log = log.With(zap.String("child range", prettyRange(rng)))
+	}
+
+	p := exec.prm
+	// keep concurrent fetches race-free
+	if p.common != nil {
+		c := *p.common
+		c.WithLocalOnly(false)
+		p.common = &c
+	}
+	p.SetRange(rng)
+	p.addr.SetContainer(exec.containerID())
+	p.addr.SetObject(id)
+
+	var res collectResult
+	se := exec.svc.get(ctx, p.commonPrm,
+		withPayloadRange(rng),
+		withPayloadOnly(exec.payloadOnly),
+		withLegacyRange(exec.legacyRange),
+		withLogger(log),
+		withCollectOnlyResult(&res),
+	)
+	if se.status != statusOK {
+		return res.hdr, nil, se
+	}
+
+	if res.rc == nil {
+		var payload []byte
+		if res.hdr != nil {
+			payload = res.hdr.Payload()
+		}
+		res.rc = io.NopCloser(bytes.NewReader(payload))
+	}
+
+	return res.hdr, res.rc, se
+}
+
 // copyChild fetches child object payload and streams it directly into current exec writer.
 // Returns true if full payload (or requested range) was successfully written and, if requested, header validated.
 func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool {
@@ -278,7 +340,12 @@ func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool 
 	childWriter := newDirectChildWriter(exec.prm.objWriter)
 
 	p := exec.prm
-	p.common = p.common.WithLocalOnly(false)
+	// keep concurrent fetches race-free
+	if p.common != nil {
+		c := *p.common
+		c.WithLocalOnly(false)
+		p.common = &c
+	}
 	p.objWriter = childWriter
 	p.SetRange(rng)
 	p.addr.SetContainer(exec.containerID())
@@ -300,7 +367,7 @@ func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool 
 		}
 		if !exec.isChild(hdr) {
 			exec.status = statusUndefined
-			exec.err = errors.New("wrong child header")
+			exec.err = errWrongChildHeader
 			exec.log.Debug("parent address in child object differs")
 		}
 	}

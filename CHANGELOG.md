@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Optimized EC GET request execution (#3996)
 - Optimized GET/HEAD/SEARCH/RANGE request signing when forwarding  (#4008, #4021)
 - Optimized ranged GET in FSTree (#4016)
+- Split object assembly now prefetches child objects concurrently while streaming (#4014)
 
 ### Removed
 

@@ -32,7 +32,7 @@ func (exec *execCtx) executeLocal() {
 		exec.status = statusOK
 		exec.err = nil
 
-		if exec.collectedHeader != nil || exec.collectedReader != nil {
+		if !exec.collectOnly && (exec.collectedHeader != nil || exec.collectedReader != nil) {
 			exec.writeCollectedObject()
 		}
 	case errors.Is(err, apistatus.Error):
