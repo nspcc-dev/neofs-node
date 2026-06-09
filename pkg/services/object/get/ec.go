@@ -1443,7 +1443,11 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 
 	abortNextTo := func(i int) {
 		for j := i + 1; j < int(rule.DataPartNum); j++ {
-			controlChs[j-2] <- true
+			// non-blocking because multiple routines can call this while it's enough to write once
+			select {
+			case controlChs[j-2] <- true:
+			default:
+			}
 		}
 	}
 
