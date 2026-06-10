@@ -1,4 +1,4 @@
-package nns
+package nnscore
 
 import (
 	"fmt"

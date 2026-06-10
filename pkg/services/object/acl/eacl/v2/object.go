@@ -7,7 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -30,13 +30,13 @@ func u64Value(v uint64) string {
 	return strconv.FormatUint(v, 10)
 }
 
-func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.Header {
+func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eacl.Header {
 	var count int
 	for obj := obj; obj != nil; obj = obj.Parent() {
 		count += 9 + len(obj.Attributes())
 	}
 
-	res := make([]eaclSDK.Header, 0, count)
+	res := make([]eacl.Header, 0, count)
 	for ; obj != nil; obj = obj.Parent() {
 		var ver = obj.Version()
 		if ver == nil {
@@ -46,22 +46,22 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 			cidHeader(cnr),
 			// creation epoch
 			sysObjHdr{
-				k: eaclSDK.FilterObjectCreationEpoch,
+				k: eacl.FilterObjectCreationEpoch,
 				v: u64Value(obj.CreationEpoch()),
 			},
 			// payload size
 			sysObjHdr{
-				k: eaclSDK.FilterObjectPayloadSize,
+				k: eacl.FilterObjectPayloadSize,
 				v: u64Value(obj.PayloadSize()),
 			},
 			// object version
 			sysObjHdr{
-				k: eaclSDK.FilterObjectVersion,
+				k: eacl.FilterObjectVersion,
 				v: ver.String(),
 			},
 			// object type
 			sysObjHdr{
-				k: eaclSDK.FilterObjectType,
+				k: eacl.FilterObjectType,
 				v: obj.Type().String(),
 			},
 		)
@@ -77,7 +77,7 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 		cs, ok := obj.PayloadChecksum()
 		if ok {
 			res = append(res, sysObjHdr{
-				k: eaclSDK.FilterObjectPayloadChecksum,
+				k: eacl.FilterObjectPayloadChecksum,
 				v: cs.String(),
 			})
 		}
@@ -86,26 +86,26 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 		cs, ok = obj.PayloadHomomorphicHash()
 		if ok {
 			res = append(res, sysObjHdr{
-				k: eaclSDK.FilterObjectPayloadHomomorphicChecksum,
+				k: eacl.FilterObjectPayloadHomomorphicChecksum,
 				v: cs.String(),
 			})
 		}
 
 		attrs := obj.Attributes()
 		for i := range attrs {
-			res = append(res, &attrs[i]) // only pointer attrs can implement eaclSDK.Header interface
+			res = append(res, &attrs[i]) // only pointer attrs can implement eacl.Header interface
 		}
 	}
 
 	return res
 }
 
-func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eaclSDK.Header, error) {
+func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eacl.Header, error) {
 	var ver version.Version
 	var creationEpoch uint64
 	var payloadLen uint64
 	var objTyp object.Type
-	res := make([]eaclSDK.Header, 0, 10)
+	res := make([]eacl.Header, 0, 10)
 
 	var off int
 	for {
@@ -136,7 +136,7 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eaclSD
 			}
 			off += n
 
-			res = append(res, sysObjHdr{k: eaclSDK.FilterObjectOwnerID, v: base58.Encode(owner)})
+			res = append(res, sysObjHdr{k: eacl.FilterObjectOwnerID, v: base58.Encode(owner)})
 		case protoobject.FieldHeaderCreationEpoch:
 			creationEpoch, n, err = iprotobuf.ParseUint64Field(buf[off:], num, typ)
 			if err != nil {
@@ -156,7 +156,7 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eaclSD
 			}
 			off += n
 
-			res = append(res, sysObjHdr{k: eaclSDK.FilterObjectPayloadChecksum, v: cs.String()})
+			res = append(res, sysObjHdr{k: eacl.FilterObjectPayloadChecksum, v: cs.String()})
 		case protoobject.FieldHeaderObjectType:
 			objTyp, n, err = iprotobuf.ParseEnumField[object.Type](buf[off:], num, typ)
 			if err != nil {
@@ -171,7 +171,7 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eaclSD
 			off += n
 
 			//nolint:staticcheck // if we store old objects with it, we should support old eACL rules
-			res = append(res, sysObjHdr{k: eaclSDK.FilterObjectPayloadHomomorphicChecksum, v: cs.String()})
+			res = append(res, sysObjHdr{k: eacl.FilterObjectPayloadHomomorphicChecksum, v: cs.String()})
 		case protoobject.FieldHeaderSessionToken:
 			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
 			if err != nil {
@@ -224,10 +224,10 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eaclSD
 	}
 
 	res = append(res,
-		sysObjHdr{k: eaclSDK.FilterObjectCreationEpoch, v: u64Value(creationEpoch)},
-		sysObjHdr{k: eaclSDK.FilterObjectPayloadSize, v: u64Value(payloadLen)},
-		sysObjHdr{k: eaclSDK.FilterObjectVersion, v: ver.String()},
-		sysObjHdr{k: eaclSDK.FilterObjectType, v: objTyp.String()},
+		sysObjHdr{k: eacl.FilterObjectCreationEpoch, v: u64Value(creationEpoch)},
+		sysObjHdr{k: eacl.FilterObjectPayloadSize, v: u64Value(payloadLen)},
+		sysObjHdr{k: eacl.FilterObjectVersion, v: ver.String()},
+		sysObjHdr{k: eacl.FilterObjectType, v: objTyp.String()},
 		cidHeader(cnr),
 	)
 

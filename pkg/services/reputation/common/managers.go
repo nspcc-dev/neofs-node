@@ -5,9 +5,9 @@ import (
 	"slices"
 
 	"github.com/nspcc-dev/hrw/v2"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	apiNetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +61,7 @@ func (h hashableUint) Hash() uint64 {
 
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
-func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([]apiNetmap.NodeInfo, error) {
+func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]netmap.NodeInfo, error) {
 	mb.log.Debug("start building managers",
 		zap.Uint64("epoch", epoch),
 		zap.Stringer("peer", p),
@@ -80,14 +80,14 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([
 	hrw.Sort(nodes, hashableUint(epoch))
 
 	for i := range nodes {
-		if apireputation.ComparePeerKey(p, nodes[i].PublicKey()) {
+		if reputation.ComparePeerKey(p, nodes[i].PublicKey()) {
 			managerIndex := i + 1
 
 			if managerIndex == len(nodes) {
 				managerIndex = 0
 			}
 
-			return []apiNetmap.NodeInfo{nodes[managerIndex]}, nil
+			return []netmap.NodeInfo{nodes[managerIndex]}, nil
 		}
 	}
 

@@ -20,7 +20,7 @@ type Option func(*cfg)
 
 // NetworkInfo wraps network state and configurations.
 type NetworkInfo interface {
-	netmap.State
+	netmapcore.State
 
 	// TombstoneLifetime must return the lifespan of the tombstones
 	// in the NeoFS epochs.

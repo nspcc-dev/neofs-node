@@ -27,7 +27,7 @@ type FormatValidator struct {
 	*cfg
 	fsChain        FSChain
 	netmapContract NetmapContract
-	containers     container.Source
+	containers     containercore.Source
 	resolver       session.NNSResolver
 }
 
@@ -35,7 +35,7 @@ type FormatValidator struct {
 type FormatValidatorOption func(*cfg)
 
 type cfg struct {
-	netState netmap.State
+	netState netmapcore.State
 	e        LockSource
 	sv       SplitVerifier
 	tv       TombVerifier
@@ -58,7 +58,7 @@ type LockSource interface {
 
 // Locker is an object lock storage interface.
 type Locker interface {
-	// Lock list of objects as locked by locker in the specified container.
+	// Lock list of objects as locked by locker in the specified containercore.
 	//
 	// Returns apistatus.LockNonRegularObject if at least object in locked
 	// list is irregular (not type of REGULAR).
@@ -119,7 +119,7 @@ func defaultCfg() *cfg {
 }
 
 // NewFormatValidator creates, initializes and returns FormatValidator instance.
-func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containers container.Source, opts ...FormatValidatorOption) *FormatValidator {
+func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containers containercore.Source, opts ...FormatValidatorOption) *FormatValidator {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -131,7 +131,7 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containe
 		fsChain:        fsChain,
 		netmapContract: netmapContract,
 		containers:     containers,
-		resolver:       nns.NewResolver(fsChain),
+		resolver:       nnscore.NewResolver(fsChain),
 	}
 }
 
@@ -153,7 +153,7 @@ func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unpr
 		return errNilObject
 	}
 
-	if !allowAllVersions && !version.ValidNewObject(obj.Version()) {
+	if !allowAllVersions && !versioncore.ValidNewObject(obj.Version()) {
 		return fmt.Errorf("invalid version for a non-replicated object: %s", obj.Version())
 	}
 
@@ -164,7 +164,7 @@ func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unpr
 		return fmt.Errorf("strorage group type is no longer supported")
 	case object.TypeLock, object.TypeTombstone:
 		if !unprepared {
-			if !version.SysObjTargetShouldBeInHeader(obj.Version()) {
+			if !versioncore.SysObjTargetShouldBeInHeader(obj.Version()) {
 				return fmt.Errorf("obsolete %s object version", obj.Type())
 			}
 		}
@@ -324,7 +324,7 @@ func (v *FormatValidator) ValidateContent(ctx context.Context, o *object.Object)
 			return fmt.Errorf("link object's split chain verification: %w", err)
 		}
 	case object.TypeTombstone, object.TypeLock:
-		if !version.SysObjTargetShouldBeInHeader(o.Version()) {
+		if !versioncore.SysObjTargetShouldBeInHeader(o.Version()) {
 			return fmt.Errorf("pre-2.18 %s is not supported", o.Type())
 		}
 
@@ -434,7 +434,7 @@ func (v *FormatValidator) checkOwner(obj *object.Object) error {
 }
 
 // WithNetState returns options to set the network state interface.
-func WithNetState(netState netmap.State) FormatValidatorOption {
+func WithNetState(netState netmapcore.State) FormatValidatorOption {
 	return func(c *cfg) {
 		c.netState = netState
 	}

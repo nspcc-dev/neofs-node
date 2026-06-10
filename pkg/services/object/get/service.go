@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -46,7 +46,7 @@ type NeoFSNetwork interface {
 	//
 	// Returns [apistatus.ContainerNotFound] if requested container is missing in
 	// the network.
-	GetNodesForObject(oid.Address) (nodeRules [][]netmapsdk.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
+	GetNodesForObject(oid.Address) (nodeRules [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node providing [Service].
 	IsLocalNodePublicKey([]byte) bool
@@ -90,7 +90,7 @@ type GetECRequestTransport interface {
 	// Otherwise, no error is returned. Copying can be incomplete in this case.
 	//
 	// CopyRemoteECPartParentHeaderAndPayload is never called concurrently.
-	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
 	// CopyLocalECPartParentHeaderAndPayload works like CopyRemoteECPartParentHeaderAndPayload but locally.
 	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
 	// CopyRemoteECPartRange requests specified payload range of originally
@@ -111,7 +111,7 @@ type GetECRequestTransport interface {
 	//
 	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
 	// never for the same one.
-	CopyRemoteECPartRange(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error)
+	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error)
 	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
 	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool) (uint64, error)
 }
@@ -164,17 +164,17 @@ type cfg struct {
 	}
 
 	clientCache interface {
-		get(context.Context, netmapsdk.NodeInfo) (getClient, error)
+		get(context.Context, netmap.NodeInfo) (getClient, error)
 	}
 	// TODO: merge with clientCache
 	// TODO: this differs with https://pkg.go.dev/github.com/nspcc-dev/neofs-sdk-go/client#Client
 	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
 	conns interface {
-		InitGetObjectStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+		InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			st *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
-		Head(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+		Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			st *session.Object) (object.Object, error)
-		InitGetObjectRangeStream(ctx context.Context, node netmapsdk.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
+		InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			off, ln uint64, st *session.Object, xs []string) (io.ReadCloser, error)
 	}
 
@@ -226,7 +226,7 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 }
 
 type ClientConstructor interface {
-	Get(context.Context, netmapsdk.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error)
 }
 
 // WithClientConstructor returns option to set constructor of remote node clients.
@@ -252,7 +252,7 @@ func WithNNSResolver(resolver sessionv2.NNSResolver) Option {
 	}
 }
 
-func (s *Service) logSNConnFailure(node netmapsdk.NodeInfo, err error) {
+func (s *Service) logSNConnFailure(node netmap.NodeInfo, err error) {
 	s.log.Warn("remote SN connection failure",
 		zap.String("publicKey", hex.EncodeToString(node.PublicKey())),
 		zap.Error(err),

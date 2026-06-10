@@ -14,7 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -38,8 +38,8 @@ type localStorage interface {
 
 // interface of [headsvc.RemoteHeader] used by [Policer] for overriding in tests.
 type apiConnections interface {
-	headObject(context.Context, netmapsdk.NodeInfo, oid.Address, bool, []string) (object.Object, error)
-	GetRange(ctx context.Context, node netmapsdk.NodeInfo, cnr cid.ID, id oid.ID, ln, off uint64, xs []string) (io.ReadCloser, error)
+	headObject(context.Context, netmap.NodeInfo, oid.Address, bool, []string) (object.Object, error)
+	GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, ln, off uint64, xs []string) (io.ReadCloser, error)
 }
 
 // Policer represents the utility that verifies
@@ -89,7 +89,7 @@ type (
 		//
 		// Returns [apistatus.ErrContainerNotFound] if requested container is missing in
 		// the network.
-		GetNodesForObject(oid.Address) (nodeLists [][]netmapsdk.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
+		GetNodesForObject(oid.Address) (nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule, err error)
 		// IsLocalNodePublicKey checks whether given binary-encoded public key is
 		// assigned in the network map to a local storage node running [Policer].
 		IsLocalNodePublicKey([]byte) bool
@@ -212,7 +212,7 @@ type remoteHeader struct {
 	*headsvc.RemoteHeader
 }
 
-func (x *remoteHeader) headObject(ctx context.Context, node netmapsdk.NodeInfo, addr oid.Address, checkOID bool, xs []string) (object.Object, error) {
+func (x *remoteHeader) headObject(ctx context.Context, node netmap.NodeInfo, addr oid.Address, checkOID bool, xs []string) (object.Object, error) {
 	var p headsvc.RemoteHeadPrm
 	p.WithNodeInfo(node)
 	p.WithObjectAddress(addr)

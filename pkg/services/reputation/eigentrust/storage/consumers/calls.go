@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	localreputation "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // Put saves intermediate trust of the consumer to daughter peer.
@@ -123,7 +123,7 @@ func (x *ConsumersStorage) put(trust eigentrust.IterationTrust) {
 		s = x.mItems[daughter]
 		if s == nil {
 			s = &ConsumersTrusts{
-				mItems: make(map[string]reputation.Trust, 1),
+				mItems: make(map[string]localreputation.Trust, 1),
 			}
 
 			x.mItems[daughter] = s
@@ -143,7 +143,7 @@ func (x *ConsumersStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err erro
 
 	{
 		for strTrusted, trusts := range x.mItems {
-			var trusted apireputation.PeerID
+			var trusted reputation.PeerID
 
 			if strTrusted != "" {
 				err = trusted.DecodeString(strTrusted)
@@ -168,7 +168,7 @@ func (x *ConsumersStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err erro
 type ConsumersTrusts struct {
 	mtx sync.RWMutex
 
-	mItems map[string]reputation.Trust
+	mItems map[string]localreputation.Trust
 }
 
 func (x *ConsumersTrusts) put(trust eigentrust.IterationTrust) {
@@ -184,7 +184,7 @@ func (x *ConsumersTrusts) put(trust eigentrust.IterationTrust) {
 // Iterate passes all stored trusts to h.
 //
 // Returns errors from h directly.
-func (x *ConsumersTrusts) Iterate(h reputation.TrustHandler) (err error) {
+func (x *ConsumersTrusts) Iterate(h localreputation.TrustHandler) (err error) {
 	x.mtx.RLock()
 
 	{

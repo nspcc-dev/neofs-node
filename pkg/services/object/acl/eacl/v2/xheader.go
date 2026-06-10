@@ -1,12 +1,12 @@
 package v2
 
 import (
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 )
 
 type xHeaderSource interface {
-	GetXHeaders() []eaclSDK.Header
+	GetXHeaders() []eacl.Header
 }
 
 type requestXHeaderSource struct {
@@ -19,14 +19,14 @@ type responseXHeaderSource struct {
 	req Request
 }
 
-func (s requestXHeaderSource) GetXHeaders() []eaclSDK.Header {
+func (s requestXHeaderSource) GetXHeaders() []eacl.Header {
 	ln := 0
 
 	for meta := s.req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		ln += len(meta.GetXHeaders())
 	}
 
-	res := make([]eaclSDK.Header, 0, ln)
+	res := make([]eacl.Header, 0, ln)
 	for meta := s.req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		x := meta.GetXHeaders()
 		for i := range x {
@@ -37,7 +37,7 @@ func (s requestXHeaderSource) GetXHeaders() []eaclSDK.Header {
 	return res
 }
 
-func (s responseXHeaderSource) GetXHeaders() []eaclSDK.Header {
+func (s responseXHeaderSource) GetXHeaders() []eacl.Header {
 	ln := 0
 	xHdrs := make([][]*protosession.XHeader, 0)
 
@@ -49,7 +49,7 @@ func (s responseXHeaderSource) GetXHeaders() []eaclSDK.Header {
 		xHdrs = append(xHdrs, x)
 	}
 
-	res := make([]eaclSDK.Header, 0, ln)
+	res := make([]eacl.Header, 0, ln)
 
 	for i := range xHdrs {
 		for j := range xHdrs[i] {

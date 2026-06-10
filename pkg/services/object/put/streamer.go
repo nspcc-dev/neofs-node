@@ -24,7 +24,7 @@ type Streamer struct {
 
 	target internal.Target
 
-	relay func(client.MultiAddressClient) error
+	relay func(clientcore.MultiAddressClient) error
 
 	maxPayloadSz uint64 // network config
 

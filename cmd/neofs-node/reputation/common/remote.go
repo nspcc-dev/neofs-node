@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
@@ -14,14 +14,14 @@ import (
 )
 
 type clientCache interface {
-	Get(context.Context, netmap.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error)
 }
 
 // clientKeyRemoteProvider must provide a remote writer and take into account
 // that requests must be sent via the passed api client and must be signed with
 // the passed private key.
 type clientKeyRemoteProvider interface {
-	WithClient(client.Client) reputationcommon.WriterProvider
+	WithClient(clientcore.Client) reputationcommon.WriterProvider
 }
 
 // remoteTrustProvider is an implementation of reputation RemoteWriterProvider interface.

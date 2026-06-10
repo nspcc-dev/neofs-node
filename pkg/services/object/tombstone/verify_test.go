@@ -12,7 +12,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
-	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -264,7 +264,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 
 	t.Run("incorrect version", func(t *testing.T) {
 		o := objecttest.Object()
-		ver := versionSDK.New(1, 17)
+		ver := version.New(1, 17)
 		o.SetVersion(&ver)
 
 		require.Error(t, v.VerifyTombStoneWithoutPayload(ctx, o))
@@ -279,7 +279,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 
 	t.Run("EC", func(t *testing.T) {
 		cnr := cidtest.ID()
-		ver := versionSDK.New(2, 18)
+		ver := version.New(2, 18)
 		partID := oidtest.ID()
 
 		var partHdr object.Object

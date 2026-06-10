@@ -5,8 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	localreputation "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 type trustValue struct {
@@ -27,16 +27,16 @@ func newTrustValueStorage() *EpochTrustValueStorage {
 	}
 }
 
-func stringifyPeerID(id apireputation.PeerID) string {
+func stringifyPeerID(id reputation.PeerID) string {
 	return string(id.PublicKey())
 }
 
-func peerIDFromString(str string) (res apireputation.PeerID) {
+func peerIDFromString(str string) (res reputation.PeerID) {
 	res.SetPublicKey([]byte(str))
 	return
 }
 
-func (s *EpochTrustValueStorage) update(peer apireputation.PeerID, sat bool) {
+func (s *EpochTrustValueStorage) update(peer reputation.PeerID, sat bool) {
 	var strID = stringifyPeerID(peer)
 
 	s.mtx.RLock()
@@ -60,7 +60,7 @@ func (s *EpochTrustValueStorage) update(peer apireputation.PeerID, sat bool) {
 }
 
 // Update updates the number of satisfactory transactions with peer.
-func (s *Storage) Update(epoch uint64, peer apireputation.PeerID, sat bool) {
+func (s *Storage) Update(epoch uint64, peer reputation.PeerID, sat bool) {
 	s.mtx.RLock()
 	trustStorage, ok := s.mItems[epoch]
 	s.mtx.RUnlock()
@@ -102,20 +102,20 @@ func (s *Storage) DataForEpoch(epoch uint64) (*EpochTrustValueStorage, error) {
 //
 // Values are normalized according to http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Chapter 4.5.
 // If divisor in formula is zero, ErrNoPositiveTrust returns.
-func (s *EpochTrustValueStorage) Iterate(h reputation.TrustHandler) (err error) {
+func (s *EpochTrustValueStorage) Iterate(h localreputation.TrustHandler) (err error) {
 	s.mtx.RLock()
 
 	{
 		var (
-			sum   reputation.TrustValue
-			mVals = make(map[string]reputation.TrustValue, len(s.mItems))
+			sum   localreputation.TrustValue
+			mVals = make(map[string]localreputation.TrustValue, len(s.mItems))
 		)
 
 		// iterate first time to calculate normalizing divisor
 		for strID, val := range s.mItems {
 			if val.all.Load() > 0 {
-				num := reputation.TrustValueFromInt64(val.sat.Load())
-				denom := reputation.TrustValueFromInt64(val.all.Load())
+				num := localreputation.TrustValueFromInt64(val.sat.Load())
+				denom := localreputation.TrustValueFromInt64(val.all.Load())
 
 				v := num.Div(denom)
 
@@ -129,7 +129,7 @@ func (s *EpochTrustValueStorage) Iterate(h reputation.TrustHandler) (err error) 
 
 		if !sum.IsZero() {
 			for strID, val := range mVals {
-				t := reputation.Trust{}
+				t := localreputation.Trust{}
 
 				t.SetPeer(peerIDFromString(strID))
 				t.SetValue(val.Div(sum))

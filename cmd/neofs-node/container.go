@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -19,15 +19,15 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	timer "github.com/nspcc-dev/neofs-node/pkg/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -135,7 +135,7 @@ func initSizeLoadReports(c *cfg) {
 	dur := time.Duration(durSec) * time.Second
 
 	var nmLen = len(nm.Nodes())
-	indexInNM := slices.IndexFunc(nm.Nodes(), func(node netmapsdk.NodeInfo) bool {
+	indexInNM := slices.IndexFunc(nm.Nodes(), func(node netmap.NodeInfo) bool {
 		return bytes.Equal(node.PublicKey(), c.binPublicKey)
 	})
 
@@ -171,7 +171,7 @@ func initSizeLoadReports(c *cfg) {
 
 	c.cfgMorph.epochTimers = timer.NewTimers(ticks)
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-		txHash := ev.(netmap.NewEpoch).TxHash()
+		txHash := ev.(netmapEvent.NewEpoch).TxHash()
 		txHeight, err := c.nCli.Morph().TxHeight(txHash)
 		if err != nil {
 			l.Warn("can't get transaction height", zap.String("hash", txHash.StringLE()), zap.Error(err))
@@ -537,7 +537,7 @@ func (c *cfg) IsLocalKey(key []byte) bool {
 
 type containersInChain basics
 
-func (x *containersInChain) Get(id cid.ID) (containerSDK.Container, error) {
+func (x *containersInChain) Get(id cid.ID) (container.Container, error) {
 	return x.cnrSrc.Get(id)
 }
 
@@ -552,7 +552,7 @@ func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
 	return x.cnrLst.List(&id)
 }
 
-func (x *containersInChain) Put(ctx context.Context, cnr containerSDK.Container, pub, sig []byte, st []byte) (cid.ID, error) {
+func (x *containersInChain) Put(ctx context.Context, cnr container.Container, pub, sig []byte, st []byte) (cid.ID, error) {
 	var prm cntClient.PutPrm
 	prm.SetContainer(cnr)
 	prm.SetKey(pub)
@@ -615,7 +615,7 @@ func (x *containersInChain) RemoveAttribute(ctx context.Context, cnr cid.ID, att
 	return err
 }
 
-type containerPresenceChecker struct{ src containerCore.Source }
+type containerPresenceChecker struct{ src containercore.Source }
 
 // Exists implements [meta.Containers].
 func (x containerPresenceChecker) Exists(id cid.ID) (bool, error) {

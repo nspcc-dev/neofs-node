@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
@@ -62,7 +62,7 @@ func (cp *Processor) processContainerPut(req containerEvent.CreateContainerReque
 		return
 	}
 
-	var cnr containerSDK.Container
+	var cnr container.Container
 	if err := cnr.Unmarshal(req.Container); err != nil {
 		cp.log.Error("put container check failed",
 			zap.Error(fmt.Errorf("invalid binary container: %w", err)),
@@ -94,7 +94,7 @@ var allowedSystemAttributes = map[string]struct{}{
 	sysAttrChainMeta:             {},
 }
 
-func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
+func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
 	var metaEnabled bool
 	for k := range cnr.Attributes() {
 		if strings.HasPrefix(k, sysAttrPrefix) {
@@ -149,7 +149,7 @@ func (cp *Processor) checkPutContainer(cnr containerSDK.Container, cnrBytes, ses
 	return nil
 }
 
-func (cp *Processor) approvePutContainer(mainTx transaction.Transaction, cnr containerSDK.Container, id cid.ID) {
+func (cp *Processor) approvePutContainer(mainTx transaction.Transaction, cnr container.Container, id cid.ID) {
 	l := cp.log.With(zap.Stringer("cID", id))
 	l.Debug("approving new container...")
 
@@ -431,7 +431,7 @@ func (cp *Processor) approveRemoveAttributeRequest(req containerEvent.RemoveAttr
 	}
 }
 
-func checkNNS(cnr containerSDK.Container, name, zone string) error {
+func checkNNS(cnr container.Container, name, zone string) error {
 	// fetch domain info
 	d := cnr.ReadDomain()
 

@@ -37,7 +37,7 @@ const (
 
 func newMetaClient(t *testing.T) (*neotest.ContractInvoker, *neotest.ContractInvoker) {
 	ch, validators, committee := chain.NewMultiWithOptions(t, &chain.Options{
-		NewNatives: metachain.NewCustomNatives,
+		NewNatives: metachaincore.NewCustomNatives,
 	})
 	e := neotest.NewExecutor(t, ch, validators, committee)
 

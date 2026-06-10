@@ -8,7 +8,7 @@ import (
 	"io"
 	"slices"
 
-	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -47,7 +47,7 @@ type clientCacheWrapper struct {
 }
 
 type clientWrapper struct {
-	client coreclient.MultiAddressClient
+	client clientcore.MultiAddressClient
 }
 
 type storageEngineWrapper struct {
@@ -532,7 +532,7 @@ func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node 
 	return rc, nil
 }
 
-func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) (coreclient.MultiAddressClient, error) {
+func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
 	conn, err := c.cache.Get(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("get conn: %w", err)

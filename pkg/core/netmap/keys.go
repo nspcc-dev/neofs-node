@@ -1,4 +1,4 @@
-package netmap
+package netmapcore
 
 // AnnouncedKeys is an interface of utility for working with the announced public keys of the storage nodes.
 type AnnouncedKeys interface {

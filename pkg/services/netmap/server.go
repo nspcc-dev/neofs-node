@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"

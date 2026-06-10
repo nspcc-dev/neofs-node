@@ -13,7 +13,7 @@ import (
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
@@ -59,35 +59,35 @@ type Option func(*cfg)
 type Transport interface {
 	// SendReplicationRequestToNode sends a prepared replication request message to
 	// the specified remote node.
-	SendReplicationRequestToNode(ctx context.Context, req []byte, node netmapsdk.NodeInfo) ([]byte, error)
+	SendReplicationRequestToNode(ctx context.Context, req []byte, node netmap.NodeInfo) ([]byte, error)
 }
 
 type ClientConstructor interface {
-	Get(context.Context, netmapsdk.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error)
 }
 
 // PostPlacementReplicator performs replication of objects that
 // were initially placed using relaxed limits and should be brought to the full
 // placement policy immediately after PUT succeeds.
 type PostPlacementReplicator interface {
-	HandlePostPlacement(*object.Object, []netmapsdk.NodeInfo)
+	HandlePostPlacement(*object.Object, []netmap.NodeInfo)
 }
 
 // ContainerNodes provides access to storage nodes matching storage policy of
-// the particular container.
+// the particular containercore.
 type ContainerNodes interface {
 	// Unsorted returns unsorted descriptor set corresponding to the storage nodes
-	// matching storage policy of the container. Nodes are identified by their
+	// matching storage policy of the containercore. Nodes are identified by their
 	// public keys and can be repeated in different sets.
 	//
 	// First PrimaryCounts() sets are for replication, the rest are for ECRules().
 	//
 	// Unsorted callers do not change resulting slices and their elements.
-	Unsorted() [][]netmapsdk.NodeInfo
+	Unsorted() [][]netmap.NodeInfo
 	// SortForObject sorts container nodes for the referenced object's storage.
 	//
 	// SortForObject callers do not change resulting slices and their elements.
-	SortForObject(oid.ID) ([][]netmapsdk.NodeInfo, error)
+	SortForObject(oid.ID) ([][]netmap.NodeInfo, error)
 	// PrimaryCounts returns number (N) of primary object holders for each sorted
 	// list (L) so:
 	//  - size of each L >= N;
@@ -95,7 +95,7 @@ type ContainerNodes interface {
 	//    are backup.
 	PrimaryCounts() []uint
 	// ECRules returns list of erasure coding rules for all objects in the
-	// container. Same rule may repeat.
+	// containercore. Same rule may repeat.
 	//
 	// ECRules callers do not change resulting slice.
 	ECRules() []iec.Rule
@@ -127,7 +127,7 @@ type cfg struct {
 
 	localStore ObjectStorage
 
-	cnrSrc container.Source
+	cnrSrc containercore.Source
 
 	remotePool util.WorkerPool
 
@@ -135,7 +135,7 @@ type cfg struct {
 
 	fmtValidatorOpts []objectcore.FormatValidatorOption
 
-	networkState netmap.StateDetailed
+	networkState netmapcore.StateDetailed
 
 	clientConstructor ClientConstructor
 
@@ -214,7 +214,7 @@ func WithObjectStorage(v ObjectStorage) Option {
 	}
 }
 
-func WithContainerSource(v container.Source) Option {
+func WithContainerSource(v containercore.Source) Option {
 	return func(c *cfg) {
 		c.cnrSrc = v
 	}
@@ -226,7 +226,7 @@ func WithRemoteWorkerPool(remote util.WorkerPool) Option {
 	}
 }
 
-func WithNetworkState(v netmap.StateDetailed) Option {
+func WithNetworkState(v netmapcore.StateDetailed) Option {
 	return func(c *cfg) {
 		c.networkState = v
 		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithNetState(v))

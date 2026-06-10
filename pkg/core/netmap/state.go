@@ -1,4 +1,4 @@
-package netmap
+package netmapcore
 
 // State groups the current system state parameters.
 type State interface {

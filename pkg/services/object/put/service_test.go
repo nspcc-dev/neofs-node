@@ -22,7 +22,7 @@ import (
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	storage "github.com/nspcc-dev/neofs-node/pkg/util/state/session"
@@ -43,7 +43,7 @@ import (
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -1112,12 +1112,12 @@ func (m *serviceClient) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64,
 	panic("unimplemented")
 }
 
-func (m *serviceClient) AnnounceLocalTrust(context.Context, uint64, []apireputation.Trust, client.PrmAnnounceLocalTrust) error {
+func (m *serviceClient) AnnounceLocalTrust(context.Context, uint64, []reputation.Trust, client.PrmAnnounceLocalTrust) error {
 	// TODO: interfaces are oversaturated. This will never be needed to server object PUT. Refactor this.
 	panic("unimplemented")
 }
 
-func (m *serviceClient) AnnounceIntermediateTrust(context.Context, uint64, apireputation.PeerToPeerTrust, client.PrmAnnounceIntermediateTrust) error {
+func (m *serviceClient) AnnounceIntermediateTrust(context.Context, uint64, reputation.PeerToPeerTrust, client.PrmAnnounceIntermediateTrust) error {
 	panic("unimplemented")
 }
 

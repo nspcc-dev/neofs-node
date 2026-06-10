@@ -15,8 +15,8 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -43,13 +43,13 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -71,7 +71,7 @@ type putPostInitialPlacementReplicator struct {
 	disabled   bool
 }
 
-func (r putPostInitialPlacementReplicator) HandlePostPlacement(obj *object.Object, nodes []netmapsdk.NodeInfo) {
+func (r putPostInitialPlacementReplicator) HandlePostPlacement(obj *object.Object, nodes []netmap.NodeInfo) {
 	if r.disabled {
 		r.log.Debug("post-placement replication is disabled",
 			zap.Stringer("object", obj.Address()),
@@ -131,7 +131,7 @@ func (s *objectSvc) GetRange(ctx context.Context, prm getsvc.RangePrm) error {
 }
 
 type delNetInfo struct {
-	netmap.State
+	netmapcore.State
 	tsLifetime uint64
 
 	cfg *cfg
@@ -170,13 +170,13 @@ func (fn *innerRingFetcherWithNotary) InnerRingKeys() ([][]byte, error) {
 
 type coreClientConstructor reputationClientConstructor
 
-func (x *coreClientConstructor) Get(ctx context.Context, info netmapsdk.NodeInfo) (coreclient.MultiAddressClient, error) {
+func (x *coreClientConstructor) Get(ctx context.Context, info netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
 	c, err := (*reputationClientConstructor)(x).Get(ctx, info)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.(coreclient.MultiAddressClient), nil
+	return c.(clientcore.MultiAddressClient), nil
 }
 
 // IsLocalNodeInNetmap looks for the local node in the latest view of the
@@ -247,7 +247,7 @@ func initObjectService(c *cfg) {
 
 	c.workers = append(c.workers, c.policer, c.replicator)
 
-	nnsResolver := nns.NewResolver(c.cli)
+	nnsResolver := nnscore.NewResolver(c.cli)
 
 	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
@@ -334,7 +334,7 @@ func initObjectService(c *cfg) {
 
 	aclChecker := acl.NewChecker(new(acl.CheckerPrm).
 		SetEACLSource(c.eaclSrc).
-		SetValidator(eaclSDK.NewValidator()).
+		SetValidator(eacl.NewValidator()).
 		SetLocalStorage(ls).
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
@@ -373,21 +373,21 @@ func initObjectService(c *cfg) {
 type reputationClientConstructor struct {
 	log *zap.Logger
 
-	nmSrc netmap.Source
+	nmSrc netmapcore.Source
 
-	netState netmap.State
+	netState netmapcore.State
 
 	trustStorage *truststorage.Storage
 
 	basicConstructor interface {
-		Get(context.Context, netmapsdk.NodeInfo) (coreclient.MultiAddressClient, error)
+		Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error)
 	}
 }
 
 type reputationClient struct {
-	coreclient.MultiAddressClient
+	clientcore.MultiAddressClient
 
-	peer apireputation.PeerID
+	peer reputation.PeerID
 	cons *reputationClientConstructor
 }
 
@@ -448,7 +448,7 @@ func (c *reputationClient) ObjectSearchInit(ctx context.Context, containerID cid
 	return res, err
 }
 
-func (c *reputationClientConstructor) Get(ctx context.Context, info netmapsdk.NodeInfo) (coreclient.Client, error) {
+func (c *reputationClientConstructor) Get(ctx context.Context, info netmap.NodeInfo) (clientcore.Client, error) {
 	cl, err := c.basicConstructor.Get(ctx, info)
 	if err != nil {
 		return nil, err
@@ -459,7 +459,7 @@ func (c *reputationClientConstructor) Get(ctx context.Context, info netmapsdk.No
 		key := info.PublicKey()
 
 		nmNodes := nm.Nodes()
-		var peer apireputation.PeerID
+		var peer reputation.PeerID
 
 		for i := range nmNodes {
 			if bytes.Equal(nmNodes[i].PublicKey(), key) {
@@ -548,14 +548,14 @@ func (h headerSource) Head(ctx context.Context, address oid.Address) (*object.Ob
 
 type fsChainForObjects struct {
 	containercore.Source
-	netmap.StateDetailed
+	netmapcore.StateDetailed
 	containerNodes *containerNodes
 	isLocalPubKey  func([]byte) bool
 	isMaintenance  *atomic.Bool
 	*morphClient.Client
 }
 
-func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed, cnrSource containercore.Source, isMaintenance *atomic.Bool, fsChainCli *morphClient.Client) *fsChainForObjects {
+func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmapcore.StateDetailed, cnrSource containercore.Source, isMaintenance *atomic.Bool, fsChainCli *morphClient.Client) *fsChainForObjects {
 	return &fsChainForObjects{
 		Source:         cnrSource,
 		StateDetailed:  ns,
@@ -590,7 +590,7 @@ func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.
 }
 
 // ForSearchableContainerNode implements [objectService.FSChain] interface.
-func (x *fsChainForObjects) ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmapsdk.NodeInfo) bool) error {
+func (x *fsChainForObjects) ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmap.NodeInfo) bool) error {
 	curEpoch, err := x.containerNodes.network.Epoch()
 	if err != nil {
 		return fmt.Errorf("read current NeoFS epoch: %w", err)
@@ -750,13 +750,13 @@ func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
 // object holders. Resulting slices must not be changed.
 //
 // GetNodesForObject implements [getsvc.NeoFSNetwork], [policer.Network].
-func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) {
+func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	nodeSets, repRules, ecRules, err := c.cfgObject.containerNodes.getNodesForObject(addr)
 	return nodeSets, repRules, ecRules, err
 }
 
 type netmapSourceWithNodes struct {
-	netmap.Source
+	netmapcore.Source
 	fsChain        *fsChainForObjects
 	netmapContract *netmapClient.Client
 }
@@ -771,7 +771,7 @@ func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
 		return true
 	})
 	if err != nil {
-		if errors.Is(err, netmapsdk.ErrNotEnoughNodes) {
+		if errors.Is(err, netmap.ErrNotEnoughNodes) {
 			return false, nil
 		}
 
@@ -934,16 +934,16 @@ func leftLimit(cnrLimit, cnrTaken, usrLimit, usrTaken uint64) uint64 {
 // implements [putsvc.ContainerNodes].
 type containerNodesSorter struct {
 	policy         storagePolicyRes
-	networkMap     *netmapsdk.NetMap
+	networkMap     *netmap.NetMap
 	cnrID          cid.ID
 	curEpoch       uint64
 	containerNodes *containerNodes
 }
 
-func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
+func (x *containerNodesSorter) Unsorted() [][]netmap.NodeInfo { return x.policy.nodeSets }
 func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
 func (x *containerNodesSorter) ECRules() []iec.Rule              { return x.policy.ecRules }
-func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
+func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmap.NodeInfo, error) {
 	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
 	cacheKey.addr.SetContainer(x.cnrID)
 	cacheKey.addr.SetObject(obj)
@@ -968,7 +968,7 @@ func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo
 	return res.nodeSets, res.err
 }
 
-func convertECRules(from []netmapsdk.ECRule) []iec.Rule {
+func convertECRules(from []netmap.ECRule) []iec.Rule {
 	to := make([]iec.Rule, len(from))
 	for i := range to {
 		to[i].DataPartNum = uint8(from[i].DataPartNum())

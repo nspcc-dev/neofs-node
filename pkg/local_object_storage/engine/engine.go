@@ -231,7 +231,7 @@ type cfg struct {
 	objectPutTimeout time.Duration
 	shardPoolSize    uint32
 
-	containerSource container.Source
+	containerSource containercore.Source
 
 	isIgnoreUninitedShards bool
 }
@@ -292,7 +292,7 @@ func WithErrorThreshold(sz uint32) Option {
 }
 
 // WithContainersSource returns an option to specify container source.
-func WithContainersSource(cs container.Source) Option {
+func WithContainersSource(cs containercore.Source) Option {
 	return func(c *cfg) {
 		c.containerSource = cs
 	}

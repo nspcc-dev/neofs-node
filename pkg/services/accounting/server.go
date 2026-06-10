@@ -29,7 +29,7 @@ type BalanceContract interface {
 type server struct {
 	protoaccounting.UnimplementedAccountingServiceServer
 	signer   *ecdsa.PrivateKey
-	net      netmap.State
+	net      netmapcore.State
 	contract BalanceContract
 }
 
@@ -38,7 +38,7 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmap.State, c BalanceContract) protoaccounting.AccountingServiceServer {
+func New(s *ecdsa.PrivateKey, net netmapcore.State, c BalanceContract) protoaccounting.AccountingServiceServer {
 	return &server{
 		signer:   s,
 		net:      net,

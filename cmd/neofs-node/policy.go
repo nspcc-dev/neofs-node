@@ -7,16 +7,16 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	sdkcontainer "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // storagePolicyRes structures persistent storage policy application result for
 // particular container and network map incl. error.
 type storagePolicyRes struct {
-	nodeSets  [][]netmapsdk.NodeInfo
+	nodeSets  [][]netmap.NodeInfo
 	repCounts []uint
 	ecRules   []iec.Rule
 	err       error
@@ -43,8 +43,8 @@ const (
 )
 
 type (
-	getContainerNodesFunc  = func(netmapsdk.NetMap, netmapsdk.PlacementPolicy, cid.ID) ([][]netmapsdk.NodeInfo, error)
-	sortContainerNodesFunc = func(netmapsdk.NetMap, [][]netmapsdk.NodeInfo, oid.ID) ([][]netmapsdk.NodeInfo, error)
+	getContainerNodesFunc  = func(netmap.NetMap, netmap.PlacementPolicy, cid.ID) ([][]netmap.NodeInfo, error)
+	sortContainerNodesFunc = func(netmap.NetMap, [][]netmap.NodeInfo, oid.ID) ([][]netmap.NodeInfo, error)
 )
 
 // containerNodes wraps NeoFS network state to apply container storage policies.
@@ -53,8 +53,8 @@ type (
 // network map, they could be cached. The containerNodes caches up to
 // cachedContainerNodesNum LRU results.
 type containerNodes struct {
-	containers container.Source
-	network    netmap.Source
+	containers containercore.Source
+	network    netmapcore.Source
 
 	cache    *lru.Cache[containerNodesCacheKey, storagePolicyRes]
 	objCache *lru.Cache[objectNodesCacheKey, storagePolicyRes]
@@ -64,7 +64,7 @@ type containerNodes struct {
 	sortContainerNodesFunc sortContainerNodesFunc
 }
 
-func newContainerNodes(containers container.Source, network netmap.Source) (*containerNodes, error) {
+func newContainerNodes(containers containercore.Source, network netmapcore.Source) (*containerNodes, error) {
 	l, err := lru.New[containerNodesCacheKey, storagePolicyRes](cachedContainerNodesNum)
 	if err != nil {
 		return nil, fmt.Errorf("create LRU container node cache for one epoch: %w", err)
@@ -78,8 +78,8 @@ func newContainerNodes(containers container.Source, network netmap.Source) (*con
 		network:                network,
 		cache:                  l,
 		objCache:               lo,
-		getContainerNodesFunc:  netmapsdk.NetMap.ContainerNodes,
-		sortContainerNodesFunc: netmapsdk.NetMap.PlacementVectors,
+		getContainerNodesFunc:  netmap.NetMap.ContainerNodes,
+		sortContainerNodesFunc: netmap.NetMap.PlacementVectors,
 	}, nil
 }
 
@@ -87,12 +87,12 @@ func newContainerNodes(containers container.Source, network netmap.Source) (*con
 // of each node match the referenced container's storage policy at two latest
 // epochs into f. When f returns false, nil is returned instantly.
 func (x *containerNodes) forEachContainerNodePublicKeyInLastTwoEpochs(cnrID cid.ID, f func(pubKey []byte) bool) error {
-	return x.forEachContainerNode(cnrID, true, func(node netmapsdk.NodeInfo) bool {
+	return x.forEachContainerNode(cnrID, true, func(node netmap.NodeInfo) bool {
 		return f(node.PublicKey())
 	})
 }
 
-func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, f func(netmapsdk.NodeInfo) bool) error {
+func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, f func(netmap.NodeInfo) bool) error {
 	curEpoch, err := x.network.Epoch()
 	if err != nil {
 		return fmt.Errorf("read current NeoFS epoch: %w", err)
@@ -154,7 +154,7 @@ func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, 
 // the underlying storage, applies the storage policy to it and returns sorted
 // lists of selected storage nodes along with the per-list numbers of primary
 // object holders. Resulting slices must not be changed.
-func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, []iec.Rule, error) {
+func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	curEpoch, err := x.network.Epoch()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("read current NeoFS epoch: %w", err)
@@ -184,7 +184,7 @@ func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.Node
 	return res.nodeSets, res.repCounts, res.ecRules, res.err
 }
 
-func (x *containerNodes) getForCurrentEpoch(curEpoch uint64, cnr cid.ID) (storagePolicyRes, *netmapsdk.NetMap, error) {
+func (x *containerNodes) getForCurrentEpoch(curEpoch uint64, cnr cid.ID) (storagePolicyRes, *netmap.NetMap, error) {
 	policy, networkMap, err := (&containerPolicyContext{
 		id:           cnr,
 		containers:   x.containers,
@@ -200,15 +200,15 @@ func (x *containerNodes) getForCurrentEpoch(curEpoch uint64, cnr cid.ID) (storag
 	return policy, networkMap, nil
 }
 
-// preserves context of storage policy processing for the particular container.
+// preserves context of storage policy processing for the particular containercore.
 type containerPolicyContext struct {
 	// static
 	id           cid.ID
-	containers   container.Source
-	network      netmap.Source
+	containers   containercore.Source
+	network      netmapcore.Source
 	getNodesFunc getContainerNodesFunc
 	// dynamic
-	cnr *sdkcontainer.Container
+	cnr *container.Container
 }
 
 // applyAtEpoch applies storage policy of container referenced by parameterized
@@ -223,7 +223,7 @@ func (x *containerPolicyContext) applyAtEpoch(epoch uint64, cache *lru.Cache[con
 // ID to the network map at the specified epoch. applyAtEpoch checks existing
 // results in the cache and stores new results in it. Network map is returned if
 // it was requested, i.e. on cache miss only.
-func (x *containerPolicyContext) applyToNetmap(epoch uint64, cache *lru.Cache[containerNodesCacheKey, storagePolicyRes]) (storagePolicyRes, *netmapsdk.NetMap, error) {
+func (x *containerPolicyContext) applyToNetmap(epoch uint64, cache *lru.Cache[containerNodesCacheKey, storagePolicyRes]) (storagePolicyRes, *netmap.NetMap, error) {
 	cacheKey := containerNodesCacheKey{epoch, x.id}
 	if result, ok := cache.Get(cacheKey); ok {
 		return result, nil, nil
@@ -260,7 +260,7 @@ func (x *containerPolicyContext) applyToNetmap(epoch uint64, cache *lru.Cache[co
 	return result, networkMap, nil
 }
 
-func checkPolicyApplicationResult(policy netmapsdk.PlacementPolicy, nodeSets [][]netmapsdk.NodeInfo) error {
+func checkPolicyApplicationResult(policy netmap.PlacementPolicy, nodeSets [][]netmap.NodeInfo) error {
 	ecRules := policy.ECRules()
 	repRules := policy.Replicas()
 	if len(nodeSets) != len(repRules)+len(ecRules) {

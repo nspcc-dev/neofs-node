@@ -63,9 +63,9 @@ type cfg struct {
 
 	healthChecker HealthChecker
 
-	netMapSrc netmap.Source
+	netMapSrc netmapcore.Source
 
-	cnrSrc container.Source
+	cnrSrc containercore.Source
 
 	replicator *replicator.Replicator
 
@@ -93,7 +93,7 @@ func New(key *ecdsa.PrivateKey, authorizedKeys [][]byte, healthChecker HealthChe
 
 // MarkReady marks server available. Before this call none of the other calls
 // are available except for the health checks.
-func (s *Server) MarkReady(e *engine.StorageEngine, nm netmap.Source, c container.Source, r *replicator.Replicator, st NodeState) {
+func (s *Server) MarkReady(e *engine.StorageEngine, nm netmapcore.Source, c containercore.Source, r *replicator.Replicator, st NodeState) {
 	panicOnNil := func(name string, service any) {
 		if service == nil {
 			panic(fmt.Sprintf("'%s' is nil", name))

@@ -20,7 +20,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
-	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	"go.uber.org/zap"
 )
@@ -38,7 +38,7 @@ type networkState struct {
 
 	controlNetStatus atomic.Value // control.NetmapStatus
 
-	nodeInfo atomic.Value // *netmapSDK.NodeInfo
+	nodeInfo atomic.Value // *netmap.NodeInfo
 
 	metrics *metrics.NodeMetrics
 }
@@ -81,7 +81,7 @@ func (s *networkState) updateEpochDuration(v uint64) {
 	s.epochDuration.Store(defaultEpochDuration)
 }
 
-func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
+func (s *networkState) setNodeInfo(ni *netmap.NodeInfo) {
 	ctrlNetSt := control.NetmapStatus_STATUS_UNDEFINED
 
 	if ni != nil {
@@ -100,7 +100,7 @@ func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
 
 		niRaw := s.nodeInfo.Load()
 		if niRaw != nil {
-			niOld := niRaw.(netmapSDK.NodeInfo)
+			niOld := niRaw.(netmap.NodeInfo)
 
 			// nil ni means that the node is not included
 			// in the netmap
@@ -124,10 +124,10 @@ func (s *networkState) controlNetmapStatus() (res control.NetmapStatus) {
 	return s.controlNetStatus.Load().(control.NetmapStatus)
 }
 
-func (s *networkState) getNodeInfo() (res netmapSDK.NodeInfo, ok bool) {
+func (s *networkState) getNodeInfo() (res netmap.NodeInfo, ok bool) {
 	v := s.nodeInfo.Load()
 	if v != nil {
-		res, ok = v.(netmapSDK.NodeInfo)
+		res, ok = v.(netmap.NodeInfo)
 		if !ok {
 			panic(fmt.Sprintf("unexpected value in atomic node info state: %T", v))
 		}
@@ -166,7 +166,7 @@ func initNetmapService(c *cfg) {
 		e := ev.(netmapEvent.NewEpoch).EpochNumber()
 
 		var (
-			ni      *netmapSDK.NodeInfo
+			ni      *netmap.NodeInfo
 			err     error
 			retries uint64
 		)
@@ -235,7 +235,7 @@ func initNetmapService(c *cfg) {
 		}
 
 		nodes := nm.Nodes()
-		local := slices.IndexFunc(nodes, func(node netmapSDK.NodeInfo) bool { return c.IsLocalKey(node.PublicKey()) })
+		local := slices.IndexFunc(nodes, func(node netmap.NodeInfo) bool { return c.IsLocalKey(node.PublicKey()) })
 		var wg sync.WaitGroup
 		l.Info("syncing SN connection caches with the new network map...")
 		for _, cl := range []*cache.Clients{c.clientCache, c.putClientCache, c.bgClientCache} {
@@ -327,7 +327,7 @@ func initNetmapState(c *cfg) {
 	updateLocalState(c, epoch, ni)
 }
 
-func getNetworkState(c *cfg) (uint64, *netmapSDK.NodeInfo, error) {
+func getNetworkState(c *cfg) (uint64, *netmap.NodeInfo, error) {
 	epoch, err := c.nCli.Epoch()
 	if err != nil {
 		return 0, nil, fmt.Errorf("could not get current epoch number: %w", err)
@@ -341,13 +341,13 @@ func getNetworkState(c *cfg) (uint64, *netmapSDK.NodeInfo, error) {
 	return epoch, ni, nil
 }
 
-func updateLocalState(c *cfg, epoch uint64, ni *netmapSDK.NodeInfo) {
+func updateLocalState(c *cfg, epoch uint64, ni *netmap.NodeInfo) {
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
 	c.cfgNetmap.startEpoch = epoch
 	c.handleLocalNodeInfoFromNetwork(ni)
 }
 
-func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
+func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmap.NodeInfo, error) {
 	// calculate current network state
 	nm, err := c.nCli.GetNetMapByEpoch(epoch)
 	if err != nil {
@@ -434,23 +434,23 @@ func (c *cfg) updateNetMapState(state *big.Int) error {
 	return c.nCli.UpdatePeerState(c.key.PublicKey().Bytes(), state)
 }
 
-func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
+func (c *cfg) GetNetworkInfo() (netmap.NetworkInfo, error) {
 	magic, err := c.cfgMorph.client.MagicNumber()
 	if err != nil {
-		return netmapSDK.NetworkInfo{}, err
+		return netmap.NetworkInfo{}, err
 	}
 
 	msPerBlock, err := c.cfgMorph.client.MsPerBlock()
 	if err != nil {
-		return netmapSDK.NetworkInfo{}, fmt.Errorf("ms per block: %w", err)
+		return netmap.NetworkInfo{}, fmt.Errorf("ms per block: %w", err)
 	}
 
 	netInfoMorph, err := c.nCli.ReadNetworkConfiguration()
 	if err != nil {
-		return netmapSDK.NetworkInfo{}, fmt.Errorf("read network configuration using netmap contract client: %w", err)
+		return netmap.NetworkInfo{}, fmt.Errorf("read network configuration using netmap contract client: %w", err)
 	}
 
-	var ni netmapSDK.NetworkInfo
+	var ni netmap.NetworkInfo
 	ni.SetCurrentEpoch(c.networkState.CurrentEpoch())
 	ni.SetMagicNumber(uint64(magic))
 	ni.SetMsPerBlock(msPerBlock)

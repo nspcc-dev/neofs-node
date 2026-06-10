@@ -33,11 +33,11 @@ type KeyStorage struct {
 
 	tokenStore SessionSource
 
-	networkState netmap.State
+	networkState netmapcore.State
 }
 
 // NewKeyStorage creates, initializes and returns new KeyStorage instance.
-func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore SessionSource, net netmap.State) *KeyStorage {
+func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore SessionSource, net netmapcore.State) *KeyStorage {
 	return &KeyStorage{
 		key:          localKey,
 		tokenStore:   tokenStore,

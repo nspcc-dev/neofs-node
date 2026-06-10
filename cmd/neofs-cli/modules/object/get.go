@@ -9,10 +9,10 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-node/internal/object"
+	internalobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	sdkobject "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -128,7 +128,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	if err == nil {
 		// In binary mode, write header (without payload) and protobuf payload field tag+length, then stream payload
 		if binary {
-			if wErr := object.WriteWithoutPayload(out, hdr); wErr != nil {
+			if wErr := internalobject.WriteWithoutPayload(out, hdr); wErr != nil {
 				err = fmt.Errorf("write object header: %w", wErr)
 			}
 		}
@@ -179,7 +179,7 @@ func strictOutput(cmd *cobra.Command) bool {
 	return toJSON || toProto
 }
 
-func payloadReadSize(payloadSize uint64, ranges []*sdkobject.Range) int64 {
+func payloadReadSize(payloadSize uint64, ranges []*object.Range) int64 {
 	if len(ranges) == 0 {
 		return int64(payloadSize)
 	}

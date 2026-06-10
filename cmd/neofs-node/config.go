@@ -23,7 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/sdnotify"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -135,12 +135,12 @@ type basics struct {
 	proxySH      neogoutil.Uint160
 
 	// either cached or not
-	cnrSrc container.Source
+	cnrSrc containercore.Source
 	cnrLst interface {
 		List(*user.ID) ([]cid.ID, error)
 	}
-	eaclSrc      container.EACLSource
-	netMapSource netmapCore.Source
+	eaclSrc      containercore.EACLSource
+	netMapSource netmapcore.Source
 }
 
 // shared contains component-specific structs/helpers that should

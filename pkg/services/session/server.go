@@ -30,7 +30,7 @@ type KeyStorage interface {
 type server struct {
 	protosession.UnimplementedSessionServiceServer
 	signer *ecdsa.PrivateKey
-	net    netmap.State
+	net    netmapcore.State
 	keys   KeyStorage
 }
 
@@ -38,7 +38,7 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmap.State, ks KeyStorage) protosession.SessionServiceServer {
+func New(s *ecdsa.PrivateKey, net netmapcore.State, ks KeyStorage) protosession.SessionServiceServer {
 	return &server{
 		signer: s,
 		net:    net,

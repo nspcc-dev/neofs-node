@@ -115,7 +115,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			zap.Stringer("cid", idCnr),
 			zap.Error(err),
 		)
-		if container.IsErrNotFound(err) {
+		if containercore.IsErrNotFound(err) {
 			err = p.deleteLocalObject(ctx, addrWithAttrs.Address, isEC)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",

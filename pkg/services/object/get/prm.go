@@ -6,7 +6,7 @@ import (
 	"io"
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
-	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -48,23 +48,23 @@ type RangePrm struct {
 	forwardRequestFn ForwardRangeRequestFunc
 }
 
-type RequestForwarder func(context.Context, coreclient.MultiAddressClient) (*object.Object, error)
+type RequestForwarder func(context.Context, clientcore.MultiAddressClient) (*object.Object, error)
 
 // ForwardHeadRequestFunc sends currently served HEAD request to remote node
 // through passed connection and returns buffered response with requested
 // object's header binary in it.
-type ForwardHeadRequestFunc = func(context.Context, coreclient.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error)
+type ForwardHeadRequestFunc = func(context.Context, clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error)
 
 // SubmitHeadResponseFunc accepts result of [ForwardHeadRequestFunc].
 type SubmitHeadResponseFunc = func(mem.BufferSlice, iprotobuf.BuffersSlice)
 
 // ForwardGetRequestFunc continues to serve current GET request from remote node
 // through passed connection.
-type ForwardGetRequestFunc = func(context.Context, coreclient.MultiAddressClient) error
+type ForwardGetRequestFunc = func(context.Context, clientcore.MultiAddressClient) error
 
 // ForwardRangeRequestFunc continues to serve current RANGE request from remote node
 // through passed connection.
-type ForwardRangeRequestFunc = func(context.Context, coreclient.MultiAddressClient) error
+type ForwardRangeRequestFunc = func(context.Context, clientcore.MultiAddressClient) error
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {

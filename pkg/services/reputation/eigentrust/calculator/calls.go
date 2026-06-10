@@ -3,9 +3,9 @@ package eigentrustcalc
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	localreputation "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -33,8 +33,8 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 		return
 	}
 
-	c.alpha = reputation.TrustValueFromFloat64(alpha)
-	c.beta = reputation.TrustValueFromFloat64(1 - alpha)
+	c.alpha = localreputation.TrustValueFromFloat64(alpha)
+	c.beta = localreputation.TrustValueFromFloat64(1 - alpha)
 
 	ctx := eigentrust.IterContext{
 		Context:        context.Background(),
@@ -69,7 +69,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 	// continue with initial iteration number
 	ctx.SetI(iter)
 
-	err = consumersIter.Iterate(func(daughter apireputation.PeerID, iter TrustIterator) error {
+	err = consumersIter.Iterate(func(daughter reputation.PeerID, iter TrustIterator) error {
 		err := c.prm.WorkerPool.Submit(func() {
 			c.iterateDaughter(iterDaughterPrm{
 				lastIter:      prm.last,
@@ -99,7 +99,7 @@ type iterDaughterPrm struct {
 
 	ctx Context
 
-	id apireputation.PeerID
+	id reputation.PeerID
 
 	consumersIter TrustIterator
 }
@@ -124,9 +124,9 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		return
 	}
 
-	sum := reputation.TrustZero
+	sum := localreputation.TrustZero
 
-	err = p.consumersIter.Iterate(func(trust reputation.Trust) error {
+	err = p.consumersIter.Iterate(func(trust localreputation.Trust) error {
 		if !p.lastIter {
 			select {
 			case <-p.ctx.Done():
@@ -188,7 +188,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 			return
 		}
 
-		err = daughterIter.Iterate(func(trust reputation.Trust) error {
+		err = daughterIter.Iterate(func(trust localreputation.Trust) error {
 			select {
 			case <-p.ctx.Done():
 				return p.ctx.Err()
@@ -244,8 +244,8 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 		return
 	}
 
-	err = daughterIter.Iterate(func(daughter apireputation.PeerID, iterator TrustIterator) error {
-		return iterator.Iterate(func(trust reputation.Trust) error {
+	err = daughterIter.Iterate(func(daughter reputation.PeerID, iterator TrustIterator) error {
+		return iterator.Iterate(func(trust localreputation.Trust) error {
 			trusted := trust.Peer()
 
 			initTrust, err := c.prm.InitialTrustSource.InitialTrust(trusted)

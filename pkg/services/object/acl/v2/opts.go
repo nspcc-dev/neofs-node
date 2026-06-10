@@ -21,7 +21,7 @@ func WithNetmapper(v Netmapper) Option {
 }
 
 // WithContainerSource returns option to set container source.
-func WithContainerSource(v container.Source) Option {
+func WithContainerSource(v containercore.Source) Option {
 	return func(c *cfg) {
 		c.containers = v
 	}

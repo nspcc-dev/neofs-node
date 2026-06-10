@@ -120,7 +120,7 @@ func New(p *Params) (*Processor, error) {
 		metaEnabled:   p.MetaEnabled,
 		allowEC:       p.AllowEC,
 		chainTime:     p.ChainTime,
-		resolver:      nns.NewResolver(p.ContainerClient.Morph()),
+		resolver:      nnscore.NewResolver(p.ContainerClient.Morph()),
 	}, nil
 }
 
