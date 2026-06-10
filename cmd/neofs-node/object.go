@@ -245,7 +245,7 @@ func initObjectService(c *cfg) {
 		policer.WithBoostMultiplier(c.appCfg.Policer.BoostMultiplier),
 	)
 
-	c.workers = append(c.workers, c.policer, c.replicator)
+	// c.workers = append(c.workers, c.policer, c.replicator)
 
 	nnsResolver := nns.NewResolver(c.cli)
 
