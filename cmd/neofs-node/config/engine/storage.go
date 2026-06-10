@@ -9,7 +9,7 @@ import (
 const (
 	// ShardPoolSizeDefault is the default value of routine pool size per-shard to
 	// process object PUT operations in a storage engine.
-	ShardPoolSizeDefault = 20
+	ShardPoolSizeDefault = 100
 )
 
 // Storage contains configuration for the storage engine.
