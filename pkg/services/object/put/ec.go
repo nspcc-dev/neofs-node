@@ -95,6 +95,14 @@ func (t *distributedTarget) saveECPart(part object.Object, encObj encodedObject,
 
 func (t *distributedTarget) distributeECPart(part object.Object, enc encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo, metaC *metaCollection) error {
 	var firstErr error
+
+	var retries uint32
+	defer func() {
+		if retries > 0 {
+			t.metricsCollector.SubmitPutECPartNodeRetries(retries)
+		}
+	}()
+
 	for i := range iec.NodeSequenceForPart(partIdx, totalParts, len(nodeList)) {
 		err := t.saveECPartOnNode(ruleIdx, part, enc, nodeList[i], metaC)
 		if err == nil {
@@ -107,6 +115,8 @@ func (t *distributedTarget) distributeECPart(part object.Object, enc encodedObje
 		} else {
 			t.placementIterator.log.Info("failed to save EC part on reserve SN", zap.Int("nodeIdx", i), zap.Error(err))
 		}
+
+		retries++
 	}
 
 	return errIncompletePut{singleErr: firstErr}

@@ -47,10 +47,17 @@ type MaxSizeSource interface {
 	MaxObjectSize() uint64
 }
 
+// TODO: docs.
+type MetricsCollector interface {
+	SubmitPutECPartNodeRetries(uint32)
+}
+
 type Service struct {
 	*cfg
 	transport Transport
 	neoFSNet  NeoFSNetwork
+
+	metricsCollector MetricsCollector
 }
 
 type Option func(*cfg)
@@ -162,7 +169,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
+func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, p PaymentChecker, mtrc MetricsCollector, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -183,6 +190,8 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q Quot
 		cfg:       c,
 		transport: transport,
 		neoFSNet:  neoFSNet,
+
+		metricsCollector: mtrc,
 	}
 }
 
@@ -192,6 +201,8 @@ func (p *Service) Put(ctx context.Context) (*Streamer, error) {
 		ctx:       ctx,
 		transport: p.transport,
 		neoFSNet:  p.neoFSNet,
+
+		metricsCollector: p.metricsCollector,
 	}, nil
 }
 

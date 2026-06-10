@@ -249,7 +249,7 @@ func initObjectService(c *cfg) {
 
 	nnsResolver := nns.NewResolver(c.cli)
 
-	sGet := getsvc.New(c,
+	sGet := getsvc.New(c, c.metricsCollector,
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
@@ -269,7 +269,7 @@ func initObjectService(c *cfg) {
 	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
 		initQuotas(c.cCli, c.cfgObject.quotasTTL),
-		c.containerPayments,
+		c.containerPayments, c.metricsCollector,
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),

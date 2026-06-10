@@ -79,6 +79,8 @@ type distributedTarget struct {
 	initialPolicy *netmap.InitialPlacementPolicy
 
 	postPlacementReplicator PostPlacementReplicator
+
+	metricsCollector MetricsCollector
 }
 
 type nodeDesc struct {

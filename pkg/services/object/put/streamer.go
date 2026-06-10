@@ -30,6 +30,8 @@ type Streamer struct {
 
 	transport Transport
 	neoFSNet  NeoFSNetwork
+
+	metricsCollector MetricsCollector
 }
 
 var errNotInit = errors.New("stream not initialized")
@@ -280,6 +282,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		localOnly:               prm.common.LocalOnly(),
 		initialPolicy:           prm.cnr.PlacementPolicy().Initial(),
 		postPlacementReplicator: p.postPlacementReplicator,
+		metricsCollector:        p.metricsCollector,
 	}
 }
 

@@ -90,9 +90,9 @@ type GetECRequestTransport interface {
 	// Otherwise, no error is returned. Copying can be incomplete in this case.
 	//
 	// CopyRemoteECPartParentHeaderAndPayload is never called concurrently.
-	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo, metricsCollector MetricsCollector) (bool, uint64, uint64, uint64, error)
 	// CopyLocalECPartParentHeaderAndPayload works like CopyRemoteECPartParentHeaderAndPayload but locally.
-	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, metricsCollector MetricsCollector) (bool, uint64, uint64, uint64, error)
 	// CopyRemoteECPartRange requests specified payload range of originally
 	// requested object's EC part identified by partInfo pair from remote storage
 	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
@@ -111,15 +111,25 @@ type GetECRequestTransport interface {
 	//
 	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
 	// never for the same one.
-	CopyRemoteECPartRange(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error)
+	CopyRemoteECPartRange(ctx context.Context, conn client.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool, metricsCollector MetricsCollector) (uint64, error)
 	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
-	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool) (uint64, error)
+	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool, metricsCollector MetricsCollector) (uint64, error)
+}
+
+type MetricsCollector interface {
+	SubmitGetECRecovery()
+	SubmitGetECPartNodeRetries(uint32)
+	SubmitGetECPartLocalStorageFailure(notFound bool)
+	SubmitGetECPartRemoteNodeFailure(notFound bool)
+	SubmitGetECPartInvalidLocalObject()
 }
 
 // Service utility serving requests of Object.Get service.
 type Service struct {
 	*cfg
 	neoFSNet NeoFSNetwork
+
+	metricsCollector MetricsCollector
 }
 
 // Option is a Service's constructor option.
@@ -196,7 +206,7 @@ func defaultCfg() *cfg {
 
 // New creates, initializes and returns utility serving
 // Object.Get service requests.
-func New(neoFSNet NeoFSNetwork, opts ...Option) *Service {
+func New(neoFSNet NeoFSNetwork, mtrc MetricsCollector, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -206,6 +216,8 @@ func New(neoFSNet NeoFSNetwork, opts ...Option) *Service {
 	return &Service{
 		cfg:      c,
 		neoFSNet: neoFSNet,
+
+		metricsCollector: mtrc,
 	}
 }
 

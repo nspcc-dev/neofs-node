@@ -36,6 +36,15 @@ type (
 
 		shardMetrics   *prometheus.GaugeVec
 		shardsReadonly *prometheus.GaugeVec
+
+		putECPartNodeRetriesHistogram          prometheus.Histogram
+		getECRecoveryCounter                   prometheus.Counter
+		getECPartSuboptimalHistogram           prometheus.Histogram
+		getECPartLocalStorageFailureCounter    prometheus.Counter
+		getECPartLocalStorageFailure404Counter prometheus.Counter
+		getECPartRemoteNodeFailureCounter      prometheus.Counter
+		getECPartRemoteNodeFailure404Counter   prometheus.Counter
+		getECPartInvalidLocalObjectCounter     prometheus.Counter
 	}
 )
 
@@ -179,6 +188,57 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		getPayload:     getPayload,
 		shardMetrics:   shardsMetrics,
 		shardsReadonly: shardsReadonly,
+
+		putECPartNodeRetriesHistogram: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "put_ec_part_node_retries",
+			Help:      "Number of suboptimal PUTs of EC parts to container nodes",
+			Buckets:   []float64{1, 2, 3, 4, 5, 6, 7},
+		}),
+		getECRecoveryCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "get_ec_recovery_count",
+			Help:      "Number of times when server could not collect EC object from data parts only",
+		}),
+		getECPartSuboptimalHistogram: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "get_ec_part_node_retries",
+			Help:      "Number of times when server switched to reserve storage node to get EC part",
+			Buckets:   []float64{1, 2, 3, 4, 5, 6, 7},
+		}),
+		getECPartLocalStorageFailureCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "get_ec_part_local_storage_failure_count",
+			Help:      "Number of times when server could not receive EC part from local storage",
+		}),
+		getECPartLocalStorageFailure404Counter: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "get_ec_part_local_storage_failure_404_count",
+			Help:      "Number of times when server could not find EC part in local storage",
+		}),
+		getECPartRemoteNodeFailureCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "get_ec_part_remote_node_failure_count",
+			Help:      "Number of times when server could not receive EC part from remote storage node",
+		}),
+		getECPartRemoteNodeFailure404Counter: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "get_ec_part_remote_node_failure_404_count",
+			Help:      "Number of times when server could not find EC part on remote storage node",
+		}),
+		getECPartInvalidLocalObjectCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "get_ec_part_invalid_local_object_count",
+			Help:      "Number of times when server could not handle EC part received from local storage",
+		}),
 	}
 }
 
@@ -202,6 +262,15 @@ func (m objectServiceMetrics) register() {
 
 	prometheus.MustRegister(m.shardMetrics)
 	prometheus.MustRegister(m.shardsReadonly)
+
+	prometheus.MustRegister(m.putECPartNodeRetriesHistogram)
+	prometheus.MustRegister(m.getECRecoveryCounter)
+	prometheus.MustRegister(m.getECPartSuboptimalHistogram)
+	prometheus.MustRegister(m.getECPartLocalStorageFailureCounter)
+	prometheus.MustRegister(m.getECPartLocalStorageFailure404Counter)
+	prometheus.MustRegister(m.getECPartRemoteNodeFailureCounter)
+	prometheus.MustRegister(m.getECPartRemoteNodeFailure404Counter)
+	prometheus.MustRegister(m.getECPartInvalidLocalObjectCounter)
 }
 
 func (m objectServiceMetrics) HandleOpExecResult(op stat.Method, success bool, d time.Duration) {
@@ -265,4 +334,34 @@ func (m objectServiceMetrics) SetReadonly(shardID string, readonly bool) {
 			shardIDLabelKey: shardID,
 		},
 	).Set(flag)
+}
+
+func (m objectServiceMetrics) SubmitPutECPartNodeRetries(retries uint32) {
+	m.putECPartNodeRetriesHistogram.Observe(float64(retries))
+}
+
+func (m objectServiceMetrics) SubmitGetECRecovery() {
+	m.getECRecoveryCounter.Inc()
+}
+
+func (m objectServiceMetrics) SubmitGetECPartNodeRetries(num uint32) {
+	m.getECPartSuboptimalHistogram.Observe(float64(num))
+}
+
+func (m objectServiceMetrics) SubmitGetECPartLocalStorageFailure(notFound bool) {
+	m.getECPartLocalStorageFailureCounter.Inc()
+	if notFound {
+		m.getECPartLocalStorageFailure404Counter.Inc()
+	}
+}
+
+func (m objectServiceMetrics) SubmitGetECPartRemoteNodeFailure(notFound bool) {
+	m.getECPartRemoteNodeFailureCounter.Inc()
+	if notFound {
+		m.getECPartRemoteNodeFailure404Counter.Inc()
+	}
+}
+
+func (m objectServiceMetrics) SubmitGetECPartInvalidLocalObject() {
+	m.getECPartInvalidLocalObjectCounter.Inc()
 }

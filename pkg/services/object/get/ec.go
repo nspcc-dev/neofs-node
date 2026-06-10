@@ -206,7 +206,8 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 		case errors.Is(err, ErrLinker):
 		// TODO: reuse linker from response
 		case errors.As(err, &partial):
-		// TODO: optimize following code by taking into account partial success
+			// TODO: optimize following code by taking into account partial success
+			s.metricsCollector.SubmitGetECRecovery()
 		case errors.As(err, &split):
 			info := split.SplitInfo()
 			if info == nil {
@@ -1532,12 +1533,19 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 		Index:     0,
 	}
 
+	var retries uint32
+	defer func() {
+		if retries > 0 {
+			s.metricsCollector.SubmitGetECPartNodeRetries(retries)
+		}
+	}()
+
 	for nodeIdx := range iec.NodeSequenceForPart(0, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
 		local := s.neoFSNet.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey())
 
 		if !copiedHdr {
 			if local {
-				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyLocalECPartParentHeaderAndPayload(ctx, s.localObjects.(*engine.StorageEngine), partInfo)
+				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyLocalECPartParentHeaderAndPayload(ctx, s.localObjects.(*engine.StorageEngine), partInfo, s.metricsCollector)
 			} else {
 				conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 				if connErr != nil {
@@ -1546,10 +1554,11 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 						return false, 0, 0, 0, connErr
 					}
 					s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
+					retries++
 					continue
 				}
 
-				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, partInfo)
+				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, partInfo, s.metricsCollector)
 			}
 			if err != nil {
 				return false, 0, 0, 0, err
@@ -1561,12 +1570,14 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 				break
 			}
 
+			retries++
+
 			continue
 		}
 
 		var copiedFromNode uint64
 		if local {
-			copiedFromNode, err = transport.CopyLocalECPartRange(ctx, s.localObjects.(*engine.StorageEngine), partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil)
+			copiedFromNode, err = transport.CopyLocalECPartRange(ctx, s.localObjects.(*engine.StorageEngine), partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil, nil)
 		} else {
 			conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 			if connErr != nil {
@@ -1575,10 +1586,11 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 					return false, 0, 0, 0, connErr
 				}
 				s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
+				retries++
 				continue
 			}
 
-			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil)
+			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil, nil)
 		}
 		if err != nil {
 			return false, 0, 0, 0, err
@@ -1592,6 +1604,8 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 		if copiedPartPld == partPldLen {
 			break
 		}
+
+		retries++
 	}
 
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPld, nil
@@ -1601,10 +1615,17 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 	var err error
 	var copiedLen uint64
 
+	var retries uint32
+	defer func() {
+		if retries > 0 {
+			s.metricsCollector.SubmitGetECPartNodeRetries(retries)
+		}
+	}()
+
 	for nodeIdx := range iec.NodeSequenceForPart(partInfo.Index, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
 		var copiedLenNode uint64
 		if s.neoFSNet.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey()) {
-			copiedLenNode, err = transport.CopyLocalECPartRange(ctx, s.localObjects.(*engine.StorageEngine), partInfo, copiedLen, ln-copiedLen, controlCh)
+			copiedLenNode, err = transport.CopyLocalECPartRange(ctx, s.localObjects.(*engine.StorageEngine), partInfo, copiedLen, ln-copiedLen, controlCh, s.metricsCollector)
 		} else {
 			conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 			if connErr != nil {
@@ -1613,10 +1634,11 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 					return 0, connErr
 				}
 				s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
+				retries++
 				continue
 			}
 
-			copiedLenNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedLen, ln-copiedLen, controlCh)
+			copiedLenNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedLen, ln-copiedLen, controlCh, s.metricsCollector)
 		}
 
 		if err != nil {
@@ -1631,6 +1653,8 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 		if copiedLen == ln {
 			break
 		}
+
+		retries++
 	}
 
 	return copiedLen, nil
