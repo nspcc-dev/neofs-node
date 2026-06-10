@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
@@ -121,7 +121,7 @@ func createToken(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("can't read extended ACL file: %w", err)
 		}
-		table, err := eaclSDK.UnmarshalJSON(raw)
+		table, err := eacl.UnmarshalJSON(raw)
 		if err != nil {
 			return fmt.Errorf("can't parse extended ACL: %w", err)
 		}

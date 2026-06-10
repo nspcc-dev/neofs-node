@@ -18,8 +18,8 @@ import (
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -122,9 +122,9 @@ type sessionTokenCommonCheckResult struct {
 type Server struct {
 	protocontainer.UnimplementedContainerServiceServer
 	signer    *ecdsa.PrivateKey
-	net       netmap.State
+	net       netmapcore.State
 	contract  Contract
-	resolver  *nns.Resolver
+	resolver  *nnscore.Resolver
 	chainTime TimeProvider
 	historicN3ScriptRunner
 
@@ -136,7 +136,7 @@ type Server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc NetmapContract, chainTime TimeProvider) *Server {
+func New(s *ecdsa.PrivateKey, net netmapcore.State, fsChain FSChain, c Contract, nc NetmapContract, chainTime TimeProvider) *Server {
 	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
@@ -145,7 +145,7 @@ func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc 
 		signer:    s,
 		net:       net,
 		contract:  c,
-		resolver:  nns.NewResolver(fsChain),
+		resolver:  nnscore.NewResolver(fsChain),
 		chainTime: chainTime,
 		historicN3ScriptRunner: historicN3ScriptRunner{
 			FSChain:        fsChain,

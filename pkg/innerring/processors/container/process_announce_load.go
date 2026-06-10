@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
@@ -73,7 +73,7 @@ func (cp *Processor) checkAnnounceLoad(e container.Report) error {
 	return nil
 }
 
-func checkNodes(ni [][]netmapSDK.NodeInfo, key []byte) bool {
+func checkNodes(ni [][]netmap.NodeInfo, key []byte) bool {
 	for _, replicas := range ni {
 		for _, node := range replicas {
 			if bytes.Equal(node.PublicKey(), key) {

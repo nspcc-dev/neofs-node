@@ -8,31 +8,31 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // CheckerPrm groups parameters for Checker
 // constructor.
 type CheckerPrm struct {
-	eaclSrc      container.EACLSource
-	validator    *eaclSDK.Validator
+	eaclSrc      containercore.EACLSource
+	validator    *eacl.Validator
 	localStorage *engine.StorageEngine
 	headerSource eaclV2.HeaderSource
 }
 
-func (c *CheckerPrm) SetEACLSource(v container.EACLSource) *CheckerPrm {
+func (c *CheckerPrm) SetEACLSource(v containercore.EACLSource) *CheckerPrm {
 	c.eaclSrc = v
 	return c
 }
 
-func (c *CheckerPrm) SetValidator(v *eaclSDK.Validator) *CheckerPrm {
+func (c *CheckerPrm) SetValidator(v *eacl.Validator) *CheckerPrm {
 	c.validator = v
 	return c
 }
@@ -50,8 +50,8 @@ func (c *CheckerPrm) SetHeaderSource(hs eaclV2.HeaderSource) *CheckerPrm {
 // Checker implements v2.ACLChecker interfaces and provides
 // ACL/eACL validation functionality.
 type Checker struct {
-	eaclSrc      container.EACLSource
-	validator    *eaclSDK.Validator
+	eaclSrc      containercore.EACLSource
+	validator    *eacl.Validator
 	localStorage *engine.StorageEngine
 	headerSource eaclV2.HeaderSource
 }
@@ -115,19 +115,19 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo
 		return nil
 	}
 
-	var eaclRole eaclSDK.Role
+	var eaclRole eacl.Role
 	switch op := reqInfo.RequestRole; op {
 	default:
-		eaclRole = eaclSDK.Role(op)
+		eaclRole = eacl.Role(op)
 	case acl.RoleOwner:
-		eaclRole = eaclSDK.RoleUser
+		eaclRole = eacl.RoleUser
 	case acl.RoleInnerRing, acl.RoleContainer:
-		eaclRole = eaclSDK.RoleSystem
+		eaclRole = eacl.RoleSystem
 	case acl.RoleOthers:
-		eaclRole = eaclSDK.RoleOthers
+		eaclRole = eacl.RoleOthers
 	}
 
-	if eaclRole == eaclSDK.RoleSystem {
+	if eaclRole == eacl.RoleSystem {
 		return nil // Controlled by BasicACL, EACL can not contain any rules for system role since 0.38.0.
 	}
 
@@ -137,7 +137,7 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo
 		reqInfo.Bearer = nil
 	}
 
-	var table eaclSDK.Table
+	var table eacl.Table
 	cnr := reqInfo.ContainerID
 
 	bearerTok := reqInfo.Bearer
@@ -182,9 +182,9 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo
 		return fmt.Errorf("can't parse headers: %w", err)
 	}
 
-	vu := new(eaclSDK.ValidationUnit).
+	vu := new(eacl.ValidationUnit).
 		WithRole(eaclRole).
-		WithOperation(eaclSDK.Operation(reqInfo.Operation)).
+		WithOperation(eacl.Operation(reqInfo.Operation)).
 		WithContainerID(&cnr).
 		WithSenderKey(reqInfo.SenderKey).
 		WithHeaderSource(hdrSrc).
@@ -204,7 +204,7 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo
 		return v2.ErrNotMatched
 	}
 
-	if action != eaclSDK.ActionAllow {
+	if action != eacl.ActionAllow {
 		return errEACLDeniedByRule
 	}
 	return nil

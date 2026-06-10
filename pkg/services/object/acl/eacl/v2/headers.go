@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -49,8 +49,8 @@ type Response interface {
 
 type headerSource struct {
 	cfg            cfg
-	requestHeaders []eaclSDK.Header
-	objectHeaders  []eaclSDK.Header
+	requestHeaders []eacl.Header
+	objectHeaders  []eacl.Header
 
 	incompleteObjectHeaders bool
 }
@@ -62,7 +62,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewMessageHeaderSource(opts ...Option) (eaclSDK.TypedHeaderSource, error) {
+func NewMessageHeaderSource(opts ...Option) (eacl.TypedHeaderSource, error) {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -80,18 +80,18 @@ func NewMessageHeaderSource(opts ...Option) (eaclSDK.TypedHeaderSource, error) {
 	return res, nil
 }
 
-func (h *headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Header, bool, error) {
+func (h *headerSource) HeadersOfType(typ eacl.FilterHeaderType) ([]eacl.Header, bool, error) {
 	switch typ {
 	default:
 		return nil, true, nil
-	case eaclSDK.HeaderFromRequest:
+	case eacl.HeaderFromRequest:
 		if h.requestHeaders == nil {
 			if x, ok := h.cfg.msg.(xHeaderSource); ok {
 				h.requestHeaders = requestHeaders(x)
 			}
 		}
 		return h.requestHeaders, true, nil
-	case eaclSDK.HeaderFromObject:
+	case eacl.HeaderFromObject:
 		if h.objectHeaders == nil {
 			err := h.cfg.readObjectHeaders(h)
 			if err != nil {
@@ -112,7 +112,7 @@ func (x xHeader) Value() string {
 	return x[1]
 }
 
-func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
+func requestHeaders(msg xHeaderSource) []eacl.Header {
 	return msg.GetXHeaders()
 }
 
@@ -225,7 +225,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 				}
 			}
 
-			dst.objectHeaders = []eaclSDK.Header{cidHeader(cnr)}
+			dst.objectHeaders = []eacl.Header{cidHeader(cnr)}
 		}
 	case responseXHeaderSource:
 		switch resp := m.resp.(type) {
@@ -294,7 +294,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	return nil
 }
 
-func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, bool) {
+func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eacl.Header, bool) {
 	if idObj != nil {
 		var addr oid.Address
 		addr.SetContainer(cnr)
@@ -311,27 +311,27 @@ func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, b
 
 func cidHeader(idCnr cid.ID) sysObjHdr {
 	return sysObjHdr{
-		k: eaclSDK.FilterObjectContainerID,
+		k: eacl.FilterObjectContainerID,
 		v: idCnr.EncodeToString(),
 	}
 }
 
 func oidHeader(obj oid.ID) sysObjHdr {
 	return sysObjHdr{
-		k: eaclSDK.FilterObjectID,
+		k: eacl.FilterObjectID,
 		v: obj.EncodeToString(),
 	}
 }
 
 func ownerIDHeader(ownerID user.ID) sysObjHdr {
 	return sysObjHdr{
-		k: eaclSDK.FilterObjectOwnerID,
+		k: eacl.FilterObjectOwnerID,
 		v: ownerID.EncodeToString(),
 	}
 }
 
-func addressHeaders(cnr cid.ID, oid *oid.ID) []eaclSDK.Header {
-	hh := make([]eaclSDK.Header, 0, 2)
+func addressHeaders(cnr cid.ID, oid *oid.ID) []eacl.Header {
+	hh := make([]eacl.Header, 0, 2)
 	hh = append(hh, cidHeader(cnr))
 
 	if oid != nil {

@@ -14,9 +14,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -47,7 +47,7 @@ type Service struct {
 	*cfg
 
 	c senderClassifier
-	r *nns.Resolver
+	r *nnscore.Resolver
 
 	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
 	bearerTokenCommonCheckCache  *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
@@ -72,8 +72,8 @@ type FSChain interface {
 
 // Netmapper must provide network map information.
 type Netmapper interface {
-	netmap.Source
-	// ServerInContainer checks if current node belongs to requested container.
+	netmapcore.Source
+	// ServerInContainer checks if current node belongs to requested containercore.
 	// Any unknown state must be returned as `(false, error.New("explanation"))`,
 	// not `(false, nil)`.
 	ServerInContainer(cid.ID) (bool, error)
@@ -94,7 +94,7 @@ type TimeProvider interface {
 type cfg struct {
 	log *zap.Logger
 
-	containers container.Source
+	containers containercore.Source
 
 	irFetcher InnerRingFetcher
 
@@ -145,7 +145,7 @@ func New(fsChain FSChain, opts ...Option) Service {
 			innerRing: cfg.irFetcher,
 			fsChain:   fsChain,
 		},
-		r:                            nns.NewResolver(fsChain),
+		r:                            nnscore.NewResolver(fsChain),
 		sessionTokenCommonCheckCache: sessionTokenCheckCache,
 		bearerTokenCommonCheckCache:  bearerTokenCheckCache,
 	}

@@ -6,7 +6,7 @@ import (
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	consumerstorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/consumers"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // DaughterTrustIteratorProvider is an implementation of the
@@ -19,7 +19,7 @@ type DaughterTrustIteratorProvider struct {
 // InitDaughterIterator returns an iterator over the received
 // local trusts for ctx.Epoch() epoch from daughter p.
 func (ip *DaughterTrustIteratorProvider) InitDaughterIterator(ctx eigentrustcalc.Context,
-	p apireputation.PeerID) (eigentrustcalc.TrustIterator, error) {
+	p reputation.PeerID) (eigentrustcalc.TrustIterator, error) {
 	epoch := ctx.Epoch()
 
 	daughterIterator, ok := ip.DaughterStorage.DaughterTrusts(epoch, p)

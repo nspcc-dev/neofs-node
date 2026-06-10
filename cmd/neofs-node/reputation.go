@@ -12,7 +12,7 @@ import (
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	reputationsvc "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
@@ -28,7 +28,7 @@ import (
 	protoreputation "github.com/nspcc-dev/neofs-sdk-go/proto/reputation"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -339,7 +339,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 	return s.makeIntermediateResponse(util.StatusOKErr, req)
 }
 
-func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
+func (s *reputationServer) processLocalTrust(epoch uint64, t reputationsvc.Trust,
 	passedRoute [][]byte, w reputationcommon.Writer) error {
 	err := reputationrouter.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
 	if err != nil {
@@ -349,16 +349,16 @@ func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
 	return w.Write(t)
 }
 
-// apiToLocalTrust converts protoreputation.Trust to local reputation.Trust,
+// apiToLocalTrust converts protoreputation.Trust to local reputationsvc.Trust,
 // adding trustingPeer.
-func apiToLocalTrust(t *protoreputation.Trust, trustingPeer []byte) reputation.Trust {
-	var trusted, trusting apireputation.PeerID
+func apiToLocalTrust(t *protoreputation.Trust, trustingPeer []byte) reputationsvc.Trust {
+	var trusted, trusting reputation.PeerID
 	trusted.SetPublicKey(t.GetPeer().GetPublicKey())
 	trusting.SetPublicKey(trustingPeer)
 
-	localTrust := reputation.Trust{}
+	localTrust := reputationsvc.Trust{}
 
-	localTrust.SetValue(reputation.TrustValueFromFloat64(t.GetValue()))
+	localTrust.SetValue(reputationsvc.TrustValueFromFloat64(t.GetValue()))
 	localTrust.SetPeer(trusted)
 	localTrust.SetTrustingPeer(trusting)
 

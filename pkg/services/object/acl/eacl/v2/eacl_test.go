@@ -12,7 +12,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -85,15 +85,15 @@ func TestHeadRequest(t *testing.T) {
 	senderKey := priv.PublicKey()
 	userID := user.NewFromECDSAPublicKey((ecdsa.PublicKey)(*senderKey))
 
-	tgt := eaclSDK.NewTargetByAccounts([]user.ID{userID})
+	tgt := eacl.NewTargetByAccounts([]user.ID{userID})
 
-	r := eaclSDK.ConstructRecord(
-		eaclSDK.ActionDeny,
-		eaclSDK.OperationHead,
-		[]eaclSDK.Target{tgt},
-		eaclSDK.NewObjectPropertyFilter(attrKey, eaclSDK.MatchStringEqual, attrVal),
-		eaclSDK.NewRequestHeaderFilter(xKey, eaclSDK.MatchStringEqual, xVal))
-	table := eaclSDK.ConstructTable([]eaclSDK.Record{r})
+	r := eacl.ConstructRecord(
+		eacl.ActionDeny,
+		eacl.OperationHead,
+		[]eacl.Target{tgt},
+		eacl.NewObjectPropertyFilter(attrKey, eacl.MatchStringEqual, attrVal),
+		eacl.NewRequestHeaderFilter(xKey, eacl.MatchStringEqual, xVal))
+	table := eacl.ConstructTable([]eacl.Record{r})
 
 	lStorage := &testLocalStorage{
 		t:       t,
@@ -101,7 +101,7 @@ func TestHeadRequest(t *testing.T) {
 		obj:     obj,
 	}
 
-	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
+	newSource := func(t *testing.T) eacl.TypedHeaderSource {
 		hdrSrc, err := NewMessageHeaderSource(
 			WithObjectStorage(lStorage),
 			WithServiceRequest(req),
@@ -111,15 +111,15 @@ func TestHeadRequest(t *testing.T) {
 		return hdrSrc
 	}
 
-	unit := new(eaclSDK.ValidationUnit).
+	unit := new(eacl.ValidationUnit).
 		WithContainerID(&cnr).
-		WithOperation(eaclSDK.OperationHead).
+		WithOperation(eacl.OperationHead).
 		WithAccount(userID).
 		WithEACLTable(&table)
 
-	validator := eaclSDK.NewValidator()
+	validator := eacl.NewValidator()
 
-	checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+	checkAction(t, eacl.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 
 	req.MetaHeader.XHeaders = nil
 
@@ -135,33 +135,33 @@ func TestHeadRequest(t *testing.T) {
 
 	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 
-	r.SetAction(eaclSDK.ActionAllow)
+	r.SetAction(eacl.ActionAllow)
 
-	rID := eaclSDK.ConstructRecord(
-		eaclSDK.ActionDeny,
-		eaclSDK.OperationHead,
-		[]eaclSDK.Target{tgt},
-		eaclSDK.NewFilterObjectWithID(id),
+	rID := eacl.ConstructRecord(
+		eacl.ActionDeny,
+		eacl.OperationHead,
+		[]eacl.Target{tgt},
+		eacl.NewFilterObjectWithID(id),
 	)
 
-	table = eaclSDK.ConstructTable([]eaclSDK.Record{r, rID})
+	table = eacl.ConstructTable([]eacl.Record{r, rID})
 
 	unit.WithEACLTable(&table)
 	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 }
 
-func checkAction(t *testing.T, expected eaclSDK.Action, v *eaclSDK.Validator, u *eaclSDK.ValidationUnit) {
+func checkAction(t *testing.T, expected eacl.Action, v *eacl.Validator, u *eacl.ValidationUnit) {
 	actual, fromRule, err := v.CalculateAction(u)
 	require.NoError(t, err)
 	require.True(t, fromRule)
 	require.Equal(t, expected, actual)
 }
 
-func checkDefaultAction(t *testing.T, v *eaclSDK.Validator, u *eaclSDK.ValidationUnit) {
+func checkDefaultAction(t *testing.T, v *eacl.Validator, u *eacl.ValidationUnit) {
 	actual, fromRule, err := v.CalculateAction(u)
 	require.NoError(t, err)
 	require.False(t, fromRule)
-	require.Equal(t, eaclSDK.ActionAllow, actual)
+	require.Equal(t, eacl.ActionAllow, actual)
 }
 
 func TestV2Split(t *testing.T) {
@@ -202,19 +202,19 @@ func TestV2Split(t *testing.T) {
 	senderKey := priv.PublicKey()
 	userID := user.NewFromECDSAPublicKey((ecdsa.PublicKey)(*senderKey))
 
-	tgt := eaclSDK.NewTargetByAccounts([]user.ID{userID})
-	r := eaclSDK.ConstructRecord(
-		eaclSDK.ActionDeny,
-		eaclSDK.OperationPut,
-		[]eaclSDK.Target{tgt},
-		eaclSDK.NewObjectPropertyFilter(attrKey, eaclSDK.MatchStringEqual, attrVal),
+	tgt := eacl.NewTargetByAccounts([]user.ID{userID})
+	r := eacl.ConstructRecord(
+		eacl.ActionDeny,
+		eacl.OperationPut,
+		[]eacl.Target{tgt},
+		eacl.NewObjectPropertyFilter(attrKey, eacl.MatchStringEqual, attrVal),
 	)
 
-	table := eaclSDK.ConstructTable([]eaclSDK.Record{r})
+	table := eacl.ConstructTable([]eacl.Record{r})
 
 	hdrSrc := &testHeaderSource{}
 
-	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
+	newSource := func(t *testing.T) eacl.TypedHeaderSource {
 		hdrSrc, err := NewMessageHeaderSource(
 			WithHeaderSource(hdrSrc),
 			WithServiceRequest(req),
@@ -223,26 +223,26 @@ func TestV2Split(t *testing.T) {
 		return hdrSrc
 	}
 
-	unit := new(eaclSDK.ValidationUnit).
-		WithOperation(eaclSDK.OperationPut).
+	unit := new(eacl.ValidationUnit).
+		WithOperation(eacl.OperationPut).
 		WithEACLTable(&table).
 		WithAccount(userID)
 
-	validator := eaclSDK.NewValidator()
+	validator := eacl.NewValidator()
 
 	t.Run("denied by parent's attribute; first object", func(t *testing.T) {
 		// ensure fetching the first object is not possible, only already attached information
 		// is available
 		hdrSrc.header = nil
 
-		checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+		checkAction(t, eacl.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 	})
 
 	t.Run("denied by parent's attribute; non-first object", func(t *testing.T) {
 		// get the first object from the "network"
 		hdrSrc.header = &firstObject
 
-		checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+		checkAction(t, eacl.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 	})
 
 	t.Run("allow cause no restricted attribute found", func(t *testing.T) {
@@ -301,7 +301,7 @@ func TestObjectHeaders(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		hs, rdy, err := src.HeadersOfType(eaclSDK.HeaderFromObject)
+		hs, rdy, err := src.HeadersOfType(eacl.HeaderFromObject)
 		require.NoError(t, err)
 		require.True(t, rdy)
 

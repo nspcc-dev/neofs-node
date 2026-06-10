@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -77,14 +77,14 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 
 	apiTrustedPeerID := t.Peer()
 
-	var apiTrust apireputation.Trust
+	var apiTrust reputation.Trust
 	apiTrust.SetValue(t.Value().Float64())
 	apiTrust.SetPeer(t.Peer())
 
-	var apiMangerPeerID apireputation.PeerID
+	var apiMangerPeerID reputation.PeerID
 	apiMangerPeerID.SetPublicKey(bytes.Clone(fw.pubKey))
 
-	var gTrust apireputation.GlobalTrust
+	var gTrust reputation.GlobalTrust
 	gTrust.SetTrust(apiTrust)
 	gTrust.SetManager(apiMangerPeerID)
 

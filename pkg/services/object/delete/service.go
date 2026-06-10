@@ -1,7 +1,7 @@
 package deletesvc
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -20,7 +20,7 @@ type Option func(*cfg)
 
 // NetworkInfo wraps network state and configurations.
 type NetworkInfo interface {
-	netmap.State
+	netmapcore.State
 
 	// TombstoneLifetime must return the lifespan of the tombstones
 	// in the NeoFS epochs.

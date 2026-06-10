@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
+	versioncore "github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +45,7 @@ func ReadEACL(cmd *cobra.Command, eaclPath string) (eacl.Table, error) {
 }
 
 func validateAndFixEACLVersion(table eacl.Table) {
-	if !version.IsValid(table.Version()) {
-		table.SetVersion(versionSDK.Current())
+	if !versioncore.IsValid(table.Version()) {
+		table.SetVersion(version.Current())
 	}
 }

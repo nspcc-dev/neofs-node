@@ -11,7 +11,7 @@ import (
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	corenetmap "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -332,7 +332,7 @@ func callHead(t *testing.T, srv *Server, req *protoobject.HeadRequest) (*protoob
 	return protoobject.NewObjectServiceClient(c).Head(context.Background(), req)
 }
 
-func assertHeadRequestOK(t *testing.T, srv *Server, fsChain corenetmap.State, req *protoobject.HeadRequest, expObj object.Object) *protoobject.HeadResponse {
+func assertHeadRequestOK(t *testing.T, srv *Server, fsChain netmapcore.State, req *protoobject.HeadRequest, expObj object.Object) *protoobject.HeadResponse {
 	resp, err := callHead(t, srv, req)
 	require.NoError(t, err)
 

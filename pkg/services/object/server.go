@@ -19,9 +19,9 @@ import (
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -30,13 +30,13 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	sdknetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -93,7 +93,7 @@ type MetricCollector interface {
 // service.
 type FSChain interface {
 	containercore.Source
-	netmap.StateDetailed
+	netmapcore.StateDetailed
 	icrypto.N3ScriptRunner
 
 	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
@@ -113,7 +113,7 @@ type FSChain interface {
 	//
 	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
 	// found.
-	ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(sdknetmap.NodeInfo) bool) error
+	ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmap.NodeInfo) bool) error
 
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
@@ -148,7 +148,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ context.Context, _ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	SearchObjects(_ context.Context, _ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -164,7 +164,7 @@ type ACLInfoExtractor interface {
 
 // ClientConstructor returns a client for given node.
 type ClientConstructor interface {
-	Get(context.Context, sdknetmap.NodeInfo) (client.MultiAddressClient, error)
+	Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error)
 }
 
 const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
@@ -287,7 +287,7 @@ func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ct
 	}
 }
 
-func (x *putStream) sendToRemoteNode(c client.MultiAddressClient) error {
+func (x *putStream) sendToRemoteNode(c clientcore.MultiAddressClient) error {
 	return c.ForAnyGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		return putToRemoteNode(ctx, conn, x.initReq, x.chunkReqs) // TODO: log error
 	})
@@ -803,7 +803,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 	if meta == nil {
 		return getsvc.HeadPrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
+	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1217,7 +1217,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		suppressInit: body.GetPayloadOnly(),
 	}
 
-	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
+	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
 			if proxyCtx.suppressInit {
@@ -1477,7 +1477,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 	if meta == nil {
 		return getsvc.RangePrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, c client.MultiAddressClient) error {
+	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1802,7 +1802,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	return resBody, err
 }
 
-func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, []byte, error) {
+func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]client.SearchResultItem, []byte, error) {
 	ttl := req.MetaHeader.GetTtl()
 	if ttl == 0 {
 		return nil, nil, errors.New("zero TTL")
@@ -1853,7 +1853,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		count      = uint16(body.Count) // legit according to the limit
 		incomplete error
 		newCursor  []byte
-		res        []sdkclient.SearchResultItem
+		res        []client.SearchResultItem
 	)
 	switch {
 	case ttl == 1:
@@ -1867,7 +1867,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		}
 	default:
 		type nodeSearchResult struct {
-			set  []sdkclient.SearchResultItem
+			set  []client.SearchResultItem
 			more bool
 			err  error
 		}
@@ -1876,7 +1876,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			mProcessedNodes = make(map[string]struct{})
 			poolErr         error
 			resCh           = make(chan nodeSearchResult)
-			sets            [][]sdkclient.SearchResultItem
+			sets            [][]client.SearchResultItem
 			expectedRes     int
 		)
 
@@ -1890,7 +1890,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				return !strings.HasPrefix(filt.Key, "$Object:") && !strings.HasPrefix(filt.Key, "__NEOFS__")
 			})
 
-		err = s.fsChain.ForSearchableContainerNode(cID, !optimizedNodes, func(node sdknetmap.NodeInfo) bool {
+		err = s.fsChain.ForSearchableContainerNode(cID, !optimizedNodes, func(node netmap.NodeInfo) bool {
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
 			if _, ok := mProcessedNodes[strKey]; ok {
@@ -1977,13 +1977,13 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	return res, newCursor, incomplete
 }
 
-func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
+func (s *Server) searchOnRemoteNode(ctx context.Context, node netmap.NodeInfo, req *protoobject.SearchV2Request) ([]client.SearchResultItem, bool, error) {
 	c, err := s.nodeClients.Get(ctx, node)
 	if err != nil {
 		return nil, false, fmt.Errorf("get node client: %w", err)
 	}
 
-	var items []sdkclient.SearchResultItem
+	var items []client.SearchResultItem
 	var more bool
 	return items, more, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		var err error
@@ -1993,7 +1993,7 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 }
 
 func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn,
-	req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
+	req *protoobject.SearchV2Request) ([]client.SearchResultItem, bool, error) {
 	resp, err := protoobject.NewObjectServiceClient(conn).SearchV2(ctx, req)
 	if err != nil {
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
@@ -2026,7 +2026,7 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn,
 
 	// TODO: we can theoretically do without type conversion, thus avoiding
 	//  additional allocation. At the same time, this will require generic code for merging.
-	res := make([]sdkclient.SearchResultItem, n)
+	res := make([]client.SearchResultItem, n)
 	filteredAttributeless := len(req.Body.Attributes) == 0 && len(req.Body.Filters) > 0
 	for i, r := range resp.Body.Result {
 		switch {

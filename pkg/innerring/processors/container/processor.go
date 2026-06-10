@@ -8,7 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
@@ -120,7 +120,7 @@ func New(p *Params) (*Processor, error) {
 		metaEnabled:   p.MetaEnabled,
 		allowEC:       p.AllowEC,
 		chainTime:     p.ChainTime,
-		resolver:      nns.NewResolver(p.ContainerClient.Morph()),
+		resolver:      nnscore.NewResolver(p.ContainerClient.Morph()),
 	}, nil
 }
 

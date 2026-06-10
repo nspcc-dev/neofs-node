@@ -15,7 +15,7 @@ import (
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
-	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -571,7 +571,7 @@ func (x *getECTransport) initGetPartRequest(partInfo iec.PartInfo) error {
 }
 
 // CopyRemoteECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn coreclient.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
 	var copiedHdr bool
 	var parentPldLen uint64
 	var partPldLen uint64
@@ -593,7 +593,7 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 				return nil
 			}
 
-			return coreclient.ErrSkipConnection
+			return clientcore.ErrSkipConnection
 		}
 
 		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil)
@@ -610,9 +610,9 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 			return nil
 		}
 
-		return coreclient.ErrSkipConnection
+		return clientcore.ErrSkipConnection
 	})
-	if err != nil && !errors.Is(err, coreclient.ErrAllConnectionsSkipped) {
+	if err != nil && !errors.Is(err, clientcore.ErrAllConnectionsSkipped) {
 		return false, 0, 0, 0, err
 	}
 
@@ -934,7 +934,7 @@ func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.Buff
 	return parentID, parentSig, parentHdr, parentPldLen, partPldLen, nil
 }
 
-func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn coreclient.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
+func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
 	var copiedPld uint64
 
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
@@ -952,9 +952,9 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn corecli
 			return nil
 		}
 
-		return coreclient.ErrSkipConnection
+		return clientcore.ErrSkipConnection
 	})
-	if err != nil && !errors.Is(err, coreclient.ErrAllConnectionsSkipped) {
+	if err != nil && !errors.Is(err, clientcore.ErrAllConnectionsSkipped) {
 		return 0, err
 	}
 

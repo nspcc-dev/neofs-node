@@ -1,4 +1,4 @@
-package netmap
+package netmapcore
 
 import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"

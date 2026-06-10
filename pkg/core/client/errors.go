@@ -1,4 +1,4 @@
-package client
+package clientcore
 
 import (
 	"errors"

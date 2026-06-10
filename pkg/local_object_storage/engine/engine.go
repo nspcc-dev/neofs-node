@@ -8,7 +8,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -231,7 +231,7 @@ type cfg struct {
 	objectPutTimeout time.Duration
 	shardPoolSize    uint32
 
-	containerSource container.Source
+	containerSource containercore.Source
 
 	isIgnoreUninitedShards bool
 }
@@ -292,7 +292,7 @@ func WithErrorThreshold(sz uint32) Option {
 }
 
 // WithContainersSource returns an option to specify container source.
-func WithContainersSource(cs container.Source) Option {
+func WithContainersSource(cs containercore.Source) Option {
 	return func(c *cfg) {
 		c.containerSource = cs
 	}

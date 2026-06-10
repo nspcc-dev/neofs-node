@@ -2,9 +2,9 @@ package putsvc
 
 import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
@@ -14,9 +14,9 @@ type PutInitPrm struct {
 
 	hdr *object.Object
 
-	cnr containerSDK.Container
+	cnr container.Container
 
-	relay func(client.MultiAddressClient) error
+	relay func(clientcore.MultiAddressClient) error
 
 	containerNodes       ContainerNodes
 	ecPart               iec.PartInfo
@@ -46,7 +46,7 @@ func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
 	return p
 }
 
-func (p *PutInitPrm) WithRelay(f func(client.MultiAddressClient) error) *PutInitPrm {
+func (p *PutInitPrm) WithRelay(f func(clientcore.MultiAddressClient) error) *PutInitPrm {
 	if p != nil {
 		p.relay = f
 	}

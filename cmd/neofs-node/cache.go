@@ -6,14 +6,14 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	sdkcontainer "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -139,16 +139,16 @@ func (c *ttlNetCache[K, V]) reset() {
 // entity that provides LRU cache interface.
 type lruNetCache struct {
 	mtx     sync.RWMutex
-	netmaps []*netmapSDK.NetMap
+	netmaps []*netmap.NetMap
 	size    int
 
-	netRdr netValueReader[uint64, *netmapSDK.NetMap]
+	netRdr netValueReader[uint64, *netmap.NetMap]
 }
 
 // newNetworkLRUCache returns wrapper over netValueReader with LRU cache.
-func newNetworkLRUCache(sz int, netRdr netValueReader[uint64, *netmapSDK.NetMap]) *lruNetCache {
+func newNetworkLRUCache(sz int, netRdr netValueReader[uint64, *netmap.NetMap]) *lruNetCache {
 	return &lruNetCache{
-		netmaps: make([]*netmapSDK.NetMap, sz),
+		netmaps: make([]*netmap.NetMap, sz),
 		netRdr:  netRdr,
 		size:    sz,
 	}
@@ -159,7 +159,7 @@ func newNetworkLRUCache(sz int, netRdr netValueReader[uint64, *netmapSDK.NetMap]
 // updates the value from the network on cache miss.
 //
 // returned value should not be modified.
-func (c *lruNetCache) get(key uint64) (*netmapSDK.NetMap, error) {
+func (c *lruNetCache) get(key uint64) (*netmap.NetMap, error) {
 	var idx = int(key) % c.size
 
 	c.mtx.RLock()
@@ -188,14 +188,14 @@ func (c *lruNetCache) get(key uint64) (*netmapSDK.NetMap, error) {
 // wrapper over TTL cache of values read from the network
 // that implements container storage.
 type ttlContainerStorage struct {
-	tc ttlNetCache[cid.ID, sdkcontainer.Container]
+	tc ttlNetCache[cid.ID, container.Container]
 }
 
-func newCachedContainerStorage(v container.Source, ttl time.Duration) *ttlContainerStorage {
+func newCachedContainerStorage(v containercore.Source, ttl time.Duration) *ttlContainerStorage {
 	const containerCacheSize = 100
 
 	return &ttlContainerStorage{
-		tc: newNetworkTTLCache[cid.ID, sdkcontainer.Container](containerCacheSize, ttl, func(key cid.ID) (sdkcontainer.Container, error) {
+		tc: newNetworkTTLCache[cid.ID, container.Container](containerCacheSize, ttl, func(key cid.ID) (container.Container, error) {
 			return v.Get(key)
 		}),
 	}
@@ -210,12 +210,12 @@ func (s *ttlContainerStorage) handleCreation(cnr cid.ID) {
 }
 
 func (s *ttlContainerStorage) handleRemoval(cnr cid.ID) {
-	s.tc.set(cnr, sdkcontainer.Container{}, apistatus.ContainerNotFound{})
+	s.tc.set(cnr, container.Container{}, apistatus.ContainerNotFound{})
 }
 
 // Get returns container value from the cache. If value is missing in the cache
 // or expired, then it returns value from FS chain and updates the cache.
-func (s *ttlContainerStorage) Get(cnr cid.ID) (sdkcontainer.Container, error) {
+func (s *ttlContainerStorage) Get(cnr cid.ID) (container.Container, error) {
 	return s.tc.get(cnr)
 }
 
@@ -231,7 +231,7 @@ type ttlEACLStorage struct {
 	tc ttlNetCache[cid.ID, eacl.Table]
 }
 
-func newCachedEACLStorage(v container.EACLSource, ttl time.Duration) *ttlEACLStorage {
+func newCachedEACLStorage(v containercore.EACLSource, ttl time.Duration) *ttlEACLStorage {
 	const eaclCacheSize = 100
 
 	return &ttlEACLStorage{
@@ -257,31 +257,31 @@ func (s *ttlEACLStorage) reset() {
 }
 
 type lruNetmapSource struct {
-	netState netmap.State
+	netState netmapcore.State
 
 	cache *lruNetCache
 }
 
-func newCachedNetmapStorage(s netmap.State, v netmap.Source) *lruNetmapSource {
+func newCachedNetmapStorage(s netmapcore.State, v netmapcore.Source) *lruNetmapSource {
 	const netmapCacheSize = 10
 
 	return &lruNetmapSource{
 		netState: s,
-		cache: newNetworkLRUCache(netmapCacheSize, func(key uint64) (*netmapSDK.NetMap, error) {
+		cache: newNetworkLRUCache(netmapCacheSize, func(key uint64) (*netmap.NetMap, error) {
 			return v.GetNetMapByEpoch(key)
 		}),
 	}
 }
 
-func (s *lruNetmapSource) NetMap() (*netmapSDK.NetMap, error) {
+func (s *lruNetmapSource) NetMap() (*netmap.NetMap, error) {
 	return s.getNetMapByEpoch(s.netState.CurrentEpoch())
 }
 
-func (s *lruNetmapSource) GetNetMapByEpoch(epoch uint64) (*netmapSDK.NetMap, error) {
+func (s *lruNetmapSource) GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error) {
 	return s.getNetMapByEpoch(epoch)
 }
 
-func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmapSDK.NetMap, error) {
+func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmap.NetMap, error) {
 	val, err := s.cache.get(epoch)
 	if err != nil {
 		return nil, err

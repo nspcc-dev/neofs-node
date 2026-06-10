@@ -1,4 +1,4 @@
-package metachain
+package metachaincore
 
 import (
 	neogoconfig "github.com/nspcc-dev/neo-go/pkg/config"

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -24,7 +24,7 @@ type Streamer struct {
 
 	target internal.Target
 
-	relay func(client.MultiAddressClient) error
+	relay func(clientcore.MultiAddressClient) error
 
 	maxPayloadSz uint64 // network config
 

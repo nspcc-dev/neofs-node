@@ -5,10 +5,10 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/internal/client"
-	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	localreputation "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	reputationapi "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +48,7 @@ type RemoteProvider struct {
 	log *zap.Logger
 }
 
-func (rp RemoteProvider) WithClient(c coreclient.Client) reputationcommon.WriterProvider {
+func (rp RemoteProvider) WithClient(c clientcore.Client) reputationcommon.WriterProvider {
 	return &TrustWriterProvider{
 		client: c,
 		key:    rp.key,
@@ -57,7 +57,7 @@ func (rp RemoteProvider) WithClient(c coreclient.Client) reputationcommon.Writer
 }
 
 type TrustWriterProvider struct {
-	client coreclient.Client
+	client clientcore.Client
 	key    *ecdsa.PrivateKey
 	log    *zap.Logger
 }
@@ -73,15 +73,15 @@ func (twp *TrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputa
 
 type RemoteTrustWriter struct {
 	ctx    reputationcommon.Context
-	client coreclient.Client
+	client clientcore.Client
 	key    *ecdsa.PrivateKey
 	log    *zap.Logger
 
-	buf []reputationapi.Trust
+	buf []reputation.Trust
 }
 
-func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
-	var apiTrust reputationapi.Trust
+func (rtp *RemoteTrustWriter) Write(t localreputation.Trust) error {
+	var apiTrust reputation.Trust
 
 	apiTrust.SetValue(t.Value().Float64())
 	apiTrust.SetPeer(t.Peer())

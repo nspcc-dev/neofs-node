@@ -22,7 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -385,13 +385,13 @@ func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID
 	})
 }
 
-func (x *connections) AnnounceLocalTrust(ctx context.Context, epoch uint64, ts []apireputation.Trust, opts client.PrmAnnounceLocalTrust) error {
+func (x *connections) AnnounceLocalTrust(ctx context.Context, epoch uint64, ts []reputation.Trust, opts client.PrmAnnounceLocalTrust) error {
 	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceLocalTrust(ctx, epoch, ts, opts)
 	})
 }
 
-func (x *connections) AnnounceIntermediateTrust(ctx context.Context, epoch uint64, t apireputation.PeerToPeerTrust, opts client.PrmAnnounceIntermediateTrust) error {
+func (x *connections) AnnounceIntermediateTrust(ctx context.Context, epoch uint64, t reputation.PeerToPeerTrust, opts client.PrmAnnounceIntermediateTrust) error {
 	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceIntermediateTrust(ctx, epoch, t, opts)
 	})

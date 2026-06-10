@@ -1,4 +1,4 @@
-package version
+package versioncore
 
 import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"

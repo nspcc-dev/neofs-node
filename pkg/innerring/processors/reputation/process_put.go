@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -55,7 +55,7 @@ func (rp *Processor) processPut(e *reputationEvent.Put) {
 	rp.approvePutReputation(e)
 }
 
-func (rp *Processor) checkManagers(e uint64, mng apireputation.PeerID, peer apireputation.PeerID) error {
+func (rp *Processor) checkManagers(e uint64, mng reputation.PeerID, peer reputation.PeerID) error {
 	mm, err := rp.mngBuilder.BuildManagers(e, peer)
 	if err != nil {
 		return fmt.Errorf("could not build managers: %w", err)

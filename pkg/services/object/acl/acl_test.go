@@ -8,7 +8,7 @@ import (
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -18,8 +18,8 @@ import (
 
 type emptyEACLSource struct{}
 
-func (e emptyEACLSource) GetEACL(_ cid.ID) (eaclSDK.Table, error) {
-	return eaclSDK.Table{}, nil
+func (e emptyEACLSource) GetEACL(_ cid.ID) (eacl.Table, error) {
+	return eacl.Table{}, nil
 }
 
 type emptyHeaderSource struct{}
@@ -31,7 +31,7 @@ func (e emptyHeaderSource) Head(_ context.Context, _ oid.Address) (*object.Objec
 func TestStickyCheck(t *testing.T) {
 	checker := NewChecker(new(CheckerPrm).
 		SetLocalStorage(&engine.StorageEngine{}).
-		SetValidator(eaclSDK.NewValidator()).
+		SetValidator(eacl.NewValidator()).
 		SetEACLSource(emptyEACLSource{}).SetHeaderSource(emptyHeaderSource{}))
 
 	t.Run("system role", func(t *testing.T) {

@@ -20,7 +20,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neofs-node/pkg/core/metachain"
+	metachaincore "github.com/nspcc-dev/neofs-node/pkg/core/metachain"
 	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/meta"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -37,7 +37,7 @@ const (
 
 func newMetaClient(t *testing.T) (*neotest.ContractInvoker, *neotest.ContractInvoker) {
 	ch, validators, committee := chain.NewMultiWithOptions(t, &chain.Options{
-		NewNatives: metachain.NewCustomNatives,
+		NewNatives: metachaincore.NewCustomNatives,
 	})
 	e := neotest.NewExecutor(t, ch, validators, committee)
 

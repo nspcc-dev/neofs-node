@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	localreputation "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // Context wraps stdlib context
@@ -18,12 +18,12 @@ type Context interface {
 	Epoch() uint64
 }
 
-// Writer describes the interface for storing reputation.Trust values.
+// Writer describes the interface for storing localreputation.Trust values.
 //
 // This interface is provided by both local storage
 // of values and remote (wrappers over the RPC).
 type Writer interface {
-	// Write performs a write operation of reputation.Trust value
+	// Write performs a write operation of localreputation.Trust value
 	// and returns any error encountered.
 	//
 	// All values after the Close call must be flushed to the
@@ -31,7 +31,7 @@ type Writer interface {
 	// Close operation.
 	//
 	// Write must not be called after Close.
-	Write(reputation.Trust) error
+	Write(localreputation.Trust) error
 
 	// Closer close exits with method-providing Writer.
 	//
@@ -44,7 +44,7 @@ type Writer interface {
 
 // WriterProvider is a group of methods provided
 // by entity which generates keepers of
-// reputation.Trust values.
+// localreputation.Trust values.
 type WriterProvider interface {
 	// InitWriter should return an initialized Writer.
 	//
@@ -61,5 +61,5 @@ type WriterProvider interface {
 type ManagerBuilder interface {
 	// BuildManagers must compose list of managers. It depends on
 	// particular epoch and PeerID of the current route point.
-	BuildManagers(epoch uint64, p apireputation.PeerID) ([]netmap.NodeInfo, error)
+	BuildManagers(epoch uint64, p reputation.PeerID) ([]netmap.NodeInfo, error)
 }

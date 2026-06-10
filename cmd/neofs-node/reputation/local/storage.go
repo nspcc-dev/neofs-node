@@ -5,11 +5,11 @@ import (
 	"errors"
 
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	localreputation "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -50,7 +50,7 @@ type TrustIterator struct {
 	epochStorage *truststorage.EpochTrustValueStorage
 }
 
-func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
+func (it *TrustIterator) Iterate(h localreputation.TrustHandler) error {
 	if it.epochStorage != nil {
 		err := it.epochStorage.Iterate(h)
 		if !errors.Is(err, truststorage.ErrNoPositiveTrust) {
@@ -80,19 +80,19 @@ func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
 	}
 
 	// calculate Pj http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Chapter 4.5.
-	p := reputation.TrustOne.Div(reputation.TrustValueFromInt64(int64(ln)))
+	p := localreputation.TrustOne.Div(localreputation.TrustValueFromInt64(int64(ln)))
 
 	for i := range nmNodes {
 		if i == localIndex {
 			continue
 		}
 
-		var trusted, trusting apireputation.PeerID
+		var trusted, trusting reputation.PeerID
 
 		trusted.SetPublicKey(nmNodes[i].PublicKey())
 		trusting.SetPublicKey(it.storage.LocalKey)
 
-		trust := reputation.Trust{}
+		trust := localreputation.Trust{}
 		trust.SetPeer(trusted)
 		trust.SetValue(p)
 		trust.SetTrustingPeer(trusting)

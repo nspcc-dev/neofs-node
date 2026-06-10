@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
+	versioncore "github.com/nspcc-dev/neofs-node/pkg/core/version"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -58,7 +58,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		if err := AuthenticateToken(sessionToken, fsChain); err != nil {
 			return fmt.Errorf("session token: %w", err)
 		}
-		if sessionToken.Issuer() != obj.Owner() && version.OwnerSignatureMatchRequired(obj.Version()) {
+		if sessionToken.Issuer() != obj.Owner() && versioncore.OwnerSignatureMatchRequired(obj.Version()) {
 			return errors.New("different object owner and session issuer")
 		}
 	}
@@ -91,7 +91,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		}
 		if sessionToken == nil && sessionTokenV2 == nil && !ecPart &&
 			user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() &&
-			version.OwnerSignatureMatchRequired(obj.Version()) {
+			versioncore.OwnerSignatureMatchRequired(obj.Version()) {
 			return errors.New("owner mismatches signature")
 		}
 	case neofscrypto.N3:

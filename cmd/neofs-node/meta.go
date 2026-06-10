@@ -7,14 +7,14 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -62,13 +62,13 @@ type neofsNetwork struct {
 	key []byte
 
 	cnrClient  *cntClient.Client
-	containers container.Source
-	network    netmap.Source
+	containers containercore.Source
+	network    netmapcore.Source
 	header     *getsvc.Service
 
 	m          sync.RWMutex
 	prevCnrs   []cid.ID
-	prevNetMap *netmapsdk.NetMap
+	prevNetMap *netmap.NetMap
 	prevRes    map[cid.ID]struct{}
 }
 
@@ -99,7 +99,7 @@ func (c *neofsNetwork) IsMineWithMeta(id cid.ID, cData []byte) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
 	}
-	var cnr containerSDK.Container
+	var cnr container.Container
 	err = cnr.Unmarshal(cData)
 	if err != nil {
 		return false, fmt.Errorf("unmarshal container: %w", err)
@@ -107,7 +107,7 @@ func (c *neofsNetwork) IsMineWithMeta(id cid.ID, cData []byte) (bool, error) {
 	return c.isMineWithMeta(id, cnr, networkMap), nil
 }
 
-func (c *neofsNetwork) isMineWithMeta(id cid.ID, cnr containerSDK.Container, networkMap *netmapsdk.NetMap) bool {
+func (c *neofsNetwork) isMineWithMeta(id cid.ID, cnr container.Container, networkMap *netmap.NetMap) bool {
 	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
 	switch cnr.Attribute(metaOnChainAttr) {
 	case "optimistic", "strict":
@@ -118,7 +118,7 @@ func (c *neofsNetwork) isMineWithMeta(id cid.ID, cnr containerSDK.Container, net
 	return isContainerMine(id, cnr, networkMap, c.key)
 }
 
-func isContainerMine(id cid.ID, cnr containerSDK.Container, networkMap *netmapsdk.NetMap, myKey []byte) bool {
+func isContainerMine(id cid.ID, cnr container.Container, networkMap *netmap.NetMap, myKey []byte) bool {
 	nodeSets, err := networkMap.ContainerNodes(cnr.PlacementPolicy(), id)
 	if err != nil {
 		return false
@@ -147,7 +147,7 @@ func (c *neofsNetwork) List(e uint64) (map[cid.ID]struct{}, error) {
 
 	c.m.RLock()
 	if c.prevNetMap != nil && c.prevCnrs != nil && slices.Equal(c.prevCnrs, actualContainers) {
-		netmapSame := slices.EqualFunc(c.prevNetMap.Nodes(), networkMap.Nodes(), func(n1 netmapsdk.NodeInfo, n2 netmapsdk.NodeInfo) bool {
+		netmapSame := slices.EqualFunc(c.prevNetMap.Nodes(), networkMap.Nodes(), func(n1 netmap.NodeInfo, n2 netmap.NodeInfo) bool {
 			return bytes.Equal(n1.PublicKey(), n2.PublicKey())
 		})
 		if netmapSame {
