@@ -77,6 +77,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
 			l:            p.log,
+			ctx:          p.ctx,
 			nextTarget:   p.newCommonTarget(prm),
 			fmt:          p.fmtValidator,
 			quotaLimiter: p.quotaLimiter,
@@ -146,6 +147,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	prm.sessionSigner = sessionSigner
 	p.target = &validatingTarget{
 		l:                p.log,
+		ctx:              p.ctx,
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
 		quotaLimiter:     p.quotaLimiter,

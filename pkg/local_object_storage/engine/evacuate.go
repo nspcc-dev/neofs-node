@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -28,7 +29,7 @@ var errMustHaveTwoShards = errors.New("must have at least 1 spare shard")
 // (if provided, fails otherwise) which can return its own error to abort
 // evacuation (or nil to continue). Returns the number of evacuated objects
 // (which can be non-zero even in case of error).
-func (e *StorageEngine) Evacuate(shardIDs []common.ID, ignoreErrors bool, faultHandler func(oid.Address, *object.Object) error) (int, error) {
+func (e *StorageEngine) Evacuate(ctx context.Context, shardIDs []common.ID, ignoreErrors bool, faultHandler func(oid.Address, *object.Object) error) (int, error) {
 	sidList := make([]string, len(shardIDs))
 	for i := range shardIDs {
 		sidList[i] = shardIDs[i].String()
@@ -114,7 +115,7 @@ mainLoop:
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					err = e.putToShard(shards[j], addr, obj, nil)
+					err = e.putToShard(ctx, shards[j], addr, obj, nil)
 					if err == nil || errors.Is(err, errExists) {
 						if !errors.Is(err, errExists) {
 							e.log.Debug("object is moved to another shard",

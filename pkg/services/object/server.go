@@ -144,11 +144,11 @@ type Storage interface {
 	// VerifyAndStoreObjectLocally checks whether given object has correct format
 	// and, if so, saves it in the Storage. StoreObject is called only when local
 	// node complies with the container's storage policy.
-	VerifyAndStoreObjectLocally(object.Object) error
+	VerifyAndStoreObjectLocally(context.Context, object.Object) error
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	SearchObjects(_ context.Context, _ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -486,7 +486,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 				err = basicACLErr(reqInfo) // needed for defer
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
-			err = s.aclChecker.CheckEACL(req, reqInfo)
+			err = s.aclChecker.CheckEACL(gStream.Context(), req, reqInfo)
 			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 				err = eACLErr(reqInfo, err) // needed for defer
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
@@ -546,7 +546,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.makeStatusDeleteResponse(err, req), nil
@@ -654,7 +654,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
 	if err != nil {
 		if !errors.Is(err, aclsvc.ErrNotMatched) {
 			err = eACLErr(reqInfo, err) // needed for defer
@@ -716,7 +716,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		} else {
 			msg = &resp
 		}
-		err = s.aclChecker.CheckEACL(msg, reqInfo)
+		err = s.aclChecker.CheckEACL(ctx, msg, reqInfo)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 			err = eACLErr(reqInfo, err) // defer
 			return s.makeStatusHeadResponse(err, needSignResp)
@@ -882,7 +882,7 @@ func (s *getStream) ValidateHeader(hdr *object.Object) error {
 		},
 	}
 
-	err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo)
+	err := s.srv.aclChecker.CheckEACL(s.base.Context(), resp, s.reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		return eACLErr(s.reqInfo, err)
 	}
@@ -958,7 +958,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
+	err = s.aclChecker.CheckEACL(gStream.Context(), req, reqInfo)
 	if err != nil {
 		if !errors.Is(err, aclsvc.ErrNotMatched) {
 			err = eACLErr(reqInfo, err) // needed for defer
@@ -1032,7 +1032,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.
-		err = s.aclChecker.CheckEACL(hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+		err = s.aclChecker.CheckEACL(gStream.Context(), hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 			err = eACLErr(reqInfo, err) // defer
 			return s.sendStatusGetResponse(gStream, err, needSignResp)
@@ -1330,7 +1330,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
+	err = s.aclChecker.CheckEACL(gStream.Context(), req, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err, req)
@@ -1501,7 +1501,7 @@ func (s *Server) Search(_ *protoobject.SearchRequest, _ protoobject.ObjectServic
 }
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
-func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
+func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
 	if req.Object == nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code: codeBadRequest, Message: "binary object field is missing/empty",
@@ -1648,7 +1648,7 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		}}, nil
 	}
 
-	err = s.storage.VerifyAndStoreObjectLocally(*obj)
+	err = s.storage.VerifyAndStoreObjectLocally(ctx, *obj)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrBusy) {
 			return &protoobject.ReplicateResponse{Status: apistatus.FromError(err)}, nil
@@ -1713,7 +1713,7 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.signSearchResponse(nil, err, req), nil
 	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err)
 		return s.signSearchResponse(nil, err, req), nil
@@ -1857,7 +1857,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	)
 	switch {
 	case ttl == 1:
-		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err != nil {
+		if res, newCursor, err = s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count); err != nil {
 			return nil, nil, err
 		}
 	case handleWithMetaService:
@@ -1900,7 +1900,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			expectedRes++
 			if s.fsChain.IsOwnPublicKey(nodePub) {
 				go func() {
-					set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count)
+					set, crsr, err := s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count)
 					resCh <- nodeSearchResult{set, crsr != nil, err}
 				}()
 				return true

@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -18,18 +19,18 @@ type ObjectStorage interface {
 	//
 	// Optional objBin parameter carries object encoded in a canonical NeoFS binary
 	// format.
-	Put(obj *object.Object, objBin []byte) error
+	Put(ctx context.Context, obj *object.Object, objBin []byte) error
 	// IsLocked must clarify object's lock status.
-	IsLocked(oid.Address) (bool, error)
+	IsLocked(ctx context.Context, addr oid.Address) (bool, error)
 }
 
-func putObjectLocally(storage ObjectStorage, obj *object.Object, enc *encodedObject) error {
+func putObjectLocally(ctx context.Context, storage ObjectStorage, obj *object.Object, enc *encodedObject) error {
 	var objBin []byte
 	if enc != nil && enc.pldOff > 0 {
 		objBin = enc.b[enc.hdrOff:]
 	}
 
-	if err := storage.Put(obj, objBin); err != nil {
+	if err := storage.Put(ctx, obj, objBin); err != nil {
 		return fmt.Errorf("could not put object to local storage: %w", err)
 	}
 
@@ -39,7 +40,7 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, enc *encodedObj
 // ValidateAndStoreObjectLocally checks format of given object and, if it's
 // correct, stores it in the underlying local object storage. Serves operation
 // similar to local-only [Service.Put] one.
-func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
+func (p *Service) ValidateAndStoreObjectLocally(ctx context.Context, obj object.Object) error {
 	cnrID := obj.GetContainerID()
 	if cnrID.IsZero() {
 		return errors.New("missing container ID")
@@ -75,11 +76,11 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return ErrExceedingMaxSize
 	}
 
-	if err := p.fmtValidator.Validate(&obj, false, true); err != nil {
+	if err := p.fmtValidator.Validate(ctx, &obj, false, true); err != nil {
 		return fmt.Errorf("validate object format: %w", err)
 	}
 
-	err := p.fmtValidator.ValidateContent(&obj)
+	err := p.fmtValidator.ValidateContent(ctx, &obj)
 	if err != nil {
 		return fmt.Errorf("validate payload content: %w", err)
 	}
@@ -90,5 +91,5 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return errors.New("payload SHA-256 checksum mismatch")
 	}
 
-	return putObjectLocally(p.localStore, &obj, nil)
+	return putObjectLocally(ctx, p.localStore, &obj, nil)
 }

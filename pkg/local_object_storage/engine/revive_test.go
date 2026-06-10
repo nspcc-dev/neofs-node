@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -17,7 +18,7 @@ func TestStorageEngine_ReviveObject(t *testing.T) {
 	cnr := cidtest.ID()
 
 	obj := generateObjectWithCID(cnr)
-	require.NoError(t, e.Put(obj, nil))
+	require.NoError(t, e.Put(context.Background(), obj, nil))
 	addr := obj.Address()
 
 	ts := generateObjectWithCID(cnr)
@@ -25,21 +26,21 @@ func TestStorageEngine_ReviveObject(t *testing.T) {
 	addAttribute(ts, object.AttributeExpirationEpoch, "0")
 	tsAddr := ts.Address()
 
-	require.NoError(t, e.Put(ts, nil))
+	require.NoError(t, e.Put(context.Background(), ts, nil))
 
-	_, err := e.Get(addr)
+	_, err := e.Get(context.Background(), addr)
 	require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
-	rs, err := e.ReviveObject(addr)
+	rs, err := e.ReviveObject(context.Background(), addr)
 	require.NoError(t, err)
 	require.Equal(t, meta.ReviveStatusGraveyard, rs.Shards[0].Status.StatusType())
 	require.Equal(t, tsAddr, rs.Shards[0].Status.TombstoneAddress())
 
-	got, err := e.Get(addr)
+	got, err := e.Get(context.Background(), addr)
 	require.NoError(t, err)
 	require.Equal(t, obj, got)
 
 	// tombstone metadata should be dropped, so getting TS must fail with not found
-	_, err = e.Get(tsAddr)
+	_, err = e.Get(context.Background(), tsAddr)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 }

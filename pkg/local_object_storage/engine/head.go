@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -22,7 +23,7 @@ import (
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Head(addr oid.Address, raw bool) (*object.Object, error) {
+func (e *StorageEngine) Head(_ context.Context, addr oid.Address, raw bool) (*object.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
@@ -49,7 +50,7 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*object.Object, error)
 // If object is a split-parent, behavior depends on raw flag. If set, ReadHeader
 // returns [object.SplitInfoError] with all relations recorded in e. If unset,
 // ReadHeader reads header of the requested object from the child one into buf.
-func (e *StorageEngine) ReadHeader(addr oid.Address, raw bool, buf []byte) (int, error) {
+func (e *StorageEngine) ReadHeader(_ context.Context, addr oid.Address, raw bool, buf []byte) (int, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadHeaderDuration)()
 	}

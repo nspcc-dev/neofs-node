@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -133,7 +134,7 @@ func benchmarkSearch(b *testing.B, fx *benchmarkEngineFixture, container cid.ID,
 	b.ReportAllocs()
 	for b.Loop() {
 		dropCachesIfEnabled(b)
-		_, nextCursor, err := fx.engine.Search(container, fs, attrs, cursor, 1000)
+		_, nextCursor, err := fx.engine.Search(context.Background(), container, fs, attrs, cursor, 1000)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -150,7 +151,7 @@ func benchmarkListWithCursor(b *testing.B, fx *benchmarkEngineFixture, batchSize
 		var cursor *Cursor
 		var err error
 		for {
-			_, cursor, err = fx.engine.ListWithCursor(batchSize, cursor)
+			_, cursor, err = fx.engine.ListWithCursor(context.Background(), batchSize, cursor)
 			if errors.Is(err, ErrEndOfListing) {
 				break
 			}

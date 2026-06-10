@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
@@ -39,7 +40,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShardNum(t, 1)
 		defer e.Close()
 
-		err := e.Put(parent, nil)
+		err := e.Put(context.Background(), parent, nil)
 		require.NoError(t, err)
 
 		tomb := generateObjectWithCID(parent.GetContainerID())
@@ -50,10 +51,10 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		tomb.SetAttributes(a)
 		tomb.AssociateDeleted(idParent)
 
-		err = e.Put(tomb, nil)
+		err = e.Put(context.Background(), tomb, nil)
 		require.NoError(t, err)
 
-		addrs, err := e.selectOld(cnr, fs)
+		addrs, err := e.selectOld(context.Background(), cnr, fs)
 		require.NoError(t, err)
 		require.Empty(t, addrs)
 	})
@@ -79,26 +80,26 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		tomb.SetAttributes(a)
 		tomb.AssociateDeleted(idParent)
 
-		err = e.Put(tomb, nil)
+		err = e.Put(context.Background(), tomb, nil)
 		require.NoError(t, err)
 
-		_, err = e.Get(parent.Address())
+		_, err = e.Get(context.Background(), parent.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
-		_, err = e.Get(child.Address())
+		_, err = e.Get(context.Background(), child.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
-		_, err = e.Get(link.Address())
+		_, err = e.Get(context.Background(), link.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
 		t.Run("empty search should return ts", func(t *testing.T) {
-			addrs, err := e.selectOld(cnr, object.SearchFilters{})
+			addrs, err := e.selectOld(context.Background(), cnr, object.SearchFilters{})
 			require.NoError(t, err)
 			require.Equal(t, []oid.Address{tomb.Address()}, addrs)
 		})
 
 		t.Run("root search should fail", func(t *testing.T) {
-			addrs, err := e.selectOld(cnr, fs)
+			addrs, err := e.selectOld(context.Background(), cnr, fs)
 			require.NoError(t, err)
 			require.Empty(t, addrs)
 		})
@@ -108,18 +109,18 @@ func TestStorageEngine_Inhume(t *testing.T) {
 			addr.SetContainer(cnr)
 			addr.SetObject(idChild)
 
-			_, err = e.Get(addr)
+			_, err = e.Get(context.Background(), addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 			linkID := link.GetID()
 			addr.SetObject(linkID)
 
-			_, err = e.Get(addr)
+			_, err = e.Get(context.Background(), addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 		})
 
 		t.Run("parent get should claim deletion", func(t *testing.T) {
-			_, err = e.Get(parent.Address())
+			_, err = e.Get(context.Background(), parent.Address())
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 		})
 	})
@@ -147,7 +148,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		_, err = wrongShard.Get(addr, false)
 		require.NoError(t, err)
 
-		err = e.Delete(addr)
+		err = e.Delete(context.Background(), addr)
 		require.NoError(t, err)
 
 		// object was on the wrong (according to hash sorting) shard but is removed anyway
@@ -161,11 +162,11 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShardNum(t, 3)
 		defer e.Close()
 
-		err := e.Delete(addr)
+		err := e.Delete(context.Background(), addr)
 		require.NoError(t, err)
 
 		// object is marked as garbage but marking it again should not be a problem
-		err = e.Delete(addr)
+		err = e.Delete(context.Background(), addr)
 		require.NoError(t, err)
 	})
 }

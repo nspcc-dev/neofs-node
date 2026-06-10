@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -47,17 +48,17 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 		o2 := generateObjectWithCID(cidtest.ID())
 		o2.SetPayload(make([]byte, errSmallSize+1))
 
-		err := e.Put(o1, nil)
+		err := e.Put(context.Background(), o1, nil)
 		require.NoError(t, err)
 
-		err = e.Put(o2, nil)
+		err = e.Put(context.Background(), o2, nil)
 		require.NoError(t, err)
 
 		require.NoError(t, e.Init())
 
 		time.Sleep(time.Second)
-		_, err1 := e.Get(o1.Address())
-		_, err2 := e.Get(o2.Address())
+		_, err1 := e.Get(context.Background(), o1.Address())
+		_, err2 := e.Get(context.Background(), o2.Address())
 
 		require.ErrorIs(t, err1, new(apistatus.ObjectNotFound))
 		require.ErrorIs(t, err2, new(apistatus.ObjectNotFound))

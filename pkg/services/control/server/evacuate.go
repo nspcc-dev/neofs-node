@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequest) (*control.EvacuateShardResponse, error) {
+func (s *Server) EvacuateShard(ctx context.Context, req *control.EvacuateShardRequest) (*control.EvacuateShardResponse, error) {
 	err := s.isValidRequest(req)
 	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, err.Error())
@@ -36,7 +36,7 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	count, err := s.storage.Evacuate(shardIDs, req.GetBody().GetIgnoreErrors(), s.replicate)
+	count, err := s.storage.Evacuate(ctx, shardIDs, req.GetBody().GetIgnoreErrors(), s.replicate)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

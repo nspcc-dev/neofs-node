@@ -1,6 +1,7 @@
 package acl
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"errors"
@@ -108,7 +109,7 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 }
 
 // CheckEACL is a main check function for extended ACL.
-func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
+func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo) error {
 	basicACL := reqInfo.Container.BasicACL()
 	if !basicACL.Extendable() {
 		return nil
@@ -156,6 +157,7 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
 
 	hdrSrcOpts = append(hdrSrcOpts,
+		eaclV2.WithContext(ctx),
 		eaclV2.WithLocalObjectStorage(c.localStorage),
 		eaclV2.WithCID(cnr),
 		eaclV2.WithOID(reqInfo.Obj),

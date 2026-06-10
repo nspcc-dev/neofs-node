@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"testing"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -14,8 +15,12 @@ import (
 
 func TestDeleteBigObject(t *testing.T) {
 	funcs := map[string]func(*StorageEngine, oid.Address) error{
-		"delete": (*StorageEngine).Delete,
-		"drop":   (*StorageEngine).Drop,
+		"delete": func(e *StorageEngine, addr oid.Address) error {
+			return e.Delete(context.Background(), addr)
+		},
+		"drop": func(e *StorageEngine, addr oid.Address) error {
+			return e.Drop(context.Background(), addr)
+		},
 	}
 	for name, fun := range funcs {
 		t.Run(name, func(t *testing.T) { testDeleteBigObject(t, fun) })
@@ -62,9 +67,9 @@ func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) err
 	defer e.Close()
 
 	for i := range children {
-		require.NoError(t, e.Put(children[i], nil))
+		require.NoError(t, e.Put(context.Background(), children[i], nil))
 	}
-	require.NoError(t, e.Put(link, nil))
+	require.NoError(t, e.Put(context.Background(), link, nil))
 
 	var splitErr *object.SplitInfoError
 
@@ -89,7 +94,7 @@ func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) err
 }
 
 func checkGetError(t *testing.T, e *StorageEngine, addr oid.Address, expected any) {
-	_, err := e.Get(addr)
+	_, err := e.Get(context.Background(), addr)
 	if expected != nil {
 		require.ErrorAs(t, err, expected)
 	} else {

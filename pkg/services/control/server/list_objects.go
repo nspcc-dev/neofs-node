@@ -23,13 +23,14 @@ func (s *Server) ListObjects(req *control.ListObjectsRequest, stream control.Con
 	}
 
 	var (
+		ctx       = stream.Context()
 		cursor    *engine.Cursor
 		addresses []objectcore.AddressWithAttributes
 	)
 	// (Limit 4MB - 64KB for service bytes and future fields) / 89B address length = 46390 addresses can be sent
 	const count = 46390
 	for {
-		addresses, cursor, err = s.storage.ListWithCursor(count, cursor)
+		addresses, cursor, err = s.storage.ListWithCursor(ctx, count, cursor)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				return nil

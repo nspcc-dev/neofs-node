@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
@@ -39,11 +40,11 @@ type testHeaderSource struct {
 	header *object.Object
 }
 
-func (t *testHeaderSource) Head(_ oid.Address) (*object.Object, error) {
+func (t *testHeaderSource) Head(_ context.Context, _ oid.Address) (*object.Object, error) {
 	return t.header, nil
 }
 
-func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
+func (s *testLocalStorage) Head(_ context.Context, addr oid.Address) (*object.Object, error) {
 	require.True(s.t, addr.Container() == s.expAddr.Container())
 	require.True(s.t, addr.Object() == s.expAddr.Object())
 

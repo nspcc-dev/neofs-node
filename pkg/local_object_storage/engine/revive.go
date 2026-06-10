@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"context"
+
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -19,7 +21,7 @@ type ReviveStatus struct {
 
 // ReviveObject forcefully revives object by oid.Address in the StorageEngine.
 // Iterate over all shards despite errors and purge all removal marks from all metabases.
-func (e *StorageEngine) ReviveObject(address oid.Address) (ReviveStatus, error) {
+func (e *StorageEngine) ReviveObject(_ context.Context, address oid.Address) (ReviveStatus, error) {
 	var res ReviveStatus
 
 	for _, sh := range e.unsortedShards() {

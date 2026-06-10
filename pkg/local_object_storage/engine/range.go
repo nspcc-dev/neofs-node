@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"io"
 
@@ -21,12 +22,12 @@ import (
 //
 // If referenced object is a parent of some stored EC parts, GetRange returns
 // [ierrors.ErrParentObject] wrapping [iec.ErrParts].
-func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64) ([]byte, error) {
+func (e *StorageEngine) GetRange(ctx context.Context, addr oid.Address, offset uint64, length uint64) ([]byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}
 
-	stream, err := e.getRangeStream(addr, offset, length)
+	stream, err := e.getRangeStream(ctx, addr, offset, length)
 	if err != nil {
 		return nil, err
 	}

@@ -69,7 +69,7 @@ func TestServer_Get_Local(t *testing.T) {
 			obj.SetPayload(testutil.RandByteSlice(pldLen))
 			require.NoError(t, obj.SetVerificationFields(signer))
 
-			require.NoError(t, storage.Put(obj, nil))
+			require.NoError(t, storage.Put(context.Background(), obj, nil))
 
 			assertGetOK(t, srv, mtrc, *obj, signer)
 
@@ -119,7 +119,7 @@ func TestServer_Get_Local(t *testing.T) {
 		}) // any part payload
 		require.NoError(t, err)
 
-		require.NoError(t, storage.Put(&part, nil))
+		require.NoError(t, storage.Put(context.Background(), &part, nil))
 
 		req := newUnsignedLocalGetRequest(version.Current(), parentHdr.Address())
 		req.MetaHeader.XHeaders = []*protosession.XHeader{
@@ -154,7 +154,7 @@ func TestServer_Get_Remote(t *testing.T) {
 
 	storage := newSimpleStorage(t, fsChain)
 
-	require.NoError(t, storage.Put(obj, nil))
+	require.NoError(t, storage.Put(context.Background(), obj, nil))
 
 	keyStorage := util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)
 

@@ -49,34 +49,34 @@ func (s *storageListerWithDelay) setListResulsts(oo []objectcore.AddressWithAttr
 	s.m.Unlock()
 }
 
-func (s *storageListerWithDelay) ListWithCursor(u uint32, cursor *engine.Cursor, s2 ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
+func (s *storageListerWithDelay) ListWithCursor(_ context.Context, u uint32, cursor *engine.Cursor, s2 ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
 	<-s.ch
 	s.m.RLock()
 	defer s.m.RUnlock()
 	return s.objs, cursor, s.err
 }
 
-func (s *storageListerWithDelay) Delete(address oid.Address) error {
+func (s *storageListerWithDelay) Delete(_ context.Context, address oid.Address) error {
 	panic("do not call me")
 }
 
-func (s *storageListerWithDelay) DeleteRedundantCopies(address oid.Address, _ []string) error {
+func (s *storageListerWithDelay) DeleteRedundantCopies(_ context.Context, address oid.Address, _ []string) error {
 	panic("do not call me")
 }
 
-func (s *storageListerWithDelay) Put(o *object.Object, i []byte) error {
+func (s *storageListerWithDelay) Put(_ context.Context, o *object.Object, i []byte) error {
 	panic("do not call me")
 }
 
-func (s *storageListerWithDelay) Head(address oid.Address, b bool) (*object.Object, error) {
+func (s *storageListerWithDelay) Head(_ context.Context, address oid.Address, b bool) (*object.Object, error) {
 	panic("do not call me")
 }
 
-func (s *storageListerWithDelay) HeadECPart(id cid.ID, id2 oid.ID, info iec.PartInfo) (object.Object, error) {
+func (s *storageListerWithDelay) HeadECPart(_ context.Context, id cid.ID, id2 oid.ID, info iec.PartInfo) (object.Object, error) {
 	panic("do not call me")
 }
 
-func (s *storageListerWithDelay) GetRange(address oid.Address, u uint64, u2 uint64) ([]byte, error) {
+func (s *storageListerWithDelay) GetRange(_ context.Context, address oid.Address, u uint64, u2 uint64) ([]byte, error) {
 	panic("do not call me")
 }
 
@@ -216,8 +216,8 @@ func TestConsistencyAndPlacement(t *testing.T) {
 		repAddr := oid.NewAddress(cidtest.ID(), oidtest.ID())
 		ecAddr := oid.NewAddress(cidtest.ID(), oidtest.ID())
 
-		p.dropRedundantLocalObject(repAddr, false)
-		p.dropRedundantLocalObject(ecAddr, true)
+		p.dropRedundantLocalObject(context.Background(), repAddr, false)
+		p.dropRedundantLocalObject(context.Background(), ecAddr, true)
 
 		require.EqualValues(t, 1, mockM.deletedRep.Load())
 		require.EqualValues(t, 1, mockM.deletedEC.Load())
@@ -1499,7 +1499,7 @@ func (x *mockNetwork) PublicKey() []byte {
 	return x.pubKey
 }
 
-func (x *testLocalNode) ListWithCursor(_ uint32, c *engine.Cursor, _ ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
+func (x *testLocalNode) ListWithCursor(_ context.Context, _ uint32, c *engine.Cursor, _ ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
 	if len(x.objList) == 0 {
 		return nil, nil, engine.ErrEndOfListing
 	}
@@ -1549,30 +1549,30 @@ func (x *testLocalNode) deletedShardCopies(addr oid.Address) []string {
 	return res
 }
 
-func (x *testLocalNode) Delete(addr oid.Address) error {
+func (x *testLocalNode) Delete(_ context.Context, addr oid.Address) error {
 	x.delMtx.Lock()
 	x.del[addr] = struct{}{}
 	x.delMtx.Unlock()
 	return nil
 }
 
-func (x *testLocalNode) Put(*object.Object, []byte) error {
+func (x *testLocalNode) Put(_ context.Context, _ *object.Object, _ []byte) error {
 	return nil
 }
 
-func (x *testLocalNode) Head(oid.Address, bool) (*object.Object, error) {
+func (x *testLocalNode) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
 	return &object.Object{}, nil
 }
 
-func (x *testLocalNode) HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error) {
+func (x *testLocalNode) HeadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo) (object.Object, error) {
 	return object.Object{}, nil
 }
 
-func (x *testLocalNode) GetRange(oid.Address, uint64, uint64) ([]byte, error) {
+func (x *testLocalNode) GetRange(_ context.Context, _ oid.Address, _ uint64, _ uint64) ([]byte, error) {
 	panic("unimplemented")
 }
 
-func (x *testLocalNode) DeleteRedundantCopies(addr oid.Address, shardIDs []string) error {
+func (x *testLocalNode) DeleteRedundantCopies(_ context.Context, addr oid.Address, shardIDs []string) error {
 	if x.deleteRedundantCopies != nil {
 		return x.deleteRedundantCopies(addr, shardIDs)
 	}

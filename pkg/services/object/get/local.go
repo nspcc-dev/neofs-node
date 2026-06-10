@@ -1,6 +1,7 @@
 package getsvc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -51,8 +52,8 @@ func (exec *execCtx) executeLocal() {
 	}
 }
 
-func (s *Service) copyLocalObjectHeader(dst internal.HeaderWriter, cnr cid.ID, id oid.ID, raw bool) error {
-	hdr, err := s.localObjects.Head(oid.NewAddress(cnr, id), raw)
+func (s *Service) copyLocalObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, id oid.ID, raw bool) error {
+	hdr, err := s.localObjects.Head(ctx, oid.NewAddress(cnr, id), raw)
 	if err != nil {
 		return fmt.Errorf("get object header from local storage: %w", err)
 	}

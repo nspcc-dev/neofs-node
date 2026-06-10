@@ -513,7 +513,7 @@ func (h *headerWriter) WriteHeader(o *object.Object) error {
 	return nil
 }
 
-func (h headerSource) Head(address oid.Address) (*object.Object, error) {
+func (h headerSource) Head(ctx context.Context, address oid.Address) (*object.Object, error) {
 	l := h.l.With(zap.Stringer("address", address))
 	l.Debug("requesting header")
 
@@ -534,7 +534,7 @@ func (h headerSource) Head(address oid.Address) (*object.Object, error) {
 	prm.WithAddress(address)
 	prm.WithRawFlag(true)
 
-	err := h.getsvc.Head(context.Background(), prm)
+	err := h.getsvc.Head(ctx, prm)
 	if err != nil {
 		return nil, fmt.Errorf("reading header: %w", err)
 	}
@@ -656,12 +656,12 @@ type storageForObjectService struct {
 }
 
 // SearchObjects implements [objectService.Storage] interface.
-func (x storageForObjectService) SearchObjects(cID cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	return x.local.Search(cID, fs, attrs, cursor, count)
+func (x storageForObjectService) SearchObjects(ctx context.Context, cID cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+	return x.local.Search(ctx, cID, fs, attrs, cursor, count)
 }
 
-func (x storageForObjectService) VerifyAndStoreObjectLocally(obj object.Object) error {
-	return x.putSvc.ValidateAndStoreObjectLocally(obj)
+func (x storageForObjectService) VerifyAndStoreObjectLocally(ctx context.Context, obj object.Object) error {
+	return x.putSvc.ValidateAndStoreObjectLocally(ctx, obj)
 }
 
 func (x storageForObjectService) GetSessionPrivateKey(account user.ID) (ecdsa.PrivateKey, error) {

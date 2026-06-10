@@ -107,10 +107,10 @@ func (c *noCallTestFSChain) InvokeContainedScript(*transaction.Transaction, *blo
 
 type noCallTestStorage struct{}
 
-func (noCallTestStorage) SearchObjects(cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
+func (noCallTestStorage) SearchObjects(context.Context, cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
 	panic("must not be called")
 }
-func (noCallTestStorage) VerifyAndStoreObjectLocally(object.Object) error {
+func (noCallTestStorage) VerifyAndStoreObjectLocally(context.Context, object.Object) error {
 	panic("must not be called")
 }
 func (noCallTestStorage) GetSessionPrivateKey(user.ID) (ecdsa.PrivateKey, error) {
@@ -123,8 +123,10 @@ func (s noCallTestStorage) GetSessionV2PrivateKey([]sessionv2.Target) (ecdsa.Pri
 
 type noCallTestACLChecker struct{}
 
-func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool           { panic("must not be called") }
-func (noCallTestACLChecker) CheckEACL(any, v2.RequestInfo) error         { panic("must not be called") }
+func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool { panic("must not be called") }
+func (noCallTestACLChecker) CheckEACL(context.Context, any, v2.RequestInfo) error {
+	panic("must not be called")
+}
 func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic("must not be called") }
 
 type noCallTestReqInfoExtractor struct{}
@@ -159,9 +161,9 @@ func (noCallClients) Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddr
 
 type nopACLChecker struct{}
 
-func (nopACLChecker) CheckBasicACL(v2.RequestInfo) bool           { return true }
-func (nopACLChecker) CheckEACL(any, v2.RequestInfo) error         { return nil }
-func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { return true }
+func (nopACLChecker) CheckBasicACL(v2.RequestInfo) bool                    { return true }
+func (nopACLChecker) CheckEACL(context.Context, any, v2.RequestInfo) error { return nil }
+func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool          { return true }
 
 type nopReqInfoExtractor struct{}
 
@@ -291,7 +293,7 @@ func newTestStorage(t testing.TB, obj *protoobject.Object) *testStorage {
 	return &testStorage{t: t, obj: obj}
 }
 
-func (x *testStorage) VerifyAndStoreObjectLocally(obj object.Object) error {
+func (x *testStorage) VerifyAndStoreObjectLocally(_ context.Context, obj object.Object) error {
 	require.Equal(x.t, x.obj, obj.ProtoMessage())
 	return x.storeErr
 }
@@ -645,14 +647,14 @@ func (nopFSChain) LocalNodeUnderMaintenance() bool { return false }
 
 type nopStorage struct{}
 
-func (nopStorage) VerifyAndStoreObjectLocally(object.Object) error { return nil }
+func (nopStorage) VerifyAndStoreObjectLocally(context.Context, object.Object) error { return nil }
 func (nopStorage) GetSessionPrivateKey(user.ID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
 func (s nopStorage) GetSessionV2PrivateKey([]sessionv2.Target) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
-func (nopStorage) SearchObjects(cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
+func (nopStorage) SearchObjects(context.Context, cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
 	return nil, nil, nil
 }
 

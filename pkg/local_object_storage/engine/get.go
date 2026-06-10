@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"io"
 
@@ -26,7 +27,7 @@ import (
 //
 // If referenced object is a parent of some stored EC parts, Get returns
 // [ierrors.ErrParentObject] wrapping [iec.ErrParts].
-func (e *StorageEngine) Get(addr oid.Address) (*object.Object, error) {
+func (e *StorageEngine) Get(_ context.Context, addr oid.Address) (*object.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
 	}
@@ -145,7 +146,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 //
 // If referenced object is a parent of some stored EC parts, GetBytes returns
 // [ierrors.ErrParentObject] wrapping [iec.ErrParts].
-func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
+func (e *StorageEngine) GetBytes(_ context.Context, addr oid.Address) ([]byte, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
@@ -182,7 +183,7 @@ func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
 //
 // If referenced object is a parent of some stored EC parts, GetStream returns
 // [ierrors.ErrParentObject] wrapping [iec.ErrParts].
-func (e *StorageEngine) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
+func (e *StorageEngine) GetStream(_ context.Context, addr oid.Address) (*object.Object, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetStreamDuration)()
 	}
@@ -215,15 +216,15 @@ func (e *StorageEngine) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (e *StorageEngine) GetRangeStream(addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+func (e *StorageEngine) GetRangeStream(ctx context.Context, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetRangeStreamDuration)()
 	}
 
-	return e.getRangeStream(addr, off, ln)
+	return e.getRangeStream(ctx, addr, off, ln)
 }
 
-func (e *StorageEngine) getRangeStream(addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+func (e *StorageEngine) getRangeStream(_ context.Context, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
@@ -256,7 +257,7 @@ func (e *StorageEngine) getRangeStream(addr oid.Address, off, ln uint64) (io.Rea
 //
 // If object is a split-parent, ReadObject returns [object.SplitInfoError] with
 // all relations recorded in e.
-func (e *StorageEngine) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+func (e *StorageEngine) ReadObject(_ context.Context, addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadObjectDuration)()
 	}
@@ -285,7 +286,7 @@ func (e *StorageEngine) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCl
 //
 // If given range is out of payload bounds, ReadPayloadRange returns
 // [apistatus.ErrObjectOutOfRange].
-func (e *StorageEngine) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byte) (io.ReadCloser, error) {
+func (e *StorageEngine) ReadPayloadRange(_ context.Context, addr oid.Address, off, ln uint64, hdrBuf []byte) (io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadPayloadRangeDuration)()
 	}

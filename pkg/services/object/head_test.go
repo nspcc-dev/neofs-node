@@ -48,7 +48,7 @@ func TestServer_Head_Local(t *testing.T) {
 
 	storage := newSimpleStorage(t, fsChain)
 
-	require.NoError(t, storage.Put(obj, nil))
+	require.NoError(t, storage.Put(context.Background(), obj, nil))
 
 	var handlerFSChain mockHandlerFSChain
 
@@ -78,7 +78,7 @@ func TestServer_Head_Local(t *testing.T) {
 		}) // payload is not needed
 		require.NoError(t, err)
 
-		require.NoError(t, storage.Put(&partHdr, nil))
+		require.NoError(t, storage.Put(context.Background(), &partHdr, nil))
 
 		req := newUnsignedLocalHeadRequest(version.Current(), obj.Address())
 		req.MetaHeader.XHeaders = []*protosession.XHeader{
@@ -123,7 +123,7 @@ func TestServer_Head_Remote(t *testing.T) {
 
 	storage := newSimpleStorage(t, fsChain)
 
-	require.NoError(t, storage.Put(obj, nil))
+	require.NoError(t, storage.Put(context.Background(), obj, nil))
 
 	keyStorage := util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)
 
@@ -158,7 +158,7 @@ func TestServer_Head_Remote(t *testing.T) {
 		}) // any part payload
 		require.NoError(t, err)
 
-		require.NoError(t, storage.Put(&partHdr, nil))
+		require.NoError(t, storage.Put(context.Background(), &partHdr, nil))
 
 		req := newUnsignedLocalHeadRequest(version.Current(), obj.Address())
 		req.MetaHeader.Ttl = 2

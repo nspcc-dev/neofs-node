@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -21,6 +22,8 @@ import (
 // validatingTarget validates object format and content.
 type validatingTarget struct {
 	l *zap.Logger
+
+	ctx context.Context
 
 	nextTarget internal.Target
 
@@ -92,7 +95,7 @@ func (t *validatingTarget) WriteHeader(obj *object.Object) error {
 		t.checksum = cs.Value()
 	}
 
-	if err := t.fmt.Validate(obj, t.unpreparedObject, false); err != nil {
+	if err := t.fmt.Validate(t.ctx, obj, t.unpreparedObject, false); err != nil {
 		return fmt.Errorf("(%T) could not validate object format: %w", t, err)
 	}
 

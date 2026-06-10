@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -12,10 +13,10 @@ type localStorage struct {
 	ls *engine.StorageEngine
 }
 
-func (s *localStorage) Head(addr oid.Address) (*object.Object, error) {
+func (s *localStorage) Head(ctx context.Context, addr oid.Address) (*object.Object, error) {
 	if s.ls == nil {
 		return nil, io.ErrUnexpectedEOF
 	}
 
-	return s.ls.Head(addr, false)
+	return s.ls.Head(ctx, addr, false)
 }

@@ -102,7 +102,7 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, conn *grpc.Clien
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		fin, sent, err := x.handleGetResponse(&prog, respBuf)
+		fin, sent, err := x.handleGetResponse(ctx, &prog, respBuf)
 		if !sent {
 			respBuf.Free()
 		}
@@ -157,7 +157,7 @@ func handleResponseCodeAndBody(respBuf mem.BufferSlice) (uint32, iprotobuf.Buffe
 	return code, body, err
 }
 
-func (x *getProxyContext) handleGetResponse(streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
+func (x *getProxyContext) handleGetResponse(ctx context.Context, streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
 	code, body, err := handleResponseCodeAndBody(respBuf)
 	if err != nil {
 		return false, false, err
@@ -173,7 +173,7 @@ func (x *getProxyContext) handleGetResponse(streamProg *getStreamProgress, respB
 
 	// TODO: forbid body if code != OK?
 
-	sent, err := x.handleResponseBody(streamProg, respBuf, body)
+	sent, err := x.handleResponseBody(ctx, streamProg, respBuf, body)
 	if err != nil {
 		return false, sent, fmt.Errorf("handle body: %w", err)
 	}
@@ -242,7 +242,7 @@ func handleRangeResponseBodyOneof(buffers iprotobuf.BuffersSlice) (protowire.Num
 	return oneofNum, oneofFld, err
 }
 
-func (x *getProxyContext) handleResponseBody(streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+func (x *getProxyContext) handleResponseBody(ctx context.Context, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
 	oneofNum, oneofFld, err := handleGetResponseBodyOneof(&streamProg.headWas, buffers)
 	if err != nil {
 		return false, err
@@ -252,7 +252,7 @@ func (x *getProxyContext) handleResponseBody(streamProg *getStreamProgress, resp
 	default:
 		return false, errors.New("none of the supported oneof fields are specified")
 	case protoobject.FieldGetResponseBodyInit:
-		return x.handleInitResponse(respBuf, oneofFld)
+		return x.handleInitResponse(ctx, respBuf, oneofFld)
 	case protoobject.FieldGetResponseBodyChunk:
 		return x.handleChunkResponse(streamProg, respBuf, oneofFld)
 	case protoobject.FieldGetResponseBodySplitInfo:
@@ -260,7 +260,7 @@ func (x *getProxyContext) handleResponseBody(streamProg *getStreamProgress, resp
 	}
 }
 
-func (x *getProxyContext) handleInitResponse(respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
 	var hdr iprotobuf.BuffersSlice
 
 	var opts protoscan.ScanMessageOptions
@@ -311,7 +311,7 @@ func (x *getProxyContext) handleInitResponse(respBuf mem.BufferSlice, buffers ip
 	var sent bool
 	x.onceHdr.Do(func() {
 		if x.respStream.recheckEACL {
-			err = x.respStream.srv.aclChecker.CheckEACL(hdr.ReadOnlyData(), x.respStream.reqInfo)
+			err = x.respStream.srv.aclChecker.CheckEACL(ctx, hdr.ReadOnlyData(), x.respStream.reqInfo)
 			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 				err = eACLErr(x.respStream.reqInfo, err)
 				return
@@ -392,7 +392,7 @@ type getECTransport struct {
 }
 
 // CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(_ context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
 	// TODO: handle request fields once and reuse
 	addr := x.request.GetBody().GetAddress()
 	cnr, err := cid.DecodeBytes(addr.GetContainerId().GetValue())
@@ -411,7 +411,7 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(_ context.Context
 
 	hdrMemBuf, buf := getBufferForHeadResponse()
 
-	prefixLen, stream, err := storage.ReadECPart(cnr, id, partInfo, buf)
+	prefixLen, stream, err := storage.ReadECPart(ctx, cnr, id, partInfo, buf)
 	if err != nil {
 		var splitErr *object.SplitInfoError
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.As(err, &splitErr) {
@@ -506,7 +506,7 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	}
 
 	hdrMemBuf, buf := getBufferForHeadResponse()
-	stream, err := storage.ReadECPartRange(cnr, id, partInfo, off, ln, buf)
+	stream, err := storage.ReadECPartRange(ctx, cnr, id, partInfo, off, ln, buf)
 	hdrMemBuf.Free()
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {

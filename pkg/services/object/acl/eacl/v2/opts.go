@@ -1,10 +1,18 @@
 package v2
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
+
+func WithContext(ctx context.Context) Option {
+	return func(c *cfg) {
+		c.ctx = ctx
+	}
+}
 
 func WithObjectStorage(v ObjectStorage) Option {
 	return func(c *cfg) {

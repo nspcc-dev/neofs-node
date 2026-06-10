@@ -36,7 +36,7 @@ var (
 // Returns [apistatus.ErrObjectAlreadyRemoved] if obj is of [object.TypeLock]
 // type and there is an object of [object.TypeTombstone] type associated with
 // the same target.
-func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
+func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []byte) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
@@ -61,7 +61,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 	switch obj.Type() {
 	case object.TypeTombstone, object.TypeLock, object.TypeLink:
 		// Broadcast object to ALL shards to ensure availability everywhere.
-		return e.broadcastObject(obj, objBin)
+		return e.broadcastObject(ctx, obj, objBin)
 	default:
 	}
 
@@ -81,7 +81,7 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	for _, sh := range shs {
-		err = e.putToShard(sh, addr, obj, objBin)
+		err = e.putToShard(ctx, sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			return nil
 		}
@@ -102,16 +102,16 @@ func (e *StorageEngine) Put(obj *object.Object, objBin []byte) error {
 // putToShard puts object to sh.
 // Returns error from shard put or errOverloaded (when shard pool can't accept
 // the task) or errExists (if object is already stored there).
-func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
+func (e *StorageEngine) putToShard(ctx context.Context, sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
 	var (
-		exitCh      = make(chan error)
-		ctx, cancel = context.WithTimeout(context.TODO(), e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
+		exitCh        = make(chan error)
+		pCtx, pCancel = context.WithTimeout(ctx, e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
 	)
-	defer cancel()
+	defer pCancel()
 
 	select {
 	case sh.putCh <- putTask{addr: addr, obj: obj, objBin: objBin, retCh: exitCh}:
-	case <-ctx.Done():
+	case <-pCtx.Done():
 		return errOverloaded
 	}
 
@@ -160,7 +160,7 @@ func (sh *shardWrapper) shardPutThread() {
 }
 
 // broadcastObject stores object on ALL shards to ensure it's available everywhere.
-func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error {
+func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object, objBin []byte) error {
 	var (
 		allShards  = e.unsortedShards()
 		addr       = obj.Address()
@@ -176,7 +176,7 @@ func (e *StorageEngine) broadcastObject(obj *object.Object, objBin []byte) error
 		zap.Int("shard_count", len(allShards)))
 
 	for _, sh := range allShards {
-		err := e.putToShard(sh, addr, obj, objBin)
+		err := e.putToShard(ctx, sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			goodShards = append(goodShards, sh)
 			if errors.Is(err, errExists) {

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"slices"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -15,7 +16,7 @@ import (
 // just marks the address for later removal by GC according to GC settings.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Delete(addr oid.Address) error {
+func (e *StorageEngine) Delete(_ context.Context, addr oid.Address) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
@@ -36,7 +37,7 @@ func (e *StorageEngine) Delete(addr oid.Address) error {
 //
 // Returns an error if executions are blocked (see BlockExecution) or if none of
 // the provided shards is found in the engine.
-func (e *StorageEngine) DeleteRedundantCopies(addr oid.Address, shardIDs []string) error {
+func (e *StorageEngine) DeleteRedundantCopies(_ context.Context, addr oid.Address, shardIDs []string) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
@@ -92,7 +93,7 @@ func (e *StorageEngine) DeleteRedundantCopies(addr oid.Address, shardIDs []strin
 // (like [StorageEngine.Delete] does).
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Drop(addr oid.Address) error {
+func (e *StorageEngine) Drop(_ context.Context, addr oid.Address) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDropDuration)()
 	}

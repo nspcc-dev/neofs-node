@@ -942,7 +942,7 @@ func (x testPostPlacementReplicator) HandlePostPlacement(obj *object.Object, nod
 	for i := range nodes {
 		svc, err := x.services.lookupNode(nodes[i])
 		require.NoError(x.t, err)
-		require.NoError(x.t, svc.ValidateAndStoreObjectLocally(*obj)) //nolint:contextcheck
+		require.NoError(x.t, svc.ValidateAndStoreObjectLocally(context.Background(), *obj))
 	}
 }
 
@@ -952,7 +952,7 @@ type inMemLocalStorage struct {
 	err  error
 }
 
-func (x *inMemLocalStorage) Put(obj *object.Object, objBin []byte) error {
+func (x *inMemLocalStorage) Put(_ context.Context, obj *object.Object, objBin []byte) error {
 	if x.err != nil {
 		return x.err
 	}
@@ -991,7 +991,7 @@ func (x *inMemLocalStorage) Lock(oid.Address, []oid.ID) error {
 	panic("unimplemented")
 }
 
-func (x *inMemLocalStorage) IsLocked(oid.Address) (bool, error) {
+func (x *inMemLocalStorage) IsLocked(context.Context, oid.Address) (bool, error) {
 	panic("unimplemented")
 }
 
@@ -1015,7 +1015,7 @@ func (x nodeServices) Get(_ context.Context, node netmap.NodeInfo) (clientcore.M
 	return (*serviceClient)(svc), nil
 }
 
-func (x nodeServices) SendReplicationRequestToNode(_ context.Context, reqBin []byte, node netmap.NodeInfo) ([]byte, error) {
+func (x nodeServices) SendReplicationRequestToNode(ctx context.Context, reqBin []byte, node netmap.NodeInfo) ([]byte, error) {
 	var req protoobject.ReplicateRequest
 	if err := proto.Unmarshal(reqBin, &req); err != nil {
 		return nil, fmt.Errorf("invalid request: %w", err)
@@ -1035,7 +1035,7 @@ func (x nodeServices) SendReplicationRequestToNode(_ context.Context, reqBin []b
 		return nil, err
 	}
 
-	if err := svc.ValidateAndStoreObjectLocally(obj); err != nil { //nolint:contextcheck
+	if err := svc.ValidateAndStoreObjectLocally(ctx, obj); err != nil {
 		return nil, fmt.Errorf("validate and store object locally: %w", err)
 	}
 
@@ -1070,7 +1070,7 @@ func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ 
 	return (*testPayloadStream)(stream), nil
 }
 
-func (m *serviceClient) ReplicateObject(_ context.Context, _ oid.ID, src io.ReadSeeker, _ neofscrypto.Signer, _ bool) (*neofscrypto.Signature, error) {
+func (m *serviceClient) ReplicateObject(ctx context.Context, _ oid.ID, src io.ReadSeeker, _ neofscrypto.Signer, _ bool) (*neofscrypto.Signature, error) {
 	objBin, err := io.ReadAll(src)
 	if err != nil {
 		return nil, err
@@ -1085,7 +1085,7 @@ func (m *serviceClient) ReplicateObject(_ context.Context, _ oid.ID, src io.Read
 	if err := obj.FromProtoMessage(&msg); err != nil {
 		return nil, err
 	}
-	return nil, (*Service)(m).ValidateAndStoreObjectLocally(obj) //nolint:contextcheck
+	return nil, (*Service)(m).ValidateAndStoreObjectLocally(ctx, obj)
 }
 
 func (m *serviceClient) ObjectDelete(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectDelete) (oid.ID, error) {

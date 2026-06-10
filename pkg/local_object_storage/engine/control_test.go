@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -124,7 +125,7 @@ func TestExecBlocks(t *testing.T) {
 
 	addr := obj.Address()
 
-	require.NoError(t, e.Put(obj, nil))
+	require.NoError(t, e.Put(context.Background(), obj, nil))
 
 	// block executions
 	errBlock := errors.New("block exec err")
@@ -132,20 +133,20 @@ func TestExecBlocks(t *testing.T) {
 	require.NoError(t, e.BlockExecution(errBlock))
 
 	// try to exec some op
-	_, err := e.Head(addr, false)
+	_, err := e.Head(context.Background(), addr, false)
 	require.ErrorIs(t, err, errBlock)
 
 	// resume executions
 	require.NoError(t, e.ResumeExecution())
 
-	_, err = e.Head(addr, false) // can be any data-related op
+	_, err = e.Head(context.Background(), addr, false) // can be any data-related op
 	require.NoError(t, err)
 
 	// close
 	require.NoError(t, e.Close())
 
 	// try exec after close
-	_, err = e.Head(addr, false)
+	_, err = e.Head(context.Background(), addr, false)
 	require.Error(t, err)
 
 	// try to resume

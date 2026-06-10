@@ -159,7 +159,7 @@ func (s *testStorage) get(exec *execCtx) (*object.Object, io.ReadCloser, error) 
 	return nil, nil, errNotFound
 }
 
-func (s *testStorage) Head(addr oid.Address, _ bool) (*object.Object, error) {
+func (s *testStorage) Head(_ context.Context, addr oid.Address, _ bool) (*object.Object, error) {
 	hdr, _, err := s.get(&execCtx{
 		prm: RangePrm{
 			commonPrm: commonPrm{
@@ -1457,7 +1457,7 @@ func (s *testStorageWithFailingReader) get(*execCtx) (*object.Object, io.ReadClo
 	return objWithoutPayload, reader, nil
 }
 
-func (s *testStorageWithFailingReader) Head(oid.Address, bool) (*object.Object, error) {
+func (s *testStorageWithFailingReader) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
 	if s.obj == nil {
 		return nil, errors.New("object not found")
 	}
@@ -1480,7 +1480,7 @@ func (s *testStorageWithImmediateReadError) get(*execCtx) (*object.Object, io.Re
 	return objWithoutPayload, &errorReader{err: s.err}, nil
 }
 
-func (s *testStorageWithImmediateReadError) Head(oid.Address, bool) (*object.Object, error) {
+func (s *testStorageWithImmediateReadError) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
 	if s.obj == nil {
 		return nil, errors.New("object not found")
 	}

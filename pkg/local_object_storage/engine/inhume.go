@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -22,7 +23,7 @@ var errInhumeFailure = errors.New("inhume operation failed")
 // There is no any LOCKs, forced GC marks and any relations checks,
 // every object that belongs to a provided container will be marked
 // as a removed one.
-func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
+func (e *StorageEngine) InhumeContainer(_ context.Context, cID cid.ID) error {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
@@ -222,7 +223,7 @@ func (e *StorageEngine) collectChildrenWithoutLink(addr oid.Address, si *object.
 }
 
 // IsLocked checks whether an object is locked according to StorageEngine's state.
-func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
+func (e *StorageEngine) IsLocked(_ context.Context, addr oid.Address) (bool, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 

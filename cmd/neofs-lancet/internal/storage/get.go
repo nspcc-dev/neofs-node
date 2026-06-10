@@ -37,7 +37,7 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer storage.Close()
 
-	obj, err := storage.Get(addr)
+	obj, err := storage.Get(cmd.Context(), addr)
 	if err != nil {
 		return fmt.Errorf("could not fetch object: %w", err)
 	}

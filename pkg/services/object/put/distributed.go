@@ -161,7 +161,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	// does not matter what this node thinks about it
 	if !tombOrLink || t.localNodeInContainer {
 		var err error
-		if err = t.fmt.ValidateContent(t.obj); err != nil {
+		if err = t.fmt.ValidateContent(t.opCtx, t.obj); err != nil {
 			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 		}
 	}
@@ -707,7 +707,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 }
 
 func (t *distributedTarget) writeObjectLocally(obj object.Object, encObj encodedObject) error {
-	if err := putObjectLocally(t.localStorage, &obj, &encObj); err != nil {
+	if err := putObjectLocally(t.opCtx, t.localStorage, &obj, &encObj); err != nil {
 		return err
 	}
 
