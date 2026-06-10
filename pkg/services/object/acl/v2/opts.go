@@ -1,7 +1,7 @@
 package v2
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"go.uber.org/zap"
 )
 

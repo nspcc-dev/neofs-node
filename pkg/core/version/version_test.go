@@ -3,7 +3,7 @@ package versioncore_test
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
+	versioncore "github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )

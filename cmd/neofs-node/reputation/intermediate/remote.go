@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/internal/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	localreputation "github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"

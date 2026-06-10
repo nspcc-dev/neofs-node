@@ -8,7 +8,7 @@ import (
 	"math/big"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	protoaccounting "github.com/nspcc-dev/neofs-sdk-go/proto/accounting"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"

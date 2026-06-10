@@ -15,10 +15,10 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -941,8 +941,8 @@ type containerNodesSorter struct {
 }
 
 func (x *containerNodesSorter) Unsorted() [][]netmap.NodeInfo { return x.policy.nodeSets }
-func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
-func (x *containerNodesSorter) ECRules() []iec.Rule              { return x.policy.ecRules }
+func (x *containerNodesSorter) PrimaryCounts() []uint         { return x.policy.repCounts }
+func (x *containerNodesSorter) ECRules() []iec.Rule           { return x.policy.ecRules }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmap.NodeInfo, error) {
 	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
 	cacheKey.addr.SetContainer(x.cnrID)

@@ -1,7 +1,7 @@
 package deletesvc
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"

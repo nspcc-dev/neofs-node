@@ -3,7 +3,7 @@ package util
 import (
 	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	session2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"

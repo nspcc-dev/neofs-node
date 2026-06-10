@@ -1,7 +1,7 @@
 package metachain
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/metachain"
+	metachaincore "github.com/nspcc-dev/neofs-node/pkg/core/metachain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
 	"go.uber.org/zap"
