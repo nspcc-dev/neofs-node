@@ -200,7 +200,7 @@ func (x *containerNodes) getForCurrentEpoch(curEpoch uint64, cnr cid.ID) (storag
 	return policy, networkMap, nil
 }
 
-// preserves context of storage policy processing for the particular containercore.
+// preserves context of storage policy processing for the particular container.
 type containerPolicyContext struct {
 	// static
 	id           cid.ID

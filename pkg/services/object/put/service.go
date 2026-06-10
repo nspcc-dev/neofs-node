@@ -74,10 +74,10 @@ type PostPlacementReplicator interface {
 }
 
 // ContainerNodes provides access to storage nodes matching storage policy of
-// the particular containercore.
+// the particular container.
 type ContainerNodes interface {
 	// Unsorted returns unsorted descriptor set corresponding to the storage nodes
-	// matching storage policy of the containercore. Nodes are identified by their
+	// matching storage policy of the container. Nodes are identified by their
 	// public keys and can be repeated in different sets.
 	//
 	// First PrimaryCounts() sets are for replication, the rest are for ECRules().
@@ -95,7 +95,7 @@ type ContainerNodes interface {
 	//    are backup.
 	PrimaryCounts() []uint
 	// ECRules returns list of erasure coding rules for all objects in the
-	// containercore. Same rule may repeat.
+	// container. Same rule may repeat.
 	//
 	// ECRules callers do not change resulting slice.
 	ECRules() []iec.Rule

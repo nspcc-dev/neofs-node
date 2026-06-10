@@ -58,7 +58,7 @@ type LockSource interface {
 
 // Locker is an object lock storage interface.
 type Locker interface {
-	// Lock list of objects as locked by locker in the specified containercore.
+	// Lock list of objects as locked by locker in the specified container.
 	//
 	// Returns apistatus.LockNonRegularObject if at least object in locked
 	// list is irregular (not type of REGULAR).

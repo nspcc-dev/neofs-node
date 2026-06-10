@@ -5,7 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-// CompositeValidator wraps `netmapprocessor.NodeValidator`s.
+// CompositeValidator wraps netmapprocessor.NodeValidators.
 //
 // For correct operation, CompositeValidator must be created
 // using the constructor (New). After successful creation,
