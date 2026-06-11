@@ -552,12 +552,15 @@ func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
 	return x.cnrLst.List(&id)
 }
 
-func (x *containersInChain) Put(ctx context.Context, cnr container.Container, pub, sig []byte, st []byte) (cid.ID, error) {
+func (x *containersInChain) Put(ctx context.Context, cnr container.Container, pub, sig []byte, st []byte, eACL *eacl.Table, eaclPub, eaclSig []byte) (cid.ID, error) {
 	var prm cntClient.PutPrm
 	prm.SetContainer(cnr)
 	prm.SetKey(pub)
 	prm.SetSignature(sig)
 	prm.SetToken(st)
+	if eACL != nil {
+		prm.SetEACLTable(*eACL, eaclPub, eaclSig)
+	}
 
 	id, err := x.cCli.Put(ctx, prm)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {

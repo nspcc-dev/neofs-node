@@ -18,6 +18,7 @@ neofs-cli container create [flags]
   -a, --attributes strings    Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2
       --basic-acl string      HEX-encoded basic ACL value or one of the keywords ['public-read-write', 'private', 'eacl-public-read','eacl-private', 'public-read', 'eacl-public-read-write', 'public-append', 'eacl-public-append']. To see the basic ACL details, run: 'neofs-cli acl basic print' (default "private")
       --disable-timestamp     Disable timestamp container attribute
+      --eacl string           path to file with JSON or binary encoded EACL table that will be set after container creation
   -f, --force                 Skip placement validity check
       --global-name           Name becomes a domain name, that is registered with the default zone in NNS contract. Requires name attribute.
   -h, --help                  help for create

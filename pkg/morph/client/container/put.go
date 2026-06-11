@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
 // PutPrm groups parameters of Put operation.
@@ -15,6 +17,10 @@ type PutPrm struct {
 	key   []byte
 	sig   []byte
 	token []byte
+
+	eACLTable *eacl.Table
+	eaclKey   []byte
+	eaclSig   []byte
 }
 
 // SetContainer sets container.
@@ -37,6 +43,14 @@ func (p *PutPrm) SetToken(token []byte) {
 	p.token = token
 }
 
+// SetEACLTable sets additional table in the same transaction container
+// is created.
+func (p *PutPrm) SetEACLTable(eaclTable eacl.Table, key, sig []byte) {
+	p.eACLTable = &eaclTable
+	p.eaclKey = key
+	p.eaclSig = sig
+}
+
 // Put calls Container contract to create container with parameterized
 // credentials. If transaction is accepted for processing, Put waits for it to
 // be successfully executed. Waiting is performed within ctx,
@@ -47,6 +61,10 @@ func (p *PutPrm) SetToken(token []byte) {
 func (c *Client) Put(ctx context.Context, p PutPrm) (cid.ID, error) {
 	if len(p.sig) == 0 || len(p.key) == 0 {
 		return cid.ID{}, errNilArgument
+	}
+
+	if p.eACLTable != nil {
+		return c.putContainerWithEacl(ctx, p)
 	}
 
 	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.CreateContainerV2Method, []any{
@@ -80,4 +98,26 @@ func (c *Client) Put(ctx context.Context, p PutPrm) (cid.ID, error) {
 		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerMethod, err)
 	}
 	return cid.NewFromMarshalledContainer(cnrBytes), nil
+}
+
+func (c *Client) putContainerWithEacl(ctx context.Context, p PutPrm) (cid.ID, error) {
+	var (
+		addr     = c.ContractAddress()
+		b        = smartcontract.NewBuilder()
+		rawTable = p.eACLTable.Marshal()
+	)
+
+	b.InvokeMethod(addr, fschaincontracts.CreateContainerV2Method, containerToStackItem(p.cnr), p.sig, p.key, p.token)
+	b.InvokeMethod(addr, fschaincontracts.PutContainerEACLMethod, rawTable, p.eaclSig, p.eaclKey, p.token)
+	script, err := b.Script()
+	if err != nil {
+		panic(fmt.Errorf("cannon build complex script for two contract calls: [%s, %s], error: %w", fschaincontracts.CreateContainerV2Method, fschaincontracts.PutContainerEACLMethod, err))
+	}
+
+	err = c.client.RunScriptForAlphabet(ctx, script)
+	if err != nil {
+		return cid.ID{}, fmt.Errorf("notary request invocation: %w", err)
+	}
+
+	return cid.NewFromMarshalledContainer(p.cnr.Marshal()), nil
 }

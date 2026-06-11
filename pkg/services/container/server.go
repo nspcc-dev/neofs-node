@@ -57,7 +57,7 @@ type Contract interface {
 	// transaction is accepted for processing, Put waits for it to be successfully
 	// executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned on when it is done.
-	Put(ctx context.Context, _ container.Container, pub, sig []byte, sessionToken []byte) (cid.ID, error)
+	Put(ctx context.Context, _ container.Container, pub, sig []byte, sessionToken []byte, eACL *eacl.Table, eaclPub, eaclSig []byte) (cid.ID, error)
 	// Get returns container by its ID. Returns [apistatus.ErrContainerNotFound]
 	// error if container is missing.
 	Get(cid.ID) (container.Container, error)
@@ -482,10 +482,38 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		}
 	}
 
+	var (
+		eACL             *eacl.Table
+		eaclSig, eaclPub []byte
+	)
+	if mEACL := reqBody.GetEacl(); mEACL != nil {
+		eACL = new(eacl.Table)
+		if err := eACL.FromProtoMessage(mEACL); err != nil {
+			return s.makeFailedPutResponse(fmt.Errorf("invalid eACL: %w", err), req)
+		}
+
+		cnrID := eACL.GetCID()
+		if cnrID.IsZero() {
+			return s.makeFailedPutResponse(errors.New("missing container ID in eACL table"), req)
+		}
+		if cnrID != cid.NewFromMarshalledContainer(cnr.Marshal()) {
+			return s.makeFailedPutResponse(fmt.Errorf("eACL table's container ID does not correspond to container"), req)
+		}
+
+		_, _, err = s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cnrID)
+		if err != nil {
+			return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err), req)
+		}
+
+		sig := reqBody.GetEaclSignature()
+		eaclSig = sig.Sign
+		eaclPub = sig.Key
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, tokenBytes)
+	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, tokenBytes, eACL, eaclPub, eaclSig)
 	if err != nil && !errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
 		return s.makeFailedPutResponse(err, req)
 	}

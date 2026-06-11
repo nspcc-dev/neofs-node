@@ -77,7 +77,7 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 
 			_, err := preparator.Prepare(nr)
 
-			require.ErrorContains(t, err, "failed to parse main transaction script: failed to parse AppCall: failed to parse arguments: static parser supports only System.Contract.Call SYSCALL: expected System.Contract.Call SYSCALL, got System.Contract.CallNative")
+			require.ErrorContains(t, err, "failed to parse arguments: static parser supports only System.Contract.Call SYSCALL: expected System.Contract.Call SYSCALL, got System.Contract.CallNative")
 		})
 
 		t.Run(fmt.Sprintf("incorrect, compat: %t", dummyMultisig), func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 
 			_, err := preparator.Prepare(nr)
 
-			require.ErrorContains(t, err, "failed to parse main transaction script: failed to parse AppCall: failed to parse arguments: failed to parse SYSCALL: System.Contract.Call requires 4 parameters, got 3")
+			require.ErrorContains(t, err, "failed to parse arguments: failed to parse SYSCALL: System.Contract.Call requires 4 parameters, got 3")
 		})
 	}
 }
@@ -451,12 +451,13 @@ func TestPrepare_CorrectNR(t *testing.T) {
 					additionalWitness := i == 0
 					nr := correctNR(script(test.hash, method, test.args...), dummyMultisig, additionalWitness)
 
-					event, err := preparator.Prepare(nr)
-
+					events, err := preparator.Prepare(nr)
 					require.NoError(t, err)
-					require.Equal(t, method, event.Type().String())
-					require.Equal(t, test.hash.StringLE(), event.ScriptHash().StringLE())
-					require.Equal(t, len(test.args), len(event.Params()))
+					require.Len(t, events, 1)
+
+					require.Equal(t, method, events[0].Type().String())
+					require.Equal(t, test.hash.StringLE(), events[0].ScriptHash().StringLE())
+					require.Equal(t, len(test.args), len(events[0].Params()))
 				})
 			}
 		}

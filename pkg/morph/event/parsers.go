@@ -20,9 +20,13 @@ type NotificationParserInfo struct {
 	p NotificationParser
 }
 
+// NotaryUnaryParser is a function that constructs Event
+// from a single NotaryEvent event.
+type NotaryUnaryParser func(NotaryEvent) (Event, error)
+
 // NotaryParser is a function that constructs Event
-// from the NotaryEvent event.
-type NotaryParser func(NotaryEvent) (Event, error)
+// from the NotaryEvent events.
+type NotaryParser func([]NotaryEvent) (Event, error)
 
 // NotaryParserInfo is a structure that groups
 // the parameters of particular notary request
@@ -35,6 +39,10 @@ type NotaryParserInfo struct {
 
 func (n *NotaryParserInfo) parser() NotaryParser {
 	return n.p
+}
+
+func (n *NotaryParserInfo) SetUnaryParser(p NotaryUnaryParser) {
+	n.p = acceptOnlySingleCall(p)
 }
 
 func (n *NotaryParserInfo) SetParser(p NotaryParser) {

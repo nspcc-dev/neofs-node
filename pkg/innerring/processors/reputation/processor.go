@@ -95,7 +95,7 @@ func (rp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 
 	p.SetRequestType(reputationEvent.PutNotaryEvent)
 	p.SetScriptHash(rp.reputationWrp.ContractAddress())
-	p.SetParser(reputationEvent.ParsePutNotary)
+	p.SetUnaryParser(reputationEvent.ParsePutNotary)
 
 	return []event.NotaryParserInfo{p}
 }

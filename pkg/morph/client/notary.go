@@ -633,7 +633,7 @@ func (c *Client) logNotaryCall(method string, vub uint32, mainTx util.Uint256, f
 		zap.String("fallback_hash", fbTx.StringLE()))
 }
 
-func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {
+func (c *Client) runAlphabetNotaryScript(ctx context.Context, script []byte, nonce uint32, await, invokedByAlpha bool) error {
 	if c.notary == nil {
 		panic("notary support is not enabled")
 	}
@@ -653,7 +653,7 @@ func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {
 		return err
 	}
 
-	cosigners, err := c.notaryCosigners(true, alphabetList, false)
+	cosigners, err := c.notaryCosigners(invokedByAlpha, alphabetList, false)
 	if err != nil {
 		return err
 	}
@@ -692,6 +692,20 @@ func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {
 		zap.Uint32("valid_until_block", untilActual),
 		zap.String("tx_hash", mainH.StringLE()),
 		zap.String("fallback_hash", fbH.StringLE()))
+
+	if await {
+		aer, err := nAct.WaitAny(ctx, untilActual, mainH, fbH)
+		if err != nil {
+			if errors.Is(err, waiter.ErrContextDone) {
+				return ErrTxAwaitTimeout
+			}
+			return fmt.Errorf("wait: %w", err)
+		}
+
+		if aer.Container == fbH {
+			return notary.ErrFallbackAccepted
+		}
+	}
 
 	return nil
 }

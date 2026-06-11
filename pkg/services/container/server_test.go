@@ -52,7 +52,7 @@ func (unimplementedFSChain) HasUserInNNS(string, neoutil.Uint160) (bool, error) 
 
 type unimplementedContainerContract struct{}
 
-func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte) (cid.ID, error) {
+func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte) (cid.ID, error) {
 	panic("implement me")
 }
 
@@ -113,7 +113,7 @@ type testFSChain struct {
 	nnsUsers map[string]neoutil.Uint160
 }
 
-func (testFSChain) Put(context.Context, container.Container, []byte, []byte, []byte) (cid.ID, error) {
+func (testFSChain) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte) (cid.ID, error) {
 	return cid.ID{}, errors.New("unimplemented")
 }
 

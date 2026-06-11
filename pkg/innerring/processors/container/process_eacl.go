@@ -6,52 +6,64 @@ import (
 	"math/big"
 
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	cnrevent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"go.uber.org/zap"
 )
 
-func (cp *Processor) processPutEACLRequest(req container.PutContainerEACLRequest) {
+func (cp *Processor) processPutEACLRequest(req cnrevent.PutContainerEACLRequest) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore set EACL")
 		return
 	}
 
-	err := cp.checkSetEACL(req)
-	if err != nil {
-		cp.log.Error("set EACL check failed",
-			zap.Error(err),
-		)
+	var (
+		err   error
+		table eacl.Table
+		cnr   container.Container
+	)
+	defer func() {
+		if err != nil {
+			cp.log.Error("set EACL check failed",
+				zap.Error(err),
+			)
+		}
+	}()
 
+	table, err = eacl.Unmarshal(req.EACL)
+	if err != nil {
+		// defer
+		return
+	}
+	idCnr := table.GetCID()
+	if idCnr.IsZero() {
+		// defer
+		err = errors.New("missing container ID in eACL table")
+		return
+	}
+	cnr, err = cntClient.Get(cp.cnrClient, idCnr)
+	if err != nil {
+		// defer
+		return
+	}
+
+	err = cp.checkSetEACL(req, table, cid.NewFromMarshalledContainer(cnr.Marshal()), cnr)
+	if err != nil {
+		// defer
 		return
 	}
 
 	cp.approveSetEACL(req)
 }
 
-func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
-	// unmarshal table
-	table, err := eacl.Unmarshal(req.EACL)
-	if err != nil {
-		return fmt.Errorf("invalid binary table: %w", err)
-	}
-
-	err = validateEACL(table)
+func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table eacl.Table, cID cid.ID, cnr container.Container) error {
+	err := validateEACL(table)
 	if err != nil {
 		return fmt.Errorf("table validation: %w", err)
-	}
-
-	idCnr := table.GetCID()
-	if idCnr.IsZero() {
-		return errors.New("missing container ID in eACL table")
-	}
-
-	// receive owner of the related container
-	cnr, err := cntClient.Get(cp.cnrClient, idCnr)
-	if err != nil {
-		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
 	// ACL extensions can be disabled by basic ACL, check it
@@ -64,7 +76,7 @@ func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
 		verb:            session.VerbContainerSetEACL,
 		verbV2:          sessionv2.VerbContainerSetEACL,
 		idContainerSet:  true,
-		idContainer:     idCnr,
+		idContainer:     cID,
 		binTokenSession: req.SessionToken,
 		verifScript:     req.VerificationScript,
 		invocScript:     req.InvocationScript,
@@ -77,7 +89,7 @@ func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
 	return nil
 }
 
-func (cp *Processor) approveSetEACL(req container.PutContainerEACLRequest) {
+func (cp *Processor) approveSetEACL(req cnrevent.PutContainerEACLRequest) {
 	err := cp.cnrClient.Morph().NotarySignAndInvokeTX(&req.MainTransaction, false)
 
 	if err != nil {

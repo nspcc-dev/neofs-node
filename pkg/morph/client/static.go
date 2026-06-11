@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"go.uber.org/zap"
 )
 
@@ -226,11 +227,26 @@ func (s StaticClient) execWithBackoff(retryingMessage string, invokeFunc func() 
 // RunAlphabetNotaryScript invokes script by sending tx to notary contract in
 // blockchain. Fallback tx is a `RET`. Panics if Notary support is not enabled.
 // TX is signed with internal key, 2/3+1 multisigners are expected.
+// It must be called by an actual Alphabet node ([StaticClient] must be created
+// with a key that is included in the committee list in the chain) for correct
+// notary request invocation, otherwise, transaction inclusion is undefined.
+// Returning does not mean tx inclusion, actual results depend on other Alphabet
+// nodes.
 func (s StaticClient) RunAlphabetNotaryScript(sc []byte) error {
 	// default nonce for Alphabet transactions that must be send asynchronous;
 	// it is chosen to be the same as in Invoke method
 	const nonce = 1
-	return s.client.runAlphabetNotaryScript(sc, nonce)
+	return s.client.runAlphabetNotaryScript(context.Background(), sc, nonce, false, true)
+}
+
+// RunScriptForAlphabet sends transaction with provided script to notary service.
+// Transaction will have a placeholder for Alphabet multisignature and
+// [StaticCLient]'s single signature. Call blocks until result is fetched, both
+// a positive and a negative ones. Transaction awaiting can be canceled with
+// context. This method should not be called by an Alphabet node.
+func (s StaticClient) RunScriptForAlphabet(ctx context.Context, sc []byte) error {
+	nonce := rand.Uint32()
+	return s.client.runAlphabetNotaryScript(ctx, sc, nonce, true, false)
 }
 
 // TestInvokePrm groups parameters of the TestInvoke operation.
