@@ -12,10 +12,15 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- Compression support from FSTree (#4054)
 
 ### Updated
 
 ### Updating from v0.54.0
+Drop blobstor compress and compression_exclude_content_types settings, they're
+no longer used. Notice that old (compressed) data is still available, but no
+new objects are going to be compressed. Support for compressed blobstors will
+eventually be phased out in about half a year.
 
 ## [0.54.0] - 2026-06-29 - Ando
 

@@ -6,7 +6,6 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -110,7 +109,6 @@ type cfg struct {
 
 	reportErrorFunc func(selfID string, message string, err error)
 
-	compression   compression.Config
 	blobStor      common.Storage
 	initedStorage bool
 }
@@ -132,7 +130,6 @@ func New(opts ...Option) *Shard {
 		opts[i](c)
 	}
 
-	c.blobStor.SetCompressor(&c.compression)
 	mb := meta.New(c.metaOpts...)
 
 	s := &Shard{
@@ -166,28 +163,6 @@ func (s *Shard) ID() common.ID {
 func WithBlobstor(s common.Storage) Option {
 	return func(c *cfg) {
 		c.blobStor = s
-	}
-}
-
-// WithCompressObjects returns option to toggle
-// compression of the stored objects.
-//
-// If true, Zstandard algorithm is used for data compression.
-//
-// If compressor (decompressor) creation failed,
-// the uncompressed option will be used, and the error
-// is recorded in the provided log.
-func WithCompressObjects(comp bool) Option {
-	return func(c *cfg) {
-		c.compression.Enabled = comp
-	}
-}
-
-// WithUncompressableContentTypes returns option to disable decompression
-// for specific content types as seen by object.AttributeContentType attribute.
-func WithUncompressableContentTypes(values []string) Option {
-	return func(c *cfg) {
-		c.compression.UncompressableContentTypes = values
 	}
 }
 

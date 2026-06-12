@@ -175,8 +175,6 @@ storage:
       max_batch_size: 200
       max_batch_delay: 20ms
 
-    compress: false
-
     blobstor:
       perm: 0644
       depth: 5

@@ -141,10 +141,6 @@
           "max_batch_delay": "10ms",
           "search_iteration_limit": 0
         },
-        "compress": true,
-        "compression_exclude_content_types": [
-          "audio/*", "video/*"
-        ],
         "blobstor": {
           "type": "fstree",
           "path": "tmp/0/blob",
@@ -170,7 +166,6 @@
           "max_batch_delay": "20ms",
           "search_iteration_limit": 5000
         },
-        "compress": false,
         "blobstor": {
           "type": "fstree",
           "path": "tmp/1/blob",

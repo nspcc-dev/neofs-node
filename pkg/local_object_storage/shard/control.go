@@ -60,10 +60,6 @@ func (s *Shard) Open() error {
 
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
-	if err := s.compression.Init(); err != nil {
-		return fmt.Errorf("could not initialize %T: %w", &s.compression, err)
-	}
-
 	if err := s.blobStor.Init(common.ID{}); err != nil {
 		return fmt.Errorf("could not initialize %T: %w", s.blobStor, err)
 	}
@@ -134,7 +130,7 @@ func (s *Shard) Close() error {
 		components = append(components, s.writeCache)
 	}
 
-	components = append(components, s.blobStor, &s.compression, s.metaBase)
+	components = append(components, s.blobStor, s.metaBase)
 
 	var lastErr error
 	for _, component := range components {
