@@ -579,7 +579,7 @@ func (t *FSTree) readPayloadRange(addr oid.Address, off, ln uint64, getHdrBuf fu
 	return pldLen, stream, nil
 }
 
-func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff int, stream io.ReadCloser, off, ln uint64) (io.ReadCloser, error) {
+func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff int, stream io.ReadSeekCloser, off, ln uint64) (io.ReadSeekCloser, error) {
 	if ln != 0 && (off >= pldLen || pldLen-off < ln) {
 		return nil, apistatus.ErrObjectOutOfRange
 	}
@@ -631,19 +631,16 @@ func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff
 	if off == 0 {
 		if ln == 0 { // full
 			if stream == nil {
-				return io.NopCloser(bytes.NewReader(prefix)), nil
+				return nopCloser(bytes.NewReader(prefix)), nil
 			}
 			if len(prefix) == 0 {
 				return stream, nil
 			}
-			return readerCloser{
-				Reader: io.MultiReader(bytes.NewReader(prefix), stream),
-				Closer: stream,
-			}, nil
+			return newPrefixedReadSeekCloser(prefix, stream), nil
 		}
 
 		if ln <= uint64(len(prefix)) {
-			return io.NopCloser(bytes.NewReader(prefix[:ln])), nil
+			return nopCloser(bytes.NewReader(prefix[:ln])), nil
 		}
 
 		// stream is non-nil here according to conditions above
@@ -656,15 +653,12 @@ func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff
 			return nil, err
 		}
 
-		return readerCloser{
-			Reader: io.LimitReader(io.MultiReader(bytes.NewReader(prefix), stream), int64(ln)),
-			Closer: stream,
-		}, nil
+		return newPrefixedReadSeekCloser(prefix, &limitedFileReader{ReadSeekCloser: stream, limit: int64(ln) - int64(len(prefix))}), nil
 	}
 
 	if stream == nil {
 		// range is within slice according to conditions above
-		return io.NopCloser(bytes.NewReader(prefix[off:][:ln])), nil
+		return nopCloser(bytes.NewReader(prefix[off:][:ln])), nil
 	}
 
 	if err := checkTooBigRange(off, ln); err != nil {
@@ -673,26 +667,16 @@ func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff
 
 	if off >= uint64(len(prefix)) {
 		if off > uint64(len(prefix)) {
-			var err error
-			if seeker, ok := stream.(io.Seeker); ok {
-				_, err = seeker.Seek(int64(off)-int64(len(prefix)), io.SeekCurrent)
-			} else {
-				_, err = io.CopyN(io.Discard, stream, int64(off)-int64(len(prefix)))
-			}
+			_, err := stream.Seek(int64(off)-int64(len(prefix)), io.SeekCurrent)
 			if err != nil {
 				return nil, fmt.Errorf("seek payload stream: %w", err)
 			}
 		}
-		return readerCloser{
-			Reader: io.LimitReader(stream, int64(ln)),
-			Closer: stream,
-		}, nil
+		return &limitedFileReader{ReadSeekCloser: stream, limit: int64(ln)}, nil
 	}
 
-	return readerCloser{
-		Reader: io.LimitReader(io.MultiReader(bytes.NewReader(prefix[off:]), stream), int64(ln)),
-		Closer: stream,
-	}, nil
+	prefix = prefix[off:]
+	return newPrefixedReadSeekCloser(prefix, &limitedFileReader{ReadSeekCloser: stream, limit: int64(ln) - int64(len(prefix))}), nil
 }
 
 // Type is fstree storage type used in logs and configuration.
