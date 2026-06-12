@@ -17,7 +17,6 @@ import (
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -31,7 +30,6 @@ import (
 type FSTree struct {
 	Info
 
-	*compression.Config
 	log    *zap.Logger
 	Depth  uint64
 	writer writer
@@ -110,8 +108,7 @@ func New(opts ...Option) *FSTree {
 			Permissions: 0700,
 			RootPath:    "./",
 		},
-		Config: nil,
-		Depth:  4,
+		Depth: 4,
 
 		combinedCountLimit:    128,
 		combinedSizeLimit:     8 * 1024 * 1024,
@@ -355,7 +352,6 @@ func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
 		return fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
-	data = t.Compress(data)
 
 	err := t.writer.writeData(addr.Object(), p, data)
 	if err != nil {
@@ -382,7 +378,7 @@ func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 		writeDataUnits = append(writeDataUnits, writeDataUnit{
 			id:   addr.Object(),
 			path: p,
-			data: t.Compress(data),
+			data: data,
 		})
 	}
 
@@ -463,7 +459,7 @@ func (t *FSTree) extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				if !isCombined {
-					return t.Decompress(comBuf[:n])
+					return decompress(comBuf[:n])
 				}
 				return nil, fs.ErrNotExist
 			}
@@ -508,7 +504,7 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 	}
 	data = data[:len(initial)+n]
 
-	return t.Decompress(data)
+	return decompress(data)
 }
 
 // GetStream returns an object from the storage by address as a stream.
@@ -723,11 +719,6 @@ func (t *FSTree) ShardID() common.ID {
 		return id
 	}
 	return t.shardID
-}
-
-// SetCompressor implements common.Storage.
-func (t *FSTree) SetCompressor(cc *compression.Config) {
-	t.Config = cc
 }
 
 // CleanUpTmp removes all temporary files garbage.

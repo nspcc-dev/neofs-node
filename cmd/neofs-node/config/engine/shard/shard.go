@@ -8,16 +8,12 @@ import (
 	gcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/gc"
 	metabaseconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/metabase"
 	writecacheconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/writecache"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
 
 // ShardDetails contains configuration for a single shard of a storage node.
 type ShardDetails struct {
-	Mode                           mode.Mode `mapstructure:"mode"`
-	Compress                       *bool     `mapstructure:"compress"`
-	CompressionExcludeContentTypes []string  `mapstructure:"compression_exclude_content_types"`
-
+	Mode       mode.Mode                   `mapstructure:"mode"`
 	WriteCache writecacheconfig.WriteCache `mapstructure:"writecache"`
 	Metabase   metabaseconfig.Metabase     `mapstructure:"metabase"`
 	Blobstor   blobstorconfig.Blobstor     `mapstructure:"blobstor"`
@@ -28,7 +24,6 @@ type ShardDetails struct {
 // If some of fields are not set or have invalid values, they will be
 // set to default values.
 func (s *ShardDetails) Normalize(def ShardDetails) {
-	s.Compress = internal.CheckPtrBool(s.Compress, def.Compress)
 	s.Blobstor.Normalize(def.Blobstor)
 	s.WriteCache.Normalize(def.WriteCache)
 	s.Metabase.Normalize(def.Metabase)

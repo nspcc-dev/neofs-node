@@ -179,21 +179,6 @@ func TestHeadStorage(t *testing.T) {
 			})
 		}
 	})
-
-	t.Run("with compression", func(t *testing.T) {
-		fsComp := setupFSTree(t)
-		setupCompressor(t, fsComp)
-
-		for _, size := range payloadSizes {
-			t.Run("compressed_"+generateSizeLabel(size), func(t *testing.T) {
-				testObjects(t, fsComp, size)
-			})
-
-			t.Run("compressed_combined_"+generateSizeLabel(size), func(t *testing.T) {
-				testCombinedObjects(t, fsComp, size)
-			})
-		}
-	})
 }
 
 func testReadHeaderOK(t *testing.T, fst *fstree.FSTree, obj object.Object) {

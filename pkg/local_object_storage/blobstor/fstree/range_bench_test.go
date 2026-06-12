@@ -58,22 +58,6 @@ func BenchmarkFSTree_GetRangeStream(b *testing.B) {
 					}
 				})
 
-				b.Run("compressed", func(b *testing.B) {
-					fsTree := setupFSTree(b)
-					setupCompressor(b, fsTree)
-					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
-
-					for b.Loop() {
-						_, stream, err := fsTree.GetRangeStream(addr, tc.from, tc.length)
-						if err == nil {
-							_, err = io.ReadFull(stream, buf)
-						}
-						if err != nil {
-							b.Fatal(err)
-						}
-					}
-				})
-
 				b.Run("combined", func(b *testing.B) {
 					fsTree := setupFSTree(b)
 					addrs := prepareMultipleObjects(b, fsTree, tc.objectSize)

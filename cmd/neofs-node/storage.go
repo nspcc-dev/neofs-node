@@ -147,8 +147,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		sh.shOpts = []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithMode(shCfg.Mode),
-			shard.WithCompressObjects(*shCfg.Compress),
-			shard.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),
 			shard.WithBlobstor(s),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(shCfg.Metabase.Path),
