@@ -596,7 +596,7 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 			return clientcore.ErrSkipConnection
 		}
 
-		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil)
+		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
 		if err != nil {
 			return err
 		}
