@@ -150,13 +150,15 @@ func initApp(c *cfg) {
 
 	c.workers = append(c.workers, newWorkerFromFunc(c.configWatcher))
 
-	c.control.MarkReady(
-		c.cfgObject.cfgLocalStorage.localStorage,
-		c.netMapSource,
-		c.cnrSrc,
-		c.replicator,
-		c,
-	)
+	if c.control != nil {
+		c.control.MarkReady(
+			c.cfgObject.cfgLocalStorage.localStorage,
+			c.netMapSource,
+			c.cnrSrc,
+			c.replicator,
+			c,
+		)
+	}
 }
 
 func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {

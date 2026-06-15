@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Possibility to set eACL in the same RPC that creates new container (#4006)
 
 ### Fixed
+- SN panic on start without Control service (#4017)
 
 ### Changed
 - Optimized EC GET request execution (#3996)
