@@ -19,7 +19,7 @@ require (
 	github.com/nspcc-dev/bbolt v0.0.0-20260404200350-24f70ceb2bd9
 	github.com/nspcc-dev/hrw/v2 v2.0.4
 	github.com/nspcc-dev/locode-db v0.8.2
-	github.com/nspcc-dev/neo-go v0.119.0
+	github.com/nspcc-dev/neo-go v0.120.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.26.1
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.19.0.20260610124255-a2357941988d
@@ -67,7 +67,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nspcc-dev/dbft v0.4.0 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20260302080601-ff7471f924b3 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20260303143317-87ace720748a // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20260609115526-14bc7067ea2e // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
