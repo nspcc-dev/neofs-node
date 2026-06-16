@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
@@ -384,6 +385,10 @@ type getECTransport struct {
 	getPartRangeRequests    map[iec.PartInfo]*preparedRangeRequest
 
 	rangeViaGet bool
+
+	// if rangeViaGet is set
+	getPartRequestsMtx sync.RWMutex
+	getPartRequests    map[iec.PartInfo]*mem.Buffer
 }
 
 // CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
@@ -405,6 +410,7 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 	}
 
 	hdrMemBuf, buf := getBufferForHeadResponse()
+	defer hdrMemBuf.Free()
 
 	prefixLen, stream, err := storage.ReadECPart(ctx, cnr, id, partInfo, buf)
 	if err != nil {
@@ -412,7 +418,9 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.As(err, &splitErr) {
 			return false, 0, 0, 0, err
 		}
-		logError("local storage failure (read EC part)", err)
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			logError("local storage failure (read EC part)", err)
+		}
 		return false, 0, 0, 0, nil
 	}
 
@@ -501,13 +509,16 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	}
 
 	hdrMemBuf, buf := getBufferForHeadResponse()
+	defer hdrMemBuf.Free()
+
 	stream, err := storage.ReadECPartRange(ctx, cnr, id, partInfo, off, ln, buf)
-	hdrMemBuf.Free()
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
 			return 0, err
 		}
-		logError("local storage failure (read EC part range)", err)
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			logError("local storage failure (read EC part range)", err)
+		}
 		return 0, nil
 	}
 
@@ -550,12 +561,8 @@ func (x *getECTransport) initGetPartRequest(partInfo iec.PartInfo) error {
 	cnr := reqObj.GetContainerId().GetValue()
 	parent := reqObj.GetObjectId().GetValue()
 
-	reqMetaHdr := x.request.GetMetaHeader()
-	sessionToken := reqMetaHdr.GetSessionTokenV2()
-	sessionTokenV1 := reqMetaHdr.GetSessionToken()
-
 	var err error
-	x.getPartRequest, err = x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1)
+	x.getPartRequest, err = x.server.makeGetECPartRequest(cnr, parent, partInfo)
 	if err != nil {
 		return fmt.Errorf("make GET request: %w", err)
 	}
@@ -591,7 +598,7 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 			return clientcore.ErrSkipConnection
 		}
 
-		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, copiedPartPld, parentPldLen-copiedPartPld, nil)
+		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
 		if err != nil {
 			return err
 		}
@@ -620,6 +627,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 
 	stream, err := callGet(ctx, conn, x.getPartRequest)
 	if err != nil {
+		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
 			return false, 0, 0, 0, err
 		}
@@ -637,6 +645,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	for {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
 				return false, 0, 0, 0, err
 			}
@@ -716,22 +725,35 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPldLen, nil
 }
 
-func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64) (uint64, error) {
-	if err := x.initGetPartRequest(partInfo); err != nil {
-		return 0, err
+func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+	request, err := x.makeGetECPartRequest(partInfo)
+	if err != nil {
+		return 0, fmt.Errorf("make request: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stream, err := callGet(ctx, conn, x.getPartRequest)
+	stream, err := callGet(ctx, conn, request)
 	if err != nil {
+		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
 			return 0, err
 		}
 		// TODO: if error is due to incorrect request, error should be returned. How to catch this?
 		x.server.log.Warn("GET object API failure (call)", zap.String("node", conn.Target()), zap.Error(err))
 		return 0, nil
+	}
+
+	if controlCh != nil {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case abort := <-controlCh:
+			if abort {
+				return 0, getsvc.ErrAborted
+			}
+		}
 	}
 
 	var copied uint64
@@ -741,6 +763,7 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 	for {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
 				return 0, err
 			}
@@ -958,7 +981,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 
 func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
 	if x.rangeViaGet {
-		return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln)
+		return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, controlCh)
 	}
 
 	request, err := x.makeGetECPartRangeRequest(partInfo, off, ln)
@@ -971,6 +994,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 
 	stream, err := callRange(ctx, conn, request)
 	if err != nil {
+		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
 			return 0, err
 		}
@@ -994,6 +1018,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	for first := true; ; first = false {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
+			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
 				return 0, err
 			}
@@ -1028,7 +1053,8 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 				return 0, errors.New("received access denied status in non-first message")
 			}
 			x.rangeViaGet = true
-			return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln)
+			// pass nil channel because trigger has already been caught
+			return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, nil)
 		}
 
 		if code != protostatus.OK {
@@ -1077,17 +1103,14 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 
 	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
 	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
 
-	sessionTokenLen := sessionToken.MarshaledSize()
-	sessionTokenV1Len := sessionTokenV1.MarshaledSize()
-
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, sessionTokenLen, sessionTokenV1Len)
+	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, 0, 0)
 
 	reqLen := 1 + 1 + getByAddressRequestBodyLen + // first 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
@@ -1096,8 +1119,7 @@ func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo,
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
 
-	n, err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr,
-		sessionTokenLen, sessionToken, sessionTokenV1Len, sessionTokenV1)
+	n, err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr)
 	if err != nil {
 		return nil, err
 	}
@@ -1153,6 +1175,45 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 	return reqBuf, nil
 }
 
+func (x *getECTransport) makeGetECPartRequest(partInfo iec.PartInfo) (mem.Buffer, error) {
+	x.getPartRequestsMtx.RLock()
+	reqPtr := x.getPartRequests[partInfo]
+	if reqPtr != nil {
+		x.getPartRequestsMtx.RUnlock()
+		return *reqPtr, nil
+	}
+	x.getPartRequestsMtx.RUnlock()
+
+	x.getPartRequestsMtx.Lock()
+
+	reqPtr = x.getPartRequests[partInfo]
+	if reqPtr != nil {
+		x.getPartRequestsMtx.Unlock()
+		return *reqPtr, nil
+	}
+
+	if x.getPartRequests == nil {
+		x.getPartRequests = make(map[iec.PartInfo]*mem.Buffer)
+	}
+	reqPtr = new(mem.Buffer)
+	x.getPartRequests[partInfo] = reqPtr
+
+	x.getPartRequestsMtx.Unlock()
+
+	reqObj := x.request.GetBody().GetAddress()
+	cnr := reqObj.GetContainerId().GetValue()
+	parent := reqObj.GetObjectId().GetValue()
+
+	reqBuf, err := x.server.makeGetECPartRequest(cnr, parent, partInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	*reqPtr = reqBuf
+
+	return reqBuf, nil
+}
+
 func (s *Server) makeGetECPartRangeRequest(cnr, parent []byte, partInfo iec.PartInfo, off, ln uint64, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
@@ -1199,8 +1260,7 @@ func (s *Server) makeGetECPartRangeRequest(cnr, parent []byte, partInfo iec.Part
 	return mem.SliceBuffer(buf), nil
 }
 
-func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string,
-	sessionTokenLen int, sessionToken *protosession.SessionTokenV2, sessionTokenV1Len int, sessionTokenV1 *protosession.SessionToken) (int, error) {
+func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string) (int, error) {
 	// TODO: can be calculated once and reused
 	originSig, err := neofsecdsa.Signer(s.signer).Sign(nil)
 	if err != nil {
@@ -1237,14 +1297,6 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, me
 	off += copy(buf[off:], currentVersionResponseMetaHeader)
 	off += writeRequestMetaXHeader(buf[off:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
 	off += writeRequestMetaXHeader(buf[off:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
-
-	if sessionTokenV1 != nil {
-		off += writeStablyMarshalledField(buf[off:], iprotobuf.TagBytes5, sessionTokenV1Len, sessionTokenV1)
-	}
-
-	if sessionToken != nil {
-		off += writeStablyMarshalledField(buf[off:], iprotobuf.TagBytes9, sessionTokenLen, sessionToken)
-	}
 
 	metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:off])
 	if err != nil {

@@ -1403,13 +1403,11 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	}()
 
 	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
+	defer hdrRespBuf.Free()
 
 	p.WithBuffer(hdrBuf, func(s io.ReadCloser) { stream = s })
 
 	err = s.handlers.GetRange(gStream.Context(), p)
-
-	hdrRespBuf.Free()
-
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
