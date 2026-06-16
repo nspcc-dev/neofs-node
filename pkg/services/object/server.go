@@ -17,6 +17,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -105,15 +106,12 @@ type FSChain interface {
 	// found.
 	ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error
 
-	// ForSearchableContainerNode iterates over a container node subset
-	// sufficient for reliable SEARCH reply. This number depends on policy
-	// and request, allNodes flag disables optimizations. Nodes descriptors
-	// are passed into f, elements can be repeated. If f returns false
-	// function breaks the iteration without any error.
+	// SelectContainerNodes applies referenced container's storage policy to the
+	// current network map and returns matching nodes along with the applied rules.
 	//
 	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
 	// found.
-	ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmap.NodeInfo) bool) error
+	SelectContainerNodes(cnr cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error)
 
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
@@ -1889,6 +1887,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			return nil, nil, err
 		}
 	default:
+		nodeSets, repRules, ecRules, err := s.fsChain.SelectContainerNodes(cID)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		type nodeSearchResult struct {
 			set  []client.SearchResultItem
 			more bool
@@ -1923,7 +1926,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				return !strings.HasPrefix(filt.Key, "$Object:") && !strings.HasPrefix(filt.Key, "__NEOFS__")
 			})
 
-		err = s.fsChain.ForSearchableContainerNode(cID, !optimizedNodes, func(node netmap.NodeInfo) bool {
+		iterateSearchableContainerNodes(nodeSets, repRules, ecRules, !optimizedNodes, func(node netmap.NodeInfo) bool {
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
 			if _, ok := mProcessedNodes[strKey]; ok {
@@ -1961,17 +1964,13 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			mores = append(mores, searchRes.more)
 		}
 		close(resCh)
-		if err == nil {
+		if poolErr != nil {
 			if errors.Is(poolErr, ants.ErrPoolOverload) {
 				var busy = new(apistatus.Busy)
 				busy.SetMessage(poolErr.Error())
-				err = busy
-			} else {
-				err = poolErr
+				return nil, nil, busy
 			}
-		}
-		if err != nil {
-			return nil, nil, err
+			return nil, nil, poolErr
 		}
 		var (
 			firstAttr   string

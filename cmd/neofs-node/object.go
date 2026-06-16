@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand/v2"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -585,51 +584,18 @@ func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.
 	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
 }
 
-// ForSearchableContainerNode implements [objectService.FSChain] interface.
-func (x *fsChainForObjects) ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmap.NodeInfo) bool) error {
-	curEpoch, err := x.containerNodes.network.Epoch()
+// SelectContainerNodes implements [objectService.FSChain] interface.
+func (x *fsChainForObjects) SelectContainerNodes(cnr cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	_, curEpoch, resCur, err := x.containerNodes.selectContainerNodes(cnr)
 	if err != nil {
-		return fmt.Errorf("read current NeoFS epoch: %w", err)
+		return nil, nil, nil, err
 	}
 
-	cnrCtx := containerPolicyContext{id: cnr, containers: x.containerNodes.containers, network: x.containerNodes.network, getNodesFunc: x.containerNodes.getContainerNodesFunc}
-
-	resCur, err := cnrCtx.applyAtEpoch(curEpoch, x.containerNodes.cache)
-	if err != nil {
-		return fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, err)
-	}
 	if resCur.err != nil {
-		return fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, resCur.err)
-	}
-	for i := range resCur.nodeSets {
-		var (
-			nodeSet = resCur.nodeSets[i]
-			ecIndex = i - len(resCur.repCounts)
-		)
-
-		if !allNodes && ecIndex >= 0 {
-			var (
-				partsN    = int(resCur.ecRules[ecIndex].ParityPartNum + resCur.ecRules[ecIndex].DataPartNum)
-				requiredN = int(resCur.ecRules[ecIndex].ParityPartNum + 1)
-				searchN   = max(requiredN, len(nodeSet)-partsN+requiredN) // CBF 2 and alike.
-			)
-
-			if searchN < len(nodeSet) { // Stay safe in case of missing nodes.
-				nodeSet = slices.Clone(nodeSet)
-				rand.Shuffle(len(nodeSet), func(i, j int) {
-					nodeSet[i], nodeSet[j] = nodeSet[j], nodeSet[i]
-				})
-				nodeSet = nodeSet[:requiredN]
-			}
-		}
-		for _, node := range nodeSet {
-			if !f(node) {
-				return nil
-			}
-		}
+		return nil, nil, nil, fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, resCur.err)
 	}
 
-	return nil
+	return resCur.nodeSets, resCur.repCounts, resCur.ecRules, nil
 }
 
 // IsOwnPublicKey checks whether given binary-encoded public key is assigned to

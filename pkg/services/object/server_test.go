@@ -95,7 +95,7 @@ func (*noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, f
 	panic("must not be called")
 }
 
-func (*noCallTestFSChain) ForSearchableContainerNode(cid.ID, bool, func(netmap.NodeInfo) bool) error {
+func (*noCallTestFSChain) SelectContainerNodes(cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	panic("must not be called")
 }
 func (*noCallTestFSChain) Get(cid.ID) (container.Container, error) { panic("must not be called") }
@@ -661,8 +661,8 @@ func (nopFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]by
 	return nil
 }
 
-func (nopFSChain) ForSearchableContainerNode(cid.ID, bool, func(netmap.NodeInfo) bool) error {
-	return nil
+func (nopFSChain) SelectContainerNodes(cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	return nil, nil, nil, nil
 }
 
 func (x nopFSChain) IsOwnPublicKey([]byte) bool {
