@@ -561,12 +561,8 @@ func (x *getECTransport) initGetPartRequest(partInfo iec.PartInfo) error {
 	cnr := reqObj.GetContainerId().GetValue()
 	parent := reqObj.GetObjectId().GetValue()
 
-	reqMetaHdr := x.request.GetMetaHeader()
-	sessionToken := reqMetaHdr.GetSessionTokenV2()
-	sessionTokenV1 := reqMetaHdr.GetSessionToken()
-
 	var err error
-	x.getPartRequest, err = x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1)
+	x.getPartRequest, err = x.server.makeGetECPartRequest(cnr, parent, partInfo)
 	if err != nil {
 		return fmt.Errorf("make GET request: %w", err)
 	}
@@ -1107,17 +1103,14 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 
 	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
 	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
 
-	sessionTokenLen := sessionToken.MarshaledSize()
-	sessionTokenV1Len := sessionTokenV1.MarshaledSize()
-
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, sessionTokenLen, sessionTokenV1Len)
+	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, 0, 0)
 
 	reqLen := 1 + 1 + getByAddressRequestBodyLen + // first 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
@@ -1126,8 +1119,7 @@ func (s *Server) makeGetECPartRequest(cnr, parent []byte, partInfo iec.PartInfo,
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
 
-	n, err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr,
-		sessionTokenLen, sessionToken, sessionTokenV1Len, sessionTokenV1)
+	n, err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr)
 	if err != nil {
 		return nil, err
 	}
@@ -1212,11 +1204,7 @@ func (x *getECTransport) makeGetECPartRequest(partInfo iec.PartInfo) (mem.Buffer
 	cnr := reqObj.GetContainerId().GetValue()
 	parent := reqObj.GetObjectId().GetValue()
 
-	reqMetaHdr := x.request.GetMetaHeader()
-	sessionToken := reqMetaHdr.GetSessionTokenV2()
-	sessionTokenV1 := reqMetaHdr.GetSessionToken()
-
-	reqBuf, err := x.server.makeGetECPartRequest(cnr, parent, partInfo, sessionToken, sessionTokenV1)
+	reqBuf, err := x.server.makeGetECPartRequest(cnr, parent, partInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -1272,8 +1260,7 @@ func (s *Server) makeGetECPartRangeRequest(cnr, parent []byte, partInfo iec.Part
 	return mem.SliceBuffer(buf), nil
 }
 
-func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string,
-	sessionTokenLen int, sessionToken *protosession.SessionTokenV2, sessionTokenV1Len int, sessionTokenV1 *protosession.SessionToken) (int, error) {
+func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string) (int, error) {
 	// TODO: can be calculated once and reused
 	originSig, err := neofsecdsa.Signer(s.signer).Sign(nil)
 	if err != nil {
@@ -1310,14 +1297,6 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr []byte, parent []byte, me
 	off += copy(buf[off:], currentVersionResponseMetaHeader)
 	off += writeRequestMetaXHeader(buf[off:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
 	off += writeRequestMetaXHeader(buf[off:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
-
-	if sessionTokenV1 != nil {
-		off += writeStablyMarshalledField(buf[off:], iprotobuf.TagBytes5, sessionTokenV1Len, sessionTokenV1)
-	}
-
-	if sessionToken != nil {
-		off += writeStablyMarshalledField(buf[off:], iprotobuf.TagBytes9, sessionTokenLen, sessionToken)
-	}
 
 	metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:off])
 	if err != nil {
