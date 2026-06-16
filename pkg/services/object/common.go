@@ -108,3 +108,17 @@ func forwardServerStreamRequestGRPC(ctx context.Context, req any, respStream grp
 		}
 	}
 }
+
+func callUnary(ctx context.Context, conn *grpc.ClientConn, method string, req any) (mem.BufferSlice, error) {
+	var respBuf mem.BufferSlice
+
+	err := conn.Invoke(ctx, method, req, &respBuf,
+		grpc.StaticMethod(),
+		grpc.ForceCodecV2(iprotobuf.BufferedCodec{}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("sending the request failed: %w", err)
+	}
+
+	return respBuf, nil
+}

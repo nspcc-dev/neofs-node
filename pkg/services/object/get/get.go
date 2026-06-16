@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -60,7 +61,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
-	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, nodeLists) {
+	if prm.forwardRequestFn != nil && !inetmap.NodeSetsContainPublicKeyFunc(nodeLists, s.neoFSNet.IsLocalNodePublicKey) {
 		return s.forwardRequest(ctx, repRules, ecRules, nodeLists, "GET", prm.forwardRequestFn)
 	}
 
@@ -151,7 +152,7 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
-	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, nodeLists) {
+	if prm.forwardRequestFn != nil && !inetmap.NodeSetsContainPublicKeyFunc(nodeLists, s.neoFSNet.IsLocalNodePublicKey) {
 		return s.forwardRequest(ctx, repRules, ecRules, nodeLists, "RANGE", prm.forwardRequestFn)
 	}
 
@@ -245,7 +246,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
-	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, nodeLists) {
+	if prm.forwardRequestFn != nil && !inetmap.NodeSetsContainPublicKeyFunc(nodeLists, s.neoFSNet.IsLocalNodePublicKey) {
 		return s.forwardRequest(ctx, repRules, ecRules, nodeLists, "HEAD", prm.forwardRequestFn)
 	}
 

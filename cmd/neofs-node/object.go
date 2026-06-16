@@ -47,11 +47,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -346,23 +344,31 @@ func initObjectService(c *cfg) {
 	svcDesc := protoobject.ObjectService_ServiceDesc
 	svcDesc.Methods = slices.Clone(protoobject.ObjectService_ServiceDesc.Methods)
 
-	const headMethod = "Head"
-	headInd := slices.IndexFunc(svcDesc.Methods, func(md grpc.MethodDesc) bool { return md.MethodName == headMethod })
-	if headInd < 0 {
-		fatalOnErr(fmt.Errorf("missing %s method handler in object service desc", headMethod))
-	}
-
-	svcDesc.Methods[headInd].Handler = func(_ any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
-		req := new(protoobject.HeadRequest)
-		if err := dec(req); err != nil {
-			return nil, err
-		}
-		return server.HeadBuffered(ctx, req), nil
-	}
+	replaceUnaryMethodHandler(&svcDesc, "Head", func(ctx context.Context, req *protoobject.HeadRequest) any {
+		return server.HeadBuffered(ctx, req)
+	})
+	replaceUnaryMethodHandler(&svcDesc, "SearchV2", func(ctx context.Context, req *protoobject.SearchV2Request) any {
+		return server.SearchV2Buffered(ctx, req)
+	})
 
 	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		srv.RegisterService(&svcDesc, server)
 	})
+}
+
+func replaceUnaryMethodHandler[REQ any](svcDesc *grpc.ServiceDesc, method string, handler func(context.Context, *REQ) any) {
+	mtdInd := slices.IndexFunc(svcDesc.Methods, func(md grpc.MethodDesc) bool { return md.MethodName == method })
+	if mtdInd < 0 {
+		fatalOnErr(fmt.Errorf("missing %s method handler in object service desc", method))
+	}
+
+	svcDesc.Methods[mtdInd].Handler = func(_ any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
+		req := new(REQ)
+		if err := dec(req); err != nil {
+			return nil, err
+		}
+		return handler(ctx, req), nil
+	}
 }
 
 type reputationClientConstructor struct {
@@ -645,9 +651,7 @@ func (x storageForObjectService) GetSessionV2PrivateKey(subjects []sessionv2.Tar
 type objectSource struct {
 	get    *getsvc.Service
 	signer neofscrypto.Signer
-	server interface {
-		ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) ([]client.SearchResultItem, []byte, error)
-	}
+	server *objectService.Server
 }
 
 func (o objectSource) Head(ctx context.Context, addr oid.Address) (*object.Object, error) {
@@ -676,19 +680,10 @@ func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters object.
 				Count:       1,
 				Attributes:  nil,
 			},
-			MetaHeader: &protosession.RequestMetaHeader{
-				Version: version.Current().ProtoMessage(),
-				Ttl:     2,
-			},
 		}
 	)
 
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](o.signer, req, nil)
-	if err != nil {
-		return id, err
-	}
-
-	res, _, err := o.server.ProcessSearch(ctx, req, false)
+	res, _, err := o.server.ProcessSearch(ctx, req, false, false)
 	if err != nil {
 		return id, err
 	}

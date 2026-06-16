@@ -18,6 +18,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
+	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -157,7 +159,7 @@ type ACLInfoExtractor interface {
 	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
 	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, bool, error)
+	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
 }
 
 // ClientConstructor returns a client for given node.
@@ -1707,42 +1709,57 @@ func (s *Server) signSearchResponse(body *protoobject.SearchV2Response_Body, err
 	return resp
 }
 
-func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+// SearchV2 implements [protoobject.ObjectServiceServer] so that generated
+// functions don't panic. It must never be called, [Server.SearchV2Buffered]
+// must be used instead.
+func (s *Server) SearchV2(context.Context, *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+	panic("must not be called")
+}
+
+// SearchV2Buffered serves req and returns response as either
+// [*protoobject.SearchV2Response], [mem.BufferSlice] or [mem.Buffer]. All
+// buffers must be freed eventually.
+func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2Request) any {
 	var (
 		err error
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.signSearchResponse(nil, apistatus.ErrNodeUnderMaintenance, req), nil
+		return s.signSearchResponse(nil, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
-	reqInfo, srvInCnr, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
 			bad.SetMessage(err.Error())
 			err = bad // defer
 		}
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err)
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 
-	respBody, err := s.processSearchRequest(ctx, req, srvInCnr)
+	respBody, err := s.processSearchRequest(ctx, req)
 
-	return s.signSearchResponse(respBody, err, req), nil
+	var respBufErr igrpc.MemBufferSliceError
+	if errors.As(err, &respBufErr) {
+		return mem.BufferSlice(respBufErr)
+	}
+
+	return s.signSearchResponse(respBody, err, req)
 }
 
 func verifySearchFilter(f *protoobject.SearchFilter) error {
@@ -1764,7 +1781,7 @@ func verifySearchFilter(f *protoobject.SearchFilter) error {
 	return nil
 }
 
-func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) (*protoobject.SearchV2Response_Body, error) {
+func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response_Body, error) {
 	body := req.GetBody()
 	if body == nil {
 		return nil, errors.New("missing body")
@@ -1803,7 +1820,12 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		return nil, errors.New("primary attribute must be filtered 1st")
 	}
 
-	res, newCursor, err := s.ProcessSearch(ctx, req, serverInContainer)
+	ttl := req.MetaHeader.GetTtl()
+	if ttl == 0 {
+		return nil, errors.New("zero TTL")
+	}
+
+	res, newCursor, err := s.ProcessSearch(ctx, req, ttl == 1, true)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, err
 	}
@@ -1823,12 +1845,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	return resBody, err
 }
 
-func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) ([]client.SearchResultItem, []byte, error) {
-	ttl := req.MetaHeader.GetTtl()
-	if ttl == 0 {
-		return nil, nil, errors.New("zero TTL")
-	}
-
+func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, localOnly bool, forwardedResponseToError bool) ([]client.SearchResultItem, []byte, error) {
 	body := req.GetBody()
 	var fs object.SearchFilters
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
@@ -1877,7 +1894,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		res        []client.SearchResultItem
 	)
 	switch {
-	case ttl == 1:
+	case localOnly:
 		if res, newCursor, err = s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count); err != nil {
 			return nil, nil, err
 		}
@@ -1890,6 +1907,14 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		nodeSets, repRules, ecRules, err := s.fsChain.SelectContainerNodes(cID)
 		if err != nil {
 			return nil, nil, err
+		}
+
+		if forwardedResponseToError && !inetmap.NodeSetsContainPublicKeyFunc(nodeSets, s.fsChain.IsOwnPublicKey) {
+			respBuf, err := s.forwardSearchRequest(ctx, req, nodeSets)
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, nil, igrpc.MemBufferSliceError(respBuf)
 		}
 
 		type nodeSearchResult struct {
@@ -1906,16 +1931,12 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			expectedRes     int
 		)
 
-		if serverInContainer {
-			req = &protoobject.SearchV2Request{
-				Body: req.Body,
-				MetaHeader: &protosession.RequestMetaHeader{
-					Version: version.Current().ProtoMessage(),
-					Ttl:     1,
-				},
-			}
-		} else {
-			req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
+		req = &protoobject.SearchV2Request{
+			Body: req.Body,
+			MetaHeader: &protosession.RequestMetaHeader{
+				Version: version.Current().ProtoMessage(),
+				Ttl:     1,
+			},
 		}
 		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
 			return nil, nil, fmt.Errorf("sign request: %w", err)
@@ -1999,7 +2020,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		}
 	}
 
-	if filteredAttributeless && (ttl != 1 || body.Filters[0].MatchType == protoobject.MatchType_STRING_EQUAL) {
+	if filteredAttributeless && (!localOnly || body.Filters[0].MatchType == protoobject.MatchType_STRING_EQUAL) {
 		// for K=V queries, V is unambiguous, so there is no need to transmit it in each item
 		for i := range res {
 			res[i].Attributes = nil

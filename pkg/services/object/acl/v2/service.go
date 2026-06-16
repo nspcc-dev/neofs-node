@@ -465,23 +465,13 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, bool, error) {
+func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, error) {
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return RequestInfo{}, false, err
+		return RequestInfo{}, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
-	if err != nil {
-		return RequestInfo{}, false, err
-	}
-
-	srvInCnr, err := b.nm.ServerInContainer(id)
-	if err != nil {
-		return RequestInfo{}, false, fmt.Errorf("check whether server is in container: %w", err)
-	}
-
-	return reqInfo, srvInCnr, nil
+	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using

@@ -152,7 +152,7 @@ func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeReques
 func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, bool, error) {
+func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 
@@ -188,8 +188,8 @@ func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.
 func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, bool, error) {
-	return v2.RequestInfo{}, false, nil
+func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
 }
 
 type mockReqInfoExtractor struct {

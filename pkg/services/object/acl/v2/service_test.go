@@ -199,10 +199,7 @@ func TestService_GetRequestToInfo_BearerTokenIssuer(t *testing.T) {
 }
 
 func TestService_SearchV2RequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.SearchV2Request) (aclsvc.RequestInfo, error) {
-		reqInfo, _, err := svc.SearchV2RequestToInfo(req)
-		return reqInfo, err
-	}, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.SearchV2Request {
+	testBearerTokenIssuer(t, (*aclsvc.Service).SearchV2RequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.SearchV2Request {
 		req := &protoobject.SearchV2Request{
 			Body: &protoobject.SearchV2Request_Body{
 				ContainerId: cnrID.ProtoMessage(),

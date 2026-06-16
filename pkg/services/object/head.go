@@ -20,17 +20,7 @@ import (
 )
 
 func callHead(ctx context.Context, conn *grpc.ClientConn, req any) (mem.BufferSlice, error) {
-	var respBuf mem.BufferSlice
-
-	err := conn.Invoke(ctx, protoobject.ObjectService_Head_FullMethodName, req, &respBuf,
-		grpc.StaticMethod(),
-		grpc.ForceCodecV2(iprotobuf.BufferedCodec{}),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("sending the request failed: %w", err)
-	}
-
-	return respBuf, nil
+	return callUnary(ctx, conn, protoobject.ObjectService_Head_FullMethodName, req)
 }
 
 // returns:

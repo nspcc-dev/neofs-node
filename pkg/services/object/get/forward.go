@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -74,7 +75,7 @@ func (s *Service) forwardRequestToNode(ctx context.Context, node netmap.NodeInfo
 	conn, err := s.conns.(*clientCacheWrapper).connect(ctx, node)
 	if err != nil {
 		s.log.Debug("get conn to remote node",
-			zapEndpoints(node), zap.Error(err))
+			inetmap.ZapEndpoints(node), zap.Error(err))
 		return false, nil
 	}
 
@@ -83,7 +84,7 @@ func (s *Service) forwardRequestToNode(ctx context.Context, node netmap.NodeInfo
 		return true, err
 	}
 
-	s.log.Info("remote node is unavailable", zap.String("op", op), zapEndpoints(node))
+	s.log.Info("remote node is unavailable", zap.String("op", op), inetmap.ZapEndpoints(node))
 
 	return false, nil
 }
