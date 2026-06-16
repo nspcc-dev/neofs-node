@@ -42,7 +42,7 @@ func TestServer_Get_Local(t *testing.T) {
 	var fsChain nopFSChain
 	mtrc := new(metricsCollector)
 	var aclChecker nopACLChecker
-	var reqInfoExt nopReqInfoExtractor
+	var reqInfoExt mockReqInfoExtractor
 
 	storage := newSimpleStorage(t, fsChain)
 
@@ -55,6 +55,11 @@ func TestServer_Get_Local(t *testing.T) {
 		getsvc.WithLocalStorageEngine(storage),
 	)
 	handlers := &getOnlyHandler{svc: handler}
+
+	var policy netmap.PlacementPolicy
+	policy.SetReplicas([]netmap.ReplicaDescriptor{{}}) // any non-empty
+
+	reqInfoExt.getRequestInfo.Container.SetPlacementPolicy(policy)
 
 	srv := New(handlers, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 

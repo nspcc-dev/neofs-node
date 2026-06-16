@@ -433,54 +433,34 @@ func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, bool, error) {
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return RequestInfo{}, false, err
+		return RequestInfo{}, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return RequestInfo{}, false, err
+		return RequestInfo{}, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
-	if err != nil {
-		return RequestInfo{}, false, err
-	}
-
-	srvInCnr, err := b.nm.ServerInContainer(cnr)
-	if err != nil {
-		return RequestInfo{}, false, fmt.Errorf("check whether server is in container: %w", err)
-	}
-
-	return reqInfo, srvInCnr, nil
+	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, bool, error) {
+func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return RequestInfo{}, false, err
+		return RequestInfo{}, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return RequestInfo{}, false, err
+		return RequestInfo{}, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
-	if err != nil {
-		return RequestInfo{}, false, err
-	}
-
-	srvInCnr, err := b.nm.ServerInContainer(cnr)
-	if err != nil {
-		return RequestInfo{}, false, fmt.Errorf("check whether server is in container: %w", err)
-	}
-
-	return reqInfo, srvInCnr, nil
+	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
 }
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using

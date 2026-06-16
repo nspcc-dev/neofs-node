@@ -7,6 +7,7 @@ import (
 
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -43,4 +44,23 @@ func TestConvertContextStatus(t *testing.T) {
 			require.Equal(t, got, anyErr)
 		})
 	})
+}
+
+func TestIsUnavailable(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{name: "nil", err: nil},
+		{name: "other status", err: status.Error(codes.Internal, "any message")},
+		{name: "non-status", err: errors.New("any message")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ok := igrpc.IsUnavailable(tc.err)
+			require.False(t, ok)
+		})
+	}
+
+	ok := igrpc.IsUnavailable(status.Error(codes.Unavailable, "any message"))
+	require.True(t, ok)
 }

@@ -156,8 +156,8 @@ type Storage interface {
 type ACLInfoExtractor interface {
 	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
 	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
-	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, bool, error)
-	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, bool, error)
+	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
 	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, bool, error)
 }
@@ -639,7 +639,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, srvInCnr, err := s.reqInfoProc.HeadRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -662,7 +662,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, srvInCnr)
+	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -671,6 +671,14 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		}
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
+
+	var forwardResp mem.BufferSlice
+
+	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
+		var err error
+		forwardResp, err = forwardHeadRequest(ctx, req, node)
+		return err
+	})
 
 	respMemBuf, hdrBuf := getBufferForHeadResponse()
 	defer respMemBuf.Free()
@@ -688,6 +696,10 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp)
+	}
+
+	if forwardResp != nil {
+		return forwardResp
 	}
 
 	var buffered bool
@@ -767,7 +779,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, serverInContainer bool) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -803,23 +815,15 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 
 	var updatedRequest bool
 
-	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
 		if !updatedRequest {
 			updatedRequest = true
-			if serverInContainer {
-				req = &protoobject.HeadRequest{
-					Body: req.Body,
-					MetaHeader: &protosession.RequestMetaHeader{
-						Version: version.Current().ProtoMessage(),
-						Ttl:     1,
-					},
-				}
-			} else {
-				req.MetaHeader = &protosession.RequestMetaHeader{
-					// TODO: #1165 think how to set the other fields
-					Ttl:    meta.GetTtl() - 1,
-					Origin: meta,
-				}
+			req = &protoobject.HeadRequest{
+				Body: req.Body,
+				MetaHeader: &protosession.RequestMetaHeader{
+					Version: version.Current().ProtoMessage(),
+					Ttl:     1,
+				},
 			}
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		}
@@ -874,8 +878,6 @@ type getStream struct {
 	recheckEACL  bool
 	signResponse bool
 	payloadOnly  bool
-
-	serverInContainer bool
 }
 
 func (s *getStream) ValidateHeader(hdr *object.Object) error {
@@ -957,7 +959,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, srvInCnr, err := s.reqInfoProc.GetRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -980,13 +982,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
-		base:              gStream,
-		srv:               s,
-		reqInfo:           reqInfo,
-		recheckEACL:       recheckEACL,
-		signResponse:      needSignResp,
-		payloadOnly:       req.GetBody().GetPayloadOnly(),
-		serverInContainer: srvInCnr,
+		base:         gStream,
+		srv:          s,
+		reqInfo:      reqInfo,
+		recheckEACL:  recheckEACL,
+		signResponse: needSignResp,
+		payloadOnly:  req.GetBody().GetPayloadOnly(),
 	})
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
@@ -996,6 +997,10 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
+
+	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
+		return forwardGetRequest(ctx, req, gStream, node)
+	})
 
 	p.WithECTransport(&getECTransport{
 		server:         s,
@@ -1230,8 +1235,8 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 
 	var updatedRequest bool
 
-	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
-		if stream.serverInContainer && !updatedRequest {
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
+		if !updatedRequest {
 			updatedRequest = true
 
 			req = &protoobject.GetRequest{
@@ -1243,30 +1248,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 			}
 			if proxyCtx.suppressInit {
 				req.Body.PayloadOnly = false
-			}
-			var err error
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-			if err != nil {
-				return err
-			}
-		}
-
-		if stream.serverInContainer || !proxyCtx.suppressInit {
-			return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-				return proxyCtx.continueWithConn(ctx, req, conn) // TODO: log error
-			})
-		}
-
-		// TODO: double-check following code is required
-
-		if !updatedRequest {
-			updatedRequest = true
-
-			req.Body.PayloadOnly = false
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
 			}
 			var err error
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
@@ -1393,6 +1374,10 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
+	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
+		return forwardRangeRequest(ctx, req, gStream, node)
+	})
+
 	var stream io.ReadCloser
 	defer func() {
 		if stream != nil {
@@ -1515,7 +1500,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 	if meta == nil {
 		return getsvc.RangePrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{

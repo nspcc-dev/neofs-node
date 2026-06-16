@@ -63,12 +63,12 @@ type execCtx struct {
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
 
-	forwardHeadRequestFn ForwardHeadRequestFunc
+	headTransportFn      HeadTransportFunc
 	submitHeadResponseFn SubmitHeadResponseFunc
 
-	forwardGetRequestFn ForwardGetRequestFunc
+	getTransportFn GetTransportFunc
 
-	forwardRangeRequestFn ForwardRangeRequestFunc
+	rangeTransportFn RangeTransportFunc
 
 	localRangeBuffer         []byte
 	submitLocalRangeStreamFn SubmitDataStreamFunc
@@ -87,10 +87,10 @@ const (
 	statusNotFound
 )
 
-func headOnly(forwardRequestFn ForwardHeadRequestFunc, submitResponseFn SubmitHeadResponseFunc) execOption {
+func headOnly(transportFn HeadTransportFunc, submitResponseFn SubmitHeadResponseFunc) execOption {
 	return func(c *execCtx) {
 		c.head = true
-		c.forwardHeadRequestFn = forwardRequestFn
+		c.headTransportFn = transportFn
 		c.submitHeadResponseFn = submitResponseFn
 	}
 }
@@ -133,15 +133,15 @@ func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc) execOption 
 	}
 }
 
-func withForwardGetRequestFunc(f ForwardGetRequestFunc) execOption {
+func withGetTransportFunc(f GetTransportFunc) execOption {
 	return func(ctx *execCtx) {
-		ctx.forwardGetRequestFn = f
+		ctx.getTransportFn = f
 	}
 }
 
-func withForwardRangeRequestFunc(f ForwardRangeRequestFunc) execOption {
+func withRangeTransportFunc(f RangeTransportFunc) execOption {
 	return func(ctx *execCtx) {
-		ctx.forwardRangeRequestFn = f
+		ctx.rangeTransportFn = f
 	}
 }
 
@@ -533,6 +533,7 @@ func (exec *execCtx) writeCollectedObject() {
 // disableForwarding removes request forwarding closure from common
 // parameters, so it won't be inherited in new execution contexts.
 func (exec *execCtx) disableForwarding() {
-	exec.prm.SetRequestForwarder(nil)
-	exec.forwardGetRequestFn = nil
+	exec.getTransportFn = nil
+	exec.rangeTransportFn = nil
+	exec.headTransportFn = nil
 }

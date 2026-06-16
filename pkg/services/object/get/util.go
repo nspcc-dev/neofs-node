@@ -216,20 +216,20 @@ func (c *clientCacheWrapper) get(ctx context.Context, info netmap.NodeInfo) (get
 }
 
 func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser, error) {
-	if exec.forwardHeadRequestFn != nil {
-		respBuf, hdr, err := exec.forwardHeadRequestFn(exec.ctx, c.client)
+	if exec.headTransportFn != nil {
+		respBuf, hdr, err := exec.headTransportFn(exec.ctx, c.client)
 		if err == nil {
 			exec.submitHeadResponseFn(respBuf, hdr)
 		}
 		return nil, nil, err
 	}
 
-	if exec.forwardGetRequestFn != nil {
-		return nil, nil, exec.forwardGetRequestFn(exec.ctx, c.client)
+	if exec.getTransportFn != nil {
+		return nil, nil, exec.getTransportFn(exec.ctx, c.client)
 	}
 
-	if exec.forwardRangeRequestFn != nil {
-		return nil, nil, exec.forwardRangeRequestFn(exec.ctx, c.client)
+	if exec.rangeTransportFn != nil {
+		return nil, nil, exec.rangeTransportFn(exec.ctx, c.client)
 	}
 
 	key, err := exec.key()

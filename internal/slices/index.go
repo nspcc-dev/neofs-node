@@ -1,6 +1,10 @@
 package slices
 
-import combinations "github.com/mxschmitt/golang-combinations"
+import (
+	"math/rand/v2"
+
+	combinations "github.com/mxschmitt/golang-combinations"
+)
 
 // IndexCombos returns all combinations of n indexes taken k.
 func IndexCombos(n, k int) [][]int {
@@ -23,4 +27,11 @@ func CollectIndex[E any, S []E](s S, idxs ...int) S {
 		newS[i] = s[idx]
 	}
 	return newS
+}
+
+// ShuffleIndexes returns slice filled with pseudo-randomized index order.
+func ShuffleIndexes(n int) []int {
+	s := Indexes(n)
+	rand.Shuffle(n, func(i, j int) { s[i], s[j] = s[j], s[i] })
+	return s
 }

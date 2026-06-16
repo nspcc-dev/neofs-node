@@ -65,6 +65,9 @@ var ErrAborted = errors.New("aborted")
 // ErrLinker is returned when object of LINK type is received.
 var ErrLinker = errors.New("linker")
 
+// ErrUnavailableNode is returned when node is unavailable.
+var ErrUnavailableNode = errors.New("unavailable node")
+
 // GetECRequestTransport is used to serve GET requests for EC objects.
 type GetECRequestTransport interface {
 	// CopyRemoteECPartParentHeaderAndPayload requests originally requested object's

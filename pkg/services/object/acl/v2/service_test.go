@@ -159,10 +159,7 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 }
 
 func TestService_HeadRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.HeadRequest) (aclsvc.RequestInfo, error) {
-		reqInfo, _, err := svc.HeadRequestToInfo(req)
-		return reqInfo, err
-	}, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.HeadRequest {
+	testBearerTokenIssuer(t, (*aclsvc.Service).HeadRequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.HeadRequest {
 		req := &protoobject.HeadRequest{
 			Body: &protoobject.HeadRequest_Body{
 				Address: &refs.Address{
@@ -182,10 +179,7 @@ func TestService_HeadRequestToInfo_BearerTokenIssuer(t *testing.T) {
 }
 
 func TestService_GetRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.GetRequest) (aclsvc.RequestInfo, error) {
-		reqInfo, _, err := svc.GetRequestToInfo(req)
-		return reqInfo, err
-	}, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.GetRequest {
+	testBearerTokenIssuer(t, (*aclsvc.Service).GetRequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.GetRequest {
 		req := &protoobject.GetRequest{
 			Body: &protoobject.GetRequest_Body{
 				Address: &refs.Address{

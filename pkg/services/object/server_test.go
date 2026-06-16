@@ -140,10 +140,10 @@ func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.
 func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, bool, error) {
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, bool, error) {
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
@@ -176,11 +176,11 @@ func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.Request
 func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, bool, error) {
-	return v2.RequestInfo{}, false, nil
+func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, bool, error) {
-	return v2.RequestInfo{}, false, nil
+func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
@@ -190,6 +190,15 @@ func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.R
 }
 func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, bool, error) {
 	return v2.RequestInfo{}, false, nil
+}
+
+type mockReqInfoExtractor struct {
+	nopReqInfoExtractor
+	getRequestInfo v2.RequestInfo
+}
+
+func (x mockReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+	return x.getRequestInfo, nil
 }
 
 type nopMetrics struct{}
@@ -873,7 +882,7 @@ func (emptyRemoteNode) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, 
 }
 
 func (emptyRemoteNode) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
-	return errors.New("any transport error")
+	return getsvc.ErrUnavailableNode
 }
 
 type mockGRPCConn struct {
