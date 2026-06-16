@@ -266,30 +266,41 @@ func (c *Client) restoreSubscriptions(conn *connection, resCh chan struct{}) {
 	defer c.subs.RUnlock()
 	// new block events restoration
 	if c.subs.subscribedToNewHeaders {
+		c.logger.Info("restoring headers WS subscription...")
+
 		_, err = conn.client.ReceiveHeadersOfAddedBlocks(nil, conn.headerChan)
 		if err != nil {
-			c.logger.Error("could not restore block subscription",
+			c.logger.Error("could not restore header subscription",
 				zap.Error(err),
 			)
 			close(resCh)
 			return
 		}
+
+		c.logger.Info("successfully restored header subscription")
 	}
 
 	// notification events restoration
 	for contract := range c.subs.subscribedEvents {
+		l := c.logger.With(zap.Stringer("contract", contract))
+		l.Info("restoring contract notification WS subscription...")
+
 		_, err = conn.client.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &contract}, conn.notifyChan)
 		if err != nil {
-			c.logger.Error("could not restore notification subscription after RPC switch",
+			l.Error("could not restore notification subscription after RPC switch",
 				zap.Error(err),
 			)
 			close(resCh)
 			return
 		}
+
+		l.Info("contract notification subscription successfully restored")
 	}
 
 	// notary notification events restoration
 	if c.subs.subscribedToAllNotaryEvents {
+		c.logger.Info("restoring all notary notifications subscription...")
+
 		nrAddedType := mempoolevent.TransactionAdded
 		filter := &neorpc.NotaryRequestFilter{Type: &nrAddedType}
 		_, err = conn.client.ReceiveNotaryRequests(filter, conn.notaryChan)
@@ -298,21 +309,29 @@ func (c *Client) restoreSubscriptions(conn *connection, resCh chan struct{}) {
 				zap.Error(err))
 			close(resCh)
 		}
+
+		c.logger.Info("successfully restored all notary notification subscription")
+
 		return
 	}
 
 	for signer := range c.subs.subscribedNotaryEvents {
+		l := c.logger.With(zap.Stringer("signer", signer))
+		l.Info("restoring notary notification subscription...")
+
 		nrAddedType := mempoolevent.TransactionAdded
 		filter := &neorpc.NotaryRequestFilter{Signer: &signer, Type: &nrAddedType}
 
 		_, err = conn.client.ReceiveNotaryRequests(filter, conn.notaryChan)
 		if err != nil {
-			c.logger.Error("could not restore notary notification subscription after RPC switch",
+			l.Error("could not restore notary notification subscription after RPC switch",
 				zap.Error(err),
 			)
 			close(resCh)
 			return
 		}
+
+		l.Info("successfully restored notary notification subscription")
 	}
 }
 
