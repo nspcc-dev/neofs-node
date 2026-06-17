@@ -194,6 +194,14 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			}
 
 			cID := cid.NewFromMarshalledContainer(cnr.Marshal())
+			if cidInEacl := eaclTable.GetCID(); !cidInEacl.IsZero() && cidInEacl != cID {
+				msg := fmt.Sprintf("table has %s container ID set, but calculated container ID is %s", cidInEacl, cID)
+				if force {
+					common.PrintVerbose(cmd, msg+"; overriding container ID in the table since '%s' flag is provided", commonflags.ForceFlag)
+				} else {
+					return errors.New(msg)
+				}
+			}
 			eaclTable.SetCID(cID)
 
 			common.PrintVerbose(cmd, "setting eACL for calculated container ID: %s", cID)
