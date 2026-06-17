@@ -49,6 +49,8 @@ const (
 	OIDFlag      = "oid"
 	OIDFlagUsage = "Object ID."
 
+	EACLTable = "eacl"
+
 	SessionSubjectFlag      = "session-subjects"
 	SessionSubjectFlagUsage = "Session subject user IDs (optional, defaults to current node)"
 

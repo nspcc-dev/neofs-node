@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	eaclFlag           = "eacl"
 	issuedAtFlag       = "issued-at"
 	notValidBeforeFlag = "not-valid-before"
 	ownerFlag          = "owner"
@@ -39,7 +38,7 @@ is set to current epoch + n.
 }
 
 func init() {
-	createCmd.Flags().StringP(eaclFlag, "e", "", "Path to the extended ACL table")
+	createCmd.Flags().StringP(commonflags.EACLTable, "e", "", "Path to the extended ACL table")
 	createCmd.Flags().StringP(issuedAtFlag, "i", "", "Epoch to issue token at")
 	createCmd.Flags().StringP(notValidBeforeFlag, "n", "", "Not valid before epoch")
 	createCmd.Flags().StringP(commonflags.ExpireAt, "x", "", "The last active epoch for the token")
@@ -49,7 +48,7 @@ func init() {
 	createCmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 	createCmd.Flags().Uint64P(commonflags.Lifetime, "l", 0, "Number of epochs for token to stay valid")
 
-	_ = cobra.MarkFlagFilename(createCmd.Flags(), eaclFlag)
+	_ = cobra.MarkFlagFilename(createCmd.Flags(), commonflags.EACLTable)
 
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), issuedAtFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), notValidBeforeFlag)
@@ -115,7 +114,7 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	b.SetIat(iat)
 	b.ForUser(ownerID)
 
-	eaclPath, _ := cmd.Flags().GetString(eaclFlag)
+	eaclPath, _ := cmd.Flags().GetString(commonflags.EACLTable)
 	if eaclPath != "" {
 		raw, err := os.ReadFile(eaclPath)
 		if err != nil {

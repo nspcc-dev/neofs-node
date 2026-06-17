@@ -184,6 +184,10 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		}
 
 		if flagVarsSetEACL.srcPath != "" {
+			if !cnr.BasicACL().Extendable() {
+				return fmt.Errorf("'%s' flag is not empty, but container does not allow extended ACL", commonflags.EACLTable)
+			}
+
 			eaclTable, err := common.ReadEACL(cmd, flagVarsSetEACL.srcPath)
 			if err != nil {
 				return err
@@ -236,7 +240,7 @@ func initContainerCreateCmd() {
 	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
 		"Skip placement validity check")
 	flags.BoolVar(&containerGlobalName, "global-name", false, "Name becomes a domain name, that is registered with the default zone in NNS contract. Requires name attribute.")
-	flags.StringVar(&flagVarsSetEACL.srcPath, "eacl", "", "path to file with JSON or binary encoded EACL table that will be set after container creation")
+	flags.StringVar(&flagVarsSetEACL.srcPath, commonflags.EACLTable, "", "path to file with JSON or binary encoded EACL table that will be set after container creation")
 }
 
 func parseAttributes(dst *container.Container, attributes []string) error {
