@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - SN panic on start without Control service (#4017)
 - Incorrect protobuf scanning (#4013)
 - Data race in RANGE response buffer (#4013)
+- Incorrect access denial during EACL rechecks for payload-only GET (#4024)
 
 ### Changed
 - Optimized EC GET request execution (#3996)

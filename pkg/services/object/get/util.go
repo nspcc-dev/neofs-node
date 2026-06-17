@@ -371,9 +371,6 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 	if exec.isRaw() {
 		opts.MarkRaw()
 	}
-	if exec.payloadOnly && exec.ctxRange() == nil {
-		opts.MarkPayloadOnly()
-	}
 
 	hdr, rdr, err := c.client.ObjectGetInit(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 	if err != nil {
