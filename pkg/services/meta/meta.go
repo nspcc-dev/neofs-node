@@ -4,85 +4,109 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	"math"
+	"path"
+	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	metabase "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
-	// raw storage prefixes.
-
-	// rootKey is the key for the last known state root in KV data base
-	// associated with MPT.
-	rootKey = 0xff
-
 	// notificationBuffSize is a nesessary buffer for neo-go's client proper
 	// notification work; it is required to always read notifications without
 	// any blocking or making additional RPC.
-	notificationBuffSize = 100
+	notificationBuffSize = 10000
 )
 
-// NeoFSNetwork describes current NeoFS storage network state.
-type NeoFSNetwork interface {
-	// Epoch returns current epoch in the NeoFS network.
-	Epoch() (uint64, error)
-	// List returns node's containers that support chain-based meta data and
-	// any error that does not allow listing.
-	List(uint64) (map[cid.ID]struct{}, error)
-	// IsMineWithMeta checks if the given container has meta enabled and current
-	// node belongs to it.
-	IsMineWithMeta(cid.ID, []byte) (bool, error)
-	// Head returns actual object header from the NeoFS network (non-local
-	// objects should also be returned). Missing, removed object statuses
-	// must be reported according to API statuses from SDK.
-	Head(context.Context, cid.ID, oid.ID) (object.Object, error)
-}
+type (
+	// NeoFSNetwork describes current NeoFS storage network state.
+	NeoFSNetwork interface {
+		// Head returns actual object header from the NeoFS network (non-local
+		// objects should also be returned). Missing, removed object statuses
+		// must be reported according to API statuses from SDK.
+		Head(context.Context, cid.ID, oid.ID) (object.Object, error)
 
-// wsClient is for test purposes only.
-type wsClient interface {
-	invoker.RPCInvoke
+		// IsMineWithMeta checks if the given container has meta enabled and current
+		// node belongs to it.
+		IsMineWithMeta(cid.ID, []byte) (bool, error)
+	}
 
-	GetBlockNotifications(blockHash util.Uint256, filters *neorpc.NotificationFilter) (*result.BlockNotifications, error)
-	GetVersion() (*result.Version, error)
+	// MetaChain describes metadata chain.
+	MetaChain interface {
+		// Magic must return metadata chain magic number.
+		Magic() uint32
+		// Height must return actual chain height.
+		Height() uint32
+		// AddTx must add transaction to the chain without blocking.
+		AddTx(tx *transaction.Transaction) error
+		// SubscribeForBlocks must subscribe for new block headers.
+		// Block shouldbe sent to provided channel.
+		SubscribeForBlocks(ch chan *block.Header)
+		// SubscribeForNotifications must subscribe for new chain notifications.
+		// Notifications should be sent to provided channel.
+		SubscribeForNotifications(ch chan *state.ContainedNotificationEvent)
+		// TransactionTestInvocation must validate transaction execution
+		// without persisting it.
+		TransactionTestInvocation(tx *transaction.Transaction) error
+	}
+)
 
-	ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error)
-	ReceiveExecutionNotifications(flt *neorpc.NotificationFilter, rcvr chan<- *state.ContainedNotificationEvent) (string, error)
-	Unsubscribe(id string) error
-
-	Close()
-}
-
-func newNotifier() objectNotifier {
-	return objectNotifier{
-		notifications: make(chan oid.Address, 1024),
-		subs:          make(map[oid.Address]chan<- struct{}),
+func newNotifier(metaSvc *Meta) *objectNotifier {
+	return &objectNotifier{
+		metaSvc: metaSvc,
+		subs:    make(map[oid.Address]objSubInfo),
 	}
 }
 
-type objectNotifier struct {
-	notifications chan oid.Address
-
-	m    sync.Mutex
-	subs map[oid.Address]chan<- struct{}
+type objSubInfo struct {
+	txH                      util.Uint256
+	ch                       chan<- struct{}
+	timeSubscriptionStarted  time.Time
+	blockSubscriptionStarted uint32
+	objHeader                object.Object
 }
 
-func (on *objectNotifier) subscribe(addr oid.Address, ch chan<- struct{}) {
+type objectNotifier struct {
+	metaSvc *Meta
+
+	m    sync.Mutex
+	subs map[oid.Address]objSubInfo
+}
+
+func (on *objectNotifier) subscribe(o object.Object, ch chan<- struct{}, h util.Uint256) {
+	var (
+		subTime  = time.Now()
+		subBlock = on.metaSvc.chainHeight.Load()
+		addr     = o.Address()
+	)
+
 	on.m.Lock()
 	defer on.m.Unlock()
 
-	on.subs[addr] = ch
+	on.subs[addr] = objSubInfo{
+		txH:                      h,
+		ch:                       ch,
+		timeSubscriptionStarted:  subTime,
+		blockSubscriptionStarted: subBlock,
+		objHeader:                o,
+	}
 }
 
 func (on *objectNotifier) unsubscribe(addr oid.Address) {
@@ -93,295 +117,224 @@ func (on *objectNotifier) unsubscribe(addr oid.Address) {
 }
 
 func (on *objectNotifier) notifyReceived(addr oid.Address) {
+	var (
+		timeTook   time.Duration
+		blocksTook uint32
+		currHeight = on.metaSvc.chainHeight.Load()
+	)
+
 	on.m.Lock()
-	defer on.m.Unlock()
 
-	ch, ok := on.subs[addr]
+	sub, ok := on.subs[addr]
 	if ok {
-		close(ch)
+		close(sub.ch)
 		delete(on.subs, addr)
+
+		timeTook = time.Since(sub.timeSubscriptionStarted)
+		blocksTook = currHeight - sub.blockSubscriptionStarted
 	}
+
+	on.m.Unlock()
+
+	if ok {
+		on.metaSvc.taskQueue <- storageTask{addr: addr, o: &sub.objHeader}
+	} else {
+		on.metaSvc.taskQueue <- storageTask{addr: addr}
+	}
+
+	on.metaSvc.l.Debug("object notification received",
+		zap.Stringer("addr", addr),
+		zap.Duration("timeTook", timeTook),
+		zap.Uint32("blocksTook", blocksTook),
+		zap.String("txHash", sub.txH.StringLE()))
 }
 
-// Meta handles object meta information received from FS chain and object
-// storages. Chain information is stored in Merkle-Patricia Tries. Full objects
-// index is built and stored as a simple KV storage.
+// Meta handles object meta information received from metadata chain and object
+// storages. It must be created using [New].
 type Meta struct {
-	l        *zap.Logger
-	rootPath string
-	netmapH  util.Uint160
-	cnrH     util.Uint160
-	net      NeoFSNetwork
+	l       *zap.Logger
+	metrics metrics
 
-	stM      sync.RWMutex
-	storages map[cid.ID]*containerStorage
+	net NeoFSNetwork
 
-	timeout     time.Duration
+	chainHeight atomic.Uint32
+	chain       MetaChain
 	magicNumber uint32
-	cliM        sync.RWMutex
-	ws          wsClient
-	blockSubID  string
-	cnrSubID    string
-	cnrCrtSubID string
 	bCh         chan *block.Header
-	cnrPutEv    chan *state.ContainedNotificationEvent
-	epochEv     chan *state.ContainedNotificationEvent
+	evsCh       chan *state.ContainedNotificationEvent
 
-	notifier objectNotifier
+	taskQueue chan storageTask
 
-	blockHeadersBuff chan *block.Header
-	blockEventsBuff  chan blockObjEvents
-
-	// runtime reload fields
-	cfgM      sync.RWMutex
-	endpoints []string
+	metabase *metabase.DB
+	notifier *objectNotifier
 }
 
-const blockBuffSize = 1024
+const blockBuffSize = 10000
 
-// Parameters groups arguments for [New] call.
+// Parameters groups arguments for [New] call. Logger, Chain and Network
+// must not be nil, path must not be empty.
 type Parameters struct {
-	Logger        *zap.Logger
-	Network       NeoFSNetwork
-	Timeout       time.Duration
-	ContainerHash util.Uint160
-	NetmapHash    util.Uint160
-	RootPath      string
-
-	// fields that support runtime reload
-	NeoEnpoints []string
+	Logger  *zap.Logger
+	Chain   MetaChain
+	Path    string
+	Network NeoFSNetwork
 }
 
 func validatePrm(p Parameters) error {
-	if p.RootPath == "" {
-		return errors.New("empty path")
-	}
 	if p.Logger == nil {
 		return errors.New("missing logger")
 	}
-	if len(p.NeoEnpoints) == 0 {
-		return errors.New("no endpoints to NeoFS chain network")
+	if p.Chain == nil {
+		return errors.New("missing metadata chain")
+	}
+	if p.Path == "" {
+		return errors.New("empty metadata path")
 	}
 	if p.Network == nil {
-		return errors.New("missing NeoFS network state")
-	}
-	if (p.ContainerHash == util.Uint160{}) {
-		return errors.New("missing container contract hash")
-	}
-	if (p.NetmapHash == util.Uint160{}) {
-		return errors.New("missing netmap contract hash")
+		return errors.New("missing NeoFS network")
 	}
 
 	return nil
 }
 
-// New makes [Meta].
+// this is only neeeded to treat every object as a non-expired one in metabase
+// GC routines do not relate to meta service directly.
+type epochStateStub struct{}
+
+func (e epochStateStub) CurrentEpoch() uint64 {
+	return math.MaxUint64
+}
+
+// New makes [Meta] using [Parameters]. [metabase.DB] is created, opened and
+// inited when called.
 func New(p Parameters) (*Meta, error) {
 	err := validatePrm(p)
 	if err != nil {
 		return nil, err
 	}
-
-	storagesFS, err := os.ReadDir(p.RootPath)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("read existing container storages: %w", err)
-	}
-	storagesRead := make(map[cid.ID]*containerStorage)
-	for _, s := range storagesFS {
-		sName := s.Name()
-		cID, err := cid.DecodeString(sName)
-		if err != nil {
-			p.Logger.Warn("skip unknown container storage entity", zap.String("name", sName), zap.Error(err))
-			continue
-		}
-
-		st, err := storageForContainer(p.Logger, p.RootPath, cID)
-		if err != nil {
-			p.Logger.Warn("skip container storage that cannot be read", zap.String("name", sName), zap.Error(err))
-			continue
-		}
-
-		storagesRead[cID] = st
-	}
-
-	storages := storagesRead
-	defer func() {
-		if err != nil {
-			for _, st := range storages {
-				_ = st.db.Close()
-			}
-		}
-	}()
-
-	e, err := p.Network.Epoch()
+	metaDB := metabase.New(
+		metabase.WithPath(path.Join(p.Path, "metadataDB.bolt")),
+		metabase.WithLogger(
+			p.Logger.With(zap.String("component", "metadata storage"))),
+		metabase.WithEpochState(epochStateStub{}),
+	)
+	err = metaDB.Open(false)
 	if err != nil {
-		return nil, fmt.Errorf("read current NeoFS epoch: %w", err)
+		_ = metaDB.Close()
+		return nil, fmt.Errorf("failed to open metabase: %w", err)
 	}
-	cnrsNetwork, err := p.Network.List(e)
+	var dbIDRaw [common.IDSize]byte
+	copy(dbIDRaw[:], "metadataobjectDB")
+	dbID, err := common.NewIDFromBytes(dbIDRaw[:])
 	if err != nil {
-		return nil, fmt.Errorf("listing node's containers: %w", err)
+		_ = metaDB.Close()
+		panic(fmt.Errorf("failed to create metabase ID: %w", err))
 	}
-	for cID := range storagesRead {
-		if _, ok := cnrsNetwork[cID]; !ok {
-			err = storagesRead[cID].drop()
-			if err != nil {
-				p.Logger.Warn("could not drop container storage", zap.Stringer("cID", cID), zap.Error(err))
-			}
-
-			delete(storagesRead, cID)
-		}
+	err = metaDB.Init(dbID)
+	if err != nil {
+		_ = metaDB.Close()
+		return nil, fmt.Errorf("failed to init metabase: %w", err)
 	}
 
-	for cID := range cnrsNetwork {
-		if _, ok := storages[cID]; !ok {
-			st, err := storageForContainer(p.Logger, p.RootPath, cID)
-			if err != nil {
-				return nil, fmt.Errorf("open container storage %s: %w", cID, err)
-			}
-
-			storages[cID] = st
-		}
+	m := &Meta{
+		l:         p.Logger,
+		chain:     p.Chain,
+		net:       p.Network,
+		bCh:       make(chan *block.Header, blockBuffSize),
+		evsCh:     make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		taskQueue: make(chan storageTask, notificationBuffSize),
+		metabase:  metaDB,
 	}
+	notifier := newNotifier(m)
+	m.notifier = notifier
 
-	return &Meta{
-		l:                p.Logger,
-		rootPath:         p.RootPath,
-		netmapH:          p.NetmapHash,
-		cnrH:             p.ContainerHash,
-		net:              p.Network,
-		endpoints:        p.NeoEnpoints,
-		timeout:          p.Timeout,
-		bCh:              make(chan *block.Header, notificationBuffSize),
-		cnrPutEv:         make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		epochEv:          make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		blockHeadersBuff: make(chan *block.Header, blockBuffSize),
-		blockEventsBuff:  make(chan blockObjEvents, blockBuffSize),
-		storages:         storages,
-		notifier:         newNotifier(),
-	}, nil
+	m.addMetrics()
+
+	return m, nil
 }
 
-// Reload updates service in runtime.
-// Currently supported fields:
-//   - endpoints
-func (m *Meta) Reload(p Parameters) error {
-	m.cfgM.Lock()
-	defer m.cfgM.Unlock()
-
-	m.endpoints = p.NeoEnpoints
-
-	return nil
+// MagicNumber returns metadata chain's magic number.
+func (m *Meta) MagicNumber() uint32 {
+	return m.chain.Magic()
 }
 
-// Run starts notification handling. Must be called only on instances created
-// with [New]. Blocked until context is done.
-func (m *Meta) Run(ctx context.Context) error {
-	defer func() {
-		m.stM.Lock()
-		for _, st := range m.storages {
-			st.m.Lock()
-			_ = st.db.Close()
-			st.m.Unlock()
+// Height returns current metadata chain block height.
+func (m *Meta) Height() uint32 {
+	return m.chain.Height()
+}
+
+// TransactionTestInvocation validates transaction.
+func (m *Meta) TransactionTestInvocation(tx *transaction.Transaction) error {
+	return m.chain.TransactionTestInvocation(tx)
+}
+
+// IndexedSignature is indexed signature, pointing at place of signature's
+// public keys in a sorted (by these public keys) placement vector. It will be
+// used as an optimized signatures check.
+type IndexedSignature struct {
+	Index     uint8
+	Signature neofscrypto.Signature
+}
+
+// SubmitObjectPut sends transaction to metadata chain. Transaction must be
+// completed excepting [transaction.Witness.InvocationScript] that will be
+// filled using provided signatures. signatures must be a two two-dimensional
+// array that corresponds to placement vectors for a container that tx was
+// made for. Signature optimized sorting is not this func's responsibility.
+func (m *Meta) SubmitObjectPut(tx *transaction.Transaction, signatures [][]IndexedSignature) error {
+	var (
+		invokBuff = io.NewBufBinWriter()
+		writer    = invokBuff.BinWriter
+	)
+	for _, signature := range slices.Backward(signatures) {
+		vectorLen := len(signature)
+		for j := vectorLen - 1; j >= 0; j-- {
+			emit.Array(writer,
+				stackitem.Make(signature[j].Index),             // singature's index
+				stackitem.Make(signature[j].Signature.Value()), // signature
+			)
 		}
-		clear(m.storages)
-
-		m.stM.Unlock()
-	}()
-
-	var err error
-	m.ws, err = m.connect(ctx)
-	if err != nil {
-		return fmt.Errorf("connect to NEO RPC: %w", err)
-	}
-	defer m.ws.Close()
-
-	v, err := m.ws.GetVersion()
-	if err != nil {
-		return fmt.Errorf("get version: %w", err)
-	}
-	m.magicNumber = uint32(v.Protocol.Network)
-
-	m.stM.RLock()
-	hasContainers := len(m.storages) > 0
-	m.stM.RUnlock()
-
-	if hasContainers {
-		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
-		if err != nil {
-			return fmt.Errorf("block subscription: %w", err)
-		}
-	} else {
-		err = m.subscribeForNewContainers()
-		if err != nil {
-			return fmt.Errorf("new container subscription: %w", err)
-		}
+		emit.Int(writer, int64(vectorLen))
+		emit.Opcodes(writer, opcode.PACK)
 	}
 
-	err = m.subscribeEvents()
-	if err != nil {
-		return fmt.Errorf("subscribe for meta notifications: %w", err)
+	if invokBuff.Err != nil {
+		panic(invokBuff.Err)
 	}
 
-	var wg sync.WaitGroup
+	tx.Scripts[0].InvocationScript = invokBuff.Bytes()
 
-	wg.Go(func() { m.flusher(ctx) })
-	wg.Go(func() { m.blockHandler(ctx, m.blockHeadersBuff) })
-	wg.Go(func() { m.blockStorer(ctx, m.blockEventsBuff) })
-
-	err = m.listenNotifications(ctx)
-	wg.Wait()
+	m.l.Debug("sending transaction to chain...", zap.String("txHash", tx.Hash().StringLE()))
+	// TODO: add metric for this time or drop completly after performance is
+	// stabilized
+	now := time.Now()
+	err := m.chain.AddTx(tx)
+	took := time.Since(now)
+	m.l.Debug("sent transaction to chain", zap.String("txHash", tx.Hash().StringLE()), zap.Duration("took", took), zap.Error(err))
 
 	return err
 }
 
-func (m *Meta) flusher(ctx context.Context) {
-	const (
-		flushInterval = time.Second
-		collapseDepth = 10
-	)
+// Run starts notification handling. Must be called only on instances created
+// with [New]. Blocked until context is done. Cancelling the context stops
+// the service.
+func (m *Meta) Run(ctx context.Context) error {
+	m.magicNumber = m.chain.Magic()
 
-	t := time.NewTicker(flushInterval)
+	var wg sync.WaitGroup
 
-	for {
-		select {
-		case <-t.C:
-			m.stM.RLock()
+	wg.Go(func() { m.blockHandler(ctx, m.bCh) })
+	wg.Go(func() { m.notificationHandler(ctx, m.evsCh) })
+	wg.Go(func() { m.storager(ctx, m.taskQueue) })
 
-			var wg errgroup.Group
-			wg.SetLimit(1024)
+	m.chain.SubscribeForBlocks(m.bCh)
+	m.chain.SubscribeForNotifications(m.evsCh)
 
-			for _, st := range m.storages {
-				if st == nil {
-					panic(fmt.Errorf("nil container storage: %s", st.path))
-				}
+	wg.Wait()
 
-				wg.Go(func() error {
-					st.m.Lock()
-					defer st.m.Unlock()
+	close(m.bCh)
+	close(m.evsCh)
+	close(m.taskQueue)
 
-					st.mpt.Collapse(collapseDepth)
-
-					_, err := st.mpt.Store.PersistSync()
-					if err != nil {
-						return fmt.Errorf("persisting %q storage: %w", st.path, err)
-					}
-
-					return nil
-				})
-			}
-
-			err := wg.Wait()
-
-			m.stM.RUnlock()
-
-			if err != nil {
-				m.l.Error("storage flusher failed", zap.Error(err))
-				continue
-			}
-
-			t.Reset(flushInterval)
-		case <-ctx.Done():
-			return
-		}
-	}
+	return m.metabase.Close()
 }

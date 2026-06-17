@@ -3,7 +3,17 @@ package objectcore
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/native"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
+	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/meta"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -25,7 +35,38 @@ const (
 	typeKey         = "type"
 )
 
-// EncodeReplicationMetaInfo uses NEO's map (strict order) serialized format as a raw
+// MetaVerifScript build verification script for metadata chain transactions.
+func MetaVerifScript(cID []byte, placementVectorsNumber int) []byte {
+	var (
+		verifScriptBuf = io.NewBufBinWriter()
+		writer         = verifScriptBuf.BinWriter
+	)
+	emit.Int(writer, int64(placementVectorsNumber)) // sigs array length
+	emit.Opcodes(writer, opcode.PACK)
+	emit.Bytes(writer, cID)
+	emit.Int(writer, 2) // number or args
+	emit.Opcodes(writer, opcode.PACK)
+	emit.AppCallNoArgs(writer, meta.Hash, "verifyPlacementSignatures", callflag.ReadOnly)
+
+	return verifScriptBuf.Bytes()
+}
+
+// EncodeChainMetaInfo creates transaction for metadata and byte slice
+// that should be signed for this transaction.
+func EncodeChainMetaInfo(numberOfPlacementVectors int, cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64, typ object.Type,
+	deleted, locked oid.ID, vub uint64, magicNumber uint32) (*transaction.Transaction, []byte) {
+	metadata := EncodeObjectMetadata(cID, oID, firstPart, previousPart, pSize, typ, deleted, locked, vub, magicNumber)
+
+	verifScript := MetaVerifScript(cID[:], numberOfPlacementVectors)
+	tx := objectTransaction(hash.Hash160(verifScript), metadata, uint32(vub))
+	tx.Scripts = []transaction.Witness{
+		{VerificationScript: verifScript},
+	}
+
+	return tx, hash.GetSignedData(magicNumber, tx)
+}
+
+// EncodeObjectMetadata uses NEO's map (strict order) serialized format as a raw
 // representation of object's meta information.
 //
 // This (ordered) format is used (keys are strings):
@@ -40,8 +81,8 @@ const (
 //	"deleted": [OPTIONAL] array of _raw_ object IDs
 //	"locked": [OPTIONAL] array of _raw_ object IDs
 //	"type": [OPTIONAL] object type enumeration
-func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64, typ object.Type,
-	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
+func EncodeObjectMetadata(cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64, typ object.Type,
+	deleted, locked oid.ID, vub uint64, magicNumber uint32) []byte {
 	kvs := []stackitem.MapElement{
 		kv(cidKey, cID[:]),
 		kv(oidKey, oID[:]),
@@ -56,11 +97,11 @@ func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, 
 	if !previousPart.IsZero() {
 		kvs = append(kvs, kv(previousPartKey, previousPart[:]))
 	}
-	if len(deleted) > 0 {
-		kvs = append(kvs, oidsKV(deletedKey, deleted))
+	if !deleted.IsZero() {
+		kvs = append(kvs, kv(deletedKey, deleted[:]))
 	}
-	if len(locked) > 0 {
-		kvs = append(kvs, oidsKV(lockedKey, locked))
+	if !locked.IsZero() {
+		kvs = append(kvs, kv(lockedKey, locked[:]))
 	}
 	if typ != object.TypeRegular {
 		kvs = append(kvs, kv(typeKey, uint32(typ)))
@@ -77,18 +118,32 @@ func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, 
 	return result
 }
 
+func objectTransaction(acc util.Uint160, metaData []byte, vub uint32) *transaction.Transaction {
+	script, err := smartcontract.CreateCallScript(meta.Hash, "submitObjectPut", metaData)
+	if err != nil {
+		panic(fmt.Errorf("making transaction script: %w", err))
+	}
+
+	tx := transaction.New(script, 0)
+	tx.Nonce = vub
+	tx.ValidUntilBlock = vub
+	tx.Signers = append(tx.Signers, transaction.Signer{
+		Account: acc,
+		Scopes:  transaction.Global,
+	})
+	// cold contract takes ~0.02 GAS execution, ~0.03 GAS verification;
+	// 0.5 GAS should be enough and this allows up to 100 transactions in a sigle
+	// block; theses values must be the same for every node constructing transactions
+	// since fees takes part in transaction hashing
+	tx.SystemFee = native.GASFactor / 2
+	tx.NetworkFee = native.GASFactor / 2
+
+	return tx
+}
+
 func kv(k string, value any) stackitem.MapElement {
 	return stackitem.MapElement{
 		Key:   stackitem.Make(k),
 		Value: stackitem.Make(value),
 	}
-}
-
-func oidsKV(fieldKey string, oIDs []oid.ID) stackitem.MapElement {
-	res := make([]stackitem.Item, 0, len(oIDs))
-	for _, oID := range oIDs {
-		res = append(res, stackitem.NewByteArray(oID[:]))
-	}
-
-	return kv(fieldKey, res)
 }

@@ -202,7 +202,6 @@ type Server struct {
 	meta          *metasvc.Meta
 	signer        ecdsa.PrivateKey
 	pubKeyBytes   []byte
-	mNumber       uint32
 	metrics       MetricCollector
 	aclChecker    aclsvc.ACLChecker
 	reqInfoProc   ACLInfoExtractor
@@ -212,7 +211,7 @@ type Server struct {
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, log *zap.Logger) *Server {
+func New(hs Handlers, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, log *zap.Logger) *Server {
 	pubKeyBytes := (*keys.PublicKey)(&signer.PublicKey).Bytes()
 	if len(pubKeyBytes) != compressedECDSAPublicKeyLen {
 		panic(fmt.Sprintf("wrong public key len: expected %d, got %d", compressedECDSAPublicKeyLen, len(pubKeyBytes)))
@@ -225,7 +224,6 @@ func New(hs Handlers, magicNumber uint32, sp *ants.Pool, fsChain FSChain, st Sto
 		meta:          metaSvc,
 		signer:        signer,
 		pubKeyBytes:   pubKeyBytes,
-		mNumber:       magicNumber,
 		metrics:       m,
 		aclChecker:    ac,
 		reqInfoProc:   rp,
@@ -2106,6 +2104,11 @@ func objectFromMessage(gMsg *protoobject.Object) (*object.Object, error) {
 }
 
 func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
+	cnr, err := s.fsChain.Get(o.GetContainerID())
+	if err != nil {
+		return nil, fmt.Errorf("fetching container info: %w", err)
+	}
+
 	firstObj := o.GetFirstID()
 	if o.HasParent() && firstObj.IsZero() {
 		// object itself is the first one
@@ -2113,32 +2116,34 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	}
 	prevObj := o.GetPreviousID()
 
-	var deleted []oid.ID
-	var locked []oid.ID
+	var (
+		deleted oid.ID
+		locked  oid.ID
+	)
 	typ := o.Type()
 	switch typ {
 	case object.TypeTombstone:
-		deleted = append(deleted, o.AssociatedObject())
+		deleted = o.AssociatedObject()
 	case object.TypeLock:
-		locked = append(locked, o.AssociatedObject())
+		locked = o.AssociatedObject()
 	default:
 	}
 
-	currentBlock := s.fsChain.CurrentBlock()
+	currentBlock := s.meta.Height()
 	currentEpochDuration := s.fsChain.CurrentEpochDuration()
 	firstBlock := (uint64(currentBlock)/currentEpochDuration + 1) * currentEpochDuration
 	secondBlock := firstBlock + currentEpochDuration
 	thirdBlock := secondBlock + currentEpochDuration
 
-	firstMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, firstBlock, s.mNumber)
-	secondMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, secondBlock, s.mNumber)
-	thirdMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, thirdBlock, s.mNumber)
+	_, firstMeta := objectcore.EncodeChainMetaInfo(len(cnr.PlacementPolicy().Replicas()), o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, firstBlock, s.meta.MagicNumber())
+	_, secondMeta := objectcore.EncodeChainMetaInfo(len(cnr.PlacementPolicy().Replicas()), o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, secondBlock, s.meta.MagicNumber())
+	_, thirdMeta := objectcore.EncodeChainMetaInfo(len(cnr.PlacementPolicy().Replicas()), o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, thirdBlock, s.meta.MagicNumber())
 
 	var firstSig neofscrypto.Signature
 	var secondSig neofscrypto.Signature
 	var thirdSig neofscrypto.Signature
 	signer := neofsecdsa.SignerRFC6979(s.signer)
-	err := firstSig.Calculate(signer, firstMeta)
+	err = firstSig.Calculate(signer, firstMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}

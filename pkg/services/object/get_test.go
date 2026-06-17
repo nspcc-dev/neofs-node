@@ -56,7 +56,7 @@ func TestServer_Get_Local(t *testing.T) {
 	)
 	handlers := &getOnlyHandler{svc: handler}
 
-	srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+	srv := New(handlers, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
 	for _, pldLen := range []uint64{
 		0, 1,
@@ -180,7 +180,7 @@ func TestServer_Get_Remote(t *testing.T) {
 		)
 		handlers := getOnlyHandler{svc: handler}
 
-		srv := New(handlers, 0, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+		srv := New(handlers, nil, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
 		t.Run("object", func(t *testing.T) {
 			const payloadLen = 100 << 10

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -29,10 +30,13 @@ import (
 )
 
 type metaCollection struct {
-	objectData []byte
+	sortedNodes [][]netmap.NodeInfo // by public keys, required for metadata optimization
+
+	dataToSign      []byte
+	metaTransaction *transaction.Transaction
 
 	signaturesMtx sync.RWMutex
-	signatures    [][][]byte
+	signatures    [][]meta.IndexedSignature
 }
 
 type distributedTarget struct {
@@ -40,16 +44,15 @@ type distributedTarget struct {
 
 	placementIterator placementIterator
 
-	obj                *object.Object
-	networkMagicNumber uint32
-	fsState            netmapcore.StateDetailed
+	obj     *object.Object
+	fsState netmapcore.StateDetailed
 
 	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
 
 	metaSvc        *meta.Meta
 	metaSigner     neofscrypto.Signer
-	metaCollection metaCollection
+	metaCollection *metaCollection
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
@@ -206,7 +209,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
-				return t.sendObject(obj, encObj, node, &t.metaCollection)
+				return t.sendObject(obj, encObj, node, t.metaCollection)
 			})
 		})
 	}
@@ -229,7 +232,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			return nil
 		}
 
-		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, &t.metaCollection)
+		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, t.metaCollection)
 	}
 
 	if t.sessionSigner == nil {
@@ -398,8 +401,11 @@ nextRule:
 			continue
 		}
 
-		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" && t.metaCollection.objectData == nil {
-			t.metaCollection.objectData = t.encodeObjectMetadata(obj)
+		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" && t.metaCollection.dataToSign == nil {
+			t.metaCollection.metaTransaction, t.metaCollection.dataToSign, err = t.encodeObjectMetadata(obj)
+			if err != nil {
+				return fmt.Errorf("encode object metadata: %w", err)
+			}
 		}
 
 		if l == nil {
@@ -421,7 +427,7 @@ nextRule:
 		}
 
 		stored, overloaded, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
-			return t.sendObject(obj, encObj, node, &t.metaCollection)
+			return t.sendObject(obj, encObj, node, t.metaCollection)
 		})
 		if err != nil {
 			if maxReplicas > 0 {
@@ -439,7 +445,7 @@ nextRule:
 	}
 
 	if len(repRules) > 0 {
-		err = t.submitMetaCollection(obj.Address(), &t.metaCollection)
+		err = t.submitMetaCollection(obj, t.metaCollection)
 		if err != nil {
 			return err
 		}
@@ -510,6 +516,10 @@ func (t *distributedTarget) replicateRemainingECRules(obj object.Object, ecRules
 }
 
 func (t *distributedTarget) resetMetaCollection() {
+	if t.metaCollection == nil {
+		return
+	}
+
 	// this field is reused for sliced objects of the same container with
 	// the same placement policy; placement's len must be kept the same, do
 	// not nil the slice, keep it initialized
@@ -517,7 +527,8 @@ func (t *distributedTarget) resetMetaCollection() {
 		t.metaCollection.signatures[i] = t.metaCollection.signatures[i][:0]
 	}
 
-	t.metaCollection.objectData = nil
+	t.metaCollection.metaTransaction = nil
+	t.metaCollection.dataToSign = nil
 }
 
 func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedObject,
@@ -525,10 +536,14 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 	defer t.resetMetaCollection()
 
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		t.metaCollection.objectData = t.encodeObjectMetadata(obj)
+		var err error
+		t.metaCollection.metaTransaction, t.metaCollection.dataToSign, err = t.encodeObjectMetadata(obj)
+		if err != nil {
+			return fmt.Errorf("encode object metadata: %w", err)
+		}
 	}
 
-	return t.distributeObjectWithMeta(obj, encObj, &t.metaCollection, placementFn)
+	return t.distributeObjectWithMeta(obj, encObj, t.metaCollection, placementFn)
 }
 
 func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj encodedObject, metaC *metaCollection,
@@ -549,10 +564,10 @@ func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj e
 		return err
 	}
 
-	return t.submitMetaCollection(obj.Address(), metaC)
+	return t.submitMetaCollection(obj, metaC)
 }
 
-func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCollection) error {
+func (t *distributedTarget) submitMetaCollection(o object.Object, metaC *metaCollection) error {
 	if t.localOnly || !t.localNodeInContainer || t.metainfoConsistencyAttr == "" {
 		return nil
 	}
@@ -570,16 +585,24 @@ func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCo
 		return nil
 	}
 
-	var objAccepted chan struct{}
+	var (
+		objAcceptedCh chan struct{}
+		addr          = o.Address()
+	)
 	if await {
-		objAccepted = make(chan struct{}, 1)
-		t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
+		h := t.metaCollection.metaTransaction.Hash()
+
+		var objCopy object.Object
+		o.CutPayload().CopyTo(&objCopy)
+
+		objAcceptedCh = make(chan struct{}, 1)
+		t.metaSvc.NotifyObjectSuccess(objAcceptedCh, objCopy, h)
 	}
 
-	err := t.cnrClient.SubmitObjectPut(metaC.objectData, metaC.signatures)
+	err := t.metaSvc.SubmitObjectPut(t.metaCollection.metaTransaction, t.metaCollection.signatures)
 	if err != nil {
 		if await {
-			t.metaSvc.UnsubscribeFromObject(addr)
+			t.metaSvc.UnsubscribeFromObject(o.Address())
 		}
 		return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
 	}
@@ -589,7 +612,7 @@ func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCo
 		case <-t.opCtx.Done():
 			t.metaSvc.UnsubscribeFromObject(addr)
 			return fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
-		case <-objAccepted:
+		case <-objAcceptedCh:
 		}
 	}
 
@@ -598,8 +621,8 @@ func (t *distributedTarget) submitMetaCollection(addr oid.Address, metaC *metaCo
 	return nil
 }
 
-func (t *distributedTarget) encodeObjectMetadata(obj object.Object) []byte {
-	currBlock := t.fsState.CurrentBlock()
+func (t *distributedTarget) encodeObjectMetadata(obj object.Object) (*transaction.Transaction, []byte, error) {
+	currBlock := t.metaSvc.Height()
 	currEpochDuration := t.fsState.CurrentEpochDuration()
 	expectedVUB := (uint64(currBlock)/currEpochDuration + 2) * currEpochDuration
 
@@ -609,19 +632,25 @@ func (t *distributedTarget) encodeObjectMetadata(obj object.Object) []byte {
 		firstObj = obj.GetID()
 	}
 
-	var deletedObjs []oid.ID
-	var lockedObjs []oid.ID
+	var deletedObj oid.ID
+	var lockedObj oid.ID
 	typ := obj.Type()
 	switch typ {
 	case object.TypeTombstone:
-		deletedObjs = append(deletedObjs, obj.AssociatedObject())
+		deletedObj = obj.AssociatedObject()
 	case object.TypeLock:
-		lockedObjs = append(lockedObjs, obj.AssociatedObject())
+		lockedObj = obj.AssociatedObject()
 	default:
 	}
 
-	return objectcore.EncodeReplicationMetaInfo(obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
-		obj.PayloadSize(), typ, deletedObjs, lockedObjs, expectedVUB, t.networkMagicNumber)
+	tx, dataToSign := objectcore.EncodeChainMetaInfo(len(t.containerNodes.PrimaryCounts()), obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
+		obj.PayloadSize(), typ, deletedObj, lockedObj, expectedVUB, t.metaSvc.MagicNumber())
+	err := t.metaSvc.TransactionTestInvocation(tx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("matadata chain transaction test invocation fail: %w", err)
+	}
+
+	return tx, dataToSign, nil
 }
 
 func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc, metaC *metaCollection) error {
@@ -636,13 +665,21 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		}
 
 		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-			sig, err := t.metaSigner.Sign(metaC.objectData)
+			sig, err := t.metaSigner.Sign(metaC.dataToSign)
 			if err != nil {
 				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}
 
+			ind := slices.IndexFunc(t.metaCollection.sortedNodes[node.placementVector], func(info netmap.NodeInfo) bool {
+				return bytes.Equal(info.PublicKey(), node.info.PublicKey())
+			})
+			if ind < 0 {
+				// unexpected at all
+				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+			}
+
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig)
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig)})
 			metaC.signaturesMtx.Unlock()
 		}
 
@@ -689,12 +726,20 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				continue
 			}
 
-			if !sig.Verify(metaC.objectData) {
+			if !sig.Verify(metaC.dataToSign) {
 				continue
 			}
 
+			ind := slices.IndexFunc(t.metaCollection.sortedNodes[node.placementVector], func(info netmap.NodeInfo) bool {
+				return bytes.Equal(info.PublicKey(), node.info.PublicKey())
+			})
+			if ind < 0 {
+				// unexpected at all
+				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+			}
+
 			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], sig.Value())
+			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: sig})
 			metaC.signaturesMtx.Unlock()
 
 			return nil

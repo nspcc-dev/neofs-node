@@ -202,7 +202,6 @@ func enableMetadataChain(ctx context.Context, server *Server, cfg *config.Config
 		MaxTraceableBlocks:          fsChainProtocol.MaxTraceableBlocks,
 		MaxValidUntilBlockIncrement: fsChainProtocol.MaxValidUntilBlockIncrement,
 		SeedNodes:                   metaSeeds,
-		Hardforks:                   config.Hardforks{},
 		ValidatorsHistory:           config.ValidatorsHistory{},
 		RPC: config.RPC{
 			Listen:              metaRPCs,

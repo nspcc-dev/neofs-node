@@ -5,6 +5,7 @@ import (
 	"math"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -61,9 +62,14 @@ func (t *distributedTarget) formAndSaveObjectForECPart(signer neofscrypto.Signer
 
 	var metaC *metaCollection
 	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+		tx, dataToSign, err := t.encodeObjectMetadata(partObj)
+		if err != nil {
+			return fmt.Errorf("encode object metadata: %w", err)
+		}
 		metaC = &metaCollection{
-			objectData: t.encodeObjectMetadata(partObj),
-			signatures: make([][][]byte, len(t.containerNodes.PrimaryCounts())+len(t.containerNodes.ECRules())),
+			metaTransaction: tx,
+			dataToSign:      dataToSign,
+			signatures:      make([][]meta.IndexedSignature, len(t.containerNodes.PrimaryCounts())+len(t.containerNodes.ECRules())),
 		}
 	}
 

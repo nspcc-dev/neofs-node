@@ -141,8 +141,6 @@ type cfg struct {
 
 	log *zap.Logger
 
-	networkMagic uint32
-
 	cnrClient *chaincontainer.Client
 
 	metaSvc *meta.Meta
@@ -260,12 +258,6 @@ func WithContainerClient(v *chaincontainer.Client) Option {
 func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
-	}
-}
-
-func WithNetworkMagic(m uint32) Option {
-	return func(c *cfg) {
-		c.networkMagic = m
 	}
 }
 

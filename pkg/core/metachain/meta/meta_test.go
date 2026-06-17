@@ -437,8 +437,9 @@ func (s signer) SignTx(magic netmode.Magic, tx *transaction.Transaction) error {
 
 	// neotest does not support custom scripts and cannot calculate network
 	// fee correctly so change it there manually to smth that is currently
-	// enough for tests
-	tx.NetworkFee = 10_000_000
+	// enough for tests: verification test run showed that meta verification
+	// script takes ~0.03GAS, 0.5GAS should be enough
+	tx.NetworkFee = (1 * native.GASFactor) / 2
 
 	tx.Scripts = append(tx.Scripts[:0], transaction.Witness{
 		InvocationScript:   s.SignHashable(uint32(magic), tx),

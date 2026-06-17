@@ -42,7 +42,15 @@
     }
   },
   "metadata": {
-    "path": "path/to/meta"
+    "path": "path/to/meta",
+    "seed_port": "20334",
+    "p2p_addresses": [
+      "node1:20334",
+      "node2:20334"
+    ],
+    "rpc_addresses": [
+      "localhost:30334"
+    ]
   },
   "grpc": [
     {
