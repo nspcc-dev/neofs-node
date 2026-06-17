@@ -43,7 +43,7 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 	}
 
 	if req.EACLTable != nil {
-		cp.log.Debug("optional ACL table setting eACL table with container creation", zap.Stringer("cid", id))
+		cp.log.Debug("additional eACL table setting with container creation", zap.Stringer("cid", id))
 
 		var table eacl.Table
 		err = table.Unmarshal(req.EACLTable.EACL)
@@ -53,14 +53,14 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 		}
 		if id != table.GetCID() {
 			cp.log.Error("additional eACL table in container put request has different container",
-				zap.Stringer("cid", id), zap.Stringer("cid_in_eacl", table.GetCID()))
+				zap.Stringer("cid", id), zap.Stringer("cidInEACL", table.GetCID()))
 			return
 		}
 
 		err = cp.checkSetEACL(*req.EACLTable, table, id, cnr)
 		if err != nil {
 			cp.log.Error("additional eACL with container creation check failed",
-				zap.Stringer("container", id), zap.Error(err))
+				zap.Stringer("cid", id), zap.Error(err))
 			return
 		}
 
