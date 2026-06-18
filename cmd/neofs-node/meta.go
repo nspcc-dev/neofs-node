@@ -191,28 +191,25 @@ func initMeta(c *cfg) {
 				},
 				TimePerBlock: 50 * time.Millisecond,
 			},
-			Magic:                           fsChainProtocol.Network + 1,
-			Hardforks:                       metadataChainHardforks(),
-			P2PNotaryRequestPayloadPoolSize: 1000,
-			MaxTraceableBlocks:              fsChainProtocol.MaxTraceableBlocks,
-			MaxValidUntilBlockIncrement:     fsChainProtocol.MaxValidUntilBlockIncrement,
-			P2PSigExtensions:                true,
-			SeedList:                        seedList,
-			StandbyCommittee:                standByCommittee,
-			TimePerBlock:                    50 * time.Millisecond,
-			MaxTimePerBlock:                 20 * time.Second,
-			ValidatorsCount:                 uint32(len(standByCommittee)),
-			VerifyTransactions:              true,
+			Magic:                       fsChainProtocol.Network + 1,
+			Hardforks:                   metadataChainHardforks(),
+			MaxTraceableBlocks:          fsChainProtocol.MaxTraceableBlocks,
+			MaxValidUntilBlockIncrement: fsChainProtocol.MaxValidUntilBlockIncrement,
+			P2PSigExtensions:            true,
+			SeedList:                    seedList,
+			StandbyCommittee:            standByCommittee,
+			TimePerBlock:                50 * time.Millisecond,
+			MaxTimePerBlock:             20 * time.Second,
+			ValidatorsCount:             uint32(len(standByCommittee)),
+			VerifyTransactions:          true,
 		},
 		ApplicationConfiguration: config.ApplicationConfiguration{
 			RPC: config.RPC{
 				DirectRelay: true,
 			},
 			P2P: config.P2P{
-				Addresses:              c.appCfg.Meta.P2PAddresses,
-				MinPeers:               len(seedList),
-				BroadcastTxsBatchDelay: 5 * time.Millisecond,
-				AttemptConnPeers:       100,
+				Addresses: c.appCfg.Meta.P2PAddresses,
+				MinPeers:  len(seedList),
 			},
 			Relay: true,
 		},
@@ -291,7 +288,7 @@ func metadataChainHardforks() map[string]uint32 {
 }
 
 func applyMetachainDefaults(cfg *config.Config) {
-	appCfg := cfg.ApplicationConfiguration
+	appCfg := &cfg.ApplicationConfiguration
 
 	if appCfg.P2P.MaxPeers == 0 {
 		appCfg.P2P.MaxPeers = 100
@@ -304,6 +301,9 @@ func applyMetachainDefaults(cfg *config.Config) {
 	}
 	if appCfg.P2P.ProtoTickInterval == 0 {
 		appCfg.P2P.ProtoTickInterval = 2 * time.Second
+	}
+	if appCfg.P2P.BroadcastTxsBatchDelay == 0 {
+		appCfg.P2P.BroadcastTxsBatchDelay = 5 * time.Millisecond
 	}
 	if appCfg.P2P.PingInterval == 0 {
 		appCfg.P2P.PingInterval = 30 * time.Second
@@ -321,11 +321,14 @@ func applyMetachainDefaults(cfg *config.Config) {
 		appCfg.RPC.MaxGasInvoke = fixedn.Fixed8(gas.DefaultBalance)
 	}
 
-	protocolCfg := cfg.ProtocolConfiguration
+	protocolCfg := &cfg.ProtocolConfiguration
 	if protocolCfg.MaxTraceableBlocks == 0 {
 		protocolCfg.MaxTraceableBlocks = 17280
 	}
 	if protocolCfg.MaxValidUntilBlockIncrement == 0 {
 		protocolCfg.MaxValidUntilBlockIncrement = 8640
+	}
+	if protocolCfg.P2PNotaryRequestPayloadPoolSize == 0 {
+		protocolCfg.P2PNotaryRequestPayloadPoolSize = 1000
 	}
 }
