@@ -67,7 +67,7 @@ func RestoreCreateContainerV2Request(contractCalls []event.NotaryEvent) (event.E
 	if withOptionalEacl {
 		ev, err := RestorePutContainerEACLRequest(contractCalls[1])
 		if err != nil {
-			return nil, fmt.Errorf("additional eACL setting parcing: %w", err)
+			return nil, fmt.Errorf("additional eACL setting parsing: %w", err)
 		}
 
 		evParsed := ev.(PutContainerEACLRequest)

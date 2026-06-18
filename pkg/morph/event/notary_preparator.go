@@ -100,7 +100,7 @@ func notaryPreparator(localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc B
 
 // Prepare converts raw notary requests to []NotaryEvent. Main transaction
 // of any notary request must have simple script with a single (of more)
-// contract method infocation(s), any other type of scripts are prohibetted
+// contract method invocation(s), any other type of scripts are prohibetted
 // and lead to an error returned. Every notary event returned from a single
 // Prepare call always belong to the same notary request (and the same main
 // transaction) and returns the same original notary request
