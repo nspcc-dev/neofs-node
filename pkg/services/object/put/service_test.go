@@ -51,6 +51,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
+	"github.com/quic-go/quic-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -1122,6 +1123,10 @@ func (m *serviceClient) AnnounceIntermediateTrust(context.Context, uint64, reput
 }
 
 func (m *serviceClient) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
+	panic("unimplemented")
+}
+
+func (m *serviceClient) ForAnyQUICStream(context.Context, func(context.Context, *quic.Conn, string) error) error {
 	panic("unimplemented")
 }
 

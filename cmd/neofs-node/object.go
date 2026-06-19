@@ -364,6 +364,8 @@ func initObjectService(c *cfg) {
 	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		srv.RegisterService(&svcDesc, server)
 	})
+
+	initQUIC(c, server)
 }
 
 type reputationClientConstructor struct {

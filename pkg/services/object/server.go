@@ -868,6 +868,7 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 
 type getStream struct {
 	base    protoobject.ObjectService_GetServer
+	w       io.Writer // set instead of base for the raw QUIC GET stream
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
 

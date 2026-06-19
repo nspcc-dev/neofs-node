@@ -12,6 +12,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/quic-go/quic-go"
 	"google.golang.org/grpc"
 )
 
@@ -50,4 +51,8 @@ type MultiAddressClient interface {
 	// ForAnyGRPCConn continues. If this happens on all endpoints, ForAnyGRPCConn
 	// returns [ErrAllConnectionsSkipped].
 	ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error
+
+	// ForAnyQUICStream executes op over a QUIC connection to the multi-address
+	// endpoint-by-endpoint until success.
+	ForAnyQUICStream(context.Context, func(context.Context, *quic.Conn, string) error) error
 }

@@ -10,13 +10,16 @@ import (
 	"iter"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/qstream"
 	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -24,6 +27,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/quic-go/quic-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -197,6 +201,7 @@ func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Se
 		log:    x.log.With(zap.String("SN public key", hexKey)),
 		nodeID: hexKey,
 		m:      m,
+		mq:     make(map[string]*quic.Conn),
 	}, nil
 }
 
@@ -261,6 +266,7 @@ type connections struct {
 
 	mtx sync.RWMutex
 	m   map[string]*client.Client // keys are multiaddrs
+	mq  map[string]*quic.Conn     // keys are multiaddrs; lazily dialed for the raw GET-over-QUIC prototype
 }
 
 func (x *connections) closeAll() {
@@ -271,6 +277,95 @@ func (x *connections) closeAll() {
 		}
 		x.log.Info("connection successfully closed", zap.String("address", ma))
 	}
+	x.mtx.Lock()
+	for _, qc := range x.mq {
+		_ = qc.CloseWithError(0, "shutdown")
+	}
+	x.mq = make(map[string]*quic.Conn)
+	x.mtx.Unlock()
+}
+
+func (x *connections) quicConn(ctx context.Context, ma string) (*quic.Conn, error) {
+	x.mtx.RLock()
+	qc := x.mq[ma]
+	x.mtx.RUnlock()
+	if qc != nil && qc.Context().Err() == nil {
+		return qc, nil
+	}
+
+	var a network.Address
+	if err := a.FromString(ma); err != nil {
+		return nil, fmt.Errorf("parse network address %q: %w", ma, err)
+	}
+	addr := a.URIAddr()
+	if i := strings.Index(addr, "://"); i >= 0 {
+		addr = addr[i+3:]
+	}
+
+	conn, err := quic.DialAddr(ctx, addr, qstream.ClientTLSConfig(), qstream.Config())
+	if err != nil {
+		return nil, fmt.Errorf("dial QUIC %q: %w", addr, err)
+	}
+
+	x.mtx.Lock()
+	if existing := x.mq[ma]; existing != nil && existing.Context().Err() == nil {
+		x.mtx.Unlock()
+		_ = conn.CloseWithError(0, "duplicate")
+		return existing, nil
+	}
+	x.mq[ma] = conn
+	x.mtx.Unlock()
+	return conn, nil
+}
+
+// dropQUICConn removes and closes the cached QUIC connection for the given
+// address so the next use re-dials it.
+func (x *connections) dropQUICConn(ma string) {
+	x.mtx.Lock()
+	if c := x.mq[ma]; c != nil {
+		delete(x.mq, ma)
+		_ = c.CloseWithError(0, "drop on error")
+	}
+	x.mtx.Unlock()
+}
+
+// quicForwardAttempts bounds how many times a QUIC forward to one endpoint is
+// retried (with a fresh dial) on transport failures before moving on.
+const quicForwardAttempts = 3
+
+func (x *connections) ForAnyQUICStream(ctx context.Context, f func(context.Context, *quic.Conn, string) error) error {
+	var firstErr error
+	x.mtx.RLock()
+	addrs := slices.Collect(maps.Keys(x.m))
+	x.mtx.RUnlock()
+
+	for _, ma := range addrs {
+		var err error
+		for range quicForwardAttempts {
+			var conn *quic.Conn
+			conn, err = x.quicConn(ctx, ma)
+			if err == nil {
+				err = f(ctx, conn, ma)
+				if err == nil {
+					return nil
+				}
+			}
+			if errors.Is(err, apistatus.Error) {
+				break
+			}
+			x.dropQUICConn(ma)
+			if ctx.Err() != nil {
+				break
+			}
+		}
+		if errors.Is(err, apistatus.Error) && !errors.Is(err, apistatus.ErrObjectNotFound) {
+			return newEndpointError(ma, err)
+		}
+		if firstErr == nil {
+			firstErr = newEndpointError(ma, err)
+		}
+	}
+	return newMultiEndpointError(x.nodeID, firstErr)
 }
 
 func (x *connections) all(f func(ma string, c *client.Client) bool) {
