@@ -18,6 +18,10 @@ import (
 // connections from regular client TLS connections.
 const TLSServerName = "neofs.internode.mtls"
 
+// ClientTLSServerName is the SNI a client sends to opt into client-side mTLS,
+// telling it apart from inter-node ([TLSServerName]) and plain TLS connections.
+const ClientTLSServerName = "neofs.client.mtls"
+
 // GenerateSelfSignedCert builds a self-signed TLS certificate that uses the
 // node's identity ECDSA key as both subject key and signing key.
 func GenerateSelfSignedCert(priv *ecdsa.PrivateKey) (tls.Certificate, error) {
