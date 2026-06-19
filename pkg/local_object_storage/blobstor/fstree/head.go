@@ -46,7 +46,7 @@ func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	return n, nil
 }
 
-func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadCloser, error) {
+func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadSeekCloser, error) {
 	if len(buf) < 2*objectwire.NonPayloadFieldsBufferLength {
 		return nil, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
 	}
@@ -94,10 +94,7 @@ func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, e
 		// data was pre-read according to the provided buffer, but its
 		// uncompressed form does not fit the buffer, reslice it, and do not
 		// lose any payload
-		return n, readerCloser{
-			Reader: io.MultiReader(bytes.NewReader(initial[n:]), stream),
-			Closer: stream,
-		}, nil
+		return n, newPrefixedReadSeekCloser(initial[n:], stream), nil
 	}
 
 	return n, stream, nil
@@ -144,7 +141,7 @@ func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, 
 	return t.readHeaderAndPayload(stream, initial)
 }
 
-func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadCloser, error) {
+func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadSeekCloser, error) {
 	n, err := io.ReadFull(f, buf[:objectwire.NonPayloadFieldsBufferLength])
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, f, err
@@ -172,15 +169,15 @@ func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadC
 				}
 			}
 
-			f := io.ReadCloser(f)
+			rsc := io.ReadSeekCloser(f)
 			if buffered := uint32(size - offset); l > buffered {
-				f = struct {
-					io.Reader
-					io.Closer
-				}{Reader: io.LimitReader(f, int64(l-buffered)), Closer: f}
+				rsc = &limitedFileReader{
+					ReadSeekCloser: f,
+					limit:          int64(l - buffered),
+				}
 			}
 
-			return buf[offset:size], f, nil
+			return buf[offset:size], rsc, nil
 		}
 
 		offset += int(l)
@@ -214,7 +211,7 @@ func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadC
 
 // readHeaderAndPayload reads an object header from the file and returns reader for payload.
 // This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*object.Object, io.ReadSeekCloser, error) {
+func (t *FSTree) readHeaderAndPayload(f io.ReadSeekCloser, initial []byte) (*object.Object, io.ReadSeekCloser, error) {
 	initial, reader, err := t.preprocessStreamHead(f, initial)
 	if err != nil {
 		return nil, nil, err
@@ -231,10 +228,7 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*object.
 
 		obj.SetPayload(nil)
 
-		return &obj, &payloadReader{
-			Reader: bytes.NewReader(pld),
-			close:  func() error { return nil },
-		}, nil
+		return &obj, nopCloser(bytes.NewReader(pld)), nil
 	}
 
 	obj, payloadPrefix, err := objectwire.ExtractHeaderAndPayload(initial)
@@ -243,13 +237,10 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadCloser, initial []byte) (*object.
 		return nil, nil, fmt.Errorf("extract header and payload: %w", err)
 	}
 
-	return obj, &payloadReader{
-		Reader: io.MultiReader(bytes.NewReader(payloadPrefix), reader),
-		close:  reader.Close,
-	}, nil
+	return obj, newPrefixedReadSeekCloser(payloadPrefix, reader), nil
 }
 
-func (t *FSTree) preprocessStreamHead(f io.ReadCloser, initial []byte) ([]byte, io.ReadCloser, error) {
+func (t *FSTree) preprocessStreamHead(f io.ReadSeekCloser, initial []byte) ([]byte, io.ReadSeekCloser, error) {
 	var err error
 	if len(initial) < objectwire.NonPayloadFieldsBufferLength {
 		_ = f.Close()
@@ -267,9 +258,9 @@ func (t *FSTree) preprocessStreamHead(f io.ReadCloser, initial []byte) ([]byte, 
 		if err != nil {
 			return nil, nil, fmt.Errorf("zstd decoder: %w", err)
 		}
-		reader = readerTwoClosers{
-			ReadCloser: decoder.IOReadCloser(),
-			baseCloser: f,
+		reader = compressedReader{
+			Decoder:    decoder,
+			fileCloser: f,
 		}
 
 		buf := make([]byte, objectwire.NonPayloadFieldsBufferLength)
@@ -284,25 +275,14 @@ func (t *FSTree) preprocessStreamHead(f io.ReadCloser, initial []byte) ([]byte, 
 	return initial, reader, nil
 }
 
-type payloadReader struct {
-	io.Reader
-	close func() error
+type nopCloserRS struct {
+	io.ReadSeeker
 }
 
-func (p *payloadReader) Close() error {
-	return p.close()
+func (n nopCloserRS) Close() error {
+	return nil
 }
 
-// Seek implements io.Seeker interface for payloadReader.
-// If the Reader does not support seeking, it will discard the data until the offset
-// is reached, but only if whence is io.SeekStart. If whence is not io.SeekStart,
-// it returns an error indicating that seeking is not supported.
-func (p *payloadReader) Seek(offset int64, whence int) (int64, error) {
-	if seeker, ok := p.Reader.(io.Seeker); ok {
-		return seeker.Seek(offset, whence)
-	}
-	if whence == io.SeekStart {
-		return io.CopyN(io.Discard, p.Reader, offset)
-	}
-	return 0, errors.New("payload reader does not support seeking")
+func nopCloser(rs io.ReadSeeker) io.ReadSeekCloser {
+	return nopCloserRS{ReadSeeker: rs}
 }
