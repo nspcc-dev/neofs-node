@@ -3,13 +3,11 @@ package cache
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"iter"
 	"maps"
-	"net"
 	"net/http"
 	"slices"
 	"sync"
@@ -27,7 +25,6 @@ import (
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
-	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
@@ -180,14 +177,11 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 }
 
 func newHTTPClient() *http.Client {
-	return &http.Client{
-		Transport: &http2.Transport{
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-				return (&net.Dialer{}).DialContext(ctx, network, addr)
-			},
-		},
-	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.Proxy = nil
+	tr.Protocols = new(http.Protocols)
+	tr.Protocols.SetHTTP1(true)
+	return &http.Client{Transport: tr}
 }
 
 func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Seq[string]) (*connections, error) {

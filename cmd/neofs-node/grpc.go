@@ -202,14 +202,15 @@ func (h muxHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildSingleGRPCServer(c *cfg, h http.Handler, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.ServerOption) (*http.Server, net.Listener, error) {
-	var http2protos http.Protocols
+	var protos http.Protocols
 
-	http2protos.SetHTTP2(true)
-	http2protos.SetUnencryptedHTTP2(true)
+	protos.SetHTTP1(true)
+	protos.SetHTTP2(true)
+	protos.SetUnencryptedHTTP2(true)
 
 	var srv = &http.Server{
 		Handler:   h,
-		Protocols: &http2protos,
+		Protocols: &protos,
 	}
 
 	tlsCfg := sc.TLS
