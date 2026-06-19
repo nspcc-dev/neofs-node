@@ -1218,6 +1218,9 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	if body.GetPayloadOnly() {
 		p.MarkPayloadOnly()
 	}
+	if stream.recheckEACL {
+		p.RequireEACLRecheck()
+	}
 	if cp.LocalOnly() {
 		return p, nil
 	}

@@ -49,7 +49,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if prm.common.LocalOnly() &&
 		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
-		opts := []execOption{withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly)}
+		opts := []execOption{withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL)}
 		if prm.rng == nil && !prm.payloadOnly {
 			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
 		}
@@ -71,6 +71,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 			withPayloadRange(prm.rng),
 			withPayloadOnly(prm.payloadOnly),
 			withGetTransportFunc(prm.transportFn),
+			withEACLRecheck(prm.recheckEACL),
 		}
 		if prm.rng == nil && !prm.payloadOnly {
 			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
@@ -88,7 +89,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly)).err
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL)).err
 	}
 
 	if prm.rng != nil {

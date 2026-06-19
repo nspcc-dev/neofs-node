@@ -27,6 +27,7 @@ type Prm struct {
 
 	rng         *object.Range
 	payloadOnly bool
+	recheckEACL bool
 
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
@@ -127,6 +128,12 @@ func (p *Prm) SetRange(rng *object.Range) {
 // MarkPayloadOnly requests payload without an object header.
 func (p *Prm) MarkPayloadOnly() {
 	p.payloadOnly = true
+}
+
+// RequireEACLRecheck marks request as requiring object header on internal
+// full-GETs so eACL can be rechecked against header fields when needed.
+func (p *Prm) RequireEACLRecheck() {
+	p.recheckEACL = true
 }
 
 // SetChunkWriter sets target component to write the object payload range.
