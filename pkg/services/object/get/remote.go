@@ -3,6 +3,7 @@ package getsvc
 import (
 	"errors"
 
+	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -10,7 +11,7 @@ import (
 )
 
 func (exec *execCtx) processNode(info netmap.NodeInfo) bool {
-	var nodeLog = zapEndpoints(info)
+	var nodeLog = inetmap.ZapEndpoints(info)
 
 	exec.log.Debug("processing node...", nodeLog)
 

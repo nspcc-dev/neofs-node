@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 
+	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -16,20 +19,19 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
+func callHead(ctx context.Context, conn *grpc.ClientConn, req any) (mem.BufferSlice, error) {
+	return callUnary(ctx, conn, protoobject.ObjectService_Head_FullMethodName, req)
+}
+
 // returns:
 //   - response buffer and object header protobuf without an error on OK
 //   - (nil, nil, [apistatus.ErrObjectNotFound]) on 404 status
 //   - (buffered response, nil, nil) on other API statuses
 //   - (nil, nil, err) on any transport err
 func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest, reqOID oid.ID) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
-	var respBuf mem.BufferSlice
-
-	err := conn.Invoke(ctx, protoobject.ObjectService_Head_FullMethodName, req, &respBuf,
-		grpc.StaticMethod(),
-		grpc.ForceCodecV2(iprotobuf.BufferedCodec{}),
-	)
+	respBuf, err := callHead(ctx, conn, req)
 	if err != nil {
-		return nil, iprotobuf.BuffersSlice{}, fmt.Errorf("sending the request failed: %w", err)
+		return nil, iprotobuf.BuffersSlice{}, err
 	}
 
 	hdrBuffers, err := handleBufferedHeadResponse(respBuf, reqOID)
@@ -166,4 +168,29 @@ func handleBufferedHeaderWithSignature(buffers iprotobuf.BuffersSlice, reqOID oi
 	}
 
 	return hdrBuffers, checkHeaderProtobufAgainstID(hdrBuffers, reqOID, hdrOrdered)
+}
+
+func forwardHeadRequest(ctx context.Context, req any, node clientcore.MultiAddressClient) (mem.BufferSlice, error) {
+	var respBuf mem.BufferSlice
+
+	err := node.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		var err error
+		respBuf, err = callHead(ctx, conn, req)
+		if err != nil {
+			if igrpc.IsUnavailable(err) {
+				return clientcore.ErrSkipConnection
+			}
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, clientcore.ErrAllConnectionsSkipped) {
+			return nil, getsvc.ErrUnavailableNode
+		}
+		return nil, err
+	}
+
+	return respBuf, nil
 }

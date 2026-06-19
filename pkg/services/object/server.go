@@ -17,6 +17,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
+	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -105,15 +108,12 @@ type FSChain interface {
 	// found.
 	ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error
 
-	// ForSearchableContainerNode iterates over a container node subset
-	// sufficient for reliable SEARCH reply. This number depends on policy
-	// and request, allNodes flag disables optimizations. Nodes descriptors
-	// are passed into f, elements can be repeated. If f returns false
-	// function breaks the iteration without any error.
+	// SelectContainerNodes applies referenced container's storage policy to the
+	// current network map and returns matching nodes along with the applied rules.
 	//
 	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
 	// found.
-	ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmap.NodeInfo) bool) error
+	SelectContainerNodes(cnr cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error)
 
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
@@ -156,10 +156,10 @@ type Storage interface {
 type ACLInfoExtractor interface {
 	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
 	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
-	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, bool, error)
-	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, bool, error)
+	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, bool, error)
+	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
 }
 
 // ClientConstructor returns a client for given node.
@@ -639,7 +639,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, srvInCnr, err := s.reqInfoProc.HeadRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -662,7 +662,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, srvInCnr)
+	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -671,6 +671,14 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		}
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
+
+	var forwardResp mem.BufferSlice
+
+	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
+		var err error
+		forwardResp, err = forwardHeadRequest(ctx, req, node)
+		return err
+	})
 
 	respMemBuf, hdrBuf := getBufferForHeadResponse()
 	defer respMemBuf.Free()
@@ -688,6 +696,10 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp)
+	}
+
+	if forwardResp != nil {
+		return forwardResp
 	}
 
 	var buffered bool
@@ -767,7 +779,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, serverInContainer bool) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -803,23 +815,15 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 
 	var updatedRequest bool
 
-	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
 		if !updatedRequest {
 			updatedRequest = true
-			if serverInContainer {
-				req = &protoobject.HeadRequest{
-					Body: req.Body,
-					MetaHeader: &protosession.RequestMetaHeader{
-						Version: version.Current().ProtoMessage(),
-						Ttl:     1,
-					},
-				}
-			} else {
-				req.MetaHeader = &protosession.RequestMetaHeader{
-					// TODO: #1165 think how to set the other fields
-					Ttl:    meta.GetTtl() - 1,
-					Origin: meta,
-				}
+			req = &protoobject.HeadRequest{
+				Body: req.Body,
+				MetaHeader: &protosession.RequestMetaHeader{
+					Version: version.Current().ProtoMessage(),
+					Ttl:     1,
+				},
 			}
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		}
@@ -874,8 +878,6 @@ type getStream struct {
 	recheckEACL  bool
 	signResponse bool
 	payloadOnly  bool
-
-	serverInContainer bool
 }
 
 func (s *getStream) ValidateHeader(hdr *object.Object) error {
@@ -957,7 +959,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, srvInCnr, err := s.reqInfoProc.GetRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
@@ -980,13 +982,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
-		base:              gStream,
-		srv:               s,
-		reqInfo:           reqInfo,
-		recheckEACL:       recheckEACL,
-		signResponse:      needSignResp,
-		payloadOnly:       req.GetBody().GetPayloadOnly(),
-		serverInContainer: srvInCnr,
+		base:         gStream,
+		srv:          s,
+		reqInfo:      reqInfo,
+		recheckEACL:  recheckEACL,
+		signResponse: needSignResp,
+		payloadOnly:  req.GetBody().GetPayloadOnly(),
 	})
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
@@ -996,6 +997,10 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
+
+	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
+		return forwardGetRequest(ctx, req, gStream, node)
+	})
 
 	p.WithECTransport(&getECTransport{
 		server:         s,
@@ -1230,8 +1235,8 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 
 	var updatedRequest bool
 
-	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
-		if stream.serverInContainer && !updatedRequest {
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
+		if !updatedRequest {
 			updatedRequest = true
 
 			req = &protoobject.GetRequest{
@@ -1243,30 +1248,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 			}
 			if proxyCtx.suppressInit {
 				req.Body.PayloadOnly = false
-			}
-			var err error
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-			if err != nil {
-				return err
-			}
-		}
-
-		if stream.serverInContainer || !proxyCtx.suppressInit {
-			return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-				return proxyCtx.continueWithConn(ctx, req, conn) // TODO: log error
-			})
-		}
-
-		// TODO: double-check following code is required
-
-		if !updatedRequest {
-			updatedRequest = true
-
-			req.Body.PayloadOnly = false
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
 			}
 			var err error
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
@@ -1393,6 +1374,10 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
+	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
+		return forwardRangeRequest(ctx, req, gStream, node)
+	})
+
 	var stream io.ReadCloser
 	defer func() {
 		if stream != nil {
@@ -1515,7 +1500,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 	if meta == nil {
 		return getsvc.RangePrm{}, errors.New("missing meta header")
 	}
-	p.SetRequestForwarder(func(ctx context.Context, c clientcore.MultiAddressClient) error {
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
@@ -1724,42 +1709,57 @@ func (s *Server) signSearchResponse(body *protoobject.SearchV2Response_Body, err
 	return resp
 }
 
-func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+// SearchV2 implements [protoobject.ObjectServiceServer] so that generated
+// functions don't panic. It must never be called, [Server.SearchV2Buffered]
+// must be used instead.
+func (s *Server) SearchV2(context.Context, *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+	panic("must not be called")
+}
+
+// SearchV2Buffered serves req and returns response as either
+// [*protoobject.SearchV2Response], [mem.BufferSlice] or [mem.Buffer]. All
+// buffers must be freed eventually.
+func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2Request) any {
 	var (
 		err error
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.signSearchResponse(nil, apistatus.ErrNodeUnderMaintenance, req), nil
+		return s.signSearchResponse(nil, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
-	reqInfo, srvInCnr, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			var bad = new(apistatus.BadRequest)
 			bad.SetMessage(err.Error())
 			err = bad // defer
 		}
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err)
-		return s.signSearchResponse(nil, err, req), nil
+		return s.signSearchResponse(nil, err, req)
 	}
 
-	respBody, err := s.processSearchRequest(ctx, req, srvInCnr)
+	respBody, err := s.processSearchRequest(ctx, req)
 
-	return s.signSearchResponse(respBody, err, req), nil
+	var respBufErr igrpc.MemBufferSliceError
+	if errors.As(err, &respBufErr) {
+		return mem.BufferSlice(respBufErr)
+	}
+
+	return s.signSearchResponse(respBody, err, req)
 }
 
 func verifySearchFilter(f *protoobject.SearchFilter) error {
@@ -1781,7 +1781,7 @@ func verifySearchFilter(f *protoobject.SearchFilter) error {
 	return nil
 }
 
-func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) (*protoobject.SearchV2Response_Body, error) {
+func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response_Body, error) {
 	body := req.GetBody()
 	if body == nil {
 		return nil, errors.New("missing body")
@@ -1820,7 +1820,12 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		return nil, errors.New("primary attribute must be filtered 1st")
 	}
 
-	res, newCursor, err := s.ProcessSearch(ctx, req, serverInContainer)
+	ttl := req.MetaHeader.GetTtl()
+	if ttl == 0 {
+		return nil, errors.New("zero TTL")
+	}
+
+	res, newCursor, err := s.ProcessSearch(ctx, req, ttl == 1, true)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, err
 	}
@@ -1840,12 +1845,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	return resBody, err
 }
 
-func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) ([]client.SearchResultItem, []byte, error) {
-	ttl := req.MetaHeader.GetTtl()
-	if ttl == 0 {
-		return nil, nil, errors.New("zero TTL")
-	}
-
+func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, localOnly bool, forwardedResponseToError bool) ([]client.SearchResultItem, []byte, error) {
 	body := req.GetBody()
 	var fs object.SearchFilters
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
@@ -1894,7 +1894,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		res        []client.SearchResultItem
 	)
 	switch {
-	case ttl == 1:
+	case localOnly:
 		if res, newCursor, err = s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count); err != nil {
 			return nil, nil, err
 		}
@@ -1904,6 +1904,19 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			return nil, nil, err
 		}
 	default:
+		nodeSets, repRules, ecRules, err := s.fsChain.SelectContainerNodes(cID)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if forwardedResponseToError && !inetmap.NodeSetsContainPublicKeyFunc(nodeSets, s.fsChain.IsOwnPublicKey) {
+			respBuf, err := s.forwardSearchRequest(ctx, req, nodeSets)
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, nil, igrpc.MemBufferSliceError(respBuf)
+		}
+
 		type nodeSearchResult struct {
 			set  []client.SearchResultItem
 			more bool
@@ -1918,16 +1931,12 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			expectedRes     int
 		)
 
-		if serverInContainer {
-			req = &protoobject.SearchV2Request{
-				Body: req.Body,
-				MetaHeader: &protosession.RequestMetaHeader{
-					Version: version.Current().ProtoMessage(),
-					Ttl:     1,
-				},
-			}
-		} else {
-			req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
+		req = &protoobject.SearchV2Request{
+			Body: req.Body,
+			MetaHeader: &protosession.RequestMetaHeader{
+				Version: version.Current().ProtoMessage(),
+				Ttl:     1,
+			},
 		}
 		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
 			return nil, nil, fmt.Errorf("sign request: %w", err)
@@ -1938,7 +1947,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				return !strings.HasPrefix(filt.Key, "$Object:") && !strings.HasPrefix(filt.Key, "__NEOFS__")
 			})
 
-		err = s.fsChain.ForSearchableContainerNode(cID, !optimizedNodes, func(node netmap.NodeInfo) bool {
+		iterateSearchableContainerNodes(nodeSets, repRules, ecRules, !optimizedNodes, func(node netmap.NodeInfo) bool {
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
 			if _, ok := mProcessedNodes[strKey]; ok {
@@ -1976,17 +1985,13 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			mores = append(mores, searchRes.more)
 		}
 		close(resCh)
-		if err == nil {
+		if poolErr != nil {
 			if errors.Is(poolErr, ants.ErrPoolOverload) {
 				var busy = new(apistatus.Busy)
 				busy.SetMessage(poolErr.Error())
-				err = busy
-			} else {
-				err = poolErr
+				return nil, nil, busy
 			}
-		}
-		if err != nil {
-			return nil, nil, err
+			return nil, nil, poolErr
 		}
 		var (
 			firstAttr   string
@@ -2015,7 +2020,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		}
 	}
 
-	if filteredAttributeless && (ttl != 1 || body.Filters[0].MatchType == protoobject.MatchType_STRING_EQUAL) {
+	if filteredAttributeless && (!localOnly || body.Filters[0].MatchType == protoobject.MatchType_STRING_EQUAL) {
 		// for K=V queries, V is unambiguous, so there is no need to transmit it in each item
 		for i := range res {
 			res[i].Attributes = nil

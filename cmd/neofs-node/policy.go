@@ -92,18 +92,29 @@ func (x *containerNodes) forEachContainerNodePublicKeyInLastTwoEpochs(cnrID cid.
 	})
 }
 
-func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, f func(netmap.NodeInfo) bool) error {
+func (x *containerNodes) selectContainerNodes(cnrID cid.ID) (containerPolicyContext, uint64, storagePolicyRes, error) {
 	curEpoch, err := x.network.Epoch()
 	if err != nil {
-		return fmt.Errorf("read current NeoFS epoch: %w", err)
+		return containerPolicyContext{}, 0, storagePolicyRes{}, fmt.Errorf("read current NeoFS epoch: %w", err)
 	}
 
 	cnrCtx := containerPolicyContext{id: cnrID, containers: x.containers, network: x.network, getNodesFunc: x.getContainerNodesFunc}
 
 	resCur, err := cnrCtx.applyAtEpoch(curEpoch, x.cache)
 	if err != nil {
-		return fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, err)
-	} else if resCur.err == nil { // error case handled below
+		return containerPolicyContext{}, 0, storagePolicyRes{}, fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, err)
+	}
+
+	return cnrCtx, curEpoch, resCur, nil
+}
+
+func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, f func(netmap.NodeInfo) bool) error {
+	cnrCtx, curEpoch, resCur, err := x.selectContainerNodes(cnrID)
+	if err != nil {
+		return err
+	}
+
+	if resCur.err == nil { // error case handled below
 		for i := range resCur.nodeSets {
 			for j := range resCur.nodeSets[i] {
 				if !f(resCur.nodeSets[i][j]) {

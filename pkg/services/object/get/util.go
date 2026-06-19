@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -20,7 +19,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 // TODO: share. We also use stop error for BoltDB iterators and so on.
@@ -216,20 +214,20 @@ func (c *clientCacheWrapper) get(ctx context.Context, info netmap.NodeInfo) (get
 }
 
 func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser, error) {
-	if exec.forwardHeadRequestFn != nil {
-		respBuf, hdr, err := exec.forwardHeadRequestFn(exec.ctx, c.client)
+	if exec.headTransportFn != nil {
+		respBuf, hdr, err := exec.headTransportFn(exec.ctx, c.client)
 		if err == nil {
 			exec.submitHeadResponseFn(respBuf, hdr)
 		}
 		return nil, nil, err
 	}
 
-	if exec.forwardGetRequestFn != nil {
-		return nil, nil, exec.forwardGetRequestFn(exec.ctx, c.client)
+	if exec.getTransportFn != nil {
+		return nil, nil, exec.getTransportFn(exec.ctx, c.client)
 	}
 
-	if exec.forwardRangeRequestFn != nil {
-		return nil, nil, exec.forwardRangeRequestFn(exec.ctx, c.client)
+	if exec.rangeTransportFn != nil {
+		return nil, nil, exec.rangeTransportFn(exec.ctx, c.client)
 	}
 
 	key, err := exec.key()
@@ -534,22 +532,6 @@ func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) 
 	}
 
 	return conn, nil
-}
-
-func localNodeInSets(n NeoFSNetwork, nodeSets [][]netmap.NodeInfo) bool {
-	return slices.ContainsFunc(nodeSets, func(nodeSet []netmap.NodeInfo) bool {
-		return localNodeInSet(n, nodeSet)
-	})
-}
-
-func localNodeInSet(n NeoFSNetwork, nodes []netmap.NodeInfo) bool {
-	return slices.ContainsFunc(nodes, func(node netmap.NodeInfo) bool {
-		return n.IsLocalNodePublicKey(node.PublicKey())
-	})
-}
-
-func zapEndpoints(info netmap.NodeInfo) zap.Field {
-	return zap.Strings("address group", slices.Collect(info.NetworkEndpoints()))
 }
 
 // partialObjectCopy contains information about incomplete copying of some

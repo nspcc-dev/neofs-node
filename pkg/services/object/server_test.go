@@ -95,7 +95,7 @@ func (*noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, f
 	panic("must not be called")
 }
 
-func (*noCallTestFSChain) ForSearchableContainerNode(cid.ID, bool, func(netmap.NodeInfo) bool) error {
+func (*noCallTestFSChain) SelectContainerNodes(cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	panic("must not be called")
 }
 func (*noCallTestFSChain) Get(cid.ID) (container.Container, error) { panic("must not be called") }
@@ -140,10 +140,10 @@ func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.
 func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, bool, error) {
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, bool, error) {
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
@@ -152,7 +152,7 @@ func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeReques
 func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, bool, error) {
+func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 
@@ -176,11 +176,11 @@ func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.Request
 func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, bool, error) {
-	return v2.RequestInfo{}, false, nil
+func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, bool, error) {
-	return v2.RequestInfo{}, false, nil
+func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
@@ -188,8 +188,17 @@ func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.
 func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, bool, error) {
-	return v2.RequestInfo{}, false, nil
+func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
+}
+
+type mockReqInfoExtractor struct {
+	nopReqInfoExtractor
+	getRequestInfo v2.RequestInfo
+}
+
+func (x mockReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+	return x.getRequestInfo, nil
 }
 
 type nopMetrics struct{}
@@ -652,8 +661,8 @@ func (nopFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]by
 	return nil
 }
 
-func (nopFSChain) ForSearchableContainerNode(cid.ID, bool, func(netmap.NodeInfo) bool) error {
-	return nil
+func (nopFSChain) SelectContainerNodes(cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	return nil, nil, nil, nil
 }
 
 func (x nopFSChain) IsOwnPublicKey([]byte) bool {
@@ -873,7 +882,7 @@ func (emptyRemoteNode) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer, 
 }
 
 func (emptyRemoteNode) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
-	return errors.New("any transport error")
+	return getsvc.ErrUnavailableNode
 }
 
 type mockGRPCConn struct {

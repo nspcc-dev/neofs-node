@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -60,12 +61,16 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
+	if prm.forwardRequestFn != nil && !inetmap.NodeSetsContainPublicKeyFunc(nodeLists, s.neoFSNet.IsLocalNodePublicKey) {
+		return s.forwardRequest(ctx, repRules, ecRules, nodeLists, "GET", prm.forwardRequestFn)
+	}
+
 	if len(repRules) > 0 { // REP format does not require encoding
 		opts := []execOption{
 			withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules),
 			withPayloadRange(prm.rng),
 			withPayloadOnly(prm.payloadOnly),
-			withForwardGetRequestFunc(prm.forwardRequestFn),
+			withGetTransportFunc(prm.transportFn),
 		}
 		if prm.rng == nil && !prm.payloadOnly {
 			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
@@ -77,9 +82,6 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
-	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
-		return s.forwardGetRequest(ctx, ecNodeLists, prm.forwardRequestFn, prm.submitLocalGetStreamFn)
-	}
 
 	if prm.raw {
 		repRules = make([]uint, len(ecRules))
@@ -150,23 +152,24 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
+	if prm.forwardRequestFn != nil && !inetmap.NodeSetsContainPublicKeyFunc(nodeLists, s.neoFSNet.IsLocalNodePublicKey) {
+		return s.forwardRequest(ctx, repRules, ecRules, nodeLists, "RANGE", prm.forwardRequestFn)
+	}
+
 	return s.getRange(ctx, prm, nodeLists, repRules, ecRules)
 }
 
 func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule) error {
 	if len(repRules) > 0 { // REP format does not require encoding
 		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
-		forwardOpt := withForwardRangeRequestFunc(prm.forwardRequestFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt, forwardOpt).err
+		transportOpt := withRangeTransportFunc(prm.transportFn)
+		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt, transportOpt).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
-	if prm.forwardRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
-		return s.forwardRangeRequest(ctx, ecNodeLists, prm.forwardRequestFn)
-	}
 
 	if prm.raw {
 		repRules = make([]uint, len(ecRules))
@@ -243,25 +246,26 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		return fmt.Errorf("get nodes for object: %w", err)
 	}
 
+	if prm.forwardRequestFn != nil && !inetmap.NodeSetsContainPublicKeyFunc(nodeLists, s.neoFSNet.IsLocalNodePublicKey) {
+		return s.forwardRequest(ctx, repRules, ecRules, nodeLists, "HEAD", prm.forwardRequestFn)
+	}
+
 	if len(repRules) > 0 {
-		headOpt := headOnly(prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
-		err := s.get(ctx, prm.commonPrm, headOpt, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
+		transportOpt := headOnly(prm.transportFn, prm.submitHeadResponseFn)
+		err := s.get(ctx, prm.commonPrm, transportOpt, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules)).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
 			return err
 		}
 	}
 
 	ecNodeLists := nodeLists[len(repRules):]
-	if prm.forwardHeadRequestFn != nil && !localNodeInSets(s.neoFSNet, ecNodeLists) {
-		return s.forwardHeadRequest(ctx, ecNodeLists, prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
-	}
 
 	if prm.raw {
 		repRules = make([]uint, len(ecRules))
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		headOpt := headOnly(prm.forwardHeadRequestFn, prm.submitHeadResponseFn)
+		headOpt := headOnly(prm.transportFn, prm.submitHeadResponseFn)
 		return s.get(ctx, prm.commonPrm, headOpt, withPreSortedContainerNodes(ecNodeLists, repRules)).err
 	}
 

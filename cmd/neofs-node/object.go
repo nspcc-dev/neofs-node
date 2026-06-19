@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand/v2"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -48,11 +47,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -347,23 +344,31 @@ func initObjectService(c *cfg) {
 	svcDesc := protoobject.ObjectService_ServiceDesc
 	svcDesc.Methods = slices.Clone(protoobject.ObjectService_ServiceDesc.Methods)
 
-	const headMethod = "Head"
-	headInd := slices.IndexFunc(svcDesc.Methods, func(md grpc.MethodDesc) bool { return md.MethodName == headMethod })
-	if headInd < 0 {
-		fatalOnErr(fmt.Errorf("missing %s method handler in object service desc", headMethod))
-	}
-
-	svcDesc.Methods[headInd].Handler = func(_ any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
-		req := new(protoobject.HeadRequest)
-		if err := dec(req); err != nil {
-			return nil, err
-		}
-		return server.HeadBuffered(ctx, req), nil
-	}
+	replaceUnaryMethodHandler(&svcDesc, "Head", func(ctx context.Context, req *protoobject.HeadRequest) any {
+		return server.HeadBuffered(ctx, req)
+	})
+	replaceUnaryMethodHandler(&svcDesc, "SearchV2", func(ctx context.Context, req *protoobject.SearchV2Request) any {
+		return server.SearchV2Buffered(ctx, req)
+	})
 
 	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		srv.RegisterService(&svcDesc, server)
 	})
+}
+
+func replaceUnaryMethodHandler[REQ any](svcDesc *grpc.ServiceDesc, method string, handler func(context.Context, *REQ) any) {
+	mtdInd := slices.IndexFunc(svcDesc.Methods, func(md grpc.MethodDesc) bool { return md.MethodName == method })
+	if mtdInd < 0 {
+		fatalOnErr(fmt.Errorf("missing %s method handler in object service desc", method))
+	}
+
+	svcDesc.Methods[mtdInd].Handler = func(_ any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
+		req := new(REQ)
+		if err := dec(req); err != nil {
+			return nil, err
+		}
+		return handler(ctx, req), nil
+	}
 }
 
 type reputationClientConstructor struct {
@@ -585,51 +590,18 @@ func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.
 	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
 }
 
-// ForSearchableContainerNode implements [objectService.FSChain] interface.
-func (x *fsChainForObjects) ForSearchableContainerNode(cnr cid.ID, allNodes bool, f func(netmap.NodeInfo) bool) error {
-	curEpoch, err := x.containerNodes.network.Epoch()
+// SelectContainerNodes implements [objectService.FSChain] interface.
+func (x *fsChainForObjects) SelectContainerNodes(cnr cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	_, curEpoch, resCur, err := x.containerNodes.selectContainerNodes(cnr)
 	if err != nil {
-		return fmt.Errorf("read current NeoFS epoch: %w", err)
+		return nil, nil, nil, err
 	}
 
-	cnrCtx := containerPolicyContext{id: cnr, containers: x.containerNodes.containers, network: x.containerNodes.network, getNodesFunc: x.containerNodes.getContainerNodesFunc}
-
-	resCur, err := cnrCtx.applyAtEpoch(curEpoch, x.containerNodes.cache)
-	if err != nil {
-		return fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, err)
-	}
 	if resCur.err != nil {
-		return fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, resCur.err)
-	}
-	for i := range resCur.nodeSets {
-		var (
-			nodeSet = resCur.nodeSets[i]
-			ecIndex = i - len(resCur.repCounts)
-		)
-
-		if !allNodes && ecIndex >= 0 {
-			var (
-				partsN    = int(resCur.ecRules[ecIndex].ParityPartNum + resCur.ecRules[ecIndex].DataPartNum)
-				requiredN = int(resCur.ecRules[ecIndex].ParityPartNum + 1)
-				searchN   = max(requiredN, len(nodeSet)-partsN+requiredN) // CBF 2 and alike.
-			)
-
-			if searchN < len(nodeSet) { // Stay safe in case of missing nodes.
-				nodeSet = slices.Clone(nodeSet)
-				rand.Shuffle(len(nodeSet), func(i, j int) {
-					nodeSet[i], nodeSet[j] = nodeSet[j], nodeSet[i]
-				})
-				nodeSet = nodeSet[:requiredN]
-			}
-		}
-		for _, node := range nodeSet {
-			if !f(node) {
-				return nil
-			}
-		}
+		return nil, nil, nil, fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, resCur.err)
 	}
 
-	return nil
+	return resCur.nodeSets, resCur.repCounts, resCur.ecRules, nil
 }
 
 // IsOwnPublicKey checks whether given binary-encoded public key is assigned to
@@ -679,9 +651,7 @@ func (x storageForObjectService) GetSessionV2PrivateKey(subjects []sessionv2.Tar
 type objectSource struct {
 	get    *getsvc.Service
 	signer neofscrypto.Signer
-	server interface {
-		ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, serverInContainer bool) ([]client.SearchResultItem, []byte, error)
-	}
+	server *objectService.Server
 }
 
 func (o objectSource) Head(ctx context.Context, addr oid.Address) (*object.Object, error) {
@@ -710,19 +680,10 @@ func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters object.
 				Count:       1,
 				Attributes:  nil,
 			},
-			MetaHeader: &protosession.RequestMetaHeader{
-				Version: version.Current().ProtoMessage(),
-				Ttl:     2,
-			},
 		}
 	)
 
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](o.signer, req, nil)
-	if err != nil {
-		return id, err
-	}
-
-	res, _, err := o.server.ProcessSearch(ctx, req, false)
+	res, _, err := o.server.ProcessSearch(ctx, req, false, false)
 	if err != nil {
 		return id, err
 	}

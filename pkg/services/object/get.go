@@ -1529,3 +1529,11 @@ func calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen int) int {
 		1 + protowire.SizeBytes(sigLen) + // 1 for iprotobuf.TagBytes2
 		1 + protowire.SizeBytes(hdrLen) // 1 for iprotobuf.TagBytes3
 }
+
+func forwardGetRequest(ctx context.Context, req any, respStream grpc.ServerStream, node clientcore.MultiAddressClient) error {
+	return forwardServerStreamRequest(ctx, req, respStream, node, callGet)
+}
+
+func forwardRangeRequest(ctx context.Context, req any, respStream grpc.ServerStream, node clientcore.MultiAddressClient) error {
+	return forwardServerStreamRequest(ctx, req, respStream, node, callRange)
+}

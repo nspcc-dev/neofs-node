@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -27,11 +28,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/status"
 )
 
 // Clients manages connections to remote SNs.
@@ -289,7 +288,7 @@ func (x *connections) forAny(ctx context.Context, f func(context.Context, *clien
 		if errors.Is(err, clientcore.ErrSkipConnection) {
 			continue
 		}
-		if !isUnavailableError(err) {
+		if !igrpc.IsUnavailable(err) {
 			return newEndpointError(ma, err)
 		}
 		if firstUnavailableErr == nil {
@@ -325,7 +324,7 @@ func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 		if err == nil {
 			return sig, nil
 		}
-		if !isUnavailableError(err) {
+		if !igrpc.IsUnavailable(err) {
 			return nil, newEndpointError(ma, err)
 		}
 		if _, errSeek := src.Seek(0, io.SeekStart); errSeek != nil {
@@ -406,11 +405,6 @@ func (x *connections) SearchObjects(ctx context.Context, cnr cid.ID, fs object.S
 		resItems, resCursor, err = c.SearchObjects(ctx, cnr, fs, attrs, cursor, signer, opts)
 		return err
 	})
-}
-
-func isUnavailableError(err error) bool {
-	st, ok := status.FromError(err)
-	return ok && st.Code() == codes.Unavailable
 }
 
 func newEndpointError(addr string, err error) error {

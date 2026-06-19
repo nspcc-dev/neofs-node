@@ -31,9 +31,9 @@ type Prm struct {
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
 
-	forwardRequestFn ForwardGetRequestFunc
-
 	ecTransport GetECRequestTransport
+
+	transportFn GetTransportFunc
 }
 
 // RangePrm groups parameters of GetRange service call.
@@ -45,26 +45,26 @@ type RangePrm struct {
 	localBuffer         []byte
 	submitLocalStreamFn SubmitDataStreamFunc
 
-	forwardRequestFn ForwardRangeRequestFunc
+	transportFn RangeTransportFunc
 }
 
 type RequestForwarder func(context.Context, clientcore.MultiAddressClient) (*object.Object, error)
 
-// ForwardHeadRequestFunc sends currently served HEAD request to remote node
+// HeadTransportFunc sends currently served HEAD request to remote node
 // through passed connection and returns buffered response with requested
 // object's header binary in it.
-type ForwardHeadRequestFunc = func(context.Context, clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error)
+type HeadTransportFunc func(context.Context, clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error)
 
 // SubmitHeadResponseFunc accepts result of [ForwardHeadRequestFunc].
 type SubmitHeadResponseFunc = func(mem.BufferSlice, iprotobuf.BuffersSlice)
 
-// ForwardGetRequestFunc continues to serve current GET request from remote node
+// GetTransportFunc continues to serve current GET request from remote node
 // through passed connection.
-type ForwardGetRequestFunc = func(context.Context, clientcore.MultiAddressClient) error
+type GetTransportFunc func(context.Context, clientcore.MultiAddressClient) error
 
-// ForwardRangeRequestFunc continues to serve current RANGE request from remote node
+// RangeTransportFunc continues to serve current RANGE request from remote node
 // through passed connection.
-type ForwardRangeRequestFunc = func(context.Context, clientcore.MultiAddressClient) error
+type RangeTransportFunc func(context.Context, clientcore.MultiAddressClient) error
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
@@ -73,7 +73,7 @@ type HeadPrm struct {
 	buffer      []byte
 	submitLenFn func(int)
 
-	forwardHeadRequestFn ForwardHeadRequestFunc
+	transportFn HeadTransportFunc
 
 	submitHeadResponseFn SubmitHeadResponseFunc
 }
@@ -92,6 +92,8 @@ type commonPrm struct {
 	// requests (if any), could be nil if incoming request handling
 	// routine does not include any key fetching operations
 	signerKey *ecdsa.PrivateKey
+
+	forwardRequestFn ForwardRequestFunc
 }
 
 // ChunkWriter is an interface of target component
@@ -204,8 +206,8 @@ func (p Prm) PayloadOnly() bool {
 	return p.payloadOnly
 }
 
-// SetRequestForwarder specifies request transport callback to use for receiving
-// response from remote node.
+// SetTransportFunc specifies request transport callback to use for receiving
+// response from remote node by in-container server.
 //
 // The f should return:
 //   - response buffer and object header protobuf without an error on OK
@@ -218,8 +220,8 @@ func (p Prm) PayloadOnly() bool {
 // which must be set via [HeadPrm.SetSubmitHeadResponseFunc].
 //
 // The f is never called concurrently.
-func (p *HeadPrm) SetRequestForwarder(f ForwardHeadRequestFunc) {
-	p.forwardHeadRequestFn = f
+func (p *HeadPrm) SetTransportFunc(f HeadTransportFunc) {
+	p.transportFn = f
 }
 
 // SetSubmitHeadResponseFunc specifies handler to pass results of
@@ -228,8 +230,8 @@ func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
 	p.submitHeadResponseFn = f
 }
 
-// SetRequestForwarder specifies request transport callback to use for streaming
-// responses from remote node.
+// SetTransportFunc specifies request transport callback to use for streaming
+// responses from remote node by in-container server.
 //
 // The f should return:
 //   - nil on completed object transmission
@@ -238,8 +240,8 @@ func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
 //   - any other transport/protocol error otherwise
 //
 // The f is never called concurrently.
-func (p *Prm) SetRequestForwarder(f ForwardGetRequestFunc) {
-	p.forwardRequestFn = f
+func (p *Prm) SetTransportFunc(f GetTransportFunc) {
+	p.transportFn = f
 }
 
 // WithBuffer specifies a buffer to use for header reading and a callback for
@@ -250,8 +252,8 @@ func (p *RangePrm) WithBuffer(buffer []byte, submitStreamFn SubmitDataStreamFunc
 	p.submitLocalStreamFn = submitStreamFn
 }
 
-// SetRequestForwarder specifies request transport callback to use for streaming
-// responses from remote node.
+// SetTransportFunc specifies request transport callback to use for streaming
+// responses from remote node by in-container server.
 //
 // The f should return:
 //   - nil on completed object transmission
@@ -259,11 +261,17 @@ func (p *RangePrm) WithBuffer(buffer []byte, submitStreamFn SubmitDataStreamFunc
 //   - [apistatus.ErrObjectNotFound] on 404 status
 //   - nil on other API statuses
 //   - any other transport/protocol error otherwise
-func (p *RangePrm) SetRequestForwarder(f ForwardRangeRequestFunc) {
-	p.forwardRequestFn = f
+func (p *RangePrm) SetTransportFunc(f RangeTransportFunc) {
+	p.transportFn = f
 }
 
 // WithECTransport specifies transport layer to for EC handling.
 func (p *Prm) WithECTransport(transport GetECRequestTransport) {
 	p.ecTransport = transport
+}
+
+// SetForwardRequestFunc specifies transport implementation for request
+// forwarding to container nodes by non-container server.
+func (p *commonPrm) SetForwardRequestFunc(f ForwardRequestFunc) {
+	p.forwardRequestFn = f
 }

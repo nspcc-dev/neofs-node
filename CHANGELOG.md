@@ -14,7 +14,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Optimized EC GET request execution (#3996)
-- Optimized GET/HEAD/SEARCH request signing when forwarding by container node  (#4008)
+- Optimized GET/HEAD/SEARCH/RANGE request signing when forwarding  (#4008, #4021)
 - Optimized ranged GET in FSTree (#4016)
 
 ### Removed

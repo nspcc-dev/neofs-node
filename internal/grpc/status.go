@@ -24,3 +24,9 @@ func ConvertContextStatus(err error) error {
 		return context.DeadlineExceeded
 	}
 }
+
+// IsUnavailable checks whether err corresponds to UNAVAILABLE gRPC status.
+func IsUnavailable(err error) bool {
+	st, ok := status.FromError(err)
+	return ok && st.Code() == codes.Unavailable
+}
