@@ -37,6 +37,7 @@ import (
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
@@ -303,8 +304,8 @@ type cfgObject struct {
 
 	tombstoneLifetime uint64
 
-	quotasTTL      time.Duration
-	containerNodes *containerNodes
+	quotasTTL time.Duration
+	placement *placement.Service
 }
 
 type cfgLocalStorage struct {

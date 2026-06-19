@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"go.uber.org/zap"
 )
@@ -63,9 +62,7 @@ type cfg struct {
 
 	healthChecker HealthChecker
 
-	netMapSrc netmapcore.Source
-
-	cnrSrc containercore.Source
+	placement *placement.Service
 
 	replicator *replicator.Replicator
 
@@ -93,7 +90,7 @@ func New(key *ecdsa.PrivateKey, authorizedKeys [][]byte, healthChecker HealthChe
 
 // MarkReady marks server available. Before this call none of the other calls
 // are available except for the health checks.
-func (s *Server) MarkReady(e *engine.StorageEngine, nm netmapcore.Source, c containercore.Source, r *replicator.Replicator, st NodeState) {
+func (s *Server) MarkReady(e *engine.StorageEngine, p *placement.Service, r *replicator.Replicator, st NodeState) {
 	panicOnNil := func(name string, service any) {
 		if service == nil {
 			panic(fmt.Sprintf("'%s' is nil", name))
@@ -101,14 +98,12 @@ func (s *Server) MarkReady(e *engine.StorageEngine, nm netmapcore.Source, c cont
 	}
 
 	panicOnNil("storage engine", e)
-	panicOnNil("netmap source", nm)
-	panicOnNil("container source", c)
+	panicOnNil("placement service", p)
 	panicOnNil("replicator", r)
 	panicOnNil("node state", st)
 
 	s.storage = e
-	s.netMapSrc = nm
-	s.cnrSrc = c
+	s.placement = p
 	s.replicator = r
 	s.nodeState = st
 

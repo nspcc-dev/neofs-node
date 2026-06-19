@@ -31,6 +31,7 @@ import (
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/placement"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/tombstone"
@@ -256,9 +257,9 @@ func initObjectService(c *cfg) {
 
 	*c.cfgObject.getSvc = *sGet // need smth better
 
-	cnrNodes, err := newContainerNodes(c.cnrSrc, c.netMapSource)
+	placementSvc, err := placement.New(c.cnrSrc, c.netMapSource)
 	fatalOnErr(err)
-	c.cfgObject.containerNodes = cnrNodes
+	c.cfgObject.placement = placementSvc
 
 	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
@@ -308,7 +309,7 @@ func initObjectService(c *cfg) {
 	// every object part in every chain will try to refer to the first part, so caching
 	// should help a lot here
 	const cachedFirstObjectsNumber = 1000
-	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance, c.cli)
+	fsChain := newFSChainForObjects(placementSvc, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance, c.cli)
 
 	aclSvc := v2.New(fsChain,
 		v2.WithLogger(c.log),
@@ -550,20 +551,20 @@ func (h headerSource) Head(ctx context.Context, address oid.Address) (*object.Ob
 type fsChainForObjects struct {
 	containercore.Source
 	netmapcore.StateDetailed
-	containerNodes *containerNodes
-	isLocalPubKey  func([]byte) bool
-	isMaintenance  *atomic.Bool
+	placement     *placement.Service
+	isLocalPubKey func([]byte) bool
+	isMaintenance *atomic.Bool
 	*morphClient.Client
 }
 
-func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmapcore.StateDetailed, cnrSource containercore.Source, isMaintenance *atomic.Bool, fsChainCli *morphClient.Client) *fsChainForObjects {
+func newFSChainForObjects(placementSvc *placement.Service, isLocalPubKey func([]byte) bool, ns netmapcore.StateDetailed, cnrSource containercore.Source, isMaintenance *atomic.Bool, fsChainCli *morphClient.Client) *fsChainForObjects {
 	return &fsChainForObjects{
-		Source:         cnrSource,
-		StateDetailed:  ns,
-		containerNodes: cnrNodes,
-		isLocalPubKey:  isLocalPubKey,
-		isMaintenance:  isMaintenance,
-		Client:         fsChainCli,
+		Source:        cnrSource,
+		StateDetailed: ns,
+		placement:     placementSvc,
+		isLocalPubKey: isLocalPubKey,
+		isMaintenance: isMaintenance,
+		Client:        fsChainCli,
 	}
 }
 
@@ -574,7 +575,7 @@ func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) b
 // Implements [v2.FSChain] interface.
 func (x *fsChainForObjects) InContainerInLastTwoEpochs(cnr cid.ID, pub []byte) (bool, error) {
 	var inContainer bool
-	err := x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(nodePub []byte) bool {
+	err := x.placement.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(nodePub []byte) bool {
 		inContainer = bytes.Equal(nodePub, pub)
 		return !inContainer
 	})
@@ -587,21 +588,12 @@ func (x *fsChainForObjects) InContainerInLastTwoEpochs(cnr cid.ID, pub []byte) (
 //
 // Implements [object.Node] interface.
 func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.ID, f func(pubKey []byte) bool) error {
-	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
+	return x.placement.ForEachContainerNodePublicKeyInLastTwoEpochs(id, f)
 }
 
 // SelectContainerNodes implements [objectService.FSChain] interface.
 func (x *fsChainForObjects) SelectContainerNodes(cnr cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
-	_, curEpoch, resCur, err := x.containerNodes.selectContainerNodes(cnr)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	if resCur.err != nil {
-		return nil, nil, nil, fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, resCur.err)
-	}
-
-	return resCur.nodeSets, resCur.repCounts, resCur.ecRules, nil
+	return x.placement.SelectContainerNodes(cnr)
 }
 
 // IsOwnPublicKey checks whether given binary-encoded public key is assigned to
@@ -708,8 +700,7 @@ func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
 //
 // GetNodesForObject implements [getsvc.NeoFSNetwork], [policer.Network].
 func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
-	nodeSets, repRules, ecRules, err := c.cfgObject.containerNodes.getNodesForObject(addr)
-	return nodeSets, repRules, ecRules, err
+	return c.cfgObject.placement.GetNodesForObject(addr)
 }
 
 type netmapSourceWithNodes struct {
@@ -761,37 +752,14 @@ func (c *cfg) GetEpochBlockByTime(t uint32) (uint32, error) {
 //
 // GetContainerNodes implements [putsvc.NeoFSNetwork].
 func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
-	cnr, err := c.cfgObject.containerNodes.containers.Get(cnrID)
+	policy, err := c.cfgObject.placement.GetContainerPlacement(cnrID)
 	if err != nil {
-		return nil, fmt.Errorf("read container by ID: %w", err)
-	}
-	curEpoch, err := c.cfgObject.containerNodes.network.Epoch()
-	if err != nil {
-		return nil, fmt.Errorf("read current NeoFS epoch: %w", err)
-	}
-	networkMap, err := c.cfgObject.containerNodes.network.GetNetMapByEpoch(curEpoch)
-	if err != nil {
-		return nil, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
-	}
-	policy := cnr.PlacementPolicy()
-	nodeSets, err := networkMap.ContainerNodes(policy, cnrID)
-	if err != nil {
-		return nil, fmt.Errorf("apply container storage policy to the network map at current epoch #%d: %w", curEpoch, err)
-	}
-	repCounts := make([]uint, policy.NumberOfReplicas())
-	for i := range repCounts {
-		repCounts[i] = uint(policy.ReplicaNumberByIndex(i))
+		return nil, err
 	}
 	return &containerNodesSorter{
-		policy: storagePolicyRes{
-			nodeSets:  nodeSets,
-			repCounts: repCounts,
-			ecRules:   convertECRules(policy.ECRules()),
-		},
-		networkMap:     networkMap,
-		cnrID:          cnrID,
-		curEpoch:       curEpoch,
-		containerNodes: c.cfgObject.containerNodes,
+		policy:       policy,
+		cnrID:        cnrID,
+		placementSvc: c.cfgObject.placement,
 	}, nil
 }
 
@@ -890,46 +858,14 @@ func leftLimit(cnrLimit, cnrTaken, usrLimit, usrTaken uint64) uint64 {
 
 // implements [putsvc.ContainerNodes].
 type containerNodesSorter struct {
-	policy         storagePolicyRes
-	networkMap     *netmap.NetMap
-	cnrID          cid.ID
-	curEpoch       uint64
-	containerNodes *containerNodes
+	policy       placement.Placement
+	cnrID        cid.ID
+	placementSvc *placement.Service
 }
 
-func (x *containerNodesSorter) Unsorted() [][]netmap.NodeInfo { return x.policy.nodeSets }
-func (x *containerNodesSorter) PrimaryCounts() []uint         { return x.policy.repCounts }
-func (x *containerNodesSorter) ECRules() []iec.Rule           { return x.policy.ecRules }
+func (x *containerNodesSorter) Unsorted() [][]netmap.NodeInfo { return x.policy.NodeSets }
+func (x *containerNodesSorter) PrimaryCounts() []uint         { return x.policy.RepCounts }
+func (x *containerNodesSorter) ECRules() []iec.Rule           { return x.policy.ECRules }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmap.NodeInfo, error) {
-	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
-	cacheKey.addr.SetContainer(x.cnrID)
-	cacheKey.addr.SetObject(obj)
-	res, ok := x.containerNodes.objCache.Get(cacheKey)
-	if ok {
-		return res.nodeSets, res.err
-	}
-	if x.networkMap == nil {
-		var err error
-		if x.networkMap, err = x.containerNodes.network.GetNetMapByEpoch(x.curEpoch); err != nil {
-			// non-persistent error => do not cache
-			return nil, fmt.Errorf("read network map by epoch: %w", err)
-		}
-	}
-	res.repCounts = x.policy.repCounts
-	res.ecRules = x.policy.ecRules
-	res.nodeSets, res.err = x.containerNodes.sortContainerNodesFunc(*x.networkMap, x.policy.nodeSets, obj)
-	if res.err != nil {
-		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)
-	}
-	x.containerNodes.objCache.Add(cacheKey, res)
-	return res.nodeSets, res.err
-}
-
-func convertECRules(from []netmap.ECRule) []iec.Rule {
-	to := make([]iec.Rule, len(from))
-	for i := range to {
-		to[i].DataPartNum = uint8(from[i].DataPartNum())
-		to[i].ParityPartNum = uint8(from[i].ParityPartNum())
-	}
-	return to
+	return x.placementSvc.SortContainerPlacementForObject(x.cnrID, x.policy, obj)
 }

@@ -153,8 +153,7 @@ func initApp(c *cfg) {
 	if c.control != nil {
 		c.control.MarkReady(
 			c.cfgObject.cfgLocalStorage.localStorage,
-			c.netMapSource,
-			c.cnrSrc,
+			c.cfgObject.placement,
 			c.replicator,
 			c,
 		)
