@@ -373,12 +373,13 @@ type preparedRangeRequest struct {
 }
 
 type getECTransport struct {
-	server           *Server
-	request          *protoobject.GetRequest
-	requestContainer cid.ID
-	requestObject    oid.ID
-	signResponses    bool
-	responseStream   grpc.ServerStream
+	server                       *Server
+	requestSessionTokenMessage   *protosession.SessionTokenV2
+	requestSessionV1TokenMessage *protosession.SessionToken
+	requestContainer             cid.ID
+	requestObject                oid.ID
+	signResponses                bool
+	responseStream               grpc.ServerStream
 
 	getPartRequest     mem.Buffer
 	getPartRequestInfo iec.PartInfo
@@ -1130,11 +1131,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 		return req.buffer, nil
 	}
 
-	reqMetaHdr := x.request.GetMetaHeader()
-	sessionToken := reqMetaHdr.GetSessionTokenV2()
-	sessionTokenV1 := reqMetaHdr.GetSessionToken()
-
-	reqBuf, err := x.server.makeGetECPartRangeRequest(x.requestContainer, x.requestObject, partInfo, off, ln, sessionToken, sessionTokenV1)
+	reqBuf, err := x.server.makeGetECPartRangeRequest(x.requestContainer, x.requestObject, partInfo, off, ln, x.requestSessionTokenMessage, x.requestSessionV1TokenMessage)
 	if err != nil {
 		// stream is closed by context cancellation
 		return nil, err

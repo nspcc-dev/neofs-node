@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -59,7 +58,6 @@ func (nopContrainerContract) Get(cid.ID) (container.Container, error) {
 
 func BenchmarkSessionTokenVerification(b *testing.B) {
 	const anyVerb = session.VerbObjectGet
-	const anyVerbV2 = sessionv2.VerbObjectGet
 	anyCnr := cidtest.ID()
 	anyUsr := usertest.User()
 
@@ -71,9 +69,7 @@ func BenchmarkSessionTokenVerification(b *testing.B) {
 	tok.SetAuthKey(anyUsr.Public())
 	require.NoError(b, tok.Sign(anyUsr))
 
-	metaHdr := &protosession.RequestMetaHeader{
-		SessionToken: tok.ProtoMessage(),
-	}
+	msg := tok.ProtoMessage()
 
 	s := New(nopFSChain{},
 		WithIRFetcher(nopIR{}),
@@ -83,7 +79,9 @@ func BenchmarkSessionTokenVerification(b *testing.B) {
 	)
 
 	for b.Loop() {
-		_, _, err := s.getVerifiedSessionToken(metaHdr, anyVerb, anyVerbV2, anyCnr, oid.ID{})
+		token, err := s.VerifySessionV1TokenMessage(msg, anyVerb, anyCnr, oid.ID{})
+		require.NoError(b, err)
+		_, _, err = getCredentialsFromSessionV1Token(token)
 		require.NoError(b, err)
 		s.ResetTokenCheckCache()
 	}
@@ -100,9 +98,7 @@ func BenchmarkBearerTokenVerification(b *testing.B) {
 	tok.SetExp(1)
 	require.NoError(b, tok.Sign(anyCnrOwner))
 
-	metaHdr := &protosession.RequestMetaHeader{
-		BearerToken: tok.ProtoMessage(),
-	}
+	msg := tok.ProtoMessage()
 
 	s := New(nopFSChain{},
 		WithIRFetcher(nopIR{}),
@@ -112,22 +108,23 @@ func BenchmarkBearerTokenVerification(b *testing.B) {
 	)
 
 	for b.Loop() {
-		_, err := s.getVerifiedBearerToken(metaHdr, anyCnr, anyCnrOwner.UserID(), anyReqSender)
+		token, err := s.VerifyBearerTokenMessage(msg)
+		require.NoError(b, err)
+		err = s.verifyBearerTokenAgainstRequest(token, anyCnr, anyCnrOwner.UserID(), anyReqSender)
 		require.NoError(b, err)
 		s.ResetTokenCheckCache()
 	}
 }
 
 func BenchmarkSessionTokenV2Verification(b *testing.B) {
-	const anyVerb = session.VerbObjectGet
-	const anyVerbV2 = sessionv2.VerbObjectGet
+	const anyVerb = sessionv2.VerbObjectGet
 	anyCnr := cidtest.ID()
 	anyUsr := usertest.User()
 
 	var tok sessionv2.Token
 	tok.SetVersion(sessionv2.TokenCurrentVersion)
 
-	ctx, err := sessionv2.NewContext(anyCnr, []sessionv2.Verb{anyVerbV2})
+	ctx, err := sessionv2.NewContext(anyCnr, []sessionv2.Verb{anyVerb})
 	require.NoError(b, err)
 	err = tok.AddContext(ctx)
 	require.NoError(b, err)
@@ -141,9 +138,7 @@ func BenchmarkSessionTokenV2Verification(b *testing.B) {
 	tok.SetExp(currentTime.Add(1 * time.Hour))
 	require.NoError(b, tok.Sign(anyUsr))
 
-	metaHdr := &protosession.RequestMetaHeader{
-		SessionTokenV2: tok.ProtoMessage(),
-	}
+	msg := tok.ProtoMessage()
 
 	s := New(nopFSChain{},
 		WithIRFetcher(nopIR{}),
@@ -153,7 +148,9 @@ func BenchmarkSessionTokenV2Verification(b *testing.B) {
 	)
 
 	for b.Loop() {
-		_, _, err := s.getVerifiedSessionToken(metaHdr, anyVerb, anyVerbV2, anyCnr, oid.ID{})
+		token, err := s.VerifySessionTokenMessage(msg, anyVerb, anyCnr)
+		require.NoError(b, err)
+		_, _, err = getCredentialsFromSessionToken(token)
 		require.NoError(b, err)
 		s.ResetTokenCheckCache()
 	}

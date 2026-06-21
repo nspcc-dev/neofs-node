@@ -9,19 +9,19 @@ import (
 	"sync/atomic"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-func newCommonParameters(local bool, sTok *session.Object, xs []string) (*util.CommonPrm, error) {
+func newCommonParameters(local bool, sTok *session.Object, xs []string) *util.CommonPrm {
 	// TODO: see pkg/services/object/put/service_test.go:494
 	var mxs []*protosession.XHeader
 	for i := 0; i < len(xs); i += 2 {
@@ -31,20 +31,14 @@ func newCommonParameters(local bool, sTok *session.Object, xs []string) (*util.C
 		})
 	}
 
-	req := &protoobject.GetRequest{
-		MetaHeader: &protosession.RequestMetaHeader{
-			Ttl:      2,
-			XHeaders: mxs,
-		},
-	}
-	if sTok != nil {
-		req.MetaHeader.SessionToken = sTok.ProtoMessage()
-	}
+	ttl := uint32(2)
 	if local {
-		req.MetaHeader.Ttl = 1
+		ttl = 1
 	}
 
-	return util.CommonPrmFromRequest(req)
+	return util.CommonPrmFromRequest(ttl, mxs, common.RequestTokens{
+		SessionV1: sTok,
+	})
 }
 
 // TODO: share.

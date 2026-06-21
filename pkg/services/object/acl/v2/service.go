@@ -17,6 +17,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -158,23 +159,8 @@ func (b Service) ResetTokenCheckCache() {
 	b.r.PurgeCache()
 }
 
-func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb,
-	reqVerbV2 sessionv2.Verb, reqCnr cid.ID, reqObj oid.ID) (user.ID, []byte, error) {
-	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
-		mh = omh
-	}
-
-	mV2 := mh.GetSessionTokenV2()
-	if mV2 != nil {
-		return b.getVerifiedSessionTokenV2(mV2, reqVerbV2, reqCnr)
-	}
-
-	// Fall back to V1 token
-	m := mh.GetSessionToken()
-	if m == nil {
-		return user.ID{}, nil, nil
-	}
-
+// VerifySessionV1TokenMessage validates m and converts it into [sessionSDK.Object].
+func (b Service) VerifySessionV1TokenMessage(m *protosession.SessionToken, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (sessionSDK.Object, error) {
 	mb := make([]byte, m.MarshaledSize())
 	m.MarshalStable(mb)
 
@@ -185,19 +171,23 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
-		return user.ID{}, nil, res.err
+		return sessionSDK.Object{}, res.err
 	}
 
 	if err := b.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
-		return user.ID{}, nil, err
+		return sessionSDK.Object{}, err
 	}
 
-	sig, ok := res.token.Signature()
+	return res.token, nil
+}
+
+func getCredentialsFromSessionV1Token(token sessionSDK.Object) (user.ID, []byte, error) {
+	sig, ok := token.Signature()
 	if !ok {
 		return user.ID{}, nil, errors.New("missing signature in session token")
 	}
 
-	return res.token.Issuer(), sig.PublicKeyBytes(), nil
+	return token.Issuer(), sig.PublicKeyBytes(), nil
 }
 
 type sessionTokenWithEncodedBody struct {
@@ -256,8 +246,8 @@ func (b Service) verifySessionTokenAgainstRequest(token sessionSDK.Object, reqVe
 	return nil
 }
 
-// getVerifiedSessionTokenV2 validates and returns V2 session token info.
-func (b Service) getVerifiedSessionTokenV2(mV2 *protosession.SessionTokenV2, reqVerb sessionv2.Verb, reqCnr cid.ID) (user.ID, []byte, error) {
+// VerifySessionTokenMessage validates mV2 and returns converts it into [sessionv2.Token].
+func (b Service) VerifySessionTokenMessage(mV2 *protosession.SessionTokenV2, reqVerb sessionv2.Verb, reqCnr cid.ID) (sessionv2.Token, error) {
 	mb := make([]byte, mV2.MarshaledSize())
 	mV2.MarshalStable(mb)
 
@@ -267,26 +257,30 @@ func (b Service) getVerifiedSessionTokenV2(mV2 *protosession.SessionTokenV2, req
 		res.tokenV2, res.err = b.decodeAndVerifySessionTokenV2Common(mV2, mb)
 	}
 	if res.err != nil {
-		return user.ID{}, nil, res.err
+		return sessionv2.Token{}, res.err
 	}
 
 	currentTime := b.chainTime.Now().Round(time.Second)
 	if res.tokenV2.Exp().Before(currentTime) {
-		return user.ID{}, nil, apistatus.ErrSessionTokenExpired
+		return sessionv2.Token{}, apistatus.ErrSessionTokenExpired
 	}
 	if !res.tokenV2.ValidAt(currentTime) {
-		return user.ID{}, nil, fmt.Errorf("%s: V2 token is invalid at %s, token iat %s, nbf %s, exp %s", invalidRequestMessage, currentTime, res.tokenV2.Iat(), res.tokenV2.Nbf(), res.tokenV2.Exp())
+		return sessionv2.Token{}, fmt.Errorf("%s: V2 token is invalid at %s, token iat %s, nbf %s, exp %s", invalidRequestMessage, currentTime, res.tokenV2.Iat(), res.tokenV2.Nbf(), res.tokenV2.Exp())
 	}
 	if !ok {
 		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 
 	if !res.tokenV2.AssertVerb(reqVerb, reqCnr) {
-		return user.ID{}, nil, errInvalidVerb
+		return sessionv2.Token{}, errInvalidVerb
 	}
 
+	return res.tokenV2, nil
+}
+
+func getCredentialsFromSessionToken(token sessionv2.Token) (user.ID, []byte, error) {
 	var key []byte
-	origin := &res.tokenV2
+	origin := &token
 	for origin != nil {
 		sig, ok := origin.Signature()
 		if !ok {
@@ -296,7 +290,7 @@ func (b Service) getVerifiedSessionTokenV2(mV2 *protosession.SessionTokenV2, req
 		origin = origin.Origin()
 	}
 
-	return res.tokenV2.OriginalIssuer(), key, nil
+	return token.OriginalIssuer(), key, nil
 }
 
 type sessionTokenV2WithEncodedBody struct {
@@ -336,15 +330,8 @@ func (b Service) decodeAndVerifySessionTokenV2Common(m *protosession.SessionToke
 	return token, nil
 }
 
-func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) (*bearer.Token, error) {
-	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
-		mh = omh
-	}
-	m := mh.GetBearerToken()
-	if m == nil {
-		return nil, nil
-	}
-
+// VerifyBearerTokenMessage validates m and returns converts it into [bearer.Token].
+func (b Service) VerifyBearerTokenMessage(m *protoacl.BearerToken) (bearer.Token, error) {
 	mb := make([]byte, m.MarshaledSize())
 	m.MarshalStable(mb)
 
@@ -355,16 +342,10 @@ func (b Service) getVerifiedBearerToken(mh *protosession.RequestMetaHeader, reqC
 		b.bearerTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
-		return nil, res.err
+		return bearer.Token{}, res.err
 	}
 
-	if err := b.verifyBearerTokenAgainstRequest(res.token, reqCnr, ownerCnr, usrSender); err != nil {
-		var errAccessDenied apistatus.ObjectAccessDenied
-		errAccessDenied.WriteReason(err.Error())
-		return nil, errAccessDenied
-	}
-
-	return &res.token, nil
+	return res.token, nil
 }
 
 type bearerTokenWithEncodedBody struct {
@@ -433,39 +414,39 @@ func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) GetRequestToInfo(request *protoobject.GetRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, obj)
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectGet, tokens)
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, obj)
+func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectHead, tokens)
 }
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request, id cid.ID) (RequestInfo, error) {
-	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
+func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request, id cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(request, id, acl.OpObjectSearch, tokens)
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete, obj)
+func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, tokens)
 }
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionv2.VerbObjectRange, obj)
+func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectRange, tokens)
 }
 
 var ErrSkipRequest = errors.New("skip request")
 
 // PutRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker]. Returns [ErrSkipRequest] if check should not be performed.
-func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, cnr cid.ID, obj oid.ID) (RequestInfo, user.ID, error) {
+func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, cnr cid.ID, op acl.Op, tokens common.RequestTokens) (RequestInfo, user.ID, error) {
 	inContainer, err := b.nm.ServerInContainer(cnr)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, fmt.Errorf("checking if node in container: %w", err)
@@ -493,21 +474,13 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *pro
 		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid object owner: %w", err)
 	}
 
-	op, verb, verbv2 := acl.OpObjectPut, sessionSDK.VerbObjectPut, sessionv2.VerbObjectPut
-	tombstone := header.GetObjectType() == protoobject.ObjectType_TOMBSTONE
-	if tombstone {
-		// such objects are specific - saving them is essentially the removal of other
-		// objects
-		op, verb, verbv2 = acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete
-	}
-
-	reqInfo, err := b.findRequestInfo(request, cnr, op, verb, verbv2, obj)
+	reqInfo, err := b.findRequestInfo(request, cnr, op, tokens)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, err
 	}
 
 	replication := reqInfo.RequestRole == acl.RoleContainer && request.GetMetaHeader().GetTtl() == 1
-	if tombstone {
+	if op == acl.OpObjectDelete {
 		// the only exception when writing tombstone should not be treated as deletion
 		// is intra-container replication: container nodes must be able to replicate
 		// such objects while deleting is prohibited
@@ -520,22 +493,23 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *pro
 }
 
 func (b Service) findRequestInfo(req interface {
-	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
-}, idCnr cid.ID, op acl.Op, verb sessionSDK.ObjectVerb, verb2 sessionv2.Verb, obj oid.ID) (RequestInfo, error) {
+}, idCnr cid.ID, op acl.Op, tokens common.RequestTokens) (RequestInfo, error) {
 	var (
-		info    RequestInfo
-		metaHdr = req.GetMetaHeader()
+		info         RequestInfo
+		reqAuthor    user.ID
+		reqAuthorPub []byte
+		err          error
 	)
-	reqAuthor, reqAuthorPub, err := b.getVerifiedSessionToken(metaHdr, verb, verb2, idCnr, obj)
-	if err != nil {
-		return info, err
+	if tokens.Session != nil {
+		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionToken(*tokens.Session)
+	} else if tokens.SessionV1 != nil {
+		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionV1Token(*tokens.SessionV1)
+	} else {
+		reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader())
 	}
-
-	if reqAuthor.IsZero() {
-		if reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader()); err != nil {
-			return info, fmt.Errorf("get request author: %w", err)
-		}
+	if err != nil {
+		return info, fmt.Errorf("get request author: %w", err)
 	}
 
 	cnr, err := b.containers.Get(idCnr)
@@ -543,9 +517,12 @@ func (b Service) findRequestInfo(req interface {
 		return info, err
 	}
 
-	bTok, err := b.getVerifiedBearerToken(metaHdr, idCnr, cnr.Owner(), reqAuthor)
-	if err != nil {
-		return info, err
+	if tokens.Bearer != nil {
+		if err := b.verifyBearerTokenAgainstRequest(*tokens.Bearer, idCnr, cnr.Owner(), reqAuthor); err != nil {
+			var errAccessDenied apistatus.ObjectAccessDenied
+			errAccessDenied.WriteReason(err.Error())
+			return info, errAccessDenied
+		}
 	}
 
 	// find request role and key
@@ -564,7 +541,7 @@ func (b Service) findRequestInfo(req interface {
 	info.SenderAccount = &reqAuthor
 
 	// add bearer token if it is present in request
-	info.Bearer = bTok
+	info.Bearer = tokens.Bearer
 
 	info.SrcRequest = req
 

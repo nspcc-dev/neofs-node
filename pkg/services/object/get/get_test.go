@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -20,7 +21,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -1241,12 +1241,7 @@ func parameterizeXHeaders(t testing.TB, p *Prm, ss []string) {
 		xs[i] = &protosession.XHeader{Key: ss[i], Value: ss[i+1]}
 	}
 
-	cp, err := util.CommonPrmFromRequest(&protoobject.GetRequest{
-		MetaHeader: &protosession.RequestMetaHeader{
-			XHeaders: xs,
-		},
-	})
-	require.NoError(t, err)
+	cp := util.CommonPrmFromRequest(0, xs, common.RequestTokens{})
 
 	p.SetCommonParameters(cp)
 }

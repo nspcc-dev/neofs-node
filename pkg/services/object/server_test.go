@@ -31,12 +31,15 @@ import (
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
@@ -48,9 +51,12 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -134,25 +140,34 @@ func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic
 
 type noCallTestReqInfoExtractor struct{}
 
-func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, oid.ID) (v2.RequestInfo, user.ID, error) {
+func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, acl.Op, common.RequestTokens) (v2.RequestInfo, user.ID, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) VerifySessionTokenMessage(*protosession.SessionTokenV2, sessionv2.Verb, cid.ID) (sessionv2.Token, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) VerifySessionV1TokenMessage(*protosession.SessionToken, session.ObjectVerb, cid.ID, oid.ID) (session.Object, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) VerifyBearerTokenMessage(*protoacl.BearerToken) (bearer.Token, error) {
 	panic("must not be called")
 }
 
@@ -172,26 +187,35 @@ func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { return true 
 
 type nopReqInfoExtractor struct{}
 
-func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, oid.ID) (v2.RequestInfo, user.ID, error) {
+func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, acl.Op, common.RequestTokens) (v2.RequestInfo, user.ID, error) {
 	return v2.RequestInfo{}, user.ID{}, nil
 }
-func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
+}
+func (nopReqInfoExtractor) VerifySessionTokenMessage(*protosession.SessionTokenV2, sessionv2.Verb, cid.ID) (sessionv2.Token, error) {
+	return sessionv2.Token{}, nil
+}
+func (nopReqInfoExtractor) VerifySessionV1TokenMessage(*protosession.SessionToken, session.ObjectVerb, cid.ID, oid.ID) (session.Object, error) {
+	return session.Object{}, nil
+}
+func (nopReqInfoExtractor) VerifyBearerTokenMessage(*protoacl.BearerToken) (bearer.Token, error) {
+	return bearer.Token{}, nil
 }
 
 type mockReqInfoExtractor struct {
@@ -199,7 +223,7 @@ type mockReqInfoExtractor struct {
 	getRequestInfo v2.RequestInfo
 }
 
-func (x mockReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
+func (x mockReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return x.getRequestInfo, nil
 }
 

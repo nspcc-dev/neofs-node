@@ -28,24 +28,29 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -154,12 +159,15 @@ type Storage interface {
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
 // checks from various types of grpc requests.
 type ACLInfoExtractor interface {
-	PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, oid.ID) (aclsvc.RequestInfo, user.ID, error)
-	DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
-	HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
-	GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
-	RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
-	SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID) (aclsvc.RequestInfo, error)
+	PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, acl.Op, common.RequestTokens) (aclsvc.RequestInfo, user.ID, error)
+	DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	VerifySessionTokenMessage(*protosession.SessionTokenV2, sessionv2.Verb, cid.ID) (sessionv2.Token, error)
+	VerifySessionV1TokenMessage(*protosession.SessionToken, session.ObjectVerb, cid.ID, oid.ID) (session.Object, error)
+	VerifyBearerTokenMessage(*protoacl.BearerToken) (bearer.Token, error)
 }
 
 // ClientConstructor returns a client for given node.
@@ -335,71 +343,59 @@ func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.Put
 	return req, nil
 }
 
-func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
-	switch v := req.GetBody().GetObjectPart().(type) {
-	default:
-		return fmt.Errorf("invalid object put stream part type %T", v)
-	case *protoobject.PutRequest_Body_Init_:
-		if v == nil || v.Init == nil { // TODO: seems like this is done several times, deduplicate
-			return errors.New("nil oneof field with heading part")
-		}
-
-		cp, err := objutil.CommonPrmFromRequest(req)
-		if err != nil {
-			return err
-		}
-
-		mo := &protoobject.Object{
-			ObjectId:  v.Init.ObjectId,
-			Signature: v.Init.Signature,
-			Header:    v.Init.Header,
-		}
-		var obj = new(object.Object)
-		err = obj.FromProtoMessage(mo)
-		if err != nil {
-			return err
-		}
-
-		var p putsvc.PutInitPrm
-		p.WithCommonPrm(cp)
-		p.WithObject(obj)
-		p.WithRelay(x.sendToRemoteNode)
-		if err = x.base.Init(&p); err != nil {
-			return fmt.Errorf("could not init object put stream: %w", err)
-		}
-
-		if x.cacheReqs = v.Init.Signature != nil; !x.cacheReqs {
-			return nil
-		}
-
-		x.expBytes = v.Init.Header.GetPayloadLength()
-		if m := x.base.MaxObjectSize(); x.expBytes > m {
-			return putsvc.ErrExceedingMaxSize
-		}
-		signed, err := x.resignRequest(req) // TODO: resign only when needed
-		if err != nil {
-			return err // TODO: add context
-		}
-		x.initReq = signed
-	case *protoobject.PutRequest_Body_Chunk:
-		c := v.Chunk
-		if x.cacheReqs {
-			if x.recvBytes += uint64(len(c)); x.recvBytes > x.expBytes {
-				return putsvc.ErrWrongPayloadSize
-			}
-		}
-		if err := x.base.SendChunk(new(putsvc.PutChunkPrm).WithChunk(c)); err != nil {
-			return fmt.Errorf("could not send payload chunk: %w", err)
-		}
-		if !x.cacheReqs {
-			return nil
-		}
-		signed, err := x.resignRequest(req) // TODO: resign only when needed
-		if err != nil {
-			return err // TODO: add context
-		}
-		x.chunkReqs = append(x.chunkReqs, signed)
+func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, reqMD requestMetadata) error {
+	mo := &protoobject.Object{
+		ObjectId:  initPart.ObjectId,
+		Signature: initPart.Signature,
+		Header:    initPart.Header,
 	}
+	var obj = new(object.Object)
+	err := obj.FromProtoMessage(mo)
+	if err != nil {
+		return err
+	}
+
+	var p putsvc.PutInitPrm
+	p.WithCommonPrm(objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens))
+	p.WithObject(obj)
+	p.WithRelay(x.sendToRemoteNode)
+	if err = x.base.Init(&p); err != nil {
+		return fmt.Errorf("could not init object put stream: %w", err)
+	}
+
+	if x.cacheReqs = initPart.Signature != nil; !x.cacheReqs {
+		return nil
+	}
+
+	x.expBytes = initPart.Header.GetPayloadLength()
+	if m := x.base.MaxObjectSize(); x.expBytes > m {
+		return putsvc.ErrExceedingMaxSize
+	}
+	signed, err := x.resignRequest(req) // TODO: resign only when needed
+	if err != nil {
+		return err // TODO: add context
+	}
+	x.initReq = signed
+	return nil
+}
+
+func (x *putStream) forwardChunkRequest(req *protoobject.PutRequest, c []byte) error {
+	if x.cacheReqs {
+		if x.recvBytes += uint64(len(c)); x.recvBytes > x.expBytes {
+			return putsvc.ErrWrongPayloadSize
+		}
+	}
+	if err := x.base.SendChunk(new(putsvc.PutChunkPrm).WithChunk(c)); err != nil {
+		return fmt.Errorf("could not send payload chunk: %w", err)
+	}
+	if !x.cacheReqs {
+		return nil
+	}
+	signed, err := x.resignRequest(req) // TODO: resign only when needed
+	if err != nil {
+		return err // TODO: add context
+	}
+	x.chunkReqs = append(x.chunkReqs, signed)
 	return nil
 }
 
@@ -468,21 +464,27 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return err
 		}
 
-		part, ok := req.Body.GetObjectPart().(*protoobject.PutRequest_Body_Init_)
-		if !ok {
-			if err = ps.forwardRequest(req); err != nil {
+		var initPart *protoobject.PutRequest_Body_Init
+
+		switch v := req.GetBody().GetObjectPart().(type) {
+		default:
+			err = s.sendStatusPutResponse(gStream, fmt.Errorf("invalid object put stream part type %T", v), reqFirst) // assign for defer
+			return err
+		case *protoobject.PutRequest_Body_Init_:
+			if v.Init == nil {
+				err = newBadRequestError(invalidRequestBodyMessage + ": missing init field") // defer
+				return s.sendStatusPutResponse(gStream, err, reqFirst)
+			}
+			initPart = v.Init
+		case *protoobject.PutRequest_Body_Chunk:
+			if err = ps.forwardChunkRequest(req, v.Chunk); err != nil {
 				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 				return err
 			}
 			continue
 		}
 
-		if part == nil || part.Init == nil {
-			err = newBadRequestError(invalidRequestBodyMessage + ": missing init field") // defer
-			return s.sendStatusPutResponse(gStream, err, reqFirst)
-		}
-
-		hdr := part.Init.Header
+		hdr := initPart.Header
 		if hdr == nil {
 			err = newBadRequestError(invalidPutRequestInitFieldMessage + ": missing header field") // defer
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
@@ -496,13 +498,28 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 		}
 
 		var objID oid.ID
-		objID, err = fetchOptionalObjectID(part.Init.ObjectId)
+		objID, err = fetchOptionalObjectID(initPart.ObjectId)
 		if err != nil {
 			err = newBadRequestError(invalidPutRequestInitFieldMessage + ": invalid header field: " + err.Error()) // defer
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
 		}
 
-		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req, part.Init, cnrID, objID); err != nil {
+		op, verb, verbV1 := acl.OpObjectPut, sessionv2.VerbObjectPut, session.VerbObjectPut
+		tombstone := initPart.GetHeader().GetObjectType() == protoobject.ObjectType_TOMBSTONE
+		if tombstone {
+			// such objects are specific - saving them is essentially the removal of other
+			// objects
+			op, verb, verbV1 = acl.OpObjectDelete, sessionv2.VerbObjectDelete, session.VerbObjectDelete
+		}
+
+		// another error variable to not shadow err used in defer
+		reqMD, metaHdrErr := s.handleRequestMetaHeader(req.MetaHeader, verb, verbV1, cnrID, objID)
+		if metaHdrErr != nil {
+			err = metaHdrErr // defer
+			return s.sendStatusPutResponse(gStream, err, reqFirst)
+		}
+
+		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req, initPart, cnrID, op, reqMD.tokens); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
 				if !errors.Is(err, apistatus.Error) {
 					err = newBadRequestError(err.Error()) // defer
@@ -521,7 +538,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			}
 		}
 
-		if err = ps.forwardRequest(req); err != nil {
+		if err = ps.forwardInitRequest(req, initPart, reqMD); err != nil {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
@@ -573,7 +590,12 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req, cnrID, objID)
+	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectDelete, session.VerbObjectDelete, cnrID, objID)
+	if err != nil {
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
+
+	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -590,11 +612,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	cp, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		err = newBadRequestError(fmt.Sprintf("invalid object address: %s", err.Error())) // defer
-		return s.makeStatusDeleteResponse(err, req), nil
-	}
+	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var rb protoobject.DeleteResponse_Body
 
@@ -673,7 +691,12 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req, cnrID, objID)
+	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectHead, session.VerbObjectHead, cnrID, objID)
+	if err != nil {
+		return s.makeStatusHeadResponse(err, needSignResp)
+	}
+
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -694,7 +717,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, cnrID, objID)
+	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, cnrID, objID, reqMD)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -809,11 +832,8 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, cnrID cid.ID, objID oid.ID) (getsvc.HeadPrm, error) {
-	cp, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		return getsvc.HeadPrm{}, err
-	}
+func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.HeadPrm, error) {
+	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.HeadPrm
 	p.SetCommonParameters(cp)
@@ -844,10 +864,11 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 					Ttl:     1,
 				},
 			}
+			var err error
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		}
-		if err != nil {
-			return nil, iprotobuf.BuffersSlice{}, err
+			if err != nil {
+				return nil, iprotobuf.BuffersSlice{}, err
+			}
 		}
 
 		var respBuf mem.BufferSlice
@@ -992,7 +1013,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req, cnrID, objID)
+	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectGet, session.VerbObjectGet, cnrID, objID)
+	if err != nil {
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	}
+
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1021,7 +1047,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		recheckEACL:  recheckEACL,
 		signResponse: needSignResp,
 		payloadOnly:  req.GetBody().GetPayloadOnly(),
-	}, cnrID, objID)
+	}, cnrID, objID, reqMD)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1034,12 +1060,13 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	})
 
 	p.WithECTransport(&getECTransport{
-		server:           s,
-		request:          req,
-		requestContainer: cnrID,
-		requestObject:    objID,
-		signResponses:    needSignResp,
-		responseStream:   gStream,
+		server:                       s,
+		requestSessionTokenMessage:   reqMD.sessionTokenMessage,
+		requestSessionV1TokenMessage: reqMD.sessionV1TokenMessage,
+		requestContainer:             cnrID,
+		requestObject:                objID,
+		signResponses:                needSignResp,
+		responseStream:               gStream,
 	})
 
 	// TODO: consider optimization
@@ -1207,7 +1234,7 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream, cnrID cid.ID, objID oid.ID) (getsvc.Prm, error) {
+func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.Prm, error) {
 	body := req.GetBody()
 
 	rng := body.GetRange()
@@ -1222,10 +1249,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		}
 	}
 
-	cp, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		return getsvc.Prm{}, err
-	}
+	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.Prm
 	p.SetCommonParameters(cp)
@@ -1372,7 +1396,12 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, cnrID, objID)
+	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectRange, session.VerbObjectRange, cnrID, objID)
+	if err != nil {
+		return s.sendStatusRangeResponse(gStream, err, req)
+	}
+
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1396,7 +1425,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		srv:          s,
 		req:          req,
 		signResponse: needSignResponse,
-	}, cnrID, objID)
+	}, cnrID, objID, reqMD)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1485,7 +1514,7 @@ func (s *Server) copyRangeStream(gStream grpc.ServerStream, stream io.Reader, ne
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream, cnrID cid.ID, objID oid.ID) (getsvc.RangePrm, error) {
+func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.RangePrm, error) {
 	body := req.GetBody()
 
 	rln := body.Range.GetLength()
@@ -1497,10 +1526,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 		return getsvc.RangePrm{}, errors.New("range overflow")
 	}
 
-	cp, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		return getsvc.RangePrm{}, err
-	}
+	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.RangePrm
 	p.SetCommonParameters(cp)
@@ -1766,7 +1792,12 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		return s.signSearchResponse(nil, err, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req, cnrID)
+	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectRange, session.VerbObjectRange, cnrID, oid.ID{})
+	if err != nil {
+		return s.signSearchResponse(nil, err, req)
+	}
+
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer

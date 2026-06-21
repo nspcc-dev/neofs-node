@@ -428,8 +428,7 @@ func TestService_Get_EC(t *testing.T) {
 		tc.nodes[string(nodeLists[0][i].Marshal())] = nodeSvcs[i]
 	}
 
-	cp, err := newCommonParameters(false, &sTok, nil)
-	require.NoError(t, err)
+	cp := newCommonParameters(false, &sTok, nil)
 
 	var prm Prm
 	prm.WithAddress(parentAddr)
@@ -630,10 +629,7 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 		return object.Object{}, nil, errors.New("[test] unexpected node")
 	}
 
-	cp, err := newCommonParameters(local, sTok, xs)
-	if err != nil {
-		return object.Object{}, nil, fmt.Errorf("newCommonParameters: %w", err)
-	}
+	cp := newCommonParameters(local, sTok, xs)
 
 	var w mockObjectWriter
 

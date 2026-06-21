@@ -23,6 +23,7 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	storage "github.com/nspcc-dev/neofs-node/pkg/util/state/session"
@@ -42,7 +43,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
@@ -132,16 +132,9 @@ func TestPayments(t *testing.T) {
 		sessionToken.SetAuthKey(cluster.nodeSessions[0].signer.Public())
 		require.NoError(t, sessionToken.Sign(owner))
 
-		req := &protoobject.PutRequest{
-			MetaHeader: &protosession.RequestMetaHeader{
-				Ttl:          2,
-				SessionToken: sessionToken.ProtoMessage(),
-			},
-		}
-		commonPrm, err := objutil.CommonPrmFromRequest(req)
-		if err != nil {
-			panic(err)
-		}
+		commonPrm := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
+			SessionV1: &sessionToken,
+		})
 
 		o := objecttest.Object()
 		o.SetContainerID(cID)
@@ -167,16 +160,9 @@ func TestPayments(t *testing.T) {
 
 		sessionTokenV2 := newSessionTokenV2(t, cID, owner, cluster.nodeSessions, []sessionv2.Verb{sessionv2.VerbObjectPut})
 
-		req := &protoobject.PutRequest{
-			MetaHeader: &protosession.RequestMetaHeader{
-				Ttl:            2,
-				SessionTokenV2: sessionTokenV2.ProtoMessage(),
-			},
-		}
-		commonPrm, err := objutil.CommonPrmFromRequest(req)
-		if err != nil {
-			panic(err)
-		}
+		commonPrm := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
+			Session: sessionTokenV2,
+		})
 
 		o := objecttest.Object()
 		o.SetContainerID(cID)
@@ -237,29 +223,18 @@ func TestQuotas(t *testing.T) {
 	sessionToken.SetAuthKey(cluster.nodeSessions[0].signer.Public())
 	require.NoError(t, sessionToken.Sign(owner))
 
-	req := &protoobject.PutRequest{
-		MetaHeader: &protosession.RequestMetaHeader{
-			Ttl:          2,
-			SessionToken: sessionToken.ProtoMessage(),
-		},
-	}
-	commonPrm, err := objutil.CommonPrmFromRequest(req)
+	commonPrm := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
+		SessionV1: &sessionToken,
+	})
 	if err != nil {
 		panic(err)
 	}
 
 	sessionTokenV2 := newSessionTokenV2(t, cID, owner, cluster.nodeSessions, []sessionv2.Verb{sessionv2.VerbObjectPut})
 
-	reqV2 := &protoobject.PutRequest{
-		MetaHeader: &protosession.RequestMetaHeader{
-			Ttl:            2,
-			SessionTokenV2: sessionTokenV2.ProtoMessage(),
-		},
-	}
-	commonPrmV2, err := objutil.CommonPrmFromRequest(reqV2)
-	if err != nil {
-		panic(err)
-	}
+	commonPrmV2 := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
+		Session: sessionTokenV2,
+	})
 
 	t.Run("known size before streaming", func(t *testing.T) {
 		stream, err := s.Put(context.Background())
@@ -1051,13 +1026,7 @@ func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ 
 	}
 
 	// TODO: following is needed because struct parameters privatize some data. Refactor to avoid this.
-	localReq := &protoobject.PutRequest{
-		MetaHeader: &protosession.RequestMetaHeader{Ttl: 1},
-	}
-	commonPrm, err := objutil.CommonPrmFromRequest(localReq)
-	if err != nil {
-		panic(err)
-	}
+	commonPrm := objutil.CommonPrmFromRequest(1, nil, common.RequestTokens{})
 
 	var ip PutInitPrm
 	ip.WithObject(hdr.CutPayload())
@@ -1314,21 +1283,10 @@ func putObjectWithSession(svc *Service, obj object.Object, st *session.Object, s
 		return fmt.Errorf("init stream: %w", err)
 	}
 
-	req := &protoobject.PutRequest{
-		MetaHeader: &protosession.RequestMetaHeader{
-			Ttl: 2,
-		},
-	}
-	if st2 != nil {
-		req.MetaHeader.SessionTokenV2 = st2.ProtoMessage()
-	} else if st != nil {
-		req.MetaHeader.SessionToken = st.ProtoMessage()
-	}
-
-	commonPrm, err := objutil.CommonPrmFromRequest(req)
-	if err != nil {
-		return fmt.Errorf("prepare common parameters: %w", err)
-	}
+	commonPrm := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
+		Session:   st2,
+		SessionV1: st,
+	})
 
 	ip := new(PutInitPrm).
 		WithObject(obj.CutPayload()).
