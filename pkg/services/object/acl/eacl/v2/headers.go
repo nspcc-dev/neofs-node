@@ -206,16 +206,6 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					// first object not defined, unexpected, do not attach any header
 				}
 			}
-		case *protoobject.SearchRequest:
-			var cnr cid.ID
-
-			if mc := req.GetBody().GetContainerId(); mc != nil {
-				if err := cnr.FromProtoMessage(mc); err != nil {
-					return fmt.Errorf("can't parse container ID: %w", err)
-				}
-			}
-
-			dst.objectHeaders = []eacl.Header{cidHeader(cnr)}
 		}
 	case responseXHeaderSource:
 		switch resp := m.resp.(type) {

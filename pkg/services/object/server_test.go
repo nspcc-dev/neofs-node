@@ -155,9 +155,6 @@ func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.
 func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
-	panic("must not be called")
-}
 func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
@@ -200,9 +197,6 @@ func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, com
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
-	return v2.RequestInfo{}, nil
-}
-func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
