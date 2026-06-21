@@ -127,32 +127,32 @@ func (s noCallTestStorage) GetSessionV2PrivateKey([]sessionv2.Target) (ecdsa.Pri
 type noCallTestACLChecker struct{}
 
 func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool { panic("must not be called") }
-func (noCallTestACLChecker) CheckEACL(context.Context, any, v2.RequestInfo) error {
+func (noCallTestACLChecker) CheckEACL(context.Context, any, cid.ID, oid.ID, v2.RequestInfo) error {
 	panic("must not be called")
 }
 func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic("must not be called") }
 
 type noCallTestReqInfoExtractor struct{}
 
-func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, oid.ID) (v2.RequestInfo, user.ID, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 
@@ -164,31 +164,33 @@ func (noCallClients) Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddr
 
 type nopACLChecker struct{}
 
-func (nopACLChecker) CheckBasicACL(v2.RequestInfo) bool                    { return true }
-func (nopACLChecker) CheckEACL(context.Context, any, v2.RequestInfo) error { return nil }
-func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool          { return true }
+func (nopACLChecker) CheckBasicACL(v2.RequestInfo) bool { return true }
+func (nopACLChecker) CheckEACL(context.Context, any, cid.ID, oid.ID, v2.RequestInfo) error {
+	return nil
+}
+func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { return true }
 
 type nopReqInfoExtractor struct{}
 
-func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, oid.ID) (v2.RequestInfo, user.ID, error) {
 	return v2.RequestInfo{}, user.ID{}, nil
 }
-func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 
@@ -197,7 +199,7 @@ type mockReqInfoExtractor struct {
 	getRequestInfo v2.RequestInfo
 }
 
-func (x mockReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+func (x mockReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (v2.RequestInfo, error) {
 	return x.getRequestInfo, nil
 }
 

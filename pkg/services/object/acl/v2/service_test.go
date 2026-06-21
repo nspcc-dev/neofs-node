@@ -18,6 +18,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -97,7 +98,7 @@ func (x *mockNetmapper) GetEpochBlock(uint64) (uint32, error) {
 	panic("unimplemented")
 }
 
-func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ) (aclsvc.RequestInfo, error),
+func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ, cid.ID, oid.ID) (aclsvc.RequestInfo, error),
 	signRequest func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) REQ,
 ) {
 	var err error
@@ -142,7 +143,7 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 	call := func(t *testing.T, cnrID cid.ID) error {
 		req := signRequest(t, sender, cnrID, meta)
 
-		_, err = exec(&svc, req)
+		_, err = exec(&svc, req, cnrID, oidtest.ID())
 		return err
 	}
 
@@ -199,7 +200,9 @@ func TestService_GetRequestToInfo_BearerTokenIssuer(t *testing.T) {
 }
 
 func TestService_SearchV2RequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, (*aclsvc.Service).SearchV2RequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.SearchV2Request {
+	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.SearchV2Request, cnr cid.ID, _ oid.ID) (aclsvc.RequestInfo, error) {
+		return svc.SearchV2RequestToInfo(req, cnr)
+	}, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.SearchV2Request {
 		req := &protoobject.SearchV2Request{
 			Body: &protoobject.SearchV2Request_Body{
 				ContainerId: cnrID.ProtoMessage(),
@@ -256,8 +259,8 @@ func TestService_RangeRequestToInfo_BearerTokenIssuer(t *testing.T) {
 }
 
 func TestService_PutRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.PutRequest) (aclsvc.RequestInfo, error) {
-		res, _, err := svc.PutRequestToInfo(req)
+	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.PutRequest, cnrID cid.ID, objID oid.ID) (aclsvc.RequestInfo, error) {
+		res, _, err := svc.PutRequestToInfo(req, req.Body.ObjectPart.(*protoobject.PutRequest_Body_Init_).Init, cnrID, objID)
 		return res, err
 	}, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.PutRequest {
 		req := &protoobject.PutRequest{

@@ -433,114 +433,45 @@ func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, error) {
-	cnr, err := getContainerIDFromRequest(request)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	obj, err := getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, *obj)
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectGet, sessionSDK.VerbObjectGet, sessionv2.VerbObjectGet, obj)
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, error) {
-	cnr, err := getContainerIDFromRequest(request)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	obj, err := getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, *obj)
+func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectHead, sessionSDK.VerbObjectHead, sessionv2.VerbObjectHead, obj)
 }
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, error) {
-	id, err := getContainerIDFromRequest(request)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
+func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request, id cid.ID) (RequestInfo, error) {
 	return b.findRequestInfo(request, id, acl.OpObjectSearch, sessionSDK.VerbObjectSearch, sessionv2.VerbObjectSearch, oid.ID{})
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (RequestInfo, error) {
-	cnr, err := getContainerIDFromRequest(request)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	obj, err := getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete, *obj)
+func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, sessionSDK.VerbObjectDelete, sessionv2.VerbObjectDelete, obj)
 }
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (RequestInfo, error) {
-	cnr, err := getContainerIDFromRequest(request)
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	obj, err := getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return RequestInfo{}, err
-	}
-
-	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionv2.VerbObjectRange, *obj)
+func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest, cnr cid.ID, obj oid.ID) (RequestInfo, error) {
+	return b.findRequestInfo(request, cnr, acl.OpObjectRange, sessionSDK.VerbObjectRange, sessionv2.VerbObjectRange, obj)
 }
 
 var ErrSkipRequest = errors.New("skip request")
 
 // PutRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker]. Returns [ErrSkipRequest] if check should not be performed.
-func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo, user.ID, error) {
-	body := request.GetBody()
-	if body == nil {
-		return RequestInfo{}, user.ID{}, errEmptyBody
-	}
-
-	part, ok := body.GetObjectPart().(*protoobject.PutRequest_Body_Init_)
-	if !ok {
-		return RequestInfo{}, user.ID{}, ErrSkipRequest
-	}
-	if part == nil || part.Init == nil {
-		return RequestInfo{}, user.ID{}, errors.New("nil oneof field with heading part")
-	}
-	cnr, err := getContainerIDFromRequest(request)
-	if err != nil {
-		return RequestInfo{}, user.ID{}, err
-	}
-
-	header := part.Init.Header
-
-	cIDV2 := header.GetContainerId().GetValue()
-	var cID cid.ID
-	err = cID.Decode(cIDV2)
-	if err != nil {
-		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid container ID: %w", err)
-	}
-
-	inContainer, err := b.nm.ServerInContainer(cID)
+func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, cnr cid.ID, obj oid.ID) (RequestInfo, user.ID, error) {
+	inContainer, err := b.nm.ServerInContainer(cnr)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, fmt.Errorf("checking if node in container: %w", err)
 	}
+
+	header := initPart.Header
 
 	if header.GetSplit() != nil && !inContainer {
 		// skip ACL checks for split objects if it is not a container
@@ -560,14 +491,6 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 	err = idOwner.FromProtoMessage(mOwner)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid object owner: %w", err)
-	}
-
-	var obj oid.ID
-	if part.Init.ObjectId != nil {
-		err = obj.FromProtoMessage(part.Init.ObjectId)
-		if err != nil {
-			return RequestInfo{}, user.ID{}, err
-		}
 	}
 
 	op, verb, verbv2 := acl.OpObjectPut, sessionSDK.VerbObjectPut, sessionv2.VerbObjectPut
@@ -634,7 +557,6 @@ func (b Service) findRequestInfo(req interface {
 	info.Container = cnr
 	info.RequestRole = role
 	info.Operation = op
-	info.ContainerID = idCnr
 
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation
@@ -645,10 +567,6 @@ func (b Service) findRequestInfo(req interface {
 	info.Bearer = bTok
 
 	info.SrcRequest = req
-
-	if !obj.IsZero() {
-		info.Obj = &obj
-	}
 
 	return info, nil
 }

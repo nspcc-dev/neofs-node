@@ -26,7 +26,7 @@ type cfg struct {
 	msg any
 
 	cnr cid.ID
-	obj *oid.ID
+	obj oid.ID
 }
 
 type ObjectStorage interface {
@@ -116,8 +116,6 @@ func requestHeaders(msg xHeaderSource) []eacl.Header {
 	return msg.GetXHeaders()
 }
 
-var errMissingOID = errors.New("object ID is missing")
-
 func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	switch m := h.msg.(type) {
 	default:
@@ -133,10 +131,6 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 		case
 			*protoobject.GetRequest,
 			*protoobject.HeadRequest:
-			if h.obj == nil {
-				return errMissingOID
-			}
-
 			objHeaders, completed := h.localObjectHeaders(h.cnr, h.obj)
 
 			dst.objectHeaders = objHeaders
@@ -144,10 +138,6 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 		case
 			*protoobject.GetRangeRequest,
 			*protoobject.DeleteRequest:
-			if h.obj == nil {
-				return errMissingOID
-			}
-
 			dst.objectHeaders = addressHeaders(h.cnr, h.obj)
 		case *protoobject.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*protoobject.PutRequest_Body_Init_); ok {
@@ -294,11 +284,11 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	return nil
 }
 
-func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eacl.Header, bool) {
-	if idObj != nil {
+func (h *cfg) localObjectHeaders(cnr cid.ID, idObj oid.ID) ([]eacl.Header, bool) {
+	if !idObj.IsZero() {
 		var addr oid.Address
 		addr.SetContainer(cnr)
-		addr.SetObject(*idObj)
+		addr.SetObject(idObj)
 
 		obj, err := h.storage.Head(h.ctx, addr)
 		if err == nil {
@@ -330,12 +320,12 @@ func ownerIDHeader(ownerID user.ID) sysObjHdr {
 	}
 }
 
-func addressHeaders(cnr cid.ID, oid *oid.ID) []eacl.Header {
+func addressHeaders(cnr cid.ID, oid oid.ID) []eacl.Header {
 	hh := make([]eacl.Header, 0, 2)
 	hh = append(hh, cidHeader(cnr))
 
-	if oid != nil {
-		hh = append(hh, oidHeader(*oid))
+	if !oid.IsZero() {
+		hh = append(hh, oidHeader(oid))
 	}
 
 	return hh

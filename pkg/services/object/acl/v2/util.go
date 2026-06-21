@@ -5,66 +5,8 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
-	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 )
-
-var errMissingContainerID = errors.New("missing container ID")
-
-func getContainerIDFromRequest(req any) (cid.ID, error) {
-	var mID *refs.ContainerID
-	var id cid.ID
-
-	switch v := req.(type) {
-	case *protoobject.GetRequest:
-		mID = v.GetBody().GetAddress().GetContainerId()
-	case *protoobject.PutRequest:
-		part, ok := v.GetBody().GetObjectPart().(*protoobject.PutRequest_Body_Init_)
-		if !ok {
-			return cid.ID{}, errors.New("can't get container ID in chunk")
-		}
-		if part == nil || part.Init == nil {
-			return cid.ID{}, errors.New("nil oneof heading part")
-		}
-		mID = part.Init.GetHeader().GetContainerId()
-	case *protoobject.HeadRequest:
-		mID = v.GetBody().GetAddress().GetContainerId()
-	case *protoobject.SearchRequest:
-		mID = v.GetBody().GetContainerId()
-	case *protoobject.SearchV2Request:
-		mID = v.GetBody().GetContainerId()
-	case *protoobject.DeleteRequest:
-		mID = v.GetBody().GetAddress().GetContainerId()
-	case *protoobject.GetRangeRequest:
-		mID = v.GetBody().GetAddress().GetContainerId()
-	default:
-		return cid.ID{}, errors.New("unknown request type")
-	}
-
-	if mID == nil {
-		return cid.ID{}, errMissingContainerID
-	}
-
-	return id, id.FromProtoMessage(mID)
-}
-
-// getObjectIDFromRequestBody decodes oid.ID from the common interface of the
-// object reference's holders. Returns an error if object ID is missing in the request.
-func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*oid.ID, error) {
-	mID := body.GetAddress().GetObjectId()
-	if mID == nil {
-		return nil, errors.New("missing object ID")
-	}
-
-	var id oid.ID
-	err := id.FromProtoMessage(mID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &id, nil
-}
 
 // assertVerb checks that token is applicable to the particular request.
 func assertVerb(tok sessionSDK.Object, reqVerb sessionSDK.ObjectVerb) bool {

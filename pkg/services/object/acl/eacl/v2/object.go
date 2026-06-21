@@ -30,7 +30,7 @@ func u64Value(v uint64) string {
 	return strconv.FormatUint(v, 10)
 }
 
-func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eacl.Header {
+func headersFromObject(obj *object.Object, cnr cid.ID, oid oid.ID) []eacl.Header {
 	var count int
 	for obj := obj; obj != nil; obj = obj.Parent() {
 		count += 9 + len(obj.Attributes())
@@ -66,8 +66,8 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eacl.Heade
 			},
 		)
 
-		if oid != nil {
-			res = append(res, oidHeader(*oid))
+		if !oid.IsZero() {
+			res = append(res, oidHeader(oid))
 		}
 
 		if idOwner := obj.Owner(); !idOwner.IsZero() {
@@ -100,7 +100,7 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eacl.Heade
 	return res
 }
 
-func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eacl.Header, error) {
+func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.Header, error) {
 	var ver version.Version
 	var creationEpoch uint64
 	var payloadLen uint64
@@ -231,8 +231,8 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id *oid.ID) ([]eacl.H
 		cidHeader(cnr),
 	)
 
-	if id != nil {
-		res = append(res, oidHeader(*id))
+	if !id.IsZero() {
+		res = append(res, oidHeader(id))
 	}
 
 	return res, nil

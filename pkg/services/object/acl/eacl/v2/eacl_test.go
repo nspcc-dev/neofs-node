@@ -106,7 +106,7 @@ func TestHeadRequest(t *testing.T) {
 			WithObjectStorage(lStorage),
 			WithServiceRequest(req),
 			WithCID(cnr),
-			WithOID(&id))
+			WithOID(id))
 		require.NoError(t, err)
 		return hdrSrc
 	}
@@ -293,7 +293,7 @@ func TestObjectHeaders(t *testing.T) {
 		}
 	}
 
-	testWithOption := func(t *testing.T, id *oid.ID, exp [][2]string, opt Option) {
+	testWithOption := func(t *testing.T, id oid.ID, exp [][2]string, opt Option) {
 		src, err := NewMessageHeaderSource(
 			WithCID(cnr),
 			WithOID(id),
@@ -313,7 +313,7 @@ func TestObjectHeaders(t *testing.T) {
 		require.ElementsMatch(t, exp, res)
 	}
 
-	testWithObject := func(t *testing.T, id *oid.ID, obj object.Object, exp [][2]string) {
+	testWithObject := func(t *testing.T, id oid.ID, obj object.Object, exp [][2]string) {
 		t.Run("binary", func(t *testing.T) {
 			msg := obj.ProtoMessage().Header
 			buf := make([]byte, msg.MarshaledSize())
@@ -326,7 +326,7 @@ func TestObjectHeaders(t *testing.T) {
 	}
 
 	t.Run("min", func(t *testing.T) {
-		testWithObject(t, nil, obj, [][2]string{
+		testWithObject(t, oid.ID{}, obj, [][2]string{
 			{"$Object:version", "v0.0"},
 			{"$Object:containerID", cnrStr},
 			{"$Object:creationEpoch", creationEpochStr},
@@ -372,7 +372,7 @@ func TestObjectHeaders(t *testing.T) {
 		child.SetPayloadHomomorphicHash(childHomoHash) //nolint:staticcheck // this is a test and such objects are possible
 		child.SetParent(&obj)
 
-		testWithObject(t, &id, child, [][2]string{
+		testWithObject(t, id, child, [][2]string{
 			{"$Object:objectID", idStr},
 			{"$Object:objectID", idStr}, // redundantly repeated
 			{"$Object:version", "v12.34"},
@@ -396,7 +396,7 @@ func TestObjectHeaders(t *testing.T) {
 		})
 	})
 
-	testWithObject(t, &id, obj, [][2]string{
+	testWithObject(t, id, obj, [][2]string{
 		{"$Object:objectID", idStr},
 		{"$Object:version", "v12.34"},
 		{"$Object:containerID", cnrStr},

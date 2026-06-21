@@ -154,12 +154,12 @@ type Storage interface {
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
 // checks from various types of grpc requests.
 type ACLInfoExtractor interface {
-	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
-	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
-	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
-	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
-	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
+	PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, oid.ID) (aclsvc.RequestInfo, user.ID, error)
+	DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
+	HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
+	RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, oid.ID) (aclsvc.RequestInfo, error)
+	SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID) (aclsvc.RequestInfo, error)
 }
 
 // ClientConstructor returns a client for given node.
@@ -464,18 +464,48 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 		}
 
 		if req.Body == nil {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage("malformed request: empty body")
-			err = bad // defer
+			err = newBadRequestError(missingRequestBodyMessage) // defer
 			return err
 		}
 
-		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
+		part, ok := req.Body.GetObjectPart().(*protoobject.PutRequest_Body_Init_)
+		if !ok {
+			if err = ps.forwardRequest(req); err != nil {
+				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
+				return err
+			}
+			continue
+		}
+
+		if part == nil || part.Init == nil {
+			err = newBadRequestError(invalidRequestBodyMessage + ": missing init field") // defer
+			return s.sendStatusPutResponse(gStream, err, reqFirst)
+		}
+
+		hdr := part.Init.Header
+		if hdr == nil {
+			err = newBadRequestError(invalidPutRequestInitFieldMessage + ": missing header field") // defer
+			return s.sendStatusPutResponse(gStream, err, reqFirst)
+		}
+
+		var cnrID cid.ID
+		cnrID, err = fetchRequiredContainerID(hdr.ContainerId)
+		if err != nil {
+			err = newBadRequestError(invalidPutRequestInitFieldMessage + ": invalid header field: " + err.Error()) // defer
+			return s.sendStatusPutResponse(gStream, err, reqFirst)
+		}
+
+		var objID oid.ID
+		objID, err = fetchOptionalObjectID(part.Init.ObjectId)
+		if err != nil {
+			err = newBadRequestError(invalidPutRequestInitFieldMessage + ": invalid header field: " + err.Error()) // defer
+			return s.sendStatusPutResponse(gStream, err, reqFirst)
+		}
+
+		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req, part.Init, cnrID, objID); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
 				if !errors.Is(err, apistatus.Error) {
-					var bad = new(apistatus.BadRequest)
-					bad.SetMessage(err.Error())
-					err = bad // defer
+					err = newBadRequestError(err.Error()) // defer
 				}
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
@@ -484,7 +514,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 				err = basicACLErr(reqInfo) // needed for defer
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
-			err = s.aclChecker.CheckEACL(gStream.Context(), req, reqInfo)
+			err = s.aclChecker.CheckEACL(gStream.Context(), req, cnrID, objID, reqInfo)
 			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 				err = eACLErr(reqInfo, err) // needed for defer
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
@@ -531,12 +561,22 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(apistatus.ErrNodeUnderMaintenance, req), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
+	body := req.Body
+	if body == nil {
+		err = newBadRequestError(missingRequestBodyMessage) // defer
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
+
+	cnrID, objID, err := fetchRequiredObjectAddress(body.Address)
+	if err != nil {
+		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
+
+	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req, cnrID, objID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
@@ -544,33 +584,15 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
-	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, cnrID, objID, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	ma := req.GetBody().GetAddress()
-	if ma == nil {
-		var bad = new(apistatus.BadRequest)
-		bad.SetMessage("malformed request: missing object address")
-		err = bad // defer
-		return s.makeStatusDeleteResponse(err, req), nil
-	}
-	var addr oid.Address
-	err = addr.FromProtoMessage(ma)
-	if err != nil {
-		var bad = new(apistatus.BadRequest)
-		bad.SetMessage(fmt.Sprintf("invalid object address: %s", err.Error()))
-		err = bad // defer
-		return s.makeStatusDeleteResponse(err, req), nil
-	}
-
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
-		var bad = new(apistatus.BadRequest)
-		bad.SetMessage(fmt.Sprintf("invalid object address: %s", err.Error()))
-		err = bad // defer
+		err = newBadRequestError(fmt.Sprintf("invalid object address: %s", err.Error())) // defer
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
@@ -578,7 +600,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 
 	var p deletesvc.Prm
 	p.SetCommonParameters(cp)
-	p.WithAddress(addr)
+	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithTombstoneAddressTarget((*deleteResponseBody)(&rb))
 	err = s.handlers.Delete(ctx, p)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
@@ -639,12 +661,22 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
+	body := req.Body
+	if body == nil {
+		err = newBadRequestError(missingRequestBodyMessage) // defer
+		return s.makeStatusHeadResponse(err, needSignResp)
+	}
+
+	cnrID, objID, err := fetchRequiredObjectAddress(body.Address)
+	if err != nil {
+		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
+		return s.makeStatusHeadResponse(err, needSignResp)
+	}
+
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req, cnrID, objID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
@@ -652,7 +684,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
-	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, cnrID, objID, reqInfo)
 	if err != nil {
 		if !errors.Is(err, aclsvc.ErrNotMatched) {
 			err = eACLErr(reqInfo, err) // needed for defer
@@ -662,12 +694,10 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp)
+	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, cnrID, objID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
@@ -726,7 +756,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		} else {
 			msg = &resp
 		}
-		err = s.aclChecker.CheckEACL(ctx, msg, reqInfo)
+		err = s.aclChecker.CheckEACL(ctx, msg, cnrID, objID, reqInfo)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 			err = eACLErr(reqInfo, err) // defer
 			return s.makeStatusHeadResponse(err, needSignResp)
@@ -779,18 +809,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
-	body := req.GetBody()
-	ma := body.GetAddress()
-	if ma == nil { // includes nil body
-		return getsvc.HeadPrm{}, errors.New("missing object address")
-	}
-
-	var addr oid.Address
-	if err := addr.FromProtoMessage(ma); err != nil {
-		return getsvc.HeadPrm{}, fmt.Errorf("invalid object address: %w", err)
-	}
-
+func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, cnrID cid.ID, objID oid.ID) (getsvc.HeadPrm, error) {
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
 		return getsvc.HeadPrm{}, err
@@ -798,9 +817,9 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 
 	var p getsvc.HeadPrm
 	p.SetCommonParameters(cp)
-	p.WithAddress(addr)
+	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithContainer(cnr)
-	p.WithRawFlag(body.Raw)
+	p.WithRawFlag(req.Body.Raw)
 	p.SetHeaderWriter(&headResponse{
 		dst: resp,
 	})
@@ -835,7 +854,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 		var hdr iprotobuf.BuffersSlice
 		return respBuf, hdr, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
-			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, req, addr.Object())
+			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, req, objID)
 			return err // TODO: log error
 		})
 	})
@@ -873,6 +892,8 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 type getStream struct {
 	base    protoobject.ObjectService_GetServer
 	srv     *Server
+	reqCID  cid.ID
+	reqOID  oid.ID
 	reqInfo aclsvc.RequestInfo
 
 	recheckEACL  bool
@@ -896,7 +917,7 @@ func (s *getStream) ValidateHeader(hdr *object.Object) error {
 		},
 	}
 
-	err := s.srv.aclChecker.CheckEACL(s.base.Context(), resp, s.reqInfo)
+	err := s.srv.aclChecker.CheckEACL(s.base.Context(), resp, s.reqCID, s.reqOID, s.reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		return eACLErr(s.reqInfo, err)
 	}
@@ -959,12 +980,22 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	body := req.Body
+	if body == nil {
+		err = newBadRequestError(missingRequestBodyMessage) // defer
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	}
+
+	cnrID, objID, err := fetchRequiredObjectAddress(body.Address)
+	if err != nil {
+		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
+		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	}
+
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req, cnrID, objID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
@@ -972,7 +1003,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
-	err = s.aclChecker.CheckEACL(gStream.Context(), req, reqInfo)
+	err = s.aclChecker.CheckEACL(gStream.Context(), req, cnrID, objID, reqInfo)
 	if err != nil {
 		if !errors.Is(err, aclsvc.ErrNotMatched) {
 			err = eACLErr(reqInfo, err) // needed for defer
@@ -984,16 +1015,16 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
 		base:         gStream,
 		srv:          s,
+		reqCID:       cnrID,
+		reqOID:       objID,
 		reqInfo:      reqInfo,
 		recheckEACL:  recheckEACL,
 		signResponse: needSignResp,
 		payloadOnly:  req.GetBody().GetPayloadOnly(),
-	})
+	}, cnrID, objID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
@@ -1003,10 +1034,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	})
 
 	p.WithECTransport(&getECTransport{
-		server:         s,
-		request:        req,
-		signResponses:  needSignResp,
-		responseStream: gStream,
+		server:           s,
+		request:          req,
+		requestContainer: cnrID,
+		requestObject:    objID,
+		signResponses:    needSignResp,
+		responseStream:   gStream,
 	})
 
 	// TODO: consider optimization
@@ -1050,7 +1083,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.
-		err = s.aclChecker.CheckEACL(gStream.Context(), hdrBuf[hdrf.ValueFrom:hdrf.To], reqInfo)
+		err = s.aclChecker.CheckEACL(gStream.Context(), hdrBuf[hdrf.ValueFrom:hdrf.To], cnrID, objID, reqInfo)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 			err = eACLErr(reqInfo, err) // defer
 			return s.sendStatusGetResponse(gStream, err, needSignResp)
@@ -1174,17 +1207,8 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream) (getsvc.Prm, error) {
+func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream, cnrID cid.ID, objID oid.ID) (getsvc.Prm, error) {
 	body := req.GetBody()
-	ma := body.GetAddress()
-	if ma == nil { // includes nil body
-		return getsvc.Prm{}, errors.New("missing object address")
-	}
-
-	var addr oid.Address
-	if err := addr.FromProtoMessage(ma); err != nil {
-		return getsvc.Prm{}, fmt.Errorf("invalid object address: %w", err)
-	}
 
 	rng := body.GetRange()
 	if rng != nil {
@@ -1205,7 +1229,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 
 	var p getsvc.Prm
 	p.SetCommonParameters(cp)
-	p.WithAddress(addr)
+	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithContainer(cnr)
 	p.WithRawFlag(body.Raw)
 	p.SetObjectWriter(stream)
@@ -1228,7 +1252,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	}
 
 	proxyCtx := getProxyContext{
-		reqOID:       addr.Object(),
 		respStream:   stream,
 		suppressInit: body.GetPayloadOnly(),
 	}
@@ -1264,7 +1287,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 }
 
 type getProxyContext struct {
-	reqOID       oid.ID
 	respStream   *getStream
 	suppressInit bool
 
@@ -1338,12 +1360,22 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
+	body := req.Body
+	if body == nil {
+		err = newBadRequestError(missingRequestBodyMessage) // defer
+		return s.sendStatusRangeResponse(gStream, err, req)
+	}
+
+	cnrID, objID, err := fetchRequiredObjectAddress(body.Address)
+	if err != nil {
+		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
+		return s.sendStatusRangeResponse(gStream, err, req)
+	}
+
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, cnrID, objID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
@@ -1351,7 +1383,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
-	err = s.aclChecker.CheckEACL(gStream.Context(), req, reqInfo)
+	err = s.aclChecker.CheckEACL(gStream.Context(), req, cnrID, objID, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err, req)
@@ -1364,12 +1396,10 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		srv:          s,
 		req:          req,
 		signResponse: needSignResponse,
-	})
+	}, cnrID, objID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
@@ -1455,17 +1485,8 @@ func (s *Server) copyRangeStream(gStream grpc.ServerStream, stream io.Reader, ne
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream) (getsvc.RangePrm, error) {
+func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream, cnrID cid.ID, objID oid.ID) (getsvc.RangePrm, error) {
 	body := req.GetBody()
-	ma := body.GetAddress()
-	if ma == nil { // includes nil body
-		return getsvc.RangePrm{}, errors.New("missing object address")
-	}
-
-	var addr oid.Address
-	if err := addr.FromProtoMessage(ma); err != nil {
-		return getsvc.RangePrm{}, fmt.Errorf("invalid object address: %w", err)
-	}
 
 	rln := body.Range.GetLength()
 	if rln == 0 { // includes nil range
@@ -1483,7 +1504,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 
 	var p getsvc.RangePrm
 	p.SetCommonParameters(cp)
-	p.WithAddress(addr)
+	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithContainer(cnr)
 	p.WithRawFlag(body.Raw)
 	p.SetChunkWriter(stream)
@@ -1733,12 +1754,22 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		return s.signSearchResponse(nil, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	body := req.Body
+	if body == nil {
+		err = newBadRequestError(missingRequestBodyMessage) // defer
+		return s.signSearchResponse(nil, err, req)
+	}
+
+	cnrID, err := fetchRequiredContainerID(body.ContainerId)
+	if err != nil {
+		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
+		return s.signSearchResponse(nil, err, req)
+	}
+
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req, cnrID)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
-			var bad = new(apistatus.BadRequest)
-			bad.SetMessage(err.Error())
-			err = bad // defer
+			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.signSearchResponse(nil, err, req)
 	}
@@ -1746,13 +1777,13 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.signSearchResponse(nil, err, req)
 	}
-	err = s.aclChecker.CheckEACL(ctx, req, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, cnrID, oid.ID{}, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err)
 		return s.signSearchResponse(nil, err, req)
 	}
 
-	respBody, err := s.processSearchRequest(ctx, req)
+	respBody, err := s.processSearchRequest(ctx, req, cnrID)
 
 	var respBufErr igrpc.MemBufferSliceError
 	if errors.As(err, &respBufErr) {
@@ -1781,14 +1812,8 @@ func verifySearchFilter(f *protoobject.SearchFilter) error {
 	return nil
 }
 
-func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response_Body, error) {
-	body := req.GetBody()
-	if body == nil {
-		return nil, errors.New("missing body")
-	}
-	if body.ContainerId == nil {
-		return nil, errors.New("missing container ID")
-	}
+func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request, cnrID cid.ID) (*protoobject.SearchV2Response_Body, error) {
+	body := req.Body
 	if body.Version != 1 {
 		return nil, errors.New("unsupported query version")
 	}
@@ -1825,7 +1850,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		return nil, errors.New("zero TTL")
 	}
 
-	res, newCursor, err := s.ProcessSearch(ctx, req, ttl == 1, true)
+	res, newCursor, err := s.ProcessSearch(ctx, req, ttl == 1, true, cnrID)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return nil, err
 	}
@@ -1845,7 +1870,7 @@ func (s *Server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	return resBody, err
 }
 
-func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, localOnly bool, forwardedResponseToError bool) ([]client.SearchResultItem, []byte, error) {
+func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request, localOnly bool, forwardedResponseToError bool, cID cid.ID) ([]client.SearchResultItem, []byte, error) {
 	body := req.GetBody()
 	var fs object.SearchFilters
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
@@ -1866,15 +1891,9 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		if errors.Is(err, objectcore.ErrUnreachableQuery) {
 			return nil, nil, nil
 		}
-		var bad = new(apistatus.BadRequest)
-		bad.SetMessage(err.Error())
-		return nil, nil, bad
+		return nil, nil, newBadRequestError(err.Error())
 	}
 
-	var cID cid.ID
-	if err = cID.FromProtoMessage(body.ContainerId); err != nil {
-		return nil, nil, fmt.Errorf("invalid container ID: %w", err)
-	}
 	cnr, err := s.fsChain.Get(cID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching container: %w", err)

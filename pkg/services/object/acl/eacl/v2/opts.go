@@ -63,7 +63,7 @@ func WithCID(v cid.ID) Option {
 	}
 }
 
-func WithOID(v *oid.ID) Option {
+func WithOID(v oid.ID) Option {
 	return func(c *cfg) {
 		c.obj = v
 	}
