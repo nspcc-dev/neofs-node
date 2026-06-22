@@ -16,7 +16,7 @@ func (m *Meta) PutObjects(o []*object.Object) error {
 
 func (m *Meta) storager(ctx context.Context, buff <-chan storageTask) {
 	ch := make(chan *object.Object, cap(buff))
-	go batchWriter(ctx, m.l, m.metabase, ch)
+	go batchWriter(ctx, m.l, m.batchFlushInterval, m.metabase, ch)
 
 	for {
 		if len(buff) >= notificationBuffSize-1 {
@@ -52,13 +52,12 @@ func (m *Meta) storager(ctx context.Context, buff <-chan storageTask) {
 	}
 }
 
-func batchWriter(ctx context.Context, l *zap.Logger, m *metabase.DB, buff <-chan *object.Object) {
+func batchWriter(ctx context.Context, l *zap.Logger, batchFlushThreshold time.Duration, m *metabase.DB, buff <-chan *object.Object) {
 	const (
-		maxBuffSize   = 100
-		maxBatchDelay = time.Second
+		maxBuffSize = 100
 	)
 	var (
-		t          = time.NewTicker(maxBatchDelay)
+		t          = time.NewTicker(batchFlushThreshold)
 		batch      = make([]*object.Object, 0, maxBuffSize)
 		writeBatch = func() {
 			err := m.PutBatch(batch)
@@ -66,7 +65,7 @@ func batchWriter(ctx context.Context, l *zap.Logger, m *metabase.DB, buff <-chan
 				l.Error("failed to put objects batch", zap.Int("batchSize", len(batch)), zap.Error(err))
 			}
 			batch = batch[:0]
-			t.Reset(maxBatchDelay)
+			t.Reset(batchFlushThreshold)
 		}
 	)
 
@@ -82,7 +81,7 @@ func batchWriter(ctx context.Context, l *zap.Logger, m *metabase.DB, buff <-chan
 			writeBatch()
 		case o := <-buff:
 			if len(batch) == 0 {
-				t.Reset(maxBatchDelay)
+				t.Reset(batchFlushThreshold)
 			}
 			batch = append(batch, o)
 			if len(batch) == maxBuffSize {

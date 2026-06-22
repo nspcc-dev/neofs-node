@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	blobstorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/metachain/gas"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -254,6 +255,10 @@ func initMeta(c *cfg) {
 		c.sidechain.Stop()
 	})
 
+	var batchFlushInterval = blobstorconfig.DefaultFlushInterval
+	if c.appCfg.Storage.Default.Blobstor.FlushInterval > 0 {
+		batchFlushInterval = c.appCfg.Storage.Default.Blobstor.FlushInterval
+	}
 	c.metaService, err = meta.New(meta.Parameters{
 		Logger: c.log.With(zap.String("component", "metadata service")),
 		Chain:  c.sidechain,
@@ -265,6 +270,7 @@ func initMeta(c *cfg) {
 			network:    c.netMapSource,
 			header:     c.cfgObject.getSvc,
 		},
+		FlushBatchInterval: batchFlushInterval,
 	})
 	fatalOnErr(err)
 

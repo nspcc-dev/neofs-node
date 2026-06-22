@@ -163,7 +163,8 @@ type Meta struct {
 	bCh         chan *block.Header
 	evsCh       chan *state.ContainedNotificationEvent
 
-	taskQueue chan storageTask
+	batchFlushInterval time.Duration
+	taskQueue          chan storageTask
 
 	metabase *metabase.DB
 	notifier *objectNotifier
@@ -174,10 +175,11 @@ const blockBuffSize = 10000
 // Parameters groups arguments for [New] call. Logger, Chain and Network
 // must not be nil, path must not be empty.
 type Parameters struct {
-	Logger  *zap.Logger
-	Chain   MetaChain
-	Path    string
-	Network NeoFSNetwork
+	Logger             *zap.Logger
+	Chain              MetaChain
+	Path               string
+	Network            NeoFSNetwork
+	FlushBatchInterval time.Duration
 }
 
 func validatePrm(p Parameters) error {
@@ -192,6 +194,9 @@ func validatePrm(p Parameters) error {
 	}
 	if p.Network == nil {
 		return errors.New("missing NeoFS network")
+	}
+	if p.FlushBatchInterval < 0 {
+		return fmt.Errorf("invalid flush batch threshold: %d, must be non-negative", p.FlushBatchInterval)
 	}
 
 	return nil
@@ -236,14 +241,19 @@ func New(p Parameters) (*Meta, error) {
 		return nil, fmt.Errorf("failed to init metabase: %w", err)
 	}
 
+	var flushInterval = p.FlushBatchInterval
+	if flushInterval == 0 {
+		flushInterval = 10 * time.Millisecond
+	}
 	m := &Meta{
-		l:         p.Logger,
-		chain:     p.Chain,
-		net:       p.Network,
-		bCh:       make(chan *block.Header, blockBuffSize),
-		evsCh:     make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		taskQueue: make(chan storageTask, notificationBuffSize),
-		metabase:  metaDB,
+		l:                  p.Logger,
+		chain:              p.Chain,
+		net:                p.Network,
+		bCh:                make(chan *block.Header, blockBuffSize),
+		evsCh:              make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		taskQueue:          make(chan storageTask, notificationBuffSize),
+		metabase:           metaDB,
+		batchFlushInterval: flushInterval,
 	}
 	notifier := newNotifier(m)
 	m.notifier = notifier
