@@ -159,6 +159,21 @@ func (exec *execCtx) initFromChild(obj oid.ID) (*oid.ID, []oid.ID) {
 func (exec *execCtx) overtakePayloadDirectly(children []oid.ID, rngs []object.Range, checkRight bool) {
 	withRng := len(rngs) > 0 && exec.ctxRange() != nil
 
+	if len(children) > 1 && prefetchWindow > 1 {
+		at := func(i int) (oid.ID, *object.Range, bool) {
+			if i >= len(children) {
+				return oid.ID{}, nil, false
+			}
+			if withRng {
+				return children[i], &rngs[i], true
+			}
+			return children[i], nil, true
+		}
+
+		exec.statusError = exec.streamChildrenPipelined(at, !withRng && checkRight)
+		return
+	}
+
 	for i := range children {
 		var r *object.Range
 		if withRng {

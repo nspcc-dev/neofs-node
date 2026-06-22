@@ -10,7 +10,10 @@ import (
 	"go.uber.org/zap"
 )
 
-var errNoLinkNoLastPart = errors.New("no link and no last part in split info")
+var (
+	errNoLinkNoLastPart = errors.New("no link and no last part in split info")
+	errWrongChildHeader = errors.New("wrong child header")
+)
 
 func (exec *execCtx) processV2Split(si *object.SplitInfo) {
 	if si.GetFirstPart().IsZero() {
@@ -74,7 +77,7 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 	linkObj := w.Object()
 	if !exec.isChild(linkObj) {
 		exec.status = statusUndefined
-		exec.err = errors.New("wrong child header")
+		exec.err = errWrongChildHeader
 		exec.log.Debug("parent address in link object differs")
 		return false
 	}
@@ -135,24 +138,39 @@ func (exec *execCtx) rangeFromLink(link object.Link) bool {
 	children := link.Objects()
 	rng := exec.ctxRange()
 	first, firstOffset, last, lastBound := requiredChildren(rng.GetOffset(), rng.GetLength(), children)
+	n := last - first + 1
 
-	for i := first; i <= last; i++ {
-		child := children[i]
+	at := func(i int) (oid.ID, *object.Range, bool) {
+		if i >= n {
+			return oid.ID{}, nil, false
+		}
 
-		var rngPerChild *object.Range
-		if i == first || i == last {
-			rngPerChild = new(object.Range)
+		idx := first + i
+		child := children[idx]
 
-			if i == first {
+		var rngPerChild object.Range
+		if idx == first || idx == last {
+			if idx == first {
 				rngPerChild.SetOffset(firstOffset)
 				rngPerChild.SetLength(uint64(child.ObjectSize()) - firstOffset)
 			}
-			if i == last {
+			if idx == last {
 				rngPerChild.SetLength(lastBound - rngPerChild.GetOffset())
 			}
+			return child.ObjectID(), &rngPerChild, true
 		}
 
-		if !exec.copyChild(child.ObjectID(), rngPerChild, false) {
+		return child.ObjectID(), nil, true
+	}
+
+	if n > 1 && prefetchWindow > 1 {
+		exec.statusError = exec.streamChildrenPipelined(at, false)
+		return true
+	}
+
+	for i := range n {
+		id, r, _ := at(i)
+		if !exec.copyChild(id, r, false) {
 			return true
 		}
 	}
