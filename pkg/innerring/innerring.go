@@ -1016,7 +1016,7 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("could not reset epoch timer: %w", err)
 	}
 
-	s.epochCounter.Store(epoch)
+	s.SetEpochCounter(epoch)
 	s.epochDuration.Store(epochDuration)
 
 	s.log.Info("read config from blockchain",
