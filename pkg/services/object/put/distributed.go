@@ -151,6 +151,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
 		putPayload(t.encodedObject.b)
 		t.encodedObject.b = nil
+		t.resetMetaCollection()
 	}()
 
 	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
@@ -296,8 +297,6 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			ruleNum = len(ruleOrder)
 		}
 	}
-
-	t.resetMetaCollection()
 
 	getRuleIdx := func(i int) int {
 		if ruleOrder == nil {
