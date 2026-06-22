@@ -75,6 +75,7 @@ type execCtx struct {
 	submitLocalRangeStreamFn SubmitDataStreamFunc
 
 	payloadOnly bool
+	recheckEACL bool
 	legacyRange bool
 
 	// collectOnly keeps one fetched stream and skips writing/assembly.
@@ -117,6 +118,12 @@ func withPayloadRange(r *object.Range) execOption {
 func withPayloadOnly(v bool) execOption {
 	return func(c *execCtx) {
 		c.payloadOnly = v
+	}
+}
+
+func withEACLRecheck(v bool) execOption {
+	return func(c *execCtx) {
+		c.recheckEACL = v
 	}
 }
 
@@ -354,6 +361,7 @@ func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool 
 	exec.statusError = exec.svc.get(exec.context(), p.commonPrm,
 		withPayloadRange(rng),
 		withPayloadOnly(exec.payloadOnly),
+		withEACLRecheck(exec.recheckEACL),
 		withLegacyRange(exec.legacyRange),
 		withLogger(log),
 	)
