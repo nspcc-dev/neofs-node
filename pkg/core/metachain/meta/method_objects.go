@@ -164,7 +164,7 @@ func (m *MetaData) submitObjectPut(ic *interop.Context, args []stackitem.Item) s
 		panic(fmt.Errorf("cannot retrieve placement vector from stack item: %w", err))
 	}
 
-	err = isSignedBySNs(ic, m.Hash, o.cID.BytesBE(), len(placement))
+	err = isSignedBySNs(ic, m.Hash, o.cID.BytesBE(), len(placement.Vectors))
 	if err != nil {
 		panic(err)
 	}
@@ -338,22 +338,28 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 	if err != nil {
 		panic(fmt.Errorf("cannot retrieve placement vector from stack item: %w", err))
 	}
-	if len(sigVectors) != len(placement) {
-		panic(fmt.Errorf("unexpected number of signature vectors: %d signatures, %d placement vectors found", len(sigVectors), len(placement)))
+	if len(sigVectors) != len(placement.Vectors) {
+		panic(fmt.Errorf("unexpected number of signature vectors: %d signatures, %d placement vectors found", len(sigVectors), len(placement.Vectors)))
 	}
 
+	var totalConfirmedSignatures uint32
 	for i, sigVector := range sigVectors {
-		if int(placement[i].REP) != len(sigVector) {
-			panic(fmt.Errorf("number of signatures for %d vector differs REP: %d != %d", i, len(sigVector), placement[i].REP))
+		if int(placement.Vectors[i].REP) != len(sigVector) && placement.MaxReplicas == 0 {
+			panic(fmt.Errorf("number of signatures for %d vector differs REP: %d != %d", i, len(sigVector), placement.Vectors[i].REP))
 		}
 		for j, sigIndexed := range sigVector {
-			if int(sigIndexed.ind) >= len(placement[i].Nodes) {
-				panic(fmt.Errorf("signature's index in %d vector is bigger than number of nodes: %d > %d", i, int(sigIndexed.ind), len(placement[i].Nodes)))
+			if int(sigIndexed.ind) >= len(placement.Vectors[i].Nodes) {
+				panic(fmt.Errorf("signature's index in %d vector is bigger than number of nodes: %d > %d", i, int(sigIndexed.ind), len(placement.Vectors[i].Nodes)))
 			}
-			if !placement[i].Nodes[int(sigIndexed.ind)].Verify(sigIndexed.sig, signedDataHash[:]) {
+			if !placement.Vectors[i].Nodes[int(sigIndexed.ind)].Verify(sigIndexed.sig, signedDataHash[:]) {
 				panic(fmt.Errorf("%d signature in %d vector invalid for %d node", j, i, sigIndexed.ind))
 			}
+			totalConfirmedSignatures++
 		}
+	}
+
+	if placement.MaxReplicas != 0 && totalConfirmedSignatures < placement.MaxReplicas {
+		panic(fmt.Errorf("max initial placement replicas: %d, only %d signatures were found", placement.MaxReplicas, totalConfirmedSignatures))
 	}
 
 	return stackitem.NewBool(true)
