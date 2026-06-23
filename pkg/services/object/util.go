@@ -7,6 +7,7 @@ import (
 
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -140,4 +141,10 @@ type copyReadError struct {
 
 func (x copyReadError) Unwrap() error {
 	return x.error
+}
+
+func newBadRequestError(cause string) apistatus.BadRequest {
+	var err apistatus.BadRequest
+	err.SetMessage(cause)
+	return err
 }

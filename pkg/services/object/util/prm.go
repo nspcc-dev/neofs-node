@@ -1,8 +1,7 @@
 package util
 
 import (
-	"fmt"
-
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
@@ -15,10 +14,7 @@ const maxLocalTTL = 1
 type CommonPrm struct {
 	local bool
 
-	token   *sessionsdk.Object
-	tokenV2 *sessionv2.Token
-
-	bearer *bearer.Token
+	tokens common.RequestTokens
 
 	ttl uint32
 
@@ -61,7 +57,7 @@ func (p *CommonPrm) LocalOnly() bool {
 
 func (p *CommonPrm) SessionToken() *sessionsdk.Object {
 	if p != nil {
-		return p.token
+		return p.tokens.SessionV1
 	}
 
 	return nil
@@ -69,7 +65,7 @@ func (p *CommonPrm) SessionToken() *sessionsdk.Object {
 
 func (p *CommonPrm) SessionTokenV2() *sessionv2.Token {
 	if p != nil {
-		return p.tokenV2
+		return p.tokens.Session
 	}
 
 	return nil
@@ -77,7 +73,7 @@ func (p *CommonPrm) SessionTokenV2() *sessionv2.Token {
 
 func (p *CommonPrm) BearerToken() *bearer.Token {
 	if p != nil {
-		return p.bearer
+		return p.tokens.Bearer
 	}
 
 	return nil
@@ -87,62 +83,20 @@ func (p *CommonPrm) BearerToken() *bearer.Token {
 // meta information before.
 func (p *CommonPrm) ForgetTokens() {
 	if p != nil {
-		p.token = nil
-		p.tokenV2 = nil
-		p.bearer = nil
+		p.tokens = common.RequestTokens{}
 	}
 }
 
 // CommonPrmFromRequest is a temporary copy-paste of [CommonPrmFromV2].
-func CommonPrmFromRequest(req interface {
-	GetMetaHeader() *protosession.RequestMetaHeader
-}) (*CommonPrm, error) {
-	meta := req.GetMetaHeader()
-	ttl := meta.GetTtl()
-
-	// unwrap meta header to get original request meta information
-	for meta.GetOrigin() != nil {
-		meta = meta.GetOrigin()
-	}
-
-	var st *sessionsdk.Object
-	var stV2 *sessionv2.Token
-
-	if meta.SessionToken != nil && meta.SessionTokenV2 != nil {
-		return nil, fmt.Errorf("both V1 and V2 session tokens are set")
-	}
-
-	if meta.SessionTokenV2 != nil {
-		stV2 = new(sessionv2.Token)
-		if err := stV2.FromProtoMessage(meta.SessionTokenV2); err != nil {
-			return nil, fmt.Errorf("invalid V2 session token: %w", err)
-		}
-	} else if meta.SessionToken != nil {
-		st = new(sessionsdk.Object)
-		if err := st.FromProtoMessage(meta.SessionToken); err != nil {
-			return nil, fmt.Errorf("invalid session token: %w", err)
-		}
-	}
-
-	var bt *bearer.Token
-	if meta.BearerToken != nil {
-		bt = new(bearer.Token)
-		if err := bt.FromProtoMessage(meta.BearerToken); err != nil {
-			return nil, fmt.Errorf("invalid bearer token: %w", err)
-		}
-	}
-
-	xHdrs := meta.XHeaders
+func CommonPrmFromRequest(ttl uint32, xHdrs []*protosession.XHeader, tokens common.RequestTokens) *CommonPrm {
 	prm := &CommonPrm{
-		local:   ttl <= maxLocalTTL,
-		token:   st,
-		tokenV2: stV2,
-		bearer:  bt,
-		ttl:     ttl - 1, // decrease TTL for new requests
-		xhdrs:   make([]string, 0, 2*len(xHdrs)),
+		local:  ttl <= maxLocalTTL,
+		tokens: tokens,
+		ttl:    ttl - 1, // decrease TTL for new requests
+		xhdrs:  make([]string, 0, 2*len(xHdrs)),
 	}
 	for i := range xHdrs {
 		prm.xhdrs = append(prm.xhdrs, xHdrs[i].GetKey(), xHdrs[i].GetValue())
 	}
-	return prm, nil
+	return prm
 }

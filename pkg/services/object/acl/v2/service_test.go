@@ -10,9 +10,11 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -97,7 +99,7 @@ func (x *mockNetmapper) GetEpochBlock(uint64) (uint32, error) {
 	panic("unimplemented")
 }
 
-func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ) (aclsvc.RequestInfo, error),
+func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error),
 	signRequest func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) REQ,
 ) {
 	var err error
@@ -142,7 +144,9 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 	call := func(t *testing.T, cnrID cid.ID) error {
 		req := signRequest(t, sender, cnrID, meta)
 
-		_, err = exec(&svc, req)
+		_, err = exec(&svc, req, cnrID, common.RequestTokens{
+			Bearer: &bt,
+		})
 		return err
 	}
 
@@ -256,8 +260,8 @@ func TestService_RangeRequestToInfo_BearerTokenIssuer(t *testing.T) {
 }
 
 func TestService_PutRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.PutRequest) (aclsvc.RequestInfo, error) {
-		res, _, err := svc.PutRequestToInfo(req)
+	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.PutRequest, cnrID cid.ID, tokens common.RequestTokens) (aclsvc.RequestInfo, error) {
+		res, _, err := svc.PutRequestToInfo(req, req.Body.ObjectPart.(*protoobject.PutRequest_Body_Init_).Init, cnrID, acl.OpObjectPut, tokens)
 		return res, err
 	}, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.PutRequest {
 		req := &protoobject.PutRequest{

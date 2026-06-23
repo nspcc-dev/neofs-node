@@ -18,6 +18,5 @@ var (
 	// mean the default behavior after the full table scan.
 	ErrNotMatched = errors.New("no matching rule")
 
-	errEmptyBody   = malformedRequestError("empty body")
 	errInvalidVerb = malformedRequestError("session token verb is invalid")
 )

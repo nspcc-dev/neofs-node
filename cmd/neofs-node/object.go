@@ -683,7 +683,7 @@ func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters object.
 		}
 	)
 
-	res, _, err := o.server.ProcessSearch(ctx, req, false, false)
+	res, _, err := o.server.ProcessSearch(ctx, req, false, false, cnr)
 	if err != nil {
 		return id, err
 	}

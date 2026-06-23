@@ -14,7 +14,9 @@ import (
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -109,7 +111,7 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 }
 
 // CheckEACL is a main check function for extended ACL.
-func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo) error {
+func (c *Checker) CheckEACL(ctx context.Context, msg any, cnr cid.ID, obj oid.ID, reqInfo v2.RequestInfo) error {
 	basicACL := reqInfo.Container.BasicACL()
 	if !basicACL.Extendable() {
 		return nil
@@ -138,7 +140,6 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo
 	}
 
 	var table eacl.Table
-	cnr := reqInfo.ContainerID
 
 	bearerTok := reqInfo.Bearer
 	if bearerTok == nil {
@@ -160,7 +161,7 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, reqInfo v2.RequestInfo
 		eaclV2.WithContext(ctx),
 		eaclV2.WithLocalObjectStorage(c.localStorage),
 		eaclV2.WithCID(cnr),
-		eaclV2.WithOID(reqInfo.Obj),
+		eaclV2.WithOID(obj),
 		eaclV2.WithHeaderSource(c.headerSource),
 	)
 

@@ -3,6 +3,8 @@ package v2
 import (
 	"context"
 
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -14,7 +16,7 @@ type ACLChecker interface {
 	CheckBasicACL(RequestInfo) bool
 	// CheckEACL must return non-nil error if request
 	// doesn't pass extended ACL validation.
-	CheckEACL(context.Context, any, RequestInfo) error
+	CheckEACL(context.Context, any, cid.ID, oid.ID, RequestInfo) error
 	// StickyBitCheck must return true only if sticky bit
 	// is disabled or enabled but request contains correct
 	// owner field.
