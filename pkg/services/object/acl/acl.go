@@ -195,13 +195,13 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, cnr cid.ID, obj oid.ID
 		vu.WithAccount(*sa)
 	}
 
-	action, matched, err := c.validator.CalculateAction(vu)
+	action, final, err := c.validator.CalculateAction(vu)
 
 	if err != nil {
 		return err
 	}
 
-	if !matched {
+	if !final {
 		return v2.ErrNotMatched
 	}
 

@@ -133,7 +133,9 @@ func TestHeadRequest(t *testing.T) {
 
 	lStorage.err = errors.New("any error")
 
-	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
+	checkNonFinalAction(t, validator, unit.WithHeaderSource(newSource(t)))
+
+	lStorage.err = nil
 
 	r.SetAction(eacl.ActionAllow)
 
@@ -147,20 +149,27 @@ func TestHeadRequest(t *testing.T) {
 	table = eacl.ConstructTable([]eacl.Record{r, rID})
 
 	unit.WithEACLTable(&table)
-	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
+	checkAction(t, eacl.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 }
 
 func checkAction(t *testing.T, expected eacl.Action, v *eacl.Validator, u *eacl.ValidationUnit) {
-	actual, fromRule, err := v.CalculateAction(u)
+	actual, final, err := v.CalculateAction(u)
 	require.NoError(t, err)
-	require.True(t, fromRule)
+	require.True(t, final)
 	require.Equal(t, expected, actual)
 }
 
 func checkDefaultAction(t *testing.T, v *eacl.Validator, u *eacl.ValidationUnit) {
-	actual, fromRule, err := v.CalculateAction(u)
+	actual, final, err := v.CalculateAction(u)
 	require.NoError(t, err)
-	require.False(t, fromRule)
+	require.True(t, final)
+	require.Equal(t, eacl.ActionAllow, actual)
+}
+
+func checkNonFinalAction(t *testing.T, v *eacl.Validator, u *eacl.ValidationUnit) {
+	actual, final, err := v.CalculateAction(u)
+	require.NoError(t, err)
+	require.False(t, final)
 	require.Equal(t, eacl.ActionAllow, actual)
 }
 
