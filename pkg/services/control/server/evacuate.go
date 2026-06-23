@@ -68,18 +68,12 @@ func (s *Server) replicate(addr oid.Address, obj *object.Object) error {
 		return nil // skip object
 	}
 
-	nm, err := s.netMapSrc.NetMap()
+	pl, err := s.placement.GetContainerPlacement(cid)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't build a list of container nodes: %w", err)
 	}
 
-	c, err := s.cnrSrc.Get(cid)
-	if err != nil {
-		return err
-	}
-
-	policy := c.PlacementPolicy()
-	ecRules := policy.ECRules()
+	ecRules := pl.ECRules
 	var totalECParts int
 	if pi.RuleIndex >= 0 {
 		if pi.RuleIndex >= len(ecRules) { // covers non-EC container
@@ -87,7 +81,7 @@ func (s *Server) replicate(addr oid.Address, obj *object.Object) error {
 				zap.Int("ruleIdx", pi.RuleIndex), zap.Int("totalRules", len(ecRules)))
 			return nil // skip object
 		}
-		totalECParts = int(ecRules[pi.RuleIndex].DataPartNum() + ecRules[pi.RuleIndex].ParityPartNum())
+		totalECParts = int(ecRules[pi.RuleIndex].DataPartNum + ecRules[pi.RuleIndex].ParityPartNum)
 		if pi.Index >= totalECParts {
 			s.log.Error("part index overflows total number of EC parts in part object", zap.Stringer("object", addr),
 				zap.Int("partIdx", pi.Index), zap.Int("totalParts", totalECParts))
@@ -95,14 +89,9 @@ func (s *Server) replicate(addr oid.Address, obj *object.Object) error {
 		}
 	}
 
-	ns, err := nm.ContainerNodes(policy, cid)
-	if err != nil {
-		return fmt.Errorf("can't build a list of container nodes: %w", err)
-	}
-
 	var nodes []netmap.NodeInfo
 	if pi.RuleIndex >= 0 {
-		n := ns[pi.RuleIndex]
+		n := pl.NodeSets[pi.RuleIndex]
 		for i := range iec.NodeSequenceForPart(pi.Index, totalECParts, len(n)) {
 			if s.nodeState.IsLocalNodePublicKey(n[i].PublicKey()) {
 				break
@@ -110,7 +99,7 @@ func (s *Server) replicate(addr oid.Address, obj *object.Object) error {
 			nodes = append(nodes, n[i])
 		}
 	} else {
-		nodes = slices.Concat(ns...)
+		nodes = slices.Concat(pl.NodeSets...)
 		bs := (*keys.PublicKey)(&s.key.PublicKey).Bytes()
 		nodes = slices.DeleteFunc(nodes, func(info netmap.NodeInfo) bool {
 			return bytes.Equal(info.PublicKey(), bs)
