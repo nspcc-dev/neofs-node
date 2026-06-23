@@ -177,6 +177,8 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 			MinTime:             5 * time.Second, // w/o this server sends GoAway with ENHANCE_YOUR_CALM code "too_many_pings"
 			PermitWithoutStream: true,
 		}),
+		grpc.ReadBufferSize(1024 * 1024),
+		grpc.WriteBufferSize(1024 * 1024),
 		grpc.ForceServerCodecV2(iprotobuf.BufferedCodec{}),
 	}
 	if maxRecvMsgSizeOpt != nil {
