@@ -1795,7 +1795,7 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		return s.signSearchResponse(nil, err, req)
 	}
 
-	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectRange, session.VerbObjectRange, cnrID, oid.ID{})
+	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectSearch, session.VerbObjectSearch, cnrID, oid.ID{})
 	if err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
