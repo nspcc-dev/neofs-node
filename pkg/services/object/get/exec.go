@@ -224,12 +224,17 @@ func (exec execCtx) address() oid.Address {
 }
 
 // isChild checks if reading object is a parent of the given object.
-// Object without reference to the parent (only children with the parent header
-// have it) is automatically considered as child: this should be guaranteed by
-// upper level logic.
+// Object without reference to the parent, or with a zero parent object ID, is
+// considered a child: such headers do not prove a different parent and upper
+// level logic is responsible for selecting the requested object.
 func (exec execCtx) isChild(obj *object.Object) bool {
 	par := obj.Parent()
-	return par == nil || equalAddresses(exec.address(), par.Address())
+	if par == nil {
+		return true
+	}
+
+	parAddr := par.Address()
+	return parAddr.Object().IsZero() || equalAddresses(exec.address(), parAddr)
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
@@ -371,6 +376,9 @@ func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool 
 
 	if ok && withHdr {
 		if hdr == nil {
+			exec.status = statusUndefined
+			exec.err = errWrongChildHeader
+			exec.log.Debug("missing child object header")
 			return false
 		}
 		if !exec.isChild(hdr) {

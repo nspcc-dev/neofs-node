@@ -17,6 +17,8 @@ var prefetchWindow = 2
 // childSlot carries one child's stream and the producer's result.
 type childSlot struct {
 	ready chan struct{}
+	id    oid.ID
+	rng   *object.Range
 	rc    io.ReadCloser
 	hdr   *object.Object
 	se    statusError
@@ -39,7 +41,7 @@ func (exec *execCtx) streamChildrenPipelined(at func(i int) (oid.ID, *object.Ran
 			return false
 		}
 
-		s := &childSlot{ready: make(chan struct{})}
+		s := &childSlot{ready: make(chan struct{}), id: id, rng: rng}
 		ring[i%len(ring)] = s
 		wg.Go(func() {
 			defer close(s.ready)
@@ -85,14 +87,28 @@ func (exec *execCtx) streamChildSlot(s *childSlot, dst ChunkWriter, buf []byte, 
 	<-s.ready
 
 	if s.se.status != statusOK {
+		if s.se.status == statusVIRTUAL {
+			if exec.copyChild(s.id, s.rng, checkHdr) {
+				return statusError{status: statusOK}
+			}
+
+			return exec.statusError
+		}
+
 		return s.se
 	}
 
 	if checkHdr && s.hdr != nil && !exec.isChild(s.hdr) {
 		exec.log.Debug("parent address in child object differs")
+		return statusError{status: statusUndefined, err: errWrongChildHeader}
 	}
 
-	_, copyErr := copyPayloadStreamBuffer(dst, s.rc, buf)
+	_, copyErr := copyPayloadStreamBuffer(chunkWriteObserver{
+		ChunkWriter: dst,
+		onWrite: func() {
+			exec.responseStarted = true
+		},
+	}, s.rc, buf)
 	closeErr := s.rc.Close()
 	s.rc = nil
 
