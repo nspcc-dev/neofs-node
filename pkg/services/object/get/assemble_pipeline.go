@@ -103,7 +103,12 @@ func (exec *execCtx) streamChildSlot(s *childSlot, dst ChunkWriter, buf []byte, 
 		return statusError{status: statusUndefined, err: errWrongChildHeader}
 	}
 
-	_, copyErr := copyPayloadStreamBuffer(dst, s.rc, buf)
+	_, copyErr := copyPayloadStreamBuffer(chunkWriteObserver{
+		ChunkWriter: dst,
+		onWrite: func() {
+			exec.responseStarted = true
+		},
+	}, s.rc, buf)
 	closeErr := s.rc.Close()
 	s.rc = nil
 
