@@ -46,31 +46,7 @@ func buildSplitScene(t testing.TB, ver, n int, delay time.Duration) *splitScene 
 
 	linkID := oidtest.ID()
 	linkAddr := oid.NewAddress(idCnr, linkID)
-
-	splitInfo := object.NewSplitInfo()
-	splitInfo.SetLink(linkID)
-
-	var linkObj *object.Object
-	switch ver {
-	case 1:
-		splitInfo.SetSplitID(object.NewSplitID())
-		linkObj = generateObject(linkAddr, nil, nil, childIDs...)
-	case 2:
-		splitInfo.SetFirstPart(childIDs[0])
-		linkObj = generateObject(linkAddr, nil, nil)
-		linkObj.SetFirstID(childIDs[0])
-		linkChildren := make([]object.MeasuredObject, len(children))
-		for i := range children {
-			children[i].SetParentID(addr.Object())
-			linkChildren[i].SetObjectID(children[i].GetID())
-			linkChildren[i].SetObjectSize(uint32(children[i].PayloadSize()))
-		}
-		var link object.Link
-		link.SetObjects(linkChildren)
-		linkObj.WriteLink(link)
-	}
-	linkObj.SetParentID(addr.Object())
-	linkObj.SetParent(srcObj)
+	linkObj, splitInfo := buildSplitLink(ver, linkAddr, srcObj, children, childIDs)
 
 	c1 := newTestClient()
 	c2 := newTestClient()
@@ -112,6 +88,81 @@ func buildSplitScene(t testing.TB, ver, n int, delay time.Duration) *splitScene 
 
 func (sc *splitScene) childAddr(i int) oid.Address {
 	return oid.NewAddress(sc.addr.Container(), sc.childIDs[i])
+}
+
+func addNestedVirtualChild(sc *splitScene, ver, idx int) {
+	idCnr := sc.addr.Container()
+	parentAddr := sc.childAddr(idx)
+	left := idx * splitChildPayloadLen
+	payload := append([]byte(nil), sc.payload[left:left+splitChildPayloadLen]...)
+
+	parent := generateObject(parentAddr, nil, payload)
+	parent.SetPayloadSize(uint64(len(payload)))
+
+	childIDs := []oid.ID{oidtest.ID(), oidtest.ID()}
+	children := make([]*object.Object, len(childIDs))
+	var prev *oid.ID
+	for i, id := range childIDs {
+		part := append([]byte(nil), payload[i*5:(i+1)*5]...)
+		addr := oid.NewAddress(idCnr, id)
+		children[i] = generateObject(addr, prev, part)
+		children[i].SetParentID(parentAddr.Object())
+		if i == len(childIDs)-1 {
+			children[i].SetParent(parent)
+		}
+		cp := id
+		prev = &cp
+	}
+
+	linkID := oidtest.ID()
+	linkAddr := oid.NewAddress(idCnr, linkID)
+	linkObj, splitInfo := buildSplitLink(ver, linkAddr, parent, children, childIDs)
+
+	sc.c1.addResult(parentAddr, nil, errors.New("any error"))
+	sc.c2.addResult(parentAddr, nil, object.NewSplitInfoError(splitInfo))
+	sc.c1.addResult(linkAddr, nil, errors.New("any error"))
+	sc.c2.addResult(linkAddr, linkObj, nil)
+
+	vectors := sc.svc.neoFSNet.(*testNeoFS).vectors
+	ns := vectors[sc.addr]
+	vectors[linkAddr] = ns
+	for i := range children {
+		addr := oid.NewAddress(idCnr, childIDs[i])
+		sc.c1.addResult(addr, nil, errors.New("any error"))
+		sc.c2.addResult(addr, children[i], nil)
+		vectors[addr] = ns
+	}
+}
+
+func buildSplitLink(ver int, linkAddr oid.Address, parent *object.Object, children []*object.Object, childIDs []oid.ID) (*object.Object, *object.SplitInfo) {
+	splitInfo := object.NewSplitInfo()
+	splitInfo.SetLink(linkAddr.Object())
+
+	var linkObj *object.Object
+	switch ver {
+	case 1:
+		splitInfo.SetSplitID(object.NewSplitID())
+		linkObj = generateObject(linkAddr, nil, nil, childIDs...)
+	case 2:
+		splitInfo.SetFirstPart(childIDs[0])
+		linkObj = generateObject(linkAddr, nil, nil)
+		linkObj.SetFirstID(childIDs[0])
+
+		linkChildren := make([]object.MeasuredObject, len(children))
+		for i := range children {
+			children[i].SetParentID(parent.GetID())
+			linkChildren[i].SetObjectID(children[i].GetID())
+			linkChildren[i].SetObjectSize(uint32(children[i].PayloadSize()))
+		}
+
+		var link object.Link
+		link.SetObjects(linkChildren)
+		linkObj.WriteLink(link)
+	}
+	linkObj.SetParentID(parent.GetID())
+	linkObj.SetParent(parent)
+
+	return linkObj, splitInfo
 }
 
 func getInto(ctx context.Context, svc *Service, addr oid.Address, w ObjectWriter) error {
@@ -204,6 +255,53 @@ func TestAssembleSplitPipelined(t *testing.T) {
 				_, err := getFull(cctx, sc.svc, sc.addr)
 				require.Error(t, err)
 			})
+
+			t.Run("nested virtual child", func(t *testing.T) {
+				setPrefetchWindow(t, 3)
+
+				sc := buildSplitScene(t, sv.ver, 4, time.Millisecond)
+				addNestedVirtualChild(sc, sv.ver, 1)
+
+				w, err := getFull(ctx, sc.svc, sc.addr)
+				require.NoError(t, err)
+				require.Equal(t, sc.payload, w.Object().Payload())
+			})
+
+			t.Run("nested virtual child payload only", func(t *testing.T) {
+				setPrefetchWindow(t, 3)
+
+				sc := buildSplitScene(t, sv.ver, 4, time.Millisecond)
+				addNestedVirtualChild(sc, sv.ver, 1)
+
+				w := NewSimpleObjectWriter()
+				var p Prm
+				p.SetObjectWriter(w)
+				p.MarkPayloadOnly()
+				p.RequireEACLRecheck()
+				p.common = new(util.CommonPrm).WithLocalOnly(false)
+				p.WithAddress(sc.addr)
+
+				require.NoError(t, sc.svc.Get(ctx, p))
+				require.Equal(t, sc.payload, w.Object().Payload())
+			})
+		})
+
+		t.Run("V2 accepts zero parent object ID", func(t *testing.T) {
+			setPrefetchWindow(t, 3)
+
+			sc := buildSplitScene(t, 2, 4, time.Millisecond)
+			zeroParent := new(object.Object)
+			zeroParent.SetContainerID(sc.addr.Container())
+			zeroParent.SetPayloadSize(uint64(len(sc.payload)))
+
+			for i := range sc.childIDs {
+				child := sc.c2.results[sc.childAddr(i)].obj
+				child.SetParent(zeroParent)
+			}
+
+			w, err := getFull(ctx, sc.svc, sc.addr)
+			require.NoError(t, err)
+			require.Equal(t, sc.payload, w.Object().Payload())
 		})
 	}
 }

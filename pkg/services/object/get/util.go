@@ -455,6 +455,11 @@ func (w *directChildWriter) WriteHeader(obj *object.Object) error {
 	return nil
 }
 
+func (w *directChildWriter) ValidateHeader(obj *object.Object) error {
+	w.hdr = obj
+	return nil
+}
+
 func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
 	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
 	conn, err := c.connect(ctx, node)
