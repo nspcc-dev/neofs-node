@@ -34,6 +34,8 @@ func (exec *execCtx) streamChildrenPipelined(at func(i int) (oid.ID, *object.Ran
 	gCtx, cancel := context.WithCancel(exec.context())
 	defer cancel()
 
+	fetchCtx := exec.childFetchCtx()
+
 	var wg sync.WaitGroup
 	launch := func(i int) bool {
 		id, rng, ok := at(i)
@@ -45,7 +47,7 @@ func (exec *execCtx) streamChildrenPipelined(at func(i int) (oid.ID, *object.Ran
 		ring[i%len(ring)] = s
 		wg.Go(func() {
 			defer close(s.ready)
-			s.hdr, s.rc, s.se = exec.fetchChildStream(gCtx, id, rng)
+			s.hdr, s.rc, s.se = fetchCtx.fetchChildStream(gCtx, id, rng)
 		})
 		return true
 	}
