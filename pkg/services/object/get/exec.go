@@ -299,30 +299,57 @@ func (exec *execCtx) headOnly() bool {
 	return exec.head
 }
 
+// childFetchCtx is an immutable snapshot used by prefetch goroutines.
+type childFetchCtx struct {
+	svc *Service
+
+	prm RangePrm
+	cnr cid.ID
+
+	payloadOnly bool
+	legacyRange bool
+
+	log *zap.Logger
+}
+
+func (exec *execCtx) childFetchCtx() childFetchCtx {
+	return childFetchCtx{
+		svc: exec.svc,
+
+		prm: exec.prm,
+		cnr: exec.containerID(),
+
+		payloadOnly: exec.payloadOnly,
+		legacyRange: exec.legacyRange,
+
+		log: exec.log,
+	}
+}
+
 // fetchChildStream fetches a single physical child stream. Virtual children are
 // returned as statusVIRTUAL for the caller to handle.
-func (exec *execCtx) fetchChildStream(ctx context.Context, id oid.ID, rng *object.Range) (*object.Object, io.ReadCloser, statusError) {
-	log := exec.log
+func (c childFetchCtx) fetchChildStream(ctx context.Context, id oid.ID, rng *object.Range) (*object.Object, io.ReadCloser, statusError) {
+	log := c.log
 	if rng != nil {
 		log = log.With(zap.String("child range", prettyRange(rng)))
 	}
 
-	p := exec.prm
+	p := c.prm
 	// keep concurrent fetches race-free
 	if p.common != nil {
-		c := *p.common
-		c.WithLocalOnly(false)
-		p.common = &c
+		common := *p.common
+		common.WithLocalOnly(false)
+		p.common = &common
 	}
 	p.SetRange(rng)
-	p.addr.SetContainer(exec.containerID())
+	p.addr.SetContainer(c.cnr)
 	p.addr.SetObject(id)
 
 	var res collectResult
-	se := exec.svc.get(ctx, p.commonPrm,
+	se := c.svc.get(ctx, p.commonPrm,
 		withPayloadRange(rng),
-		withPayloadOnly(exec.payloadOnly),
-		withLegacyRange(exec.legacyRange),
+		withPayloadOnly(c.payloadOnly),
+		withLegacyRange(c.legacyRange),
 		withLogger(log),
 		withCollectOnlyResult(&res),
 	)
