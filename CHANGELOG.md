@@ -65,6 +65,7 @@ Changelog for NeoFS Node
 - Optimized netmap caching in node (#3966)
 - Store associated object ID as bytes instead of Base58 in metabase (#3971)
 - Optimized local RANGE request execution (#3967)
+- SN pushes URI-style endpoints to netmap instead of multiaddr (#3982)
 
 ### Removed
 - `policer.max_workers` configuration (#3920)
