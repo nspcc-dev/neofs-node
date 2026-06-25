@@ -165,6 +165,11 @@ func (c *neofsNetwork) List(e uint64) (map[cid.ID]struct{}, error) {
 }
 
 func initMeta(c *cfg) {
+	if c.appCfg.Meta.Path == "" {
+		c.log.Info("consistent metadata turned off")
+		return
+	}
+
 	l := c.log.With(zap.String("component", "metadata chain (SN)"))
 
 	v, err := c.cfgMorph.client.GetVersion()

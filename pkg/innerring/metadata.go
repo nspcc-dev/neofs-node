@@ -95,13 +95,16 @@ func (nc *metadataNotaryClient) UpdateContainerPlacement(cID cid.ID, vectors [][
 
 	var (
 		placement meta.Placement
-		replicas  = policy.Replicas()
+		replicas  = replicas(policy)
 	)
+	if initial := policy.Initial(); initial != nil {
+		placement.MaxReplicas = initial.MaxReplicas()
+	}
 	for i, v := range vectors {
 		var cnrVector meta.PlacementVector
 		rep := uint8(1)
 		if i < len(replicas) {
-			rep = uint8(policy.ReplicaNumberByIndex(i))
+			rep = uint8(replicas[i])
 		}
 		cnrVector.REP = rep
 
@@ -121,10 +124,23 @@ func (nc *metadataNotaryClient) UpdateContainerPlacement(cID cid.ID, vectors [][
 		sort.Sort(kk)
 		cnrVector.Nodes = kk
 
-		placement = append(placement, cnrVector)
+		placement.Vectors = append(placement.Vectors, cnrVector)
 	}
 
 	return callMetaContractAndWait(act, nonce, "updateContainerList", cID[:], &placement)
+}
+
+func replicas(policy netmap.PlacementPolicy) []uint32 {
+	if initial := policy.Initial(); initial != nil {
+		return initial.ReplicaLimits()
+	}
+
+	netmapReps := policy.Replicas()
+	res := make([]uint32, len(netmapReps))
+	for i := range netmapReps {
+		res[i] = policy.ReplicaNumberByIndex(i)
+	}
+	return res
 }
 
 func callMetaContractAndWait(act *notary.Actor, nonce uint32, method string, params ...any) error {

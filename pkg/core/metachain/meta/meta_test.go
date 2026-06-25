@@ -75,6 +75,7 @@ func TestMetaDataContract_Netmap(t *testing.T) {
 	require.Nil(t, coldVal)
 
 	var newPlacement meta.Placement
+	newPlacement.MaxReplicas = 123
 	for i := range 5 {
 		var nodes keys.PublicKeys
 		for range 5 {
@@ -84,7 +85,7 @@ func TestMetaDataContract_Netmap(t *testing.T) {
 		}
 		sort.Sort(nodes)
 
-		newPlacement = append(newPlacement, meta.PlacementVector{
+		newPlacement.Vectors = append(newPlacement.Vectors, meta.PlacementVector{
 			REP:   uint8(i),
 			Nodes: nodes,
 		})
@@ -103,16 +104,26 @@ func requirePlacementsEqual(t *testing.T, a, b stackitem.Item) {
 	p1, p2 := a.Value().([]stackitem.Item), b.Value().([]stackitem.Item)
 	require.Equal(t, len(p1), len(p2))
 
-	for i := range p1 {
-		v1 := p1[i].Value().([]stackitem.Item)
-		v2 := p2[i].Value().([]stackitem.Item)
+	maxRep1, err := p1[0].TryInteger()
+	require.NoError(t, err)
+	maxRep2, err := p2[0].TryInteger()
+	require.NoError(t, err)
+	require.Equal(t, maxRep1.Uint64(), maxRep2.Uint64())
+
+	vectors1 := p1[1].Value().([]stackitem.Item)
+	vectors2 := p2[1].Value().([]stackitem.Item)
+
+	for i := range vectors1 {
+		v1 := vectors1[i].Value().([]stackitem.Item)
+		v2 := vectors2[i].Value().([]stackitem.Item)
+		require.Equal(t, len(v1), len(v2))
 
 		r1, err := v1[0].TryInteger()
 		require.NoError(t, err)
 		r2, err := v2[0].TryInteger()
 		require.NoError(t, err)
 
-		require.Zero(t, r1.Cmp(r2))
+		require.Equal(t, r1.Uint64(), r2.Uint64())
 
 		n1 := v1[1].Value().([]stackitem.Item)
 		n2 := v2[1].Value().([]stackitem.Item)
@@ -137,19 +148,29 @@ func TestMetaDataContract_Objects(t *testing.T) {
 		nodesInVector = 4
 	)
 
-	var nodes [][]*keys.PrivateKey
+	var (
+		nodes     []*keys.PrivateKey
+		placement meta.Placement
+	)
 	for range numOfVectors {
-		vector := make([]*keys.PrivateKey, 0, nodesInVector)
+		vector := make(keys.PublicKeys, 0, nodesInVector)
 		for range nodesInVector {
 			k, err := keys.NewPrivateKey()
 			require.NoError(t, err)
 
-			vector = append(vector, k)
+			nodes = append(nodes, k)
+			vector = append(vector, k.PublicKey())
+			sort.Sort(vector)
 		}
-		nodes = append(nodes, vector)
+
+		placement.Vectors = append(placement.Vectors, meta.PlacementVector{
+			REP:   uint8(len(vector)),
+			Nodes: vector,
+		})
 	}
-	updateContainerList(t, metaCommitteeI, cID, nodes)
-	snMultisigner := nodesMultiSigner(metaCommitteeI.Hash, cID, nodes)
+
+	updateContainerList(t, metaCommitteeI, cID, placement)
+	snMultisigner := nodesMultiSigner(metaCommitteeI.Hash, cID, placement, nodes)
 
 	t.Run("meta disabled", func(t *testing.T) {
 		oID := oidtest.ID()
@@ -170,10 +191,38 @@ func TestMetaDataContract_Objects(t *testing.T) {
 			m := testMeta(cID[:], oID[:])
 			rawMeta, err := stackitem.Serialize(m)
 			require.NoError(t, err)
-			badNodes := slices.Clone(nodes)
-			badNodes = badNodes[:len(badNodes)/2]
 
-			verificationFailWithBadSigner(t, metaCommitteeI, nodesMultiSigner(metaCommitteeI.Hash, cID, badNodes), "unexpected", "submitObjectPut", rawMeta)
+			badPlacement := placement
+			badPlacement.Vectors = badPlacement.Vectors[:len(badPlacement.Vectors)/2]
+
+			verificationFailWithBadSigner(t, metaCommitteeI, nodesMultiSigner(metaCommitteeI.Hash, cID, badPlacement, nodes), "unexpected", "submitObjectPut", rawMeta)
+		})
+
+		t.Run("signatures duplications", func(t *testing.T) {
+			m := testMeta(cID[:], oID[:])
+			rawMeta, err := stackitem.Serialize(m)
+			require.NoError(t, err)
+
+			duplicatedKeys := make([]*keys.PublicKey, 0, len(placement.Vectors))
+			for i := range placement.Vectors {
+				duplicatedKeys = append(duplicatedKeys, placement.Vectors[i].Nodes[0])
+			}
+
+			badPlacement := placement
+			badPlacement.Vectors = slices.Clone(placement.Vectors)
+			for i := range badPlacement.Vectors {
+				badPlacement.Vectors[i].Nodes = slices.Clone(placement.Vectors[i].Nodes)
+			}
+			for i, v := range badPlacement.Vectors {
+				for j := range v.Nodes {
+					v.Nodes[j] = duplicatedKeys[i]
+				}
+			}
+
+			s := nodesMultiSigner(metaCommitteeI.Hash, cID, badPlacement, nodes).(signer)
+			s.overrideSignatureIndex = 0
+
+			verificationFailWithBadSigner(t, metaCommitteeI, s, "is duplicated", "submitObjectPut", rawMeta)
 		})
 
 		t.Run("correct meta data", func(t *testing.T) {
@@ -277,6 +326,33 @@ func TestMetaDataContract_Objects(t *testing.T) {
 				copy(k[1+32:], lockedObj[:])
 				require.Equal(t, anotherOID[:], []byte(metaCommitteeI.Chain.GetStorageItem(meta.MetaDataContractID, k)))
 			})
+
+			t.Run("max replicas placement", func(t *testing.T) {
+				cID := cidtest.ID()
+				metaCommitteeI.Invoke(t, stackitem.Null{}, "registerMetaContainer", cID[:])
+
+				// same placement as above but single signature should be enough
+
+				limitedPlacement := placement
+				limitedPlacement.MaxReplicas = 1
+
+				updateContainerList(t, metaCommitteeI, cID, limitedPlacement)
+
+				placementWithSingleNode := placement
+				placementWithSingleNode.Vectors = make([]meta.PlacementVector, len(placement.Vectors))
+				placementWithSingleNode.Vectors[0] = meta.PlacementVector{
+					Nodes: keys.PublicKeys{placement.Vectors[0].Nodes[0]},
+				}
+
+				snSingleSigner := nodesMultiSigner(metaCommitteeI.Hash, cID, placementWithSingleNode, nodes)
+
+				oID := oidtest.ID()
+				m := testMeta(cID[:], oID[:])
+				rawMeta, err := stackitem.Serialize(m)
+				require.NoError(t, err)
+
+				invokeWithCustomSigner(t, metaCommitteeI, snSingleSigner, stackitem.Null{}, "submitObjectPut", rawMeta)
+			})
 		})
 
 		t.Run("additional testing values", func(t *testing.T) {
@@ -354,21 +430,8 @@ func testMeta(cid, oid []byte) *stackitem.Map {
 		})
 }
 
-func updateContainerList(t *testing.T, metaI *neotest.ContractInvoker, cID cid.ID, nodes [][]*keys.PrivateKey) {
-	var newPlacement meta.Placement
-	for _, v := range nodes {
-		var vectorPublic keys.PublicKeys
-		for _, n := range v {
-			vectorPublic = append(vectorPublic, n.PublicKey())
-		}
-
-		newPlacement = append(newPlacement, meta.PlacementVector{
-			REP:   uint8(len(v)),
-			Nodes: vectorPublic,
-		})
-	}
-
-	metaI.Invoke(t, stackitem.Null{}, "updateContainerList", cID[:], &newPlacement)
+func updateContainerList(t *testing.T, metaI *neotest.ContractInvoker, cID cid.ID, placement meta.Placement) {
+	metaI.Invoke(t, stackitem.Null{}, "updateContainerList", cID[:], &placement)
 }
 
 func verificationFailWithBadSigner(t testing.TB, validator *neotest.ContractInvoker, customSigner neotest.Signer, message string, method string, args ...any) {
@@ -395,7 +458,10 @@ func invokeWithCustomSigner(t testing.TB, validator *neotest.ContractInvoker, cu
 
 type signer struct {
 	verif []byte
-	nodes [][]*keys.PrivateKey
+
+	nodes                  []*keys.PrivateKey
+	placement              meta.Placement
+	overrideSignatureIndex int
 }
 
 func (s signer) Script() []byte {
@@ -412,12 +478,20 @@ func (s signer) SignHashable(u uint32, hashable hash.Hashable) []byte {
 		writer    = invokBuff.BinWriter
 	)
 
-	for _, vector := range slices.Backward(s.nodes) {
-		vectorLen := len(vector)
-		for i, node := range slices.Backward(vector) {
+	for _, vector := range slices.Backward(s.placement.Vectors) {
+		vectorLen := len(vector.Nodes)
+		for i, node := range vector.Nodes {
+			inx := slices.IndexFunc(s.nodes, func(pk *keys.PrivateKey) bool {
+				return pk.PublicKey().Equal(node)
+			})
+
+			if s.overrideSignatureIndex != -1 {
+				i = s.overrideSignatureIndex
+			}
+
 			emit.Array(writer,
 				stackitem.Make(i), // singature's index
-				stackitem.Make(node.SignHashable(u, hashable)), // signature
+				stackitem.Make(s.nodes[inx].SignHashable(u, hashable)), // signature
 			)
 		}
 		emit.Int(writer, int64(vectorLen))
@@ -449,16 +523,12 @@ func (s signer) SignTx(magic netmode.Magic, tx *transaction.Transaction) error {
 	return nil
 }
 
-func nodesMultiSigner(contractHash util.Uint160, cID cid.ID, nodes [][]*keys.PrivateKey) neotest.Signer {
-	for _, vector := range nodes {
-		slices.SortFunc(vector, func(a, b *keys.PrivateKey) int {
-			return a.PublicKey().Cmp(b.PublicKey())
-		})
-	}
-
+func nodesMultiSigner(contractHash util.Uint160, cID cid.ID, placement meta.Placement, nodes []*keys.PrivateKey) neotest.Signer {
 	return signer{
-		verif: verifScript(contractHash, cID[:], len(nodes)),
-		nodes: nodes,
+		verif:                  verifScript(contractHash, cID[:], len(placement.Vectors)),
+		nodes:                  nodes,
+		placement:              placement,
+		overrideSignatureIndex: -1,
 	}
 }
 

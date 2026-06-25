@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"path"
 	"slices"
 	"sync"
@@ -207,7 +206,7 @@ func validatePrm(p Parameters) error {
 type epochStateStub struct{}
 
 func (e epochStateStub) CurrentEpoch() uint64 {
-	return math.MaxUint64
+	return 0
 }
 
 // New makes [Meta] using [Parameters]. [metabase.DB] is created, opened and
