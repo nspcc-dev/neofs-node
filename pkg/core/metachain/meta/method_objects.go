@@ -351,10 +351,21 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 			if int(sigIndexed.ind) >= len(placement.Vectors[i].Nodes) {
 				panic(fmt.Errorf("signature's index in %d vector is bigger than number of nodes: %d > %d", i, int(sigIndexed.ind), len(placement.Vectors[i].Nodes)))
 			}
-			if !placement.Vectors[i].Nodes[int(sigIndexed.ind)].Verify(sigIndexed.sig, signedDataHash[:]) {
+			k := placement.Vectors[i].Nodes[int(sigIndexed.ind)]
+			if k == nil {
+				panic(fmt.Errorf("%d signature in %d vector is duplicated", j, i))
+			}
+
+			if !k.Verify(sigIndexed.sig, signedDataHash[:]) {
 				panic(fmt.Errorf("%d signature in %d vector invalid for %d node", j, i, sigIndexed.ind))
 			}
 			totalConfirmedSignatures++
+
+			// zero just checked node to reject signatures duplication, but for
+			// limited max replicas case duplications are not that important
+			if placement.MaxReplicas == 0 {
+				placement.Vectors[i].Nodes[int(sigIndexed.ind)] = nil
+			}
 		}
 	}
 
