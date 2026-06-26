@@ -112,7 +112,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 }
 
 // GetRange requests object payload range from the remote node.
-func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, ln, off uint64, xs []string) (io.ReadCloser, error) {
+func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, off, ln uint64, xs []string) (io.ReadCloser, error) {
 	key, err := h.keyStorage.GetKey(nil)
 	if err != nil {
 		return nil, fmt.Errorf("get local SN private key: %w", err)

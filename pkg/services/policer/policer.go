@@ -39,7 +39,7 @@ type localStorage interface {
 // interface of [headsvc.RemoteHeader] used by [Policer] for overriding in tests.
 type apiConnections interface {
 	headObject(context.Context, netmap.NodeInfo, oid.Address, bool, []string) (object.Object, error)
-	GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, ln, off uint64, xs []string) (io.ReadCloser, error)
+	GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, off, ln uint64, xs []string) (io.ReadCloser, error)
 }
 
 // Policer represents the utility that verifies
