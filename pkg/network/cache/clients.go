@@ -9,6 +9,7 @@ import (
 	"io"
 	"iter"
 	"maps"
+	"net"
 	"slices"
 	"sync"
 	"time"
@@ -216,8 +217,11 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	} else {
 		transportCreds = insecure.NewCredentials()
 	}
+	var gd = grpcDialer(net.Dialer{Control: network.TuneTCPConn})
+
 	grpcConn, err := grpc.NewClient(target,
 		grpc.WithTransportCredentials(transportCreds),
+		grpc.WithContextDialer(gd.Dial),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoff.DefaultConfig,
 			MinConnectTimeout: x.minConnTimeout,
@@ -252,6 +256,12 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	}
 
 	return res, nil
+}
+
+type grpcDialer net.Dialer
+
+func (d *grpcDialer) Dial(ctx context.Context, addr string) (net.Conn, error) {
+	return (*net.Dialer)(d).DialContext(ctx, "tcp", addr)
 }
 
 type connections struct {
