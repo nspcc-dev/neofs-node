@@ -676,6 +676,11 @@ func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff
 	}
 
 	prefix = prefix[off:]
+	if ln <= uint64(len(prefix)) {
+		stream.Close()
+		return nopCloser(bytes.NewReader(prefix[:ln])), nil
+	}
+
 	return newPrefixedReadSeekCloser(prefix, &limitedFileReader{ReadSeekCloser: stream, limit: int64(ln) - int64(len(prefix))}), nil
 }
 
