@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.54.0
+
+## [0.54.0] - 2026-06-29 - Ando
+
+### Added
 - Possibility to set eACL in the same RPC that creates new container (#4006)
 
 ### Fixed
@@ -21,13 +35,9 @@ Changelog for NeoFS Node
 - Optimized ranged GET in FSTree (#4016)
 - Split object assembly now prefetches child objects concurrently while streaming (#4014, #4042)
 
-### Removed
-
 ### Updated
 - NeoGo dependency to 0.120.0 (#4018)
 - NeoFS SDK dependency to RC20 (#4006, #4038, #4047)
-
-### Updating from v0.53.0
 
 ## [0.53.0] - 2026-05-21 - Sido
 
@@ -3064,7 +3074,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.53.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.54.0...master
+[0.54.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.52.0...v0.53.0
 [0.52.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.1...v0.52.0
 [0.51.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.0...v0.51.1
