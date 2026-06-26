@@ -16,7 +16,9 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 func TestAddressToString(t *testing.T) {
@@ -68,6 +70,52 @@ func testReadPayloadRange(t *testing.T, fst *FSTree) {
 	})
 }
 
+func TestFSTree_ReadPayloadRangeLimitsEmptyPrefixStream(t *testing.T) {
+	fst := setupFSTree(t)
+	payload := []byte("payload")
+
+	baseHeader := protowire.AppendTag(nil, protoobject.FieldHeaderPayloadLength, protowire.VarintType)
+	baseHeader = protowire.AppendVarint(baseHeader, uint64(len(payload)))
+
+	// keep payload bytes out of the initially buffered prefix while preserving valid protobuf wire
+	const prefixLen = iobject.NonPayloadFieldsBufferLength
+	const readBufLen = 2 * iobject.NonPayloadFieldsBufferLength
+	payloadPrefixLen := protowire.SizeTag(protoobject.FieldObjectPayload) + protowire.SizeVarint(uint64(len(payload)))
+	headerPaddingFieldNum := protowire.Number(protoobject.FieldHeaderPayloadLength + 1)
+	headerPaddingLen := prefixLen
+	for {
+		headerPaddingFieldLen := protowire.SizeTag(headerPaddingFieldNum) + protowire.SizeVarint(uint64(headerPaddingLen)) + headerPaddingLen
+		headerLen := len(baseHeader) + headerPaddingFieldLen
+		n := prefixLen - protowire.SizeTag(protoobject.FieldObjectHeader) - protowire.SizeVarint(uint64(headerLen)) - len(baseHeader) - protowire.SizeTag(headerPaddingFieldNum) - protowire.SizeVarint(uint64(headerPaddingLen)) - payloadPrefixLen
+		require.GreaterOrEqual(t, n, 0)
+		if n == headerPaddingLen {
+			break
+		}
+		headerPaddingLen = n
+	}
+
+	baseHeader = protowire.AppendTag(baseHeader, headerPaddingFieldNum, protowire.BytesType)
+	baseHeader = protowire.AppendBytes(baseHeader, make([]byte, headerPaddingLen))
+
+	objWire := protowire.AppendTag(nil, protoobject.FieldObjectHeader, protowire.BytesType)
+	objWire = protowire.AppendBytes(objWire, baseHeader)
+	objWire = protowire.AppendTag(objWire, protoobject.FieldObjectPayload, protowire.BytesType)
+	objWire = protowire.AppendVarint(objWire, uint64(len(payload)))
+	require.Len(t, objWire, prefixLen)
+	objWire = append(objWire, payload...)
+
+	addr := oidtest.Address()
+	require.NoError(t, fst.Put(addr, objWire))
+
+	stream, err := fst.ReadPayloadRange(addr, 0, 3, make([]byte, readBufLen))
+	require.NoError(t, err)
+	defer stream.Close()
+
+	actual, err := io.ReadAll(stream)
+	require.NoError(t, err)
+	require.Equal(t, payload[:3], actual)
+}
+
 func testGetRangeStreamFunc(t *testing.T, fst *FSTree, fn func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error)) {
 	const pldLen = 1024
 	pld := testutil.RandByteSlice(pldLen)
@@ -90,6 +138,7 @@ func testGetRangeStreamFunc(t *testing.T, fst *FSTree, fn func(fst *FSTree, addr
 
 	for _, tc := range []struct{ off, ln uint64 }{
 		{off: 0, ln: 0},
+		{off: 0, ln: pldLen / 2},
 		{off: 0, ln: pldLen},
 		{off: 1, ln: pldLen - 1},
 		{off: pldLen - 1, ln: 1},

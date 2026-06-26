@@ -645,12 +645,12 @@ func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff
 
 		// stream is non-nil here according to conditions above
 
-		if len(prefix) == 0 {
-			return stream, nil
-		}
-
 		if err := checkTooBigRange(off, ln); err != nil {
 			return nil, err
+		}
+
+		if len(prefix) == 0 {
+			return &limitedFileReader{ReadSeekCloser: stream, limit: int64(ln)}, nil
 		}
 
 		return newPrefixedReadSeekCloser(prefix, &limitedFileReader{ReadSeekCloser: stream, limit: int64(ln) - int64(len(prefix))}), nil
