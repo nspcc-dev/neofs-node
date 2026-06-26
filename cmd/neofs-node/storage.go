@@ -22,11 +22,9 @@ import (
 
 func initLocalStorage(c *cfg) {
 	ls := engine.New([]engine.Option{
-		engine.WithShardPoolSize(uint32(c.appCfg.Storage.ShardPoolSize)),
 		engine.WithErrorThreshold(uint32(c.appCfg.Storage.ShardROErrorThreshold)),
 		engine.WithLogger(c.log),
 		engine.WithIgnoreUninitedShards(c.appCfg.Storage.IgnoreUninitedShards),
-		engine.WithObjectPutRetryTimeout(c.appCfg.Storage.PutRetryTimeout),
 		engine.WithContainersSource(c.cnrSrc),
 		engine.WithMetrics(c.metricsCollector),
 	}...)

@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - Optimized GET/HEAD/SEARCH/RANGE request signing when forwarding  (#4008, #4021)
 - Optimized ranged GET in FSTree (#4016)
 - Split object assembly now prefetches child objects concurrently while streaming (#4014, #4042)
+- Replaced limited shard PUT queue with an adaptive load limiter (#XXX)
 
 ### Removed
 
@@ -26,6 +27,7 @@ Changelog for NeoFS Node
 - NeoGo dependency to 0.120.0 (#4018)
 
 ### Updating from v0.53.0
+Drop SN `storage.shard_pool_size` and `storage.put_retry_timeout` options, they are no-op now.
 
 ## [0.53.0] - 2026-05-21 - Sido
 

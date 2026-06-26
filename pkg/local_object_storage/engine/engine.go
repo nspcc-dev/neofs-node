@@ -5,11 +5,11 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine/bbr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -57,19 +57,12 @@ type shardInterface interface {
 	ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error)
 }
 
-type putTask struct {
-	addr   oid.Address
-	obj    *object.Object
-	objBin []byte
-	retCh  chan error
-}
-
 type shardWrapper struct {
 	errorCount *atomic.Uint32
 	*shard.Shard
-	shardIface shardInterface // TODO: make Shard a shardInterface
-	putCh      chan putTask
-	engine     *StorageEngine
+	shardIface  shardInterface // TODO: make Shard a shardInterface
+	loadLimiter *bbr.LoadLimiter
+	engine      *StorageEngine
 }
 
 type setModeRequest struct {
@@ -228,9 +221,6 @@ type cfg struct {
 
 	metrics MetricRegister
 
-	objectPutTimeout time.Duration
-	shardPoolSize    uint32
-
 	containerSource containercore.Source
 
 	isIgnoreUninitedShards bool
@@ -239,8 +229,6 @@ type cfg struct {
 func defaultCfg() *cfg {
 	return &cfg{
 		log: zap.L(),
-
-		shardPoolSize: 20,
 	}
 }
 
@@ -276,13 +264,6 @@ func WithMetrics(v MetricRegister) Option {
 	}
 }
 
-// WithShardPoolSize returns option to specify size of worker pool for each shard.
-func WithShardPoolSize(sz uint32) Option {
-	return func(c *cfg) {
-		c.shardPoolSize = sz
-	}
-}
-
 // WithErrorThreshold returns an option to specify size amount of errors after which
 // shard is moved to read-only mode.
 func WithErrorThreshold(sz uint32) Option {
@@ -302,14 +283,5 @@ func WithContainersSource(cs containercore.Source) Option {
 func WithIgnoreUninitedShards(flag bool) Option {
 	return func(c *cfg) {
 		c.isIgnoreUninitedShards = flag
-	}
-}
-
-// WithObjectPutRetryTimeout return an option to specify time for object PUT operation.
-// It does not stop any disk operation, only affects retryes policy. Zero value
-// is acceptable and means no retry on any shard.
-func WithObjectPutRetryTimeout(t time.Duration) Option {
-	return func(c *cfg) {
-		c.objectPutTimeout = t
 	}
 }

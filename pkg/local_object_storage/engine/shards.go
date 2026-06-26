@@ -9,6 +9,7 @@ import (
 
 	"github.com/nspcc-dev/hrw/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine/bbr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -129,14 +130,10 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 	}
 
 	var shw = shardWrapper{
-		errorCount: new(atomic.Uint32),
-		Shard:      sh,
-		putCh:      make(chan putTask),
-		engine:     e,
-	}
-
-	for range e.shardPoolSize {
-		go shw.shardPutThread()
+		errorCount:  new(atomic.Uint32),
+		Shard:       sh,
+		loadLimiter: bbr.NewLoadLimiter(),
+		engine:      e,
 	}
 
 	e.shards[strID] = shw
@@ -176,7 +173,6 @@ func (e *StorageEngine) removeShards(ids ...string) {
 				zap.Error(err),
 			)
 		}
-		close(sh.putCh)
 	}
 }
 

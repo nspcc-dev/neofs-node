@@ -39,7 +39,7 @@ func (s epochState) CurrentEpoch() uint64 {
 }
 
 func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
-	engine := New(WithObjectPutRetryTimeout(100 * time.Millisecond))
+	engine := New()
 
 	for _, s := range shards {
 		err := engine.addShard(s)
