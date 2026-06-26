@@ -70,50 +70,106 @@ func testReadPayloadRange(t *testing.T, fst *FSTree) {
 	})
 }
 
-func TestFSTree_ReadPayloadRangeLimitsEmptyPrefixStream(t *testing.T) {
-	fst := setupFSTree(t)
-	payload := []byte("payload")
+func TestFSTree_PayloadRangeStreamsLimitBufferedPayload(t *testing.T) {
+	const prefixLen = iobject.NonPayloadFieldsBufferLength
+	const readBufLen = 2 * iobject.NonPayloadFieldsBufferLength
+
+	readers := []struct {
+		name string
+		read func(*FSTree, oid.Address, uint64, uint64) (io.ReadCloser, error)
+	}{
+		{
+			name: "ReadPayloadRange",
+			read: func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+				return fst.ReadPayloadRange(addr, off, ln, make([]byte, readBufLen))
+			},
+		},
+		{
+			name: "GetRangeStream",
+			read: func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+				_, stream, err := fst.GetRangeStream(addr, off, ln)
+				return stream, err
+			},
+		},
+	}
+
+	for _, tc := range []struct {
+		name                     string
+		payload                  []byte
+		off, ln                  uint64
+		padHeaderToPayloadOffset bool
+	}{
+		{
+			name:                     "empty payload prefix stream",
+			payload:                  []byte("payload"),
+			ln:                       3,
+			padHeaderToPayloadOffset: true,
+		},
+		{
+			name:    "range inside payload prefix stream",
+			payload: testutil.RandByteSlice(2 * prefixLen),
+			off:     222,
+			ln:      378,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fst := setupFSTree(t)
+			objWire := objectWireForPayloadRangeStreamTest(t, tc.payload, tc.padHeaderToPayloadOffset)
+
+			addr := oidtest.Address()
+			require.NoError(t, fst.Put(addr, objWire))
+
+			for _, reader := range readers {
+				t.Run(reader.name, func(t *testing.T) {
+					stream, err := reader.read(fst, addr, tc.off, tc.ln)
+					require.NoError(t, err)
+					defer stream.Close()
+
+					actual, err := io.ReadAll(stream)
+					require.NoError(t, err)
+					require.Equal(t, tc.payload[tc.off:tc.off+tc.ln], actual)
+				})
+			}
+		})
+	}
+}
+
+func objectWireForPayloadRangeStreamTest(t *testing.T, payload []byte, padHeaderToPayloadOffset bool) []byte {
+	t.Helper()
 
 	baseHeader := protowire.AppendTag(nil, protoobject.FieldHeaderPayloadLength, protowire.VarintType)
 	baseHeader = protowire.AppendVarint(baseHeader, uint64(len(payload)))
 
-	// keep payload bytes out of the initially buffered prefix while preserving valid protobuf wire
-	const prefixLen = iobject.NonPayloadFieldsBufferLength
-	const readBufLen = 2 * iobject.NonPayloadFieldsBufferLength
-	payloadPrefixLen := protowire.SizeTag(protoobject.FieldObjectPayload) + protowire.SizeVarint(uint64(len(payload)))
-	headerPaddingFieldNum := protowire.Number(protoobject.FieldHeaderPayloadLength + 1)
-	headerPaddingLen := prefixLen
-	for {
-		headerPaddingFieldLen := protowire.SizeTag(headerPaddingFieldNum) + protowire.SizeVarint(uint64(headerPaddingLen)) + headerPaddingLen
-		headerLen := len(baseHeader) + headerPaddingFieldLen
-		n := prefixLen - protowire.SizeTag(protoobject.FieldObjectHeader) - protowire.SizeVarint(uint64(headerLen)) - len(baseHeader) - protowire.SizeTag(headerPaddingFieldNum) - protowire.SizeVarint(uint64(headerPaddingLen)) - payloadPrefixLen
-		require.GreaterOrEqual(t, n, 0)
-		if n == headerPaddingLen {
-			break
+	if padHeaderToPayloadOffset {
+		// keep payload bytes out of the initially buffered prefix while preserving valid protobuf wire
+		const prefixLen = iobject.NonPayloadFieldsBufferLength
+		payloadPrefixLen := protowire.SizeTag(protoobject.FieldObjectPayload) + protowire.SizeVarint(uint64(len(payload)))
+		headerPaddingFieldNum := protowire.Number(protoobject.FieldHeaderPayloadLength + 1)
+		headerPaddingLen := prefixLen
+		for {
+			headerPaddingFieldLen := protowire.SizeTag(headerPaddingFieldNum) + protowire.SizeVarint(uint64(headerPaddingLen)) + headerPaddingLen
+			headerLen := len(baseHeader) + headerPaddingFieldLen
+			n := prefixLen - protowire.SizeTag(protoobject.FieldObjectHeader) - protowire.SizeVarint(uint64(headerLen)) - len(baseHeader) - protowire.SizeTag(headerPaddingFieldNum) - protowire.SizeVarint(uint64(headerPaddingLen)) - payloadPrefixLen
+			require.GreaterOrEqual(t, n, 0)
+			if n == headerPaddingLen {
+				break
+			}
+			headerPaddingLen = n
 		}
-		headerPaddingLen = n
-	}
 
-	baseHeader = protowire.AppendTag(baseHeader, headerPaddingFieldNum, protowire.BytesType)
-	baseHeader = protowire.AppendBytes(baseHeader, make([]byte, headerPaddingLen))
+		baseHeader = protowire.AppendTag(baseHeader, headerPaddingFieldNum, protowire.BytesType)
+		baseHeader = protowire.AppendBytes(baseHeader, make([]byte, headerPaddingLen))
+	}
 
 	objWire := protowire.AppendTag(nil, protoobject.FieldObjectHeader, protowire.BytesType)
 	objWire = protowire.AppendBytes(objWire, baseHeader)
 	objWire = protowire.AppendTag(objWire, protoobject.FieldObjectPayload, protowire.BytesType)
 	objWire = protowire.AppendVarint(objWire, uint64(len(payload)))
-	require.Len(t, objWire, prefixLen)
-	objWire = append(objWire, payload...)
+	if padHeaderToPayloadOffset {
+		require.Len(t, objWire, iobject.NonPayloadFieldsBufferLength)
+	}
 
-	addr := oidtest.Address()
-	require.NoError(t, fst.Put(addr, objWire))
-
-	stream, err := fst.ReadPayloadRange(addr, 0, 3, make([]byte, readBufLen))
-	require.NoError(t, err)
-	defer stream.Close()
-
-	actual, err := io.ReadAll(stream)
-	require.NoError(t, err)
-	require.Equal(t, payload[:3], actual)
+	return append(objWire, payload...)
 }
 
 func testGetRangeStreamFunc(t *testing.T, fst *FSTree, fn func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error)) {
