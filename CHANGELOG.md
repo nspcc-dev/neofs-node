@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Data race in RANGE response buffer (#4013)
 - Incorrect access denial during EACL rechecks for payload-only GET (#4024, #4029)
 - neofs-ir does not fill `neofs_ir_state_epoch` metrics on startup and does not keep it actual after FS chain connection loss (#4035)
+- Ranged object reads from FSTree sometimes returning more payload bytes than requested (#4046)
 
 ### Changed
 - Optimized EC GET request execution (#3996)
