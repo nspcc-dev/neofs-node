@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - NeoGo dependency to 0.120.0 (#4018)
+- NeoFS SDK dependency to RC20 (#4006, #4038, #4047)
 
 ### Updating from v0.53.0
 
