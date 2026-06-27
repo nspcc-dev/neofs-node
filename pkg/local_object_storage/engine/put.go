@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -102,61 +101,59 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 // putToShard puts object to sh.
 // Returns error from shard put or errOverloaded (when shard pool can't accept
 // the task) or errExists (if object is already stored there).
-func (e *StorageEngine) putToShard(ctx context.Context, sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
-	var (
-		exitCh        = make(chan error)
-		pCtx, pCancel = context.WithTimeout(ctx, e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
-	)
-	defer pCancel()
-
-	select {
-	case sh.putCh <- putTask{addr: addr, obj: obj, objBin: objBin, retCh: exitCh}:
-	case <-pCtx.Done():
-		return errOverloaded
+func (e *StorageEngine) putToShard(_ context.Context, sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
+	var size int64
+	if objBin != nil {
+		size = int64(len(objBin))
+	} else {
+		// TODO: support direct size getter
+		size = int64(obj.ProtoMessage().MarshaledSize())
 	}
 
-	err := <-exitCh
+	overload, err := sh.loadLimiter.Write(size, func() error {
+		return sh.putObject(addr, obj, objBin)
+	})
+	if overload {
+		return errOverloaded
+	}
 	return err
 }
 
-func (sh *shardWrapper) shardPutThread() {
+func (sh *shardWrapper) putObject(addr oid.Address, obj *object.Object, objBin []byte) error {
 	var id = sh.ID().String()
 
-	for t := range sh.putCh {
-		exists, err := sh.Exists(t.addr, false)
-		if err != nil {
-			sh.engine.log.Warn("object put: check object existence",
-				zap.Stringer("addr", t.addr),
-				zap.String("shard", id),
-				zap.Error(err))
+	exists, err := sh.Exists(addr, false)
+	if err != nil {
+		sh.engine.log.Warn("object put: check object existence",
+			zap.Stringer("addr", addr),
+			zap.String("shard", id),
+			zap.Error(err))
 
-			if shard.IsErrObjectExpired(err) {
-				// object is already found but
-				// expired => do nothing with it
-				err = errExists
-			}
-			t.retCh <- err
-			continue // this is not ErrAlreadyRemoved error so we can go to the next task
+		if shard.IsErrObjectExpired(err) {
+			// object is already found but
+			// expired => do nothing with it
+			err = errExists
 		}
-
-		if exists {
-			t.retCh <- errExists
-			continue
-		}
-
-		err = sh.Put(t.obj, t.objBin)
-		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
-				errors.Is(err, common.ErrNoSpace) {
-				sh.engine.log.Warn("could not put object to shard",
-					zap.String("shard_id", id),
-					zap.Error(err))
-			} else {
-				sh.engine.reportShardError(*sh, "could not put object to shard", err)
-			}
-		}
-		t.retCh <- err
+		return err
 	}
+
+	if exists {
+		return errExists
+	}
+
+	err = sh.Put(obj, objBin)
+	if err != nil {
+		if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
+			errors.Is(err, common.ErrNoSpace) {
+			sh.engine.log.Warn("could not put object to shard",
+				zap.String("shard_id", id),
+				zap.Error(err))
+		} else {
+			sh.engine.reportShardError(*sh, "could not put object to shard", err)
+		}
+	}
+
+	return err
 }
 
 // broadcastObject stores object on ALL shards to ensure it's available everywhere.

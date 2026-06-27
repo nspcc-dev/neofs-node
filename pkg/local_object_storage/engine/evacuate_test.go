@@ -26,7 +26,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 		dir = t.TempDir()
 		e   = New(
 			WithLogger(zaptest.NewLogger(t)),
-			WithShardPoolSize(uint32(objPerShard)))
+		)
 		err error
 		ids = make([]common.ID, shardNum)
 	)

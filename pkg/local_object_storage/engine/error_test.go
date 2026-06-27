@@ -27,7 +27,7 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 		dir = t.TempDir()
 	}
 
-	e := New(append([]Option{WithShardPoolSize(1)}, opts...)...)
+	e := New(opts...)
 
 	var ids [2]common.ID
 	var err error
