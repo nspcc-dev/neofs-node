@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
@@ -175,6 +177,8 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 			MinTime:             5 * time.Second, // w/o this server sends GoAway with ENHANCE_YOUR_CALM code "too_many_pings"
 			PermitWithoutStream: true,
 		}),
+		grpc.ReadBufferSize(1024 * 1024),
+		grpc.WriteBufferSize(1024 * 1024),
 		grpc.ForceServerCodecV2(iprotobuf.BufferedCodec{}),
 	}
 	if maxRecvMsgSizeOpt != nil {
@@ -211,7 +215,11 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
 
-	lis, err := net.Listen("tcp", sc.Endpoint)
+	var lisCfg = net.ListenConfig{
+		Control: network.TuneTCPConn,
+	}
+
+	lis, err := lisCfg.Listen(context.TODO(), "tcp", sc.Endpoint)
 	if err != nil {
 		c.log.Error("can't listen gRPC endpoint", zap.Error(err))
 		return nil, nil, err
