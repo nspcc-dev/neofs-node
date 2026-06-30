@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"slices"
 	"strings"
@@ -1396,10 +1395,7 @@ type getProxyContext struct {
 	onceHdr sync.Once
 
 	payloadLenCheck  uint64
-	payloadHashCheck []byte
-
 	respondedPayload int
-	payloadHashGot   hash.Hash
 }
 
 func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse, req *protoobject.GetRangeRequest) error {

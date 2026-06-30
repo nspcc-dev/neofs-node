@@ -1,9 +1,7 @@
 package object
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -26,7 +24,6 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
-	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"go.uber.org/zap"
@@ -276,19 +273,6 @@ func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.Bu
 			}
 			return nil
 		}
-		opts.InterceptNested = func(num protowire.Number, buffers iprotobuf.BuffersSlice, checkOrder bool) (bool, error) {
-			if num != protoobject.FieldHeaderPayloadHash {
-				return checkOrder, protoscan.ErrContinue
-			}
-			var opts protoscan.ScanMessageOrderedOptions
-			opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
-				if num == protorefs.FieldChecksumValue {
-					x.payloadHashCheck = buffers.ReadOnlyData()
-				}
-				return nil
-			}
-			return protoscan.ScanMessageOrdered(buffers, protoscan.ChecksumScheme, opts)
-		}
 
 		hdrOrdered, err := protoscan.ScanMessageOrdered(buffers, protoscan.ObjectHeaderScheme, protoscan.ScanMessageOrderedOptions{})
 		if err != nil {
@@ -346,21 +330,7 @@ func (x *getProxyContext) handleChunkResponse(streamProg *getStreamProgress, res
 		return false, fmt.Errorf("seek chunk right bound in response buffers: %w", io.ErrUnexpectedEOF)
 	}
 
-	if x.payloadHashGot == nil {
-		x.payloadHashGot = sha256.New()
-	}
-
-	if _, err := chunkBuffers.WriteTo(x.payloadHashGot); err != nil { // should never happen according to hash.Hash docs
-		return false, fmt.Errorf("hash payload chunk: %w", err)
-	}
-
 	respChunkLen := to - from
-
-	if uint64(x.respondedPayload+respChunkLen) == x.payloadLenCheck {
-		if !bytes.Equal(x.payloadHashGot.Sum(nil), x.payloadHashCheck) { // not merged via && for readability
-			return false, errors.New("received payload mismatches checksum from header")
-		}
-	}
 
 	return x.respStream.srv.sendChunkResponse(x.respStream.base, respBuf, chunkBuffers, respChunkLen, chunkLen,
 		x.respStream.signResponse, iprotobuf.TagBytes2, &streamProg.readPayload, &x.respondedPayload, shiftPayloadChunkInGetResponseBuffer)

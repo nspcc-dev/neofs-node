@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Optimized GET for fully buffered payloads (#4058)
+- Proxied GET data is not checked against SHA256 hash from header (#4081)
 
 ### Removed
 - Compression support from FSTree (#4054)
