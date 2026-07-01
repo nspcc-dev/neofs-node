@@ -500,7 +500,7 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 			return s.makeFailedPutResponse(fmt.Errorf("eACL table's container ID does not correspond to container"), req)
 		}
 
-		_, _, err = s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cnrID)
+		_, _, err = s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cid.ID{})
 		if err != nil {
 			return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err), req)
 		}

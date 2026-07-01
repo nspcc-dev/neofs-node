@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Session v2 token was not supported in the new container + eACL RPC (#4056)
 
 ### Changed
 
