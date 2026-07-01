@@ -104,6 +104,23 @@ func TestGetStream(t *testing.T) {
 			require.Equal(t, testData, append(buff, additionallyRead...))
 			require.NoError(t, reader.Close())
 		})
+
+		t.Run("combined object keeps compressed prefix", func(t *testing.T) {
+			// compressible pattern that keeps part of the zstd prefix buffered
+			payload := make([]byte, 2<<20)
+			for i := range payload {
+				payload[i] = byte((i/4047 + i/31) % 255)
+			}
+
+			addr := oidtest.Address()
+			var obj object.Object
+			obj.SetID(addr.Object())
+			obj.SetPayload(payload)
+			obj.SetPayloadSize(uint64(len(payload)))
+
+			require.NoError(t, tree.Put(addr, obj.Marshal()))
+			assertReadObjectOK(t, tree, addr, obj)
+		})
 	})
 
 	t.Run("specific combined object", func(t *testing.T) {

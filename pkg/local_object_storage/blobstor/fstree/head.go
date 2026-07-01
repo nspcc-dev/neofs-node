@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"slices"
 
 	"github.com/klauspost/compress/zstd"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
@@ -254,7 +255,7 @@ func (t *FSTree) preprocessStreamHead(f io.ReadSeekCloser, initial []byte) ([]by
 	reader := f
 
 	if t.IsCompressed(initial) {
-		decoder, err := zstd.NewReader(io.MultiReader(bytes.NewReader(initial), f))
+		decoder, err := zstd.NewReader(io.MultiReader(bytes.NewReader(slices.Clone(initial)), f))
 		if err != nil {
 			return nil, nil, fmt.Errorf("zstd decoder: %w", err)
 		}
