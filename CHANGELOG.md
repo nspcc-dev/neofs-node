@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Full reads from compressed combined FSTree objects corrupting the zstd stream (#4055)
 
 ### Changed
+- Optimized GET for fully buffered payloads (#4058)
 
 ### Removed
 
