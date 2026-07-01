@@ -5,7 +5,6 @@ import (
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
 	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -62,13 +61,6 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 		fstree.WithSubtype(fstree.SubtypeBlobstor),
 	)
 	defer fst.Close()
-
-	var compressCfg compression.Config
-	err = compressCfg.Init()
-	if err != nil {
-		return fmt.Errorf("failed to init compression config: %w", err)
-	}
-	fst.SetCompressor(&compressCfg)
 
 	err = fst.Open(true)
 	if err != nil {

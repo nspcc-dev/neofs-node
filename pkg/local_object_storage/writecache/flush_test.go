@@ -13,7 +13,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -204,11 +203,6 @@ func TestFlushErrorRetry(t *testing.T) {
 				fstree.WithDepth(0))
 
 			s := &mockWriter{full: true, Storage: NewModeAwareStorage(fsTree)}
-			comp := &compression.Config{
-				Enabled: true,
-			}
-			require.NoError(t, comp.Init())
-			s.SetCompressor(comp)
 
 			require.NoError(t, s.Open(false))
 			require.NoError(t, s.Init(common.ID{}))

@@ -154,27 +154,4 @@ func runReadBenchmark(b *testing.B, methodName string, payloadSize int) {
 			testRead(fsTree, addrs[k%len(addrs)])
 		}
 	})
-
-	b.Run(methodName+"_compressed", func(b *testing.B) {
-		fsTree := setupFSTree(b)
-		setupCompressor(b, fsTree)
-		addr := prepareSingleObject(b, fsTree, payloadSize)
-
-		b.ReportAllocs()
-		for b.Loop() {
-			testRead(fsTree, addr)
-		}
-	})
-
-	b.Run(methodName+"_compressed_combined", func(b *testing.B) {
-		fsTree := setupFSTree(b)
-		setupCompressor(b, fsTree)
-		addrs := prepareMultipleObjects(b, fsTree, payloadSize)
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for k := range b.N {
-			testRead(fsTree, addrs[k%len(addrs)])
-		}
-	})
 }

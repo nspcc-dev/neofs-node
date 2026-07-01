@@ -29,8 +29,6 @@ if the depth is 5. The overall structure may look like this (a part of it):
 Binary file format can differ depending on the FSTree version. The basic format
 that was used from the beginning is storing serialized protobuf representation
 of the object as is. In this case file can be decoded into an object directly.
-If compression is configured then the same file can have a compressed (ZSTD)
-serialized protobuf.
 
 Version 0.44.0 of the node has introduced a new file format that is used for
 small files, the so-called "combined" one. It has a special prefix (0x7F) that

@@ -103,8 +103,6 @@ func openEngine(readOnly bool) (*engine.StorageEngine, error) {
 		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
 			shard.WithMode(shCfg.Mode),
-			shard.WithCompressObjects(*shCfg.Compress),
-			shard.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),
 			shard.WithBlobstor(s),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(shCfg.Metabase.Path),

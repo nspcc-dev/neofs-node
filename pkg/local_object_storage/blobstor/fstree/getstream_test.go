@@ -10,7 +10,6 @@ import (
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -76,36 +75,6 @@ func TestGetStream(t *testing.T) {
 		}
 	})
 
-	t.Run("compressed object", func(t *testing.T) {
-		compress := compression.Config{Enabled: true}
-		require.NoError(t, compress.Init())
-		tree.Config = &compress
-
-		for _, size := range payloadSizes {
-			t.Run(fmt.Sprint(size), func(t *testing.T) {
-				testStream(t, size)
-			})
-		}
-
-		t.Run("uncompressed object overflows buffer", func(t *testing.T) {
-			testData := make([]byte, 2*iobject.NonPayloadFieldsBufferLength+1)
-
-			addr := oidtest.Address()
-			require.NoError(t, tree.Put(addr, testData))
-
-			buff := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
-			n, reader, err := tree.ReadObject(addr, buff)
-			require.NoError(t, err)
-			require.EqualValues(t, len(buff), n)
-
-			require.NotNil(t, reader)
-			additionallyRead, err := io.ReadAll(reader)
-			require.NoError(t, err)
-			require.Equal(t, testData, append(buff, additionallyRead...))
-			require.NoError(t, reader.Close())
-		})
-	})
-
 	t.Run("specific combined object", func(t *testing.T) {
 		fsTree := setupFSTree(t)
 
@@ -147,7 +116,7 @@ func TestGetStream(t *testing.T) {
 			writeDataUnits = append(writeDataUnits, writeDataUnit{
 				id:   addr.Object(),
 				path: p,
-				data: fsTree.Compress(obj.Marshal()),
+				data: obj.Marshal(),
 			})
 		}
 		require.NoError(t, fsTree.writer.writeBatch(writeDataUnits))
@@ -186,35 +155,6 @@ func TestGetStreamAfterErrors(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, obj)
 		require.Nil(t, reader)
-	})
-
-	t.Run("corrupt compressed data", func(t *testing.T) {
-		compress := compression.Config{Enabled: true}
-		require.NoError(t, compress.Init())
-		tree.Config = &compress
-
-		addr := oidtest.Address()
-		obj := new(object.Object)
-		obj.SetID(addr.Object())
-		payload := []byte("test payload")
-		obj.SetPayload(payload)
-
-		require.NoError(t, tree.Put(addr, obj.Marshal()))
-
-		objPath := tree.treePath(addr)
-
-		f, err := os.OpenFile(objPath, os.O_WRONLY|os.O_APPEND, 0644)
-		require.NoError(t, err)
-		_, err = f.Write([]byte("corruption at the end"))
-		require.NoError(t, err)
-		require.NoError(t, f.Close())
-
-		_, _, err = tree.GetStream(addr)
-		require.Error(t, err)
-
-		buf := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
-		_, _, err = tree.ReadObject(addr, buf)
-		require.Error(t, err)
 	})
 
 	t.Run("ID not found in combined object", func(t *testing.T) {

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	"github.com/stretchr/testify/require"
@@ -36,12 +35,6 @@ func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
 	fsTree := fstree.New(
 		fstree.WithPath(filepath.Join(dir, "fstree")),
 		fstree.WithDepth(0))
-
-	comp := &compression.Config{
-		Enabled: true,
-	}
-	require.NoError(tb, comp.Init())
-	fsTree.SetCompressor(comp)
 
 	require.NoError(tb, fsTree.Open(false))
 	require.NoError(tb, fsTree.Init(common.ID{}))

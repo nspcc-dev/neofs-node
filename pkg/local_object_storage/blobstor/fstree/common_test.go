@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -29,14 +28,6 @@ func setupFSTree(tb testing.TB) *fstree.FSTree {
 	require.NoError(tb, fsTree.Open(false))
 	require.NoError(tb, fsTree.Init(common.ID{}))
 	return fsTree
-}
-
-func setupCompressor(tb testing.TB, fsTree *fstree.FSTree) {
-	compressConfig := &compression.Config{
-		Enabled: true,
-	}
-	require.NoError(tb, compressConfig.Init())
-	fsTree.SetCompressor(compressConfig)
 }
 
 func prepareSingleObject(tb testing.TB, fsTree *fstree.FSTree, payloadSize int) oid.Address {
