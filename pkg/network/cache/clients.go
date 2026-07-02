@@ -3,11 +3,12 @@ package cache
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"iter"
 	"maps"
 	"slices"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -29,7 +31,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -48,12 +49,13 @@ type Clients struct {
 	mtx   sync.RWMutex
 	conns map[string]*connections // keys are public key bytes
 
-	signer neofscrypto.Signer
+	signer  neofscrypto.Signer
+	tlsCert tls.Certificate
 }
 
 // NewClients constructs Clients initializing connection to any endpoint with
 // given parameters.
-func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTimeout, pingInterval, pingTimeout time.Duration, signer neofscrypto.Signer) *Clients {
+func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTimeout, pingInterval, pingTimeout time.Duration, signer neofscrypto.Signer, tlsCert tls.Certificate) *Clients {
 	return &Clients{
 		log:              l,
 		streamMsgTimeout: streamTimeout,
@@ -63,6 +65,7 @@ func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTim
 		pingTimeout:      pingTimeout,
 		conns:            make(map[string]*connections),
 		signer:           signer,
+		tlsCert:          tlsCert,
 	}
 }
 
@@ -96,7 +99,7 @@ func (x *Clients) Get(ctx context.Context, info netmap.NodeInfo) (clientcore.Mul
 		return c, nil
 	}
 
-	c, err := x.initConnections(ctx, info.PublicKey(), info.NetworkEndpoints())
+	c, err := x.initConnections(ctx, info.PublicKey(), slices.Collect(info.NetworkEndpoints()))
 	if err != nil {
 		return nil, fmt.Errorf("init connections: %w", err)
 	}
@@ -109,8 +112,12 @@ func (x *Clients) SyncWithNewNetmap(ctx context.Context, sns []netmap.NodeInfo, 
 	x.mtx.Lock()
 	defer x.mtx.Unlock()
 
+	localPub, _ := peerauth.CompressedPubKey(x.tlsCert.Leaf)
 	for i := range sns {
 		if i == local {
+			continue
+		}
+		if localPub != nil && bytes.Equal(sns[i].PublicKey(), localPub) {
 			continue
 		}
 		if err := x.syncWithNetmapSN(ctx, sns[i]); err != nil {
@@ -135,6 +142,11 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 	pub := sn.PublicKey()
 	conns, ok := x.conns[snCacheKey(pub)]
 	if !ok {
+		c, err := x.initConnections(ctx, pub, slices.Collect(sn.NetworkEndpoints()))
+		if err != nil {
+			return fmt.Errorf("eager init: %w", err)
+		}
+		x.conns[snCacheKey(pub)] = c
 		return nil
 	}
 
@@ -175,10 +187,10 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 	return nil
 }
 
-func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Seq[string]) (*connections, error) {
+func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs []string) (*connections, error) {
 	m := make(map[string]*client.Client)
 	l := x.log.With(zap.String("public key", hex.EncodeToString(pub)))
-	for s := range addrs {
+	for _, s := range addrs {
 		l.Info("initializing connection to the SN...", zap.String("address", s))
 		c, err := x.initConnection(ctx, pub, s)
 		if err != nil {
@@ -206,16 +218,32 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 		return nil, fmt.Errorf("parse network address %q: %w", uri, err)
 	}
 
-	target, withTLS, err := uriutil.Parse(a.URIAddr())
+	target, _, err := uriutil.Parse(a.URIAddr())
 	if err != nil {
 		return nil, fmt.Errorf("parse URI: %w", err)
 	}
-	var transportCreds credentials.TransportCredentials
-	if withTLS {
-		transportCreds = credentials.NewTLS(nil)
-	} else {
-		transportCreds = insecure.NewCredentials()
-	}
+	transportCreds := credentials.NewTLS(&tls.Config{
+		Certificates:       []tls.Certificate{x.tlsCert},
+		ServerName:         peerauth.TLSServerName, // SNI marks this as an inter-node connection
+		InsecureSkipVerify: true,                   // CA chain is irrelevant; we pin by pubkey below
+		MinVersion:         tls.VersionTLS12,
+		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+			got, err := peerauth.PeerPubKey(rawCerts)
+			if err != nil {
+				return fmt.Errorf("extract peer pubkey: %w", err)
+			}
+			if !bytes.Equal(got, pub) {
+				x.log.Warn("mTLS: server pubkey mismatch",
+					zap.String("expected", hex.EncodeToString(pub)),
+					zap.String("got", hex.EncodeToString(got)))
+				return clientcore.ErrWrongPublicKey
+			}
+			x.log.Info("mTLS: server verified by pubkey",
+				zap.String("pubkey", hex.EncodeToString(got)),
+				zap.String("target", target))
+			return nil
+		},
+	})
 	grpcConn, err := grpc.NewClient(target,
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithConnectParams(grpc.ConnectParams{
