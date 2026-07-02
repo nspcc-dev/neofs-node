@@ -920,6 +920,9 @@ type getStream struct {
 	recheckEACL  bool
 	signResponse bool
 	payloadOnly  bool
+
+	sendECPartIndInResponse bool
+	ecFoundPartInd          string
 }
 
 func (s *getStream) ValidateHeader(hdr *object.Object) error {
@@ -949,6 +952,15 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 	if err := s.ValidateHeader(hdr); err != nil {
 		return err
 	}
+	if s.sendECPartIndInResponse {
+		s.sendECPartIndInResponse = true
+		for _, attr := range hdr.Attributes() {
+			if attr.Key() == iec.AttributePartIdx {
+				s.ecFoundPartInd = attr.Value()
+				break
+			}
+		}
+	}
 	if s.payloadOnly {
 		return nil
 	}
@@ -967,13 +979,24 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 }
 
 func (s *getStream) WriteChunk(chunk []byte) error {
-	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; {
+	var metaHeader *protosession.ResponseMetaHeader
+	if s.ecFoundPartInd != "" {
+		metaHeader = &protosession.ResponseMetaHeader{
+			XHeaders: []*protosession.XHeader{{
+				Key:   iec.AttributePartIdx,
+				Value: s.ecFoundPartInd,
+			}},
+		}
+	}
+
+	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; metaHeader, s.ecFoundPartInd = nil, "" {
 		newResp := &protoobject.GetResponse{
 			Body: &protoobject.GetResponse_Body{
 				ObjectPart: &protoobject.GetResponse_Body_Chunk{
 					Chunk: buf.Next(maxRespDataChunkSize),
 				},
 			},
+			MetaHeader: metaHeader,
 		}
 		if err := s.srv.sendGetResponse(s.base, newResp, s.signResponse); err != nil {
 			return err
@@ -1039,14 +1062,15 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
-		base:         gStream,
-		srv:          s,
-		reqCID:       cnrID,
-		reqOID:       objID,
-		reqInfo:      reqInfo,
-		recheckEACL:  recheckEACL,
-		signResponse: needSignResp,
-		payloadOnly:  req.GetBody().GetPayloadOnly(),
+		base:                    gStream,
+		srv:                     s,
+		reqCID:                  cnrID,
+		reqOID:                  objID,
+		reqInfo:                 reqInfo,
+		recheckEACL:             recheckEACL,
+		signResponse:            needSignResp,
+		payloadOnly:             req.GetBody().GetPayloadOnly(),
+		sendECPartIndInResponse: sendECPartIdxInResponse(req),
 	}, cnrID, objID, reqMD)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
@@ -1054,7 +1078,6 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
-
 	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
 		return forwardGetRequest(ctx, req, gStream, node)
 	})
@@ -1125,6 +1148,31 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	return nil
+}
+
+func sendECPartIdxInResponse(req *protoobject.GetRequest) bool {
+	if !req.Body.PayloadOnly || req.Body.Range != nil {
+		return false
+	}
+	var (
+		isECPartReq     bool
+		partIdxNotFound bool
+	)
+attrL:
+	for _, attr := range req.MetaHeader.XHeaders {
+		switch attr.Key {
+		case iec.AttributePartIdx:
+			isECPartReq = true
+			partIdxNotFound = attr.Key == ""
+			break attrL
+		case iec.AttributeRuleIdx:
+			isECPartReq = true
+		default:
+			continue
+		}
+	}
+
+	return isECPartReq && partIdxNotFound
 }
 
 func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte,

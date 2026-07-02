@@ -142,7 +142,7 @@ type cfg struct {
 		//
 		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
-		GetECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error)
+		GetECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, allowAnyPart bool) (object.Object, io.ReadCloser, error)
 		// GetECPartRange reads specified payload ranage of stored object that carries
 		// EC part produced within cnr for parent object and indexed by pi.
 		//

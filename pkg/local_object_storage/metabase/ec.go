@@ -180,7 +180,11 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		}
 
 		if partPref == nil {
-			partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.Index)))
+			if pi.Index < 0 {
+				partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter)
+			} else {
+				partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.Index)))
+			}
 		} else {
 			copy(partPref[1:], id[:])
 		}
