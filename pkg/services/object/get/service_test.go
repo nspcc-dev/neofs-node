@@ -94,11 +94,16 @@ type getNodesForObjectValue struct {
 }
 
 type mockNeoFSNet struct {
+	err               error
 	getNodesForObject map[oid.Address]getNodesForObjectValue
 	localPubKey       []byte
 }
 
 func (x *mockNeoFSNet) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	if x.err != nil {
+		return nil, nil, nil, x.err
+	}
+
 	v, ok := x.getNodesForObject[addr]
 	if !ok {
 		return nil, nil, nil, errors.New("[test] unexpected object requested")
@@ -127,7 +132,7 @@ type mockLocalObjects struct {
 	getECPart map[getECPartKey]getECPartValue
 }
 
-func (x *mockLocalObjects) GetECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
+func (x *mockLocalObjects) GetECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, allowAnyPart bool) (object.Object, io.ReadCloser, error) {
 	v, ok := x.getECPart[getECPartKey{
 		cnr:    cnr,
 		parent: parent,
@@ -188,7 +193,7 @@ func (x unimplementedLocalStorage) GetECPartRange(_ context.Context, _ cid.ID, _
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) GetECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo) (object.Object, io.ReadCloser, error) {
+func (unimplementedLocalStorage) GetECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ bool) (object.Object, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

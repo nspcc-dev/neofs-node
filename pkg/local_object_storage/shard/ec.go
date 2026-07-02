@@ -36,6 +36,8 @@ func (s *Shard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byt
 // parent object and indexed by pi in the underlying metabase, checks its
 // availability and reads it from the underlying BLOB storage. The result is a
 // header and a payload stream that must be closed by caller after processing.
+// If [iec.PartInfo] has negative part index, returned the lowest part index it
+// stores (if any).
 //
 // If the object is not EC part but of [object.TypeTombstone], [object.TypeLock]
 // or [object.TypeLink] type, GetECPart this object instead.

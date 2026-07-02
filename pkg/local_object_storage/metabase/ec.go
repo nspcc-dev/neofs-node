@@ -19,6 +19,8 @@ import (
 
 // ResolveECPart resolves object that carries EC part produced within cnr for
 // parent object and indexed by pi, checks its availability and returns its ID.
+// If [iec.PartInfo] has negative part index, resolves the lowest part index it
+// stores (if any).
 //
 // If the object is not EC part but of [object.TypeTombstone], [object.TypeLock]
 // or [object.TypeLink] type, ResolveECPart returns its ID instead.
@@ -134,6 +136,11 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 	var rulePref, partPref, typePref []byte
 	var sizeSplitInfo *object.SplitInfo
 	isParent := false
+	var (
+		// for pi.Index < 0 only
+		foundPartMinInd = -1
+		foundPart       oid.ID
+	)
 	for id := range iterAttrVal(crs, object.FilterParentID, parent[:]) {
 		if id.IsZero() {
 			return oid.ID{}, fmt.Errorf("invalid child of %s parent: %w", parent, oid.ErrZero)
@@ -180,14 +187,39 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		}
 
 		if partPref == nil {
-			partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.Index)))
+			partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter)
+			if pi.Index >= 0 {
+				partPref = append(partPref, strconv.Itoa(pi.Index)...)
+			}
 		} else {
 			copy(partPref[1:], id[:])
 		}
-		if k, _ = partCrs.Seek(partPref); bytes.Equal(k, partPref) {
+		k, _ = partCrs.Seek(partPref)
+		if !bytes.HasPrefix(k, partPref) {
+			continue
+		}
+		if pi.Index >= 0 {
 			return id, nil
 		}
+
+		ind, err := strconv.Atoi(string(k[len(partPref):]))
+		if err != nil {
+			panic(fmt.Errorf("unexpected EC part index from %X value: %w", k, err))
+		}
+		if foundPartMinInd == -1 {
+			foundPartMinInd = ind
+			foundPart = id
+			continue
+		}
+		if ind < foundPartMinInd {
+			foundPartMinInd = ind
+			foundPart = id
+		}
 	}
+	if pi.Index < 0 && !foundPart.IsZero() {
+		return foundPart, nil
+	}
+
 	if !isParent { // neither tombstone nor lock can be a parent
 		if typePref == nil {
 			typePref = make([]byte, metaIDTypePrefixSize)

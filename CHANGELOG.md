@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Storage node support GET request with missing part index X-Header (#4033)
 
 ### Fixed
 - Session v2 token was not supported in the new container + eACL RPC (#4056)

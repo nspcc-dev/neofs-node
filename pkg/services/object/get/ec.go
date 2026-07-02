@@ -21,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -41,8 +42,8 @@ func (x tooManyPartsUnavailableError) Error() string {
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
-func (s *Service) copyLocalECPart(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
-	hdr, rc, err := s.localObjects.GetECPart(ctx, cnr, parent, pi)
+func (s *Service) copyLocalECPart(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, allowAnyPart bool) error {
+	hdr, rc, err := s.localObjects.GetECPart(ctx, cnr, parent, pi, allowAnyPart)
 	if err != nil {
 		return fmt.Errorf("get object from local storage: %w", err)
 	}
@@ -528,7 +529,7 @@ func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID
 		}
 
 		if local {
-			partHdr, rc, err = s.localObjects.GetECPart(ctx, cnr, parent, pi)
+			partHdr, rc, err = s.localObjects.GetECPart(ctx, cnr, parent, pi, false)
 		} else {
 			partHdr, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
 		}
@@ -1636,10 +1637,7 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 	return copiedLen, nil
 }
 
-// returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.
-func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartInfo, error) {
-	var res iec.PartInfo
-
+func findECIndexes(xHdrs []string) (string, string) {
 	var ruleIdxStr, partIdxStr string
 	for i := 0; i < len(xHdrs); i += 2 {
 		if xHdrs[i] == iec.AttributeRuleIdx {
@@ -1653,10 +1651,22 @@ func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartIn
 		}
 	}
 
+	return ruleIdxStr, partIdxStr
+}
+
+// returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.
+func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartInfo, error) {
+	var (
+		res                    iec.PartInfo
+		ruleIdxStr, partIdxStr = findECIndexes(xHdrs)
+		bAcl                   = cnr.BasicACL()
+	)
+
 	if ruleIdxStr == "" && partIdxStr == "" {
 		res.RuleIndex = -1
 		return res, nil
 	}
+	var ecRules = cnr.PlacementPolicy().ECRules()
 
 	if (ruleIdxStr == "") != (partIdxStr == "") {
 		return res, fmt.Errorf("%s and %s X-headers must be set together", iec.AttributeRuleIdx, iec.AttributePartIdx)
@@ -1667,32 +1677,115 @@ func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartIn
 	if err != nil {
 		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributeRuleIdx, err)
 	}
+	res.RuleIndex = int(ruleIdx)
+
+	err = checkECRuleIdx(bAcl, ecRules, res.RuleIndex)
+	if err != nil {
+		return res, err
+	}
 
 	partIdx, err := strconv.ParseUint(partIdxStr, 10, 8)
 	if err != nil {
 		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributePartIdx, err)
 	}
+	res.Index = int(partIdx)
 
-	if cnr.BasicACL() != 0 { // Uninitialized in tests, safe to do anyway, invalid requests will fail.
-		var ecRules = cnr.PlacementPolicy().ECRules()
+	return res, checkECPartIdx(bAcl, cnr.PlacementPolicy().ECRules(), res.RuleIndex, res.Index)
+}
 
+// returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.
+func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error) {
+	var (
+		res                    iec.PartInfo
+		xHdrs                  = prm.common.XHeaders()
+		cnr                    = prm.container
+		ruleIdxStr, partIdxStr = findECIndexes(xHdrs)
+	)
+
+	if ruleIdxStr == "" {
+		if partIdxStr != "" {
+			return res, fmt.Errorf("%s X-header must be set in a correct EC part GET request (%s X-header found: %s)",
+				iec.AttributeRuleIdx, iec.AttributePartIdx, partIdxStr)
+		}
+
+		res.RuleIndex = -1
+		return res, nil
+	} else if partIdxStr == "" && neofs == nil {
+		return res, fmt.Errorf("request must have %s header for EC objects", iec.AttributePartIdx)
+	}
+
+	var (
+		bACL    = cnr.BasicACL()
+		ecRules = cnr.PlacementPolicy().ECRules()
+	)
+
+	// TODO: state limits in https://github.com/nspcc-dev/neofs-api. Share consts for them.
+	ruleIdx, err := strconv.ParseUint(ruleIdxStr, 10, 8)
+	if err != nil {
+		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributeRuleIdx, err)
+	}
+	res.RuleIndex = int(ruleIdx)
+	err = checkECRuleIdx(bACL, ecRules, res.RuleIndex)
+	if err != nil {
+		return res, err
+	}
+
+	if partIdxStr == "" {
+		nodes, repList, ecList, err := neofs.GetNodesForObject(prm.addr)
+		if err != nil {
+			return res, fmt.Errorf("missing %s and calculating node's EC part finished with error: %w", iec.AttributePartIdx, err)
+		}
+		if res.RuleIndex >= len(ecList) {
+			return res, fmt.Errorf("%s X-header is bigger than placement rules number (%d >= %d)", iec.AttributeRuleIdx, res.RuleIndex, len(ecList))
+		}
+		nodesForObject := nodes[len(repList)+res.RuleIndex]
+		i := slices.IndexFunc(nodesForObject, func(info netmap.NodeInfo) bool {
+			return neofs.IsLocalNodePublicKey(info.PublicKey())
+		})
+		if i == -1 {
+			return res, fmt.Errorf("missing %s and node does not belong to placement list for %d EC rule", iec.AttributePrefix, res.RuleIndex)
+		}
+
+		res.Index = i
+
+		return res, nil
+	}
+
+	partIdx, err := strconv.ParseUint(partIdxStr, 10, 8)
+	if err != nil {
+		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributePartIdx, err)
+	}
+	res.Index = int(partIdx)
+
+	err = checkECPartIdx(bACL, ecRules, res.RuleIndex, res.Index)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
+}
+
+func checkECRuleIdx(bACL acl.Basic, ecRules []netmap.ECRule, ruleIdx int) error {
+	if bACL != 0 { // Uninitialized in tests, safe to do anyway, invalid requests will fail.
 		if len(ecRules) == 0 {
-			return res, errors.New("EC part requested in container without EC policy")
+			return errors.New("EC part requested in container without EC policy")
 		}
-
-		if int(ruleIdx) >= len(ecRules) {
-			return res, fmt.Errorf("EC rule index overflows container policy: idx=%d,rules=%d", ruleIdx, len(ecRules))
-		}
-
-		if total := ecRules[ruleIdx].DataPartNum() + ecRules[ruleIdx].ParityPartNum(); int(partIdx) >= int(total) {
-			return res, fmt.Errorf("EC part index overflows container policy: idx=%d,parts=%d", partIdx, total)
+		if ruleIdx >= len(ecRules) {
+			return fmt.Errorf("EC rule index overflows container policy: idx=%d,rules=%d", ruleIdx, len(ecRules))
 		}
 	}
 
-	res.RuleIndex = int(ruleIdx)
-	res.Index = int(partIdx)
+	return nil
+}
 
-	return res, nil
+func checkECPartIdx(bACL acl.Basic, ecRules []netmap.ECRule, ruleIdx, partIdx int) error {
+	if bACL != 0 { // Uninitialized in tests, safe to do anyway, invalid requests will fail.
+		if total := ecRules[ruleIdx].DataPartNum() + ecRules[ruleIdx].ParityPartNum(); partIdx >= int(total) {
+			return fmt.Errorf("EC part index overflows container policy: idx=%d,parts=%d", partIdx, total)
+		}
+	}
+
+	return nil
 }
 
 func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx string) error {
