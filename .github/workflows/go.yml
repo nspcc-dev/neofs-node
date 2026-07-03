@@ -20,19 +20,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           cache: true
           go-version: '1.26'
 
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run go test
         run: go test -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true # if something is wrong on uploading codecov results, then this job will fail
           files: ./coverage.txt
@@ -57,13 +57,13 @@ jobs:
 
     steps:
       - name: Setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           cache: true
           go-version: ${{ matrix.go }}
 
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run go test
         run: go test -race ./...
