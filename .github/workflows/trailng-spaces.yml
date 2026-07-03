@@ -11,5 +11,5 @@ jobs:
     runs-on: ubuntu-latest
     name: Search spaces in *.md files
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ocular-d/trailing-spaces@0.0.2
