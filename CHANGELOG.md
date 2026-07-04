@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - Compression support from FSTree (#4054)
+- IR container structurization migration (#4062)
 
 ### Updated
 
@@ -22,6 +23,11 @@ Drop blobstor compress and compression_exclude_content_types settings, they're
 no longer used. Notice that old (compressed) data is still available, but no
 new objects are going to be compressed. Support for compressed blobstors will
 eventually be phased out in about half a year.
+
+IR container structurization migration introduced in v0.51.0 has been removed.
+Inner Ring nodes updating from versions earlier than v0.51.0 must first update
+to a v0.51.0-v0.54.0 release and let the migration complete before updating to
+v0.55.0.
 
 ## [0.54.0] - 2026-06-29 - Ando
 

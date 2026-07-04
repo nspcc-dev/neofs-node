@@ -13,7 +13,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -325,13 +324,6 @@ func (c *Client) NotaryInvoke(ctx context.Context, contract util.Uint160, await 
 	return c.notaryInvoke(false, true, contract, await, nonce, vub, method, args...)
 }
 
-// CallNotary calls contract method requiring Alphabet witness using Notary
-// service and returns transaction result.
-func (c *Client) CallNotary(_ context.Context, contract util.Uint160, method string, args ...any) (*state.AppExecResult, error) {
-	_, res, err := c._notaryInvoke(false, true, contract, true, 0, nil, method, args...)
-	return res, err
-}
-
 // NotaryInvokeNotAlpha does the same as NotaryInvoke but does not use client's
 // private key in Invocation script. It means that main TX of notary request is
 // not expected to be signed by the current node.
@@ -584,36 +576,30 @@ func (c *Client) sendNotaryRequest(committee, invokedByAlpha bool, contract util
 }
 
 func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
-	txHash, _, err := c._notaryInvoke(committee, invokedByAlpha, contract, await, nonce, vub, method, args...)
-	return txHash, err
-}
-
-func (c *Client) _notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, *state.AppExecResult, error) {
 	nAct, mainH, fbH, untilActual, err := c.sendNotaryRequest(committee, invokedByAlpha, contract, nonce, vub, method, args...)
 
 	alreadyOnChain := err != nil && alreadyOnChainError(err)
 
-	var res *state.AppExecResult
 	if await {
 		if alreadyOnChain {
 			err = neorpc.ErrAlreadyExists // force WaitSuccess to get the result
 		}
-		res, err = nAct.WaitSuccess(mainH, fbH, untilActual, err)
+		_, err = nAct.WaitSuccess(mainH, fbH, untilActual, err)
 	}
 
 	if err != nil {
 		if alreadyOnChain {
 			c.logNotaryCallAlreadyOnChain(method, nonce, untilActual, mainH, fbH)
 
-			return mainH, res, nil
+			return mainH, nil
 		}
 
-		return util.Uint256{}, nil, err
+		return util.Uint256{}, err
 	}
 
 	c.logNotaryCall(method, untilActual, mainH, fbH)
 
-	return mainH, res, nil
+	return mainH, nil
 }
 
 func (c *Client) logNotaryCallAlreadyOnChain(method string, nonce uint32, vub uint32, mainTx util.Uint256, fbTx util.Uint256) {
