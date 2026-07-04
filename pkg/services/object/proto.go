@@ -257,21 +257,21 @@ func shiftPayloadChunkInResponseBuffer(respBuf []byte, chunkFldTag byte, off, ln
 	return bodyf
 }
 
-func parseObjectPayloadFieldTag(buf []byte) (int, error) {
+func parseObjectPayloadFieldTag(buf []byte) (int, uint64, error) {
 	if len(buf) == 0 {
-		return 0, io.ErrUnexpectedEOF
+		return 0, 0, io.ErrUnexpectedEOF
 	}
 
 	if buf[0] != iprotobuf.TagBytes4 {
-		return 0, fmt.Errorf("invalid tag %d instead of %d", buf[0], iprotobuf.TagBytes4)
+		return 0, 0, fmt.Errorf("invalid tag %d instead of %d", buf[0], iprotobuf.TagBytes4)
 	}
 
-	_, n, err := iprotobuf.ParseVarint(buf[1:])
+	ln, n, err := iprotobuf.ParseVarint(buf[1:])
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return 1 + n, nil
+	return 1 + n, ln, nil
 }
 
 var getResponseChunkBufferPool = iprotobuf.NewBufferPool(getResponseChunkBufferLen)

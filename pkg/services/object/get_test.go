@@ -99,6 +99,11 @@ func TestServer_Get_Local(t *testing.T) {
 					assertGetOK(t, srv, mtrc, *obj, signer)
 				})
 
+				t.Run("full payload", func(t *testing.T) {
+					handlers.mockHeaderLen = len(handlers.mockObject)
+					assertGetOK(t, srv, mtrc, *obj, signer)
+				})
+
 				handlers.mockHeaderLen = len(handlers.mockObject) - 1
 				assertGetOK(t, srv, mtrc, *obj, signer)
 			})

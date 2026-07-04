@@ -1129,17 +1129,26 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte,
 	prefixLen, hdrTo int, stream io.Reader, pldFldOff int, needSignResp bool) error {
-	var chunkRespBuf *iprotobuf.MemBuffer
-	var chunkBuf []byte
+	var (
+		chunkRespBuf        *iprotobuf.MemBuffer
+		chunkBuf            []byte
+		bufferedPldLen      int
+		bufferedPldTagLen   int
+		fullPayloadBuffered bool
+	)
 
 	prereadPldLen := prefixLen - pldFldOff
 	if prereadPldLen > 0 {
 		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
 		copy(chunkBuf, hdrBuf[pldFldOff:][:prereadPldLen])
-		// TODO: consider optimization
-		// Object can be small and fit entirely within the heading buffer. In this
-		// case, no more buffers are needed. This can be checked by reading
-		// `header.payload_length` field.
+
+		var pldLen uint64
+		var err error
+		bufferedPldTagLen, pldLen, err = parseObjectPayloadFieldTag(chunkBuf[:prereadPldLen])
+		if err == nil {
+			bufferedPldLen = prereadPldLen - bufferedPldTagLen
+			fullPayloadBuffered = uint64(bufferedPldLen) == pldLen
+		}
 	}
 
 	bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:hdrTo])
@@ -1179,6 +1188,25 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 		}
 	}()
 
+	if fullPayloadBuffered {
+		bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+bufferedPldTagLen, bufferedPldLen)
+		if needSignResp {
+			n, err := s.signResponse(chunkRespBuf.SliceBuffer[bodyf.To:], chunkRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+			if err != nil {
+				chunkRespBuf.Free()
+				return fmt.Errorf("sign chunk response: %w", err)
+			}
+			bodyf.To += n
+		}
+
+		chunkRespBuf.SetBounds(bodyf.From, bodyf.To)
+		if err := gStream.SendMsg(chunkRespBuf); err != nil {
+			return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+		}
+		sent += bufferedPldLen
+		return nil
+	}
+
 	for first := true; ; first = false {
 		n, err := io.ReadFull(stream, chunkBuf[prereadPldLen:])
 		streamDone := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
@@ -1193,7 +1221,7 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 		n += prereadPldLen
 
 		if first && n > 0 {
-			prereadPldLen, err = parseObjectPayloadFieldTag(chunkBuf[:n])
+			prereadPldLen, _, err = parseObjectPayloadFieldTag(chunkBuf[:n])
 			if err != nil {
 				chunkRespBuf.Free()
 				return fmt.Errorf("parse payload field tag: %w", err)
