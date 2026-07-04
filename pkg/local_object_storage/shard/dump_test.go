@@ -274,7 +274,6 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	bsPath := filepath.Join(dir, "blob")
 	sOpts := func(sw uint64) []shard.Option {
 		return []shard.Option{
-			shard.WithCompressObjects(true),
 			shard.WithBlobstor(fstree.New(
 				fstree.WithPath(bsPath),
 				fstree.WithDepth(1)),

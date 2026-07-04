@@ -245,7 +245,7 @@ func (t *FSTree) preprocessStreamHead(f io.ReadSeekCloser, initial []byte) ([]by
 	var err error
 	if len(initial) < objectwire.NonPayloadFieldsBufferLength {
 		_ = f.Close()
-		initial, err = t.Decompress(initial)
+		initial, err = decompress(initial)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decompress initial data: %w", err)
 		}
@@ -254,7 +254,7 @@ func (t *FSTree) preprocessStreamHead(f io.ReadSeekCloser, initial []byte) ([]by
 
 	reader := f
 
-	if t.IsCompressed(initial) {
+	if isCompressed(initial) {
 		decoder, err := zstd.NewReader(io.MultiReader(bytes.NewReader(slices.Clone(initial)), f))
 		if err != nil {
 			return nil, nil, fmt.Errorf("zstd decoder: %w", err)

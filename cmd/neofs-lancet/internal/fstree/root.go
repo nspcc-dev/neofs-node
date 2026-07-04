@@ -3,7 +3,6 @@ package fstree
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/spf13/cobra"
 )
@@ -35,16 +34,7 @@ func openFSTree(readOnly bool) (*fstree.FSTree, error) {
 		fstree.WithPerm(0600),
 	)
 
-	var compressCfg compression.Config
-
-	err := compressCfg.Init()
-	if err != nil {
-		return nil, fmt.Errorf("failed to init compression config: %w", err)
-	}
-
-	fst.SetCompressor(&compressCfg)
-
-	err = fst.Open(readOnly)
+	err := fst.Open(readOnly)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open FSTree: %w", err)
 	}

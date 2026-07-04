@@ -9,7 +9,6 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -264,10 +263,6 @@ func (unimplementedBLOBStore) Path() string {
 }
 
 func (unimplementedBLOBStore) ShardID() common.ID {
-	panic("unimplemented")
-}
-
-func (unimplementedBLOBStore) SetCompressor(*compression.Config) {
 	panic("unimplemented")
 }
 

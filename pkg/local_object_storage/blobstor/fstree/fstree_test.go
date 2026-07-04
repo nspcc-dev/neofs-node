@@ -10,7 +10,6 @@ import (
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -30,30 +29,10 @@ func TestAddressToString(t *testing.T) {
 }
 
 func TestFSTree_GetRangeStream(t *testing.T) {
-	t.Run("compressed", func(t *testing.T) {
-		comp := compression.Config{Enabled: true}
-		require.NoError(t, comp.Init())
-
-		fst := setupFSTree(t)
-		fst.SetCompressor(&comp)
-
-		testGetRangeStream(t, fst)
-	})
-
 	testGetRangeStream(t, setupFSTree(t))
 }
 
 func TestFSTree_ReadPayloadRange(t *testing.T) {
-	t.Run("compressed", func(t *testing.T) {
-		comp := compression.Config{Enabled: true}
-		require.NoError(t, comp.Init())
-
-		fst := setupFSTree(t)
-		fst.SetCompressor(&comp)
-
-		testReadPayloadRange(t, fst)
-	})
-
 	testReadPayloadRange(t, setupFSTree(t))
 }
 
@@ -229,16 +208,6 @@ func testGetRangeStreamFunc(t *testing.T, fst *FSTree, fn func(fst *FSTree, addr
 }
 
 func TestFSTree_PutBatch(t *testing.T) {
-	t.Run("compressed", func(t *testing.T) {
-		fst := setupFSTree(t)
-
-		compCfg := &compression.Config{Enabled: true}
-		require.NoError(t, compCfg.Init())
-		fst.SetCompressor(compCfg)
-
-		testPutBatch(t, fst)
-	})
-
 	testPutBatch(t, setupFSTree(t))
 }
 
