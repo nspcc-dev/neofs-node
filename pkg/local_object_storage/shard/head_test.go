@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
-	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/stretchr/testify/require"
 )
 

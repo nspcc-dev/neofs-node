@@ -15,7 +15,6 @@ import (
 	"time"
 
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
-	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -23,6 +22,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"go.uber.org/zap"
 )
 

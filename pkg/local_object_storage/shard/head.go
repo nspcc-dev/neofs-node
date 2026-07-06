@@ -5,11 +5,11 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
-	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 )
 
 func (s *Shard) checkExistence(addr oid.Address, raw bool) (*object.SplitInfoError, []oid.Address, error) {

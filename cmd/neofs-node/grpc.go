@@ -14,8 +14,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
-	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"

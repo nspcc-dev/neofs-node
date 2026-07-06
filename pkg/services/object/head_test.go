@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -21,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"

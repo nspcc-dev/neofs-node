@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	iprotobuf "github.com/nspcc-dev/neofs-node/internal/protobuf"
-	"github.com/nspcc-dev/neofs-node/internal/protobuf/protoscan"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
