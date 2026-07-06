@@ -14,7 +14,6 @@ const (
 	GetTakenSpaceByUserMethod      = "getTakenSpaceByUser"
 	GetContainerQuotaMethod        = "containerQuota"
 	GetUserQuotaMethod             = "userQuota"
-	AddContainerStructsMethod      = "addStructs"
 	SetContainerAttributeMethod    = "setAttribute"
 	RemoveContainerAttributeMethod = "removeAttribute"
 )
