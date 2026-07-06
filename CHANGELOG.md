@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - IR container structurization migration (#4062)
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.20.0.20260703200507-4f450009c764` (#4065)
 
 ### Updating from v0.54.0
 Drop blobstor compress and compression_exclude_content_types settings, they're
