@@ -44,7 +44,7 @@ type storageListerWithDelay struct {
 	onRead func()
 }
 
-func (s *storageListerWithDelay) setListResulsts(oo []objectcore.AddressWithAttributes, err error) {
+func (s *storageListerWithDelay) setListResults(oo []objectcore.AddressWithAttributes, err error) {
 	s.m.Lock()
 	s.objs = oo
 	s.err = err
@@ -152,7 +152,7 @@ func TestConsistencyAndPlacement(t *testing.T) {
 		require.Equal(t, false, mockM.consistency.Load())      // still not finished cycle
 		require.Equal(t, false, mockM.optimalPlacement.Load()) // still not finished cycle
 
-		localNode.setListResulsts(nil, engine.ErrEndOfListing)
+		localNode.setListResults(nil, engine.ErrEndOfListing)
 		delayCh <- struct{}{}
 		delayCh <- struct{}{}
 		require.Eventually(t, func() bool {
