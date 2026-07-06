@@ -40,9 +40,11 @@ type storageListerWithDelay struct {
 	m    sync.RWMutex
 	objs []objectcore.AddressWithAttributes
 	err  error
+
+	onRead func()
 }
 
-func (s *storageListerWithDelay) setListResulsts(oo []objectcore.AddressWithAttributes, err error) {
+func (s *storageListerWithDelay) setListResults(oo []objectcore.AddressWithAttributes, err error) {
 	s.m.Lock()
 	s.objs = oo
 	s.err = err
@@ -52,8 +54,12 @@ func (s *storageListerWithDelay) setListResulsts(oo []objectcore.AddressWithAttr
 func (s *storageListerWithDelay) ListWithCursor(_ context.Context, u uint32, cursor *engine.Cursor, s2 ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error) {
 	<-s.ch
 	s.m.RLock()
+	objs, err := s.objs, s.err
 	defer s.m.RUnlock()
-	return s.objs, cursor, s.err
+	if s.onRead != nil {
+		s.onRead()
+	}
+	return objs, cursor, err
 }
 
 func (s *storageListerWithDelay) Delete(_ context.Context, address oid.Address) error {
@@ -115,13 +121,17 @@ func TestConsistencyAndPlacement(t *testing.T) {
 				Attributes: make([]string, 3),
 			}
 
-			mockM     = &mockMetrics{}
-			mockNet   = newMockNetwork()
-			delayCh   = make(chan struct{})
-			localNode = &storageListerWithDelay{ch: delayCh}
+			mockM         = &mockMetrics{}
+			mockNet       = newMockNetwork()
+			delayCh       = make(chan struct{})
+			firstReadDone = make(chan struct{})
+			localNode     = &storageListerWithDelay{ch: delayCh}
 		)
 
 		localNode.objs = []objectcore.AddressWithAttributes{localObj}
+		localNode.onRead = sync.OnceFunc(func() {
+			close(firstReadDone)
+		})
 
 		p := New(neofscryptotest.Signer(),
 			WithReplicationCooldown(time.Millisecond),
@@ -138,10 +148,11 @@ func TestConsistencyAndPlacement(t *testing.T) {
 		require.Equal(t, false, mockM.consistency.Load())
 		require.Equal(t, false, mockM.optimalPlacement.Load())
 		delayCh <- struct{}{}
+		<-firstReadDone
 		require.Equal(t, false, mockM.consistency.Load())      // still not finished cycle
 		require.Equal(t, false, mockM.optimalPlacement.Load()) // still not finished cycle
 
-		localNode.setListResulsts(nil, engine.ErrEndOfListing)
+		localNode.setListResults(nil, engine.ErrEndOfListing)
 		delayCh <- struct{}{}
 		delayCh <- struct{}{}
 		require.Eventually(t, func() bool {
