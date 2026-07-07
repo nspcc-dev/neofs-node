@@ -185,11 +185,6 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetUnaryParser(containerEvent.ParsePutReport)
 	pp = append(pp, p)
 
-	// object put meta data
-	p.SetRequestType(containerEvent.ObjectPutNotaryEvent)
-	p.SetUnaryParser(containerEvent.ParseObjectPut)
-	pp = append(pp, p)
-
 	// set attribute
 	p.SetRequestType(fschaincontracts.SetContainerAttributeMethod)
 	p.SetUnaryParser(containerEvent.RestoreSetAttributeRequest)
@@ -254,11 +249,6 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// announce load
 	h.SetRequestType(fschaincontracts.PutContainerReportMethod)
 	h.SetHandler(cp.handleAnnounceLoad)
-	hh = append(hh, h)
-
-	// object put meta data
-	h.SetRequestType(containerEvent.ObjectPutNotaryEvent)
-	h.SetHandler(cp.handleObjectPut)
 	hh = append(hh, h)
 
 	// set attribute
