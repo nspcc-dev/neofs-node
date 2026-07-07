@@ -39,7 +39,6 @@ const (
 	commitContainerListUpdate = "commitContainerListUpdate"
 	replicasListMethod        = "replicasNumbers"
 	nodesListMethod           = "nodes"
-	submitObjectPutMethod     = "submitObjectPut"
 
 	// iteratorPrefetchNumber is a number of stack items to prefetch in the
 	// first call of iterator-based methods. neo-go's stack elements default
