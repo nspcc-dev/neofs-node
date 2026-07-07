@@ -2,14 +2,11 @@ package v2
 
 import (
 	"errors"
-	"fmt"
+
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
 const invalidRequestMessage = "malformed request"
-
-func malformedRequestError(reason string) error {
-	return fmt.Errorf("%s: %s", invalidRequestMessage, reason)
-}
 
 var (
 	// ErrNotMatched is returned from CheckEACL() when there were no rules
@@ -18,5 +15,9 @@ var (
 	// mean the default behavior after the full table scan.
 	ErrNotMatched = errors.New("no matching rule")
 
-	errInvalidVerb = malformedRequestError("session token verb is invalid")
+	errInvalidVerb apistatus.ObjectAccessDenied
 )
+
+func init() {
+	errInvalidVerb.WriteReason("session token verb is invalid")
+}
