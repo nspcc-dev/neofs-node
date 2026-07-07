@@ -30,7 +30,6 @@ const (
 	lastEpochBlockMethod   = "lastEpochBlock"
 	epochBlockMethod       = "getEpochBlock"
 	epochBlockByTimeMethod = "getEpochBlockByTime"
-	innerRingListMethod    = "innerRingList"
 	newEpochMethod         = "newEpoch"
 	setConfigMethod        = "setConfig"
 	updateInnerRingMethod  = "updateInnerRing"
