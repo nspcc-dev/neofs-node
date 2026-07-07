@@ -176,17 +176,6 @@ func (unimplementedObjectWriter) WriteChunk([]byte) error {
 	panic("unimplemented")
 }
 
-type unimplementedServiceConns struct{}
-
-func (x unimplementedServiceConns) InitGetObjectRangeStream(context.Context, netmap.NodeInfo, ecdsa.PrivateKey, cid.ID, oid.ID,
-	uint64, uint64, *session.Object, []string) (io.ReadCloser, error) {
-	panic("unimplemented")
-}
-
-func (x unimplementedServiceConns) Head(context.Context, netmap.NodeInfo, ecdsa.PrivateKey, cid.ID, oid.ID, *session.Object) (object.Object, error) {
-	panic("unimplemented")
-}
-
 type unimplementedLocalStorage struct{}
 
 func (x unimplementedLocalStorage) GetECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _, _ uint64) (uint64, io.ReadCloser, error) {

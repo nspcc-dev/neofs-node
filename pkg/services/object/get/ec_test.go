@@ -601,7 +601,6 @@ func (x *validatingChunkWriter) WriteChunk(p []byte) error {
 }
 
 type testECServiceConn struct {
-	unimplementedServiceConns
 	mockKeyStorage
 	sTok      *session.Object
 	parentHdr object.Object
@@ -610,7 +609,10 @@ type testECServiceConn struct {
 }
 
 func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error) {
+	if rng != nil {
+		panic("unimplemented range")
+	}
 	if ctx == nil {
 		return object.Object{}, nil, errors.New("[test] missing context")
 	}

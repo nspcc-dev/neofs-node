@@ -174,11 +174,9 @@ type cfg struct {
 	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
 	conns interface {
 		InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-			st *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error)
+			st *session.Object, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error)
 		Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
 			st *session.Object) (object.Object, error)
-		InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-			off, ln uint64, st *session.Object, xs []string) (io.ReadCloser, error)
 	}
 
 	keyStore interface {

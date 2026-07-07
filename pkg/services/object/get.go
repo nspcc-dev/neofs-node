@@ -215,30 +215,6 @@ func handleGetResponseBodyOneof(headWas *bool, buffers iprotobuf.BuffersSlice) (
 	return oneofNum, oneofFld, err
 }
 
-func handleRangeResponseBodyOneof(buffers iprotobuf.BuffersSlice) (protowire.Number, iprotobuf.BuffersSlice, error) {
-	var oneofNum protowire.Number
-	var oneofFld iprotobuf.BuffersSlice
-
-	var opts protoscan.ScanMessageOptions
-	opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
-		if num == protoobject.FieldRangeResponseBodyChunk {
-			oneofNum, oneofFld = num, buffers
-		}
-		return nil
-	}
-	opts.InterceptNested = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
-		if num != protoobject.FieldRangeResponseBodySplitInfo {
-			return protoscan.ErrContinue
-		}
-		oneofNum, oneofFld = num, buffers
-		return nil
-	}
-
-	err := protoscan.ScanMessage(buffers, protoscan.ObjectGetRangeResponseBodyScheme, opts)
-
-	return oneofNum, oneofFld, err
-}
-
 func (x *getProxyContext) handleResponseBody(ctx context.Context, raw bool, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
 	oneofNum, oneofFld, err := handleGetResponseBodyOneof(&streamProg.headWas, buffers)
 	if err != nil {
@@ -356,12 +332,6 @@ type getECTransport struct {
 
 	getPartRangeRequestsMtx sync.RWMutex
 	getPartRangeRequests    map[iec.PartInfo]*preparedRangeRequest
-
-	rangeViaGet bool
-
-	// if rangeViaGet is set
-	getPartRequestsMtx sync.RWMutex
-	getPartRequests    map[iec.PartInfo]*mem.Buffer
 }
 
 // CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
@@ -672,8 +642,8 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPldLen, nil
 }
 
-func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
-	request, err := x.makeGetECPartRequest(partInfo)
+func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+	request, err := x.makeGetECPartRangeRequest(partInfo, off, ln)
 	if err != nil {
 		return 0, fmt.Errorf("make request: %w", err)
 	}
@@ -705,8 +675,6 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 
 	var copied uint64
 
-	var streamOff uint64
-	var headWas bool
 	for {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
@@ -732,9 +700,6 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 
 		if code == protostatus.ObjectNotFound {
 			respBuf.Free()
-			if headWas {
-				return 0, errors.New("received object not found status after header")
-			}
 			return 0, nil
 		}
 
@@ -745,85 +710,44 @@ func (x *getECTransport) copyRemotePartRangeViaGet(ctx context.Context, conn *gr
 			return 0, getsvc.ErrResponded
 		}
 
-		num, fld, err := handleGetResponseBodyOneof(&headWas, body)
+		chunkLen := -1
+
+		var opts protoscan.ScanMessageOptions
+		opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
+			if num == protoobject.FieldGetResponseBodyChunk {
+				chunkLen = buffers.Len()
+			}
+			return nil
+		}
+		opts.InterceptNested = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
+			switch num {
+			default:
+				return protoscan.ErrContinue
+			case protoobject.FieldGetResponseBodyInit:
+				return errors.New("received header field in response to range-only EC part GET request")
+			case protoobject.FieldGetResponseBodySplitInfo:
+				return errors.New("received split info field in response to range-only EC part GET request")
+			}
+		}
+
+		err = protoscan.ScanMessage(body, protoscan.ObjectGetResponseBodyScheme, opts)
 		if err != nil {
 			respBuf.Free()
 			return 0, err
 		}
 
-		switch num {
-		default:
+		if chunkLen < 0 {
 			respBuf.Free()
 			return 0, errors.New("none of the supported oneof fields are specified")
-		case protoobject.FieldGetResponseBodyInit:
-			_, _, _, _, full, err := handleGetECPartResponseInit(fld)
-			respBuf.Free()
-			if err != nil {
-				return 0, err
-			}
+		}
 
-			if ln != 0 {
-				if off >= full || full-off < ln {
-					return 0, apistatus.ErrObjectOutOfRange
-				}
-			}
-		case protoobject.FieldGetResponseBodyChunk:
-			var chunkFrom, chunkTo int
-			chunkLen := fld.Len()
+		if err = x.responseStream.SendMsg(respBuf); err != nil {
+			return 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+		}
 
-			if off > streamOff {
-				diff := off - streamOff
-				if uint64(chunkLen) <= diff { // already copied
-					streamOff += uint64(chunkLen)
-					break
-				}
-				chunkFrom = int(diff)
-			}
-
-			left := ln - copied
-
-			if uint64(chunkLen-chunkFrom) > left {
-				chunkTo = chunkFrom + int(left)
-			} else {
-				chunkTo = chunkLen
-			}
-
-			if chunkFrom > 0 || chunkTo < chunkLen {
-				if chunkFrom > 0 {
-					_, ok := fld.MoveNext(chunkFrom)
-					if !ok {
-						respBuf.Free()
-						return 0, fmt.Errorf("%w while moving to offset=%d in chunk with length=%d", io.ErrUnexpectedEOF, chunkFrom, chunkLen)
-					}
-				}
-				if chunkTo < chunkLen {
-					var ok bool
-					fld, ok = fld.MoveNext(chunkTo - chunkFrom)
-					if !ok {
-						respBuf.Free()
-						return 0, fmt.Errorf("%w while moving to offset=%d in chunk with length=%d", io.ErrUnexpectedEOF, chunkTo-chunkFrom, chunkLen-chunkFrom)
-					}
-				}
-				resp, err := x.server.makeGetChunkResponse(fld, x.signResponses)
-				respBuf.Free()
-				if err != nil {
-					return 0, fmt.Errorf("make RANGE response: %w", err)
-				}
-				respBuf = mem.BufferSlice{resp}
-			}
-
-			if err = x.responseStream.SendMsg(respBuf); err != nil {
-				return 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
-			}
-
-			copied += uint64(chunkTo - chunkFrom)
-			if copied == ln {
-				return copied, nil
-			}
-		case protoobject.FieldGetResponseBodySplitInfo:
-			err := handleSplitInfo(fld, true)
-			respBuf.Free()
-			return 0, err
+		copied += uint64(chunkLen)
+		if copied == ln {
+			return copied, nil
 		}
 	}
 
@@ -926,130 +850,6 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 	return copiedPld, nil
 }
 
-func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
-	if x.rangeViaGet {
-		return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, controlCh)
-	}
-
-	request, err := x.makeGetECPartRangeRequest(partInfo, off, ln)
-	if err != nil {
-		return 0, fmt.Errorf("make request: %w", err)
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	stream, err := callRange(ctx, conn, request)
-	if err != nil {
-		err = igrpc.ConvertContextStatus(err)
-		if errors.Is(err, ctx.Err()) {
-			return 0, err
-		}
-		x.server.log.Warn("RANGE object API failure (call)", zap.String("node", conn.Target()), zap.Error(err))
-		return 0, nil
-	}
-
-	if controlCh != nil {
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		case abort := <-controlCh:
-			if abort {
-				return 0, getsvc.ErrAborted
-			}
-		}
-	}
-
-	var copiedPld uint64
-
-	for first := true; ; first = false {
-		var respBuf mem.BufferSlice
-		if err = stream.RecvMsg(&respBuf); err != nil {
-			err = igrpc.ConvertContextStatus(err)
-			if errors.Is(err, ctx.Err()) {
-				return 0, err
-			}
-			fin := errors.Is(err, io.EOF)
-			if fin && copiedPld < ln {
-				return 0, fmt.Errorf("received less bytes than requested: expected %d, got %d", ln, copiedPld)
-			}
-			if !fin {
-				x.server.log.Warn("RANGE object API failure (receive message)", zap.String("node", conn.Target()), zap.Error(err))
-			}
-			break
-		}
-
-		code, body, err := handleResponseCodeAndBody(respBuf)
-		if err != nil {
-			respBuf.Free()
-			return 0, err
-		}
-
-		if code == protostatus.ObjectNotFound {
-			respBuf.Free()
-			if !first {
-				return 0, errors.New("received object not found status in non-first message")
-			}
-			return 0, nil
-		}
-
-		// TODO: track https://github.com/nspcc-dev/neofs-node/issues/3547
-		if code == protostatus.ObjectAccessDenied {
-			respBuf.Free()
-			if !first {
-				return 0, errors.New("received access denied status in non-first message")
-			}
-			x.rangeViaGet = true
-			// pass nil channel because trigger has already been caught
-			return x.copyRemotePartRangeViaGet(ctx, conn, partInfo, off, ln, nil)
-		}
-
-		if code != protostatus.OK {
-			if err = x.responseStream.SendMsg(respBuf); err != nil {
-				return 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
-			}
-			return 0, getsvc.ErrResponded
-		}
-
-		num, fld, err := handleRangeResponseBodyOneof(body)
-		if err != nil {
-			respBuf.Free()
-			return 0, err
-		}
-
-		switch num {
-		default:
-			respBuf.Free()
-			return 0, errors.New("none of the supported oneof fields are specified")
-		case protoobject.FieldRangeResponseBodyChunk:
-			copiedPld += uint64(fld.Len())
-			if copiedPld > ln {
-				respBuf.Free()
-				return 0, fmt.Errorf("received more bytes than requested: expected %d, got %d", ln, copiedPld)
-			}
-
-			// In fact, the only difference is in the 'body.chunk' field. With https://github.com/nspcc-dev/neofs-api/pull/389 it's gonna be GET only.
-			getRespBuf, err := x.server.makeGetChunkResponse(fld, x.signResponses)
-			respBuf.Free()
-			if err != nil {
-				return 0, fmt.Errorf("make GET chunk response: %w", err)
-			}
-
-			if err = x.responseStream.SendMsg(getRespBuf); err != nil {
-				return 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
-			}
-		case protoobject.FieldGetResponseBodySplitInfo:
-			respBuf.Free()
-			if !first {
-				return 0, errors.New("received split info in non-first message")
-			}
-			return 0, errors.New("unexpected split info status response")
-		}
-	}
-
-	return copiedPld, nil
-}
-
 func (s *Server) makeGetECPartRequest(cnr cid.ID, parent oid.ID, partInfo iec.PartInfo) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
@@ -1114,41 +914,6 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 	return reqBuf, nil
 }
 
-func (x *getECTransport) makeGetECPartRequest(partInfo iec.PartInfo) (mem.Buffer, error) {
-	x.getPartRequestsMtx.RLock()
-	reqPtr := x.getPartRequests[partInfo]
-	if reqPtr != nil {
-		x.getPartRequestsMtx.RUnlock()
-		return *reqPtr, nil
-	}
-	x.getPartRequestsMtx.RUnlock()
-
-	x.getPartRequestsMtx.Lock()
-
-	reqPtr = x.getPartRequests[partInfo]
-	if reqPtr != nil {
-		x.getPartRequestsMtx.Unlock()
-		return *reqPtr, nil
-	}
-
-	if x.getPartRequests == nil {
-		x.getPartRequests = make(map[iec.PartInfo]*mem.Buffer)
-	}
-	reqPtr = new(mem.Buffer)
-	x.getPartRequests[partInfo] = reqPtr
-
-	x.getPartRequestsMtx.Unlock()
-
-	reqBuf, err := x.server.makeGetECPartRequest(x.requestContainer, x.requestObject, partInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	*reqPtr = reqBuf
-
-	return reqBuf, nil
-}
-
 func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, off, ln uint64, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
@@ -1172,8 +937,11 @@ func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo i
 	bodyLen := getByAddressRequestBodyLen
 
 	if rngLen != 0 {
-		bodyLen += 1 + protowire.SizeBytes(rngLen) // 1 for iprotobuf.TagBytes2
+		bodyLen += 1 + protowire.SizeBytes(rngLen) // 1 for iprotobuf.TagBytes3
 	}
+
+	// payload_only flag
+	bodyLen += 1 + 1 // 1 for iprotobuf.TagVarint4, 1 for true
 
 	reqLen := 1 + protowire.SizeBytes(bodyLen) + // 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
@@ -1280,7 +1048,7 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 	n++
 	n += copy(buf[n:], parent[:])
 	if rngLen != 0 {
-		buf[n] = iprotobuf.TagBytes2 // range
+		buf[n] = iprotobuf.TagBytes3 // range
 		n++
 		n += binary.PutUvarint(buf[n:], uint64(rngLen))
 		if off != 0 {
@@ -1294,6 +1062,10 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 			n += binary.PutUvarint(buf[n:], ln)
 		}
 	}
+	buf[n] = iprotobuf.TagVarint4 // payload_only
+	n++
+	buf[n] = 1 // true
+	n++
 
 	bodySig, err := signECDSAWithSHA512(s.signer, buf[from:n])
 	if err != nil {
@@ -1394,53 +1166,6 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	}
 
 	return respStream.SendMsg(respBuf)
-}
-
-func (s *Server) makeGetChunkResponse(chunk iprotobuf.BuffersSlice, sign bool) (mem.Buffer, error) {
-	chunkLen := chunk.Len()
-
-	bodyLen := 1 + protowire.SizeBytes(chunkLen) // 1 for iprotobuf.TagBytes1
-
-	respLen := 1 + protowire.SizeBytes(bodyLen) // 1 for iprotobuf.TagBytes1
-
-	if sign {
-		respLen += 1 + protowire.SizeBytes(requestVerificationHeaderECDSAWIthSHA512Len) // 1 for iprotobuf.TagBytes3
-	}
-
-	var respBuf mem.Buffer
-	var buf mem.SliceBuffer
-	if respLen <= maxGetResponseChunkLen {
-		hb, _ := getBufferForChunkGetResponse()
-		respBuf = hb
-		buf = hb.SliceBuffer
-	} else {
-		buf = make(mem.SliceBuffer, respLen)
-		respBuf = buf
-	}
-
-	// body
-	buf[0] = iprotobuf.TagBytes1
-	off := 1 + binary.PutUvarint(buf[1:], uint64(bodyLen))
-	bodyFrom := off
-	// chunk
-	buf[off] = iprotobuf.TagBytes2
-	off++
-	off += binary.PutUvarint(buf[off:], uint64(chunkLen))
-	off += chunk.CopyTo(buf[off:])
-
-	if sign {
-		n, err := s.signResponse(buf[off:], buf[bodyFrom:off], nil)
-		if err != nil {
-			return nil, fmt.Errorf("sign response: %w", err)
-		}
-		off += n
-	}
-
-	if respLen <= maxGetResponseChunkLen {
-		respBuf.(*iprotobuf.MemBuffer).SetBounds(0, off)
-	}
-
-	return respBuf, nil
 }
 
 func calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, sessionTokenLen, sessionTokenV1Len int) int {

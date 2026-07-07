@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -649,7 +648,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 	partIdxAttr := strconv.Itoa(pi.Index)
 
 	// TODO: this must be stated in https://github.com/nspcc-dev/neofs-api
-	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, sTok, true, false, []string{
+	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, sTok, true, false, nil, []string{
 		iec.AttributeRuleIdx, ruleIdxAttr,
 		iec.AttributePartIdx, partIdxAttr,
 	})
@@ -1285,86 +1284,20 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 		}
 
 		rc, err = s.getECPartRangeFromNode(ctx, cnr, parent, off, ln, sTok, pi, localNodeKey, sortedNodes[i])
-		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
-				errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-			if !errors.Is(err, apistatus.ErrObjectNotFound) {
-				s.log.Info("failed to get EC part payload range from remote node",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln),
-					zap.Stringer("rule", rule), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Error(err))
-			}
-			continue
-		}
-
-		// Fallback to GET similar to fallbackRangeReader. Track https://github.com/nspcc-dev/neofs-node/issues/3547.
-		b := []byte{0}
-		_, err = io.ReadFull(rc, b)
 		if err == nil {
-			// TODO: consider reader that switches to another node to continue the stream
-			return struct {
-				io.Reader
-				io.Closer
-			}{
-				Reader: io.MultiReader(bytes.NewReader(b), rc),
-				Closer: rc,
-			}, nil
-		}
-
-		err = igrpc.ConvertContextStatus(err)
-
-		if !errors.Is(err, apistatus.ErrObjectAccessDenied) {
-			if errors.Is(err, io.EOF) {
-				err = io.ErrUnexpectedEOF
-			}
-			return nil, fmt.Errorf("read GetRange response stream: %w", err)
-		}
-
-		_, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
-		if err != nil {
-			err = igrpc.ConvertContextStatus(err)
-			if errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-			if !errors.Is(err, apistatus.ErrObjectNotFound) {
-				s.log.Info("range->get fallback attempt for EC part failed on stream init, trying another node...",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Error(err))
-			}
-			continue
-		}
-
-		if off > math.MaxInt64 && ln > math.MaxInt64 {
-			// underlying io functions behave specifically with negative input. 8EB+ are ranges from the future.
-			s.log.Warn("too big object range for this server",
-				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln))
-			continue
-		}
-
-		if _, err = io.CopyN(io.Discard, rc, int64(off)); err != nil {
-			err = igrpc.ConvertContextStatus(err)
-			if errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-			s.log.Info("range->get fallback attempt for EC part failed on stream seek",
-				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-				zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Uint64("skipBytes", off),
-				zap.Error(err))
-			continue
-		}
-
-		if ln == 0 { // full range request
+			// TODO: consider reader that switches to another node to continue the stream when rc fails
 			return rc, nil
 		}
 
-		return struct {
-			io.Reader
-			io.Closer
-		}{
-			Reader: io.LimitReader(rc, int64(ln)),
-			Closer: rc,
-		}, nil
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
+			errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
+			return nil, err
+		}
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			s.log.Info("failed to get EC part payload range from remote node",
+				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln),
+				zap.Stringer("rule", rule), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Error(err))
+		}
 	}
 
 	return nil, errors.New("all nodes failed")
@@ -1375,7 +1308,11 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 	ruleIdxAttr := strconv.Itoa(pi.RuleIndex)
 	partIdxAttr := strconv.Itoa(pi.Index)
 
-	rc, err := s.conns.InitGetObjectRangeStream(ctx, node, localNodeKey, cnr, parent, off, ln, sTok, []string{
+	var rng object.Range
+	rng.SetOffset(off)
+	rng.SetLength(ln)
+
+	_, rc, err := s.conns.InitGetObjectStream(ctx, node, localNodeKey, cnr, parent, sTok, true, false, &rng, []string{
 		iec.AttributeRuleIdx, ruleIdxAttr,
 		iec.AttributePartIdx, partIdxAttr,
 	})

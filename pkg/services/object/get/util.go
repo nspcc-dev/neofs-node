@@ -1,6 +1,7 @@
 package getsvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -461,7 +462,7 @@ func (w *directChildWriter) ValidateHeader(obj *object.Object) error {
 }
 
 func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error) {
 	conn, err := c.connect(ctx, node)
 	if err != nil {
 		return object.Object{}, nil, err
@@ -478,6 +479,10 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 	if sTok != nil {
 		opts.WithinSession(*sTok)
 	}
+	if rng != nil {
+		opts.SetRange(rng.GetOffset(), rng.GetLength())
+		opts.MarkPayloadOnly()
+	}
 
 	hdr, rc, err := conn.ObjectGetInit(ctx, cnr, id, user.NewAutoIDSigner(pk), opts)
 	if err != nil {
@@ -486,6 +491,21 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 
 	// TODO: SkipChecksumVerification() turns off checking all object checksums. Better to keep checking
 	//  OID against header and payload checksum.
+
+	if rng != nil {
+		b := []byte{0}
+		if _, err = io.ReadFull(rc, b); err != nil {
+			return object.Object{}, nil, err
+		}
+
+		return object.Object{}, struct {
+			io.Reader
+			io.Closer
+		}{
+			Reader: io.MultiReader(bytes.NewReader(b), rc),
+			Closer: rc,
+		}, nil
+	}
 
 	return hdr, rc, nil
 }
@@ -509,28 +529,6 @@ func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk 
 	}
 
 	return *hdr, nil
-}
-
-func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, off, ln uint64, sTok *session.Object, xs []string) (io.ReadCloser, error) {
-	conn, err := c.connect(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-
-	var opts client.PrmObjectRange
-	opts.WithXHeaders(xs...)
-	opts.MarkLocal()
-	if sTok != nil {
-		opts.WithinSession(*sTok)
-	}
-
-	rc, err := conn.ObjectRangeInit(ctx, cnr, id, off, ln, user.NewAutoIDSigner(pk), opts)
-	if err != nil {
-		return nil, fmt.Errorf("open GetRange stream: %w", err)
-	}
-
-	return rc, nil
 }
 
 func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
