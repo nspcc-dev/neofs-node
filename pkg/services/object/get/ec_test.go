@@ -42,20 +42,15 @@ func TestService_Get_EC_Part(t *testing.T) {
 			xs        []string
 			assertErr func(t *testing.T, err error)
 		}{
-			{name: "rule idx only", xs: []string{
-				"__NEOFS__EC_RULE_IDX", "0",
-			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX and __NEOFS__EC_PART_IDX X-headers must be set together")
-			}},
 			{name: "part idx only", xs: []string{
 				"__NEOFS__EC_PART_IDX", "0",
 			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX and __NEOFS__EC_PART_IDX X-headers must be set together")
+				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX X-header must be set in a correct EC part GET request")
 			}},
 			{name: "empty rule idx", xs: []string{
 				"__NEOFS__EC_RULE_IDX", "", "__NEOFS__EC_PART_IDX", "0",
 			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX and __NEOFS__EC_PART_IDX X-headers must be set together")
+				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX X-header must be set in a correct EC part GET request")
 			}},
 			{name: "non-numeric rule idx", xs: []string{
 				"__NEOFS__EC_RULE_IDX", "foo", "__NEOFS__EC_PART_IDX", "0",
@@ -80,11 +75,6 @@ func TestService_Get_EC_Part(t *testing.T) {
 			}, assertErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "invalid __NEOFS__EC_RULE_IDX X-header")
 				require.ErrorContains(t, err, "value out of range")
-			}},
-			{name: "empty part idx", xs: []string{
-				"__NEOFS__EC_RULE_IDX", "0", "__NEOFS__EC_PART_IDX", "",
-			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX and __NEOFS__EC_PART_IDX X-headers must be set together")
 			}},
 			{name: "non-numeric part idx", xs: []string{
 				"__NEOFS__EC_RULE_IDX", "0", "__NEOFS__EC_PART_IDX", "foo",
@@ -304,6 +294,19 @@ func TestService_Get_EC_Part(t *testing.T) {
 		require.Equal(t, partHdr, w.hdr)
 
 		require.EqualValues(t, 1, closer.count.Load())
+	})
+
+	t.Run("placement build failure", func(t *testing.T) {
+		placementErr := errors.New("some placement error")
+		svc := New(&mockNeoFSNet{err: placementErr})
+
+		var prm Prm
+		prm.WithAddress(parentAddr)
+		parameterizePartInfoString(t, &prm, "1", "")
+
+		err := svc.Get(ctx, prm)
+		require.ErrorIs(t, err, placementErr)
+		require.EqualError(t, err, fmt.Sprintf("invalid request: missing %s and calculating node's EC part finished with error: %s", iec.AttributePartIdx, placementErr))
 	})
 
 	svc := New(&mockNeoFSNet{

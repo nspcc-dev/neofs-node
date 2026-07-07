@@ -497,6 +497,28 @@ func TestDB_ResolveECPart(t *testing.T) {
 		})
 	})
 
+	t.Run("negative part index", func(t *testing.T) {
+		db := newDB(t)
+
+		const ruleInd = 1234
+		pi1 := iec.PartInfo{
+			RuleIndex: ruleInd,
+			Index:     0,
+		}
+		pi2 := iec.PartInfo{
+			RuleIndex: ruleInd,
+			Index:     1,
+		}
+
+		p1 := addPart(t, db, pi1)
+		p2 := addPart(t, db, pi2)
+
+		checkOK(t, db, pi1, p1)
+		checkOK(t, db, pi2, p2)
+
+		checkOKWithLen(t, db, iec.PartInfo{RuleIndex: ruleInd, Index: -1}, p1, 1000+pi1.Index)
+	})
+
 	db := newDB(t)
 	require.NoError(t, db.Put(&partObj))
 	checkOK(t, db, pi, partID)

@@ -54,26 +54,42 @@ func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID,
 // If object is marked as garbage (e.g. via [StorageEngine.MarkGarbage]),
 // GetECPart returns [apistatus.ErrObjectNotFound].
 //
+// If allowReturnAnyPart is true, in cases when specified object part ID cannot be
+// found, StorageEngine returns any part it has for this EC rule. Returned part ID
+// should be found in returned header's attributes.
+//
 // If object is locked (e.g. via [StorageEngine.Lock] or stored locker object),
 // GetECPart ignores expiration, tombstone and garbage marks.
-func (e *StorageEngine) GetECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
+func (e *StorageEngine) GetECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, allowReturnAnyPart bool) (object.Object, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetECPartDuration)()
 	}
 
-	var hdr object.Object
-	var stream io.ReadCloser
-	return hdr, stream, e.getECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
-		var err error
-		hdr, stream, err = s.GetECPart(cnr, parent, pi)
-		return err
-	}, func(s shardInterface, partAddr oid.Address) error {
-		h, str, err := s.GetStream(partAddr, true)
-		if err == nil {
-			hdr, stream = *h, str
+	var (
+		hdr    object.Object
+		stream io.ReadCloser
+		gFunc  = func() error {
+			return e.getECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+				var err error
+				hdr, stream, err = s.GetECPart(cnr, parent, pi)
+				return err
+			}, func(s shardInterface, partAddr oid.Address) error {
+				h, str, err := s.GetStream(partAddr, true)
+				if err == nil {
+					hdr, stream = *h, str
+				}
+				return err
+			})
 		}
-		return err
-	})
+	)
+
+	err := gFunc()
+	if errors.Is(err, apistatus.ErrObjectNotFound) && allowReturnAnyPart {
+		pi.Index = -1
+		return hdr, stream, gFunc()
+	}
+
+	return hdr, stream, err
 }
 
 func (e *StorageEngine) getECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, resolveFn func(shardInterface, cid.ID, oid.ID, iec.PartInfo) error,

@@ -32,7 +32,8 @@ type Prm struct {
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
 
-	ecTransport GetECRequestTransport
+	ecTransport     GetECRequestTransport
+	ecReturnAnyPart bool
 
 	transportFn GetTransportFunc
 }
@@ -275,6 +276,12 @@ func (p *RangePrm) SetTransportFunc(f RangeTransportFunc) {
 // WithECTransport specifies transport layer to for EC handling.
 func (p *Prm) WithECTransport(transport GetECRequestTransport) {
 	p.ecTransport = transport
+}
+
+// WithECReturnAnyPart makes return any EC part local node has,
+// if recuested part ID is not found.
+func (p *Prm) WithECReturnAnyPart() {
+	p.ecReturnAnyPart = true
 }
 
 // SetForwardRequestFunc specifies transport implementation for request

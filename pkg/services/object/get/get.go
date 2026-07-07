@@ -15,7 +15,13 @@ import (
 
 // Get serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) Get(ctx context.Context, prm Prm) error {
-	pi, err := checkECPartInfoRequest(prm.common.XHeaders(), prm.container)
+	var neofsNet NeoFSNetwork
+	// range requests do not support fetching additional info about EC parts
+	if prm.rng == nil {
+		neofsNet = s.neoFSNet
+	}
+
+	pi, err := checkECPartInfoGetRequest(neofsNet, prm)
 	if err != nil {
 		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
 		return fmt.Errorf("invalid request: %w", err)
@@ -43,7 +49,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 			return err
 		}
 
-		return s.copyLocalECPart(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi)
+		return s.copyLocalECPart(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.ecReturnAnyPart)
 	}
 
 	if prm.common.LocalOnly() &&
