@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Full reads from compressed combined FSTree objects corrupting the zstd stream (#4055)
 - Wrong (1028) status code returned for missing session token verb, should be 2048 (#4052)
 - IR changing hardfork name case before passing it to neo-go (#4085)
+- More than one EC part can be PUT on a node with overall success response code (#3994)
 
 ### Changed
 - Optimized GET for fully buffered payloads (#4058)
