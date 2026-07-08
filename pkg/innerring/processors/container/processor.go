@@ -27,7 +27,6 @@ type (
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
-		objectPool    *ants.Pool
 		alphabetState AlphabetState
 		cnrClient     *container.Client // notary must be enabled
 		metaClient    processors.MetadataChain
@@ -103,13 +102,9 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/container: can't create worker pool: %w", err)
 	}
 
-	const objectPoolSize = 1024
-	objectPool, _ := ants.NewPool(objectPoolSize)
-
 	return &Processor{
 		log:           p.Log,
 		pool:          pool,
-		objectPool:    objectPool,
 		alphabetState: p.AlphabetState,
 		cnrClient:     p.ContainerClient,
 		netState:      p.NetworkState,
