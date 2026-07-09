@@ -295,6 +295,7 @@ func metadataChainHardforks() map[string]uint32 {
 		config.HFDomovoi.String():       0,
 		config.HFEchidna.String():       0,
 		config.HFFaun.String():          0,
+		config.HFGorgon.String():        0,
 	}
 }
 
