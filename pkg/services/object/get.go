@@ -24,7 +24,6 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -319,13 +318,11 @@ type preparedRangeRequest struct {
 }
 
 type getECTransport struct {
-	server                       *Server
-	requestSessionTokenMessage   *protosession.SessionTokenV2
-	requestSessionV1TokenMessage *protosession.SessionToken
-	requestContainer             cid.ID
-	requestObject                oid.ID
-	signResponses                bool
-	responseStream               grpc.ServerStream
+	server           *Server
+	requestContainer cid.ID
+	requestObject    oid.ID
+	signResponses    bool
+	responseStream   grpc.ServerStream
 
 	getPartRequest     mem.Buffer
 	getPartRequestInfo iec.PartInfo
@@ -857,7 +854,7 @@ func (s *Server) makeGetECPartRequest(cnr cid.ID, parent oid.ID, partInfo iec.Pa
 	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
 	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
 
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, 0, 0)
+	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen)
 
 	reqLen := 1 + 1 + getByAddressRequestBodyLen + // first 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
@@ -901,7 +898,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 		return req.buffer, nil
 	}
 
-	reqBuf, err := x.server.makeGetECPartRangeRequest(x.requestContainer, x.requestObject, partInfo, off, ln, x.requestSessionTokenMessage, x.requestSessionV1TokenMessage)
+	reqBuf, err := x.server.makeGetECPartRangeRequest(x.requestContainer, x.requestObject, partInfo, off, ln)
 	if err != nil {
 		// stream is closed by context cancellation
 		return nil, err
@@ -914,17 +911,14 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 	return reqBuf, nil
 }
 
-func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, off, ln uint64, sessionToken *protosession.SessionTokenV2, sessionTokenV1 *protosession.SessionToken) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 
 	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
 	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
 
-	sessionTokenLen := sessionToken.MarshaledSize()
-	sessionTokenV1Len := sessionTokenV1.MarshaledSize()
-
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, sessionTokenLen, sessionTokenV1Len)
+	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen)
 
 	var rngLen int
 	if off != 0 {
@@ -951,8 +945,7 @@ func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo i
 	buf := make([]byte, reqLen)
 
 	n, err := s.writeGetECPartRangeRequest(buf, bodyLen, cnr, parent, rngLen, off, ln,
-		metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr,
-		sessionTokenLen, sessionToken, sessionTokenV1Len, sessionTokenV1)
+		metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,8 +1006,7 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, me
 }
 
 func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID, parent oid.ID, rngLen int, off uint64, ln uint64,
-	metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string, sessionTokenLen int, sessionToken *protosession.SessionTokenV2,
-	sessionTokenV1Len int, sessionTokenV1 *protosession.SessionToken) (int, error) {
+	metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string) (int, error) {
 	// TODO: can be calculated once and reused
 	originSig, err := neofsecdsa.Signer(s.signer).Sign(nil)
 	if err != nil {
@@ -1082,14 +1074,6 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 	n += copy(buf[n:], currentVersionResponseMetaHeader)
 	n += writeRequestMetaXHeader(buf[n:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
 	n += writeRequestMetaXHeader(buf[n:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
-
-	if sessionTokenV1 != nil {
-		n += writeStablyMarshalledField(buf[n:], iprotobuf.TagBytes5, sessionTokenV1Len, sessionTokenV1)
-	}
-
-	if sessionToken != nil {
-		n += writeStablyMarshalledField(buf[n:], iprotobuf.TagBytes9, sessionTokenLen, sessionToken)
-	}
 
 	metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:n])
 	if err != nil {
@@ -1168,20 +1152,10 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	return respStream.SendMsg(respBuf)
 }
 
-func calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen, sessionTokenLen, sessionTokenV1Len int) int {
-	metaHdrLen := len(currentVersionResponseMetaHeader) +
+func calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen int) int {
+	return len(currentVersionResponseMetaHeader) +
 		1 + protowire.SizeBytes(ruleIdxHdrLen) + // 1 for iprotobuf.TagBytes4
 		1 + protowire.SizeBytes(partIdxHdrLen) // 1 for iprotobuf.TagBytes4
-
-	if sessionTokenLen > 0 {
-		metaHdrLen += 1 + protowire.SizeBytes(sessionTokenLen) // 1 for iprotobuf.TagBytes9
-	}
-
-	if sessionTokenV1Len > 0 {
-		metaHdrLen += 1 + protowire.SizeBytes(sessionTokenV1Len) // 1 for iprotobuf.TagBytes5
-	}
-
-	return metaHdrLen
 }
 
 func calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen int) int {

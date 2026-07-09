@@ -304,15 +304,6 @@ func writeBytesField[T string | []byte](buf []byte, tag byte, val T) int {
 	return off + copy(buf[off:], val)
 }
 
-func writeStablyMarshalledField(buf []byte, tag byte, ln int, fld interface {
-	MarshalStable([]byte)
-}) int {
-	buf[0] = tag
-	off := 1 + binary.PutUvarint(buf[1:], uint64(ln))
-	fld.MarshalStable(buf[off:])
-	return off + ln
-}
-
 func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) {
 	sig, err := neofsecdsa.Signer(privKey).Sign(data)
 	if err != nil {

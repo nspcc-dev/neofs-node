@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -174,9 +173,8 @@ type cfg struct {
 	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
 	conns interface {
 		InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-			st *session.Object, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error)
-		Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-			st *session.Object) (object.Object, error)
+			local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error)
+		Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID) (object.Object, error)
 	}
 
 	keyStore interface {

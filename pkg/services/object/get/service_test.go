@@ -16,12 +16,11 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-func newCommonParameters(local bool, sTok *session.Object, xs []string) *util.CommonPrm {
+func newCommonParameters(local bool, xs []string) *util.CommonPrm {
 	// TODO: see pkg/services/object/put/service_test.go:494
 	var mxs []*protosession.XHeader
 	for i := 0; i < len(xs); i += 2 {
@@ -36,9 +35,7 @@ func newCommonParameters(local bool, sTok *session.Object, xs []string) *util.Co
 		ttl = 1
 	}
 
-	return util.CommonPrmFromRequest(ttl, mxs, common.RequestTokens{
-		SessionV1: sTok,
-	})
+	return util.CommonPrmFromRequest(ttl, mxs, common.RequestTokens{})
 }
 
 // TODO: share.
