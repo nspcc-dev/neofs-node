@@ -155,10 +155,8 @@ type shared struct {
 	privateTokenStore sessionStorage
 	persistate        *state.PersistentStorage
 
-	clientCache    *cache.Clients
-	bgClientCache  *cache.Clients
-	putClientCache *cache.Clients
-	localAddr      network.AddressGroup
+	clientCache *cache.Clients
+	localAddr   network.AddressGroup
 
 	ownerIDFromKey user.ID // user ID calculated from key
 
@@ -425,9 +423,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.shared = shared{
 		basics:            basicSharedConfig,
 		localAddr:         netAddr,
-		clientCache:       newClientCache("read"),
-		bgClientCache:     newClientCache("background"),
-		putClientCache:    newClientCache("put"),
+		clientCache:       newClientCache(""),
 		persistate:        persistate,
 		privateTokenStore: persistate,
 	}
@@ -464,9 +460,7 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.veryLastClosers = make(map[string]func())
 
-	c.onShutdown(c.clientCache.CloseAll)    // clean up connections
-	c.onShutdown(c.bgClientCache.CloseAll)  // clean up connections
-	c.onShutdown(c.putClientCache.CloseAll) // clean up connections
+	c.onShutdown(c.clientCache.CloseAll) // clean up connections
 	c.onShutdown(func() { _ = c.persistate.Close() })
 
 	initPaymentChecker(c)

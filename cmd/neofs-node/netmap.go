@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -236,14 +234,9 @@ func initNetmapService(c *cfg) {
 
 		nodes := nm.Nodes()
 		local := slices.IndexFunc(nodes, func(node netmap.NodeInfo) bool { return c.IsLocalKey(node.PublicKey()) })
-		var wg sync.WaitGroup
+
 		l.Info("syncing SN connection caches with the new network map...")
-		for _, cl := range []*cache.Clients{c.clientCache, c.putClientCache, c.bgClientCache} {
-			wg.Go(func() {
-				cl.SyncWithNewNetmap(c.ctx, nodes, local)
-			})
-		}
-		wg.Wait()
+		c.clientCache.SyncWithNewNetmap(c.ctx, nodes, local)
 		l.Info("finished syncing SN connection caches with the new network map")
 	})
 }

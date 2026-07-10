@@ -187,12 +187,12 @@ func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
 	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore, c.cfgNetmap.state)
 
-	clientConstructor := &reputationClientConstructor{
+	repClientConstructor := &reputationClientConstructor{
 		log:              c.log,
 		nmSrc:            c.netMapSource,
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
-		basicConstructor: c.bgClientCache,
+		basicConstructor: c.clientCache,
 	}
 
 	coreConstructor := &coreClientConstructor{
@@ -201,14 +201,6 @@ func initObjectService(c *cfg) {
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
 		basicConstructor: c.clientCache,
-	}
-
-	putConstructor := &coreClientConstructor{
-		log:              c.log,
-		nmSrc:            c.netMapSource,
-		netState:         c.cfgNetmap.state,
-		trustStorage:     c.cfgReputation.localTrustStorage,
-		basicConstructor: c.putClientCache,
 	}
 
 	irFetcher := &innerRingFetcherWithNotary{
@@ -223,7 +215,7 @@ func initObjectService(c *cfg) {
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage, (*coreClientConstructor)(clientConstructor)),
+			putsvc.NewRemoteSender(keyStorage, (*coreClientConstructor)(repClientConstructor)),
 		),
 		replicator.WithLocalNodeKey(c),
 	)
@@ -233,7 +225,7 @@ func initObjectService(c *cfg) {
 		policer.WithLocalStorage(ls),
 		policer.WithMetrics(c),
 		policer.WithRemoteHeader(
-			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
+			headsvc.NewRemoteHeader(keyStorage, repClientConstructor),
 		),
 		policer.WithHeadTimeout(c.appCfg.Policer.HeadTimeout),
 		policer.WithReplicator(c.replicator),
@@ -262,11 +254,11 @@ func initObjectService(c *cfg) {
 	c.cfgObject.placement = placementSvc
 
 	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
-	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
+	sPut := putsvc.NewService(&transport{clients: coreConstructor}, c, c.metaService,
 		initQuotas(c.cCli, c.cfgObject.quotasTTL),
 		c.containerPayments,
 		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithClientConstructor(putConstructor),
+		putsvc.WithClientConstructor(coreConstructor),
 		putsvc.WithContainerClient(c.cCli),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c.MaxObjectSize)),
 		putsvc.WithObjectStorage(ls),
