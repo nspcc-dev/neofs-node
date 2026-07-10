@@ -7,7 +7,7 @@ import (
 )
 
 func TestMetadataChainCompatibility(t *testing.T) {
-	if config.HFLatestStable != config.HFFaun {
+	if config.HFLatestStable != config.HFGorgon {
 		t.Fatalf("new unknown stable hardfork (%s), adapt it", config.HFLatestStable)
 	}
 
