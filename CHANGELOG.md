@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Session v2 token was not supported in the new container + eACL RPC (#4056)
 - Full reads from compressed combined FSTree objects corrupting the zstd stream (#4055)
 - Wrong (1028) status code returned for missing session token verb, should be 2048 (#4052)
+- IR changing hardfork name case before passing it to neo-go (#4085)
 
 ### Changed
 - Optimized GET for fully buffered payloads (#4058)

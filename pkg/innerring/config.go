@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	neogoconfig "github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
@@ -86,11 +87,11 @@ func validateBlockchainConfig(cfg *config.Config) error {
 		return err
 	}
 
-	for k := range cfgFSChainLocalConsensus.Hardforks.Name {
-		if k == "" {
-			return fmt.Errorf("missing hardforks name '%s'", cfgPathFSChainLocalConsensus+".hardforks")
-		}
+	hardforks, err := canonicalizeHardforks(cfgFSChainLocalConsensus.Hardforks.Name)
+	if err != nil {
+		return fmt.Errorf("invalid %q: %w", cfgPathFSChainLocalConsensus+".hardforks", err)
 	}
+	cfgFSChainLocalConsensus.Hardforks.Name = hardforks
 
 	if len(cfgFSChainLocalConsensus.ValidatorsHistory.Height) > 0 {
 		committeeSize := uint32(cfgFSChainLocalConsensus.Committee.Len())
@@ -198,6 +199,29 @@ func validateBlockchainConfig(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func canonicalizeHardforks(src map[string]uint32) (map[string]uint32, error) {
+	if src == nil {
+		return nil, nil
+	}
+
+	dst := make(map[string]uint32, len(src))
+	for name, height := range src {
+		if name == "" {
+			return nil, errors.New("missing hardfork name")
+		}
+		canonical := name
+		for _, hardfork := range neogoconfig.Hardforks {
+			if strings.EqualFold(name, hardfork.String()) {
+				canonical = hardfork.String()
+				break
+			}
+		}
+		dst[canonical] = height
+	}
+
+	return dst, nil
 }
 
 // sets NeoFS network settings to be used for FS chain
