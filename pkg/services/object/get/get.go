@@ -99,7 +99,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	if prm.rng != nil {
-		hdr, err := s.getECObjectHeader(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(), ecRules, ecNodeLists, nil, nil)
+		hdr, err := s.getECObjectHeader(ctx, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -116,12 +116,10 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		} else if err := prm.objWriter.WriteHeader(&hdr); err != nil {
 			return err
 		}
-		return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-			ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
+		return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 	}
 
-	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, ecNodeLists, prm.objWriter, prm.ecTransport)
+	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.objWriter, prm.ecTransport)
 }
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
@@ -186,8 +184,7 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true)).err
 	}
 
-	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
+	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
 }
 
 func validatePayloadRange(hdr *object.Object, rng *object.Range) error {
@@ -276,8 +273,7 @@ func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
 		return s.get(ctx, prm.commonPrm, headOpt, withPreSortedContainerNodes(ecNodeLists, repRules)).err
 	}
 
-	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), prm.common.SessionToken(),
-		ecRules, ecNodeLists, prm.buffer, prm.submitLenFn)
+	return s.copyECObjectHeader(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.buffer, prm.submitLenFn)
 }
 
 func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) statusError {

@@ -22,10 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
-	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -393,8 +390,6 @@ func TestService_Get_EC(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	sTok := sessiontest.ObjectSigned(signer)
-
 	nodeLists, _ := testNodeMatrix(t, []int{int(rule.DataPartNum + rule.ParityPartNum)})
 
 	getNodesMap := map[oid.Address]getNodesForObjectValue{
@@ -423,7 +418,6 @@ func TestService_Get_EC(t *testing.T) {
 		mockKeyStorage: mockKeyStorage{
 			privKey: nodeKey,
 		},
-		sTok:      &sTok,
 		parentHdr: parentHdr,
 		nodes:     make(map[string]*Service),
 	}
@@ -431,7 +425,7 @@ func TestService_Get_EC(t *testing.T) {
 		tc.nodes[string(nodeLists[0][i].Marshal())] = nodeSvcs[i]
 	}
 
-	cp := newCommonParameters(false, &sTok, nil)
+	cp := newCommonParameters(false, nil)
 
 	var prm Prm
 	prm.WithAddress(parentAddr)
@@ -601,16 +595,17 @@ func (x *validatingChunkWriter) WriteChunk(p []byte) error {
 }
 
 type testECServiceConn struct {
-	unimplementedServiceConns
 	mockKeyStorage
-	sTok      *session.Object
 	parentHdr object.Object
 
 	nodes map[string]*Service
 }
 
 func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error) {
+	if rng != nil {
+		panic("unimplemented range")
+	}
 	if ctx == nil {
 		return object.Object{}, nil, errors.New("[test] missing context")
 	}
@@ -623,16 +618,13 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 	if !pk.Equal(&x.privKey) {
 		return object.Object{}, nil, errors.New("[test] unexpected private key")
 	}
-	if !assert.ObjectsAreEqual(sTok, x.sTok) {
-		return object.Object{}, nil, errors.New("[test] unexpected session token")
-	}
 
 	v, ok := x.nodes[string(node.Marshal())]
 	if !ok {
 		return object.Object{}, nil, errors.New("[test] unexpected node")
 	}
 
-	cp := newCommonParameters(local, sTok, xs)
+	cp := newCommonParameters(local, xs)
 
 	var w mockObjectWriter
 
@@ -648,16 +640,12 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 	return w.hdr, io.NopCloser(&w.buf), nil
 }
 
-func (x *testECServiceConn) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-	sTok *session.Object) (object.Object, error) {
+func (x *testECServiceConn) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID) (object.Object, error) {
 	if ctx == nil {
 		return object.Object{}, errors.New("[test] missing context")
 	}
 	if !pk.Equal(&x.privKey) {
 		return object.Object{}, errors.New("[test] unexpected private key")
-	}
-	if !assert.ObjectsAreEqual(sTok, x.sTok) {
-		return object.Object{}, errors.New("[test] unexpected session token")
 	}
 	if _, ok := x.nodes[string(node.Marshal())]; !ok {
 		return object.Object{}, errors.New("[test] unexpected node")

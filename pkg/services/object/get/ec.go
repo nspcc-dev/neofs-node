@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -26,7 +25,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -70,9 +68,8 @@ func (s *Service) copyLocalECPartHeader(ctx context.Context, dst internal.Header
 	return nil
 }
 
-func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID,
-	sTok *session.Object, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, buf []byte, submitLenFn func(int)) error {
-	hdr, err := s.getECObjectHeader(ctx, cnr, parent, sTok, ecRules, sortedNodeLists, buf, submitLenFn)
+func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, parent oid.ID, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, buf []byte, submitLenFn func(int)) error {
+	hdr, err := s.getECObjectHeader(ctx, cnr, parent, ecRules, sortedNodeLists, buf, submitLenFn)
 	if err != nil {
 		return err
 	}
@@ -88,8 +85,7 @@ func (s *Service) copyECObjectHeader(ctx context.Context, dst internal.HeaderWri
 	return nil
 }
 
-func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, sTok *session.Object,
-	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, buf []byte, submitLenFn func(int)) (object.Object, error) {
+func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, buf []byte, submitLenFn func(int)) (object.Object, error) {
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
 		return object.Object{}, fmt.Errorf("get local SN private key: %w", err)
@@ -98,7 +94,7 @@ func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, 
 	// TODO: limit per-rule context? https://github.com/nspcc-dev/neofs-node/issues/3560
 	var firstErr error
 	for i := range ecRules {
-		hdr, err := s.getECObjectHeaderByRule(ctx, *localNodeKey, cnr, id, sTok, sortedNodeLists[i], buf, submitLenFn)
+		hdr, err := s.getECObjectHeaderByRule(ctx, *localNodeKey, cnr, id, sortedNodeLists[i], buf, submitLenFn)
 		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
 			return hdr, err
 		}
@@ -116,8 +112,7 @@ func (s *Service) getECObjectHeader(ctx context.Context, cnr cid.ID, id oid.ID, 
 		apistatus.ErrObjectNotFound, len(ecRules), firstErr)
 }
 
-func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, id oid.ID, sTok *session.Object,
-	sortedNodes []netmap.NodeInfo, buf []byte, submitLenFn func(int)) (object.Object, error) {
+func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, id oid.ID, sortedNodes []netmap.NodeInfo, buf []byte, submitLenFn func(int)) (object.Object, error) {
 	var firstErr error
 
 	for i := range sortedNodes {
@@ -156,7 +151,7 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 			continue
 		}
 
-		hdr, err := s.conns.Head(ctx, sortedNodes[i], localNodeKey, cnr, id, sTok)
+		hdr, err := s.conns.Head(ctx, sortedNodes[i], localNodeKey, cnr, id)
 		if err == nil {
 			return hdr, nil
 		}
@@ -195,8 +190,7 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal. Returns [apistatus.ErrObjectNotFound] otherwise.
-func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter, transport GetECRequestTransport) error {
+func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter, transport GetECRequestTransport) error {
 	var partial partialObjectCopy
 	if transport != nil {
 		err := s.streamECObject(ctx, transport, rules[0], 0, sortedNodeLists[0])
@@ -213,7 +207,7 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 			if info == nil {
 				return errors.New("no info in size-split error")
 			}
-			return s.copySplitECObjectByInfo(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, 0, *info)
+			return s.copySplitECObjectByInfo(ctx, dst, cnr, parent, rules, sortedNodeLists, 0, *info)
 		default:
 			return err
 		}
@@ -221,10 +215,10 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 
 	// TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
 	for i := range rules {
-		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, sTok, rules[i], i, sortedNodeLists[i])
+		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, rules[i], i, sortedNodeLists[i])
 		if err == nil {
 			if obj.Type() == object.TypeLink && obj.GetID() != parent {
-				return s.copySplitECObjectByLinker(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, i, obj)
+				return s.copySplitECObjectByLinker(ctx, dst, cnr, parent, rules, sortedNodeLists, i, obj)
 			}
 			if transport != nil && partial.copiedHeader {
 				pld := obj.Payload()
@@ -251,7 +245,7 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 			if info == nil {
 				return errors.New("no info in size-split error")
 			}
-			return s.copySplitECObjectByInfo(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, i, *info)
+			return s.copySplitECObjectByInfo(ctx, dst, cnr, parent, rules, sortedNodeLists, i, *info)
 		}
 
 		s.log.Info("failed to restore object by EC rule",
@@ -263,14 +257,13 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, s
 	return apistatus.ErrObjectNotFound
 }
 
-func (s *Service) copySplitECObjectByInfo(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, fromRule int, sizeSplitInfo object.SplitInfo) error {
+func (s *Service) copySplitECObjectByInfo(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, fromRule int, sizeSplitInfo object.SplitInfo) error {
 	lastPartID := sizeSplitInfo.GetLastPart()
 	if lastPartID.IsZero() {
 		return errors.New("missing first part ID in size-split info, unable to assemble")
 	}
 
-	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists, nil, nil)
+	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, rules, sortedNodeLists, nil, nil)
 	if err != nil {
 		return fmt.Errorf("get header of last size-split part %s: %w", lastPartID, err)
 	}
@@ -290,7 +283,7 @@ func (s *Service) copySplitECObjectByInfo(ctx context.Context, dst ObjectWriter,
 			break
 		}
 
-		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, prev, sTok, rules, sortedNodeLists, nil, nil)
+		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, prev, rules, sortedNodeLists, nil, nil)
 		if err != nil {
 			return fmt.Errorf("get header of size-split part %s: %w", prev, err)
 		}
@@ -301,11 +294,10 @@ func (s *Service) copySplitECObjectByInfo(ctx context.Context, dst ObjectWriter,
 
 	slices.Reverse(sizeSplitParts)
 
-	return s.copySizeSplitECObjectByParts(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, fromRule, parentHdr, sizeSplitParts)
+	return s.copySizeSplitECObjectByParts(ctx, dst, cnr, parent, rules, sortedNodeLists, fromRule, parentHdr, sizeSplitParts)
 }
 
-func (s *Service) copySplitECObjectByLinker(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, fromRule int, linker object.Object) error {
+func (s *Service) copySplitECObjectByLinker(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, fromRule int, linker object.Object) error {
 	parentHdr := linker.Parent()
 	if parentHdr == nil {
 		return fmt.Errorf("%w: missing parent header", errInvalidSizeSplitLinker)
@@ -320,11 +312,10 @@ func (s *Service) copySplitECObjectByLinker(ctx context.Context, dst ObjectWrite
 		return fmt.Errorf("%w: empty part list", errInvalidSizeSplitLinker)
 	}
 
-	return s.copySizeSplitECObjectByParts(ctx, dst, cnr, parent, sTok, rules, sortedNodeLists, fromRule, parentHdr, sizeSplitParts)
+	return s.copySizeSplitECObjectByParts(ctx, dst, cnr, parent, rules, sortedNodeLists, fromRule, parentHdr, sizeSplitParts)
 }
 
-func (s *Service) copySizeSplitECObjectByParts(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, fromRule int, parentHdr *object.Object, sizeSplitParts []object.MeasuredObject) error {
+func (s *Service) copySizeSplitECObjectByParts(ctx context.Context, dst ObjectWriter, cnr cid.ID, parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, fromRule int, parentHdr *object.Object, sizeSplitParts []object.MeasuredObject) error {
 	if err := dst.WriteHeader(parentHdr); err != nil {
 		return fmt.Errorf("%w: write parent header: %w", ErrResponseStreamFailure, err)
 	}
@@ -335,7 +326,7 @@ nextPart:
 
 		// TODO: limit per-rule context? https://github.com/nspcc-dev/neofs-node/issues/3560
 		for ; fromRule < len(rules); fromRule++ {
-			obj, err := s.restoreFromECPartsByRule(ctx, cnr, partID, sTok, rules[fromRule], fromRule, sortedNodeLists[fromRule])
+			obj, err := s.restoreFromECPartsByRule(ctx, cnr, partID, rules[fromRule], fromRule, sortedNodeLists[fromRule])
 			if err == nil {
 				if obj.Type() == object.TypeLink { // prevents recursion, i.e. size-split of size-split object
 					return fmt.Errorf("get size-split part #%d=%s: unexpected linker", partIdx, partID)
@@ -377,8 +368,7 @@ nextPart:
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal.
-func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) (object.Object, error) {
+func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) (object.Object, error) {
 	var hdr object.Object
 	var gotHdr atomic.Bool
 	parts := make([][]byte, rule.DataPartNum+rule.ParityPartNum)
@@ -394,7 +384,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 	for i := range int(rule.DataPartNum) {
 		partIdx := i
 		eg.Go(func() error {
-			parentHdr, partPayload, err := s.getECPart(gCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx)
+			parentHdr, partPayload, err := s.getECPart(gCtx, cnr, parent, rule, ruleIdx, sortedNodes, partIdx)
 			if err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, gCtx.Err()) ||
 					errors.As(err, new(*object.SplitInfoError)) {
@@ -457,7 +447,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 	for i := range rule.ParityPartNum {
 		partIdx := int(rule.DataPartNum + i)
 		eg.Go(func() error {
-			_, part, err := s.getECPart(gCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx)
+			_, part, err := s.getECPart(gCtx, cnr, parent, rule, ruleIdx, sortedNodes, partIdx)
 			if err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, gCtx.Err()) ||
 					errors.As(err, new(*object.SplitInfoError)) {
@@ -510,8 +500,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 // removal.
 //
 // Can return [context.Canceled] from the passed ctx only.
-func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, rule iec.Rule,
-	ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) (object.Object, io.ReadCloser, error) {
+func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) (object.Object, io.ReadCloser, error) {
 	var partHdr object.Object
 	var rc io.ReadCloser
 
@@ -531,7 +520,7 @@ func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID
 		if local {
 			partHdr, rc, err = s.localObjects.GetECPart(ctx, cnr, parent, pi, false)
 		} else {
-			partHdr, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
+			partHdr, rc, err = s.getECPartFromNode(ctx, cnr, parent, pi, sortedNodes[i])
 		}
 		if err == nil {
 			return partHdr, rc, nil
@@ -568,9 +557,8 @@ func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID
 // removal.
 //
 // Can return [context.Canceled] from the passed ctx only.
-func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) (object.Object, []byte, error) {
-	partHdr, rc, err := s.getECPartStream(ctx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx)
+func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int) (object.Object, []byte, error) {
+	partHdr, rc, err := s.getECPartStream(ctx, cnr, parent, rule, ruleIdx, sortedNodes, partIdx)
 	if err != nil {
 		return object.Object{}, nil, err
 	}
@@ -638,8 +626,7 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, sTok
 // Can return [context.Canceled] from the passed ctx only.
 //
 // RPC errors include network addresses.
-func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	pi iec.PartInfo, node netmap.NodeInfo) (object.Object, io.ReadCloser, error) {
+func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, node netmap.NodeInfo) (object.Object, io.ReadCloser, error) {
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
 		return object.Object{}, nil, fmt.Errorf("get local SN private key: %w", err)
@@ -649,7 +636,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 	partIdxAttr := strconv.Itoa(pi.Index)
 
 	// TODO: this must be stated in https://github.com/nspcc-dev/neofs-api
-	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, sTok, true, false, []string{
+	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, true, false, nil, []string{
 		iec.AttributeRuleIdx, ruleIdxAttr,
 		iec.AttributePartIdx, partIdxAttr,
 	})
@@ -709,8 +696,7 @@ func (s *Service) copyLocalECPartRange(ctx context.Context, dst ChunkWriter, cnr
 	return nil
 }
 
-func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, sTok *session.Object,
-	ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, off, ln uint64) error {
+func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, off, ln uint64) error {
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
 		return fmt.Errorf("get local SN private key: %w", err)
@@ -724,9 +710,9 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 	var written uint64
 	for i := range ecRules {
 		if fullPldLen == 0 {
-			written, fullPldLen, err = s.copyECObjectRangeByRule(ctx, dst, *localNodeKey, cnr, parent, sTok, ecRules[i], i, sortedNodeLists[i], off, ln)
+			written, fullPldLen, err = s.copyECObjectRangeByRule(ctx, dst, *localNodeKey, cnr, parent, ecRules[i], i, sortedNodeLists[i], off, ln)
 		} else {
-			written, err = s.copyECObjectRangeByParts(ctx, dst, *localNodeKey, cnr, parent, sTok, ecRules[i], i, sortedNodeLists[i],
+			written, err = s.copyECObjectRangeByParts(ctx, dst, *localNodeKey, cnr, parent, ecRules[i], i, sortedNodeLists[i],
 				fullPldLen, off, ln, nil)
 		}
 		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
@@ -736,7 +722,7 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 
 		var linker sizeSplitinkerError
 		if errors.As(err, &linker) {
-			return s.copySplitECObjectRangeByLinker(ctx, dst, *localNodeKey, cnr, parent, sTok, ecRules, sortedNodeLists, off, ln, i, object.Object(linker))
+			return s.copySplitECObjectRangeByLinker(ctx, dst, *localNodeKey, cnr, parent, ecRules, sortedNodeLists, off, ln, i, object.Object(linker))
 		}
 
 		var sizeSplitErr *object.SplitInfoError
@@ -745,7 +731,7 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 			if info == nil {
 				return errors.New("no info in size-split error")
 			}
-			return s.copySplitECObjectRangeByInfo(ctx, dst, *localNodeKey, cnr, parent, sTok, ecRules, sortedNodeLists, off, ln, i, *info)
+			return s.copySplitECObjectRangeByInfo(ctx, dst, *localNodeKey, cnr, parent, ecRules, sortedNodeLists, off, ln, i, *info)
 		}
 
 		if i == 0 {
@@ -773,14 +759,14 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 }
 
 func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
-	parent oid.ID, sTok *session.Object, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
+	parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
 	off, ln uint64, fromRule int, sizeSplitInfo object.SplitInfo) error {
 	lastPartID := sizeSplitInfo.GetLastPart()
 	if lastPartID.IsZero() {
 		return errors.New("missing first part ID in size-split info, unable to assemble")
 	}
 
-	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists, nil, nil)
+	lastPartHdr, err := s.getECObjectHeader(ctx, cnr, lastPartID, rules, sortedNodeLists, nil, nil)
 	if err != nil {
 		return fmt.Errorf("get header of last size-split part %s: %w", lastPartID, err)
 	}
@@ -830,7 +816,7 @@ func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWri
 
 		lastPartID = lastPartHdr.GetPreviousID()
 
-		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, lastPartID, sTok, rules, sortedNodeLists, nil, nil)
+		lastPartHdr, err = s.getECObjectHeader(ctx, cnr, lastPartID, rules, sortedNodeLists, nil, nil)
 		if err != nil {
 			return fmt.Errorf("get header of size-split part %s: %w", lastPartID, err)
 		}
@@ -838,12 +824,12 @@ func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWri
 
 	slices.Reverse(sizeSplitParts)
 
-	return s.copySplitECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, sTok, rules, sortedNodeLists, fromRule,
+	return s.copySplitECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, rules, sortedNodeLists, fromRule,
 		sizeSplitParts, 0, len(sizeSplitParts)-1, firstPartOff, lastPartTo)
 }
 
 func (s *Service) copySplitECObjectRangeByLinker(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
-	parent oid.ID, sTok *session.Object, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
+	parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
 	off, ln uint64, fromRule int, linker object.Object) error {
 	parentHdr := linker.Parent()
 	if parentHdr == nil {
@@ -879,12 +865,12 @@ func (s *Service) copySplitECObjectRangeByLinker(ctx context.Context, dst ChunkW
 		firstPartIdx, firstPartOff, lastPartIdx, lastPartTo = requiredChildren(off, ln, sizeSplitParts)
 	}
 
-	return s.copySplitECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, sTok, rules, sortedNodeLists, fromRule,
+	return s.copySplitECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, rules, sortedNodeLists, fromRule,
 		sizeSplitParts, firstPartIdx, lastPartIdx, firstPartOff, lastPartTo)
 }
 
 func (s *Service) copySplitECObjectRangeByParts(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
-	parent oid.ID, sTok *session.Object, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
+	parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
 	fromRule int, sizeSplitParts []object.MeasuredObject, firstPartIdx, lastPartIdx int, firstPartOff, lastPartTo uint64) error {
 	var partTimeout time.Duration
 	if deadline, ok := ctx.Deadline(); ok {
@@ -915,7 +901,7 @@ nextPart:
 
 		// TODO: limit per-rule context? https://github.com/nspcc-dev/neofs-node/issues/3560
 		for ; fromRule < len(rules); fromRule++ {
-			written, err := s.copyECObjectRangeByParts(partCtx, dst, localNodeKey, cnr, partID, sTok, rules[fromRule], fromRule,
+			written, err := s.copyECObjectRangeByParts(partCtx, dst, localNodeKey, cnr, partID, rules[fromRule], fromRule,
 				sortedNodeLists[fromRule], fullPartLen, partOff, partLen, nil)
 			if err == nil {
 				continue nextPart
@@ -947,8 +933,7 @@ nextPart:
 // First return is a number of bytes copied. Second return is resolved len of
 // the full payload.
 func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
-	parent oid.ID, sTok *session.Object, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo,
-	off, ln uint64) (uint64, uint64, error) {
+	parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, off, ln uint64) (uint64, uint64, error) {
 	deadline, deadlineSet := ctx.Deadline()
 	var stageTimeout time.Duration
 
@@ -963,7 +948,7 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 	stageCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 	defer cancel()
 
-	partHdr, firstPartStream, err := s.getECPartStream(stageCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, 0)
+	partHdr, firstPartStream, err := s.getECPartStream(stageCtx, cnr, parent, rule, ruleIdx, sortedNodes, 0)
 	if err != nil {
 		return 0, 0, fmt.Errorf("resolve parent payload length: %w", err)
 	}
@@ -992,15 +977,14 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 
 	pldLen := parentHdr.PayloadSize()
 
-	written, err := s.copyECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, sTok, rule, ruleIdx, sortedNodes,
+	written, err := s.copyECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, rule, ruleIdx, sortedNodes,
 		pldLen, off, ln, firstPartStream)
 
 	return written, pldLen, err
 }
 
 func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
-	parent oid.ID, sTok *session.Object, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo,
-	pldLen, off, ln uint64, firstPartStream io.ReadCloser) (uint64, error) {
+	parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, pldLen, off, ln uint64, firstPartStream io.ReadCloser) (uint64, error) {
 	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
 	fullPartLen := (pldLen + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
 
@@ -1046,7 +1030,7 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 	//  data from all streams will start immediately. Explore gRPC abilities of
 	//  buffer control for parallelism potential.
 
-	failedPartIdx, failedPartWritten, written, err := s.copyECPartsRanges(stageCtx, dst, localNodeKey, cnr, parent, sTok, rule, ruleIdx, sortedNodes,
+	failedPartIdx, failedPartWritten, written, err := s.copyECPartsRanges(stageCtx, dst, localNodeKey, cnr, parent, rule, ruleIdx, sortedNodes,
 		fullPartLen, firstPartIdx, firstPartOff, lastPartIdx, lastPartTo, firstPartStream)
 	if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
 		errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ErrResponseStreamFailure) || errors.Is(err, ctx.Err()) {
@@ -1079,7 +1063,7 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 	stageCtx, cancel = context.WithTimeout(ctx, stageTimeout)
 	defer cancel()
 
-	parts, err := s.getRecoveryECPartRanges(stageCtx, localNodeKey, cnr, parent, sTok, rule, ruleIdx, sortedNodes, fullPartLen, failedPartIdx)
+	parts, err := s.getRecoveryECPartRanges(stageCtx, localNodeKey, cnr, parent, rule, ruleIdx, sortedNodes, fullPartLen, failedPartIdx)
 	if err != nil {
 		return written, fmt.Errorf("get recovery EC part ranges: %w", err)
 	}
@@ -1107,8 +1091,7 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 	return written, nil
 }
 
-func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID,
-	sTok *session.Object, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo,
+func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo,
 	fullPartLen uint64, firstIdx int, firstOff uint64, lastIdx int, lastTo uint64, fullFirstPart io.ReadCloser) (int, uint64, uint64, error) {
 	var callTimeout time.Duration
 	if deadline, ok := ctx.Deadline(); ok {
@@ -1158,7 +1141,7 @@ func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localN
 			callCtx, cancel := context.WithTimeout(ctx, callTimeout)
 			defer cancel()
 			var err error
-			rc, err = s.getECPartRangeStream(callCtx, cnr, parent, partOff, partLen, sTok, rule, ruleIdx, sortedNodes, curIdx, localNodeKey)
+			rc, err = s.getECPartRangeStream(callCtx, cnr, parent, partOff, partLen, rule, ruleIdx, sortedNodes, curIdx, localNodeKey)
 			if err != nil {
 				return curIdx, 0, written, fmt.Errorf("open stream: %w", err)
 			}
@@ -1184,7 +1167,7 @@ func (s *Service) copyECPartsRanges(ctx context.Context, dst ChunkWriter, localN
 }
 
 func (s *Service) getRecoveryECPartRanges(ctx context.Context, localNodeKey ecdsa.PrivateKey, cnr cid.ID, parent oid.ID,
-	sTok *session.Object, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, fullPartLen uint64, failedPartIdx int) ([][]byte, error) {
+	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, fullPartLen uint64, failedPartIdx int) ([][]byte, error) {
 	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
 	parts := make([][]byte, totalParts)
 
@@ -1201,7 +1184,7 @@ func (s *Service) getRecoveryECPartRanges(ctx context.Context, localNodeKey ecds
 
 		partIdx := i
 		eg.Go(func() error {
-			part, err := s.readFullECPartRange(egCtx, cnr, parent, sTok, rule, ruleIdx, sortedNodes, partIdx, localNodeKey, fullPartLen)
+			part, err := s.readFullECPartRange(egCtx, cnr, parent, rule, ruleIdx, sortedNodes, partIdx, localNodeKey, fullPartLen)
 			if err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
 					errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, egCtx.Err()) {
@@ -1232,9 +1215,8 @@ func (s *Service) getRecoveryECPartRanges(ctx context.Context, localNodeKey ecds
 	return parts, nil
 }
 
-func (s *Service) readFullECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, sTok *session.Object, rule iec.Rule,
-	ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int, localNodeKey ecdsa.PrivateKey, fullPartLen uint64) ([]byte, error) {
-	rc, err := s.getECPartRangeStream(ctx, cnr, parent, 0, 0, sTok, rule, ruleIdx, sortedNodes, partIdx, localNodeKey)
+func (s *Service) readFullECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int, localNodeKey ecdsa.PrivateKey, fullPartLen uint64) ([]byte, error) {
+	rc, err := s.getECPartRangeStream(ctx, cnr, parent, 0, 0, rule, ruleIdx, sortedNodes, partIdx, localNodeKey)
 	if err != nil {
 		return nil, fmt.Errorf("open stream: %w", err)
 	}
@@ -1254,8 +1236,7 @@ func (s *Service) readFullECPartRange(ctx context.Context, cnr cid.ID, parent oi
 	return buf, nil
 }
 
-func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent oid.ID, off, ln uint64, sTok *session.Object,
-	rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int, localNodeKey ecdsa.PrivateKey) (io.ReadCloser, error) {
+func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent oid.ID, off, ln uint64, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partIdx int, localNodeKey ecdsa.PrivateKey) (io.ReadCloser, error) {
 	var rc io.ReadCloser
 
 	pi := iec.PartInfo{
@@ -1284,98 +1265,35 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 			continue
 		}
 
-		rc, err = s.getECPartRangeFromNode(ctx, cnr, parent, off, ln, sTok, pi, localNodeKey, sortedNodes[i])
-		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
-				errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-			if !errors.Is(err, apistatus.ErrObjectNotFound) {
-				s.log.Info("failed to get EC part payload range from remote node",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln),
-					zap.Stringer("rule", rule), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Error(err))
-			}
-			continue
-		}
-
-		// Fallback to GET similar to fallbackRangeReader. Track https://github.com/nspcc-dev/neofs-node/issues/3547.
-		b := []byte{0}
-		_, err = io.ReadFull(rc, b)
+		rc, err = s.getECPartRangeFromNode(ctx, cnr, parent, off, ln, pi, localNodeKey, sortedNodes[i])
 		if err == nil {
-			// TODO: consider reader that switches to another node to continue the stream
-			return struct {
-				io.Reader
-				io.Closer
-			}{
-				Reader: io.MultiReader(bytes.NewReader(b), rc),
-				Closer: rc,
-			}, nil
-		}
-
-		err = igrpc.ConvertContextStatus(err)
-
-		if !errors.Is(err, apistatus.ErrObjectAccessDenied) {
-			if errors.Is(err, io.EOF) {
-				err = io.ErrUnexpectedEOF
-			}
-			return nil, fmt.Errorf("read GetRange response stream: %w", err)
-		}
-
-		_, rc, err = s.getECPartFromNode(ctx, cnr, parent, sTok, pi, sortedNodes[i])
-		if err != nil {
-			err = igrpc.ConvertContextStatus(err)
-			if errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-			if !errors.Is(err, apistatus.ErrObjectNotFound) {
-				s.log.Info("range->get fallback attempt for EC part failed on stream init, trying another node...",
-					zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Error(err))
-			}
-			continue
-		}
-
-		if off > math.MaxInt64 && ln > math.MaxInt64 {
-			// underlying io functions behave specifically with negative input. 8EB+ are ranges from the future.
-			s.log.Warn("too big object range for this server",
-				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln))
-			continue
-		}
-
-		if _, err = io.CopyN(io.Discard, rc, int64(off)); err != nil {
-			err = igrpc.ConvertContextStatus(err)
-			if errors.Is(err, ctx.Err()) {
-				return nil, err
-			}
-			s.log.Info("range->get fallback attempt for EC part failed on stream seek",
-				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule),
-				zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Uint64("skipBytes", off),
-				zap.Error(err))
-			continue
-		}
-
-		if ln == 0 { // full range request
+			// TODO: consider reader that switches to another node to continue the stream when rc fails
 			return rc, nil
 		}
 
-		return struct {
-			io.Reader
-			io.Closer
-		}{
-			Reader: io.LimitReader(rc, int64(ln)),
-			Closer: rc,
-		}, nil
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
+			errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
+			return nil, err
+		}
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			s.log.Info("failed to get EC part payload range from remote node",
+				zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Uint64("off", off), zap.Uint64("len", ln),
+				zap.Stringer("rule", rule), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("partIdx", pi.Index), zap.Error(err))
+		}
 	}
 
 	return nil, errors.New("all nodes failed")
 }
 
-func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, off, ln uint64, sTok *session.Object,
-	pi iec.PartInfo, localNodeKey ecdsa.PrivateKey, node netmap.NodeInfo) (io.ReadCloser, error) {
+func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, off, ln uint64, pi iec.PartInfo, localNodeKey ecdsa.PrivateKey, node netmap.NodeInfo) (io.ReadCloser, error) {
 	ruleIdxAttr := strconv.Itoa(pi.RuleIndex)
 	partIdxAttr := strconv.Itoa(pi.Index)
 
-	rc, err := s.conns.InitGetObjectRangeStream(ctx, node, localNodeKey, cnr, parent, off, ln, sTok, []string{
+	var rng object.Range
+	rng.SetOffset(off)
+	rng.SetLength(ln)
+
+	_, rc, err := s.conns.InitGetObjectStream(ctx, node, localNodeKey, cnr, parent, true, false, &rng, []string{
 		iec.AttributeRuleIdx, ruleIdxAttr,
 		iec.AttributePartIdx, partIdxAttr,
 	})

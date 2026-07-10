@@ -1,6 +1,7 @@
 package getsvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -16,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -290,16 +290,6 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 		if exec.prm.common.TTL() < 2 {
 			opts.MarkLocal()
 		}
-		if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
-			if stV2.AssertVerb(sessionv2.VerbObjectGet, addr.Container()) {
-				opts.WithinSessionV2(*stV2)
-			}
-		} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
-			opts.WithinSession(*st)
-		}
-		if bt := exec.prm.common.BearerToken(); bt != nil {
-			opts.WithBearerToken(*bt)
-		}
 		opts.WithXHeaders(exec.prm.common.XHeaders()...)
 		if exec.isRaw() {
 			opts.MarkRaw()
@@ -324,16 +314,6 @@ func (c *clientWrapper) head(exec *execCtx, key *ecdsa.PrivateKey) (*object.Obje
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
 	}
-	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
-		if stV2.AssertVerb(sessionv2.VerbObjectHead, addr.Container()) {
-			opts.WithinSessionV2(*stV2)
-		}
-	} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
-		opts.WithinSession(*st)
-	}
-	if bt := exec.prm.common.BearerToken(); bt != nil {
-		opts.WithBearerToken(*bt)
-	}
 	opts.WithXHeaders(exec.prm.common.XHeaders()...)
 	if exec.isRaw() {
 		opts.MarkRaw()
@@ -354,16 +334,6 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 	var opts client.PrmObjectGet
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
-	}
-	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
-		if stV2.AssertVerb(sessionv2.VerbObjectGet, addr.Container()) {
-			opts.WithinSessionV2(*stV2)
-		}
-	} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
-		opts.WithinSession(*st)
-	}
-	if bt := exec.prm.common.BearerToken(); bt != nil {
-		opts.WithBearerToken(*bt)
 	}
 	opts.WithXHeaders(exec.prm.common.XHeaders()...)
 	if exec.isRaw() {
@@ -461,7 +431,7 @@ func (w *directChildWriter) ValidateHeader(obj *object.Object) error {
 }
 
 func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, sTok *session.Object, local, verifyID bool, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error) {
 	conn, err := c.connect(ctx, node)
 	if err != nil {
 		return object.Object{}, nil, err
@@ -475,8 +445,9 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 	if !verifyID {
 		opts.SkipChecksumVerification()
 	}
-	if sTok != nil {
-		opts.WithinSession(*sTok)
+	if rng != nil {
+		opts.SetRange(rng.GetOffset(), rng.GetLength())
+		opts.MarkPayloadOnly()
 	}
 
 	hdr, rc, err := conn.ObjectGetInit(ctx, cnr, id, user.NewAutoIDSigner(pk), opts)
@@ -487,11 +458,25 @@ func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netma
 	// TODO: SkipChecksumVerification() turns off checking all object checksums. Better to keep checking
 	//  OID against header and payload checksum.
 
+	if rng != nil {
+		b := []byte{0}
+		if _, err = io.ReadFull(rc, b); err != nil {
+			return object.Object{}, nil, err
+		}
+
+		return object.Object{}, struct {
+			io.Reader
+			io.Closer
+		}{
+			Reader: io.MultiReader(bytes.NewReader(b), rc),
+			Closer: rc,
+		}, nil
+	}
+
 	return hdr, rc, nil
 }
 
-func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-	sTok *session.Object) (object.Object, error) {
+func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID) (object.Object, error) {
 	conn, err := c.connect(ctx, node)
 	if err != nil {
 		return object.Object{}, err
@@ -499,9 +484,6 @@ func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk 
 
 	var opts client.PrmObjectHead
 	opts.MarkLocal()
-	if sTok != nil {
-		opts.WithinSession(*sTok)
-	}
 
 	hdr, err := conn.ObjectHead(ctx, cnr, id, user.NewAutoIDSigner(pk), opts)
 	if err != nil {
@@ -509,28 +491,6 @@ func (c *clientCacheWrapper) Head(ctx context.Context, node netmap.NodeInfo, pk 
 	}
 
 	return *hdr, nil
-}
-
-func (c *clientCacheWrapper) InitGetObjectRangeStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, off, ln uint64, sTok *session.Object, xs []string) (io.ReadCloser, error) {
-	conn, err := c.connect(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-
-	var opts client.PrmObjectRange
-	opts.WithXHeaders(xs...)
-	opts.MarkLocal()
-	if sTok != nil {
-		opts.WithinSession(*sTok)
-	}
-
-	rc, err := conn.ObjectRangeInit(ctx, cnr, id, off, ln, user.NewAutoIDSigner(pk), opts)
-	if err != nil {
-		return nil, fmt.Errorf("open GetRange stream: %w", err)
-	}
-
-	return rc, nil
 }
 
 func (c *clientCacheWrapper) connect(ctx context.Context, node netmap.NodeInfo) (clientcore.MultiAddressClient, error) {

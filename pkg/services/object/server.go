@@ -1082,13 +1082,11 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	})
 
 	p.WithECTransport(&getECTransport{
-		server:                       s,
-		requestSessionTokenMessage:   reqMD.sessionTokenMessage,
-		requestSessionV1TokenMessage: reqMD.sessionV1TokenMessage,
-		requestContainer:             cnrID,
-		requestObject:                objID,
-		signResponses:                needSignResp,
-		responseStream:               gStream,
+		server:           s,
+		requestContainer: cnrID,
+		requestObject:    objID,
+		signResponses:    needSignResp,
+		responseStream:   gStream,
 	})
 
 	// TODO: consider optimization
