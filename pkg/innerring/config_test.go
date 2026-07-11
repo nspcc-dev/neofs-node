@@ -170,6 +170,17 @@ func TestParseBlockchainConfig(t *testing.T) {
 		}, cfg)
 	})
 
+	t.Run("canonicalizes hardfork names", func(t *testing.T) {
+		cfg := _newConfigFromYAML(t, validBlockchainConfigMinimal+`
+    hardforks:
+      Faun: 0
+`, "")
+		require.Equal(t, map[string]uint32{"faun": 0}, cfg.FSChain.Consensus.Hardforks.Name)
+
+		require.NoError(t, validateBlockchainConfig(cfg))
+		require.Equal(t, map[string]uint32{"Faun": 0}, cfg.FSChain.Consensus.Hardforks.Name)
+	})
+
 	t.Run("full", func(t *testing.T) {
 		cfg := newValidBlockchainConfig(t, fullConfig)
 		err := validateBlockchainConfig(cfg)
