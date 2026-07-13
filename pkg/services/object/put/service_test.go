@@ -437,6 +437,82 @@ func Test_Slicing_EC(t *testing.T) {
 			testLockSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, true)
 		})
 	})
+
+	t.Run("no EC parts on the same node", func(t *testing.T) {
+		const (
+			dataPartNum     = 12
+			parityPartNum   = 4
+			cnrReserveNodes = 2
+			outCnrNodes     = 2
+
+			nodesToPutThrough = 0
+		)
+
+		rules := []iec.Rule{{DataPartNum: dataPartNum, ParityPartNum: parityPartNum}}
+
+		var (
+			cnr     container.Container
+			policy  netmap.PlacementPolicy
+			ecRules = make([]netmap.ECRule, len(rules))
+			owner   = usertest.User()
+		)
+		for i := range rules {
+			ecRules[i].SetDataPartNum(uint32(rules[i].DataPartNum))
+			ecRules[i].SetParityPartNum(uint32(rules[i].ParityPartNum))
+		}
+		policy.SetECRules(ecRules)
+		cnr.SetPlacementPolicy(policy)
+
+		cluster := newTestClusterForRepPolicyWithContainer(t, dataPartNum+parityPartNum, cnrReserveNodes, outCnrNodes, cnr)
+
+		// REP cluster to EC cluster magic
+		for i := range cluster.nodeNetworks {
+			cluster.nodeNetworks[i].cnrNodes.repCounts = nil
+			for range len(rules) - 1 {
+				cluster.nodeNetworks[i].cnrNodes.unsorted = append(cluster.nodeNetworks[i].cnrNodes.unsorted, cluster.nodeNetworks[i].cnrNodes.unsorted[0])
+				cluster.nodeNetworks[i].cnrNodes.sorted = append(cluster.nodeNetworks[i].cnrNodes.sorted, cluster.nodeNetworks[i].cnrNodes.sorted[0])
+			}
+			cluster.nodeNetworks[i].cnrNodes.ecRules = rules
+		}
+
+		var srcObj object.Object
+		srcObj.SetContainerID(cidtest.ID())
+		srcObj.SetOwner(owner.UserID())
+		srcObj.SetAttributes(object.NewAttribute("attr1", "val1"))
+		srcObj.SetPayload(testutil.RandByteSlice(maxObjectSize - 1))
+
+		sessionTokenV2 := newSessionTokenV2(t, cidtest.ID(), owner, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+
+		pk := cluster.nodeSessions[nodesToPutThrough].signer.ECDSAPrivateKey.PublicKey
+		require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
+		require.NoError(t, sessionTokenV2.Sign(owner))
+
+		t.Run("only data part number of nodes available", func(t *testing.T) {
+			// break any node that is further than dataPartNum+1 index
+			for i := range cluster.nodeLocalStorages {
+				if i < dataPartNum+1 {
+					continue
+				}
+				cluster.nodeLocalStorages[i].err = errors.New("cannot store object")
+			}
+
+			err := putObjectWithSession(cluster.nodeServices[nodesToPutThrough], srcObj, nil, sessionTokenV2)
+			require.ErrorContains(t, err, fmt.Sprintf("incomplete object PUT by placement: only %d EC parts were put successfully for %d/%d EC rule", dataPartNum+1, dataPartNum, parityPartNum))
+		})
+
+		t.Run("less than data part number of nodes available", func(t *testing.T) {
+			// break any node that is further than dataPartNum/2 index
+			for i := range cluster.nodeLocalStorages {
+				if i < dataPartNum/2 {
+					continue
+				}
+				cluster.nodeLocalStorages[i].err = errors.New("cannot store object")
+			}
+
+			err := putObjectWithSession(cluster.nodeServices[nodesToPutThrough], srcObj, nil, sessionTokenV2)
+			require.ErrorContains(t, err, "not enough nodes for EC parts")
+		})
+	})
 }
 
 func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cnrReserveNodes, outCnrNodes int, isSessionTokenV2 bool) {

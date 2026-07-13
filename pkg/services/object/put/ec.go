@@ -1,8 +1,12 @@
 package putsvc
 
 import (
+	"errors"
 	"fmt"
 	"math"
+	"slices"
+	"sync"
+	"sync/atomic"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
@@ -13,23 +17,99 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Object, ruleIdx int, payloadParts [][]byte, nodeList []netmap.NodeInfo) error {
-	var eg errgroup.Group
+func newECProgress(nodeList []netmap.NodeInfo, ecRule iec.Rule) *ecProgress {
+	return &ecProgress{
+		nodes:      nodeList,
+		takenNodes: make([]int, 0, len(nodeList)),
+		ecRule:     ecRule,
+	}
+}
+
+type ecProgress struct {
+	ecRule iec.Rule
+	nodes  []netmap.NodeInfo
+
+	m          sync.Mutex
+	takenNodes []int
+	stop       bool
+	failedPuts int
+
+	successPuts atomic.Int32
+}
+
+func (p *ecProgress) canTryNode(i int) bool {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	if p.stop {
+		return false
+	}
+	if slices.Contains(p.takenNodes, i) {
+		return false
+	}
+	p.takenNodes = append(p.takenNodes, i)
+	return true
+}
+
+// returned value defines whether there are more nodes left to try.
+func (p *ecProgress) submitNodeFailure() bool {
+	p.m.Lock()
+	if p.stop {
+		p.m.Unlock()
+		return false
+	}
+	p.failedPuts++
+	placementFailed := len(p.nodes)-p.failedPuts < int(p.ecRule.DataPartNum)
+	p.stop = placementFailed
+	p.m.Unlock()
+
+	return !placementFailed
+}
+
+func (p *ecProgress) submitSuccess() {
+	p.successPuts.Add(1)
+}
+
+// finalizeErr must not be called concurrently with any other ecProgress's methods.
+// call it only if at least one part was not put successfully.
+func (p *ecProgress) finalizeErr(err *errIncompletePut) error {
+	if p.stop {
+		return fmt.Errorf("not enough nodes for EC parts (%d parts were put)", p.successPuts.Load())
+	}
+	err.singleErr = fmt.Errorf("only %d EC parts were put successfully"+
+		" for %s EC rule, latest error: %w", p.successPuts.Load(), p.ecRule, err.singleErr)
+	return err
+}
+
+func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Object, ruleIdx int, payloadParts [][]byte, ecRule iec.Rule, nodeList []netmap.NodeInfo) error {
+	var (
+		eg   errgroup.Group
+		prog = newECProgress(nodeList, ecRule)
+	)
 
 	for partIdx := range payloadParts {
 		eg.Go(func() error {
-			if err := t.formAndSaveObjectForECPart(signer, obj, ruleIdx, partIdx, payloadParts, nodeList); err != nil {
+			if err := t.formAndSaveObjectForECPart(prog, signer, obj, ruleIdx, partIdx, payloadParts, nodeList); err != nil {
 				return fmt.Errorf("form and save object for part %d: %w", partIdx, err)
 			}
 
 			return nil
 		})
 	}
+	err := eg.Wait()
+	if err != nil {
+		var incompleteErr errIncompletePut
+		if errors.As(err, &incompleteErr) {
+			return prog.finalizeErr(&incompleteErr)
+		}
 
-	return eg.Wait()
+		return err
+	}
+
+	return nil
 }
 
-func (t *distributedTarget) formAndSaveObjectForECPart(signer neofscrypto.Signer, obj object.Object, ruleIdx, partIdx int, payloadParts [][]byte, nodeList []netmap.NodeInfo) error {
+func (t *distributedTarget) formAndSaveObjectForECPart(prog *ecProgress, signer neofscrypto.Signer, obj object.Object, ruleIdx, partIdx int, payloadParts [][]byte, nodeList []netmap.NodeInfo) error {
 	partObj, err := formObjectForECPart(signer, obj, ruleIdx, partIdx, payloadParts)
 	if err != nil {
 		return err
@@ -73,7 +153,7 @@ func (t *distributedTarget) formAndSaveObjectForECPart(signer neofscrypto.Signer
 		}
 	}
 
-	if err := t.saveECPart(partObj, encObj, ruleIdx, partIdx, len(payloadParts), nodeList, metaC); err != nil {
+	if err := t.saveECPartWithProgress(prog, partObj, encObj, ruleIdx, partIdx, len(payloadParts), nodeList, metaC); err != nil {
 		return fmt.Errorf("save part object: %w", err)
 	}
 
@@ -95,15 +175,28 @@ func formObjectForECPart(signer neofscrypto.Signer, obj object.Object, ruleIdx, 
 func (t *distributedTarget) saveECPart(part object.Object, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo,
 	metaC *metaCollection) error {
 	return t.distributeObjectWithMeta(part, encObj, metaC, func(obj object.Object, encObj encodedObject) error {
-		return t.distributeECPart(obj, encObj, ruleIdx, partIdx, totalParts, nodeList, metaC)
+		return t.distributeECPart(nil, obj, encObj, ruleIdx, partIdx, totalParts, nodeList, metaC)
 	})
 }
 
-func (t *distributedTarget) distributeECPart(part object.Object, enc encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo, metaC *metaCollection) error {
+func (t *distributedTarget) saveECPartWithProgress(prog *ecProgress, part object.Object, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo, metaC *metaCollection) error {
+	return t.distributeObjectWithMeta(part, encObj, metaC, func(obj object.Object, encObj encodedObject) error {
+		return t.distributeECPart(prog, obj, encObj, ruleIdx, partIdx, totalParts, nodeList, metaC)
+	})
+}
+
+func (t *distributedTarget) distributeECPart(prog *ecProgress, part object.Object, enc encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo, metaC *metaCollection) error {
 	var firstErr error
 	for i := range iec.NodeSequenceForPart(partIdx, totalParts, len(nodeList)) {
+		if prog != nil && !prog.canTryNode(i) {
+			continue
+		}
+
 		err := t.saveECPartOnNode(ruleIdx, part, enc, nodeList[i], metaC)
 		if err == nil {
+			if prog != nil {
+				prog.submitSuccess()
+			}
 			return nil
 		}
 
@@ -112,6 +205,10 @@ func (t *distributedTarget) distributeECPart(part object.Object, enc encodedObje
 			firstErr = fmt.Errorf("save on SN #%d: %w", i, err)
 		} else {
 			t.placementIterator.log.Info("failed to save EC part on reserve SN", zap.Int("nodeIdx", i), zap.Error(err))
+		}
+
+		if prog != nil && !prog.submitNodeFailure() {
+			return errIncompletePut{singleErr: firstErr}
 		}
 	}
 

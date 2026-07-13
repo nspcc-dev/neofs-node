@@ -328,8 +328,8 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 	leftReplicas := maxReplicas
 
-	handleECRule := func(ruleIdx int, ecRuleIdx int, payloadParts [][]byte) (bool, error) {
-		err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, objNodeLists[ruleIdx])
+	handleECRule := func(ruleIdx int, ecRuleIdx int, payloadParts [][]byte, ecRule iec.Rule) (bool, error) {
+		err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, ecRule, objNodeLists[ruleIdx])
 		if err != nil {
 			err = fmt.Errorf("apply EC rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
 			if maxReplicas == 0 {
@@ -372,7 +372,7 @@ nextRule:
 				return fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
 			}
 
-			fin, err := handleECRule(ruleIdx, ecRuleIdx, payloadParts)
+			fin, err := handleECRule(ruleIdx, ecRuleIdx, payloadParts, ecRules[ecRuleIdx])
 			if err != nil {
 				return err
 			}
@@ -384,7 +384,7 @@ nextRule:
 				if ecRules[ecRuleIdx] != ecRules[j] {
 					continue
 				}
-				fin, err := handleECRule(i, j, payloadParts)
+				fin, err := handleECRule(i, j, payloadParts, ecRules[ecRuleIdx])
 				if err != nil {
 					return err
 				}
