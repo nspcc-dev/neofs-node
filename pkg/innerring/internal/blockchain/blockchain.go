@@ -359,7 +359,7 @@ func (x *Blockchain) Run(ctx context.Context) (err error) {
 	go x.netServer.Start()
 
 	// await synchronization with the network
-	t := time.NewTicker(x.core.GetConfig().TimePerBlock)
+	t := time.NewTicker(time.Second)
 
 	for {
 		x.logger.Info("waiting for synchronization with the blockchain network...")

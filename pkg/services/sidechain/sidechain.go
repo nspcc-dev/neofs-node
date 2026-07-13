@@ -110,7 +110,7 @@ func (s *SideChain) Run(ctx context.Context) error {
 	go s.core.Run()
 	go s.netServer.Start()
 
-	t := time.NewTicker(s.core.GetConfig().Genesis.TimePerBlock)
+	t := time.NewTicker(time.Second)
 
 	for {
 		s.logger.Info("waiting for synchronization with the blockchain network...")
