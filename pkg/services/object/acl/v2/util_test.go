@@ -7,36 +7,36 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIsVerbCompatible(t *testing.T) {
 	// Source: https://nspcc.ru/upload/neofs-spec-latest.pdf#page=28
-	table := map[sessionSDK.ObjectVerb][]sessionSDK.ObjectVerb{
-		sessionSDK.VerbObjectPut:    {sessionSDK.VerbObjectPut},
-		sessionSDK.VerbObjectDelete: {sessionSDK.VerbObjectDelete},
-		sessionSDK.VerbObjectGet:    {sessionSDK.VerbObjectGet},
-		sessionSDK.VerbObjectHead: {
-			sessionSDK.VerbObjectHead,
-			sessionSDK.VerbObjectGet,
-			sessionSDK.VerbObjectDelete,
-			sessionSDK.VerbObjectRange,
+	table := map[session.ObjectVerb][]session.ObjectVerb{
+		session.VerbObjectPut:    {session.VerbObjectPut},
+		session.VerbObjectDelete: {session.VerbObjectDelete},
+		session.VerbObjectGet:    {session.VerbObjectGet},
+		session.VerbObjectHead: {
+			session.VerbObjectHead,
+			session.VerbObjectGet,
+			session.VerbObjectDelete,
+			session.VerbObjectRange,
 		},
-		sessionSDK.VerbObjectRange:  {sessionSDK.VerbObjectRange},
-		sessionSDK.VerbObjectSearch: {sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete},
+		session.VerbObjectRange:  {session.VerbObjectRange},
+		session.VerbObjectSearch: {session.VerbObjectSearch, session.VerbObjectDelete},
 	}
 
-	verbs := []sessionSDK.ObjectVerb{
-		sessionSDK.VerbObjectPut,
-		sessionSDK.VerbObjectDelete,
-		sessionSDK.VerbObjectHead,
-		sessionSDK.VerbObjectRange,
-		sessionSDK.VerbObjectGet,
-		sessionSDK.VerbObjectSearch,
+	verbs := []session.ObjectVerb{
+		session.VerbObjectPut,
+		session.VerbObjectDelete,
+		session.VerbObjectHead,
+		session.VerbObjectRange,
+		session.VerbObjectGet,
+		session.VerbObjectSearch,
 	}
 
-	var tok sessionSDK.Object
+	var tok session.Object
 
 	for op, list := range table {
 		for _, verb := range verbs {
@@ -50,7 +50,7 @@ func TestIsVerbCompatible(t *testing.T) {
 }
 
 func TestAssertSessionRelation(t *testing.T) {
-	var tok sessionSDK.Object
+	var tok session.Object
 	cnr := cidtest.ID()
 	cnrOther := cidtest.ID()
 	obj := oidtest.ID()
