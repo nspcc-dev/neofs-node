@@ -6,16 +6,18 @@ import (
 	"errors"
 	"fmt"
 
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	versioncore "github.com/nspcc-dev/neofs-node/pkg/core/version"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // AuthenticateObject checks whether obj is signed correctly by its owner.
-func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPart bool, resolver session.NNSResolver) error {
+func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPart bool, sTokenCache *isessions.ObjectSessionsCache, resolver sessionv2.NNSResolver) error {
 	sig := obj.Signature()
 	if sig == nil {
 		return errMissingSignature
@@ -55,8 +57,17 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		if !sessionToken.AssertAuthKey((*neofsecdsa.PublicKey)(ecdsaPub)) { // same format for all ECDSA schemes
 			return errors.New("session token is not for object's signer")
 		}
-		if err := AuthenticateToken(sessionToken, fsChain); err != nil {
-			return fmt.Errorf("session token: %w", err)
+
+		k := sha256.Sum256(sessionToken.Marshal())
+		_, err := sTokenCache.AuthenticateTokenV1(k, func() (session.Object, error) {
+			if err := AuthenticateToken(sessionToken, fsChain); err != nil {
+				return session.Object{}, fmt.Errorf("session token: %w", err)
+			}
+
+			return *sessionToken, nil
+		})
+		if err != nil {
+			return err
 		}
 		if sessionToken.Issuer() != obj.Owner() && versioncore.OwnerSignatureMatchRequired(obj.Version()) {
 			return errors.New("different object owner and session issuer")
@@ -74,8 +85,16 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 				return errors.New("session v2 token is not for object's signer")
 			}
 		}
-		if err := AuthenticateTokenV2(sessionTokenV2, fsChain); err != nil {
-			return fmt.Errorf("session token v2: %w", err)
+
+		k := sha256.Sum256(sessionTokenV2.Marshal())
+		_, err := sTokenCache.AuthenticateTokenV2(k, func() (sessionv2.Token, error) {
+			if err := AuthenticateTokenV2(sessionTokenV2, fsChain); err != nil {
+				return sessionv2.Token{}, fmt.Errorf("session token v2: %w", err)
+			}
+			return *sessionTokenV2, nil
+		})
+		if err != nil {
+			return err
 		}
 		if sessionTokenV2.OriginalIssuer() != obj.Owner() {
 			return errors.New("different object owner and session v2 issuer")

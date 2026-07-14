@@ -20,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -768,6 +769,7 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 		cluster.nodeServices[i] = NewService(cluster.nodeServices, &cluster.nodeNetworks[i], nil,
 			quotas{math.MaxUint64, math.MaxUint64},
 			&payments{},
+			WithSessionsCache(isessions.NewObjectSessionsCache(1)),
 			WithLogger(zaptest.NewLogger(t).With(zap.Int("node", i))),
 			WithKeyStorage(objutil.NewKeyStorage(&nodeKey.PrivateKey, cluster.nodeSessions[i], &cluster.nodeNetworks[i])),
 			WithObjectStorage(&cluster.nodeLocalStorages[i]),
@@ -1190,6 +1192,7 @@ func newPlacementTestEnv(t *testing.T, cnr container.Container, repRules []uint,
 			keyStorage := objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])
 			opts := []Option{
 				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
+				WithSessionsCache(isessions.NewObjectSessionsCache(1)),
 				WithKeyStorage(keyStorage),
 				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
 				WithMaxSizeSource(mockMaxSize(maxObjectSize)),
@@ -2098,6 +2101,7 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
 				quotas{math.MaxUint64, math.MaxUint64},
 				&payments{},
+				WithSessionsCache(isessions.NewObjectSessionsCache(1)),
 				WithLogger(zaptest.NewLogger(t).With(zap.Int("node", nodeIdx))),
 				WithKeyStorage(objutil.NewKeyStorage(&nodeSigner.ECDSAPrivateKey, cluster.nodeSessions[nodeIdx], &cluster.nodeNetworks[i])),
 				WithObjectStorage(&cluster.nodeLocalStorages[nodeIdx]),
