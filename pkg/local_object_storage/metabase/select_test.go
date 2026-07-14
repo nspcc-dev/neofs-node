@@ -10,7 +10,7 @@ import (
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -627,7 +627,7 @@ func TestRemovedObjects(t *testing.T) {
 	testSelect(t, db, cnr, fAll, o2.Address(), ts1.Address(), o3.Address(), locker.Address())
 }
 
-func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs object.SearchFilters, expected int) {
+func benchmarkSelect(b *testing.B, db *meta.DB, cid cid.ID, fs object.SearchFilters, expected int) {
 	for b.Loop() {
 		addrs, err := db.Select(cid, fs)
 		if err != nil {
@@ -639,7 +639,7 @@ func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs object.SearchF
 	}
 }
 
-func metaSelect(db *meta.DB, cnr cidSDK.ID, fs object.SearchFilters) ([]oid.Address, error) {
+func metaSelect(db *meta.DB, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
 	return db.Select(cnr, fs)
 }
 

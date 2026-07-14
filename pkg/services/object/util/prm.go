@@ -4,7 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 )
 
@@ -55,7 +55,7 @@ func (p *CommonPrm) LocalOnly() bool {
 	return false
 }
 
-func (p *CommonPrm) SessionToken() *sessionsdk.Object {
+func (p *CommonPrm) SessionToken() *session.Object {
 	if p != nil {
 		return p.tokens.SessionV1
 	}

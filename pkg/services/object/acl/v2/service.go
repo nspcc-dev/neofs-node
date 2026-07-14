@@ -26,14 +26,14 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
 type sessionTokenCommonCheckResult struct {
-	token   sessionSDK.Object
+	token   session.Object
 	tokenV2 sessionv2.Token
 	err     error
 }
@@ -160,7 +160,7 @@ func (b Service) ResetTokenCheckCache() {
 }
 
 // VerifySessionV1TokenMessage validates m and converts it into [sessionSDK.Object].
-func (b Service) VerifySessionV1TokenMessage(m *protosession.SessionToken, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (sessionSDK.Object, error) {
+func (b Service) VerifySessionV1TokenMessage(m *protosession.SessionToken, reqVerb session.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (session.Object, error) {
 	mb := make([]byte, m.MarshaledSize())
 	m.MarshalStable(mb)
 
@@ -171,17 +171,17 @@ func (b Service) VerifySessionV1TokenMessage(m *protosession.SessionToken, reqVe
 		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
 	}
 	if res.err != nil {
-		return sessionSDK.Object{}, res.err
+		return session.Object{}, res.err
 	}
 
 	if err := b.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
-		return sessionSDK.Object{}, err
+		return session.Object{}, err
 	}
 
 	return res.token, nil
 }
 
-func getCredentialsFromSessionV1Token(token sessionSDK.Object) (user.ID, []byte, error) {
+func getCredentialsFromSessionV1Token(token session.Object) (user.ID, []byte, error) {
 	sig, ok := token.Signature()
 	if !ok {
 		return user.ID{}, nil, errors.New("missing signature in session token")
@@ -191,7 +191,7 @@ func getCredentialsFromSessionV1Token(token sessionSDK.Object) (user.ID, []byte,
 }
 
 type sessionTokenWithEncodedBody struct {
-	sessionSDK.Object
+	session.Object
 	body []byte
 }
 
@@ -199,8 +199,8 @@ func (x sessionTokenWithEncodedBody) SignedData() []byte {
 	return x.body
 }
 
-func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, mb []byte) (sessionSDK.Object, error) {
-	var token sessionSDK.Object
+func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken, mb []byte) (session.Object, error) {
+	var token session.Object
 	if err := token.FromProtoMessage(m); err != nil {
 		return token, fmt.Errorf("invalid session token: %w", err)
 	}
@@ -234,7 +234,7 @@ func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken,
 	return token, nil
 }
 
-func (b Service) verifySessionTokenAgainstRequest(token sessionSDK.Object, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) error {
+func (b Service) verifySessionTokenAgainstRequest(token session.Object, reqVerb session.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) error {
 	if err := assertSessionRelation(token, reqCnr, reqObj); err != nil {
 		return err
 	}

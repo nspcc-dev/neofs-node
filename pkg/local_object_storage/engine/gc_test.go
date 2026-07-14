@@ -13,7 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	statusSDK "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -157,7 +157,7 @@ func checkObjectsAsyncRemoval(t *testing.T, e *StorageEngine, cnr cid.ID, objs .
 		addr.SetObject(obj)
 
 		_, err := e.Get(context.Background(), addr)
-		require.ErrorAs(t, err, new(statusSDK.ObjectNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	}
 }
 
@@ -249,7 +249,7 @@ func TestGC(t *testing.T) {
 		require.NoError(t, e.Put(context.Background(), tomb, nil))
 
 		_, err = e.Get(context.Background(), objAddr)
-		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
 		tickEpoch(es, e)
 
@@ -264,7 +264,7 @@ func TestGC(t *testing.T) {
 		require.NoError(t, e.Put(context.Background(), tomb, nil))
 
 		_, err = e.Get(context.Background(), obj.Address())
-		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
 		tickEpoch(es, e)
 
@@ -288,7 +288,7 @@ func TestGC(t *testing.T) {
 
 		// object covered by tombstone
 		_, err = e.Get(context.Background(), objAddr)
-		require.ErrorIs(t, err, statusSDK.ErrObjectAlreadyRemoved)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 		_, err = e.Get(context.Background(), tomb.Address())
 		require.NoError(t, err)
 
@@ -376,7 +376,7 @@ func TestSplitObjectExpirationWithoutLink(t *testing.T) {
 		// Check this way because Get returns ErrObjectNotFound for expired error
 		for _, sh := range e.sortedShards(parentID) {
 			_, err = sh.Get(parentAddr, false)
-			require.ErrorIs(t, err, statusSDK.ErrObjectNotFound)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		}
 	})
 }
@@ -470,7 +470,7 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 		require.NoError(t, fstr.Delete(linkAddr))
 
 		_, err = e.Get(context.Background(), linkAddr)
-		require.ErrorIs(t, err, statusSDK.ErrObjectNotFound)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 		_, err = e.Get(context.Background(), parentAddr)
 		require.ErrorAs(t, err, &splitErr)
@@ -484,7 +484,7 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 		// Check this way because Get returns ErrObjectNotFound for expired error
 		for _, sh := range e.sortedShards(parentID) {
 			_, err = sh.Get(parentAddr, false)
-			require.ErrorIs(t, err, statusSDK.ErrObjectNotFound)
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		}
 
 		logBuf.AssertContainsMsg(zap.DebugLevel, "inhuming root object but no link object is found")
