@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -33,6 +35,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
@@ -159,6 +162,10 @@ type shared struct {
 	bgClientCache  *cache.Clients
 	putClientCache *cache.Clients
 	localAddr      network.AddressGroup
+
+	// tlsCert is the node's self-signed certificate built from its identity
+	// private key for inter-node mTLS handshakes.
+	tlsCert tls.Certificate
 
 	ownerIDFromKey user.ID // user ID calculated from key
 
@@ -414,13 +421,19 @@ func initCfg(appCfg *config.Config) *cfg {
 	fatalOnErr(err)
 
 	basicSharedConfig := initBasics(c, key, persistate)
+
+	tlsCert, err := peerauth.GenerateSelfSignedCert(&key.PrivateKey)
+	fatalOnErr(err)
+	c.log.Info("mTLS: generated self-signed certificate from node identity key",
+		zap.String("pubkey", hex.EncodeToString(key.PublicKey().Bytes())))
+
 	streamTimeout := appCfg.APIClient.StreamTimeout
 	minConnTimeout := appCfg.APIClient.MinConnectionTime
 	pingInterval := appCfg.APIClient.PingInterval
 	pingTimeout := appCfg.APIClient.PingTimeout
 	newClientCache := func(scope string) *cache.Clients {
 		return cache.NewClients(c.log.With(zap.String("scope", scope)), &buffers, streamTimeout,
-			minConnTimeout, pingInterval, pingTimeout, neofsecdsa.Signer(key.PrivateKey))
+			minConnTimeout, pingInterval, pingTimeout, neofsecdsa.Signer(key.PrivateKey), tlsCert)
 	}
 	c.shared = shared{
 		basics:            basicSharedConfig,
@@ -430,6 +443,7 @@ func initCfg(appCfg *config.Config) *cfg {
 		putClientCache:    newClientCache("put"),
 		persistate:        persistate,
 		privateTokenStore: persistate,
+		tlsCert:           tlsCert,
 	}
 	c.cfgBalance = cfgBalance{
 		parsers:     make(map[event.Type]event.NotificationParser),
