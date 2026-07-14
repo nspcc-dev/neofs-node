@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Wrong (1028) status code returned for missing session token verb, should be 2048 (#4052)
 - IR changing hardfork name case before passing it to neo-go (#4085)
 - More than one EC part can be PUT on a node with overall success response code (#3994)
+- SN does not cache session tokens in REPLICATE (#4082)
 
 ### Changed
 - Optimized GET for fully buffered payloads (#4058)

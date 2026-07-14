@@ -4,6 +4,7 @@ import (
 	"context"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -270,5 +271,11 @@ func WithNNSResolver(resolver session.NNSResolver) Option {
 func WithPostPlacementReplicator(v PostPlacementReplicator) Option {
 	return func(c *cfg) {
 		c.postPlacementReplicator = v
+	}
+}
+
+func WithSessionsCache(sCache *isessions.ObjectSessionsCache) Option {
+	return func(c *cfg) {
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithSessionTokensCache(sCache))
 	}
 }

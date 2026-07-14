@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
@@ -32,12 +33,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type sessionTokenCommonCheckResult struct {
-	token   session.Object
-	tokenV2 sessionv2.Token
-	err     error
-}
-
 type bearerTokenCommonCheckResult struct {
 	token bearer.Token
 	err   error
@@ -50,7 +45,7 @@ type Service struct {
 	c senderClassifier
 	r *nnscore.Resolver
 
-	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
+	sessionTokenCommonCheckCache *isessions.ObjectSessionsCache
 	bearerTokenCommonCheckCache  *lru.Cache[[sha256.Size]byte, bearerTokenCommonCheckResult]
 }
 
@@ -111,7 +106,7 @@ func defaultCfg() *cfg {
 }
 
 // New is a constructor for object ACL checking service.
-func New(fsChain FSChain, opts ...Option) Service {
+func New(fsChain FSChain, sessionsCache *isessions.ObjectSessionsCache, opts ...Option) Service {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -129,11 +124,8 @@ func New(fsChain FSChain, opts ...Option) Service {
 	panicOnNil(cfg.containers, "container source")
 	panicOnNil(fsChain, "FS chain")
 	panicOnNil(cfg.chainTime, "chain time provider")
+	panicOnNil(sessionsCache, "sessions cache")
 
-	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
-	if err != nil {
-		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
-	}
 	bearerTokenCheckCache, err := lru.New[[sha256.Size]byte, bearerTokenCommonCheckResult](1000)
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
@@ -147,14 +139,13 @@ func New(fsChain FSChain, opts ...Option) Service {
 			fsChain:   fsChain,
 		},
 		r:                            nnscore.NewResolver(fsChain),
-		sessionTokenCommonCheckCache: sessionTokenCheckCache,
+		sessionTokenCommonCheckCache: sessionsCache,
 		bearerTokenCommonCheckCache:  bearerTokenCheckCache,
 	}
 }
 
 // ResetTokenCheckCache resets cache of session and bearer tokens' check results.
 func (b Service) ResetTokenCheckCache() {
-	b.sessionTokenCommonCheckCache.Purge()
 	b.bearerTokenCommonCheckCache.Purge()
 	b.r.PurgeCache()
 }
@@ -165,20 +156,18 @@ func (b Service) VerifySessionV1TokenMessage(m *protosession.SessionToken, reqVe
 	m.MarshalStable(mb)
 
 	cacheKey := sha256.Sum256(mb)
-	res, ok := b.sessionTokenCommonCheckCache.Get(cacheKey)
-	if !ok {
-		res.token, res.err = b.decodeAndVerifySessionTokenCommon(m, mb)
-		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
-	}
-	if res.err != nil {
-		return session.Object{}, res.err
-	}
-
-	if err := b.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
+	sToken, err := b.sessionTokenCommonCheckCache.AuthenticateTokenV1(cacheKey, func() (session.Object, error) {
+		return b.decodeAndVerifySessionTokenCommon(m, mb)
+	})
+	if err != nil {
 		return session.Object{}, err
 	}
 
-	return res.token, nil
+	if err := b.verifySessionTokenAgainstRequest(sToken, reqVerb, reqCnr, reqObj); err != nil {
+		return session.Object{}, err
+	}
+
+	return sToken, nil
 }
 
 func getCredentialsFromSessionV1Token(token session.Object) (user.ID, []byte, error) {
@@ -252,30 +241,26 @@ func (b Service) VerifySessionTokenMessage(mV2 *protosession.SessionTokenV2, req
 	mV2.MarshalStable(mb)
 
 	cacheKey := sha256.Sum256(mb)
-	res, ok := b.sessionTokenCommonCheckCache.Get(cacheKey)
-	if !ok {
-		res.tokenV2, res.err = b.decodeAndVerifySessionTokenV2Common(mV2, mb)
-	}
-	if res.err != nil {
-		return sessionv2.Token{}, res.err
+	sToken, err := b.sessionTokenCommonCheckCache.AuthenticateTokenV2(cacheKey, func() (sessionv2.Token, error) {
+		return b.decodeAndVerifySessionTokenV2Common(mV2, mb)
+	})
+	if err != nil {
+		return sessionv2.Token{}, err
 	}
 
 	currentTime := b.chainTime.Now().Round(time.Second)
-	if res.tokenV2.Exp().Before(currentTime) {
+	if sToken.Exp().Before(currentTime) {
 		return sessionv2.Token{}, apistatus.ErrSessionTokenExpired
 	}
-	if !res.tokenV2.ValidAt(currentTime) {
-		return sessionv2.Token{}, fmt.Errorf("%s: V2 token is invalid at %s, token iat %s, nbf %s, exp %s", invalidRequestMessage, currentTime, res.tokenV2.Iat(), res.tokenV2.Nbf(), res.tokenV2.Exp())
-	}
-	if !ok {
-		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
+	if !sToken.ValidAt(currentTime) {
+		return sessionv2.Token{}, fmt.Errorf("%s: V2 token is invalid at %s, token iat %s, nbf %s, exp %s", invalidRequestMessage, currentTime, sToken.Iat(), sToken.Nbf(), sToken.Exp())
 	}
 
-	if !res.tokenV2.AssertVerb(reqVerb, reqCnr) {
+	if !sToken.AssertVerb(reqVerb, reqCnr) {
 		return sessionv2.Token{}, errInvalidVerb
 	}
 
-	return res.tokenV2, nil
+	return sToken, nil
 }
 
 func getCredentialsFromSessionToken(token sessionv2.Token) (user.ID, []byte, error) {

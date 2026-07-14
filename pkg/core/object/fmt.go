@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
@@ -39,6 +40,7 @@ type cfg struct {
 	e        LockSource
 	sv       SplitVerifier
 	tv       TombVerifier
+	sCache   *isessions.ObjectSessionsCache
 }
 
 // DeleteHandler is an interface of delete queue processor.
@@ -255,7 +257,7 @@ func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unpr
 		if err := icrypto.AuthenticateObject(*obj, historicN3ScriptRunner{
 			FSChain:        v.fsChain,
 			NetmapContract: v.netmapContract,
-		}, isEC, v.resolver); err != nil {
+		}, isEC, v.sCache, v.resolver); err != nil {
 			return fmt.Errorf("authenticate: %w", err)
 		}
 	}
@@ -458,5 +460,13 @@ func WithSplitVerifier(sv SplitVerifier) FormatValidatorOption {
 func WithTombVerifier(tv TombVerifier) FormatValidatorOption {
 	return func(c *cfg) {
 		c.tv = tv
+	}
+}
+
+// WithSessionTokensCache returns option to set shared session tokens
+// cache.
+func WithSessionTokensCache(sCache *isessions.ObjectSessionsCache) FormatValidatorOption {
+	return func(c *cfg) {
+		c.sCache = sCache
 	}
 }
