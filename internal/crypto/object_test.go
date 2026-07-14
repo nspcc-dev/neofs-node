@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -21,26 +22,26 @@ import (
 func TestAuthenticateObject(t *testing.T) {
 	t.Run("without signature", func(t *testing.T) {
 		obj := getUnsignedObject()
-		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "missing signature")
+		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, isessions.NewObjectSessionsCache(1), nil), "missing signature")
 	})
 	t.Run("too big verification script", func(t *testing.T) {
 		sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1025), testutil.RandByteSlice(1024))
 		obj := getUnsignedObject()
 		obj.SetSignature(&sig)
-		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "verification script len 1025 overflows limit 1024")
+		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, isessions.NewObjectSessionsCache(1), nil), "verification script len 1025 overflows limit 1024")
 	})
 	t.Run("too big invocation script", func(t *testing.T) {
 		obj := getUnsignedObject()
 		sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1024), testutil.RandByteSlice(1025))
 		obj.SetSignature(&sig)
-		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "invocation script len 1025 overflows limit 1024")
+		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, isessions.NewObjectSessionsCache(1), nil), "invocation script len 1025 overflows limit 1024")
 	})
 	t.Run("unsupported scheme", func(t *testing.T) {
 		obj := objectECDSASHA512
 		sig := *obj.Signature()
 		sig.SetScheme(4)
 		obj.SetSignature(&sig)
-		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "unsupported scheme 4")
+		require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, isessions.NewObjectSessionsCache(1), nil), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -61,7 +62,7 @@ func TestAuthenticateObject(t *testing.T) {
 				sig := *obj.Signature()
 				sig.SetPublicKeyBytes(tc.changePub(sig.PublicKeyBytes()))
 				obj.SetSignature(&sig)
-				err := icrypto.AuthenticateObject(obj, nil, false, nil)
+				err := icrypto.AuthenticateObject(obj, nil, false, isessions.NewObjectSessionsCache(1), nil)
 				require.EqualError(t, err, "scheme ECDSA_SHA512: decode public key: "+tc.err)
 			})
 		}
@@ -83,7 +84,7 @@ func TestAuthenticateObject(t *testing.T) {
 					cp[i]++
 					sig.SetValue(cp)
 					tc.obj.SetSignature(&sig)
-					err := icrypto.AuthenticateObject(tc.obj, nil, false, nil)
+					err := icrypto.AuthenticateObject(tc.obj, nil, false, isessions.NewObjectSessionsCache(1), nil)
 					require.EqualError(t, err, fmt.Sprintf("scheme %s: signature mismatch", tc.scheme))
 				}
 			})
@@ -99,10 +100,10 @@ func TestAuthenticateObject(t *testing.T) {
 			{scheme: neofscrypto.ECDSA_WALLETCONNECT, object: wrongOwnerObjectECDSAWalletConnect},
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
-				require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil), "owner mismatches signature")
+				require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil), "owner mismatches signature")
 				t.Run("before v2.18", func(t *testing.T) {
 					tc.object.SetVersion(&oldVersion)
-					require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil))
+					require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil))
 				})
 			})
 		}
@@ -118,7 +119,7 @@ func TestAuthenticateObject(t *testing.T) {
 				{scheme: neofscrypto.ECDSA_WALLETCONNECT, object: objectWithNoIssuerSessionECDSAWalletConnect},
 			} {
 				t.Run(tc.scheme.String(), func(t *testing.T) {
-					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil), "session token: missing issuer")
+					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil), "session token: missing issuer")
 				})
 			}
 		})
@@ -132,7 +133,7 @@ func TestAuthenticateObject(t *testing.T) {
 				{scheme: neofscrypto.ECDSA_WALLETCONNECT, object: objectWithWrongIssuerSessionECDSAWalletConnect},
 			} {
 				t.Run(tc.scheme.String(), func(t *testing.T) {
-					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil), "session token: issuer mismatches signature")
+					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil), "session token: issuer mismatches signature")
 				})
 			}
 		})
@@ -146,7 +147,7 @@ func TestAuthenticateObject(t *testing.T) {
 				{scheme: neofscrypto.ECDSA_WALLETCONNECT, object: objectWithWrongSessionSubjectECDSAWalletConnect},
 			} {
 				t.Run(tc.scheme.String(), func(t *testing.T) {
-					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil), "session token is not for object's signer")
+					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil), "session token is not for object's signer")
 				})
 			}
 		})
@@ -160,10 +161,10 @@ func TestAuthenticateObject(t *testing.T) {
 				{scheme: neofscrypto.ECDSA_WALLETCONNECT, object: objectWithWrongOwnerSessionECDSAWalletConnect},
 			} {
 				t.Run(tc.scheme.String(), func(t *testing.T) {
-					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil), "different object owner and session issuer")
+					require.EqualError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil), "different object owner and session issuer")
 					t.Run("before v2.18", func(t *testing.T) {
 						tc.object.SetVersion(&oldVersion)
-						require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil))
+						require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil))
 					})
 				})
 			}
@@ -181,7 +182,7 @@ func TestAuthenticateObject(t *testing.T) {
 		{name: neofscrypto.ECDSA_WALLETCONNECT.String() + " with session", object: objectWithSessionECDSAWalletConnect},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, nil))
+			require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, false, isessions.NewObjectSessionsCache(1), nil))
 		})
 	}
 }

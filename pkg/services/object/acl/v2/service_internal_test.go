@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -72,6 +73,7 @@ func BenchmarkSessionTokenVerification(b *testing.B) {
 	msg := tok.ProtoMessage()
 
 	s := New(nopFSChain{},
+		isessions.NewObjectSessionsCache(1),
 		WithIRFetcher(nopIR{}),
 		WithNetmapper(nopNetmapContract{}),
 		WithContainerSource(nopContrainerContract{}),
@@ -101,6 +103,7 @@ func BenchmarkBearerTokenVerification(b *testing.B) {
 	msg := tok.ProtoMessage()
 
 	s := New(nopFSChain{},
+		isessions.NewObjectSessionsCache(1),
 		WithIRFetcher(nopIR{}),
 		WithNetmapper(nopNetmapContract{}),
 		WithContainerSource(nopContrainerContract{}),
@@ -141,6 +144,7 @@ func BenchmarkSessionTokenV2Verification(b *testing.B) {
 	msg := tok.ProtoMessage()
 
 	s := New(nopFSChain{},
+		isessions.NewObjectSessionsCache(1),
 		WithIRFetcher(nopIR{}),
 		WithNetmapper(nopNetmapContract{}),
 		WithContainerSource(nopContrainerContract{}),

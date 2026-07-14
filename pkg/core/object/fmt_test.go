@@ -9,6 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -84,6 +85,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	}
 
 	v := NewFormatValidator(nil, nil, cnrs,
+		WithSessionTokensCache(isessions.NewObjectSessionsCache(1)),
 		WithNetState(testNetState{
 			epoch: curEpoch,
 		}),
@@ -150,7 +152,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			obj := getUnsignedObject()
 			sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1024), testutil.RandByteSlice(1025))
 			obj.SetSignature(&sig)
-			require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil), "invocation script len 1025 overflows limit 1024")
+			require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil, nil), "invocation script len 1025 overflows limit 1024")
 		})
 		t.Run("unsupported scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)

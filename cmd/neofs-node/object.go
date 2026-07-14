@@ -14,6 +14,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -261,6 +262,11 @@ func initObjectService(c *cfg) {
 	fatalOnErr(err)
 	c.cfgObject.placement = placementSvc
 
+	sessionsCache := isessions.NewObjectSessionsCache(1024)
+	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
+		sessionsCache.ResetCache()
+	})
+
 	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
 		initQuotas(c.cCli, c.cfgObject.quotasTTL),
@@ -278,6 +284,7 @@ func initObjectService(c *cfg) {
 			replicator: c.replicator,
 			disabled:   c.appCfg.Replicator.DisablePostInitialQueue,
 		}),
+		putsvc.WithSessionsCache(sessionsCache),
 		putsvc.WithLogger(c.log),
 		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(os)),
@@ -312,6 +319,7 @@ func initObjectService(c *cfg) {
 	fsChain := newFSChainForObjects(placementSvc, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance, c.cli)
 
 	aclSvc := v2.New(fsChain,
+		sessionsCache,
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher.InnerRingKeys)),
 		v2.WithNetmapper(netmapSourceWithNodes{

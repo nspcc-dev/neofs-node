@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -126,6 +127,7 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 	var ir mockIR
 	var tp mockTimeProvider
 	svc := aclsvc.New(&fsChain,
+		isessions.NewObjectSessionsCache(1),
 		aclsvc.WithContainerSource(&cnrs),
 		aclsvc.WithNetmapper(&nm),
 		aclsvc.WithIRFetcher(&ir),
