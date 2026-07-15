@@ -40,8 +40,6 @@ fschain:
     - wss://{{.}}/ws{{end}}
 {{if not .Relay }}
 storage:
-  shard_pool_size: 15  # size of per-shard worker pools used for PUT operations
-
   shard:
     default: # section with the default shard parameters
       metabase:

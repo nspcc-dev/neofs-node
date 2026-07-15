@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 ### Removed
 - Compression support from FSTree (#4054)
 - IR container structurization migration (#4062)
+- ADM no longer adds `storage.shard_pool_size` to produced SN configurations (#XXXK)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.20.0.20260703200507-4f450009c764` (#4065)
