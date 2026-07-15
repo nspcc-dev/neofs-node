@@ -161,7 +161,6 @@ grpc:
 			name: "good storage config",
 			config: `
 storage:
-  put_retry_timeout: 5s
   shard_ro_error_threshold: 100
   ignore_uninited_shards: true
 
@@ -207,7 +206,6 @@ storage:
 			name: "unknown filed storage.shard",
 			config: `
 storage:
-  put_retry_timeout: 5s
   shard_ro_error_threshold: 100
   ignore_uninited_shards: true
 

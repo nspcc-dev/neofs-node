@@ -5,7 +5,6 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -220,8 +219,6 @@ type cfg struct {
 
 	metrics MetricRegister
 
-	objectPutTimeout time.Duration
-
 	containerSource containercore.Source
 
 	isIgnoreUninitedShards bool
@@ -284,14 +281,5 @@ func WithContainersSource(cs containercore.Source) Option {
 func WithIgnoreUninitedShards(flag bool) Option {
 	return func(c *cfg) {
 		c.isIgnoreUninitedShards = flag
-	}
-}
-
-// WithObjectPutRetryTimeout return an option to specify time for object PUT operation.
-// It does not stop any disk operation, only affects retryes policy. Zero value
-// is acceptable and means no retry on any shard.
-func WithObjectPutRetryTimeout(t time.Duration) Option {
-	return func(c *cfg) {
-		c.objectPutTimeout = t
 	}
 }

@@ -25,7 +25,6 @@ func initLocalStorage(c *cfg) {
 		engine.WithErrorThreshold(uint32(c.appCfg.Storage.ShardROErrorThreshold)),
 		engine.WithLogger(c.log),
 		engine.WithIgnoreUninitedShards(c.appCfg.Storage.IgnoreUninitedShards),
-		engine.WithObjectPutRetryTimeout(c.appCfg.Storage.PutRetryTimeout),
 		engine.WithContainersSource(c.cnrSrc),
 		engine.WithMetrics(c.metricsCollector),
 	}...)

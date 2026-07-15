@@ -34,7 +34,6 @@ func TestEngineSection(t *testing.T) {
 
 		require.EqualValues(t, 0, empty.Storage.ShardROErrorThreshold)
 		require.EqualValues(t, mode.ReadWrite, empty.Storage.Default.Mode)
-		require.Zero(t, empty.Storage.PutRetryTimeout)
 	})
 
 	const path = "../../../../config/example/node"
@@ -43,7 +42,6 @@ func TestEngineSection(t *testing.T) {
 		num := 0
 
 		require.EqualValues(t, 100, c.Storage.ShardROErrorThreshold)
-		require.EqualValues(t, 5*time.Second, c.Storage.PutRetryTimeout)
 		require.EqualValues(t, true, c.Storage.IgnoreUninitedShards)
 
 		err := engineconfig.IterateShards(&c.Storage, true, func(sc *shardconfig.ShardDetails) error {
