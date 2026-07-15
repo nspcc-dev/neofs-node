@@ -82,7 +82,7 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 
 	for _, sh := range shs {
 		err = e.putToShard(ctx, sh, addr, obj, objBin)
-		if err == nil || errors.Is(err, errExists) {
+		if err == nil || errors.Is(err, errExists) || errors.Is(err, ctx.Err()) {
 			return nil
 		}
 		if errors.Is(err, errOverloaded) {
@@ -101,7 +101,8 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 
 // putToShard puts object to sh.
 // Returns error from shard put or errOverloaded (when shard can't perform op
-// within configured timeout) or errExists (if object is already stored there).
+// within configured timeout) or errExists (if object is already stored there)
+// or ctx error.
 func (e *StorageEngine) putToShard(ctx context.Context, sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
 	var (
 		exitCh        = make(chan error, 1)
@@ -117,6 +118,9 @@ func (e *StorageEngine) putToShard(ctx context.Context, sh shardWrapper, addr oi
 	case err := <-exitCh:
 		return err
 	case <-pCtx.Done():
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return errOverloaded
 	}
 }
@@ -190,6 +194,9 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 					zap.Stringer("addr", addr))
 			}
 			continue
+		}
+		if errors.Is(err, ctx.Err()) {
+			return err
 		}
 		lastError = err
 		if errors.Is(err, apistatus.ErrLockNonRegularObject) ||
