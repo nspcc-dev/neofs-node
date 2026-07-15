@@ -227,9 +227,6 @@ func TestQuotas(t *testing.T) {
 	commonPrm := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
 		SessionV1: &sessionToken,
 	})
-	if err != nil {
-		panic(err)
-	}
 
 	sessionTokenV2 := newSessionTokenV2(t, cID, owner, cluster.nodeSessions, []sessionv2.Verb{sessionv2.VerbObjectPut})
 
