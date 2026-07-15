@@ -370,8 +370,6 @@ Contains object-service related parameters.
 
 ```yaml
 object:
-  put:
-    pool_size_remote: 100
   search:
     pool_size: 50
 ```
@@ -379,5 +377,4 @@ object:
 | Parameter                   | Type  | Default value | Description                                                                                    |
 |-----------------------------|-------|---------------|------------------------------------------------------------------------------------------------|
 | `delete.tombstone_lifetime` | `int` | `5`           | Tombstone lifetime for removed objects in epochs.                                              |
-| `put.pool_size_remote`      | `int` | `10`          | Max pool size for performing remote `PUT` operations. Used by Policer and Replicator services. |
 | `search.pool_size`          | `int` | `100`         | Max pool Size for performing `SEARCH` operations.                                              |

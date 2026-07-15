@@ -19,13 +19,11 @@ import (
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -105,10 +103,10 @@ func (x errIncompletePut) Error() string {
 	return commonMsg
 }
 
-func newMaxReplicasError(maxReplicas, done uint, lastRule int, overloaded bool, lastRuleErr error) error {
+func newMaxReplicasError(maxReplicas, done uint, lastRule int, lastRuleErr error) error {
 	err := fmt.Errorf("unreachable MaxReplicas: %d of %d replicas placed in total, aborted on rule #%d (%w)",
 		done, maxReplicas, lastRule, lastRuleErr)
-	return newCompletionError(err, done > 0, overloaded)
+	return newCompletionError(err, done > 0)
 }
 
 func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
@@ -336,7 +334,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 				return false, err
 			}
 			if leftReplicas > sumLimitsSinceRule(ruleIdx+1) {
-				return false, newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas, ruleIdx, false, err)
+				return false, newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas, ruleIdx, err)
 			}
 			t.placementIterator.log.Info("PUT by EC rule failure", zap.Stringer("object", obj.Address()), zap.Error(err))
 			return false, nil
@@ -425,14 +423,14 @@ nextRule:
 			minReps, maxReps = repRules[ruleIdx], repRules[ruleIdx]
 		}
 
-		stored, overloaded, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
+		stored, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
 			return t.sendObject(obj, encObj, node, t.metaCollection)
 		})
 		if err != nil {
 			if maxReplicas > 0 {
-				return newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas+stored, ruleIdx, overloaded, err)
+				return newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas+stored, ruleIdx, err)
 			}
-			return newCompletionError(err, stored > 0, overloaded)
+			return newCompletionError(err, stored > 0)
 		}
 
 		if maxReplicas > 0 {
@@ -805,9 +803,8 @@ func (x errNotEnoughNodes) Error() string {
 }
 
 type placementIterator struct {
-	log        *zap.Logger
-	neoFSNet   NeoFSNetwork
-	remotePool util.WorkerPool
+	log      *zap.Logger
+	neoFSNet NeoFSNetwork
 }
 
 type nodeResult struct {
@@ -899,12 +896,10 @@ func repToNode(l *zap.Logger, prog *repProgress, pubKeyStr string, listInd int, 
 	}
 }
 
-func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listInd int, minReps, maxReps uint, nodeList []netmap.NodeInfo, f func(desc nodeDesc) error) (uint, bool, error) {
-	var overloaded bool
-
+func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listInd int, minReps, maxReps uint, nodeList []netmap.NodeInfo, f func(desc nodeDesc) error) (uint, error) {
 	for {
 		if prog.nodesCounters[listInd].stored >= maxReps { // > should never happen
-			return prog.nodesCounters[listInd].stored, false, nil
+			return prog.nodesCounters[listInd].stored, nil
 		}
 
 		var minRequired uint
@@ -918,10 +913,10 @@ func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listI
 			if e, _ := prog.lastRespErr.Load().(error); e != nil {
 				err = fmt.Errorf("%w (last node error: %w)", err, e)
 			}
-			return prog.nodesCounters[listInd].stored, overloaded, errIncompletePut{singleErr: err}
+			return prog.nodesCounters[listInd].stored, errIncompletePut{singleErr: err}
 		} else if prog.nodesCounters[listInd].processed >= listLen { // > should never happen
 			// The required minimum is reached, and the maximum is unreachable.
-			return prog.nodesCounters[listInd].stored, false, nil
+			return prog.nodesCounters[listInd].stored, nil
 		}
 
 		replRem := maxReps - prog.nodesCounters[listInd].stored // overflow prevented above
@@ -958,18 +953,9 @@ func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listI
 				prog.wg.Go(func() { repToNode(l, prog, pks, listInd, nr, f) })
 				continue
 			}
-			prog.wg.Add(1)
-			if err := x.remotePool.Submit(func() {
+			prog.wg.Go(func() {
 				repToNode(l, prog, pks, listInd, nr, f)
-				prog.wg.Done()
-			}); err != nil {
-				prog.wg.Done()
-				if errors.Is(err, ants.ErrPoolOverload) {
-					overloaded = true
-				}
-				err = fmt.Errorf("submit next job to save an object to the worker pool: %w", err)
-				svcutil.LogWorkerPoolError(l, "PUT", err)
-			}
+			})
 		}
 		prog.wg.Wait()
 	}
@@ -985,9 +971,9 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 	//  the failure of any of the nodes the ability to comply with the policy
 	//  requirements may be lost.
 	for i := range replCounts {
-		stored, overloaded, err := x.handleREPRule(l, prog, i, replCounts[i], replCounts[i], nodeLists[i], f)
+		stored, err := x.handleREPRule(l, prog, i, replCounts[i], replCounts[i], nodeLists[i], f)
 		if err != nil {
-			return newCompletionError(err, stored > 0, overloaded)
+			return newCompletionError(err, stored > 0)
 		}
 	}
 	if !broadcast {
@@ -996,7 +982,6 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 	// TODO: since main part of the operation has already been completed, and
 	//  additional broadcast does not affect the result, server should immediately
 	//  send the response
-broadcast:
 	for i := range nodeLists {
 		for j := range nodeLists[i] {
 			pk := nodeLists[i][j].PublicKey()
@@ -1018,15 +1003,9 @@ broadcast:
 				prog.wg.Go(func() { repToNode(l, prog, pks, -1, nr, f) })
 				continue
 			}
-			prog.wg.Add(1)
-			if err := x.remotePool.Submit(func() {
+			prog.wg.Go(func() {
 				repToNode(l, prog, pks, -1, nr, f)
-				prog.wg.Done()
-			}); err != nil {
-				prog.wg.Done()
-				svcutil.LogWorkerPoolError(l, "PUT (extra broadcast)", err)
-				break broadcast
-			}
+			})
 		}
 	}
 	prog.wg.Wait()

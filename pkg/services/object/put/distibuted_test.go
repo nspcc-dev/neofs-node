@@ -8,9 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -43,23 +41,6 @@ func (x testNetwork) GetContainerNodes(cid.ID) (ContainerNodes, error) { panic("
 func (x testNetwork) GetEpochBlock(uint64) (uint32, error)             { panic("unimplemented") }
 func (x testNetwork) GetEpochBlockByTime(uint32) (uint32, error)       { panic("unimplemented") }
 
-type testWorkerPool struct {
-	nCalls int
-	nFail  int
-	err    error
-}
-
-func (x *testWorkerPool) Release() {}
-func (x *testWorkerPool) Submit(f func()) error {
-	x.nCalls++
-	if x.err != nil && (x.nFail == 0 || x.nCalls == x.nFail) {
-		return x.err
-	}
-	go f()
-	return nil
-}
-func (x *testWorkerPool) Tune(_ int) {}
-
 func TestIterateNodesForObject(t *testing.T) {
 	// nodes: [A B C] [D C E F G] [B H I J]
 	// policy: [2 3 2]
@@ -70,13 +51,11 @@ func TestIterateNodesForObject(t *testing.T) {
 	cnrNodes := allocNodes([]uint{3, 5, 4})
 	cnrNodes[2][0].SetPublicKey(cnrNodes[0][1].PublicKey())
 	cnrNodes[1][1].SetPublicKey(cnrNodes[0][2].PublicKey())
-	var rwp testWorkerPool
 	iter := placementIterator{
 		log: zaptest.NewLogger(t),
 		neoFSNet: testNetwork{
 			localPubKey: cnrNodes[0][2].PublicKey(),
 		},
-		remotePool: &rwp,
 	}
 	var handlerMtx sync.Mutex
 	var handlerCalls []nodeDesc
@@ -156,9 +135,8 @@ func TestIterateNodesForObject(t *testing.T) {
 		cnrNodes := allocNodes([]uint{2, 3, 2})
 		cnrNodes[1][2].SetPublicKey(cnrNodes[0][1].PublicKey())
 		iter := placementIterator{
-			log:        zaptest.NewLogger(t),
-			neoFSNet:   new(testNetwork),
-			remotePool: new(testWorkerPool),
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -186,44 +164,6 @@ func TestIterateNodesForObject(t *testing.T) {
 			}, key)
 		}
 	})
-	t.Run("worker pool failure", func(t *testing.T) {
-		// nodes: [A B] [C D E] [F]
-		// policy: [2 2 1]
-		// C fails network op, worker pool fails for E
-		objID := oidtest.ID()
-		replCounts := []uint{2, 3, 1}
-		cnrNodes := allocNodes(replCounts)
-		wp := testWorkerPool{
-			nFail: 5,
-			err:   errors.New("any worker pool error"),
-		}
-		iter := placementIterator{
-			log:        zaptest.NewLogger(t),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
-		}
-		var handlerMtx sync.Mutex
-		var handlerCalls [][]byte
-		err := iter.iterateNodesForObject(objID, []uint{2, 2, 1}, cnrNodes, false, func(node nodeDesc) error {
-			handlerMtx.Lock()
-			handlerCalls = append(handlerCalls, node.info.PublicKey())
-			handlerMtx.Unlock()
-			if bytes.Equal(node.info.PublicKey(), cnrNodes[1][0].PublicKey()) {
-				return errors.New("any node error")
-			}
-			return nil
-		})
-		require.Len(t, handlerCalls, 4)
-		require.ElementsMatch(t, handlerCalls[:2], [][]byte{
-			cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey(),
-		})
-		require.ElementsMatch(t, handlerCalls[2:], [][]byte{
-			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
-		})
-		require.ErrorIs(t, err, apistatus.ErrIncomplete)
-		require.EqualError(t, err, "status: code = 1 message = incomplete object PUT by placement: "+
-			"number of replicas cannot be met for list #1: 1 required, 0 nodes remaining (last node error: any node error)")
-	})
 	t.Run("not enough nodes a priori", func(t *testing.T) {
 		// nodes: [A B] [C D E] [F]
 		// policy: [2 4 1]
@@ -236,11 +176,9 @@ func TestIterateNodesForObject(t *testing.T) {
 		// such cases is also tested
 		objID := oidtest.ID()
 		cnrNodes := allocNodes([]uint{2, 3, 1})
-		var wp testWorkerPool
 		iter := placementIterator{
-			log:        zaptest.NewLogger(t),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -268,11 +206,9 @@ func TestIterateNodesForObject(t *testing.T) {
 		// C and D fail network op
 		objID := oidtest.ID()
 		cnrNodes := allocNodes([]uint{2, 3, 1})
-		var wp testWorkerPool
 		iter := placementIterator{
-			log:        zaptest.NewLogger(t),
-			neoFSNet:   new(testNetwork),
-			remotePool: &wp,
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
 		}
 		var handlerMtx sync.Mutex
 		var handlerCalls [][]byte
@@ -296,40 +232,5 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, handlerCalls[2:], [][]byte{
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
-	})
-	t.Run("return only after worker pool finished", func(t *testing.T) {
-		objID := oidtest.ID()
-		cnrNodes := allocNodes([]uint{2, 3, 1})
-		iter := placementIterator{
-			log:      zaptest.NewLogger(t),
-			neoFSNet: new(testNetwork),
-			remotePool: &testWorkerPool{
-				err:   errors.New("pool err"),
-				nFail: 2,
-			},
-		}
-		blockCh := make(chan struct{})
-		returnCh := make(chan struct{})
-		go func() {
-			err := iter.iterateNodesForObject(objID, []uint{2, 3, 1}, cnrNodes, false, func(node nodeDesc) error {
-				<-blockCh
-				return nil
-			})
-			require.ErrorIs(t, err, apistatus.ErrIncomplete)
-			require.EqualError(t, err, "status: code = 1 message = incomplete object PUT by placement: "+
-				"number of replicas cannot be met for list #0: 1 required, 0 nodes remaining")
-			close(returnCh)
-		}()
-		select {
-		case <-returnCh:
-			t.Fatal("`iterateNodesForObject` is not synced with worker pools")
-		case <-time.After(time.Second / 2):
-		}
-		close(blockCh)
-		select {
-		case <-returnCh:
-		case <-time.After(10 * time.Second):
-			t.Fatal("unexpected test lock")
-		}
 	})
 }

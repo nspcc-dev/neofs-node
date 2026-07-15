@@ -37,8 +37,6 @@ Worker pool sizes are tuned without restarting the pools.
 
 ```yml
 object:
-  put:
-    pool_size_remote:
   search:
     pool_size:
 

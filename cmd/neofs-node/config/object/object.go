@@ -1,9 +1,6 @@
 package objectconfig
 
 const (
-	// PutPoolSizeDefault is the default value of routine pool size to
-	// process object.Put requests in object service.
-	PutPoolSizeDefault = 10
 	// DefaultTombstoneLifetime is the default value of tombstone lifetime in epochs.
 	DefaultTombstoneLifetime = 5
 	// DefaultSearchPoolSize is the default value of routine pool size to
@@ -17,10 +14,6 @@ type Object struct {
 		TombstoneLifetime uint64 `mapstructure:"tombstone_lifetime"`
 	} `mapstructure:"delete"`
 
-	Put struct {
-		PoolSizeRemote int `mapstructure:"pool_size_remote"`
-	} `mapstructure:"put"`
-
 	Search struct {
 		PoolSize int `mapstructure:"pool_size"`
 	} `mapstructure:"search"`
@@ -30,9 +23,6 @@ type Object struct {
 func (o *Object) Normalize() {
 	if o.Delete.TombstoneLifetime <= 0 {
 		o.Delete.TombstoneLifetime = DefaultTombstoneLifetime
-	}
-	if o.Put.PoolSizeRemote <= 0 {
-		o.Put.PoolSizeRemote = PutPoolSizeDefault
 	}
 	if o.Search.PoolSize <= 0 {
 		o.Search.PoolSize = DefaultSearchPoolSize

@@ -278,7 +278,6 @@ func initObjectService(c *cfg) {
 		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
-		putsvc.WithRemoteWorkerPool(c.cfgObject.pool.putRemote),
 		putsvc.WithPostPlacementReplicator(putPostInitialPlacementReplicator{
 			log:        c.log,
 			replicator: c.replicator,
