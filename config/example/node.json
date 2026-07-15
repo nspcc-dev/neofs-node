@@ -112,9 +112,6 @@
   "object": {
     "delete": {
       "tombstone_lifetime": 10
-    },
-    "search": {
-      "pool_size": 50
     }
   },
   "storage": {

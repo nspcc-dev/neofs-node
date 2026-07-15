@@ -368,11 +368,9 @@ Contains object-service related parameters.
 
 ```yaml
 object:
-  search:
-    pool_size: 50
+  delete.tombstone_lifetime: 10
 ```
 
 | Parameter                   | Type  | Default value | Description                                                                                    |
 |-----------------------------|-------|---------------|------------------------------------------------------------------------------------------------|
 | `delete.tombstone_lifetime` | `int` | `5`           | Tombstone lifetime for removed objects in epochs.                                              |
-| `search.pool_size`          | `int` | `100`         | Max pool Size for performing `SEARCH` operations.                                              |

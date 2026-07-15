@@ -36,10 +36,6 @@ restarting the HTTP server.
 Worker pool sizes are tuned without restarting the pools.
 
 ```yml
-object:
-  search:
-    pool_size:
-
 replicator:
   pool_size:
 ```

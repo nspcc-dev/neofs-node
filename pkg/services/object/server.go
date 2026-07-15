@@ -54,7 +54,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	grpccodes "google.golang.org/grpc/codes"
@@ -203,40 +202,38 @@ const (
 // The server enforces access control, verifies requests, and handles data storage
 // and retrieval operations.
 type Server struct {
-	handlers      Handlers
-	fsChain       FSChain
-	storage       Storage
-	meta          *metasvc.Meta
-	signer        ecdsa.PrivateKey
-	pubKeyBytes   []byte
-	metrics       MetricCollector
-	aclChecker    aclsvc.ACLChecker
-	reqInfoProc   ACLInfoExtractor
-	nodeClients   ClientConstructor
-	searchWorkers *ants.Pool
-	log           *zap.Logger
+	handlers    Handlers
+	fsChain     FSChain
+	storage     Storage
+	meta        *metasvc.Meta
+	signer      ecdsa.PrivateKey
+	pubKeyBytes []byte
+	metrics     MetricCollector
+	aclChecker  aclsvc.ACLChecker
+	reqInfoProc ACLInfoExtractor
+	nodeClients ClientConstructor
+	log         *zap.Logger
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, sp *ants.Pool, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, log *zap.Logger) *Server {
+func New(hs Handlers, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, log *zap.Logger) *Server {
 	pubKeyBytes := (*keys.PublicKey)(&signer.PublicKey).Bytes()
 	if len(pubKeyBytes) != compressedECDSAPublicKeyLen {
 		panic(fmt.Sprintf("wrong public key len: expected %d, got %d", compressedECDSAPublicKeyLen, len(pubKeyBytes)))
 	}
 
 	return &Server{
-		handlers:      hs,
-		fsChain:       fsChain,
-		storage:       st,
-		meta:          metaSvc,
-		signer:        signer,
-		pubKeyBytes:   pubKeyBytes,
-		metrics:       m,
-		aclChecker:    ac,
-		reqInfoProc:   rp,
-		nodeClients:   cs,
-		searchWorkers: sp,
-		log:           log,
+		handlers:    hs,
+		fsChain:     fsChain,
+		storage:     st,
+		meta:        metaSvc,
+		signer:      signer,
+		pubKeyBytes: pubKeyBytes,
+		metrics:     m,
+		aclChecker:  ac,
+		reqInfoProc: rp,
+		nodeClients: cs,
+		log:         log,
 	}
 }
 
@@ -2048,7 +2045,6 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		var (
 			mores           []bool
 			mProcessedNodes = make(map[string]struct{})
-			poolErr         error
 			resCh           = make(chan nodeSearchResult)
 			sets            [][]client.SearchResultItem
 			expectedRes     int
@@ -2085,19 +2081,14 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				}()
 				return true
 			}
-			if poolErr = s.searchWorkers.Submit(func() {
+			go func() {
 				set, more, err := s.searchOnRemoteNode(ctx, node, req)
 				resCh <- nodeSearchResult{set, more, err}
-			}); poolErr != nil {
-				expectedRes--
-			}
-			return poolErr == nil
+			}()
+			return true
 		})
 		for range expectedRes { // Always wait for all threads started above.
 			searchRes := <-resCh
-			if poolErr != nil {
-				continue
-			}
 			if searchRes.err != nil {
 				var inc = new(apistatus.Incomplete)
 				inc.SetMessage(fmt.Sprintf("last error: %s", searchRes.err.Error()))
@@ -2108,14 +2099,6 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			mores = append(mores, searchRes.more)
 		}
 		close(resCh)
-		if poolErr != nil {
-			if errors.Is(poolErr, ants.ErrPoolOverload) {
-				var busy = new(apistatus.Busy)
-				busy.SetMessage(poolErr.Error())
-				return nil, nil, busy
-			}
-			return nil, nil, poolErr
-		}
 		var (
 			firstAttr   string
 			firstFilter *object.SearchFilter

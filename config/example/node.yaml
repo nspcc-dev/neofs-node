@@ -93,8 +93,6 @@ replicator:
 object:
   delete:
     tombstone_lifetime: 10 # tombstone "local" lifetime in epochs
-  search:
-    pool_size: 50  # number of async workers for search operations (default: 100)
 
 metadata:
   path: path/to/meta  # path to meta data storages, required

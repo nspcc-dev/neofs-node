@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 - SN no longer limits number of concurrent outgoing requests in PUT handler (#4092)
 - SN no longer limits number of concurrent shard PUT ops (#4092)
 - SN no longer limits local PUT with static timeout (#4092)
+- SN no longer limits number of concurrent outgoing requests in SearchV2 handler (#4092)
 
 ### Removed
 - Compression support from FSTree (#4054)
@@ -47,6 +48,7 @@ Drop no longer supported options from all SN configurations:
 - `object.put.pool_size_remote`
 - `storage.shard_pool_size`
 - `storage.put_retry_timeout`
+- `object.search.pool_size`
 
 ## [0.54.0] - 2026-06-29 - Ando
 
