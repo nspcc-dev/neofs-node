@@ -941,9 +941,10 @@ func (x placementIterator) handleREPRule(l *zap.Logger, prog *repProgress, listI
 				}
 				continue
 			}
-			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-				nr.desc.info = nodeList[j]
-			}
+			nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk)
+			nr.desc.info = nodeList[j]
+			nr.desc.placementVector = listInd
+
 			prog.nodeResultsMtx.Lock()
 			prog.nodeResults[pks] = nr
 			prog.nodeResultsMtx.Unlock()
@@ -1007,9 +1008,10 @@ broadcast:
 			if ok {
 				continue
 			}
-			if nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk); !nr.desc.local {
-				nr.desc.info = nodeLists[i][j]
-			}
+			nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk)
+			nr.desc.info = nodeLists[i][j]
+			nr.desc.placementVector = i
+
 			prog.nodeResultsMtx.Lock()
 			prog.nodeResults[pks] = nr
 			prog.nodeResultsMtx.Unlock()
