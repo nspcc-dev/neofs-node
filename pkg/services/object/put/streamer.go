@@ -293,9 +293,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		fsState: p.networkState,
 		metaSvc: p.metaSvc,
 		placementIterator: placementIterator{
-			log:        p.log,
-			neoFSNet:   p.neoFSNet,
-			remotePool: p.remotePool,
+			log:      p.log,
+			neoFSNet: p.neoFSNet,
 		},
 		localStorage:            p.localStore,
 		keyStorage:              p.keyStorage,

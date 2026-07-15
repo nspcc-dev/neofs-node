@@ -39,10 +39,6 @@ prometheus:
   address: localhost:9090
   shutdown_timeout: 15s
 
-object:
-  put:
-    pool_size_remote: 100
-
 fschain:
   endpoints:
     - wss://rpc1.morph.fs.neo.org:40341/ws

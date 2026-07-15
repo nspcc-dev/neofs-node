@@ -11,7 +11,6 @@ import (
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -129,8 +128,6 @@ type cfg struct {
 
 	cnrSrc containercore.Source
 
-	remotePool util.WorkerPool
-
 	fmtValidator *objectcore.FormatValidator
 
 	fmtValidatorOpts []objectcore.FormatValidatorOption
@@ -155,8 +152,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		remotePool: util.NewPseudoWorkerPool(),
-		log:        zap.L(),
+		log: zap.L(),
 	}
 }
 
@@ -215,12 +211,6 @@ func WithObjectStorage(v ObjectStorage) Option {
 func WithContainerSource(v containercore.Source) Option {
 	return func(c *cfg) {
 		c.cnrSrc = v
-	}
-}
-
-func WithRemoteWorkerPool(remote util.WorkerPool) Option {
-	return func(c *cfg) {
-		c.remotePool = remote
 	}
 }
 
