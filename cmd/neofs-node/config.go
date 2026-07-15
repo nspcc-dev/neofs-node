@@ -297,9 +297,6 @@ type cfgNodeInfo struct {
 type cfgObject struct {
 	getSvc *getsvc.Service
 
-	poolLock sync.RWMutex
-	pool     cfgObjectRoutines
-
 	cfgLocalStorage cfgLocalStorage
 
 	tombstoneLifetime uint64
@@ -310,10 +307,6 @@ type cfgObject struct {
 
 type cfgLocalStorage struct {
 	localStorage *engine.StorageEngine
-}
-
-type cfgObjectRoutines struct {
-	search *ants.Pool
 }
 
 type cfgControlService struct {
@@ -445,7 +438,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		proxyScriptHash: c.proxySH,
 	}
 	c.cfgObject = cfgObject{
-		pool:              initObjectPool(appCfg),
 		tombstoneLifetime: appCfg.Object.Delete.TombstoneLifetime,
 		quotasTTL:         c.appCfg.FSChain.QuotaCacheTTL,
 	}
@@ -584,24 +576,6 @@ func (c *cfg) policerOpts() []policer.Option {
 	}
 }
 
-func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
-	var err error
-
-	optNonBlocking := ants.WithNonblocking(true)
-
-	pool.search, err = ants.NewPool(cfg.Object.Search.PoolSize, optNonBlocking)
-	fatalOnErr(err)
-
-	return pool
-}
-
-func (c *cfg) reloadObjectPoolSizes() {
-	c.cfgObject.poolLock.Lock()
-	defer c.cfgObject.poolLock.Unlock()
-
-	c.cfgObject.pool.search.Tune(c.appCfg.Object.Search.PoolSize)
-}
-
 func (c *cfg) LocalNodeInfo() (netmap.NodeInfo, error) {
 	c.cfgNodeInfo.localInfoLock.RLock()
 	defer c.cfgNodeInfo.localInfoLock.RUnlock()
@@ -674,10 +648,6 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				c.log.Error("configuration reading", zap.Error(err))
 				continue
 			}
-
-			// Pool
-
-			c.reloadObjectPoolSizes()
 
 			// Prometheus and pprof
 
