@@ -1,15 +1,12 @@
 package engineconfig
 
 import (
-	"time"
-
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 )
 
 // Storage contains configuration for the storage engine.
 type Storage struct {
 	ShardROErrorThreshold int                        `mapstructure:"shard_ro_error_threshold"`
-	PutRetryTimeout       time.Duration              `mapstructure:"put_retry_timeout"`
 	IgnoreUninitedShards  bool                       `mapstructure:"ignore_uninited_shards"`
 	Default               shardconfig.ShardDetails   `mapstructure:"shard_defaults"`
 	ShardList             []shardconfig.ShardDetails `mapstructure:"shards"`

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -18,8 +17,7 @@ import (
 var (
 	errPutShard = errors.New("could not put object to any shard")
 
-	errOverloaded = errors.New("overloaded")
-	errExists     = errors.New("already exists")
+	errExists = errors.New("already exists")
 )
 
 // Put saves an object to local storage. objBin and hdrLen parameters are
@@ -65,11 +63,7 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 	default:
 	}
 
-	var (
-		overloaded bool
-		shs        []shardWrapper
-	)
-
+	var shs []shardWrapper
 	if iec.ObjectWithAttributes(*obj) {
 		shs = e.sortedShards(obj.GetParentID())
 	} else {
@@ -81,51 +75,18 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 	}
 
 	for _, sh := range shs {
-		err = e.putToShard(ctx, sh, addr, obj, objBin)
-		if err == nil || errors.Is(err, errExists) || errors.Is(err, ctx.Err()) {
+		err = e.putToShard(sh, addr, obj, objBin)
+		if err == nil || errors.Is(err, errExists) {
 			return nil
 		}
-		if errors.Is(err, errOverloaded) {
-			overloaded = true
-		}
-	}
-
-	if overloaded {
-		var busy = new(apistatus.Busy)
-		busy.SetMessage(errPutShard.Error())
-		return busy
 	}
 
 	return fmt.Errorf("%w: %w", errPutShard, err)
 }
 
 // putToShard puts object to sh.
-// Returns error from shard put or errOverloaded (when shard can't perform op
-// within configured timeout) or errExists (if object is already stored there)
-// or ctx error.
-func (e *StorageEngine) putToShard(ctx context.Context, sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
-	var (
-		exitCh        = make(chan error, 1)
-		pCtx, pCancel = context.WithTimeout(ctx, e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
-	)
-	defer pCancel()
-
-	go func() {
-		exitCh <- sh.putObject(addr, obj, objBin)
-	}()
-
-	select {
-	case err := <-exitCh:
-		return err
-	case <-pCtx.Done():
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		return errOverloaded
-	}
-}
-
-func (sh *shardWrapper) putObject(addr oid.Address, obj *object.Object, objBin []byte) error {
+// Returns error from shard put or errExists (if object is already stored there).
+func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
 	exists, err := sh.Exists(addr, false)
 	if err != nil {
 		sh.engine.log.Warn("object put: check object existence",
@@ -153,7 +114,7 @@ func (sh *shardWrapper) putObject(addr oid.Address, obj *object.Object, objBin [
 				zap.Stringer("shard_id", sh.ID()),
 				zap.Error(err))
 		} else {
-			sh.engine.reportShardError(*sh, "could not put object to shard", err)
+			sh.engine.reportShardError(sh, "could not put object to shard", err)
 		}
 	}
 
@@ -177,7 +138,7 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 		zap.Int("shard_count", len(allShards)))
 
 	for _, sh := range allShards {
-		err := e.putToShard(ctx, sh, addr, obj, objBin)
+		err := e.putToShard(sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			goodShards = append(goodShards, sh)
 			if errors.Is(err, errExists) {
@@ -194,9 +155,6 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 					zap.Stringer("addr", addr))
 			}
 			continue
-		}
-		if errors.Is(err, ctx.Err()) {
-			return err
 		}
 		lastError = err
 		if errors.Is(err, apistatus.ErrLockNonRegularObject) ||

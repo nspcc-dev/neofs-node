@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - In-container SN no longer attaches session/bearer tokens to spawned GET/HEAD requests (#4067)
 - SN no longer limits number of concurrent outgoing requests in PUT handler (#4092)
 - SN no longer limits number of concurrent shard PUT ops (#4092)
+- SN no longer limits local PUT with static timeout (#4092)
 
 ### Removed
 - Compression support from FSTree (#4054)
@@ -45,6 +46,7 @@ v0.55.0.
 Drop no longer supported options from all SN configurations:
 - `object.put.pool_size_remote`
 - `storage.shard_pool_size`
+- `storage.put_retry_timeout`
 
 ## [0.54.0] - 2026-06-29 - Ando
 

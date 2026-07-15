@@ -30,7 +30,6 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		e := New(
 			WithContainersSource(cnrSource{}),
-			WithObjectPutRetryTimeout(time.Second),
 		)
 		t.Cleanup(func() {
 			_ = e.Close()
