@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Storage node support GET request with missing part index X-Header (#4033)
+- `fstree-decompress` utility for rewriting old compressed FSTree objects (#4079)
 
 ### Fixed
 - Session v2 token was not supported in the new container + eACL RPC (#4056)
@@ -33,6 +34,12 @@ Drop blobstor compress and compression_exclude_content_types settings, they're
 no longer used. Notice that old (compressed) data is still available, but no
 new objects are going to be compressed. Support for compressed blobstors will
 eventually be phased out in about half a year.
+
+Storage nodes with compressed FSTree objects can run `fstree-decompress` while
+Linux storage nodes continue serving requests. On other platforms, stop the
+storage node first and run the utility as the same operating-system user as the
+storage node. The utility accepts either a single FSTree path or the node config
+and rewrites objects as plain canonical bytes.
 
 IR container structurization migration introduced in v0.51.0 has been removed.
 Inner Ring nodes updating from versions earlier than v0.51.0 must first update
