@@ -58,7 +58,7 @@ func (e *StorageEngine) Close() error {
 }
 
 // closes all shards. Never returns an error, shard errors are logged.
-func (e *StorageEngine) close(releasePools bool) error {
+func (e *StorageEngine) close() error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
@@ -68,9 +68,6 @@ func (e *StorageEngine) close(releasePools bool) error {
 				zap.String("id", id),
 				zap.Error(err),
 			)
-		}
-		if releasePools {
-			close(sh.putCh)
 		}
 	}
 
@@ -100,7 +97,7 @@ func (e *StorageEngine) setBlockExecErr(err error) error {
 			return e.open()
 		}
 	} else if prevErr == nil { // ok -> block
-		return e.close(errors.Is(err, errClosed))
+		return e.close()
 	}
 
 	// otherwise do nothing
@@ -137,7 +134,6 @@ func (e *StorageEngine) ResumeExecution() error {
 
 type ReConfiguration struct {
 	errorsThreshold uint32
-	shardPoolSize   uint32
 
 	shards map[string][]shard.Option // meta path -> shard opts
 }
@@ -146,11 +142,6 @@ type ReConfiguration struct {
 // shard is moved to read-only mode.
 func (rCfg *ReConfiguration) SetErrorsThreshold(errorsThreshold uint32) {
 	rCfg.errorsThreshold = errorsThreshold
-}
-
-// SetShardPoolSize sets a size of worker pool for each shard.
-func (rCfg *ReConfiguration) SetShardPoolSize(shardPoolSize uint32) {
-	rCfg.shardPoolSize = shardPoolSize
 }
 
 // AddShard adds a shard for the reconfiguration.
@@ -169,20 +160,6 @@ func (rCfg *ReConfiguration) AddShard(id string, opts []shard.Option) {
 
 // Reload reloads StorageEngine's configuration in runtime.
 func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
-	e.mtx.Lock()
-	if rcfg.shardPoolSize != e.shardPoolSize {
-		e.shardPoolSize = rcfg.shardPoolSize
-		for id, sh := range e.shards {
-			close(sh.putCh)
-			sh.putCh = make(chan putTask)
-			for range e.shardPoolSize {
-				go sh.shardPutThread()
-			}
-			e.shards[id] = sh
-		}
-	}
-	e.mtx.Unlock()
-
 	type reloadInfo struct {
 		sh   *shard.Shard
 		opts []shard.Option

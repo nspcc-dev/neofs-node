@@ -131,12 +131,7 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 	var shw = shardWrapper{
 		errorCount: new(atomic.Uint32),
 		Shard:      sh,
-		putCh:      make(chan putTask),
 		engine:     e,
-	}
-
-	for range e.shardPoolSize {
-		go shw.shardPutThread()
 	}
 
 	e.shards[strID] = shw
@@ -176,7 +171,6 @@ func (e *StorageEngine) removeShards(ids ...string) {
 				zap.Error(err),
 			)
 		}
-		close(sh.putCh)
 	}
 }
 
