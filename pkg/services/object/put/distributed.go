@@ -734,7 +734,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 			})
 			if ind < 0 {
 				// unexpected at all
-				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
+				return fmt.Errorf("remote node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
 			}
 
 			metaC.signaturesMtx.Lock()
