@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - SN requests EC part ranges using GET API instead of deprecated RANGE one (#4067)
 - In-container SN no longer attaches session/bearer tokens to spawned GET/HEAD requests (#4067)
 - SN no longer limits number of concurrent outgoing requests in PUT handler (#4092)
+- SN no longer limits number of concurrent shard PUT ops (#4092)
 
 ### Removed
 - Compression support from FSTree (#4054)
@@ -40,7 +41,9 @@ Inner Ring nodes updating from versions earlier than v0.51.0 must first update
 to a v0.51.0-v0.54.0 release and let the migration complete before updating to
 v0.55.0.
 
-Drop no longer supported `object.put.pool_size_remote` option from all SN configurations.
+Drop no longer supported options from all SN configurations:
+- `object.put.pool_size_remote`
+- `storage.shard_pool_size`
 
 ## [0.54.0] - 2026-06-29 - Ando
 

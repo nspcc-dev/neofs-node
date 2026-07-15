@@ -57,18 +57,10 @@ type shardInterface interface {
 	ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error)
 }
 
-type putTask struct {
-	addr   oid.Address
-	obj    *object.Object
-	objBin []byte
-	retCh  chan error
-}
-
 type shardWrapper struct {
 	errorCount *atomic.Uint32
 	*shard.Shard
 	shardIface shardInterface // TODO: make Shard a shardInterface
-	putCh      chan putTask
 	engine     *StorageEngine
 }
 
@@ -229,7 +221,6 @@ type cfg struct {
 	metrics MetricRegister
 
 	objectPutTimeout time.Duration
-	shardPoolSize    uint32
 
 	containerSource containercore.Source
 
@@ -239,8 +230,6 @@ type cfg struct {
 func defaultCfg() *cfg {
 	return &cfg{
 		log: zap.L(),
-
-		shardPoolSize: 20,
 	}
 }
 
@@ -273,13 +262,6 @@ func WithLogger(l *zap.Logger) Option {
 func WithMetrics(v MetricRegister) Option {
 	return func(c *cfg) {
 		c.metrics = v
-	}
-}
-
-// WithShardPoolSize returns option to specify size of worker pool for each shard.
-func WithShardPoolSize(sz uint32) Option {
-	return func(c *cfg) {
-		c.shardPoolSize = sz
 	}
 }
 
