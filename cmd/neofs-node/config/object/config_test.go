@@ -13,17 +13,13 @@ func TestObjectSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		empty := configtest.EmptyConfig(t)
 
-		require.Equal(t, objectconfig.PutPoolSizeDefault, empty.Object.Put.PoolSizeRemote)
 		require.EqualValues(t, objectconfig.DefaultTombstoneLifetime, empty.Object.Delete.TombstoneLifetime)
-		require.Equal(t, objectconfig.DefaultSearchPoolSize, empty.Object.Search.PoolSize)
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
-		require.Equal(t, 100, c.Object.Put.PoolSizeRemote)
 		require.EqualValues(t, 10, c.Object.Delete.TombstoneLifetime)
-		require.Equal(t, 50, c.Object.Search.PoolSize)
 	}
 
 	configtest.ForEachFileType(t, path, fileConfigTest)

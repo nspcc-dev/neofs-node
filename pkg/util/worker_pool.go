@@ -1,11 +1,5 @@
 package util
 
-import (
-	"sync/atomic"
-
-	"github.com/panjf2000/ants/v2"
-)
-
 // WorkerPool represents a tool to control
 // the execution of go-routine pool.
 type WorkerPool interface {
@@ -25,40 +19,6 @@ type WorkerPool interface {
 	// Tune changes the capacity of this pool.
 	Tune(int)
 }
-
-// pseudoWorkerPool represents a pseudo worker pool which executes the submitted job immediately in the caller's routine.
-type pseudoWorkerPool struct {
-	closed atomic.Bool
-}
-
-// ErrPoolClosed is returned when submitting task to a closed pool.
-var ErrPoolClosed = ants.ErrPoolClosed
-
-// NewPseudoWorkerPool returns a new instance of a synchronous worker pool.
-func NewPseudoWorkerPool() WorkerPool {
-	return &pseudoWorkerPool{}
-}
-
-// Submit executes the passed function immediately.
-//
-// Always returns nil.
-func (p *pseudoWorkerPool) Submit(fn func()) error {
-	if p.closed.Load() {
-		return ErrPoolClosed
-	}
-
-	fn()
-
-	return nil
-}
-
-// Release implements the WorkerPool interface.
-func (p *pseudoWorkerPool) Release() {
-	p.closed.Store(true)
-}
-
-// Tune implements the WorkerPool interface.
-func (p *pseudoWorkerPool) Tune(_ int) {}
 
 // SingleAsyncExecutingInstance returns func that works the same as f, but
 // calling it is non-blocking and not more than a single routine is being

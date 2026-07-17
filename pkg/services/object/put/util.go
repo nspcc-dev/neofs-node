@@ -20,17 +20,11 @@ func localNodeInSet(n NeoFSNetwork, nodes []netmap.NodeInfo) bool {
 	})
 }
 
-func newCompletionError(cause error, incomplete, overloaded bool) error {
+func newCompletionError(cause error, incomplete bool) error {
 	if incomplete {
 		var inc = new(apistatus.Incomplete)
 		inc.SetMessage(cause.Error())
 		return inc
-	}
-
-	if overloaded {
-		var busy = new(apistatus.Busy)
-		busy.SetMessage(cause.Error())
-		return busy
 	}
 
 	return cause

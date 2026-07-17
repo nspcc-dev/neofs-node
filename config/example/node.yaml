@@ -93,10 +93,6 @@ replicator:
 object:
   delete:
     tombstone_lifetime: 10 # tombstone "local" lifetime in epochs
-  put:
-    pool_size_remote: 100  # number of async workers for remote PUT operations
-  search:
-    pool_size: 50  # number of async workers for search operations (default: 100)
 
 metadata:
   path: path/to/meta  # path to meta data storages, required
@@ -108,8 +104,6 @@ metadata:
 
 storage:
   # note: shard configuration can be omitted for relay node (see `node.relay`)
-  shard_pool_size: 15 # size of per-shard worker pools used for PUT operations
-  put_retry_timeout: 5s # object PUT retry timeout
   shard_ro_error_threshold: 100 # amount of errors to occur before shard is made read-only (default: 0, ignore errors)
   ignore_uninited_shards: true # do we need to ignore uninited shards (default: false, fail on any shard failure)
 

@@ -297,9 +297,6 @@ type cfgNodeInfo struct {
 type cfgObject struct {
 	getSvc *getsvc.Service
 
-	poolLock sync.RWMutex
-	pool     cfgObjectRoutines
-
 	cfgLocalStorage cfgLocalStorage
 
 	tombstoneLifetime uint64
@@ -310,12 +307,6 @@ type cfgObject struct {
 
 type cfgLocalStorage struct {
 	localStorage *engine.StorageEngine
-}
-
-type cfgObjectRoutines struct {
-	putRemote *ants.Pool
-
-	search *ants.Pool
 }
 
 type cfgControlService struct {
@@ -447,7 +438,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		proxyScriptHash: c.proxySH,
 	}
 	c.cfgObject = cfgObject{
-		pool:              initObjectPool(appCfg),
 		tombstoneLifetime: appCfg.Object.Delete.TombstoneLifetime,
 		quotasTTL:         c.appCfg.FSChain.QuotaCacheTTL,
 	}
@@ -586,29 +576,6 @@ func (c *cfg) policerOpts() []policer.Option {
 	}
 }
 
-func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
-	var err error
-
-	optNonBlocking := ants.WithNonblocking(true)
-
-	pool.putRemote, err = ants.NewPool(cfg.Object.Put.PoolSizeRemote, optNonBlocking)
-	fatalOnErr(err)
-
-	pool.search, err = ants.NewPool(cfg.Object.Search.PoolSize, optNonBlocking)
-	fatalOnErr(err)
-
-	return pool
-}
-
-func (c *cfg) reloadObjectPoolSizes() {
-	c.cfgObject.poolLock.Lock()
-	defer c.cfgObject.poolLock.Unlock()
-
-	c.cfgObject.pool.putRemote.Tune(c.appCfg.Object.Put.PoolSizeRemote)
-
-	c.cfgObject.pool.search.Tune(c.appCfg.Object.Search.PoolSize)
-}
-
 func (c *cfg) LocalNodeInfo() (netmap.NodeInfo, error) {
 	c.cfgNodeInfo.localInfoLock.RLock()
 	defer c.cfgNodeInfo.localInfoLock.RUnlock()
@@ -682,10 +649,6 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				continue
 			}
 
-			// Pool
-
-			c.reloadObjectPoolSizes()
-
 			// Prometheus and pprof
 
 			// nolint:contextcheck
@@ -709,7 +672,6 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			for _, optsWithID := range c.shardOpts() {
 				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
 			}
-			rcfg.SetShardPoolSize(uint32(c.appCfg.Storage.ShardPoolSize))
 
 			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
 			if err != nil {

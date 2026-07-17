@@ -278,7 +278,6 @@ func initObjectService(c *cfg) {
 		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
-		putsvc.WithRemoteWorkerPool(c.cfgObject.pool.putRemote),
 		putsvc.WithPostPlacementReplicator(putPostInitialPlacementReplicator{
 			log:        c.log,
 			replicator: c.replicator,
@@ -347,7 +346,7 @@ func initObjectService(c *cfg) {
 		putSvc:  sPut,
 		keys:    keyStorage,
 	}
-	server := objectService.New(objSvc, c.cfgObject.pool.search, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor, c.log)
+	server := objectService.New(objSvc, fsChain, storage, c.metaService, c.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor, c.log)
 	os.server = server
 
 	svcDesc := protoobject.ObjectService_ServiceDesc

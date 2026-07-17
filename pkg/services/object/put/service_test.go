@@ -26,7 +26,6 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	storage "github.com/nspcc-dev/neofs-node/pkg/util/state/session"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -51,7 +50,6 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
-	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -92,15 +90,14 @@ func (p *payments) UnpaidSince(cID cid.ID) (unpaidFromEpoch int64, err error) {
 
 func TestPayments(t *testing.T) {
 	var (
-		cluster           = newTestClusterForRepPolicy(t, 1, 1, 1)
-		nodeKey           = neofscryptotest.ECDSAPrivateKey()
-		cnr               = containertest.Container()
-		rep               = netmap.ReplicaDescriptor{}
-		p                 = netmaptest.PlacementPolicy()
-		nodeWorkerPool, _ = ants.NewPool(1, ants.WithNonblocking(true))
-		cID               = cidtest.ID()
-		owner             = usertest.User()
-		payments          = &payments{map[cid.ID]int64{cID: 123}}
+		cluster  = newTestClusterForRepPolicy(t, 1, 1, 1)
+		nodeKey  = neofscryptotest.ECDSAPrivateKey()
+		cnr      = containertest.Container()
+		rep      = netmap.ReplicaDescriptor{}
+		p        = netmaptest.PlacementPolicy()
+		cID      = cidtest.ID()
+		owner    = usertest.User()
+		payments = &payments{map[cid.ID]int64{cID: 123}}
 	)
 
 	rep.SetNumberOfObjects(1)
@@ -119,7 +116,6 @@ func TestPayments(t *testing.T) {
 		WithClientConstructor(cluster.nodeServices),
 		WithSplitChainVerifier(mockSplitVerifier{}),
 		WithPostPlacementReplicator(mockPostPlacementReplicator{}),
-		WithRemoteWorkerPool(nodeWorkerPool),
 	)
 
 	t.Run("session v1", func(t *testing.T) {
@@ -187,8 +183,6 @@ func TestQuotas(t *testing.T) {
 	var (
 		nodeKey = neofscryptotest.ECDSAPrivateKey()
 	)
-	nodeWorkerPool, err := ants.NewPool(1, ants.WithNonblocking(true))
-	require.NoError(t, err)
 
 	cluster := newTestClusterForRepPolicy(t, 1, 1, 1)
 
@@ -211,7 +205,6 @@ func TestQuotas(t *testing.T) {
 		WithClientConstructor(cluster.nodeServices),
 		WithSplitChainVerifier(mockSplitVerifier{}),
 		WithPostPlacementReplicator(mockPostPlacementReplicator{}),
-		WithRemoteWorkerPool(nodeWorkerPool),
 	)
 
 	cID := cidtest.ID()
@@ -227,9 +220,6 @@ func TestQuotas(t *testing.T) {
 	commonPrm := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
 		SessionV1: &sessionToken,
 	})
-	if err != nil {
-		panic(err)
-	}
 
 	sessionTokenV2 := newSessionTokenV2(t, cID, owner, cluster.nodeSessions, []sessionv2.Verb{sessionv2.VerbObjectPut})
 
@@ -826,9 +816,6 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 		require.NoError(t, err)
 		allNodes[i].SetPublicKey(nodeKey.PublicKey().Bytes())
 
-		nodeWorkerPool, err := ants.NewPool(len(cnrNodes), ants.WithNonblocking(true))
-		require.NoError(t, err)
-
 		cluster.nodeNetworks[i] = mockNetwork{
 			mockNodeState: mockNodeState{
 				epoch: currentEpoch,
@@ -855,7 +842,6 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 			WithClientConstructor(cluster.nodeServices),
 			WithSplitChainVerifier(mockSplitVerifier{}),
 			WithPostPlacementReplicator(mockPostPlacementReplicator{}),
-			WithRemoteWorkerPool(nodeWorkerPool),
 			WithTombstoneVerifier(mockTombstoneVerifier{}),
 		)
 	}
@@ -1276,7 +1262,6 @@ func newPlacementTestEnv(t *testing.T, cnr container.Container, repRules []uint,
 				WithNetworkState(&cluster.nodeNetworks[nodeIdx]),
 				WithClientConstructor(cluster.nodeServices),
 				WithSplitChainVerifier(mockSplitVerifier{}),
-				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
 				WithTombstoneVerifier(mockTombstoneVerifier{}),
 				WithPostPlacementReplicator(mockPostPlacementReplicator{}),
 			}
@@ -2187,7 +2172,6 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 				WithClientConstructor(cluster.nodeServices),
 				WithSplitChainVerifier(mockSplitVerifier{}),
 				WithPostPlacementReplicator(mockPostPlacementReplicator{}),
-				WithRemoteWorkerPool(util.NewPseudoWorkerPool()),
 				WithTombstoneVerifier(mockTombstoneVerifier{}),
 			)
 

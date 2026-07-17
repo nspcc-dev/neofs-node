@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -18,8 +17,7 @@ import (
 var (
 	errPutShard = errors.New("could not put object to any shard")
 
-	errOverloaded = errors.New("overloaded")
-	errExists     = errors.New("already exists")
+	errExists = errors.New("already exists")
 )
 
 // Put saves an object to local storage. objBin and hdrLen parameters are
@@ -65,11 +63,7 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 	default:
 	}
 
-	var (
-		overloaded bool
-		shs        []shardWrapper
-	)
-
+	var shs []shardWrapper
 	if iec.ObjectWithAttributes(*obj) {
 		shs = e.sortedShards(obj.GetParentID())
 	} else {
@@ -81,82 +75,50 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 	}
 
 	for _, sh := range shs {
-		err = e.putToShard(ctx, sh, addr, obj, objBin)
+		err = e.putToShard(sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			return nil
 		}
-		if errors.Is(err, errOverloaded) {
-			overloaded = true
-		}
-	}
-
-	if overloaded {
-		var busy = new(apistatus.Busy)
-		busy.SetMessage(errPutShard.Error())
-		return busy
 	}
 
 	return fmt.Errorf("%w: %w", errPutShard, err)
 }
 
 // putToShard puts object to sh.
-// Returns error from shard put or errOverloaded (when shard pool can't accept
-// the task) or errExists (if object is already stored there).
-func (e *StorageEngine) putToShard(ctx context.Context, sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
-	var (
-		exitCh        = make(chan error)
-		pCtx, pCancel = context.WithTimeout(ctx, e.objectPutTimeout+time.Millisecond) // 1ms to avoid zero value.
-	)
-	defer pCancel()
+// Returns error from shard put or errExists (if object is already stored there).
+func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
+	exists, err := sh.Exists(addr, false)
+	if err != nil {
+		sh.engine.log.Warn("object put: check object existence",
+			zap.Stringer("addr", addr),
+			zap.Stringer("shard", sh.ID()),
+			zap.Error(err))
 
-	select {
-	case sh.putCh <- putTask{addr: addr, obj: obj, objBin: objBin, retCh: exitCh}:
-	case <-pCtx.Done():
-		return errOverloaded
+		if shard.IsErrObjectExpired(err) {
+			// object is already found but
+			// expired => do nothing with it
+			err = errExists
+		}
+		return err
 	}
 
-	err := <-exitCh
-	return err
-}
+	if exists {
+		return errExists
+	}
 
-func (sh *shardWrapper) shardPutThread() {
-	var id = sh.ID().String()
-
-	for t := range sh.putCh {
-		exists, err := sh.Exists(t.addr, false)
-		if err != nil {
-			sh.engine.log.Warn("object put: check object existence",
-				zap.Stringer("addr", t.addr),
-				zap.String("shard", id),
+	err = sh.Put(obj, objBin)
+	if err != nil {
+		if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
+			errors.Is(err, common.ErrNoSpace) {
+			sh.engine.log.Warn("could not put object to shard",
+				zap.Stringer("shard_id", sh.ID()),
 				zap.Error(err))
-
-			if shard.IsErrObjectExpired(err) {
-				// object is already found but
-				// expired => do nothing with it
-				err = errExists
-			}
-			t.retCh <- err
-			continue // this is not ErrAlreadyRemoved error so we can go to the next task
+		} else {
+			sh.engine.reportShardError(sh, "could not put object to shard", err)
 		}
-
-		if exists {
-			t.retCh <- errExists
-			continue
-		}
-
-		err = sh.Put(t.obj, t.objBin)
-		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
-				errors.Is(err, common.ErrNoSpace) {
-				sh.engine.log.Warn("could not put object to shard",
-					zap.String("shard_id", id),
-					zap.Error(err))
-			} else {
-				sh.engine.reportShardError(*sh, "could not put object to shard", err)
-			}
-		}
-		t.retCh <- err
 	}
+
+	return err
 }
 
 // broadcastObject stores object on ALL shards to ensure it's available everywhere.
@@ -176,7 +138,7 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 		zap.Int("shard_count", len(allShards)))
 
 	for _, sh := range allShards {
-		err := e.putToShard(ctx, sh, addr, obj, objBin)
+		err := e.putToShard(sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, errExists) {
 			goodShards = append(goodShards, sh)
 			if errors.Is(err, errExists) {

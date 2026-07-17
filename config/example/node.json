@@ -112,18 +112,10 @@
   "object": {
     "delete": {
       "tombstone_lifetime": 10
-    },
-    "put": {
-      "pool_size_remote": 100
-    },
-    "search": {
-      "pool_size": 50
     }
   },
   "storage": {
-    "shard_pool_size": 15,
     "shard_ro_error_threshold": 100,
-    "put_retry_timeout": "5s",
     "ignore_uninited_shards": true,
     "shards": [
       {
