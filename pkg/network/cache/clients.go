@@ -231,7 +231,7 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	if err != nil { // should never happen
 		return nil, fmt.Errorf("init gRPC client conn: %w", err)
 	}
-	res, err := client.NewGRPC(ctx, pub, grpcConn, x.signBufPool, x.streamMsgTimeout, nil)
+	res, err := client.NewGRPC(ctx, pub, grpcConn, x.signBufPool, x.streamMsgTimeout)
 	if err != nil {
 		_ = grpcConn.Close()
 		return res, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
