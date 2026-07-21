@@ -259,6 +259,9 @@ type testFSChain struct {
 	cnrErr           error
 	clientOutsideCnr bool
 	serverOutsideCnr bool
+	containerNodes   [][]netmap.NodeInfo
+	repRules         []uint
+	ecRules          []iec.Rule
 }
 
 func (x *testFSChain) Get(id cid.ID) (container.Container, error) {
@@ -304,6 +307,10 @@ func (x *testFSChain) IsOwnPublicKey(pubKey []byte) bool { return bytes.Equal(x.
 func (x *testFSChain) CurrentEpoch() uint64 { return 0 }
 
 func (*testFSChain) LocalNodeUnderMaintenance() bool { return false }
+
+func (x *testFSChain) SelectContainerNodes(cid.ID) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
+	return x.containerNodes, x.repRules, x.ecRules, nil
+}
 
 type testStorage struct {
 	noCallTestStorage
@@ -590,11 +597,21 @@ func TestServer_Replicate(t *testing.T) {
 			Network: mockNeofsNetwork{},
 		})
 		require.NoError(t, err)
-		signer := neofscryptotest.Signer()
-		reqForSignature, o := anyValidRequest(t, clientSigner, cnr, objID)
-		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
-		s := newTestStorage(t, reqForSignature.Object)
-		srv := New(noCallObjSvc, fsChain, s, testMetaSvc, signer.ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+		var (
+			signer             = neofscryptotest.Signer()
+			reqForSignature, o = anyValidRequest(t, signer, cnr, objID)
+			fsChain            = newTestFSChain(t, serverPubKey, signer.PublicKeyBytes, cnr)
+			s                  = newTestStorage(t, reqForSignature.Object)
+			srv                = New(noCallObjSvc, fsChain, s, testMetaSvc, signer.ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+			policy        netmap.PlacementPolicy
+			placementReps = make([]netmap.ReplicaDescriptor, 4)
+			placementEC   = make([]netmap.ECRule, 2)
+		)
+		policy.SetReplicas(placementReps)
+		policy.SetECRules(placementEC)
+		fsChain.cnr.SetPlacementPolicy(policy)
 
 		t.Run("signature not requested", func(t *testing.T) {
 			resp, err := srv.Replicate(context.Background(), reqForSignature)
@@ -622,7 +639,56 @@ func TestServer_Replicate(t *testing.T) {
 				require.NoError(t, sig.Unmarshal(sigsRaw[4:4+l]))
 
 				require.Equal(t, signer.PublicKeyBytes, sig.PublicKeyBytes())
-				_, data := objectcore.EncodeChainMetaInfo(fsChain.cnr.PlacementPolicy().NumberOfReplicas(), o.GetContainerID(), o.GetID(), o.GetFirstID(), o.GetPreviousID(), o.PayloadSize(), o.Type(), oid.ID{}, oid.ID{},
+				_, data := objectcore.EncodeChainMetaInfo(len(placementReps)+len(placementEC), o.GetContainerID(), o.GetID(), o.GetFirstID(), o.GetPreviousID(), o.PayloadSize(), o.Type(), oid.ID{}, oid.ID{},
+					uint64((metaDataChainHeight/240+i+1)*240), mNumber)
+
+				require.True(t, sig.Verify(data), fmt.Sprintf("wrong %d signature", i+1))
+
+				sigsRaw = sigsRaw[4+l:]
+			}
+		})
+
+		t.Run("ec part replication", func(t *testing.T) {
+			par := objecttest.Object()
+			par.SetContainerID(cnr)
+			par.ResetRelations()
+			require.NoError(t, par.SetVerificationFields(signer))
+
+			ecObj := objecttest.Object()
+			ecObj.SetContainerID(cnr)
+			ecObj.ResetRelations()
+			ecObj.SetParent(&par)
+			ecObj.SetAttributes(object.NewAttribute(iec.AttributeRuleIdx, "1"), object.NewAttribute(iec.AttributePartIdx, "2"))
+			require.NoError(t, ecObj.SetVerificationFields(signer))
+			ecID := ecObj.GetID()
+			s.obj = ecObj.ProtoMessage()
+
+			sig, err := signer.Sign(ecID[:])
+			require.NoError(t, err)
+			req := &protoobject.ReplicateRequest{
+				Object: ecObj.ProtoMessage(),
+				Signature: &refs.Signature{
+					Key:  neofscrypto.PublicKeyBytes(signer.Public()),
+					Sign: sig,
+				},
+				SignObject: true,
+			}
+
+			resp, err := srv.Replicate(t.Context(), req)
+			require.NoError(t, err)
+			require.EqualValues(t, 0, resp.GetStatus().GetCode())
+			require.Empty(t, resp.GetStatus().GetMessage())
+			require.NotNil(t, resp.GetObjectSignature())
+
+			sigsRaw := resp.GetObjectSignature()
+			for i := range 3 {
+				var sig neofscrypto.Signature
+				l := binary.LittleEndian.Uint32(sigsRaw)
+
+				require.NoError(t, sig.Unmarshal(sigsRaw[4:4+l]))
+
+				require.Equal(t, signer.PublicKeyBytes, sig.PublicKeyBytes())
+				_, data := objectcore.EncodeChainMetaInfo(len(placementReps)+len(placementEC), par.GetContainerID(), par.GetID(), oid.ID{}, oid.ID{}, par.PayloadSize(), par.Type(), oid.ID{}, oid.ID{},
 					uint64((metaDataChainHeight/240+i+1)*240), mNumber)
 
 				require.True(t, sig.Verify(data), fmt.Sprintf("wrong %d signature", i+1))

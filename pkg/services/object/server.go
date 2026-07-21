@@ -2240,15 +2240,41 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	default:
 	}
 
-	currentBlock := s.meta.Height()
-	currentEpochDuration := s.fsChain.CurrentEpochDuration()
-	firstBlock := (uint64(currentBlock)/currentEpochDuration + 1) * currentEpochDuration
-	secondBlock := firstBlock + currentEpochDuration
-	thirdBlock := secondBlock + currentEpochDuration
+	var (
+		currentBlock         = s.meta.Height()
+		currentEpochDuration = s.fsChain.CurrentEpochDuration()
+		firstBlock           = (uint64(currentBlock)/currentEpochDuration + 1) * currentEpochDuration
+		secondBlock          = firstBlock + currentEpochDuration
+		thirdBlock           = secondBlock + currentEpochDuration
 
-	_, firstMeta := objectcore.EncodeChainMetaInfo(len(cnr.PlacementPolicy().Replicas()), o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, firstBlock, s.meta.MagicNumber())
-	_, secondMeta := objectcore.EncodeChainMetaInfo(len(cnr.PlacementPolicy().Replicas()), o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, secondBlock, s.meta.MagicNumber())
-	_, thirdMeta := objectcore.EncodeChainMetaInfo(len(cnr.PlacementPolicy().Replicas()), o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, thirdBlock, s.meta.MagicNumber())
+		oID         = o.GetID()
+		cID         = o.GetContainerID()
+		magic       = s.meta.MagicNumber()
+		payloadSize = o.PayloadSize()
+
+		repRulesLen                      = cnr.PlacementPolicy().NumberOfReplicas()
+		ecRules                          = cnr.PlacementPolicy().ECRules()
+		placementVectorsNum              = repRulesLen + len(ecRules)
+		firstMeta, secondMeta, thirdMeta []byte
+	)
+	if isECPart(o, ecRules) {
+		par := o.Parent()
+		if par == nil {
+			return nil, errors.New("unexpected empty parent in EC part")
+		}
+		var (
+			parentPayloadSize = par.PayloadSize()
+			parentID          = par.GetID()
+			zeroObj           oid.ID
+		)
+		_, firstMeta = objectcore.EncodeChainMetaInfo(placementVectorsNum, cID, parentID, zeroObj, zeroObj, parentPayloadSize, typ, zeroObj, zeroObj, firstBlock, magic)
+		_, secondMeta = objectcore.EncodeChainMetaInfo(placementVectorsNum, cID, parentID, zeroObj, zeroObj, parentPayloadSize, typ, zeroObj, zeroObj, secondBlock, magic)
+		_, thirdMeta = objectcore.EncodeChainMetaInfo(placementVectorsNum, cID, parentID, zeroObj, zeroObj, parentPayloadSize, typ, zeroObj, zeroObj, thirdBlock, magic)
+	} else {
+		_, firstMeta = objectcore.EncodeChainMetaInfo(placementVectorsNum, cID, oID, firstObj, prevObj, payloadSize, typ, deleted, locked, firstBlock, magic)
+		_, secondMeta = objectcore.EncodeChainMetaInfo(placementVectorsNum, cID, oID, firstObj, prevObj, payloadSize, typ, deleted, locked, secondBlock, magic)
+		_, thirdMeta = objectcore.EncodeChainMetaInfo(placementVectorsNum, cID, oID, firstObj, prevObj, payloadSize, typ, deleted, locked, thirdBlock, magic)
+	}
 
 	var firstSig neofscrypto.Signature
 	var secondSig neofscrypto.Signature
@@ -2280,6 +2306,21 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	thirdSigV2.MarshalStable(res[4+firstSigV2.MarshaledSize()+4+secondSigV2.MarshaledSize()+4:])
 
 	return res, nil
+}
+
+// isECPart checks if EC exception for parent signature instead of
+// the object itself is applicable to this object.
+func isECPart(o object.Object, ecRules []netmap.ECRule) bool {
+	if len(ecRules) == 0 {
+		return false
+	}
+
+	// this is the latest part of request handling, EC attributes must be valid
+	pi, err := iec.GetPartInfo(o)
+	if err != nil {
+		panic(err)
+	}
+	return pi.RuleIndex >= 0
 }
 
 func checkStatus(st *protostatus.Status) error {

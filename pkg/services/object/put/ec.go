@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -140,20 +139,7 @@ func (t *distributedTarget) formAndSaveObjectForECPart(prog *ecProgress, signer 
 		encObj.b = append(encObj.b, partObj.Payload()...)
 	}
 
-	var metaC *metaCollection
-	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		tx, dataToSign, err := t.encodeObjectMetadata(partObj)
-		if err != nil {
-			return fmt.Errorf("encode object metadata: %w", err)
-		}
-		metaC = &metaCollection{
-			metaTransaction: tx,
-			dataToSign:      dataToSign,
-			signatures:      make([][]meta.IndexedSignature, len(t.containerNodes.PrimaryCounts())+len(t.containerNodes.ECRules())),
-		}
-	}
-
-	if err := t.saveECPartWithProgress(prog, partObj, encObj, ruleIdx, partIdx, len(payloadParts), nodeList, metaC); err != nil {
+	if err := t.saveECPartWithProgress(prog, partObj, encObj, ruleIdx, partIdx, len(payloadParts), nodeList); err != nil {
 		return fmt.Errorf("save part object: %w", err)
 	}
 
@@ -172,27 +158,26 @@ func formObjectForECPart(signer neofscrypto.Signer, obj object.Object, ruleIdx, 
 	return partObj, nil
 }
 
-func (t *distributedTarget) saveECPart(part object.Object, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo,
-	metaC *metaCollection) error {
-	return t.distributeObjectWithMeta(part, encObj, metaC, func(obj object.Object, encObj encodedObject) error {
-		return t.distributeECPart(nil, obj, encObj, ruleIdx, partIdx, totalParts, nodeList, metaC)
+func (t *distributedTarget) saveECPart(part object.Object, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo) error {
+	return t.distributeObject(part, encObj, func(obj object.Object, encObj encodedObject) error {
+		return t.distributeECPart(nil, obj, encObj, ruleIdx, partIdx, totalParts, nodeList)
 	})
 }
 
-func (t *distributedTarget) saveECPartWithProgress(prog *ecProgress, part object.Object, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo, metaC *metaCollection) error {
-	return t.distributeObjectWithMeta(part, encObj, metaC, func(obj object.Object, encObj encodedObject) error {
-		return t.distributeECPart(prog, obj, encObj, ruleIdx, partIdx, totalParts, nodeList, metaC)
+func (t *distributedTarget) saveECPartWithProgress(prog *ecProgress, part object.Object, encObj encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo) error {
+	return t.distributeObject(part, encObj, func(obj object.Object, encObj encodedObject) error {
+		return t.distributeECPart(prog, obj, encObj, ruleIdx, partIdx, totalParts, nodeList)
 	})
 }
 
-func (t *distributedTarget) distributeECPart(prog *ecProgress, part object.Object, enc encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo, metaC *metaCollection) error {
+func (t *distributedTarget) distributeECPart(prog *ecProgress, part object.Object, enc encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo) error {
 	var firstErr error
 	for i := range iec.NodeSequenceForPart(partIdx, totalParts, len(nodeList)) {
 		if prog != nil && !prog.canTryNode(i) {
 			continue
 		}
 
-		err := t.saveECPartOnNode(ruleIdx, part, enc, nodeList[i], metaC)
+		err := t.saveECPartOnNode(ruleIdx, part, enc, nodeList[i])
 		if err == nil {
 			if prog != nil {
 				prog.submitSuccess()
@@ -215,14 +200,14 @@ func (t *distributedTarget) distributeECPart(prog *ecProgress, part object.Objec
 	return errIncompletePut{singleErr: firstErr}
 }
 
-func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc encodedObject, node netmap.NodeInfo, metaC *metaCollection) error {
+func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc encodedObject, node netmap.NodeInfo) error {
 	var n = nodeDesc{
 		info:            node,
 		local:           t.placementIterator.neoFSNet.IsLocalNodePublicKey(node.PublicKey()),
 		placementVector: len(t.containerNodes.PrimaryCounts()) + ruleIdx,
 	}
 
-	return t.sendObject(obj, enc, n, metaC)
+	return t.sendObject(obj, enc, n)
 }
 
 func ecNodesForPart(nodeList []netmap.NodeInfo, partIdx, totalParts int) []netmap.NodeInfo {

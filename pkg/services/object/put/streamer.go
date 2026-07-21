@@ -258,35 +258,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	}
 
 	metaAttr := metaAttribute(prm.cnr)
-	var metaC *metaCollection
-	if metaAttr != "" {
-		cnrNodes := prm.containerNodes.Unsorted()
-		for _, vector := range cnrNodes {
-			slices.SortFunc(vector, func(a, b netmap.NodeInfo) int {
-				// comparing compressed public keys without decompression (in most
-				// cases), taken from neo-go source code
-
-				k1Raw := a.PublicKey()
-				k2Raw := b.PublicKey()
-
-				// Sort by ECPoint's (X, Y) components: compare X first, and then compare Y.
-				cmpX := bytes.Compare(k1Raw[1:], k2Raw[1:])
-				if cmpX != 0 {
-					return cmpX
-				}
-				// The case when X components are the same is extremely rare, thus we perform
-				// key deserialization only if needed. No error can occur.
-				ka, _ := keys.NewPublicKeyFromBytes(k1Raw, elliptic.P256())
-				kb, _ := keys.NewPublicKeyFromBytes(k2Raw, elliptic.P256())
-				return ka.Y.Cmp(kb.Y)
-			})
-		}
-
-		metaC = &metaCollection{
-			sortedNodes: cnrNodes,
-			signatures:  make([][]meta.IndexedSignature, len(prm.containerNodes.PrimaryCounts())+len(prm.containerNodes.ECRules())),
-		}
-	}
 
 	return &distributedTarget{
 		opCtx:   p.ctx,
@@ -310,12 +281,59 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		sessionSigner:           prm.sessionSigner,
 		cnrClient:               p.cnrClient,
 		metainfoConsistencyAttr: metaAttr,
-		metaCollection:          metaC,
+		metaCollection:          initMetaColletion(metaAttr, prm.localNodeInContainer, prm.containerNodes),
 		metaSigner:              prm.localSignerRFC6979,
 		localOnly:               prm.common.LocalOnly(),
 		initialPolicy:           prm.cnr.PlacementPolicy().Initial(),
 		postPlacementReplicator: p.postPlacementReplicator,
 	}
+}
+
+func initMetaColletion(metaAttr string, localNodeInContainer bool, containerNodes ContainerNodes) *metaCollection {
+	if metaAttr == "" {
+		return nil
+	}
+	if !localNodeInContainer {
+		// if node is not container's part, it will send objects using PUT,
+		// not REPLICATE, it will be other nodes' responsibility to submit
+		// meta information
+		return nil
+	}
+
+	cnrNodes := cloneNodes(containerNodes.Unsorted())
+	for _, vector := range cnrNodes {
+		slices.SortFunc(vector, func(a, b netmap.NodeInfo) int {
+			// comparing compressed public keys without decompression (in most
+			// cases), taken from neo-go source code
+
+			k1Raw := a.PublicKey()
+			k2Raw := b.PublicKey()
+
+			// Sort by ECPoint's (X, Y) components: compare X first, and then compare Y.
+			cmpX := bytes.Compare(k1Raw[1:], k2Raw[1:])
+			if cmpX != 0 {
+				return cmpX
+			}
+			// The case when X components are the same is extremely rare, thus we perform
+			// key deserialization only if needed. No error can occur.
+			ka, _ := keys.NewPublicKeyFromBytes(k1Raw, elliptic.P256())
+			kb, _ := keys.NewPublicKeyFromBytes(k2Raw, elliptic.P256())
+			return ka.Y.Cmp(kb.Y)
+		})
+	}
+
+	return &metaCollection{
+		sortedNodes: cnrNodes,
+		signatures:  make([][]meta.IndexedSignature, len(containerNodes.PrimaryCounts())+len(containerNodes.ECRules())),
+	}
+}
+
+func cloneNodes(orig [][]netmap.NodeInfo) [][]netmap.NodeInfo {
+	res := make([][]netmap.NodeInfo, len(orig))
+	for i, vector := range orig {
+		res[i] = slices.Clone(vector)
+	}
+	return res
 }
 
 func (p *Streamer) SendChunk(prm *PutChunkPrm) error {

@@ -168,7 +168,12 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		}
 	}
 
-	err := t.saveObject(*t.obj, t.encodedObject)
+	err := t.encodeMetaIfRequested(*t.obj)
+	if err != nil {
+		return oid.ID{}, err
+	}
+
+	err = t.saveObject(*t.obj, t.encodedObject)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrIncomplete) {
 			return t.obj.GetID(), err
@@ -206,11 +211,16 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			}
 		}
 
-		return t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
+		err = t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
-				return t.sendObject(obj, encObj, node, t.metaCollection)
+				return t.sendObject(obj, encObj, node)
 			})
 		})
+		if err != nil {
+			return err
+		}
+
+		return t.submitMetaCollection(obj)
 	}
 
 	initial := t.initialPolicy != nil
@@ -231,7 +241,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			return nil
 		}
 
-		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes, t.metaCollection)
+		return t.saveECPart(obj, encObj, t.ecPart.RuleIndex, t.ecPart.Index, total, nodes)
 	}
 
 	if t.sessionSigner == nil {
@@ -398,13 +408,6 @@ nextRule:
 			continue
 		}
 
-		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" && t.metaCollection.dataToSign == nil {
-			t.metaCollection.metaTransaction, t.metaCollection.dataToSign, err = t.encodeObjectMetadata(obj)
-			if err != nil {
-				return fmt.Errorf("encode object metadata: %w", err)
-			}
-		}
-
 		if l == nil {
 			l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()))
 		}
@@ -424,7 +427,7 @@ nextRule:
 		}
 
 		stored, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
-			return t.sendObject(obj, encObj, node, t.metaCollection)
+			return t.sendObject(obj, encObj, node)
 		})
 		if err != nil {
 			if maxReplicas > 0 {
@@ -441,11 +444,9 @@ nextRule:
 		}
 	}
 
-	if len(repRules) > 0 {
-		err = t.submitMetaCollection(obj, t.metaCollection)
-		if err != nil {
-			return err
-		}
+	err = t.submitMetaCollection(obj)
+	if err != nil {
+		return err
 	}
 
 	if initial {
@@ -530,21 +531,6 @@ func (t *distributedTarget) resetMetaCollection() {
 
 func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedObject,
 	placementFn func(obj object.Object, encObj encodedObject) error) error {
-	defer t.resetMetaCollection()
-
-	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-		var err error
-		t.metaCollection.metaTransaction, t.metaCollection.dataToSign, err = t.encodeObjectMetadata(obj)
-		if err != nil {
-			return fmt.Errorf("encode object metadata: %w", err)
-		}
-	}
-
-	return t.distributeObjectWithMeta(obj, encObj, t.metaCollection, placementFn)
-}
-
-func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj encodedObject, metaC *metaCollection,
-	placementFn func(obj object.Object, encObj encodedObject) error) error {
 	id := obj.GetID()
 	var err error
 	if t.localOnly {
@@ -561,96 +547,10 @@ func (t *distributedTarget) distributeObjectWithMeta(obj object.Object, encObj e
 		return err
 	}
 
-	return t.submitMetaCollection(obj, metaC)
-}
-
-func (t *distributedTarget) submitMetaCollection(o object.Object, metaC *metaCollection) error {
-	if t.localOnly || !t.localNodeInContainer || t.metainfoConsistencyAttr == "" {
-		return nil
-	}
-	metaC.signaturesMtx.RLock()
-	defer metaC.signaturesMtx.RUnlock()
-
-	var await bool
-	switch t.metainfoConsistencyAttr {
-	// TODO: there was no constant in SDK at the code creation moment
-	case "strict":
-		await = true
-	case "optimistic":
-		await = false
-	default:
-		return nil
-	}
-
-	var (
-		objAcceptedCh chan struct{}
-		addr          = o.Address()
-	)
-	if await {
-		h := t.metaCollection.metaTransaction.Hash()
-
-		var objCopy object.Object
-		o.CutPayload().CopyTo(&objCopy)
-
-		objAcceptedCh = make(chan struct{}, 1)
-		t.metaSvc.NotifyObjectSuccess(objAcceptedCh, objCopy, h)
-	}
-
-	err := t.metaSvc.SubmitObjectPut(t.metaCollection.metaTransaction, t.metaCollection.signatures)
-	if err != nil {
-		if await {
-			t.metaSvc.UnsubscribeFromObject(o.Address())
-		}
-		return fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
-	}
-
-	if await {
-		select {
-		case <-t.opCtx.Done():
-			t.metaSvc.UnsubscribeFromObject(addr)
-			return fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
-		case <-objAcceptedCh:
-		}
-	}
-
-	t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
-
 	return nil
 }
 
-func (t *distributedTarget) encodeObjectMetadata(obj object.Object) (*transaction.Transaction, []byte, error) {
-	currBlock := t.metaSvc.Height()
-	currEpochDuration := t.fsState.CurrentEpochDuration()
-	expectedVUB := (uint64(currBlock)/currEpochDuration + 2) * currEpochDuration
-
-	firstObj := obj.GetFirstID()
-	if obj.HasParent() && firstObj.IsZero() {
-		// object itself is the first one
-		firstObj = obj.GetID()
-	}
-
-	var deletedObj oid.ID
-	var lockedObj oid.ID
-	typ := obj.Type()
-	switch typ {
-	case object.TypeTombstone:
-		deletedObj = obj.AssociatedObject()
-	case object.TypeLock:
-		lockedObj = obj.AssociatedObject()
-	default:
-	}
-
-	tx, dataToSign := objectcore.EncodeChainMetaInfo(len(t.containerNodes.PrimaryCounts()), obj.GetContainerID(), obj.GetID(), firstObj, obj.GetPreviousID(),
-		obj.PayloadSize(), typ, deletedObj, lockedObj, expectedVUB, t.metaSvc.MagicNumber())
-	err := t.metaSvc.TransactionTestInvocation(tx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("matadata chain transaction test invocation fail: %w", err)
-	}
-
-	return tx, dataToSign, nil
-}
-
-func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc, metaC *metaCollection) error {
+func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc) error {
 	if node.local {
 		if err := t.writeObjectLocally(obj, encObj); err != nil {
 			return fmt.Errorf("write object locally: %w", err)
@@ -661,8 +561,8 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 			return nil
 		}
 
-		if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
-			sig, err := t.metaSigner.Sign(metaC.dataToSign)
+		if t.metaCollection != nil {
+			sig, err := t.metaSigner.Sign(t.metaCollection.dataToSign)
 			if err != nil {
 				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}
@@ -675,9 +575,9 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
 			}
 
-			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig)})
-			metaC.signaturesMtx.Unlock()
+			t.metaCollection.signaturesMtx.Lock()
+			t.metaCollection.signatures[node.placementVector] = append(t.metaCollection.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig)})
+			t.metaCollection.signaturesMtx.Unlock()
 		}
 
 		return nil
@@ -701,7 +601,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
 
-	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
+	if t.metaCollection != nil {
 		if node.placementVector < 0 {
 			// additional broadcast
 			return nil
@@ -723,7 +623,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				continue
 			}
 
-			if !sig.Verify(metaC.dataToSign) {
+			if !sig.Verify(t.metaCollection.dataToSign) {
 				continue
 			}
 
@@ -735,9 +635,9 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				return fmt.Errorf("remote node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
 			}
 
-			metaC.signaturesMtx.Lock()
-			metaC.signatures[node.placementVector] = append(metaC.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: sig})
-			metaC.signaturesMtx.Unlock()
+			t.metaCollection.signaturesMtx.Lock()
+			t.metaCollection.signatures[node.placementVector] = append(t.metaCollection.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: sig})
+			t.metaCollection.signaturesMtx.Unlock()
 
 			return nil
 		}

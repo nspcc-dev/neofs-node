@@ -102,11 +102,7 @@ func (nc *metadataNotaryClient) UpdateContainerPlacement(cID cid.ID, vectors [][
 	}
 	for i, v := range vectors {
 		var cnrVector meta.PlacementVector
-		rep := uint8(1)
-		if i < len(replicas) {
-			rep = uint8(replicas[i])
-		}
-		cnrVector.REP = rep
+		cnrVector.REP = uint8(replicas[i])
 
 		slices.SortFunc(v, func(a, b netmap.NodeInfo) int {
 			return bytes.Compare(a.PublicKey(), b.PublicKey())
@@ -135,11 +131,18 @@ func replicas(policy netmap.PlacementPolicy) []uint32 {
 		return initial.ReplicaLimits()
 	}
 
-	netmapReps := policy.Replicas()
-	res := make([]uint32, len(netmapReps))
-	for i := range netmapReps {
+	var (
+		repsLen = policy.NumberOfReplicas()
+		ecRules = policy.ECRules()
+	)
+	res := make([]uint32, repsLen+len(ecRules))
+	for i := range repsLen {
 		res[i] = policy.ReplicaNumberByIndex(i)
 	}
+	for i, ecRule := range ecRules {
+		res[repsLen+i] = ecRule.DataPartNum() + ecRule.ParityPartNum()
+	}
+
 	return res
 }
 
