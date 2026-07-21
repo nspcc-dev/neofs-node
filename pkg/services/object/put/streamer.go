@@ -300,7 +300,7 @@ func initMetaColletion(metaAttr string, localNodeInContainer bool, containerNode
 		return nil
 	}
 
-	cnrNodes := containerNodes.Unsorted()
+	cnrNodes := cloneNodes(containerNodes.Unsorted())
 	for _, vector := range cnrNodes {
 		slices.SortFunc(vector, func(a, b netmap.NodeInfo) int {
 			// comparing compressed public keys without decompression (in most
@@ -326,6 +326,14 @@ func initMetaColletion(metaAttr string, localNodeInContainer bool, containerNode
 		sortedNodes: cnrNodes,
 		signatures:  make([][]meta.IndexedSignature, len(containerNodes.PrimaryCounts())+len(containerNodes.ECRules())),
 	}
+}
+
+func cloneNodes(orig [][]netmap.NodeInfo) [][]netmap.NodeInfo {
+	res := make([][]netmap.NodeInfo, len(orig))
+	for i, vector := range orig {
+		res[i] = slices.Clone(vector)
+	}
+	return res
 }
 
 func (p *Streamer) SendChunk(prm *PutChunkPrm) error {
