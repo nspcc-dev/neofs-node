@@ -2,6 +2,12 @@ package crypto_test
 
 import (
 	"bytes"
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"math/rand/v2"
 	"testing"
 
@@ -15,6 +21,8 @@ import (
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -23,6 +31,24 @@ func assertInvalidRequestSignatureError(t testing.TB, actual error, expected str
 	var st apistatus.SignatureVerification
 	require.ErrorAs(t, actual, &st)
 	require.Equal(t, expected, st.Message())
+}
+
+func TestVerifyRequestSignaturesWithContext(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	require.NoError(t, err)
+	ctx := peer.NewContext(context.Background(), &peer.Peer{
+		AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{
+			PeerCertificates: []*x509.Certificate{{PublicKey: &key.PublicKey}},
+		}},
+	})
+	req := &protoobject.GetRequest{MetaHeader: &protosession.RequestMetaHeader{Ttl: 1}}
+
+	require.NoError(t, icrypto.VerifyRequestSignaturesWithContext(ctx, req))
+	require.NoError(t, icrypto.VerifyRequestSignaturesN3(ctx, req, nil))
+
+	req.MetaHeader.Ttl = 0
+	err = icrypto.VerifyRequestSignaturesWithContext(ctx, req)
+	assertInvalidRequestSignatureError(t, err, "missing verification header")
 }
 
 func TestVerifyRequestSignatures(t *testing.T) {

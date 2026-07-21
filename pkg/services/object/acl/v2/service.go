@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -17,6 +20,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -278,6 +282,30 @@ func getCredentialsFromSessionToken(token sessionv2.Token) (user.ID, []byte, err
 	return token.OriginalIssuer(), key, nil
 }
 
+func getCredentialsFromPeerPublicKey(key *keys.PublicKey) (user.ID, []byte, error) {
+	return user.NewFromECDSAPublicKey(ecdsa.PublicKey(*key)), key.Bytes(), nil
+}
+
+func getRequestCredentials(ctx context.Context, req interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
+	GetVerifyHeader() *protosession.RequestVerificationHeader
+}, tokens common.RequestTokens) (user.ID, []byte, error) {
+	if req.GetVerifyHeader() == nil && req.GetMetaHeader().GetTtl() == 1 {
+		key, err := peerauth.PeerPublicKey(ctx)
+		if err == nil && key != nil {
+			return getCredentialsFromPeerPublicKey(key)
+		}
+	}
+	verifyHeader := req.GetVerifyHeader()
+	if tokens.Session != nil {
+		return getCredentialsFromSessionToken(*tokens.Session)
+	}
+	if tokens.SessionV1 != nil {
+		return getCredentialsFromSessionV1Token(*tokens.SessionV1)
+	}
+	return icrypto.GetRequestAuthor(verifyHeader)
+}
+
 type sessionTokenV2WithEncodedBody struct {
 	sessionv2.Token
 	body []byte
@@ -399,39 +427,39 @@ func (b Service) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) GetRequestToInfo(request *protoobject.GetRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectGet, tokens)
+func (b Service) GetRequestToInfo(ctx context.Context, request *protoobject.GetRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(ctx, request, cnr, acl.OpObjectGet, tokens)
 }
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectHead, tokens)
+func (b Service) HeadRequestToInfo(ctx context.Context, request *protoobject.HeadRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(ctx, request, cnr, acl.OpObjectHead, tokens)
 }
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request, id cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
-	return b.findRequestInfo(request, id, acl.OpObjectSearch, tokens)
+func (b Service) SearchV2RequestToInfo(ctx context.Context, request *protoobject.SearchV2Request, id cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(ctx, request, id, acl.OpObjectSearch, tokens)
 }
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectDelete, tokens)
+func (b Service) DeleteRequestToInfo(ctx context.Context, request *protoobject.DeleteRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(ctx, request, cnr, acl.OpObjectDelete, tokens)
 }
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
-	return b.findRequestInfo(request, cnr, acl.OpObjectRange, tokens)
+func (b Service) RangeRequestToInfo(ctx context.Context, request *protoobject.GetRangeRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
+	return b.findRequestInfo(ctx, request, cnr, acl.OpObjectRange, tokens)
 }
 
 var ErrSkipRequest = errors.New("skip request")
 
 // PutRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker]. Returns [ErrSkipRequest] if check should not be performed.
-func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, cnr cid.ID, op acl.Op, tokens common.RequestTokens) (RequestInfo, user.ID, error) {
+func (b Service) PutRequestToInfo(ctx context.Context, request *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, cnr cid.ID, op acl.Op, tokens common.RequestTokens) (RequestInfo, user.ID, error) {
 	inContainer, err := b.nm.ServerInContainer(cnr)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, fmt.Errorf("checking if node in container: %w", err)
@@ -459,7 +487,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *pro
 		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid object owner: %w", err)
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cnr, op, tokens)
+	reqInfo, err := b.findRequestInfo(ctx, request, cnr, op, tokens)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, err
 	}
@@ -477,22 +505,12 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *pro
 	return reqInfo, idOwner, nil
 }
 
-func (b Service) findRequestInfo(req interface {
+func (b Service) findRequestInfo(ctx context.Context, req interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
 }, idCnr cid.ID, op acl.Op, tokens common.RequestTokens) (RequestInfo, error) {
-	var (
-		info         RequestInfo
-		reqAuthor    user.ID
-		reqAuthorPub []byte
-		err          error
-	)
-	if tokens.Session != nil {
-		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionToken(*tokens.Session)
-	} else if tokens.SessionV1 != nil {
-		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionV1Token(*tokens.SessionV1)
-	} else {
-		reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader())
-	}
+	var info RequestInfo
+	reqAuthor, reqAuthorPub, err := getRequestCredentials(ctx, req, tokens)
 	if err != nil {
 		return info, fmt.Errorf("get request author: %w", err)
 	}

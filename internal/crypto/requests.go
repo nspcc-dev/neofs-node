@@ -1,11 +1,13 @@
 package crypto
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -16,6 +18,15 @@ import (
 // VerifyRequestSignatures checks whether all request signatures are set and
 // valid. Returns [apistatus.SignatureVerification] otherwise.
 func VerifyRequestSignatures[B neofscrypto.ProtoMessage](req neofscrypto.SignedRequest[B]) error {
+	return verifyRequestSignatures(req, nil)
+}
+
+// VerifyRequestSignaturesWithContext is same as [VerifyRequestSignatures], but
+// skips verification for an authenticated inter-node request with TTL equal to one.
+func VerifyRequestSignaturesWithContext[B neofscrypto.ProtoMessage](ctx context.Context, req neofscrypto.SignedRequest[B]) error {
+	if !requestNeedsSignature(ctx, req) {
+		return nil
+	}
 	return verifyRequestSignatures(req, nil)
 }
 
@@ -31,13 +42,28 @@ func verifyRequestSignatures[B neofscrypto.ProtoMessage](req neofscrypto.SignedR
 
 // VerifyRequestSignaturesN3 is same as [VerifyRequestSignatures] but supports
 // [neofscrypto.N3] scheme.
-func VerifyRequestSignaturesN3[B neofscrypto.ProtoMessage](req neofscrypto.SignedRequest[B], fsChain N3ScriptRunner) error {
+func VerifyRequestSignaturesN3[B neofscrypto.ProtoMessage](ctx context.Context, req neofscrypto.SignedRequest[B], fsChain N3ScriptRunner) error {
+	if !requestNeedsSignature(ctx, req) {
+		return nil
+	}
 	return verifyRequestSignatures(req, func(data, invocScript, verifScript []byte) error {
 		verifScriptHash := hash.Hash160(verifScript)
 		return verifyN3ScriptsNow(fsChain, verifScriptHash, invocScript, verifScript, func() [sha256.Size]byte {
 			return sha256.Sum256(data)
 		})
 	})
+}
+
+func requestNeedsSignature[B neofscrypto.ProtoMessage](ctx context.Context, req neofscrypto.SignedRequest[B]) bool {
+	if req.GetVerifyHeader() != nil {
+		return true
+	}
+	meta := req.GetMetaHeader()
+	if meta == nil || meta.GetTtl() != 1 {
+		return true
+	}
+	key, err := peerauth.PeerPublicKey(ctx)
+	return err != nil || key == nil
 }
 
 // GetRequestAuthor returns ID of the request author along with public key from
