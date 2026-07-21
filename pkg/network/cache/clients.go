@@ -3,6 +3,9 @@ package cache
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -212,7 +216,11 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	}
 	var transportCreds credentials.TransportCredentials
 	if withTLS {
-		transportCreds = credentials.NewTLS(nil)
+		expectedKey, err := keys.NewPublicKeyFromBytes(pub, elliptic.P256())
+		if err != nil {
+			return nil, fmt.Errorf("parse node public key: %w", err)
+		}
+		transportCreds = credentials.NewTLS(newNodeTLSConfig((*ecdsa.PublicKey)(expectedKey)))
 	} else {
 		transportCreds = insecure.NewCredentials()
 	}
@@ -252,6 +260,30 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	}
 
 	return res, nil
+}
+
+func newNodeTLSConfig(expectedKey *ecdsa.PublicKey) *tls.Config {
+	return &tls.Config{
+		InsecureSkipVerify: true,
+		VerifyConnection: func(state tls.ConnectionState) error {
+			if len(state.PeerCertificates) == 0 {
+				return errors.New("server did not provide TLS certificate")
+			}
+
+			pub, ok := state.PeerCertificates[0].PublicKey.(*ecdsa.PublicKey)
+			if !ok {
+				return fmt.Errorf("server TLS certificate has unsupported public key type %T", state.PeerCertificates[0].PublicKey)
+			}
+			if pub.Curve != elliptic.P256() {
+				return fmt.Errorf("server TLS certificate has unsupported elliptic curve %s", pub.Curve.Params().Name)
+			}
+			if !pub.Equal(expectedKey) {
+				return clientcore.ErrWrongPublicKey
+			}
+
+			return nil
+		},
+	}
 }
 
 type connections struct {
