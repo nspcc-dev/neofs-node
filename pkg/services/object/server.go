@@ -969,22 +969,21 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 				Header:    mo.Header,
 			}},
 		},
+		MetaHeader: s.srv.makeResponseMetaHeader(util.StatusOK),
 	}
 	return s.srv.sendGetResponse(s.base, resp, s.signResponse)
 }
 
 func (s *getStream) WriteChunk(chunk []byte) error {
-	var metaHeader *protosession.ResponseMetaHeader
+	var metaHeader = s.srv.makeResponseMetaHeader(util.StatusOK)
 	if s.ecFoundPartInd != "" {
-		metaHeader = &protosession.ResponseMetaHeader{
-			XHeaders: []*protosession.XHeader{{
-				Key:   iec.AttributePartIdx,
-				Value: s.ecFoundPartInd,
-			}},
-		}
+		metaHeader.XHeaders = []*protosession.XHeader{{
+			Key:   iec.AttributePartIdx,
+			Value: s.ecFoundPartInd,
+		}}
 	}
 
-	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; metaHeader, s.ecFoundPartInd = nil, "" {
+	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; metaHeader.XHeaders, s.ecFoundPartInd = nil, "" {
 		newResp := &protoobject.GetResponse{
 			Body: &protoobject.GetResponse_Body{
 				ObjectPart: &protoobject.GetResponse_Body_Chunk{
