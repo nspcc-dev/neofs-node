@@ -45,9 +45,10 @@ type Clients struct {
 	streamMsgTimeout time.Duration
 	signBufPool      *sync.Pool
 	// gRPC settings
-	minConnTimeout time.Duration
-	pingInterval   time.Duration
-	pingTimeout    time.Duration
+	minConnTimeout       time.Duration
+	pingInterval         time.Duration
+	pingTimeout          time.Duration
+	getClientCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
 
 	mtx   sync.RWMutex
 	conns map[string]*connections // keys are public key bytes
@@ -57,16 +58,19 @@ type Clients struct {
 
 // NewClients constructs Clients initializing connection to any endpoint with
 // given parameters.
-func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTimeout, pingInterval, pingTimeout time.Duration, signer neofscrypto.Signer) *Clients {
+func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTimeout, pingInterval, pingTimeout time.Duration, signer neofscrypto.Signer,
+	getClientCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error),
+) *Clients {
 	return &Clients{
-		log:              l,
-		streamMsgTimeout: streamTimeout,
-		signBufPool:      signBufPool,
-		minConnTimeout:   minConnTimeout,
-		pingInterval:     pingInterval,
-		pingTimeout:      pingTimeout,
-		conns:            make(map[string]*connections),
-		signer:           signer,
+		log:                  l,
+		streamMsgTimeout:     streamTimeout,
+		signBufPool:          signBufPool,
+		minConnTimeout:       minConnTimeout,
+		pingInterval:         pingInterval,
+		pingTimeout:          pingTimeout,
+		getClientCertificate: getClientCertificate,
+		conns:                make(map[string]*connections),
+		signer:               signer,
 	}
 }
 
@@ -220,7 +224,7 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 		if err != nil {
 			return nil, fmt.Errorf("parse node public key: %w", err)
 		}
-		transportCreds = credentials.NewTLS(newNodeTLSConfig((*ecdsa.PublicKey)(expectedKey)))
+		transportCreds = credentials.NewTLS(newNodeTLSConfig((*ecdsa.PublicKey)(expectedKey), x.getClientCertificate))
 	} else {
 		transportCreds = insecure.NewCredentials()
 	}
@@ -262,9 +266,10 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	return res, nil
 }
 
-func newNodeTLSConfig(expectedKey *ecdsa.PublicKey) *tls.Config {
+func newNodeTLSConfig(expectedKey *ecdsa.PublicKey, getClientCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)) *tls.Config {
 	return &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify:   true,
+		GetClientCertificate: getClientCertificate,
 		VerifyConnection: func(state tls.ConnectionState) error {
 			if len(state.PeerCertificates) == 0 {
 				return errors.New("server did not provide TLS certificate")

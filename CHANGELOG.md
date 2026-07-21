@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - SN no longer limits local PUT with static timeout (#4092)
 - SN no longer limits number of concurrent outgoing requests in SearchV2 handler (#4092)
 - Inter-node TLS certificates are verified against node keys (#4095)
+- SNs exchange TLS certificates on inter-node connections (#4097)
 
 ### Removed
 - Compression support from FSTree (#4054)

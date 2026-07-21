@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -278,6 +281,28 @@ func getCredentialsFromSessionToken(token sessionv2.Token) (user.ID, []byte, err
 	return token.OriginalIssuer(), key, nil
 }
 
+func getCredentialsFromPeerPublicKey(key []byte) (user.ID, []byte, error) {
+	pub, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
+	if err != nil {
+		return user.ID{}, nil, fmt.Errorf("invalid peer public key: %w", err)
+	}
+
+	return user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pub)), key, nil
+}
+
+func getRequestCredentials(tokens common.RequestTokens, verifyHeader *protosession.RequestVerificationHeader) (user.ID, []byte, error) {
+	if tokens.AuthenticatedPeerPublicKey != nil {
+		return getCredentialsFromPeerPublicKey(tokens.AuthenticatedPeerPublicKey)
+	}
+	if tokens.Session != nil {
+		return getCredentialsFromSessionToken(*tokens.Session)
+	}
+	if tokens.SessionV1 != nil {
+		return getCredentialsFromSessionV1Token(*tokens.SessionV1)
+	}
+	return icrypto.GetRequestAuthor(verifyHeader)
+}
+
 type sessionTokenV2WithEncodedBody struct {
 	sessionv2.Token
 	body []byte
@@ -480,19 +505,8 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest, initPart *pro
 func (b Service) findRequestInfo(req interface {
 	GetVerifyHeader() *protosession.RequestVerificationHeader
 }, idCnr cid.ID, op acl.Op, tokens common.RequestTokens) (RequestInfo, error) {
-	var (
-		info         RequestInfo
-		reqAuthor    user.ID
-		reqAuthorPub []byte
-		err          error
-	)
-	if tokens.Session != nil {
-		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionToken(*tokens.Session)
-	} else if tokens.SessionV1 != nil {
-		reqAuthor, reqAuthorPub, err = getCredentialsFromSessionV1Token(*tokens.SessionV1)
-	} else {
-		reqAuthor, reqAuthorPub, err = icrypto.GetRequestAuthor(req.GetVerifyHeader())
-	}
+	var info RequestInfo
+	reqAuthor, reqAuthorPub, err := getRequestCredentials(tokens, req.GetVerifyHeader())
 	if err != nil {
 		return info, fmt.Errorf("get request author: %w", err)
 	}
