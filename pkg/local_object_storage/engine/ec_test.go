@@ -568,7 +568,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		e := errors.New("any error")
 		require.NoError(t, s.BlockExecution(e))
 
-		_, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, 0, 1)
+		_, _, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(0, 1), false)
 		require.Equal(t, e, err)
 	})
 
@@ -601,7 +601,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
 		s.metrics = &m
 
-		_, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
+		_, _, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
 		require.GreaterOrEqual(t, time.Duration(m.getECPartRange.Load()), sleepTime)
 	})
 
@@ -616,7 +616,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		s.log = l
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
+			_, _, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
 		})
 
 		lb.AssertEmpty()
@@ -653,12 +653,13 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 	}
 
 	checkOK := func(t *testing.T, s *StorageEngine) {
-		pldLen, rc, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
+		hdr, pldLen, rc, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), true)
 		require.NoError(t, err)
+		require.Equal(t, partObj.CutPayload(), hdr)
 		assertGetECPartRangeOK(t, partObj, off, ln, pldLen, rc)
 	}
 	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
-		_, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, off, ln)
+		_, _, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
 		require.ErrorIs(t, err, e)
 	}
 
@@ -961,11 +962,12 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 
 			require.NoError(t, s.Put(context.Background(), &sysObj, nil))
 
-			gotLen, rc, err := s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, 0, 0)
+			hdr, gotLen, rc, err := s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, common.NewPayloadRange(0, 0), true)
 			require.NoError(t, err)
+			require.Equal(t, sysObj.CutPayload(), hdr)
 			assertGetECPartRangeOK(t, sysObj, 0, 0, gotLen, rc)
 
-			_, _, err = s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, 0, 1)
+			_, _, _, err = s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, common.NewPayloadRange(0, 1), false)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 		})
 	}
@@ -1450,7 +1452,11 @@ func assertGetECPartRangeOK(t *testing.T, obj object.Object, off, ln uint64, pld
 	require.EqualValues(t, obj.PayloadSize(), pldLen)
 
 	if pldLen == 0 {
-		require.Zero(t, rc)
+		require.NotNil(t, rc)
+		b, err := io.ReadAll(rc)
+		require.NoError(t, err)
+		require.Empty(t, b)
+		require.NoError(t, rc.Close())
 		require.Zero(t, off)
 		require.Zero(t, ln)
 		return

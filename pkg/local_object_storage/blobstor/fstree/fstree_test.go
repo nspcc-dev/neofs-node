@@ -9,6 +9,7 @@ import (
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -32,13 +33,30 @@ func TestFSTree_GetRangeStream(t *testing.T) {
 	testGetRangeStream(t, setupFSTree(t))
 }
 
+func TestFSTree_GetRangeStreamWithHeaderAndBounds(t *testing.T) {
+	testGetRangeStreamFunc(t, setupFSTree(t), func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+		rng := common.NewPayloadRange(off, ln)
+		if ln == 1 {
+			rng = common.NewPayloadRangeBounds(off, off+ln-1)
+		}
+		hdr, payloadLen, stream, err := fst.GetRangeStream(addr, rng, true)
+		if err == nil {
+			require.NotNil(t, hdr)
+			require.Equal(t, payloadLen, hdr.PayloadSize())
+		} else {
+			require.Nil(t, hdr)
+		}
+		return stream, err
+	})
+}
+
 func TestFSTree_ReadPayloadRange(t *testing.T) {
 	testReadPayloadRange(t, setupFSTree(t))
 }
 
 func testGetRangeStream(t *testing.T, fst *FSTree) {
 	testGetRangeStreamFunc(t, fst, func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
-		_, stream, err := fst.GetRangeStream(addr, off, ln)
+		_, _, stream, err := fst.GetRangeStream(addr, common.NewPayloadRange(off, ln), false)
 		return stream, err
 	})
 }
@@ -66,7 +84,7 @@ func TestFSTree_PayloadRangeStreamsLimitBufferedPayload(t *testing.T) {
 		{
 			name: "GetRangeStream",
 			read: func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
-				_, stream, err := fst.GetRangeStream(addr, off, ln)
+				_, _, stream, err := fst.GetRangeStream(addr, common.NewPayloadRange(off, ln), false)
 				return stream, err
 			},
 		},
@@ -169,7 +187,7 @@ func testGetRangeStreamFunc(t *testing.T, fst *FSTree, fn func(fst *FSTree, addr
 	require.NoError(t, fst.Put(addr, obj.Marshal()))
 
 	_, err = fn(fst, addr, 1, 0)
-	require.EqualError(t, err, "invalid range off=1,ln=0")
+	require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 
 	for _, tc := range []struct{ off, ln uint64 }{
 		{off: 0, ln: 0},

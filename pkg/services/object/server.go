@@ -1095,7 +1095,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	// encode the first chunk response using the heading buffer.
 	var hdrRespBuf *iprotobuf.MemBuffer
 	var hdrBuf []byte
-	if p.Range() == nil && !p.PayloadOnly() {
+	if !p.HasRange() && !p.PayloadOnly() {
 		hdrRespBuf, hdrBuf = getBufferForHeadResponse()
 		defer hdrRespBuf.Free()
 	}
@@ -1311,6 +1311,10 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	body := req.GetBody()
 
 	rng := body.GetRange()
+	extendedRange := body.GetExtendedRange()
+	if rng != nil && extendedRange != nil {
+		return getsvc.Prm{}, errors.New("range and extended range are mutually exclusive")
+	}
 	if rng != nil {
 		rln := rng.GetLength()
 		if rln == 0 {
@@ -1319,6 +1323,15 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 			}
 		} else if rng.GetOffset()+rln <= rng.GetOffset() {
 			return getsvc.Prm{}, errors.New("range overflow")
+		}
+	}
+	if extendedRange != nil {
+		first, last := extendedRange.FirstPos, extendedRange.LastPos
+		if first == nil && last == nil {
+			return getsvc.Prm{}, apistatus.ErrObjectOutOfRange
+		}
+		if first != nil && last != nil && *first > *last {
+			return getsvc.Prm{}, apistatus.ErrObjectOutOfRange
 		}
 	}
 
@@ -1335,6 +1348,16 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		objRng.SetOffset(rng.GetOffset())
 		objRng.SetLength(rng.GetLength())
 		p.SetRange(&objRng)
+	}
+	if extendedRange != nil {
+		switch {
+		case extendedRange.FirstPos != nil && extendedRange.LastPos != nil:
+			p.SetRangeBounds(*extendedRange.FirstPos, *extendedRange.LastPos)
+		case extendedRange.FirstPos != nil:
+			p.SetRangeFrom(*extendedRange.FirstPos)
+		default:
+			p.SetRangeSuffix(*extendedRange.LastPos)
+		}
 	}
 	if body.GetPayloadOnly() {
 		p.MarkPayloadOnly()
@@ -1354,6 +1377,9 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 	proxyCtx := getProxyContext{
 		respStream:   stream,
 		suppressInit: body.GetPayloadOnly(),
+	}
+	if extendedRange != nil {
+		proxyCtx.resolveRange = p.ResolveRange
 	}
 
 	var updatedRequest bool
@@ -1394,6 +1420,7 @@ type getProxyContext struct {
 
 	payloadLenCheck  uint64
 	respondedPayload int
+	resolveRange     func(uint64) (uint64, uint64, error)
 }
 
 func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse, req *protoobject.GetRangeRequest) error {

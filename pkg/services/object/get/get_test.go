@@ -13,9 +13,11 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	blobcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -35,6 +37,61 @@ type testStorage struct {
 	virtual map[oid.Address]*object.SplitInfo
 
 	phy map[oid.Address]*object.Object
+}
+
+type extendedRangeECStorage struct {
+	unimplementedLocalStorage
+	payload    []byte
+	readHeader *bool
+}
+
+func (s extendedRangeECStorage) GetECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, rng blobcommon.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+	pldLen := uint64(len(s.payload))
+	if s.readHeader != nil {
+		*s.readHeader = readHeader
+	}
+	off, ln, err := rng.Resolve(pldLen)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	var hdr *object.Object
+	if readHeader {
+		hdr = new(object.Object)
+	}
+	return hdr, pldLen, io.NopCloser(bytes.NewReader(s.payload[off:][:ln])), nil
+}
+
+func TestGetExtendedRangeOfECPart(t *testing.T) {
+	payload := []byte("0123456789")
+	var readHeader bool
+	svc := Service{cfg: &cfg{localObjects: extendedRangeECStorage{payload: payload, readHeader: &readHeader}}}
+
+	var prm Prm
+	prm.SetCommonParameters(newCommonParameters(false, []string{
+		iec.AttributeRuleIdx, "0",
+		iec.AttributePartIdx, "0",
+	}))
+	prm.WithContainer(container.Container{})
+	prm.SetRangeSuffix(3)
+	var w mockObjectWriter
+	prm.SetObjectWriter(&w)
+
+	require.NoError(t, svc.Get(context.Background(), prm))
+	require.True(t, readHeader)
+	require.Equal(t, 1, w.writeHeaderCount)
+	require.Equal(t, payload[7:], w.buf.Bytes())
+
+	readHeader = false
+	var payloadOnlyWriter validatingChunkWriter
+	prm.SetObjectWriter(&payloadOnlyWriter)
+	prm.MarkPayloadOnly()
+	prm.RequireEACLRecheck()
+
+	require.NoError(t, svc.Get(context.Background(), prm))
+	require.True(t, readHeader)
+	require.Equal(t, 1, payloadOnlyWriter.validateCount)
+	require.Zero(t, payloadOnlyWriter.writeHeaderCount)
+	require.Equal(t, payload[7:], payloadOnlyWriter.buf.Bytes())
 }
 
 type testNeoFS struct {
@@ -418,6 +475,55 @@ func TestGetLocalOnly(t *testing.T) {
 
 			testSplit(addr, splitInfo)
 		})
+	})
+
+	t.Run("V2 split child without parent header", func(t *testing.T) {
+		for _, tc := range []struct {
+			name      string
+			configure func(*object.SplitInfo, oid.ID, *object.Object)
+		}{
+			{
+				name: "last part",
+				configure: func(si *object.SplitInfo, childID oid.ID, _ *object.Object) {
+					si.SetLastPart(childID)
+				},
+			},
+			{
+				name: "link",
+				configure: func(si *object.SplitInfo, childID oid.ID, child *object.Object) {
+					si.SetLink(childID)
+					child.WriteLink(object.Link{})
+				},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				storage := newTestStorage()
+				splitInfo := object.NewSplitInfo()
+				splitInfo.SetFirstPart(oidtest.ID())
+
+				childAddr := oid.NewAddress(addr.Container(), oidtest.ID())
+				child := generateObject(childAddr, nil, nil)
+				tc.configure(splitInfo, childAddr.Object(), child)
+
+				storage.addVirtual(addr, splitInfo)
+				storage.addPhy(childAddr, child)
+				ns, as := testNodeMatrix(t, []int{1})
+				c := newTestClient()
+				c.addResult(childAddr, child, nil)
+				svc := newSvc(storage)
+				svc.neoFSNet = &testNeoFS{vectors: map[oid.Address][][]netmap.NodeInfo{
+					addr:      anyNodeLists,
+					childAddr: ns,
+				}}
+				svc.clientCache = &testClientCache{clients: map[string]*testClient{as[0][0]: c}}
+
+				p := newPrm(false, NewSimpleObjectWriter())
+				p.WithAddress(addr)
+
+				err := svc.Get(ctx, p)
+				require.ErrorContains(t, err, "missing object header")
+			})
+		}
 	})
 
 	t.Run("RANGE split GET writes header", func(t *testing.T) {
@@ -1305,11 +1411,9 @@ func TestFallbackRangeReader(t *testing.T) {
 		rng.SetLength(20)
 
 		exec := execCtx{
-			prm: RangePrm{
-				rng: rng,
-			},
-			payloadOnly: true,
-			legacyRange: true,
+			payloadRange: blobcommon.NewPayloadRange(rng.GetOffset(), rng.GetLength()),
+			payloadOnly:  true,
+			legacyRange:  true,
 		}
 
 		fallback := exec.fallbackGetExec()

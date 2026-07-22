@@ -17,7 +17,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -163,7 +162,7 @@ func (unimplementedShard) ReadObject(oid.Address, bool, []byte) (int, io.ReadClo
 	panic("unimplemented")
 }
 
-func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, uint64, uint64) (uint64, io.ReadCloser, error) {
+func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, common.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -175,7 +174,7 @@ func (unimplementedShard) ReadECPart(cid.ID, oid.ID, iec.PartInfo, []byte) (int,
 	panic("unimplemented")
 }
 
-func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64) (uint64, io.ReadCloser, error) {
+func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, common.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -307,7 +306,8 @@ func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int
 	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
 }
 
-func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln uint64) (uint64, io.ReadCloser, error) {
+func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+	off, ln := rng.First, rng.Second
 	val, ok := x.getRangeStream[getRangeStreamKey{
 		cnr: cnr,
 		id:  id,
@@ -315,22 +315,26 @@ func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, off, ln uint64) (uint6
 		ln:  ln,
 	}]
 	if !ok {
-		return 0, nil, errors.New("[test] unexpected object requested")
+		return nil, 0, nil, errors.New("[test] unexpected object requested")
 	}
 	if val.err != nil {
-		return 0, nil, val.err
+		return nil, 0, nil, val.err
 	}
 
 	pld := val.obj.Payload()
-	if off == 0 && ln == 0 {
-		if len(pld) == 0 {
-			return 0, nil, nil
-		}
-	} else if full := uint64(len(pld)); uint64(off) >= full || full-uint64(off) < uint64(ln) {
-		return 0, nil, apistatus.ErrObjectOutOfRange
+	off, ln, err := rng.Resolve(uint64(len(pld)))
+	if err != nil {
+		return nil, 0, nil, err
 	}
 
-	return val.obj.PayloadSize(), io.NopCloser(bytes.NewReader(pld[off:][:ln])), nil
+	var hdr *object.Object
+	if readHeader {
+		hdr = val.obj.CutPayload()
+	}
+	if len(pld) == 0 {
+		return hdr, 0, nil, nil
+	}
+	return hdr, val.obj.PayloadSize(), io.NopCloser(bytes.NewReader(pld[off:][:ln])), nil
 }
 
 func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
@@ -361,8 +365,9 @@ func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf [
 	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
 }
 
-func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
+func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	time.Sleep(x.eCPartSleep)
+	off, ln := rng.First, rng.Second
 	val, ok := x.getECPartRange[getECPartRangeKey{
 		cnr:    cnr,
 		parent: parent,
@@ -371,22 +376,26 @@ func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, o
 		ln:     ln,
 	}]
 	if !ok {
-		return 0, nil, errors.New("[test] unexpected object requested")
+		return nil, 0, nil, errors.New("[test] unexpected object requested")
 	}
 	if val.err != nil {
-		return 0, nil, val.err
+		return nil, 0, nil, val.err
 	}
 
 	pld := val.obj.Payload()
-	if off == 0 && ln == 0 {
-		if len(pld) == 0 {
-			return 0, nil, nil
-		}
-	} else if full := uint64(len(pld)); uint64(off) >= full || full-uint64(off) < uint64(ln) {
-		return 0, nil, apistatus.ErrObjectOutOfRange
+	off, ln, err := rng.Resolve(uint64(len(pld)))
+	if err != nil {
+		return nil, 0, nil, err
 	}
 
-	return val.obj.PayloadSize(), io.NopCloser(bytes.NewReader(pld[off:][:ln])), nil
+	var hdr *object.Object
+	if readHeader {
+		hdr = val.obj.CutPayload()
+	}
+	if len(pld) == 0 {
+		return hdr, 0, nil, nil
+	}
+	return hdr, val.obj.PayloadSize(), io.NopCloser(bytes.NewReader(pld[off:][:ln])), nil
 }
 
 func (x *mockShard) Head(addr oid.Address, raw bool) (*object.Object, error) {

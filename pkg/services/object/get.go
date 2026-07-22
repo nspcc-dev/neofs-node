@@ -117,6 +117,14 @@ func (x *getProxyContext) validateEOF(reqBody *protoobject.GetRequest_Body, prog
 		if uint64(x.respondedPayload) < reqRange.GetLength() {
 			return io.ErrUnexpectedEOF
 		}
+	} else if x.resolveRange != nil && prog.headWas {
+		_, expected, err := x.resolveRange(x.payloadLenCheck)
+		if err != nil {
+			return err
+		}
+		if uint64(x.respondedPayload) < expected {
+			return io.ErrUnexpectedEOF
+		}
 	} else if prog.headWas && x.payloadLenCheck > 0 && uint64(x.respondedPayload) < x.payloadLenCheck {
 		return io.ErrUnexpectedEOF
 	}
@@ -249,7 +257,7 @@ func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.Bu
 			return nil
 		}
 
-		hdrOrdered, err := protoscan.ScanMessageOrdered(buffers, protoscan.ObjectHeaderScheme, protoscan.ScanMessageOrderedOptions{})
+		hdrOrdered, err := protoscan.ScanMessageOrdered(buffers, protoscan.ObjectHeaderScheme, opts)
 		if err != nil {
 			return fmt.Errorf("handle header with signature field: %w", err)
 		}

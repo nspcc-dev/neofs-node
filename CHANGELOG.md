@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Storage node support GET request with missing part index X-Header (#4033)
 - `fstree-decompress` utility for rewriting old compressed FSTree objects (#4079)
+- Extended payload ranges in GET requests and the `object get` CLI command (#4094)
 
 ### Fixed
 - Session v2 token was not supported in the new container + eACL RPC (#4056)

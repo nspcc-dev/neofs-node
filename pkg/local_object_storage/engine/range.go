@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -27,7 +28,7 @@ func (e *StorageEngine) GetRange(ctx context.Context, addr oid.Address, offset u
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}
 
-	stream, err := e.getRangeStream(ctx, addr, offset, length)
+	_, stream, err := e.getRangeStream(ctx, addr, common.NewPayloadRange(offset, length), false)
 	if err != nil {
 		return nil, err
 	}

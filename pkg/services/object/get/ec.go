@@ -16,6 +16,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -680,14 +681,31 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 // removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 // Returns [apistatus.ErrObjectOutOfRange] if the range is out of payload range.
 func (s *Service) copyLocalECPartRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
-	pldLen, rc, err := s.localObjects.GetECPartRange(ctx, cnr, parent, pi, off, ln)
+	return s.copyLocalECPartPayloadRange(ctx, dst, cnr, parent, pi, common.NewPayloadRange(off, ln), nil)
+}
+
+func (s *Service) copyLocalECPartPayloadRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, headerFn func(*object.Object) error) error {
+	hdr, pldLen, rc, err := s.localObjects.GetECPartRange(ctx, cnr, parent, pi, rng, headerFn != nil)
 	if err != nil {
 		return fmt.Errorf("get object payload range from local storage: %w", err)
+	}
+	if rc != nil {
+		defer rc.Close()
+	}
+	if headerFn != nil {
+		if hdr == nil {
+			return errors.New("missing EC part header")
+		}
+		if err := headerFn(hdr); err != nil {
+			return fmt.Errorf("write EC part header: %w", err)
+		}
 	}
 	if pldLen == 0 {
 		return nil
 	}
-	defer rc.Close()
+	if rc == nil {
+		return errors.New("missing EC part payload stream")
+	}
 
 	if err := copyPayloadStream(dst, rc); err != nil {
 		return fmt.Errorf("copy payload: %w", err)
@@ -696,10 +714,35 @@ func (s *Service) copyLocalECPartRange(ctx context.Context, dst ChunkWriter, cnr
 	return nil
 }
 
-func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, off, ln uint64) error {
+type resolveECObjectRangeFunc func(*object.Object) (uint64, uint64, error)
+
+func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, rng common.PayloadRange, headerFn func(*object.Object) error) error {
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
 		return fmt.Errorf("get local SN private key: %w", err)
+	}
+
+	var off, ln uint64
+	var resolved bool
+	var headerErr error
+	resolveRange := func(hdr *object.Object) (uint64, uint64, error) {
+		if resolved {
+			return off, ln, nil
+		}
+
+		var err error
+		off, ln, err = rng.Resolve(hdr.PayloadSize())
+		if err != nil {
+			return 0, 0, err
+		}
+		if headerFn != nil {
+			headerErr = headerFn(hdr)
+			if headerErr != nil {
+				return 0, 0, headerErr
+			}
+		}
+		resolved = true
+		return off, ln, nil
 	}
 
 	// TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
@@ -710,10 +753,13 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 	var written uint64
 	for i := range ecRules {
 		if fullPldLen == 0 {
-			written, fullPldLen, err = s.copyECObjectRangeByRule(ctx, dst, *localNodeKey, cnr, parent, ecRules[i], i, sortedNodeLists[i], off, ln)
+			written, fullPldLen, err = s.copyECObjectRangeByRule(ctx, dst, *localNodeKey, cnr, parent, ecRules[i], i, sortedNodeLists[i], resolveRange)
 		} else {
 			written, err = s.copyECObjectRangeByParts(ctx, dst, *localNodeKey, cnr, parent, ecRules[i], i, sortedNodeLists[i],
 				fullPldLen, off, ln, nil)
+		}
+		if headerErr != nil {
+			return headerErr
 		}
 		if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) ||
 			errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ErrResponseStreamFailure) || errors.Is(err, ctx.Err()) {
@@ -722,7 +768,7 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 
 		var linker sizeSplitinkerError
 		if errors.As(err, &linker) {
-			return s.copySplitECObjectRangeByLinker(ctx, dst, *localNodeKey, cnr, parent, ecRules, sortedNodeLists, off, ln, i, object.Object(linker))
+			return s.copySplitECObjectRangeByLinker(ctx, dst, *localNodeKey, cnr, parent, ecRules, sortedNodeLists, resolveRange, i, object.Object(linker))
 		}
 
 		var sizeSplitErr *object.SplitInfoError
@@ -731,7 +777,7 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 			if info == nil {
 				return errors.New("no info in size-split error")
 			}
-			return s.copySplitECObjectRangeByInfo(ctx, dst, *localNodeKey, cnr, parent, ecRules, sortedNodeLists, off, ln, i, *info)
+			return s.copySplitECObjectRangeByInfo(ctx, dst, *localNodeKey, cnr, parent, ecRules, sortedNodeLists, resolveRange, i, *info)
 		}
 
 		if i == 0 {
@@ -760,7 +806,7 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 
 func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
 	parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
-	off, ln uint64, fromRule int, sizeSplitInfo object.SplitInfo) error {
+	resolveRange resolveECObjectRangeFunc, fromRule int, sizeSplitInfo object.SplitInfo) error {
 	lastPartID := sizeSplitInfo.GetLastPart()
 	if lastPartID.IsZero() {
 		return errors.New("missing first part ID in size-split info, unable to assemble")
@@ -774,6 +820,10 @@ func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWri
 	parentHdr := lastPartHdr.Parent()
 	if parentHdr == nil {
 		return fmt.Errorf("received invalid header of first size-split part %s: missing parent header", lastPartID)
+	}
+	off, ln, err := resolveRange(parentHdr)
+	if err != nil {
+		return err
 	}
 
 	rightBound := parentHdr.PayloadSize()
@@ -830,10 +880,14 @@ func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWri
 
 func (s *Service) copySplitECObjectRangeByLinker(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
 	parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo,
-	off, ln uint64, fromRule int, linker object.Object) error {
+	resolveRange resolveECObjectRangeFunc, fromRule int, linker object.Object) error {
 	parentHdr := linker.Parent()
 	if parentHdr == nil {
 		return fmt.Errorf("%w: missing parent header", errInvalidSizeSplitLinker)
+	}
+	off, ln, err := resolveRange(parentHdr)
+	if err != nil {
+		return err
 	}
 
 	var l object.Link
@@ -933,7 +987,7 @@ nextPart:
 // First return is a number of bytes copied. Second return is resolved len of
 // the full payload.
 func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
-	parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, off, ln uint64) (uint64, uint64, error) {
+	parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, resolveRange resolveECObjectRangeFunc) (uint64, uint64, error) {
 	deadline, deadlineSet := ctx.Deadline()
 	var stageTimeout time.Duration
 
@@ -976,6 +1030,10 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 	}
 
 	pldLen := parentHdr.PayloadSize()
+	off, ln, err := resolveRange(parentHdr)
+	if err != nil {
+		return 0, pldLen, err
+	}
 
 	written, err := s.copyECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, rule, ruleIdx, sortedNodes,
 		pldLen, off, ln, firstPartStream)
@@ -985,6 +1043,9 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 
 func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter, localNodeKey ecdsa.PrivateKey, cnr cid.ID,
 	parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, pldLen, off, ln uint64, firstPartStream io.ReadCloser) (uint64, error) {
+	if pldLen == 0 {
+		return 0, nil
+	}
 	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
 	fullPartLen := (pldLen + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
 
@@ -1253,7 +1314,7 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 		}
 
 		if local {
-			_, rc, err = s.localObjects.GetECPartRange(ctx, cnr, parent, pi, off, ln)
+			_, _, rc, err = s.localObjects.GetECPartRange(ctx, cnr, parent, pi, common.NewPayloadRange(off, ln), false)
 			if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) {
 				return rc, err
 			}

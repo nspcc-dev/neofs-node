@@ -9,14 +9,17 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -50,6 +53,41 @@ type storageEngineWrapper struct {
 	engine *engine.StorageEngine
 }
 
+type objectReadAuthPrm interface {
+	WithinSession(session.Object)
+	WithinSessionV2(sessionv2.Token)
+	WithBearerToken(bearer.Token)
+}
+
+func applyObjectReadAuth(exec *execCtx, addr oid.Address, legacyRange bool, opts objectReadAuthPrm) {
+	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
+		verb := sessionv2.VerbObjectGet
+		if legacyRange {
+			verb = sessionv2.VerbObjectRange
+		}
+		if stV2.AssertVerb(verb, addr.Container()) {
+			opts.WithinSessionV2(*stV2)
+		}
+	} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(addr.Object()) {
+		opts.WithinSession(*st)
+	}
+	if bt := exec.prm.common.BearerToken(); bt != nil {
+		opts.WithBearerToken(*bt)
+	}
+}
+
+func objectGetOptions(exec *execCtx) client.PrmObjectGet {
+	var opts client.PrmObjectGet
+	if exec.prm.common.TTL() < 2 {
+		opts.MarkLocal()
+	}
+	opts.WithXHeaders(exec.prm.common.XHeaders()...)
+	if exec.isRaw() {
+		opts.MarkRaw()
+	}
+	return opts
+}
+
 type partWriter struct {
 	ObjectWriter
 
@@ -74,7 +112,7 @@ type fallbackRangeReader struct {
 }
 
 func (exec execCtx) fallbackGetExec() execCtx {
-	exec.prm.rng = nil
+	exec.payloadRange = common.PayloadRange{}
 	exec.payloadOnly = false
 	exec.legacyRange = false
 
@@ -246,7 +284,8 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 
 	// we don't specify payload writer because we accumulate
 	// the object locally (even huge).
-	if rng := exec.ctxRange(); rng != nil {
+	if exec.hasPayloadRange() {
+		rng := exec.ctxRange()
 		addr := exec.address()
 		id := addr.Object()
 
@@ -257,16 +296,7 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 			if exec.prm.common.TTL() < 2 {
 				opts.MarkLocal()
 			}
-			if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
-				if stV2.AssertVerb(sessionv2.VerbObjectRange, addr.Container()) {
-					opts.WithinSessionV2(*stV2)
-				}
-			} else if st := exec.prm.common.SessionToken(); st != nil && st.AssertObject(id) {
-				opts.WithinSession(*st)
-			}
-			if bt := exec.prm.common.BearerToken(); bt != nil {
-				opts.WithBearerToken(*bt)
-			}
+			applyObjectReadAuth(exec, addr, true, &opts)
 			opts.WithXHeaders(exec.prm.common.XHeaders()...)
 			if exec.isRaw() {
 				opts.MarkRaw()
@@ -286,15 +316,21 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 			return hdr, newFallbackRangeReader(exec, c, key, rng, rdr), nil
 		}
 
-		var opts client.PrmObjectGet
-		if exec.prm.common.TTL() < 2 {
-			opts.MarkLocal()
+		opts := objectGetOptions(exec)
+		applyObjectReadAuth(exec, addr, false, &opts)
+		first, second := exec.payloadRange.First, exec.payloadRange.Second
+		switch exec.payloadRange.Mode {
+		case common.PayloadRangeModeNone:
+			panic("missing payload range")
+		case common.PayloadRangeModeOffsetLength:
+			opts.SetRange(first, second)
+		case common.PayloadRangeModeBounds:
+			opts.SetRangeBounds(first, second)
+		case common.PayloadRangeModeFrom:
+			opts.SetRangeFrom(first)
+		case common.PayloadRangeModeSuffix:
+			opts.SetRangeSuffix(first)
 		}
-		opts.WithXHeaders(exec.prm.common.XHeaders()...)
-		if exec.isRaw() {
-			opts.MarkRaw()
-		}
-		opts.SetRange(rng.GetOffset(), rng.GetLength())
 
 		hdr, rdr, err := c.client.ObjectGetInit(exec.context(), addr.Container(), id, user.NewAutoIDSigner(*key), opts)
 		if err != nil {
@@ -331,15 +367,8 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 	addr := exec.address()
 	id := addr.Object()
 
-	var opts client.PrmObjectGet
-	if exec.prm.common.TTL() < 2 {
-		opts.MarkLocal()
-	}
-	opts.WithXHeaders(exec.prm.common.XHeaders()...)
-	if exec.isRaw() {
-		opts.MarkRaw()
-	}
-	if exec.payloadOnly && exec.ctxRange() == nil && !exec.recheckEACL {
+	opts := objectGetOptions(exec)
+	if exec.payloadOnly && !exec.hasPayloadRange() && !exec.recheckEACL {
 		opts.MarkPayloadOnly()
 	}
 
@@ -361,27 +390,21 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 		return r, nil, nil
 	}
 
-	if rng := exec.ctxRange(); rng != nil {
+	if exec.hasPayloadRange() {
 		if exec.localRangeBuffer != nil {
+			rng := exec.ctxRange()
 			r, err := e.engine.ReadPayloadRange(ctx, exec.address(), rng.GetOffset(), rng.GetLength(), exec.localRangeBuffer)
 			if err == nil {
 				exec.submitLocalRangeStreamFn(r)
 			}
 			return nil, nil, err
 		}
-		r, err := e.engine.GetRangeStream(ctx, exec.address(), rng.GetOffset(), rng.GetLength())
+
+		hdr, stream, err := e.engine.GetRangeStream(ctx, exec.address(), exec.payloadRange, true)
 		if err != nil {
-			return nil, r, err
+			return nil, stream, err
 		}
-		// TODO: avoid extra local HEAD once we can get header with range stream from engine in one call.
-		h, hErr := e.engine.Head(ctx, exec.address(), exec.isRaw())
-		if hErr != nil {
-			if r != nil {
-				_ = r.Close()
-			}
-			return nil, nil, hErr
-		}
-		return h, r, nil
+		return hdr, stream, nil
 	}
 
 	if exec.localGetBuffer != nil {
