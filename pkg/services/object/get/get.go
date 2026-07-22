@@ -32,7 +32,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		// TODO: deny if node is not in the container?
 
 		if prm.payloadRange.IsSet() {
-			if prm.payloadOnly && prm.localGetBuffer != nil {
+			if prm.payloadOnly && prm.localGetBuffer != nil && !prm.recheckEACL {
 				if rng := prm.Range(); rng != nil {
 					stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, rng.GetOffset(), rng.GetLength(), prm.localGetBuffer)
 					if err == nil {
