@@ -20,6 +20,7 @@ type PutInitPrm struct {
 
 	containerNodes       ContainerNodes
 	ecPart               iec.PartInfo
+	ecRules              []iec.Rule
 	localNodeInContainer bool
 	localSignerRFC6979   neofscrypto.Signer
 	localNodeSigner      neofscrypto.Signer

@@ -55,6 +55,7 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 // PutMetadataForObject fills object meta-data indexes using bbolt transaction.
 // Transaction must be writable. Additional bucket for container's meta-data
 // may be created using {255, CID...} form as a key.
+// `__NEOFS__EC_PART_HASHES` parent's EC attribute is skipped.
 func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(hdr.GetContainerID()))
 	if err != nil {
@@ -127,6 +128,9 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	for i := range attrs {
 		ak, av := attrs[i].Key(), attrs[i].Value()
 		switch ak {
+		case iec.AttributePartsHashes:
+			// indexing EC hashes attributes has no practical meaning
+			continue
 		case object.AttributeAssociatedObject:
 			var associated oid.ID
 			if err = associated.DecodeString(av); err != nil {

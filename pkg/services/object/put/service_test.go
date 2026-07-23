@@ -11,6 +11,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -597,6 +598,21 @@ func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cn
 	}
 }
 
+func attachECHashes(t *testing.T, parentObject *object.Object, rules []iec.Rule) {
+	var hashes []string
+	payload := parentObject.Payload()
+	payload = payload[:len(payload):len(payload)]
+	for _, rule := range rules {
+		_, sums, err := iec.Encode(rule, payload)
+		require.NoError(t, err)
+		hashes = append(hashes, sums...)
+	}
+
+	attrs := parentObject.Attributes()
+	attrs = append(attrs, object.NewAttribute(iec.AttributePartsHashes, strings.Join(hashes, ",")))
+	parentObject.SetAttributes(attrs...)
+}
+
 func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []iec.Rule, maxTotalParts, cnrReserveNodes, outCnrNodes int, isSessionV2 bool) {
 	owner := usertest.User()
 	var srcObj object.Object
@@ -621,6 +637,10 @@ func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []i
 		sessionToken.BindContainer(cidtest.ID())
 		srcObj.SetPayload(testutil.RandByteSlice(ln))
 	}
+
+	var expectedECParent object.Object
+	srcObj.CopyTo(&expectedECParent)
+	attachECHashes(t, &expectedECParent, rules)
 
 	testThroughNode := func(t *testing.T, idx int) {
 		if isSessionV2 {
@@ -648,7 +668,7 @@ func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []i
 		require.Zero(t, islices.TwoDimSliceElementCount(nodeObjLists))
 
 		assertObjectIntegrity(t, restoredObj)
-		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
+		require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 		if isSessionV2 {
 			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
 			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
@@ -658,9 +678,9 @@ func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []i
 		}
 		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
 		require.Equal(t, object.TypeRegular, restoredObj.Type())
-		require.Equal(t, srcObj.Attributes(), restoredObj.Attributes())
+		require.Equal(t, expectedECParent.Attributes(), restoredObj.Attributes())
 		require.False(t, restoredObj.HasParent())
-		require.True(t, bytes.Equal(srcObj.Payload(), restoredObj.Payload()))
+		require.True(t, bytes.Equal(expectedECParent.Payload(), restoredObj.Payload()))
 
 		cluster.resetAllStoredObjects()
 	}
@@ -1847,7 +1867,7 @@ func TestInitialPlacementECPartUsesPostPlacement(t *testing.T) {
 	parent.SetPayload([]byte("payload for EC part post-placement"))
 
 	partSigner := neofscryptotest.Signer()
-	payloadParts, err := iec.Encode(rule, parent.Payload())
+	payloadParts, _, err := iec.Encode(rule, parent.Payload())
 	require.NoError(t, err)
 
 	partIdx := 1
@@ -1975,6 +1995,10 @@ func testInitialPlacementEC(t *testing.T, ecRules []iec.Rule, initialRules []boo
 	sessionTokenV2 := newSessionTokenV2ForNode(t, env.cluster, env.nodeLists, -1, creator)
 	obj := newSessionRegularObject(creator.ID)
 
+	var expectedECParent object.Object
+	obj.CopyTo(&expectedECParent)
+	attachECHashes(t, &expectedECParent, ecRules)
+
 	storeObjectWithSession(t, env.cluster.nodeServices[0], obj, nil, sessionTokenV2)
 
 	nodeObjLists := env.cluster.allStoredObjects()
@@ -2002,14 +2026,14 @@ func testInitialPlacementEC(t *testing.T, ecRules []iec.Rule, initialRules []boo
 			restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
 
 			assertObjectIntegrity(t, restoredObj)
-			require.Equal(t, obj.GetContainerID(), restoredObj.GetContainerID())
+			require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
 			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
 			require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
 			require.Equal(t, object.TypeRegular, restoredObj.Type())
-			require.Equal(t, obj.Attributes(), restoredObj.Attributes())
+			require.Equal(t, expectedECParent.Attributes(), restoredObj.Attributes())
 			require.False(t, restoredObj.HasParent())
-			require.True(t, bytes.Equal(obj.Payload(), restoredObj.Payload()))
+			require.True(t, bytes.Equal(expectedECParent.Payload(), restoredObj.Payload()))
 
 			continue
 		}
@@ -2039,6 +2063,10 @@ func testPostInitialPlacementEC(t *testing.T, ecRules []iec.Rule, ip netmap.Init
 	nodeIdx := nodeIndexForList(env.nodeLists, localList)
 	sessionTokenV2 := newSessionTokenV2ForNode(t, env.cluster, env.nodeLists, localList, creator)
 	obj := newSessionRegularObject(creator.ID)
+
+	var expectedECParent object.Object
+	obj.CopyTo(&expectedECParent)
+	attachECHashes(t, &expectedECParent, ecRules)
 
 	storeObjectWithSession(t, env.cluster.nodeServices[nodeIdx], obj, nil, sessionTokenV2)
 
@@ -2086,14 +2114,14 @@ func testPostInitialPlacementEC(t *testing.T, ecRules []iec.Rule, ip netmap.Init
 		restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
 
 		assertObjectIntegrity(t, restoredObj)
-		require.Equal(t, obj.GetContainerID(), restoredObj.GetContainerID())
+		require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 		require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
 		require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
 		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
 		require.Equal(t, object.TypeRegular, restoredObj.Type())
-		require.Equal(t, obj.Attributes(), restoredObj.Attributes())
+		require.Equal(t, expectedECParent.Attributes(), restoredObj.Attributes())
 		require.False(t, restoredObj.HasParent())
-		require.True(t, bytes.Equal(obj.Payload(), restoredObj.Payload()))
+		require.True(t, bytes.Equal(expectedECParent.Payload(), restoredObj.Payload()))
 	}
 }
 
@@ -2206,6 +2234,10 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 
 	storeObjectWithSession(t, cluster.nodeServices[nodeIdx], obj, nil, sessionTokenV2)
 
+	var expectedECParent object.Object
+	obj.CopyTo(&expectedECParent)
+	attachECHashes(t, &expectedECParent, ecRules)
+
 	nodeObjLists := cluster.allStoredObjects()
 
 	var nodeOff int
@@ -2245,14 +2277,14 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 				restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
 
 				assertObjectIntegrity(t, restoredObj)
-				require.Equal(t, obj.GetContainerID(), restoredObj.GetContainerID())
+				require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 				require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
 				require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
 				require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
 				require.Equal(t, object.TypeRegular, restoredObj.Type())
-				require.Equal(t, obj.Attributes(), restoredObj.Attributes())
+				require.Equal(t, expectedECParent.Attributes(), restoredObj.Attributes())
 				require.False(t, restoredObj.HasParent())
-				require.True(t, bytes.Equal(obj.Payload(), restoredObj.Payload()))
+				require.True(t, bytes.Equal(expectedECParent.Payload(), restoredObj.Payload()))
 			} else {
 				for j := range nodeLists[i] {
 					require.Empty(t, nodeObjLists[nodeOff+j])
