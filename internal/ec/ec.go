@@ -1,6 +1,8 @@
 package ec
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strconv"
@@ -11,9 +13,10 @@ import (
 
 // Erasure coding attributes.
 const (
-	AttributePrefix  = "__NEOFS__EC_"
-	AttributeRuleIdx = AttributePrefix + "RULE_IDX"
-	AttributePartIdx = AttributePrefix + "PART_IDX"
+	AttributePrefix      = "__NEOFS__EC_"
+	AttributeRuleIdx     = AttributePrefix + "RULE_IDX"
+	AttributePartIdx     = AttributePrefix + "PART_IDX"
+	AttributePartsHashes = AttributePrefix + "PART_HASHES"
 )
 
 // Rule represents erasure coding rule for object payload's encoding and placement.
@@ -27,35 +30,58 @@ func (x Rule) String() string {
 	return strconv.FormatUint(uint64(x.DataPartNum), 10) + "/" + strconv.FormatUint(uint64(x.ParityPartNum), 10)
 }
 
+var (
+	zeroHash    = sha256.Sum256(nil)
+	zeroHashStr = hex.EncodeToString(zeroHash[:])
+)
+
 // Encode encodes given data according to specified EC rule and returns coded
 // parts. First [Rule.DataPartNum] elements are data parts, other
-// [Rule.ParityPartNum] ones are parity blocks.
+// [Rule.ParityPartNum] ones are parity blocks. Second returned value are
+// payload sha256 hashes of the encoded parts.
 //
 // All parts are the same length. If data len is not divisible by
 // [Rule.DataPartNum], last data part is aligned with zeros.
 //
 // If data is empty, all parts are nil.
-func Encode(rule Rule, data []byte) ([][]byte, error) {
+func Encode(rule Rule, data []byte) ([][]byte, []string, error) {
 	if len(data) == 0 {
-		return make([][]byte, rule.DataPartNum+rule.ParityPartNum), nil
+		var (
+			partsNumber = rule.DataPartNum + rule.ParityPartNum
+			hashes      = make([]string, 0, partsNumber)
+		)
+		for range partsNumber {
+			hashes = append(hashes, zeroHashStr)
+		}
+		return make([][]byte, partsNumber), hashes, nil
 	}
 
 	// TODO: Explore reedsolomon.Option for performance improvement. https://github.com/nspcc-dev/neofs-node/issues/3501
 	enc, err := newCoderForRule(rule)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	parts, err := enc.Split(data)
 	if err != nil {
-		return nil, fmt.Errorf("split data: %w", err)
+		return nil, nil, fmt.Errorf("split data: %w", err)
 	}
 
 	if err := enc.Encode(parts); err != nil {
-		return nil, fmt.Errorf("calculate Reed-Solomon parity: %w", err)
+		return nil, nil, fmt.Errorf("calculate Reed-Solomon parity: %w", err)
 	}
 
-	return parts, nil
+	var (
+		sums = make([]string, len(parts))
+		sum  [sha256.Size]byte
+	)
+
+	for i, p := range parts {
+		sum = sha256.Sum256(p)
+		sums[i] = hex.EncodeToString(sum[:])
+	}
+
+	return parts, sums, nil
 }
 
 // Decode decodes source data of known len from EC parts obtained by applying
