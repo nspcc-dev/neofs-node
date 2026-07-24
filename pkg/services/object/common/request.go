@@ -11,4 +11,8 @@ type RequestTokens struct {
 	Session   *sessionv2.Token
 	SessionV1 *session.Object
 	Bearer    *bearer.Token
+
+	// AuthenticatedPeerPublicKey is the compressed ECDSA public key of an
+	// inter-node TLS peer authenticated by the transport layer.
+	AuthenticatedPeerPublicKey []byte
 }

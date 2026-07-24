@@ -24,6 +24,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
@@ -446,9 +447,11 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
-			return err
+		if requestNeedsSignature(gStream.Context(), req) {
+			if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
+				return err
+			}
 		}
 
 		if s.fsChain.LocalNodeUnderMaintenance() {
@@ -515,7 +518,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
 		}
 
-		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req, initPart, cnrID, op, reqMD.tokens); err != nil {
+		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req, initPart, cnrID, op, requestTokensWithPeer(gStream.Context(), req, reqMD.tokens)); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
 				if !errors.Is(err, apistatus.Error) {
 					err = newBadRequestError(err.Error()) // defer
@@ -566,8 +569,10 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusDeleteResponse(err, req), nil
+	if requestNeedsSignature(ctx, req) {
+		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.makeStatusDeleteResponse(err, req), nil
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -591,7 +596,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req, cnrID, requestTokensWithPeer(ctx, req, reqMD.tokens))
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -667,8 +672,10 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 	needSignResp := needSignGetResponse(req)
 
-	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHeadResponse(err, needSignResp)
+	if requestNeedsSignature(ctx, req) {
+		if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.makeStatusHeadResponse(err, needSignResp)
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -692,7 +699,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req, cnrID, requestTokensWithPeer(ctx, req, reqMD.tokens))
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1011,8 +1018,10 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	needSignResp := needSignGetResponse(req)
 
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.sendStatusGetResponse(gStream, err, needSignResp)
+	if requestNeedsSignature(gStream.Context(), req) {
+		if err = icrypto.VerifyRequestSignatures(req); err != nil {
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -1036,7 +1045,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req, cnrID, requestTokensWithPeer(gStream.Context(), req, reqMD.tokens))
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1473,8 +1482,10 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.sendStatusRangeResponse(gStream, err, req)
+	if requestNeedsSignature(gStream.Context(), req) {
+		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.sendStatusRangeResponse(gStream, err, req)
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -1498,7 +1509,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, cnrID, requestTokensWithPeer(gStream.Context(), req, reqMD.tokens))
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1869,8 +1880,10 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.signSearchResponse(nil, err, req)
+	if requestNeedsSignature(ctx, req) {
+		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+			return s.signSearchResponse(nil, err, req)
+		}
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
@@ -1894,7 +1907,7 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		return s.signSearchResponse(nil, err, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req, cnrID, requestTokensWithPeer(ctx, req, reqMD.tokens))
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -2367,6 +2380,35 @@ func chunkBoundsToSend(global, local, chunkLen int) (int, int) {
 
 func needSignGetResponse(req util.Request) bool {
 	return util.VersionLE(req, 2, 17)
+}
+
+func authenticatedPeerPublicKey(ctx context.Context) ([]byte, bool) {
+	key, err := peerauth.PeerPublicKey(ctx)
+	return key, err == nil && key != nil
+}
+
+type requestWithVerificationHeader interface {
+	util.Request
+	GetVerifyHeader() *protosession.RequestVerificationHeader
+}
+
+func requestNeedsSignature(ctx context.Context, req requestWithVerificationHeader) bool {
+	if req.GetVerifyHeader() != nil {
+		return true
+	}
+	meta := req.GetMetaHeader()
+	if meta == nil || meta.GetTtl() > 1 {
+		return true
+	}
+	_, ok := authenticatedPeerPublicKey(ctx)
+	return !ok
+}
+
+func requestTokensWithPeer(ctx context.Context, req requestWithVerificationHeader, tokens common.RequestTokens) common.RequestTokens {
+	if !requestNeedsSignature(ctx, req) {
+		tokens.AuthenticatedPeerPublicKey, _ = authenticatedPeerPublicKey(ctx)
+	}
+	return tokens
 }
 
 func checkHeaderProtobufAgainstID(buffers iprotobuf.BuffersSlice, id oid.ID, ordered bool) error {

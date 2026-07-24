@@ -204,6 +204,7 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 				}
 				return &tls.Config{
 					Certificates: []tls.Certificate{cert},
+					ClientAuth:   tls.RequestClientCert,
 				}, nil
 			},
 		})
