@@ -83,6 +83,10 @@ func (db *DB) PutBatch(objs []*object.Object) error {
 
 	currEpoch := db.epochState.CurrentEpoch()
 
+	db.log.Info("metabase PutBatch",
+    zap.Int("objects", len(objs)),
+	)
+
 	var successIndices []int
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		for i, obj := range objs {
