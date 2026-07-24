@@ -254,11 +254,13 @@ func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unpr
 			return fmt.Errorf("could not validate header fields: invalid identifier: %w", err)
 		}
 
-		if err := icrypto.AuthenticateObject(*obj, historicN3ScriptRunner{
-			FSChain:        v.fsChain,
-			NetmapContract: v.netmapContract,
-		}, isEC, v.sCache, v.resolver); err != nil {
-			return fmt.Errorf("authenticate: %w", err)
+		if !isEC {
+			if err := icrypto.AuthenticateObject(*obj, historicN3ScriptRunner{
+				FSChain:        v.fsChain,
+				NetmapContract: v.netmapContract,
+			}, isEC, v.sCache, v.resolver); err != nil {
+				return fmt.Errorf("authenticate: %w", err)
+			}
 		}
 	}
 

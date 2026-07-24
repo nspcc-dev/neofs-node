@@ -116,21 +116,11 @@ func TestFormObjectForECPart(t *testing.T) {
 	partInfo := iec.PartInfo{RuleIndex: 123, Index: 456}
 	part := testutil.RandByteSlice(32)
 
-	t.Run("signer failure", func(t *testing.T) {
-		signer := neofscryptotest.FailSigner(signer)
-		_, sigErr := signer.Sign(nil)
-		require.Error(t, sigErr)
-
-		_, err := iec.FormObjectForECPart(signer, parent, part, partInfo)
-		require.ErrorContains(t, err, "set verification fields: could not set signature:")
-		require.ErrorContains(t, err, sigErr.Error())
-	})
-
 	obj, err := iec.FormObjectForECPart(signer, parent, part, partInfo)
 	require.NoError(t, err)
 
 	require.NoError(t, obj.VerifyID())
-	require.True(t, obj.VerifySignature())
+	require.Nil(t, obj.Signature())
 
 	require.True(t, obj.HasParent())
 	require.NotNil(t, obj.Parent())

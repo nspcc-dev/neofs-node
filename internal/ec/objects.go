@@ -77,9 +77,10 @@ func FormObjectForECPart(signer neofscrypto.Signer, parent object.Object, part [
 
 	obj.SetPayload(part)
 	obj.SetPayloadSize(uint64(len(part)))
-
-	if err := obj.SetVerificationFields(signer); err != nil {
-		return object.Object{}, fmt.Errorf("set verification fields: %w", err)
+	obj.CalculateAndSetPayloadChecksum()
+	err := obj.CalculateAndSetID()
+	if err != nil {
+		return obj, fmt.Errorf("form calculating object ID: %w", err)
 	}
 
 	return obj, nil

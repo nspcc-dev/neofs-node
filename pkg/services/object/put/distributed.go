@@ -6,8 +6,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -73,9 +75,18 @@ type distributedTarget struct {
 
 	localOnly bool
 
+	// EC handling rules and caches:
+	//
 	// When object from request is an EC part, ecPart.RuleIndex is >= 0.
 	// Otherwise, ecPart.RuleIndex is negative.
-	ecPart iec.PartInfo
+	// When request means node-side EC encoding, ecRules is non-empty,
+	// original object payload is stored in objectPayload and payload
+	// objects are stored in encodedECParts.
+	ecPart             iec.PartInfo
+	ecRules            []iec.Rule
+	payloadAlreadyRead bool
+	encodedECParts     [][][]byte // according to ecRules indexing
+	objectPayload      []byte
 
 	initialPolicy *netmap.InitialPlacementPolicy
 
@@ -109,6 +120,69 @@ func newMaxReplicasError(maxReplicas, done uint, lastRule int, lastRuleErr error
 	return newCompletionError(err, done > 0)
 }
 
+// modifyECParentObject modifies parent header for EC split by attaching EC
+// part hashes to parent object's attributes. It must be called only with
+// non-empty t.ecRules.
+func (t *distributedTarget) modifyECParentObject(hdr *object.Object, reader io.Reader) error {
+	if len(t.ecRules) == 0 {
+		panic("incorrect usage of EC parts modifier with undefined EC rules")
+	}
+
+	var (
+		b          = getPayload()
+		payloadLen = int(hdr.PayloadSize())
+	)
+	if cap(b) < payloadLen {
+		putPayload(b)
+		b = make([]byte, 0, payloadLen)
+	}
+	if cap(b) != payloadLen {
+		// prohibit using additional slice's capacity for EC library, it may lead
+		// to data corruption for multiple EC rules cases
+		b = b[:0:payloadLen]
+	}
+	buff := bytes.NewBuffer(b)
+
+	n, err := io.Copy(buff, reader)
+	if err != nil {
+		return fmt.Errorf("reading EC object payload from slicer: %w", err)
+	}
+	if int(n) != payloadLen {
+		return fmt.Errorf("read %d bytes from slicer, but claimed payload len is %d", n, payloadLen)
+	}
+	t.payloadAlreadyRead = true
+	t.objectPayload = buff.Bytes()
+
+	var hashes []string
+	for i, rule := range t.ecRules {
+		payloadParts, sums, err := iec.Encode(rule, t.objectPayload)
+		if err != nil {
+			return fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", i, rule, err)
+		}
+
+		t.encodedECParts = append(t.encodedECParts, payloadParts)
+		hashes = append(hashes, sums...)
+	}
+
+	var (
+		foundAttr bool
+		attrs     = hdr.Attributes()
+		hashesStr = strings.Join(hashes, ",")
+	)
+	for _, attr := range attrs {
+		if attr.Key() == iec.AttributePartsHashes {
+			foundAttr = true
+			attr.SetValue(hashesStr)
+		}
+	}
+	if !foundAttr {
+		attrs = append(attrs, object.NewAttribute(iec.AttributePartsHashes, hashesStr))
+	}
+	hdr.SetAttributes(attrs...)
+
+	return nil
+}
+
 func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
 	payloadLen := hdr.PayloadSize()
 	if payloadLen > math.MaxInt {
@@ -140,7 +214,14 @@ func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
 }
 
 func (t *distributedTarget) Write(p []byte) (n int, err error) {
-	t.encodedObject.b = append(t.encodedObject.b, p...)
+	if t.payloadAlreadyRead {
+		if t.objectPayload != nil {
+			t.encodedObject.b = append(t.encodedObject.b, t.objectPayload...)
+			t.objectPayload = nil
+		}
+	} else {
+		t.encodedObject.b = append(t.encodedObject.b, p...)
+	}
 
 	return len(p), nil
 }
@@ -148,6 +229,7 @@ func (t *distributedTarget) Write(p []byte) (n int, err error) {
 func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
 		putPayload(t.encodedObject.b)
+		t.payloadAlreadyRead = false
 		t.encodedObject.b = nil
 		t.resetMetaCollection()
 	}()
@@ -375,11 +457,7 @@ nextRule:
 				continue
 			}
 
-			payloadParts, err := iec.Encode(ecRules[ecRuleIdx], obj.Payload())
-			if err != nil {
-				return fmt.Errorf("split object payload into EC parts for rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
-			}
-
+			payloadParts := t.encodedECParts[ruleIdx]
 			fin, err := handleECRule(ruleIdx, ecRuleIdx, payloadParts, ecRules[ecRuleIdx])
 			if err != nil {
 				return err
@@ -470,28 +548,12 @@ func (t *distributedTarget) replicateRemainingPrimaryNodes(obj object.Object, no
 }
 
 func (t *distributedTarget) replicateRemainingECRules(obj object.Object, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo, applied []bool) {
-	encodedByRule := make(map[iec.Rule][][]byte, len(ecRules))
-
 	for ruleIdx := range ecRules {
 		if applied[ruleIdx] {
 			continue
 		}
 
-		payloadParts, ok := encodedByRule[ecRules[ruleIdx]]
-		if !ok {
-			var err error
-			payloadParts, err = iec.Encode(ecRules[ruleIdx], obj.Payload())
-			if err != nil {
-				t.placementIterator.log.Info("failed to encode object for post-placement EC replication",
-					zap.Stringer("object", obj.Address()),
-					zap.Int("rule_idx", ruleIdx),
-					zap.Stringer("rule", ecRules[ruleIdx]),
-					zap.Error(err))
-				continue
-			}
-			encodedByRule[ecRules[ruleIdx]] = payloadParts
-		}
-
+		payloadParts := t.encodedECParts[ruleIdx]
 		totalParts := len(payloadParts)
 		for partIdx := range payloadParts {
 			partObj, err := formObjectForECPart(t.sessionSigner, obj, ruleIdx, partIdx, payloadParts)

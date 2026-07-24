@@ -2,6 +2,8 @@ package ec_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -23,8 +25,13 @@ func TestRule_String(t *testing.T) {
 func testEncode(t *testing.T, rule iec.Rule, data []byte) {
 	ln := uint64(len(data))
 
-	parts, err := iec.Encode(rule, data)
+	parts, sums, err := iec.Encode(rule, data)
 	require.NoError(t, err)
+
+	for i := range parts {
+		sumCalculated := sha256.Sum256(parts[i])
+		require.Equal(t, hex.EncodeToString(sumCalculated[:]), sums[i])
+	}
 
 	res, err := iec.Decode(rule, ln, parts)
 	require.NoError(t, err)
@@ -57,12 +64,18 @@ func TestEncode(t *testing.T) {
 		for _, rule := range rules {
 			t.Run(rule.String(), func(t *testing.T) {
 				test := func(t *testing.T, data []byte) {
-					res, err := iec.Encode(rule, []byte{})
+					res, sums, err := iec.Encode(rule, []byte{})
 					require.NoError(t, err)
 
 					total := int(rule.DataPartNum + rule.ParityPartNum)
 					require.Len(t, res, total)
 					require.EqualValues(t, total, islices.CountNilsInTwoDimSlice(res))
+
+					zeroHash := sha256.Sum256(nil)
+					zeroHashStr := hex.EncodeToString(zeroHash[:])
+					for _, sum := range sums {
+						require.Equal(t, zeroHashStr, sum)
+					}
 				}
 				test(t, nil)
 				test(t, []byte{})
@@ -127,7 +140,7 @@ func TestDecodeRange(t *testing.T) {
 		ParityPartNum: 4,
 	}
 
-	parts, err := iec.Encode(rule, data)
+	parts, _, err := iec.Encode(rule, data)
 	require.NoError(t, err)
 
 	t.Run("unsupported rule", func(t *testing.T) {
