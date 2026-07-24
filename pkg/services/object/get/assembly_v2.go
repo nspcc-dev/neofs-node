@@ -47,6 +47,9 @@ func (exec *execCtx) processV2Last(lastID oid.ID) {
 	}
 
 	exec.collectedHeader = lastHead.Parent()
+	if !exec.resolvePayloadRange() {
+		return
+	}
 	if r := exec.ctxRange(); r != nil && r.GetLength() == 0 {
 		r.SetLength(exec.collectedHeader.PayloadSize())
 	}
@@ -83,16 +86,20 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 	}
 
 	exec.collectedHeader = linkObj.Parent()
-	rng := exec.ctxRange()
-	if rng != nil && rng.GetLength() == 0 {
-		rng.SetLength(exec.collectedHeader.PayloadSize())
-	}
 
 	var link object.Link
 	err := linkObj.ReadLink(&link)
 	if err != nil {
 		exec.log.Debug("failed to parse link object", zap.Error(err))
 		return false
+	}
+
+	if !exec.resolvePayloadRange() {
+		return true
+	}
+	rng := exec.ctxRange()
+	if rng != nil && rng.GetLength() == 0 {
+		rng.SetLength(exec.collectedHeader.PayloadSize())
 	}
 
 	if rng == nil {

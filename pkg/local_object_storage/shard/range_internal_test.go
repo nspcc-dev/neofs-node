@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -56,7 +57,7 @@ func TestShard_GetRangeStream(t *testing.T) {
 
 				s := newSimpleTestShard(t, &bs, unimplementedMetabase{}, nil)
 
-				_, _, err := s.GetRangeStream(cnr, id, 0, 1)
+				_, _, _, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(0, 1), false)
 				require.ErrorIs(t, err, tc.err)
 				require.ErrorContains(t, err, "get from BLOB storage")
 			})
@@ -78,7 +79,7 @@ func TestShard_GetRangeStream(t *testing.T) {
 				{payloadLen, 1},
 				{math.MaxInt64, math.MaxInt64},
 			} {
-				_, _, err := s.GetRangeStream(cnr, id, rng[0], rng[1])
+				_, _, _, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(rng[0], rng[1]), false)
 				require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange, rng)
 			}
 		})
@@ -113,7 +114,7 @@ func TestShard_GetRangeStream(t *testing.T) {
 					s.log = l
 
 					off, ln := uint64(payloadLen/2), uint64(payloadLen/2)
-					pldLen, rc, err := s.GetRangeStream(cnr, id, off, ln)
+					_, pldLen, rc, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(off, ln), false)
 					require.NoError(t, err)
 					assertGetRangeStreamOK(t, obj, off, ln, pldLen, rc)
 
@@ -133,11 +134,10 @@ func TestShard_GetRangeStream(t *testing.T) {
 				for _, rng := range [][2]uint64{
 					{0, payloadLen + 1},
 					{payloadLen - 1, 2},
-					{payloadLen, 0},
 					{payloadLen, 1},
 					{math.MaxInt64, math.MaxInt64},
 				} {
-					_, _, err := s.GetRangeStream(cnr, id, rng[0], rng[1])
+					_, _, _, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(rng[0], rng[1]), false)
 					require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange, rng)
 				}
 			})
@@ -157,11 +157,11 @@ func TestShard_GetRangeStream(t *testing.T) {
 			s := newSimpleTestShard(t, unimplementedBLOBStore{}, &unimplementedMetabase{}, &wc)
 
 			t.Run("non-zero range", func(t *testing.T) {
-				_, _, err := s.GetRangeStream(cnr, id, 0, 1)
+				_, _, _, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(0, 1), false)
 				require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 			})
 
-			pldLen, rc, err := s.GetRangeStream(cnr, id, 0, 0)
+			_, pldLen, rc, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(0, 0), false)
 			require.NoError(t, err)
 			require.Zero(t, pldLen)
 			require.Zero(t, rc)
@@ -191,11 +191,11 @@ func TestShard_GetRangeStream(t *testing.T) {
 		s := newSimpleTestShard(t, &bs, &unimplementedMetabase{}, nil)
 
 		t.Run("non-zero range", func(t *testing.T) {
-			_, _, err := s.GetRangeStream(cnr, id, 0, 1)
+			_, _, _, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(0, 1), false)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 		})
 
-		pldLen, rc, err := s.GetRangeStream(cnr, id, 0, 0)
+		_, pldLen, rc, err := s.GetRangeStream(cnr, id, common.NewPayloadRange(0, 0), false)
 		require.NoError(t, err)
 		require.Zero(t, pldLen)
 		require.Zero(t, rc)
@@ -217,7 +217,7 @@ func testGetRangeStream(t *testing.T, obj object.Object, s *Shard) {
 	} {
 		off, ln := rng[0], rng[1]
 		t.Run(fmt.Sprintf("full=%d,off=%d,len=%d", full, off, ln), func(t *testing.T) {
-			pldLen, rc, err := s.GetRangeStream(obj.GetContainerID(), obj.GetID(), off, ln)
+			_, pldLen, rc, err := s.GetRangeStream(obj.GetContainerID(), obj.GetID(), common.NewPayloadRange(off, ln), false)
 			require.NoError(t, err)
 			assertGetRangeStreamOK(t, obj, off, ln, pldLen, rc)
 		})

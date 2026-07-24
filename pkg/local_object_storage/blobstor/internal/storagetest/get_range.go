@@ -18,7 +18,7 @@ func TestGetRangeStream(t *testing.T, cons Constructor, minSize, maxSize uint64)
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	t.Run("missing object", func(t *testing.T) {
-		_, _, err := s.GetRangeStream(oidtest.Address(), 0, 1)
+		_, _, _, err := s.GetRangeStream(oidtest.Address(), common.NewPayloadRange(0, 1), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
@@ -31,35 +31,35 @@ func TestGetRangeStream(t *testing.T, cons Constructor, minSize, maxSize uint64)
 		}
 
 		t.Run("regular", func(t *testing.T) {
-			pldLen, stream, err := s.GetRangeStream(objects[0].addr, start, stop-start)
+			_, pldLen, stream, err := s.GetRangeStream(objects[0].addr, common.NewPayloadRange(start, stop-start), false)
 			require.NoError(t, err)
 			require.EqualValues(t, objects[0].obj.PayloadSize(), pldLen)
 			require.NoError(t, iotest.TestReader(stream, payload[start:stop]))
 		})
 
 		t.Run("offset > len(payload)", func(t *testing.T) {
-			_, _, err := s.GetRangeStream(objects[0].addr, uint64(len(payload)+10), 10)
+			_, _, _, err := s.GetRangeStream(objects[0].addr, common.NewPayloadRange(uint64(len(payload)+10), 10), false)
 			require.ErrorAs(t, err, new(apistatus.ObjectOutOfRange))
 		})
 
 		t.Run("offset + length > len(payload)", func(t *testing.T) {
-			_, _, err := s.GetRangeStream(objects[0].addr, 10, uint64(len(payload)))
+			_, _, _, err := s.GetRangeStream(objects[0].addr, common.NewPayloadRange(10, uint64(len(payload))), false)
 			require.ErrorAs(t, err, new(apistatus.ObjectOutOfRange))
 		})
 
 		t.Run("length is negative when converted to int64", func(t *testing.T) {
-			_, _, err := s.GetRangeStream(objects[0].addr, 0, 1<<63)
+			_, _, _, err := s.GetRangeStream(objects[0].addr, common.NewPayloadRange(0, 1<<63), false)
 			require.ErrorAs(t, err, new(apistatus.ObjectOutOfRange))
 		})
 
 		t.Run("offset + length overflow uint64", func(t *testing.T) {
-			_, _, err := s.GetRangeStream(objects[0].addr, 10, math.MaxUint64-2)
+			_, _, _, err := s.GetRangeStream(objects[0].addr, common.NewPayloadRange(10, math.MaxUint64-2), false)
 			require.ErrorAs(t, err, new(apistatus.ObjectOutOfRange))
 		})
 
 		t.Run("zero range", func(t *testing.T) {
 			for i := range objects {
-				pldLen, stream, err := s.GetRangeStream(objects[i].addr, 0, 0)
+				_, pldLen, stream, err := s.GetRangeStream(objects[i].addr, common.NewPayloadRange(0, 0), false)
 				require.NoError(t, err)
 				require.EqualValues(t, objects[i].obj.PayloadSize(), pldLen)
 				pld := objects[i].obj.Payload()

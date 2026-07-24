@@ -520,16 +520,16 @@ func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, err
 	return obj, reader, nil
 }
 
-// GetRangeStream reads payload range of the referenced object from t. Both zero
-// off and ln mean full payload. The stream must be finally closed by the
-// caller.
+// GetRangeStream reads the requested payload range of the referenced object
+// from t. It optionally returns the object header parsed from the same read.
+// The stream must be finally closed by the caller.
 //
 // If object is missing, GetRangeStream returns [apistatus.ErrObjectNotFound].
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (uint64, io.ReadCloser, error) {
-	return t.readPayloadRange(addr, off, ln, func() []byte {
+func (t *FSTree) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+	return t.readPayloadRange(addr, rng, readHeader, func() []byte {
 		return make([]byte, 2*objectwire.NonPayloadFieldsBufferLength)
 	})
 }
@@ -540,20 +540,16 @@ func (t *FSTree) GetRangeStream(addr oid.Address, off uint64, ln uint64) (uint64
 // If given range is out of payload bounds, ReadPayloadRange returns
 // [apistatus.ErrObjectOutOfRange].
 func (t *FSTree) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byte) (io.ReadCloser, error) {
-	_, stream, err := t.readPayloadRange(addr, off, ln, func() []byte {
+	_, _, stream, err := t.readPayloadRange(addr, common.NewPayloadRange(off, ln), false, func() []byte {
 		return hdrBuf
 	})
 	return stream, err
 }
 
-func (t *FSTree) readPayloadRange(addr oid.Address, off, ln uint64, getHdrBuf func() []byte) (uint64, io.ReadCloser, error) {
-	if ln == 0 && off != 0 {
-		return 0, nil, fmt.Errorf("invalid range off=%d,ln=0", off)
-	}
-
+func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, readHeader bool, getHdrBuf func() []byte) (*object.Object, uint64, io.ReadCloser, error) {
 	prefix, stream, err := t._readObject(addr, getHdrBuf())
 	if err != nil {
-		return 0, nil, err
+		return nil, 0, nil, err
 	}
 
 	pldLen, pldFldOff, err := objectwire.GetPayloadLengthAndFieldOffset(prefix)
@@ -561,7 +557,25 @@ func (t *FSTree) readPayloadRange(addr oid.Address, off, ln uint64, getHdrBuf fu
 		if stream != nil {
 			stream.Close()
 		}
-		return 0, nil, fmt.Errorf("get payload length and field in read header: %w", err)
+		return nil, 0, nil, fmt.Errorf("get payload length and field in read header: %w", err)
+	}
+
+	off, ln, err := rng.Resolve(pldLen)
+	if err != nil {
+		if stream != nil {
+			stream.Close()
+		}
+		return nil, pldLen, nil, err
+	}
+	var hdr *object.Object
+	if readHeader {
+		hdr, _, err = objectwire.ExtractHeaderAndPayload(prefix)
+		if err != nil {
+			if stream != nil {
+				stream.Close()
+			}
+			return nil, pldLen, nil, fmt.Errorf("extract header in read payload range: %w", err)
+		}
 	}
 
 	stream, err = t.shiftPayloadRangeStream(prefix, pldLen, pldFldOff, stream, off, ln)
@@ -569,17 +583,13 @@ func (t *FSTree) readPayloadRange(addr oid.Address, off, ln uint64, getHdrBuf fu
 		if stream != nil {
 			stream.Close()
 		}
-		return 0, nil, err
+		return nil, pldLen, nil, err
 	}
 
-	return pldLen, stream, nil
+	return hdr, pldLen, stream, nil
 }
 
 func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff int, stream io.ReadSeekCloser, off, ln uint64) (io.ReadSeekCloser, error) {
-	if ln != 0 && (off >= pldLen || pldLen-off < ln) {
-		return nil, apistatus.ErrObjectOutOfRange
-	}
-
 	if pldFldOff < 0 {
 		if pldLen != 0 {
 			return nil, fmt.Errorf("missing payload field tag in %d bytes header, payload len in header = %d", len(prefix), pldLen)

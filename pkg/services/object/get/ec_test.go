@@ -502,6 +502,7 @@ func TestService_Get_EC(t *testing.T) {
 			getECPart: map[getECPartKey]getECPartValue{
 				{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: i}}: {
 					hdr: *partObjs[i].CutPayload(),
+					pld: partObjs[i].Payload(),
 					rdr: io.NopCloser(bytes.NewReader(partObjs[i].Payload())),
 				},
 			},
@@ -509,6 +510,7 @@ func TestService_Get_EC(t *testing.T) {
 	}
 
 	t.Run("payload-only ranged GET validates header", func(t *testing.T) {
+		tc.headCalls = 0
 		writer := &validatingChunkWriter{}
 
 		var prm Prm
@@ -528,6 +530,28 @@ func TestService_Get_EC(t *testing.T) {
 		require.Equal(t, 1, writer.validateCount)
 		require.Zero(t, writer.writeHeaderCount)
 		require.Equal(t, parentPayload[3:20], writer.buf.Bytes())
+		require.Zero(t, tc.headCalls)
+	})
+
+	t.Run("extended ranged GET reuses EC part header", func(t *testing.T) {
+		tc.headCalls = 0
+
+		var w mockObjectWriter
+
+		var prm Prm
+		prm.WithAddress(parentAddr)
+		prm.SetCommonParameters(cp)
+		prm.SetObjectWriter(&w)
+		prm.SetRangeSuffix(17)
+
+		svc := newService(t)
+
+		err = svc.Get(ctx, prm)
+		require.NoError(t, err)
+		require.Zero(t, tc.headCalls)
+		require.Equal(t, 1, w.writeHeaderCount)
+		require.Equal(t, parentHdr, w.hdr)
+		require.Equal(t, parentPayload[len(parentPayload)-17:], w.buf.Bytes())
 	})
 
 	t.Run("out-of-range does not write header", func(t *testing.T) {
@@ -598,14 +622,12 @@ type testECServiceConn struct {
 	mockKeyStorage
 	parentHdr object.Object
 
-	nodes map[string]*Service
+	nodes     map[string]*Service
+	headCalls int
 }
 
 func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
 	cnr cid.ID, id oid.ID, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error) {
-	if rng != nil {
-		panic("unimplemented range")
-	}
 	if ctx == nil {
 		return object.Object{}, nil, errors.New("[test] missing context")
 	}
@@ -632,6 +654,10 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 	prm.WithAddress(oid.NewAddress(cnr, id))
 	prm.SetObjectWriter(&w)
 	prm.SetCommonParameters(cp)
+	if rng != nil {
+		prm.SetRange(rng)
+		prm.MarkPayloadOnly()
+	}
 
 	if err := v.Get(ctx, prm); err != nil {
 		return object.Object{}, nil, err
@@ -641,6 +667,7 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 }
 
 func (x *testECServiceConn) Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID) (object.Object, error) {
+	x.headCalls++
 	if ctx == nil {
 		return object.Object{}, errors.New("[test] missing context")
 	}

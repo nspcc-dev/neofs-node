@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -33,7 +34,8 @@ type execCtx struct {
 
 	ctx context.Context
 
-	prm RangePrm
+	prm          RangePrm
+	payloadRange common.PayloadRange
 
 	statusError
 
@@ -111,7 +113,17 @@ func headOnly(transportFn HeadTransportFunc, submitResponseFn SubmitHeadResponse
 
 func withPayloadRange(r *object.Range) execOption {
 	return func(c *execCtx) {
-		c.prm.rng = r
+		if r == nil {
+			c.payloadRange = common.PayloadRange{}
+			return
+		}
+		c.payloadRange = common.NewPayloadRange(r.GetOffset(), r.GetLength())
+	}
+}
+
+func withPayloadRangePrm(r common.PayloadRange) execOption {
+	return func(c *execCtx) {
+		c.payloadRange = r
 	}
 }
 
@@ -196,10 +208,11 @@ func (exec *execCtx) setLogger(l *zap.Logger) {
 	switch {
 	case exec.headOnly():
 		reqFields = append(reqFields, zap.String("request", "HEAD"))
-	case exec.ctxRange() != nil:
-		reqFields = append(reqFields,
-			zap.String("request", "GET_RANGE"),
-			zap.String("original range", prettyRange(exec.ctxRange())))
+	case exec.hasPayloadRange():
+		reqFields = append(reqFields, zap.String("request", "GET_RANGE"))
+		if rng := exec.ctxRange(); rng != nil {
+			reqFields = append(reqFields, zap.String("original range", prettyRange(rng)))
+		}
 	default:
 		reqFields = append(reqFields, zap.String("request", "GET"))
 	}
@@ -292,7 +305,36 @@ func (exec *execCtx) containerID() cid.ID {
 }
 
 func (exec *execCtx) ctxRange() *object.Range {
-	return exec.prm.rng
+	if exec.payloadRange.Mode != common.PayloadRangeModeOffsetLength {
+		return nil
+	}
+	off, ln := exec.payloadRange.First, exec.payloadRange.Second
+	rng := object.NewRange()
+	rng.SetOffset(off)
+	rng.SetLength(ln)
+	return rng
+}
+
+func (exec *execCtx) hasPayloadRange() bool {
+	return exec.payloadRange.IsSet()
+}
+
+func (exec *execCtx) resolvePayloadRange() bool {
+	if !exec.hasPayloadRange() {
+		return true
+	}
+	if !exec.ensureCollectedHeader() {
+		return false
+	}
+
+	resolved, err := exec.payloadRange.Resolved(exec.collectedHeader.PayloadSize())
+	if err != nil {
+		exec.status = statusAPIResponse
+		exec.err = err
+		return false
+	}
+	exec.payloadRange = resolved
+	return true
 }
 
 func (exec *execCtx) headOnly() bool {
@@ -476,8 +518,7 @@ func mergeSplitInfo(dst, src *object.SplitInfo) {
 	}
 }
 
-func (exec *execCtx) writeCollectedHeader() bool {
-	// TODO: some payload-only paths can skip header collection, can be optimized.
+func (exec *execCtx) ensureCollectedHeader() bool {
 	if exec.collectedHeader == nil {
 		exec.status = statusUndefined
 		exec.err = errors.New("missing object header")
@@ -485,6 +526,14 @@ func (exec *execCtx) writeCollectedHeader() bool {
 		exec.log.Debug("could not write header",
 			zap.Error(exec.err),
 		)
+		return false
+	}
+	return true
+}
+
+func (exec *execCtx) writeCollectedHeader() bool {
+	// TODO: some payload-only paths can skip header collection, can be optimized.
+	if !exec.ensureCollectedHeader() {
 		return false
 	}
 

@@ -7,6 +7,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -17,7 +18,7 @@ import (
 func (s *Service) Get(ctx context.Context, prm Prm) error {
 	var neofsNet NeoFSNetwork
 	// range requests do not support fetching additional info about EC parts
-	if prm.rng == nil {
+	if !prm.payloadRange.IsSet() {
 		neofsNet = s.neoFSNet
 	}
 
@@ -30,15 +31,23 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
 
-		if prm.rng != nil {
-			if prm.payloadOnly && prm.localGetBuffer != nil {
-				stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localGetBuffer)
-				if err == nil {
-					prm.submitLocalGetStreamFn(0, stream)
+		if prm.payloadRange.IsSet() {
+			if prm.payloadOnly && prm.localGetBuffer != nil && !prm.recheckEACL {
+				if rng := prm.Range(); rng != nil {
+					stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, rng.GetOffset(), rng.GetLength(), prm.localGetBuffer)
+					if err == nil {
+						prm.submitLocalGetStreamFn(0, stream)
+					}
+					return err
 				}
-				return err
 			}
-			return s.copyLocalECPartRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
+			var headerFn func(*object.Object) error
+			if !prm.payloadOnly || prm.recheckEACL {
+				headerFn = func(hdr *object.Object) error {
+					return writeObjectHeader(prm.objWriter, hdr, prm.payloadOnly)
+				}
+			}
+			return s.copyLocalECPartPayloadRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.payloadRange, headerFn)
 		}
 
 		if prm.localGetBuffer != nil {
@@ -55,8 +64,8 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if prm.common.LocalOnly() &&
 		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
-		opts := []execOption{withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL)}
-		if prm.rng == nil && !prm.payloadOnly {
+		opts := []execOption{withPayloadRangePrm(prm.payloadRange), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL)}
+		if !prm.payloadRange.IsSet() && !prm.payloadOnly {
 			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
 		}
 		return s.get(ctx, prm.commonPrm, opts...).err // It handles locality internally.
@@ -74,12 +83,12 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if len(repRules) > 0 { // REP format does not require encoding
 		opts := []execOption{
 			withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules),
-			withPayloadRange(prm.rng),
+			withPayloadRangePrm(prm.payloadRange),
 			withPayloadOnly(prm.payloadOnly),
 			withGetTransportFunc(prm.transportFn),
 			withEACLRecheck(prm.recheckEACL),
 		}
-		if prm.rng == nil && !prm.payloadOnly {
+		if !prm.payloadRange.IsSet() && !prm.payloadOnly {
 			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
 		}
 		err := s.get(ctx, prm.commonPrm, opts...).err
@@ -95,31 +104,27 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 		for i := range ecRules {
 			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
 		}
-		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL)).err
+		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRangePrm(prm.payloadRange), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL)).err
 	}
 
-	if prm.rng != nil {
-		hdr, err := s.getECObjectHeader(ctx, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, nil, nil)
-		if err != nil {
-			return err
-		}
-		if err := validatePayloadRange(&hdr, prm.rng); err != nil {
-			return err
-		}
-		hdr = *hdr.CutPayload()
-		if prm.payloadOnly {
-			if v, ok := prm.objWriter.(HeaderValidator); ok {
-				if err := v.ValidateHeader(&hdr); err != nil {
-					return err
-				}
-			}
-		} else if err := prm.objWriter.WriteHeader(&hdr); err != nil {
-			return err
-		}
-		return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
+	if prm.payloadRange.IsSet() {
+		return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.payloadRange, func(hdr *object.Object) error {
+			return writeObjectHeader(prm.objWriter, hdr.CutPayload(), prm.payloadOnly)
+		})
 	}
 
 	return s.copyECObject(ctx, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.objWriter, prm.ecTransport)
+}
+
+func writeObjectHeader(dst ObjectWriter, hdr *object.Object, payloadOnly bool) error {
+	if payloadOnly {
+		if v, ok := dst.(HeaderValidator); ok {
+			return v.ValidateHeader(hdr)
+		}
+		return nil
+	}
+
+	return dst.WriteHeader(hdr)
 }
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
@@ -184,28 +189,7 @@ func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netm
 		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true)).err
 	}
 
-	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, prm.rng.GetOffset(), prm.rng.GetLength())
-}
-
-func validatePayloadRange(hdr *object.Object, rng *object.Range) error {
-	if rng == nil {
-		return nil
-	}
-
-	off := rng.GetOffset()
-	ln := rng.GetLength()
-	pldLen := hdr.PayloadSize()
-
-	if ln == 0 {
-		if off == 0 {
-			return nil
-		}
-		return apistatus.ErrObjectOutOfRange
-	}
-	if off >= pldLen || pldLen-off < ln {
-		return apistatus.ErrObjectOutOfRange
-	}
-	return nil
+	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, common.NewPayloadRange(prm.rng.GetOffset(), prm.rng.GetLength()), nil)
 }
 
 // Head reads object header from container.

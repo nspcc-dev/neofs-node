@@ -63,6 +63,7 @@ func TestServer_Get_Local(t *testing.T) {
 
 	srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
 
+	var anyAddr oid.Address
 	for _, pldLen := range []uint64{
 		0, 1,
 		4 << 10, 100 << 10, 256 << 10,
@@ -75,8 +76,46 @@ func TestServer_Get_Local(t *testing.T) {
 			require.NoError(t, obj.SetVerificationFields(signer))
 
 			require.NoError(t, storage.Put(context.Background(), obj, nil))
+			anyAddr = obj.Address()
 
 			assertGetOK(t, srv, mtrc, *obj, signer)
+
+			suffixLen := uint64(17)
+			fromSuffix := uint64(0)
+			if pldLen > suffixLen {
+				fromSuffix = pldLen - suffixLen
+			}
+			type extendedRangeTest struct {
+				name     string
+				rng      *protoobject.ExtendedRange
+				from, to uint64
+			}
+			ranges := []extendedRangeTest{
+				{name: "suffix", rng: &protoobject.ExtendedRange{LastPos: &suffixLen}, from: fromSuffix, to: pldLen},
+			}
+			if pldLen > 0 && pldLen <= 4<<10 {
+				first := pldLen / 3
+				last := min(first+16, pldLen-1)
+				lastClipped := pldLen + 17
+				ranges = append(ranges,
+					extendedRangeTest{name: "bounded", rng: &protoobject.ExtendedRange{FirstPos: &first, LastPos: &last}, from: first, to: last + 1},
+					extendedRangeTest{name: "bounded clipped", rng: &protoobject.ExtendedRange{FirstPos: &first, LastPos: &lastClipped}, from: first, to: pldLen},
+					extendedRangeTest{name: "from", rng: &protoobject.ExtendedRange{FirstPos: &first}, from: first, to: pldLen},
+				)
+			}
+
+			for _, tc := range ranges {
+				t.Run("extended "+tc.name, func(t *testing.T) {
+					req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
+					req.Body.ExtendedRange = tc.rng
+					signGetRequest(t, req, signer)
+
+					expected := *obj
+					expected.SetPayload(obj.Payload()[tc.from:tc.to])
+					assertGetStreamResponses(t, expected, collectGetResponses(t, srv, req))
+					mtrc.reset()
+				})
+			}
 
 			t.Run("cut payload in header", func(t *testing.T) {
 				handlers.mockObject = obj.Marshal()
@@ -111,6 +150,47 @@ func TestServer_Get_Local(t *testing.T) {
 			handlers.mockObject = nil
 		})
 	}
+
+	t.Run("invalid extended range", func(t *testing.T) {
+		firstZero := uint64(0)
+		firstFive := uint64(5)
+		lastZero := uint64(0)
+		lastFour := uint64(4)
+		for _, tc := range []struct {
+			name string
+			body *protoobject.GetRequest_Body
+		}{
+			{name: "both range forms", body: &protoobject.GetRequest_Body{
+				Range:         &protoobject.Range{Length: 1},
+				ExtendedRange: &protoobject.ExtendedRange{FirstPos: &firstZero},
+			}},
+			{name: "empty", body: &protoobject.GetRequest_Body{ExtendedRange: new(protoobject.ExtendedRange)}},
+			{name: "reversed bounds", body: &protoobject.GetRequest_Body{
+				ExtendedRange: &protoobject.ExtendedRange{FirstPos: &firstFive, LastPos: &lastFour},
+			}},
+			{name: "zero suffix", body: &protoobject.GetRequest_Body{
+				ExtendedRange: &protoobject.ExtendedRange{LastPos: &lastZero},
+			}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				tc.body.Address = anyAddr.ProtoMessage()
+				req := &protoobject.GetRequest{
+					Body: tc.body,
+					MetaHeader: &protosession.RequestMetaHeader{
+						Version: version.Current().ProtoMessage(),
+						Ttl:     1,
+					},
+				}
+				signGetRequest(t, req, signer)
+
+				stream, err := callGet(t, srv, req)
+				require.NoError(t, err)
+				resp, err := stream.Recv()
+				require.NoError(t, err)
+				require.NotZero(t, resp.GetMetaHeader().GetStatus().GetCode())
+			})
+		}
+	})
 
 	t.Run("EC part", func(t *testing.T) {
 		const anyRuleIdx = 13
@@ -240,6 +320,62 @@ func TestServer_Get_Remote(t *testing.T) {
 			}
 
 			mockConns.setConn(nodes[1], newFixedGetResponsesConn(t, resps))
+
+			gotResps := collectGetResponses(t, srv, req)
+			require.Equal(t, len(resps), len(gotResps))
+			require.True(t, slices.EqualFunc(resps, gotResps, func(resp *protoobject.GetResponse, gotResp *protoobject.GetResponse) bool {
+				return proto.Equal(resp, gotResp)
+			}))
+		})
+
+		t.Run("extended range", func(t *testing.T) {
+			const payloadLen = 100 << 10
+			obj := *object.New(cnr, signer.ID)
+			obj.SetPayloadSize(payloadLen)
+			obj.SetPayload(testutil.RandByteSlice(payloadLen))
+			require.NoError(t, obj.SetVerificationFields(signer))
+
+			first := uint64(payloadLen - 3)
+			last := uint64(payloadLen + 10)
+			req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
+			req.Body.ExtendedRange = &protoobject.ExtendedRange{FirstPos: &first, LastPos: &last}
+			req.MetaHeader.Ttl = 2
+			signGetRequest(t, req, signer)
+
+			objMsg := obj.ProtoMessage()
+			resps := []*protoobject.GetResponse{
+				{
+					Body: &protoobject.GetResponse_Body{
+						ObjectPart: &protoobject.GetResponse_Body_Init_{
+							Init: &protoobject.GetResponse_Body_Init{
+								ObjectId:  objMsg.ObjectId,
+								Signature: objMsg.Signature,
+								Header:    objMsg.Header,
+							},
+						},
+					},
+					MetaHeader:   nestMetaHeader(newBlankMetaHeader(), 5),
+					VerifyHeader: newAnyVerificationHeader(),
+				},
+				{
+					Body: &protoobject.GetResponse_Body{
+						ObjectPart: &protoobject.GetResponse_Body_Chunk{
+							Chunk: obj.Payload()[first:],
+						},
+					},
+					VerifyHeader: newAnyVerificationHeader(),
+				},
+			}
+
+			mockConns.setConn(nodes[1], newCheckedGetResponsesConn(t, func(got *protoobject.GetRequest) error {
+				if got.GetBody().GetRange() != nil {
+					return errors.New("legacy range is set")
+				}
+				if !proto.Equal(req.Body.ExtendedRange, got.GetBody().GetExtendedRange()) {
+					return fmt.Errorf("unexpected extended range: %v", got.GetBody().GetExtendedRange())
+				}
+				return nil
+			}, resps))
 
 			gotResps := collectGetResponses(t, srv, req)
 			require.Equal(t, len(resps), len(gotResps))
@@ -449,12 +585,25 @@ func assertGetStreamResponses(t *testing.T, obj object.Object, resps []*protoobj
 }
 
 func newFixedGetResponsesConn(t *testing.T, resps []*protoobject.GetResponse) clientcore.MultiAddressClient {
+	return newCheckedGetResponsesConn(t, nil, resps)
+}
+
+func newCheckedGetResponsesConn(t *testing.T, check func(*protoobject.GetRequest) error, resps []*protoobject.GetResponse) clientcore.MultiAddressClient {
 	return newRawServiceOnlyConn(t, &grpc.ServiceDesc{
 		ServiceName: protoobject.ObjectService_ServiceDesc.ServiceName,
 		Streams: []grpc.StreamDesc{
 			{
 				StreamName: "Get",
 				Handler: func(srv any, stream grpc.ServerStream) error {
+					if check != nil {
+						var req protoobject.GetRequest
+						if err := stream.RecvMsg(&req); err != nil {
+							return fmt.Errorf("receive request: %w", err)
+						}
+						if err := check(&req); err != nil {
+							return fmt.Errorf("check request: %w", err)
+						}
+					}
 					for i := range resps {
 						if err := stream.SendMsg(resps[i]); err != nil {
 							return fmt.Errorf("send message #%d: %w", i, err)

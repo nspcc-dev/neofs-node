@@ -6,6 +6,7 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -25,9 +26,9 @@ type SubmitDataStreamFunc = func(io.ReadCloser)
 type Prm struct {
 	commonPrm
 
-	rng         *object.Range
-	payloadOnly bool
-	recheckEACL bool
+	payloadRange common.PayloadRange
+	payloadOnly  bool
+	recheckEACL  bool
 
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
@@ -123,7 +124,36 @@ func (p *Prm) SetObjectWriter(w ObjectWriter) {
 
 // SetRange sets range of the requested payload data.
 func (p *Prm) SetRange(rng *object.Range) {
-	p.rng = rng
+	if rng == nil {
+		p.payloadRange = common.PayloadRange{}
+		return
+	}
+	p.payloadRange = common.NewPayloadRange(rng.GetOffset(), rng.GetLength())
+}
+
+// SetRangeBounds requests an inclusive payload range from first to last.
+func (p *Prm) SetRangeBounds(first, last uint64) {
+	p.payloadRange = common.NewPayloadRangeBounds(first, last)
+}
+
+// SetRangeFrom requests payload bytes from first to the end.
+func (p *Prm) SetRangeFrom(first uint64) {
+	p.payloadRange = common.NewPayloadRangeFrom(first)
+}
+
+// SetRangeSuffix requests the last length payload bytes.
+func (p *Prm) SetRangeSuffix(length uint64) {
+	p.payloadRange = common.NewPayloadRangeSuffix(length)
+}
+
+// ResolveRange resolves the requested payload range against payloadLen.
+func (p Prm) ResolveRange(payloadLen uint64) (uint64, uint64, error) {
+	return p.payloadRange.Resolve(payloadLen)
+}
+
+// HasRange reports whether a fixed or extended payload range is configured.
+func (p Prm) HasRange() bool {
+	return p.payloadRange.IsSet()
 }
 
 // MarkPayloadOnly requests payload without an object header.
@@ -206,7 +236,14 @@ func (p Prm) GetBuffer() ([]byte, SubmitStreamFunc) {
 
 // Range returns payload range settings.
 func (p Prm) Range() *object.Range {
-	return p.rng
+	if p.payloadRange.Mode != common.PayloadRangeModeOffsetLength {
+		return nil
+	}
+	off, ln := p.payloadRange.First, p.payloadRange.Second
+	rng := object.NewRange()
+	rng.SetOffset(off)
+	rng.SetLength(ln)
+	return rng
 }
 
 // PayloadOnly reports whether only payload was requested.

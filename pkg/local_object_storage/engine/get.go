@@ -6,6 +6,7 @@ import (
 	"io"
 
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -208,39 +209,40 @@ func (e *StorageEngine) GetStream(_ context.Context, addr oid.Address) (*object.
 	return obj, reader, err
 }
 
-// GetRangeStream reads payload range of the referenced object from e. Both zero
-// off and ln mean full payload. The stream must be finally closed by the
-// caller.
+// GetRangeStream reads payload range of the referenced object from e and
+// optionally returns the header parsed from the same storage read. The stream
+// must be finally closed by the caller.
 //
 // If object is missing, GetRangeStream returns [apistatus.ErrObjectNotFound].
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (e *StorageEngine) GetRangeStream(ctx context.Context, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+func (e *StorageEngine) GetRangeStream(ctx context.Context, addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetRangeStreamDuration)()
 	}
 
-	return e.getRangeStream(ctx, addr, off, ln)
+	return e.getRangeStream(ctx, addr, rng, readHeader)
 }
 
-func (e *StorageEngine) getRangeStream(_ context.Context, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
+func (e *StorageEngine) getRangeStream(_ context.Context, addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, io.ReadCloser, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
 	if e.blockErr != nil {
-		return nil, e.blockErr
+		return nil, nil, e.blockErr
 	}
 
+	var hdr *object.Object
 	var stream io.ReadCloser
 
 	err := e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
 		var err error
-		stream, err = s.GetRangeStreamWithMetadataLookup(addr, off, ln, ignoreMetadata)
+		hdr, stream, err = s.GetRangeStreamWithMetadataLookup(addr, rng, readHeader, ignoreMetadata)
 		return err
 	})
 
-	return stream, err
+	return hdr, stream, err
 }
 
 // ReadObject reads first bytes of the referenced object's binary containing its

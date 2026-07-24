@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -106,29 +107,25 @@ func (c *cache) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, erro
 	return stream, reader, nil
 }
 
-// GetRangeStream reads payload range of the referenced object from c. Both zero
-// off and ln mean full payload. The stream must be finally closed by the
-// caller.
+// GetRangeStream reads the requested payload range of the referenced object
+// from c. It optionally returns the object header parsed from the same read.
+// The stream must be finally closed by the caller.
 //
 // If object is missing, GetRangeStream returns [apistatus.ErrObjectNotFound].
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (c *cache) GetRangeStream(addr oid.Address, off uint64, ln uint64) (uint64, io.ReadCloser, error) {
-	if ln == 0 && off != 0 {
-		return 0, nil, fmt.Errorf("invalid range off=%d,ln=0", off)
-	}
-
+func (c *cache) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	if !c.objCounters.HasAddress(addr) {
-		return 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+		return nil, 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
 	}
 
-	pldLen, stream, err := c.fsTree.GetRangeStream(addr, off, ln)
+	hdr, pldLen, stream, err := c.fsTree.GetRangeStream(addr, rng, readHeader)
 	if err != nil {
-		return 0, nil, fmt.Errorf("get range stream from underlying FS tree: %w", err)
+		return nil, 0, nil, fmt.Errorf("get range stream from underlying FS tree: %w", err)
 	}
 
-	return pldLen, stream, nil
+	return hdr, pldLen, stream, nil
 }
 
 // ReadPayloadRange is [Cache.ReadObject] analogue for payload range reading.

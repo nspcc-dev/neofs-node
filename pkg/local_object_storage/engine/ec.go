@@ -8,6 +8,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -164,13 +165,12 @@ loop:
 // similar to [StorageEngine.ReadECPart].
 func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error) {
 	var stream io.ReadCloser
+	var err error
 
-	err := e.getECPartRangeFunc(cnr, parent, pi, off, ln, MetricRegister.AddReadECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
-		var err error
+	err = e.getECPartRangeFunc(cnr, parent, pi, common.NewPayloadRange(off, ln), MetricRegister.AddReadECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
 		stream, err = s.ReadECPartRange(cnr, parent, pi, off, ln, buf)
 		return err
-	}, func(s shardInterface, cnr cid.ID, partID oid.ID, off, ln uint64) error {
-		var err error
+	}, func(s shardInterface, cnr cid.ID, partID oid.ID) error {
 		stream, err = s.ReadRange(cnr, partID, off, ln, buf)
 		return err
 	})
@@ -180,9 +180,10 @@ func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oi
 
 // GetECPartRange looks up for object that carries EC part produced within cnr
 // for parent object and indexed by pi in the underlying shards, checks its
-// availability and, if available, reads it. Returns full payload len. If zero,
-// GetECPartRange returns (0, nil, nil). Otherwise, range-cut payload stream is
-// also returned. In this case, the stream must be finally closed by the caller.
+// availability and, if available, reads it. If readHeader is set, the object
+// header is also returned. Returns full payload len and a range-cut payload
+// stream. The stream is nil for an empty payload and must otherwise be finally
+// closed by the caller.
 //
 // If write-cache is enabled, GetECPartRange tries to get the object from it
 // first.
@@ -203,26 +204,26 @@ func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oi
 // [apistatus.ErrObjectOutOfRange].
 //
 // Range bounds are limited by int64.
-func (e *StorageEngine) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
+func (e *StorageEngine) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+	var hdr *object.Object
 	var pldLen uint64
 	var stream io.ReadCloser
 
-	err := e.getECPartRangeFunc(cnr, parent, pi, off, ln, MetricRegister.AddGetECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
+	err := e.getECPartRangeFunc(cnr, parent, pi, rng, MetricRegister.AddGetECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
 		var err error
-		pldLen, stream, err = s.GetECPartRange(cnr, parent, pi, off, ln)
+		hdr, pldLen, stream, err = s.GetECPartRange(cnr, parent, pi, rng, readHeader)
 		return err
-	}, func(s shardInterface, cnr cid.ID, partID oid.ID, off, ln uint64) error {
+	}, func(s shardInterface, cnr cid.ID, partID oid.ID) error {
 		var err error
-		pldLen, stream, err = s.GetRangeStream(cnr, partID, off, ln)
+		hdr, pldLen, stream, err = s.GetRangeStream(cnr, partID, rng, readHeader)
 		return err
 	})
-
-	return pldLen, stream, err
+	return hdr, pldLen, stream, err
 }
 
-func (e *StorageEngine) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, metricFn func(MetricRegister, time.Duration),
-	resolveFn func(shardInterface, cid.ID, oid.ID, iec.PartInfo, uint64, uint64) error,
-	rangeFn func(shardInterface, cid.ID, oid.ID, uint64, uint64) error,
+func (e *StorageEngine) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, metricFn func(MetricRegister, time.Duration),
+	resolveFn func(shardInterface, cid.ID, oid.ID, iec.PartInfo) error,
+	rangeFn func(shardInterface, cid.ID, oid.ID) error,
 ) error {
 	if e.metrics != nil {
 		defer elapsed(func(d time.Duration) { metricFn(e.metrics, d) })()
@@ -239,7 +240,7 @@ func (e *StorageEngine) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.Par
 	var partID oid.ID
 loop:
 	for i := range s {
-		err := resolveFn(s[i].shardIface, cnr, parent, pi, off, ln)
+		err := resolveFn(s[i].shardIface, cnr, parent, pi)
 		switch {
 		case err == nil:
 			return nil
@@ -273,7 +274,7 @@ loop:
 
 	for i := range s {
 		// get an object bypassing the metabase. We can miss deletion or expiration mark. GetECPart behaves like this, so here too.
-		err := rangeFn(s[i].shardIface, cnr, partID, off, ln)
+		err := rangeFn(s[i].shardIface, cnr, partID)
 		switch {
 		case err == nil:
 			return nil

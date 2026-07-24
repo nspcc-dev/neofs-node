@@ -114,13 +114,12 @@ func (s *Shard) getECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeC
 // similar to [Shard.ReadHeader].
 func (s *Shard) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error) {
 	var stream io.ReadCloser
+	var err error
 
-	err := s.getECPartRangeFunc(cnr, parent, pi, off, ln, func(writeCache writecache.Cache, addr oid.Address, off, ln uint64) error {
-		var err error
+	err = s.getECPartRangeFunc(cnr, parent, pi, common.NewPayloadRange(off, ln), false, func(writeCache writecache.Cache, addr oid.Address) error {
 		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address, off, ln uint64) error {
-		var err error
+	}, func(blobStorage common.Storage, addr oid.Address) error {
 		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf)
 		return err
 	})
@@ -130,10 +129,9 @@ func (s *Shard) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off,
 
 // GetECPartRange looks up for object that carries EC part produced within cnr
 // for parent object and indexed by pi in the underlying metabase, checks its
-// availability and reads it from the underlying BLOB storage. Returns full
-// payload len. If zero, GetECPartRange returns (0, nil, nil). Otherwise,
-// range-cut payload stream is also returned. In this case, the stream must be
-// finally closed by the caller.
+// availability and reads it from the underlying BLOB storage. If readHeader is
+// set, the object header is also returned. Returns full payload len and a
+// range-cut payload stream. A non-nil stream must be finally closed by the caller.
 //
 // If object is missing, GetECPartRange returns [apistatus.ErrObjectNotFound].
 //
@@ -154,26 +152,26 @@ func (s *Shard) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off,
 //
 // If the range is out of payload bounds, GetECPartRange returns
 // [apistatus.ErrObjectOutOfRange].
-func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) (uint64, io.ReadCloser, error) {
+func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+	var hdr *object.Object
 	var pldLen uint64
 	var stream io.ReadCloser
 
-	err := s.getECPartRangeFunc(cnr, parent, pi, off, ln, func(writeCache writecache.Cache, addr oid.Address, off, ln uint64) error {
+	err := s.getECPartRangeFunc(cnr, parent, pi, rng, readHeader, func(writeCache writecache.Cache, addr oid.Address) error {
 		var err error
-		pldLen, stream, err = writeCache.GetRangeStream(addr, off, ln)
+		hdr, pldLen, stream, err = writeCache.GetRangeStream(addr, rng, readHeader)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address, off, ln uint64) error {
+	}, func(blobStorage common.Storage, addr oid.Address) error {
 		var err error
-		pldLen, stream, err = blobStorage.GetRangeStream(addr, off, ln)
+		hdr, pldLen, stream, err = blobStorage.GetRangeStream(addr, rng, readHeader)
 		return err
 	})
-
-	return pldLen, stream, err
+	return hdr, pldLen, stream, err
 }
 
-func (s *Shard) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64,
-	writeCacheFn func(writecache.Cache, oid.Address, uint64, uint64) error,
-	blobStorageFn func(common.Storage, oid.Address, uint64, uint64) error,
+func (s *Shard) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool,
+	writeCacheFn func(writecache.Cache, oid.Address) error,
+	blobStorageFn func(common.Storage, oid.Address) error,
 ) error {
 	partID, pldLen, err := s.metaBaseIface.ResolveECPartWithPayloadLen(cnr, parent, pi)
 	if err != nil {
@@ -184,16 +182,21 @@ func (s *Shard) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, o
 		s.log.Warn("EC part ID returned from metabase with error",
 			zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("partID", partID), zap.Error(err))
 	} else {
-		if ln == 0 && off == 0 {
-			if pldLen == 0 {
-				return nil
-			}
-		} else if off >= pldLen || pldLen-off < ln {
-			return apistatus.ErrObjectOutOfRange
+		_, ln, err := rng.Resolve(pldLen)
+		if err != nil {
+			return err
+		}
+		if ln == 0 && !readHeader {
+			return nil
 		}
 	}
 
-	err = s.getRangeStreamFunc(cnr, partID, off, ln, writeCacheFn, blobStorageFn)
+	err = s.getRangeStreamFunc(cnr, partID,
+		func(c writecache.Cache, addr oid.Address) error {
+			return writeCacheFn(c, addr)
+		}, func(stor common.Storage, addr oid.Address) error {
+			return blobStorageFn(stor, addr)
+		})
 	if err != nil {
 		return fmt.Errorf("get range by ID %w: %w", ierrors.ObjectID(partID), err)
 	}

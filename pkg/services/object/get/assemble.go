@@ -100,6 +100,9 @@ func (exec *execCtx) initFromChild(obj oid.ID) (*oid.ID, []oid.ID) {
 	}
 
 	exec.collectedHeader = par
+	if !exec.resolvePayloadRange() {
+		return nil, nil
+	}
 
 	if rng := exec.ctxRange(); rng != nil {
 		seekOff := rng.GetOffset()

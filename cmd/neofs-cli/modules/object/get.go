@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/cheggaaa/pb"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -18,7 +20,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const payloadOnlyFlag = "payload-only"
+const (
+	payloadOnlyFlag   = "payload-only"
+	extendedRangeFlag = "extended-range"
+)
 
 var objectGetCmd = &cobra.Command{
 	Use:   "get",
@@ -42,6 +47,7 @@ func initObjectGetCmd() {
 
 	flags.String(fileFlag, "", "File to write object payload to(with -b together with signature and header). Default: stdout.")
 	flags.String(rangeFlag, "", rangeFlagUsage)
+	flags.String(extendedRangeFlag, "", "Extended range in form first:last, first:, or :length")
 	flags.Bool(rawFlag, false, rawFlagDesc)
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 	flags.Bool(binaryFlag, false, "Serialize whole object structure into given file(id + signature + header + payload).")
@@ -80,6 +86,14 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("at most one range can be specified, got: %d", len(ranges))
 	}
 
+	extendedFirst, extendedLast, err := getExtendedRange(cmd)
+	if err != nil {
+		return err
+	}
+	if len(ranges) != 0 && (extendedFirst != nil || extendedLast != nil) {
+		return fmt.Errorf("--%s cannot be used with --%s", rangeFlag, extendedRangeFlag)
+	}
+
 	pk, err := key.GetOrGenerate(cmd)
 	if err != nil {
 		return err
@@ -114,11 +128,19 @@ func getObject(cmd *cobra.Command, _ []string) error {
 
 	binary, _ := cmd.Flags().GetBool(binaryFlag)
 	payloadOnly, _ := cmd.Flags().GetBool(payloadOnlyFlag)
+	if binary && (len(ranges) != 0 || extendedFirst != nil || extendedLast != nil) {
+		return fmt.Errorf("--%s cannot be used with a range", binaryFlag)
+	}
 	if len(ranges) != 0 {
-		if binary {
-			return fmt.Errorf("--%s cannot be used with --%s", binaryFlag, rangeFlag)
-		}
 		prm.SetRange(ranges[0].GetOffset(), ranges[0].GetLength())
+	}
+	switch {
+	case extendedFirst != nil && extendedLast != nil:
+		prm.SetRangeBounds(*extendedFirst, *extendedLast)
+	case extendedFirst != nil:
+		prm.SetRangeFrom(*extendedFirst)
+	case extendedLast != nil:
+		prm.SetRangeSuffix(*extendedLast)
 	}
 	if payloadOnly {
 		prm.MarkPayloadOnly()
@@ -134,7 +156,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		}
 
 		if filename != "" && !noProgress && !payloadOnly {
-			p = pb.New64(payloadReadSize(hdr.PayloadSize(), ranges))
+			p = pb.New64(payloadReadSize(hdr.PayloadSize(), ranges, extendedFirst, extendedLast))
 			p.Output = cmd.OutOrStdout()
 			p.Start()
 
@@ -173,23 +195,77 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
+func getExtendedRange(cmd *cobra.Command) (*uint64, *uint64, error) {
+	if !cmd.Flags().Changed(extendedRangeFlag) {
+		return nil, nil, nil
+	}
+
+	value, err := cmd.Flags().GetString(extendedRangeFlag)
+	if err != nil {
+		return nil, nil, err
+	}
+	firstValue, lastValue, ok := strings.Cut(value, ":")
+	if !ok || strings.Contains(lastValue, ":") || firstValue == "" && lastValue == "" {
+		return nil, nil, fmt.Errorf("invalid --%s value %q: expected first:last, first:, or :length", extendedRangeFlag, value)
+	}
+
+	var first, last *uint64
+	if firstValue != "" {
+		v, err := strconv.ParseUint(firstValue, 10, 64)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid first position in --%s: %w", extendedRangeFlag, err)
+		}
+		first = &v
+	}
+	if lastValue != "" {
+		v, err := strconv.ParseUint(lastValue, 10, 64)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid last position or suffix length in --%s: %w", extendedRangeFlag, err)
+		}
+		last = &v
+	}
+
+	if first != nil && last != nil && *first > *last {
+		return nil, nil, fmt.Errorf("invalid --%s bounds: first position exceeds last", extendedRangeFlag)
+	}
+	if first == nil && *last == 0 {
+		return nil, nil, fmt.Errorf("invalid --%s suffix: length must be positive", extendedRangeFlag)
+	}
+	return first, last, nil
+}
+
 func strictOutput(cmd *cobra.Command) bool {
 	toJSON, _ := cmd.Flags().GetBool(commonflags.JSON)
 	toProto, _ := cmd.Flags().GetBool("proto")
 	return toJSON || toProto
 }
 
-func payloadReadSize(payloadSize uint64, ranges []*object.Range) int64 {
-	if len(ranges) == 0 {
-		return int64(payloadSize)
+func payloadReadSize(payloadSize uint64, ranges []*object.Range, first, last *uint64) int64 {
+	if len(ranges) != 0 {
+		rng := ranges[0]
+		if ln := rng.GetLength(); ln != 0 {
+			return int64(ln)
+		}
+		if off := rng.GetOffset(); off < payloadSize {
+			return int64(payloadSize - off)
+		}
+		return 0
 	}
 
-	rng := ranges[0]
-	if ln := rng.GetLength(); ln != 0 {
-		return int64(ln)
+	switch {
+	case first != nil && last != nil:
+		if *first >= payloadSize {
+			return 0
+		}
+		return int64(min(*last, payloadSize-1) - *first + 1)
+	case first != nil:
+		if *first < payloadSize {
+			return int64(payloadSize - *first)
+		}
+		return 0
+	case last != nil:
+		return int64(min(*last, payloadSize))
+	default:
+		return int64(payloadSize)
 	}
-	if off := rng.GetOffset(); off < payloadSize {
-		return int64(payloadSize - off)
-	}
-	return 0
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"testing/iotest"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -75,7 +76,7 @@ func testShardGetRangeStream(t *testing.T, hasWriteCache bool) {
 			err := sh.Put(obj, nil)
 			require.NoError(t, err)
 
-			stream, err := sh.GetRangeStreamWithMetadataLookup(addr, tc.rng.GetOffset(), tc.rng.GetLength(), false)
+			_, stream, err := sh.GetRangeStreamWithMetadataLookup(addr, common.NewPayloadRange(tc.rng.GetOffset(), tc.rng.GetLength()), false, false)
 			if tc.hasErr {
 				require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 			} else {
