@@ -152,7 +152,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			obj := getUnsignedObject()
 			sig := neofscrypto.NewSignatureFromRawKey(0, testutil.RandByteSlice(1024), testutil.RandByteSlice(1025))
 			obj.SetSignature(&sig)
-			require.EqualError(t, icrypto.AuthenticateObject(obj, nil, false, nil, nil), "invocation script len 1025 overflows limit 1024")
+			require.EqualError(t, icrypto.AuthenticateObject(obj, nil, nil, nil), "invocation script len 1025 overflows limit 1024")
 		})
 		t.Run("unsupported scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)

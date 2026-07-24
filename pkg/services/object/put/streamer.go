@@ -77,7 +77,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
-	if prm.hdr.Signature() != nil {
+	if prm.hdr.Signature() != nil || prm.ecPart.RuleIndex >= 0 {
 		p.relay = prm.relay
 
 		// prepare untrusted-Put object target
@@ -227,8 +227,8 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 			if ecPart.RuleIndex >= ecRulesN {
 				return fmt.Errorf("invalid EC part info in object header: EC rule idx=%d with %d rules in total", ecPart.RuleIndex, ecRulesN)
 			}
-			if prm.hdr.Signature() == nil {
-				return errors.New("unsigned EC part object")
+			if prm.hdr.Signature() != nil {
+				return errors.New("signed EC part object")
 			}
 			prm.localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
 		} else {
