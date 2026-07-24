@@ -91,7 +91,11 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 	}
 
 	corruptPart := func(t *testing.T, f func(*object.Object)) object.Object {
-		return corruptParent(t, ecParts[0], f)
+		var cp object.Object
+		ecParts[0].CopyTo(&cp)
+		f(&cp)
+		require.NoError(t, cp.CalculateAndSetID())
+		return cp
 	}
 
 	for _, tc := range []struct {

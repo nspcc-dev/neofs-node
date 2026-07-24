@@ -112,7 +112,7 @@ func TestServer_Get_Local(t *testing.T) {
 
 					expected := *obj
 					expected.SetPayload(obj.Payload()[tc.from:tc.to])
-					assertGetStreamResponses(t, expected, collectGetResponses(t, srv, req))
+					assertGetStreamResponses(t, expected, collectGetResponses(t, srv, req), false)
 					mtrc.reset()
 				})
 			}
@@ -218,7 +218,7 @@ func TestServer_Get_Local(t *testing.T) {
 		}
 		signGetRequest(t, req, signer)
 
-		assertGetRequest(t, srv, mtrc, req, part)
+		assertGetRequest(t, srv, mtrc, req, part, true)
 
 		handlerFSChain.ecRules = nil
 	})
@@ -496,13 +496,13 @@ func assertGetOK(t *testing.T, srv *Server, mtrc *metricsCollector, obj object.O
 
 func assertGetOKVersioned(t *testing.T, srv *Server, mtrc *metricsCollector, obj object.Object, signer neofscrypto.Signer, ver version.Version) []*protoobject.GetResponse {
 	req := newLocalGetRequest(t, ver, obj.Address(), signer)
-	return assertGetRequest(t, srv, mtrc, req, obj)
+	return assertGetRequest(t, srv, mtrc, req, obj, false)
 }
 
-func assertGetRequest(t *testing.T, srv *Server, mtrc *metricsCollector, req *protoobject.GetRequest, obj object.Object) []*protoobject.GetResponse {
+func assertGetRequest(t *testing.T, srv *Server, mtrc *metricsCollector, req *protoobject.GetRequest, obj object.Object, unsingedObject bool) []*protoobject.GetResponse {
 	resps := collectGetResponses(t, srv, req)
 
-	assertGetStreamResponses(t, obj, resps)
+	assertGetStreamResponses(t, obj, resps, unsingedObject)
 
 	require.EqualValues(t, obj.PayloadSize(), mtrc.getPayloadLen())
 	mtrc.reset()
@@ -530,7 +530,7 @@ func collectGetResponses(t *testing.T, srv *Server, req *protoobject.GetRequest)
 	return resps
 }
 
-func assertGetStreamResponses(t *testing.T, obj object.Object, resps []*protoobject.GetResponse) {
+func assertGetStreamResponses(t *testing.T, obj object.Object, resps []*protoobject.GetResponse, unsingedObject bool) {
 	require.NotEmpty(t, resps)
 
 	headResp := resps[0]
@@ -542,7 +542,11 @@ func assertGetStreamResponses(t *testing.T, obj object.Object, resps []*protoobj
 	require.NotNil(t, in)
 	require.NotNil(t, in.Init)
 	require.NotNil(t, in.Init.ObjectId)
-	require.NotNil(t, in.Init.Signature)
+	if unsingedObject {
+		require.Nil(t, in.Init.Signature)
+	} else {
+		require.NotNil(t, in.Init.Signature)
+	}
 	require.NotNil(t, in.Init.Header)
 
 	var restoredHdr object.Object

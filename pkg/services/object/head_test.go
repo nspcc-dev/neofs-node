@@ -21,6 +21,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -61,7 +62,7 @@ func TestServer_Head_Local(t *testing.T) {
 
 	assertWithVersion := func(t *testing.T, ver version.Version) *protoobject.HeadResponse {
 		req := newLocalHeadRequest(t, ver, obj.Address(), signer)
-		return assertHeadRequestOK(t, srv, fsChain, req, *obj)
+		return assertHeadRequestOK(t, srv, fsChain, req, *obj, false)
 	}
 
 	t.Run("EC part", func(t *testing.T) {
@@ -88,7 +89,7 @@ func TestServer_Head_Local(t *testing.T) {
 		req.MetaHeader.Ttl = 2 // to show it has no effect w/ EC X-headers
 		signHeadRequest(t, req, signer)
 
-		assertHeadRequestOK(t, srv, fsChain, req, partHdr)
+		assertHeadRequestOK(t, srv, fsChain, req, partHdr, true)
 
 		handlerFSChain.ecRules = nil
 	})
@@ -164,7 +165,7 @@ func TestServer_Head_Remote(t *testing.T) {
 		req.MetaHeader.Ttl = 2
 		signHeadRequest(t, req, signer)
 
-		assertHeadRequestOK(t, srv, fsChain, req, *obj.CutPayload())
+		assertHeadRequestOK(t, srv, fsChain, req, *obj.CutPayload(), false)
 	})
 
 	t.Run("REP forwarded", func(t *testing.T) {
@@ -332,7 +333,7 @@ func callHead(t *testing.T, srv *Server, req *protoobject.HeadRequest) (*protoob
 	return protoobject.NewObjectServiceClient(c).Head(context.Background(), req)
 }
 
-func assertHeadRequestOK(t *testing.T, srv *Server, fsChain netmapcore.State, req *protoobject.HeadRequest, expObj object.Object) *protoobject.HeadResponse {
+func assertHeadRequestOK(t *testing.T, srv *Server, fsChain netmapcore.State, req *protoobject.HeadRequest, expObj object.Object, unsignedObject bool) *protoobject.HeadResponse {
 	resp, err := callHead(t, srv, req)
 	require.NoError(t, err)
 
@@ -342,12 +343,17 @@ func assertHeadRequestOK(t *testing.T, srv *Server, fsChain netmapcore.State, re
 		Status:  nil, // for clarity
 	}, resp.MetaHeader)
 
+	var sig *refs.Signature
+	if !unsignedObject {
+		sig = expObj.Signature().ProtoMessage()
+	}
+
 	require.NotNil(t, resp.Body)
 	require.Equal(t, &protoobject.HeadResponse_Body{
 		Head: &protoobject.HeadResponse_Body_Header{
 			Header: &protoobject.HeaderWithSignature{
 				Header:    expObj.ProtoMessage().Header,
-				Signature: expObj.Signature().ProtoMessage(),
+				Signature: sig,
 			},
 		},
 	}, resp.Body)

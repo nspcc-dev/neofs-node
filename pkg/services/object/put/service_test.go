@@ -575,7 +575,7 @@ func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cn
 			}
 		}
 
-		assertObjectIntegrity(t, restoredObj)
+		assertObjectIntegrity(t, restoredObj, false)
 		require.True(t, bytes.Equal(srcObj.Payload(), restoredObj.Payload()))
 		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
 		if isSessionTokenV2 {
@@ -667,7 +667,7 @@ func testSlicingECRules(t *testing.T, cluster *testCluster, ln uint64, rules []i
 
 		require.Zero(t, islices.TwoDimSliceElementCount(nodeObjLists))
 
-		assertObjectIntegrity(t, restoredObj)
+		assertObjectIntegrity(t, restoredObj, true)
 		require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 		if isSessionV2 {
 			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
@@ -757,7 +757,7 @@ func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnr
 
 		require.Zero(t, islices.TwoDimSliceElementCount(nodeObjLists[cnrNodeNum:]))
 
-		assertObjectIntegrity(t, restoredObj)
+		assertObjectIntegrity(t, restoredObj, false)
 		require.Empty(t, restoredObj.Payload())
 		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
 		if isSessionV2 {
@@ -1397,7 +1397,7 @@ func assertSplitChain(t *testing.T, limit, ln uint64, sessionToken *session.Obje
 
 	// all
 	for _, member := range members {
-		assertObjectIntegrity(t, member)
+		assertObjectIntegrity(t, member, false)
 		require.LessOrEqual(t, member.PayloadSize(), limit)
 		if sessionToken != nil {
 			require.Equal(t, sessionToken, member.SessionToken())
@@ -1494,8 +1494,13 @@ func splitMembersCount(limit, ln uint64) int {
 	return int(res)
 }
 
-func assertObjectIntegrity(t *testing.T, obj object.Object) {
-	require.NoError(t, obj.CheckVerificationFields())
+func assertObjectIntegrity(t *testing.T, obj object.Object, unsingedObject bool) {
+	if unsingedObject {
+		require.NoError(t, obj.VerifyID())
+		require.NoError(t, obj.VerifyPayloadChecksum())
+	} else {
+		require.NoError(t, obj.CheckVerificationFields())
+	}
 
 	require.NotNil(t, obj.Version())
 	require.Equal(t, version.Current(), *obj.Version())
@@ -1528,7 +1533,7 @@ func checkAndGetObjectFromECParts(t *testing.T, limit uint64, rule iec.Rule, par
 	require.Len(t, parts, int(rule.DataPartNum+rule.ParityPartNum))
 
 	for _, part := range parts {
-		assertObjectIntegrity(t, part)
+		assertObjectIntegrity(t, part, true)
 		require.Zero(t, part.SessionToken())
 		require.LessOrEqual(t, part.PayloadSize(), limit)
 	}
@@ -2025,7 +2030,7 @@ func testInitialPlacementEC(t *testing.T, ecRules []iec.Rule, initialRules []boo
 
 			restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
 
-			assertObjectIntegrity(t, restoredObj)
+			assertObjectIntegrity(t, restoredObj, false)
 			require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
 			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
@@ -2113,7 +2118,7 @@ func testPostInitialPlacementEC(t *testing.T, ecRules []iec.Rule, ip netmap.Init
 
 		restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
 
-		assertObjectIntegrity(t, restoredObj)
+		assertObjectIntegrity(t, restoredObj, false)
 		require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 		require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
 		require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
@@ -2248,7 +2253,7 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 				if slices.Contains(repNodes[i], j) {
 					require.Len(t, nodeObjLists[nodeIdx], 1)
 					storedObj := nodeObjLists[nodeIdx][0]
-					assertObjectIntegrity(t, storedObj)
+					assertObjectIntegrity(t, storedObj, false)
 					require.Equal(t, obj.Payload(), storedObj.Payload())
 					require.Equal(t, obj.Attributes(), storedObj.Attributes())
 				} else {
@@ -2276,7 +2281,7 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 
 				restoredObj := checkAndGetObjectFromECParts(t, maxObjectSize, ecRules[i], parts)
 
-				assertObjectIntegrity(t, restoredObj)
+				assertObjectIntegrity(t, restoredObj, false)
 				require.Equal(t, expectedECParent.GetContainerID(), restoredObj.GetContainerID())
 				require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
 				require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())

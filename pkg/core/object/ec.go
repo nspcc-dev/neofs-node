@@ -71,6 +71,10 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 }
 
 func checkECPart(part object.Object, rules []netmap.ECRule) error {
+	if part.Signature() != nil {
+		return errors.New("signed EC part")
+	}
+
 	if part.SessionToken() != nil {
 		return errors.New("session token detected")
 	}
