@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Self-signed certificates for TLS gRPC endpoints (#4114)
 
 ### Fixed
 - SN could panic on forwarding GET/HEAD/RANGE request (#4120)

@@ -12,10 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	errEndpointNotSet = errors.New("empty/not set endpoint, see `grpc.endpoint` section")
-	errTLSCertNotSet  = errors.New("empty/not set TLS certificate file path, see `grpc.tls.certificate` section")
-)
+var errEndpointNotSet = errors.New("empty/not set endpoint, see `grpc.endpoint` section")
 
 // validateConfig validates storage node configuration.
 func validateConfig(c *config.Config) error {
@@ -45,9 +42,6 @@ func validateConfig(c *config.Config) error {
 	for i := range c.GRPC {
 		if c.GRPC[i].Endpoint == "" {
 			return errEndpointNotSet
-		}
-		if c.GRPC[i].TLS.Enabled && c.GRPC[i].TLS.Certificate == "" {
-			return errTLSCertNotSet
 		}
 	}
 

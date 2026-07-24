@@ -39,6 +39,32 @@ func (s grpcServerSnapshot) unchanged(other grpcServerSnapshot) bool {
 
 type grpcConfigSnapshot []grpcServerSnapshot
 
+func selfSignedTLSConfigChanged(oldCfg, newCfg grpcConfigSnapshot) bool {
+	oldByEndpoint := make(map[string]grpcServerSnapshot, len(oldCfg))
+	for _, old := range oldCfg {
+		oldByEndpoint[old.Endpoint] = old
+	}
+	for _, newSnap := range newCfg {
+		old, ok := oldByEndpoint[newSnap.Endpoint]
+		if !ok {
+			if isSelfSignedTLS(newSnap.TLS) {
+				return true
+			}
+			continue
+		}
+		delete(oldByEndpoint, newSnap.Endpoint)
+		if isSelfSignedTLS(old.TLS) != isSelfSignedTLS(newSnap.TLS) {
+			return true
+		}
+	}
+	for _, old := range oldByEndpoint {
+		if isSelfSignedTLS(old.TLS) {
+			return true
+		}
+	}
+	return false
+}
+
 func writeGRPCConfig(c *config.Config) grpcConfigSnapshot {
 	snap := make(grpcConfigSnapshot, len(c.GRPC))
 	for i, sc := range c.GRPC {
@@ -181,7 +207,15 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 
 	tlsCfg := sc.TLS
 
-	if tlsCfg.Enabled {
+	if isSelfSignedTLS(tlsCfg) {
+		if c.selfSignedTLSCert == nil {
+			return nil, nil, errors.New("missing self-signed TLS certificate")
+		}
+		serverOpts = append(serverOpts, grpc.Creds(trustedPeerTLSCredentials(&tls.Config{
+			Certificates: []tls.Certificate{*c.selfSignedTLSCert},
+			ClientAuth:   tls.RequestClientCert,
+		})))
+	} else if tlsCfg.Enabled {
 		certFile := tlsCfg.Certificate
 
 		if _, err := loadTLSCertificate(certFile, &c.key.PrivateKey); err != nil {
@@ -224,6 +258,9 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 // re-created; the rest continue serving without interruption.
 func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 	newCfg := writeGRPCConfig(c.appCfg)
+	if selfSignedTLSConfigChanged(oldCfg, newCfg) {
+		return errors.New("changing self-signed TLS endpoints requires node restart")
+	}
 
 	maxRecvMsgSizeOpt, err := getMaxRecvMsgSizeOpt(c)
 	if err != nil {

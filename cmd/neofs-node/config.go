@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -159,6 +160,8 @@ type shared struct {
 	bgClientCache  *cache.Clients
 	putClientCache *cache.Clients
 	localAddr      network.AddressGroup
+
+	selfSignedTLSCert *tls.Certificate
 
 	ownerIDFromKey user.ID // user ID calculated from key
 
@@ -406,7 +409,12 @@ func initCfg(appCfg *config.Config) *cfg {
 	minConnTimeout := appCfg.APIClient.MinConnectionTime
 	pingInterval := appCfg.APIClient.PingInterval
 	pingTimeout := appCfg.APIClient.PingTimeout
-	getClientCertificate := clientCertificateProvider(appCfg.GRPC, &key.PrivateKey)
+	if usesSelfSignedTLS(appCfg.GRPC) {
+		c.selfSignedTLSCert, err = selfSignedTLSCertificate(&key.PrivateKey, appCfg.GRPC)
+		fatalOnErrDetails("generate self-signed TLS certificate", err)
+		c.log.Info("using self-signed TLS certificate")
+	}
+	getClientCertificate := clientCertificateProvider(appCfg.GRPC, &key.PrivateKey, c.selfSignedTLSCert)
 	// Validate the certificate before serving requests so that it is trusted by peer SNs.
 	if getClientCertificate != nil {
 		_, err = getClientCertificate(nil)

@@ -25,14 +25,14 @@ import (
 
 func TestClientCertificateProvider(t *testing.T) {
 	key := newTLSKey(t)
-	require.Nil(t, clientCertificateProvider(nil, key))
+	require.Nil(t, clientCertificateProvider(nil, key, nil))
 
 	provider := clientCertificateProvider([]grpcconfig.GRPC{{
 		TLS: grpcconfig.TLS{
 			Enabled:     true,
 			Certificate: "missing-certificate",
 		},
-	}}, key)
+	}}, key, nil)
 	require.NotNil(t, provider)
 	_, err := provider(nil)
 	require.ErrorContains(t, err, "reload TLS client certificate")
@@ -40,17 +40,46 @@ func TestClientCertificateProvider(t *testing.T) {
 	provider = clientCertificateProvider([]grpcconfig.GRPC{
 		{TLS: grpcconfig.TLS{Enabled: false, Certificate: "ignored-certificate"}},
 		{TLS: grpcconfig.TLS{Enabled: true, Certificate: "client-certificate"}},
-	}, key)
+	}, key, nil)
 	_, err = provider(nil)
 	require.ErrorContains(t, err, "client-certificate")
 
 	certFile := writeTLSCertificate(t, testCertificate(t, key))
 	provider = clientCertificateProvider([]grpcconfig.GRPC{{
 		TLS: grpcconfig.TLS{Enabled: true, Certificate: certFile},
-	}}, key)
+	}}, key, nil)
 	cert, err := provider(nil)
 	require.NoError(t, err)
 	require.Equal(t, key, cert.PrivateKey)
+}
+
+func TestSelfSignedTLSCertificate(t *testing.T) {
+	key := newTLSKey(t)
+	cfgs := []grpcconfig.GRPC{
+		{Endpoint: "s01.neofs.devenv:8082", TLS: grpcconfig.TLS{Enabled: true}},
+		{Endpoint: "127.0.0.1:8082", TLS: grpcconfig.TLS{Enabled: true}},
+		{Endpoint: "[::1]:8082", TLS: grpcconfig.TLS{Enabled: true}},
+		{Endpoint: "127.0.0.1:8083", TLS: grpcconfig.TLS{Enabled: true}},
+	}
+	require.True(t, usesSelfSignedTLS(cfgs))
+	require.False(t, usesSelfSignedTLS([]grpcconfig.GRPC{{TLS: grpcconfig.TLS{Enabled: false}}}))
+
+	cert, err := selfSignedTLSCertificate(key, cfgs)
+	require.NoError(t, err)
+
+	parsed, err := x509.ParseCertificate(cert.Certificate[0])
+	require.NoError(t, err)
+	require.Equal(t, []string{"s01.neofs.devenv"}, parsed.DNSNames)
+	require.Len(t, parsed.IPAddresses, 2)
+	require.True(t, parsed.IPAddresses[0].Equal(net.ParseIP("127.0.0.1")))
+	require.True(t, parsed.IPAddresses[1].Equal(net.ParseIP("::1")))
+	require.True(t, parsed.PublicKey.(*ecdsa.PublicKey).Equal(&key.PublicKey))
+	require.Same(t, key, cert.PrivateKey)
+
+	provider := clientCertificateProvider(cfgs, key, cert)
+	got, err := provider(nil)
+	require.NoError(t, err)
+	require.Same(t, cert, got)
 }
 
 func TestLoadTLSCertificate(t *testing.T) {
