@@ -42,6 +42,10 @@ func (db *DB) PutCounted(obj *object.Object) (CountersDiff, error) {
 
 	currEpoch := db.epochState.CurrentEpoch()
 
+	db.log.Info("metabase PutCounted",
+	zap.String("object", obj.GetID().String()),
+	)
+
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		diff, err = db.put(tx, obj, 0, currEpoch)
 		return err
