@@ -158,7 +158,6 @@ func New(s *ecdsa.PrivateKey, net netmapcore.State, fsChain FSChain, c Contract,
 func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
 	return &protosession.ResponseMetaHeader{
 		Version: version.Current().ProtoMessage(),
-		Epoch:   s.net.CurrentEpoch(),
 		Status:  st,
 	}
 }

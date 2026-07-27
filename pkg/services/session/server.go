@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -30,7 +29,6 @@ type KeyStorage interface {
 type server struct {
 	protosession.UnimplementedSessionServiceServer
 	signer *ecdsa.PrivateKey
-	net    netmapcore.State
 	keys   KeyStorage
 }
 
@@ -38,10 +36,9 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmapcore.State, ks KeyStorage) protosession.SessionServiceServer {
+func New(s *ecdsa.PrivateKey, ks KeyStorage) protosession.SessionServiceServer {
 	return &server{
 		signer: s,
-		net:    net,
 		keys:   ks,
 	}
 }
@@ -51,7 +48,6 @@ func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
 			Version: version.Current().ProtoMessage(),
-			Epoch:   s.net.CurrentEpoch(),
 			Status:  st,
 		},
 	}

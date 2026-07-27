@@ -8,7 +8,6 @@ import (
 	"math/big"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	protoaccounting "github.com/nspcc-dev/neofs-sdk-go/proto/accounting"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -29,7 +28,6 @@ type BalanceContract interface {
 type server struct {
 	protoaccounting.UnimplementedAccountingServiceServer
 	signer   *ecdsa.PrivateKey
-	net      netmapcore.State
 	contract BalanceContract
 }
 
@@ -38,10 +36,9 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmapcore.State, c BalanceContract) protoaccounting.AccountingServiceServer {
+func New(s *ecdsa.PrivateKey, c BalanceContract) protoaccounting.AccountingServiceServer {
 	return &server{
 		signer:   s,
-		net:      net,
 		contract: c,
 	}
 }
@@ -51,7 +48,6 @@ func (s *server) makeBalanceResponse(body *protoaccounting.BalanceResponse_Body,
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
 			Version: version.Current().ProtoMessage(),
-			Epoch:   s.net.CurrentEpoch(),
 			Status:  st,
 		},
 	}

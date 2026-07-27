@@ -52,7 +52,6 @@ func currentProtoVersion() *refs.Version {
 func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
 	return &protosession.ResponseMetaHeader{
 		Version: currentProtoVersion(),
-		Epoch:   s.contract.CurrentEpoch(),
 		Status:  st,
 	}
 }
