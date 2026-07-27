@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
+	"unicode/utf8"
 
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	cnrevent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -102,6 +104,13 @@ func (cp *Processor) approveSetEACL(req cnrevent.PutContainerEACLRequest) {
 func validateEACL(t eacl.Table) error {
 	var b big.Int
 	for _, record := range t.Records() {
+		if !utf8.ValidString(record.Comment()) {
+			return errors.New("invalid UTF-8 comment")
+		}
+		if strings.ContainsRune(record.Comment(), 0) {
+			return errors.New("record comment contains zero byte")
+		}
+
 		for _, target := range record.Targets() {
 			if target.Role() == eacl.RoleSystem {
 				return errors.New("it is prohibited to modify system access")

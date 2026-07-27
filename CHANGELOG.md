@@ -33,7 +33,7 @@ Changelog for NeoFS Node
 - ADM no longer adds `storage.shard_pool_size` to produced SN configurations (#XXXK)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.20.0.20260703200507-4f450009c764` (#4065)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.20.0.20260726075240-2dc85f8929a1` (#4065, #4099)
 - NeoGo dependency to 0.121.0 (#4083)
 
 ### Updating from v0.54.0
