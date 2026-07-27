@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"text/tabwriter"
+	"unicode/utf8"
 
 	"github.com/flynn-archive/go-shlex"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -383,9 +384,17 @@ func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
 
 // ValidateEACLTable validates eACL table:
 //   - eACL table must not modify [eacl.RoleSystem] access.
+//   - Record comments must be valid UTF-8 without zero bytes.
 func ValidateEACLTable(t eacl.Table) error {
 	var b big.Int
 	for _, record := range t.Records() {
+		if !utf8.ValidString(record.Comment()) {
+			return errors.New("invalid UTF-8 comment")
+		}
+		if strings.ContainsRune(record.Comment(), 0) {
+			return errors.New("record comment contains zero byte")
+		}
+
 		for _, target := range record.Targets() {
 			if target.Role() == eacl.RoleSystem {
 				return errors.New("it is prohibited to modify system access")
