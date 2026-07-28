@@ -340,7 +340,7 @@ type getECTransport struct {
 }
 
 // CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64) error) (bool, uint64, error) {
 	logError := func(msg string, err error) {
 		x.server.log.Warn(msg, zap.Stringer("container", x.requestContainer), zap.Stringer("parent", x.requestObject),
 			zap.Int("ruleIdx", partInfo.RuleIndex), zap.Int("partIdx", partInfo.Index), zap.Error(err))
@@ -353,19 +353,19 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 	if err != nil {
 		var splitErr *object.SplitInfoError
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.As(err, &splitErr) {
-			return false, 0, 0, 0, err
+			return false, 0, err
 		}
 		if !errors.Is(err, apistatus.ErrObjectNotFound) {
 			logError("local storage failure (read EC part)", err)
 		}
-		return false, 0, 0, 0, nil
+		return false, 0, nil
 	}
 
 	defer stream.Close()
 
 	_, _, partHdrf, err := iobject.GetNonPayloadFieldBounds(buf[:prefixLen])
 	if err != nil {
-		return false, 0, 0, 0, fmt.Errorf("parse first %d bytes of object protobuf: %w", prefixLen, err)
+		return false, 0, fmt.Errorf("parse first %d bytes of object protobuf: %w", prefixLen, err)
 	}
 
 	partHdrBuf := buf[partHdrf.ValueFrom:partHdrf.To]
@@ -373,28 +373,32 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 	typ, err := iobject.GetTypeHeader(partHdrBuf)
 	if err != nil {
 		logError("invalid local object header (get type)", err)
-		return false, 0, 0, 0, nil
+		return false, 0, nil
 	}
 	if typ == object.TypeLink {
-		return false, 0, 0, 0, getsvc.ErrLinker
+		return false, 0, getsvc.ErrLinker
 	}
 
 	partPldLen, err := iobject.GetPayloadLengthHeader(partHdrBuf)
 	if err != nil {
 		logError("invalid local object header (get payload length)", err)
-		return false, 0, 0, 0, nil
+		return false, 0, nil
 	}
 
 	parentIDf, parentSigf, parentHdrf, err := iobject.GetParentNonPayloadFieldBoundsHeader(partHdrBuf)
 	if err != nil {
 		logError("invalid local object header (get parent fields)", err)
-		return false, 0, 0, 0, nil
+		return false, 0, nil
 	}
 
 	parentPldLen, err := iobject.GetPayloadLengthHeader(partHdrBuf[parentHdrf.ValueFrom:parentHdrf.To])
 	if err != nil {
 		logError("invalid local object header (get payload length from parent header)", err)
-		return false, 0, 0, 0, nil
+		return false, 0, nil
+	}
+
+	if err := interceptLens(partPldLen, parentPldLen); err != nil {
+		return false, 0, err
 	}
 
 	var n int
@@ -418,13 +422,13 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 	if err != nil {
 		var e copyReadError
 		if !errors.As(err, &e) {
-			return false, 0, 0, 0, err
+			return false, 0, err
 		}
 		logError("local storage stream failure (read EC part)", err)
-		return true, parentPldLen, partPldLen, uint64(e.written), nil
+		return true, uint64(e.written), nil
 	}
 
-	return true, parentPldLen, partPldLen, partPldLen, nil
+	return true, partPldLen, nil
 }
 
 // CopyLocalECPartRange implements [getsvc.GetECRequestTransport].
@@ -495,9 +499,8 @@ func (x *getECTransport) initGetPartRequest(partInfo iec.PartInfo) error {
 }
 
 // CopyRemoteECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64) error) (bool, uint64, error) {
 	var copiedHdr bool
-	var parentPldLen uint64
 	var partPldLen uint64
 	var copiedPartPld uint64
 
@@ -508,7 +511,13 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 			}
 
 			var err error
-			copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = x.copyRemotePart(ctx, conn)
+			copiedHdr, copiedPartPld, err = x.copyRemotePart(ctx, conn, func(gotPartPldLen uint64, gotParentPldLen uint64) error {
+				if err := interceptLens(gotPartPldLen, gotParentPldLen); err != nil {
+					return err
+				}
+				partPldLen = gotPartPldLen
+				return nil
+			})
 			if err != nil {
 				return err
 			}
@@ -537,13 +546,13 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 		return clientcore.ErrSkipConnection
 	})
 	if err != nil && !errors.Is(err, clientcore.ErrAllConnectionsSkipped) {
-		return false, 0, 0, 0, err
+		return false, 0, err
 	}
 
-	return copiedHdr, parentPldLen, partPldLen, copiedPartPld, nil
+	return copiedHdr, copiedPartPld, nil
 }
 
-func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientConn) (bool, uint64, uint64, uint64, error) {
+func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientConn, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64) error) (bool, uint64, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -551,11 +560,11 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
-			return false, 0, 0, 0, err
+			return false, 0, err
 		}
 		// TODO: if error is due to incorrect request, error should be returned. How to catch this?
 		x.server.log.Warn("GET object API failure (call)", zap.String("node", conn.Target()), zap.Error(err))
-		return false, 0, 0, 0, nil
+		return false, 0, nil
 	}
 
 	var copiedHdr bool
@@ -569,7 +578,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 		if err = stream.RecvMsg(&respBuf); err != nil {
 			err = igrpc.ConvertContextStatus(err)
 			if errors.Is(err, ctx.Err()) {
-				return false, 0, 0, 0, err
+				return false, 0, err
 			}
 			if !errors.Is(err, io.EOF) {
 				x.server.log.Warn("GET object API failure (receive message)", zap.String("node", conn.Target()), zap.Error(err))
@@ -580,46 +589,53 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 		code, body, err := handleResponseCodeAndBody(respBuf)
 		if err != nil {
 			respBuf.Free()
-			return false, 0, 0, 0, err
+			return false, 0, err
 		}
 
 		if code == protostatus.ObjectNotFound {
 			respBuf.Free()
 			if headWas {
-				return false, 0, 0, 0, errors.New("received object not found status after header")
+				return false, 0, errors.New("received object not found status after header")
 			}
-			return false, 0, 0, 0, nil
+			return false, 0, nil
 		}
 
 		if code != protostatus.OK {
 			if err = x.responseStream.SendMsg(respBuf); err != nil {
-				return false, 0, 0, 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+				return false, 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
 			}
-			return false, 0, 0, 0, getsvc.ErrResponded
+			return false, 0, getsvc.ErrResponded
 		}
 
 		num, fld, err := handleGetResponseBodyOneof(&headWas, body)
 		if err != nil {
 			respBuf.Free()
-			return false, 0, 0, 0, err
+			return false, 0, err
 		}
 
 		switch num {
 		default:
 			respBuf.Free()
-			return false, 0, 0, 0, errors.New("none of the supported oneof fields are specified")
+			return false, 0, errors.New("none of the supported oneof fields are specified")
 		case protoobject.FieldGetResponseBodyInit:
 			var parentID, parentSig, parentHdr iprotobuf.BuffersSlice
-			parentID, parentSig, parentHdr, parentPldLen, partPldLen, err = handleGetECPartResponseInit(fld)
+			parentID, parentSig, parentHdr, err = handleGetECPartResponseInit(fld, func(gotPartPldLen uint64, gotParentPldLen uint64) error {
+				if err := interceptLens(gotPartPldLen, gotParentPldLen); err != nil {
+					return err
+				}
+				partPldLen = gotPartPldLen
+				parentPldLen = gotParentPldLen
+				return nil
+			})
 			if err != nil {
 				respBuf.Free()
-				return false, 0, 0, 0, err
+				return false, 0, err
 			}
 
 			err = x.server.writeInitGetResponseBuffers(x.responseStream, parentID, parentSig, parentHdr, x.signResponses)
 			respBuf.Free()
 			if err != nil {
-				return false, 0, 0, 0, err
+				return false, 0, err
 			}
 
 			copiedHdr = true
@@ -627,24 +643,24 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 			copiedPartPldLen += uint64(fld.Len())
 			if copiedPartPldLen > partPldLen {
 				respBuf.Free()
-				return false, 0, 0, 0, fmt.Errorf("part payload overflow: full %d bytes, copied %d", partPldLen, copiedPartPldLen)
+				return false, 0, fmt.Errorf("part payload overflow: full %d bytes, copied %d", partPldLen, copiedPartPldLen)
 			}
 			if copiedPartPldLen > parentPldLen {
 				respBuf.Free()
-				return false, 0, 0, 0, fmt.Errorf("parent payload overflow: full %d bytes, copied %d", parentPldLen, copiedPartPldLen)
+				return false, 0, fmt.Errorf("parent payload overflow: full %d bytes, copied %d", parentPldLen, copiedPartPldLen)
 			}
 
 			if err = x.responseStream.SendMsg(respBuf); err != nil {
-				return false, 0, 0, 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+				return false, 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
 			}
 		case protoobject.FieldGetResponseBodySplitInfo:
 			err := handleSplitInfo(fld, true)
 			respBuf.Free()
-			return false, 0, 0, 0, err
+			return false, 0, err
 		}
 	}
 
-	return copiedHdr, parentPldLen, partPldLen, copiedPartPldLen, nil
+	return copiedHdr, copiedPartPldLen, nil
 }
 
 func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
@@ -759,7 +775,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	return copied, nil
 }
 
-func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, uint64, uint64, error) {
+func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64) error) (iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, error) {
 	var parentID, parentSig, parentHdr iprotobuf.BuffersSlice
 	var parentPldLen uint64
 	var partPldLen uint64
@@ -822,10 +838,14 @@ func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.Buff
 
 	err := protoscan.ScanMessage(buffers, protoscan.ObjectGetResponseInitScheme, opts)
 	if err != nil {
-		return iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, 0, 0, err
+		return iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, err
 	}
 
-	return parentID, parentSig, parentHdr, parentPldLen, partPldLen, nil
+	if err := interceptLens(partPldLen, parentPldLen); err != nil {
+		return iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, err
+	}
+
+	return parentID, parentSig, parentHdr, nil
 }
 
 func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {

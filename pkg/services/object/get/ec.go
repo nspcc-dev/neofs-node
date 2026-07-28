@@ -1367,9 +1367,13 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 }
 
 func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) error {
+	var parentPldLen uint64
+
 	if rule.DataPartNum == 1 { // no need in parallelism
 		// part payload size is ignored, but in practice the costs are small
-		copiedHdr, fullPldLen, _, copiedPldLen, err := s.streamFirstECPart(ctx, transport, rule, ruleIdx, sortedNodes)
+		copiedHdr, copiedPldLen, err := s.streamFirstECPart(ctx, transport, rule, ruleIdx, sortedNodes, func(_ uint64, gotParentPldLen uint64) {
+			parentPldLen = gotParentPldLen
+		})
 		if err != nil {
 			if errors.Is(err, ErrResponded) {
 				return nil
@@ -1381,7 +1385,7 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 			return partialObjectCopy{}
 		}
 
-		if copiedPldLen == fullPldLen {
+		if copiedPldLen == parentPldLen {
 			return nil
 		}
 
@@ -1393,7 +1397,100 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 
 	// parallel collection of multiple data parts
 
-	copiedHdr, fullPldLen, partPldLen, copiedPldLen, err := s.streamFirstECPart(ctx, transport, rule, ruleIdx, sortedNodes)
+	var partPldLen uint64
+	lensGotCh := make(chan struct{})
+
+	controlChs := make([]chan bool, rule.DataPartNum-1) // -1 because 1st part doesn't need a trigger
+	for i := range controlChs {
+		controlChs[i] = make(chan bool, 1)
+	}
+
+	abortNextTo := func(i int) {
+		for j := i + 1; j < int(rule.DataPartNum); j++ {
+			// non-blocking because multiple routines can call this while it's enough to write once
+			select {
+			case controlChs[j-1] <- true:
+			default:
+			}
+		}
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
+
+	errs := make([]error, rule.DataPartNum-1)
+	var copiedPldLen uint64
+
+	for i := 1; i < int(rule.DataPartNum); i++ {
+		wg.Go(func() {
+			// wait for part#0 routine to fetch both part and parent payload length
+			select {
+			case <-ctx.Done():
+				return // result already reached
+			case <-lensGotCh:
+			}
+
+			var ln uint64
+			if off := partPldLen * uint64(i); off < parentPldLen {
+				ln = min(partPldLen, parentPldLen-off)
+			}
+			if ln == 0 {
+				return
+			}
+
+			controlCh := controlChs[i-1]
+
+			partInfo := iec.PartInfo{
+				RuleIndex: ruleIdx,
+				Index:     i,
+			}
+			copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, ln, controlCh)
+			if err != nil {
+				if errors.Is(err, ErrAborted) {
+					return
+				}
+				errs[i-1] = fmt.Errorf("part#%d: %w", i, err)
+				abortNextTo(i)
+				return
+			}
+
+			if copiedPartPld > 0 {
+				// data is copied sequentially, so no concurrency here
+				copiedPldLen += copiedPartPld
+				if copiedPldLen > parentPldLen {
+					abortNextTo(i)
+					errs[i-1] = fmt.Errorf("payload overflow: full %d bytes, copied %d", parentPldLen, copiedPldLen)
+					return
+				}
+			}
+
+			if copiedPartPld < ln {
+				abortNextTo(i)
+				return
+			}
+
+			// TODO: double-check this happens fast enough after current routine received the last chunk
+			if i < int(rule.DataPartNum)-1 {
+				close(controlChs[i])
+			}
+		})
+	}
+
+	var lensGot bool
+
+	copiedHdr, copiedPldLen, err := s.streamFirstECPart(ctx, transport, rule, ruleIdx, sortedNodes, func(gotPartPldLen uint64, gotParentPldLen uint64) {
+		if lensGot {
+			return
+		}
+		lensGot = true
+		partPldLen = gotPartPldLen
+		parentPldLen = gotParentPldLen
+		close(lensGotCh)
+	})
 	if err != nil {
 		if errors.Is(err, ErrResponded) {
 			return nil
@@ -1405,127 +1502,40 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 		return partialObjectCopy{}
 	}
 
-	partial := partialObjectCopy{
-		copiedHeader:        true,
-		copiedPayloadLength: copiedPldLen,
-	}
-
 	if copiedPldLen < partPldLen {
-		return partial
+		return partialObjectCopy{
+			copiedHeader:        true,
+			copiedPayloadLength: copiedPldLen,
+		}
 	}
 
-	if rule.DataPartNum == 2 {
-		partInfo := iec.PartInfo{
-			RuleIndex: ruleIdx,
-			Index:     1,
-		}
-		copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, fullPldLen-partPldLen, nil)
+	// unlock part#1 routine
+	close(controlChs[0])
+
+	wg.Wait()
+
+	for _, err := range errs {
 		if err != nil {
 			if errors.Is(err, ErrResponded) {
 				return nil
 			}
-			return fmt.Errorf("part#1: %w", err)
-		}
-
-		partial.copiedPayloadLength += copiedPartPld
-		if partial.copiedPayloadLength > fullPldLen {
-			return fmt.Errorf("payload overflow: full %d bytes, copied %d", fullPldLen, partial.copiedPayloadLength)
-		}
-
-		if partial.copiedPayloadLength == fullPldLen {
-			return nil
-		}
-
-		return partial
-	}
-
-	controlChs := make([]chan bool, rule.DataPartNum-2) // -1 because 1st part already copied, -1 because 2nd part doesn't need a trigger
-	for i := range controlChs {
-		controlChs[i] = make(chan bool, 1)
-	}
-
-	abortNextTo := func(i int) {
-		for j := i + 1; j < int(rule.DataPartNum); j++ {
-			// non-blocking because multiple routines can call this while it's enough to write once
-			select {
-			case controlChs[j-2] <- true:
-			default:
-			}
+			return err
 		}
 	}
 
-	var resErr error
-
-	var wg sync.WaitGroup
-	for i := 1; i < int(rule.DataPartNum); i++ {
-		wg.Go(func() {
-			var ln uint64
-			if i < int(rule.DataPartNum)-1 {
-				ln = partPldLen
-			} else {
-				// last part can be suffixed with zeros which should not be transmitted
-				ln = fullPldLen - partPldLen*uint64(rule.DataPartNum-1)
-			}
-
-			var controlCh <-chan bool
-			if i > 1 {
-				controlCh = controlChs[i-2]
-			}
-
-			partInfo := iec.PartInfo{
-				RuleIndex: ruleIdx,
-				Index:     i,
-			}
-			copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, ln, controlCh)
-			if err != nil {
-				if errors.Is(err, ErrAborted) {
-					return
-				}
-				resErr = fmt.Errorf("part#%d: %w", i, err)
-				abortNextTo(i)
-				return
-			}
-
-			if copiedPartPld > 0 {
-				// data is copied sequentially, so no concurrency here
-				partial.copiedPayloadLength += copiedPartPld
-				if partial.copiedPayloadLength > fullPldLen {
-					abortNextTo(i)
-					resErr = fmt.Errorf("payload overflow: full %d bytes, copied %d", fullPldLen, partial.copiedPayloadLength)
-					return
-				}
-			}
-
-			if copiedPartPld < ln {
-				abortNextTo(i)
-				return
-			}
-
-			if i < int(rule.DataPartNum)-1 {
-				close(controlChs[i-1])
-			}
-		})
-	}
-	wg.Wait()
-
-	if resErr != nil {
-		if errors.Is(resErr, ErrResponded) {
-			return nil
-		}
-		return resErr
-	}
-
-	if partial.copiedPayloadLength == fullPldLen {
+	if copiedPldLen == parentPldLen {
 		return nil
 	}
 
-	return partial
+	return partialObjectCopy{
+		copiedHeader:        true,
+		copiedPayloadLength: copiedPldLen,
+	}
 }
 
-func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) (bool, uint64, uint64, uint64, error) {
+func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64)) (bool, uint64, error) {
 	var err error
 	var copiedHdr bool
-	var parentPldLen uint64
 	var partPldLen uint64
 	var copiedPartPld uint64
 
@@ -1534,30 +1544,42 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 		Index:     0,
 	}
 
+	onLens := func(gotPartPldLen uint64, gotParentPldLen uint64) error {
+		expectedPartPldLen := gotParentPldLen / uint64(rule.DataPartNum)
+		if gotParentPldLen%uint64(rule.DataPartNum) != 0 {
+			expectedPartPldLen++
+		}
+		if gotPartPldLen != expectedPartPldLen {
+			return fmt.Errorf("invalid part payload length %d: expected %d for parent length %d and %d data parts",
+				gotPartPldLen, expectedPartPldLen, gotParentPldLen, rule.DataPartNum)
+		}
+		partPldLen = gotPartPldLen
+		interceptLens(gotPartPldLen, gotParentPldLen)
+		return nil
+	}
+
 	for nodeIdx := range iec.NodeSequenceForPart(0, int(rule.DataPartNum+rule.ParityPartNum), len(sortedNodes)) {
 		local := s.neoFSNet.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey())
 
 		if !copiedHdr {
 			if local {
-				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyLocalECPartParentHeaderAndPayload(ctx, s.localObjects.(*engine.StorageEngine), partInfo)
+				copiedHdr, copiedPartPld, err = transport.CopyLocalECPartParentHeaderAndPayload(ctx, s.localObjects.(*engine.StorageEngine), partInfo, onLens)
 			} else {
 				conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 				if connErr != nil {
 					connErr = igrpc.ConvertContextStatus(connErr)
 					if errors.Is(connErr, ctx.Err()) {
-						return false, 0, 0, 0, connErr
+						return false, 0, connErr
 					}
 					s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
 					continue
 				}
 
-				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, partInfo)
+				copiedHdr, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, partInfo, onLens)
 			}
 			if err != nil {
-				return false, 0, 0, 0, err
+				return false, 0, err
 			}
-
-			// TODO: verify partPldLen against parentPldLen
 
 			if copiedHdr && copiedPartPld == partPldLen {
 				break
@@ -1574,7 +1596,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 			if connErr != nil {
 				connErr = igrpc.ConvertContextStatus(connErr)
 				if errors.Is(connErr, ctx.Err()) {
-					return false, 0, 0, 0, connErr
+					return false, 0, connErr
 				}
 				s.logSNConnFailure(sortedNodes[nodeIdx], connErr)
 				continue
@@ -1583,12 +1605,12 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
 		}
 		if err != nil {
-			return false, 0, 0, 0, err
+			return false, 0, err
 		}
 
 		copiedPartPld += copiedFromNode
 		if copiedPartPld > partPldLen {
-			return false, 0, 0, 0, fmt.Errorf("part payload overflow: full %d bytes, copied %d", partPldLen, copiedPartPld)
+			return false, 0, fmt.Errorf("part payload overflow: full %d bytes, copied %d", partPldLen, copiedPartPld)
 		}
 
 		if copiedPartPld == partPldLen {
@@ -1596,7 +1618,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 		}
 	}
 
-	return copiedHdr, parentPldLen, partPldLen, copiedPartPld, nil
+	return copiedHdr, copiedPartPld, nil
 }
 
 func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, partInfo iec.PartInfo, sortedNodes []netmap.NodeInfo, ln uint64, controlCh <-chan bool) (uint64, error) {

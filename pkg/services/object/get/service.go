@@ -75,9 +75,15 @@ type GetECRequestTransport interface {
 	// succeeded, CopyRemoteECPartParentHeaderAndPayload sends parent header and
 	// part payload to the client, and returns:
 	//  - flag whether parent header was copied or not;
-	//  - payload length of original requested object in bytes;
-	//  - payload length of part object in bytes;
-	//  - number of part's payload bytes copied.
+	//  - number of part's payload bytes copied;
+	//  - error, if any.
+	//
+	// Once the part header is parsed and before anything is written to the client,
+	// CopyRemoteECPartParentHeaderAndPayload calls interceptLens with the part and
+	// parent payload lengths. Either length may be zero (e.g. for an empty object
+	// or omitted protobuf fields). If interceptLens returns a non-nil error,
+	// copying aborts before writing to the client and that error is returned.
+	// interceptLens is called at most once per call.
 	//
 	// If response stream fails, [ErrResponseStreamFailure] is returned.
 	//
@@ -93,9 +99,9 @@ type GetECRequestTransport interface {
 	// Otherwise, no error is returned. Copying can be incomplete in this case.
 	//
 	// CopyRemoteECPartParentHeaderAndPayload is never called concurrently.
-	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64) error) (bool, uint64, error)
 	// CopyLocalECPartParentHeaderAndPayload works like CopyRemoteECPartParentHeaderAndPayload but locally.
-	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64) error) (bool, uint64, error)
 	// CopyRemoteECPartRange requests specified payload range of originally
 	// requested object's EC part identified by partInfo pair from remote storage
 	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
