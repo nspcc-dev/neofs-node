@@ -1367,6 +1367,32 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 }
 
 func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) error {
+	if rule.DataPartNum == 1 { // no need in parallelism
+		// part payload size is ignored, but in practice the costs are small
+		copiedHdr, fullPldLen, _, copiedPldLen, err := s.streamFirstECPart(ctx, transport, rule, ruleIdx, sortedNodes)
+		if err != nil {
+			if errors.Is(err, ErrResponded) {
+				return nil
+			}
+			return fmt.Errorf("part#0: %w", err)
+		}
+
+		if !copiedHdr {
+			return partialObjectCopy{}
+		}
+
+		if copiedPldLen == fullPldLen {
+			return nil
+		}
+
+		return partialObjectCopy{
+			copiedHeader:        true,
+			copiedPayloadLength: copiedPldLen,
+		}
+	}
+
+	// parallel collection of multiple data parts
+
 	copiedHdr, fullPldLen, partPldLen, copiedPldLen, err := s.streamFirstECPart(ctx, transport, rule, ruleIdx, sortedNodes)
 	if err != nil {
 		if errors.Is(err, ErrResponded) {
@@ -1379,16 +1405,12 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 		return partialObjectCopy{}
 	}
 
-	if rule.DataPartNum == 1 && copiedPldLen == partPldLen {
-		return nil
-	}
-
 	partial := partialObjectCopy{
 		copiedHeader:        true,
 		copiedPayloadLength: copiedPldLen,
 	}
 
-	if copiedPldLen < partPldLen || rule.DataPartNum == 1 {
+	if copiedPldLen < partPldLen {
 		return partial
 	}
 
