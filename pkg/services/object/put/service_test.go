@@ -1187,6 +1187,10 @@ func (x *testPayloadStream) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func (x *testPayloadStream) ReadFrom(r io.Reader) (int64, error) {
+	return io.Copy(x, r)
+}
+
 func (x *testPayloadStream) Close() error {
 	_, err := (*Streamer)(x).Close()
 	return err

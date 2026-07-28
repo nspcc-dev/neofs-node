@@ -51,8 +51,6 @@ func TestVerifyRequestSignatures(t *testing.T) {
 		for _, tc := range invalidOriginalRequestVerificationHeaderTestcases {
 			t.Run(tc.name, func(t *testing.T) {
 				req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
-				req.MetaHeader = req.MetaHeader.Origin
-				req.VerifyHeader = req.VerifyHeader.Origin
 				tc.corrupt(req.VerifyHeader)
 				err := icrypto.VerifyRequestSignatures(req)
 				assertInvalidRequestSignatureError(t, err, "invalid verification header at depth 0: "+tc.msg)
@@ -76,7 +74,7 @@ func TestVerifyRequestSignatures(t *testing.T) {
 				name, msg string
 				corrupt   func(valid *protoobject.GetRequest)
 			}{
-				{name: "redundant verification header", msg: "incorrect number of verification headers",
+				{name: "missing meta signature", msg: "invalid verification header at depth 0: missing meta header's signature",
 					corrupt: func(valid *protoobject.GetRequest) {
 						valid.VerifyHeader = &protosession.RequestVerificationHeader{Origin: valid.VerifyHeader}
 					},
@@ -86,7 +84,7 @@ func TestVerifyRequestSignatures(t *testing.T) {
 						valid.MetaHeader = &protosession.RequestMetaHeader{Origin: valid.MetaHeader}
 					},
 				},
-				{name: "with body signature", msg: "invalid verification header at depth 0: body signature is set in non-origin verification header",
+				{name: "invalid body signature", msg: "invalid verification header at depth 0: invalid body signature: missing public key",
 					corrupt: func(valid *protoobject.GetRequest) {
 						valid.VerifyHeader.BodySignature = new(refs.Signature)
 					},
@@ -119,14 +117,12 @@ func TestGetRequestAuthor(t *testing.T) {
 		})
 		t.Run("without body signature", func(t *testing.T) {
 			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
-			req.VerifyHeader = req.VerifyHeader.Origin
 			req.VerifyHeader.BodySignature = nil
 			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
 			require.EqualError(t, err, "missing body signature")
 		})
 		t.Run("unsupported body signature scheme", func(t *testing.T) {
 			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
-			req.VerifyHeader = req.VerifyHeader.Origin
 			req.VerifyHeader.BodySignature.Scheme = 4
 			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
 			require.EqualError(t, err, "unsupported scheme 4")
@@ -137,8 +133,6 @@ func TestGetRequestAuthor(t *testing.T) {
 var (
 	reqSignerECDSAPub = []byte{3, 222, 100, 155, 214, 54, 45, 96, 2, 218, 144, 121, 166, 210, 58, 194, 143, 221, 111, 63, 87,
 		254, 66, 2, 236, 94, 45, 93, 30, 39, 191, 127, 80}
-	reqSignerL2ECDSAPub = []byte{3, 95, 195, 112, 130, 26, 227, 140, 73, 208, 191, 208, 134, 199, 189, 139, 238, 55, 22, 49,
-		165, 67, 146, 187, 82, 232, 85, 95, 144, 75, 87, 243, 21}
 	reqAuthorECDSA = user.ID{53, 94, 109, 46, 227, 240, 62, 49, 226, 121, 130, 173, 20, 100, 30, 107, 220, 221, 46, 82, 151, 137, 253, 44, 237}
 )
 
@@ -204,18 +198,6 @@ var reqMetaHdr = &protosession.RequestMetaHeader{
 	MagicNumber: 14001122173143970642,
 }
 
-var reqMetaHdrL2 = &protosession.RequestMetaHeader{
-	Version: &refs.Version{Major: 4012726028, Minor: 3480185720},
-	Epoch:   18426399493784435637, Ttl: 360369950,
-	XHeaders: []*protosession.XHeader{
-		{Key: "x-header-1-key", Value: "x-header-1-val"},
-		{Key: "x-header-2-key", Value: "x-header-2-val"},
-	},
-	// tokens unset to reduce the code, they are checked at L1
-	Origin:      reqMetaHdr,
-	MagicNumber: 14001122173143970642,
-}
-
 var getObjectRequestBody = &protoobject.GetRequest_Body{
 	Address: &refs.Address{
 		ContainerId: &refs.ContainerID{Value: []byte("any_container")},
@@ -226,42 +208,29 @@ var getObjectRequestBody = &protoobject.GetRequest_Body{
 
 var getObjectSignedRequest = &protoobject.GetRequest{
 	Body:       getObjectRequestBody,
-	MetaHeader: reqMetaHdrL2,
+	MetaHeader: reqMetaHdr,
 	VerifyHeader: &protosession.RequestVerificationHeader{
-		BodySignature: nil,
+		BodySignature: &refs.Signature{
+			Key: bytes.Clone(reqSignerECDSAPub),
+			Sign: []byte{4, 54, 181, 48, 83, 197, 23, 131, 0, 233, 48, 96, 155, 28, 68, 0, 189, 120, 251, 60, 163, 5, 136, 106, 63,
+				126, 99, 34, 198, 66, 247, 207, 135, 12, 130, 49, 130, 155, 236, 204, 71, 23, 33, 178, 163, 27, 28, 101, 33, 33,
+				91, 229, 217, 170, 250, 226, 62, 93, 22, 3, 181, 81, 69, 9, 97},
+			Scheme: refs.SignatureScheme_ECDSA_SHA512,
+		},
 		MetaSignature: &refs.Signature{
-			Key:    bytes.Clone(reqSignerL2ECDSAPub),
-			Sign:   []byte{26, 147, 47, 31, 10, 173, 115, 179, 126, 16, 132, 149, 125, 68, 153, 129, 254, 184, 34, 53, 155, 194, 128, 115, 88, 68, 158, 91, 45, 8, 91, 169, 125, 215, 202, 234, 142, 72, 14, 110, 222, 142, 124, 200, 53, 189, 217, 100, 254, 100, 13, 9, 66, 60, 188, 5, 167, 116, 215, 230, 34, 150, 203, 132},
+			Key: bytes.Clone(reqSignerECDSAPub),
+			Sign: []byte{152, 135, 221, 72, 61, 96, 131, 169, 229, 9, 203, 210, 132, 62, 40, 1, 211, 63, 130, 4, 136, 199, 186,
+				219, 104, 2, 50, 101, 89, 252, 144, 184, 28, 125, 230, 39, 128, 238, 210, 223, 69, 128, 164, 112, 218, 133,
+				80, 96, 19, 169, 156, 125, 250, 99, 197, 152, 73, 74, 15, 152, 186, 168, 170, 189},
 			Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256,
 		},
 		OriginSignature: &refs.Signature{
-			Key:    bytes.Clone(reqSignerL2ECDSAPub),
-			Sign:   []byte{175, 192, 13, 37, 185, 173, 75, 11, 49, 178, 102, 150, 37, 208, 1, 158, 69, 252, 242, 121, 204, 220, 170, 117, 103, 250, 194, 218, 212, 144, 245, 177, 56, 67, 189, 182, 12, 122, 241, 4, 187, 154, 253, 56, 24, 138, 16, 103, 143, 203, 29, 228, 136, 33, 49, 245, 30, 165, 111, 23, 117, 149, 149, 228, 242, 157, 202, 93, 66, 215, 69, 103, 197, 232, 107, 147, 246, 192, 177, 158},
+			Key: bytes.Clone(reqSignerECDSAPub),
+			Sign: []byte{232, 128, 107, 75, 64, 63, 81, 149, 215, 6, 170, 132, 68, 181, 142, 100, 169, 242, 40, 227, 12, 103,
+				202, 72, 190, 66, 240, 251, 115, 112, 36, 115, 169, 186, 16, 121, 153, 101, 206, 38, 156, 154, 69, 80, 198, 172, 125,
+				115, 114, 54, 224, 44, 198, 137, 131, 236, 163, 209, 208, 136, 146, 184, 70, 136, 60, 200, 208, 106, 154, 206, 83,
+				44, 222, 202, 169, 116, 157, 3, 5, 181},
 			Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT,
-		},
-		Origin: &protosession.RequestVerificationHeader{
-			BodySignature: &refs.Signature{
-				Key: bytes.Clone(reqSignerECDSAPub),
-				Sign: []byte{4, 54, 181, 48, 83, 197, 23, 131, 0, 233, 48, 96, 155, 28, 68, 0, 189, 120, 251, 60, 163, 5, 136, 106, 63,
-					126, 99, 34, 198, 66, 247, 207, 135, 12, 130, 49, 130, 155, 236, 204, 71, 23, 33, 178, 163, 27, 28, 101, 33, 33,
-					91, 229, 217, 170, 250, 226, 62, 93, 22, 3, 181, 81, 69, 9, 97},
-				Scheme: refs.SignatureScheme_ECDSA_SHA512,
-			},
-			MetaSignature: &refs.Signature{
-				Key: bytes.Clone(reqSignerECDSAPub),
-				Sign: []byte{152, 135, 221, 72, 61, 96, 131, 169, 229, 9, 203, 210, 132, 62, 40, 1, 211, 63, 130, 4, 136, 199, 186,
-					219, 104, 2, 50, 101, 89, 252, 144, 184, 28, 125, 230, 39, 128, 238, 210, 223, 69, 128, 164, 112, 218, 133,
-					80, 96, 19, 169, 156, 125, 250, 99, 197, 152, 73, 74, 15, 152, 186, 168, 170, 189},
-				Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256,
-			},
-			OriginSignature: &refs.Signature{
-				Key: bytes.Clone(reqSignerECDSAPub),
-				Sign: []byte{232, 128, 107, 75, 64, 63, 81, 149, 215, 6, 170, 132, 68, 181, 142, 100, 169, 242, 40, 227, 12, 103,
-					202, 72, 190, 66, 240, 251, 115, 112, 36, 115, 169, 186, 16, 121, 153, 101, 206, 38, 156, 154, 69, 80, 198, 172, 125,
-					115, 114, 54, 224, 44, 198, 137, 131, 236, 163, 209, 208, 136, 146, 184, 70, 136, 60, 200, 208, 106, 154, 206, 83,
-					44, 222, 202, 169, 116, 157, 3, 5, 181},
-				Scheme: refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT,
-			},
 		},
 	},
 }
@@ -336,9 +305,6 @@ var invalidOriginalRequestVerificationHeaderTestcases = []invalidRequestVerifica
 	{name: "meta header signature/missing", msg: "missing meta header's signature", corrupt: func(valid *protosession.RequestVerificationHeader) {
 		valid.MetaSignature = nil
 	}},
-	{name: "verification header's origin signature/missing", msg: "missing verification header's origin signature", corrupt: func(valid *protosession.RequestVerificationHeader) {
-		valid.OriginSignature = nil
-	}},
 }
 
 func init() {
@@ -349,9 +315,6 @@ func init() {
 		}, invalidRequestVerificationHeaderTestcase{
 			name: "meta header signature/" + tc.name, msg: "invalid meta header's signature: " + tc.msg,
 			corrupt: func(valid *protosession.RequestVerificationHeader) { tc.corrupt(valid.MetaSignature) },
-		}, invalidRequestVerificationHeaderTestcase{
-			name: "verification header's origin signature/" + tc.name, msg: "invalid verification header's origin signature: " + tc.msg,
-			corrupt: func(valid *protosession.RequestVerificationHeader) { tc.corrupt(valid.OriginSignature) },
 		})
 	}
 }
