@@ -950,6 +950,10 @@ func (unimplementedConn) ForAnyGRPCConn(context.Context, func(context.Context, *
 	panic("unimplemented")
 }
 
+func (unimplementedConn) APIVersion() *refs.Version {
+	return nil
+}
+
 type emptyRemoteNode struct {
 	unimplementedConn
 }

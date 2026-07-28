@@ -10,6 +10,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"google.golang.org/grpc"
@@ -50,4 +51,8 @@ type MultiAddressClient interface {
 	// ForAnyGRPCConn continues. If this happens on all endpoints, ForAnyGRPCConn
 	// returns [ErrAllConnectionsSkipped].
 	ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error
+
+	// APIVersion returns current protocol version to use in requests using
+	// this client (min(server, client) effectively).
+	APIVersion() *protorefs.Version
 }

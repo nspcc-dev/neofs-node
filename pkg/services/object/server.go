@@ -856,7 +856,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 			req = &protoobject.HeadRequest{
 				Body: req.Body,
 				MetaHeader: &protosession.RequestMetaHeader{
-					Version: version.Current().ProtoMessage(),
+					Version: c.APIVersion(),
 					Ttl:     1,
 				},
 			}
@@ -1388,7 +1388,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 			req = &protoobject.GetRequest{
 				Body: req.Body,
 				MetaHeader: &protosession.RequestMetaHeader{
-					Version: version.Current().ProtoMessage(),
+					Version: c.APIVersion(),
 					Ttl:     1,
 				},
 			}
@@ -2080,7 +2080,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		req = &protoobject.SearchV2Request{
 			Body: req.Body,
 			MetaHeader: &protosession.RequestMetaHeader{
-				Version: version.Current().ProtoMessage(),
+				Version: version.Current().ProtoMessage(), // Should be client APIVersion(), but not possible now.
 				Ttl:     1,
 			},
 		}

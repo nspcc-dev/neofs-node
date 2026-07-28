@@ -44,6 +44,7 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
@@ -1102,6 +1103,10 @@ func (x nodeServices) SendReplicationRequestToNode(ctx context.Context, reqBin [
 }
 
 type serviceClient Service
+
+func (m *serviceClient) APIVersion() *protorefs.Version {
+	return version.Current().ProtoMessage()
+}
 
 func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
 	stream, err := (*Service)(m).Put(ctx)
