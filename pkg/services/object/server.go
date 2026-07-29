@@ -1647,10 +1647,12 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
+			req = &protoobject.GetRangeRequest{
+				Body: req.Body,
+				MetaHeader: &protosession.RequestMetaHeader{
+					Version: c.APIVersion(),
+					Ttl:     1,
+				},
 			}
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})

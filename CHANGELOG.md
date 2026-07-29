@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Inter-node TLS certificates are verified against node keys (#4095)
 - SN does not sign EC parts, it attaches payload hashes to parent's attributes instead (#4057)
 - Origin verification and meta headers are no longer considered for requests (#4103)
+- RANGE requests now using the same forwarding scheme as GET (#4103)
 
 ### Removed
 - Compression support from FSTree (#4054)
