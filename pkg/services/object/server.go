@@ -322,23 +322,6 @@ func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, initReq *protoo
 	return nil
 }
 
-func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.PutRequest, error) {
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return nil, errors.New("missing meta header")
-	}
-	req.MetaHeader = &protosession.RequestMetaHeader{
-		Ttl:    meta.GetTtl() - 1,
-		Origin: meta,
-	}
-	var err error
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(x.signer), req, nil)
-	if err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
 func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, reqMD requestMetadata) error {
 	mo := &protoobject.Object{
 		ObjectId:  initPart.ObjectId,
@@ -367,11 +350,7 @@ func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *pr
 	if m := x.base.MaxObjectSize(); x.expBytes > m {
 		return putsvc.ErrExceedingMaxSize
 	}
-	signed, err := x.resignRequest(req) // TODO: resign only when needed
-	if err != nil {
-		return err // TODO: add context
-	}
-	x.initReq = signed
+	x.initReq = req
 	return nil
 }
 
@@ -387,11 +366,7 @@ func (x *putStream) forwardChunkRequest(req *protoobject.PutRequest, c []byte) e
 	if !x.cacheReqs {
 		return nil
 	}
-	signed, err := x.resignRequest(req) // TODO: resign only when needed
-	if err != nil {
-		return err // TODO: add context
-	}
-	x.chunkReqs = append(x.chunkReqs, signed)
+	x.chunkReqs = append(x.chunkReqs, req)
 	return nil
 }
 
