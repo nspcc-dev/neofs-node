@@ -381,7 +381,7 @@ func TestService_Get_EC(t *testing.T) {
 		ParityPartNum: 4,
 	}
 
-	parts, err := iec.Encode(rule, parentPayload)
+	parts, _, err := iec.Encode(rule, parentPayload)
 	require.NoError(t, err)
 
 	partObjs := make([]object.Object, len(parts))

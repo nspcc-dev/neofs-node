@@ -1,6 +1,8 @@
 package objectcore
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,9 +17,11 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 	var ecAttr string
 	if len(attrs) > 0 {
 		if first := attrs[0].Key(); strings.HasPrefix(first, iec.AttributePrefix) {
-			for i := 1; i < len(attrs); i++ {
-				if !strings.HasPrefix(attrs[i].Key(), iec.AttributePrefix) {
-					return false, fmt.Errorf("mix of EC (%s) and non-EC (%s) attributes", first, attrs[i].Key())
+			if !isParent {
+				for i := 1; i < len(attrs); i++ {
+					if !strings.HasPrefix(attrs[i].Key(), iec.AttributePrefix) {
+						return false, fmt.Errorf("mix of EC (%s) and non-EC (%s) attributes", first, attrs[i].Key())
+					}
 				}
 			}
 
@@ -25,7 +29,12 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 		} else {
 			for i := 1; i < len(attrs); i++ {
 				if strings.HasPrefix(attrs[i].Key(), iec.AttributePrefix) {
-					return false, fmt.Errorf("mix of EC (%s) and non-EC (%s) attributes", attrs[i].Key(), first)
+					ecAttr = attrs[i].Key()
+					if !isParent {
+						return false, fmt.Errorf("mix of EC (%s) and non-EC (%s) attributes", attrs[i].Key(), first)
+					}
+
+					break
 				}
 			}
 		}
@@ -47,9 +56,6 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 		}
 	case object.TypeRegular:
 		if isParent {
-			if ecAttr != "" {
-				return false, fmt.Errorf("parent object has EC attribute %s", ecAttr)
-			}
 			return false, nil
 		}
 
@@ -73,6 +79,10 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 }
 
 func checkECPart(part object.Object, rules []netmap.ECRule) error {
+	if part.Signature() != nil {
+		return errors.New("signed EC part")
+	}
+
 	if part.SessionToken() != nil {
 		return errors.New("session token detected")
 	}
@@ -117,6 +127,49 @@ func checkECPart(part object.Object, rules []netmap.ECRule) error {
 
 	if exp := (parentPldLen + uint64(dataPartNum) - 1) / uint64(dataPartNum); exp != partPldLen {
 		return fmt.Errorf("wrong part payload len: expected %d, got %d, parent %d", exp, partPldLen, parentPldLen)
+	}
+
+	return checkECParent(*parent, part, rules, pi)
+}
+
+func checkECParent(parent, part object.Object, rules []netmap.ECRule, pi iec.PartInfo) error {
+	var hashAttr string
+	for _, attr := range parent.Attributes() {
+		if strings.HasPrefix(attr.Key(), iec.AttributePrefix) {
+			if attr.Key() != iec.AttributePartsHashes {
+				return fmt.Errorf("parent object has prohibited EC %s attribute", attr.Key())
+			}
+			hashAttr = attr.Value()
+			break
+		}
+	}
+	if hashAttr == "" {
+		return fmt.Errorf("missing %s EC attribute in parent object", iec.AttributePartsHashes)
+	}
+
+	cs, ok := part.PayloadChecksum()
+	if !ok {
+		return errors.New("EC part does not have payload checksum")
+	}
+
+	const sumLen = sha256.Size*2 + 1 // "<sum>,"
+	var off int
+	for i, rule := range rules {
+		if i == pi.RuleIndex {
+			off += sumLen * pi.Index
+			break
+		}
+		off += sumLen * int(rule.DataPartNum()+rule.ParityPartNum())
+	}
+
+	if len(hashAttr) < off+sumLen-1 {
+		return fmt.Errorf("parent header does not have enough checksums for EC part: EC rule index: %d, part index: %d", pi.RuleIndex, pi.Index)
+	}
+
+	csFromParentStr := hashAttr[off : off+sumLen-1] // without comma
+	csStr := hex.EncodeToString(cs.Value())
+	if csStr != csFromParentStr {
+		return fmt.Errorf("EC part payload checksum (%s) does not equal parent's one (%s)", csStr, csFromParentStr)
 	}
 
 	return nil

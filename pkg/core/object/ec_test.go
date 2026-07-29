@@ -3,7 +3,11 @@ package objectcore
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"slices"
+	"strings"
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -14,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -26,13 +31,14 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 	rule := netmap.NewECRule(uint32(irule.DataPartNum), uint32(irule.ParityPartNum))
 	cnrID := cidtest.ID()
 	otherCnrID := cidtest.OtherID(cnrID)
-
-	var policy netmap.PlacementPolicy
-	policy.SetECRules([]netmap.ECRule{
+	netmapECRules := []netmap.ECRule{
 		netmap.NewECRule(3, 1),
 		rule,
 		netmap.NewECRule(6, 3),
-	})
+	}
+
+	var policy netmap.PlacementPolicy
+	policy.SetECRules(netmapECRules)
 
 	var cnr container.Container
 	cnr.SetPlacementPolicy(policy)
@@ -61,8 +67,9 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 	)
 	require.NoError(t, parent.SetVerificationFields(creator))
 
-	parts, err := iec.Encode(irule, parentPld)
+	parts, hashes, err := iec.Encode(irule, parentPld)
 	require.NoError(t, err)
+	encodeHashes(t, &parent, creator, netmapECRules, ruleIdx, hashes)
 
 	var ecParts []object.Object
 	for i := range parts {
@@ -84,7 +91,11 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 	}
 
 	corruptPart := func(t *testing.T, f func(*object.Object)) object.Object {
-		return corruptParent(t, ecParts[0], f)
+		var cp object.Object
+		ecParts[0].CopyTo(&cp)
+		f(&cp)
+		require.NoError(t, cp.CalculateAndSetID())
+		return cp
 	}
 
 	for _, tc := range []struct {
@@ -96,7 +107,7 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		{name: "missing parent header", err: "invalid regular EC part object: missing parent header", corruptPart: func(obj *object.Object) {
 			obj.SetParent(nil)
 		}},
-		{name: "parent with EC attribute", err: "parent object has EC attribute __NEOFS__EC_FOO", corruptParent: func(obj *object.Object) {
+		{name: "parent with EC attribute", err: "invalid regular EC part object: parent object has prohibited EC __NEOFS__EC_FOO attribute", corruptParent: func(obj *object.Object) {
 			obj.SetAttributes(
 				object.NewAttribute("__NEOFS__EC_FOO", "any"),
 			)
@@ -316,8 +327,9 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		require.NoError(t, v.Validate(context.Background(), &linker, false, true))
 
 		for i := range splitParts {
-			parts, err := iec.Encode(irule, splitParts[i].Payload())
+			parts, hashes, err := iec.Encode(irule, splitParts[i].Payload())
 			require.NoError(t, err)
+			encodeHashes(t, &splitParts[i], creator, netmapECRules, ruleIdx, hashes)
 
 			for j := range parts {
 				ecPart, err := iec.FormObjectForECPart(creator, splitParts[i], parts[j], iec.PartInfo{
@@ -347,4 +359,27 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 	for i := range ecParts {
 		require.NoError(t, v.Validate(context.Background(), &ecParts[i], false, true))
 	}
+}
+
+func encodeHashes(t *testing.T, ecParent *object.Object, creator user.Signer, ecRules []netmap.ECRule, ruleIndex int, ruleHashes []string) {
+	var hashes []string
+	zeroHash := hex.EncodeToString(make([]byte, sha256.Size))
+	for i, rule := range ecRules {
+		if i == ruleIndex {
+			hashes = slices.Concat(hashes, ruleHashes)
+			continue
+		}
+		numOfParts := rule.DataPartNum() + rule.ParityPartNum()
+		hashesStubs := make([]string, 0, numOfParts)
+		for range numOfParts {
+			hashesStubs = append(hashesStubs, zeroHash)
+		}
+		hashes = slices.Concat(hashes, hashesStubs)
+	}
+
+	attrs := ecParent.Attributes()
+	attrs = append(attrs, object.NewAttribute(iec.AttributePartsHashes, strings.Join(hashes, ",")))
+	ecParent.SetAttributes(attrs...)
+
+	require.NoError(t, ecParent.SetVerificationFields(creator))
 }

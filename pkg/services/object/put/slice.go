@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
@@ -17,6 +18,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
+type splitObjectModifier func(*object.Object, io.Reader) error
+
 type slicingTarget struct {
 	ctx            context.Context
 	signer         user.Signer
@@ -24,8 +27,8 @@ type slicingTarget struct {
 	sessionTokenV2 *sessionv2.Token
 	currentEpoch   uint64
 	maxObjSize     uint64
-
-	nextTarget internal.Target
+	splitModifier  splitObjectModifier
+	nextTarget     internal.Target
 
 	payloadWriter *slicer.PayloadWriter
 }
@@ -41,6 +44,7 @@ func newSlicingTarget(
 	sessionTokenV2 *sessionv2.Token,
 	curEpoch uint64,
 	initNextTarget internal.Target,
+	splitModifier splitObjectModifier,
 ) internal.Target {
 	return &slicingTarget{
 		ctx:            ctx,
@@ -49,6 +53,7 @@ func newSlicingTarget(
 		sessionTokenV2: sessionTokenV2,
 		currentEpoch:   curEpoch,
 		maxObjSize:     maxObjSize,
+		splitModifier:  splitModifier,
 		nextTarget:     initNextTarget,
 	}
 }
@@ -61,6 +66,9 @@ func (x *slicingTarget) WriteHeader(hdr *object.Object) error {
 		opts.SetSessionV2(*x.sessionTokenV2)
 	} else if x.sessionToken != nil {
 		opts.SetSession(*x.sessionToken)
+	}
+	if x.splitModifier != nil {
+		opts.SetSplitChainModifier(x.splitModifier)
 	}
 
 	if payloadSize := hdr.PayloadSize(); payloadSize != 0 && payloadSize != math.MaxUint64 {

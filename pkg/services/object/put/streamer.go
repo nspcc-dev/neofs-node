@@ -77,14 +77,14 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
-	if prm.hdr.Signature() != nil {
+	if prm.hdr.Signature() != nil || prm.ecPart.RuleIndex >= 0 {
 		p.relay = prm.relay
 
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
 			l:            p.log,
 			ctx:          p.ctx,
-			nextTarget:   p.newCommonTarget(prm),
+			nextTarget:   p.newDistrubutedWriter(prm),
 			fmt:          p.fmtValidator,
 			quotaLimiter: p.quotaLimiter,
 			cachedCnr:    prm.cnr,
@@ -151,6 +151,13 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 	sessionSigner := user.NewAutoIDSigner(*sessionKey)
 	prm.sessionSigner = sessionSigner
+	var (
+		dTarget       = p.newDistrubutedWriter(prm)
+		splitModifier splitObjectModifier
+	)
+	if len(prm.ecRules) > 0 && prm.ecPart.RuleIndex < 0 {
+		splitModifier = dTarget.modifyECParentObject
+	}
 	p.target = &validatingTarget{
 		l:                p.log,
 		ctx:              p.ctx,
@@ -166,7 +173,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			sToken,
 			sTokenV2,
 			p.networkState.CurrentEpoch(),
-			p.newCommonTarget(prm),
+			dTarget,
+			splitModifier,
 		),
 	}
 
@@ -206,7 +214,8 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return fmt.Errorf("select storage nodes for the container: %w", err)
 	}
 	cnrNodes := prm.containerNodes.Unsorted()
-	ecRulesN := len(prm.containerNodes.ECRules())
+	ecRules := prm.containerNodes.ECRules()
+	ecRulesN := len(ecRules)
 	if typ := prm.hdr.Type(); ecRulesN > 0 && typ != object.TypeTombstone && typ != object.TypeLock && typ != object.TypeLink {
 		ecPart, err := iec.GetPartInfo(*prm.hdr)
 		if err != nil {
@@ -218,8 +227,8 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 			if ecPart.RuleIndex >= ecRulesN {
 				return fmt.Errorf("invalid EC part info in object header: EC rule idx=%d with %d rules in total", ecPart.RuleIndex, ecRulesN)
 			}
-			if prm.hdr.Signature() == nil {
-				return errors.New("unsigned EC part object")
+			if prm.hdr.Signature() != nil {
+				return errors.New("signed EC part object")
 			}
 			prm.localNodeInContainer = localNodeInSet(p.neoFSNet, cnrNodes[repRulesN+ecPart.RuleIndex])
 		} else {
@@ -230,6 +239,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		}
 
 		prm.ecPart = ecPart
+		prm.ecRules = ecRules
 	} else {
 		prm.localNodeInContainer = localNodeInSets(p.neoFSNet, cnrNodes)
 		prm.ecPart.RuleIndex = -1
@@ -244,7 +254,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	return nil
 }
 
-func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
+func (p *Streamer) newDistrubutedWriter(prm *PutInitPrm) *distributedTarget {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {
@@ -276,6 +286,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		fmt:                     p.fmtValidator,
 		containerNodes:          prm.containerNodes,
 		ecPart:                  prm.ecPart,
+		ecRules:                 prm.ecRules,
 		localNodeInContainer:    prm.localNodeInContainer,
 		localNodeSigner:         prm.localNodeSigner,
 		sessionSigner:           prm.sessionSigner,

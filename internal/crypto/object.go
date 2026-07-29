@@ -17,7 +17,7 @@ import (
 )
 
 // AuthenticateObject checks whether obj is signed correctly by its owner.
-func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPart bool, sTokenCache *isessions.ObjectSessionsCache, resolver sessionv2.NNSResolver) error {
+func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, sTokenCache *isessions.ObjectSessionsCache, resolver sessionv2.NNSResolver) error {
 	sig := obj.Signature()
 	if sig == nil {
 		return errMissingSignature
@@ -108,7 +108,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, ecPar
 		if !verifyECDSAFns[scheme](*ecdsaPub, invocScript, obj.GetID().Marshal()) {
 			return schemeError(scheme, errSignatureMismatch)
 		}
-		if sessionToken == nil && sessionTokenV2 == nil && !ecPart &&
+		if sessionToken == nil && sessionTokenV2 == nil &&
 			user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() &&
 			versioncore.OwnerSignatureMatchRequired(obj.Version()) {
 			return errors.New("owner mismatches signature")
