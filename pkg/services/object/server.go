@@ -446,11 +446,6 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
-			return err
-		}
-
 		if s.fsChain.LocalNodeUnderMaintenance() {
 			return s.sendStatusPutResponse(gStream, apistatus.ErrNodeUnderMaintenance, reqFirst)
 		}
@@ -467,6 +462,10 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			err = s.sendStatusPutResponse(gStream, fmt.Errorf("invalid object put stream part type %T", v), reqFirst) // assign for defer
 			return err
 		case *protoobject.PutRequest_Body_Init_:
+			if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
+				return err
+			}
 			if v.Init == nil {
 				err = newBadRequestError(invalidRequestBodyMessage + ": missing init field") // defer
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
