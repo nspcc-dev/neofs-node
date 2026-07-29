@@ -387,11 +387,7 @@ func (x *putStream) forwardChunkRequest(req *protoobject.PutRequest, c []byte) e
 	if !x.cacheReqs {
 		return nil
 	}
-	signed, err := x.resignRequest(req) // TODO: resign only when needed
-	if err != nil {
-		return err // TODO: add context
-	}
-	x.chunkReqs = append(x.chunkReqs, signed)
+	x.chunkReqs = append(x.chunkReqs, req)
 	return nil
 }
 
