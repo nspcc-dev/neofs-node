@@ -20,13 +20,6 @@ type Request interface {
 // equal than the specified one.
 func VersionLE(req Request, mjr, mnr uint32) bool {
 	metaHdr := req.GetMetaHeader()
-	for {
-		origin := metaHdr.GetOrigin()
-		if origin == nil {
-			break
-		}
-		metaHdr = origin
-	}
 
 	ver := metaHdr.GetVersion()
 	gotMjr := ver.GetMajor() // NPE-safe

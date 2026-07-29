@@ -173,9 +173,6 @@ func (s *Server) ResetSessionTokenCheckCache() {
 // signature, lifetime and applicability to this operation as per request.
 // Returns both nil if token is not attached to the request.
 func (s *Server) getVerifiedSessionTokenFromMetaHeader(mh *protosession.RequestMetaHeader, reqVerb session.ContainerVerb, reqCnr cid.ID) (*session.Container, []byte, error) {
-	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
-		mh = omh
-	}
 	m := mh.GetSessionToken()
 	if m == nil {
 		return nil, nil, nil
@@ -281,9 +278,6 @@ func (s *Server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 }
 
 func (s *Server) getVerifiedSessionTokenV2FromMetaHeader(mh *protosession.RequestMetaHeader, reqVerb sessionv2.Verb, reqCnr cid.ID) (*sessionv2.Token, []byte, error) {
-	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
-		mh = omh
-	}
 	m := mh.GetSessionTokenV2()
 	if m == nil {
 		return nil, nil, nil

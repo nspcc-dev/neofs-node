@@ -217,10 +217,6 @@ func (s *Server) _handleRequestMetaHeader(metaHdr *protosession.RequestMetaHeade
 	var reqMD requestMetadata
 	reqMD.ttl = metaHdr.Ttl
 
-	for origin := metaHdr.GetOrigin(); origin != nil; origin = metaHdr.GetOrigin() {
-		metaHdr = origin
-	}
-
 	if metaHdr.SessionToken != nil && metaHdr.SessionTokenV2 != nil {
 		return requestMetadata{}, errors.New("both V1 and V2 session tokens are set")
 	}
