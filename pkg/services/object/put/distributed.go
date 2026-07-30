@@ -84,6 +84,7 @@ type distributedTarget struct {
 	// original object payload is stored in objectPayload and payload
 	// objects are stored in encodedECParts.
 	ecPart             iec.PartInfo
+	ecSplitOnlyObject  bool // if true, encodedECParts are the only payload to PUT
 	ecRules            []iec.Rule
 	payloadAlreadyRead bool
 	encodedECParts     [][][]byte // according to ecRules indexing
@@ -206,6 +207,11 @@ func (t *distributedTarget) modifyECParentObject(hdr *object.Object, reader io.R
 }
 
 func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
+	if t.doNotEncodeOriginalObject(hdr) {
+		t.obj = hdr
+		return nil
+	}
+
 	payloadLen := hdr.PayloadSize()
 	if payloadLen > math.MaxInt {
 		return fmt.Errorf("too big payload of physically stored for this server %d > %d", payloadLen, math.MaxInt)
@@ -236,6 +242,10 @@ func (t *distributedTarget) WriteHeader(hdr *object.Object) error {
 }
 
 func (t *distributedTarget) Write(p []byte) (n int, err error) {
+	if t.doNotEncodeOriginalObject(t.obj) {
+		return len(p), nil
+	}
+
 	if t.payloadAlreadyRead {
 		if t.objectPayload != nil {
 			t.encodedObject.b = append(t.encodedObject.b, t.objectPayload...)
@@ -250,7 +260,9 @@ func (t *distributedTarget) Write(p []byte) (n int, err error) {
 
 func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
-		putPayload(t.encodedObject.b)
+		if len(t.encodedObject.b) > 0 {
+			putPayload(t.encodedObject.b)
+		}
 		t.encodedObject.b = nil
 		t.resetMetaCollection()
 		t.payloadAlreadyRead = false
@@ -262,7 +274,9 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		t.encodedECParts = nil
 	}()
 
-	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
+	if !t.doNotEncodeOriginalObject(t.obj) {
+		t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
+	}
 
 	typ := t.obj.Type()
 	tombOrLink := typ == object.TypeLink || typ == object.TypeTombstone

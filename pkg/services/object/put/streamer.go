@@ -287,6 +287,7 @@ func (p *Streamer) newDistrubutedWriter(prm *PutInitPrm) *distributedTarget {
 		containerNodes:          prm.containerNodes,
 		ecPart:                  prm.ecPart,
 		ecRules:                 prm.ecRules,
+		ecSplitOnlyObject:       prm.ecPart.RuleIndex < 0 && len(prm.containerNodes.PrimaryCounts()) == 0,
 		localNodeInContainer:    prm.localNodeInContainer,
 		localNodeSigner:         prm.localNodeSigner,
 		sessionSigner:           prm.sessionSigner,

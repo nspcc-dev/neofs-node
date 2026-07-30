@@ -210,6 +210,13 @@ func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc
 	return t.sendObject(obj, enc, n)
 }
 
+func (t *distributedTarget) doNotEncodeOriginalObject(hdr *object.Object) bool {
+	if hdr.Type() != object.TypeRegular {
+		return false
+	}
+	return t.ecSplitOnlyObject
+}
+
 func ecNodesForPart(nodeList []netmap.NodeInfo, partIdx, totalParts int) []netmap.NodeInfo {
 	res := make([]netmap.NodeInfo, 0, len(nodeList))
 	for i := range iec.NodeSequenceForPart(partIdx, totalParts, len(nodeList)) {
