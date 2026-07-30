@@ -93,9 +93,9 @@ type GetECRequestTransport interface {
 	// Otherwise, no error is returned. Copying can be incomplete in this case.
 	//
 	// CopyRemoteECPartParentHeaderAndPayload is never called concurrently.
-	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64)) (bool, uint64, error) // TODO: upd docs.
 	// CopyLocalECPartParentHeaderAndPayload works like CopyRemoteECPartParentHeaderAndPayload but locally.
-	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, interceptLens func(gotPartPldLen uint64, gotParentPldLen uint64)) (bool, uint64, error)
 	// CopyRemoteECPartRange requests specified payload range of originally
 	// requested object's EC part identified by partInfo pair from remote storage
 	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
