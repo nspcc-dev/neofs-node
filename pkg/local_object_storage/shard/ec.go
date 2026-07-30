@@ -112,15 +112,19 @@ func (s *Shard) getECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeC
 
 // ReadECPartRange is a buffered alternative for [Shard.GetECPartRange]
 // similar to [Shard.ReadHeader].
-func (s *Shard) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (s *Shard) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error) {
 	var stream io.ReadCloser
 	var err error
 
 	err = s.getECPartRangeFunc(cnr, parent, pi, common.NewPayloadRange(off, ln), false, func(writeCache writecache.Cache, addr oid.Address) error {
-		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf)
+		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	}, func(blobStorage common.Storage, addr oid.Address) error {
-		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf)
+		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	})
 

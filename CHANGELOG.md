@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 - Origin verification and meta headers are no longer considered for requests (#4103)
 - RANGE requests now using the same forwarding scheme as GET (#4103)
 - PUT request forwarding no longer mangles meta headers (#4103)
+- SN spends less memory to handle range-only EC GET requests (#4102)
 
 ### Removed
 - Compression support from FSTree (#4054)

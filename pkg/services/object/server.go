@@ -24,6 +24,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	storagecommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
@@ -1061,13 +1062,16 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		responseStream:   gStream,
 	})
 
+	payloadOnly := p.PayloadOnly()
+	isOffLenRangeOnly := payloadOnly && p.RangeMode() == storagecommon.PayloadRangeModeOffsetLength
+
 	// TODO: consider optimization
 	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
 	// Then small objects would fit into a single buffer, and for large ones it'd be possible to
 	// encode the first chunk response using the heading buffer.
 	var hdrRespBuf *iprotobuf.MemBuffer
 	var hdrBuf []byte
-	if !p.HasRange() || p.IsFullRange() {
+	if !p.HasRange() || p.IsFullRange() || isOffLenRangeOnly {
 		// TODO: if prm.payloadOnly flag is set and prm.recheckEACL is not, header is
 		//  not needed. Currently, header is always read in storage implementation.
 		//  Therefore, costs do not appear for the mentioned case. However, this could
@@ -1086,7 +1090,23 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}()
 
 	if hdrBuf != nil {
-		p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+		if isOffLenRangeOnly {
+			var checkHeaderBinaryFn func([]byte) error
+			if recheckEACL {
+				checkHeaderBinaryFn = func(hdr []byte) error {
+					recheckEACL = false // check once
+					err := s.aclChecker.CheckEACL(gStream.Context(), hdr, cnrID, objID, reqInfo)
+					if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+						err = eACLErr(reqInfo, err)
+					}
+					return err
+				}
+			}
+
+			p.WithBufferedRange(hdrBuf, checkHeaderBinaryFn, func(s io.ReadCloser) { stream = s })
+		} else {
+			p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+		}
 	}
 
 	err = s.handlers.Get(gStream.Context(), p)
@@ -1097,7 +1117,15 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
-	if hdrLen < 0 {
+	if stream == nil {
+		return nil
+	}
+
+	if isOffLenRangeOnly {
+		err = s.copyRangeStream(gStream, stream, needSignResp, shiftPayloadChunkInGetResponseBuffer)
+		if err != nil {
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
 		return nil
 	}
 
@@ -1116,7 +1144,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	pldFldOff := max(idf.To, sigf.To, hdrf.To)
 
-	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, pldFldOff, stream, pldFldOff, needSignResp, !p.PayloadOnly()) // defer
+	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, pldFldOff, stream, pldFldOff, needSignResp, !payloadOnly) // defer
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}

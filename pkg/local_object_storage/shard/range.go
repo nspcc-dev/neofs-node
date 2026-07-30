@@ -45,16 +45,20 @@ func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, rng common.PayloadRange, r
 
 // ReadRange is a buffered alternative for [Shard.GetRangeStream]
 // similar to [Shard.ReadHeader].
-func (s *Shard) ReadRange(cnr cid.ID, id oid.ID, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (s *Shard) ReadRange(cnr cid.ID, id oid.ID, off, ln uint64, buf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error) {
 	var stream io.ReadCloser
 
 	err := s.getRangeStreamFunc(cnr, id, func(writeCache writecache.Cache, addr oid.Address) error {
 		var err error
-		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf)
+		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	}, func(blobStorage common.Storage, addr oid.Address) error {
 		var err error
-		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf)
+		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	})
 

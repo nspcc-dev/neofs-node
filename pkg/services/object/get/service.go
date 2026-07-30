@@ -156,7 +156,11 @@ type cfg struct {
 		// ReadECPart is a buffered alternative for GetECPart similar to ReadObject.
 		ReadECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error)
 		// ReadECPartRange is a buffered alternative for GetECPartRange similar to ReadECPart.
-		ReadECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error)
+		//
+		// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+		// read (never concurrently). If it returns an error, whole operation is aborted
+		// with this error.
+		ReadECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error)
 		Head(context.Context, oid.Address, bool) (*object.Object, error)
 		ReadHeader(context.Context, oid.Address, bool, []byte) (int, error)
 		// HeadECPart is similar to GetECPart but returns only the header.

@@ -282,7 +282,7 @@ func (unimplementedBLOBStore) GetRangeStream(oid.Address, common.PayloadRange, b
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) ReadPayloadRange(oid.Address, uint64, uint64, []byte) (io.ReadCloser, error) {
+func (unimplementedBLOBStore) ReadPayloadRange(oid.Address, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -340,7 +340,7 @@ func (unimplementedWriteCache) GetRangeStream(oid.Address, common.PayloadRange, 
 	panic("unimplemented")
 }
 
-func (unimplementedWriteCache) ReadPayloadRange(oid.Address, uint64, uint64, []byte) (io.ReadCloser, error) {
+func (unimplementedWriteCache) ReadPayloadRange(oid.Address, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

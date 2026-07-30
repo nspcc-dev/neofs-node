@@ -22,8 +22,10 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 // FSTree represents an object storage as a filesystem tree.
@@ -529,7 +531,7 @@ func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, err
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
 func (t *FSTree) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
-	return t.readPayloadRange(addr, rng, readHeader, func() []byte {
+	return t.readPayloadRange(addr, rng, readHeader, nil, func() []byte {
 		return make([]byte, 2*objectwire.NonPayloadFieldsBufferLength)
 	})
 }
@@ -539,50 +541,77 @@ func (t *FSTree) GetRangeStream(addr oid.Address, rng common.PayloadRange, readH
 //
 // If given range is out of payload bounds, ReadPayloadRange returns
 // [apistatus.ErrObjectOutOfRange].
-func (t *FSTree) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byte) (io.ReadCloser, error) {
-	_, _, stream, err := t.readPayloadRange(addr, common.NewPayloadRange(off, ln), false, func() []byte {
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (t *FSTree) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error) {
+	_, _, stream, err := t.readPayloadRange(addr, common.NewPayloadRange(off, ln), false, interceptHeaderBinaryFn, func() []byte {
 		return hdrBuf
 	})
 	return stream, err
 }
 
-func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, readHeader bool, getHdrBuf func() []byte) (*object.Object, uint64, io.ReadCloser, error) {
+func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, readHeader bool, interceptHeaderBinaryFn func([]byte) error, getHdrBuf func() []byte) (*object.Object, uint64, io.ReadCloser, error) {
 	prefix, stream, err := t._readObject(addr, getHdrBuf())
 	if err != nil {
 		return nil, 0, nil, err
 	}
 
-	pldLen, pldFldOff, err := objectwire.GetPayloadLengthAndFieldOffset(prefix)
+	if stream != nil {
+		defer func() {
+			if err != nil {
+				stream.Close()
+			}
+		}()
+	}
+
+	// TODO: traverse buffer at once
+	hf, err := iprotobuf.GetLENFieldBounds(prefix, protoobject.FieldObjectHeader)
 	if err != nil {
-		if stream != nil {
-			stream.Close()
+		return nil, 0, nil, fmt.Errorf("seek header field: %w", err)
+	}
+
+	var pldLen uint64
+	if !hf.IsMissing() {
+		hdrBin := prefix[hf.ValueFrom:hf.To]
+		if interceptHeaderBinaryFn != nil {
+			if err = interceptHeaderBinaryFn(hdrBin); err != nil {
+				return nil, 0, nil, err
+			}
 		}
-		return nil, 0, nil, fmt.Errorf("get payload length and field in read header: %w", err)
+		pldLen, err = objectwire.GetPayloadLengthHeader(hdrBin)
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("seek payload length field in header: %w", err)
+		}
+	}
+
+	pldFldOff, pldFldTagLn, typ, err := iprotobuf.SeekFieldByNumber(prefix, protoobject.FieldObjectPayload)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("seek payload field: %w", err)
+	}
+	if pldFldOff >= 0 && typ != protowire.BytesType {
+		return nil, 0, nil, fmt.Errorf("wrong payload field type: expected %d, got %d", protowire.BytesType, typ)
 	}
 
 	off, ln, err := rng.Resolve(pldLen)
 	if err != nil {
-		if stream != nil {
-			stream.Close()
-		}
 		return nil, pldLen, nil, err
 	}
 	var hdr *object.Object
 	if readHeader {
 		hdr, _, err = objectwire.ExtractHeaderAndPayload(prefix)
 		if err != nil {
-			if stream != nil {
-				stream.Close()
-			}
 			return nil, pldLen, nil, fmt.Errorf("extract header in read payload range: %w", err)
 		}
 	}
 
+	if pldFldOff >= 0 {
+		pldFldOff += pldFldTagLn
+	}
+
 	stream, err = t.shiftPayloadRangeStream(prefix, pldLen, pldFldOff, stream, off, ln)
 	if err != nil {
-		if stream != nil {
-			stream.Close()
-		}
 		return nil, pldLen, nil, err
 	}
 

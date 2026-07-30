@@ -163,15 +163,19 @@ loop:
 
 // ReadECPartRange is a buffered alternative for [StorageEngine.GetECPartRange]
 // similar to [StorageEngine.ReadECPart].
-func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error) {
 	var stream io.ReadCloser
 	var err error
 
 	err = e.getECPartRangeFunc(cnr, parent, pi, common.NewPayloadRange(off, ln), MetricRegister.AddReadECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
-		stream, err = s.ReadECPartRange(cnr, parent, pi, off, ln, buf)
+		stream, err = s.ReadECPartRange(cnr, parent, pi, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	}, func(s shardInterface, cnr cid.ID, partID oid.ID) error {
-		stream, err = s.ReadRange(cnr, partID, off, ln, buf)
+		stream, err = s.ReadRange(cnr, partID, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	})
 

@@ -437,7 +437,7 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	hdrMemBuf, buf := getBufferForHeadResponse()
 	defer hdrMemBuf.Free()
 
-	stream, err := storage.ReadECPartRange(ctx, x.requestContainer, x.requestObject, partInfo, off, ln, buf)
+	stream, err := storage.ReadECPartRange(ctx, x.requestContainer, x.requestObject, partInfo, off, ln, buf, nil)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
 			return 0, err
