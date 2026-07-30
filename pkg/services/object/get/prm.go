@@ -251,6 +251,11 @@ func (p Prm) PayloadOnly() bool {
 	return p.payloadOnly
 }
 
+// IsFullRange checks whether payload range is set and corresponds to full payload.
+func (p Prm) IsFullRange() bool {
+	return p.payloadRange.IsFull()
+}
+
 // SetTransportFunc specifies request transport callback to use for receiving
 // response from remote node by in-container server.
 //

@@ -108,6 +108,18 @@ func (r PayloadRange) Resolved(payloadLen uint64) (PayloadRange, error) {
 	return NewPayloadRange(off, ln), nil
 }
 
+// IsFull checks whether payload range is set and corresponds to full payload.
+func (r PayloadRange) IsFull() bool {
+	switch r.Mode {
+	case PayloadRangeModeOffsetLength:
+		return r.First == 0 && r.Second == 0
+	case PayloadRangeModeFrom:
+		return r.First == 0
+	default:
+		return false
+	}
+}
+
 // Storage represents key-value object storage.
 // It is used as a building block for a blobstor of a shard.
 type Storage interface {

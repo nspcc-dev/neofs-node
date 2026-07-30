@@ -1067,9 +1067,14 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	// encode the first chunk response using the heading buffer.
 	var hdrRespBuf *iprotobuf.MemBuffer
 	var hdrBuf []byte
-	if !p.HasRange() && !p.PayloadOnly() {
+	if !p.HasRange() || p.IsFullRange() {
+		// TODO: if prm.payloadOnly flag is set and prm.recheckEACL is not, header is
+		//  not needed. Currently, header is always read in storage implementation.
+		//  Therefore, costs do not appear for the mentioned case. However, this could
+		//  theoretically change, in which case the header reading should not be done.
 		hdrRespBuf, hdrBuf = getBufferForHeadResponse()
 		defer hdrRespBuf.Free()
+		// TODO: consider faster hdrRespBuf freeing for payload only
 	}
 
 	hdrLen := -1
@@ -1111,7 +1116,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	pldFldOff := max(idf.To, sigf.To, hdrf.To)
 
-	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, pldFldOff, stream, pldFldOff, needSignResp) // defer
+	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, pldFldOff, stream, pldFldOff, needSignResp, !p.PayloadOnly()) // defer
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
@@ -1145,7 +1150,7 @@ attrL:
 }
 
 func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte,
-	prefixLen, hdrTo int, stream io.Reader, pldFldOff int, needSignResp bool) error {
+	prefixLen, hdrTo int, stream io.Reader, pldFldOff int, needSignResp bool, withHeader bool) error {
 	var (
 		chunkRespBuf        *iprotobuf.MemBuffer
 		chunkBuf            []byte
@@ -1168,30 +1173,34 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 		}
 	}
 
-	bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:hdrTo])
+	var bodyf iprotobuf.FieldBounds
 
-	if needSignResp {
-		n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
-		if err != nil {
+	if withHeader {
+		bodyf = shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:hdrTo])
+
+		if needSignResp {
+			n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+			if err != nil {
+				if chunkRespBuf != nil {
+					chunkRespBuf.Free()
+				}
+				return fmt.Errorf("sign head response: %w", err)
+			}
+			bodyf.To += n
+		}
+
+		hdrRespBuf.SetBounds(bodyf.From, bodyf.To)
+		hdrRespBuf.Ref() // because Free() is defered
+		// Note that finished SendMsg() does not guarantee that the buffer is free.
+		// Moreover, this is not guaranteed even by returning from the current function.
+		// Therefore, buffer release has to be delegated to gRPC layer.
+		// For the same reason, reusing a single buffer for multiple messages is unsafe.
+		if err := gStream.SendMsg(hdrRespBuf); err != nil {
 			if chunkRespBuf != nil {
 				chunkRespBuf.Free()
 			}
-			return fmt.Errorf("sign head response: %w", err)
+			return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
 		}
-		bodyf.To += n
-	}
-
-	hdrRespBuf.SetBounds(bodyf.From, bodyf.To)
-	hdrRespBuf.Ref() // because Free() is defered
-	// Note that finished SendMsg() does not guarantee that the buffer is free.
-	// Moreover, this is not guaranteed even by returning from the current function.
-	// Therefore, buffer release has to be delegated to gRPC layer.
-	// For the same reason, reusing a single buffer for multiple messages is unsafe.
-	if err := gStream.SendMsg(hdrRespBuf); err != nil {
-		if chunkRespBuf != nil {
-			chunkRespBuf.Free()
-		}
-		return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
 	}
 
 	if chunkRespBuf == nil {

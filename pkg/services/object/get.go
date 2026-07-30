@@ -414,7 +414,7 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 		n += copy(buf[n:], partHdrBuf[parentHdrf.From:parentHdrf.To])
 	}
 
-	err = x.server.copyGetStream(x.responseStream, hdrMemBuf, buf, prefixLen, n, stream, partHdrf.To, x.signResponses)
+	err = x.server.copyGetStream(x.responseStream, hdrMemBuf, buf, prefixLen, n, stream, partHdrf.To, x.signResponses, true)
 	if err != nil {
 		var e copyReadError
 		if !errors.As(err, &e) {

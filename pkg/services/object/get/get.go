@@ -31,7 +31,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
 
-		if prm.payloadRange.IsSet() {
+		if prm.payloadRange.IsSet() && (prm.localGetBuffer == nil || !prm.payloadRange.IsFull()) {
 			if prm.payloadOnly && prm.localGetBuffer != nil && !prm.recheckEACL {
 				if rng := prm.Range(); rng != nil {
 					stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, rng.GetOffset(), rng.GetLength(), prm.localGetBuffer)
