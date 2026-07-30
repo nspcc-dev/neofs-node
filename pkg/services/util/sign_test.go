@@ -30,17 +30,6 @@ func TestVersionLE(t *testing.T) {
 	}
 
 	assert(t)
-
-	t.Run("nested request", func(t *testing.T) {
-		req.MetaHeader = &protosession.RequestMetaHeader{
-			Version: &refs.Version{Major: 2, Minor: 22},
-			Origin: &protosession.RequestMetaHeader{
-				Origin: req.MetaHeader,
-			},
-		}
-
-		assert(t)
-	})
 }
 
 func TestSignResponseIfNeeded(t *testing.T) {

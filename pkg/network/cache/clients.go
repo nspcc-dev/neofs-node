@@ -27,8 +27,10 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -166,7 +168,7 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 			continue
 		}
 		x.log.Info("initializing connection to new SN address in the new network map...", zap.String("address", ma))
-		c, err := x.initConnection(ctx, pub, ma)
+		c, _, err := x.initConnection(ctx, pub, ma)
 		if err != nil {
 			x.log.Info("failed to init connection to new SN address in the new network map",
 				zap.String("address", ma), zap.Error(err))
@@ -182,9 +184,11 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Seq[string]) (*connections, error) {
 	m := make(map[string]*client.Client)
 	l := x.log.With(zap.String("public key", hex.EncodeToString(pub)))
+	var ver *protorefs.Version
+
 	for s := range addrs {
 		l.Info("initializing connection to the SN...", zap.String("address", s))
-		c, err := x.initConnection(ctx, pub, s)
+		c, v, err := x.initConnection(ctx, pub, s)
 		if err != nil {
 			// TODO: if at least one address is OK, SN can be operational
 			for cl := range maps.Values(m) {
@@ -192,33 +196,37 @@ func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Se
 			}
 			return nil, fmt.Errorf("init conn to %q: %w", s, err)
 		}
+		if ver == nil {
+			ver = v
+		}
 		l.Info("connection to the SN successfully initialized", zap.String("address", s))
 		m[s] = c
 	}
 	var hexKey = hex.EncodeToString(pub)
 	return &connections{
-		log:    x.log.With(zap.String("SN public key", hexKey)),
-		nodeID: hexKey,
-		m:      m,
+		log:        x.log.With(zap.String("SN public key", hexKey)),
+		nodeID:     hexKey,
+		m:          m,
+		apiVersion: ver,
 	}, nil
 }
 
-func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*client.Client, error) {
+func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*client.Client, *protorefs.Version, error) {
 	// FIXME: pending removal in #3982.
 	var a network.Address
 	if err := a.FromString(uri); err != nil {
-		return nil, fmt.Errorf("parse network address %q: %w", uri, err)
+		return nil, nil, fmt.Errorf("parse network address %q: %w", uri, err)
 	}
 
 	target, withTLS, err := uriutil.Parse(a.URIAddr())
 	if err != nil {
-		return nil, fmt.Errorf("parse URI: %w", err)
+		return nil, nil, fmt.Errorf("parse URI: %w", err)
 	}
 	var transportCreds credentials.TransportCredentials
 	if withTLS {
 		expectedKey, err := keys.NewPublicKeyFromBytes(pub, elliptic.P256())
 		if err != nil {
-			return nil, fmt.Errorf("parse node public key: %w", err)
+			return nil, nil, fmt.Errorf("parse node public key: %w", err)
 		}
 		transportCreds = credentials.NewTLS(newNodeTLSConfig((*ecdsa.PublicKey)(expectedKey)))
 	} else {
@@ -237,12 +245,12 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 		}),
 	)
 	if err != nil { // should never happen
-		return nil, fmt.Errorf("init gRPC client conn: %w", err)
+		return nil, nil, fmt.Errorf("init gRPC client conn: %w", err)
 	}
-	res, err := client.NewGRPC(ctx, pub, grpcConn, x.signBufPool, x.streamMsgTimeout)
+	res, err := client.NewGRPC(ctx, grpcConn, x.signBufPool, x.streamMsgTimeout)
 	if err != nil {
 		_ = grpcConn.Close()
-		return res, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
+		return res, nil, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, x.streamMsgTimeout)
@@ -251,15 +259,24 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	resp, err := res.EndpointInfo(ctx, client.PrmEndpointInfo{})
 	if err != nil {
 		_ = grpcConn.Close()
-		return nil, fmt.Errorf("get node info to check public key: %w", err)
+		return nil, nil, fmt.Errorf("get node info to check public key: %w", err)
 	}
 
 	if got := resp.NodeInfo().PublicKey(); !bytes.Equal(got, pub) {
 		_ = grpcConn.Close()
-		return nil, clientcore.ErrWrongPublicKey
+		return nil, nil, clientcore.ErrWrongPublicKey
 	}
 
-	return res, nil
+	var (
+		nodeAPI   = resp.LatestVersion()
+		clientAPI = version.Current()
+	)
+
+	if nodeAPI.Compare(clientAPI) < 0 {
+		clientAPI = nodeAPI
+	}
+
+	return res, clientAPI.ProtoMessage(), nil
 }
 
 func newNodeTLSConfig(expectedKey *ecdsa.PublicKey) *tls.Config {
@@ -290,8 +307,9 @@ type connections struct {
 	log    *zap.Logger
 	nodeID string
 
-	mtx sync.RWMutex
-	m   map[string]*client.Client // keys are multiaddrs
+	mtx        sync.RWMutex
+	m          map[string]*client.Client // keys are multiaddrs
+	apiVersion *protorefs.Version
 }
 
 func (x *connections) closeAll() {
@@ -337,6 +355,10 @@ func (x *connections) ForAnyGRPCConn(ctx context.Context, f func(context.Context
 	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return f(ctx, c.Conn())
 	})
+}
+
+func (x *connections) APIVersion() *protorefs.Version {
+	return x.apiVersion
 }
 
 func (x *connections) ObjectPutInit(ctx context.Context, hdr object.Object, signer user.Signer, opts client.PrmObjectPutInit) (client.ObjectWriter, error) {

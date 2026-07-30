@@ -256,7 +256,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 
 func (p *Streamer) newDistrubutedWriter(prm *PutInitPrm) *distributedTarget {
 	var relay func(nodeDesc) error
-	if p.relay != nil {
+	if p.relay != nil && !prm.localNodeInContainer {
 		relay = func(node nodeDesc) error {
 			c, err := p.clientConstructor.Get(p.ctx, node.info)
 			if err != nil {

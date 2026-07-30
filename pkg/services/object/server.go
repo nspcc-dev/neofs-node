@@ -322,23 +322,6 @@ func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, initReq *protoo
 	return nil
 }
 
-func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.PutRequest, error) {
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return nil, errors.New("missing meta header")
-	}
-	req.MetaHeader = &protosession.RequestMetaHeader{
-		Ttl:    meta.GetTtl() - 1,
-		Origin: meta,
-	}
-	var err error
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(x.signer), req, nil)
-	if err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
 func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *protoobject.PutRequest_Body_Init, reqMD requestMetadata) error {
 	mo := &protoobject.Object{
 		ObjectId:  initPart.ObjectId,
@@ -367,11 +350,7 @@ func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *pr
 	if m := x.base.MaxObjectSize(); x.expBytes > m {
 		return putsvc.ErrExceedingMaxSize
 	}
-	signed, err := x.resignRequest(req) // TODO: resign only when needed
-	if err != nil {
-		return err // TODO: add context
-	}
-	x.initReq = signed
+	x.initReq = req
 	return nil
 }
 
@@ -387,11 +366,7 @@ func (x *putStream) forwardChunkRequest(req *protoobject.PutRequest, c []byte) e
 	if !x.cacheReqs {
 		return nil
 	}
-	signed, err := x.resignRequest(req) // TODO: resign only when needed
-	if err != nil {
-		return err // TODO: add context
-	}
-	x.chunkReqs = append(x.chunkReqs, signed)
+	x.chunkReqs = append(x.chunkReqs, req)
 	return nil
 }
 
@@ -856,7 +831,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 			req = &protoobject.HeadRequest{
 				Body: req.Body,
 				MetaHeader: &protosession.RequestMetaHeader{
-					Version: version.Current().ProtoMessage(),
+					Version: c.APIVersion(),
 					Ttl:     1,
 				},
 			}
@@ -1388,7 +1363,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 			req = &protoobject.GetRequest{
 				Body: req.Body,
 				MetaHeader: &protosession.RequestMetaHeader{
-					Version: version.Current().ProtoMessage(),
+					Version: c.APIVersion(),
 					Ttl:     1,
 				},
 			}
@@ -1647,10 +1622,12 @@ func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *prot
 	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
 		var err error
 		onceResign.Do(func() {
-			req.MetaHeader = &protosession.RequestMetaHeader{
-				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1,
-				Origin: meta,
+			req = &protoobject.GetRangeRequest{
+				Body: req.Body,
+				MetaHeader: &protosession.RequestMetaHeader{
+					Version: c.APIVersion(),
+					Ttl:     1,
+				},
 			}
 			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
@@ -2080,7 +2057,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		req = &protoobject.SearchV2Request{
 			Body: req.Body,
 			MetaHeader: &protosession.RequestMetaHeader{
-				Version: version.Current().ProtoMessage(),
+				Version: version.Current().ProtoMessage(), // Should be client APIVersion(), but not possible now.
 				Ttl:     1,
 			},
 		}

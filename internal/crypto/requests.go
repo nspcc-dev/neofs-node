@@ -47,13 +47,7 @@ func GetRequestAuthor(vh *protosession.RequestVerificationHeader) (user.ID, []by
 		return user.ID{}, nil, errors.New("missing verification header")
 	}
 
-	var sig *refs.Signature
-	for ; ; vh = vh.Origin {
-		if vh.Origin == nil {
-			sig = vh.BodySignature
-			break
-		}
-	}
+	var sig = vh.BodySignature
 	if sig == nil {
 		return user.ID{}, nil, errors.New("missing body signature")
 	}

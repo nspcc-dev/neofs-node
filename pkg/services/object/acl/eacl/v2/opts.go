@@ -46,7 +46,7 @@ func WithServiceResponse(resp Response, req Request) Option {
 	return func(c *cfg) {
 		c.msg = responseXHeaderSource{
 			resp: resp,
-			req:  req,
+			req:  requestXHeaderSource{req},
 		}
 	}
 }

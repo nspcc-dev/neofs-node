@@ -127,6 +127,10 @@ func (x *readyObjectPayloadWriter) Write(p []byte) (int, error) {
 	return x.target.Write(p)
 }
 
+func (x *readyObjectPayloadWriter) ReadFrom(r io.Reader) (int64, error) {
+	return io.Copy(x.target, r)
+}
+
 func (x *readyObjectPayloadWriter) Close() error {
 	_, err := x.target.Close()
 	return err

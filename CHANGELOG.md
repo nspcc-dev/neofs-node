@@ -27,6 +27,9 @@ Changelog for NeoFS Node
 - SN no longer limits number of concurrent outgoing requests in SearchV2 handler (#4092)
 - Inter-node TLS certificates are verified against node keys (#4095)
 - SN does not sign EC parts, it attaches payload hashes to parent's attributes instead (#4057)
+- Origin verification and meta headers are no longer considered for requests (#4103)
+- RANGE requests now using the same forwarding scheme as GET (#4103)
+- PUT request forwarding no longer mangles meta headers (#4103)
 
 ### Removed
 - Compression support from FSTree (#4054)
@@ -34,7 +37,7 @@ Changelog for NeoFS Node
 - ADM no longer adds `storage.shard_pool_size` to produced SN configurations (#XXXK)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.20.0.20260726075240-2dc85f8929a1` (#4065, #4099)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.20.0.20260729143646-331e26b2c872` (#4065, #4099)
 - NeoGo dependency to 0.121.0 (#4083)
 
 ### Updating from v0.54.0
