@@ -101,6 +101,9 @@ type GetECRequestTransport interface {
 	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
 	// range to the client, and returns number of bytes copied.
 	//
+	// Flag full specifies whether full range should be obtained. In this case,
+	// offset is always zero and ln is a full length known in advance.
+	//
 	// If response stream fails, [ErrResponseStreamFailure] is returned.
 	//
 	// If the node responds with any failure status other than 'not found', the
@@ -114,7 +117,7 @@ type GetECRequestTransport interface {
 	//
 	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
 	// never for the same one.
-	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error)
+	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, full bool, controlCh <-chan bool) (uint64, error)
 	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
 	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool) (uint64, error)
 }

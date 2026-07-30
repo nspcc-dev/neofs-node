@@ -828,17 +828,22 @@ func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.Buff
 	return parentID, parentSig, parentHdr, parentPldLen, partPldLen, nil
 }
 
-func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, controlCh <-chan bool) (uint64, error) {
+func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, full bool, controlCh <-chan bool) (uint64, error) {
 	var copiedPld uint64
 
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, off+copiedPld, ln-copiedPld, controlCh)
+		var reqLen uint64
+		if !full || off > 0 || copiedPld > 0 {
+			reqLen = ln - copiedPld
+		}
+
+		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, off+copiedPld, reqLen, controlCh)
 		if err != nil {
 			return err
 		}
 
 		copiedPld += copiedFromNode
-		if copiedPld > ln {
+		if ln > 0 && copiedPld > ln {
 			return fmt.Errorf("received %d bytes while %d requested", copiedPld, ln)
 		}
 
