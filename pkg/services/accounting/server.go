@@ -10,6 +10,7 @@ import (
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	protoaccounting "github.com/nspcc-dev/neofs-sdk-go/proto/accounting"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -44,10 +45,14 @@ func New(s *ecdsa.PrivateKey, c BalanceContract) protoaccounting.AccountingServi
 }
 
 func (s *server) makeBalanceResponse(body *protoaccounting.BalanceResponse_Body, st *protostatus.Status, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
+	var v *protorefs.Version
+	if util.NeedVersionInResponse(req.MetaHeader) {
+		v = version.Current().ProtoMessage()
+	}
 	resp := &protoaccounting.BalanceResponse{
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
-			Version: version.Current().ProtoMessage(),
+			Version: v,
 			Status:  st,
 		},
 	}
