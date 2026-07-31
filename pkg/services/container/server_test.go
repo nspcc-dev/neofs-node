@@ -514,7 +514,6 @@ func TestServer_SetExtendedACL_InvalidRequest(t *testing.T) {
 		require.True(t, proto.Equal(resp, &protocontainer.SetExtendedACLResponse{
 			MetaHeader: &protosession.ResponseMetaHeader{
 				Version: version.Current().ProtoMessage(),
-				Epoch:   currentEpoch,
 				Status: &protostatus.Status{
 					Code:    1024,
 					Message: "missing container ID in eACL table",
@@ -587,7 +586,6 @@ func TestService_SetExtendedACL_SessionIssuer(t *testing.T) {
 		require.True(t, proto.Equal(resp, &protocontainer.SetExtendedACLResponse{
 			MetaHeader: &protosession.ResponseMetaHeader{
 				Version: version.Current().ProtoMessage(),
-				Epoch:   currentEpoch,
 				Status:  st,
 			},
 		}), resp.GetMetaHeader().GetStatus())
@@ -675,7 +673,6 @@ func TestService_Delete_SessionIssuer(t *testing.T) {
 		require.True(t, proto.Equal(resp, &protocontainer.DeleteResponse{
 			MetaHeader: &protosession.ResponseMetaHeader{
 				Version: version.Current().ProtoMessage(),
-				Epoch:   currentEpoch,
 				Status:  st,
 			},
 		}), resp.GetMetaHeader().GetStatus())

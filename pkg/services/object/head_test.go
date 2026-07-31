@@ -10,7 +10,6 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -62,7 +61,7 @@ func TestServer_Head_Local(t *testing.T) {
 
 	assertWithVersion := func(t *testing.T, ver version.Version) *protoobject.HeadResponse {
 		req := newLocalHeadRequest(t, ver, obj.Address(), signer)
-		return assertHeadRequestOK(t, srv, fsChain, req, *obj, false)
+		return assertHeadRequestOK(t, srv, req, *obj, false)
 	}
 
 	t.Run("EC part", func(t *testing.T) {
@@ -89,7 +88,7 @@ func TestServer_Head_Local(t *testing.T) {
 		req.MetaHeader.Ttl = 2 // to show it has no effect w/ EC X-headers
 		signHeadRequest(t, req, signer)
 
-		assertHeadRequestOK(t, srv, fsChain, req, partHdr, true)
+		assertHeadRequestOK(t, srv, req, partHdr, true)
 
 		handlerFSChain.ecRules = nil
 	})
@@ -165,7 +164,7 @@ func TestServer_Head_Remote(t *testing.T) {
 		req.MetaHeader.Ttl = 2
 		signHeadRequest(t, req, signer)
 
-		assertHeadRequestOK(t, srv, fsChain, req, *obj.CutPayload(), false)
+		assertHeadRequestOK(t, srv, req, *obj.CutPayload(), false)
 	})
 
 	t.Run("REP forwarded", func(t *testing.T) {
@@ -333,13 +332,12 @@ func callHead(t *testing.T, srv *Server, req *protoobject.HeadRequest) (*protoob
 	return protoobject.NewObjectServiceClient(c).Head(context.Background(), req)
 }
 
-func assertHeadRequestOK(t *testing.T, srv *Server, fsChain netmapcore.State, req *protoobject.HeadRequest, expObj object.Object, unsignedObject bool) *protoobject.HeadResponse {
+func assertHeadRequestOK(t *testing.T, srv *Server, req *protoobject.HeadRequest, expObj object.Object, unsignedObject bool) *protoobject.HeadResponse {
 	resp, err := callHead(t, srv, req)
 	require.NoError(t, err)
 
 	require.Equal(t, &protosession.ResponseMetaHeader{
 		Version: version.Current().ProtoMessage(),
-		Epoch:   fsChain.CurrentEpoch(),
 		Status:  nil, // for clarity
 	}, resp.MetaHeader)
 

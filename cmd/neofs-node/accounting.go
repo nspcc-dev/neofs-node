@@ -11,7 +11,7 @@ func initAccountingService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	server := accountingService.New(&c.key.PrivateKey, c.networkState, c.bCli)
+	server := accountingService.New(&c.key.PrivateKey, c.bCli)
 
 	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protoaccounting.RegisterAccountingServiceServer(srv, server)

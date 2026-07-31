@@ -259,7 +259,6 @@ type reputationServer struct {
 func (s *reputationServer) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
 	return &protosession.ResponseMetaHeader{
 		Version: version.Current().ProtoMessage(),
-		Epoch:   s.networkState.CurrentEpoch(),
 		Status:  st,
 	}
 }

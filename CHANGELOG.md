@@ -31,6 +31,7 @@ Changelog for NeoFS Node
 - RANGE requests now using the same forwarding scheme as GET (#4103)
 - PUT request forwarding no longer mangles meta headers (#4103)
 - SN spends less memory to handle range-only EC GET requests (#4102)
+- SN does not respond with server's epoch in response meta header (#4072)
 
 ### Removed
 - Compression support from FSTree (#4054)

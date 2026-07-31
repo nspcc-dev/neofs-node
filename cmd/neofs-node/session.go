@@ -25,7 +25,7 @@ func initSessionService(c *cfg) {
 		c.privateTokenStore.RemoveOldTokens(ev.(netmap.NewEpoch).EpochNumber())
 	})
 
-	server := sessionSvc.New(&c.key.PrivateKey, c, c.privateTokenStore)
+	server := sessionSvc.New(&c.key.PrivateKey, c.privateTokenStore)
 
 	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protosession.RegisterSessionServiceServer(srv, server)

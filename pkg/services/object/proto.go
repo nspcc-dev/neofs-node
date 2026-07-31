@@ -127,24 +127,12 @@ func (s *Server) signResponse(buf, body, metaHdr []byte) (int, error) {
 }
 
 func (s *Server) writeMetaHeaderToResponseBuffer(buf []byte) (int, int) {
-	epoch := s.fsChain.CurrentEpoch()
-
 	ln := len(currentVersionResponseMetaHeader)
-	if epoch > 0 {
-		ln += 1 + protowire.SizeVarint(epoch)
-	}
 
 	buf[0] = iprotobuf.TagBytes2
 	off := 1 + binary.PutUvarint(buf[1:], uint64(ln))
-
 	valOff := off
-
 	off += copy(buf[off:], currentVersionResponseMetaHeader)
-
-	if epoch > 0 {
-		buf[off] = iprotobuf.TagVarint2
-		off += 1 + binary.PutUvarint(buf[off+1:], epoch)
-	}
 
 	return valOff, off
 }

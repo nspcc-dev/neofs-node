@@ -249,7 +249,6 @@ func newCurrentProtoVersionMessage() *refs.Version {
 func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
 	return &protosession.ResponseMetaHeader{
 		Version: newCurrentProtoVersionMessage(),
-		Epoch:   s.fsChain.CurrentEpoch(),
 		Status:  st,
 	}
 }
