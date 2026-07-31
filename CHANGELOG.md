@@ -4,6 +4,18 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+## [0.55.0] - 2026-07-31 - Moido
+
+### Added
 - Storage node support GET request with missing part index X-Header (#4033)
 - `fstree-decompress` utility for rewriting old compressed FSTree objects (#4079)
 - Extended payload ranges in GET requests and the `object get` CLI command (#4094)
@@ -36,11 +48,14 @@ Changelog for NeoFS Node
 ### Removed
 - Compression support from FSTree (#4054)
 - IR container structurization migration (#4062)
-- ADM no longer adds `storage.shard_pool_size` to produced SN configurations (#XXXK)
+- ADM no longer adds `storage.shard_pool_size` to produced SN configurations (#4092)
 
 ### Updated
+- golang.org/x/net dependency from 0.51.0 to 0.55.0 (#4060)
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21` (#4065, #4099, #4107)
 - NeoGo dependency to 0.121.0 (#4083)
+- golang.org/x/crypto dependency from 0.51.0 to 0.52.0 (#4084)
+- google.golang.org/grpc dependency from 1.79.3 to 1.82.1 (#4098)
 
 ### Updating from v0.54.0
 Drop blobstor compress and compression_exclude_content_types settings, they're
@@ -3124,7 +3139,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.54.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.55.0...master
+[0.55.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.52.0...v0.53.0
 [0.52.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.51.1...v0.52.0
