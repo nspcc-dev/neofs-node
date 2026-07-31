@@ -13,6 +13,7 @@ import (
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -350,7 +351,7 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 	hdrMemBuf, buf := getBufferForHeadResponse()
 	defer hdrMemBuf.Free()
 
-	prefixLen, stream, err := storage.ReadECPart(ctx, x.requestContainer, x.requestObject, partInfo, buf)
+	prefixLen, stream, err := storage.ReadECPart(ctx, x.requestContainer, x.requestObject, partInfo, common.PayloadRange{}, buf, nil)
 	if err != nil {
 		var splitErr *object.SplitInfoError
 		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.As(err, &splitErr) {

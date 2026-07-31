@@ -586,18 +586,11 @@ func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, rea
 		}
 	}
 
-	pldFldOff, pldFldTagLn, typ, err := iprotobuf.SeekFieldByNumber(prefix, protoobject.FieldObjectPayload)
+	resStream, err := shiftStreamToRange(prefix, pldLen, rng, stream)
 	if err != nil {
-		return nil, 0, nil, fmt.Errorf("seek payload field: %w", err)
-	}
-	if pldFldOff >= 0 && typ != protowire.BytesType {
-		return nil, 0, nil, fmt.Errorf("wrong payload field type: expected %d, got %d", protowire.BytesType, typ)
+		return nil, 0, nil, err
 	}
 
-	off, ln, err := rng.Resolve(pldLen)
-	if err != nil {
-		return nil, pldLen, nil, err
-	}
 	var hdr *object.Object
 	if readHeader {
 		hdr, _, err = objectwire.ExtractHeaderAndPayload(prefix)
@@ -606,19 +599,31 @@ func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, rea
 		}
 	}
 
+	return hdr, pldLen, resStream, nil
+}
+
+func shiftStreamToRange(prefix []byte, pldLen uint64, rng common.PayloadRange, stream io.ReadSeekCloser) (io.ReadSeekCloser, error) {
+	pldFldOff, pldFldTagLn, typ, err := iprotobuf.SeekFieldByNumber(prefix, protoobject.FieldObjectPayload)
+	if err != nil {
+		return nil, fmt.Errorf("seek payload field: %w", err)
+	}
+	if pldFldOff >= 0 && typ != protowire.BytesType {
+		return nil, fmt.Errorf("wrong payload field type: expected %d, got %d", protowire.BytesType, typ)
+	}
+
+	off, ln, err := rng.Resolve(pldLen)
+	if err != nil {
+		return nil, err
+	}
+
 	if pldFldOff >= 0 {
 		pldFldOff += pldFldTagLn
 	}
 
-	stream, err = t.shiftPayloadRangeStream(prefix, pldLen, pldFldOff, stream, off, ln)
-	if err != nil {
-		return nil, pldLen, nil, err
-	}
-
-	return hdr, pldLen, stream, nil
+	return shiftPayloadRangeStream(prefix, pldLen, pldFldOff, stream, off, ln)
 }
 
-func (t *FSTree) shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff int, stream io.ReadSeekCloser, off, ln uint64) (io.ReadSeekCloser, error) {
+func shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff int, stream io.ReadSeekCloser, off, ln uint64) (io.ReadSeekCloser, error) {
 	if pldFldOff < 0 {
 		if pldLen != 0 {
 			return nil, fmt.Errorf("missing payload field tag in %d bytes header, payload len in header = %d", len(prefix), pldLen)

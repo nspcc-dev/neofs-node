@@ -19,7 +19,11 @@ import (
 
 // ReadECPart is a buffered alternative for [StorageEngine.GetECPart] similar to
 // [StorageEngine.ReadObject].
-func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadECPartDuration)()
 	}
@@ -28,11 +32,11 @@ func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID,
 	var stream io.ReadCloser
 	return n, stream, e.getECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
 		var err error
-		n, stream, err = s.ReadECPart(cnr, parent, pi, buf)
+		n, stream, err = s.ReadECPart(cnr, parent, pi, rng, buf, interceptHeaderBinaryFn)
 		return err
 	}, func(s shardInterface, partAddr oid.Address) error {
 		var err error
-		n, stream, err = s.ReadObject(partAddr, true, buf)
+		n, stream, err = s.ReadObject(partAddr, true, rng, buf, interceptHeaderBinaryFn)
 		return err
 	})
 }

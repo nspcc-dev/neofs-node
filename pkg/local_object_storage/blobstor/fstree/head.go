@@ -11,10 +11,13 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 )
 
 // Head returns an object's header from the storage by address without reading the full payload.
@@ -81,6 +84,70 @@ func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadSeekC
 //
 // Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
 func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+	return t.readObject(addr, buf)
+}
+
+// ReadObjectParts reads first bytes of the referenced object's binary
+// containing its full header from t into buf. If optional
+// interceptHeaderBinaryFn is specified, it's called with read header. On error,
+// ReadObjectParts returns it immediately. ReadObjectParts also returns payload
+// stream depending on range parameter. If kind is
+// [common.PayloadRangeModeNone], full payload including field prefix is
+// returned. Otherwise, stream contains requested range bytes only. The stream
+// must be finally closed by the caller.
+//
+// If object is missing, ReadObjectParts returns [apistatus.ErrObjectNotFound].
+//
+// If partial out-of-bounds range is requested, ReadObjectParts returns
+// [apistatus.ErrObjectOutOfRange].
+//
+// Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
+func (t *FSTree) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+	n, stream, err := t.readObject(addr, buf)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	defer func() {
+		if err != nil {
+			stream.Close()
+		}
+	}()
+
+	// TODO: traverse buffer at once
+	hf, err := iprotobuf.GetLENFieldBounds(buf[:n], protoobject.FieldObjectHeader)
+	if err != nil {
+		return 0, nil, fmt.Errorf("seek header field: %w", err)
+	}
+
+	partialRange := rng.IsSet() && !rng.IsFull()
+
+	if hf.IsMissing() && !partialRange {
+		return n, stream, nil
+	}
+
+	hdrBin := buf[:n][hf.ValueFrom:hf.To]
+
+	if interceptHeaderBinaryFn != nil {
+		if err = interceptHeaderBinaryFn(hdrBin); err != nil {
+			return 0, nil, err
+		}
+	}
+
+	pldLen, err := objectwire.GetPayloadLengthHeader(hdrBin)
+	if err != nil {
+		return 0, nil, fmt.Errorf("seek payload length field in header: %w", err)
+	}
+
+	if !partialRange {
+		return n, stream, nil
+	}
+
+	resStream, err := shiftStreamToRange(buf[:n], pldLen, rng, stream) // assign instead of return for defer
+	return n, resStream, err
+}
+
+func (t *FSTree) readObject(addr oid.Address, buf []byte) (int, io.ReadSeekCloser, error) {
 	initial, stream, err := t._readObject(addr, buf)
 	if err != nil {
 		return 0, nil, err

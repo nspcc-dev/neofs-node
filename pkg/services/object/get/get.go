@@ -31,16 +31,15 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
 
-		if prm.payloadRange.IsSet() && (prm.localGetBuffer == nil || !prm.payloadRange.IsFull()) {
-			if prm.payloadOnly && prm.localGetBuffer != nil {
-				if rng := prm.Range(); rng != nil {
-					stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, rng.GetOffset(), rng.GetLength(), prm.localGetBuffer, prm.interceptHeaderBinaryFn)
-					if err == nil {
-						prm.submitLocalRangeStreamFn(stream)
-					}
-					return err
-				}
+		if prm.localGetBuffer != nil {
+			n, stream, err := s.localObjects.ReadECPart(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.payloadRange, prm.localGetBuffer, prm.interceptHeaderBinaryFn)
+			if err == nil {
+				prm.submitLocalGetStreamFn(n, stream)
 			}
+			return err
+		}
+
+		if prm.payloadRange.IsSet() {
 			var headerFn func(*object.Object) error
 			if !prm.payloadOnly || prm.recheckEACL {
 				headerFn = func(hdr *object.Object) error {
@@ -50,24 +49,14 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 			return s.copyLocalECPartPayloadRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.payloadRange, headerFn)
 		}
 
-		if prm.localGetBuffer != nil {
-			n, stream, err := s.localObjects.ReadECPart(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.localGetBuffer)
-			if err == nil {
-				prm.submitLocalGetStreamFn(n, stream)
-			}
-			return err
-		}
-
 		return s.copyLocalECPart(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.ecReturnAnyPart)
 	}
 
 	if prm.common.LocalOnly() &&
 		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
 		len(prm.container.PlacementPolicy().Replicas()) != 0 {
-		opts := []execOption{withPayloadRangePrm(prm.payloadRange), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL)}
-		if !prm.payloadRange.IsSet() && !prm.payloadOnly {
-			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
-		}
+		opts := []execOption{withPayloadRangePrm(prm.payloadRange), withPayloadOnly(prm.payloadOnly), withEACLRecheck(prm.recheckEACL),
+			withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn, prm.interceptHeaderBinaryFn)}
 		return s.get(ctx, prm.commonPrm, opts...).err // It handles locality internally.
 	}
 
@@ -87,9 +76,7 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 			withPayloadOnly(prm.payloadOnly),
 			withGetTransportFunc(prm.transportFn),
 			withEACLRecheck(prm.recheckEACL),
-		}
-		if !prm.payloadRange.IsSet() && !prm.payloadOnly {
-			opts = append(opts, withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn))
+			withLocalGetBuffer(prm.localGetBuffer, prm.submitLocalGetStreamFn, prm.interceptHeaderBinaryFn),
 		}
 		err := s.get(ctx, prm.commonPrm, opts...).err
 		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {

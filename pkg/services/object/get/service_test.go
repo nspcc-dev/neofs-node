@@ -210,7 +210,7 @@ func (unimplementedLocalStorage) GetECPart(_ context.Context, _ cid.ID, _ oid.ID
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) ReadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ []byte) (int, io.ReadCloser, error) {
+func (unimplementedLocalStorage) ReadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ blobcommon.PayloadRange, _ []byte, _ func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

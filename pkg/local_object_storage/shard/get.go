@@ -220,7 +220,7 @@ func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.R
 // If object is a split-parent, behavior depends on skipMeta flag. If set,
 // ReadObject returns [object.SplitInfoError] with all relations recorded in s.
 // If unset, ReadObject returns [apistatus.ErrObjectNotFound].
-func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int, io.ReadCloser, error) {
+func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -231,13 +231,13 @@ func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int, io
 
 	cb := func(stor common.Storage) error {
 		var err error
-		n, stream, err = stor.ReadObject(addr, buf)
+		n, stream, err = stor.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
 		return err
 	}
 
 	wc := func(c writecache.Cache) error {
 		var err error
-		n, stream, err = c.ReadObject(addr, buf)
+		n, stream, err = c.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
 		return err
 	}
 

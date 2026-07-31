@@ -56,7 +56,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		_, _, err := s.GetECPart(context.Background(), cnr, parentID, pi, false)
 		require.Equal(t, e, err)
 
-		_, _, err = s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
+		_, _, err = s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
 		require.Equal(t, e, err)
 	})
 
@@ -88,7 +88,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		_, _, _ = s.GetECPart(context.Background(), cnr, parentID, pi, false)
 		require.GreaterOrEqual(t, time.Duration(m.getECPart.Load()), sleepTime)
 
-		_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
+		_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
 		require.GreaterOrEqual(t, time.Duration(m.readECPart.Load()), sleepTime)
 	})
 
@@ -109,7 +109,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		lb.AssertEmpty()
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
+			_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
 		})
 
 		lb.AssertEmpty()
@@ -147,7 +147,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 	}
 	checkOKBuffered := func(t *testing.T, s *StorageEngine) {
 		buf := make([]byte, 40<<10)
-		n, rdr, err := s.ReadECPart(context.Background(), cnr, parentID, pi, buf)
+		n, rdr, err := s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		require.Equal(t, partObj.CutPayload().Marshal(), buf[:n])
 		tail, err := io.ReadAll(rdr)
@@ -160,7 +160,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		require.ErrorIs(t, err, e)
 	}
 	checkErrorIsBuffered := func(t *testing.T, s *StorageEngine, e error) {
-		_, _, err := s.ReadECPart(context.Background(), cnr, parentID, pi, make([]byte, 40<<10))
+		_, _, err := s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
 		require.ErrorIs(t, err, e)
 	}
 

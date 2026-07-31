@@ -24,7 +24,6 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	storagecommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
@@ -1063,24 +1062,17 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		responseStream:   gStream,
 	})
 
-	payloadOnly := p.PayloadOnly()
-	isOffLenRangeOnly := payloadOnly && p.RangeMode() == storagecommon.PayloadRangeModeOffsetLength
-
 	// TODO: consider optimization
 	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
 	// Then small objects would fit into a single buffer, and for large ones it'd be possible to
 	// encode the first chunk response using the heading buffer.
-	var hdrRespBuf *iprotobuf.MemBuffer
-	var hdrBuf []byte
-	if !p.HasRange() || p.IsFullRange() || isOffLenRangeOnly {
-		// TODO: if prm.payloadOnly flag is set and prm.recheckEACL is not, header is
-		//  not needed. Currently, header is always read in storage implementation.
-		//  Therefore, costs do not appear for the mentioned case. However, this could
-		//  theoretically change, in which case the header reading should not be done.
-		hdrRespBuf, hdrBuf = getBufferForHeadResponse()
-		defer hdrRespBuf.Free()
-		// TODO: consider faster hdrRespBuf freeing for payload only
-	}
+	// TODO: if prm.payloadOnly flag is set and prm.recheckEACL is not, header is
+	//  not needed. Currently, header is always read in storage implementation.
+	//  Therefore, costs do not appear for the mentioned case. However, this could
+	//  theoretically change, in which case the header reading should not be done.
+	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
+	defer hdrRespBuf.Free()
+	// TODO: consider faster hdrRespBuf freeing for payload only
 
 	hdrLen := -1
 	var stream io.ReadCloser
@@ -1090,25 +1082,19 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 	}()
 
-	if hdrBuf != nil {
-		if isOffLenRangeOnly {
-			var checkHeaderBinaryFn func([]byte) error
-			if recheckEACL {
-				checkHeaderBinaryFn = func(hdr []byte) error {
-					recheckEACL = false // check once
-					err := s.aclChecker.CheckEACL(ctx, hdr, cnrID, objID, reqInfo)
-					if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-						err = eACLErr(reqInfo, err)
-					}
-					return err
-				}
+	var checkHeaderBinaryFn func([]byte) error
+	if recheckEACL {
+		checkHeaderBinaryFn = func(hdr []byte) error {
+			recheckEACL = false // check once
+			err := s.aclChecker.CheckEACL(ctx, hdr, cnrID, objID, reqInfo)
+			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+				err = eACLErr(reqInfo, err)
 			}
-
-			p.WithBufferedRange(hdrBuf, checkHeaderBinaryFn, func(s io.ReadCloser) { stream = s })
-		} else {
-			p.WithBuffer(hdrBuf, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
+			return err
 		}
 	}
+
+	p.WithBuffer(hdrBuf, checkHeaderBinaryFn, func(ln int, s io.ReadCloser) { hdrLen, stream = ln, s })
 
 	err = s.handlers.Get(ctx, p)
 	if err != nil {
@@ -1118,32 +1104,37 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
-	if stream == nil {
+	if hdrLen < 0 {
 		return nil
 	}
 
-	if isOffLenRangeOnly {
+	isPartialRange := p.HasRange() && !p.IsFullRange()
+	payloadOnly := p.PayloadOnly()
+
+	var pldFldOff int
+	if !isPartialRange || !payloadOnly {
+		var idf, sigf, hdrf iprotobuf.FieldBounds
+		idf, sigf, hdrf, err = iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
+		if err != nil {
+			return s.sendStatusGetResponse(gStream, err, needSignResp)
+		}
+
+		pldFldOff = max(idf.To, sigf.To, hdrf.To)
+	}
+
+	if isPartialRange {
+		if !payloadOnly {
+			if err = s.copyGetResponseHeader(gStream, hdrRespBuf, hdrBuf, pldFldOff, needSignResp); err != nil {
+				return s.sendStatusGetResponse(gStream, err, needSignResp)
+			}
+		}
+
 		err = s.copyRangeStream(gStream, stream, needSignResp, shiftPayloadChunkInGetResponseBuffer)
 		if err != nil {
 			return s.sendStatusGetResponse(gStream, err, needSignResp)
 		}
 		return nil
 	}
-
-	idf, sigf, hdrf, err := iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
-	if err != nil {
-		return s.sendStatusGetResponse(gStream, err, needSignResp)
-	}
-
-	if recheckEACL { // previous check didn't match, but we have a header now.
-		err = s.aclChecker.CheckEACL(ctx, hdrBuf[hdrf.ValueFrom:hdrf.To], cnrID, objID, reqInfo)
-		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-			err = eACLErr(reqInfo, err) // defer
-			return s.sendStatusGetResponse(gStream, err, needSignResp)
-		}
-	}
-
-	pldFldOff := max(idf.To, sigf.To, hdrf.To)
 
 	err = s.copyGetStream(gStream, hdrRespBuf, hdrBuf, hdrLen, pldFldOff, stream, pldFldOff, needSignResp, !payloadOnly) // defer
 	if err != nil {
@@ -1178,6 +1169,30 @@ attrL:
 	return isECPartReq && !partIdxFound
 }
 
+func (s *Server) copyGetResponseHeader(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte, hdrTo int, needSignResp bool) error {
+	bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:hdrTo])
+
+	if needSignResp {
+		n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+		if err != nil {
+			return fmt.Errorf("sign head response: %w", err)
+		}
+		bodyf.To += n
+	}
+
+	hdrRespBuf.SetBounds(bodyf.From, bodyf.To)
+	hdrRespBuf.Ref() // because Free() is defered
+	// Note that finished SendMsg() does not guarantee that the buffer is free.
+	// Moreover, this is not guaranteed even by returning from the current function.
+	// Therefore, buffer release has to be delegated to gRPC layer.
+	// For the same reason, reusing a single buffer for multiple messages is unsafe.
+	if err := gStream.SendMsg(hdrRespBuf); err != nil {
+		return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+	}
+
+	return nil
+}
+
 func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte,
 	prefixLen, hdrTo int, stream io.Reader, pldFldOff int, needSignResp bool, withHeader bool) error {
 	var (
@@ -1205,26 +1220,7 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 	var bodyf iprotobuf.FieldBounds
 
 	if withHeader {
-		bodyf = shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:hdrTo])
-
-		if needSignResp {
-			n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
-			if err != nil {
-				if chunkRespBuf != nil {
-					chunkRespBuf.Free()
-				}
-				return fmt.Errorf("sign head response: %w", err)
-			}
-			bodyf.To += n
-		}
-
-		hdrRespBuf.SetBounds(bodyf.From, bodyf.To)
-		hdrRespBuf.Ref() // because Free() is defered
-		// Note that finished SendMsg() does not guarantee that the buffer is free.
-		// Moreover, this is not guaranteed even by returning from the current function.
-		// Therefore, buffer release has to be delegated to gRPC layer.
-		// For the same reason, reusing a single buffer for multiple messages is unsafe.
-		if err := gStream.SendMsg(hdrRespBuf); err != nil {
+		if err := s.copyGetResponseHeader(gStream, hdrRespBuf, hdrBuf, hdrTo, needSignResp); err != nil {
 			if chunkRespBuf != nil {
 				chunkRespBuf.Free()
 			}

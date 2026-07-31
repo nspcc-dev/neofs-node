@@ -109,7 +109,13 @@ func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockBLOBStore) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+func (x *mockBLOBStore) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+	if rng.IsSet() {
+		panic("unimplemented range")
+	}
+	if interceptHeaderBinaryFn != nil {
+		panic("unimplemented header binary interception")
+	}
 	val, ok := x.getStream[addr]
 	if !ok {
 		return 0, nil, errors.New("[test] unexpected object requested")
@@ -187,7 +193,13 @@ func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadClo
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockWriteCache) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+func (x *mockWriteCache) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+	if rng.IsSet() {
+		panic("unimplemented range")
+	}
+	if interceptHeaderBinaryFn != nil {
+		panic("unimplemented header binary interception")
+	}
 	val, ok := x.getStream[addr]
 	if !ok {
 		return 0, nil, errors.New("[test] unexpected object requested")
@@ -322,6 +334,10 @@ func (unimplementedBLOBStore) IterateAddresses(func(oid.Address) error, bool) er
 	panic("unimplemented")
 }
 
+func (unimplementedBLOBStore) ReadObjectParts([]byte, oid.Address, common.PayloadRange, func([]byte) error) (int, io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
 type unimplementedWriteCache struct{}
 
 func (unimplementedWriteCache) Get(oid.Address) (*object.Object, error) {
@@ -389,6 +405,10 @@ func (unimplementedWriteCache) Open(bool) error {
 }
 
 func (unimplementedWriteCache) Close() error {
+	panic("unimplemented")
+}
+
+func (unimplementedWriteCache) ReadObjectParts([]byte, oid.Address, common.PayloadRange, func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

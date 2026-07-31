@@ -33,8 +33,6 @@ type Prm struct {
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
 
-	submitLocalRangeStreamFn SubmitDataStreamFunc
-
 	ecTransport     GetECRequestTransport
 	ecReturnAnyPart bool
 
@@ -228,23 +226,14 @@ func (p *HeadPrm) WithBuffer(buffer []byte, submitLenFn func(int)) {
 // bytes written and stream of remaining bytes. If buffer is unused,
 // submitStreamFn is not called. The stream must be finally closed by the
 // caller.
-func (p *Prm) WithBuffer(buffer []byte, submitStreamFn SubmitStreamFunc) {
-	p.localGetBuffer = buffer
-	p.submitLocalGetStreamFn = submitStreamFn
-}
-
-// WithBufferedRange specifies a buffer into which header of the requested
-// object is optionally written. The submitStreamFn parameter is a callback for
-// payload stream. If buffer is unused, submitStreamFn is not called. The stream
-// must be finally closed by the caller.
 //
 // If interceptHeaderBinaryFn is specified, it's called instantly once header is
 // read (never concurrently). If it returns an error, whole operation is aborted
 // with this error.
-func (p *Prm) WithBufferedRange(buffer []byte, interceptHeaderBinaryFn func([]byte) error, submitStreamFn SubmitDataStreamFunc) {
+func (p *Prm) WithBuffer(buffer []byte, interceptHeaderBinaryFn func([]byte) error, submitStreamFn SubmitStreamFunc) {
 	p.localGetBuffer = buffer
 	p.interceptHeaderBinaryFn = interceptHeaderBinaryFn
-	p.submitLocalRangeStreamFn = submitStreamFn
+	p.submitLocalGetStreamFn = submitStreamFn
 }
 
 // GetBuffer returns buffer settings set using [Prm.WithBuffer].

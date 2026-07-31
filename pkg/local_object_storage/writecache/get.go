@@ -144,3 +144,26 @@ func (c *cache) ReadPayloadRange(addr oid.Address, off, ln uint64, buf []byte, i
 
 	return c.fsTree.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 }
+
+// ReadObjectParts reads first bytes of the referenced object's binary
+// containing its full header from c into buf. If optional
+// interceptHeaderBinaryFn is specified, it's called with read header. On error,
+// ReadObjectParts returns it immediately. ReadObjectParts also returns payload
+// stream depending on range parameter. If kind is
+// [common.PayloadRangeModeNone], full payload including field prefix is
+// returned. Otherwise, stream contains requested range bytes only. The stream
+// must be finally closed by the caller.
+//
+// If object is missing, ReadObjectParts returns [apistatus.ErrObjectNotFound].
+//
+// If partial out-of-bounds range is requested, ReadObjectParts returns
+// [apistatus.ErrObjectOutOfRange].
+//
+// Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
+func (c *cache) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return 0, nil, apistatus.ErrObjectNotFound
+	}
+
+	return c.fsTree.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
+}

@@ -87,7 +87,7 @@ func TestShard_GetECPart(t *testing.T) {
 			require.ErrorContains(t, err, "resolve part ID in metabase")
 			tc.assertErr(t, err)
 
-			_, _, err = s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+			_, _, err = s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
 			require.ErrorContains(t, err, "resolve part ID in metabase")
 			tc.assertErr(t, err)
 		})
@@ -122,7 +122,7 @@ func TestShard_GetECPart(t *testing.T) {
 			_, _, err := s.GetECPart(cnr, parentID, pi)
 			assertErr(err)
 
-			_, _, err = s.ReadECPart(cnr, parentID, pi, make([]byte, 40<<10))
+			_, _, err = s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
 			assertErr(err)
 		})
 	}
@@ -162,7 +162,7 @@ func TestShard_GetECPart(t *testing.T) {
 				lb.AssertSingle(tc.logMsg)
 
 				buf := make([]byte, 40<<10)
-				n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+				n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
 				require.NoError(t, err)
 				b, err := io.ReadAll(rdr)
 				require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestShard_GetECPart(t *testing.T) {
 		assertGetECPartOK(t, partObj, hdr, rdr)
 
 		buf := make([]byte, 40<<10)
-		n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+		n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		b, err := io.ReadAll(rdr)
 		require.NoError(t, err)
@@ -228,7 +228,7 @@ func TestShard_GetECPart(t *testing.T) {
 			assertGetECPartOK(t, sysObj, hdr, rdr)
 
 			buf := make([]byte, 40<<10)
-			n, rdr, err := s.ReadECPart(cnr, sysObj.GetID(), pi, buf)
+			n, rdr, err := s.ReadECPart(cnr, sysObj.GetID(), pi, common.PayloadRange{}, buf, nil)
 			require.NoError(t, err)
 			b, err := io.ReadAll(rdr)
 			require.NoError(t, err)
@@ -269,7 +269,7 @@ func TestShard_GetECPart(t *testing.T) {
 		assertGetECPartOK(t, linker, hdr, rdr)
 
 		buf := make([]byte, 40<<10)
-		n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+		n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		b, err := io.ReadAll(rdr)
 		require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestShard_GetECPart(t *testing.T) {
 		require.NoError(t, err)
 		assertGetECPartOK(t, linker, hdr, rdr)
 
-		n, rdr, err = s.ReadECPart(cnr, linker.GetID(), pi, buf)
+		n, rdr, err = s.ReadECPart(cnr, linker.GetID(), pi, common.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		b, err = io.ReadAll(rdr)
 		require.NoError(t, err)
@@ -295,7 +295,7 @@ func TestShard_GetECPart(t *testing.T) {
 	assertGetECPartOK(t, partObj, hdr, rdr)
 
 	buf := make([]byte, 40<<10)
-	n, rdr, err := s.ReadECPart(cnr, parentID, pi, buf)
+	n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
 	require.NoError(t, err)
 	b, err := io.ReadAll(rdr)
 	require.NoError(t, err)

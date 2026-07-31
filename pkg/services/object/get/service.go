@@ -154,7 +154,11 @@ type cfg struct {
 		// Returns [apistatus.ErrObjectNotFound] if the range is out of payload bounds.
 		GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
 		// ReadECPart is a buffered alternative for GetECPart similar to ReadObject.
-		ReadECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error)
+		//
+		// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+		// read (never concurrently). If it returns an error, whole operation is aborted
+		// with this error.
+		ReadECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
 		// ReadECPartRange is a buffered alternative for GetECPartRange similar to ReadECPart.
 		//
 		// If interceptHeaderBinaryFn is specified, it's called instantly once header is

@@ -17,17 +17,29 @@ import (
 )
 
 // ReadECPart is a buffered alternative for [Shard.GetECPart] similar to
-// [Shard.ReadObject].
-func (s *Shard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+// [Shard.ReadObject]. If optional interceptHeaderBinaryFn is specified, it's
+// called with read header. On error, ReadECPart returns it immediately.
+// ReadECPart also returns payload stream depending on range parameter. If kind
+// is [common.PayloadRangeModeNone], full payload including field prefix is
+// returned. Otherwise, stream contains requested range bytes only. The stream
+// must be finally closed by the caller.
+//
+// If object is missing, ReadECPart returns [apistatus.ErrObjectNotFound].
+//
+// If partial out-of-bounds range is requested, ReadECPart returns
+// [apistatus.ErrObjectOutOfRange].
+//
+// Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
+func (s *Shard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	var n int
 	var stream io.ReadCloser
 	return n, stream, s.getECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
 		var err error
-		n, stream, err = writeCache.ReadObject(addr, buf)
+		n, stream, err = writeCache.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
 		return err
 	}, func(blobStorage common.Storage, addr oid.Address) error {
 		var err error
-		n, stream, err = blobStorage.ReadObject(addr, buf)
+		n, stream, err = blobStorage.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
 		return err
 	})
 }
