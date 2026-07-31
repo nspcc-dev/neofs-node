@@ -230,6 +230,6 @@ func (unimplementedLocalStorage) ReadECPartHeader(_ context.Context, _ cid.ID, _
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) ReadECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _, _ uint64, _ []byte) (io.ReadCloser, error) {
+func (unimplementedLocalStorage) ReadECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _, _ uint64, _ []byte, _ func([]byte) error) (io.ReadCloser, error) {
 	panic("unimplemented")
 }

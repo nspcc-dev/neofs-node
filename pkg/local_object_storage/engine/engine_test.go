@@ -194,11 +194,11 @@ func (unimplementedShard) ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte)
 	panic("unimplemented")
 }
 
-func (unimplementedShard) ReadRange(cid.ID, oid.ID, uint64, uint64, []byte) (io.ReadCloser, error) {
+func (unimplementedShard) ReadRange(cid.ID, oid.ID, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedShard) ReadECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64, []byte) (io.ReadCloser, error) {
+func (unimplementedShard) ReadECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

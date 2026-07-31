@@ -63,7 +63,7 @@ func testGetRangeStream(t *testing.T, fst *FSTree) {
 
 func testReadPayloadRange(t *testing.T, fst *FSTree) {
 	testGetRangeStreamFunc(t, fst, func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
-		return fst.ReadPayloadRange(addr, off, ln, make([]byte, 40<<10))
+		return fst.ReadPayloadRange(addr, off, ln, make([]byte, 40<<10), nil)
 	})
 }
 
@@ -78,7 +78,7 @@ func TestFSTree_PayloadRangeStreamsLimitBufferedPayload(t *testing.T) {
 		{
 			name: "ReadPayloadRange",
 			read: func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
-				return fst.ReadPayloadRange(addr, off, ln, make([]byte, readBufLen))
+				return fst.ReadPayloadRange(addr, off, ln, make([]byte, readBufLen), nil)
 			},
 		},
 		{

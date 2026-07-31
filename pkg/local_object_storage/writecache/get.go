@@ -133,10 +133,14 @@ func (c *cache) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHe
 //
 // If given range is out of payload bounds, ReadPayloadRange returns
 // [apistatus.ErrObjectOutOfRange].
-func (c *cache) ReadPayloadRange(addr oid.Address, off, ln uint64, buf []byte) (io.ReadCloser, error) {
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (c *cache) ReadPayloadRange(addr oid.Address, off, ln uint64, buf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return nil, apistatus.ErrObjectNotFound
 	}
 
-	return c.fsTree.ReadPayloadRange(addr, off, ln, buf)
+	return c.fsTree.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 }

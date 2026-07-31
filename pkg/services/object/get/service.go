@@ -101,6 +101,9 @@ type GetECRequestTransport interface {
 	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
 	// range to the client, and returns number of bytes copied.
 	//
+	// Flag full specifies whether full range should be obtained. In this case,
+	// offset is always zero and ln is a full length known in advance.
+	//
 	// If response stream fails, [ErrResponseStreamFailure] is returned.
 	//
 	// If the node responds with any failure status other than 'not found', the
@@ -114,7 +117,7 @@ type GetECRequestTransport interface {
 	//
 	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
 	// never for the same one.
-	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error)
+	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, full bool, controlCh <-chan bool) (uint64, error)
 	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
 	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool) (uint64, error)
 }
@@ -153,7 +156,11 @@ type cfg struct {
 		// ReadECPart is a buffered alternative for GetECPart similar to ReadObject.
 		ReadECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error)
 		// ReadECPartRange is a buffered alternative for GetECPartRange similar to ReadECPart.
-		ReadECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte) (io.ReadCloser, error)
+		//
+		// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+		// read (never concurrently). If it returns an error, whole operation is aborted
+		// with this error.
+		ReadECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64, buf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error)
 		Head(context.Context, oid.Address, bool) (*object.Object, error)
 		ReadHeader(context.Context, oid.Address, bool, []byte) (int, error)
 		// HeadECPart is similar to GetECPart but returns only the header.

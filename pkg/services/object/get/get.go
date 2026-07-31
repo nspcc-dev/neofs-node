@@ -31,12 +31,12 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	if pi.RuleIndex >= 0 {
 		// TODO: deny if node is not in the container?
 
-		if prm.payloadRange.IsSet() {
-			if prm.payloadOnly && prm.localGetBuffer != nil && !prm.recheckEACL {
+		if prm.payloadRange.IsSet() && (prm.localGetBuffer == nil || !prm.payloadRange.IsFull()) {
+			if prm.payloadOnly && prm.localGetBuffer != nil {
 				if rng := prm.Range(); rng != nil {
-					stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, rng.GetOffset(), rng.GetLength(), prm.localGetBuffer)
+					stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, rng.GetOffset(), rng.GetLength(), prm.localGetBuffer, prm.interceptHeaderBinaryFn)
 					if err == nil {
-						prm.submitLocalGetStreamFn(0, stream)
+						prm.submitLocalRangeStreamFn(stream)
 					}
 					return err
 				}
@@ -139,7 +139,7 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 		// TODO: deny if node is not in the container?
 
 		if prm.localBuffer != nil {
-			stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localBuffer)
+			stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localBuffer, nil)
 			if err == nil {
 				prm.submitLocalStreamFn(stream)
 			}

@@ -1397,7 +1397,8 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 			RuleIndex: ruleIdx,
 			Index:     1,
 		}
-		copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, fullPldLen-partPldLen, nil)
+		left := fullPldLen - partPldLen
+		copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, left, left == partPldLen, nil)
 		if err != nil {
 			if errors.Is(err, ErrResponded) {
 				return nil
@@ -1438,11 +1439,14 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 	for i := 1; i < int(rule.DataPartNum); i++ {
 		wg.Go(func() {
 			var ln uint64
+			var full bool
 			if i < int(rule.DataPartNum)-1 {
 				ln = partPldLen
+				full = true
 			} else {
 				// last part can be suffixed with zeros which should not be transmitted
 				ln = fullPldLen - partPldLen*uint64(rule.DataPartNum-1)
+				full = ln == partPldLen
 			}
 
 			var controlCh <-chan bool
@@ -1454,7 +1458,7 @@ func (s *Service) streamECObject(ctx context.Context, transport GetECRequestTran
 				RuleIndex: ruleIdx,
 				Index:     i,
 			}
-			copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, ln, controlCh)
+			copiedPartPld, err := s.streamECPartRangePrefix(ctx, transport, rule, partInfo, sortedNodes, ln, full, controlCh)
 			if err != nil {
 				if errors.Is(err, ErrAborted) {
 					return
@@ -1558,7 +1562,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 				continue
 			}
 
-			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
+			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedPartPld, partPldLen-copiedPartPld, copiedPartPld == 0, nil)
 		}
 		if err != nil {
 			return false, 0, 0, 0, err
@@ -1577,7 +1581,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPld, nil
 }
 
-func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, partInfo iec.PartInfo, sortedNodes []netmap.NodeInfo, ln uint64, controlCh <-chan bool) (uint64, error) {
+func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRequestTransport, rule iec.Rule, partInfo iec.PartInfo, sortedNodes []netmap.NodeInfo, ln uint64, full bool, controlCh <-chan bool) (uint64, error) {
 	var err error
 	var copiedLen uint64
 
@@ -1596,7 +1600,7 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 				continue
 			}
 
-			copiedLenNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedLen, ln-copiedLen, controlCh)
+			copiedLenNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedLen, ln-copiedLen, full && copiedLen == 0, controlCh)
 		}
 
 		if err != nil {

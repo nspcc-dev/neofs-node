@@ -19,7 +19,7 @@ Changelog for NeoFS Node
 ### Changed
 - Optimized GET for fully buffered payloads (#4058)
 - Proxied GET data is not checked against SHA256 hash from header (#4081)
-- SN requests EC part ranges using GET API instead of deprecated RANGE one (#4067)
+- SN requests EC part ranges using GET API instead of deprecated RANGE one (#4067, #4102)
 - In-container SN no longer attaches session/bearer tokens to spawned GET/HEAD requests (#4067)
 - SN no longer limits number of concurrent outgoing requests in PUT handler (#4092)
 - SN no longer limits number of concurrent shard PUT ops (#4092)
@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 - Origin verification and meta headers are no longer considered for requests (#4103)
 - RANGE requests now using the same forwarding scheme as GET (#4103)
 - PUT request forwarding no longer mangles meta headers (#4103)
+- SN spends less memory to handle range-only EC GET requests (#4102)
 
 ### Removed
 - Compression support from FSTree (#4054)

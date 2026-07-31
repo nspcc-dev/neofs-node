@@ -263,13 +263,13 @@ func (s *Shard) ReadPayloadRange(addr oid.Address, off, ln uint64, skipMeta bool
 
 	cb := func(stor common.Storage) error {
 		var err error
-		stream, err = stor.ReadPayloadRange(addr, off, ln, buf)
+		stream, err = stor.ReadPayloadRange(addr, off, ln, buf, nil)
 		return err
 	}
 
 	wc := func(c writecache.Cache) error {
 		var err error
-		stream, err = c.ReadPayloadRange(addr, off, ln, buf)
+		stream, err = c.ReadPayloadRange(addr, off, ln, buf, nil)
 		return err
 	}
 

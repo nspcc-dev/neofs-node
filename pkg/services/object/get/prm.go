@@ -33,10 +33,14 @@ type Prm struct {
 	localGetBuffer         []byte
 	submitLocalGetStreamFn SubmitStreamFunc
 
+	submitLocalRangeStreamFn SubmitDataStreamFunc
+
 	ecTransport     GetECRequestTransport
 	ecReturnAnyPart bool
 
 	transportFn GetTransportFunc
+
+	interceptHeaderBinaryFn func([]byte) error
 }
 
 // RangePrm groups parameters of GetRange service call.
@@ -229,6 +233,20 @@ func (p *Prm) WithBuffer(buffer []byte, submitStreamFn SubmitStreamFunc) {
 	p.submitLocalGetStreamFn = submitStreamFn
 }
 
+// WithBufferedRange specifies a buffer into which header of the requested
+// object is optionally written. The submitStreamFn parameter is a callback for
+// payload stream. If buffer is unused, submitStreamFn is not called. The stream
+// must be finally closed by the caller.
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (p *Prm) WithBufferedRange(buffer []byte, interceptHeaderBinaryFn func([]byte) error, submitStreamFn SubmitDataStreamFunc) {
+	p.localGetBuffer = buffer
+	p.interceptHeaderBinaryFn = interceptHeaderBinaryFn
+	p.submitLocalRangeStreamFn = submitStreamFn
+}
+
 // GetBuffer returns buffer settings set using [Prm.WithBuffer].
 func (p Prm) GetBuffer() ([]byte, SubmitStreamFunc) {
 	return p.localGetBuffer, p.submitLocalGetStreamFn
@@ -249,6 +267,16 @@ func (p Prm) Range() *object.Range {
 // PayloadOnly reports whether only payload was requested.
 func (p Prm) PayloadOnly() bool {
 	return p.payloadOnly
+}
+
+// IsFullRange checks whether payload range is set and corresponds to full payload.
+func (p Prm) IsFullRange() bool {
+	return p.payloadRange.IsFull()
+}
+
+// RangeMode returns kind of requested range.
+func (p Prm) RangeMode() common.PayloadRangeMode {
+	return p.payloadRange.Mode
 }
 
 // SetTransportFunc specifies request transport callback to use for receiving
