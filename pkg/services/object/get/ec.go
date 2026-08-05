@@ -32,6 +32,12 @@ import (
 
 type tooManyPartsUnavailableError int
 
+type partialECObject struct {
+	hdr    object.Object
+	gotHdr bool
+	parts  [][]byte
+}
+
 func (x tooManyPartsUnavailableError) Error() string {
 	return strconv.Itoa(int(x)) + " data parts unavailable"
 }
@@ -190,7 +196,8 @@ func (s *Service) getECObjectHeaderByRule(ctx context.Context, localNodeKey ecds
 // [iec.Rule.ParityPartsNum] elements.
 //
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
-// removal. Returns [apistatus.ErrObjectNotFound] otherwise.
+// removal. Returns [apistatus.ErrObjectNotFound] if all candidates report the
+// object as missing; otherwise returns an availability error.
 func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, rules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, dst ObjectWriter, transport GetECRequestTransport) error {
 	var partial partialObjectCopy
 	if transport != nil {
@@ -215,6 +222,7 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, r
 	}
 
 	// TODO: sort EC rules by complexity and try simpler ones first. Note that rule idxs passed as arguments must be kept.
+	var firstUnavailableErr error
 	for i := range rules {
 		obj, err := s.restoreFromECPartsByRule(ctx, cnr, parent, rules[i], i, sortedNodeLists[i])
 		if err == nil {
@@ -253,8 +261,14 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, r
 			zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rules[i]),
 			zap.Int("ruleIdx", i), zap.Error(err),
 		)
+		if !errors.Is(err, apistatus.ErrObjectNotFound) && firstUnavailableErr == nil {
+			firstUnavailableErr = err
+		}
 	}
 
+	if firstUnavailableErr != nil {
+		return fmt.Errorf("failed to restore EC object: %w", firstUnavailableErr)
+	}
 	return apistatus.ErrObjectNotFound
 }
 
@@ -370,9 +384,210 @@ nextPart:
 // Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 // removal.
 func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo) (object.Object, error) {
+	partial := partialECObject{parts: make([][]byte, rule.DataPartNum+rule.ParityPartNum)}
+	obj, err := s.restoreFromECPartsByRuleStrict(ctx, cnr, parent, rule, ruleIdx, sortedNodes, &partial)
+	if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) || errors.As(err, new(*object.SplitInfoError)) {
+		return obj, err
+	}
+
+	s.log.Info("failed to restore EC object using exact part placement, trying any part per node",
+		zap.Stringer("container", cnr), zap.Stringer("object", parent), zap.Stringer("rule", rule), zap.Int("ruleIdx", ruleIdx), zap.Error(err))
+
+	// TODO: benchmark exact-placement and rule-only strategies, then consider unifying them.
+	return s.restoreFromAnyECPartsByRule(ctx, cnr, parent, rule, ruleIdx, sortedNodes, partial)
+}
+
+// restoreFromAnyECPartsByRule requests every node for its EC rule without a
+// part index. Nodes can then return a locally available part when relocation
+// made their currently expected part unavailable.
+func (s *Service) restoreFromAnyECPartsByRule(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partial partialECObject) (object.Object, error) {
+	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
+	parts := slices.Clone(partial.parts)
+	var (
+		parentHdr           = partial.hdr
+		gotHdr              = partial.gotHdr
+		firstErr            error
+		firstUnavailableErr error
+		gotParts            = totalParts - islices.CountNilsInTwoDimSlice(parts)
+	)
+
+	type result struct {
+		hdr object.Object
+		rc  io.ReadCloser
+		err error
+	}
+
+	requestCtx, cancel := context.WithCancel(ctx)
+
+	results := make(chan result, len(sortedNodes))
+	var wg sync.WaitGroup
+	for nodeIdx := range sortedNodes {
+		wg.Add(1)
+		go func(nodeIdx int) {
+			defer wg.Done()
+
+			var res result
+			if s.neoFSNet.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey()) {
+				res.hdr, res.rc, res.err = s.localObjects.GetECPart(requestCtx, cnr, parent, iec.PartInfo{RuleIndex: ruleIdx, Index: nodeIdx}, true)
+			} else {
+				res.hdr, res.rc, res.err = s.getAnyECPartFromNode(requestCtx, cnr, parent, ruleIdx, sortedNodes[nodeIdx])
+			}
+			results <- res
+		}(nodeIdx)
+	}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+	defer func() {
+		cancel()
+		for res := range results {
+			if res.rc != nil {
+				_ = res.rc.Close()
+			}
+		}
+	}()
+
+	for res := range results {
+		hdr, rc, err := res.hdr, res.rc, res.err
+		if err != nil {
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, ctx.Err()) {
+				return object.Object{}, err
+			}
+			if firstErr == nil {
+				firstErr = err
+			}
+			if !errors.Is(err, apistatus.ErrObjectNotFound) && firstUnavailableErr == nil {
+				firstUnavailableErr = err
+			}
+			continue
+		}
+
+		if hdr.Type() == object.TypeTombstone || hdr.Type() == object.TypeLock {
+			if rc != nil {
+				_ = rc.Close()
+			}
+			return hdr, nil
+		}
+		if hdr.Type() == object.TypeLink {
+			payload := make([]byte, hdr.PayloadSize())
+			_, err = io.ReadFull(rc, payload)
+			closeErr := rc.Close()
+			if err == nil {
+				err = closeErr
+			}
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					err = io.ErrUnexpectedEOF
+				}
+				return object.Object{}, fmt.Errorf("read EC linker payload: %w", igrpc.ConvertContextStatus(err))
+			}
+			hdr.SetPayload(payload)
+			return hdr, nil
+		}
+
+		pi, err := ecPartInfoFromHeader(hdr)
+		if err == nil && (pi.RuleIndex != ruleIdx || pi.Index < 0 || pi.Index >= totalParts) {
+			err = fmt.Errorf("unexpected EC part info: rule=%d part=%d", pi.RuleIndex, pi.Index)
+		}
+		if err != nil {
+			_ = rc.Close()
+			if firstErr == nil {
+				firstErr = err
+			}
+			if firstUnavailableErr == nil {
+				firstUnavailableErr = err
+			}
+			continue
+		}
+		if parts[pi.Index] != nil {
+			_ = rc.Close()
+			continue
+		}
+
+		ph := hdr.Parent()
+		if ph == nil {
+			_ = rc.Close()
+			err = errors.New("missing parent header in object for part")
+			if firstErr == nil {
+				firstErr = err
+			}
+			if firstUnavailableErr == nil {
+				firstUnavailableErr = err
+			}
+			continue
+		}
+		if !gotHdr {
+			parentHdr = *ph
+			gotHdr = true
+		}
+		if hdr.PayloadSize() > parentHdr.PayloadSize() {
+			_ = rc.Close()
+			err = errors.New("part object payload is bigger than the parent one")
+			if firstErr == nil {
+				firstErr = err
+			}
+			if firstUnavailableErr == nil {
+				firstUnavailableErr = err
+			}
+			continue
+		}
+		if parentHdr.PayloadSize() == 0 {
+			_ = rc.Close()
+			return parentHdr, nil
+		}
+
+		part := make([]byte, hdr.PayloadSize())
+		_, err = io.ReadFull(rc, part)
+		closeErr := rc.Close()
+		if err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				err = io.ErrUnexpectedEOF
+			}
+			err = fmt.Errorf("read EC part payload: %w", igrpc.ConvertContextStatus(err))
+			if firstErr == nil {
+				firstErr = err
+			}
+			if firstUnavailableErr == nil {
+				firstUnavailableErr = err
+			}
+			continue
+		}
+
+		parts[pi.Index] = part
+		gotParts++
+		if gotParts < int(rule.DataPartNum) {
+			continue
+		}
+
+		if islices.CountNilsInTwoDimSlice(parts[:rule.DataPartNum]) == 0 {
+			parentHdr.SetPayload(iec.ConcatDataParts(rule, parentHdr.PayloadSize(), parts))
+			return parentHdr, nil
+		}
+		payload, err := iec.Decode(rule, parentHdr.PayloadSize(), parts)
+		if err != nil {
+			return object.Object{}, fmt.Errorf("decode payload from EC parts: %w", err)
+		}
+		parentHdr.SetPayload(payload)
+		return parentHdr, nil
+	}
+
+	if firstUnavailableErr != nil {
+		return object.Object{}, fmt.Errorf("only %d of %d EC parts available, first unavailable error: %w", gotParts, rule.DataPartNum, firstUnavailableErr)
+	}
+	if firstErr == nil {
+		firstErr = errors.New("no EC parts found")
+	}
+	return object.Object{}, fmt.Errorf("%w: only %d of %d EC parts available, first error: %w", apistatus.ErrObjectNotFound, gotParts, rule.DataPartNum, firstErr)
+}
+
+func (s *Service) restoreFromECPartsByRuleStrict(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo, partial *partialECObject) (object.Object, error) {
 	var hdr object.Object
 	var gotHdr atomic.Bool
-	parts := make([][]byte, rule.DataPartNum+rule.ParityPartNum)
+	parts := partial.parts
 
 	// TODO: If some servers hang, they can waste the entire context. If there are no more than rule.ParityPartNum,
 	//  and parity servers work fast, availability can still be provided. Right now, for example, if one server
@@ -408,6 +623,8 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 					parentHdr.SetPayload(partPayload)
 				}
 				hdr = parentHdr
+				partial.hdr = parentHdr
+				partial.gotHdr = true
 			}
 			if linker || parentHdr.PayloadSize() == 0 {
 				return errInterrupt
@@ -671,6 +888,58 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 	}
 
 	return hdr, rc, nil
+}
+
+// getAnyECPartFromNode requests an EC part by rule only. The remote node chooses
+// its preferred part, or another local part of the same rule if necessary.
+func (s *Service) getAnyECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, ruleIdx int, node netmap.NodeInfo) (object.Object, io.ReadCloser, error) {
+	localNodeKey, err := s.keyStore.GetKey(nil)
+	if err != nil {
+		return object.Object{}, nil, fmt.Errorf("get local SN private key: %w", err)
+	}
+
+	ruleIdxAttr := strconv.Itoa(ruleIdx)
+	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, true, false, nil, []string{
+		iec.AttributeRuleIdx, ruleIdxAttr,
+	})
+	if err != nil {
+		return object.Object{}, nil, fmt.Errorf("get object from remote SN: %w", igrpc.ConvertContextStatus(err))
+	}
+
+	if hdr.Type() == object.TypeTombstone || hdr.Type() == object.TypeLock {
+		return hdr, rc, nil
+	}
+	if got := hdr.GetParentID(); got != parent {
+		_ = rc.Close()
+		return object.Object{}, nil, fmt.Errorf("wrong parent ID in received object for part: requested %s, got %s", parent, got)
+	}
+	if hdr.Type() == object.TypeLink {
+		return hdr, rc, nil
+	}
+	pi, err := ecPartInfoFromHeader(hdr)
+	if err != nil {
+		_ = rc.Close()
+		return object.Object{}, nil, err
+	}
+	if pi.RuleIndex != ruleIdx {
+		_ = rc.Close()
+		return object.Object{}, nil, fmt.Errorf("wrong EC rule index in received object for part: requested %d, got %d", ruleIdx, pi.RuleIndex)
+	}
+
+	return hdr, rc, nil
+}
+
+func ecPartInfoFromHeader(hdr object.Object) (iec.PartInfo, error) {
+	var ruleIdx, partIdx string
+	for _, attr := range hdr.Attributes() {
+		switch attr.Key() {
+		case iec.AttributeRuleIdx:
+			ruleIdx = attr.Value()
+		case iec.AttributePartIdx:
+			partIdx = attr.Value()
+		}
+	}
+	return iec.DecodePartInfoFromAttributes(ruleIdx, partIdx)
 }
 
 // looks up for local object that carries EC part produced within cnr for parent

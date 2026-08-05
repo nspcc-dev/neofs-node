@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"testing"
 	"testing/iotest"
+	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -467,6 +468,206 @@ func TestService_Get_EC(t *testing.T) {
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	})
 
+	t.Run("does not hide unavailable nodes as not found", func(t *testing.T) {
+		unavailableErr := errors.New("node is unavailable")
+		for i := range nodeSvcs {
+			nodeSvcs[i].localObjects = &mockLocalObjects{
+				getECPart: map[getECPartKey]getECPartValue{
+					{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: i}}: {err: unavailableErr},
+				},
+			}
+		}
+
+		var w mockObjectWriter
+		prm.SetObjectWriter(&w)
+
+		err = newService(t).Get(ctx, prm)
+		require.ErrorIs(t, err, unavailableErr)
+		require.NotErrorIs(t, err, apistatus.ErrObjectNotFound)
+	})
+
+	t.Run("restores parts moved by policer", func(t *testing.T) {
+		for i := range nodeSvcs {
+			movedPartIdx := i
+			if i < 5 { // more than parity parts, so strict placement cannot recover
+				movedPartIdx = (i + 1) % 5
+			}
+			nodeSvcs[i].localObjects = &mockLocalObjects{
+				getECPart: map[getECPartKey]getECPartValue{
+					{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: movedPartIdx}}: {
+						hdr: *partObjs[movedPartIdx].CutPayload(),
+						rdr: io.NopCloser(bytes.NewReader(partObjs[movedPartIdx].Payload())),
+					},
+				},
+			}
+		}
+
+		var w mockObjectWriter
+		prm.SetObjectWriter(&w)
+
+		svc := newService(t)
+
+		err = svc.Get(ctx, prm)
+		require.NoError(t, err)
+		require.Equal(t, parentHdr, w.hdr)
+		require.Equal(t, parentPayload, w.buf.Bytes())
+	})
+
+	t.Run("restores empty object with parts moved by policer", func(t *testing.T) {
+		emptyParentID := oidtest.ID()
+		emptyAddr := oid.NewAddress(cnr, emptyParentID)
+		emptyParentHdr := parentHdr
+		emptyParentHdr.SetID(emptyParentID)
+		emptyParentHdr.SetPayloadSize(0)
+		emptyParts, _, err := iec.Encode(rule, nil)
+		require.NoError(t, err)
+
+		emptyPartObjs := make([]object.Object, len(emptyParts))
+		for i := range emptyParts {
+			emptyPartObjs[i], err = iec.FormObjectForECPart(signer, emptyParentHdr, emptyParts[i], iec.PartInfo{Index: i})
+			require.NoError(t, err)
+		}
+		getNodesMap[emptyAddr] = getNodesForObjectValue{nodeSets: nodeLists, ecRules: []iec.Rule{rule}}
+
+		for i := range nodeSvcs {
+			movedPartIdx := (i + 1) % len(emptyPartObjs)
+			nodeSvcs[i].localObjects = &mockLocalObjects{
+				getECPart: map[getECPartKey]getECPartValue{
+					{cnr: cnr, parent: emptyParentID, pi: iec.PartInfo{Index: movedPartIdx}}: {
+						hdr: *emptyPartObjs[movedPartIdx].CutPayload(),
+						rdr: io.NopCloser(bytes.NewReader(emptyPartObjs[movedPartIdx].Payload())),
+					},
+				},
+			}
+		}
+
+		var w mockObjectWriter
+		var emptyPrm Prm
+		emptyPrm.WithAddress(emptyAddr)
+		emptyPrm.SetCommonParameters(cp)
+		emptyPrm.SetObjectWriter(&w)
+
+		err = newService(t).Get(ctx, emptyPrm)
+		require.NoError(t, err)
+		require.Equal(t, emptyParentHdr, w.hdr)
+		require.Empty(t, w.buf.Bytes())
+	})
+
+	t.Run("restores object by concurrent fallback", func(t *testing.T) {
+		concurrentTC := &testECServiceConn{
+			mockKeyStorage:             mockKeyStorage{privKey: nodeKey},
+			parentHdr:                  parentHdr,
+			fallbackDelay:              50 * time.Millisecond,
+			fallbackDelayByNode:        make(map[string]time.Duration),
+			ignoreFallbackCancellation: true,
+			nodes:                      make(map[string]*Service),
+		}
+		for i := range nodeSvcs {
+			if i >= int(rule.DataPartNum) {
+				concurrentTC.fallbackDelayByNode[string(nodeLists[0][i].Marshal())] = 200 * time.Millisecond
+			}
+			nodeSvc := New(&mockNeoFSNet{
+				getNodesForObject: getNodesMap,
+				localPubKey:       nodeLists[0][i].PublicKey(),
+			})
+			nodeSvc.localObjects = &mockLocalObjects{getECPart: map[getECPartKey]getECPartValue{
+				{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: -1}}: {
+					hdr: *partObjs[i].CutPayload(),
+					rdr: io.NopCloser(bytes.NewReader(partObjs[i].Payload())),
+				},
+			}}
+			concurrentTC.nodes[string(nodeLists[0][i].Marshal())] = nodeSvc
+		}
+		var w mockObjectWriter
+		prm.SetObjectWriter(&w)
+		svc := newService(t)
+		svc.keyStore = concurrentTC
+		svc.conns = concurrentTC
+		started := time.Now()
+		err = svc.Get(ctx, prm)
+		require.NoError(t, err)
+		require.Less(t, time.Since(started), 400*time.Millisecond)
+		require.Equal(t, parentHdr, w.hdr)
+		require.Equal(t, parentPayload, w.buf.Bytes())
+	})
+
+	t.Run("restores split object with linker found by fallback", func(t *testing.T) {
+		childID := oidtest.ID()
+		childPayload := testutil.RandByteSlice(128)
+		child := parentHdr
+		child.SetID(childID)
+		child.SetParent(&parentHdr)
+		child.SetPayload(childPayload)
+		child.SetPayloadSize(uint64(len(childPayload)))
+
+		childParts, _, err := iec.Encode(rule, childPayload)
+		require.NoError(t, err)
+		childPartObjs := make([]object.Object, len(childParts))
+		for i := range childParts {
+			childPartObjs[i], err = iec.FormObjectForECPart(signer, child, childParts[i], iec.PartInfo{Index: i})
+			require.NoError(t, err)
+		}
+
+		var linkItem object.MeasuredObject
+		linkItem.SetObjectID(childID)
+		linkItem.SetObjectSize(uint32(len(childPayload)))
+		var link object.Link
+		link.SetObjects([]object.MeasuredObject{linkItem})
+
+		var linker object.Object
+		linker.SetID(oidtest.ID())
+		linker.SetContainerID(cnr)
+		linker.SetOwner(parentHdr.Owner())
+		linker.SetParent(&parentHdr)
+		linker.SetType(object.TypeLink)
+		linker.WriteLink(link)
+		linker.SetPayloadSize(uint64(len(linker.Payload())))
+		var decodedLink object.Link
+		require.NoError(t, linker.ReadLink(&decodedLink))
+		require.Len(t, decodedLink.Objects(), 1)
+
+		for i := range nodeSvcs {
+			objects := map[getECPartKey]getECPartValue{
+				{cnr: cnr, parent: childID, pi: iec.PartInfo{Index: i}}: {
+					hdr: *childPartObjs[i].CutPayload(),
+					rdr: io.NopCloser(bytes.NewReader(childPartObjs[i].Payload())),
+				},
+			}
+			// Strict lookup never uses a negative part index. Rule-only fallback
+			// can return this linker because it allows any object of the rule.
+			objects[getECPartKey{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: -1}}] = getECPartValue{
+				hdr: *linker.CutPayload(),
+				rdr: io.NopCloser(bytes.NewReader(linker.Payload())),
+			}
+			nodeSvcs[i].localObjects = &mockLocalObjects{getECPart: objects}
+		}
+
+		splitTC := &testECServiceConn{
+			mockKeyStorage: mockKeyStorage{privKey: nodeKey},
+			parentHdr:      parentHdr,
+			nodes:          make(map[string]*Service),
+		}
+		for i := range nodeSvcs {
+			nodeSvc := New(&mockNeoFSNet{
+				getNodesForObject: getNodesMap,
+				localPubKey:       nodeLists[0][i].PublicKey(),
+			})
+			nodeSvc.localObjects = nodeSvcs[i].localObjects
+			splitTC.nodes[string(nodeLists[0][i].Marshal())] = nodeSvc
+		}
+
+		var w mockObjectWriter
+		prm.SetObjectWriter(&w)
+		svc := newService(t)
+		svc.keyStore = splitTC
+		svc.conns = splitTC
+
+		err = svc.Get(ctx, prm)
+		require.NoError(t, err)
+		require.Equal(t, parentHdr, w.hdr)
+		require.Equal(t, childPayload, w.buf.Bytes())
+	})
+
 	t.Run("recover from parity", func(t *testing.T) {
 		for i := range nodeSvcs {
 			key := getECPartKey{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: i}}
@@ -622,8 +823,11 @@ type testECServiceConn struct {
 	mockKeyStorage
 	parentHdr object.Object
 
-	nodes     map[string]*Service
-	headCalls int
+	nodes                      map[string]*Service
+	headCalls                  int
+	fallbackDelay              time.Duration
+	fallbackDelayByNode        map[string]time.Duration
+	ignoreFallbackCancellation bool
 }
 
 func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
@@ -639,6 +843,25 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 	}
 	if !pk.Equal(&x.privKey) {
 		return object.Object{}, nil, errors.New("[test] unexpected private key")
+	}
+	if len(xs) == 2 && xs[0] == iec.AttributeRuleIdx {
+		delay := x.fallbackDelay
+		if d, ok := x.fallbackDelayByNode[string(node.Marshal())]; ok {
+			delay = d
+		}
+		if delay > 0 {
+			if x.ignoreFallbackCancellation {
+				time.Sleep(delay)
+			} else {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-ctx.Done():
+					return object.Object{}, nil, ctx.Err()
+				case <-timer.C:
+				}
+			}
+		}
 	}
 
 	v, ok := x.nodes[string(node.Marshal())]

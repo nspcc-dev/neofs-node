@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - SN could panic on forwarding GET/HEAD/RANGE request (#4120)
+- EC object GET availability during policer relocation (#4119)
 
 ### Changed
 - SNs exchange TLS certificates on inter-node connections (#4097)
