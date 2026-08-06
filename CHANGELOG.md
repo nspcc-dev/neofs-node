@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- SNs exchange TLS certificates on inter-node connections (#4097)
 
 ### Removed
 

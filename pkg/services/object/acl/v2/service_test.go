@@ -1,6 +1,7 @@
 package v2_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -100,7 +101,7 @@ func (x *mockNetmapper) GetEpochBlock(uint64) (uint32, error) {
 	panic("unimplemented")
 }
 
-func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error),
+func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, context.Context, REQ, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error),
 	signRequest func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) REQ,
 ) {
 	var err error
@@ -146,7 +147,7 @@ func testBearerTokenIssuer[REQ any](t *testing.T, exec func(*aclsvc.Service, REQ
 	call := func(t *testing.T, cnrID cid.ID) error {
 		req := signRequest(t, sender, cnrID, meta)
 
-		_, err = exec(&svc, req, cnrID, common.RequestTokens{
+		_, err = exec(&svc, context.Background(), req, cnrID, common.RequestTokens{
 			Bearer: &bt,
 		})
 		return err
@@ -262,8 +263,8 @@ func TestService_RangeRequestToInfo_BearerTokenIssuer(t *testing.T) {
 }
 
 func TestService_PutRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, func(svc *aclsvc.Service, req *protoobject.PutRequest, cnrID cid.ID, tokens common.RequestTokens) (aclsvc.RequestInfo, error) {
-		res, _, err := svc.PutRequestToInfo(req, req.Body.ObjectPart.(*protoobject.PutRequest_Body_Init_).Init, cnrID, acl.OpObjectPut, tokens)
+	testBearerTokenIssuer(t, func(svc *aclsvc.Service, ctx context.Context, req *protoobject.PutRequest, cnrID cid.ID, tokens common.RequestTokens) (aclsvc.RequestInfo, error) {
+		res, _, err := svc.PutRequestToInfo(ctx, req, req.Body.ObjectPart.(*protoobject.PutRequest_Body_Init_).Init, cnrID, acl.OpObjectPut, tokens)
 		return res, err
 	}, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.PutRequest {
 		req := &protoobject.PutRequest{

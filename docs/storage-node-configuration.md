@@ -67,6 +67,11 @@ element.
 
 ## `tls` subsection
 
+The certificate and key from the first gRPC endpoint with TLS enabled are also
+used as the client certificate for outgoing inter-node TLS connections. They
+are reloaded for every TLS handshake, so certificate rotation does not require
+restarting the node.
+
 | Parameter             | Type     | Default value | Description                                                               |
 |-----------------------|----------|---------------|---------------------------------------------------------------------------|
 | `enabled`             | `bool`   | `false`       | Address that control service listener binds to.                           |

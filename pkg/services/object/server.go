@@ -158,12 +158,12 @@ type Storage interface {
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
 // checks from various types of grpc requests.
 type ACLInfoExtractor interface {
-	PutRequestToInfo(*protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, acl.Op, common.RequestTokens) (aclsvc.RequestInfo, user.ID, error)
-	DeleteRequestToInfo(*protoobject.DeleteRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
-	HeadRequestToInfo(*protoobject.HeadRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
-	GetRequestToInfo(*protoobject.GetRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
-	RangeRequestToInfo(*protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
-	SearchV2RequestToInfo(*protoobject.SearchV2Request, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	PutRequestToInfo(context.Context, *protoobject.PutRequest, *protoobject.PutRequest_Body_Init, cid.ID, acl.Op, common.RequestTokens) (aclsvc.RequestInfo, user.ID, error)
+	DeleteRequestToInfo(context.Context, *protoobject.DeleteRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	HeadRequestToInfo(context.Context, *protoobject.HeadRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(context.Context, *protoobject.GetRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	RangeRequestToInfo(context.Context, *protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
+	SearchV2RequestToInfo(context.Context, *protoobject.SearchV2Request, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
 	VerifySessionTokenMessage(*protosession.SessionTokenV2, sessionv2.Verb, cid.ID) (sessionv2.Token, error)
 	VerifySessionV1TokenMessage(*protosession.SessionToken, session.ObjectVerb, cid.ID, oid.ID) (session.Object, error)
 	VerifyBearerTokenMessage(*protoacl.BearerToken) (bearer.Token, error)
@@ -391,8 +391,9 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 }
 
 func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
+	ctx := gStream.Context()
 	t := time.Now()
-	stream, err := s.handlers.Put(gStream.Context())
+	stream, err := s.handlers.Put(ctx)
 
 	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
 	if err != nil {
@@ -402,7 +403,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 	var req, reqFirst *protoobject.PutRequest
 	var resp *protoobject.PutResponse
 
-	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
+	ps := newIntermediatePutStream(s.signer, stream, ctx)
 	for {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
@@ -421,7 +422,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+		if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
@@ -490,7 +491,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
 		}
 
-		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req, initPart, cnrID, op, reqMD.tokens); err != nil {
+		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(ctx, req, initPart, cnrID, op, reqMD.tokens); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
 				if !errors.Is(err, apistatus.Error) {
 					err = newBadRequestError(err.Error()) // defer
@@ -502,7 +503,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 				err = basicACLErr(reqInfo) // needed for defer
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
-			err = s.aclChecker.CheckEACL(gStream.Context(), req, cnrID, objID, reqInfo)
+			err = s.aclChecker.CheckEACL(ctx, req, cnrID, objID, reqInfo)
 			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 				err = eACLErr(reqInfo, err) // needed for defer
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
@@ -541,7 +542,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
@@ -566,7 +567,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(ctx, req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -642,7 +643,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 	needSignResp := needSignGetResponse(req)
 
-	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 
@@ -667,7 +668,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(err, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(ctx, req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -977,6 +978,7 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
+	ctx := gStream.Context()
 	var (
 		err         error
 		recheckEACL bool
@@ -986,7 +988,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	needSignResp := needSignGetResponse(req)
 
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	if err = icrypto.VerifyRequestSignaturesWithContext(ctx, req); err != nil {
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
@@ -1011,7 +1013,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(ctx, req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1022,7 +1024,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusGetResponse(gStream, err, needSignResp)
 	}
-	err = s.aclChecker.CheckEACL(gStream.Context(), req, cnrID, objID, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, cnrID, objID, reqInfo)
 	if err != nil {
 		if !errors.Is(err, aclsvc.ErrNotMatched) {
 			err = eACLErr(reqInfo, err) // needed for defer
@@ -1094,7 +1096,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 			if recheckEACL {
 				checkHeaderBinaryFn = func(hdr []byte) error {
 					recheckEACL = false // check once
-					err := s.aclChecker.CheckEACL(gStream.Context(), hdr, cnrID, objID, reqInfo)
+					err := s.aclChecker.CheckEACL(ctx, hdr, cnrID, objID, reqInfo)
 					if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 						err = eACLErr(reqInfo, err)
 					}
@@ -1108,7 +1110,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		}
 	}
 
-	err = s.handlers.Get(gStream.Context(), p)
+	err = s.handlers.Get(ctx, p)
 	if err != nil {
 		if errors.Is(err, getsvc.ErrResponseStreamFailure) {
 			return err
@@ -1134,7 +1136,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	}
 
 	if recheckEACL { // previous check didn't match, but we have a header now.
-		err = s.aclChecker.CheckEACL(gStream.Context(), hdrBuf[hdrf.ValueFrom:hdrf.To], cnrID, objID, reqInfo)
+		err = s.aclChecker.CheckEACL(ctx, hdrBuf[hdrf.ValueFrom:hdrf.To], cnrID, objID, reqInfo)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 			err = eACLErr(reqInfo, err) // defer
 			return s.sendStatusGetResponse(gStream, err, needSignResp)
@@ -1479,12 +1481,13 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.ObjectService_GetRangeServer) error {
+	ctx := gStream.Context()
 	var (
 		err error
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
@@ -1509,7 +1512,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(ctx, req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1520,7 +1523,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
-	err = s.aclChecker.CheckEACL(gStream.Context(), req, cnrID, objID, reqInfo)
+	err = s.aclChecker.CheckEACL(ctx, req, cnrID, objID, reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err, req)
@@ -1557,7 +1560,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 
 	p.WithBuffer(hdrBuf, func(s io.ReadCloser) { stream = s })
 
-	err = s.handlers.GetRange(gStream.Context(), p)
+	err = s.handlers.GetRange(ctx, p)
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err, req)
 	}
@@ -1882,7 +1885,7 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
 
@@ -1907,7 +1910,7 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		return s.signSearchResponse(nil, err, req)
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req, cnrID, reqMD.tokens)
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(ctx, req, cnrID, reqMD.tokens)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer

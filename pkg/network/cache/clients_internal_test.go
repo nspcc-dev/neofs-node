@@ -32,25 +32,35 @@ func TestNodeTLSConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("matching self-signed certificate", func(t *testing.T) {
-		cfg := newNodeTLSConfig(&expectedKey.PublicKey)
+		cfg := newNodeTLSConfig(&expectedKey.PublicKey, nil)
 		require.True(t, cfg.InsecureSkipVerify)
 		require.NoError(t, cfg.VerifyConnection(tls.ConnectionState{
 			PeerCertificates: []*x509.Certificate{newSelfSignedCertificate(t, expectedKey)},
 		}))
 	})
 
+	t.Run("client certificate", func(t *testing.T) {
+		expected := new(tls.Certificate)
+		cfg := newNodeTLSConfig(&expectedKey.PublicKey, func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return expected, nil
+		})
+		actual, err := cfg.GetClientCertificate(nil)
+		require.NoError(t, err)
+		require.Same(t, expected, actual)
+	})
+
 	t.Run("wrong key", func(t *testing.T) {
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		require.NoError(t, err)
 
-		err = newNodeTLSConfig(&expectedKey.PublicKey).VerifyConnection(tls.ConnectionState{
+		err = newNodeTLSConfig(&expectedKey.PublicKey, nil).VerifyConnection(tls.ConnectionState{
 			PeerCertificates: []*x509.Certificate{newSelfSignedCertificate(t, key)},
 		})
 		require.ErrorIs(t, err, clientcore.ErrWrongPublicKey)
 	})
 
 	t.Run("no certificate", func(t *testing.T) {
-		err := newNodeTLSConfig(&expectedKey.PublicKey).VerifyConnection(tls.ConnectionState{})
+		err := newNodeTLSConfig(&expectedKey.PublicKey, nil).VerifyConnection(tls.ConnectionState{})
 		require.EqualError(t, err, "server did not provide TLS certificate")
 	})
 
@@ -58,7 +68,7 @@ func TestNodeTLSConfig(t *testing.T) {
 		key, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
 
-		err = newNodeTLSConfig(&expectedKey.PublicKey).VerifyConnection(tls.ConnectionState{
+		err = newNodeTLSConfig(&expectedKey.PublicKey, nil).VerifyConnection(tls.ConnectionState{
 			PeerCertificates: []*x509.Certificate{newSelfSignedCertificate(t, key)},
 		})
 		require.EqualError(t, err, "server TLS certificate has unsupported public key type *rsa.PublicKey")
@@ -68,7 +78,7 @@ func TestNodeTLSConfig(t *testing.T) {
 		key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 		require.NoError(t, err)
 
-		err = newNodeTLSConfig(&expectedKey.PublicKey).VerifyConnection(tls.ConnectionState{
+		err = newNodeTLSConfig(&expectedKey.PublicKey, nil).VerifyConnection(tls.ConnectionState{
 			PeerCertificates: []*x509.Certificate{newSelfSignedCertificate(t, key)},
 		})
 		require.EqualError(t, err, "server TLS certificate has unsupported elliptic curve P-384")

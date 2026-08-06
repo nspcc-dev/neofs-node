@@ -1,11 +1,19 @@
 package v2
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -13,10 +21,15 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 )
 
 type nopNetmapContract struct{}
@@ -158,4 +171,30 @@ func BenchmarkSessionTokenV2Verification(b *testing.B) {
 		require.NoError(b, err)
 		s.ResetTokenCheckCache()
 	}
+}
+
+func TestGetCredentialsFromPeerPublicKey(t *testing.T) {
+	key, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+
+	usr, actualPub, err := getCredentialsFromPeerPublicKey(key.PublicKey())
+	require.NoError(t, err)
+	require.Equal(t, user.NewFromECDSAPublicKey(key.PrivateKey.PublicKey), usr)
+	require.Equal(t, key.PublicKey().Bytes(), actualPub)
+}
+
+func TestGetRequestCredentialsUsesTLSAuthenticatedPeer(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	ctx := peer.NewContext(context.Background(), &peer.Peer{
+		AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{
+			PeerCertificates: []*x509.Certificate{{PublicKey: &key.PublicKey}},
+		}},
+	})
+	req := &protoobject.GetRequest{MetaHeader: &protosession.RequestMetaHeader{Ttl: 1}}
+
+	actualUser, actualPub, err := getRequestCredentials(ctx, req, common.RequestTokens{Session: new(sessionv2.Token)})
+	require.NoError(t, err)
+	require.Equal(t, user.NewFromECDSAPublicKey(key.PublicKey), actualUser)
+	require.Equal(t, (*keys.PublicKey)(&key.PublicKey).Bytes(), actualPub)
 }
