@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- SN requests network map only when it has been changed (#4121)
 
 ### Removed
 

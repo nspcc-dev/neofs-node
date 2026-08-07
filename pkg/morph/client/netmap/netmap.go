@@ -62,6 +62,26 @@ func (c *Client) NetMap() (*netmap.NetMap, error) {
 	return collectNetmap(inv, sess, &iter)
 }
 
+// NetmapByVersion calls "listNodesVersion" and decodes netmap.NetMap from the
+// response.
+func (c *Client) NetmapByVersion(v uint64) (*netmap.NetMap, error) {
+	var (
+		inv             = invoker.New(c.client.Morph(), nil)
+		reader          = netmaprpc.NewReader(inv, c.contract)
+		sess, iter, err = reader.ListNodesVersion(big.NewInt(int64(v)))
+	)
+	if err != nil {
+		return nil, err
+	}
+	nm, err := collectNetmap(inv, sess, &iter)
+	if err != nil {
+		return nil, err
+	}
+	nm.SetVersion(v)
+
+	return nm, nil
+}
+
 func collectNetmap(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) (*netmap.NetMap, error) {
 	nodes, err := CollectNodes(inv, sess, iter, netmapEvent.Node2Info)
 	if err != nil {
