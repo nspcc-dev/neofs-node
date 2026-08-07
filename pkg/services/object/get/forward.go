@@ -42,7 +42,7 @@ func (s *Service) forwardRequest(ctx context.Context, repRules []uint, ecRules [
 	// try reserve REP holders
 	for i := range repRules {
 		// shuffling does not make sense anymore
-		for nodeIdx := repRules[i]; nodeIdx <= uint(len(sortedNodeLists[i])); nodeIdx++ {
+		for nodeIdx := repRules[i]; nodeIdx < uint(len(sortedNodeLists[i])); nodeIdx++ {
 			if fin, err := s.forwardRequestToNode(ctx, sortedNodeLists[i][nodeIdx], op, forwardRequestFn); fin {
 				return err
 			}
@@ -61,7 +61,7 @@ func (s *Service) forwardRequest(ctx context.Context, repRules []uint, ecRules [
 	}
 
 	for i := range ecRules {
-		for nodeIdx := int(ecRules[i].DataPartNum + ecRules[i].ParityPartNum); nodeIdx <= len(sortedNodeLists[i]); nodeIdx++ {
+		for nodeIdx := int(ecRules[i].DataPartNum + ecRules[i].ParityPartNum); nodeIdx < len(sortedNodeLists[i]); nodeIdx++ {
 			if fin, err := s.forwardRequestToNode(ctx, sortedNodeLists[i][nodeIdx], op, forwardRequestFn); fin {
 				return err
 			}
