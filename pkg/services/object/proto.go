@@ -12,6 +12,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -37,7 +38,8 @@ const (
 	ecdsaWithSHA256SignatureValueLen = 1 + keys.SignatureLen
 	ecdsaWithSHA512SignatureLen      = 1 + 1 + compressedECDSAPublicKeyLen +
 		1 + 1 + ecdsaWithSHA256SignatureValueLen // scheme is 0
-	requestVerificationHeaderECDSAWIthSHA512Len = (1 + 1 + ecdsaWithSHA512SignatureLen) * 3
+	verificationHeaderECDSAWithSHA512SignatureLen = 1 + 1 + ecdsaWithSHA512SignatureLen
+	responseVerificationHeaderECDSAWIthSHA512Len  = verificationHeaderECDSAWithSHA512SignatureLen * 3
 )
 
 var currentVersionResponseMetaHeader []byte
@@ -305,9 +307,21 @@ func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) 
 	return sig, nil
 }
 
-func writeRequestVerificationHeader(buf []byte, pubKey, bodySIg, metaSig, originSig []byte) int {
+func getRequestVerificationSignaturesCount(remoteServerAPIVersion *protorefs.Version) int {
+	v := version.New(remoteServerAPIVersion.GetMajor(), remoteServerAPIVersion.GetMinor())
+	if v.Compare(version.New(2, 25)) >= 0 {
+		return 2
+	}
+	return 3
+}
+
+func calculateRequestVerificationHeaderLen(sigCount int) int {
+	return verificationHeaderECDSAWithSHA512SignatureLen * sigCount
+}
+
+func writeRequestVerificationHeader(buf []byte, sigCount int, pubKey, bodySIg, metaSig, originSig []byte) int {
 	buf[0] = iprotobuf.TagBytes3
-	off := 1 + binary.PutUvarint(buf[1:], requestVerificationHeaderECDSAWIthSHA512Len)
+	off := 1 + binary.PutUvarint(buf[1:], uint64(calculateRequestVerificationHeaderLen(sigCount)))
 	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes1, pubKey, bodySIg)
 	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes2, pubKey, metaSig)
 	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes3, pubKey, originSig)
@@ -315,6 +329,9 @@ func writeRequestVerificationHeader(buf []byte, pubKey, bodySIg, metaSig, origin
 }
 
 func writeRequestVerificationSignature(buf []byte, tag byte, pubKey, sig []byte) int {
+	if len(sig) == 0 {
+		return 0
+	}
 	buf[0] = tag
 	buf[1] = ecdsaWithSHA512SignatureLen
 	return 2 + writeECDSAWithSHA512Signature(buf[2:], pubKey, sig)
