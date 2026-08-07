@@ -63,7 +63,7 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.True(t, exists)
 
 		// inhume with GC mark
-		_, err = db.MarkGarbage(raw.GetContainerID(), []oid.ID{raw.GetID()})
+		_, err = db.MarkGarbage(raw.GetContainerID(), []oid.ID{raw.GetID()}, meta.GarbageMarkDefault)
 		require.NoError(t, err)
 
 		_, err = metaExists(db, raw.Address())

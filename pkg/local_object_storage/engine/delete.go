@@ -4,19 +4,29 @@ import (
 	"context"
 	"slices"
 
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
+// GarbageMark specifies why an object is marked for garbage collection.
+type GarbageMark = meta.GarbageMark
+
+const (
+	GarbageMarkDefault   = meta.GarbageMarkDefault
+	GarbageMarkRedundant = meta.GarbageMarkRedundant
+)
+
 // Delete marks the objects to be removed. This is a forced removal, it
 // overrides any locks or other reasons to keep the object, but it doesn't
 // delete the object immediately (like [StorageEngine.Drop] does), instead it
 // just marks the address for later removal by GC according to GC settings.
+// Redundant objects remain readable until they are physically removed by GC.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Delete(_ context.Context, addr oid.Address) error {
+func (e *StorageEngine) Delete(_ context.Context, addr oid.Address, mark GarbageMark) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
@@ -28,7 +38,7 @@ func (e *StorageEngine) Delete(_ context.Context, addr oid.Address) error {
 		return e.blockErr
 	}
 	return e.processAddrDelete(addr, func(sh *shard.Shard, cnr cid.ID, addrs []oid.ID) error {
-		return sh.MarkGarbage(cnr, addrs)
+		return sh.MarkGarbage(cnr, addrs, mark)
 	})
 }
 
@@ -83,7 +93,7 @@ func (e *StorageEngine) DeleteRedundantCopies(_ context.Context, addr oid.Addres
 		e.log.Info("removing redundant local object copy",
 			zap.String("keeper_shard", keeperShard),
 			zap.Stringer("redundant_shard", sh.ID()))
-		return sh.MarkGarbage(cnr, addrs)
+		return sh.MarkGarbage(cnr, addrs, GarbageMarkRedundant)
 	})
 }
 

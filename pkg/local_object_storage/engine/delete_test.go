@@ -13,10 +13,32 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+func TestDeleteRedundant(t *testing.T) {
+	ctx := context.Background()
+	obj := generateObjectWithCID(cidtest.ID())
+	obj.SetPayload([]byte("payload"))
+	obj.SetPayloadSize(uint64(len(obj.Payload())))
+
+	e := testNewEngineWithShards(testNewShard(t, 1), testNewShard(t, 2))
+	t.Cleanup(func() { _ = e.Close() })
+
+	require.NoError(t, e.Put(ctx, obj, nil))
+	require.NoError(t, e.Delete(ctx, obj.Address(), GarbageMarkRedundant))
+
+	got, err := e.Get(ctx, obj.Address())
+	require.NoError(t, err)
+	require.Equal(t, obj, got)
+
+	// A regular forced deletion must override the policer mark.
+	require.NoError(t, e.Delete(ctx, obj.Address(), GarbageMarkDefault))
+	_, err = e.Get(ctx, obj.Address())
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+}
+
 func TestDeleteBigObject(t *testing.T) {
 	funcs := map[string]func(*StorageEngine, oid.Address) error{
 		"delete": func(e *StorageEngine, addr oid.Address) error {
-			return e.Delete(context.Background(), addr)
+			return e.Delete(context.Background(), addr, GarbageMarkDefault)
 		},
 		"drop": func(e *StorageEngine, addr oid.Address) error {
 			return e.Drop(context.Background(), addr)

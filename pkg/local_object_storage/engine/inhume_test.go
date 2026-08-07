@@ -148,7 +148,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		_, err = wrongShard.Get(addr, false)
 		require.NoError(t, err)
 
-		err = e.Delete(context.Background(), addr)
+		err = e.Delete(context.Background(), addr, GarbageMarkDefault)
 		require.NoError(t, err)
 
 		// object was on the wrong (according to hash sorting) shard but is removed anyway
@@ -162,11 +162,11 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShardNum(t, 3)
 		defer e.Close()
 
-		err := e.Delete(context.Background(), addr)
+		err := e.Delete(context.Background(), addr, GarbageMarkDefault)
 		require.NoError(t, err)
 
 		// object is marked as garbage but marking it again should not be a problem
-		err = e.Delete(context.Background(), addr)
+		err = e.Delete(context.Background(), addr, GarbageMarkDefault)
 		require.NoError(t, err)
 	})
 }

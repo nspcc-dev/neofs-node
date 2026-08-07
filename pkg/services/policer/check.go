@@ -7,6 +7,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -375,7 +376,10 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 }
 
 func (p *Policer) dropRedundantLocalObject(ctx context.Context, addr oid.Address, isEC bool) {
-	err := p.deleteLocalObject(ctx, addr, isEC)
+	err := p.localStorage.Delete(ctx, addr, engine.GarbageMarkRedundant)
+	if err == nil {
+		p.metrics.IncPolicerObjectDeleted(isEC)
+	}
 	if err != nil {
 		p.log.Warn("could not inhume mark redundant copy as garbage",
 			zap.Error(err))
@@ -383,7 +387,7 @@ func (p *Policer) dropRedundantLocalObject(ctx context.Context, addr oid.Address
 }
 
 func (p *Policer) deleteLocalObject(ctx context.Context, addr oid.Address, isEC bool) error {
-	err := p.localStorage.Delete(ctx, addr)
+	err := p.localStorage.Delete(ctx, addr, engine.GarbageMarkDefault)
 	if err == nil {
 		p.metrics.IncPolicerObjectDeleted(isEC)
 	}

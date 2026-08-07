@@ -158,7 +158,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 		})
 		t.Run("mark garbage", func(t *testing.T) {
 			// obj is already marked as garbage, so counter is not increased
-			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
+			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 			require.EqualValues(t, 0, n.NewGarbage)
 		})
@@ -365,7 +365,7 @@ func TestDB_Put_Lock(t *testing.T) {
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
 
-			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
+			n, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n.NewGarbage)
 		}},

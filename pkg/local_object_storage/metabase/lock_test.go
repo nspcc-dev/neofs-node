@@ -176,7 +176,7 @@ func TestDB_Lock_Removed(t *testing.T) {
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&obj))
-			_, err := db.MarkGarbage(cnr, []oid.ID{objID})
+			_, err := db.MarkGarbage(cnr, []oid.ID{objID}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 		}},
 	} {
