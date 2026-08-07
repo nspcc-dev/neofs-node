@@ -24,6 +24,7 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -478,13 +479,13 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	return ln, nil
 }
 
-func (x *getECTransport) initGetPartRequest(partInfo iec.PartInfo) error {
+func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion *protorefs.Version, partInfo iec.PartInfo) error {
 	if x.getPartRequestInfo == partInfo && x.getPartRequest != nil {
 		return nil
 	}
 
 	var err error
-	x.getPartRequest, err = x.server.makeGetECPartRequest(x.requestContainer, x.requestObject, partInfo)
+	x.getPartRequest, err = x.server.makeGetECPartRequest(remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo)
 	if err != nil {
 		return fmt.Errorf("make GET request: %w", err)
 	}
@@ -501,9 +502,11 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 	var partPldLen uint64
 	var copiedPartPld uint64
 
+	connAPIVersion := conn.APIVersion()
+
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		if !copiedHdr {
-			if err := x.initGetPartRequest(partInfo); err != nil {
+			if err := x.initGetPartRequest(connAPIVersion, partInfo); err != nil {
 				return err
 			}
 
@@ -520,7 +523,7 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 			return clientcore.ErrSkipConnection
 		}
 
-		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
+		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, connAPIVersion, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
 		if err != nil {
 			return err
 		}
@@ -647,8 +650,8 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPldLen, nil
 }
 
-func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
-	request, err := x.makeGetECPartRangeRequest(partInfo, off, ln)
+func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, connAPIVersion *protorefs.Version, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+	request, err := x.makeGetECPartRangeRequest(connAPIVersion, partInfo, off, ln)
 	if err != nil {
 		return 0, fmt.Errorf("make request: %w", err)
 	}
@@ -831,13 +834,15 @@ func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.Buff
 func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, full bool, controlCh <-chan bool) (uint64, error) {
 	var copiedPld uint64
 
+	connAPIVersion := conn.APIVersion()
+
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		var reqLen uint64
 		if !full || off > 0 || copiedPld > 0 {
 			reqLen = ln - copiedPld
 		}
 
-		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, partInfo, off+copiedPld, reqLen, controlCh)
+		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, connAPIVersion, partInfo, off+copiedPld, reqLen, controlCh)
 		if err != nil {
 			return err
 		}
@@ -860,7 +865,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(cnr cid.ID, parent oid.ID, partInfo iec.PartInfo) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRequest(remoteServerAPIVersion *protorefs.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 
@@ -869,14 +874,16 @@ func (s *Server) makeGetECPartRequest(cnr cid.ID, parent oid.ID, partInfo iec.Pa
 
 	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen)
 
+	verifHdrSigCount := getRequestVerificationSignaturesCount(remoteServerAPIVersion)
+
 	reqLen := 1 + 1 + getByAddressRequestBodyLen + // first 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		1 + 2 + requestVerificationHeaderECDSAWIthSHA512Len // 1 for iprotobuf.TagBytes3
+		1 + 2 + calculateRequestVerificationHeaderLen(verifHdrSigCount) // 1 for iprotobuf.TagBytes3
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
 
-	n, err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr)
+	n, err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr, verifHdrSigCount)
 	if err != nil {
 		return nil, err
 	}
@@ -887,7 +894,7 @@ func (s *Server) makeGetECPartRequest(cnr cid.ID, parent oid.ID, partInfo iec.Pa
 	return mem.SliceBuffer(buf), nil
 }
 
-func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
+func (x *getECTransport) makeGetECPartRangeRequest(remoteServerAPIVersion *protorefs.Version, partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
 	x.getPartRangeRequestsMtx.RLock()
 	req := x.getPartRangeRequests[partInfo]
 	x.getPartRangeRequestsMtx.RUnlock()
@@ -911,7 +918,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 		return req.buffer, nil
 	}
 
-	reqBuf, err := x.server.makeGetECPartRangeRequest(x.requestContainer, x.requestObject, partInfo, off, ln)
+	reqBuf, err := x.server.makeGetECPartRangeRequest(remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, off, ln)
 	if err != nil {
 		// stream is closed by context cancellation
 		return nil, err
@@ -924,7 +931,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(partInfo iec.PartInfo, off, l
 	return reqBuf, nil
 }
 
-func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRangeRequest(remoteServerAPIVersion *protorefs.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 
@@ -950,15 +957,17 @@ func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo i
 	// payload_only flag
 	bodyLen += 1 + 1 // 1 for iprotobuf.TagVarint4, 1 for true
 
+	verifHdrSigCount := getRequestVerificationSignaturesCount(remoteServerAPIVersion)
+
 	reqLen := 1 + protowire.SizeBytes(bodyLen) + // 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		1 + 2 + requestVerificationHeaderECDSAWIthSHA512Len // 1 for iprotobuf.TagBytes3
+		1 + 2 + calculateRequestVerificationHeaderLen(verifHdrSigCount) // 1 for iprotobuf.TagBytes3
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
 
 	n, err := s.writeGetECPartRangeRequest(buf, bodyLen, cnr, parent, rngLen, off, ln,
-		metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr)
+		metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr, verifHdrSigCount)
 	if err != nil {
 		return nil, err
 	}
@@ -969,11 +978,14 @@ func (s *Server) makeGetECPartRangeRequest(cnr cid.ID, parent oid.ID, partInfo i
 	return mem.SliceBuffer(buf), nil
 }
 
-func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string) (int, error) {
-	// TODO: can be calculated once and reused
-	originSig, err := neofsecdsa.Signer(s.signer).Sign(nil)
-	if err != nil {
-		return 0, fmt.Errorf("sign empty data: %w", err)
+func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string, verifHdrSigCount int) (int, error) {
+	var originSig []byte
+	var err error
+	if verifHdrSigCount == 3 {
+		originSig, err = neofsecdsa.Signer(s.signer).Sign(nil)
+		if err != nil {
+			return 0, fmt.Errorf("sign empty data: %w", err)
+		}
 	}
 
 	// body
@@ -1013,17 +1025,20 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, me
 	}
 
 	// verification header
-	off += writeRequestVerificationHeader(buf[off:], s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+	off += writeRequestVerificationHeader(buf[off:], verifHdrSigCount, s.pubKeyBytes, bodySig, metaHdrSig, originSig)
 
 	return off, nil
 }
 
 func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID, parent oid.ID, rngLen int, off uint64, ln uint64,
-	metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string) (int, error) {
-	// TODO: can be calculated once and reused
-	originSig, err := neofsecdsa.Signer(s.signer).Sign(nil)
-	if err != nil {
-		return 0, fmt.Errorf("sign empty data: %w", err)
+	metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string, verifHdrSigCount int) (int, error) {
+	var originSig []byte
+	var err error
+	if verifHdrSigCount == 3 {
+		originSig, err = neofsecdsa.Signer(s.signer).Sign(nil)
+		if err != nil {
+			return 0, fmt.Errorf("sign empty data: %w", err)
+		}
 	}
 
 	// body
@@ -1094,7 +1109,7 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 	}
 
 	// verification header
-	n += writeRequestVerificationHeader(buf[n:], s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+	n += writeRequestVerificationHeader(buf[n:], verifHdrSigCount, s.pubKeyBytes, bodySig, metaHdrSig, originSig)
 
 	return n, nil
 }
@@ -1111,7 +1126,7 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	respLen := 1 + protowire.SizeBytes(bodyLen) // 1 for iprotobuf.TagBytes1
 
 	if signResponse {
-		respLen += 1 + protowire.SizeBytes(requestVerificationHeaderECDSAWIthSHA512Len) // 1 for iprotobuf.TagBytes3
+		respLen += 1 + protowire.SizeBytes(responseVerificationHeaderECDSAWIthSHA512Len) // 1 for iprotobuf.TagBytes3
 	}
 
 	var respBuf mem.Buffer
