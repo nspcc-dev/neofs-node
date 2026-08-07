@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- SN could panic on forwarding GET/HEAD/RANGE request (#4120)
 
 ### Changed
 - SNs exchange TLS certificates on inter-node connections (#4097)
