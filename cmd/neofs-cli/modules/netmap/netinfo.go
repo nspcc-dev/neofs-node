@@ -34,6 +34,7 @@ var netInfoCmd = &cobra.Command{
 		}
 
 		cmd.Printf("Epoch: %d\n", netInfo.CurrentEpoch())
+		cmd.Printf("Network map version: %d\n", netInfo.NetmapVersion())
 
 		magic := netInfo.MagicNumber()
 		cmd.Printf("Network magic: [%s] %d\n", netmode.Magic(magic), magic)

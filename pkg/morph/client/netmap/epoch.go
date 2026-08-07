@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -30,6 +32,24 @@ func (c *Client) Epoch() (uint64, error) {
 		return 0, fmt.Errorf("could not get number from stack item (%s): %w", epochMethod, err)
 	}
 	return uint64(num), nil
+}
+
+// NetmapVersion receives current network map version from the contract.
+func (c *Client) NetmapVersion() (uint64, error) {
+	var (
+		inv       = invoker.New(c.client.Morph(), nil)
+		reader    = netmaprpc.NewReader(inv, c.contract)
+		vBig, err = reader.Version()
+	)
+	if err != nil {
+		return 0, fmt.Errorf("contract reader: %w", err)
+	}
+	v := vBig.Int64()
+	if v <= 0 {
+		return 0, fmt.Errorf("non-positive version: %d", v)
+	}
+
+	return uint64(v), nil
 }
 
 // LastEpochBlock receives block number of current NeoFS epoch

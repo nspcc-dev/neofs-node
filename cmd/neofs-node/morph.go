@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	newEpochNotification = "NewEpoch"
+	newEpochNotification         = "NewEpoch"
+	newNetmapVersionNotification = "NewNetmap"
 )
 
 func initMorphComponents(c *cfg) {
@@ -77,6 +78,16 @@ func listenMorphNotifications(c *cfg) {
 		if err == nil {
 			c.log.Info("new epoch event from FS chain",
 				zap.Uint64("number", res.(netmapEvent.NewEpoch).EpochNumber()),
+			)
+		}
+
+		return res, err
+	})
+	setNetmapNotificationParser(c, newNetmapVersionNotification, func(src *state.ContainedNotificationEvent) (event.Event, error) {
+		res, err := netmapEvent.ParseNewNetmapVersion(src)
+		if err == nil {
+			c.log.Info("new netmap version event from FS chain",
+				zap.Int("versionNumber", res.(netmapEvent.NetmapChanged).NetmapVersion()),
 			)
 		}
 
