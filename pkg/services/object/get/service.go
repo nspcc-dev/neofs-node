@@ -71,7 +71,7 @@ var ErrUnavailableNode = errors.New("unavailable node")
 // GetECRequestTransport is used to serve GET requests for EC objects.
 type GetECRequestTransport interface {
 	// CopyRemoteECPartParentHeaderAndPayload requests originally requested object's
-	// EC part identified by partInfo from remote storage node using conn to it. If
+	// EC part identified by policy rule index from remote storage node using conn to it. If
 	// succeeded, CopyRemoteECPartParentHeaderAndPayload sends parent header and
 	// part payload to the client, and returns:
 	//  - flag whether parent header was copied or not;
@@ -93,11 +93,12 @@ type GetECRequestTransport interface {
 	// Otherwise, no error is returned. Copying can be incomplete in this case.
 	//
 	// CopyRemoteECPartParentHeaderAndPayload is never called concurrently.
-	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, ruleIdx int) (bool, uint64, uint64, uint64, error)
+	// TODO: same for local case?
 	// CopyLocalECPartParentHeaderAndPayload works like CopyRemoteECPartParentHeaderAndPayload but locally.
 	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
 	// CopyRemoteECPartRange requests specified payload range of originally
-	// requested object's EC part identified by partInfo pair from remote storage
+	// requested object's EC part identified by policy rule index from remote storage
 	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
 	// range to the client, and returns number of bytes copied.
 	//
@@ -115,9 +116,8 @@ type GetECRequestTransport interface {
 	// from it. On true, CopyRemoteECPartRange returns [ErrAborted] instantly
 	// without copying. Otherwise, i.e. if on false or close, copying starts.
 	//
-	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
-	// never for the same one.
-	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, full bool, controlCh <-chan bool) (uint64, error)
+	// CopyRemoteECPartRange is never called concurrently for the same ruleIdx.
+	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, ruleIdx int, off, ln uint64, full bool, controlCh <-chan bool) (uint64, error)
 	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
 	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool) (uint64, error)
 }
