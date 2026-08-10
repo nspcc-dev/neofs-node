@@ -390,6 +390,14 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 		return r, nil, nil
 	}
 
+	if exec.localGetBuffer != nil {
+		n, stream, err := e.engine.ReadObject(ctx, exec.address(), exec.payloadRange, exec.localGetBuffer, exec.interceptLocalHeaderBinaryFn)
+		if err == nil {
+			exec.submitLocalGetStreamFn(n, stream)
+		}
+		return nil, nil, err
+	}
+
 	if exec.hasPayloadRange() {
 		if exec.localRangeBuffer != nil {
 			rng := exec.ctxRange()
@@ -405,14 +413,6 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 			return nil, stream, err
 		}
 		return hdr, stream, nil
-	}
-
-	if exec.localGetBuffer != nil {
-		n, stream, err := e.engine.ReadObject(ctx, exec.address(), exec.localGetBuffer)
-		if err == nil {
-			exec.submitLocalGetStreamFn(n, stream)
-		}
-		return nil, nil, err
 	}
 
 	return e.engine.GetStream(ctx, exec.address())

@@ -157,7 +157,7 @@ func (unimplementedShard) GetStream(oid.Address, bool) (*object.Object, io.ReadC
 	panic("unimplemented")
 }
 
-func (unimplementedShard) ReadObject(oid.Address, bool, []byte) (int, io.ReadCloser, error) {
+func (unimplementedShard) ReadObject(oid.Address, bool, common.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -169,7 +169,7 @@ func (unimplementedShard) GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object
 	panic("unimplemented")
 }
 
-func (unimplementedShard) ReadECPart(cid.ID, oid.ID, iec.PartInfo, []byte) (int, io.ReadCloser, error) {
+func (unimplementedShard) ReadECPart(cid.ID, oid.ID, iec.PartInfo, common.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -292,7 +292,13 @@ func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, 
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, buf []byte) (int, io.ReadCloser, error) {
+func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+	if rng.IsSet() {
+		panic("unimplemented range")
+	}
+	if interceptHeaderBinaryFn != nil {
+		panic("unimplemented header binary interception")
+	}
 	val, ok := x.getStream[getStreamKey{
 		addr:     addr,
 		skipMeta: skipMeta,
@@ -349,7 +355,13 @@ func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (objec
 	return *val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+	if rng.IsSet() {
+		panic("unimplemented range")
+	}
+	if interceptHeaderBinaryFn != nil {
+		panic("unimplemented header binary interception")
+	}
 	time.Sleep(x.eCPartSleep)
 	val, ok := x.getECPart[getECPartKey{
 		cnr:    cnr,

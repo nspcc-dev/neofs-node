@@ -259,7 +259,7 @@ func (e *StorageEngine) getRangeStream(_ context.Context, addr oid.Address, rng 
 //
 // If object is a split-parent, ReadObject returns [object.SplitInfoError] with
 // all relations recorded in e.
-func (e *StorageEngine) ReadObject(_ context.Context, addr oid.Address, buf []byte) (int, io.ReadCloser, error) {
+func (e *StorageEngine) ReadObject(_ context.Context, addr oid.Address, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadObjectDuration)()
 	}
@@ -278,7 +278,7 @@ func (e *StorageEngine) ReadObject(_ context.Context, addr oid.Address, buf []by
 
 	return n, stream, e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
 		var err error
-		n, stream, err = s.ReadObject(addr, ignoreMetadata, buf)
+		n, stream, err = s.ReadObject(addr, ignoreMetadata, rng, buf, interceptHeaderBinaryFn)
 		return err
 	})
 }

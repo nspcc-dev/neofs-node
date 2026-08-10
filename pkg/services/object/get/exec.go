@@ -63,8 +63,9 @@ type execCtx struct {
 	// already corrupted and no retry should be attempted.
 	responseStarted bool
 
-	localGetBuffer         []byte
-	submitLocalGetStreamFn SubmitStreamFunc
+	localGetBuffer               []byte
+	submitLocalGetStreamFn       SubmitStreamFunc
+	interceptLocalHeaderBinaryFn func([]byte) error
 
 	headTransportFn      HeadTransportFunc
 	submitHeadResponseFn SubmitHeadResponseFunc
@@ -165,10 +166,11 @@ func withPreSortedContainerNodes(nodeLists [][]netmap.NodeInfo, repRules []uint)
 	}
 }
 
-func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc) execOption {
+func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc, interceptHeaderBinaryFn func([]byte) error) execOption {
 	return func(ctx *execCtx) {
 		ctx.localGetBuffer = buf
 		ctx.submitLocalGetStreamFn = submitStreamFn
+		ctx.interceptLocalHeaderBinaryFn = interceptHeaderBinaryFn
 	}
 }
 

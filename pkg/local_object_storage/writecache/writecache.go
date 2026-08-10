@@ -33,6 +33,7 @@ type Cache interface {
 	ReadHeader(oid.Address, []byte) (int, error)
 	ReadObject(oid.Address, []byte) (int, io.ReadCloser, error)
 	ReadPayloadRange(oid.Address, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error)
+	ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
 	// Delete removes object referenced by the given oid.Address from the
 	// Cache. Returns any error encountered that prevented the object to be
 	// removed.

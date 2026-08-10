@@ -19,7 +19,11 @@ import (
 
 // ReadECPart is a buffered alternative for [StorageEngine.GetECPart] similar to
 // [StorageEngine.ReadObject].
-func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf []byte) (int, io.ReadCloser, error) {
+//
+// If interceptHeaderBinaryFn is specified, it's called instantly once header is
+// read (never concurrently). If it returns an error, whole operation is aborted
+// with this error.
+func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadECPartDuration)()
 	}
@@ -28,11 +32,11 @@ func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID,
 	var stream io.ReadCloser
 	return n, stream, e.getECPartFunc(cnr, parent, pi, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
 		var err error
-		n, stream, err = s.ReadECPart(cnr, parent, pi, buf)
+		n, stream, err = s.ReadECPart(cnr, parent, pi, rng, buf, interceptHeaderBinaryFn)
 		return err
 	}, func(s shardInterface, partAddr oid.Address) error {
 		var err error
-		n, stream, err = s.ReadObject(partAddr, true, buf)
+		n, stream, err = s.ReadObject(partAddr, true, rng, buf, interceptHeaderBinaryFn)
 		return err
 	})
 }
@@ -171,7 +175,7 @@ func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oi
 	var stream io.ReadCloser
 	var err error
 
-	err = e.getECPartRangeFunc(cnr, parent, pi, common.NewPayloadRange(off, ln), MetricRegister.AddReadECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+	err = e.getECPartRangeFunc(cnr, parent, pi, MetricRegister.AddReadECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
 		stream, err = s.ReadECPartRange(cnr, parent, pi, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	}, func(s shardInterface, cnr cid.ID, partID oid.ID) error {
@@ -213,7 +217,7 @@ func (e *StorageEngine) GetECPartRange(_ context.Context, cnr cid.ID, parent oid
 	var pldLen uint64
 	var stream io.ReadCloser
 
-	err := e.getECPartRangeFunc(cnr, parent, pi, rng, MetricRegister.AddGetECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
+	err := e.getECPartRangeFunc(cnr, parent, pi, MetricRegister.AddGetECPartRangeDuration, func(s shardInterface, cnr cid.ID, parent oid.ID, pi iec.PartInfo) error {
 		var err error
 		hdr, pldLen, stream, err = s.GetECPartRange(cnr, parent, pi, rng, readHeader)
 		return err
@@ -225,7 +229,7 @@ func (e *StorageEngine) GetECPartRange(_ context.Context, cnr cid.ID, parent oid
 	return hdr, pldLen, stream, err
 }
 
-func (e *StorageEngine) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, metricFn func(MetricRegister, time.Duration),
+func (e *StorageEngine) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, metricFn func(MetricRegister, time.Duration),
 	resolveFn func(shardInterface, cid.ID, oid.ID, iec.PartInfo) error,
 	rangeFn func(shardInterface, cid.ID, oid.ID) error,
 ) error {
