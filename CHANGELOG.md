@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 - SN could panic on forwarding GET/HEAD/RANGE request (#4120)
 - Storage node shuts down when SIGHUP configuration reload fails (#4113)
+- Storage node shuts down gracefully on invalid node attributes during SIGHUP (#4113)
 
 ### Changed
 - SNs exchange TLS certificates on inter-node connections (#4097)

@@ -8,24 +8,26 @@ import (
 	"go.uber.org/zap"
 )
 
-func parseAttributes(c *cfg) {
+func parseAttributes(c *cfg) error {
 	if c.appCfg.Node.Relay {
-		return
+		return nil
 	}
 
-	fatalOnErr(attributes.ReadNodeAttributes(&c.cfgNodeInfo.localInfo, c.appCfg.Node.Attributes))
+	if err := attributes.ReadNodeAttributes(&c.cfgNodeInfo.localInfo, c.appCfg.Node.Attributes); err != nil {
+		return err
+	}
 
 	// expand UN/LOCODE attribute if any found; keep user's attributes
 	// if any conflicts appear
 
 	locAttr := c.cfgNodeInfo.localInfo.LOCODE()
 	if locAttr == "" {
-		return
+		return nil
 	}
 
 	record, err := getRecord(locAttr)
 	if err != nil {
-		fatalOnErr(fmt.Errorf("could not get locode record from DB: %w", err))
+		return fmt.Errorf("could not get locode record from DB: %w", err)
 	}
 
 	countryCode := locAttr[:locodedb.CountryCodeLen]
@@ -84,6 +86,8 @@ func parseAttributes(c *cfg) {
 	} else {
 		setIfNotEmpty(n.SetSubdivisionName, record.SubDivName)
 	}
+
+	return nil
 }
 
 func getRecord(lc string) (locodedb.Record, error) {

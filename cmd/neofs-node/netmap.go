@@ -141,7 +141,7 @@ func initNetmapService(c *cfg) {
 
 	network.WriteToNodeInfo(c.localAddr, &c.cfgNodeInfo.localInfo)
 	c.cfgNodeInfo.localInfo.SetPublicKey(c.key.PublicKey().Bytes())
-	parseAttributes(c)
+	fatalOnErr(parseAttributes(c))
 	c.cfgNodeInfo.localInfo.SetOffline()
 
 	c.cfgNodeInfo.localInfoLock.Unlock()
@@ -478,11 +478,14 @@ func (c *cfg) reloadNodeAttributes() error {
 	c.cfgNodeInfo.localInfo.SetAttributes(nil)
 
 	err := writeSystemAttributes(c)
+	if err == nil {
+		err = parseAttributes(c)
+	}
 	if err != nil {
+		c.cfgNodeInfo.localInfo.SetAttributes(oldAttrs)
 		c.cfgNodeInfo.localInfoLock.Unlock()
 		return err
 	}
-	parseAttributes(c)
 
 	newAttrs := c.cfgNodeInfo.localInfo.GetAttributes()
 
