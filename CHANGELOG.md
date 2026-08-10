@@ -13,10 +13,17 @@ Changelog for NeoFS Node
 - SN no longer adds origin signature to EC requests sent to remote nodes with API >= v2.25 (#4118)
 
 ### Removed
+- Session token storage migration (#4124)
 
 ### Updated
 - `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21.0.20260807155929-203994967075` (#4123)
+
+### Updating from v0.55.0
+Session token storage migration introduced in v0.52.0 has been removed.
+Storage nodes updating from versions earlier than v0.52.0 must first update to
+a v0.52.0-v0.55.0 release and let the migration complete before updating to
+this release.
 
 ## [0.55.0] - 2026-07-31 - Moido
 
