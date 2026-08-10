@@ -624,7 +624,6 @@ func (c *cfg) needBootstrap() bool {
 }
 
 func (c *cfg) configWatcher(ctx context.Context) {
-	var err error
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGHUP)
 
@@ -637,63 +636,9 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				c.log.Warn("failed to notify systemd about reloading", zap.Error(err))
 			}
 
-			oldMetrics := writeMetricConfig(c.appCfg)
-			oldProfiler := writeProfilerConfig(c.appCfg)
-			oldGRPC := writeGRPCConfig(c.appCfg)
-
-			c.appCfg, err = config.New(config.WithConfigFile(c.appCfg.Path()))
-			if err != nil {
-				c.log.Error("configuration reading", zap.Error(err))
-				continue
-			}
-
-			// Prometheus and pprof
-
-			// nolint:contextcheck
-			c.reloadMetricsAndPprof(oldMetrics, oldProfiler)
-
-			// Logger
-
-			err = c.logLevel.UnmarshalText([]byte(c.appCfg.Logger.Level))
-			if err != nil {
-				c.log.Error("invalid logger level configuration", zap.Error(err))
-				continue
-			}
-
-			// Policer
-
-			c.policer.Reload(c.policerOpts()...)
-
-			// Storage Engine
-
-			var rcfg engine.ReConfiguration
-			for _, optsWithID := range c.shardOpts() {
-				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
-			}
-
-			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
-			if err != nil {
-				c.log.Error("storage engine configuration update", zap.Error(err))
-				continue
-			}
-
-			// Morph
-
-			c.cli.Reload(client.WithEndpoints(c.appCfg.FSChain.Endpoints))
-
-			// Node
-
-			err = c.reloadNodeAttributes()
-			if err != nil {
-				c.log.Error("invalid node attributes configuration", zap.Error(err))
-				continue
-			}
-
-			// gRPC
-
-			if err = reloadGRPC(c, oldGRPC); err != nil {
-				c.log.Error("gRPC configuration reload", zap.Error(err))
-				continue
+			if err := c.reloadConfig(); err != nil {
+				c.internalErr <- fmt.Errorf("configuration reload: %w", err)
+				return
 			}
 
 			c.log.Info("configuration has been reloaded successfully")
@@ -705,6 +650,66 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			return
 		}
 	}
+}
+
+//nolint:contextcheck // Reloading HTTP services does not receive a request context.
+func (c *cfg) reloadConfig() error {
+	oldCfg := c.appCfg
+	oldMetrics := writeMetricConfig(oldCfg)
+	oldProfiler := writeProfilerConfig(oldCfg)
+	oldGRPC := writeGRPCConfig(oldCfg)
+
+	newCfg, err := config.New(config.WithConfigFile(oldCfg.Path()))
+	if err != nil {
+		return fmt.Errorf("read configuration: %w", err)
+	}
+	if err := validateConfig(newCfg); err != nil {
+		return fmt.Errorf("validate configuration: %w", err)
+	}
+	c.appCfg = newCfg
+
+	// Prometheus and pprof
+
+	c.reloadMetricsAndPprof(oldMetrics, oldProfiler)
+
+	// Logger
+
+	if err := c.logLevel.UnmarshalText([]byte(c.appCfg.Logger.Level)); err != nil {
+		return fmt.Errorf("set logger level: %w", err)
+	}
+
+	// Policer
+
+	c.policer.Reload(c.policerOpts()...)
+
+	// Storage Engine
+
+	var rcfg engine.ReConfiguration
+	for _, optsWithID := range c.shardOpts() {
+		rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
+	}
+
+	if err := c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg); err != nil {
+		return fmt.Errorf("update storage engine configuration: %w", err)
+	}
+
+	// Morph
+
+	c.cli.Reload(client.WithEndpoints(c.appCfg.FSChain.Endpoints))
+
+	// Node
+
+	if err := c.reloadNodeAttributes(); err != nil {
+		return fmt.Errorf("update node attributes: %w", err)
+	}
+
+	// gRPC
+
+	if err := reloadGRPC(c, oldGRPC); err != nil {
+		return fmt.Errorf("reload gRPC configuration: %w", err)
+	}
+
+	return nil
 }
 
 // writeSystemAttributes writes app version as defined at compilation
