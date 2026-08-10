@@ -23,7 +23,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -105,7 +104,7 @@ func generateObjectWithCID(cnr cid.ID) *object.Object {
 	obj.SetID(oidtest.ID())
 	obj.SetPayload([]byte{1, 2, 3, 4, 5})
 	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload()))) //nolint:staticcheck // this is a test and such objects are possible
+	obj.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte("legacy TZ checksum"))) //nolint:staticcheck // this is a test and such objects are possible
 
 	return obj
 }

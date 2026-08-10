@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -113,7 +112,7 @@ func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 	obj.SetID(oidtest.ID())
 	obj.SetPayload(data)
 	obj.SetPayloadChecksum(csum)
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(csum.Value()))) //nolint:staticcheck // this is a test and such objects are possible
+	obj.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte("legacy TZ checksum"))) //nolint:staticcheck // this is a test and such objects are possible
 
 	return obj
 }
