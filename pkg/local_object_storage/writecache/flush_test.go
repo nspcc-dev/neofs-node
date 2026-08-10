@@ -21,7 +21,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -339,7 +338,7 @@ func newObject(t *testing.T, size int) (*object.Object, []byte) {
 	obj.SetType(object.TypeRegular)
 	obj.SetPayload(make([]byte, size))
 	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(obj.Payload())))
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(obj.Payload()))) //nolint:staticcheck // this is a test and such objects are possible
+	obj.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte("legacy TZ checksum"))) //nolint:staticcheck // this is a test and such objects are possible
 
 	return obj, obj.Marshal()
 }

@@ -1337,7 +1337,7 @@ func newSignedRegularObject(t *testing.T, owner user.Signer, ownerID user.ID) ob
 	obj := *object.New(cidtest.ID(), ownerID)
 	obj.SetPayload([]byte("Hello, world!"))
 	obj.SetPayloadSize(uint64(len(obj.Payload())))
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte(testutil.RandByteSlice(tz.Size)))) //nolint:staticcheck // this is a test
+	obj.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte("legacy TZ checksum"))) //nolint:staticcheck // this is a test
 	obj.SetAttributes(
 		object.NewAttribute("attr1", "val1"),
 		object.NewAttribute("attr2", "val2"),

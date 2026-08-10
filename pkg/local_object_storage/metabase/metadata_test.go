@@ -104,10 +104,7 @@ func TestPutMetadata(t *testing.T) {
 	pldHashBytes := [32]byte{95, 165, 98, 74, 58, 67, 109, 195, 226, 238, 253, 241, 64, 7, 241, 240, 241, 46, 243, 182, 130, 17, 194,
 		11, 7, 153, 171, 79, 131, 76, 154, 91}
 	pldHash := checksum.NewSHA256(pldHashBytes)
-	pldHmmHashBytes := [64]byte{124, 127, 67, 236, 186, 166, 150, 202, 4, 115, 163, 58, 242, 73, 149, 35, 153, 93, 4, 247, 62, 18, 13, 150,
-		53, 141, 131, 172, 207, 164, 187, 240, 16, 30, 18, 30, 136, 0, 197, 213, 185, 62, 153, 223, 42, 213, 207, 86, 131, 144, 121,
-		127, 251, 248, 253, 176, 145, 101, 69, 75, 12, 97, 27, 19}
-	pldHmmHash := checksum.NewTillichZemor(pldHmmHashBytes) //nolint:staticcheck // this is a test and such objects are possible
+	pldHmmHash := checksum.New(checksum.TillichZemor, []byte("legacy TZ checksum")) //nolint:staticcheck // this is a test and such objects are possible
 	splitID := []byte{240, 204, 35, 185, 222, 70, 69, 124, 160, 224, 208, 185, 9, 114, 37, 109}
 	associatedID := oidtest.ID()
 	ecPartHashes := "42b57632c93fb87d5f6de87d299eeda64dadbb61376eb196bce5c58cefaac594,362576183a75febd884d8511c384a8b2e776901fab29794984ddff8acaf3c298"

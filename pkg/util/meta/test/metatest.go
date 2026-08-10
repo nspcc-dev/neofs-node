@@ -20,7 +20,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,20 +75,6 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			// cc6c36b379e9a77a845a021498e2e92875131af404f825aa56bea91602785ef2
 			{204, 108, 54, 179, 121, 233, 167, 122, 132, 90, 2, 20, 152, 226, 233, 40, 117, 19, 26, 244, 4, 248, 37, 170, 86, 190, 169, 22, 2, 120, 94, 242},
 		}
-		hmmChecksums := [nAll][64]byte{
-			// a73a37d54475df580b324d70f3d1ac922200af91f196dd9cb0f8f1cca5fefdf0cb3dbc4aaac639416e3fdd4c540e616e6b44ac6b56a3b194e8011925192a8be2
-			{167, 58, 55, 213, 68, 117, 223, 88, 11, 50, 77, 112, 243, 209, 172, 146, 34, 0, 175, 145, 241, 150, 221, 156, 176, 248, 241, 204, 165, 254, 253, 240, 203, 61, 188, 74, 170, 198, 57, 65, 110, 63, 221, 76, 84, 14, 97, 110, 107, 68, 172, 107, 86, 163, 177, 148, 232, 1, 25, 37, 25, 42, 139, 226},
-			// f72b6eb562c6dd5e69930ab51ca8a98b13bfa18013cd89df3254dbc615f86b8f8c042649fe76e01f54bea7216957fe6716ec0a33d6b6de25ec15a53f295196d1
-			{247, 43, 110, 181, 98, 198, 221, 94, 105, 147, 10, 181, 28, 168, 169, 139, 19, 191, 161, 128, 19, 205, 137, 223, 50, 84, 219, 198, 21, 248, 107, 143, 140, 4, 38, 73, 254, 118, 224, 31, 84, 190, 167, 33, 105, 87, 254, 103, 22, 236, 10, 51, 214, 182, 222, 37, 236, 21, 165, 63, 41, 81, 150, 209},
-			// 55a8577889ed275d15509b202b084fb7876c08408b8c61a1ba9ab26834f08c667ccde2acf55fcfc1755cb2a6f8316e1c6185bd48549b150767979cf76ede4b1c
-			{85, 168, 87, 120, 137, 237, 39, 93, 21, 80, 155, 32, 43, 8, 79, 183, 135, 108, 8, 64, 139, 140, 97, 161, 186, 154, 178, 104, 52, 240, 140, 102, 124, 205, 226, 172, 245, 95, 207, 193, 117, 92, 178, 166, 248, 49, 110, 28, 97, 133, 189, 72, 84, 155, 21, 7, 103, 151, 156, 247, 110, 222, 75, 28},
-			// 4d97f1f4f17119efae4579ef916ca1535e68c4fa381c431ab4112cb5671ddb21e44dc78f02ae2b26c95d5f74bb5eb4350e00cdc5b270f60bf46deaafc1b84575
-			{77, 151, 241, 244, 241, 113, 25, 239, 174, 69, 121, 239, 145, 108, 161, 83, 94, 104, 196, 250, 56, 28, 67, 26, 180, 17, 44, 181, 103, 29, 219, 33, 228, 77, 199, 143, 2, 174, 43, 38, 201, 93, 95, 116, 187, 94, 180, 53, 14, 0, 205, 197, 178, 112, 246, 11, 244, 109, 234, 175, 193, 184, 69, 117},
-			// 80089235980bfbf6c01a93c4f507b2f1ff2ec8b0c29cfe6970ce95cbeb1739bef6a43626783d58f56c224cfb606c360301f632a198db63f599fca7be2e0c2566
-			{128, 8, 146, 53, 152, 11, 251, 246, 192, 26, 147, 196, 245, 7, 178, 241, 255, 46, 200, 176, 194, 156, 254, 105, 112, 206, 149, 203, 235, 23, 57, 190, 246, 164, 54, 38, 120, 61, 88, 245, 108, 34, 76, 251, 96, 108, 54, 3, 1, 246, 50, 161, 152, 219, 99, 245, 153, 252, 167, 190, 46, 12, 37, 102},
-			// f3b6eedc3f30b99309582a7e0ca09dd6a9234ce95bfa578ddfa6ef2a0fe9c56e8f6a86c82ce565d9216c02110c0fe44079a68275243ad2f9be6bf7dacdeed97c
-			{243, 182, 238, 220, 63, 48, 185, 147, 9, 88, 42, 126, 12, 160, 157, 214, 169, 35, 76, 233, 91, 250, 87, 141, 223, 166, 239, 42, 15, 233, 197, 110, 143, 106, 134, 200, 44, 229, 101, 217, 33, 108, 2, 17, 12, 15, 228, 64, 121, 166, 130, 117, 36, 58, 210, 249, 190, 107, 247, 218, 205, 238, 217, 124},
-		}
 		groupAttrs := [nRoot]object.Attribute{
 			object.NewAttribute("group_attr_1", "group_val_1"),
 			object.NewAttribute("group_attr_2", "group_val_2"),
@@ -118,7 +103,7 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			obj.SetCreationEpoch(10 + uint64(nGroup))
 			obj.SetPayloadSize(20 + uint64(nGroup))
 			obj.SetPayloadChecksum(checksum.NewSHA256(checksums[nGlobal]))
-			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(hmmChecksums[nGlobal])) //nolint:staticcheck // db still may store it
+			obj.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte("legacy TZ checksum"))) //nolint:staticcheck // db still may store it
 			si := strconv.Itoa(nGlobal)
 			obj.SetAttributes(
 				object.NewAttribute("attr_common", "val_common"),
@@ -906,7 +891,7 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 		obj.SetPayloadChecksum(checksum.NewSHA256([sha256.Size]byte{105, 23, 175, 222, 242, 223, 82, 69, 207, 193, 106,
 			168, 9, 238, 85, 29, 34, 68, 233, 54, 143, 217, 223, 248, 236, 227, 121, 195, 155, 187, 37, 242}))
 		//nolint:staticcheck // db still may store it
-		obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte{171, 152, 81, 127, 134, 240, 228, 236, 10, 131,
+		obj.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte{171, 152, 81, 127, 134, 240, 228, 236, 10, 131,
 			10, 114, 174, 138, 120, 108, 165, 104, 36, 100, 129, 235, 160, 213, 96, 230, 190, 15, 196, 5, 252, 194, 205, 48,
 			236, 57, 117, 238, 170, 36, 251, 104, 62, 124, 1, 206, 131, 226, 221, 111, 73, 54, 235, 100, 49, 32, 252, 255,
 			92, 51, 30, 77, 180, 53}))

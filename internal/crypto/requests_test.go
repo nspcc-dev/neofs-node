@@ -280,7 +280,7 @@ var corruptSigTestcases = []struct {
 	{name: "public key/oversize", msg: "decode public key from binary: extra data", corrupt: func(valid *refs.Signature) {
 		valid.Key = append(bytes.Clone(reqSignerECDSAPub), 1)
 	}},
-	{name: "public key/prefix/zero", msg: "decode public key from binary: extra data", corrupt: func(valid *refs.Signature) {
+	{name: "public key/prefix/zero", msg: "decode public key from binary: point at infinity is not a valid key", corrupt: func(valid *refs.Signature) {
 		valid.Key[0] = 0x00
 	}},
 	{name: "public key/prefix/unsupported", msg: "decode public key from binary: invalid prefix 5", corrupt: func(valid *refs.Signature) {

@@ -27,7 +27,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -654,7 +653,7 @@ func getUnsignedObject() object.Object {
 
 	obj.SetPayload(payload)
 	obj.CalculateAndSetPayloadChecksum()
-	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(payload))) //nolint:staticcheck // this is a test and such objects are possible
+	obj.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte{0, 0, 1, 66, 73, 241, 7, 149, 192, 36, 14, 221, 202, 138, 110, 191, 0, 0, 1, 201, 196, 220, 152, 176, 23, 253, 146, 173, 98, 151, 156, 140, 0, 0, 0, 141, 148, 205, 152, 164, 87, 185, 131, 233, 55, 131, 141, 205, 0, 0, 0, 219, 200, 104, 158, 117, 199, 221, 137, 37, 173, 13, 247, 39})) //nolint:staticcheck // this is a test and such objects are possible
 
 	obj.SetID(oid.ID{231, 249, 6, 213, 114, 154, 74, 74, 49, 179, 107, 109, 34, 56, 68, 54, 226, 226, 16, 54, 217, 41, 138, 188, 245,
 		97, 133, 227, 199, 159, 163, 21}) // header checksum

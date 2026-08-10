@@ -25,7 +25,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -647,7 +646,7 @@ func TestMigrate10To11(t *testing.T) {
 	objs := make([]object.Object, 0, numOfTestObjs)
 	for i := range numOfTestObjs {
 		o := objecttest.Object()
-		o.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte{}))
+		o.SetPayloadHomomorphicHash(checksum.New(checksum.TillichZemor, []byte("legacy TZ checksum")))
 		if i < numOfTestObjs {
 			o.SetContainerID(cID1)
 		} else {
