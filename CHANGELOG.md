@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
 
 ## [0.55.0] - 2026-07-31 - Moido
 
