@@ -56,3 +56,10 @@ type MultiAddressClient interface {
 	// this client (min(server, client) effectively).
 	APIVersion() *protorefs.Version
 }
+
+// IsMutuallyAuthenticated reports whether all connections of c use mutual TLS.
+// Clients that do not expose this property are treated as unauthenticated.
+func IsMutuallyAuthenticated(c any) bool {
+	x, ok := c.(interface{ IsMutuallyAuthenticated() bool })
+	return ok && x.IsMutuallyAuthenticated()
+}

@@ -406,7 +406,12 @@ func initCfg(appCfg *config.Config) *cfg {
 	minConnTimeout := appCfg.APIClient.MinConnectionTime
 	pingInterval := appCfg.APIClient.PingInterval
 	pingTimeout := appCfg.APIClient.PingTimeout
-	getClientCertificate := clientCertificateProvider(appCfg.GRPC)
+	getClientCertificate := clientCertificateProvider(appCfg.GRPC, key.PublicKey().Bytes())
+	// Validate the certificate before serving requests so that it is trusted by peer SNs.
+	if getClientCertificate != nil {
+		_, err = getClientCertificate(nil)
+		fatalOnErr(err)
+	}
 	newClientCache := func(scope string) *cache.Clients {
 		return cache.NewClients(c.log.With(zap.String("scope", scope)), &buffers, streamTimeout,
 			minConnTimeout, pingInterval, pingTimeout, neofsecdsa.Signer(key.PrivateKey), getClientCertificate)

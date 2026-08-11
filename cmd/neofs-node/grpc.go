@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/resolver"
 )
@@ -196,7 +195,7 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 		}
 
 		// read certificate from disk on each handshake to pick up renewals automatically.
-		creds := credentials.NewTLS(&tls.Config{
+		creds := trustedPeerTLSCredentials(&tls.Config{
 			GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
 				cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 				if err != nil {

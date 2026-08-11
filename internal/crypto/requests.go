@@ -62,8 +62,7 @@ func requestNeedsSignature[B neofscrypto.ProtoMessage](ctx context.Context, req 
 	if meta == nil || meta.GetTtl() != 1 {
 		return true
 	}
-	key, err := peerauth.PeerPublicKey(ctx)
-	return err != nil || key == nil
+	return !peerauth.IsTrustedPeer(ctx)
 }
 
 // GetRequestAuthor returns ID of the request author along with public key from
