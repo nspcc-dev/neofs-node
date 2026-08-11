@@ -272,6 +272,9 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 		_ = grpcConn.Close()
 		return res, nil, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
 	}
+	if res.mtls.Load() {
+		res.SkipSignatureForLocalRequests()
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, x.streamMsgTimeout)
 	defer cancel()
