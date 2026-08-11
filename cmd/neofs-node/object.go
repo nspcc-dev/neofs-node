@@ -400,6 +400,10 @@ type reputationClient struct {
 	cons *reputationClientConstructor
 }
 
+func (c *reputationClient) IsMutuallyAuthenticated() bool {
+	return clientcore.IsMutuallyAuthenticated(c.MultiAddressClient)
+}
+
 func (c *reputationClient) submitResult(err error) {
 	currEpoch := c.cons.netState.CurrentEpoch()
 	sat := err == nil
