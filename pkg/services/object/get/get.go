@@ -29,6 +29,11 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 	}
 
 	if pi.RuleIndex >= 0 {
+		_, partIdx := findECIndexes(prm.common.XHeaders())
+		if partIdx == "" && !prm.payloadRange.IsSet() {
+			prm.WithECReturnAnyPart()
+		}
+
 		// TODO: deny if node is not in the container?
 
 		if prm.localGetBuffer != nil {

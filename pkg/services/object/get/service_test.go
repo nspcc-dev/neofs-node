@@ -162,6 +162,15 @@ func (x *mockLocalObjects) GetECPart(_ context.Context, cnr cid.ID, parent oid.I
 		parent: parent,
 		pi:     pi,
 	}]
+	if !ok && allowAnyPart {
+		for k, candidate := range x.getECPart {
+			if k.cnr == cnr && k.parent == parent && k.pi.RuleIndex == pi.RuleIndex {
+				v = candidate
+				ok = true
+				break
+			}
+		}
+	}
 	if !ok {
 		return object.Object{}, nil, errors.New("[test] unexpected object requested")
 	}
