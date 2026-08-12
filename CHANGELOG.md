@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - SNs exchange TLS certificates on inter-node connections (#4097)
 - SN no longer adds origin signature to EC requests sent to remote nodes with API >= v2.25 (#4118)
 - SN now allocates less to handle ranged GET requests (#4115)
+- SN responds with server's API version only if it is older than client (#4110)
 
 ### Removed
 - Session token storage migration (#4124)

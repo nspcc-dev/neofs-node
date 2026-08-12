@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -44,10 +45,15 @@ func New(s *ecdsa.PrivateKey, ks KeyStorage) protosession.SessionServiceServer {
 }
 
 func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *protostatus.Status, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
+	var v *protorefs.Version
+	if util.NeedVersionInResponse(req.MetaHeader) {
+		v = version.Current().ProtoMessage()
+	}
+
 	resp := &protosession.CreateResponse{
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
-			Version: version.Current().ProtoMessage(),
+			Version: v,
 			Status:  st,
 		},
 	}

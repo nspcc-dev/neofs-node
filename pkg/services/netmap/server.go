@@ -49,9 +49,13 @@ func currentProtoVersion() *refs.Version {
 	return version.Current().ProtoMessage()
 }
 
-func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+func (s *server) makeResponseMetaHeader(st *protostatus.Status, reqM *protosession.RequestMetaHeader) *protosession.ResponseMetaHeader {
+	var v *refs.Version
+	if util.NeedVersionInResponse(reqM) {
+		v = version.Current().ProtoMessage()
+	}
 	return &protosession.ResponseMetaHeader{
-		Version: currentProtoVersion(),
+		Version: v,
 		Status:  st,
 	}
 }
@@ -59,7 +63,7 @@ func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.Re
 func (s *server) makeNodeInfoResponse(body *protonetmap.LocalNodeInfoResponse_Body, st *protostatus.Status, req *protonetmap.LocalNodeInfoRequest) (*protonetmap.LocalNodeInfoResponse, error) {
 	resp := &protonetmap.LocalNodeInfoResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(st),
+		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
@@ -91,7 +95,7 @@ func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoR
 func (s *server) makeNetInfoResponse(body *protonetmap.NetworkInfoResponse_Body, st *protostatus.Status, req *protonetmap.NetworkInfoRequest) (*protonetmap.NetworkInfoResponse, error) {
 	resp := &protonetmap.NetworkInfoResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(st),
+		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
@@ -122,7 +126,7 @@ func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequ
 func (s *server) makeNetmapResponse(body *protonetmap.NetmapSnapshotResponse_Body, st *protostatus.Status, req *protonetmap.NetmapSnapshotRequest) (*protonetmap.NetmapSnapshotResponse, error) {
 	resp := &protonetmap.NetmapSnapshotResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(st),
+		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil

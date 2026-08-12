@@ -155,9 +155,13 @@ func New(s *ecdsa.PrivateKey, net netmapcore.State, fsChain FSChain, c Contract,
 	}
 }
 
-func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+func (s *Server) makeResponseMetaHeader(st *protostatus.Status, reqM *protosession.RequestMetaHeader) *protosession.ResponseMetaHeader {
+	var v *refs.Version
+	if util.NeedVersionInResponse(reqM) {
+		v = version.Current().ProtoMessage()
+	}
 	return &protosession.ResponseMetaHeader{
-		Version: version.Current().ProtoMessage(),
+		Version: v,
 		Status:  st,
 	}
 }
@@ -372,7 +376,7 @@ func (s *Server) verifySessionTokenV2AgainstRequest(token sessionv2.Token, reqVe
 func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, err error, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
 	resp := &protocontainer.PutResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
@@ -519,7 +523,7 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 
 func (s *Server) makeDeleteResponse(err error, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
 	resp := &protocontainer.DeleteResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
@@ -573,7 +577,7 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 func (s *Server) makeGetResponse(body *protocontainer.GetResponse_Body, st *protostatus.Status, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
 	resp := &protocontainer.GetResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(st),
+		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
@@ -614,7 +618,7 @@ func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protoc
 func (s *Server) makeListResponse(body *protocontainer.ListResponse_Body, st *protostatus.Status, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
 	resp := &protocontainer.ListResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(st),
+		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
@@ -663,7 +667,7 @@ func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*prot
 
 func (s *Server) makeSetEACLResponse(err error, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
 	resp := &protocontainer.SetExtendedACLResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
@@ -722,7 +726,7 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse_Body, st *protostatus.Status, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
 	resp := &protocontainer.GetExtendedACLResponse{
 		Body:       body,
-		MetaHeader: s.makeResponseMetaHeader(st),
+		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil

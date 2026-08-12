@@ -25,6 +25,7 @@ import (
 	localroutes "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/routes"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protoreputation "github.com/nspcc-dev/neofs-sdk-go/proto/reputation"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
@@ -256,16 +257,20 @@ type reputationServer struct {
 	routeBuilder       reputationrouter.Builder
 }
 
-func (s *reputationServer) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+func (s *reputationServer) makeResponseMetaHeader(st *protostatus.Status, reqM *protosession.RequestMetaHeader) *protosession.ResponseMetaHeader {
+	var v *protorefs.Version
+	if util.NeedVersionInResponse(reqM) {
+		v = version.Current().ProtoMessage()
+	}
 	return &protosession.ResponseMetaHeader{
-		Version: version.Current().ProtoMessage(),
+		Version: v,
 		Status:  st,
 	}
 }
 
 func (s *reputationServer) makeLocalResponse(err error, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
 	resp := &protoreputation.AnnounceLocalTrustResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(&s.key.PrivateKey, resp, req)
 	return resp, nil
@@ -303,7 +308,7 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protorep
 
 func (s *reputationServer) makeIntermediateResponse(err error, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
 	resp := &protoreputation.AnnounceIntermediateResultResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
 	resp.VerifyHeader = util.SignResponseIfNeeded(&s.key.PrivateKey, resp, req)
 	return resp, nil
