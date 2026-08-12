@@ -889,7 +889,7 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion *protorefs.Version,
 		return nil, err
 	}
 	if n != len(buf) {
-		return nil, fmt.Errorf("got wrong request length: expected %d, got %d", n, len(buf))
+		return nil, newWrongRequestLengthError(len(buf), n)
 	}
 
 	return mem.SliceBuffer(buf), nil
@@ -973,7 +973,7 @@ func (s *Server) makeGetECPartRangeRequest(remoteServerAPIVersion *protorefs.Ver
 		return nil, err
 	}
 	if n != len(buf) {
-		return nil, fmt.Errorf("got wrong request length: expected %d, got %d", n, len(buf))
+		return nil, newWrongRequestLengthError(len(buf), n)
 	}
 
 	return mem.SliceBuffer(buf), nil

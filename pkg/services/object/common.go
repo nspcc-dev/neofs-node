@@ -122,13 +122,17 @@ func forwardServerStreamRequestGRPC(ctx context.Context, req any, respStream grp
 	}
 }
 
-func callUnary(ctx context.Context, conn *grpc.ClientConn, method string, req any) (mem.BufferSlice, error) {
-	var respBuf mem.BufferSlice
-
-	err := conn.Invoke(ctx, method, req, &respBuf,
+func callUnaryWithCustomResponse(ctx context.Context, conn *grpc.ClientConn, method string, req any, resp any) error {
+	return conn.Invoke(ctx, method, req, resp,
 		grpc.StaticMethod(),
 		grpc.ForceCodecV2(iprotobuf.BufferedCodec{}),
 	)
+}
+
+func callUnary(ctx context.Context, conn *grpc.ClientConn, method string, req any) (mem.BufferSlice, error) {
+	var respBuf mem.BufferSlice
+
+	err := callUnaryWithCustomResponse(ctx, conn, method, req, &respBuf)
 	if err != nil {
 		return nil, fmt.Errorf("sending the request failed: %w", err)
 	}
@@ -248,4 +252,14 @@ func (s *Server) _handleRequestMetaHeader(metaHdr *protosession.RequestMetaHeade
 	reqMD.sessionV1TokenMessage = metaHdr.SessionToken
 
 	return reqMD, nil
+}
+
+type wrongRequestLengthError struct{ expected, got int }
+
+func (x wrongRequestLengthError) Error() string {
+	return fmt.Sprintf("got wrong request length: expected %d, got %d", x.expected, x.got)
+}
+
+func newWrongRequestLengthError(expected, got int) error {
+	return wrongRequestLengthError{expected: expected, got: got}
 }

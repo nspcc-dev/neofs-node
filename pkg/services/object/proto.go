@@ -29,6 +29,9 @@ const (
 	maxChunkOffsetInGetResponse  = 1 + maxGetResponseChunkVarintLen + // 1 for iprotobuf.TagBytes1
 		1 + maxGetResponseChunkVarintLen // 1 for iprotobuf.TagBytes2
 	getResponseChunkBufferLen = maxChunkOffsetInGetResponse + maxGetResponseChunkLen + maxResponseVerificationHeaderLen
+
+	modernRequestVerificationSignatureCount = 2
+	oldRequestVerificationSignatureCount    = 3
 )
 
 // Fixed message lengths.
@@ -310,9 +313,9 @@ func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) 
 func getRequestVerificationSignaturesCount(remoteServerAPIVersion *protorefs.Version) int {
 	v := version.New(remoteServerAPIVersion.GetMajor(), remoteServerAPIVersion.GetMinor())
 	if v.Compare(version.New(2, 25)) >= 0 {
-		return 2
+		return modernRequestVerificationSignatureCount
 	}
-	return 3
+	return oldRequestVerificationSignatureCount
 }
 
 func calculateRequestVerificationHeaderLen(sigCount int) int {
@@ -348,4 +351,15 @@ func writeECDSAWithSHA512Signature(buf []byte, pubKey, sig []byte) int {
 	buf[off] = ecdsaWithSHA256SignatureValueLen
 	off++
 	return off + copy(buf[off:], sig) // scheme is 0
+}
+
+type stablyMarshalledFIeld interface {
+	MarshalStable([]byte)
+}
+
+func writeStablyMarshalledField(buf []byte, tag byte, ln int, fld stablyMarshalledFIeld) int {
+	buf[0] = tag
+	off := 1 + binary.PutUvarint(buf[1:], uint64(ln))
+	fld.MarshalStable(buf[off:])
+	return off + ln
 }
