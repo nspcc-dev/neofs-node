@@ -79,6 +79,8 @@ type InvokePrm struct {
 	await      bool
 	payByProxy bool
 
+	retryMempoolOverflowForever bool
+
 	// optional parameters
 	InvokePrmOptional
 }
@@ -93,6 +95,12 @@ func (i *InvokePrm) Await() {
 // Works _only_ for non-notary requests in FS chain.
 func (i *InvokePrm) PayByProxy() {
 	i.payByProxy = true
+}
+
+// RetryMempoolOverflowForever makes Invoke retry a full FS chain mempool
+// without a time limit. Other errors are handled normally.
+func (i *InvokePrm) RetryMempoolOverflowForever() {
+	i.retryMempoolOverflowForever = true
 }
 
 // InvokePrmOptional groups optional parameters of the Invoke operation.
@@ -136,7 +144,7 @@ func (i *InvokePrmOptional) SetNonce(nonce uint32) {
 // processing, CallWithAlphabetWitness waits for it to be successfully executed.
 // Waiting is done within ctx, [ErrTxAwaitTimeout] is returned when it is done.
 func (s StaticClient) CallWithAlphabetWitness(ctx context.Context, method string, args []any) error {
-	return s.execWithBackoff(fmt.Sprintf("retrying to invoke non-alphabet '%s' notary call", method), func() error {
+	return s.execWithBackoff(fmt.Sprintf("retrying to invoke non-alphabet '%s' notary call", method), false, func() error {
 		return s.client.CallWithAlphabetWitness(ctx, s.scScriptHash, method, args)
 	})
 }
@@ -201,25 +209,31 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 		}
 	}
 
-	return s.execWithBackoff(retryingMessage, invokeFunc)
+	return s.execWithBackoff(retryingMessage, prm.retryMempoolOverflowForever, invokeFunc)
 }
 
 // execWithBackoff retries invokeFunc until it succeeds or until it fails with
-// neorpc.ErrMempoolCapReached or neorpc.GASLimitExceededException. Note that if
-// invocation fails with the "GAS limit exceeded" error, but the error is not
-// wrapped in the corresponding neorpc.FaultException, further attempts will be
-// taken.
-func (s StaticClient) execWithBackoff(retryingMessage string, invokeFunc func() error) error {
+// neorpc.ErrMempoolCapReached or, unless retryMempoolOverflowForever is set,
+// neorpc.GASLimitExceededException. Note that if invocation fails with the "GAS
+// limit exceeded" error, but the error is not wrapped in the corresponding
+// neorpc.FaultException, further attempts will be taken.
+func (s StaticClient) execWithBackoff(retryingMessage string, retryMempoolOverflowForever bool, invokeFunc func() error) error {
+	var retryOpts []backoff.ExponentialBackOffOpts
+	if retryMempoolOverflowForever {
+		retryOpts = append(retryOpts, backoff.WithMaxElapsedTime(0))
+	}
+
 	return backoff.RetryNotify(func() error {
 		err := invokeFunc()
 		if err != nil {
-			if errors.Is(err, neorpc.ErrMempoolCapReached) || errors.Is(err, neorpc.GASLimitExceededException) {
+			if errors.Is(err, neorpc.ErrMempoolCapReached) ||
+				(!retryMempoolOverflowForever && errors.Is(err, neorpc.GASLimitExceededException)) {
 				return err
 			}
 			return backoff.Permanent(err)
 		}
 		return nil
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
+	}, backoff.NewExponentialBackOff(retryOpts...), func(err error, d time.Duration) {
 		s.client.logger.Debug(retryingMessage, zap.Error(err), zap.Duration("retry-after", d))
 	})
 }

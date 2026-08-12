@@ -25,6 +25,7 @@ func (c *Client) AddPeer(ni netmap.NodeInfo, pkey *keys.PublicKey) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(addNodeMethod)
 	prm.SetArgs(node)
+	prm.RetryMempoolOverflowForever()
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", addNodeMethod, err)
