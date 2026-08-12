@@ -23,15 +23,15 @@ var (
 //nolint:godot
 const (
 	// unusedGraveyardPrefix was deleted in metabase version 9
-	unusedGraveyardPrefix = iota
+	unusedGraveyardPrefix = iota //nolint:unused
 	// unusedGarbageObjectsPrefix was deleted in metabase version 9
-	unusedGarbageObjectsPrefix
+	unusedGarbageObjectsPrefix //nolint:unused
 	// unusedToMoveItPrefix was deleted in metabase version 9
-	unusedToMoveItPrefix
+	unusedToMoveItPrefix //nolint:unused
 	// unusedContainerVolumePrefix was deleted in metabase version 10
 	unusedContainerVolumePrefix
 	// unusedLockedPrefix was deleted in metabase version 9
-	unusedLockedPrefix
+	unusedLockedPrefix //nolint:unused
 	// shardInfoPrefix is used for storing shard ID. All keys are custom and are not connected to the container.
 	shardInfoPrefix
 
@@ -73,7 +73,7 @@ const (
 	unusedSplitPrefix //nolint:unused
 
 	// unusedGarbageContainersPrefix was deleted in metabase version 8
-	unusedGarbageContainersPrefix
+	unusedGarbageContainersPrefix //nolint:unused
 
 	// unusedLinkObjectsPrefix was deleted in metabase version 6
 	unusedLinkObjectsPrefix //nolint:unused
