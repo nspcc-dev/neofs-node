@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - Session token storage migration (#4124)
+- Metabase migrations for DB versions 8 and 9 (#4127)
 
 ### Updated
 - `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
@@ -27,6 +28,10 @@ Session token storage migration introduced in v0.52.0 has been removed.
 Storage nodes updating from versions earlier than v0.52.0 must first update to
 a v0.52.0-v0.55.0 release and let the migration complete before updating to
 this release.
+
+Metabase migrations for versions 8 and 9 introduced in NeoFS node 0.49.0
+and 0.51.0 were removed from this release, upgrade to 0.55.0 first if using
+earlier versions or resynchronize metabases.
 
 ## [0.55.0] - 2026-07-31 - Moido
 

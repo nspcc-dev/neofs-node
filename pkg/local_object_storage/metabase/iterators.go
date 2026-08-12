@@ -175,20 +175,3 @@ func mkFilterPhysicalPrefix() []byte {
 
 	return prefix
 }
-
-func iteratePhyObjects(tx *bbolt.Tx, f func(*bbolt.Cursor, oid.ID) error) error {
-	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		cID, tablePrefix := parseContainerIDWithPrefix(name)
-		if cID.IsZero() || tablePrefix != metadataPrefix {
-			return nil
-		}
-
-		for id := range iterAttrVal(b.Cursor(), object.FilterPhysical, []byte(binPropMarker)) {
-			err := f(b.Cursor(), id)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
