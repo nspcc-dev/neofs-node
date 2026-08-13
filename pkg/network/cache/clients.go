@@ -263,6 +263,7 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 			Timeout:             x.pingTimeout,
 			PermitWithoutStream: true,
 		}),
+		grpc.WithReadBufferSize(256*1024),
 		grpc.WithWriteBufferSize(256*1024),
 	)
 	if err != nil { // should never happen

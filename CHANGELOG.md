@@ -17,7 +17,7 @@ Changelog for NeoFS Node
 - SN now allocates less to handle ranged GET requests (#4115)
 - SN responds with server's API version only if it is older than client (#4110)
 - SNs no longer sign TTL=1 requests over mutually authenticated inter-node connections (#4100)
-- Optimized GRPC write bufferring (#4130)
+- Optimized GRPC read/write bufferring (#4130)
 
 ### Removed
 - Session token storage migration (#4124)
