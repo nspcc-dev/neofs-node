@@ -117,10 +117,22 @@ func TestDB_Get(t *testing.T) {
 
 		obj = oidtest.Address()
 
-		_, err = db.MarkGarbage(obj.Container(), []oid.ID{obj.Object()})
+		_, err = db.MarkGarbage(obj.Container(), []oid.ID{obj.Object()}, meta.GarbageMarkDefault)
 		require.NoError(t, err)
 		_, err = metaGet(db, obj, false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+	})
+
+	t.Run("get policer garbage copy", func(t *testing.T) {
+		obj := generateObject(t)
+		require.NoError(t, putBig(db, obj))
+
+		_, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()}, meta.GarbageMarkRedundant)
+		require.NoError(t, err)
+
+		got, err := metaGet(db, obj.Address(), false)
+		require.NoError(t, err)
+		require.Equal(t, obj.CutPayload(), got)
 	})
 
 	t.Run("container marked as garbage", func(t *testing.T) {

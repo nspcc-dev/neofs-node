@@ -28,7 +28,7 @@ type replicatorIface interface {
 // interface of [engine.StorageEngine] used by [Policer] for overriding in tests.
 type localStorage interface {
 	ListWithCursor(context.Context, uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
-	Delete(context.Context, oid.Address) error
+	Delete(context.Context, oid.Address, engine.GarbageMark) error
 	DeleteRedundantCopies(context.Context, oid.Address, []string) error
 	Put(context.Context, *object.Object, []byte) error
 	Head(context.Context, oid.Address, bool) (*object.Object, error)

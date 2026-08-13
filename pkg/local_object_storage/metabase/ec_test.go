@@ -145,12 +145,12 @@ func TestDB_ResolveECPart(t *testing.T) {
 			require.NoError(t, db.Put(&tomb))
 		}},
 		{name: "garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
-			_, err := db.MarkGarbage(cnr, []oid.ID{partID})
+			_, err := db.MarkGarbage(cnr, []oid.ID{partID}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 		}},
 		{name: "stored with garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&partObj))
-			_, err := db.MarkGarbage(cnr, []oid.ID{parentID})
+			_, err := db.MarkGarbage(cnr, []oid.ID{parentID}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 		}},
 		{name: "container garbage mark only", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -168,7 +168,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		}},
 		{name: "expired with garbage mark", assertErr: assertObjectExpiredError, preset: func(t *testing.T, db *meta.DB) {
 			require.NoError(t, db.Put(&expiredObj))
-			_, err := db.MarkGarbage(cnr, []oid.ID{partID})
+			_, err := db.MarkGarbage(cnr, []oid.ID{partID}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 		}},
 		{name: "expired with container garbage mark", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
@@ -260,7 +260,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		{name: "stored with garbage mark and locker", preset: func(t *testing.T) *meta.DB {
 			db := newDB(t)
 			require.NoError(t, db.Put(&partObj))
-			_, err := db.MarkGarbage(cnr, []oid.ID{partID})
+			_, err := db.MarkGarbage(cnr, []oid.ID{partID}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 			require.NoError(t, db.Put(&locker))
 			return db
@@ -813,7 +813,7 @@ func testMarkGarbageEC(t *testing.T) {
 
 	assertECGroupAvailable(t, db, parent, parts)
 
-	inhumed, err := db.MarkGarbage(cnr, []oid.ID{parent.GetID()})
+	inhumed, err := db.MarkGarbage(cnr, []oid.ID{parent.GetID()}, meta.GarbageMarkDefault)
 	require.NoError(t, err)
 
 	allAddrs := append(partAddrs, parentAddr)

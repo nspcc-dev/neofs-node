@@ -137,6 +137,11 @@ func TestInhumeContainer(t *testing.T) {
 
 func TestDB_MarkGarbage(t *testing.T) {
 	t.Run("EC", testMarkGarbageEC)
+
+	t.Run("invalid mark", func(t *testing.T) {
+		_, err := newDB(t).MarkGarbage(cidtest.ID(), nil, meta.GarbageMark(42))
+		require.EqualError(t, err, "invalid garbage mark 42")
+	})
 }
 
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {

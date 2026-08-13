@@ -138,7 +138,7 @@ func TestCounters(t *testing.T) {
 		inhumedNumber := objNumber / 4
 
 		for i := range inhumedNumber {
-			err := sh.MarkGarbage(oo[i].GetContainerID(), []oid.ID{oo[i].GetID()})
+			err := sh.MarkGarbage(oo[i].GetContainerID(), []oid.ID{oo[i].GetID()}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 		}
 

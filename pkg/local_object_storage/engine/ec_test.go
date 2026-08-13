@@ -64,6 +64,23 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 	parentObj.SetContainerID(cnr)
 	parentObj.SetID(parentID)
 
+	t.Run("policer garbage", func(t *testing.T) {
+		ctx := context.Background()
+		parent := generateObjectWithCID(cnr)
+		parent.SetID(parentID)
+		part, err := iec.FormObjectForECPart(neofscryptotest.Signer(), *parent, []byte("payload"), pi)
+		require.NoError(t, err)
+
+		e := testNewEngineWithShards(testNewShard(t, 1), testNewShard(t, 2))
+		t.Cleanup(func() { _ = e.Close() })
+		require.NoError(t, e.Put(ctx, &part, nil))
+		require.NoError(t, e.Delete(ctx, part.Address(), GarbageMarkRedundant))
+
+		hdr, rc, err := e.GetECPart(ctx, cnr, parentID, pi, false)
+		require.NoError(t, err)
+		assertGetECPartOK(t, part, hdr, rc)
+	})
+
 	partObj, err := iec.FormObjectForECPart(neofscryptotest.Signer(), parentObj, testutil.RandByteSlice(32), pi)
 	require.NoError(t, err)
 

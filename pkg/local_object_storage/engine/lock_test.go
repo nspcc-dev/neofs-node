@@ -200,7 +200,7 @@ func TestLockForceRemoval(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	err = e.Delete(context.Background(), lock.Address())
+	err = e.Delete(context.Background(), lock.Address(), GarbageMarkDefault)
 	require.NoError(t, err)
 
 	// 5.
@@ -300,7 +300,7 @@ func testLockRemoved(t *testing.T, shardNum int) {
 		}},
 		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(context.Background(), &obj, nil))
-			err := s.Delete(context.Background(), objAddr)
+			err := s.Delete(context.Background(), objAddr, GarbageMarkDefault)
 			require.NoError(t, err)
 		}},
 	} {

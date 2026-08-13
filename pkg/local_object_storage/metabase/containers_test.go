@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -169,7 +170,7 @@ func TestDB_ContainerSize(t *testing.T) {
 			volume := cids[cnr]
 
 			for i, obj := range list {
-				_, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()})
+				_, err := db.MarkGarbage(obj.GetContainerID(), []oid.ID{obj.GetID()}, meta.GarbageMarkDefault)
 				require.NoError(t, err)
 
 				volume -= int(obj.PayloadSize())

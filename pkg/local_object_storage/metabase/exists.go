@@ -227,9 +227,9 @@ func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
 	}
 
 	var garbageMark = mkGarbageKey(id)
-	k, _ := metaCursor.Seek(garbageMark)
+	k, v := metaCursor.Seek(garbageMark)
 
-	if bytes.Equal(k, garbageMark) {
+	if bytes.Equal(k, garbageMark) && !bytes.Equal(v, redundantGarbageMark) {
 		// object has been marked with GC
 		return statusGCMarked
 	}

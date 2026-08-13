@@ -16,8 +16,9 @@ var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 // MarkGarbage marks objects to be physically removed from shard. It's a forced
 // mark that overrides any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
-// to [Shard.Inhume], but doesn't need a tombstone.
-func (s *Shard) MarkGarbage(cnr cid.ID, addrs []oid.ID) error {
+// to [Shard.Inhume], but doesn't need a tombstone. Redundant objects remain
+// readable until they are physically removed by GC.
+func (s *Shard) MarkGarbage(cnr cid.ID, addrs []oid.ID, mark meta.GarbageMark) error {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -27,7 +28,7 @@ func (s *Shard) MarkGarbage(cnr cid.ID, addrs []oid.ID) error {
 		return ErrDegradedMode
 	}
 
-	inhumed, err := s.metaBase.MarkGarbage(cnr, addrs)
+	inhumed, err := s.metaBase.MarkGarbage(cnr, addrs, mark)
 	if err != nil {
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.Error(err),
@@ -42,7 +43,7 @@ func (s *Shard) MarkGarbage(cnr cid.ID, addrs []oid.ID) error {
 	s.addToContainerSize(cnrStr, inhumed.PayloadDiff)
 	s.addToPayloadCounter(inhumed.PayloadDiff)
 
-	if s.hasWriteCache() {
+	if mark == meta.GarbageMarkDefault && s.hasWriteCache() {
 		for i := range addrs {
 			_ = s.writeCache.Delete(oid.NewAddress(cnr, addrs[i]))
 		}

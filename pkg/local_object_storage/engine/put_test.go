@@ -198,7 +198,7 @@ func testPutLock(t *testing.T, shardNum int) {
 		{name: "with target and GC mark", preset: func(t *testing.T, s *StorageEngine) {
 			require.NoError(t, s.Put(context.Background(), &obj, nil))
 
-			err := s.Delete(context.Background(), objAddr)
+			err := s.Delete(context.Background(), objAddr, GarbageMarkDefault)
 			require.NoError(t, err)
 		}},
 	} {

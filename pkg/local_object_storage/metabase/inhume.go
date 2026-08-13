@@ -22,8 +22,32 @@ type ContainerGarbageDiff struct {
 	PayloadDiff int64
 }
 
-// MarkGarbage marks objects to be physically removed from shard.
-func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, error) {
+// GarbageMark specifies why an object is marked for garbage collection.
+type GarbageMark byte
+
+const (
+	GarbageMarkDefault GarbageMark = iota
+	GarbageMarkRedundant
+)
+
+var redundantGarbageMark = []byte{byte(GarbageMarkRedundant)}
+
+func (m GarbageMark) valid() bool {
+	switch m {
+	case GarbageMarkDefault, GarbageMarkRedundant:
+		return true
+	default:
+		return false
+	}
+}
+
+// MarkGarbage marks objects to be physically removed from shard. Redundant
+// objects remain readable until they are physically removed by GC.
+func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID, mark GarbageMark) (ContainerGarbageDiff, error) {
+	if !mark.valid() {
+		return ContainerGarbageDiff{}, fmt.Errorf("invalid garbage mark %d", mark)
+	}
+
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -60,7 +84,7 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, err
 			objsInCnr = append(objsInCnr, parObj)
 			objsInCnr = append(objsInCnr, partIDs...)
 		}
-		counterDiff, err = markGarbageInContainer(metaCursor, cnr, objsInCnr, currEpoch)
+		counterDiff, err = markGarbageInContainer(metaCursor, cnr, objsInCnr, currEpoch, mark)
 		if err != nil {
 			return fmt.Errorf("marking objects for %s container: %w", cnr, err)
 		}
@@ -80,7 +104,7 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID) (ContainerGarbageDiff, err
 	return counterDiff, err
 }
 
-func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID, currEpoch uint64) (ContainerGarbageDiff, error) {
+func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID, currEpoch uint64, mark GarbageMark) (ContainerGarbageDiff, error) {
 	var (
 		addr       oid.Address
 		diff       ContainerGarbageDiff
@@ -91,8 +115,13 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID,
 	for _, id := range objs {
 		var garbKey = mkGarbageKey(id)
 
-		k, _ := metaCursor.Seek(garbKey)
+		k, v := metaCursor.Seek(garbKey)
 		if bytes.Equal(k, garbKey) {
+			if mark == GarbageMarkDefault && len(v) > 0 {
+				if err := metaBucket.Put(garbKey, nil); err != nil {
+					return diff, err
+				}
+			}
 			continue
 		}
 
@@ -104,7 +133,11 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID,
 				diff.PayloadDiff -= int64(obj.PayloadSize())
 			}
 		}
-		err = metaBucket.Put(garbKey, nil)
+		var markValue []byte
+		if mark != GarbageMarkDefault {
+			markValue = []byte{byte(mark)}
+		}
+		err = metaBucket.Put(garbKey, markValue)
 		if err != nil {
 			return diff, err
 		}

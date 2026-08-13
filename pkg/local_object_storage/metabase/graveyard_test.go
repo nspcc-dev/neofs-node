@@ -63,7 +63,7 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	err = putBig(db, obj1)
 	require.NoError(t, err)
 
-	_, err = db.MarkGarbage(obj1.GetContainerID(), []oid.ID{obj1.GetID()})
+	_, err = db.MarkGarbage(obj1.GetContainerID(), []oid.ID{obj1.GetID()}, meta.GarbageMarkDefault)
 	require.NoError(t, err)
 
 	var counter int
@@ -131,7 +131,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	require.NoError(t, err)
 
 	// inhume with GC mark
-	_, err = db.MarkGarbage(cnr, []oid.ID{obj3.GetID(), obj4.GetID()})
+	_, err = db.MarkGarbage(cnr, []oid.ID{obj3.GetID(), obj4.GetID()}, meta.GarbageMarkDefault)
 	require.NoError(t, err)
 
 	var buriedGC []oid.Address
@@ -183,7 +183,7 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = db.MarkGarbage(cnr, []oid.ID{obj1.GetID(), obj2.GetID(),
-		obj3.GetID(), obj4.GetID()})
+		obj3.GetID(), obj4.GetID()}, meta.GarbageMarkDefault)
 
 	require.NoError(t, err)
 

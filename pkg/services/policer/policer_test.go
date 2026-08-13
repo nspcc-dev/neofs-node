@@ -62,7 +62,7 @@ func (s *storageListerWithDelay) ListWithCursor(_ context.Context, u uint32, cur
 	return objs, cursor, err
 }
 
-func (s *storageListerWithDelay) Delete(_ context.Context, address oid.Address) error {
+func (s *storageListerWithDelay) Delete(_ context.Context, _ oid.Address, _ engine.GarbageMark) error {
 	panic("do not call me")
 }
 
@@ -1560,7 +1560,7 @@ func (x *testLocalNode) deletedShardCopies(addr oid.Address) []string {
 	return res
 }
 
-func (x *testLocalNode) Delete(_ context.Context, addr oid.Address) error {
+func (x *testLocalNode) Delete(_ context.Context, addr oid.Address, _ engine.GarbageMark) error {
 	x.delMtx.Lock()
 	x.del[addr] = struct{}{}
 	x.delMtx.Unlock()

@@ -267,7 +267,7 @@ func TestCounters(t *testing.T) {
 			require.Zero(t, c.Lock)
 			require.Zero(t, c.GC)
 
-			_, err := db.MarkGarbage(par.GetContainerID(), []oid.ID{par.GetID()})
+			_, err := db.MarkGarbage(par.GetContainerID(), []oid.ID{par.GetID()}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
 
 			c, err = db.ObjectCounters()
