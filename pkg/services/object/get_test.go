@@ -572,7 +572,7 @@ func assertGetStreamResponses(t *testing.T, obj object.Object, resps []*protoobj
 		return
 	}
 
-	const maxChunkLen = 256 << 10
+	const maxChunkLen = 254 << 10
 	for i := range chunks[:len(chunks)-1] {
 		if i == 0 {
 			require.EqualValues(t, maxChunkLen-1-protowire.SizeVarint(uint64(payloadLen)), len(chunks[i]))
