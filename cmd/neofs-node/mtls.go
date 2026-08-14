@@ -1,11 +1,14 @@
 package main
 
 import (
-	"bytes"
+	"crypto/ecdsa"
 	"crypto/tls"
-	"errors"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
+	"os"
 
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
@@ -41,20 +44,17 @@ func (x trustedPeerCredentials) ServerHandshake(conn net.Conn) (net.Conn, creden
 	return conn, trustedInfo, nil
 }
 
-func clientCertificateProvider(cfgs []grpcconfig.GRPC, expectedPublicKey []byte) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func clientCertificateProvider(cfgs []grpcconfig.GRPC, key *ecdsa.PrivateKey) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	for i := range cfgs {
 		if !cfgs[i].TLS.Enabled {
 			continue
 		}
 
-		certFile, keyFile := cfgs[i].TLS.Certificate, cfgs[i].TLS.Key
+		certFile := cfgs[i].TLS.Certificate
 		return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+			cert, err := loadTLSCertificate(certFile, key)
 			if err != nil {
 				return nil, fmt.Errorf("reload TLS client certificate: %w", err)
-			}
-			if err := verifyTLSCertificatePublicKey(&cert, expectedPublicKey); err != nil {
-				return nil, err
 			}
 			return &cert, nil
 		}
@@ -63,13 +63,36 @@ func clientCertificateProvider(cfgs []grpcconfig.GRPC, expectedPublicKey []byte)
 	return nil
 }
 
-func verifyTLSCertificatePublicKey(cert *tls.Certificate, expected []byte) error {
-	pub, err := peerauth.CertificatePublicKeyFromRaw(cert.Certificate)
+const maxTLSCertificateFileBytes = 16 << 10 // 16 KB
+
+// loadTLSCertificate reads a PEM-encoded certificate chain and pairs it with
+// the node's private key. The leaf certificate must be issued for the node key.
+func loadTLSCertificate(certFile string, key *ecdsa.PrivateKey) (tls.Certificate, error) {
+	certPEM, err := readTLSCertificateFile(certFile)
 	if err != nil {
-		return fmt.Errorf("parse TLS client certificate public key: %w", err)
+		return tls.Certificate{}, err
 	}
-	if !bytes.Equal(pub, expected) {
-		return errors.New("TLS client certificate public key differs from node public key")
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("marshal node TLS private key: %w", err)
 	}
-	return nil
+
+	return tls.X509KeyPair(certPEM, pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}))
+}
+
+func readTLSCertificateFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	data, err := io.ReadAll(io.LimitReader(f, maxTLSCertificateFileBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxTLSCertificateFileBytes {
+		return nil, fmt.Errorf("TLS certificate file exceeds %d bytes", maxTLSCertificateFileBytes)
+	}
+	return data, nil
 }

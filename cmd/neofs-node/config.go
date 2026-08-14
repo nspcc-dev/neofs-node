@@ -406,7 +406,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	minConnTimeout := appCfg.APIClient.MinConnectionTime
 	pingInterval := appCfg.APIClient.PingInterval
 	pingTimeout := appCfg.APIClient.PingTimeout
-	getClientCertificate := clientCertificateProvider(appCfg.GRPC, key.PublicKey().Bytes())
+	getClientCertificate := clientCertificateProvider(appCfg.GRPC, &key.PrivateKey)
 	// Validate the certificate before serving requests so that it is trusted by peer SNs.
 	if getClientCertificate != nil {
 		_, err = getClientCertificate(nil)

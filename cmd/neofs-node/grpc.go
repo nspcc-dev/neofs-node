@@ -189,9 +189,9 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 	tlsCfg := sc.TLS
 
 	if tlsCfg.Key != "" {
-		certFile, keyFile := tlsCfg.Certificate, tlsCfg.Key
+		certFile := tlsCfg.Certificate
 
-		if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
+		if _, err := loadTLSCertificate(certFile, &c.key.PrivateKey); err != nil {
 			c.log.Error("could not read certificate from file", zap.Error(err))
 			return nil, nil, err
 		}
@@ -199,7 +199,7 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 		// read certificate from disk on each handshake to pick up renewals automatically.
 		creds := trustedPeerTLSCredentials(&tls.Config{
 			GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-				cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+				cert, err := loadTLSCertificate(certFile, &c.key.PrivateKey)
 				if err != nil {
 					return nil, fmt.Errorf("reload TLS certificate: %w", err)
 				}
