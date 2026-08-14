@@ -20,7 +20,6 @@ grpc:
     tls:{{if .TLSCert}}
       enabled: true  # enable TLS for a gRPC connection (min version is TLS 1.2)
       certificate: {{ .TLSCert }}  # path to TLS certificate
-      key: {{ .TLSKey }}  # path to TLS key
     {{- else }}
       enabled: false # disable TLS for a gRPC connection
     {{- end}}

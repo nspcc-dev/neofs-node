@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - SN responds with server's API version only if it is older than client (#4110)
 - SNs no longer sign TTL=1 requests over mutually authenticated inter-node connections (#4100)
 - Optimized GRPC read/write bufferring (#4130)
+- TLS key of SN is now always read from the node wallet instead of configuration (#4131)
 
 ### Removed
 - Session token storage migration (#4124)
@@ -36,6 +37,8 @@ this release.
 Metabase migrations for versions 8 and 9 introduced in NeoFS node 0.49.0
 and 0.51.0 were removed from this release, upgrade to 0.55.0 first if using
 earlier versions or resynchronize metabases.
+
+Remove `grpc.tls.key` from the SN configuration: TLS keys are now always read from the node wallet.
 
 ## [0.55.0] - 2026-07-31 - Moido
 

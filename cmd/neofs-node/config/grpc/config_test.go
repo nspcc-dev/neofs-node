@@ -32,7 +32,6 @@ func TestGRPCSection(t *testing.T) {
 
 				require.NotNil(t, tls)
 				require.Equal(t, "/path/to/cert", tls.Certificate)
-				require.Equal(t, "/path/to/key", tls.Key)
 			case 1:
 				require.Equal(t, "s02.neofs.devenv:8080", sc.Endpoint)
 				require.Equal(t, 0, sc.ConnLimit)

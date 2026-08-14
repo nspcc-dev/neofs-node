@@ -105,7 +105,6 @@ grpc:
     tls:
       enabled:
       certificate:
-      key:
 ```
 
 During the restart there is a short period of unavailability.

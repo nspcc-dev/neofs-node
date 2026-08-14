@@ -24,5 +24,4 @@ grpc:
     tls:
       enabled: true
       certificate: /path/to/cert
-      key: /path/to/key
 ```

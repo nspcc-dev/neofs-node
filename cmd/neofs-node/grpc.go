@@ -34,7 +34,6 @@ func (s grpcServerSnapshot) unchanged(other grpcServerSnapshot) bool {
 	return s.ConnLimit == other.ConnLimit &&
 		s.TLS.Enabled == other.TLS.Enabled &&
 		s.TLS.Certificate == other.TLS.Certificate &&
-		s.TLS.Key == other.TLS.Key &&
 		s.certFingerprint == other.certFingerprint
 }
 
@@ -45,25 +44,19 @@ func writeGRPCConfig(c *config.Config) grpcConfigSnapshot {
 	for i, sc := range c.GRPC {
 		snap[i] = grpcServerSnapshot{
 			GRPC:            sc,
-			certFingerprint: tlsCertFingerprint(sc.TLS.Certificate, sc.TLS.Key),
+			certFingerprint: tlsCertFingerprint(sc.TLS.Certificate),
 		}
 	}
 	return snap
 }
 
-func tlsCertFingerprint(certFile, keyFile string) string {
-	if keyFile == "" {
+func tlsCertFingerprint(certFile string) string {
+	if certFile == "" {
 		return ""
 	}
 
 	h := sha256.New()
-	err := hashFileLimited(h, certFile, maxTLSFingerprintFileBytes)
-	if err != nil {
-		return ""
-	}
-	_, _ = h.Write([]byte{0})
-	err = hashFileLimited(h, keyFile, maxTLSFingerprintFileBytes)
-	if err != nil {
+	if err := hashFileLimited(h, certFile, maxTLSFingerprintFileBytes); err != nil {
 		return ""
 	}
 
@@ -188,7 +181,7 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 
 	tlsCfg := sc.TLS
 
-	if tlsCfg.Key != "" {
+	if tlsCfg.Enabled {
 		certFile := tlsCfg.Certificate
 
 		if _, err := loadTLSCertificate(certFile, &c.key.PrivateKey); err != nil {

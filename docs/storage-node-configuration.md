@@ -50,7 +50,6 @@ grpc:
     tls:
       enabled: true
       certificate: /path/to/cert.pem
-      key: /path/to/key.pem
   - endpoint: internal.ip:8080
   - endpoint: external.ip:8080
     tls:
@@ -67,16 +66,16 @@ element.
 
 ## `tls` subsection
 
-The certificate and key from the first gRPC endpoint with TLS enabled are also
-used as the client certificate for outgoing inter-node TLS connections. They
-are reloaded for every TLS handshake, so certificate rotation does not require
-restarting the node.
+The certificate from the first gRPC endpoint with TLS enabled is also used as
+client certificate for outgoing inter-node TLS connections. Its public key must
+match the node key from the wallet; this key is used for all TLS handshakes.
+Certificates are reloaded for every TLS handshake, so certificate rotation does
+not require restarting the node.
 
-| Parameter             | Type     | Default value | Description                                                               |
-|-----------------------|----------|---------------|---------------------------------------------------------------------------|
-| `enabled`             | `bool`   | `false`       | Address that control service listener binds to.                           |
-| `certificate`         | `string` |               | Path to the TLS certificate.                                              |
-| `key`                 | `string` |               | Path to the key.                                                          |
+| Parameter     | Type     | Default value | Description                                                                  |
+|---------------|----------|---------------|------------------------------------------------------------------------------|
+| `enabled`     | `bool`   | `false`       | Address that control service listener binds to.                              |
+| `certificate` | `string` |               | Path to the TLS certificate issued for the node key from the wallet.         |
 
 # `pprof` section
 

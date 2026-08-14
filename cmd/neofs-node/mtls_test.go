@@ -31,7 +31,6 @@ func TestClientCertificateProvider(t *testing.T) {
 		TLS: grpcconfig.TLS{
 			Enabled:     true,
 			Certificate: "missing-certificate",
-			Key:         "ignored-key",
 		},
 	}}, key)
 	require.NotNil(t, provider)
@@ -39,8 +38,8 @@ func TestClientCertificateProvider(t *testing.T) {
 	require.ErrorContains(t, err, "reload TLS client certificate")
 
 	provider = clientCertificateProvider([]grpcconfig.GRPC{
-		{TLS: grpcconfig.TLS{Enabled: false, Certificate: "ignored-certificate", Key: "ignored-key"}},
-		{TLS: grpcconfig.TLS{Enabled: true, Certificate: "client-certificate", Key: "ignored-key"}},
+		{TLS: grpcconfig.TLS{Enabled: false, Certificate: "ignored-certificate"}},
+		{TLS: grpcconfig.TLS{Enabled: true, Certificate: "client-certificate"}},
 	}, key)
 	_, err = provider(nil)
 	require.ErrorContains(t, err, "client-certificate")

@@ -47,8 +47,7 @@ grpc:
     tls:
       enabled: true  # use TLS for a gRPC connection (min version is TLS 1.2)
       # For inter-node mTLS, certificate public key must match the node key announced in the network map.
-      certificate: /path/to/cert  # path to TLS certificate
-      key: /path/to/key  # path to TLS key
+      certificate: /path/to/cert  # path to TLS certificate issued for the node key
 
   - endpoint: s02.neofs.devenv:8080  # endpoint for gRPC server
     conn_limit: -1  # connection limits; exceeding connection will not be declined, just blocked before active number decreases or client timeouts

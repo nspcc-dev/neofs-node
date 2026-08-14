@@ -63,7 +63,6 @@ type config struct {
 	ControlEndpoint  string
 	Endpoint         string
 	TLSCert          string
-	TLSKey           string
 	MorphRPC         []string
 	Attribute        struct {
 		Locode string
@@ -233,13 +232,6 @@ func storageConfig(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if c.TLSCert != "" {
-		c.TLSKey, err = getPath("TLS Key: ")
-		if err != nil {
-			return err
-		}
-	}
-
 	c.Relay, err = getConfirmation(false, "Use node as a relay? yes/[no]: ")
 	if err != nil {
 		return err

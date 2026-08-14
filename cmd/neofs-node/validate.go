@@ -14,7 +14,6 @@ import (
 
 var (
 	errEndpointNotSet = errors.New("empty/not set endpoint, see `grpc.endpoint` section")
-	errTLSKeyNotSet   = errors.New("empty/not set TLS key file path, see `grpc.tls.key` section")
 	errTLSCertNotSet  = errors.New("empty/not set TLS certificate file path, see `grpc.tls.certificate` section")
 )
 
@@ -47,13 +46,8 @@ func validateConfig(c *config.Config) error {
 		if c.GRPC[i].Endpoint == "" {
 			return errEndpointNotSet
 		}
-		if c.GRPC[i].TLS.Enabled {
-			if c.GRPC[i].TLS.Certificate == "" {
-				return errTLSCertNotSet
-			}
-			if c.GRPC[i].TLS.Key == "" {
-				return errTLSKeyNotSet
-			}
+		if c.GRPC[i].TLS.Enabled && c.GRPC[i].TLS.Certificate == "" {
+			return errTLSCertNotSet
 		}
 	}
 
