@@ -14,6 +14,7 @@ import (
 	"maps"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -153,7 +154,7 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 	conns.mtx.Lock()
 	defer conns.mtx.Unlock()
 
-	maps.DeleteFunc(conns.m, func(ma string, c *client.Client) bool {
+	maps.DeleteFunc(conns.m, func(ma string, c *endpointClient) bool {
 		if slices.Contains(as, ma) {
 			return false
 		}
@@ -181,12 +182,13 @@ func (x *Clients) syncWithNetmapSN(ctx context.Context, sn netmap.NodeInfo) erro
 		conns.m[ma] = c
 		x.log.Info("connection to new SN address in the new network map successfully initialized", zap.String("address", ma))
 	}
+	conns.updateMutualAuthenticationStatus()
 
 	return nil
 }
 
 func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Seq[string]) (*connections, error) {
-	m := make(map[string]*client.Client)
+	m := make(map[string]*endpointClient)
 	l := x.log.With(zap.String("public key", hex.EncodeToString(pub)))
 	var ver *protorefs.Version
 
@@ -207,15 +209,18 @@ func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Se
 		m[s] = c
 	}
 	var hexKey = hex.EncodeToString(pub)
-	return &connections{
-		log:        x.log.With(zap.String("SN public key", hexKey)),
-		nodeID:     hexKey,
-		m:          m,
-		apiVersion: ver,
-	}, nil
+	res := &connections{
+		log:                  x.log.With(zap.String("SN public key", hexKey)),
+		nodeID:               hexKey,
+		hasClientCertificate: x.getClientCertificate != nil,
+		m:                    m,
+		apiVersion:           ver,
+	}
+	res.updateMutualAuthenticationStatus()
+	return res, nil
 }
 
-func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*client.Client, *protorefs.Version, error) {
+func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*endpointClient, *protorefs.Version, error) {
 	// FIXME: pending removal in #3982.
 	var a network.Address
 	if err := a.FromString(uri); err != nil {
@@ -226,13 +231,24 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse URI: %w", err)
 	}
+	res := &endpointClient{withTLS: withTLS}
 	var transportCreds credentials.TransportCredentials
 	if withTLS {
 		expectedKey, err := keys.NewPublicKeyFromBytes(pub, elliptic.P256())
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse node public key: %w", err)
 		}
-		transportCreds = credentials.NewTLS(newNodeTLSConfig((*ecdsa.PublicKey)(expectedKey), x.getClientCertificate))
+		getClientCertificate := x.getClientCertificate
+		if getClientCertificate != nil {
+			getClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				cert, err := x.getClientCertificate(info)
+				if err == nil && cert != nil {
+					res.mtls.Store(true)
+				}
+				return cert, err
+			}
+		}
+		transportCreds = credentials.NewTLS(newNodeTLSConfig((*ecdsa.PublicKey)(expectedKey), getClientCertificate))
 	} else {
 		transportCreds = insecure.NewCredentials()
 	}
@@ -251,10 +267,13 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 	if err != nil { // should never happen
 		return nil, nil, fmt.Errorf("init gRPC client conn: %w", err)
 	}
-	res, err := client.NewGRPC(ctx, grpcConn, x.signBufPool, x.streamMsgTimeout)
+	res.Client, err = client.NewGRPC(ctx, grpcConn, x.signBufPool, x.streamMsgTimeout)
 	if err != nil {
 		_ = grpcConn.Close()
 		return res, nil, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
+	}
+	if res.mtls.Load() {
+		res.SkipSignatureForLocalRequests()
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, x.streamMsgTimeout)
@@ -309,12 +328,40 @@ func newNodeTLSConfig(expectedKey *ecdsa.PublicKey, getClientCertificate func(*t
 }
 
 type connections struct {
-	log    *zap.Logger
-	nodeID string
+	log                  *zap.Logger
+	nodeID               string
+	hasClientCertificate bool
 
-	mtx        sync.RWMutex
-	m          map[string]*client.Client // keys are multiaddrs
-	apiVersion *protorefs.Version
+	mtx                   sync.RWMutex
+	m                     map[string]*endpointClient // keys are multiaddrs
+	mutuallyAuthenticated atomic.Bool
+	apiVersion            *protorefs.Version
+}
+
+type endpointClient struct {
+	*client.Client
+	withTLS bool
+	mtls    atomic.Bool
+}
+
+func (x *connections) IsMutuallyAuthenticated() bool {
+	return x.mutuallyAuthenticated.Load()
+}
+
+// updateMutualAuthenticationStatus recalculates the connection group's status.
+// x.mtx must be locked by the caller.
+func (x *connections) updateMutualAuthenticationStatus() {
+	if !x.hasClientCertificate || len(x.m) == 0 {
+		x.mutuallyAuthenticated.Store(false)
+		return
+	}
+	for _, c := range x.m {
+		if !c.withTLS || !c.mtls.Load() {
+			x.mutuallyAuthenticated.Store(false)
+			return
+		}
+	}
+	x.mutuallyAuthenticated.Store(true)
 }
 
 func (x *connections) closeAll() {
@@ -329,7 +376,11 @@ func (x *connections) closeAll() {
 
 func (x *connections) all(f func(ma string, c *client.Client) bool) {
 	x.mtx.RLock()
-	maps.All(x.m)(f)
+	for ma, c := range x.m {
+		if !f(ma, c.Client) {
+			break
+		}
+	}
 	x.mtx.RUnlock()
 }
 

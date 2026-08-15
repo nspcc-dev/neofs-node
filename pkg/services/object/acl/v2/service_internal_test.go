@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -186,11 +187,11 @@ func TestGetCredentialsFromPeerPublicKey(t *testing.T) {
 func TestGetRequestCredentialsUsesTLSAuthenticatedPeer(t *testing.T) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
-	ctx := peer.NewContext(context.Background(), &peer.Peer{
-		AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{
-			PeerCertificates: []*x509.Certificate{{PublicKey: &key.PublicKey}},
-		}},
-	})
+	info, err := peerauth.NewAuthInfo(credentials.TLSInfo{State: tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{{PublicKey: &key.PublicKey}},
+	}})
+	require.NoError(t, err)
+	ctx := peer.NewContext(context.Background(), &peer.Peer{AuthInfo: info})
 	req := &protoobject.GetRequest{MetaHeader: &protosession.RequestMetaHeader{Ttl: 1}}
 
 	actualUser, actualPub, err := getRequestCredentials(ctx, req, common.RequestTokens{Session: new(sessionv2.Token)})

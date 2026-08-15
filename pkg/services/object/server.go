@@ -827,7 +827,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 
 	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
 		if !updatedRequest {
-			updatedRequest = true
 			req = &protoobject.HeadRequest{
 				Body: req.Body,
 				MetaHeader: &protosession.RequestMetaHeader{
@@ -835,11 +834,14 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 					Ttl:     1,
 				},
 			}
-			var err error
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-			if err != nil {
-				return nil, iprotobuf.BuffersSlice{}, err
+			if shouldSignOutgoingRequest(c, req) {
+				var err error
+				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+				if err != nil {
+					return nil, iprotobuf.BuffersSlice{}, err
+				}
 			}
+			updatedRequest = true
 		}
 
 		var respBuf mem.BufferSlice
@@ -1406,8 +1408,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 
 	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
 		if !updatedRequest {
-			updatedRequest = true
-
 			req = &protoobject.GetRequest{
 				Body: req.Body,
 				MetaHeader: &protosession.RequestMetaHeader{
@@ -1416,13 +1416,17 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 				},
 			}
 			if proxyCtx.suppressInit {
+				req.Body = proto.Clone(req.Body).(*protoobject.GetRequest_Body)
 				req.Body.PayloadOnly = false
 			}
-			var err error
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-			if err != nil {
-				return err
+			if shouldSignOutgoingRequest(c, req) {
+				var err error
+				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+				if err != nil {
+					return err
+				}
 			}
+			updatedRequest = true
 		}
 
 		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
@@ -2110,10 +2114,8 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				Ttl:     1,
 			},
 		}
-		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
-			return nil, nil, fmt.Errorf("sign request: %w", err)
-		}
-
+		var onceResign sync.Once
+		var signingErr error
 		var optimizedNodes = (len(body.Filters) != 0) &&
 			slices.ContainsFunc(body.Filters, func(filt *protoobject.SearchFilter) bool {
 				return !strings.HasPrefix(filt.Key, "$Object:") && !strings.HasPrefix(filt.Key, "__NEOFS__")
@@ -2135,7 +2137,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				return true
 			}
 			go func() {
-				set, more, err := s.searchOnRemoteNode(ctx, node, req)
+				set, more, err := s.searchOnRemoteNode(ctx, node, req, &onceResign, &signingErr)
 				resCh <- nodeSearchResult{set, more, err}
 			}()
 			return true
@@ -2189,17 +2191,32 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	return res, newCursor, incomplete
 }
 
-func (s *Server) searchOnRemoteNode(ctx context.Context, node netmap.NodeInfo, req *protoobject.SearchV2Request) ([]client.SearchResultItem, bool, error) {
+func (s *Server) searchOnRemoteNode(ctx context.Context, node netmap.NodeInfo, req *protoobject.SearchV2Request, onceResign *sync.Once, signingErr *error) ([]client.SearchResultItem, bool, error) {
 	c, err := s.nodeClients.Get(ctx, node)
 	if err != nil {
 		return nil, false, fmt.Errorf("get node client: %w", err)
+	}
+
+	outReq := req
+	if shouldSignOutgoingRequest(c, req) {
+		onceResign.Do(func() {
+			req.VerifyHeader, *signingErr = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil)
+		})
+		if *signingErr != nil {
+			return nil, false, fmt.Errorf("sign request: %w", *signingErr)
+		}
+	} else {
+		outReq = &protoobject.SearchV2Request{
+			Body:       req.Body,
+			MetaHeader: req.MetaHeader,
+		}
 	}
 
 	var items []client.SearchResultItem
 	var more bool
 	return items, more, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		var err error
-		items, more, err = searchOnRemoteAddress(ctx, conn, req)
+		items, more, err = searchOnRemoteAddress(ctx, conn, outReq)
 		return err // TODO: log error
 	})
 }
@@ -2393,6 +2410,11 @@ func chunkBoundsToSend(global, local, chunkLen int) (int, int) {
 
 func needSignGetResponse(req util.Request) bool {
 	return util.VersionLE(req, 2, 17)
+}
+
+func shouldSignOutgoingRequest(c any, req util.Request) bool {
+	meta := req.GetMetaHeader()
+	return meta == nil || meta.GetTtl() != 1 || !clientcore.IsMutuallyAuthenticated(c)
 }
 
 func checkHeaderProtobufAgainstID(buffers iprotobuf.BuffersSlice, id oid.ID, ordered bool) error {

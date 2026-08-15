@@ -50,11 +50,11 @@ func TestPeerPublicKey(t *testing.T) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 	cert := newCertificate(t, key)
-	ctx := peer.NewContext(context.Background(), &peer.Peer{
-		AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{
-			PeerCertificates: []*x509.Certificate{cert},
-		}},
-	})
+	info, err := NewAuthInfo(credentials.TLSInfo{State: tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{cert},
+	}})
+	require.NoError(t, err)
+	ctx := peer.NewContext(context.Background(), &peer.Peer{AuthInfo: info})
 	pub, err = PeerPublicKey(ctx)
 	require.NoError(t, err)
 	require.Equal(t, (*keys.PublicKey)(&key.PublicKey), pub)

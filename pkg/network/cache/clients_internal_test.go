@@ -34,6 +34,7 @@ func TestNodeTLSConfig(t *testing.T) {
 	t.Run("matching self-signed certificate", func(t *testing.T) {
 		cfg := newNodeTLSConfig(&expectedKey.PublicKey, nil)
 		require.True(t, cfg.InsecureSkipVerify)
+		require.Empty(t, cfg.ServerName)
 		require.NoError(t, cfg.VerifyConnection(tls.ConnectionState{
 			PeerCertificates: []*x509.Certificate{newSelfSignedCertificate(t, expectedKey)},
 		}))
@@ -44,6 +45,7 @@ func TestNodeTLSConfig(t *testing.T) {
 		cfg := newNodeTLSConfig(&expectedKey.PublicKey, func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			return expected, nil
 		})
+		require.Empty(t, cfg.ServerName)
 		actual, err := cfg.GetClientCertificate(nil)
 		require.NoError(t, err)
 		require.Same(t, expected, actual)
@@ -88,6 +90,38 @@ func TestNodeTLSConfig(t *testing.T) {
 func TestInvalidTLSPublicKey(t *testing.T) {
 	_, _, err := new(Clients).initConnection(context.Background(), []byte("invalid"), "/dns4/example.com/tcp/443/tls")
 	require.ErrorContains(t, err, "parse node public key")
+}
+
+func TestConnectionsIsMutuallyAuthenticated(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		hasClientCertificate bool
+		endpoints            []string
+		peerRequestedCert    bool
+		expected             bool
+	}{
+		{name: "single TLS endpoint", hasClientCertificate: true, endpoints: []string{"/dns4/example.com/tcp/443/tls"}, peerRequestedCert: true, expected: true},
+		{name: "multiple TLS endpoints", hasClientCertificate: true, endpoints: []string{"/dns4/one.example.com/tcp/443/tls", "/dns4/two.example.com/tcp/443/tls"}, peerRequestedCert: true, expected: true},
+		{name: "server did not request certificate", hasClientCertificate: true, endpoints: []string{"/dns4/example.com/tcp/443/tls"}},
+		{name: "no client certificate", endpoints: []string{"/dns4/example.com/tcp/443/tls"}},
+		{name: "plain endpoint", hasClientCertificate: true, endpoints: []string{"/dns4/example.com/tcp/8080"}},
+		{name: "mixed endpoints", hasClientCertificate: true, endpoints: []string{"/dns4/example.com/tcp/443/tls", "/dns4/example.com/tcp/8080"}},
+		{name: "empty endpoints", hasClientCertificate: true},
+		{name: "invalid endpoint", hasClientCertificate: true, endpoints: []string{"invalid"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conns := &connections{
+				hasClientCertificate: tc.hasClientCertificate,
+				m:                    make(map[string]*endpointClient, len(tc.endpoints)),
+			}
+			for i := range tc.endpoints {
+				conns.m[tc.endpoints[i]] = &endpointClient{withTLS: tc.endpoints[i] != "/dns4/example.com/tcp/8080"}
+				conns.m[tc.endpoints[i]].mtls.Store(tc.peerRequestedCert)
+			}
+			conns.updateMutualAuthenticationStatus()
+			require.Equal(t, tc.expected, conns.IsMutuallyAuthenticated())
+		})
+	}
 }
 
 func newSelfSignedCertificate(t *testing.T, key crypto.Signer) *x509.Certificate {

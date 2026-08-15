@@ -8,10 +8,12 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"math/big"
 	"math/rand/v2"
 	"testing"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
@@ -36,11 +38,14 @@ func assertInvalidRequestSignatureError(t testing.TB, actual error, expected str
 func TestVerifyRequestSignaturesWithContext(t *testing.T) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
 	require.NoError(t, err)
-	ctx := peer.NewContext(context.Background(), &peer.Peer{
-		AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{
-			PeerCertificates: []*x509.Certificate{{PublicKey: &key.PublicKey}},
-		}},
-	})
+	cert := &x509.Certificate{SerialNumber: big.NewInt(1)}
+	der, err := x509.CreateCertificate(cryptorand.Reader, cert, cert, &key.PublicKey, key)
+	require.NoError(t, err)
+	cert, err = x509.ParseCertificate(der)
+	require.NoError(t, err)
+	info, err := peerauth.NewAuthInfo(credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}}})
+	require.NoError(t, err)
+	ctx := peer.NewContext(context.Background(), &peer.Peer{AuthInfo: info})
 	req := &protoobject.GetRequest{MetaHeader: &protosession.RequestMetaHeader{Ttl: 1}}
 
 	require.NoError(t, icrypto.VerifyRequestSignaturesWithContext(ctx, req))
