@@ -24,7 +24,7 @@ const (
 
 	maxResponseVerificationHeaderLen = 1 << 10
 
-	maxGetResponseChunkLen       = 256 << 10
+	maxGetResponseChunkLen       = 254 << 10
 	maxGetResponseChunkVarintLen = 3
 	maxChunkOffsetInGetResponse  = 1 + maxGetResponseChunkVarintLen + // 1 for iprotobuf.TagBytes1
 		1 + maxGetResponseChunkVarintLen // 1 for iprotobuf.TagBytes2
