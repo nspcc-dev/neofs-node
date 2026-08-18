@@ -12,7 +12,6 @@ type GRPC struct {
 type TLS struct {
 	Enabled     bool   `mapstructure:"enabled"`
 	Certificate string `mapstructure:"certificate"`
-	Key         string `mapstructure:"key"`
 }
 
 // Normalize sets default values for GRPC configuration.

@@ -34,7 +34,6 @@ func (s grpcServerSnapshot) unchanged(other grpcServerSnapshot) bool {
 	return s.ConnLimit == other.ConnLimit &&
 		s.TLS.Enabled == other.TLS.Enabled &&
 		s.TLS.Certificate == other.TLS.Certificate &&
-		s.TLS.Key == other.TLS.Key &&
 		s.certFingerprint == other.certFingerprint
 }
 
@@ -45,25 +44,19 @@ func writeGRPCConfig(c *config.Config) grpcConfigSnapshot {
 	for i, sc := range c.GRPC {
 		snap[i] = grpcServerSnapshot{
 			GRPC:            sc,
-			certFingerprint: tlsCertFingerprint(sc.TLS.Certificate, sc.TLS.Key),
+			certFingerprint: tlsCertFingerprint(sc.TLS.Certificate),
 		}
 	}
 	return snap
 }
 
-func tlsCertFingerprint(certFile, keyFile string) string {
-	if keyFile == "" {
+func tlsCertFingerprint(certFile string) string {
+	if certFile == "" {
 		return ""
 	}
 
 	h := sha256.New()
-	err := hashFileLimited(h, certFile, maxTLSFingerprintFileBytes)
-	if err != nil {
-		return ""
-	}
-	_, _ = h.Write([]byte{0})
-	err = hashFileLimited(h, keyFile, maxTLSFingerprintFileBytes)
-	if err != nil {
+	if err := hashFileLimited(h, certFile, maxTLSFingerprintFileBytes); err != nil {
 		return ""
 	}
 
@@ -188,10 +181,10 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 
 	tlsCfg := sc.TLS
 
-	if tlsCfg.Key != "" {
-		certFile, keyFile := tlsCfg.Certificate, tlsCfg.Key
+	if tlsCfg.Enabled {
+		certFile := tlsCfg.Certificate
 
-		if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
+		if _, err := loadTLSCertificate(certFile, &c.key.PrivateKey); err != nil {
 			c.log.Error("could not read certificate from file", zap.Error(err))
 			return nil, nil, err
 		}
@@ -199,7 +192,7 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 		// read certificate from disk on each handshake to pick up renewals automatically.
 		creds := trustedPeerTLSCredentials(&tls.Config{
 			GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-				cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+				cert, err := loadTLSCertificate(certFile, &c.key.PrivateKey)
 				if err != nil {
 					return nil, fmt.Errorf("reload TLS certificate: %w", err)
 				}

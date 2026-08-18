@@ -108,7 +108,6 @@ grpc:
     tls:
       enabled: true
       certificate: /path/to/cert
-      key: /path/to/key
 
   - endpoint: s02.neofs.devenv:8080
     conn_limit: -1
@@ -117,6 +116,25 @@ grpc:
   - endpoint: s03.neofs.devenv:8080
 `,
 			wantErr: false,
+		},
+		{
+			name: "unknown field grpc.tls.key",
+			config: `
+grpc:
+  - endpoint: s01.neofs.devenv:8080
+    conn_limit: 1
+    tls:
+      enabled: true
+      certificate: /path/to/cert
+      key: /path/to/key
+
+  - endpoint: s02.neofs.devenv:8080
+    conn_limit: -1
+    tls:
+      enabled: false
+  - endpoint: s03.neofs.devenv:8080
+`,
+			wantErr: true,
 		},
 		{
 			name: "unknown field grpc.key",
@@ -146,7 +164,6 @@ grpc:
     tls:
       enabled: true
       certificate: /path/to/cert
-      key: /path/to/key
 
   - endpoint: s02.neofs.devenv:8080
     conn_limit: -1
