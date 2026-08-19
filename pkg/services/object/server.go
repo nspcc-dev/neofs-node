@@ -102,6 +102,15 @@ type FSChain interface {
 	netmapcore.StateDetailed
 	icrypto.N3ScriptRunner
 
+	// ForEachContainerNodePublicKey iterates over all nodes matching the
+	// referenced container's storage policy at the current NeoFS epoch and passes
+	// their public keys into f. Iteration stops without an error when f returns
+	// false.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
+	// found.
+	ForEachContainerNodePublicKey(cid.ID, func(pubKey []byte) bool) error
+
 	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
 	// the referenced container's storage policy at the current and the previous
 	// NeoFS epochs, and passes their public keys into f. IterateContainerNodeKeys
@@ -1804,15 +1813,10 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 		}}, nil
 	}
 
-	var clientInCnr, serverInCnr bool
-	err = s.fsChain.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
-		if !serverInCnr {
-			serverInCnr = s.fsChain.IsOwnPublicKey(pubKey)
-		}
-		if !clientInCnr {
-			clientInCnr = bytes.Equal(pubKey, req.Signature.Key)
-		}
-		return !clientInCnr || !serverInCnr
+	var serverInCnr bool
+	err = s.fsChain.ForEachContainerNodePublicKey(cnr, func(pubKey []byte) bool {
+		serverInCnr = s.fsChain.IsOwnPublicKey(pubKey)
+		return !serverInCnr
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
@@ -1829,6 +1833,25 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 	} else if !serverInCnr {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code: codeAccessDenied, Message: "server does not match the object's storage policy",
+		}}, nil
+	}
+
+	var clientInCnr bool
+	err = s.fsChain.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
+		clientInCnr = bytes.Equal(pubKey, req.Signature.Key)
+		return !clientInCnr
+	})
+	if err != nil {
+		if errors.Is(err, apistatus.ErrContainerNotFound) {
+			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
+				Code:    codeContainerNotFound,
+				Message: "failed to check server's compliance to object's storage policy: object's container not found",
+			}}, nil
+		}
+
+		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
+			Code:    codeInternal,
+			Message: fmt.Sprintf("failed to apply object's storage policy: %v", err),
 		}}, nil
 	} else if !clientInCnr {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{

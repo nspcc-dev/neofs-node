@@ -130,6 +130,28 @@ func newNetmapWithContainer(tb testing.TB, nodeNum int, selected ...[]int) ([]ne
 	return nodes, &networkMap, cnr
 }
 
+func TestContainerNodes_ForEachContainerNodePublicKey(t *testing.T) {
+	anyCnr := cidtest.ID()
+	curNodes, curNetmap, cnr := newNetmapWithContainer(t, 5, []int{1, 3})
+	_, prevNetmap, _ := newNetmapWithContainer(t, 5, []int{0, 4})
+	cnrs := &testContainer{id: anyCnr, val: cnr}
+	network := &testNetwork{epoch: anyEpoch, curNetmap: curNetmap, prevNetmap: prevNetmap}
+	ns, err := New(cnrs, network)
+	require.NoError(t, err)
+
+	var calledKeys [][]byte
+	err = ns.ForEachContainerNodePublicKey(anyCnr, func(pubKey []byte) bool {
+		calledKeys = append(calledKeys, pubKey)
+		return true
+	})
+	require.NoError(t, err)
+	require.Len(t, calledKeys, 2)
+	require.Contains(t, calledKeys, curNodes[1].PublicKey())
+	require.Contains(t, calledKeys, curNodes[3].PublicKey())
+	cnrs.assertCalledNTimesWith(t, 1, anyCnr)
+	require.Equal(t, []uint64{anyEpoch}, network.callsNetmap)
+}
+
 func TestContainerNodes_ForEachContainerNodePublicKeyInLastTwoEpochs(t *testing.T) {
 	const anyEpoch = 42
 	anyCnr := cidtest.ID()

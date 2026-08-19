@@ -593,6 +593,15 @@ func (x *fsChainForObjects) InContainerInLastTwoEpochs(cnr cid.ID, pub []byte) (
 	return inContainer, err
 }
 
+// ForEachContainerNodePublicKey passes binary-encoded public key of each node
+// matching the referenced container's storage policy at the current epoch into
+// f. When f returns false, nil is returned instantly.
+//
+// Implements [object.Node] interface.
+func (x *fsChainForObjects) ForEachContainerNodePublicKey(id cid.ID, f func(pubKey []byte) bool) error {
+	return x.placement.ForEachContainerNodePublicKey(id, f)
+}
+
 // ForEachContainerNodePublicKeyInLastTwoEpochs passes binary-encoded public key
 // of each node match the referenced container's storage policy at two latest
 // epochs into f. When f returns false, nil is returned instantly.

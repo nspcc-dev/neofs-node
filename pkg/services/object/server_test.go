@@ -96,6 +96,10 @@ func (x noCallObjectService) GetRange(context.Context, getsvc.RangePrm) error {
 
 type noCallTestFSChain struct{}
 
+func (*noCallTestFSChain) ForEachContainerNodePublicKey(cid.ID, func([]byte) bool) error {
+	panic("must not be called")
+}
+
 func (*noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
 	panic("must not be called")
 }
@@ -256,12 +260,14 @@ type testFSChain struct {
 	cnr          container.Container
 
 	// return
-	cnrErr           error
-	clientOutsideCnr bool
-	serverOutsideCnr bool
-	containerNodes   [][]netmap.NodeInfo
-	repRules         []uint
-	ecRules          []iec.Rule
+	cnrErr            error
+	clientOutsideCnr  bool
+	clientInPrevEpoch bool
+	serverOutsideCnr  bool
+	serverInPrevEpoch bool
+	containerNodes    [][]netmap.NodeInfo
+	repRules          []uint
+	ecRules           []iec.Rule
 }
 
 func (x *testFSChain) Get(id cid.ID) (container.Container, error) {
@@ -287,7 +293,7 @@ func newTestFSChain(tb testing.TB, serverPubKey, clientPubKey []byte, cID cid.ID
 	}
 }
 
-func (x *testFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f func(pubKey []byte) bool) error {
+func (x *testFSChain) ForEachContainerNodePublicKey(cnr cid.ID, f func(pubKey []byte) bool) error {
 	require.True(x.tb, cnr == x.cID)
 	require.NotNil(x.tb, f)
 	if x.cnrErr != nil {
@@ -297,6 +303,19 @@ func (x *testFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f
 		return nil
 	}
 	if !x.serverOutsideCnr && !f(x.serverPubKey) {
+		return nil
+	}
+	return nil
+}
+
+func (x *testFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f func(pubKey []byte) bool) error {
+	if err := x.ForEachContainerNodePublicKey(cnr, f); err != nil {
+		return err
+	}
+	if x.clientInPrevEpoch && !f(x.clientPubKey) {
+		return nil
+	}
+	if x.serverInPrevEpoch && !f(x.serverPubKey) {
 		return nil
 	}
 	return nil
@@ -569,6 +588,29 @@ func TestServer_Replicate(t *testing.T) {
 		require.Equal(t, "client does not match the object's storage policy", resp.GetStatus().GetMessage())
 	})
 
+	t.Run("server in previous epoch only", func(t *testing.T) {
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		fsChain.serverOutsideCnr = true
+		fsChain.serverInPrevEpoch = true
+		srv := New(noCallObjSvc, fsChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+		resp, err := srv.Replicate(context.Background(), req)
+		require.NoError(t, err)
+		require.EqualValues(t, 2048, resp.GetStatus().GetCode())
+		require.Equal(t, "server does not match the object's storage policy", resp.GetStatus().GetMessage())
+	})
+
+	t.Run("client in previous epoch only", func(t *testing.T) {
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		fsChain.clientOutsideCnr = true
+		fsChain.clientInPrevEpoch = true
+		srv := New(noCallObjSvc, fsChain, newTestStorage(t, req.Object), nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+		resp, err := srv.Replicate(context.Background(), req)
+		require.NoError(t, err)
+		require.Zero(t, resp.GetStatus().GetCode())
+	})
+
 	t.Run("local storage failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
@@ -733,6 +775,10 @@ func (nopFSChain) CurrentBlock() uint32 {
 
 func (nopFSChain) CurrentEpochDuration() uint64 {
 	return 240
+}
+
+func (nopFSChain) ForEachContainerNodePublicKey(cid.ID, func([]byte) bool) error {
+	return nil
 }
 
 func (nopFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
