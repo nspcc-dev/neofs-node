@@ -66,16 +66,21 @@ element.
 
 ## `tls` subsection
 
-The certificate from the first gRPC endpoint with TLS enabled is also used as
-client certificate for outgoing inter-node TLS connections. Its public key must
-match the node key from the wallet; this key is used for all TLS handshakes.
-Certificates are reloaded for every TLS handshake, so certificate rotation does
-not require restarting the node.
+If every enabled TLS endpoint defines `certificate`, the certificate from the
+first one is also used as client certificate for outgoing inter-node TLS
+connections. Its public key must match the node key from the wallet; this key
+is used for all TLS handshakes.
 
-| Parameter     | Type     | Default value | Description                                                                  |
-|---------------|----------|---------------|------------------------------------------------------------------------------|
-| `enabled`     | `bool`   | `false`       | Address that control service listener binds to.                              |
-| `certificate` | `string` |               | Path to the TLS certificate issued for the node key from the wallet.         |
+If any enabled TLS endpoint has no `certificate`, the node generates a
+self-signed certificate from its node key and uses it for all TLS endpoints
+without a configured certificate, as well as for outgoing inter-node TLS
+connections. Certificates loaded from files are reloaded for every TLS
+handshake, so their rotation does not require restarting the node.
+
+| Parameter     | Type     | Default value | Description                                                                                                              |
+|---------------|----------|---------------|--------------------------------------------------------------------------------------------------------------------------|
+| `enabled`     | `bool`   | `false`       | Address that control service listener binds to.                                                                          |
+| `certificate` | `string` |               | Path to the TLS certificate issued for the node key from the wallet. An empty value generates a self-signed certificate. |
 
 # `pprof` section
 

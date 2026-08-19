@@ -108,4 +108,5 @@ grpc:
 ```
 
 During the restart there is a short period of unavailability.
+Changing, adding, or removing a TLS endpoint without `tls.certificate` requires a node restart.
 The control service gRPC endpoint is not affected by SIGHUP.

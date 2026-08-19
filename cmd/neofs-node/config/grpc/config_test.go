@@ -40,11 +40,16 @@ func TestGRPCSection(t *testing.T) {
 				require.Equal(t, "s03.neofs.devenv:8080", sc.Endpoint)
 				require.Equal(t, 0, sc.ConnLimit)
 				require.Equal(t, grpcconfig.TLS{}, tls)
+			case 3:
+				require.Equal(t, "s04.neofs.devenv:8080", sc.Endpoint)
+				require.Equal(t, 0, sc.ConnLimit)
+				require.True(t, tls.Enabled)
+				require.Empty(t, tls.Certificate)
 			}
 			num++
 		}
 
-		require.Equal(t, 3, num)
+		require.Equal(t, 4, num)
 	}
 
 	configtest.ForEachFileType(t, path, fileConfigTest)

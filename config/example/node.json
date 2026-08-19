@@ -70,6 +70,12 @@
     },
     {
       "endpoint": "s03.neofs.devenv:8080"
+    },
+    {
+      "endpoint": "s04.neofs.devenv:8080",
+      "tls": {
+        "enabled": true
+      }
     }
   ],
   "control": {

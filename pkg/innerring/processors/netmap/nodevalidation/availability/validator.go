@@ -3,10 +3,14 @@ package availability
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
@@ -27,7 +31,7 @@ func (v Validator) Verify(nodeInfo netmap.NodeInfo) error {
 		var res *client.ResEndpointInfo
 		var c *client.Client
 
-		c, err = createSDKClient(s)
+		c, err = createSDKClient(s, nodeInfo.PublicKey())
 		if err != nil {
 			return fmt.Errorf("'%s': client creation: %w", s, err)
 		}
@@ -110,7 +114,7 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 
 const pingTimeout = 15 * time.Second
 
-func createSDKClient(e string) (*client.Client, error) {
+func createSDKClient(e string, expectedKey []byte) (*client.Client, error) {
 	// FIXME: pending removal in #3982.
 	var a network.Address
 	err := a.FromString(e)
@@ -118,22 +122,55 @@ func createSDKClient(e string) (*client.Client, error) {
 		return nil, fmt.Errorf("parsing address: %w", err)
 	}
 
-	var prmInit client.PrmInit
 	var prmDial client.PrmDial
-
 	prmDial.SetTimeout(pingTimeout)
 	prmDial.SetStreamTimeout(pingTimeout)
 	prmDial.SetServerURI(a.URIAddr())
 
-	c, err := client.New(prmInit)
+	c, err := dialSDKClient(prmDial)
+	if err == nil || !strings.HasPrefix(a.URIAddr(), "grpcs://") {
+		return c, err
+	}
+	if c != nil {
+		_ = c.Close()
+	}
+
+	// A candidate can use a self-signed certificate. Its public key is pinned
+	// to the key in the signed candidate instead of relying on a CA chain.
+	prmDial.SetTLSConfig(nodeTLSConfig(expectedKey))
+	c, pinErr := dialSDKClient(prmDial)
+	if pinErr != nil {
+		return nil, fmt.Errorf("can't init SDK client with self-signed certificate fallback: %w", errors.Join(err, pinErr))
+	}
+	return c, nil
+}
+
+func dialSDKClient(prmDial client.PrmDial) (*client.Client, error) {
+	c, err := client.New(client.PrmInit{})
 	if err != nil {
 		return nil, fmt.Errorf("can't create SDK client: %w", err)
 	}
-
-	err = c.Dial(prmDial)
-	if err != nil {
-		return nil, fmt.Errorf("can't init SDK client: %w", err)
+	if err = c.Dial(prmDial); err != nil {
+		return c, fmt.Errorf("can't init SDK client: %w", err)
 	}
-
 	return c, nil
+}
+
+func nodeTLSConfig(expectedKey []byte) *tls.Config {
+	return &tls.Config{
+		InsecureSkipVerify: true,
+		VerifyConnection: func(state tls.ConnectionState) error {
+			if len(state.PeerCertificates) == 0 {
+				return errors.New("server did not provide TLS certificate")
+			}
+			actualKey, err := peerauth.CertificatePublicKey(state.PeerCertificates[0])
+			if err != nil {
+				return fmt.Errorf("read server TLS certificate public key: %w", err)
+			}
+			if !bytes.Equal(actualKey.Bytes(), expectedKey) {
+				return errors.New("server TLS certificate public key mismatches network map candidate")
+			}
+			return nil
+		},
+	}
 }

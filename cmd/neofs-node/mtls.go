@@ -2,13 +2,18 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"os"
+	"slices"
+	"time"
 
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
@@ -44,7 +49,26 @@ func (x trustedPeerCredentials) ServerHandshake(conn net.Conn) (net.Conn, creden
 	return conn, trustedInfo, nil
 }
 
-func clientCertificateProvider(cfgs []grpcconfig.GRPC, key *ecdsa.PrivateKey) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func usesSelfSignedTLS(cfgs []grpcconfig.GRPC) bool {
+	for i := range cfgs {
+		if isSelfSignedTLS(cfgs[i].TLS) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSelfSignedTLS(cfg grpcconfig.TLS) bool {
+	return cfg.Enabled && cfg.Certificate == ""
+}
+
+func clientCertificateProvider(cfgs []grpcconfig.GRPC, key *ecdsa.PrivateKey, cert *tls.Certificate) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	if cert != nil {
+		return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return cert, nil
+		}
+	}
+
 	for i := range cfgs {
 		if !cfgs[i].TLS.Enabled {
 			continue
@@ -95,4 +119,60 @@ func readTLSCertificateFile(path string) ([]byte, error) {
 		return nil, fmt.Errorf("TLS certificate file exceeds %d bytes", maxTLSCertificateFileBytes)
 	}
 	return data, nil
+}
+
+func selfSignedTLSCertificate(key *ecdsa.PrivateKey, cfgs []grpcconfig.GRPC) (*tls.Certificate, error) {
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	dnsNames, ipAddresses := selfSignedTLSNames(cfgs)
+	tmpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			CommonName: "NeoFS node",
+		},
+		NotBefore:             now.Add(-time.Minute),
+		NotAfter:              now.Add(365 * 24 * time.Hour),
+		DNSNames:              dnsNames,
+		IPAddresses:           ipAddresses,
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Certificate{
+		Certificate: [][]byte{der},
+		PrivateKey:  key,
+	}, nil
+}
+
+func selfSignedTLSNames(cfgs []grpcconfig.GRPC) ([]string, []net.IP) {
+	var dnsNames []string
+	var ipAddresses []net.IP
+	for i := range cfgs {
+		if !isSelfSignedTLS(cfgs[i].TLS) {
+			continue
+		}
+		host, _, err := net.SplitHostPort(cfgs[i].Endpoint)
+		if err != nil || host == "" {
+			continue
+		}
+		if ip := net.ParseIP(host); ip != nil {
+			if !slices.ContainsFunc(ipAddresses, ip.Equal) {
+				ipAddresses = append(ipAddresses, ip)
+			}
+			continue
+		}
+		if !slices.Contains(dnsNames, host) {
+			dnsNames = append(dnsNames, host)
+		}
+	}
+	return dnsNames, ipAddresses
 }
