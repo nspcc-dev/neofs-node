@@ -16,13 +16,8 @@ import (
 
 // Get serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) Get(ctx context.Context, prm Prm) error {
-	var neofsNet NeoFSNetwork
-	// range requests do not support fetching additional info about EC parts
-	if !prm.payloadRange.IsSet() {
-		neofsNet = s.neoFSNet
-	}
-
-	pi, err := checkECPartInfoGetRequest(neofsNet, prm)
+	// TODO: upd API
+	pi, err := checkECPartInfoGetRequest(s.neoFSNet, prm)
 	if err != nil {
 		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
 		return fmt.Errorf("invalid request: %w", err)

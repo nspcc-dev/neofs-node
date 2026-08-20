@@ -1533,7 +1533,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 					continue
 				}
 
-				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, partInfo)
+				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, ruleIdx)
 			}
 			if err != nil {
 				return false, 0, 0, 0, err
@@ -1562,7 +1562,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 				continue
 			}
 
-			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedPartPld, partPldLen-copiedPartPld, copiedPartPld == 0, nil)
+			copiedFromNode, err = transport.CopyRemoteECPartRange(ctx, conn, ruleIdx, copiedPartPld, partPldLen-copiedPartPld, copiedPartPld == 0, nil)
 		}
 		if err != nil {
 			return false, 0, 0, 0, err
@@ -1600,7 +1600,7 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 				continue
 			}
 
-			copiedLenNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo, copiedLen, ln-copiedLen, full && copiedLen == 0, controlCh)
+			copiedLenNode, err = transport.CopyRemoteECPartRange(ctx, conn, partInfo.RuleIndex, copiedLen, ln-copiedLen, full && copiedLen == 0, controlCh)
 		}
 
 		if err != nil {
@@ -1693,8 +1693,6 @@ func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error
 
 		res.RuleIndex = -1
 		return res, nil
-	} else if partIdxStr == "" && neofs == nil {
-		return res, fmt.Errorf("request must have %s header for EC objects", iec.AttributePartIdx)
 	}
 
 	var (
