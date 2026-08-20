@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Storage node shuts down when SIGHUP configuration reload fails (#4113)
 - Storage node shuts down gracefully on invalid node attributes during SIGHUP (#4113)
 - Object GET availability during policer relocation (#4122)
+- SN accepted REPLICATE requests after removal from container placement (#4133)
 
 ### Changed
 - SNs exchange TLS certificates on inter-node connections (#4097)

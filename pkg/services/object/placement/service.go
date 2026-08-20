@@ -85,6 +85,15 @@ func New(containers containercore.Source, network netmapcore.Source) (*Service, 
 	}, nil
 }
 
+// ForEachContainerNodePublicKey passes binary-encoded public key of each node
+// matching the referenced container's storage policy at the current epoch into
+// f. When f returns false, nil is returned instantly.
+func (s *Service) ForEachContainerNodePublicKey(cnrID cid.ID, f func(pubKey []byte) bool) error {
+	return s.forEachContainerNode(cnrID, false, func(node netmap.NodeInfo) bool {
+		return f(node.PublicKey())
+	})
+}
+
 // ForEachContainerNodePublicKeyInLastTwoEpochs passes binary-encoded public key
 // of each node match the referenced container's storage policy at two latest
 // epochs into f. When f returns false, nil is returned instantly.
