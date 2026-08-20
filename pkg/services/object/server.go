@@ -1123,6 +1123,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	err = s.handlers.Get(ctx, p)
 	if err != nil {
+		fmt.Println(err)
 		if errors.Is(err, getsvc.ErrResponseStreamFailure) {
 			return err
 		}
@@ -1226,20 +1227,49 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 		bufferedPldLen      int
 		bufferedPldTagLen   int
 		fullPayloadBuffered bool
+		sent                int
 	)
+
+	defer func() {
+		if sent > 0 {
+			s.metrics.AddGetPayload(sent)
+		}
+	}()
 
 	prereadPldLen := prefixLen - pldFldOff
 	if prereadPldLen > 0 {
-		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
-		copy(chunkBuf, hdrBuf[pldFldOff:][:prereadPldLen])
-
 		var pldLen uint64
 		var err error
-		bufferedPldTagLen, pldLen, err = parseObjectPayloadFieldTag(chunkBuf[:prereadPldLen])
+		bufferedPldTagLen, pldLen, err = parseObjectPayloadFieldTag(hdrBuf[pldFldOff:][:prereadPldLen])
 		if err == nil {
 			bufferedPldLen = prereadPldLen - bufferedPldTagLen
 			fullPayloadBuffered = uint64(bufferedPldLen) == pldLen
+			if fullPayloadBuffered && withHeader {
+				bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:prefixLen])
+				if needSignResp {
+					n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
+					if err != nil {
+						return fmt.Errorf("sign head response: %w", err)
+					}
+					bodyf.To += n
+				}
+
+				hdrRespBuf.SetBounds(bodyf.From, bodyf.To)
+				hdrRespBuf.Ref() // because Free() is defered
+				// Note that finished SendMsg() does not guarantee that the buffer is free.
+				// Moreover, this is not guaranteed even by returning from the current function.
+				// Therefore, buffer release has to be delegated to gRPC layer.
+				// For the same reason, reusing a single buffer for multiple messages is unsafe.
+				if err := gStream.SendMsg(hdrRespBuf); err != nil {
+					return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+				}
+				sent = bufferedPldLen
+				return nil
+			}
 		}
+
+		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
+		copy(chunkBuf, hdrBuf[pldFldOff:][:prereadPldLen])
 	}
 
 	var bodyf iprotobuf.FieldBounds
@@ -1256,13 +1286,6 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 	if chunkRespBuf == nil {
 		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
 	}
-
-	var sent int
-	defer func() {
-		if sent > 0 {
-			s.metrics.AddGetPayload(sent)
-		}
-	}()
 
 	if fullPayloadBuffered {
 		bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+bufferedPldTagLen, bufferedPldLen)
