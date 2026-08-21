@@ -69,8 +69,7 @@ func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oi
 				return nil
 			}
 
-			var errECParts iec.ErrParts
-			if errors.As(err, &errECParts) {
+			if _, ok := errors.AsType[iec.ErrParts](err); ok {
 				// TODO: Boolean switch, we don't need errECParts elements. Support and do fast return from Exists().
 				root = true
 				break

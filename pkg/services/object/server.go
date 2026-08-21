@@ -616,8 +616,7 @@ func (s *Server) signHeadResponse(resp *protoobject.HeadResponse, sign bool) *pr
 }
 
 func (s *Server) makeStatusHeadResponse(req *protoobject.HeadRequest, err error, sign bool) *protoobject.HeadResponse {
-	var splitErr *object.SplitInfoError
-	if errors.As(err, &splitErr) {
+	if splitErr, ok := errors.AsType[*object.SplitInfoError](err); ok {
 		return s.signHeadResponse(&protoobject.HeadResponse{
 			Body: &protoobject.HeadResponse_Body{
 				Head: &protoobject.HeadResponse_Body_SplitInfo{
@@ -877,8 +876,7 @@ func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, res
 }
 
 func (s *Server) sendStatusGetResponse(req *protoobject.GetRequest, stream protoobject.ObjectService_GetServer, err error, sign bool) error {
-	var splitErr *object.SplitInfoError
-	if errors.As(err, &splitErr) {
+	if splitErr, ok := errors.AsType[*object.SplitInfoError](err); ok {
 		return s.sendGetResponse(stream, &protoobject.GetResponse{
 			Body: &protoobject.GetResponse_Body{
 				ObjectPart: &protoobject.GetResponse_Body_SplitInfo{
@@ -1462,8 +1460,7 @@ func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServ
 }
 
 func (s *Server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRangeServer, err error, req *protoobject.GetRangeRequest) error {
-	var splitErr *object.SplitInfoError
-	if errors.As(err, &splitErr) {
+	if splitErr, ok := errors.AsType[*object.SplitInfoError](err); ok {
 		return s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
 			Body: &protoobject.GetRangeResponse_Body{
 				RangePart: &protoobject.GetRangeResponse_Body_SplitInfo{
@@ -1966,8 +1963,7 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 
 	respBody, err := s.processSearchRequest(ctx, req, cnrID)
 
-	var respBufErr igrpc.MemBufferSliceError
-	if errors.As(err, &respBufErr) {
+	if respBufErr, ok := errors.AsType[igrpc.MemBufferSliceError](err); ok {
 		return mem.BufferSlice(respBufErr)
 	}
 
