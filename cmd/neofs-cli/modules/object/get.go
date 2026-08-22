@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cheggaaa/pb"
+	"github.com/cheggaaa/pb/v3"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
@@ -157,7 +157,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 
 		if filename != "" && !noProgress && !payloadOnly {
 			p = pb.New64(payloadReadSize(hdr.PayloadSize(), ranges, extendedFirst, extendedLast))
-			p.Output = cmd.OutOrStdout()
+			p.SetWriter(cmd.OutOrStdout())
 			p.Start()
 
 			out = p.NewProxyWriter(out)

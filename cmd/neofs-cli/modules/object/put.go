@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cheggaaa/pb"
+	"github.com/cheggaaa/pb/v3"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
@@ -151,21 +151,18 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		if noProgress, _ := cmd.Flags().GetBool(noProgressFlag); !noProgress {
 			if binary {
 				p = pb.New64(int64(obj.PayloadSize()))
-				p.Output = cmd.OutOrStdout()
-				p.Start()
-
-				payloadReader = p.NewProxyReader(payloadReader)
 			} else {
 				fi, err := f.Stat()
 				if err != nil {
 					cmd.PrintErrf("Failed to get file size, progress bar is disabled: %v\n", err)
 				} else {
 					p = pb.New64(fi.Size())
-					p.Output = cmd.OutOrStdout()
-					p.Start()
-
-					payloadReader = p.NewProxyReader(payloadReader)
 				}
+			}
+			if p != nil {
+				p.SetWriter(cmd.OutOrStdout())
+				p.Start()
+				payloadReader = p.NewProxyReader(payloadReader)
 			}
 		}
 

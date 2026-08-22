@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 - `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21.0.20260807155929-203994967075` (#4123)
 - Go 1.26+ is required to build now (#3816)
+- github.com/cheggaaa/pb dependency from v1.0.29 to v3.2.1 (#4135)
 
 ### Updating from v0.55.0
 Session token storage migration introduced in v0.52.0 has been removed.
