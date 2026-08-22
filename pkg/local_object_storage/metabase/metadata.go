@@ -496,19 +496,17 @@ func (x *metaAttributeSeeker) Get(id []byte, attr string) (attributeValue []byte
 }
 
 func collectChildren(cnrMetaCrs *bbolt.Cursor, cnr cid.ID, parentID oid.ID) ([]oid.ID, error) {
-	var (
-		errECParts iec.ErrParts
-		siErr      *object.SplitInfoError
-		parInfo    = getParentInfo(cnrMetaCrs, cnr, parentID)
-	)
+	var parInfo = getParentInfo(cnrMetaCrs, cnr, parentID)
 
 	if parInfo == nil {
 		return nil, nil
 	}
-	if errors.As(parInfo, &errECParts) {
+	errECParts, isEC := errors.AsType[iec.ErrParts](parInfo)
+	if isEC {
 		return []oid.ID(errECParts), nil
 	}
-	if errors.As(parInfo, &siErr) {
+	siErr, isSI := errors.AsType[*object.SplitInfoError](parInfo)
+	if isSI {
 		var (
 			si      = siErr.SplitInfo()
 			firstID = si.GetFirstPart()

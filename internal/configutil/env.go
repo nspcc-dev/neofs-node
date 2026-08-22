@@ -84,8 +84,7 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 		}
 		found := false
 
-		for j := range elemType.NumField() {
-			field := elemType.Field(j)
+		for field := range elemType.Fields() {
 			tag := field.Tag.Get("mapstructure")
 			if tag == "" || tag == "-" {
 				continue

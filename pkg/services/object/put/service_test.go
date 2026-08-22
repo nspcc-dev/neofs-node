@@ -602,7 +602,7 @@ func testSlicingREP3(t *testing.T, cluster *testCluster, ln uint64, repNodes, cn
 func attachECHashes(t *testing.T, parentObject *object.Object, rules []iec.Rule) {
 	var hashes []string
 	payload := parentObject.Payload()
-	payload = payload[:len(payload):len(payload)]
+	payload = slices.Clip(payload)
 	for _, rule := range rules {
 		_, sums, err := iec.Encode(rule, payload)
 		require.NoError(t, err)

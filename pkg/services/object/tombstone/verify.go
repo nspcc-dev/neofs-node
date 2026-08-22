@@ -67,8 +67,7 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 			// accepted by another node, we trust it.
 			return nil
 		}
-		var siErr *object.SplitInfoError
-		if errors.As(err, &siErr) {
+		if _, ok := errors.AsType[*object.SplitInfoError](err); ok {
 			// inhuming parent object, that is ok
 			return nil
 		}

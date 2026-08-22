@@ -35,12 +35,12 @@ var (
 	sessionSubjECDSAPriv = ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
 			Curve: elliptic.P256(),
-			X: new(big.Int).SetBytes([]byte{40, 129, 57, 147, 89, 55, 169, 130, 236, 235, 28, 78, 89, 67, 56, 22, 254, 198,
+			X: new(big.Int).SetBytes([]byte{40, 129, 57, 147, 89, 55, 169, 130, 236, 235, 28, 78, 89, 67, 56, 22, 254, 198, // nolint:staticcheck // OK for a test.
 				188, 162, 81, 108, 91, 215, 210, 46, 119, 229, 169, 188, 20, 37}),
-			Y: new(big.Int).SetBytes([]byte{222, 144, 165, 123, 231, 88, 198, 147, 113, 150, 12, 27, 187, 115, 10, 60, 132, 132,
+			Y: new(big.Int).SetBytes([]byte{222, 144, 165, 123, 231, 88, 198, 147, 113, 150, 12, 27, 187, 115, 10, 60, 132, 132, // nolint:staticcheck // OK for a test.
 				29, 225, 194, 252, 91, 58, 226, 21, 167, 119, 13, 50, 25, 126}),
 		},
-		D: new(big.Int).SetBytes([]byte{120, 160, 43, 181, 127, 56, 250, 48, 132, 233, 73, 45, 234, 0, 35, 152, 199, 161, 215, 129,
+		D: new(big.Int).SetBytes([]byte{120, 160, 43, 181, 127, 56, 250, 48, 132, 233, 73, 45, 234, 0, 35, 152, 199, 161, 215, 129, // nolint:staticcheck // OK for a test.
 			183, 109, 92, 27, 11, 52, 135, 91, 50, 219, 101, 63}),
 	}
 	// correspond to private keys.

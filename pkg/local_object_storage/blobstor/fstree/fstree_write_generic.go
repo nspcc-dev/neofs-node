@@ -83,8 +83,7 @@ func (w *genericWriter) writeData(_ oid.ID, p string, data []byte) error {
 func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
 	err := w.writeFile(tmpPath, data)
 	if err != nil {
-		var pe *fs.PathError
-		if errors.As(err, &pe) {
+		if pe, ok := errors.AsType[*fs.PathError](err); ok {
 			switch {
 			case errors.Is(pe.Err, syscall.ENOSPC):
 				err = common.ErrNoSpace
