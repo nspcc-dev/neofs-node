@@ -1,9 +1,6 @@
 package containercore
 
 import (
-	"errors"
-
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -15,12 +12,6 @@ type Source interface {
 	// Get reads the container from the storage by its identifier. Get returns
 	// [apistatus.ErrContainerNotFound] if the container is not in the storage.
 	Get(cid.ID) (container.Container, error)
-}
-
-// IsErrNotFound checks if the error returned by Source.Get corresponds
-// to the missing container.
-func IsErrNotFound(err error) bool {
-	return errors.As(err, new(apistatus.ContainerNotFound))
 }
 
 // EACLSource is the interface that wraps

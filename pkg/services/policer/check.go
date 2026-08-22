@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -116,7 +115,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 			zap.Stringer("cid", idCnr),
 			zap.Error(err),
 		)
-		if containercore.IsErrNotFound(err) {
+		if errors.Is(err, apistatus.ErrContainerNotFound) {
 			err = p.deleteLocalObject(ctx, addrWithAttrs.Address, isEC)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
