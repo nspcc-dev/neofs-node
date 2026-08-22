@@ -13,7 +13,7 @@ require (
 	github.com/klauspost/compress v1.19.2
 	github.com/klauspost/reedsolomon v1.14.2
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/mr-tron/base58 v1.2.0
+	github.com/mr-tron/base58 v1.3.0
 	github.com/multiformats/go-multiaddr v0.16.1
 	github.com/mxschmitt/golang-combinations v1.2.0
 	github.com/nspcc-dev/bbolt v0.0.0-20260404200350-24f70ceb2bd9
