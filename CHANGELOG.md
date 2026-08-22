@@ -35,6 +35,7 @@ Changelog for NeoFS Node
 - `github.com/klauspost/reedsolomon` dependency from v1.13.2 to v1.14.2 (#4135)
 - `github.com/mr-tron/base58` dependency from v1.2.0 to v1.3.0 (#4135)
 - `github.com/panjf2000/ants/v2` dependency from v2.11.5 to v2.12.1 (#4135)
+- `github.com/prometheus/client_golang` dependency from v1.23.2 to v1.24.1 (#4135)
 
 ### Updating from v0.55.0
 Session token storage migration introduced in v0.52.0 has been removed.
