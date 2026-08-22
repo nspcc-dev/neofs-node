@@ -418,8 +418,8 @@ func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Conte
 
 	err = x.server.copyGetStream(x.responseStream, hdrMemBuf, buf, prefixLen, n, stream, partHdrf.To, x.signResponses, true)
 	if err != nil {
-		var e copyReadError
-		if !errors.As(err, &e) {
+		e, isReadError := errors.AsType[copyReadError](err)
+		if !isReadError {
 			return false, 0, 0, 0, err
 		}
 		logError("local storage stream failure (read EC part)", err)
@@ -469,8 +469,8 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 
 	err = x.server.copyRangeStream(x.responseStream, stream, x.signResponses, shiftPayloadChunkInGetResponseBuffer)
 	if err != nil {
-		var e copyReadError
-		if !errors.As(err, &e) {
+		e, isReadError := errors.AsType[copyReadError](err)
+		if !isReadError {
 			return 0, err
 		}
 		logError("local storage stream failure (read EC part range)", err)

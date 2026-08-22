@@ -75,8 +75,8 @@ func (e *StorageEngine) processAddrDeleteOnShards(shards []shardWrapper, addr oi
 				break
 			}
 
-			var siErr *object.SplitInfoError
-			if !errors.As(err, &siErr) {
+			siErr, isSI := errors.AsType[*object.SplitInfoError](err)
+			if !isSI {
 				e.reportShardError(sh, "could not check for presence in shard", err, zap.Stringer("addr", addr))
 				continue
 			}

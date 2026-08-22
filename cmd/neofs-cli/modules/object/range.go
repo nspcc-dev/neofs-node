@@ -141,9 +141,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 }
 
 func printSplitInfoErr(cmd *cobra.Command, err error) (bool, error) {
-	var errSplitInfo *object.SplitInfoError
-
-	ok := errors.As(err, &errSplitInfo)
+	errSplitInfo, ok := errors.AsType[*object.SplitInfoError](err)
 
 	if ok {
 		cmd.PrintErrln("Object is complex, split information received.")
