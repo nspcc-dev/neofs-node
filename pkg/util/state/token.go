@@ -30,7 +30,7 @@ func (p *PersistentStorage) initTokenStore(cfg cfg) error {
 	// was configured so
 	if cfg.privateKey != nil {
 		rawKey := make([]byte, (cfg.privateKey.Params().N.BitLen()+7)/8)
-		cfg.privateKey.D.FillBytes(rawKey)
+		cfg.privateKey.D.FillBytes(rawKey) // nolint:staticcheck // To be fixed in #3426.
 
 		c, err := aes.NewCipher(rawKey)
 		if err != nil {

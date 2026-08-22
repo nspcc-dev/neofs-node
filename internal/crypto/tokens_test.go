@@ -554,9 +554,9 @@ func getUnsignedNoIssuerContainerSessionToken() session.Container {
 	token.SetExp(1922557325)
 	token.SetAuthKey((*neofsecdsa.PublicKey)(&ecdsa.PublicKey{
 		Curve: elliptic.P256(),
-		X: new(big.Int).SetBytes([]byte{220, 224, 31, 226, 169, 69, 255, 105, 70, 179, 115, 1, 105, 169, 19, 197, 6, 105, 51, 122,
+		X: new(big.Int).SetBytes([]byte{220, 224, 31, 226, 169, 69, 255, 105, 70, 179, 115, 1, 105, 169, 19, 197, 6, 105, 51, 122, // nolint:staticcheck // OK for a test.
 			138, 225, 171, 48, 158, 92, 142, 63, 9, 26, 146, 128}),
-		Y: new(big.Int).SetBytes([]byte{154, 136, 236, 210, 242, 177, 50, 23, 63, 115, 1, 203, 226, 209, 251, 207, 173, 33, 193,
+		Y: new(big.Int).SetBytes([]byte{154, 136, 236, 210, 242, 177, 50, 23, 63, 115, 1, 203, 226, 209, 251, 207, 173, 33, 193, // nolint:staticcheck // OK for a test.
 			71, 37, 47, 58, 133, 199, 71, 80, 46, 210, 6, 172, 249}),
 	}))
 	token.ApplyOnlyTo(cid.ID{61, 208, 16, 128, 106, 78, 90, 196, 156, 65, 180, 142, 62, 137, 245, 242, 69, 250, 212, 176, 35, 114,
