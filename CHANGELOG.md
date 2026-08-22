@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - `github.com/prometheus/client_golang` dependency from v1.23.2 to v1.24.1 (#4135)
 - `go.uber.org/zap` dependency from v1.27.1 to v1.28.0 (#4135)
 - `golang.org/x/net` dependency from v0.57.0 to v0.58.0 (#4135)
+- `google.golang.org/grpc` dependency from v1.82.1 to v1.83.1 (#4135)
 
 ### Updating from v0.55.0
 Session token storage migration introduced in v0.52.0 has been removed.
