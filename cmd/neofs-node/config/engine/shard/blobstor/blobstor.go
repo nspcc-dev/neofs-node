@@ -31,6 +31,7 @@ type Blobstor struct {
 	Perm                  fs.FileMode   `mapstructure:"perm"`
 	FlushInterval         time.Duration `mapstructure:"flush_interval"`
 	Depth                 uint64        `mapstructure:"depth"`
+	AllowDepthChange      bool          `mapstructure:"allow_depth_change"`
 	NoSync                *bool         `mapstructure:"no_sync"`
 	CombinedCountLimit    int           `mapstructure:"combined_count_limit"`
 	CombinedSizeLimit     internal.Size `mapstructure:"combined_size_limit"`
