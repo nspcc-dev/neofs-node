@@ -152,6 +152,7 @@ storage:
       blobstor:
         type: fstree
         path: tmp/0/blob  # blobstor path
+        allow_depth_change: true  # permit changing FSTree depth on node restart
 
       gc:
         remover_batch_size: 150  # number of objects to be removed by the garbage collector
