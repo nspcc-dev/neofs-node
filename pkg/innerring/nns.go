@@ -41,8 +41,8 @@ var errDomainNotFound = errors.New("domain not found")
 func (x *neoFSNNS) CheckDomainRecord(domain string, record string) error {
 	records, err := x.contract.Resolve(domain, nnsrpc.TXT)
 	if err != nil {
-		var ex unwrap.Exception
-		if errors.As(err, &ex) && strings.Contains(string(ex), "token not found") {
+		ex, isEx := errors.AsType[unwrap.Exception](err)
+		if isEx && strings.Contains(string(ex), "token not found") {
 			return errDomainNotFound
 		}
 

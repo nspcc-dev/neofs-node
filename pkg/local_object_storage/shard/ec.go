@@ -92,8 +92,8 @@ func (s *Shard) getECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeC
 	blobStorageFn func(common.Storage, oid.Address) error) error {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
-		var se *object.SplitInfoError
-		if !errors.As(err, &se) || se.SplitInfo().GetLink().IsZero() {
+		se, isSI := errors.AsType[*object.SplitInfoError](err)
+		if !isSI || se.SplitInfo().GetLink().IsZero() {
 			return fmt.Errorf("resolve part ID in metabase: %w", err)
 		}
 
@@ -257,8 +257,8 @@ func (s *Shard) headECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, write
 	blobStorageFn func(common.Storage, oid.Address) error) error {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
-		var se *object.SplitInfoError
-		if !errors.As(err, &se) || se.SplitInfo().GetLink().IsZero() {
+		se, isSI := errors.AsType[*object.SplitInfoError](err)
+		if !isSI || se.SplitInfo().GetLink().IsZero() {
 			return fmt.Errorf("resolve part ID in metabase: %w", err)
 		}
 

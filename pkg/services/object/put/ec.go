@@ -97,8 +97,7 @@ func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Ob
 	}
 	err := eg.Wait()
 	if err != nil {
-		var incompleteErr errIncompletePut
-		if errors.As(err, &incompleteErr) {
+		if incompleteErr, ok := errors.AsType[errIncompletePut](err); ok {
 			return prog.finalizeErr(&incompleteErr)
 		}
 

@@ -20,7 +20,7 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 	var addrHandler = func(addr oid.Address) error {
 		data, err := c.fsTree.GetBytes(addr)
 		if err != nil {
-			if ignoreErrors || errors.As(err, new(apistatus.ObjectNotFound)) {
+			if ignoreErrors || errors.Is(err, apistatus.ErrObjectNotFound) {
 				// an object can be removed b/w iterating over it
 				// and reading its payload; not an error
 				return nil

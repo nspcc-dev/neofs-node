@@ -46,8 +46,8 @@ func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 
 	records, err := nnsContract.Resolve(domain, nnsrpc.TXT)
 	if err != nil {
-		var ex unwrap.Exception
-		if errors.As(err, &ex) && strings.Contains(string(ex), tokenNotFound) {
+		ex, isUnwrap := errors.AsType[unwrap.Exception](err)
+		if isUnwrap && strings.Contains(string(ex), tokenNotFound) {
 			cmd.Println("Domain not found.")
 			return nil
 		}
@@ -172,8 +172,8 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 
 	records, err := nnsContract.Resolve(domain, nnsrpc.TXT)
 	if err != nil {
-		var ex unwrap.Exception
-		if !errors.As(err, &ex) || !strings.Contains(string(ex), tokenNotFound) {
+		ex, isUnwrap := errors.AsType[unwrap.Exception](err)
+		if !isUnwrap || !strings.Contains(string(ex), tokenNotFound) {
 			return fmt.Errorf("get all text records of the NNS domain %q: %w", domain, err)
 		}
 

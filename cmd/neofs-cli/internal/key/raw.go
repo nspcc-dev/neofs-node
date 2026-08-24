@@ -39,8 +39,8 @@ func get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	}
 	w, err := wallet.NewWalletFromFile(keyDesc)
 	if err != nil {
-		var perr = new(*os.PathError)
-		if errors.As(err, perr) {
+		_, isPath := errors.AsType[*os.PathError](err)
+		if isPath {
 			return nil, fmt.Errorf("%w: %w", ErrFs, err)
 		}
 		return nil, fmt.Errorf("%w: %w", ErrInvalidKey, err)

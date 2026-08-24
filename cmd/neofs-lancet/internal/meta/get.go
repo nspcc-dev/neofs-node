@@ -38,10 +38,9 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	siErr := new(object.SplitInfoError)
-
 	obj, err := db.Get(addr, true)
-	if errors.As(err, &siErr) {
+	siErr, isSI := errors.AsType[*object.SplitInfoError](err)
+	if isSI {
 		link := siErr.SplitInfo().GetLink()
 		last := siErr.SplitInfo().GetLastPart()
 

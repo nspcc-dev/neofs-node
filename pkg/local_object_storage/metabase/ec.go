@@ -107,8 +107,8 @@ func (db *DB) resolveECPartWithPayloadLen(metaBktCrs *bbolt.Cursor, parent oid.I
 
 	ln, err := strconv.ParseUint(string(lnAttr), 10, 64)
 	if err != nil {
-		var ne *strconv.NumError
-		if !errors.As(err, &ne) { // must never happen
+		ne, isNumError := errors.AsType[*strconv.NumError](err)
+		if !isNumError { // must never happen
 			return oid.ID{}, 0, fmt.Errorf("invalid payload len attribute of object %w", ierrors.ObjectID(id))
 		}
 		return oid.ID{}, 0, fmt.Errorf("invalid payload len attribute of object %w: parse to uint64: %w", ierrors.ObjectID(id), ne.Err)

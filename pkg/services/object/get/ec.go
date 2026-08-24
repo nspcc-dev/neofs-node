@@ -240,8 +240,7 @@ func (s *Service) copyECObject(ctx context.Context, cnr cid.ID, parent oid.ID, r
 			return err
 		}
 
-		var sizeSplitErr *object.SplitInfoError
-		if errors.As(err, &sizeSplitErr) {
+		if sizeSplitErr, ok := errors.AsType[*object.SplitInfoError](err); ok {
 			info := sizeSplitErr.SplitInfo()
 			if info == nil {
 				return errors.New("no info in size-split error")
@@ -766,13 +765,11 @@ func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr ci
 			return err
 		}
 
-		var linker sizeSplitinkerError
-		if errors.As(err, &linker) {
+		if linker, ok := errors.AsType[sizeSplitinkerError](err); ok {
 			return s.copySplitECObjectRangeByLinker(ctx, dst, *localNodeKey, cnr, parent, ecRules, sortedNodeLists, resolveRange, i, object.Object(linker))
 		}
 
-		var sizeSplitErr *object.SplitInfoError
-		if errors.As(err, &sizeSplitErr) {
+		if sizeSplitErr, ok := errors.AsType[*object.SplitInfoError](err); ok {
 			info := sizeSplitErr.SplitInfo()
 			if info == nil {
 				return errors.New("no info in size-split error")

@@ -102,8 +102,7 @@ func AsAlphabet() Option {
 }
 
 func isMethodNotFoundError(err error, mtd string) bool {
-	var exc unwrap.Exception
-	if errors.As(err, &exc) {
+	if exc, ok := errors.AsType[unwrap.Exception](err); ok {
 		return isMethodNotFoundException(string(exc), mtd)
 	}
 	return isMethodNotFoundException(err.Error(), mtd)

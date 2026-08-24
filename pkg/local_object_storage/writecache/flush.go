@@ -194,7 +194,7 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 	}
 
 	err = c.delete(addr)
-	if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
+	if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) {
 		c.log.Error("can't remove object from write-cache", zap.Error(err))
 	}
 
@@ -235,7 +235,7 @@ func (c *cache) flushBatch(addrs []oid.Address) error {
 			storagelog.OpField("PUT"),
 		)
 		err = c.delete(addr)
-		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
+		if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) {
 			c.log.Error("can't remove object from write-cache", zap.Error(err))
 		}
 	}
@@ -247,7 +247,7 @@ func (c *cache) getObject(addr oid.Address) ([]byte, error) {
 
 	data, err := c.fsTree.GetBytes(addr)
 	if err != nil {
-		if !errors.As(err, new(apistatus.ObjectNotFound)) {
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
 			c.reportFlushError("can't read a file", sAddr, err)
 		}
 
