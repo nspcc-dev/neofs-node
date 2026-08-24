@@ -26,8 +26,6 @@ var objectHeadCmd = &cobra.Command{
 	RunE:  getObjectHeader,
 }
 
-const rawAttributesFlag = "raw-attributes"
-
 func initObjectHeadCmd() {
 	commonflags.Init(objectHeadCmd)
 	initFlagSession(objectHeadCmd, "HEAD")
@@ -44,7 +42,7 @@ func initObjectHeadCmd() {
 	flags.Bool(commonflags.JSON, false, "Marshal output in JSON")
 	flags.Bool("proto", false, "Marshal output in Protobuf")
 	flags.Bool(rawFlag, false, rawFlagDesc)
-	flags.Bool(rawAttributesFlag, false, "Print attributes as-is without interpreting known values")
+	flags.Bool(commonflags.RawAttributesFlag, false, commonflags.RawAttributesFlagUsage)
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) error {
@@ -165,7 +163,7 @@ func printContainerID(cmd *cobra.Command, recv func() cid.ID) {
 }
 
 func printHeader(cmd *cobra.Command, obj *object.Object) error {
-	rawAttributes, _ := cmd.Flags().GetBool(rawAttributesFlag)
+	rawAttributes, _ := cmd.Flags().GetBool(commonflags.RawAttributesFlag)
 
 	printObjectID(cmd, obj.GetID)
 	printContainerID(cmd, obj.GetContainerID)
@@ -178,7 +176,7 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 
 	cmd.Println("Attributes:")
 	for _, attr := range obj.Attributes() {
-		cmd.Printf("  %s=%s\n", attr.Key(), FormatAttributeValue(attr.Key(), attr.Value(), rawAttributes))
+		cmd.Printf("  %s=%s\n", attr.Key(), common.FormatAttributeValue(attr.Key(), attr.Value(), rawAttributes))
 	}
 
 	if signature := obj.Signature(); signature != nil {
@@ -188,14 +186,6 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 	}
 
 	return printSplitHeader(cmd, obj)
-}
-
-func FormatAttributeValue(key, value string, raw bool) string {
-	if raw || key != object.AttributeTimestamp {
-		return value
-	}
-
-	return fmt.Sprintf("%s (%s)", value, common.PrettyPrintUnixTime(value))
 }
 
 func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
