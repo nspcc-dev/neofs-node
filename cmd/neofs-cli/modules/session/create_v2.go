@@ -264,7 +264,7 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't write token to file: %w", err)
 	}
 
-	fmt.Printf("V2 session token successfully written to: %s\n", filename)
+	common.PrintVerbose(cmd, "V2 session token successfully written to: %s", filename)
 	common.PrettyPrintJSON(cmd, tokV2, "Created V2 session token:")
 	return nil
 }

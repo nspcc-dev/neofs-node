@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Storage node shuts down gracefully on invalid node attributes during SIGHUP (#4113)
 - Object GET availability during policer relocation (#4122)
 - SN accepted REPLICATE requests after removal from container placement (#4133)
+- `neofs-cli container get-eacl` and `neofs-cli session create-v2` no longer print non-JSON text before JSON output (#4129)
 
 ### Changed
 - SNs exchange TLS certificates on inter-node connections (#4097)
