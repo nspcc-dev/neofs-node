@@ -97,7 +97,8 @@ var listContainerObjectsCmd = &cobra.Command{
 					for i := range attrs {
 						key := attrs[i].Key()
 						val := attrs[i].Value()
-						cmd.Printf("  %s: %s\n", key, common.FormatAttributeValue(key, val, flagVarListObjectsRawAttr))
+						key, val = common.FormatAttribute(key, val, flagVarListObjectsRawAttr)
+						cmd.Printf("  %s: %s\n", key, val)
 					}
 				} else {
 					cmd.Printf("  failed to read attributes: %v\n", err)

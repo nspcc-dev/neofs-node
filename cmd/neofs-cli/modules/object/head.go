@@ -176,7 +176,8 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 
 	cmd.Println("Attributes:")
 	for _, attr := range obj.Attributes() {
-		cmd.Printf("  %s=%s\n", attr.Key(), common.FormatAttributeValue(attr.Key(), attr.Value(), rawAttributes))
+		key, val := common.FormatAttribute(attr.Key(), attr.Value(), rawAttributes)
+		cmd.Printf("  %s=%s\n", key, val)
 	}
 
 	if signature := obj.Signature(); signature != nil {
