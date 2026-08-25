@@ -13,12 +13,11 @@ func FormatAttribute(key, value string, raw bool) (string, string) {
 		return strconv.Quote(key), strconv.Quote(value)
 	}
 
-	return key, FormatAttributeValue(key, value, raw)
+	return key, formatAttributeValue(key, value)
 }
 
-// FormatAttributeValue returns formatted string representation of an object attribute value.
-func FormatAttributeValue(key, value string, raw bool) string {
-	if raw || key != object.AttributeTimestamp {
+func formatAttributeValue(key, value string) string {
+	if key != object.AttributeTimestamp {
 		return value
 	}
 
