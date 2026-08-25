@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Self-signed certificates for TLS gRPC endpoints (#4114)
+- `--raw-attributes` output mode in `neofs-cli object head` and `neofs-cli container list-objects`
 
 ### Fixed
 - SN could panic on forwarding GET/HEAD/RANGE request (#4120)

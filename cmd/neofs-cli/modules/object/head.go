@@ -42,6 +42,7 @@ func initObjectHeadCmd() {
 	flags.Bool(commonflags.JSON, false, "Marshal output in JSON")
 	flags.Bool("proto", false, "Marshal output in Protobuf")
 	flags.Bool(rawFlag, false, rawFlagDesc)
+	flags.Bool(commonflags.RawAttributesFlag, false, commonflags.RawAttributesFlagUsage)
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) error {
@@ -162,6 +163,8 @@ func printContainerID(cmd *cobra.Command, recv func() cid.ID) {
 }
 
 func printHeader(cmd *cobra.Command, obj *object.Object) error {
+	rawAttributes, _ := cmd.Flags().GetBool(commonflags.RawAttributesFlag)
+
 	printObjectID(cmd, obj.GetID)
 	printContainerID(cmd, obj.GetContainerID)
 	cmd.Printf("Owner: %s\n", obj.Owner())
@@ -173,14 +176,8 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 
 	cmd.Println("Attributes:")
 	for _, attr := range obj.Attributes() {
-		if attr.Key() == object.AttributeTimestamp {
-			cmd.Printf("  %s=%s (%s)\n",
-				attr.Key(),
-				attr.Value(),
-				common.PrettyPrintUnixTime(attr.Value()))
-			continue
-		}
-		cmd.Printf("  %s=%s\n", attr.Key(), attr.Value())
+		key, val := common.FormatAttribute(attr.Key(), attr.Value(), rawAttributes)
+		cmd.Printf("  %s=%s\n", key, val)
 	}
 
 	if signature := obj.Signature(); signature != nil {

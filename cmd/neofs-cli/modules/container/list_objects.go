@@ -24,6 +24,7 @@ const (
 // flag vars of list-objects command.
 var (
 	flagVarListObjectsPrintAttr bool
+	flagVarListObjectsRawAttr   bool
 )
 
 var listContainerObjectsCmd = &cobra.Command{
@@ -96,12 +97,7 @@ var listContainerObjectsCmd = &cobra.Command{
 					for i := range attrs {
 						key := attrs[i].Key()
 						val := attrs[i].Value()
-
-						if key == object.AttributeTimestamp {
-							cmd.Printf("  %s: %s (%s)\n", key, val, common.PrettyPrintUnixTime(val))
-							continue
-						}
-
+						key, val = common.FormatAttribute(key, val, flagVarListObjectsRawAttr)
 						cmd.Printf("  %s: %s\n", key, val)
 					}
 				} else {
@@ -125,5 +121,8 @@ func initContainerListObjectsCmd() {
 	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.BoolVar(&flagVarListObjectsPrintAttr, flagListObjectPrintAttr, false,
 		"Request and print user attributes of each object",
+	)
+	flags.BoolVar(&flagVarListObjectsRawAttr, commonflags.RawAttributesFlag, false,
+		commonflags.RawAttributesFlagUsage,
 	)
 }

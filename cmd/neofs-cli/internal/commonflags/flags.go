@@ -49,6 +49,9 @@ const (
 	OIDFlag      = "oid"
 	OIDFlagUsage = "Object ID."
 
+	RawAttributesFlag      = "raw-attributes"
+	RawAttributesFlagUsage = "Print attributes as-is without interpreting known values"
+
 	EACLTable = "eacl"
 
 	SessionSubjectFlag      = "session-subjects"
