@@ -18,8 +18,8 @@ neofs-cli container list-objects [flags]
       --cid string            Container ID.
   -g, --generate-key          Generate new private key
   -h, --help                  help for list-objects
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
       --raw-attributes        Print attributes as-is without interpreting known values
+  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet
@@ -37,3 +37,4 @@ neofs-cli container list-objects [flags]
 ### SEE ALSO
 
 * [neofs-cli container](neofs-cli_container.md)	 - Operations with containers
+

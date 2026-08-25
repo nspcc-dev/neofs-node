@@ -22,8 +22,8 @@ neofs-cli object head [flags]
       --json                  Marshal output in JSON
       --oid string            Object ID.
       --proto                 Marshal output in Protobuf
-      --raw-attributes        Print attributes as-is without interpreting known values
       --raw                   Set raw request option
+      --raw-attributes        Print attributes as-is without interpreting known values
   -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
       --session string        Filepath to a JSON- or binary-encoded token of the object HEAD session
   -t, --timeout duration      Timeout for the operation (default 15s)
@@ -42,3 +42,4 @@ neofs-cli object head [flags]
 ### SEE ALSO
 
 * [neofs-cli object](neofs-cli_object.md)	 - Operations with Objects
+
