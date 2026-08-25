@@ -40,6 +40,7 @@ Changelog for NeoFS Node
 - `golang.org/x/net` dependency from v0.57.0 to v0.58.0 (#4135)
 - `google.golang.org/grpc` dependency from v1.82.1 to v1.83.1 (#4135)
 - `google.golang.org/protobuf` dependency from v1.36.11 to v1.36.12 (#4135)
+- `github.com/nspcc-dev/locode-db` dependency from 0.8.2 to 0.9.0 (#4138)
 
 ### Updating from v0.55.0
 Session token storage migration introduced in v0.52.0 has been removed.
