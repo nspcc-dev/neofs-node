@@ -281,6 +281,7 @@ type putStream struct {
 	ctx    context.Context
 	signer ecdsa.PrivateKey
 	base   *putsvc.Streamer
+	log    *zap.Logger
 
 	cacheReqs bool
 	initReq   *protoobject.PutRequest
@@ -289,17 +290,22 @@ type putStream struct {
 	expBytes, recvBytes uint64 // payload
 }
 
-func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context) *putStream {
+func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context, log *zap.Logger) *putStream {
 	return &putStream{
 		ctx:    ctx,
 		signer: signer,
 		base:   base,
+		log:    log,
 	}
 }
 
 func (x *putStream) sendToRemoteNode(c clientcore.MultiAddressClient) error {
 	return c.ForAnyGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-		return putToRemoteNode(ctx, conn, x.initReq, x.chunkReqs) // TODO: log error
+		err := putToRemoteNode(ctx, conn, x.initReq, x.chunkReqs)
+		if err != nil {
+			x.log.Warn("failed to put object to remote node", zap.Error(err))
+		}
+		return err
 	})
 }
 
@@ -411,7 +417,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 	var req, reqFirst *protoobject.PutRequest
 	var resp *protoobject.PutResponse
 
-	ps := newIntermediatePutStream(s.signer, stream, ctx)
+	ps := newIntermediatePutStream(s.signer, stream, ctx, s.log)
 	for {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
@@ -696,7 +702,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, cnrID, objID, reqMD)
+	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, cnrID, objID, reqMD, s.log)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -811,7 +817,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.HeadPrm, error) {
+func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, cnrID cid.ID, objID oid.ID, reqMD requestMetadata, log *zap.Logger) (getsvc.HeadPrm, error) {
 	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.HeadPrm
@@ -857,7 +863,10 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 		return respBuf, hdr, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
 			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, req, objID)
-			return err // TODO: log error
+			if err != nil {
+				log.Warn("failed to get object header from remote node", zap.Error(err))
+			}
+			return err
 		})
 	})
 	return p, nil
@@ -1065,7 +1074,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		payloadOnly:             req.GetBody().GetPayloadOnly(),
 		returnVersionInResponse: util.NeedVersionInResponse(req.MetaHeader),
 		sendECPartIndInResponse: sendECPartIdxInResponse(req),
-	}, cnrID, objID, reqMD)
+	}, cnrID, objID, reqMD, s.log)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
@@ -1336,7 +1345,7 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.Prm, error) {
+func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream, cnrID cid.ID, objID oid.ID, reqMD requestMetadata, log *zap.Logger) (getsvc.Prm, error) {
 	body := req.GetBody()
 
 	rng := body.GetRange()
@@ -1437,7 +1446,11 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		}
 
 		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			return proxyCtx.continueWithConn(ctx, req, conn) // TODO: log error
+			err := proxyCtx.continueWithConn(ctx, req, conn)
+			if err != nil {
+				log.Warn("failed to get object from remote node", zap.Error(err))
+			}
+			return err
 		})
 	})
 	return p, nil
@@ -2236,7 +2249,10 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node netmap.NodeInfo, r
 	return items, more, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		var err error
 		items, more, err = searchOnRemoteAddress(ctx, conn, outReq)
-		return err // TODO: log error
+		if err != nil {
+			s.log.Warn("failed to search objects on remote node", zap.Error(err))
+		}
+		return err
 	})
 }
 
