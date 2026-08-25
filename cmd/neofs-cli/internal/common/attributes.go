@@ -13,7 +13,7 @@ func FormatAttribute(key, value string, raw bool) (string, string) {
 		return strconv.Quote(key), strconv.Quote(value)
 	}
 
-	return key, FormatAttributeValue(key, value, false)
+	return key, FormatAttributeValue(key, value, raw)
 }
 
 // FormatAttributeValue returns formatted string representation of an object attribute value.
