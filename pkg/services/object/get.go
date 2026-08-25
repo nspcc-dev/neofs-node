@@ -877,9 +877,11 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion *protorefs.Version,
 
 	verifHdrSigCount := getRequestVerificationSignaturesCount(remoteServerAPIVersion)
 
+	verifHdrLen := calculateRequestVerificationHeaderLen(verifHdrSigCount)
+
 	reqLen := 1 + 1 + getByAddressRequestBodyLen + // first 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		1 + 2 + calculateRequestVerificationHeaderLen(verifHdrSigCount) // 1 for iprotobuf.TagBytes3
+		1 + protowire.SizeBytes(verifHdrLen) // 1 for iprotobuf.TagBytes3
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
@@ -960,9 +962,11 @@ func (s *Server) makeGetECPartRangeRequest(remoteServerAPIVersion *protorefs.Ver
 
 	verifHdrSigCount := getRequestVerificationSignaturesCount(remoteServerAPIVersion)
 
+	verifHdrLen := calculateRequestVerificationHeaderLen(verifHdrSigCount)
+
 	reqLen := 1 + protowire.SizeBytes(bodyLen) + // 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		1 + 2 + calculateRequestVerificationHeaderLen(verifHdrSigCount) // 1 for iprotobuf.TagBytes3
+		1 + protowire.SizeBytes(verifHdrLen) // 1 for iprotobuf.TagBytes3
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
@@ -1005,9 +1009,12 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, me
 	buf[43] = oid.Size
 	copy(buf[44:], parent[:])
 
-	bodySig, err := signECDSAWithSHA512(s.signer, buf[2:76])
-	if err != nil {
-		return 0, fmt.Errorf("sign body: %w", err)
+	var bodySig []byte
+	if verifHdrSigCount > 1 {
+		bodySig, err = signECDSAWithSHA512(s.signer, buf[2:76])
+		if err != nil {
+			return 0, fmt.Errorf("sign body: %w", err)
+		}
 	}
 
 	// meta header
@@ -1020,13 +1027,22 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, me
 	off += writeRequestMetaXHeader(buf[off:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
 	off += writeRequestMetaXHeader(buf[off:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
 
-	metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:off])
-	if err != nil {
-		return 0, fmt.Errorf("sign meta header: %w", err)
+	var metaHdrSig []byte
+	var reqSig []byte
+	if verifHdrSigCount > 1 {
+		metaHdrSig, err = signECDSAWithSHA512(s.signer, buf[from:off])
+		if err != nil {
+			return 0, fmt.Errorf("sign meta header: %w", err)
+		}
+	} else {
+		reqSig, err = signECDSAWithSHA512(s.signer, buf[:off])
+		if err != nil {
+			return 0, fmt.Errorf("sign body and meta header: %w", err)
+		}
 	}
 
 	// verification header
-	off += writeRequestVerificationHeader(buf[off:], verifHdrSigCount, s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+	off += writeRequestVerificationHeader(buf[off:], verifHdrSigCount, s.pubKeyBytes, bodySig, metaHdrSig, originSig, reqSig)
 
 	return off, nil
 }
@@ -1088,9 +1104,12 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 	buf[n] = 1 // true
 	n++
 
-	bodySig, err := signECDSAWithSHA512(s.signer, buf[from:n])
-	if err != nil {
-		return 0, fmt.Errorf("sign body: %w", err)
+	var bodySig []byte
+	if verifHdrSigCount > 1 {
+		bodySig, err = signECDSAWithSHA512(s.signer, buf[from:n])
+		if err != nil {
+			return 0, fmt.Errorf("sign body: %w", err)
+		}
 	}
 
 	// meta header
@@ -1104,13 +1123,22 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 	n += writeRequestMetaXHeader(buf[n:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
 	n += writeRequestMetaXHeader(buf[n:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
 
-	metaHdrSig, err := signECDSAWithSHA512(s.signer, buf[from:n])
-	if err != nil {
-		return 0, fmt.Errorf("sign meta header: %w", err)
+	var metaHdrSig []byte
+	var reqSig []byte
+	if verifHdrSigCount > 1 {
+		metaHdrSig, err = signECDSAWithSHA512(s.signer, buf[from:off])
+		if err != nil {
+			return 0, fmt.Errorf("sign meta header: %w", err)
+		}
+	} else {
+		reqSig, err = signECDSAWithSHA512(s.signer, buf[:n])
+		if err != nil {
+			return 0, fmt.Errorf("sign body and meta header: %w", err)
+		}
 	}
 
 	// verification header
-	n += writeRequestVerificationHeader(buf[n:], verifHdrSigCount, s.pubKeyBytes, bodySig, metaHdrSig, originSig)
+	n += writeRequestVerificationHeader(buf[n:], verifHdrSigCount, s.pubKeyBytes, bodySig, metaHdrSig, originSig, reqSig)
 
 	return n, nil
 }

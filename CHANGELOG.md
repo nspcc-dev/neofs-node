@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Self-signed certificates for TLS gRPC endpoints (#4114)
 - `--raw-attributes` output mode in `neofs-cli object head` and `neofs-cli container list-objects`
+- Support for API requests with single signature (#4144)
 
 ### Fixed
 - SN could panic on forwarding GET/HEAD/RANGE request (#4120)
@@ -30,7 +31,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21.0.20260807155929-203994967075` (#4123)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21.0.20260824193430-0f1faf21eb76` (#4123, #4144)
 - Go 1.26+ is required to build now (#3816)
 - github.com/cheggaaa/pb dependency from v1.0.29 to v3.2.1 (#4135)
 - `github.com/klauspost/compress` dependency from v1.18.4 to v1.19.2 (#4135)
