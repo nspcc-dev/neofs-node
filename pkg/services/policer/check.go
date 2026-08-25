@@ -141,13 +141,12 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		}
 	} else if len(ecRules) > 0 {
 		if addrWithAttrs.Type == object.TypeTombstone || addrWithAttrs.Type == object.TypeLock || addrWithAttrs.Type == object.TypeLink {
-			// LOCK/LINK is broadcast across all container SN. TOMBSTONE is broadcast across EC
-			// SN. This increases efficiency of removing REGULAR objects' EC parts which are
-			// evenly distributed across EC SN. Note that TOMBSTONE is not broadcast across
-			// REP SN but behaves the same as REGULAR objects.
+			// LOCK/LINK/TOMBSTONE is broadcast across all container SN. TOMBSTONE is
+			// additionally broadcast across EC SN. This increases efficiency of removing
+			// REGULAR objects' EC parts which are evenly distributed across EC SN.
 			newRepRules := make([]uint, len(repRules)+len(ecRules))
 			copy(newRepRules, repRules)
-			if addrWithAttrs.Type == object.TypeTombstone { // processNodes() already does the same for LOCK/LINK
+			if addrWithAttrs.Type == object.TypeTombstone { // processNodes() handles all broadcast types (LOCK/LINK/TOMBSTONE) the same way
 				for i := range ecRules {
 					newRepRules[len(repRules)+i] = uint(len(nn[len(repRules)+i]))
 				}
@@ -270,11 +269,11 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		)
 	}
 
-	if plc.object.Type == object.TypeLock || plc.object.Type == object.TypeLink {
-		// all nodes of a container must store the `LOCK` and `LINK` objects
-		// for correct object relations handling:
+	if plc.object.Type == object.TypeLock || plc.object.Type == object.TypeLink || plc.object.Type == object.TypeTombstone {
+		// all nodes of a container must store the `LOCK`, `LINK` and `TOMBSTONE`
+		// objects for correct object relations handling:
 		//   - `LINK` objects allows treating all children as root object;
-		//   - `LOCK` and `LINK` objects are broadcast on their PUT requests;
+		//   - `LOCK`, `LINK` and `TOMBSTONE` objects are broadcast on their PUT requests;
 		//   - `LOCK` object removal is a prohibited action in the GC.
 		shortage = uint32(len(nodes))
 	}
