@@ -7,6 +7,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	sdkcrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	sdkecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 )
@@ -28,7 +29,7 @@ func VersionLE(req Request, mjr, mnr uint32) bool {
 
 // SignResponseIfNeeded checks whether response for the req should be signed. If
 // so, calculated verification header is returned. Otherwise, nil returns.
-func SignResponseIfNeeded[R sdkcrypto.ProtoMessage](signer *ecdsa.PrivateKey, r sdkcrypto.SignedResponse[R], req Request) *protosession.ResponseVerificationHeader {
+func SignResponseIfNeeded[R protoencoding.Message](signer *ecdsa.PrivateKey, r sdkcrypto.SignedResponse[R], req Request) *protosession.ResponseVerificationHeader {
 	if VersionLE(req, 2, 21) {
 		return SignResponse(signer, r)
 	}
@@ -36,7 +37,7 @@ func SignResponseIfNeeded[R sdkcrypto.ProtoMessage](signer *ecdsa.PrivateKey, r 
 	return nil
 }
 
-func SignResponse[R sdkcrypto.ProtoMessage](signer *ecdsa.PrivateKey, r sdkcrypto.SignedResponse[R]) *protosession.ResponseVerificationHeader {
+func SignResponse[R protoencoding.Message](signer *ecdsa.PrivateKey, r sdkcrypto.SignedResponse[R]) *protosession.ResponseVerificationHeader {
 	verHeader, err := sdkcrypto.SignResponseWithBuffer(sdkecdsa.Signer(*signer), r, nil)
 	if err != nil {
 		// We can't pass this error as NeoFS status code since response will be unsigned.

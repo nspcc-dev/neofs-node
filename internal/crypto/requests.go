@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -17,20 +18,20 @@ import (
 
 // VerifyRequestSignatures checks whether all request signatures are set and
 // valid. Returns [apistatus.SignatureVerification] otherwise.
-func VerifyRequestSignatures[B neofscrypto.ProtoMessage](req neofscrypto.SignedRequest[B]) error {
+func VerifyRequestSignatures[B protoencoding.Message](req neofscrypto.SignedRequest[B]) error {
 	return verifyRequestSignatures(req, nil)
 }
 
 // VerifyRequestSignaturesWithContext is same as [VerifyRequestSignatures], but
 // skips verification for an authenticated inter-node request with TTL equal to one.
-func VerifyRequestSignaturesWithContext[B neofscrypto.ProtoMessage](ctx context.Context, req neofscrypto.SignedRequest[B]) error {
+func VerifyRequestSignaturesWithContext[B protoencoding.Message](ctx context.Context, req neofscrypto.SignedRequest[B]) error {
 	if !requestNeedsSignature(ctx, req) {
 		return nil
 	}
 	return verifyRequestSignatures(req, nil)
 }
 
-func verifyRequestSignatures[B neofscrypto.ProtoMessage](req neofscrypto.SignedRequest[B], verifyN3 func(data, invocScript, verifScript []byte) error) error {
+func verifyRequestSignatures[B protoencoding.Message](req neofscrypto.SignedRequest[B], verifyN3 func(data, invocScript, verifScript []byte) error) error {
 	err := neofscrypto.VerifyRequestWithBufferN3(req, nil, verifyN3)
 	if err != nil {
 		var st apistatus.SignatureVerification
@@ -42,7 +43,7 @@ func verifyRequestSignatures[B neofscrypto.ProtoMessage](req neofscrypto.SignedR
 
 // VerifyRequestSignaturesN3 is same as [VerifyRequestSignatures] but supports
 // [neofscrypto.N3] scheme.
-func VerifyRequestSignaturesN3[B neofscrypto.ProtoMessage](ctx context.Context, req neofscrypto.SignedRequest[B], fsChain N3ScriptRunner) error {
+func VerifyRequestSignaturesN3[B protoencoding.Message](ctx context.Context, req neofscrypto.SignedRequest[B], fsChain N3ScriptRunner) error {
 	if !requestNeedsSignature(ctx, req) {
 		return nil
 	}
@@ -54,7 +55,7 @@ func VerifyRequestSignaturesN3[B neofscrypto.ProtoMessage](ctx context.Context, 
 	})
 }
 
-func requestNeedsSignature[B neofscrypto.ProtoMessage](ctx context.Context, req neofscrypto.SignedRequest[B]) bool {
+func requestNeedsSignature[B protoencoding.Message](ctx context.Context, req neofscrypto.SignedRequest[B]) bool {
 	if req.GetVerifyHeader() != nil {
 		return true
 	}

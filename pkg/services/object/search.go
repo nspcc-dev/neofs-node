@@ -12,11 +12,16 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
 )
+
+var searchRequestBufferPool = mem.DefaultBufferPool()
 
 func iterateSearchableContainerNodes(nodeSets [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule, allNodes bool, f func(netmap.NodeInfo) bool) {
 	for i := range nodeSets {
@@ -48,7 +53,23 @@ func iterateSearchableContainerNodes(nodeSets [][]netmap.NodeInfo, repRules []ui
 	}
 }
 
-func (s *Server) forwardSearchRequest(ctx context.Context, req any, nodeSets [][]netmap.NodeInfo) (mem.BufferSlice, error) {
+func (s *Server) forwardSearchRequest(ctx context.Context, req *protoobject.SearchV2Request, nodeSets [][]netmap.NodeInfo) (mem.BufferSlice, error) {
+	bodyLen := req.Body.MarshaledSize()
+	metaHdrLen := req.MetaHeader.MarshaledSize()
+	verifHdrLen := req.VerifyHeader.MarshaledSize()
+
+	reqLen := protoencoding.CalculateRequestLength(bodyLen, metaHdrLen, verifHdrLen)
+
+	butItem := searchRequestBufferPool.Get(reqLen)
+	defer searchRequestBufferPool.Put(butItem)
+	buf := *butItem
+
+	off := protoencoding.WriteRequestBodyMessage(buf, req.Body)
+	off += protoencoding.WriteRequestMetaHeaderMessage(buf[off:], req.MetaHeader)
+	protoencoding.WriteRequestVerificationHeaderMessage(buf[off:], req.VerifyHeader)
+
+	reqBuf := mem.SliceBuffer(buf)
+
 	for _, nodeSet := range nodeSets {
 		for _, nodeIdx := range islices.ShuffleIndexes(len(nodeSet)) {
 			node, err := s.nodeClients.Get(ctx, nodeSet[nodeIdx])
@@ -62,7 +83,7 @@ func (s *Server) forwardSearchRequest(ctx context.Context, req any, nodeSets [][
 
 			err = node.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 				var err error
-				respBuf, err = callUnary(ctx, conn, protoobject.ObjectService_SearchV2_FullMethodName, req)
+				respBuf, err = callUnary(ctx, conn, protoobject.ObjectService_SearchV2_FullMethodName, reqBuf)
 				if err != nil {
 					if igrpc.IsUnavailable(err) {
 						return clientcore.ErrSkipConnection
@@ -84,4 +105,12 @@ func (s *Server) forwardSearchRequest(ctx context.Context, req any, nodeSets [][
 	}
 
 	return nil, nil
+}
+
+func writeLocalSearchRequestMetaHeader(buf []byte, apiVersion version.Version) {
+	protosession.WriteRequestMetaHeaderToRequest(buf, apiVersion.Major(), apiVersion.Minor(), 1, 0, nil, nil, 0, nil, 0, nil, 0, 0, nil)
+}
+
+func calculateLocalSearchRequestMetaHeaderLength(ver version.Version) int {
+	return protosession.CalculateRequestMetaHeaderLength(ver.Major(), ver.Minor(), 1, 0, nil, 0, 0, 0, 0)
 }
