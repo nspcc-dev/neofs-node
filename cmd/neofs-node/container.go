@@ -329,11 +329,6 @@ func registerEventParserOnceContainer(c *cfg, name string, p event.NotificationP
 // on corresponding routine pool. MUST NOT be called concurrently with itself and other
 // similar functions. Owner may be zero.
 func subscribeToContainerCreation(c *cfg, h func(id cid.ID, owner user.ID)) {
-	const eventNameContainerCreated = "PutSuccess"
-	registerEventParserOnceContainer(c, eventNameContainerCreated, containerEvent.ParsePutSuccess)
-	addContainerAsyncNotificationHandler(c, eventNameContainerCreated, func(e event.Event) {
-		h(e.(containerEvent.PutSuccess).ID, user.ID{})
-	})
 	const eventNameContainerCreatedV2 = "Created"
 	registerEventParserOnceContainer(c, eventNameContainerCreatedV2, containerEvent.RestoreCreated)
 	addContainerAsyncNotificationHandler(c, eventNameContainerCreatedV2, func(e event.Event) {
@@ -349,11 +344,6 @@ func subscribeToContainerCreation(c *cfg, h func(id cid.ID, owner user.ID)) {
 
 // like subscribeToContainerCreation but for removal. Owner may be zero.
 func subscribeToContainerRemoval(c *cfg, h func(id cid.ID, owner user.ID)) {
-	const eventNameContainerRemoved = "DeleteSuccess"
-	registerEventParserOnceContainer(c, eventNameContainerRemoved, containerEvent.ParseDeleteSuccess)
-	addContainerAsyncNotificationHandler(c, eventNameContainerRemoved, func(e event.Event) {
-		h(e.(containerEvent.DeleteSuccess).ID, user.ID{})
-	})
 	const eventNameContainerRemovedV2 = "Removed"
 	registerEventParserOnceContainer(c, eventNameContainerRemovedV2, containerEvent.RestoreRemoved)
 	addContainerAsyncNotificationHandler(c, eventNameContainerRemovedV2, func(e event.Event) {

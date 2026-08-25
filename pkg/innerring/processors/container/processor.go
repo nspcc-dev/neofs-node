@@ -136,16 +136,6 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 
 	p.SetScriptHash(cp.cnrClient.ContractAddress())
 
-	// container put
-	p.SetRequestType(containerEvent.PutNotaryEvent)
-	p.SetUnaryParser(containerEvent.ParsePutNotary)
-	pp = append(pp, p)
-
-	// container named put
-	p.SetRequestType(containerEvent.PutNamedNotaryEvent)
-	p.SetUnaryParser(containerEvent.ParsePutNamedNotary)
-	pp = append(pp, p)
-
 	// create container
 	p.SetRequestType(fschaincontracts.CreateContainerMethod)
 	p.SetUnaryParser(containerEvent.RestoreCreateContainerRequest)
@@ -156,21 +146,11 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	pp = append(pp, p)
 
 	// container delete
-	p.SetRequestType(containerEvent.DeleteNotaryEvent)
-	p.SetUnaryParser(containerEvent.ParseDeleteNotary)
-	pp = append(pp, p)
-
-	// remove container
 	p.SetRequestType(fschaincontracts.RemoveContainerMethod)
 	p.SetUnaryParser(containerEvent.RestoreRemoveContainerRequest)
 	pp = append(pp, p)
 
 	// set EACL
-	p.SetRequestType(containerEvent.SetEACLNotaryEvent)
-	p.SetUnaryParser(containerEvent.ParseSetEACLNotary)
-	pp = append(pp, p)
-
-	// put eACL
 	p.SetRequestType(fschaincontracts.PutContainerEACLMethod)
 	p.SetUnaryParser(containerEvent.RestorePutContainerEACLRequest)
 	pp = append(pp, p)
@@ -203,15 +183,6 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 
 	h.SetScriptHash(cp.cnrClient.ContractAddress())
 
-	// container put
-	h.SetRequestType(containerEvent.PutNotaryEvent)
-	h.SetHandler(cp.handlePut)
-	hh = append(hh, h)
-
-	// container named put (same handler)
-	h.SetRequestType(containerEvent.PutNamedNotaryEvent)
-	hh = append(hh, h)
-
 	// create container
 	h.SetRequestType(fschaincontracts.CreateContainerMethod)
 	h.SetHandler(cp.handlePut)
@@ -222,21 +193,11 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	hh = append(hh, h)
 
 	// container delete
-	h.SetRequestType(containerEvent.DeleteNotaryEvent)
-	h.SetHandler(cp.handleDelete)
-	hh = append(hh, h)
-
-	// remove container
 	h.SetRequestType(fschaincontracts.RemoveContainerMethod)
 	h.SetHandler(cp.handleDelete)
 	hh = append(hh, h)
 
 	// set eACL
-	h.SetRequestType(containerEvent.SetEACLNotaryEvent)
-	h.SetHandler(cp.handleSetEACL)
-	hh = append(hh, h)
-
-	// put eACL
 	h.SetRequestType(fschaincontracts.PutContainerEACLMethod)
 	h.SetHandler(cp.handleSetEACL)
 	hh = append(hh, h)

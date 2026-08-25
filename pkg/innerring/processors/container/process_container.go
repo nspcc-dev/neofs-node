@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -69,16 +67,6 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 	}
 
 	cp.approvePutContainer(req.MainTransaction, cnr, id)
-}
-
-// putEvent is a common interface of Put and PutNamed event.
-type putEvent interface {
-	event.Event
-	Container() []byte
-	PublicKey() []byte
-	Signature() []byte
-	SessionToken() []byte
-	NotaryRequest() *payload.P2PNotaryRequest
 }
 
 // Process a new container from the user by checking the container sanity
