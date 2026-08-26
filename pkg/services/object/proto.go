@@ -309,22 +309,27 @@ func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) 
 
 func getRequestVerificationSignaturesCount(remoteServerAPIVersion *protorefs.Version) int {
 	v := version.New(remoteServerAPIVersion.GetMajor(), remoteServerAPIVersion.GetMinor())
-	if v.Compare(version.New(2, 25)) >= 0 {
+	switch v.Compare(version.New(2, 25)) {
+	default:
+		return 1
+	case -1:
+		return 3
+	case 0:
 		return 2
 	}
-	return 3
 }
 
 func calculateRequestVerificationHeaderLen(sigCount int) int {
 	return verificationHeaderECDSAWithSHA512SignatureLen * sigCount
 }
 
-func writeRequestVerificationHeader(buf []byte, sigCount int, pubKey, bodySIg, metaSig, originSig []byte) int {
+func writeRequestVerificationHeader(buf []byte, sigCount int, pubKey, bodySIg, metaSig, originSig, reqSig []byte) int {
 	buf[0] = iprotobuf.TagBytes3
 	off := 1 + binary.PutUvarint(buf[1:], uint64(calculateRequestVerificationHeaderLen(sigCount)))
 	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes1, pubKey, bodySIg)
 	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes2, pubKey, metaSig)
 	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes3, pubKey, originSig)
+	off += writeRequestVerificationSignature(buf[off:], iprotobuf.TagBytes5, pubKey, reqSig)
 	return off
 }
 

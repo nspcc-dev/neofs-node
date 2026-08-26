@@ -26,8 +26,11 @@ func TestGetRequestVerificationSignaturesCount(t *testing.T) {
 	t.Run("no origin", func(t *testing.T) {
 		assert(t, 2, []*protorefs.Version{
 			{Major: 2, Minor: 25},
-			{Major: 2, Minor: 26},
-			{Major: 3, Minor: 0},
 		})
+	})
+
+	assert(t, 1, []*protorefs.Version{
+		{Major: 2, Minor: 26},
+		{Major: 3, Minor: 0},
 	})
 }
