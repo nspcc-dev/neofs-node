@@ -303,7 +303,7 @@ func (x *putStream) sendToRemoteNode(c clientcore.MultiAddressClient) error {
 	return c.ForAnyGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		err := putToRemoteNode(ctx, conn, x.initReq, x.chunkReqs)
 		if err != nil {
-			x.log.Warn("failed to put object to remote node", zap.Error(err))
+			x.log.Debug("failed to put object to remote node", zap.Error(err))
 		}
 		return err
 	})
@@ -864,7 +864,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 			var err error
 			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, req, objID)
 			if err != nil {
-				log.Warn("failed to get object header from remote node", zap.Error(err))
+				log.Debug("failed to get object header from remote node", zap.Error(err))
 			}
 			return err
 		})
@@ -1448,7 +1448,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			err := proxyCtx.continueWithConn(ctx, req, conn)
 			if err != nil {
-				log.Warn("failed to get object from remote node", zap.Error(err))
+				log.Debug("failed to get object from remote node", zap.Error(err))
 			}
 			return err
 		})
@@ -2250,7 +2250,7 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node netmap.NodeInfo, r
 		var err error
 		items, more, err = searchOnRemoteAddress(ctx, conn, outReq)
 		if err != nil {
-			s.log.Warn("failed to search objects on remote node", zap.Error(err))
+			s.log.Debug("failed to search objects on remote node", zap.Error(err))
 		}
 		return err
 	})
