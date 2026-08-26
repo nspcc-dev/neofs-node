@@ -255,7 +255,7 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 	cnr := cidtest.ID()
 	objID := oidtest.ID()
 	objAddr := oid.NewAddress(cnr, objID)
-	broadcast := typ == object.TypeLock || typ == object.TypeLink
+	broadcast := typ == object.TypeLock || typ == object.TypeLink || typ == object.TypeTombstone
 
 	localObj := objectcore.AddressWithAttributes{
 		Address:    objAddr,
