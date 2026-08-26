@@ -613,14 +613,24 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 			respBuf.Free()
 			return false, 0, 0, 0, errors.New("none of the supported oneof fields are specified")
 		case protoobject.FieldGetResponseBodyInit:
-			var parentID, parentSig, parentHdr iprotobuf.BuffersSlice
-			parentID, parentSig, parentHdr, parentPldLen, partPldLen, err = handleGetECPartResponseInit(fld)
+			var parentID, parentSig, parentHdr, payloadChunk iprotobuf.BuffersSlice
+			parentID, parentSig, parentHdr, payloadChunk, parentPldLen, partPldLen, err = handleGetECPartResponseInit(fld)
 			if err != nil {
 				respBuf.Free()
 				return false, 0, 0, 0, err
 			}
 
-			err = x.server.writeInitGetResponseBuffers(x.responseStream, parentID, parentSig, parentHdr, x.signResponses)
+			copiedPartPldLen += uint64(payloadChunk.Len())
+			if copiedPartPldLen > partPldLen {
+				respBuf.Free()
+				return false, 0, 0, 0, fmt.Errorf("part payload overflow: full %d bytes, copied %d", partPldLen, copiedPartPldLen)
+			}
+			if copiedPartPldLen > parentPldLen {
+				respBuf.Free()
+				return false, 0, 0, 0, fmt.Errorf("parent payload overflow: full %d bytes, copied %d", parentPldLen, copiedPartPldLen)
+			}
+
+			err = x.server.writeInitGetResponseBuffers(x.responseStream, parentID, parentSig, parentHdr, payloadChunk, x.signResponses)
 			respBuf.Free()
 			if err != nil {
 				return false, 0, 0, 0, err
@@ -763,8 +773,8 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	return copied, nil
 }
 
-func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, uint64, uint64, error) {
-	var parentID, parentSig, parentHdr iprotobuf.BuffersSlice
+func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, iprotobuf.BuffersSlice, uint64, uint64, error) {
+	var parentID, parentSig, parentHdr, payloadChunk iprotobuf.BuffersSlice
 	var parentPldLen uint64
 	var partPldLen uint64
 
@@ -823,13 +833,19 @@ func handleGetECPartResponseInit(buffers iprotobuf.BuffersSlice) (iprotobuf.Buff
 
 		return protoscan.ScanMessage(buffers, protoscan.ObjectHeaderScheme, opts)
 	}
+	opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
+		if num == protoobject.FieldObjectPayload {
+			payloadChunk = buffers
+		}
+		return nil
+	}
 
 	err := protoscan.ScanMessage(buffers, protoscan.ObjectGetResponseInitScheme, opts)
 	if err != nil {
-		return iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, 0, 0, err
+		return iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, iprotobuf.BuffersSlice{}, 0, 0, err
 	}
 
-	return parentID, parentSig, parentHdr, parentPldLen, partPldLen, nil
+	return parentID, parentSig, parentHdr, payloadChunk, parentPldLen, partPldLen, nil
 }
 
 func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off uint64, ln uint64, full bool, controlCh <-chan bool) (uint64, error) {
@@ -1115,12 +1131,13 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 	return n, nil
 }
 
-func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, sig, hdr iprotobuf.BuffersSlice, signResponse bool) error {
+func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, sig, hdr, pld iprotobuf.BuffersSlice, signResponse bool) error {
 	idLen := id.Len()
 	sigLen := sig.Len()
 	hdrLen := hdr.Len()
+	pldLen := pld.Len()
 
-	initFldLen := calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen)
+	initFldLen := calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen, pldLen)
 
 	bodyLen := 1 + protowire.SizeBytes(initFldLen) // 1 for iprotobuf.TagBytes1
 
@@ -1164,6 +1181,11 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	off++
 	off += binary.PutUvarint(buf[off:], uint64(hdrLen))
 	off += hdr.CopyTo(buf[off:])
+	// payload
+	buf[off] = iprotobuf.TagBytes4
+	off++
+	off += binary.PutUvarint(buf[off:], uint64(pldLen))
+	off += pld.CopyTo(buf[off:])
 
 	if signResponse {
 		n, err := s.signResponse(buf[off:], buf[bodyFrom:off], nil)
@@ -1187,10 +1209,11 @@ func calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen int)
 		1 + protowire.SizeBytes(partIdxHdrLen) // 1 for iprotobuf.TagBytes4
 }
 
-func calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen int) int {
+func calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen, pldLen int) int {
 	return 1 + protowire.SizeBytes(idLen) + // 1 for iprotobuf.TagBytes1
 		1 + protowire.SizeBytes(sigLen) + // 1 for iprotobuf.TagBytes2
-		1 + protowire.SizeBytes(hdrLen) // 1 for iprotobuf.TagBytes3
+		1 + protowire.SizeBytes(hdrLen) + // 1 for iprotobuf.TagBytes3
+		1 + protowire.SizeBytes(pldLen) // 1 for iprotobuf.TagBytes4
 }
 
 func forwardGetRequest(ctx context.Context, req any, respStream grpc.ServerStream, node clientcore.MultiAddressClient) error {

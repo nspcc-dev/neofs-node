@@ -197,7 +197,7 @@ func getBufferForHeadResponse() (*iprotobuf.MemBuffer, []byte) {
 	return item, item.SliceBuffer[maxHeaderOffsetInHeadResponse:]
 }
 
-func shiftHeaderInGetResponseBuffer(respBuf, hdrBuf []byte) iprotobuf.FieldBounds {
+func shiftHeaderInGetResponseBuffer(respBuf []byte, hdrBuf []byte) iprotobuf.FieldBounds {
 	bodyValLen := len(hdrBuf)
 
 	bodyFldPrefixLen := 1 + protowire.SizeVarint(uint64(bodyValLen))
@@ -211,7 +211,7 @@ func shiftHeaderInGetResponseBuffer(respBuf, hdrBuf []byte) iprotobuf.FieldBound
 	respBuf[bodyf.From] = iprotobuf.TagBytes1 // body
 	binary.PutUvarint(respBuf[bodyf.From+1:], uint64(bodyFldPrefixLen+bodyValLen))
 
-	respBuf[bodyf.ValueFrom] = iprotobuf.TagBytes1 // header with signature
+	respBuf[bodyf.ValueFrom] = iprotobuf.TagBytes1
 	binary.PutUvarint(respBuf[bodyf.ValueFrom+1:], uint64(bodyValLen))
 
 	bodyf.To = maxHeaderOffsetInHeadResponse + bodyValLen
