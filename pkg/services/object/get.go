@@ -244,6 +244,7 @@ func (x *getProxyContext) handleResponseBody(ctx context.Context, raw bool, stre
 
 func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
 	var hdr iprotobuf.BuffersSlice
+	var chunkLen int
 
 	var opts protoscan.ScanMessageOptions
 	opts.InterceptNested = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
@@ -271,6 +272,12 @@ func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.Bu
 		hdr = buffers
 		return nil
 	}
+	opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
+		if num == protoobject.FieldObjectPayload {
+			chunkLen = buffers.Len()
+		}
+		return protoscan.ErrContinue
+	}
 
 	err := protoscan.ScanMessage(buffers, protoscan.ObjectGetResponseInitScheme, opts)
 	if err != nil {
@@ -292,6 +299,10 @@ func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.Bu
 		err = x.respStream.base.SendMsg(respBuf)
 		sent = true
 	})
+
+	if sent {
+		x.respondedPayload += chunkLen
+	}
 
 	return sent, err
 }
