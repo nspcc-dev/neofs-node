@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - SNs no longer sign TTL=1 requests over mutually authenticated inter-node connections (#4100)
 - Optimized GRPC read/write bufferring (#4130)
 - TLS key of SN is now always read from the node wallet instead of configuration (#4131)
+- SN now allocates less to forward SEARCH requests (#4116)
 
 ### Removed
 - Session token storage migration (#4124)
@@ -32,7 +33,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21.0.20260824193430-0f1faf21eb76` (#4123, #4144)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21.0.20260826165415-15812e94109e` (#4123, #4144, #4116)
 - Go 1.26+ is required to build now (#3816)
 - github.com/cheggaaa/pb dependency from v1.0.29 to v3.2.1 (#4135)
 - `github.com/klauspost/compress` dependency from v1.18.4 to v1.19.2 (#4135)

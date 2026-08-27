@@ -44,6 +44,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -2139,15 +2140,64 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			expectedRes     int
 		)
 
-		req = &protoobject.SearchV2Request{
-			Body: req.Body,
-			MetaHeader: &protosession.RequestMetaHeader{
-				Version: version.Current().ProtoMessage(), // Should be client APIVersion(), but not possible now.
-				Ttl:     1,
-			},
-		}
+		localVersion := version.Current()
+
+		bodyLen := body.MarshaledSize()
+		bodyFldLen := protoencoding.CalculateRequestBodyFieldLength(bodyLen)
+		metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(localVersion)
+		bodyWithMetaLen := bodyFldLen + protoencoding.CalculateRequestMetaHeaderFieldLength(metaHdrLen)
+		verifHdrFLdLen := calculateRequestVerificationHeaderFieldLen(localVersion)
+		reqLen := bodyWithMetaLen + verifHdrFLdLen
+
+		reqBufItem := searchRequestBufferPool.Get(reqLen)
+		defer searchRequestBufferPool.Put(reqBufItem)
+		reqBuf := *reqBufItem
+
+		off := protoencoding.WriteRequestBodyTagAndLength(reqBuf, bodyLen)
+		body.MarshalStable(reqBuf[off:])
+		bodySlice := reqBuf[off : off+bodyLen]
+		off += bodyLen
+
+		writeLocalSearchRequestMetaHeader(reqBuf[off:], localVersion)
+		metaHdrSlice := reqBuf[bodyWithMetaLen-metaHdrLen : bodyWithMetaLen]
+
 		var onceResign sync.Once
 		var signingErr error
+		getRequestForConn := func(conn clientcore.MultiAddressClient) ([]byte, error) {
+			v := conn.APIVersion()
+			ver := version.New(v.GetMajor(), v.GetMinor())
+
+			if ver.Compare(localVersion) >= 0 {
+				if clientcore.IsMutuallyAuthenticated(conn) { // unsigned request
+					return reqBuf[:bodyWithMetaLen], nil
+				}
+				// 1 signature
+				onceResign.Do(func() {
+					signingErr = s.writeRequestSignatures(reqBuf, bodyWithMetaLen, bodySlice, metaHdrSlice, localVersion)
+				})
+				if signingErr != nil {
+					return nil, fmt.Errorf("sign request: %w", signingErr)
+				}
+				return reqBuf, nil
+			}
+
+			// need to lower API version
+			metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(ver)
+			bodyWithMetaLen := bodyFldLen + protoencoding.CalculateRequestMetaHeaderFieldLength(metaHdrLen)
+			verifHdrFldLen := calculateRequestVerificationHeaderFieldLen(ver)
+			reqLen := bodyWithMetaLen + verifHdrFldLen
+
+			buf := make([]byte, reqLen)
+			off := copy(buf, reqBuf[:bodyFldLen])
+			writeLocalSearchRequestMetaHeader(buf[off:], ver)
+
+			err = s.writeRequestSignatures(buf, bodyWithMetaLen, bodySlice, buf[bodyWithMetaLen-metaHdrLen:bodyWithMetaLen], ver)
+			if err != nil {
+				return nil, err
+			}
+			return buf, nil
+		}
+
 		var optimizedNodes = (len(body.Filters) != 0) &&
 			slices.ContainsFunc(body.Filters, func(filt *protoobject.SearchFilter) bool {
 				return !strings.HasPrefix(filt.Key, "$Object:") && !strings.HasPrefix(filt.Key, "__NEOFS__")
@@ -2169,7 +2219,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				return true
 			}
 			go func() {
-				set, more, err := s.searchOnRemoteNode(ctx, node, req, &onceResign, &signingErr)
+				set, more, err := s.searchOnRemoteNode(ctx, node, req.Body, getRequestForConn)
 				resCh <- nodeSearchResult{set, more, err}
 			}()
 			return true
@@ -2223,42 +2273,33 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	return res, newCursor, incomplete
 }
 
-func (s *Server) searchOnRemoteNode(ctx context.Context, node netmap.NodeInfo, req *protoobject.SearchV2Request, onceResign *sync.Once, signingErr *error) ([]client.SearchResultItem, bool, error) {
+func (s *Server) searchOnRemoteNode(ctx context.Context, node netmap.NodeInfo, reqBody *protoobject.SearchV2Request_Body, getRequestForConn func(clientcore.MultiAddressClient) ([]byte, error)) ([]client.SearchResultItem, bool, error) {
 	c, err := s.nodeClients.Get(ctx, node)
 	if err != nil {
 		return nil, false, fmt.Errorf("get node client: %w", err)
 	}
 
-	outReq := req
-	if shouldSignOutgoingRequest(c, req) {
-		onceResign.Do(func() {
-			req.VerifyHeader, *signingErr = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil)
-		})
-		if *signingErr != nil {
-			return nil, false, fmt.Errorf("sign request: %w", *signingErr)
-		}
-	} else {
-		outReq = &protoobject.SearchV2Request{
-			Body:       req.Body,
-			MetaHeader: req.MetaHeader,
-		}
+	req, err := getRequestForConn(c)
+	if err != nil {
+		return nil, false, err
 	}
 
 	var items []client.SearchResultItem
 	var more bool
 	return items, more, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		var err error
-		items, more, err = searchOnRemoteAddress(ctx, conn, outReq)
+		items, more, err = searchOnRemoteAddress(ctx, conn, req, reqBody)
 		if err != nil {
-			s.log.Debug("failed to search objects on remote node", zap.Error(err))
+			s.log.Error("failed to search objects on remote node", zap.Error(err))
 		}
 		return err
 	})
 }
 
-func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn,
-	req *protoobject.SearchV2Request) ([]client.SearchResultItem, bool, error) {
-	resp, err := protoobject.NewObjectServiceClient(conn).SearchV2(ctx, req)
+func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, req []byte, reqBody *protoobject.SearchV2Request_Body) ([]client.SearchResultItem, bool, error) {
+	var resp protoobject.SearchV2Response
+
+	err := callUnaryWithCustomResponse(ctx, conn, protoobject.ObjectService_SearchV2_FullMethodName, mem.SliceBuffer(req), &resp)
 	if err != nil {
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}
@@ -2278,27 +2319,27 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn,
 		}
 		return nil, false, nil
 	}
-	if reqCursor := req.Body.Cursor; reqCursor != "" && resp.Body.Cursor == reqCursor {
+	if reqCursor := reqBody.Cursor; reqCursor != "" && resp.Body.Cursor == reqCursor {
 		return nil, false, errors.New("invalid response body: cursor repeats the initial one")
 	}
-	if n > req.Body.Count {
+	if n > reqBody.Count {
 		return nil, false, errors.New("invalid response body: more items than requested")
 	}
-	if resp.Body.Cursor != "" && n < req.Body.Count {
-		return nil, false, fmt.Errorf("invalid response body: cursor is set with less items than requested %d < %d", n, req.Body.Count)
+	if resp.Body.Cursor != "" && n < reqBody.Count {
+		return nil, false, fmt.Errorf("invalid response body: cursor is set with less items than requested %d < %d", n, reqBody.Count)
 	}
 
 	// TODO: we can theoretically do without type conversion, thus avoiding
 	//  additional allocation. At the same time, this will require generic code for merging.
 	res := make([]client.SearchResultItem, n)
-	filteredAttributeless := len(req.Body.Attributes) == 0 && len(req.Body.Filters) > 0
+	filteredAttributeless := len(reqBody.Attributes) == 0 && len(reqBody.Filters) > 0
 	for i, r := range resp.Body.Result {
 		switch {
 		case r == nil:
 			return nil, false, fmt.Errorf("invalid response body: nil element #%d", i)
 		case r.Id == nil:
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: missing ID", i)
-		case !filteredAttributeless && len(r.Attributes) != len(req.Body.Attributes) || filteredAttributeless && len(r.Attributes) > 1:
+		case !filteredAttributeless && len(r.Attributes) != len(reqBody.Attributes) || filteredAttributeless && len(r.Attributes) > 1:
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: wrong attribute count %d", i, len(r.Attributes))
 		}
 		if err := res[i].ID.FromProtoMessage(r.Id); err != nil {
