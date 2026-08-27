@@ -353,6 +353,13 @@ func Test_Slicing_REP3(t *testing.T) {
 			testLockSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes, true)
 		})
 	})
+
+	t.Run("link", func(t *testing.T) {
+		testLinkSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes, false)
+		t.Run("sessionv2", func(t *testing.T) {
+			testLinkSlicing(t, cluster, repNodes+cnrReserveNodes, outCnrNodes, true)
+		})
+	})
 }
 
 func Test_Slicing_EC(t *testing.T) {
@@ -428,6 +435,13 @@ func Test_Slicing_EC(t *testing.T) {
 		testLockSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, false)
 		t.Run("sessionv2", func(t *testing.T) {
 			testLockSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, true)
+		})
+	})
+
+	t.Run("link", func(t *testing.T) {
+		testLinkSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, false)
+		t.Run("sessionv2", func(t *testing.T) {
+			testLinkSlicing(t, cluster, maxTotalParts+cnrReserveNodes, outCnrNodes, true)
 		})
 	})
 
@@ -697,6 +711,143 @@ func testTombstoneSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnr
 
 func testLockSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, isSessionV2 bool) {
 	testSysObjectSlicing(t, cluster, cnrNodeNum, outCnrNodeNum, object.TypeLock, (*object.Object).AssociateLocked, isSessionV2)
+}
+
+func testLinkSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, isSessionV2 bool) {
+	owner := usertest.User()
+
+	var verCur = version.Current()
+
+	// LINK objects are members of a V2 split chain and must reference a signed
+	// parent object with a proper ID.
+	var parentObj object.Object
+	parentObj.SetVersion(&verCur)
+	parentObj.SetContainerID(cidtest.ID())
+	parentObj.SetOwner(owner.UserID())
+	parentID, err := parentObj.CalculateID()
+	require.NoError(t, err)
+	parentObj.SetID(parentID)
+	require.NoError(t, parentObj.Sign(owner))
+
+	var srcObj object.Object
+	srcObj.SetVersion(&verCur)
+	srcObj.SetContainerID(parentObj.GetContainerID())
+	srcObj.SetOwner(owner.UserID())
+	srcObj.SetAttributes(
+		object.NewAttribute(object.AttributeExpirationEpoch, "123"),
+	)
+
+	// Set up a LINK object referencing a few child objects.
+	children := make([]object.MeasuredObject, 3)
+	for i := range children {
+		children[i].SetObjectID(oidtest.ID())
+		children[i].SetObjectSize(uint32(maxObjectSize * (i + 1)))
+	}
+	var link object.Link
+	link.SetObjects(children)
+	srcObj.WriteLink(link)
+	srcObj.SetFirstID(children[0].ObjectID())
+	srcObj.SetParent(&parentObj)
+
+	var (
+		sessionToken   *session.Object
+		sessionTokenV2 *sessionv2.Token
+	)
+	if isSessionV2 {
+		sessionTokenV2 = newSessionTokenV2(t, cidtest.ID(), owner, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+	} else {
+		sessionToken = &session.Object{}
+		sessionToken.SetID(uuid.New())
+		sessionToken.SetExp(1)
+		sessionToken.BindContainer(cidtest.ID())
+	}
+
+	testThroughNode := func(t *testing.T, idx int) {
+		if isSessionV2 {
+			pk := cluster.nodeSessions[idx].signer.ECDSAPrivateKey.PublicKey
+			require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
+
+			require.NoError(t, sessionTokenV2.Sign(owner))
+
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, nil, sessionTokenV2)
+		} else {
+			sessionToken.SetAuthKey(cluster.nodeSessions[idx].signer.Public())
+			require.NoError(t, sessionToken.Sign(owner))
+
+			storeObjectWithSession(t, cluster.nodeServices[idx], srcObj, sessionToken, nil)
+		}
+
+		nodeObjLists := cluster.allStoredObjects()
+
+		var restoredObj object.Object
+		for i := range cnrNodeNum { // link objects are broadcast
+			require.Len(t, nodeObjLists[i], 1)
+
+			obj := nodeObjLists[i][0]
+
+			if i == 0 {
+				restoredObj = obj
+			} else {
+				require.Equal(t, restoredObj.Marshal(), obj.Marshal())
+			}
+		}
+
+		require.Zero(t, islices.TwoDimSliceElementCount(nodeObjLists[cnrNodeNum:]))
+
+		assertObjectIntegrity(t, restoredObj, false)
+		require.NotEmpty(t, restoredObj.Payload())
+		require.Equal(t, srcObj.GetContainerID(), restoredObj.GetContainerID())
+		if isSessionV2 {
+			require.Equal(t, sessionTokenV2, restoredObj.SessionTokenV2())
+			require.Equal(t, sessionTokenV2.Issuer(), restoredObj.Owner())
+		} else {
+			require.Equal(t, sessionToken, restoredObj.SessionToken())
+			require.Equal(t, sessionToken.Issuer(), restoredObj.Owner())
+		}
+		require.EqualValues(t, currentEpoch, restoredObj.CreationEpoch())
+		require.Equal(t, object.TypeLink, restoredObj.Type())
+		require.Equal(t, srcObj.Attributes(), restoredObj.Attributes())
+		require.True(t, restoredObj.HasParent())
+
+		var gotLink object.Link
+		require.NoError(t, restoredObj.ReadLink(&gotLink))
+		require.Equal(t, children, gotLink.Objects())
+
+		cluster.resetAllStoredObjects()
+	}
+
+	for i := range cnrNodeNum + outCnrNodeNum {
+		testThroughNode(t, i)
+	}
+
+	t.Run("all nodes failed", func(t *testing.T) {
+		for i := range cnrNodeNum {
+			cluster.nodeLocalStorages[i].err = errors.New("some error")
+		}
+
+		for i := range cnrNodeNum {
+			var err error
+			if isSessionV2 {
+				pk := cluster.nodeSessions[i].signer.ECDSAPrivateKey.PublicKey
+				require.NoError(t, sessionTokenV2.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
+
+				require.NoError(t, sessionTokenV2.Sign(owner))
+				err = putObjectWithSession(cluster.nodeServices[i], srcObj, nil, sessionTokenV2)
+			} else {
+				sessionToken.SetAuthKey(cluster.nodeSessions[i].signer.Public())
+				require.NoError(t, sessionToken.Sign(owner))
+
+				err = putObjectWithSession(cluster.nodeServices[i], srcObj, sessionToken, nil)
+			}
+			require.ErrorContains(t, err, "incomplete object PUT by placement: number of replicas cannot be met for list #0")
+			require.ErrorContains(t, err, "some error")
+			require.NotErrorIs(t, err, apistatus.ErrIncomplete)
+		}
+
+		for i := range cnrNodeNum {
+			cluster.nodeLocalStorages[i].err = nil
+		}
+	})
 }
 
 func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeNum int, typ object.Type, associate func(*object.Object, oid.ID), isSessionV2 bool) {
