@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 ### Removed
 - Session token storage migration (#4124)
 - Metabase migrations for DB versions 8 and 9 (#4127)
+- Support for deprecated container contract calls and notifications in IR (#4141)
 
 ### Updated
 - `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
@@ -58,6 +59,9 @@ and 0.51.0 were removed from this release, upgrade to 0.55.0 first if using
 earlier versions or resynchronize metabases.
 
 Remove `grpc.tls.key` from the SN configuration: TLS keys are now always read from the node wallet.
+
+IR won't approve some container operations created by SNs with versions lower
+than 0.51.0, upgrade SNs appropriately.
 
 ## [0.55.0] - 2026-07-31 - Moido
 

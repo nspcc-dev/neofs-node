@@ -21,22 +21,7 @@ func (cp *Processor) handleCreationRequest(ev event.Event) {
 }
 
 func (cp *Processor) handlePut(ev event.Event) {
-	req, ok := ev.(containerEvent.CreateContainerRequest)
-	if !ok {
-		e := ev.(putEvent)
-		req.MainTransaction = *e.NotaryRequest().MainTransaction
-		req.Container = e.Container()
-		req.InvocationScript = e.Signature()
-		req.VerificationScript = e.PublicKey()
-		req.SessionToken = e.SessionToken()
-		if n, ok := e.(interface {
-			Name() string
-			Zone() string
-		}); ok {
-			req.DomainName = n.Name()
-			req.DomainZone = n.Zone()
-		}
-	}
+	req := ev.(containerEvent.CreateContainerRequest)
 
 	id := sha256.Sum256(req.Container)
 	cp.log.Info("notification",
@@ -54,16 +39,9 @@ func (cp *Processor) handlePut(ev event.Event) {
 }
 
 func (cp *Processor) handleDelete(ev event.Event) {
-	req, ok := ev.(containerEvent.RemoveContainerRequest)
-	if !ok {
-		e := ev.(containerEvent.Delete)
-		req.MainTransaction = *e.NotaryRequest().MainTransaction
-		req.ID = e.ContainerID()
-		req.InvocationScript = e.Signature()
-		req.VerificationScript = nil
-		req.SessionToken = e.SessionToken()
-	} else if req.VerificationScript == nil {
-		req.VerificationScript = []byte{} // to differ with 'delete' having no such parameter
+	req := ev.(containerEvent.RemoveContainerRequest)
+	if req.VerificationScript == nil {
+		req.VerificationScript = []byte{}
 	}
 	cp.log.Info("notification",
 		zap.String("type", "container delete"),
@@ -80,15 +58,7 @@ func (cp *Processor) handleDelete(ev event.Event) {
 }
 
 func (cp *Processor) handleSetEACL(ev event.Event) {
-	req, ok := ev.(containerEvent.PutContainerEACLRequest)
-	if !ok {
-		e := ev.(containerEvent.SetEACL)
-		req.MainTransaction = *e.NotaryRequest().MainTransaction
-		req.EACL = e.Table()
-		req.InvocationScript = e.Signature()
-		req.VerificationScript = e.PublicKey()
-		req.SessionToken = e.SessionToken()
-	}
+	req := ev.(containerEvent.PutContainerEACLRequest)
 
 	cp.log.Info("notification",
 		zap.String("type", "set EACL"),
