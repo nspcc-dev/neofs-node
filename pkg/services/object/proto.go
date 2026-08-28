@@ -34,7 +34,6 @@ const (
 
 // Fixed message lengths.
 const (
-	getByAddressRequestBodyLen       = 1 + 1 + iprotobuf.ObjectAddressLength
 	compressedECDSAPublicKeyLen      = smartcontract.PublicKeyLen
 	ecdsaWithSHA256SignatureValueLen = 1 + keys.SignatureLen
 	ecdsaWithSHA512SignatureLen      = 1 + 1 + compressedECDSAPublicKeyLen +
@@ -273,28 +272,6 @@ func getBufferForChunkGetResponse() (*iprotobuf.MemBuffer, []byte) {
 	return item, chunkBuf[:len(chunkBuf)-maxResponseVerificationHeaderLen]
 }
 
-func calculateXHeaderLength(key, val string) int {
-	return 1 + protowire.SizeBytes(len(key)) + // 1 for iprotobuf.TagBytes1
-		1 + protowire.SizeBytes(len(val)) // 1 for iprotobuf.TagBytes2
-}
-
-func writeRequestMetaXHeader(buf []byte, ln int, key, val string) int {
-	buf[0] = iprotobuf.TagBytes4
-	off := 1 + binary.PutUvarint(buf[1:], uint64(ln))
-	return off + writeXHeader(buf[off:], key, val)
-}
-
-func writeXHeader(buf []byte, key, val string) int {
-	off := writeBytesField(buf, iprotobuf.TagBytes1, key)
-	return off + writeBytesField(buf[off:], iprotobuf.TagBytes2, val)
-}
-
-func writeBytesField[T string | []byte](buf []byte, tag byte, val T) int {
-	buf[0] = tag
-	off := 1 + binary.PutUvarint(buf[1:], uint64(len(val)))
-	return off + copy(buf[off:], val)
-}
-
 func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) {
 	sig, err := neofsecdsa.Signer(privKey).Sign(data)
 	if err != nil {
@@ -321,6 +298,13 @@ func calculateRequestVerificationHeaderFieldLen(apiVersion version.Version) int 
 	}
 
 	return protoencoding.CalculateRequestVerificationHeaderFieldLength(sigCount * verificationHeaderECDSAWithSHA512SignatureLen)
+}
+
+func chooseAPIVersionForNewRequest(remote version.Version) version.Version {
+	if cur := version.Current(); cur.Compare(remote) < 0 {
+		return cur
+	}
+	return remote
 }
 
 func (s *Server) writeRequestSignatures(reqBuf []byte, bodyWithMetaLen int, body []byte, metaHdr []byte, apiVersion version.Version) error {

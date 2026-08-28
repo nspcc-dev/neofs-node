@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -108,9 +107,9 @@ func (s *Server) forwardSearchRequest(ctx context.Context, req *protoobject.Sear
 }
 
 func writeLocalSearchRequestMetaHeader(buf []byte, apiVersion version.Version) {
-	protosession.WriteRequestMetaHeaderToRequest(buf, apiVersion.Major(), apiVersion.Minor(), 1, 0, nil, nil, 0, nil, 0, nil, 0, 0, nil)
+	writeRequestMetaHeaderToRequest(buf, apiVersion, 1, nil)
 }
 
 func calculateLocalSearchRequestMetaHeaderLength(ver version.Version) int {
-	return protosession.CalculateRequestMetaHeaderLength(ver.Major(), ver.Minor(), 1, 0, nil, 0, 0, 0, 0)
+	return calculateRequestMetaHeaderLen(ver, 1, nil)
 }
