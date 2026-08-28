@@ -8,10 +8,13 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -147,4 +150,23 @@ func newBadRequestError(cause string) apistatus.BadRequest {
 	var err apistatus.BadRequest
 	err.SetMessage(cause)
 	return err
+}
+
+func calculateRequestMetaHeaderLen(apiVersion version.Version, ttl uint32, xHdrs []string) int {
+	xHdrLenFn := newXHeadersLengthFunc(xHdrs)
+	return protosession.CalculateRequestMetaHeaderLength(apiVersion.Major(), apiVersion.Minor(), ttl, len(xHdrs)/2, xHdrLenFn, 0, 0, 0, 0)
+}
+
+func writeRequestMetaHeaderToRequest(buf []byte, apiVersion version.Version, ttl uint32, xHdrs []string) int {
+	xHdrLenFn := newXHeadersLengthFunc(xHdrs)
+	writeXHdrFn := func(buf []byte, i int) int {
+		return protosession.WriteXHeader(buf, xHdrs[2*i], xHdrs[2*i+1])
+	}
+	return protosession.WriteRequestMetaHeaderToRequest(buf, apiVersion.Major(), apiVersion.Minor(), ttl, len(xHdrs)/2, xHdrLenFn, writeXHdrFn, 0, nil, 0, nil, 0, 0, nil)
+}
+
+func newXHeadersLengthFunc(xHdrs []string) protoencoding.RepeatedMessageLenFunc {
+	return func(i int) int {
+		return protosession.CalculateXHeaderLength(xHdrs[2*i], xHdrs[2*i+1])
+	}
 }

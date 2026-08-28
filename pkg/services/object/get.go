@@ -21,11 +21,10 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
-	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
@@ -487,7 +486,7 @@ func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion version.Versi
 	}
 
 	var err error
-	x.getPartRequest, err = x.server.makeGetECPartRequest(remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo)
+	x.getPartRequest, err = x.server.makeGetECPartRequest(remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, 0, 0, false)
 	if err != nil {
 		return fmt.Errorf("make GET request: %w", err)
 	}
@@ -869,27 +868,37 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool) (mem.Buffer, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
-
-	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
-	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
+	xHdrs := []string{
+		iec.AttributeRuleIdx, ruleIdxStr,
+		iec.AttributePartIdx, partIdxStr,
+	}
 
 	remoteServerAPIVersion = chooseAPIVersionForNewRequest(remoteServerAPIVersion)
 
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(remoteServerAPIVersion, ruleIdxHdrLen, partIdxHdrLen)
+	bodyLen := protoobject.CalculateGetRequestBodyLength(false, rngOff, rngLen, payloadOnly, nil, nil)
+
+	metaHdrLen := calculateRequestMetaHeaderLen(remoteServerAPIVersion, 0, xHdrs)
 
 	verifHdrFldLen := calculateRequestVerificationHeaderFieldLen(remoteServerAPIVersion)
 
-	reqLen := 1 + 1 + getByAddressRequestBodyLen + // first 1 for iprotobuf.TagBytes1
-		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		verifHdrFldLen
+	reqLen := protoencoding.CalculateRequestLength(bodyLen, metaHdrLen, verifHdrFldLen)
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
 
-	err := s.writeGetECPartRequest(buf, cnr, parent, metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr, remoteServerAPIVersion)
+	// body
+	off := protoencoding.WriteRequestBodyTagAndLength(buf, bodyLen)
+	off += protoobject.WriteGetRequestBody(buf[off:], cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil)
+	bodySlice := buf[off-bodyLen : off]
+
+	// meta header
+	off += writeRequestMetaHeaderToRequest(buf[off:], remoteServerAPIVersion, 0, xHdrs)
+
+	// verification header
+	err := s.writeRequestSignatures(buf, off, bodySlice, buf[off-metaHdrLen:off], remoteServerAPIVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -921,7 +930,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(remoteServerAPIVersion versio
 		return req.buffer, nil
 	}
 
-	reqBuf, err := x.server.makeGetECPartRangeRequest(remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, off, ln)
+	reqBuf, err := x.server.makeGetECPartRequest(remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, off, ln, true)
 	if err != nil {
 		// stream is closed by context cancellation
 		return nil, err
@@ -932,148 +941,6 @@ func (x *getECTransport) makeGetECPartRangeRequest(remoteServerAPIVersion versio
 	req.length = ln
 
 	return reqBuf, nil
-}
-
-func (s *Server) makeGetECPartRangeRequest(remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
-	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
-	partIdxStr := strconv.Itoa(partInfo.Index)
-
-	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
-	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
-
-	remoteServerAPIVersion = chooseAPIVersionForNewRequest(remoteServerAPIVersion)
-
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(remoteServerAPIVersion, ruleIdxHdrLen, partIdxHdrLen)
-
-	var rngLen int
-	if off != 0 {
-		rngLen = 1 + protowire.SizeVarint(off) // 1 for iprotobuf.TagVarint1
-	}
-	if ln != 0 {
-		rngLen += 1 + protowire.SizeVarint(ln) // 1 for iprotobuf.TagVarint2
-	}
-
-	bodyLen := getByAddressRequestBodyLen
-
-	if rngLen != 0 {
-		bodyLen += 1 + protowire.SizeBytes(rngLen) // 1 for iprotobuf.TagBytes3
-	}
-
-	// payload_only flag
-	bodyLen += 1 + 1 // 1 for iprotobuf.TagVarint4, 1 for true
-
-	verifHdrFldLen := calculateRequestVerificationHeaderFieldLen(remoteServerAPIVersion)
-
-	reqLen := 1 + protowire.SizeBytes(bodyLen) + // 1 for iprotobuf.TagBytes1
-		1 + protowire.SizeBytes(metaHdrLen) + // 1 for iprotobuf.TagBytes2
-		verifHdrFldLen
-
-	// TODO: try with sync.Pool
-	buf := make([]byte, reqLen)
-
-	err := s.writeGetECPartRangeRequest(buf, bodyLen, cnr, parent, rngLen, off, ln,
-		metaHdrLen, ruleIdxHdrLen, ruleIdxStr, partIdxHdrLen, partIdxStr, remoteServerAPIVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	return mem.SliceBuffer(buf), nil
-}
-
-func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string, apiVersion version.Version) error {
-	// body
-	buf[0] = iprotobuf.TagBytes1
-	buf[1] = getByAddressRequestBodyLen
-	buf[2] = iprotobuf.TagBytes1 // address
-	buf[3] = iprotobuf.ObjectAddressLength
-	buf[4] = iprotobuf.TagBytes1 // CID
-	buf[5] = iprotobuf.ContainerIDLength
-	buf[6] = iprotobuf.TagBytes1 // value
-	buf[7] = cid.Size
-	copy(buf[8:], cnr[:])
-	buf[40] = iprotobuf.TagBytes2 // OID
-	buf[41] = iprotobuf.ObjectIDLength
-	buf[42] = iprotobuf.TagBytes1 // value
-	buf[43] = oid.Size
-	copy(buf[44:], parent[:])
-
-	// meta header
-	buf[76] = iprotobuf.TagBytes2
-	off := 77 + binary.PutUvarint(buf[77:], uint64(metaHdrLen))
-
-	from := off
-
-	off += protorefs.WriteVersionField(buf[off:], protosession.FieldRequestMetaHeaderVersion, apiVersion.Major(), apiVersion.Minor())
-	off += writeRequestMetaXHeader(buf[off:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
-	off += writeRequestMetaXHeader(buf[off:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
-
-	// verification header
-	return s.writeRequestSignatures(buf, off, buf[2:76], buf[from:off], apiVersion)
-}
-
-func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID, parent oid.ID, rngLen int, off uint64, ln uint64,
-	metaHdrLen int, ruleIdxHdrLen int, ruleIdxHdr string, partIdxHdrLen int, partIdxHdr string, apiVersion version.Version) error {
-	// body
-	buf[0] = iprotobuf.TagBytes1
-	n := 1 + binary.PutUvarint(buf[1:], uint64(bodyLen))
-	from := n
-	buf[n] = iprotobuf.TagBytes1 // address
-	n++
-	buf[n] = iprotobuf.ObjectAddressLength
-	n++
-	buf[n] = iprotobuf.TagBytes1 // CID
-	n++
-	buf[n] = iprotobuf.ContainerIDLength
-	n++
-	buf[n] = iprotobuf.TagBytes1 // value
-	n++
-	buf[n] = cid.Size
-	n++
-	n += copy(buf[n:], cnr[:])
-	buf[n] = iprotobuf.TagBytes2 // OID
-	n++
-	buf[n] = iprotobuf.ObjectIDLength
-	n++
-	buf[n] = iprotobuf.TagBytes1 // value
-	n++
-	buf[n] = oid.Size
-	n++
-	n += copy(buf[n:], parent[:])
-	if rngLen != 0 {
-		buf[n] = iprotobuf.TagBytes3 // range
-		n++
-		n += binary.PutUvarint(buf[n:], uint64(rngLen))
-		if off != 0 {
-			buf[n] = iprotobuf.TagVarint1
-			n++
-			n += binary.PutUvarint(buf[n:], off)
-		}
-		if ln != 0 {
-			buf[n] = iprotobuf.TagVarint2
-			n++
-			n += binary.PutUvarint(buf[n:], ln)
-		}
-	}
-	buf[n] = iprotobuf.TagVarint4 // payload_only
-	n++
-	buf[n] = 1 // true
-	n++
-
-	body := buf[from:n]
-
-	// meta header
-	buf[n] = iprotobuf.TagBytes2
-	n++
-	n += binary.PutUvarint(buf[n:], uint64(metaHdrLen))
-
-	from = n
-
-	n += protorefs.WriteVersionField(buf[n:], protosession.FieldRequestMetaHeaderVersion, apiVersion.Major(), apiVersion.Minor())
-	n += writeRequestMetaXHeader(buf[n:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
-	n += writeRequestMetaXHeader(buf[n:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
-
-	// verification header
-	return s.writeRequestSignatures(buf, n, body, buf[from:n], apiVersion)
 }
 
 func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, sig, hdr iprotobuf.BuffersSlice, signResponse bool) error {
@@ -1140,12 +1007,6 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	}
 
 	return respStream.SendMsg(respBuf)
-}
-
-func calculateGetECPartRequestMetaHeaderLength(apiVersion version.Version, ruleIdxHdrLen, partIdxHdrLen int) int {
-	return 1 + protowire.SizeBytes(protorefs.CalculateVersionLength(apiVersion.Major(), apiVersion.Minor())) +
-		1 + protowire.SizeBytes(ruleIdxHdrLen) + // 1 for iprotobuf.TagBytes4
-		1 + protowire.SizeBytes(partIdxHdrLen) // 1 for iprotobuf.TagBytes4
 }
 
 func calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen int) int {
