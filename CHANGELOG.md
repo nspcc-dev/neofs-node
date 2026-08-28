@@ -4,7 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
-- Self-signed certificates for TLS gRPC endpoints (#4114)
+- Self-signed certificates for TLS gRPC endpoints (#4114, #4152)
 - `--raw-attributes` output mode in `neofs-cli object head` and `neofs-cli container list-objects`
 - Support for API requests with single signature (#4144)
 
