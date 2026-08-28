@@ -1098,7 +1098,6 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	err = s.handlers.Get(ctx, p)
 	if err != nil {
-		fmt.Println(err)
 		if errors.Is(err, getsvc.ErrResponseStreamFailure) {
 			return err
 		}
@@ -1220,6 +1219,9 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 			bufferedPldLen = prereadPldLen - bufferedPldTagLen
 			fullPayloadBuffered = uint64(bufferedPldLen) == pldLen
 			if fullPayloadBuffered && withHeader {
+				if pldFldOff > hdrTo { // gap happens when EC parent header is <<
+					prefixLen = hdrTo + copy(hdrBuf[hdrTo:], hdrBuf[pldFldOff:prefixLen])
+				}
 				bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:prefixLen])
 				if needSignResp {
 					n, err := s.signResponse(hdrRespBuf.SliceBuffer[bodyf.To:], hdrRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
