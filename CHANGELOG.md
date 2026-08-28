@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 - Optimized GRPC read/write bufferring (#4130)
 - TLS key of SN is now always read from the node wallet instead of configuration (#4131)
 - SN now allocates less to forward SEARCH requests (#4116)
+- SN object GET server now communicates over remote SN API version if it is lower than the local one (#4153)
 
 ### Removed
 - Session token storage migration (#4124)

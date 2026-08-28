@@ -323,6 +323,13 @@ func calculateRequestVerificationHeaderFieldLen(apiVersion version.Version) int 
 	return protoencoding.CalculateRequestVerificationHeaderFieldLength(sigCount * verificationHeaderECDSAWithSHA512SignatureLen)
 }
 
+func chooseAPIVersionForNewRequest(remote version.Version) version.Version {
+	if cur := version.Current(); cur.Compare(remote) < 0 {
+		return cur
+	}
+	return remote
+}
+
 func (s *Server) writeRequestSignatures(reqBuf []byte, bodyWithMetaLen int, body []byte, metaHdr []byte, apiVersion version.Version) error {
 	verCmp := apiVersion.Compare(version.New(2, 25))
 	if verCmp > 0 {

@@ -24,6 +24,8 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
@@ -874,7 +876,9 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cn
 	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
 	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
 
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen)
+	remoteServerAPIVersion = chooseAPIVersionForNewRequest(remoteServerAPIVersion)
+
+	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(remoteServerAPIVersion, ruleIdxHdrLen, partIdxHdrLen)
 
 	verifHdrFldLen := calculateRequestVerificationHeaderFieldLen(remoteServerAPIVersion)
 
@@ -937,7 +941,9 @@ func (s *Server) makeGetECPartRangeRequest(remoteServerAPIVersion version.Versio
 	ruleIdxHdrLen := calculateXHeaderLength(iec.AttributeRuleIdx, ruleIdxStr)
 	partIdxHdrLen := calculateXHeaderLength(iec.AttributePartIdx, partIdxStr)
 
-	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen)
+	remoteServerAPIVersion = chooseAPIVersionForNewRequest(remoteServerAPIVersion)
+
+	metaHdrLen := calculateGetECPartRequestMetaHeaderLength(remoteServerAPIVersion, ruleIdxHdrLen, partIdxHdrLen)
 
 	var rngLen int
 	if off != 0 {
@@ -997,7 +1003,7 @@ func (s *Server) writeGetECPartRequest(buf []byte, cnr cid.ID, parent oid.ID, me
 
 	from := off
 
-	off += copy(buf[off:], currentVersionResponseMetaHeader)
+	off += protorefs.WriteVersionField(buf[off:], protosession.FieldRequestMetaHeaderVersion, apiVersion.Major(), apiVersion.Minor())
 	off += writeRequestMetaXHeader(buf[off:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
 	off += writeRequestMetaXHeader(buf[off:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
 
@@ -1062,7 +1068,7 @@ func (s *Server) writeGetECPartRangeRequest(buf []byte, bodyLen int, cnr cid.ID,
 
 	from = n
 
-	n += copy(buf[n:], currentVersionResponseMetaHeader)
+	n += protorefs.WriteVersionField(buf[n:], protosession.FieldRequestMetaHeaderVersion, apiVersion.Major(), apiVersion.Minor())
 	n += writeRequestMetaXHeader(buf[n:], ruleIdxHdrLen, iec.AttributeRuleIdx, ruleIdxHdr)
 	n += writeRequestMetaXHeader(buf[n:], partIdxHdrLen, iec.AttributePartIdx, partIdxHdr)
 
@@ -1136,8 +1142,8 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	return respStream.SendMsg(respBuf)
 }
 
-func calculateGetECPartRequestMetaHeaderLength(ruleIdxHdrLen, partIdxHdrLen int) int {
-	return len(currentVersionResponseMetaHeader) +
+func calculateGetECPartRequestMetaHeaderLength(apiVersion version.Version, ruleIdxHdrLen, partIdxHdrLen int) int {
+	return 1 + protowire.SizeBytes(protorefs.CalculateVersionLength(apiVersion.Major(), apiVersion.Minor())) +
 		1 + protowire.SizeBytes(ruleIdxHdrLen) + // 1 for iprotobuf.TagBytes4
 		1 + protowire.SizeBytes(partIdxHdrLen) // 1 for iprotobuf.TagBytes4
 }
