@@ -409,12 +409,13 @@ func initCfg(appCfg *config.Config) *cfg {
 	minConnTimeout := appCfg.APIClient.MinConnectionTime
 	pingInterval := appCfg.APIClient.PingInterval
 	pingTimeout := appCfg.APIClient.PingTimeout
+	var selfSignedTLSCert *tls.Certificate
 	if usesSelfSignedTLS(appCfg.GRPC) {
-		c.selfSignedTLSCert, err = selfSignedTLSCertificate(&key.PrivateKey, appCfg.GRPC)
+		selfSignedTLSCert, err = selfSignedTLSCertificate(&key.PrivateKey, appCfg.GRPC)
 		fatalOnErrDetails("generate self-signed TLS certificate", err)
 		c.log.Info("using self-signed TLS certificate")
 	}
-	getClientCertificate := clientCertificateProvider(appCfg.GRPC, &key.PrivateKey, c.selfSignedTLSCert)
+	getClientCertificate := clientCertificateProvider(appCfg.GRPC, &key.PrivateKey, selfSignedTLSCert)
 	// Validate the certificate before serving requests so that it is trusted by peer SNs.
 	if getClientCertificate != nil {
 		_, err = getClientCertificate(nil)
@@ -432,6 +433,7 @@ func initCfg(appCfg *config.Config) *cfg {
 		putClientCache:    newClientCache("put"),
 		persistate:        persistate,
 		privateTokenStore: persistate,
+		selfSignedTLSCert: selfSignedTLSCert,
 	}
 	c.cfgBalance = cfgBalance{
 		parsers:     make(map[event.Type]event.NotificationParser),
