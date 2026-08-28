@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - SN accepted REPLICATE requests after removal from container placement (#4133)
 - `neofs-cli container get-eacl` and `neofs-cli session create-v2` no longer print non-JSON text before JSON output (#4129)
 - Policer no longer removes tombstone objects from backup container storage nodes (#3587)
+- Inconsistent object list in EC containers during Search (#4151)
 
 ### Changed
 - SNs exchange TLS certificates on inter-node connections (#4097)

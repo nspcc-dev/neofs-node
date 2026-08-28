@@ -42,7 +42,7 @@ func iterateSearchableContainerNodes(nodeSets [][]netmap.NodeInfo, repRules []ui
 				rand.Shuffle(len(nodeSet), func(i, j int) {
 					nodeSet[i], nodeSet[j] = nodeSet[j], nodeSet[i]
 				})
-				nodeSet = nodeSet[:requiredN]
+				nodeSet = nodeSet[:searchN]
 			}
 		}
 		for _, node := range nodeSet {
