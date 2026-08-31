@@ -23,7 +23,7 @@ Changelog for NeoFS Node
 - SN no longer adds origin signature to EC requests sent to remote nodes with API >= v2.25 (#4118)
 - SN now allocates less to handle ranged GET requests (#4115)
 - SN responds with server's API version only if it is older than client (#4110)
-- SNs no longer sign TTL=1 requests over mutually authenticated inter-node connections (#4100)
+- SNs no longer sign TTL=1 requests over mutually authenticated inter-node connections (#4100, #4159)
 - Optimized GRPC read/write bufferring (#4130)
 - TLS key of SN is now always read from the node wallet instead of configuration (#4131)
 - SN now allocates less to forward SEARCH requests (#4116)
