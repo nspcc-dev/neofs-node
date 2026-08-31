@@ -33,6 +33,8 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
+var getRequestBufferPool = mem.DefaultBufferPool()
+
 var (
 	getStreamDesc = &grpc.StreamDesc{
 		StreamName:    "Get",
@@ -324,7 +326,7 @@ func (x *getProxyContext) handleChunkResponse(streamProg *getStreamProgress, res
 type preparedRangeRequest struct {
 	offset uint64
 	length uint64
-	buffer mem.Buffer
+	buffer *[]byte
 }
 
 type getECTransport struct {
@@ -334,15 +336,20 @@ type getECTransport struct {
 	signResponses    bool
 	responseStream   grpc.ServerStream
 
-	getPartRequest     mem.Buffer
-	getPartRequestInfo iec.PartInfo
+	getPartRequest          *[]byte
+	getPartRequestRuleIndex int
 
 	getPartRangeRequestsMtx sync.RWMutex
 	getPartRangeRequests    map[iec.PartInfo]*preparedRangeRequest
 }
 
-// CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+// CopyECParentHeaderAndPayloadFromLocalFirstPart implements [getsvc.GetECRequestTransport].
+func (x *getECTransport) CopyECParentHeaderAndPayloadFromLocalFirstPart(ctx context.Context, storage *engine.StorageEngine, ruleIdx int) (bool, uint64, uint64, uint64, error) {
+	partInfo := iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     0,
+	}
+
 	logError := func(msg string, err error) {
 		x.server.log.Warn(msg, zap.Stringer("container", x.requestContainer), zap.Stringer("parent", x.requestObject),
 			zap.Int("ruleIdx", partInfo.RuleIndex), zap.Int("partIdx", partInfo.Index), zap.Error(err))
@@ -480,9 +487,14 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	return ln, nil
 }
 
-func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion version.Version, partInfo iec.PartInfo) error {
-	if x.getPartRequestInfo == partInfo && x.getPartRequest != nil {
+func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion version.Version, ruleIdx int) error {
+	if x.getPartRequestRuleIndex == ruleIdx && x.getPartRequest != nil {
 		return nil
+	}
+
+	partInfo := iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     0,
 	}
 
 	var err error
@@ -491,13 +503,13 @@ func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion version.Versi
 		return fmt.Errorf("make GET request: %w", err)
 	}
 
-	x.getPartRequestInfo = partInfo
+	x.getPartRequestRuleIndex = ruleIdx
 
 	return nil
 }
 
-// CopyRemoteECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+// CopyECParentHeaderAndPayloadFromRemoteFirstPart implements [getsvc.GetECRequestTransport].
+func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx context.Context, conn clientcore.MultiAddressClient, ruleIdx int) (bool, uint64, uint64, uint64, error) {
 	var copiedHdr bool
 	var parentPldLen uint64
 	var partPldLen uint64
@@ -508,21 +520,30 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		if !copiedHdr {
-			if err := x.initGetPartRequest(connAPIVersion, partInfo); err != nil {
+			if err := x.initGetPartRequest(connAPIVersion, ruleIdx); err != nil {
 				return err
 			}
 
 			var err error
 			copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = x.copyRemotePart(ctx, conn)
 			if err != nil {
+				getRequestBufferPool.Put(x.getPartRequest)
 				return err
 			}
 
-			if copiedHdr && copiedPartPld == partPldLen {
-				return nil
+			if copiedHdr {
+				getRequestBufferPool.Put(x.getPartRequest)
+				if copiedPartPld == partPldLen {
+					return nil
+				}
 			}
 
 			return clientcore.ErrSkipConnection
+		}
+
+		partInfo := iec.PartInfo{
+			RuleIndex: ruleIdx,
+			Index:     0,
 		}
 
 		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, connAPIVersion, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
@@ -552,7 +573,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stream, err := callGet(ctx, conn, x.getPartRequest)
+	stream, err := callGet(ctx, conn, mem.SliceBuffer(*x.getPartRequest))
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
@@ -658,10 +679,19 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 		return 0, fmt.Errorf("make request: %w", err)
 	}
 
+	copied, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, ln, controlCh)
+	if err != nil || copied == ln {
+		getRequestBufferPool.Put(request)
+	}
+
+	return copied, err
+}
+
+func (x *getECTransport) copyRemotePartRangeWithRequest(ctx context.Context, conn *grpc.ClientConn, request *[]byte, ln uint64, controlCh <-chan bool) (uint64, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stream, err := callGet(ctx, conn, request)
+	stream, err := callGet(ctx, conn, mem.SliceBuffer(*request))
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
@@ -868,7 +898,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool) (*[]byte, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 	xHdrs := []string{
@@ -886,8 +916,8 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cn
 
 	reqLen := protoencoding.CalculateRequestBodyWithMetaHeaderLength(bodyLen, metaHdrLen) + verifHdrFldLen
 
-	// TODO: try with sync.Pool
-	buf := make([]byte, reqLen)
+	bufItem := getRequestBufferPool.Get(reqLen)
+	buf := *bufItem
 
 	// body
 	off := protoencoding.WriteRequestBodyTagAndLength(buf, bodyLen)
@@ -903,10 +933,10 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cn
 		return nil, err
 	}
 
-	return mem.SliceBuffer(buf), nil
+	return bufItem, nil
 }
 
-func (x *getECTransport) makeGetECPartRangeRequest(remoteServerAPIVersion version.Version, partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
+func (x *getECTransport) makeGetECPartRangeRequest(remoteServerAPIVersion version.Version, partInfo iec.PartInfo, off, ln uint64) (*[]byte, error) {
 	x.getPartRangeRequestsMtx.RLock()
 	req := x.getPartRangeRequests[partInfo]
 	x.getPartRangeRequestsMtx.RUnlock()

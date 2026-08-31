@@ -70,10 +70,11 @@ var ErrUnavailableNode = errors.New("unavailable node")
 
 // GetECRequestTransport is used to serve GET requests for EC objects.
 type GetECRequestTransport interface {
-	// CopyRemoteECPartParentHeaderAndPayload requests originally requested object's
-	// EC part identified by partInfo from remote storage node using conn to it. If
-	// succeeded, CopyRemoteECPartParentHeaderAndPayload sends parent header and
-	// part payload to the client, and returns:
+	// CopyECParentHeaderAndPayloadFromRemoteFirstPart requests originally requested
+	// object's first EC part identified by EC rule index from remote storage node
+	// using conn to it. If succeeded,
+	// CopyECParentHeaderAndPayloadFromRemoteFirstPart sends parent header and part
+	// payload to the client, and returns:
 	//  - flag whether parent header was copied or not;
 	//  - payload length of original requested object in bytes;
 	//  - payload length of part object in bytes;
@@ -82,7 +83,7 @@ type GetECRequestTransport interface {
 	// If response stream fails, [ErrResponseStreamFailure] is returned.
 	//
 	// If the node responds with split object info,
-	// CopyRemoteECPartParentHeaderAndPayload converts it to
+	// CopyECParentHeaderAndPayloadFromRemoteFirstPart converts it to
 	// [*object.SplitInfoError] and returns.
 	//
 	// If the node responds with any failure status other than 'not found', the
@@ -92,10 +93,13 @@ type GetECRequestTransport interface {
 	//
 	// Otherwise, no error is returned. Copying can be incomplete in this case.
 	//
-	// CopyRemoteECPartParentHeaderAndPayload is never called concurrently.
-	CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
-	// CopyLocalECPartParentHeaderAndPayload works like CopyRemoteECPartParentHeaderAndPayload but locally.
-	CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error)
+	// CopyECParentHeaderAndPayloadFromRemoteFirstPart is never called concurrently.
+	//
+	// Once CopyECParentHeaderAndPayloadFromRemoteFirstPart returns an error or set
+	// copied header flag, it's no longer called.
+	CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx context.Context, conn clientcore.MultiAddressClient, ruleIdx int) (bool, uint64, uint64, uint64, error)
+	// CopyECParentHeaderAndPayloadFromLocalFirstPart works like CopyECParentHeaderAndPayloadFromRemoteFirstPart but locally.
+	CopyECParentHeaderAndPayloadFromLocalFirstPart(ctx context.Context, storage *engine.StorageEngine, ruleIdx int) (bool, uint64, uint64, uint64, error)
 	// CopyRemoteECPartRange requests specified payload range of originally
 	// requested object's EC part identified by partInfo pair from remote storage
 	// node using conn to it. If succeeded, CopyRemoteECPartRange sends with payload
@@ -117,6 +121,9 @@ type GetECRequestTransport interface {
 	//
 	// CopyRemoteECPartRange can be called concurrently for different partInfo, but
 	// never for the same one.
+	//
+	// Once CopyRemoteECPartRange returns an error or requested range is fully
+	// copied, it's no longer called for the same part.
 	CopyRemoteECPartRange(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, full bool, controlCh <-chan bool) (uint64, error)
 	// CopyLocalECPartRange works like CopyRemoteECPartRange but locally.
 	CopyLocalECPartRange(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, ch <-chan bool) (uint64, error)
