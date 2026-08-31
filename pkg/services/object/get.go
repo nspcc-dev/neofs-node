@@ -334,15 +334,20 @@ type getECTransport struct {
 	signResponses    bool
 	responseStream   grpc.ServerStream
 
-	getPartRequest     mem.Buffer
-	getPartRequestInfo iec.PartInfo
+	getPartRequest          mem.Buffer
+	getPartRequestRuleIndex int
 
 	getPartRangeRequestsMtx sync.RWMutex
 	getPartRangeRequests    map[iec.PartInfo]*preparedRangeRequest
 }
 
-// CopyLocalECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyLocalECPartParentHeaderAndPayload(ctx context.Context, storage *engine.StorageEngine, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+// CopyECParentHeaderAndPayloadFromLocalFirstPart implements [getsvc.GetECRequestTransport].
+func (x *getECTransport) CopyECParentHeaderAndPayloadFromLocalFirstPart(ctx context.Context, storage *engine.StorageEngine, ruleIdx int) (bool, uint64, uint64, uint64, error) {
+	partInfo := iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     0,
+	}
+
 	logError := func(msg string, err error) {
 		x.server.log.Warn(msg, zap.Stringer("container", x.requestContainer), zap.Stringer("parent", x.requestObject),
 			zap.Int("ruleIdx", partInfo.RuleIndex), zap.Int("partIdx", partInfo.Index), zap.Error(err))
@@ -480,9 +485,14 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	return ln, nil
 }
 
-func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion version.Version, partInfo iec.PartInfo) error {
-	if x.getPartRequestInfo == partInfo && x.getPartRequest != nil {
+func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion version.Version, ruleIdx int) error {
+	if x.getPartRequestRuleIndex == ruleIdx && x.getPartRequest != nil {
 		return nil
+	}
+
+	partInfo := iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     0,
 	}
 
 	var err error
@@ -491,13 +501,13 @@ func (x *getECTransport) initGetPartRequest(remoteServerAPIVersion version.Versi
 		return fmt.Errorf("make GET request: %w", err)
 	}
 
-	x.getPartRequestInfo = partInfo
+	x.getPartRequestRuleIndex = ruleIdx
 
 	return nil
 }
 
-// CopyRemoteECPartParentHeaderAndPayload implements [getsvc.GetECRequestTransport].
-func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Context, conn clientcore.MultiAddressClient, partInfo iec.PartInfo) (bool, uint64, uint64, uint64, error) {
+// CopyECParentHeaderAndPayloadFromRemoteFirstPart implements [getsvc.GetECRequestTransport].
+func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx context.Context, conn clientcore.MultiAddressClient, ruleIdx int) (bool, uint64, uint64, uint64, error) {
 	var copiedHdr bool
 	var parentPldLen uint64
 	var partPldLen uint64
@@ -508,7 +518,7 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		if !copiedHdr {
-			if err := x.initGetPartRequest(connAPIVersion, partInfo); err != nil {
+			if err := x.initGetPartRequest(connAPIVersion, ruleIdx); err != nil {
 				return err
 			}
 
@@ -523,6 +533,11 @@ func (x *getECTransport) CopyRemoteECPartParentHeaderAndPayload(ctx context.Cont
 			}
 
 			return clientcore.ErrSkipConnection
+		}
+
+		partInfo := iec.PartInfo{
+			RuleIndex: ruleIdx,
+			Index:     0,
 		}
 
 		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, connAPIVersion, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)

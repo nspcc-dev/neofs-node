@@ -1518,7 +1518,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 
 		if !copiedHdr {
 			if local {
-				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyLocalECPartParentHeaderAndPayload(ctx, s.localObjects.(*engine.StorageEngine), partInfo)
+				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyECParentHeaderAndPayloadFromLocalFirstPart(ctx, s.localObjects.(*engine.StorageEngine), ruleIdx)
 			} else {
 				conn, connErr := s.conns.(*clientCacheWrapper).connect(ctx, sortedNodes[nodeIdx])
 				if connErr != nil {
@@ -1530,7 +1530,7 @@ func (s *Service) streamFirstECPart(ctx context.Context, transport GetECRequestT
 					continue
 				}
 
-				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyRemoteECPartParentHeaderAndPayload(ctx, conn, partInfo)
+				copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = transport.CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx, conn, ruleIdx)
 			}
 			if err != nil {
 				return false, 0, 0, 0, err
