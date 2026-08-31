@@ -33,6 +33,8 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
+var getRequestBufferPool = mem.DefaultBufferPool()
+
 var (
 	getStreamDesc = &grpc.StreamDesc{
 		StreamName:    "Get",
@@ -324,7 +326,7 @@ func (x *getProxyContext) handleChunkResponse(streamProg *getStreamProgress, res
 type preparedRangeRequest struct {
 	offset uint64
 	length uint64
-	buffer mem.Buffer
+	buffer *[]byte
 }
 
 type getECTransport struct {
@@ -334,7 +336,7 @@ type getECTransport struct {
 	signResponses    bool
 	responseStream   grpc.ServerStream
 
-	getPartRequest          mem.Buffer
+	getPartRequest          *[]byte
 	getPartRequestRuleIndex int
 
 	getPartRangeRequestsMtx sync.RWMutex
@@ -525,11 +527,15 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx con
 			var err error
 			copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = x.copyRemotePart(ctx, conn)
 			if err != nil {
+				getRequestBufferPool.Put(x.getPartRequest)
 				return err
 			}
 
-			if copiedHdr && copiedPartPld == partPldLen {
-				return nil
+			if copiedHdr {
+				getRequestBufferPool.Put(x.getPartRequest)
+				if copiedPartPld == partPldLen {
+					return nil
+				}
 			}
 
 			return clientcore.ErrSkipConnection
@@ -567,7 +573,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stream, err := callGet(ctx, conn, x.getPartRequest)
+	stream, err := callGet(ctx, conn, mem.SliceBuffer(*x.getPartRequest))
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
@@ -673,10 +679,19 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 		return 0, fmt.Errorf("make request: %w", err)
 	}
 
+	copied, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, ln, controlCh)
+	if err != nil || copied == ln {
+		getRequestBufferPool.Put(request)
+	}
+
+	return copied, err
+}
+
+func (x *getECTransport) copyRemotePartRangeWithRequest(ctx context.Context, conn *grpc.ClientConn, request *[]byte, ln uint64, controlCh <-chan bool) (uint64, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stream, err := callGet(ctx, conn, request)
+	stream, err := callGet(ctx, conn, mem.SliceBuffer(*request))
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
 		if errors.Is(err, ctx.Err()) {
@@ -883,7 +898,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool) (mem.Buffer, error) {
+func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool) (*[]byte, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 	xHdrs := []string{
@@ -901,8 +916,8 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cn
 
 	reqLen := protoencoding.CalculateRequestBodyWithMetaHeaderLength(bodyLen, metaHdrLen) + verifHdrFldLen
 
-	// TODO: try with sync.Pool
-	buf := make([]byte, reqLen)
+	bufItem := getRequestBufferPool.Get(reqLen)
+	buf := *bufItem
 
 	// body
 	off := protoencoding.WriteRequestBodyTagAndLength(buf, bodyLen)
@@ -918,10 +933,10 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cn
 		return nil, err
 	}
 
-	return mem.SliceBuffer(buf), nil
+	return bufItem, nil
 }
 
-func (x *getECTransport) makeGetECPartRangeRequest(remoteServerAPIVersion version.Version, partInfo iec.PartInfo, off, ln uint64) (mem.Buffer, error) {
+func (x *getECTransport) makeGetECPartRangeRequest(remoteServerAPIVersion version.Version, partInfo iec.PartInfo, off, ln uint64) (*[]byte, error) {
 	x.getPartRangeRequestsMtx.RLock()
 	req := x.getPartRangeRequests[partInfo]
 	x.getPartRangeRequestsMtx.RUnlock()
