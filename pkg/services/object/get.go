@@ -884,7 +884,7 @@ func (s *Server) makeGetECPartRequest(remoteServerAPIVersion version.Version, cn
 
 	verifHdrFldLen := calculateRequestVerificationHeaderFieldLen(remoteServerAPIVersion)
 
-	reqLen := protoencoding.CalculateRequestLength(bodyLen, metaHdrLen, verifHdrFldLen)
+	reqLen := protoencoding.CalculateRequestBodyWithMetaHeaderLength(bodyLen, metaHdrLen) + verifHdrFldLen
 
 	// TODO: try with sync.Pool
 	buf := make([]byte, reqLen)
