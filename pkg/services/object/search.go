@@ -59,9 +59,9 @@ func (s *Server) forwardSearchRequest(ctx context.Context, req *protoobject.Sear
 
 	reqLen := protoencoding.CalculateRequestLength(bodyLen, metaHdrLen, verifHdrLen)
 
-	butItem := searchRequestBufferPool.Get(reqLen)
-	defer searchRequestBufferPool.Put(butItem)
-	buf := *butItem
+	bufItem := searchRequestBufferPool.Get(reqLen)
+	defer searchRequestBufferPool.Put(bufItem)
+	buf := *bufItem
 
 	off := protoencoding.WriteRequestBodyMessage(buf, req.Body)
 	off += protoencoding.WriteRequestMetaHeaderMessage(buf[off:], req.MetaHeader)
