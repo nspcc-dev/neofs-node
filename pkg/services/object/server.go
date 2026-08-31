@@ -713,9 +713,20 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 	var forwardResp mem.BufferSlice
 
+	var forwardReqBufItem *[]byte
+	defer func() {
+		if forwardReqBufItem != nil {
+			headRequestBufferPool.Put(forwardReqBufItem)
+		}
+	}()
+
 	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
+		if forwardReqBufItem == nil {
+			forwardReqBufItem = encodeRequestProtobuf(headRequestBufferPool, req.Body, req.MetaHeader, req.VerifyHeader)
+		}
+
 		var err error
-		forwardResp, err = forwardHeadRequest(ctx, req, node)
+		forwardResp, err = forwardHeadRequest(ctx, mem.SliceBuffer(*forwardReqBufItem), node)
 		return err
 	})
 
@@ -1083,8 +1094,19 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(req, gStream, err, needSignResp)
 	}
 
+	var forwardReqBufItem *[]byte
+	defer func() {
+		if forwardReqBufItem != nil {
+			getRequestBufferPool.Put(forwardReqBufItem)
+		}
+	}()
+
 	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
-		return forwardGetRequest(ctx, req, gStream, node)
+		if forwardReqBufItem == nil {
+			forwardReqBufItem = encodeRequestProtobuf(getRequestBufferPool, req.Body, req.MetaHeader, req.VerifyHeader)
+		}
+
+		return forwardGetRequest(ctx, mem.SliceBuffer(*forwardReqBufItem), gStream, node)
 	})
 
 	p.WithECTransport(&getECTransport{

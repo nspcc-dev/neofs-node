@@ -15,6 +15,7 @@ import (
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
@@ -339,4 +340,21 @@ func (s *Server) writeRequestSignatures(reqBuf []byte, bodyWithMetaLen int, body
 	protosession.WriteMultiSignatureRequestVerificationHeaderToRequest(reqBuf[bodyWithMetaLen:], s.pubKeyBytes, neofscrypto.ECDSA_SHA512, bodySig, metaSig, originSig)
 
 	return nil
+}
+
+func encodeRequestProtobuf(pool mem.BufferPool, body protoencoding.Message, metaHdr protoencoding.Message, verifHdr protoencoding.Message) *[]byte {
+	bodyLen := body.MarshaledSize()
+	metaHdrLen := metaHdr.MarshaledSize()
+	verifHdrLen := verifHdr.MarshaledSize()
+
+	reqLen := protoencoding.CalculateRequestLength(bodyLen, metaHdrLen, verifHdrLen)
+
+	bufItem := pool.Get(reqLen)
+
+	buf := *bufItem
+	off := protoencoding.WriteRequestBodyMessage(buf, body)
+	off += protoencoding.WriteRequestMetaHeaderMessage(buf[off:], metaHdr)
+	protoencoding.WriteRequestVerificationHeaderMessage(buf[off:], verifHdr)
+
+	return bufItem
 }
