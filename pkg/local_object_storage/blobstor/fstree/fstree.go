@@ -510,10 +510,14 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 }
 
 // GetStream returns an object from the storage by address as a stream.
-// It returns the object with header only, and a reader for the payload.
-// On success, the reader is non-nil and must be closed;
-// a nil reader is only returned with a non‑nil error.
-func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
+// It returns the object with header only and a seekable reader for the payload.
+// The reader only supports forward seeking with io.SeekStart and io.SeekCurrent.
+// Its initial position, and position 0 from io.SeekStart, are at the beginning
+// of the payload, not at the beginning of the physical object file. Seeking
+// from io.SeekEnd is not supported.
+// On success, the reader is non-nil and must be closed; a nil reader is only
+// returned with a non‑nil error.
+func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadSeekCloser, error) {
 	obj, reader, err := t.getObjectStream(addr)
 	if err != nil {
 		return nil, nil, err
