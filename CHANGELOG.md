@@ -35,8 +35,8 @@ Changelog for NeoFS Node
 - Support for deprecated container contract calls and notifications in IR (#4141)
 
 ### Updated
-- `github.com/nspcc-dev/neo-go` module to `v0.122.1-0.20260807115931-cfee8827ddfd` (#4123)
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.21.0.20260826165415-15812e94109e` (#4123, #4144, #4116)
+- `github.com/nspcc-dev/neo-go` module to v0.123.0 (#4123, #4162)
+- `github.com/nspcc-dev/neofs-sdk-go` module to v1.0.0-rc.22 (#4123, #4144, #4116, #4162)
 - Go 1.26+ is required to build now (#3816)
 - github.com/cheggaaa/pb dependency from v1.0.29 to v3.2.1 (#4135)
 - `github.com/klauspost/compress` dependency from v1.18.4 to v1.19.2 (#4135)
