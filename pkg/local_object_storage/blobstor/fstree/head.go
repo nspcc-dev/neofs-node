@@ -192,7 +192,7 @@ func (t *FSTree) getObjectStream(addr oid.Address) (*object.Object, io.ReadSeekC
 		return nil, nil, fmt.Errorf("extract object stream from %q: %w", p, err)
 	}
 
-	return obj, reader, nil
+	return obj, newPayloadReadSeekCloser(reader), nil
 }
 
 // extractHeaderAndStream reads the header of an object from a file.
