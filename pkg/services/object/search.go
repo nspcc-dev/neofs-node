@@ -12,15 +12,12 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
 )
-
-var searchRequestBufferPool = mem.DefaultBufferPool()
 
 func iterateSearchableContainerNodes(nodeSets [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule, allNodes bool, f func(netmap.NodeInfo) bool) {
 	for i := range nodeSets {
@@ -53,19 +50,9 @@ func iterateSearchableContainerNodes(nodeSets [][]netmap.NodeInfo, repRules []ui
 }
 
 func (s *Server) forwardSearchRequest(ctx context.Context, req *protoobject.SearchV2Request, nodeSets [][]netmap.NodeInfo) (mem.BufferSlice, error) {
-	bodyLen := req.Body.MarshaledSize()
-	metaHdrLen := req.MetaHeader.MarshaledSize()
-	verifHdrLen := req.VerifyHeader.MarshaledSize()
-
-	reqLen := protoencoding.CalculateRequestLength(bodyLen, metaHdrLen, verifHdrLen)
-
-	bufItem := searchRequestBufferPool.Get(reqLen)
-	defer searchRequestBufferPool.Put(bufItem)
+	bufItem := encodeRequestProtobuf(req.Body, req.MetaHeader, req.VerifyHeader)
+	defer defaultGRPCBufferPool.Put(bufItem)
 	buf := *bufItem
-
-	off := protoencoding.WriteRequestBodyMessage(buf, req.Body)
-	off += protoencoding.WriteRequestMetaHeaderMessage(buf[off:], req.MetaHeader)
-	protoencoding.WriteRequestVerificationHeaderMessage(buf[off:], req.VerifyHeader)
 
 	reqBuf := mem.SliceBuffer(buf)
 

@@ -21,7 +21,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
@@ -32,8 +31,6 @@ import (
 	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/encoding/protowire"
 )
-
-var getRequestBufferPool = mem.DefaultBufferPool()
 
 var (
 	getStreamDesc = &grpc.StreamDesc{
@@ -87,7 +84,7 @@ func callRange(ctx context.Context, conn *grpc.ClientConn, request any) (grpc.Cl
 //   - [apistatus.ErrObjectNotFound] on 404 status
 //   - nil on other API statuses
 //   - any other transport/protocol error otherwise
-func (x *getProxyContext) continueWithConn(ctx context.Context, req *protoobject.GetRequest, conn *grpc.ClientConn) error {
+func (x *getProxyContext) continueWithConn(ctx context.Context, req mem.Buffer, body *protoobject.GetRequest_Body, conn *grpc.ClientConn) error {
 	stream, err := callGet(ctx, conn, req)
 	if err != nil {
 		return err
@@ -98,12 +95,12 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, req *protoobject
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
 			if errors.Is(err, io.EOF) {
-				return x.validateEOF(req.Body, prog)
+				return x.validateEOF(body, prog)
 			}
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		fin, sent, err := x.handleGetResponse(ctx, req.Body.Raw, &prog, respBuf)
+		fin, sent, err := x.handleGetResponse(ctx, body.Raw, &prog, respBuf)
 		if !sent {
 			respBuf.Free()
 		}
@@ -542,12 +539,12 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx con
 
 			copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = x.copyRemotePart(ctx, conn, req)
 			if err != nil {
-				getRequestBufferPool.Put(x.getPartRequest)
+				defaultGRPCBufferPool.Put(x.getPartRequest)
 				return err
 			}
 
 			if copiedHdr {
-				getRequestBufferPool.Put(x.getPartRequest)
+				defaultGRPCBufferPool.Put(x.getPartRequest)
 				if copiedPartPld == partPldLen {
 					return nil
 				}
@@ -696,7 +693,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 
 	copied, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, ln, controlCh)
 	if err != nil || copied == ln {
-		getRequestBufferPool.Put(request)
+		defaultGRPCBufferPool.Put(request)
 	}
 
 	return copied, err
@@ -927,35 +924,16 @@ func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion vers
 
 	bodyLen := protoobject.CalculateGetRequestBodyLength(false, rngOff, rngLen, payloadOnly, nil, nil)
 
-	metaHdrLen := calculateRequestMetaHeaderLen(remoteServerAPIVersion, 1, xHdrs)
-
-	reqLen := protoencoding.CalculateRequestBodyWithMetaHeaderLength(bodyLen, metaHdrLen)
+	var sigCount int
 	if needSign {
-		reqLen += calculateRequestVerificationHeaderFieldLen(remoteServerAPIVersion)
+		sigCount = calculateSignatureCountForAPIVersion(remoteServerAPIVersion)
 	}
 
-	bufItem := getRequestBufferPool.Get(reqLen)
-	buf := *bufItem
-
-	// body
-	off := protoencoding.WriteRequestBodyTagAndLength(buf, bodyLen)
-	off += protoobject.WriteGetRequestBody(buf[off:], cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil)
-	bodySlice := buf[off-bodyLen : off]
-
-	// meta header
-	off += writeRequestMetaHeaderToRequest(buf[off:], remoteServerAPIVersion, 1, xHdrs)
-
-	if !needSign {
-		return bufItem, nil
+	writeBodyFn := func(buf []byte) int {
+		return protoobject.WriteGetRequestBody(buf, cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil)
 	}
 
-	// verification header
-	err := s.writeRequestSignatures(buf, off, bodySlice, buf[off-metaHdrLen:off], remoteServerAPIVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	return bufItem, nil
+	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, xHdrs)
 }
 
 func (x *getECTransport) makeGetECPartRangeRequest(needSign bool, remoteServerAPIVersion version.Version, partInfo iec.PartInfo, off, ln uint64) (*[]byte, error) {

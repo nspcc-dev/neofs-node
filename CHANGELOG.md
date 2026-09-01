@@ -26,7 +26,7 @@ Changelog for NeoFS Node
 - SNs no longer sign TTL=1 requests over mutually authenticated inter-node connections (#4100, #4159)
 - Optimized GRPC read/write bufferring (#4130)
 - TLS key of SN is now always read from the node wallet instead of configuration (#4131)
-- SN now allocates less to forward SEARCH requests (#4116)
+- SN now allocates less to forward SEARCH/GET/HEAD requests (#4116, #4160)
 - SN object GET server now communicates over remote SN API version if it is lower than the local one (#4153)
 
 ### Removed

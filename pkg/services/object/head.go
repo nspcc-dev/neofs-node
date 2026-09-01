@@ -28,7 +28,7 @@ func callHead(ctx context.Context, conn *grpc.ClientConn, req any) (mem.BufferSl
 //   - (nil, nil, [apistatus.ErrObjectNotFound]) on 404 status
 //   - (buffered response, nil, nil) on other API statuses
 //   - (nil, nil, err) on any transport err
-func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req *protoobject.HeadRequest, reqOID oid.ID) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
+func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, req mem.Buffer, reqOID oid.ID) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
 	respBuf, err := callHead(ctx, conn, req)
 	if err != nil {
 		return nil, iprotobuf.BuffersSlice{}, err
