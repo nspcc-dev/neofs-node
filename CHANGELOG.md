@@ -4,9 +4,23 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.56.0
+
+## [0.56.0] - 2026-09-01 - Nabdo
+
+### Added
 - Self-signed certificates for TLS gRPC endpoints (#4114, #4152)
-- `--raw-attributes` output mode in `neofs-cli object head` and `neofs-cli container list-objects`
-- Support for API requests with single signature (#4144)
+- `--raw-attributes` output mode in `neofs-cli object head` and `neofs-cli container list-objects` (#4139)
+- Support for API 2.26 requests with single signature (#4144)
 
 ### Fixed
 - SN could panic on forwarding GET/HEAD/RANGE request (#4120)
@@ -26,7 +40,7 @@ Changelog for NeoFS Node
 - SNs no longer sign TTL=1 requests over mutually authenticated inter-node connections (#4100, #4159)
 - Optimized GRPC read/write bufferring (#4130)
 - TLS key of SN is now always read from the node wallet instead of configuration (#4131)
-- SN now allocates less to forward SEARCH/GET/HEAD requests (#4116, #4160)
+- SN now allocates less to forward SEARCH/GET/HEAD requests (#4116, #4160, #4158)
 - SN object GET server now communicates over remote SN API version if it is lower than the local one (#4153)
 
 ### Removed
@@ -52,15 +66,16 @@ Changelog for NeoFS Node
 
 ### Updating from v0.55.0
 Session token storage migration introduced in v0.52.0 has been removed.
-Storage nodes updating from versions earlier than v0.52.0 must first update to
-a v0.52.0-v0.55.0 release and let the migration complete before updating to
-this release.
+Storage nodes updating from versions earlier than v0.52.0 must first update
+to a v0.52.0-v0.55.0 release and let the migration complete before updating
+to this release.
 
 Metabase migrations for versions 8 and 9 introduced in NeoFS node 0.49.0
 and 0.51.0 were removed from this release, upgrade to 0.55.0 first if using
 earlier versions or resynchronize metabases.
 
-Remove `grpc.tls.key` from the SN configuration: TLS keys are now always read from the node wallet.
+Remove `grpc.tls.key` from SN configurations: TLS keys are now always read
+from the node wallet.
 
 IR won't approve some container operations created by SNs with versions lower
 than 0.51.0, upgrade SNs appropriately.
@@ -3191,7 +3206,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.55.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.56.0...master
+[0.56.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.55.0...v0.56.0
 [0.55.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.52.0...v0.53.0
