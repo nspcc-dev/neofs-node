@@ -288,18 +288,19 @@ func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) 
 	return sig, nil
 }
 
-func calculateRequestVerificationHeaderFieldLen(apiVersion version.Version) int {
-	var sigCount int
-
+func calculateSignatureCountForAPIVersion(apiVersion version.Version) int {
 	switch apiVersion.Compare(version.New(2, 25)) {
 	default:
-		sigCount = 1
+		return 1
 	case -1:
-		sigCount = 3
+		return 3
 	case 0:
-		sigCount = 2
+		return 2
 	}
+}
 
+func calculateRequestVerificationHeaderFieldLen(apiVersion version.Version) int {
+	sigCount := calculateSignatureCountForAPIVersion(apiVersion)
 	return protoencoding.CalculateRequestVerificationHeaderFieldLength(sigCount * verificationHeaderECDSAWithSHA512SignatureLen)
 }
 
@@ -359,4 +360,42 @@ func encodeRequestProtobuf(body protoencoding.Message, metaHdr protoencoding.Mes
 	protoencoding.WriteRequestVerificationHeaderMessage(buf[off:], verifHdr)
 
 	return bufItem
+}
+
+func (s *Server) makeLocalRequestFromBody(sigCount int, remoteServerAPIVersion version.Version, body protoencoding.Message) (*[]byte, error) {
+	bodyLen := body.MarshaledSize()
+	writeBodyFn := protoencoding.WriteStablyMarshalledMessageFunc(body)
+	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, nil)
+}
+
+func (s *Server) makeLocalRequest(sigCount int, remoteServerAPIVersion version.Version, bodyLen int, writeBodyFn protoencoding.WriteMessageFunc, xHeaders []string) (*[]byte, error) {
+	metaHdrLen := calculateRequestMetaHeaderLen(remoteServerAPIVersion, 1, xHeaders)
+
+	reqLen := protoencoding.CalculateRequestBodyWithMetaHeaderLength(bodyLen, metaHdrLen)
+	if sigCount > 0 {
+		reqLen += protoencoding.CalculateRequestVerificationHeaderFieldLength(sigCount * verificationHeaderECDSAWithSHA512SignatureLen)
+	}
+
+	bufItem := defaultGRPCBufferPool.Get(reqLen)
+	buf := *bufItem
+
+	// body
+	off := protoencoding.WriteRequestBodyTagAndLength(buf, bodyLen)
+	off += writeBodyFn(buf[off:])
+	bodySlice := buf[off-bodyLen : off]
+
+	// meta header
+	off += writeRequestMetaHeaderToRequest(buf[off:], remoteServerAPIVersion, 1, xHeaders)
+
+	if sigCount == 0 {
+		return bufItem, nil
+	}
+
+	// verification header
+	err := s.writeRequestSignatures(buf, off, bodySlice, buf[off-metaHdrLen:off], remoteServerAPIVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	return bufItem, nil
 }

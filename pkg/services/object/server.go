@@ -703,13 +703,51 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, reqInfo.Container, req, &resp, cnrID, objID, reqMD, s.log)
+	p, err := convertHeadPrm(reqInfo.Container, req, &resp, cnrID, objID, reqMD)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.makeStatusHeadResponse(req, err, needSignResp)
 	}
+
+	var remoteReqBufs [4]*[]byte // index corresponds to signature count
+	defer func() {
+		for i := range remoteReqBufs {
+			if remoteReqBufs[i] != nil {
+				defaultGRPCBufferPool.Put(remoteReqBufs[i])
+			}
+		}
+	}()
+
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
+		cv := c.APIVersion()
+		apiVersion := chooseAPIVersionForNewRequest(version.New(cv.GetMajor(), cv.GetMinor()))
+
+		var sigCount int
+		if !clientcore.IsMutuallyAuthenticated(c) {
+			sigCount = calculateSignatureCountForAPIVersion(apiVersion)
+		}
+
+		if remoteReqBufs[sigCount] == nil {
+			var err error
+			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, body)
+			if err != nil {
+				return nil, iprotobuf.BuffersSlice{}, fmt.Errorf("make request (signature count = %d): %w", sigCount, err)
+			}
+		}
+
+		var respBuf mem.BufferSlice
+		var hdr iprotobuf.BuffersSlice
+		return respBuf, hdr, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			var err error
+			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, mem.SliceBuffer(*remoteReqBufs[sigCount]), objID)
+			if err != nil {
+				s.log.Debug("failed to get object header from remote node", zap.Error(err))
+			}
+			return err
+		})
+	})
 
 	var forwardResp mem.BufferSlice
 
@@ -829,7 +867,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, cnrID cid.ID, objID oid.ID, reqMD requestMetadata, log *zap.Logger) (getsvc.HeadPrm, error) {
+func convertHeadPrm(cnr container.Container, req *protoobject.HeadRequest, resp *protoobject.HeadResponse, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.HeadPrm, error) {
 	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.HeadPrm
@@ -849,38 +887,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, cnr container.Container, req *proto
 		return getsvc.HeadPrm{}, errors.New("missing meta header")
 	}
 
-	var updatedRequest bool
-
-	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) (mem.BufferSlice, iprotobuf.BuffersSlice, error) {
-		if !updatedRequest {
-			req = &protoobject.HeadRequest{
-				Body: req.Body,
-				MetaHeader: &protosession.RequestMetaHeader{
-					Version: c.APIVersion(),
-					Ttl:     1,
-				},
-			}
-			if shouldSignOutgoingRequest(c, req) {
-				var err error
-				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-				if err != nil {
-					return nil, iprotobuf.BuffersSlice{}, err
-				}
-			}
-			updatedRequest = true
-		}
-
-		var respBuf mem.BufferSlice
-		var hdr iprotobuf.BuffersSlice
-		return respBuf, hdr, c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			var err error
-			respBuf, hdr, err = getHeaderFromRemoteNode(ctx, conn, req, objID)
-			if err != nil {
-				log.Debug("failed to get object header from remote node", zap.Error(err))
-			}
-			return err
-		})
-	})
 	return p, nil
 }
 
@@ -1075,7 +1081,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		recheckEACL = true
 	}
 
-	p, err := convertGetPrm(s.signer, reqInfo.Container, req, &getStream{
+	respStream := &getStream{
 		base:                    gStream,
 		srv:                     s,
 		reqCID:                  cnrID,
@@ -1086,13 +1092,64 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		payloadOnly:             req.GetBody().GetPayloadOnly(),
 		returnVersionInResponse: util.NeedVersionInResponse(req.MetaHeader),
 		sendECPartIndInResponse: sendECPartIdxInResponse(req),
-	}, cnrID, objID, reqMD, s.log)
+	}
+
+	p, err := convertGetPrm(reqInfo.Container, req, respStream, cnrID, objID, reqMD)
 	if err != nil {
 		if !errors.Is(err, apistatus.Error) {
 			err = newBadRequestError(err.Error()) // defer
 		}
 		return s.sendStatusGetResponse(req, gStream, err, needSignResp)
 	}
+
+	proxyCtx := getProxyContext{
+		respStream:   respStream,
+		suppressInit: body.GetPayloadOnly(),
+	}
+	if body.GetExtendedRange() != nil {
+		proxyCtx.resolveRange = p.ResolveRange
+	}
+
+	var remoteReqBufs [4]*[]byte // index corresponds to signature count
+	defer func() {
+		for i := range remoteReqBufs {
+			if remoteReqBufs[i] != nil {
+				defaultGRPCBufferPool.Put(remoteReqBufs[i])
+			}
+		}
+	}()
+
+	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
+		cv := c.APIVersion()
+		apiVersion := chooseAPIVersionForNewRequest(version.New(cv.GetMajor(), cv.GetMinor()))
+
+		var sigCount int
+		if !clientcore.IsMutuallyAuthenticated(c) {
+			sigCount = calculateSignatureCountForAPIVersion(apiVersion)
+		}
+
+		if remoteReqBufs[sigCount] == nil {
+			body := body
+			if proxyCtx.suppressInit {
+				body = proto.Clone(body).(*protoobject.GetRequest_Body)
+				body.PayloadOnly = false
+			}
+
+			var err error
+			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, body)
+			if err != nil {
+				return fmt.Errorf("make request (signature count = %d): %w", sigCount, err)
+			}
+		}
+
+		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			err := proxyCtx.continueWithConn(ctx, mem.SliceBuffer(*remoteReqBufs[sigCount]), body, conn)
+			if err != nil {
+				s.log.Debug("failed to get object from remote node", zap.Error(err))
+			}
+			return err
+		})
+	})
 
 	var forwardReqBufItem *[]byte
 	defer func() {
@@ -1368,7 +1425,7 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRequest, stream *getStream, cnrID cid.ID, objID oid.ID, reqMD requestMetadata, log *zap.Logger) (getsvc.Prm, error) {
+func convertGetPrm(cnr container.Container, req *protoobject.GetRequest, stream *getStream, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.Prm, error) {
 	body := req.GetBody()
 
 	rng := body.GetRange()
@@ -1435,47 +1492,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoo
 		return getsvc.Prm{}, errors.New("missing meta header")
 	}
 
-	proxyCtx := getProxyContext{
-		respStream:   stream,
-		suppressInit: body.GetPayloadOnly(),
-	}
-	if extendedRange != nil {
-		proxyCtx.resolveRange = p.ResolveRange
-	}
-
-	var updatedRequest bool
-
-	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
-		if !updatedRequest {
-			req = &protoobject.GetRequest{
-				Body: req.Body,
-				MetaHeader: &protosession.RequestMetaHeader{
-					Version: c.APIVersion(),
-					Ttl:     1,
-				},
-			}
-			if proxyCtx.suppressInit {
-				req.Body = proto.Clone(req.Body).(*protoobject.GetRequest_Body)
-				req.Body.PayloadOnly = false
-			}
-			if shouldSignOutgoingRequest(c, req) {
-				var err error
-				req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-				if err != nil {
-					return err
-				}
-			}
-			updatedRequest = true
-		}
-
-		return c.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
-			err := proxyCtx.continueWithConn(ctx, req, conn)
-			if err != nil {
-				log.Debug("failed to get object from remote node", zap.Error(err))
-			}
-			return err
-		})
-	})
 	return p, nil
 }
 
@@ -2508,11 +2524,6 @@ func chunkBoundsToSend(global, local, chunkLen int) (int, int) {
 
 func needSignGetResponse(req util.Request) bool {
 	return util.VersionLE(req, 2, 17)
-}
-
-func shouldSignOutgoingRequest(c any, req util.Request) bool {
-	meta := req.GetMetaHeader()
-	return meta == nil || meta.GetTtl() != 1 || !clientcore.IsMutuallyAuthenticated(c)
 }
 
 func checkHeaderProtobufAgainstID(buffers iprotobuf.BuffersSlice, id oid.ID, ordered bool) error {
