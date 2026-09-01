@@ -65,6 +65,38 @@ const (
 	maxObjectSize = 1000
 )
 
+func validateAndStoreObjectLocally(ctx context.Context, svc *Service, obj object.Object) error {
+	err := svc.VerifyObjectHeader(ctx, obj)
+	if err != nil {
+		return err
+	}
+
+	payload := obj.Payload()
+
+	payloadSz := obj.PayloadSize()
+	if payloadSz != uint64(len(payload)) {
+		return ErrWrongPayloadSize
+	}
+
+	err = svc.VerifyObjectContent(ctx, obj)
+	if err != nil {
+		return fmt.Errorf("validate payload content: %w", err)
+	}
+
+	// checksum must be only SHA256, this was checked above
+	h := sha256.Sum256(payload)
+	cs, _ := obj.PayloadChecksum()
+	if !bytes.Equal(h[:], cs.Value()) {
+		return errors.New("payload SHA-256 checksum mismatch")
+	}
+
+	if err = svc.localStore.Put(ctx, &obj, nil); err != nil {
+		return fmt.Errorf("could not put object to local storage: %w", err)
+	}
+
+	return nil
+}
+
 type quotas struct {
 	soft, hard uint64
 }
@@ -1153,7 +1185,7 @@ func (x testPostPlacementReplicator) HandlePostPlacement(obj *object.Object, nod
 	for i := range nodes {
 		svc, err := x.services.lookupNode(nodes[i])
 		require.NoError(x.t, err)
-		require.NoError(x.t, svc.ValidateAndStoreObjectLocally(context.Background(), *obj))
+		require.NoError(x.t, validateAndStoreObjectLocally(context.Background(), svc, *obj))
 	}
 }
 
@@ -1246,7 +1278,7 @@ func (x nodeServices) SendReplicationRequestToNode(ctx context.Context, reqBin [
 		return nil, err
 	}
 
-	if err := svc.ValidateAndStoreObjectLocally(ctx, obj); err != nil {
+	if err := validateAndStoreObjectLocally(ctx, svc, obj); err != nil {
 		return nil, fmt.Errorf("validate and store object locally: %w", err)
 	}
 
@@ -1294,7 +1326,7 @@ func (m *serviceClient) ReplicateObject(ctx context.Context, _ oid.ID, src io.Re
 	if err := obj.FromProtoMessage(&msg); err != nil {
 		return nil, err
 	}
-	return nil, (*Service)(m).ValidateAndStoreObjectLocally(ctx, obj)
+	return nil, validateAndStoreObjectLocally(ctx, (*Service)(m), obj)
 }
 
 func (m *serviceClient) ObjectDelete(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectDelete) (oid.ID, error) {

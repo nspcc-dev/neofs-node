@@ -22,6 +22,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -122,7 +123,13 @@ type noCallTestStorage struct{}
 func (noCallTestStorage) SearchObjects(context.Context, cid.ID, []objectcore.SearchFilter, []string, *objectcore.SearchCursor, uint16) ([]client.SearchResultItem, []byte, error) {
 	panic("must not be called")
 }
-func (noCallTestStorage) VerifyAndStoreObjectLocally(context.Context, object.Object) error {
+func (noCallTestStorage) VerifyObjectHeader(context.Context, object.Object) error {
+	panic("must not be called")
+}
+func (noCallTestStorage) VerifyObjectContent(context.Context, object.Object) error {
+	panic("must not be called")
+}
+func (noCallTestStorage) PutObject(context.Context, object.Object) error {
 	panic("must not be called")
 }
 func (noCallTestStorage) GetSessionPrivateKey(user.ID) (ecdsa.PrivateKey, error) {
@@ -337,14 +344,26 @@ type testStorage struct {
 	// request data
 	obj *protoobject.Object
 	// return
-	storeErr error
+	verifyHeaderErr  error
+	verifyContentErr error
+	storeErr         error
 }
 
 func newTestStorage(t testing.TB, obj *protoobject.Object) *testStorage {
 	return &testStorage{t: t, obj: obj}
 }
 
-func (x *testStorage) VerifyAndStoreObjectLocally(_ context.Context, obj object.Object) error {
+func (x *testStorage) VerifyObjectHeader(_ context.Context, obj object.Object) error {
+	require.Equal(x.t, x.obj, obj.ProtoMessage())
+	return x.verifyHeaderErr
+}
+
+func (x *testStorage) VerifyObjectContent(_ context.Context, obj object.Object) error {
+	require.Equal(x.t, x.obj, obj.ProtoMessage())
+	return x.verifyContentErr
+}
+
+func (x *testStorage) PutObject(_ context.Context, obj object.Object) error {
 	require.Equal(x.t, x.obj, obj.ProtoMessage())
 	return x.storeErr
 }
@@ -353,13 +372,32 @@ func (x *testStorage) GetSessionPrivateKey(user.ID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
 
-func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) (*protoobject.ReplicateRequest, object.Object) {
+func setRandomPayload(obj *object.Object) {
+	payload := testutil.RandByteSlice(1024)
+	obj.SetPayloadSize(uint64(len(payload)))
+	obj.SetPayload(payload)
+}
+
+func anyValidObject(cnr cid.ID, objID oid.ID) object.Object {
 	obj := objecttest.Object()
 	obj.SetType(object.TypeRegular)
 	obj.SetContainerID(cnr)
 	obj.SetID(objID)
 	obj.SetFirstID(oidtest.ID())
 	obj.SetPreviousID(oidtest.ID())
+	setRandomPayload(&obj)
+	obj.CalculateAndSetPayloadChecksum()
+	return obj
+}
+
+func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) (*protoobject.ReplicateRequest, object.Object) {
+	obj := anyValidObject(cnr, objID)
+	req := newReplicateRequestForObject(tb, signer, obj)
+	return req, obj
+}
+
+func newReplicateRequestForObject(tb testing.TB, signer neofscrypto.Signer, obj object.Object) *protoobject.ReplicateRequest {
+	objID := obj.GetID()
 
 	sig, err := signer.Sign(objID[:])
 	require.NoError(tb, err)
@@ -384,7 +422,7 @@ func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID
 		req.Signature.Scheme = refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT
 	}
 
-	return req, obj
+	return req
 }
 
 func TestServer_Replicate(t *testing.T) {
@@ -611,6 +649,64 @@ func TestServer_Replicate(t *testing.T) {
 		require.Zero(t, resp.GetStatus().GetCode())
 	})
 
+	t.Run("header verification failure", func(t *testing.T) {
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		s := newTestStorage(t, req.Object)
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+		s.verifyHeaderErr = errors.New("any error")
+
+		resp, err := srv.Replicate(context.Background(), req)
+		require.NoError(t, err)
+		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
+		require.Equal(t, "failed to verify object header: any error", resp.GetStatus().GetMessage())
+	})
+
+	t.Run("content verification failure", func(t *testing.T) {
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		s := newTestStorage(t, req.Object)
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+		s.verifyContentErr = errors.New("any error")
+
+		resp, err := srv.Replicate(context.Background(), req)
+		require.NoError(t, err)
+		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
+		require.Equal(t, "failed to verify object content: any error", resp.GetStatus().GetMessage())
+	})
+
+	t.Run("invalid payload length", func(t *testing.T) {
+		obj := anyValidObject(cnr, objID)
+		obj.SetPayloadSize(obj.PayloadSize() + 1)
+
+		req := newReplicateRequestForObject(t, clientSigner, obj)
+
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		s := newTestStorage(t, req.Object)
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+		resp, err := srv.Replicate(context.Background(), req)
+		require.NoError(t, err)
+		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
+		require.Equal(t, "invalid object: wrong payload size", resp.GetStatus().GetMessage())
+	})
+
+	t.Run("invalid payload checksum", func(t *testing.T) {
+		obj := anyValidObject(cnr, objID)
+		obj.Payload()[0]++
+
+		req := newReplicateRequestForObject(t, clientSigner, obj)
+
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		s := newTestStorage(t, req.Object)
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+
+		resp, err := srv.Replicate(context.Background(), req)
+		require.NoError(t, err)
+		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
+		require.Equal(t, "invalid object: payload SHA-256 checksum mismatch", resp.GetStatus().GetMessage())
+	})
+
 	t.Run("local storage failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
@@ -621,7 +717,7 @@ func TestServer_Replicate(t *testing.T) {
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
 		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
-		require.Equal(t, "failed to verify and store object locally: any error", resp.GetStatus().GetMessage())
+		require.Equal(t, "failed to store object locally: any error", resp.GetStatus().GetMessage())
 	})
 
 	t.Run("meta information signature", func(t *testing.T) {
@@ -701,6 +797,7 @@ func TestServer_Replicate(t *testing.T) {
 			ecObj.ResetRelations()
 			ecObj.SetParent(&par)
 			ecObj.SetAttributes(object.NewAttribute(iec.AttributeRuleIdx, "1"), object.NewAttribute(iec.AttributePartIdx, "2"))
+			setRandomPayload(&ecObj)
 			require.NoError(t, ecObj.SetVerificationFields(signer))
 			ecID := ecObj.GetID()
 			s.obj = ecObj.ProtoMessage()
@@ -797,7 +894,9 @@ func (nopFSChain) LocalNodeUnderMaintenance() bool { return false }
 
 type nopStorage struct{}
 
-func (nopStorage) VerifyAndStoreObjectLocally(context.Context, object.Object) error { return nil }
+func (nopStorage) VerifyObjectHeader(context.Context, object.Object) error  { return nil }
+func (nopStorage) VerifyObjectContent(context.Context, object.Object) error { return nil }
+func (nopStorage) PutObject(context.Context, object.Object) error           { return nil }
 func (nopStorage) GetSessionPrivateKey(user.ID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }

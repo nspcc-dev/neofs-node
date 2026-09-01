@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -154,14 +155,22 @@ type sessions interface {
 type Storage interface {
 	sessions
 
-	// VerifyAndStoreObjectLocally checks whether given object has correct format
-	// and, if so, saves it in the Storage. StoreObject is called only when local
-	// node complies with the container's storage policy.
-	VerifyAndStoreObjectLocally(context.Context, object.Object) error
+	// VerifyObjectHeader checks whether given object header has correct format.
+	//
+	// Requires payload checksum to be of [checksum.SHA256] type.
+	VerifyObjectHeader(context.Context, object.Object) error
+
+	// VerifyObjectContent makes type-based format check of sealed object.
+	VerifyObjectContent(context.Context, object.Object) error
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
 	SearchObjects(_ context.Context, _ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error)
+
+	// PutObject saves given object.
+	//
+	// Returns [apistatus.Busy] error if storage is currently overloaded.
+	PutObject(ctx context.Context, obj object.Object) error
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -1891,12 +1900,32 @@ func (s *Server) replicate(ctx context.Context, recvReqFn func() (*protoobject.R
 		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, fmt.Sprintf("invalid object field: %v", err))
 	}
 
-	err = s.storage.VerifyAndStoreObjectLocally(ctx, *obj)
+	err = s.storage.VerifyObjectHeader(ctx, *obj)
 	if err != nil {
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to verify object header: %v", err))
+	}
+
+	payload := obj.Payload()
+	if obj.PayloadSize() != uint64(len(payload)) {
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, "invalid object: "+putsvc.ErrWrongPayloadSize.Error())
+	}
+
+	err = s.storage.VerifyObjectContent(ctx, *obj)
+	if err != nil {
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to verify object content: %v", err))
+	}
+
+	// checksum must be only SHA256, this was checked above
+	gotChecksum := sha256.Sum256(payload)
+	if !bytes.Equal(gotChecksum[:], hdr.GetPayloadHash().GetSum()) {
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, "invalid object: payload SHA-256 checksum mismatch")
+	}
+
+	if err = s.storage.PutObject(ctx, *obj); err != nil {
 		if errors.Is(err, apistatus.ErrBusy) {
 			return sendReplicateStructStatusResponse(sendRespFn, apistatus.FromError(err))
 		}
-		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to verify and store object locally: %v", err))
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to store object locally: %v", err))
 	}
 
 	resp := new(protoobject.ReplicateResponse)

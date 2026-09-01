@@ -640,8 +640,19 @@ func (x storageForObjectService) SearchObjects(ctx context.Context, cID cid.ID, 
 	return x.local.Search(ctx, cID, fs, attrs, cursor, count)
 }
 
-func (x storageForObjectService) VerifyAndStoreObjectLocally(ctx context.Context, obj object.Object) error {
-	return x.putSvc.ValidateAndStoreObjectLocally(ctx, obj)
+// VerifyObjectHeader implements [objectService.Storage] interface.
+func (x storageForObjectService) VerifyObjectHeader(ctx context.Context, obj object.Object) error {
+	return x.putSvc.VerifyObjectHeader(ctx, obj)
+}
+
+// VerifyObjectContent implements [objectService.Storage] interface.
+func (x storageForObjectService) VerifyObjectContent(ctx context.Context, obj object.Object) error {
+	return x.putSvc.VerifyObjectContent(ctx, obj)
+}
+
+// PutObject implements [objectService.Storage] interface.
+func (x storageForObjectService) PutObject(ctx context.Context, obj object.Object) error {
+	return x.local.Put(ctx, &obj, nil)
 }
 
 func (x storageForObjectService) GetSessionPrivateKey(account user.ID) (ecdsa.PrivateKey, error) {
