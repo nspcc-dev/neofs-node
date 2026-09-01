@@ -1,6 +1,6 @@
 module github.com/nspcc-dev/neofs-node
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -19,10 +19,10 @@ require (
 	github.com/nspcc-dev/bbolt v0.0.0-20260404200350-24f70ceb2bd9
 	github.com/nspcc-dev/hrw/v2 v2.0.4
 	github.com/nspcc-dev/locode-db v0.9.0
-	github.com/nspcc-dev/neo-go v0.122.1-0.20260807115931-cfee8827ddfd
+	github.com/nspcc-dev/neo-go v0.123.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.26.1
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.21.0.20260826165415-15812e94109e
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.22
 	github.com/nspcc-dev/tzhash v1.8.4
 	github.com/panjf2000/ants/v2 v2.12.1
 	github.com/prometheus/client_golang v1.24.1
@@ -44,10 +44,10 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bits-and-blooms/bitset v1.24.0 // indirect
+	github.com/bits-and-blooms/bitset v1.24.6 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
-	github.com/consensys/gnark-crypto v0.19.2 // indirect
+	github.com/consensys/gnark-crypto v0.21.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/decred/dcrd/crypto/ripemd160 v1.0.2 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
@@ -70,8 +70,8 @@ require (
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nspcc-dev/dbft v0.4.0 // indirect
-	github.com/nspcc-dev/go-ordered-json v0.0.0-20260302080601-ff7471f924b3 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20260609115526-14bc7067ea2e // indirect
+	github.com/nspcc-dev/go-ordered-json v0.0.0-20260826165212-78b9a86d413c // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20260827144453-45263cbaf873 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
@@ -92,11 +92,10 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621 // indirect
-	golang.org/x/mod v0.38.0 // indirect
+	golang.org/x/mod v0.39.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/tools v0.48.0 // indirect
+	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
