@@ -19,8 +19,6 @@ import (
 	"google.golang.org/grpc/mem"
 )
 
-var searchRequestBufferPool = mem.DefaultBufferPool()
-
 func iterateSearchableContainerNodes(nodeSets [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule, allNodes bool, f func(netmap.NodeInfo) bool) {
 	for i := range nodeSets {
 		var (
@@ -52,8 +50,8 @@ func iterateSearchableContainerNodes(nodeSets [][]netmap.NodeInfo, repRules []ui
 }
 
 func (s *Server) forwardSearchRequest(ctx context.Context, req *protoobject.SearchV2Request, nodeSets [][]netmap.NodeInfo) (mem.BufferSlice, error) {
-	bufItem := encodeRequestProtobuf(searchRequestBufferPool, req.Body, req.MetaHeader, req.VerifyHeader)
-	defer searchRequestBufferPool.Put(bufItem)
+	bufItem := encodeRequestProtobuf(req.Body, req.MetaHeader, req.VerifyHeader)
+	defer defaultGRPCBufferPool.Put(bufItem)
 	buf := *bufItem
 
 	reqBuf := mem.SliceBuffer(buf)

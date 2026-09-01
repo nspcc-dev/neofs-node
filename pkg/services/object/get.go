@@ -33,8 +33,6 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-var getRequestBufferPool = mem.DefaultBufferPool()
-
 var (
 	getStreamDesc = &grpc.StreamDesc{
 		StreamName:    "Get",
@@ -542,12 +540,12 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx con
 
 			copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = x.copyRemotePart(ctx, conn, req)
 			if err != nil {
-				getRequestBufferPool.Put(x.getPartRequest)
+				defaultGRPCBufferPool.Put(x.getPartRequest)
 				return err
 			}
 
 			if copiedHdr {
-				getRequestBufferPool.Put(x.getPartRequest)
+				defaultGRPCBufferPool.Put(x.getPartRequest)
 				if copiedPartPld == partPldLen {
 					return nil
 				}
@@ -696,7 +694,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 
 	copied, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, ln, controlCh)
 	if err != nil || copied == ln {
-		getRequestBufferPool.Put(request)
+		defaultGRPCBufferPool.Put(request)
 	}
 
 	return copied, err
@@ -934,7 +932,7 @@ func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion vers
 		reqLen += calculateRequestVerificationHeaderFieldLen(remoteServerAPIVersion)
 	}
 
-	bufItem := getRequestBufferPool.Get(reqLen)
+	bufItem := defaultGRPCBufferPool.Get(reqLen)
 	buf := *bufItem
 
 	// body

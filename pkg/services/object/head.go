@@ -19,8 +19,6 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-var headRequestBufferPool = mem.DefaultBufferPool()
-
 func callHead(ctx context.Context, conn *grpc.ClientConn, req any) (mem.BufferSlice, error) {
 	return callUnary(ctx, conn, protoobject.ObjectService_Head_FullMethodName, req)
 }

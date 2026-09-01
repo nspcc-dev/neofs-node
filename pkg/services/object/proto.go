@@ -43,6 +43,8 @@ const (
 	responseVerificationHeaderECDSAWIthSHA512Len  = verificationHeaderECDSAWithSHA512SignatureLen * 3
 )
 
+var defaultGRPCBufferPool = mem.DefaultBufferPool()
+
 var currentVersionResponseMetaHeader []byte
 
 func init() {
@@ -342,14 +344,14 @@ func (s *Server) writeRequestSignatures(reqBuf []byte, bodyWithMetaLen int, body
 	return nil
 }
 
-func encodeRequestProtobuf(pool mem.BufferPool, body protoencoding.Message, metaHdr protoencoding.Message, verifHdr protoencoding.Message) *[]byte {
+func encodeRequestProtobuf(body protoencoding.Message, metaHdr protoencoding.Message, verifHdr protoencoding.Message) *[]byte {
 	bodyLen := body.MarshaledSize()
 	metaHdrLen := metaHdr.MarshaledSize()
 	verifHdrLen := verifHdr.MarshaledSize()
 
 	reqLen := protoencoding.CalculateRequestLength(bodyLen, metaHdrLen, verifHdrLen)
 
-	bufItem := pool.Get(reqLen)
+	bufItem := defaultGRPCBufferPool.Get(reqLen)
 
 	buf := *bufItem
 	off := protoencoding.WriteRequestBodyMessage(buf, body)

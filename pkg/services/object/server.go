@@ -716,13 +716,13 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	var forwardReqBufItem *[]byte
 	defer func() {
 		if forwardReqBufItem != nil {
-			headRequestBufferPool.Put(forwardReqBufItem)
+			defaultGRPCBufferPool.Put(forwardReqBufItem)
 		}
 	}()
 
 	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
 		if forwardReqBufItem == nil {
-			forwardReqBufItem = encodeRequestProtobuf(headRequestBufferPool, req.Body, req.MetaHeader, req.VerifyHeader)
+			forwardReqBufItem = encodeRequestProtobuf(req.Body, req.MetaHeader, req.VerifyHeader)
 		}
 
 		var err error
@@ -1097,13 +1097,13 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	var forwardReqBufItem *[]byte
 	defer func() {
 		if forwardReqBufItem != nil {
-			getRequestBufferPool.Put(forwardReqBufItem)
+			defaultGRPCBufferPool.Put(forwardReqBufItem)
 		}
 	}()
 
 	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
 		if forwardReqBufItem == nil {
-			forwardReqBufItem = encodeRequestProtobuf(getRequestBufferPool, req.Body, req.MetaHeader, req.VerifyHeader)
+			forwardReqBufItem = encodeRequestProtobuf(req.Body, req.MetaHeader, req.VerifyHeader)
 		}
 
 		return forwardGetRequest(ctx, mem.SliceBuffer(*forwardReqBufItem), gStream, node)
@@ -2171,8 +2171,8 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		verifHdrFLdLen := calculateRequestVerificationHeaderFieldLen(localVersion)
 		reqLen := bodyWithMetaLen + verifHdrFLdLen
 
-		reqBufItem := searchRequestBufferPool.Get(reqLen)
-		defer searchRequestBufferPool.Put(reqBufItem)
+		reqBufItem := defaultGRPCBufferPool.Get(reqLen)
+		defer defaultGRPCBufferPool.Put(reqBufItem)
 		reqBuf := *reqBufItem
 
 		off := protoencoding.WriteRequestBodyTagAndLength(reqBuf, bodyLen)
