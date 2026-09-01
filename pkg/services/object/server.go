@@ -1757,42 +1757,56 @@ func (s *Server) Search(_ *protoobject.SearchRequest, _ protoobject.ObjectServic
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
 func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
+	var resp *protoobject.ReplicateResponse
+
+	recvReqCalled := false
+	recvReqFn := func() (*protoobject.ReplicateRequest, error) {
+		if recvReqCalled {
+			return nil, io.EOF
+		}
+		recvReqCalled = true
+		return req, nil
+	}
+
+	sendRespFn := func(r *protoobject.ReplicateResponse) error {
+		resp = r
+		return nil
+	}
+
+	err := s.replicate(ctx, recvReqFn, sendRespFn)
+
+	return resp, err
+}
+
+func (s *Server) replicate(ctx context.Context, recvReqFn func() (*protoobject.ReplicateRequest, error), sendRespFn func(*protoobject.ReplicateResponse) error) error {
+	req, err := recvReqFn()
+	if err != nil {
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to receive first message: %v", err))
+	}
+
 	if req.Object == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "binary object field is missing/empty",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "binary object field is missing/empty")
 	}
 
 	if req.Object.ObjectId == nil || len(req.Object.ObjectId.Value) == 0 {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "ID field is missing/empty in the object field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "ID field is missing/empty in the object field")
 	}
 
 	if req.Signature == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "missing object signature field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "missing object signature field")
 	}
 
 	if len(req.Signature.Key) == 0 {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "public key field is missing/empty in the object signature field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "public key field is missing/empty in the object signature field")
 	}
 
 	if len(req.Signature.Sign) == 0 {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "signature value is missing/empty in the object signature field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "signature value is missing/empty in the object signature field")
 	}
 
 	switch scheme := req.Signature.Scheme; scheme {
 	default:
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "unsupported scheme in the object signature field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "unsupported scheme in the object signature field")
 	case
 		refs.SignatureScheme_ECDSA_SHA512,
 		refs.SignatureScheme_ECDSA_RFC6979_SHA256,
@@ -1801,27 +1815,18 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 
 	hdr := req.Object.GetHeader()
 	if hdr == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "missing header field in the object field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "missing header field in the object field")
 	}
 
 	gCnrMsg := hdr.GetContainerId()
 	if gCnrMsg == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "missing container ID field in the object header field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "missing container ID field in the object header field")
 	}
 
 	var cnr cid.ID
-	err := cnr.FromProtoMessage(gCnrMsg)
+	err = cnr.FromProtoMessage(gCnrMsg)
 	if err != nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: fmt.Sprintf("invalid container ID in the object header field: %v", err),
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, fmt.Sprintf("invalid container ID in the object header field: %v", err))
 	}
 
 	var pubKey neofscrypto.PublicKey
@@ -1831,35 +1836,23 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 		pubKey = new(neofsecdsa.PublicKey)
 		err = pubKey.Decode(req.Signature.Key)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeBadRequest,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
+			return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "invalid ECDSA public key in the object signature field")
 		}
 	case refs.SignatureScheme_ECDSA_RFC6979_SHA256:
 		pubKey = new(neofsecdsa.PublicKeyRFC6979)
 		err = pubKey.Decode(req.Signature.Key)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeBadRequest,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
+			return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "invalid ECDSA public key in the object signature field")
 		}
 	case refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
 		pubKey = new(neofsecdsa.PublicKeyWalletConnect)
 		err = pubKey.Decode(req.Signature.Key)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeBadRequest,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
+			return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "invalid ECDSA public key in the object signature field")
 		}
 	}
 	if !pubKey.Verify(req.Object.ObjectId.Value, req.Signature.Sign) {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "signature mismatch in the object signature field",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, "signature mismatch in the object signature field")
 	}
 
 	var serverInCnr bool
@@ -1869,20 +1862,12 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check server's compliance to object's storage policy: object's container not found",
-			}}, nil
+			return sendReplicateStatusResponse(sendRespFn, codeContainerNotFound, "failed to check server's compliance to object's storage policy: object's container not found")
 		}
 
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to apply object's storage policy: %v", err),
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to apply object's storage policy: %v", err))
 	} else if !serverInCnr {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeAccessDenied, Message: "server does not match the object's storage policy",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeAccessDenied, "server does not match the object's storage policy")
 	}
 
 	var clientInCnr bool
@@ -1892,54 +1877,48 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check server's compliance to object's storage policy: object's container not found",
-			}}, nil
+			return sendReplicateStatusResponse(sendRespFn, codeContainerNotFound, "failed to check server's compliance to object's storage policy: object's container not found")
 		}
 
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to apply object's storage policy: %v", err),
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to apply object's storage policy: %v", err))
 	} else if !clientInCnr {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeAccessDenied, Message: "client does not match the object's storage policy",
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeAccessDenied, "client does not match the object's storage policy")
 	}
 
 	// TODO(@cthulhu-rider): avoid decoding the object completely
 	obj, err := objectFromMessage(req.Object)
 	if err != nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: fmt.Sprintf("invalid object field: %v", err),
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeBadRequest, fmt.Sprintf("invalid object field: %v", err))
 	}
 
 	err = s.storage.VerifyAndStoreObjectLocally(ctx, *obj)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrBusy) {
-			return &protoobject.ReplicateResponse{Status: apistatus.FromError(err)}, nil
+			return sendReplicateStructStatusResponse(sendRespFn, apistatus.FromError(err))
 		}
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to verify and store object locally: %v", err),
-		}}, nil
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to verify and store object locally: %v", err))
 	}
 
 	resp := new(protoobject.ReplicateResponse)
 	if req.GetSignObject() {
 		resp.ObjectSignature, err = s.metaInfoSignature(*obj)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
-				Message: fmt.Sprintf("failed to sign object meta information: %v", err),
-			}}, nil
+			return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to sign object meta information: %v", err))
 		}
 	}
 
-	return resp, nil
+	return sendRespFn(resp)
+}
+
+func sendReplicateStatusResponse(sendRespFn func(*protoobject.ReplicateResponse) error, code uint32, msg string) error {
+	return sendReplicateStructStatusResponse(sendRespFn, &protostatus.Status{
+		Code:    code,
+		Message: msg,
+	})
+}
+
+func sendReplicateStructStatusResponse(sendRespFn func(*protoobject.ReplicateResponse) error, st *protostatus.Status) error {
+	return sendRespFn(&protoobject.ReplicateResponse{Status: st})
 }
 
 func (s *Server) signSearchResponse(body *protoobject.SearchV2Response_Body, err error, req *protoobject.SearchV2Request) *protoobject.SearchV2Response {
