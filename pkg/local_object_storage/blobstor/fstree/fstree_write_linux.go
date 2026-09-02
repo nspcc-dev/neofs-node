@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -179,20 +181,51 @@ func (w *linuxWriter) finalize() error {
 	return nil
 }
 
+func (w *linuxWriter) isCombinedWrite(dataLen int) bool {
+	return dataLen <= w.combinedSizeThreshold && w.combinedCountLimit >= 2
+}
+
 func (w *linuxWriter) writeData(id oid.ID, p string, data []byte) error {
 	var err error
-	if len(data) > w.combinedSizeThreshold || w.combinedCountLimit < 2 {
+	if !w.isCombinedWrite(len(data)) {
 		err = w.writeFile(p, data)
 	} else {
 		err = w.writeCombinedFile(id, p, data)
 	}
-	if err != nil {
-		if errors.Is(err, unix.ENOSPC) {
-			return common.ErrNoSpace
-		}
-		return err
+	return convertUnixNoSpaceError(err)
+}
+
+func (w *linuxWriter) initDataWrite(id oid.ID, p string, fullDataLen int, dataPrefix []byte) (io.WriteCloser, func(), error) {
+	if !w.isCombinedWrite(fullDataLen) {
+		return w.initFileWrite(p, dataPrefix)
 	}
-	return nil
+
+	// TODO: try to dynamically fill the batch?
+	stream := combinedWriteStream{
+		linuxWriter: w,
+		id:          id,
+		targetPath:  p,
+		data:        slices.Clip(dataPrefix), // appends
+	}
+	return &stream, func() {}, nil
+}
+
+func (w *linuxWriter) initFileWrite(p string, dataPrefix []byte) (io.WriteCloser, func(), error) {
+	// TODO: ===
+	//   same as in linuxWriter.writeFile
+	fd, err := unix.Open(w.root, w.flags, w.perm)
+	if err != nil {
+		return nil, nil, convertUnixNoSpaceError(err)
+	}
+	// TODO: ===
+
+	stream := unixFileWriteStream{fd: fd, targetPath: p}
+
+	if _, err = stream.Write(dataPrefix); err != nil {
+		return nil, nil, err
+	}
+
+	return stream, stream.abort, nil
 }
 
 func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error {
@@ -272,4 +305,88 @@ func (w *linuxWriter) writeBatch(objs []writeDataUnit) error {
 
 	sb.intSync()
 	return sb.err
+}
+
+type combinedWriteStream struct {
+	linuxWriter *linuxWriter
+	id          oid.ID
+	targetPath  string
+	data        []byte
+}
+
+func (x *combinedWriteStream) Write(p []byte) (int, error) {
+	x.data = append(x.data, p...)
+	return len(p), nil
+}
+
+func (x *combinedWriteStream) Close() error {
+	err := x.linuxWriter.writeCombinedFile(x.id, x.targetPath, x.data)
+	return convertUnixNoSpaceError(err)
+}
+
+type unixFileWriteStream struct {
+	fd         int
+	targetPath string
+}
+
+func (x unixFileWriteStream) Write(p []byte) (int, error) {
+	n, err := unixWrite(x.fd, p)
+	if err != nil {
+		err = convertUnixNoSpaceError(err)
+		x.abort()
+	}
+	return n, err
+}
+
+func (x unixFileWriteStream) Close() error {
+	err := unixLinkat(x.fd, x.targetPath)
+	if err != nil {
+		x.abort()
+		return err
+	}
+
+	return unixClose(x.fd)
+}
+
+func (x unixFileWriteStream) abort() {
+	_ = unixClose(x.fd) // TODO: log error?
+}
+
+// TODO: reuse in linuxWriter.WriteFile?
+func unixWrite(fd int, data []byte) (int, error) {
+	n, err := unix.Write(fd, data)
+	if err == nil {
+		if n == len(data) {
+			return n, nil
+		}
+		err = errors.New("incomplete unix write")
+	}
+
+	return n, fmt.Errorf("unix write: %w", err) // Close() error is ignored, we have a better one.
+}
+
+// TODO: reuse in linuxWriter.WriteFile?
+func unixLinkat(fd int, newPath string) error {
+	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
+
+	err := unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, newPath, unix.AT_SYMLINK_FOLLOW)
+	if err != nil && !errors.Is(err, unix.EEXIST) { // https://github.com/nspcc-dev/neofs-node/issues/2563
+		return fmt.Errorf("unix linkat: %w", err)
+	}
+
+	return nil
+}
+
+func unixClose(fd int) error {
+	if err := unix.Close(fd); err != nil {
+		return fmt.Errorf("unix close: %w", err)
+	}
+	return nil
+}
+
+func convertUnixNoSpaceError(err error) error {
+	if errors.Is(err, unix.ENOSPC) {
+		return common.ErrNoSpace
+	}
+	return err
 }

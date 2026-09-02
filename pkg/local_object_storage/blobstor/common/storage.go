@@ -144,6 +144,7 @@ type Storage interface {
 	ReadObjectParts(buf []byte, addr oid.Address, rng PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
+	InitPut(addr oid.Address, fullDataLen int, dataPrefix []byte) (io.WriteCloser, func(), error)
 	PutBatch(map[oid.Address][]byte) error
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte) error, func(oid.Address, error) error) error

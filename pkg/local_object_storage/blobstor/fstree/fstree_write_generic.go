@@ -3,6 +3,7 @@ package fstree
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"strconv"
@@ -79,46 +80,139 @@ func (w *genericWriter) writeData(_ oid.ID, p string, data []byte) error {
 	return fmt.Errorf("couldn't write file after %d retries", retryCount)
 }
 
+func (w *genericWriter) initDataWrite(_ oid.ID, p string, _ int, dataPrefix []byte) (io.WriteCloser, func(), error) {
+	var tmpPath string
+	var f *os.File
+	var err error
+
+	// TODO: share const
+	const retryCount = 5
+	for i := range retryCount {
+		tmpPath = p + "#" + strconv.FormatUint(uint64(i), 10)
+
+		f, err = w.openFile(tmpPath)
+		if !errors.Is(err, syscall.EEXIST) {
+			break
+		}
+	}
+
+	if err != nil {
+		return nil, func() {}, convertFileError(err)
+	}
+
+	stream := fileWriteStream{
+		file:       f,
+		tempPath:   tmpPath,
+		targetPath: p,
+	}
+
+	if _, err = stream.Write(dataPrefix); err != nil {
+		return nil, func() {}, err
+	}
+
+	return stream, stream.abort, nil
+}
+
 // writeAndRename opens tmpPath exclusively, writes data to it and renames it to p.
 func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
 	err := w.writeFile(tmpPath, data)
 	if err != nil {
-		if pe, ok := errors.AsType[*fs.PathError](err); ok {
-			switch {
-			case errors.Is(pe.Err, syscall.ENOSPC):
-				err = common.ErrNoSpace
-				_ = os.RemoveAll(tmpPath)
-			case errors.Is(pe.Err, syscall.EEXIST):
-				return syscall.EEXIST
-			}
+		err = convertFileError(err)
+		if errors.Is(err, common.ErrNoSpace) {
+			_ = os.RemoveAll(tmpPath)
 		}
 
 		return fmt.Errorf("write data into file %q: %w", tmpPath, err)
 	}
 
-	err = os.Rename(tmpPath, p)
-	if err != nil {
-		return fmt.Errorf("rename file %q->%q: %w", tmpPath, p, err)
-	}
+	return renameFile(tmpPath, p)
+}
 
-	return nil
+func (w *genericWriter) openFile(p string) (*os.File, error) {
+	f, err := os.OpenFile(p, w.flags, w.perm)
+	if err != nil {
+		return nil, fmt.Errorf("open file with flags %d: %w", w.flags, err)
+	}
+	return f, nil
 }
 
 // writeFile writes data to a file with path p.
 // The code is copied from `os.WriteFile` with minor corrections for flags.
 func (w *genericWriter) writeFile(p string, data []byte) error {
-	f, err := os.OpenFile(p, w.flags, w.perm)
+	f, err := w.openFile(p)
 	if err != nil {
-		return fmt.Errorf("open file with flags %d: %w", w.flags, err)
+		return err
 	}
-	_, err = f.Write(data)
+	_, err = writeToFile(f, data)
 	if err != nil {
 		_ = f.Close()
-		return fmt.Errorf("write data to the file: %w", err)
+		return err
 	}
-	err = f.Close()
+	return closeFile(f)
+}
+
+type fileWriteStream struct {
+	file       *os.File
+	tempPath   string
+	targetPath string
+}
+
+func (x fileWriteStream) Write(p []byte) (int, error) {
+	n, err := writeToFile(x.file, p)
 	if err != nil {
+		err = convertFileError(err)
+		x.abort()
+	}
+	return n, err
+}
+
+func (x fileWriteStream) Close() error {
+	if err := closeFile(x.file); err != nil {
+		x.removeTempFile()
+		return err
+	}
+	return renameFile(x.tempPath, x.targetPath)
+}
+
+func (x fileWriteStream) abort() {
+	_ = closeFile(x.file) // TODO: log error?
+	x.removeTempFile()
+}
+
+func (x fileWriteStream) removeTempFile() {
+	_ = os.RemoveAll(x.tempPath) // TODO: log error?
+}
+
+func writeToFile(f *os.File, data []byte) (int, error) {
+	n, err := f.Write(data)
+	if err != nil {
+		err = fmt.Errorf("write data to the file: %w", err)
+	}
+	return n, err
+}
+
+func closeFile(f *os.File) error {
+	if err := f.Close(); err != nil {
 		return fmt.Errorf("close file: %w", err)
 	}
 	return nil
+}
+
+func renameFile(from string, to string) error {
+	if err := os.Rename(from, to); err != nil {
+		return fmt.Errorf("rename file %q->%q: %w", from, to, err)
+	}
+	return nil
+}
+
+func convertFileError(err error) error {
+	if pe, ok := errors.AsType[*fs.PathError](err); ok {
+		switch {
+		case errors.Is(pe.Err, syscall.ENOSPC):
+			return common.ErrNoSpace
+		case errors.Is(pe.Err, syscall.EEXIST):
+			return syscall.EEXIST
+		}
+	}
+	return err
 }
