@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"slices"
 	"strings"
 	"sync"
@@ -167,10 +168,14 @@ type Storage interface {
 	// container matching the specified filters.
 	SearchObjects(_ context.Context, _ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error)
 
-	// PutObject saves given object.
+	// TODO: docs.
+	//
+	// Abort func and [io.Closer.Close] are never called both.
+	//
+	// Returns [fs.ErrExist] if object already exists.
 	//
 	// Returns [apistatus.Busy] error if storage is currently overloaded.
-	PutObject(ctx context.Context, obj object.Object) error
+	InitObjectPut(ctx context.Context, hdr object.Object) (io.WriteCloser, func(), error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -1921,13 +1926,23 @@ func (s *Server) replicate(ctx context.Context, recvReqFn func() (*protoobject.R
 		return sendReplicateStatusResponse(sendRespFn, codeInternal, "invalid object: payload SHA-256 checksum mismatch")
 	}
 
-	if err = s.storage.PutObject(ctx, *obj); err != nil {
+	payloadStream, _, err := s.storage.InitObjectPut(ctx, *obj)
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			goto retOK // FIXME
+		}
 		if errors.Is(err, apistatus.ErrBusy) {
 			return sendReplicateStructStatusResponse(sendRespFn, apistatus.FromError(err))
 		}
-		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to store object locally: %v", err))
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to store object locally: open stream: %v", err))
 	}
 
+	err = payloadStream.Close()
+	if err != nil {
+		return sendReplicateStatusResponse(sendRespFn, codeInternal, fmt.Sprintf("failed to store object locally: finish stream: %v", err))
+	}
+
+retOK:
 	resp := new(protoobject.ReplicateResponse)
 	if req.GetSignObject() {
 		resp.ObjectSignature, err = s.metaInfoSignature(*obj)
