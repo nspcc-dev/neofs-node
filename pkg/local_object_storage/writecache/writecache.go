@@ -43,6 +43,7 @@ type Cache interface {
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte) error, bool) error
 	Put(oid.Address, *object.Object, []byte) error
+	InitPut(addr oid.Address, fullDataLen int, dataPrefix []byte) (io.WriteCloser, func(), error)
 	SetMode(mode.Mode) error
 	DumpInfo() Info
 	Flush(bool) error

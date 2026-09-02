@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"slices"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -19,6 +22,52 @@ var (
 
 	errExists = errors.New("already exists")
 )
+
+func (e *StorageEngine) precheckPutLocked(hdr object.Object) error {
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+
+	addr := hdr.Address()
+
+	// In #1146 this check was parallelized, however, it became
+	// much slower on fast machines for 4 shards.
+	exists, err := e.existsPhysical(addr)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fs.ErrExist
+	}
+
+	return nil
+}
+
+func isBroadcastObject(hdr object.Object) bool {
+	// API 2.18+ system objects handling
+	switch hdr.Type() {
+	case object.TypeTombstone, object.TypeLock, object.TypeLink:
+		// Broadcast object to ALL shards to ensure availability everywhere.
+		return true
+	default:
+		return false
+	}
+}
+
+func (e *StorageEngine) sortShardsForObject(hdr object.Object) ([]shardWrapper, error) {
+	var shs []shardWrapper
+	if iec.ObjectWithAttributes(hdr) {
+		shs = e.sortedShards(hdr.GetParentID())
+	} else {
+		shs = e.sortedShards(hdr.GetID())
+	}
+
+	if len(shs) == 0 {
+		return nil, fmt.Errorf("%w: no shards", errPutShard)
+	}
+
+	return shs, nil
+}
 
 // Put saves an object to local storage. objBin and hdrLen parameters are
 // optional and used to optimize out object marshaling, when used both must
@@ -42,36 +91,23 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
-	if e.blockErr != nil {
-		return e.blockErr
-	}
-
 	addr := obj.Address()
 
-	// In #1146 this check was parallelized, however, it became
-	// much slower on fast machines for 4 shards.
-	exists, err := e.existsPhysical(addr)
-	if err != nil || exists {
+	err := e.precheckPutLocked(*obj)
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return nil
+		}
 		return err
 	}
 
-	// API 2.18+ system objects handling
-	switch obj.Type() {
-	case object.TypeTombstone, object.TypeLock, object.TypeLink:
-		// Broadcast object to ALL shards to ensure availability everywhere.
+	if isBroadcastObject(*obj) {
 		return e.broadcastObject(ctx, obj, objBin)
-	default:
 	}
 
-	var shs []shardWrapper
-	if iec.ObjectWithAttributes(*obj) {
-		shs = e.sortedShards(obj.GetParentID())
-	} else {
-		shs = e.sortedShards(addr.Object())
-	}
-
-	if len(shs) == 0 {
-		return fmt.Errorf("%w: no shards", errPutShard)
+	shs, err := e.sortShardsForObject(*obj)
+	if err != nil {
+		return err
 	}
 
 	for _, sh := range shs {
@@ -87,6 +123,12 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 // putToShard puts object to sh.
 // Returns error from shard put or errExists (if object is already stored there).
 func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
+	return e.putToShardFunc(sh, addr, func(sh *shard.Shard) error {
+		return sh.Put(obj, objBin)
+	})
+}
+
+func (e *StorageEngine) putToShardFunc(sh shardWrapper, addr oid.Address, putFn func(*shard.Shard) error) error {
 	exists, err := sh.Exists(addr, false)
 	if err != nil {
 		sh.engine.log.Warn("object put: check object existence",
@@ -106,7 +148,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *objec
 		return errExists
 	}
 
-	err = sh.Put(obj, objBin)
+	err = putFn(sh.Shard)
 	if err != nil {
 		if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
 			errors.Is(err, common.ErrNoSpace) {
@@ -199,4 +241,67 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 	}
 
 	return nil
+}
+
+// TODO: docs.
+func (e *StorageEngine) InitPut(_ context.Context, hdr object.Object) (io.WriteCloser, func(), error) {
+	// TODO: metric?
+	// if e.metrics != nil {
+	// 	defer elapsed(e.metrics.AddPutDuration)()
+	// }
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	err := e.precheckPutLocked(hdr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if isBroadcastObject(hdr) {
+		hdr.SetPayload(slices.Clip(hdr.Payload()))
+		bw := broadcastingWriter{
+			engine: e,
+			object: hdr,
+		}
+		return &bw, func() {}, nil
+	}
+
+	shs, err := e.sortShardsForObject(hdr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var payloadStream io.WriteCloser
+	var abortFn func()
+
+	for i := range shs {
+		err = e.putToShardFunc(shs[i], hdr.Address(), func(sh *shard.Shard) error {
+			var err error
+			payloadStream, abortFn, err = sh.InitPut(hdr)
+			return err
+		})
+		if err == nil {
+			return payloadStream, abortFn, nil
+		}
+		if errors.Is(err, errExists) {
+			return nil, nil, fs.ErrExist
+		}
+	}
+
+	return nil, nil, fmt.Errorf("%w: %w", errPutShard, err)
+}
+
+type broadcastingWriter struct {
+	engine *StorageEngine
+	object object.Object
+}
+
+func (x *broadcastingWriter) Write(p []byte) (int, error) {
+	x.object.SetPayload(append(x.object.Payload(), p...))
+	return len(p), nil
+}
+
+func (x *broadcastingWriter) Close() error {
+	return x.engine.broadcastObject(context.Background(), &x.object, nil)
 }

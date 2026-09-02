@@ -63,6 +63,7 @@ type Info struct {
 // writer is an internal FS writing interface.
 type writer interface {
 	writeData(oid.ID, string, []byte) error
+	initDataWrite(oid.ID, string, int, []byte) (io.WriteCloser, func(), error)
 	finalize() error
 	writeBatch([]writeDataUnit) error
 }
@@ -340,26 +341,50 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 	return p, nil
 }
 
-// Put puts an object in the storage.
-func (t *FSTree) Put(addr oid.Address, data []byte) error {
+func (t *FSTree) buildPutPath(addr oid.Address, fullDataLen int) (string, error) {
 	if t.readOnly {
-		return common.ErrReadOnly
+		return "", common.ErrReadOnly
 	}
-	if len(data) == 0 {
-		return io.ErrUnexpectedEOF
+	if fullDataLen == 0 {
+		return "", io.ErrUnexpectedEOF
 	}
 
 	p := t.treePath(addr)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
-		return fmt.Errorf("mkdirall for %q: %w", p, err)
+		return "", fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
 
-	err := t.writer.writeData(addr.Object(), p, data)
+	return p, nil
+}
+
+// Put puts an object in the storage.
+func (t *FSTree) Put(addr oid.Address, data []byte) error {
+	p, err := t.buildPutPath(addr, len(data))
+	if err != nil {
+		return err
+	}
+
+	err = t.writer.writeData(addr.Object(), p, data)
 	if err != nil {
 		return fmt.Errorf("write object data into file %q: %w", p, err)
 	}
 	return nil
+}
+
+// TODO: docs.
+func (t *FSTree) InitPut(addr oid.Address, fullDataLen int, dataPrefix []byte) (io.WriteCloser, func(), error) {
+	p, err := t.buildPutPath(addr, fullDataLen)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	stream, abortFn, err := t.writer.initDataWrite(addr.Object(), p, fullDataLen, dataPrefix)
+	if err != nil {
+		return nil, nil, fmt.Errorf("init object data write into file %q: %w", p, err)
+	}
+
+	return stream, abortFn, nil
 }
 
 // PutBatch puts a batch of objects in the storage.

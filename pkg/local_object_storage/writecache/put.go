@@ -2,6 +2,7 @@ package writecache
 
 import (
 	"errors"
+	"io"
 
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -31,10 +32,8 @@ func (c *cache) Put(addr oid.Address, _ *object.Object, data []byte) error {
 
 // put writes object to FSTree and pushes it to the flush workers queue.
 func (c *cache) put(addr oid.Address, data []byte) error {
-	cacheSz := c.objCounters.Size()
-	objSz := uint64(len(data))
-	if c.maxCacheSize < cacheSz+objSz {
-		return ErrOutOfSpace
+	if err := c.checkAvailableSpace(len(data)); err != nil {
+		return err
 	}
 
 	err := c.fsTree.Put(addr, data)
@@ -42,14 +41,80 @@ func (c *cache) put(addr oid.Address, data []byte) error {
 		return err
 	}
 
-	c.objCounters.Add(addr, objSz)
+	c.handleSavedObject(addr, len(data))
+
+	return nil
+}
+
+func (c *cache) checkAvailableSpace(objSz int) error {
+	cacheSz := c.objCounters.Size()
+	if c.maxCacheSize < cacheSz+uint64(objSz) {
+		return ErrOutOfSpace
+	}
+
+	return nil
+}
+
+func (c *cache) handleSavedObject(addr oid.Address, fullLen int) {
+	c.objCounters.Add(addr, uint64(fullLen))
 	c.metrics.IncWCObjectCount()
-	c.metrics.AddWCSize(objSz)
+	c.metrics.AddWCSize(uint64(fullLen))
 	storagelog.Write(c.log,
 		storagelog.AddressField(addr),
 		storagelog.StorageTypeField(wcStorageType),
 		storagelog.OpField("PUT"),
 	)
+}
+
+// TODO: docs.
+func (c *cache) InitPut(addr oid.Address, fullDataLen int, dataPrefix []byte) (io.WriteCloser, func(), error) {
+	c.modeMtx.RLock()
+	defer c.modeMtx.RUnlock()
+	if c.readOnly() {
+		return nil, nil, ErrReadOnly
+	}
+
+	// TODO: metric?
+	// if c.metrics.mr != nil {
+	// 	defer elapsed(c.metrics.AddWCPutDuration)()
+	// }
+
+	if err := c.checkAvailableSpace(fullDataLen); err != nil {
+		return nil, nil, err
+	}
+
+	blobStream, abortFn, err := c.fsTree.InitPut(addr, fullDataLen, dataPrefix)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return objectPayloadWriteStream{
+		cache:      c,
+		addr:       addr,
+		fullLength: fullDataLen,
+		blobStream: blobStream,
+	}, abortFn, nil
+}
+
+type objectPayloadWriteStream struct {
+	cache      *cache
+	addr       oid.Address
+	fullLength int
+	blobStream io.WriteCloser
+}
+
+func (x objectPayloadWriteStream) Write(p []byte) (int, error) {
+	// TODO: wrap error with component context (Close too)
+	return x.blobStream.Write(p)
+}
+
+func (x objectPayloadWriteStream) Close() error {
+	err := x.blobStream.Close()
+	if err != nil {
+		return err
+	}
+
+	x.cache.handleSavedObject(x.addr, x.fullLength)
 
 	return nil
 }
