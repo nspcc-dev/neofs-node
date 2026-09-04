@@ -162,10 +162,15 @@ func initNetmapService(c *cfg) {
 		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())
 	})
 
-	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-		e := ev.(netmapEvent.NewEpoch).EpochNumber()
+	addNetmapChangedNotificationHandler(c, func(ev event.Event) {
+		v := ev.(netmapEvent.NetmapChanged).NetmapVersion()
+		if v <= 0 {
+			c.log.Warn("netmap change event with non-positive version, skip", zap.Int("version", v))
+			return
+		}
 
 		var (
+			epoch   uint64
 			ni      *netmap.NodeInfo
 			err     error
 			retries uint64
@@ -176,7 +181,18 @@ func initNetmapService(c *cfg) {
 		err = backoff.RetryNotify(
 			func() error {
 				retries++
-				ni, err = c.netmapLocalNodeState(e)
+
+				if epoch == 0 {
+					epoch, err = c.nCli.Epoch()
+					if err != nil {
+						if errors.Is(err, rpcclient.ErrWSConnLost) {
+							return backoff.Permanent(err)
+						}
+						return fmt.Errorf("fetching actual epoch number: %w", err)
+					}
+				}
+
+				ni, err = c.netmapLocalNodeState(uint64(v), epoch)
 				if errors.Is(err, rpcclient.ErrWSConnLost) {
 					return backoff.Permanent(err)
 				}
@@ -184,11 +200,11 @@ func initNetmapService(c *cfg) {
 			},
 			expBackoff,
 			func(err error, d time.Duration) {
-				c.log.Info("retrying due to error", zap.Uint64("epoch", e), zap.Error(err), zap.Duration("retry-after", d))
+				c.log.Info("retrying due to error", zap.Error(err), zap.Duration("retry-after", d))
 			})
 		if err != nil {
-			c.log.Error("could not update node state on new epoch after retries",
-				zap.Uint64("epoch", e),
+			c.log.Error("could not update node state on netmap change after retries",
+				zap.Int("version", v),
 				zap.Uint64("retries", retries),
 				zap.Error(err),
 			)
@@ -223,14 +239,14 @@ func initNetmapService(c *cfg) {
 		}
 	})
 
-	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-		epoch := ev.(netmapEvent.NewEpoch).EpochNumber()
-		l := c.log.With(zap.Uint64("epoch", epoch))
-		l.Info("new epoch event, requesting new network map to sync SN connection caches...")
+	addNetmapChangedNotificationHandler(c, func(ev event.Event) {
+		version := ev.(netmapEvent.NetmapChanged).NetmapVersion()
+		l := c.log.With(zap.Int("netmapVersion", version))
+		l.Info("new network map event, requesting it to sync SN connection caches...")
 
-		nm, err := c.netMapSource.GetNetMapByEpoch(epoch)
+		nm, err := c.netMapSource.NetMap()
 		if err != nil {
-			l.Info("failed to get network map by new epoch from event to sync SN connection cache", zap.Error(err))
+			l.Info("failed to get network map to sync SN connection cache", zap.Error(err))
 			return
 		}
 
@@ -333,7 +349,12 @@ func getNetworkState(c *cfg) (uint64, *netmap.NodeInfo, error) {
 		return 0, nil, fmt.Errorf("could not get current epoch number: %w", err)
 	}
 
-	ni, err := c.netmapLocalNodeState(epoch)
+	v, err := c.nCli.NetmapVersion()
+	if err != nil {
+		return 0, nil, fmt.Errorf("could not get current netmap version: %w", err)
+	}
+
+	ni, err := c.netmapLocalNodeState(v, epoch)
 	if err != nil {
 		return 0, nil, fmt.Errorf("could not init network state: %w", err)
 	}
@@ -347,13 +368,15 @@ func updateLocalState(c *cfg, epoch uint64, ni *netmap.NodeInfo) {
 	c.handleLocalNodeInfoFromNetwork(ni)
 }
 
-func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmap.NodeInfo, error) {
+func (c *cfg) netmapLocalNodeState(version, epoch uint64) (*netmap.NodeInfo, error) {
 	// calculate current network state
-	nm, err := c.nCli.GetNetMapByEpoch(epoch)
+	nm, err := c.nCli.NetmapByVersion(version)
 	if err != nil {
 		return nil, err
 	}
 
+	nm.SetEpoch(epoch)
+	nm.SetVersion(version)
 	c.netMap.Store(*nm)
 
 	nmNodes := nm.Nodes()
@@ -382,6 +405,10 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 			c.log,
 		),
 	)
+}
+
+func addNetmapChangedNotificationHandler(c *cfg, h event.Handler) {
+	addNetmapNotificationHandler(c, newNetmapVersionNotification, h)
 }
 
 var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay mode")
@@ -450,7 +477,13 @@ func (c *cfg) GetNetworkInfo() (netmap.NetworkInfo, error) {
 		return netmap.NetworkInfo{}, fmt.Errorf("read network configuration using netmap contract client: %w", err)
 	}
 
+	netmapVersion, err := c.nCli.NetmapVersion()
+	if err != nil {
+		return netmap.NetworkInfo{}, fmt.Errorf("get netmap version: %w", err)
+	}
+
 	var ni netmap.NetworkInfo
+	ni.SetNetmapVersion(netmapVersion)
 	ni.SetCurrentEpoch(c.networkState.CurrentEpoch())
 	ni.SetMagicNumber(uint64(magic))
 	ni.SetMsPerBlock(msPerBlock)
