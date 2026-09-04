@@ -5,11 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -114,71 +111,6 @@ func writeObjectHeader(dst ObjectWriter, hdr *object.Object, payloadOnly bool) e
 	return dst.WriteHeader(hdr)
 }
 
-// GetRange serves a request to get an object by address, and returns Streamer instance.
-func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
-	pi, err := checkECPartInfoRequest(prm.common.XHeaders(), prm.container)
-	if err != nil {
-		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
-		return fmt.Errorf("invalid request: %w", err)
-	}
-
-	if pi.RuleIndex >= 0 {
-		// TODO: deny if node is not in the container?
-
-		if prm.localBuffer != nil {
-			stream, err := s.localObjects.ReadECPartRange(ctx, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength(), prm.localBuffer, nil)
-			if err == nil {
-				prm.submitLocalStreamFn(stream)
-			}
-			return err
-		}
-
-		return s.copyLocalECPartRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), pi, prm.rng.GetOffset(), prm.rng.GetLength())
-	}
-
-	if prm.common.LocalOnly() &&
-		len(prm.container.PlacementPolicy().ECRules()) == 0 && // EC breaks TTL requirements currently.
-		len(prm.container.PlacementPolicy().Replicas()) != 0 {
-		// It handles locality internally.
-		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
-		return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt).err
-	}
-
-	nodeLists, repRules, ecRules, err := s.neoFSNet.GetNodesForObject(prm.addr)
-	if err != nil {
-		return fmt.Errorf("get nodes for object: %w", err)
-	}
-
-	if prm.forwardRequestFn != nil && !inetmap.NodeSetsContainPublicKeyFunc(nodeLists, s.neoFSNet.IsLocalNodePublicKey) {
-		return s.forwardRequest(ctx, repRules, ecRules, nodeLists, "RANGE", prm.forwardRequestFn)
-	}
-
-	return s.getRange(ctx, prm, nodeLists, repRules, ecRules)
-}
-
-func (s *Service) getRange(ctx context.Context, prm RangePrm, nodeLists [][]netmap.NodeInfo, repRules []uint, ecRules []iec.Rule) error {
-	if len(repRules) > 0 { // REP format does not require encoding
-		bufOpt := withLocalRangeBuffer(prm.localBuffer, prm.submitLocalStreamFn)
-		transportOpt := withRangeTransportFunc(prm.transportFn)
-		err := s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(nodeLists[:len(repRules)], repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true), bufOpt, transportOpt).err
-		if len(ecRules) == 0 || !errors.Is(err, apistatus.ErrObjectNotFound) {
-			return err
-		}
-	}
-
-	ecNodeLists := nodeLists[len(repRules):]
-
-	if prm.raw {
-		repRules = make([]uint, len(ecRules))
-		for i := range ecRules {
-			repRules[i] = uint(ecRules[i].DataPartNum + ecRules[i].ParityPartNum)
-		}
-		return s.get(ctx, prm.commonPrm, withPreSortedContainerNodes(ecNodeLists, repRules), withPayloadRange(prm.rng), withPayloadOnly(true), withLegacyRange(true)).err
-	}
-
-	return s.copyECObjectRange(ctx, prm.objWriter, prm.addr.Container(), prm.addr.Object(), ecRules, ecNodeLists, common.NewPayloadRange(prm.rng.GetOffset(), prm.rng.GetLength()), nil)
-}
-
 // Head reads object header from container.
 //
 // Returns ErrNotFound if the header was not received for the call.
@@ -251,7 +183,7 @@ func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) st
 	exec := &execCtx{
 		svc: s,
 		ctx: ctx,
-		prm: RangePrm{
+		prm: rangePrm{
 			commonPrm: prm,
 		},
 		infoSplit: object.NewSplitInfo(),

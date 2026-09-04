@@ -17,12 +17,9 @@ func assertVerb(tok session.Object, reqVerb session.ObjectVerb) bool {
 		return tok.AssertVerb(
 			session.VerbObjectHead,
 			session.VerbObjectGet,
-			session.VerbObjectDelete,
-			session.VerbObjectRange)
+			session.VerbObjectDelete)
 	case session.VerbObjectSearch:
 		return tok.AssertVerb(session.VerbObjectSearch, session.VerbObjectDelete)
-	case session.VerbObjectRange:
-		return tok.AssertVerb(session.VerbObjectRange)
 	}
 }
 

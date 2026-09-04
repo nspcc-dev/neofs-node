@@ -21,9 +21,7 @@ func TestIsVerbCompatible(t *testing.T) {
 			session.VerbObjectHead,
 			session.VerbObjectGet,
 			session.VerbObjectDelete,
-			session.VerbObjectRange,
 		},
-		session.VerbObjectRange:  {session.VerbObjectRange},
 		session.VerbObjectSearch: {session.VerbObjectSearch, session.VerbObjectDelete},
 	}
 
@@ -31,7 +29,6 @@ func TestIsVerbCompatible(t *testing.T) {
 		session.VerbObjectPut,
 		session.VerbObjectDelete,
 		session.VerbObjectHead,
-		session.VerbObjectRange,
 		session.VerbObjectGet,
 		session.VerbObjectSearch,
 	}

@@ -486,16 +486,6 @@ func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer u
 	})
 }
 
-func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID, off, ln uint64, signer user.Signer, opts client.PrmObjectRange) (*client.ObjectRangeReader, error) {
-	var res *client.ObjectRangeReader
-	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
-		var err error
-		//nolint:staticcheck
-		res, err = c.ObjectRangeInit(ctx, cnr, id, off, ln, signer, opts)
-		return err
-	})
-}
-
 func (x *connections) AnnounceLocalTrust(ctx context.Context, epoch uint64, ts []reputation.Trust, opts client.PrmAnnounceLocalTrust) error {
 	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceLocalTrust(ctx, epoch, ts, opts)
