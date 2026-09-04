@@ -40,6 +40,7 @@ network:
   fee:
     candidate: 0
     container: 0
+    container_alias: 0
     withdraw: 0
 credentials:
   az: hunter2
@@ -48,12 +49,11 @@ credentials:
 For a private installation, all network fees and the basic income rate are
 usually set to `0`.
 
-The epoch duration should match the expected block generation rate in the N3
-sidechain. With the default 15 seconds per block, 240 blocks is roughly one
-hour.
+The epoch duration is measured in blocks. For example, a value of `240`
+corresponds to 240 blocks; with a 15-second block time this is roughly one hour.
 
-For the maximum object size, 64 MiB or 128 MiB is a reasonable value for a
-private test or development network.
+For the maximum object size, 64 MiB is the default and the recommended choice
+for a private test or development network.
 
 ## Step 2: Generate the Alphabet wallet set
 
@@ -78,8 +78,9 @@ Alphabet nodes.
 The command output from `generate-alphabet` includes the wallet password. Use the
 wallets from `alphabet-wallets` to populate the consensus configuration, and use
 those same public keys for the `ProtocolConfiguration.StandbyCommittee` and
-`fschain.validators` settings. Configuration examples for node startup are kept in
-the [neo-go repository](https://github.com/nspcc-dev/neo-go/tree/master/config).
+`fschain.validators` settings. For the actual IR and node config examples, use
+the files shipped in this repository, such as `config/example/ir.yaml` and
+`config/example/node.yaml`.
 
 At this point, the consensus nodes should connect to each other and start
 producing blocks. Additional dedicated RPC endpoints are recommended for storage
@@ -97,6 +98,8 @@ Waiting for transactions to persist...
 ```
 
 The generated wallet file can then be used by the Storage node configuration.
+The storage node wallet should have enough GAS to register itself in the network;
+see the `neofs-dev-env` or `neofs-aio` examples for a working bootstrap setup.
 
 ```yaml
 node:
