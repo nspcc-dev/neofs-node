@@ -44,6 +44,53 @@ func checkTooBigRange(off, ln uint64) error {
 	return nil
 }
 
+type payloadReadSeekCloser struct {
+	reader io.ReadCloser
+	pos    int64
+}
+
+func newPayloadReadSeekCloser(reader io.ReadCloser) *payloadReadSeekCloser {
+	return &payloadReadSeekCloser{reader: reader}
+}
+
+func (p *payloadReadSeekCloser) Read(b []byte) (int, error) {
+	n, err := p.reader.Read(b)
+	p.pos += int64(n)
+	return n, err
+}
+
+func (p *payloadReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
+	var skip int64
+	switch whence {
+	case io.SeekStart:
+		if offset < p.pos {
+			return p.pos, fmt.Errorf("seek position %d is before current payload position %d", offset, p.pos)
+		}
+		skip = offset - p.pos
+	case io.SeekCurrent:
+		if offset < 0 {
+			return p.pos, fmt.Errorf("negative seek offset %d", offset)
+		}
+		skip = offset
+	case io.SeekEnd:
+		return p.pos, fmt.Errorf("seeking from payload end is not supported")
+	default:
+		return p.pos, fmt.Errorf("invalid seek whence %d", whence)
+	}
+
+	n, err := io.CopyN(io.Discard, p.reader, skip)
+	p.pos += n
+	if err != nil {
+		return p.pos, fmt.Errorf("skip payload stream: %w", err)
+	}
+
+	return p.pos, nil
+}
+
+func (p *payloadReadSeekCloser) Close() error {
+	return p.reader.Close()
+}
+
 type prefixedReadSeekCloser struct {
 	prefix *bytes.Reader
 	rest   io.ReadSeekCloser

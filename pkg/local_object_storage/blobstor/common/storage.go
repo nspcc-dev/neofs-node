@@ -136,7 +136,7 @@ type Storage interface {
 	GetBytes(oid.Address) ([]byte, error)
 	Get(oid.Address) (*object.Object, error)
 	GetRangeStream(addr oid.Address, rng PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
-	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
+	GetStream(oid.Address) (*object.Object, io.ReadSeekCloser, error)
 	Head(oid.Address) (*object.Object, error)
 	ReadHeader(oid.Address, []byte) (int, error)
 	ReadObject(oid.Address, []byte) (int, io.ReadCloser, error)
