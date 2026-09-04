@@ -225,7 +225,7 @@ func (s *testStorage) get(exec *execCtx) (*object.Object, io.ReadCloser, error) 
 
 func (s *testStorage) Head(_ context.Context, addr oid.Address, _ bool) (*object.Object, error) {
 	hdr, _, err := s.get(&execCtx{
-		prm: RangePrm{
+		prm: rangePrm{
 			commonPrm: commonPrm{
 				addr: addr,
 			},
@@ -304,21 +304,6 @@ func TestGetLocalOnly(t *testing.T) {
 		return p
 	}
 
-	newRngPrm := func(raw bool, w ChunkWriter, off, ln uint64) RangePrm {
-		p := RangePrm{}
-		p.SetChunkWriter(w)
-		p.WithRawFlag(raw)
-		p.common = new(util.CommonPrm).WithLocalOnly(true)
-
-		r := object.NewRange()
-		r.SetOffset(off)
-		r.SetLength(ln)
-
-		p.SetRange(r)
-
-		return p
-	}
-
 	newHeadPrm := func(raw bool, w ObjectWriter) HeadPrm {
 		p := HeadPrm{}
 		p.SetHeaderWriter(w)
@@ -354,15 +339,6 @@ func TestGetLocalOnly(t *testing.T) {
 		require.Equal(t, obj, w.Object())
 
 		w = NewSimpleObjectWriter()
-
-		rngPrm := newRngPrm(false, w, payloadSz/3, payloadSz/3)
-		rngPrm.WithAddress(addr)
-
-		err = svc.GetRange(ctx, rngPrm)
-		require.NoError(t, err)
-		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.Object().Payload())
-
-		w = NewSimpleObjectWriter()
 		headPrm := newHeadPrm(false, w)
 		headPrm.WithAddress(addr)
 
@@ -385,12 +361,6 @@ func TestGetLocalOnly(t *testing.T) {
 
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-		rngPrm := newRngPrm(false, nil, 0, 0)
-		rngPrm.WithAddress(addr)
-
-		err = svc.GetRange(ctx, rngPrm)
-		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
-
 		headPrm := newHeadPrm(false, nil)
 		headPrm.WithAddress(addr)
 
@@ -407,13 +377,6 @@ func TestGetLocalOnly(t *testing.T) {
 		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
-
-		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-
-		rngPrm := newRngPrm(false, nil, 0, 0)
-		rngPrm.WithAddress(addr)
-
-		err = svc.GetRange(ctx, rngPrm)
 
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
@@ -442,13 +405,6 @@ func TestGetLocalOnly(t *testing.T) {
 			require.True(t, errors.As(err, &errSplit))
 
 			require.Equal(t, si, errSplit.SplitInfo())
-
-			rngPrm := newRngPrm(true, nil, 0, 0)
-			rngPrm.WithAddress(addr)
-
-			err = svc.Get(ctx, p)
-
-			require.True(t, errors.As(err, &errSplit))
 
 			headPrm := newHeadPrm(true, nil)
 			headPrm.WithAddress(addr)
@@ -715,21 +671,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		return p
 	}
 
-	newRngPrm := func(raw bool, w ChunkWriter, off, ln uint64) RangePrm {
-		p := RangePrm{}
-		p.SetChunkWriter(w)
-		p.WithRawFlag(raw)
-		p.common = new(util.CommonPrm).WithLocalOnly(false)
-
-		r := object.NewRange()
-		r.SetOffset(off)
-		r.SetLength(ln)
-
-		p.SetRange(r)
-
-		return p
-	}
-
 	newHeadPrm := func(raw bool, w ObjectWriter) HeadPrm {
 		p := HeadPrm{}
 		p.SetHeaderWriter(w)
@@ -784,14 +725,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		require.Equal(t, obj, w.Object())
 
 		w = NewSimpleObjectWriter()
-		rngPrm := newRngPrm(false, w, payloadSz/3, payloadSz/3)
-		rngPrm.WithAddress(addr)
-
-		err = svc.GetRange(ctx, rngPrm)
-		require.NoError(t, err)
-		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.Object().Payload())
-
-		w = NewSimpleObjectWriter()
 		headPrm := newHeadPrm(false, w)
 		headPrm.WithAddress(addr)
 
@@ -829,12 +762,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		err := svc.Get(ctx, p)
 		require.ErrorAs(t, err, new(*apistatus.ObjectAlreadyRemoved))
 
-		rngPrm := newRngPrm(false, nil, 0, 0)
-		rngPrm.WithAddress(addr)
-
-		err = svc.GetRange(ctx, rngPrm)
-		require.ErrorAs(t, err, new(*apistatus.ObjectAlreadyRemoved))
-
 		headPrm := newHeadPrm(false, nil)
 		headPrm.WithAddress(addr)
 
@@ -869,12 +796,6 @@ func TestGetRemoteSmall(t *testing.T) {
 		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
-		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-
-		rngPrm := newRngPrm(false, nil, 0, 0)
-		rngPrm.WithAddress(addr)
-
-		err = svc.GetRange(ctx, rngPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		headPrm := newHeadPrm(false, nil)
@@ -939,12 +860,6 @@ func TestGetRemoteSmall(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-
-				rngPrm := newRngPrm(false, nil, 0, 0)
-				rngPrm.WithAddress(addr)
-
-				err = svc.GetRange(ctx, rngPrm)
 				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
@@ -1013,12 +928,6 @@ func TestGetRemoteSmall(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-
-				rngPrm := newRngPrm(false, NewSimpleObjectWriter(), 0, 1)
-				rngPrm.WithAddress(addr)
-
-				err = svc.GetRange(ctx, rngPrm)
 				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
@@ -1095,21 +1004,12 @@ func TestGetRemoteSmall(t *testing.T) {
 				require.Equal(t, srcObj, w.Object())
 
 				w = NewSimpleObjectWriter()
-				payloadSz := srcObj.PayloadSize()
-
-				off := payloadSz / 3
-				ln := payloadSz / 3
-
-				rngPrm := newRngPrm(false, w, off, ln)
-				rngPrm.WithAddress(addr)
-
-				err = svc.GetRange(ctx, rngPrm)
-				require.NoError(t, err)
-				require.Equal(t, payload[off:off+ln], w.Object().Payload())
-
-				w = NewSimpleObjectWriter()
 				p = newPrm(false, w)
 				p.WithAddress(addr)
+
+				payloadSz := srcObj.PayloadSize()
+				off := payloadSz / 3
+				ln := payloadSz / 3
 
 				r := object.NewRange()
 				r.SetOffset(off)
@@ -1166,12 +1066,6 @@ func TestGetRemoteSmall(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-
-				rngPrm := newRngPrm(false, nil, 0, 0)
-				rngPrm.WithAddress(addr)
-
-				err = svc.GetRange(ctx, rngPrm)
 				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
@@ -1233,12 +1127,6 @@ func TestGetRemoteSmall(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
-
-				rngPrm := newRngPrm(false, nil, 0, 1)
-				rngPrm.WithAddress(addr)
-
-				err = svc.GetRange(ctx, rngPrm)
 				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
@@ -1307,21 +1195,12 @@ func TestGetRemoteSmall(t *testing.T) {
 				require.Equal(t, srcObj, w.Object())
 
 				w = NewSimpleObjectWriter()
-				payloadSz := srcObj.PayloadSize()
-
-				off := payloadSz / 3
-				ln := payloadSz / 3
-
-				rngPrm := newRngPrm(false, w, off, ln)
-				rngPrm.WithAddress(addr)
-
-				err = svc.GetRange(ctx, rngPrm)
-				require.NoError(t, err)
-				require.Equal(t, payload[off:off+ln], w.Object().Payload())
-
-				w = NewSimpleObjectWriter()
 				p = newPrm(false, w)
 				p.WithAddress(addr)
+
+				payloadSz := srcObj.PayloadSize()
+				off := payloadSz / 3
+				ln := payloadSz / 3
 
 				r := object.NewRange()
 				r.SetOffset(off)
@@ -1331,17 +1210,6 @@ func TestGetRemoteSmall(t *testing.T) {
 				err = svc.Get(ctx, p)
 				require.NoError(t, err)
 				require.Equal(t, srcObj.CutPayload(), w.Object().CutPayload())
-				require.Equal(t, payload[off:off+ln], w.Object().Payload())
-
-				w = NewSimpleObjectWriter()
-				off = payloadSz - 2
-				ln = 1
-
-				rngPrm = newRngPrm(false, w, off, ln)
-				rngPrm.WithAddress(addr)
-
-				err = svc.GetRange(ctx, rngPrm)
-				require.NoError(t, err)
 				require.Equal(t, payload[off:off+ln], w.Object().Payload())
 			})
 		})
@@ -1364,7 +1232,7 @@ func TestWriteCollectedHeaderPayloadOnlyDoesNotStartResponse(t *testing.T) {
 
 	t.Run("valid header", func(t *testing.T) {
 		exec := &execCtx{
-			prm: RangePrm{
+			prm: rangePrm{
 				commonPrm: commonPrm{
 					objWriter: &trackingWriter{},
 				},
@@ -1387,7 +1255,7 @@ func TestWriteCollectedHeaderPayloadOnlyDoesNotStartResponse(t *testing.T) {
 
 	t.Run("missing header", func(t *testing.T) {
 		exec := &execCtx{
-			prm: RangePrm{
+			prm: rangePrm{
 				commonPrm: commonPrm{
 					objWriter: &trackingWriter{},
 				},
@@ -1401,59 +1269,6 @@ func TestWriteCollectedHeaderPayloadOnlyDoesNotStartResponse(t *testing.T) {
 		require.False(t, exec.responseStarted)
 		require.Equal(t, statusUndefined, exec.status)
 		require.EqualError(t, exec.err, "missing object header")
-	})
-}
-
-func TestFallbackRangeReader(t *testing.T) {
-	t.Run("fallback get exec clears range and flags", func(t *testing.T) {
-		rng := object.NewRange()
-		rng.SetOffset(10)
-		rng.SetLength(20)
-
-		exec := execCtx{
-			payloadRange: blobcommon.NewPayloadRange(rng.GetOffset(), rng.GetLength()),
-			payloadOnly:  true,
-			legacyRange:  true,
-		}
-
-		fallback := exec.fallbackGetExec()
-		require.Nil(t, fallback.ctxRange())
-		require.False(t, fallback.payloadOnly)
-		require.False(t, fallback.legacyRange)
-	})
-
-	t.Run("partial chunk is returned before fallback", func(t *testing.T) {
-		buf := make([]byte, 16)
-		fr := &fallbackRangeReader{
-			ReadCloser: &partialErrorReader{
-				data: []byte("payload"),
-				err:  apistatus.ErrObjectAccessDenied,
-			},
-		}
-
-		n, err := fr.Read(buf)
-		require.NoError(t, err)
-		require.Equal(t, len("payload"), n)
-		require.Equal(t, []byte("payload"), buf[:n])
-		require.EqualValues(t, len("payload"), fr.delivered)
-		require.True(t, fr.fallbackPending)
-		require.False(t, fr.fallbackDone)
-	})
-
-	t.Run("fallback resumes after already delivered bytes", func(t *testing.T) {
-		rng := object.NewRange()
-		rng.SetOffset(10)
-		rng.SetLength(20)
-
-		fr := &fallbackRangeReader{
-			rng:       rng,
-			delivered: 7,
-		}
-
-		from, to, err := fr.fallbackBounds(100)
-		require.NoError(t, err)
-		require.EqualValues(t, 17, from)
-		require.EqualValues(t, 30, to)
 	})
 }
 
@@ -1491,24 +1306,6 @@ func (r *errorReader) Read([]byte) (int, error) {
 }
 
 func (r *errorReader) Close() error {
-	return nil
-}
-
-type partialErrorReader struct {
-	data []byte
-	err  error
-	read bool
-}
-
-func (r *partialErrorReader) Read(p []byte) (int, error) {
-	if r.read {
-		return 0, io.EOF
-	}
-	r.read = true
-	return copy(p, r.data), r.err
-}
-
-func (r *partialErrorReader) Close() error {
 	return nil
 }
 

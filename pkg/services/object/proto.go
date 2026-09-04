@@ -226,10 +226,6 @@ func shiftPayloadChunkInGetResponseBuffer(respBuf []byte, off, ln int) iprotobuf
 	return shiftPayloadChunkInResponseBuffer(respBuf, iprotobuf.TagBytes2, off, ln)
 }
 
-func shiftPayloadChunkInRangeResponseBuffer(respBuf []byte, off, ln int) iprotobuf.FieldBounds {
-	return shiftPayloadChunkInResponseBuffer(respBuf, iprotobuf.TagBytes1, off, ln)
-}
-
 func shiftPayloadChunkInResponseBuffer(respBuf []byte, chunkFldTag byte, off, ln int) iprotobuf.FieldBounds {
 	bodyFldPrefixLen := 1 + protowire.SizeVarint(uint64(ln))
 

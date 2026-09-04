@@ -70,7 +70,6 @@ type Handlers interface {
 	Put(context.Context) (*putsvc.Streamer, error)
 	Head(context.Context, getsvc.HeadPrm) error
 	Delete(context.Context, deletesvc.Prm) error
-	GetRange(context.Context, getsvc.RangePrm) error
 }
 
 // Various NeoFS protocol status codes.
@@ -171,7 +170,6 @@ type ACLInfoExtractor interface {
 	DeleteRequestToInfo(context.Context, *protoobject.DeleteRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
 	HeadRequestToInfo(context.Context, *protoobject.HeadRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
 	GetRequestToInfo(context.Context, *protoobject.GetRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
-	RangeRequestToInfo(context.Context, *protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
 	SearchV2RequestToInfo(context.Context, *protoobject.SearchV2Request, cid.ID, common.RequestTokens) (aclsvc.RequestInfo, error)
 	VerifySessionTokenMessage(*protosession.SessionTokenV2, sessionv2.Verb, cid.ID) (sessionv2.Token, error)
 	VerifySessionV1TokenMessage(*protosession.SessionToken, session.ObjectVerb, cid.ID, oid.ID) (session.Object, error)
@@ -1506,147 +1504,8 @@ type getProxyContext struct {
 	resolveRange     func(uint64) (uint64, uint64, error)
 }
 
-func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse, req *protoobject.GetRangeRequest) error {
-	resp.VerifyHeader = util.SignResponseIfNeeded(&s.signer, resp, req)
-	return stream.Send(resp)
-}
-
-func (s *Server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRangeServer, err error, req *protoobject.GetRangeRequest) error {
-	if splitErr, ok := errors.AsType[*object.SplitInfoError](err); ok {
-		return s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
-			Body: &protoobject.GetRangeResponse_Body{
-				RangePart: &protoobject.GetRangeResponse_Body_SplitInfo{
-					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
-				},
-			},
-		}, req)
-	}
-	return s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
-	}, req)
-}
-
-type rangeStream struct {
-	base protoobject.ObjectService_GetRangeServer
-	srv  *Server
-	req  *protoobject.GetRangeRequest
-
-	respondedPayload int
-
-	signResponse bool
-}
-
-func (s *rangeStream) WriteChunk(chunk []byte) error {
-	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; {
-		newResp := &protoobject.GetRangeResponse{
-			Body: &protoobject.GetRangeResponse_Body{
-				RangePart: &protoobject.GetRangeResponse_Body_Chunk{
-					Chunk: buf.Next(maxRespDataChunkSize),
-				},
-			},
-		}
-		if err := s.srv.sendRangeResponse(s.base, newResp, s.req); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.ObjectService_GetRangeServer) error {
-	ctx := gStream.Context()
-	var (
-		err error
-		t   = time.Now()
-	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance, req)
-	}
-
-	body := req.Body
-	if body == nil {
-		err = newBadRequestError(missingRequestBodyMessage) // defer
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	cnrID, objID, err := fetchRequiredObjectAddress(body.Address)
-	if err != nil {
-		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	reqMD, err := s.handleRequestMetaHeader(req.MetaHeader, sessionv2.VerbObjectRange, session.VerbObjectRange, cnrID, objID)
-	if err != nil {
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(ctx, req, cnrID, reqMD.tokens)
-	if err != nil {
-		if !errors.Is(err, apistatus.Error) {
-			err = newBadRequestError(err.Error()) // defer
-		}
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-	err = s.aclChecker.CheckEACL(ctx, req, cnrID, objID, reqInfo)
-	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	needSignResponse := needSignGetResponse(req)
-
-	p, err := convertRangePrm(s.signer, reqInfo.Container, req, &rangeStream{
-		base:         gStream,
-		srv:          s,
-		req:          req,
-		signResponse: needSignResponse,
-	}, cnrID, objID, reqMD)
-	if err != nil {
-		if !errors.Is(err, apistatus.Error) {
-			err = newBadRequestError(err.Error()) // defer
-		}
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	p.SetForwardRequestFunc(func(ctx context.Context, node clientcore.MultiAddressClient) error {
-		return forwardRangeRequest(ctx, req, gStream, node)
-	})
-
-	var stream io.ReadCloser
-	defer func() {
-		if stream != nil {
-			stream.Close()
-		}
-	}()
-
-	hdrRespBuf, hdrBuf := getBufferForHeadResponse()
-	defer hdrRespBuf.Free()
-
-	p.WithBuffer(hdrBuf, func(s io.ReadCloser) { stream = s })
-
-	err = s.handlers.GetRange(ctx, p)
-	if err != nil {
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	if stream == nil {
-		return nil
-	}
-
-	err = s.copyRangeStream(gStream, stream, needSignResponse, shiftPayloadChunkInRangeResponseBuffer)
-	if err != nil {
-		return s.sendStatusRangeResponse(gStream, err, req)
-	}
-
-	return nil
+func (s *Server) GetRange(_ *protoobject.GetRangeRequest, _ protoobject.ObjectService_GetRangeServer) error {
+	return grpcstatus.Error(grpccodes.Unimplemented, "no longer supported, use Get with range options")
 }
 
 func (s *Server) copyRangeStream(gStream grpc.ServerStream, stream io.Reader, needSignResp bool, shiftFn func([]byte, int, int) iprotobuf.FieldBounds) error {
@@ -1692,63 +1551,6 @@ func (s *Server) copyRangeStream(gStream grpc.ServerStream, stream io.Reader, ne
 			return nil
 		}
 	}
-}
-
-// converts original request into parameters accepted by the internal handler.
-// Note that the stream is untouched within this call, errors are not reported
-// into it.
-func convertRangePrm(signer ecdsa.PrivateKey, cnr container.Container, req *protoobject.GetRangeRequest, stream *rangeStream, cnrID cid.ID, objID oid.ID, reqMD requestMetadata) (getsvc.RangePrm, error) {
-	body := req.GetBody()
-
-	rln := body.Range.GetLength()
-	if rln == 0 { // includes nil range
-		if body.Range.Offset != 0 {
-			return getsvc.RangePrm{}, errors.New("zero range length")
-		} // else whole payload
-	} else if body.Range.Offset+rln <= body.Range.Offset {
-		return getsvc.RangePrm{}, errors.New("range overflow")
-	}
-
-	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
-
-	var p getsvc.RangePrm
-	p.SetCommonParameters(cp)
-	p.WithAddress(oid.NewAddress(cnrID, objID))
-	p.WithContainer(cnr)
-	p.WithRawFlag(body.Raw)
-	p.SetChunkWriter(stream)
-	var rng object.Range
-	rng.SetOffset(body.Range.Offset)
-	rng.SetLength(rln)
-	p.SetRange(&rng)
-	if cp.LocalOnly() {
-		return p, nil
-	}
-
-	var onceResign sync.Once
-	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.RangePrm{}, errors.New("missing meta header")
-	}
-	p.SetTransportFunc(func(ctx context.Context, c clientcore.MultiAddressClient) error {
-		var err error
-		onceResign.Do(func() {
-			req = &protoobject.GetRangeRequest{
-				Body: req.Body,
-				MetaHeader: &protosession.RequestMetaHeader{
-					Version: c.APIVersion(),
-					Ttl:     1,
-				},
-			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
-		})
-		if err != nil {
-			return err
-		}
-
-		return c.ForAnyGRPCConn(ctx, stream.continueWithConn)
-	})
-	return p, nil
 }
 
 func (s *Server) Search(_ *protoobject.SearchRequest, _ protoobject.ObjectService_SearchServer) error {

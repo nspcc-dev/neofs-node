@@ -449,12 +449,6 @@ func (b Service) DeleteRequestToInfo(ctx context.Context, request *protoobject.D
 	return b.findRequestInfo(ctx, request, cnr, acl.OpObjectDelete, tokens)
 }
 
-// RangeRequestToInfo resolves RequestInfo from the request to check it using
-// [ACLChecker].
-func (b Service) RangeRequestToInfo(ctx context.Context, request *protoobject.GetRangeRequest, cnr cid.ID, tokens common.RequestTokens) (RequestInfo, error) {
-	return b.findRequestInfo(ctx, request, cnr, acl.OpObjectRange, tokens)
-}
-
 var ErrSkipRequest = errors.New("skip request")
 
 // PutRequestToInfo resolves RequestInfo from the request to check it using

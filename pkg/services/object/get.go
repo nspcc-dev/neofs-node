@@ -38,11 +38,6 @@ var (
 		ServerStreams: true,
 		ClientStreams: false,
 	}
-	getRangeStreamDesc = &grpc.StreamDesc{
-		StreamName:    "GetRange",
-		ServerStreams: true,
-		ClientStreams: false,
-	}
 )
 
 type getStreamProgress struct {
@@ -72,10 +67,6 @@ func callServerStream(ctx context.Context, conn *grpc.ClientConn, method string,
 
 func callGet(ctx context.Context, conn *grpc.ClientConn, request any) (grpc.ClientStream, error) {
 	return callServerStream(ctx, conn, protoobject.ObjectService_Get_FullMethodName, getStreamDesc, request)
-}
-
-func callRange(ctx context.Context, conn *grpc.ClientConn, request any) (grpc.ClientStream, error) {
-	return callServerStream(ctx, conn, protoobject.ObjectService_GetRange_FullMethodName, getRangeStreamDesc, request)
 }
 
 // returns:
@@ -1060,8 +1051,4 @@ func calculateInitGetResponseFieldLength(idLen, sigLen, hdrLen int) int {
 
 func forwardGetRequest(ctx context.Context, req any, respStream grpc.ServerStream, node clientcore.MultiAddressClient) error {
 	return forwardServerStreamRequest(ctx, req, respStream, node, callGet)
-}
-
-func forwardRangeRequest(ctx context.Context, req any, respStream grpc.ServerStream, node clientcore.MultiAddressClient) error {
-	return forwardServerStreamRequest(ctx, req, respStream, node, callRange)
 }

@@ -197,8 +197,6 @@ func getSession(cmd *cobra.Command) (*session.Object, error) {
 //	*internal.GetObjectPrm
 //	*internal.HeadObjectPrm
 //	*internal.SearchObjectsPrm
-//	*internal.PayloadRangePrm
-//	*internal.HashPayloadRangesPrm
 func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) error {
 	if tokV2 := tryReadSessionV2(cmd); tokV2 != nil {
 		err := attachVerifiedSessionV2(cmd, tokV2, dst, key, cnr)
@@ -222,8 +220,6 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 		cmdVerb = session.VerbObjectHead
 	case *client.PrmObjectSearch:
 		cmdVerb = session.VerbObjectSearch
-	case *client.PrmObjectRange:
-		cmdVerb = session.VerbObjectRange
 	}
 
 	tok, err := getVerifiedSession(cmd, cmdVerb, key, cnr)
