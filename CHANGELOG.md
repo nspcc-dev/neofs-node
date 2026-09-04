@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 ### Changed
 - SN requests network map only when it has been changed (#4121)
 - SN pushes URI-style endpoints to netmap instead of multiaddr (#3982)
+- Write-cache FSTree depth increased from 1 to 2 with online migration (#4175)
 
 ### Removed
 - GetRange object service method (#4167)

@@ -1,6 +1,8 @@
 package writecache
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 )
@@ -27,9 +29,28 @@ func (c *cache) SetMode(m mode.Mode) error {
 		return nil
 	}
 
-	if err := c.openStore(m.ReadOnly()); err != nil {
+	fsTree, err := c.newStore(m.ReadOnly())
+	if err != nil {
 		return err
 	}
+
+	oldFSTree := c.fsTree
+	if oldFSTree != nil {
+		if err := oldFSTree.Close(); err != nil {
+			return fmt.Errorf("close previous FSTree: %w", err)
+		}
+	}
+	if c.initialized {
+		if err := fsTree.Init(c.shardID); err != nil {
+			if oldFSTree != nil {
+				if restoreErr := oldFSTree.Init(c.shardID); restoreErr != nil {
+					return fmt.Errorf("init FSTree: %w; restore previous FSTree: %w", err, restoreErr)
+				}
+			}
+			return fmt.Errorf("init FSTree: %w", err)
+		}
+	}
+	c.fsTree = fsTree
 
 	c.mode = m
 	return nil
