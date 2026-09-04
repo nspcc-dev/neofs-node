@@ -125,10 +125,6 @@ func (s *objectSvc) Delete(ctx context.Context, prm deletesvc.Prm) error {
 	return s.delete.Delete(ctx, prm)
 }
 
-func (s *objectSvc) GetRange(ctx context.Context, prm getsvc.RangePrm) error {
-	return s.get.GetRange(ctx, prm)
-}
-
 type delNetInfo struct {
 	netmapcore.State
 	tsLifetime uint64

@@ -22,14 +22,12 @@ type (
 		headCounter   methodCount
 		searchCounter methodCount
 		deleteCounter methodCount
-		rangeCounter  methodCount
 
 		getDuration    prometheus.Histogram
 		putDuration    prometheus.Histogram
 		headDuration   prometheus.Histogram
 		searchDuration prometheus.Histogram
 		deleteDuration prometheus.Histogram
-		rangeDuration  prometheus.Histogram
 
 		putPayload prometheus.Counter
 		getPayload prometheus.Counter
@@ -81,7 +79,6 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		headCounter   = newMethodCallCounter("head")
 		searchCounter = newMethodCallCounter("search")
 		deleteCounter = newMethodCallCounter("delete")
-		rangeCounter  = newMethodCallCounter("range")
 	)
 
 	var ( // Request duration metrics.
@@ -118,13 +115,6 @@ func newObjectServiceMetrics() objectServiceMetrics {
 			Subsystem: objectSubsystem,
 			Name:      "rpc_delete_time",
 			Help:      "RPC 'delete' request handling time",
-		})
-
-		rangeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "rpc_range_time",
-			Help:      "RPC 'range request' handling time",
 		})
 	)
 
@@ -168,13 +158,11 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		headCounter:    headCounter,
 		searchCounter:  searchCounter,
 		deleteCounter:  deleteCounter,
-		rangeCounter:   rangeCounter,
 		getDuration:    getDuration,
 		putDuration:    putDuration,
 		headDuration:   headDuration,
 		searchDuration: searchDuration,
 		deleteDuration: deleteDuration,
-		rangeDuration:  rangeDuration,
 		putPayload:     putPayload,
 		getPayload:     getPayload,
 		shardMetrics:   shardsMetrics,
@@ -188,14 +176,12 @@ func (m objectServiceMetrics) register() {
 	m.headCounter.mustRegister()
 	m.searchCounter.mustRegister()
 	m.deleteCounter.mustRegister()
-	m.rangeCounter.mustRegister()
 
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.putDuration)
 	prometheus.MustRegister(m.headDuration)
 	prometheus.MustRegister(m.searchDuration)
 	prometheus.MustRegister(m.deleteDuration)
-	prometheus.MustRegister(m.rangeDuration)
 
 	prometheus.MustRegister(m.putPayload)
 	prometheus.MustRegister(m.getPayload)
@@ -223,9 +209,6 @@ func (m objectServiceMetrics) HandleOpExecResult(op stat.Method, success bool, d
 	case stat.MethodObjectSearch, stat.MethodObjectSearchV2: // FIXME: sep counters?
 		m.searchCounter.inc(success)
 		m.searchDuration.Observe(d.Seconds())
-	case stat.MethodObjectRange:
-		m.rangeCounter.inc(success)
-		m.rangeDuration.Observe(d.Seconds())
 	}
 }
 

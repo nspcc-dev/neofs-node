@@ -34,7 +34,7 @@ type execCtx struct {
 
 	ctx context.Context
 
-	prm          RangePrm
+	prm          rangePrm
 	payloadRange common.PayloadRange
 
 	statusError
@@ -72,14 +72,8 @@ type execCtx struct {
 
 	getTransportFn GetTransportFunc
 
-	rangeTransportFn RangeTransportFunc
-
-	localRangeBuffer         []byte
-	submitLocalRangeStreamFn SubmitDataStreamFunc
-
 	payloadOnly bool
 	recheckEACL bool
-	legacyRange bool
 
 	// collectOnly keeps one fetched stream and skips writing/assembly.
 	// Virtual children are reported to the caller, not assembled recursively.
@@ -140,12 +134,6 @@ func withEACLRecheck(v bool) execOption {
 	}
 }
 
-func withLegacyRange(v bool) execOption {
-	return func(c *execCtx) {
-		c.legacyRange = v
-	}
-}
-
 func withLogger(l *zap.Logger) execOption {
 	return func(ctx *execCtx) {
 		ctx.log = l
@@ -177,19 +165,6 @@ func withLocalGetBuffer(buf []byte, submitStreamFn SubmitStreamFunc, interceptHe
 func withGetTransportFunc(f GetTransportFunc) execOption {
 	return func(ctx *execCtx) {
 		ctx.getTransportFn = f
-	}
-}
-
-func withRangeTransportFunc(f RangeTransportFunc) execOption {
-	return func(ctx *execCtx) {
-		ctx.rangeTransportFn = f
-	}
-}
-
-func withLocalRangeBuffer(buf []byte, submitStreamFn SubmitDataStreamFunc) execOption {
-	return func(ctx *execCtx) {
-		ctx.localRangeBuffer = buf
-		ctx.submitLocalRangeStreamFn = submitStreamFn
 	}
 }
 
@@ -347,11 +322,10 @@ func (exec *execCtx) headOnly() bool {
 type childFetchCtx struct {
 	svc *Service
 
-	prm RangePrm
+	prm rangePrm
 	cnr cid.ID
 
 	payloadOnly bool
-	legacyRange bool
 
 	log *zap.Logger
 }
@@ -364,7 +338,6 @@ func (exec *execCtx) childFetchCtx() childFetchCtx {
 		cnr: exec.containerID(),
 
 		payloadOnly: exec.payloadOnly,
-		legacyRange: exec.legacyRange,
 
 		log: exec.log,
 	}
@@ -393,7 +366,6 @@ func (c childFetchCtx) fetchChildStream(ctx context.Context, id oid.ID, rng *obj
 	se := c.svc.get(ctx, p.commonPrm,
 		withPayloadRange(rng),
 		withPayloadOnly(c.payloadOnly),
-		withLegacyRange(c.legacyRange),
 		withLogger(log),
 		withCollectOnlyResult(&res),
 	)
@@ -438,7 +410,6 @@ func (exec *execCtx) copyChild(id oid.ID, rng *object.Range, withHdr bool) bool 
 		withPayloadRange(rng),
 		withPayloadOnly(exec.payloadOnly),
 		withEACLRecheck(exec.recheckEACL),
-		withLegacyRange(exec.legacyRange),
 		withLogger(log),
 	)
 
@@ -695,6 +666,5 @@ func (exec *execCtx) writeCollectedObject() {
 // parameters, so it won't be inherited in new execution contexts.
 func (exec *execCtx) disableForwarding() {
 	exec.getTransportFn = nil
-	exec.rangeTransportFn = nil
 	exec.headTransportFn = nil
 }

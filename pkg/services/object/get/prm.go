@@ -41,16 +41,11 @@ type Prm struct {
 	interceptHeaderBinaryFn func([]byte) error
 }
 
-// RangePrm groups parameters of GetRange service call.
-type RangePrm struct {
+// rangePrm groups common parameters with range definition.
+type rangePrm struct {
 	commonPrm
 
 	rng *object.Range
-
-	localBuffer         []byte
-	submitLocalStreamFn SubmitDataStreamFunc
-
-	transportFn RangeTransportFunc
 }
 
 type RequestForwarder func(context.Context, clientcore.MultiAddressClient) (*object.Object, error)
@@ -66,10 +61,6 @@ type SubmitHeadResponseFunc = func(mem.BufferSlice, iprotobuf.BuffersSlice)
 // GetTransportFunc continues to serve current GET request from remote node
 // through passed connection.
 type GetTransportFunc func(context.Context, clientcore.MultiAddressClient) error
-
-// RangeTransportFunc continues to serve current RANGE request from remote node
-// through passed connection.
-type RangeTransportFunc func(context.Context, clientcore.MultiAddressClient) error
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
@@ -169,15 +160,8 @@ func (p *Prm) RequireEACLRecheck() {
 	p.recheckEACL = true
 }
 
-// SetChunkWriter sets target component to write the object payload range.
-func (p *RangePrm) SetChunkWriter(w ChunkWriter) {
-	p.objWriter = &partWriter{
-		chunkWriter: w,
-	}
-}
-
 // SetRange sets range of the requested payload data.
-func (p *RangePrm) SetRange(rng *object.Range) {
+func (p *rangePrm) SetRange(rng *object.Range) {
 	p.rng = rng
 }
 
@@ -303,27 +287,6 @@ func (p *HeadPrm) SetSubmitHeadResponseFunc(f SubmitHeadResponseFunc) {
 //
 // The f is never called concurrently.
 func (p *Prm) SetTransportFunc(f GetTransportFunc) {
-	p.transportFn = f
-}
-
-// WithBuffer specifies a buffer to use for header reading and a callback for
-// payload range stream. If passed, the stream must be finally closed by the
-// caller.
-func (p *RangePrm) WithBuffer(buffer []byte, submitStreamFn SubmitDataStreamFunc) {
-	p.localBuffer = buffer
-	p.submitLocalStreamFn = submitStreamFn
-}
-
-// SetTransportFunc specifies request transport callback to use for streaming
-// responses from remote node by in-container server.
-//
-// The f should return:
-//   - nil on completed object transmission
-//   - [object.SplitInfoError] on OK with corresponding body field
-//   - [apistatus.ErrObjectNotFound] on 404 status
-//   - nil on other API statuses
-//   - any other transport/protocol error otherwise
-func (p *RangePrm) SetTransportFunc(f RangeTransportFunc) {
 	p.transportFn = f
 }
 

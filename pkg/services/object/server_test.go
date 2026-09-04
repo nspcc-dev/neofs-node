@@ -90,10 +90,6 @@ func (x noCallObjectService) Delete(context.Context, deletesvc.Prm) error {
 	panic("must not be called")
 }
 
-func (x noCallObjectService) GetRange(context.Context, getsvc.RangePrm) error {
-	panic("must not be called")
-}
-
 type noCallTestFSChain struct{}
 
 func (*noCallTestFSChain) ForEachContainerNodePublicKey(cid.ID, func([]byte) bool) error {
@@ -155,9 +151,6 @@ func (noCallTestReqInfoExtractor) HeadRequestToInfo(context.Context, *protoobjec
 func (noCallTestReqInfoExtractor) GetRequestToInfo(context.Context, *protoobject.GetRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) RangeRequestToInfo(context.Context, *protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
-	panic("must not be called")
-}
 func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(context.Context, *protoobject.SearchV2Request, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
@@ -197,9 +190,6 @@ func (nopReqInfoExtractor) HeadRequestToInfo(context.Context, *protoobject.HeadR
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) GetRequestToInfo(context.Context, *protoobject.GetRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
-	return v2.RequestInfo{}, nil
-}
-func (nopReqInfoExtractor) RangeRequestToInfo(context.Context, *protoobject.GetRangeRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) SearchV2RequestToInfo(context.Context, *protoobject.SearchV2Request, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {

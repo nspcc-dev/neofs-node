@@ -672,17 +672,6 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 	return hdr, rc, nil
 }
 
-// looks up for local object that carries EC part produced within cnr for parent
-// object and indexed by pi, and writes its payload range into dst. Both zero
-// off and ln correspond to full payload.
-//
-// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
-// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
-// Returns [apistatus.ErrObjectOutOfRange] if the range is out of payload range.
-func (s *Service) copyLocalECPartRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, off, ln uint64) error {
-	return s.copyLocalECPartPayloadRange(ctx, dst, cnr, parent, pi, common.NewPayloadRange(off, ln), nil)
-}
-
 func (s *Service) copyLocalECPartPayloadRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, headerFn func(*object.Object) error) error {
 	hdr, pldLen, rc, err := s.localObjects.GetECPartRange(ctx, cnr, parent, pi, rng, headerFn != nil)
 	if err != nil {
