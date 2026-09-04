@@ -64,6 +64,8 @@ comparing paths from `shard.blobstor` section. After this we have 3 sets:
 3. Shards that remain in the configuration.
    For these shards we apply reload to a `metabase` and for a mode.
 
+Changes to `blobstor.depth` require a node restart; they are not applied by SIGHUP.
+
 ### Metabase
 
 | Changed section | Actions                                                                                                              |

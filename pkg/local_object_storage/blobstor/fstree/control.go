@@ -14,11 +14,12 @@ import (
 )
 
 // currentVersion contains current FSTree config version.
-const currentVersion = 3
+const currentVersion = 4
 
 var migrateFrom = map[int]func(*FSTree, *fsDescriptor, string) error{
 	1: (*FSTree).migrateDescriptorFrom1Version,
 	2: (*FSTree).migrateDescriptorFrom2Version,
+	3: (*FSTree).migrateDescriptorFrom3Version,
 }
 
 // Open implements common.Storage.
@@ -29,10 +30,18 @@ func (t *FSTree) Open(ro bool) error {
 
 // fsDescriptor is stored under the FSTree root and pins layout/config.
 type fsDescriptor struct {
-	Version int    `json:"version"`
-	Depth   uint64 `json:"depth"`
-	ShardID string `json:"shard_id"`
-	Subtype string `json:"subtype"`
+	Version int                `json:"version"`
+	Depth   uint64             `json:"depth"`
+	ShardID string             `json:"shard_id"`
+	Subtype string             `json:"subtype"`
+	Reshape *reshapeDescriptor `json:"reshape,omitempty"`
+}
+
+// reshapeDescriptor contains the persistent state of an ongoing FSTree layout reshape.
+type reshapeDescriptor struct {
+	FromDepth         uint64 `json:"from_depth"`
+	ToDepth           uint64 `json:"to_depth"`
+	LastProcessedPath string `json:"last_processed_path,omitempty"`
 }
 
 func (t *FSTree) descriptorPath() string {
@@ -53,6 +62,13 @@ func writeDescriptor(path string, d fsDescriptor) error {
 		return fmt.Errorf("rename descriptor tmp: %w", err)
 	}
 	return nil
+}
+
+func writeDescriptorSync(path string, d fsDescriptor) error {
+	if err := writeDescriptor(path, d); err != nil {
+		return err
+	}
+	return syncFS(filepath.Dir(path))
 }
 
 // Init implements common.Storage.
@@ -82,12 +98,14 @@ func (t *FSTree) Init(id common.ID) error {
 		if w != nil {
 			t.writer = w
 		}
+		t.startReshape()
 	}
 	return nil
 }
 
 // Close implements common.Storage.
 func (t *FSTree) Close() error {
+	t.stopReshape()
 	return t.writer.finalize()
 }
 
@@ -115,7 +133,7 @@ func (t *FSTree) checkConfig() error {
 			ShardID: t.shardID.String(),
 			Subtype: t.subtype,
 		}
-		return writeDescriptor(descPath, d)
+		return writeDescriptorSync(descPath, d)
 	}
 	var d fsDescriptor
 	dec := json.NewDecoder(f)
@@ -146,9 +164,25 @@ func (t *FSTree) checkConfig() error {
 		t.subtype = d.Subtype
 	}
 
-	if t.depthSet {
+	if d.Reshape != nil {
+		if d.Reshape.FromDepth != d.Depth || d.Reshape.FromDepth == d.Reshape.ToDepth {
+			return errors.New("invalid FSTree reshape state in descriptor")
+		}
+		if t.depthSet && t.Depth != d.Reshape.ToDepth {
+			return fmt.Errorf("layout reshape target mismatch: on-disk target depth=%d, configured depth=%d", d.Reshape.ToDepth, t.Depth)
+		}
+		t.Depth = d.Reshape.ToDepth
+		t.secondaryDepth = d.Reshape.FromDepth
+	} else if t.depthSet {
 		if d.Depth != t.Depth {
-			return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
+			if !t.AllowDepthChange {
+				return fmt.Errorf("layout mismatch: on-disk depth=%d, configured depth=%d", d.Depth, t.Depth)
+			}
+			if t.readOnly {
+				return errors.New("can't reshape read-only storage")
+			}
+			d.Reshape = &reshapeDescriptor{FromDepth: d.Depth, ToDepth: t.Depth}
+			t.secondaryDepth = d.Depth
 		}
 	} else {
 		t.Depth = d.Depth
@@ -170,6 +204,54 @@ func (t *FSTree) checkConfig() error {
 		t.shardID = id
 		t.shardIDSet = !id.IsZero()
 	}
+	if d.Reshape != nil && !t.readOnly {
+		if err := writeDescriptorSync(descPath, d); err != nil {
+			return fmt.Errorf("write reshaped descriptor: %w", err)
+		}
+	}
+	t.descriptor = d
+	return nil
+}
+
+func (t *FSTree) reshapeLastProcessedPath() (string, error) {
+	if t.descriptor.Reshape == nil || t.descriptor.Reshape.FromDepth != t.secondaryDepth || t.descriptor.Reshape.ToDepth != t.Depth {
+		return "", errors.New("FSTree reshape state changed unexpectedly")
+	}
+	return t.descriptor.Reshape.LastProcessedPath, nil
+}
+
+func (t *FSTree) updateReshapeProgress(lastProcessedPath string) error {
+	if _, err := t.reshapeLastProcessedPath(); err != nil {
+		return err
+	}
+	d := t.descriptor
+	reshape := *d.Reshape
+	reshape.LastProcessedPath = lastProcessedPath
+	d.Reshape = &reshape
+	if err := writeDescriptor(t.descriptorPath(), d); err != nil {
+		return fmt.Errorf("write reshape progress descriptor: %w", err)
+	}
+	if err := t.syncReshape(true); err != nil {
+		return err
+	}
+	t.descriptor = d
+	return nil
+}
+
+func (t *FSTree) completeReshape() error {
+	if _, err := t.reshapeLastProcessedPath(); err != nil {
+		return err
+	}
+	d := t.descriptor
+	d.Depth = d.Reshape.ToDepth
+	d.Reshape = nil
+	if err := writeDescriptor(t.descriptorPath(), d); err != nil {
+		return fmt.Errorf("write completed reshape descriptor: %w", err)
+	}
+	if err := t.syncReshape(true); err != nil {
+		return err
+	}
+	t.descriptor = d
 	return nil
 }
 
@@ -196,7 +278,7 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 	d.Version = 2
 	d.ShardID = t.shardID.String()
 	if !t.readOnly {
-		if err := writeDescriptor(descPath, *d); err != nil {
+		if err := writeDescriptorSync(descPath, *d); err != nil {
 			return fmt.Errorf("write migrated descriptor: %w", err)
 		}
 	}
@@ -209,10 +291,22 @@ func (t *FSTree) migrateDescriptorFrom2Version(d *fsDescriptor, descPath string)
 	if !t.subtypeSet {
 		return errors.New("can't migrate FSTree descriptor from v2 to v3 without explicit subtype")
 	}
-	d.Version = currentVersion
+	d.Version = 3
 	d.Subtype = t.subtype
 	if !t.readOnly {
-		if err := writeDescriptor(descPath, *d); err != nil {
+		if err := writeDescriptorSync(descPath, *d); err != nil {
+			return fmt.Errorf("write migrated descriptor: %w", err)
+		}
+	}
+	return nil
+}
+
+// migrateDescriptorFrom3Version migrates descriptor from version 3 to version 4
+// by adding persistent FSTree reshape state.
+func (t *FSTree) migrateDescriptorFrom3Version(d *fsDescriptor, descPath string) error {
+	d.Version = currentVersion
+	if !t.readOnly {
+		if err := writeDescriptorSync(descPath, *d); err != nil {
 			return fmt.Errorf("write migrated descriptor: %w", err)
 		}
 	}

@@ -55,23 +55,29 @@ func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadSeekC
 		return nil, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
 	}
 
-	p := t.treePath(addr)
-
-	f, err := os.Open(p)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+	primary, secondary := t.treePaths(addr)
+	for _, p := range [...]string{secondary, primary} {
+		if p == "" {
+			continue
 		}
-		return nil, nil, fmt.Errorf("read file %q: %w", p, err)
+		f, err := os.Open(p)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return nil, nil, fmt.Errorf("read file %q: %w", p, err)
+		}
+
+		initial, stream, err := t.readHeader(addr.Object(), f, buf)
+		if err != nil {
+			stream.Close()
+			return nil, nil, err
+		}
+
+		return t.preprocessStreamHead(stream, initial)
 	}
 
-	initial, stream, err := t.readHeader(addr.Object(), f, buf)
-	if err != nil {
-		stream.Close()
-		return nil, nil, err
-	}
-
-	return t.preprocessStreamHead(stream, initial)
+	return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
 }
 
 // ReadObject reads first bytes of the referenced object's binary containing its
@@ -171,28 +177,34 @@ func (t *FSTree) readObject(addr oid.Address, buf []byte) (int, io.ReadSeekClose
 // getObjectStream reads an object from the storage by address as a stream.
 // It returns the object with header only, and a reader for the payload.
 func (t *FSTree) getObjectStream(addr oid.Address) (*object.Object, io.ReadSeekCloser, error) {
-	p := t.treePath(addr)
-
-	f, err := os.Open(p)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
+	primary, secondary := t.treePaths(addr)
+	for _, p := range [...]string{secondary, primary} {
+		if p == "" {
+			continue
 		}
-		return nil, nil, fmt.Errorf("read file %q: %w", p, err)
+		f, err := os.Open(p)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return nil, nil, fmt.Errorf("read file %q: %w", p, err)
+		}
+
+		obj, reader, err := t.extractHeaderAndStream(addr.Object(), f)
+		if err != nil {
+			if reader != nil {
+				_ = reader.Close()
+			}
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return nil, nil, fmt.Errorf("extract object stream from %q: %w", p, err)
+		}
+
+		return obj, reader, nil
 	}
 
-	obj, reader, err := t.extractHeaderAndStream(addr.Object(), f)
-	if err != nil {
-		if reader != nil {
-			_ = reader.Close()
-		}
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
-		}
-		return nil, nil, fmt.Errorf("extract object stream from %q: %w", p, err)
-	}
-
-	return obj, reader, nil
+	return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
 }
 
 // extractHeaderAndStream reads the header of an object from a file.

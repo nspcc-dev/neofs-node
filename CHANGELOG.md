@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Online FSTree layout reshaping via the `blobstor.allow_depth_change` configuration option (#4149)
 
 ### Fixed
 
@@ -14,6 +15,9 @@ Changelog for NeoFS Node
 ### Updated
 
 ### Updating from v0.56.0
+To change an FSTree layout depth, configure the new `blobstor.depth` and set
+`blobstor.allow_depth_change` to `true`, then restart the storage node. After
+the node logs that reshaping has completed, the flag can be removed.
 
 ## [0.56.0] - 2026-09-01 - Nabdo
 

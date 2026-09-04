@@ -681,6 +681,9 @@ func (c *cfg) reloadConfig() error {
 	if err := validateConfig(newCfg); err != nil {
 		return fmt.Errorf("validate configuration: %w", err)
 	}
+	if blobstorLayoutChanged(oldCfg, newCfg) {
+		return errors.New("changing blobstor depth requires node restart")
+	}
 	c.appCfg = newCfg
 
 	// Prometheus and pprof
@@ -725,6 +728,22 @@ func (c *cfg) reloadConfig() error {
 	}
 
 	return nil
+}
+
+func blobstorLayoutChanged(oldCfg, newCfg *config.Config) bool {
+	oldShards := make(map[string]uint64, len(oldCfg.Storage.ShardList))
+	for i := range oldCfg.Storage.ShardList {
+		shard := oldCfg.Storage.ShardList[i]
+		oldShards[shard.ID()] = shard.Blobstor.Depth
+	}
+	for i := range newCfg.Storage.ShardList {
+		shard := newCfg.Storage.ShardList[i]
+		oldDepth, ok := oldShards[shard.ID()]
+		if ok && oldDepth != shard.Blobstor.Depth {
+			return true
+		}
+	}
+	return false
 }
 
 // writeSystemAttributes writes app version as defined at compilation
