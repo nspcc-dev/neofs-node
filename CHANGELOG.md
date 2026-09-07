@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - GetRange object service method (#4167)
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260911084039-e749b2b839ac` (#4168)
 
 ### Updating from v0.56.0
 To change an FSTree layout depth, configure the new `blobstor.depth` and set
