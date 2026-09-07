@@ -2,17 +2,25 @@ package putsvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"slices"
 
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
+	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
@@ -27,6 +35,8 @@ type RemoteSender struct {
 
 	clientConstructor ClientConstructor
 }
+
+const maxReplicateV2PayloadChunkLen = 256 << 10
 
 func putObjectToNode(ctx context.Context, nodeInfo netmap.NodeInfo, obj *object.Object,
 	keyStorage *util.KeyStorage, clientConstructor ClientConstructor, commonPrm *util.CommonPrm) error {
@@ -119,12 +129,7 @@ func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, id oid.ID, src
 	return nil
 }
 
-func sendReplicationRequestToNode(ctx context.Context, clientConstructor ClientConstructor, req []byte, node netmap.NodeInfo) ([]byte, error) {
-	conn, err := clientConstructor.Get(ctx, node)
-	if err != nil {
-		return nil, fmt.Errorf("connect to remote node: %w", err)
-	}
-
+func sendReplicationRequestToNode(ctx context.Context, conn clientcore.MultiAddressClient, req []byte) ([]byte, error) {
 	var res []byte
 	return res, conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		// this will be changed during NeoFS API Go deprecation. Code most likely be
@@ -132,11 +137,85 @@ func sendReplicationRequestToNode(ctx context.Context, clientConstructor ClientC
 		var resp protoobject.ReplicateResponse
 		err := conn.Invoke(ctx, protoobject.ObjectService_Replicate_FullMethodName, req, &resp, binaryMessageOnly)
 		if err != nil {
-			return fmt.Errorf("API transport (op=%s): %w", protoobject.ObjectService_Replicate_FullMethodName, err)
+			return newAPICallError(protoobject.ObjectService_Replicate_FullMethodName, err)
 		}
 		res, err = replicationResultFromResponse(&resp)
 		return err
 	})
+}
+
+func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Signer, conn clientcore.MultiAddressClient, hdr object.Object, payload []byte, signObjectMeta bool) ([]byte, error) {
+	id := hdr.GetID()
+
+	sig, err := signer.Sign(id[:])
+	if err != nil {
+		return nil, fmt.Errorf("sign object ID: %w", err)
+	}
+
+	hdrMsg := hdr.ProtoMessage()
+	hdrMsg.Payload = nil
+
+	pubKey := neofscrypto.PublicKeyBytes(signer.Public())
+	sigScheme := signer.Scheme()
+
+	hdrLen := hdrMsg.MarshaledSize()
+	sigLen := protorefs.CalculateSignatureLength(pubKey, sig, sigScheme)
+
+	initLen := protoobject.CalculateReplicateV2InitLength(hdrLen, sigLen, signObjectMeta)
+
+	initReqLen := protoobject.CalculateReplicateV2InitRequestLength(initLen)
+
+	initReqBufItem := defaultGRPCBufferPool.Get(initReqLen)
+	defer defaultGRPCBufferPool.Put(initReqBufItem)
+
+	initReqBuf := *initReqBufItem
+
+	writeHdrFn := protoencoding.WriteStablyMarshalledMessageFunc(hdrMsg)
+	writeSigFn := func(buf []byte) int {
+		return protorefs.WriteSignature(buf, pubKey, sig, sigScheme)
+	}
+	protoobject.WriteReplicateV2InitRequest(initReqBuf, hdrLen, writeHdrFn, sigLen, writeSigFn, signObjectMeta)
+
+	var res []byte
+
+	err = conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		stream, err := conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true}, protoobject.ObjectService_ReplicateV2_FullMethodName,
+			grpc.ForceCodecV2(protobuf.BufferedCodec{}),
+		)
+		if err != nil {
+			return newAPICallError(protoobject.ObjectService_ReplicateV2_FullMethodName, err)
+		}
+
+		err = stream.SendMsg(mem.SliceBuffer(initReqBuf))
+		if err != nil {
+			return fmt.Errorf("send initial request: %w", err)
+		}
+
+		for chunk := range slices.Chunk(payload, maxReplicateV2PayloadChunkLen) {
+			reqLen := protoobject.CalculateReplicateV2ChunkRequestLength(chunk)
+			bufItem := defaultGRPCBufferPool.Get(reqLen)
+			protoobject.WriteReplicateV2ChunkRequest(*bufItem, chunk)
+
+			err = stream.SendMsg(mem.NewBuffer(bufItem, defaultGRPCBufferPool))
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					res, err = replicationV2ResultFromStream(stream)
+					return err
+				}
+				return fmt.Errorf("send chunk request: %w", err)
+			}
+		}
+
+		err = stream.CloseSend()
+		if err != nil {
+			return fmt.Errorf("close stream: %w", err)
+		}
+
+		res, err = replicationV2ResultFromStream(stream)
+		return err
+	})
+
+	return res, err
 }
 
 // [encoding.Codec] making Marshal to accept and forward []byte messages only.
@@ -162,11 +241,30 @@ func (protoCodecBinaryRequestOnly) Unmarshal(data mem.BufferSlice, msg any) erro
 	return encoding.GetCodecV2(proto.Name).Unmarshal(data, msg)
 }
 
+func newAPICallError(method string, cause error) error {
+	return fmt.Errorf("API transport (op=%s): %w", method, cause)
+}
+
+func replicationV2ResultFromStream(stream grpc.ClientStream) ([]byte, error) {
+	var resp protoobject.ReplicateV2Response
+
+	err := stream.RecvMsg(&resp)
+	if err != nil {
+		return nil, fmt.Errorf("receive message from stream: %w", err)
+	}
+
+	return handleReplicationResultFromResponse(resp.Status, resp.ObjectSignature)
+}
+
 func replicationResultFromResponse(m *protoobject.ReplicateResponse) ([]byte, error) {
-	err := apistatus.ToError(m.GetStatus())
+	return handleReplicationResultFromResponse(m.GetStatus(), m.GetObjectSignature())
+}
+
+func handleReplicationResultFromResponse(st *protostatus.Status, sig []byte) ([]byte, error) {
+	err := apistatus.ToError(st)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.GetObjectSignature(), nil
+	return sig, nil
 }

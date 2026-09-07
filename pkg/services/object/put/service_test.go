@@ -1231,27 +1231,77 @@ type testObjectServiceServer struct {
 	svc *Service
 }
 
-func (x testObjectServiceServer) Replicate(ctx context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
-	if req.Object == nil {
-		return &protoobject.ReplicateResponse{
-			Status: &protostatus.Status{Code: protostatus.BadRequest, Message: "missing object in request"},
-		}, nil
+func (x testObjectServiceServer) ReplicateV2(stream protoobject.ObjectService_ReplicateV2Server) error {
+	firstReq, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+
+	reqInit, ok := firstReq.StreamPart.(*protoobject.ReplicateV2Request_Init_)
+	if !ok {
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{
+				Code: protostatus.BadRequest, Message: "first request does not contain init field",
+			},
+		}
+		return stream.SendAndClose(resp)
+	}
+
+	initPart := reqInit.Init
+	if initPart == nil { // not expected to ever happen, but better to keep safe
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{
+				Code: protostatus.InternalServerError, Message: "first request contains nil init field",
+			},
+		}
+		return stream.SendAndClose(resp)
+	}
+
+	if initPart.Object == nil {
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{
+				Code: protostatus.BadRequest, Message: "object field is missing",
+			},
+		}
+		return stream.SendAndClose(resp)
 	}
 
 	var obj object.Object
-	if err := obj.FromProtoMessage(req.Object); err != nil {
-		return &protoobject.ReplicateResponse{
+	if err := obj.FromProtoMessage(initPart.Object); err != nil {
+		resp := &protoobject.ReplicateV2Response{
 			Status: &protostatus.Status{Code: protostatus.BadRequest, Message: fmt.Sprintf("invalid object in request: %v", err)},
-		}, nil
+		}
+		return stream.SendAndClose(resp)
 	}
 
-	if err := x.svc.ValidateAndStoreObjectLocally(ctx, obj); err != nil {
-		return &protoobject.ReplicateResponse{
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+
+		chunkPart, ok := req.StreamPart.(*protoobject.ReplicateV2Request_PayloadChunk)
+		if !ok {
+			resp := &protoobject.ReplicateV2Response{
+				Status: &protostatus.Status{Code: protostatus.BadRequest, Message: "non-chunk subsequent message"},
+			}
+			return stream.SendAndClose(resp)
+		}
+
+		obj.SetPayload(append(obj.Payload(), chunkPart.PayloadChunk...))
+	}
+
+	if err := x.svc.ValidateAndStoreObjectLocally(stream.Context(), obj); err != nil {
+		resp := &protoobject.ReplicateV2Response{
 			Status: &protostatus.Status{Code: protostatus.InternalServerError, Message: fmt.Sprintf("validate and store object locally: %v", err)},
-		}, nil
+		}
+		return stream.SendAndClose(resp)
 	}
 
-	return new(protoobject.ReplicateResponse), nil
+	return stream.SendAndClose(new(protoobject.ReplicateV2Response))
 }
 
 type serviceClient struct {
