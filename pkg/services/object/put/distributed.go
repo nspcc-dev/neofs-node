@@ -70,7 +70,6 @@ type distributedTarget struct {
 
 	localStorage      ObjectStorage
 	clientConstructor ClientConstructor
-	transport         Transport
 	commonPrm         *svcutil.CommonPrm
 	keyStorage        *svcutil.KeyStorage
 
@@ -694,7 +693,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 	var sigsRaw []byte
 	var err error
 	if encObj.hdrOff > 0 {
-		sigsRaw, err = t.transport.SendReplicationRequestToNode(t.opCtx, encObj.b, node.info)
+		sigsRaw, err = sendReplicationRequestToNode(t.opCtx, t.clientConstructor, encObj.b, node.info)
 		if err != nil {
 			err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
 		}
