@@ -36,7 +36,7 @@ rpc-endpoint: https://address:port # sidechain RPC node endpoint
 alphabet-wallets: /path            # path to consensus node / alphabet wallets storage
 network:
   max_object_size: 67108864 # max size of a single NeoFS object, bytes
-  epoch_duration: 240       # duration of a NeoFS epoch in blocks, consider block generation frequency in the sidechain
+  epoch_duration: 240       # duration of a NeoFS epoch in seconds
   basic_income_rate: 0      # basic income rate, for private consider 0
   fee:
     candidate: 0 # inner ring candidate registration fee, for private installation consider 0

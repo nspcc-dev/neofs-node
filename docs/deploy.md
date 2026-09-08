@@ -49,8 +49,8 @@ credentials:
 For a private installation, all network fees and the basic income rate are
 usually set to `0`.
 
-The epoch duration is measured in blocks. For example, a value of `240`
-corresponds to 240 blocks; with a 15-second block time this is roughly one hour.
+The epoch duration is configured in seconds, not in block counts. For example,
+a value of `240` means 240 seconds per epoch, which is 4 minutes.
 
 For the maximum object size, 64 MiB is the default and the recommended choice
 for a private test or development network.
@@ -98,8 +98,8 @@ Waiting for transactions to persist...
 ```
 
 The generated wallet file can then be used by the Storage node configuration.
-The storage node wallet should have enough GAS to register itself in the network;
-see the `neofs-dev-env` or `neofs-aio` examples for a working bootstrap setup.
+The storage node wallet must have enough GAS to register itself in the network,
+so keep the `--initial-gas` value high enough for registration and bootstrap.
 
 ```yaml
 node:
