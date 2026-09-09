@@ -23,8 +23,6 @@ import (
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/encoding"
-	"google.golang.org/grpc/encoding/proto"
 	"google.golang.org/grpc/mem"
 )
 
@@ -135,7 +133,7 @@ func sendReplicationRequestToNode(ctx context.Context, conn clientcore.MultiAddr
 		// this will be changed during NeoFS API Go deprecation. Code most likely be
 		// placed in SDK
 		var resp protoobject.ReplicateResponse
-		err := conn.Invoke(ctx, protoobject.ObjectService_Replicate_FullMethodName, req, &resp, binaryMessageOnly)
+		err := conn.Invoke(ctx, protoobject.ObjectService_Replicate_FullMethodName, mem.SliceBuffer(req), &resp, grpc.ForceCodecV2(protobuf.BufferedCodec{}))
 		if err != nil {
 			return newAPICallError(protoobject.ObjectService_Replicate_FullMethodName, err)
 		}
@@ -216,29 +214,6 @@ func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Sign
 	})
 
 	return res, err
-}
-
-// [encoding.Codec] making Marshal to accept and forward []byte messages only.
-var binaryMessageOnly = grpc.ForceCodecV2(protoCodecBinaryRequestOnly{})
-
-type protoCodecBinaryRequestOnly struct{}
-
-func (protoCodecBinaryRequestOnly) Name() string {
-	// may be any non-empty, conflicts are unlikely to arise
-	return "neofs_binary_sender"
-}
-
-func (protoCodecBinaryRequestOnly) Marshal(msg any) (mem.BufferSlice, error) {
-	bMsg, ok := msg.([]byte)
-	if ok {
-		return mem.BufferSlice{mem.SliceBuffer(bMsg)}, nil
-	}
-
-	return nil, fmt.Errorf("message is not of type %T", bMsg)
-}
-
-func (protoCodecBinaryRequestOnly) Unmarshal(data mem.BufferSlice, msg any) error {
-	return encoding.GetCodecV2(proto.Name).Unmarshal(data, msg)
 }
 
 func newAPICallError(method string, cause error) error {
