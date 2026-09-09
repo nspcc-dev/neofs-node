@@ -75,9 +75,15 @@ func (x *mockMetabase) ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi
 
 type getStreamValue struct {
 	obj object.Object
-	rc  io.ReadCloser
+	rc  io.ReadSeekCloser
 	err error
 }
+
+type nopReadSeekCloser struct {
+	io.ReadSeeker
+}
+
+func (nopReadSeekCloser) Close() error { return nil }
 
 type headValue struct {
 	hdr object.Object
@@ -98,7 +104,7 @@ type mockBLOBStore struct {
 	getRangeStream map[oid.Address]getRangeStreamValue
 }
 
-func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, error) {
+func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadSeekCloser, error) {
 	val, ok := x.getStream[addr]
 	if !ok {
 		return nil, nil, errors.New("[test] unexpected object requested")
@@ -106,7 +112,7 @@ func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadClos
 	if val.rc != nil {
 		return val.obj.CutPayload(), val.rc, nil
 	}
-	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
+	return val.obj.CutPayload(), nopReadSeekCloser{bytes.NewReader(val.obj.Payload())}, val.err
 }
 
 func (x *mockBLOBStore) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
@@ -286,7 +292,7 @@ func (unimplementedBLOBStore) Get(oid.Address) (*object.Object, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) GetStream(oid.Address) (*object.Object, io.ReadCloser, error) {
+func (unimplementedBLOBStore) GetStream(oid.Address) (*object.Object, io.ReadSeekCloser, error) {
 	panic("unimplemented")
 }
 
