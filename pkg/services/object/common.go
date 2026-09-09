@@ -253,3 +253,15 @@ func (s *Server) _handleRequestMetaHeader(metaHdr *protosession.RequestMetaHeade
 
 	return reqMD, nil
 }
+
+func newBadRequestStatus(msg string) *protostatus.Status {
+	return newStatus(codeBadRequest, msg)
+}
+
+func newInternalServerErrorStatus(msg string) *protostatus.Status {
+	return newStatus(codeInternal, msg)
+}
+
+func newStatus(code uint32, msg string) *protostatus.Status {
+	return &protostatus.Status{Code: code, Message: msg}
+}

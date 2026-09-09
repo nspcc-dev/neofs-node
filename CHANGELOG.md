@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Online FSTree layout reshaping via the `blobstor.allow_depth_change` configuration option (#4149)
+- SN now serves `ReplicateV2` API (#4168)
 
 ### Fixed
 - Broken EC object GET with all data parts missing (#4173)
