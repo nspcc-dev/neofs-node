@@ -262,6 +262,14 @@ func newInternalServerErrorStatus(msg string) *protostatus.Status {
 	return newStatus(codeInternal, msg)
 }
 
+func newContainerNotFoundStatus(msg string) *protostatus.Status {
+	return newStatus(codeContainerNotFound, msg)
+}
+
+func newAccessDeniedStatus(msg string) *protostatus.Status {
+	return newStatus(codeAccessDenied, msg)
+}
+
 func newStatus(code uint32, msg string) *protostatus.Status {
 	return &protostatus.Status{Code: code, Message: msg}
 }

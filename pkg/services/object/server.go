@@ -1714,17 +1714,12 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return nil, &protostatus.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check server's compliance to object's storage policy: object's container not found",
-			}, nil
+			return nil, newContainerNotFoundStatus("failed to check server's compliance to object's storage policy: object's container not found"), nil
 		}
 
 		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to apply object's storage policy: %v", err)), nil
 	} else if !serverInCnr {
-		return nil, &protostatus.Status{
-			Code: codeAccessDenied, Message: "server does not match the object's storage policy",
-		}, nil
+		return nil, newAccessDeniedStatus("server does not match the object's storage policy"), nil
 	}
 
 	var clientInCnr bool
@@ -1734,17 +1729,12 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return nil, &protostatus.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check server's compliance to object's storage policy: object's container not found",
-			}, nil
+			return nil, newContainerNotFoundStatus("failed to check server's compliance to object's storage policy: object's container not found"), nil
 		}
 
 		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to apply object's storage policy: %v", err)), nil
 	} else if !clientInCnr {
-		return nil, &protostatus.Status{
-			Code: codeAccessDenied, Message: "client does not match the object's storage policy",
-		}, nil
+		return nil, newAccessDeniedStatus("client does not match the object's storage policy"), nil
 	}
 
 	// TODO(@cthulhu-rider): avoid decoding the object completely
