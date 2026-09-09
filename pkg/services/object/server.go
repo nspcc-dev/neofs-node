@@ -72,14 +72,6 @@ type Handlers interface {
 	Delete(context.Context, deletesvc.Prm) error
 }
 
-// Various NeoFS protocol status codes.
-const (
-	codeInternal          = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_INTERNAL)
-	codeBadRequest        = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_BAD_REQUEST)
-	codeAccessDenied      = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_ACCESS_DENIED)
-	codeContainerNotFound = uint32(1024*protostatus.Section_SECTION_CONTAINER) + uint32(protostatus.Container_CONTAINER_NOT_FOUND)
-)
-
 // MetricCollector tracks exec statistics for the following ops:
 //   - [stat.MethodObjectPut]
 //   - [stat.MethodObjectGet]

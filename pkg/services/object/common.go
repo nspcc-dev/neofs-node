@@ -255,19 +255,19 @@ func (s *Server) _handleRequestMetaHeader(metaHdr *protosession.RequestMetaHeade
 }
 
 func newBadRequestStatus(msg string) *protostatus.Status {
-	return newStatus(codeBadRequest, msg)
+	return newStatus(protostatus.BadRequest, msg)
 }
 
 func newInternalServerErrorStatus(msg string) *protostatus.Status {
-	return newStatus(codeInternal, msg)
+	return newStatus(protostatus.InternalServerError, msg)
 }
 
 func newContainerNotFoundStatus(msg string) *protostatus.Status {
-	return newStatus(codeContainerNotFound, msg)
+	return newStatus(protostatus.ContainerNotFound, msg)
 }
 
 func newAccessDeniedStatus(msg string) *protostatus.Status {
-	return newStatus(codeAccessDenied, msg)
+	return newStatus(protostatus.ObjectAccessDenied, msg)
 }
 
 func newStatus(code uint32, msg string) *protostatus.Status {
