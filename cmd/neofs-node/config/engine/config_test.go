@@ -72,6 +72,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, "tmp/0/blob", ss.Path)
 				require.EqualValues(t, 0644, ss.Perm)
 				require.EqualValues(t, 5, ss.Depth)
+				require.True(t, ss.AllowDepthChange)
 				require.False(t, *ss.NoSync)
 
 				require.EqualValues(t, 150, gc.RemoverBatchSize)
@@ -96,6 +97,7 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 0644, ss.Perm)
 
 				require.EqualValues(t, 5, ss.Depth)
+				require.False(t, ss.AllowDepthChange)
 				require.True(t, *ss.NoSync)
 
 				require.EqualValues(t, 200, gc.RemoverBatchSize)

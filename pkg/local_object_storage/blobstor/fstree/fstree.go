@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
@@ -32,23 +33,30 @@ import (
 type FSTree struct {
 	Info
 
-	log    *zap.Logger
-	Depth  uint64
-	writer writer
+	log              *zap.Logger
+	Depth            uint64
+	secondaryDepth   uint64
+	AllowDepthChange bool
+	writer           writer
 
 	depthSet   bool
 	shardIDSet bool
 	subtypeSet bool
 
-	noSync   bool
-	readOnly bool
-	shardID  common.ID
-	subtype  string
+	noSync     bool
+	readOnly   bool
+	shardID    common.ID
+	subtype    string
+	descriptor fsDescriptor
 
 	combinedCountLimit    int
 	combinedSizeLimit     int
 	combinedSizeThreshold int
 	combinedWriteInterval time.Duration
+
+	reshapeStateMtx sync.Mutex
+	reshapeCancel   func()
+	reshapeDone     chan struct{}
 }
 
 // Info groups the information about file storage.
@@ -156,7 +164,7 @@ func addressFromString(s string) (*oid.Address, error) {
 
 // Iterate iterates over all stored objects.
 func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte) error, errorHandler func(addr oid.Address, err error) error) error {
-	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil, nil)
+	return t.iterateMerged(objHandler, errorHandler, nil, nil)
 }
 
 // IterateAddresses iterates over all objects stored in the underlying storage
@@ -168,8 +176,7 @@ func (t *FSTree) IterateAddresses(f func(addr oid.Address) error, ignoreErrors b
 	if ignoreErrors {
 		errorHandler = func(oid.Address, error) error { return nil }
 	}
-
-	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, f, nil)
+	return t.iterateMerged(nil, errorHandler, f, nil)
 }
 
 // IterateSizes iterates over all objects stored in the underlying storage
@@ -181,102 +188,248 @@ func (t *FSTree) IterateSizes(f func(addr oid.Address, size uint64) error, ignor
 	if ignoreErrors {
 		errorHandler = func(oid.Address, error) error { return nil }
 	}
-
-	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, nil, f)
+	return t.iterateMerged(nil, errorHandler, nil, f)
 }
 
-func (t *FSTree) iterate(depth uint64, curPath []string,
-	objHandler func(oid.Address, []byte) error,
-	errorHandler func(oid.Address, error) error,
-	addrHandler func(oid.Address) error,
-	sizeHandler func(oid.Address, uint64) error) error {
-	curName := strings.Join(curPath[1:], "")
-	dir := filepath.Join(curPath...)
-	des, err := os.ReadDir(dir)
+type layoutEntry struct {
+	addr oid.Address
+	path string
+}
+
+type layoutIterator struct {
+	treeDepth uint64
+	frames    []layoutIteratorFrame
+}
+
+type layoutIteratorFrame struct {
+	depth   uint64
+	dir     string
+	prefix  string
+	entries []os.DirEntry
+	next    int
+}
+
+func newLayoutIterator(root string, treeDepth uint64) (*layoutIterator, error) {
+	return newLayoutIteratorAt(root, treeDepth, "")
+}
+
+func newLayoutIteratorAt(root string, treeDepth uint64, prefix string) (*layoutIterator, error) {
+	entries, err := os.ReadDir(root)
 	if err != nil {
-		if errorHandler != nil {
-			return errorHandler(oid.Address{}, err)
-		}
-		return fmt.Errorf("read dir %q: %w", dir, err)
+		return nil, fmt.Errorf("read dir %q: %w", root, err)
 	}
+	return &layoutIterator{treeDepth: treeDepth, frames: []layoutIteratorFrame{{dir: root, prefix: prefix, entries: entries}}}, nil
+}
 
-	isLast := depth >= t.Depth
-	l := len(curPath)
-	curPath = append(curPath, "")
-
-	for i := range des {
-		curPath[l] = des[i].Name()
-
-		if !isLast && des[i].IsDir() {
-			err := t.iterate(depth+1, curPath, objHandler, errorHandler, addrHandler, sizeHandler)
-			if err != nil {
-				// Must be error from handler in case errors are ignored.
-				// Need to report.
-				return err
-			}
-		}
-
-		if depth != t.Depth {
+func (i *layoutIterator) next() (layoutEntry, bool, error) {
+	for len(i.frames) > 0 {
+		frame := &i.frames[len(i.frames)-1]
+		if frame.next == len(frame.entries) {
+			i.frames = i.frames[:len(i.frames)-1]
 			continue
 		}
 
-		addr, err := addressFromString(curName + des[i].Name())
+		entry := frame.entries[frame.next]
+		frame.next++
+		path := filepath.Join(frame.dir, entry.Name())
+		if frame.depth < i.treeDepth {
+			if !entry.IsDir() {
+				continue
+			}
+			entries, err := os.ReadDir(path)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return layoutEntry{}, false, fmt.Errorf("read dir %q: %w", path, err)
+			}
+			i.frames = append(i.frames, layoutIteratorFrame{depth: frame.depth + 1, dir: path, prefix: frame.prefix + entry.Name(), entries: entries})
+			continue
+		}
+		if entry.IsDir() {
+			continue
+		}
+		addr, err := addressFromString(frame.prefix + entry.Name())
 		if err != nil {
 			continue
 		}
+		return layoutEntry{addr: *addr, path: path}, true, nil
+	}
+	return layoutEntry{}, false, nil
+}
 
+func nextLayoutEntry(i *layoutIterator, errorHandler func(oid.Address, error) error) (layoutEntry, bool, error) {
+	for {
+		entry, ok, err := i.next()
+		if err == nil {
+			return entry, ok, nil
+		}
+		if errorHandler == nil {
+			return layoutEntry{}, false, err
+		}
+		if err = errorHandler(oid.Address{}, err); err != nil {
+			return layoutEntry{}, false, err
+		}
+	}
+}
+
+func (t *FSTree) iterateMerged(objHandler func(oid.Address, []byte) error, errorHandler func(oid.Address, error) error, addrHandler func(oid.Address) error, sizeHandler func(oid.Address, uint64) error) error {
+	fail := func(addr oid.Address, err error) error {
+		if errorHandler != nil {
+			return errorHandler(addr, err)
+		}
+		return err
+	}
+	handle := func(entry layoutEntry) error {
 		if addrHandler != nil {
-			err = addrHandler(*addr)
-		} else {
-			var data []byte
-			p := filepath.Join(curPath...)
-			if sizeHandler != nil {
-				err = filepath.Walk(p, func(path string, info os.FileInfo, _ error) error {
-					if !info.IsDir() {
-						err = sizeHandler(*addr, uint64(info.Size()))
-						if err != nil {
-							return err
-						}
-					}
-					return nil
-				})
-			} else {
-				data, err = t.getObjectBytesByPath(addr.Object(), p)
-				if err != nil {
-					if errors.Is(err, apistatus.ErrObjectNotFound) {
-						continue
-					}
-					if errorHandler != nil {
-						err = errorHandler(*addr, err)
-						if err == nil {
-							continue
-						}
-					}
-					return fmt.Errorf("read file %q: %w", p, err)
+			return addrHandler(entry.addr)
+		}
+		if sizeHandler != nil {
+			primary, secondary := t.treePaths(entry.addr)
+			var info os.FileInfo
+			var err error
+			for _, path := range [...]string{secondary, primary} {
+				if path == "" {
+					continue
 				}
-
-				err = objHandler(*addr, data)
-				if err != nil {
-					err = fmt.Errorf("handling %s object: %w", addr, err)
+				info, err = os.Stat(path)
+				if !errors.Is(err, fs.ErrNotExist) {
+					break
 				}
 			}
+			if err != nil {
+				return fail(entry.addr, fmt.Errorf("stat object %s: %w", entry.addr, err))
+			}
+			return sizeHandler(entry.addr, uint64(info.Size()))
 		}
+		data, err := t.getObjBytes(entry.addr)
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			return nil
+		}
+		if err != nil {
+			return fail(entry.addr, fmt.Errorf("read file %q: %w", entry.path, err))
+		}
+		if err = objHandler(entry.addr, data); err != nil {
+			return fmt.Errorf("handling %s object: %w", entry.addr, err)
+		}
+		return nil
+	}
+	if t.secondaryDepth != 0 && t.secondaryDepth != t.Depth {
+		return t.iterateGroups(handle, fail)
+	}
+	primary, err := newLayoutIterator(t.RootPath, t.Depth)
+	if err != nil {
+		return fail(oid.Address{}, err)
+	}
+	return mergeLayoutGroup(nil, primary, handle, fail)
+}
 
+// collectLayoutGroup snapshots old names before the corresponding new layout is
+// opened. ReadDir and the depth-first traversal preserve name order, so no extra
+// sorting is needed.
+func collectLayoutGroup(root string, depth uint64, prefix string, errorHandler func(oid.Address, error) error) ([]layoutEntry, error) {
+	i, err := newLayoutIteratorAt(root, depth, prefix)
+	if err != nil {
+		if errorHandler != nil {
+			return nil, errorHandler(oid.Address{}, err)
+		}
+		return nil, err
+	}
+	var entries []layoutEntry
+	for {
+		entry, ok, err := nextLayoutEntry(i, errorHandler)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return entries, nil
+		}
+		entries = append(entries, entry)
+	}
+}
+
+// mergeLayoutGroup merges an immutable old-layout snapshot with a streaming new
+// layout. Equal addresses are emitted once, including files moved after snapshot.
+func mergeLayoutGroup(secondary []layoutEntry, primary *layoutIterator, handle func(layoutEntry) error, errorHandler func(oid.Address, error) error) error {
+	entry, ok, err := nextLayoutEntry(primary, errorHandler)
+	if err != nil {
+		return err
+	}
+	for len(secondary) != 0 || ok {
+		if len(secondary) != 0 {
+			cmp := -1
+			if ok {
+				cmp = strings.Compare(stringifyAddress(secondary[0].addr), stringifyAddress(entry.addr))
+			}
+			if cmp <= 0 {
+				if err := handle(secondary[0]); err != nil {
+					return err
+				}
+				secondary = secondary[1:]
+				if cmp < 0 {
+					continue
+				}
+			} else if err := handle(entry); err != nil {
+				return err
+			}
+		} else if err := handle(entry); err != nil {
+			return err
+		}
+		entry, ok, err = nextLayoutEntry(primary, errorHandler)
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
+func (t *FSTree) iterateGroups(handle func(layoutEntry) error, errorHandler func(oid.Address, error) error) error {
+	groupDepth := min(t.Depth, t.secondaryDepth)
+	var iterate func(string, uint64, string) error
+	iterate = func(dir string, depth uint64, prefix string) error {
+		if depth == groupDepth {
+			secondary, err := collectLayoutGroup(dir, t.secondaryDepth-groupDepth, prefix, errorHandler)
+			if err != nil {
+				return err
+			}
+			// Do not snapshot the primary layout before collecting all old names:
+			// a file moved during that collection must be visible in this scan.
+			primary, err := newLayoutIteratorAt(dir, t.Depth-groupDepth, prefix)
+			if err != nil {
+				return errorHandler(oid.Address{}, err)
+			}
+			return mergeLayoutGroup(secondary, primary, handle, errorHandler)
+		}
+		entries, err := os.ReadDir(dir)
+		if errors.Is(err, fs.ErrNotExist) && depth != 0 {
+			return nil
+		}
+		if err != nil {
+			return errorHandler(oid.Address{}, fmt.Errorf("read dir %q: %w", dir, err))
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				if err := iterate(filepath.Join(dir, entry.Name()), depth+1, prefix+entry.Name()); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return iterate(t.RootPath, 0, "")
+}
+
 func (t *FSTree) treePath(addr oid.Address) string {
+	return t.treePathAtDepth(addr, t.Depth)
+}
+
+func (t *FSTree) treePathAtDepth(addr oid.Address, depth uint64) string {
 	sAddr := stringifyAddress(addr)
 
-	dirs := make([]string, 0, t.Depth+1+1) // 1 for root, 1 for file
+	dirs := make([]string, 0, depth+1+1) // 1 for root, 1 for file
 	dirs = append(dirs, t.RootPath)
 
-	for i := 0; uint64(i) < t.Depth; i++ {
+	for range depth {
 		dirs = append(dirs, sAddr[:DirNameLen])
 		sAddr = sAddr[DirNameLen:]
 	}
@@ -286,27 +439,38 @@ func (t *FSTree) treePath(addr oid.Address) string {
 	return filepath.Join(dirs...)
 }
 
+func (t *FSTree) treePaths(addr oid.Address) (string, string) {
+	primary := t.treePath(addr)
+	if t.secondaryDepth == 0 || t.secondaryDepth == t.Depth {
+		return primary, ""
+	}
+	return primary, t.treePathAtDepth(addr, t.secondaryDepth)
+}
+
 // Delete removes the object with the specified address from the storage.
 func (t *FSTree) Delete(addr oid.Address) error {
 	if t.readOnly {
 		return common.ErrReadOnly
 	}
 
-	p, err := t.getPath(addr)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			err = logicerr.Wrap(apistatus.ObjectNotFound{})
+	var removed bool
+	primary, secondary := t.treePaths(addr)
+	for _, p := range [...]string{secondary, primary} {
+		if p == "" {
+			continue
 		}
-		return err
-	}
-
-	err = os.Remove(p)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return logicerr.Wrap(apistatus.ObjectNotFound{})
+		err := os.Remove(p)
+		if err == nil {
+			removed = true
+			continue
 		}
-
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		return fmt.Errorf("remove file %q: %w", p, err)
+	}
+	if !removed {
+		return logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	return nil
@@ -330,14 +494,21 @@ func (t *FSTree) Exists(addr oid.Address) (bool, error) {
 // checks whether file for the given object address exists and returns path to
 // the file if so. Returns [fs.ErrNotExist] if file is missing.
 func (t *FSTree) getPath(addr oid.Address) (string, error) {
-	p := t.treePath(addr)
-
-	_, err := os.Stat(p)
-	if err != nil {
-		return "", fmt.Errorf("get filesystem path for object by address: get file stat %q: %w", p, err)
+	primary, secondary := t.treePaths(addr)
+	for _, p := range [...]string{secondary, primary} {
+		if p == "" {
+			continue
+		}
+		_, err := os.Stat(p)
+		if err == nil {
+			return p, nil
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("get filesystem path for object by address: get file stat %q: %w", p, err)
+		}
 	}
 
-	return p, nil
+	return "", fmt.Errorf("get filesystem path for object by address: get file stat %q: %w", t.treePath(addr), fs.ErrNotExist)
 }
 
 // Put puts an object in the storage.
@@ -416,8 +587,17 @@ func (t *FSTree) GetBytes(addr oid.Address) ([]byte, error) {
 
 // getObjBytes extracts object bytes from the storage by address.
 func (t *FSTree) getObjBytes(addr oid.Address) ([]byte, error) {
-	p := t.treePath(addr)
-	return t.getObjectBytesByPath(addr.Object(), p)
+	primary, secondary := t.treePaths(addr)
+	for _, p := range [...]string{secondary, primary} {
+		if p == "" {
+			continue
+		}
+		data, err := t.getObjectBytesByPath(addr.Object(), p)
+		if err == nil || !errors.Is(err, apistatus.ErrObjectNotFound) {
+			return data, err
+		}
+	}
+	return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 }
 
 // getObjectBytesByPath extracts object bytes from the storage by path.

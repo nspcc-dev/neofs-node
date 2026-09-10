@@ -142,7 +142,8 @@
           "type": "fstree",
           "path": "tmp/0/blob",
           "perm": "0644",
-          "depth": 5
+          "depth": 5,
+          "allow_depth_change": true
         },
         "gc": {
           "remover_batch_size": 150,

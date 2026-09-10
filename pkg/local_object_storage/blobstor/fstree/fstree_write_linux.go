@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -42,6 +43,18 @@ type syncBatch struct {
 	timer    *time.Timer
 	ready    chan struct{}
 	err      error
+}
+
+func syncFS(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err = unix.Syncfs(int(f.Fd())); err != nil {
+		return fmt.Errorf("sync %q filesystem: %w", path, err)
+	}
+	return nil
 }
 
 func newSpecificWriter(t *FSTree) writer {

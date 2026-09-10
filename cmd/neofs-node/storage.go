@@ -115,6 +115,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				fstree.WithPath(sRead.Path),
 				fstree.WithPerm(sRead.Perm),
 				fstree.WithDepth(sRead.Depth),
+				fstree.WithAllowDepthChange(sRead.AllowDepthChange),
 				fstree.WithNoSync(*sRead.NoSync),
 				fstree.WithSubtype(fstree.SubtypeBlobstor),
 				fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),

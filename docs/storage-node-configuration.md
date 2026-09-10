@@ -182,6 +182,7 @@ blobstor:
   path: /path/to/blobstor
   perm: 0644
   depth: 1
+  allow_depth_change: true
 ```
 
 #### Common options for sub-storages
@@ -207,10 +208,13 @@ relevant for big volumes with very high number of stored objects.
 | `path`                    | `string`  |               | Path to the root of the blobstor.                                                                                            |
 | `perm`                    | file mode | `0640`        | Default permission for created files and directories.                                                                        |
 | `depth`                   | `int`     | `4`           | File-system tree depth. Optimal value depends on the number of objects stored in this shard, the number of lower-level directories used by FSTree is 58^depth, with depth 3 this is ~200K, with 4 --- ~11M |
+| `allow_depth_change`      | `bool`    | `false`       | Permits changing FSTree depth on node restart. The previous depth and reshape progress are stored in the FSTree descriptor. |
 | `no_sync`                 | `bool`    | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss. Not recommended for production use.           |
 | `combined_count_limit`    | `int`     | `128`         | Maximum number of objects to write into a single file, 0 or 1 disables combined writing (which is recommended for SSDs).     |
 | `combined_size_limit`     | `size`    | `8M`          | Maximum size of a multi-object file.                                                                                         |
 | `combined_size_threshold` | `size`    | `128K`        | Minimum size of object that won't be combined with others when writing to disk.                                              |
+
+To change a layout from depth 5 to depth 3, configure `depth: 3` and `allow_depth_change: true`, then restart the node. The node persists reshape state and moves files in the background. After `FSTree reshaping completed`, remove `allow_depth_change` if it is no longer needed.
 
 ### `gc` subsection
 

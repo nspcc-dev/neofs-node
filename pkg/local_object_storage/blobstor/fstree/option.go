@@ -16,6 +16,13 @@ func WithDepth(d uint64) Option {
 	}
 }
 
+// WithAllowDepthChange permits changing the FSTree layout depth on initialization.
+func WithAllowDepthChange(allow bool) Option {
+	return func(f *FSTree) {
+		f.AllowDepthChange = allow
+	}
+}
+
 func WithPerm(p fs.FileMode) Option {
 	return func(f *FSTree) {
 		f.Permissions = p

@@ -61,7 +61,7 @@ func TestCommandPath(t *testing.T) {
 
 		b, err := os.ReadFile(desc)
 		require.NoError(t, err)
-		require.JSONEq(t, `{"version":3,"depth":2,"shard_id":"`+id.String()+`","subtype":"blobstor"}`, string(b))
+		require.JSONEq(t, `{"version":4,"depth":2,"shard_id":"`+id.String()+`","subtype":"blobstor"}`, string(b))
 	})
 
 	t.Run("rewrites compressed objects", func(t *testing.T) {
