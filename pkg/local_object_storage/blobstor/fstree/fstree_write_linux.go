@@ -248,30 +248,23 @@ func (w *linuxWriter) writeFile(p string, data []byte) error {
 		return fmt.Errorf("unix open: %w", err)
 	}
 	n, err := unix.Write(fd, data)
-	if err == nil {
-		if n == len(data) {
-			tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
-			err = unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, p, unix.AT_SYMLINK_FOLLOW)
-			if err != nil {
-				if errors.Is(err, unix.EEXIST) {
-					// https://github.com/nspcc-dev/neofs-node/issues/2563
-					err = nil
-				} else {
-					err = fmt.Errorf("unix linkat: %w", err)
-				}
-			}
-		} else {
-			err = errors.New("incomplete unix write")
-		}
-	} else {
-		err = fmt.Errorf("unix write: %w", err)
-	}
-	errClose := unix.Close(fd)
 	if err != nil {
-		return err // Close() error is ignored, we have a better one.
+		_ = unix.Close(fd)
+		return fmt.Errorf("unix write: %w", err)
 	}
-	if errClose != nil {
-		return fmt.Errorf("unix close: %w", errClose)
+	if n != len(data) {
+		_ = unix.Close(fd)
+		return errors.New("incomplete unix write")
+	}
+	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
+	err = unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, p, unix.AT_SYMLINK_FOLLOW)
+	if err != nil && !errors.Is(err, unix.EEXIST) { // https://github.com/nspcc-dev/neofs-node/issues/2563
+		_ = unix.Close(fd)
+		return fmt.Errorf("unix linkat: %w", err)
+	}
+	err = unix.Close(fd)
+	if err != nil {
+		return fmt.Errorf("unix close: %w", err)
 	}
 	return nil
 }
