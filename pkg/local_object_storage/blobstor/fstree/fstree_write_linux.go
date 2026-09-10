@@ -252,17 +252,23 @@ func (w *linuxWriter) writeFile(p string, data []byte) error {
 		if n == len(data) {
 			tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
 			err = unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, p, unix.AT_SYMLINK_FOLLOW)
-			if errors.Is(err, unix.EEXIST) {
-				// https://github.com/nspcc-dev/neofs-node/issues/2563
-				err = nil
+			if err != nil {
+				if errors.Is(err, unix.EEXIST) {
+					// https://github.com/nspcc-dev/neofs-node/issues/2563
+					err = nil
+				} else {
+					err = fmt.Errorf("unix linkat: %w", err)
+				}
 			}
 		} else {
 			err = errors.New("incomplete unix write")
 		}
+	} else {
+		err = fmt.Errorf("unix write: %w", err)
 	}
 	errClose := unix.Close(fd)
 	if err != nil {
-		return fmt.Errorf("unix write: %w", err) // Close() error is ignored, we have a better one.
+		return err // Close() error is ignored, we have a better one.
 	}
 	if errClose != nil {
 		return fmt.Errorf("unix close: %w", errClose)
