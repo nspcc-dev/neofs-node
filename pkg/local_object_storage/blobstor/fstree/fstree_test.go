@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"slices"
 	"testing"
 	"testing/iotest"
 
@@ -20,6 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 )
+
+var disableCombinedWriteOpt = WithCombinedSizeThreshold(0)
 
 func TestAddressToString(t *testing.T) {
 	addr := oidtest.Address()
@@ -283,4 +286,38 @@ func assertReadObjectOK(t *testing.T, fst *FSTree, addr oid.Address, obj object.
 
 	require.NoError(t, iotest.TestReader(io.MultiReader(bytes.NewReader(buf[:n]), reader), obj.Marshal()))
 	require.NoError(t, reader.Close())
+}
+
+func assertInitPut(t testing.TB, fst *FSTree, addr oid.Address, header []byte, chunks ...[]byte) (io.WriteCloser, func()) {
+	var payloadLen int
+	for i := range chunks {
+		payloadLen += len(chunks[i])
+	}
+
+	stream, abortFn, err := fst.InitPut(addr, uint64(len(header)), uint64(payloadLen), bytes.NewBuffer(header))
+	require.NoError(t, err)
+
+	var written int
+	for i := range chunks {
+		n, err := stream.Write(chunks[i])
+		require.NoError(t, err)
+		written += n
+	}
+	if written != payloadLen {
+		t.Fatalf("expected to write %d bytes, wrote %d", payloadLen, written)
+	}
+
+	err = stream.Close()
+	require.NoError(t, err)
+
+	return stream, abortFn
+}
+
+func concatHeaderAndPayload(header []byte, payload []byte) []byte {
+	if len(payload) == 0 {
+		return header
+	}
+	payloadLenBuf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(payloadLenBuf, uint64(len(payload)))
+	return slices.Concat(header, []byte{iprotobuf.TagBytes4}, payloadLenBuf[:n], payload)
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"sync"
@@ -192,20 +193,115 @@ func (w *linuxWriter) finalize() error {
 	return nil
 }
 
+type unixFileWriteStream struct {
+	targetPath string
+	fd         int
+	aborted    bool
+}
+
+func newUnixFileWriteStream(targetPath string, fd int) *unixFileWriteStream {
+	return &unixFileWriteStream{
+		targetPath: targetPath,
+		fd:         fd,
+	}
+}
+
+func (x *unixFileWriteStream) Write(p []byte) (int, error) {
+	if x.aborted {
+		return 0, errStreamAborted
+	}
+	n, err := unixWrite(x.fd, p)
+	return n, convertUnixNoSpaceError(err)
+}
+
+func (x *unixFileWriteStream) Close() error {
+	if x.aborted {
+		return errStreamAborted
+	}
+	err := unixLinkatAndClose(x.fd, x.targetPath)
+	return convertUnixNoSpaceError(err)
+}
+
+func (x *unixFileWriteStream) abort() {
+	if x.aborted {
+		return
+	}
+	x.aborted = true
+	_ = unix.Close(x.fd)
+}
+
+type unixCombinedFileWriteStream struct {
+	linuxWriter *linuxWriter
+	targetPath  string
+	objectID    oid.ID
+	data        []byte
+	aborted     bool
+}
+
+func newUnixCombinedFileWriteStream(w *linuxWriter, targetPath string, objID oid.ID, dataLen uint64) *unixCombinedFileWriteStream {
+	return &unixCombinedFileWriteStream{
+		linuxWriter: w,
+		targetPath:  targetPath,
+		objectID:    objID,
+		data:        make([]byte, 0, dataLen),
+	}
+}
+
+func (x *unixCombinedFileWriteStream) Write(p []byte) (int, error) {
+	if x.aborted {
+		return 0, errStreamAborted
+	}
+	// TODO: think how to avoid this copy for tiny objects when possible
+	x.data = append(x.data, p...)
+	return len(p), nil
+}
+
+func (x *unixCombinedFileWriteStream) Close() error {
+	if x.aborted {
+		return errStreamAborted
+	}
+	err := x.linuxWriter.writeCombinedFile(x.objectID, x.targetPath, x.data)
+	return convertUnixNoSpaceError(err)
+}
+
+func (x *unixCombinedFileWriteStream) abort() {
+	x.aborted = true
+}
+
+func (w *linuxWriter) initWriteData(id oid.ID, filePath string, dataLen uint64) (io.WriteCloser, func(), error) {
+	if w.isCombinedWrite(dataLen) {
+		stream := newUnixCombinedFileWriteStream(w, filePath, id, dataLen)
+		return stream, stream.abort, nil
+	}
+
+	fd, err := w.openFile()
+	if err != nil {
+		return nil, nil, convertUnixNoSpaceError(err)
+	}
+
+	stream := newUnixFileWriteStream(filePath, fd)
+	return stream, stream.abort, nil
+}
+
 func (w *linuxWriter) writeData(id oid.ID, p string, data []byte) error {
 	var err error
-	if len(data) > w.combinedSizeThreshold || w.combinedCountLimit < 2 {
+	if !w.isCombinedWrite(uint64(len(data))) {
 		err = w.writeFile(p, data)
 	} else {
 		err = w.writeCombinedFile(id, p, data)
 	}
-	if err != nil {
-		if errors.Is(err, unix.ENOSPC) {
-			return common.ErrNoSpace
-		}
-		return err
+	return convertUnixNoSpaceError(err)
+}
+
+func (w *linuxWriter) isCombinedWrite(dataLen uint64) bool {
+	return dataLen <= uint64(w.combinedSizeThreshold) && w.combinedCountLimit >= 2
+}
+
+func convertUnixNoSpaceError(err error) error {
+	if errors.Is(err, unix.ENOSPC) {
+		return common.ErrNoSpace
 	}
-	return nil
+	return err
 }
 
 func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error {
@@ -243,21 +339,41 @@ func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error 
 }
 
 func (w *linuxWriter) writeFile(p string, data []byte) error {
+	fd, err := w.openFile()
+	if err != nil {
+		return err
+	}
+	_, err = unixWrite(fd, data)
+	if err != nil {
+		return err
+	}
+	return unixLinkatAndClose(fd, p)
+}
+
+func (w *linuxWriter) openFile() (int, error) {
 	fd, err := unix.Open(w.root, w.flags, w.perm)
 	if err != nil {
-		return fmt.Errorf("unix open: %w", err)
+		return 0, fmt.Errorf("unix open: %w", err)
 	}
+	return fd, nil
+}
+
+func unixWrite(fd int, data []byte) (int, error) {
 	n, err := unix.Write(fd, data)
 	if err != nil {
 		_ = unix.Close(fd)
-		return fmt.Errorf("unix write: %w", err)
+		return n, fmt.Errorf("unix write: %w", err)
 	}
 	if n != len(data) {
 		_ = unix.Close(fd)
-		return errors.New("incomplete unix write")
+		return n, errors.New("incomplete unix write")
 	}
+	return n, nil
+}
+
+func unixLinkatAndClose(fd int, newPath string) error {
 	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
-	err = unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, p, unix.AT_SYMLINK_FOLLOW)
+	err := unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, newPath, unix.AT_SYMLINK_FOLLOW)
 	if err != nil && !errors.Is(err, unix.EEXIST) { // https://github.com/nspcc-dev/neofs-node/issues/2563
 		_ = unix.Close(fd)
 		return fmt.Errorf("unix linkat: %w", err)
