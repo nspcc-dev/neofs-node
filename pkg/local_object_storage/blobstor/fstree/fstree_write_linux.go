@@ -247,10 +247,10 @@ func (w *linuxWriter) writeFile(p string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("unix open: %w", err)
 	}
-	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
 	n, err := unix.Write(fd, data)
 	if err == nil {
 		if n == len(data) {
+			tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
 			err = unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, p, unix.AT_SYMLINK_FOLLOW)
 			if errors.Is(err, unix.EEXIST) {
 				// https://github.com/nspcc-dev/neofs-node/issues/2563
