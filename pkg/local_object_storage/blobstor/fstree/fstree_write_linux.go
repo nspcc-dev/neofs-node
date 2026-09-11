@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -207,7 +208,7 @@ func newLinuxFileWriteStream(targetPath string, fd int) *linuxFileWriteStream {
 
 func (x *linuxFileWriteStream) Write(p []byte) (int, error) {
 	if x.fd < 0 {
-		return 0, errStreamAborted
+		return 0, logicerr.ErrStreamAborted
 	}
 	n, err := linuxWrite(x.fd, p)
 	if err != nil {
@@ -219,7 +220,7 @@ func (x *linuxFileWriteStream) Write(p []byte) (int, error) {
 
 func (x *linuxFileWriteStream) Close() error {
 	if x.fd < 0 {
-		return errStreamAborted
+		return logicerr.ErrStreamAborted
 	}
 	fd := x.fd
 	x.fd = -1

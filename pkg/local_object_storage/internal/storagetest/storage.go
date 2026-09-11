@@ -1,10 +1,14 @@
 package storagetest
 
 import (
+	"encoding/binary"
+	"io"
+	"slices"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/stretchr/testify/require"
 )
 
@@ -118,4 +122,23 @@ func TestModeTransition(t *testing.T, cons Constructor, from, to mode.Mode) {
 	require.NoError(t, s.SetMode(from))
 	require.NoError(t, s.SetMode(to))
 	require.NoError(t, s.Close())
+}
+
+// ConcatHeaderAndPayload concatenates given object header with payload in
+// Protocol Buffers V3 format.
+func ConcatHeaderAndPayload(header []byte, payload []byte) []byte {
+	if len(payload) == 0 {
+		return header
+	}
+	payloadLenBuf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(payloadLenBuf, uint64(len(payload)))
+	return slices.Concat(header, []byte{iprotobuf.TagBytes4}, payloadLenBuf[:n], payload)
+}
+
+// AssertWriteStreamAlreadyAborted asserts that stream methods fail due to already aborted stream.
+func AssertWriteStreamAlreadyAborted(t *testing.T, stream io.WriteCloser) {
+	_, err := stream.Write([]byte{0})
+	require.EqualError(t, err, "stream already aborted")
+	err = stream.Close()
+	require.EqualError(t, err, "stream already aborted")
 }

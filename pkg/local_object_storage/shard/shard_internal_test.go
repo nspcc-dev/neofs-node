@@ -390,6 +390,10 @@ func (unimplementedWriteCache) Put(oid.Address, *object.Object, []byte) error {
 	panic("unimplemented")
 }
 
+func (unimplementedWriteCache) InitPut(oid.Address, uint64, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
+	panic("unimplemented")
+}
+
 func (unimplementedWriteCache) SetMode(mode.Mode) error {
 	panic("unimplemented")
 }

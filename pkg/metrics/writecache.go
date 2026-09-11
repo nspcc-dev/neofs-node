@@ -10,6 +10,7 @@ const writecacheSubsystem = "writecache"
 
 type writecacheMetrics struct {
 	putDuration         prometheus.HistogramVec
+	initPutDuration     prometheus.HistogramVec
 	flushSingleDuration prometheus.HistogramVec
 	flushBatchDuration  prometheus.HistogramVec
 
@@ -73,6 +74,10 @@ func (m writecacheMetrics) register() {
 
 func (m writecacheMetrics) AddWCPutDuration(shardID string, d time.Duration) {
 	m.putDuration.With(prometheus.Labels{shardIDLabelKey: shardID}).Observe(d.Seconds())
+}
+
+func (m writecacheMetrics) AddWCInitPutDuration(shardID string, d time.Duration) {
+	m.initPutDuration.With(prometheus.Labels{shardIDLabelKey: shardID}).Observe(d.Seconds())
 }
 
 func (m writecacheMetrics) AddWCFlushSingleDuration(shardID string, d time.Duration) {

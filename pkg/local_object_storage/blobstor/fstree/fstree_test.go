@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"slices"
 	"testing"
 	"testing/iotest"
 
@@ -309,13 +308,4 @@ func assertInitPut(t testing.TB, fst *FSTree, addr oid.Address, header []byte, c
 	require.NoError(t, err)
 
 	return stream, abortFn
-}
-
-func concatHeaderAndPayload(header []byte, payload []byte) []byte {
-	if len(payload) == 0 {
-		return header
-	}
-	payloadLenBuf := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutUvarint(payloadLenBuf, uint64(len(payload)))
-	return slices.Concat(header, []byte{iprotobuf.TagBytes4}, payloadLenBuf[:n], payload)
 }

@@ -5,6 +5,9 @@ import (
 	"fmt"
 )
 
+// ErrStreamAborted is returned when some stream is already aborted.
+var ErrStreamAborted = errors.New("stream already aborted")
+
 // Error is wrapped to highlight the business logic errors.
 var Error = errors.New("logical error")
 

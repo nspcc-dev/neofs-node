@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/internal/testutil/fstest"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -130,7 +131,7 @@ func testInitPutGenericWithLength(t *testing.T, payloadLen uint64) {
 
 			stream, abortFn := assertInitPut(t, fst, testAddress, header, payload)
 
-			expData := concatHeaderAndPayload(header, payload)
+			expData := storagetest.ConcatHeaderAndPayload(header, payload)
 
 			fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, expData)
 
@@ -155,7 +156,7 @@ func testInitPutGenericWithLength(t *testing.T, payloadLen uint64) {
 
 		assertInitPut(t, fst, testAddress, header, chunks...)
 
-		expData := concatHeaderAndPayload(header, slices.Concat(chunks...))
+		expData := storagetest.ConcatHeaderAndPayload(header, slices.Concat(chunks...))
 
 		fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, expData)
 	})

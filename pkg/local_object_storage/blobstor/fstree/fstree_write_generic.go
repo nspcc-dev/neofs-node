@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -55,8 +56,6 @@ type genericFileWriteStream struct {
 	aborted       bool
 }
 
-var errStreamAborted = errors.New("stream already aborted")
-
 func newGenericFileWriteStream(w *genericWriter, targetPath string) *genericFileWriteStream {
 	return &genericFileWriteStream{
 		genericWriter: w,
@@ -89,7 +88,7 @@ func (x *genericFileWriteStream) abortForce(tryClose bool) {
 
 func (x *genericFileWriteStream) Write(p []byte) (int, error) {
 	if x.aborted {
-		return 0, errStreamAborted
+		return 0, logicerr.ErrStreamAborted
 	}
 
 	var err error
@@ -137,7 +136,7 @@ func (x *genericFileWriteStream) Write(p []byte) (int, error) {
 
 func (x *genericFileWriteStream) Close() error {
 	if x.aborted {
-		return errStreamAborted
+		return logicerr.ErrStreamAborted
 	}
 
 	var closed bool

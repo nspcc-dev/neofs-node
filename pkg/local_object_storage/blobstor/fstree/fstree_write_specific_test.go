@@ -12,6 +12,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/internal/testutil/fstest"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +22,7 @@ func TestFSTree_InitPut(t *testing.T) {
 	const payloadLen = 256 << 10
 	payload := testutil.RandByteSlice(payloadLen)
 
-	fullObject := concatHeaderAndPayload(header, payload)
+	fullObject := storagetest.ConcatHeaderAndPayload(header, payload)
 
 	t.Run("retries", func(t *testing.T) {
 		t.Run("existing tmp files", func(t *testing.T) {
