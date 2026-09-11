@@ -17,7 +17,7 @@ type Source interface {
 	GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error)
 
 	// Epoch reads the current epoch from the storage.
-	// It returns thw number of the current epoch and any error encountered.
+	// It returns the number of the current epoch and any error encountered.
 	//
 	// Must return exactly one non-default value.
 	Epoch() (uint64, error)
