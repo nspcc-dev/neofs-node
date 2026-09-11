@@ -782,11 +782,15 @@ func (x *getECTransport) copyRemotePartRangeWithRequest(ctx context.Context, con
 			return 0, errors.New("none of the supported oneof fields are specified")
 		}
 
+		copied += uint64(chunkLen)
+		if copied > ln {
+			return 0, fmt.Errorf("received more bytes than requested: expected %d, got %d", ln, copied)
+		}
+
 		if err = x.responseStream.SendMsg(respBuf); err != nil {
 			return 0, fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
 		}
 
-		copied += uint64(chunkLen)
 		if copied == ln {
 			return copied, nil
 		}
