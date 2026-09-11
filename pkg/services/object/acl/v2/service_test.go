@@ -242,26 +242,6 @@ func TestService_DeleteRequestToInfo_BearerTokenIssuer(t *testing.T) {
 	})
 }
 
-func TestService_RangeRequestToInfo_BearerTokenIssuer(t *testing.T) {
-	testBearerTokenIssuer(t, (*aclsvc.Service).RangeRequestToInfo, func(t *testing.T, signer neofscrypto.Signer, cnrID cid.ID, meta *protosession.RequestMetaHeader) *protoobject.GetRangeRequest {
-		req := &protoobject.GetRangeRequest{
-			Body: &protoobject.GetRangeRequest_Body{
-				Address: &refs.Address{
-					ContainerId: cnrID.ProtoMessage(),
-					ObjectId:    oidtest.ID().ProtoMessage(),
-				},
-			},
-			MetaHeader: meta,
-		}
-
-		var err error
-		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
-		require.NoError(t, err)
-
-		return req
-	})
-}
-
 func TestService_PutRequestToInfo_BearerTokenIssuer(t *testing.T) {
 	testBearerTokenIssuer(t, func(svc *aclsvc.Service, ctx context.Context, req *protoobject.PutRequest, cnrID cid.ID, tokens common.RequestTokens) (aclsvc.RequestInfo, error) {
 		res, _, err := svc.PutRequestToInfo(ctx, req, req.Body.ObjectPart.(*protoobject.PutRequest_Body_Init_).Init, cnrID, acl.OpObjectPut, tokens)

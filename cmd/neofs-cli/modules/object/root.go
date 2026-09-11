@@ -26,7 +26,6 @@ func init() {
 		objectSearchCmd,
 		searchV2Cmd,
 		objectHeadCmd,
-		objectRangeCmd,
 		objectLockCmd}
 
 	Cmd.AddCommand(objectNodesCmd)
@@ -42,7 +41,6 @@ func init() {
 	initObjectGetCmd()
 	initObjectSearchCmd()
 	initObjectHeadCmd()
-	initObjectRangeCmd()
 	initCommandObjectLock()
 	initObjectNodesCmd()
 }

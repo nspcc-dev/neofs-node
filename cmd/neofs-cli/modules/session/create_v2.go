@@ -366,8 +366,6 @@ func parseVerbs(verbsStr string) ([]session.Verb, error) {
 			verb = session.VerbObjectSearch
 		case "DELETE", "OBJECTDELETE":
 			verb = session.VerbObjectDelete
-		case "RANGE", "OBJECTRANGE":
-			verb = session.VerbObjectRange
 		case "CONTAINERSET", "CONTAINERSETACL", "CONTAINER_SET", "CONTAINER_SET_ACL":
 			verb = session.VerbContainerSetEACL
 		case "CONTAINERPUT", "CONTAINER_PUT":
@@ -375,7 +373,7 @@ func parseVerbs(verbsStr string) ([]session.Verb, error) {
 		case "CONTAINERDELETE", "CONTAINER_DELETE":
 			verb = session.VerbContainerDelete
 		default:
-			return nil, fmt.Errorf("unknown verb: %s (supported: GET,PUT,HEAD,SEARCH,DELETE,RANGE,CONTAINERSET,CONTAINERPUT,CONTAINERDELETE)", verbStr)
+			return nil, fmt.Errorf("unknown verb: %s (supported: GET,PUT,HEAD,SEARCH,DELETE,CONTAINERSET,CONTAINERPUT,CONTAINERDELETE)", verbStr)
 		}
 
 		verbs = append(verbs, verb)

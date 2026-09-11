@@ -28,7 +28,6 @@ Operations with Objects
 * [neofs-cli object lock](neofs-cli_object_lock.md)	 - Lock object in container
 * [neofs-cli object nodes](neofs-cli_object_nodes.md)	 - Show nodes for an object
 * [neofs-cli object put](neofs-cli_object_put.md)	 - Put object to NeoFS
-* [neofs-cli object range](neofs-cli_object_range.md)	 - Get payload range data of an object
 * [neofs-cli object search](neofs-cli_object_search.md)	 - Search object
 * [neofs-cli object searchv2](neofs-cli_object_searchv2.md)	 - Search object (deprecated)
 

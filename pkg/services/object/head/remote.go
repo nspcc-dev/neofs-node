@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"slices"
 	"strings"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -123,48 +121,17 @@ func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr c
 		return nil, fmt.Errorf("get conn: %w", err)
 	}
 
-	// TODO: Use GetRange after https://github.com/nspcc-dev/neofs-node/issues/3547.
 	var opts client.PrmObjectGet
 	opts.MarkLocal()
 	opts.SkipChecksumVerification() // TODO: see same place in GET service
 	opts.WithXHeaders(xs...)
+	opts.MarkPayloadOnly()
+	opts.SetRange(off, ln)
 
-	hdr, rc, err := conn.ObjectGetInit(ctx, cnr, id, user.NewAutoIDSigner(*key), opts)
+	_, rc, err := conn.ObjectGetInit(ctx, cnr, id, user.NewAutoIDSigner(*key), opts)
 	if err != nil {
 		return nil, fmt.Errorf("call Get API: %w", err)
 	}
 
-	if ln == 0 && off == 0 {
-		return rc, nil
-	}
-
-	full := hdr.PayloadSize()
-	if off == 0 && ln == full {
-		return rc, nil
-	}
-
-	if off >= full || full-off < ln {
-		rc.Close()
-		return nil, apistatus.ErrObjectOutOfRange
-	}
-
-	if off > math.MaxInt64 || ln > math.MaxInt64 {
-		rc.Close()
-		return nil, fmt.Errorf("too big range for this server: off=%d,len=%d", off, ln)
-	}
-
-	if off > 0 {
-		if _, err := io.CopyN(io.Discard, rc, int64(off)); err != nil {
-			rc.Close()
-			return nil, fmt.Errorf("seek offset in Get API stream: %w", err)
-		}
-	}
-
-	return struct {
-		io.Reader
-		io.Closer
-	}{
-		Reader: io.LimitReader(rc, int64(ln)),
-		Closer: rc,
-	}, nil
+	return rc, nil
 }

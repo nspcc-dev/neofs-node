@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - SN pushes URI-style endpoints to netmap instead of multiaddr (#3982)
 
 ### Removed
+- GetRange object service method (#4167)
 
 ### Updated
 
@@ -25,6 +26,9 @@ the node logs that reshaping has completed, the flag can be removed.
 Network maps with 0.56.0 nodes can differ from previous ones because of
 address conversion from multiaddr. Multiaddr is still accepted by IR and SN,
 but this support will be removed in the next release.
+
+All applications should be updated to use parameterized Get instead of
+GetRange method since this version doesn't support GetRange.
 
 ## [0.56.0] - 2026-09-01 - Nabdo
 

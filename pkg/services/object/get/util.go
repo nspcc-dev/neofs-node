@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -59,12 +58,9 @@ type objectReadAuthPrm interface {
 	WithBearerToken(bearer.Token)
 }
 
-func applyObjectReadAuth(exec *execCtx, addr oid.Address, legacyRange bool, opts objectReadAuthPrm) {
+func applyObjectReadAuth(exec *execCtx, addr oid.Address, opts objectReadAuthPrm) {
 	if stV2 := exec.prm.common.SessionTokenV2(); stV2 != nil {
 		verb := sessionv2.VerbObjectGet
-		if legacyRange {
-			verb = sessionv2.VerbObjectRange
-		}
 		if stV2.AssertVerb(verb, addr.Container()) {
 			opts.WithinSessionV2(*stV2)
 		}
@@ -94,123 +90,6 @@ type partWriter struct {
 	headWriter internal.HeaderWriter
 
 	chunkWriter ChunkWriter
-}
-
-// fallbackRangeReader wraps a range reader obtained via ObjectRangeInit and
-// falls back to a full GET in case apistatus.ErrObjectAccessDenied is
-// returned while reading.
-type fallbackRangeReader struct {
-	io.ReadCloser
-	exec   *execCtx
-	client *clientWrapper
-	key    *ecdsa.PrivateKey
-	rng    *object.Range
-
-	delivered       uint64
-	fallbackPending bool
-	fallbackDone    bool
-}
-
-func (exec execCtx) fallbackGetExec() execCtx {
-	exec.payloadRange = common.PayloadRange{}
-	exec.payloadOnly = false
-	exec.legacyRange = false
-
-	return exec
-}
-
-func newFallbackRangeReader(exec *execCtx, c *clientWrapper, key *ecdsa.PrivateKey, rng *object.Range, rdr io.ReadCloser) io.ReadCloser {
-	return &fallbackRangeReader{
-		ReadCloser: rdr,
-		exec:       exec,
-		client:     c,
-		key:        key,
-		rng:        rng,
-	}
-}
-
-func (f *fallbackRangeReader) Read(p []byte) (int, error) {
-	if f.fallbackPending && !f.fallbackDone {
-		return f.fallbackRead(p)
-	}
-
-	n, err := f.ReadCloser.Read(p)
-	f.delivered += uint64(n)
-	if err == nil || !errors.Is(err, apistatus.ErrObjectAccessDenied) || f.fallbackDone {
-		return n, err
-	}
-	if n > 0 {
-		f.fallbackPending = true
-		return n, nil
-	}
-
-	return f.fallbackRead(p)
-}
-
-func (f *fallbackRangeReader) fallbackBounds(payloadSize uint64) (from, to uint64, err error) {
-	base := f.rng.GetOffset()
-	from = base + f.delivered
-	if from < base {
-		return 0, 0, apistatus.ErrObjectOutOfRange
-	}
-
-	if ln := f.rng.GetLength(); ln != 0 {
-		to = base + ln
-		if to < base || to < from {
-			return 0, 0, apistatus.ErrObjectOutOfRange
-		}
-	} else {
-		to = payloadSize
-	}
-
-	if payloadSize < from || payloadSize < to {
-		return 0, 0, apistatus.ErrObjectOutOfRange
-	}
-
-	return from, to, nil
-}
-
-func (f *fallbackRangeReader) fallbackRead(p []byte) (int, error) {
-	// TODO: drop fallback once legacy RANGE is aligned with GET access semantics, see #3547.
-	f.exec.log.Debug("range read access denied, falling back to full GET")
-	f.fallbackPending = false
-	f.fallbackDone = true
-
-	oldRdr := f.ReadCloser
-	if oldRdr != nil {
-		defer func() { _ = oldRdr.Close() }()
-	}
-
-	fallbackExec := f.exec.fallbackGetExec()
-	hdr, rdr, getErr := f.client.get(&fallbackExec, f.key)
-	if getErr != nil {
-		return 0, fmt.Errorf("fallback GET after access denial failed: %w", getErr)
-	}
-
-	from, to, err := f.fallbackBounds(hdr.PayloadSize())
-	if err != nil {
-		_ = rdr.Close()
-		return 0, err
-	}
-
-	if from > 0 {
-		_, err = io.CopyN(io.Discard, rdr, int64(from))
-		if err != nil {
-			_ = rdr.Close()
-			return 0, fmt.Errorf("discard %d bytes in stream: %w", from, err)
-		}
-	}
-
-	f.ReadCloser = struct {
-		io.Reader
-		io.Closer
-	}{
-		Reader: io.LimitReader(rdr, int64(to-from)),
-		Closer: rdr,
-	}
-
-	// attempt to read again immediately to fill p.
-	return f.Read(p)
 }
 
 func NewSimpleObjectWriter() *SimpleObjectWriter {
@@ -264,10 +143,6 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 		return nil, nil, exec.getTransportFn(exec.ctx, c.client)
 	}
 
-	if exec.rangeTransportFn != nil {
-		return nil, nil, exec.rangeTransportFn(exec.ctx, c.client)
-	}
-
 	key, err := exec.key()
 	if err != nil {
 		return nil, nil, err
@@ -285,39 +160,11 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 	// we don't specify payload writer because we accumulate
 	// the object locally (even huge).
 	if exec.hasPayloadRange() {
-		rng := exec.ctxRange()
 		addr := exec.address()
 		id := addr.Object()
 
-		if exec.legacyRange {
-			ln := rng.GetLength()
-
-			var opts client.PrmObjectRange
-			if exec.prm.common.TTL() < 2 {
-				opts.MarkLocal()
-			}
-			applyObjectReadAuth(exec, addr, true, &opts)
-			opts.WithXHeaders(exec.prm.common.XHeaders()...)
-			if exec.isRaw() {
-				opts.MarkRaw()
-			}
-
-			rdr, err := c.client.ObjectRangeInit(exec.context(), addr.Container(), id, rng.GetOffset(), ln, user.NewAutoIDSigner(*key), opts)
-			if err != nil {
-				return nil, nil, fmt.Errorf("init payload reading: %w", err)
-			}
-
-			hdr, err := c.head(exec, key)
-			if err != nil {
-				_ = rdr.Close()
-				return nil, nil, err
-			}
-
-			return hdr, newFallbackRangeReader(exec, c, key, rng, rdr), nil
-		}
-
 		opts := objectGetOptions(exec)
-		applyObjectReadAuth(exec, addr, false, &opts)
+		applyObjectReadAuth(exec, addr, &opts)
 		first, second := exec.payloadRange.First, exec.payloadRange.Second
 		switch exec.payloadRange.Mode {
 		case common.PayloadRangeModeNone:
@@ -399,15 +246,6 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, io.ReadCloser
 	}
 
 	if exec.hasPayloadRange() {
-		if exec.localRangeBuffer != nil {
-			rng := exec.ctxRange()
-			r, err := e.engine.ReadPayloadRange(ctx, exec.address(), rng.GetOffset(), rng.GetLength(), exec.localRangeBuffer)
-			if err == nil {
-				exec.submitLocalRangeStreamFn(r)
-			}
-			return nil, nil, err
-		}
-
 		hdr, stream, err := e.engine.GetRangeStream(ctx, exec.address(), exec.payloadRange, true)
 		if err != nil {
 			return nil, stream, err
