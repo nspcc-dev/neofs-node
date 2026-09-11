@@ -22,6 +22,17 @@ import (
 
 const forceConfigSet = "force"
 
+var setConfigKnownArgs = []string{
+	netmapBasicIncomeRateKey + "=",
+	netmapContainerFeeKey + "=",
+	netmapContainerAliasFeeKey + "=",
+	netmapEigenTrustIterationsKey + "=",
+	netmapEpochKey + "=",
+	netmapMaxObjectSizeKey + "=",
+	netmapWithdrawFeeKey + "=",
+	netmapEigenTrustAlphaKey + "=",
+}
+
 func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 	c, err := n3util.GetN3Client(viper.GetViper())
 	if err != nil {
