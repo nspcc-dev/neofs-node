@@ -5,6 +5,7 @@ import "time"
 // MetricRegister stores various metrics of [Cache] work.
 type MetricRegister interface {
 	AddWCPutDuration(shardID string, d time.Duration)
+	AddWCStreamingPutDuration(shardID string, d time.Duration)
 	AddWCFlushSingleDuration(shardID string, d time.Duration)
 	AddWCFlushBatchDuration(shardID string, d time.Duration)
 	IncWCObjectCount(shardID string)
@@ -20,6 +21,12 @@ type metricsWithID struct {
 
 func (m *metricsWithID) AddWCPutDuration(d time.Duration) {
 	m.mr.AddWCPutDuration(m.id, d)
+}
+
+func (m *metricsWithID) submitFinishedInitPut(st time.Time) {
+	if m.mr != nil {
+		m.mr.AddWCStreamingPutDuration(m.id, time.Since(st))
+	}
 }
 
 func (m *metricsWithID) AddWCFlushSingleDuration(d time.Duration) {

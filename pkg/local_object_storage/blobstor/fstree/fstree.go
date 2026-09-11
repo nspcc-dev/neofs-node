@@ -535,10 +535,7 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 // If the device runs out of space, InitPut or resulting stream calls return
 // [common.ErrNoSpace].
 func (t *FSTree) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (io.WriteCloser, func(), error) {
-	var payloadTagLen int
-	if payloadLen > 0 {
-		payloadTagLen = 1 + protowire.SizeVarint(payloadLen)
-	}
+	payloadTagLen := objectwire.CalculatePayloadFieldTagLength(payloadLen)
 
 	var stream io.WriteCloser
 	var abortFn func()
