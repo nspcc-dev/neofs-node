@@ -49,18 +49,10 @@ type MaxSizeSource interface {
 
 type Service struct {
 	*cfg
-	transport Transport
-	neoFSNet  NeoFSNetwork
+	neoFSNet NeoFSNetwork
 }
 
 type Option func(*cfg)
-
-// Transport provides message transmission over NeoFS network.
-type Transport interface {
-	// SendReplicationRequestToNode sends a prepared replication request message to
-	// the specified remote node.
-	SendReplicationRequestToNode(ctx context.Context, req []byte, node netmap.NodeInfo) ([]byte, error)
-}
 
 type ClientConstructor interface {
 	Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error)
@@ -157,7 +149,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
+func NewService(neoFSNet NeoFSNetwork, m *meta.Meta, q QuotaLimiter, p PaymentChecker, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -175,18 +167,16 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, q Quot
 	c.payments = p
 
 	return &Service{
-		cfg:       c,
-		transport: transport,
-		neoFSNet:  neoFSNet,
+		cfg:      c,
+		neoFSNet: neoFSNet,
 	}
 }
 
 func (p *Service) Put(ctx context.Context) (*Streamer, error) {
 	return &Streamer{
-		cfg:       p.cfg,
-		ctx:       ctx,
-		transport: p.transport,
-		neoFSNet:  p.neoFSNet,
+		cfg:      p.cfg,
+		ctx:      ctx,
+		neoFSNet: p.neoFSNet,
 	}, nil
 }
 

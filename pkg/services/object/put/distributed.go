@@ -16,7 +16,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -70,7 +72,6 @@ type distributedTarget struct {
 
 	localStorage      ObjectStorage
 	clientConstructor ClientConstructor
-	transport         Transport
 	commonPrm         *svcutil.CommonPrm
 	keyStorage        *svcutil.KeyStorage
 
@@ -694,9 +695,20 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 	var sigsRaw []byte
 	var err error
 	if encObj.hdrOff > 0 {
-		sigsRaw, err = t.transport.SendReplicationRequestToNode(t.opCtx, encObj.b, node.info)
-		if err != nil {
-			err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
+		var conn clientcore.MultiAddressClient
+		conn, err = t.clientConstructor.Get(t.opCtx, node.info)
+		if err == nil {
+			if clientcore.CompareAPIVersion(conn, iobject.ReplicateV2FirstAPIVersion) >= 0 {
+				payload := encObj.b[encObj.pldOff:]
+				sigsRaw, err = sendReplicationV2RequestToNode(t.opCtx, t.localNodeSigner, conn, obj, payload, t.metainfoConsistencyAttr != "")
+			} else {
+				sigsRaw, err = sendReplicationRequestToNode(t.opCtx, conn, encObj.b)
+			}
+			if err != nil {
+				err = fmt.Errorf("replicate object to remote node (key=%x): %w", node.info.PublicKey(), err)
+			}
+		} else {
+			err = fmt.Errorf("connect to remote node: %w", err)
 		}
 	} else {
 		err = putObjectToNode(t.opCtx, node.info, &obj, t.keyStorage, t.clientConstructor, t.commonPrm)

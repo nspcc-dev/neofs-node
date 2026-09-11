@@ -253,3 +253,23 @@ func (s *Server) _handleRequestMetaHeader(metaHdr *protosession.RequestMetaHeade
 
 	return reqMD, nil
 }
+
+func newBadRequestStatus(msg string) *protostatus.Status {
+	return newStatus(protostatus.BadRequest, msg)
+}
+
+func newInternalServerErrorStatus(msg string) *protostatus.Status {
+	return newStatus(protostatus.InternalServerError, msg)
+}
+
+func newContainerNotFoundStatus(msg string) *protostatus.Status {
+	return newStatus(protostatus.ContainerNotFound, msg)
+}
+
+func newAccessDeniedStatus(msg string) *protostatus.Status {
+	return newStatus(protostatus.ObjectAccessDenied, msg)
+}
+
+func newStatus(code uint32, msg string) *protostatus.Status {
+	return &protostatus.Status{Code: code, Message: msg}
+}

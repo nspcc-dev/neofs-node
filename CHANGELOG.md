@@ -5,6 +5,8 @@ Changelog for NeoFS Node
 
 ### Added
 - Online FSTree layout reshaping via the `blobstor.allow_depth_change` configuration option (#4149)
+- SN now serves `ReplicateV2` API (#4168)
+- Container SN now uses `ReplicateV2` API in PUT handler when available (#4168)
 
 ### Fixed
 - Broken EC object GET with all data parts missing (#4173)
@@ -18,6 +20,7 @@ Changelog for NeoFS Node
 - GetRange object service method (#4167)
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260911084039-e749b2b839ac` (#4168)
 
 ### Updating from v0.56.0
 To change an FSTree layout depth, configure the new `blobstor.depth` and set

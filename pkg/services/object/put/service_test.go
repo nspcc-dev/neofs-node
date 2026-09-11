@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,6 +46,7 @@ import (
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
@@ -56,6 +58,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
@@ -106,7 +110,7 @@ func TestPayments(t *testing.T) {
 	p.SetReplicas([]netmap.ReplicaDescriptor{rep})
 	cnr.SetPlacementPolicy(p)
 
-	s := NewService(cluster.nodeServices, &cluster.nodeNetworks[0], nil,
+	s := NewService(&cluster.nodeNetworks[0], nil,
 		quotas{math.MaxUint64, math.MaxUint64},
 		payments,
 		WithLogger(zaptest.NewLogger(t)),
@@ -195,7 +199,7 @@ func TestQuotas(t *testing.T) {
 	p.SetReplicas([]netmap.ReplicaDescriptor{rep})
 	cnr.SetPlacementPolicy(p)
 
-	s := NewService(cluster.nodeServices, &cluster.nodeNetworks[0], nil,
+	s := NewService(&cluster.nodeNetworks[0], nil,
 		quotas{hard: hardLimit},
 		&payments{},
 		WithLogger(zaptest.NewLogger(t)),
@@ -1001,7 +1005,7 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 			expiresAt: cluster.nodeNetworks[i].epoch + 1,
 		}
 
-		cluster.nodeServices[i] = NewService(cluster.nodeServices, &cluster.nodeNetworks[i], nil,
+		cluster.nodeServices[i] = newServiceClient(t, NewService(&cluster.nodeNetworks[i], nil,
 			quotas{math.MaxUint64, math.MaxUint64},
 			&payments{},
 			WithSessionsCache(isessions.NewObjectSessionsCache(1)),
@@ -1015,7 +1019,7 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 			WithSplitChainVerifier(mockSplitVerifier{}),
 			WithPostPlacementReplicator(mockPostPlacementReplicator{}),
 			WithTombstoneVerifier(mockTombstoneVerifier{}),
-		)
+		))
 	}
 
 	return &cluster
@@ -1151,9 +1155,9 @@ func (x testPostPlacementReplicator) HandlePostPlacement(obj *object.Object, nod
 	}
 
 	for i := range nodes {
-		svc, err := x.services.lookupNode(nodes[i])
+		ns, err := x.services.lookupNode(nodes[i])
 		require.NoError(x.t, err)
-		require.NoError(x.t, svc.ValidateAndStoreObjectLocally(context.Background(), *obj))
+		require.NoError(x.t, ns.svc.ValidateAndStoreObjectLocally(context.Background(), *obj))
 	}
 }
 
@@ -1206,11 +1210,11 @@ func (x *inMemLocalStorage) IsLocked(context.Context, oid.Address) (bool, error)
 	panic("unimplemented")
 }
 
-type nodeServices []*Service
+type nodeServices []*serviceClient
 
-func (x nodeServices) lookupNode(node netmap.NodeInfo) (*Service, error) {
-	ind := slices.IndexFunc(x, func(svc *Service) bool {
-		return svc.neoFSNet.IsLocalNodePublicKey(node.PublicKey())
+func (x nodeServices) lookupNode(node netmap.NodeInfo) (*serviceClient, error) {
+	ind := slices.IndexFunc(x, func(c *serviceClient) bool {
+		return c.svc.neoFSNet.IsLocalNodePublicKey(node.PublicKey())
 	})
 	if ind < 0 {
 		return nil, errors.New("unknown node")
@@ -1219,48 +1223,122 @@ func (x nodeServices) lookupNode(node netmap.NodeInfo) (*Service, error) {
 }
 
 func (x nodeServices) Get(_ context.Context, node netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
-	svc, err := x.lookupNode(node)
-	if err != nil {
-		return nil, err
-	}
-	return (*serviceClient)(svc), nil
+	return x.lookupNode(node)
 }
 
-func (x nodeServices) SendReplicationRequestToNode(ctx context.Context, reqBin []byte, node netmap.NodeInfo) ([]byte, error) {
-	var req protoobject.ReplicateRequest
-	if err := proto.Unmarshal(reqBin, &req); err != nil {
-		return nil, fmt.Errorf("invalid request: %w", err)
+type testObjectServiceServer struct {
+	protoobject.UnimplementedObjectServiceServer
+	svc *Service
+}
+
+func (x testObjectServiceServer) ReplicateV2(stream protoobject.ObjectService_ReplicateV2Server) error {
+	firstReq, err := stream.Recv()
+	if err != nil {
+		return err
 	}
 
-	if req.Object == nil {
-		return nil, errors.New("missing object in request")
+	reqInit, ok := firstReq.StreamPart.(*protoobject.ReplicateV2Request_Init_)
+	if !ok {
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{
+				Code: protostatus.BadRequest, Message: "first request does not contain init field",
+			},
+		}
+		return stream.SendAndClose(resp)
+	}
+
+	initPart := reqInit.Init
+	if initPart == nil { // not expected to ever happen, but better to keep safe
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{
+				Code: protostatus.InternalServerError, Message: "first request contains nil init field",
+			},
+		}
+		return stream.SendAndClose(resp)
+	}
+
+	if initPart.Object == nil {
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{
+				Code: protostatus.BadRequest, Message: "object field is missing",
+			},
+		}
+		return stream.SendAndClose(resp)
 	}
 
 	var obj object.Object
-	if err := obj.FromProtoMessage(req.Object); err != nil {
-		return nil, fmt.Errorf("invalid object in request: %w", err)
+	if err := obj.FromProtoMessage(initPart.Object); err != nil {
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{Code: protostatus.BadRequest, Message: fmt.Sprintf("invalid object in request: %v", err)},
+		}
+		return stream.SendAndClose(resp)
 	}
 
-	svc, err := x.lookupNode(node)
-	if err != nil {
-		return nil, err
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+
+		chunkPart, ok := req.StreamPart.(*protoobject.ReplicateV2Request_PayloadChunk)
+		if !ok {
+			resp := &protoobject.ReplicateV2Response{
+				Status: &protostatus.Status{Code: protostatus.BadRequest, Message: "non-chunk subsequent message"},
+			}
+			return stream.SendAndClose(resp)
+		}
+
+		obj.SetPayload(append(obj.Payload(), chunkPart.PayloadChunk...))
 	}
 
-	if err := svc.ValidateAndStoreObjectLocally(ctx, obj); err != nil {
-		return nil, fmt.Errorf("validate and store object locally: %w", err)
+	if err := x.svc.ValidateAndStoreObjectLocally(stream.Context(), obj); err != nil {
+		resp := &protoobject.ReplicateV2Response{
+			Status: &protostatus.Status{Code: protostatus.InternalServerError, Message: fmt.Sprintf("validate and store object locally: %v", err)},
+		}
+		return stream.SendAndClose(resp)
 	}
 
-	return nil, nil
+	return stream.SendAndClose(new(protoobject.ReplicateV2Response))
 }
 
-type serviceClient Service
+type serviceClient struct {
+	svc      *Service
+	grpcConn *grpc.ClientConn
+}
+
+func newServiceClient(t *testing.T, svc *Service) *serviceClient {
+	srv := grpc.NewServer()
+	t.Cleanup(srv.GracefulStop)
+
+	protoobject.RegisterObjectServiceServer(srv, testObjectServiceServer{svc: svc})
+
+	bufConn := bufconn.Listen(100 << 10)
+
+	go func() { _ = srv.Serve(bufConn) }()
+
+	grpcConn, err := grpc.NewClient("localhost:8080", // any
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return bufConn.DialContext(ctx)
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+
+	return &serviceClient{
+		svc:      svc,
+		grpcConn: grpcConn,
+	}
+}
 
 func (m *serviceClient) APIVersion() *protorefs.Version {
 	return version.Current().ProtoMessage()
 }
 
 func (m *serviceClient) ObjectPutInit(ctx context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
-	stream, err := (*Service)(m).Put(ctx)
+	stream, err := m.svc.Put(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1294,7 +1372,7 @@ func (m *serviceClient) ReplicateObject(ctx context.Context, _ oid.ID, src io.Re
 	if err := obj.FromProtoMessage(&msg); err != nil {
 		return nil, err
 	}
-	return nil, (*Service)(m).ValidateAndStoreObjectLocally(ctx, obj)
+	return nil, m.svc.ValidateAndStoreObjectLocally(ctx, obj)
 }
 
 func (m *serviceClient) ObjectDelete(context.Context, cid.ID, oid.ID, user.Signer, client.PrmObjectDelete) (oid.ID, error) {
@@ -1330,8 +1408,8 @@ func (m *serviceClient) AnnounceIntermediateTrust(context.Context, uint64, reput
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ForAnyGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error {
-	panic("unimplemented")
+func (m *serviceClient) ForAnyGRPCConn(ctx context.Context, fn func(context.Context, *grpc.ClientConn) error) error {
+	return fn(ctx, m.grpcConn)
 }
 
 type testPayloadStream Streamer
@@ -1453,11 +1531,11 @@ func newPlacementTestEnv(t *testing.T, cnr container.Container, repRules []uint,
 				})
 			}
 
-			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
+			cluster.nodeServices[nodeIdx] = newServiceClient(t, NewService(&cluster.nodeNetworks[nodeIdx], nil,
 				quotas{math.MaxUint64, math.MaxUint64},
 				&payments{},
 				opts...,
-			)
+			))
 
 			nodeIdx++
 		}
@@ -1517,12 +1595,12 @@ func newSessionTokenV2ForNode(t *testing.T, cluster testCluster, nodeLists [][]n
 	return sessionTokenV2
 }
 
-func storeObjectWithSession(t *testing.T, svc *Service, obj object.Object, st *session.Object, st2 *sessionv2.Token) {
-	require.NoError(t, putObjectWithSession(svc, obj, st, st2))
+func storeObjectWithSession(t *testing.T, c *serviceClient, obj object.Object, st *session.Object, st2 *sessionv2.Token) {
+	require.NoError(t, putObjectWithSession(c, obj, st, st2))
 }
 
-func putObjectWithSession(svc *Service, obj object.Object, st *session.Object, st2 *sessionv2.Token) error {
-	stream, err := svc.Put(context.Background())
+func putObjectWithSession(c *serviceClient, obj object.Object, st *session.Object, st2 *sessionv2.Token) error {
+	stream, err := c.svc.Put(context.Background())
 	if err != nil {
 		return fmt.Errorf("init stream: %w", err)
 	}
@@ -2352,7 +2430,7 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 				expiresAt: cluster.nodeNetworks[nodeIdx].epoch + 1,
 			}
 
-			cluster.nodeServices[nodeIdx] = NewService(cluster.nodeServices, &cluster.nodeNetworks[nodeIdx], nil,
+			cluster.nodeServices[nodeIdx] = newServiceClient(t, NewService(&cluster.nodeNetworks[nodeIdx], nil,
 				quotas{math.MaxUint64, math.MaxUint64},
 				&payments{},
 				WithSessionsCache(isessions.NewObjectSessionsCache(1)),
@@ -2366,7 +2444,7 @@ func testInitialPlacement(t *testing.T, repRules []uint, ecRules []iec.Rule, ip 
 				WithSplitChainVerifier(mockSplitVerifier{}),
 				WithPostPlacementReplicator(mockPostPlacementReplicator{}),
 				WithTombstoneVerifier(mockTombstoneVerifier{}),
-			)
+			))
 
 			nodeIdx++
 		}
