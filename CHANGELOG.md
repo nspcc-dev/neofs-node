@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Broken EC object GET with all data parts missing (#4173)
+- Buffer race of EC part range request buffers in GET server (#4176)
 
 ### Changed
 - SN requests network map only when it has been changed (#4121)

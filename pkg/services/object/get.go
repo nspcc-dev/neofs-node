@@ -683,7 +683,7 @@ func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.Cli
 	}
 
 	copied, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, ln, controlCh)
-	if err != nil || copied == ln {
+	if err != nil || (ln > 0 && copied == ln) {
 		defaultGRPCBufferPool.Put(request)
 	}
 
