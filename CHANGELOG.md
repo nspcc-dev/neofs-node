@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Online FSTree layout reshaping via the `blobstor.allow_depth_change` configuration option (#4149)
 
 ### Fixed
+- Broken EC object GET with all data parts missing (#4173)
 
 ### Changed
 - SN requests network map only when it has been changed (#4121)

@@ -373,6 +373,17 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 	var gotHdr atomic.Bool
 	parts := make([][]byte, rule.DataPartNum+rule.ParityPartNum)
 
+	handleParentHeader := func(parentHdr object.Object, partPayload []byte) bool {
+		linker := parentHdr.Type() == object.TypeLink
+		if !gotHdr.Swap(true) {
+			if linker {
+				parentHdr.SetPayload(partPayload)
+			}
+			hdr = parentHdr
+		}
+		return linker || parentHdr.PayloadSize() == 0
+	}
+
 	// TODO: If some servers hang, they can waste the entire context. If there are no more than rule.ParityPartNum,
 	//  and parity servers work fast, availability can still be provided. Right now, for example, if one server
 	//  responds after the context deadline, whole operation fails. Think how this can be accurately improved.
@@ -400,15 +411,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 				return nil
 			}
 
-			linker := parentHdr.Type() == object.TypeLink
-
-			if !gotHdr.Swap(true) {
-				if linker {
-					parentHdr.SetPayload(partPayload)
-				}
-				hdr = parentHdr
-			}
-			if linker || parentHdr.PayloadSize() == 0 {
+			if handleParentHeader(parentHdr, partPayload) {
 				return errInterrupt
 			}
 
@@ -429,9 +432,8 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 		return object.Object{}, tooManyPartsUnavailableError(rem)
 	}
 
-	pldLen := hdr.PayloadSize()
-
 	if rem == 0 {
+		pldLen := hdr.PayloadSize()
 		if got := islices.TwoDimSliceElementCount(parts[:rule.DataPartNum]); uint64(got) < pldLen {
 			return object.Object{}, fmt.Errorf("sum len of received data parts is less than full len: %d < %d", got, pldLen)
 		}
@@ -447,7 +449,7 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 	for i := range rule.ParityPartNum {
 		partIdx := int(rule.DataPartNum + i)
 		eg.Go(func() error {
-			_, part, err := s.getECPart(gCtx, cnr, parent, rule, ruleIdx, sortedNodes, partIdx)
+			parentHdr, part, err := s.getECPart(gCtx, cnr, parent, rule, ruleIdx, sortedNodes, partIdx)
 			if err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectAccessDenied) || errors.Is(err, gCtx.Err()) ||
 					errors.As(err, new(*object.SplitInfoError)) {
@@ -463,6 +465,10 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 				return nil
 			}
 
+			if handleParentHeader(parentHdr, part) {
+				return errInterrupt
+			}
+
 			parts[partIdx] = part
 			if okCounter.Add(1) >= uint32(rem) {
 				return errInterrupt
@@ -471,15 +477,20 @@ func (s *Service) restoreFromECPartsByRule(ctx context.Context, cnr cid.ID, pare
 			return nil
 		})
 	}
-	if err := eg.Wait(); err != nil && !errors.Is(err, errInterrupt) {
-		return object.Object{}, err
+	if err := eg.Wait(); err != nil {
+		if !errors.Is(err, errInterrupt) {
+			return object.Object{}, err
+		}
+		if okCounter.Load() == 0 {
+			return hdr, nil
+		}
 	}
 
 	if rem = islices.CountNilsInTwoDimSlice(parts); rem > int(rule.ParityPartNum) {
 		return object.Object{}, tooManyPartsUnavailableError(rem)
 	}
 
-	payload, err := iec.Decode(rule, pldLen, parts)
+	payload, err := iec.Decode(rule, hdr.PayloadSize(), parts)
 	if err != nil {
 		return object.Object{}, fmt.Errorf("decode payload from parts: %w", err)
 	}
