@@ -178,6 +178,9 @@ Values for unknown keys are added exactly the way they're provided, no conversio
 		},
 		Args: cobra.MinimumNArgs(1),
 		RunE: setConfigCmd,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return setConfigKnownArgs, cobra.ShellCompDirectiveNoSpace
+		},
 	}
 
 	setPolicy = &cobra.Command{
