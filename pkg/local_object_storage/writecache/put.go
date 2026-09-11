@@ -26,11 +26,6 @@ func (c *cache) Put(addr oid.Address, _ *object.Object, data []byte) error {
 		defer elapsed(c.metrics.AddWCPutDuration)()
 	}
 
-	return c.put(addr, data)
-}
-
-// put writes object to FSTree and pushes it to the flush workers queue.
-func (c *cache) put(addr oid.Address, data []byte) error {
 	cacheSz := c.objCounters.Size()
 	objSz := uint64(len(data))
 	if c.maxCacheSize < cacheSz+objSz {
