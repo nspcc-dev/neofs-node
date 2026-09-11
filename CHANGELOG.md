@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - SN requests network map only when it has been changed (#4121)
+- SN pushes URI-style endpoints to netmap instead of multiaddr (#3982)
 
 ### Removed
 
@@ -20,6 +21,10 @@ Changelog for NeoFS Node
 To change an FSTree layout depth, configure the new `blobstor.depth` and set
 `blobstor.allow_depth_change` to `true`, then restart the storage node. After
 the node logs that reshaping has completed, the flag can be removed.
+
+Network maps with 0.56.0 nodes can differ from previous ones because of
+address conversion from multiaddr. Multiaddr is still accepted by IR and SN,
+but this support will be removed in the next release.
 
 ## [0.56.0] - 2026-09-01 - Nabdo
 
