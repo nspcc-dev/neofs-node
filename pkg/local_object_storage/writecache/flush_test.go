@@ -130,7 +130,7 @@ func TestFlush(t *testing.T) {
 				require.NoError(t, err)
 
 				p := addr.Object().EncodeToString() + "." + addr.Container().EncodeToString()
-				p = filepath.Join(c.fsTree.RootPath, p[:1], p[1:])
+				p = filepath.Join(c.fsTree.RootPath, p[:1], p[1:2], p[2:])
 
 				_, err = os.Stat(p) // sanity check
 				require.NoError(t, err)

@@ -72,6 +72,10 @@ type cache struct {
 	wg sync.WaitGroup
 	// fsTree contains big files stored directly on file-system.
 	fsTree *fstree.FSTree
+	// shardID is used to initialize FSTree after reopening it on a mode change.
+	shardID common.ID
+	// initialized is set after the first FSTree initialization.
+	initialized bool
 }
 
 // wcStorageType is used for write-cache operations logging.
@@ -115,12 +119,12 @@ func (c *cache) DumpInfo() Info {
 	}
 }
 
-// Open opens and initializes database. Reads object counters from the ObjectCounters instance.
+// Open opens the database.
 func (c *cache) Open(readOnly bool) error {
-	err := c.openStore(readOnly)
-	if err != nil {
+	if err := c.openStore(readOnly); err != nil {
 		return err
 	}
+	c.initialized = false
 
 	// Opening after Close is done during maintenance mode,
 	// thus we need to create a channel here.
@@ -134,7 +138,7 @@ func (c *cache) Open(readOnly bool) error {
 	}
 	c.modeMtx.Unlock()
 
-	return c.initCounters()
+	return nil
 }
 
 // Init runs necessary services. No-op in read-only mode.
@@ -145,10 +149,14 @@ func (c *cache) Init(id common.ID) error {
 		zap.Stringer("shard_id", id),
 	)
 
-	err := c.fsTree.Init(id)
-	if err != nil {
+	if err := c.fsTree.Init(id); err != nil {
 		return fmt.Errorf("init FSTree: %w", err)
 	}
+	if err := c.initCounters(); err != nil {
+		return err
+	}
+	c.shardID = id
+	c.initialized = true
 
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
@@ -173,6 +181,12 @@ func (c *cache) Close() error {
 	if c.closeCh != nil {
 		c.closeCh = nil
 	}
+	if c.fsTree != nil {
+		if err := c.fsTree.Close(); err != nil {
+			return fmt.Errorf("close FSTree: %w", err)
+		}
+	}
+	c.initialized = false
 
 	return nil
 }
