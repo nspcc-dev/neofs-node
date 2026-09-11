@@ -883,7 +883,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 			return err
 		}
 
-		copiedFromNode, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, reqLen, controlCh)
+		copiedFromNode, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, ln, controlCh)
 		if err != nil {
 			defaultGRPCBufferPool.Put(request)
 			return err
