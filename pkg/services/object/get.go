@@ -549,9 +549,21 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx con
 			Index:     0,
 		}
 
-		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, needSign, connAPIVersion, partInfo, copiedPartPld, partPldLen-copiedPartPld, nil)
+		leftPartPld := partPldLen - copiedPartPld
+
+		rngReq, err := x.makeGetECPartRangeRequest(needSign, connAPIVersion, partInfo, copiedPartPld, leftPartPld)
 		if err != nil {
 			return err
+		}
+
+		copiedFromNode, err := x.copyRemotePartRangeWithRequest(ctx, conn, rngReq, leftPartPld, nil)
+		if err != nil {
+			defaultGRPCBufferPool.Put(rngReq)
+			return err
+		}
+
+		if copiedFromNode > 0 {
+			defaultGRPCBufferPool.Put(rngReq)
 		}
 
 		copiedPartPld += copiedFromNode
@@ -674,20 +686,6 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	}
 
 	return copiedHdr, parentPldLen, partPldLen, copiedPartPldLen, nil
-}
-
-func (x *getECTransport) copyRemotePartRange(ctx context.Context, conn *grpc.ClientConn, needSign bool, connAPIVersion version.Version, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
-	request, err := x.makeGetECPartRangeRequest(needSign, connAPIVersion, partInfo, off, ln)
-	if err != nil {
-		return 0, fmt.Errorf("make request: %w", err)
-	}
-
-	copied, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, ln, controlCh)
-	if err != nil || copied > 0 {
-		defaultGRPCBufferPool.Put(request)
-	}
-
-	return copied, err
 }
 
 func (x *getECTransport) copyRemotePartRangeWithRequest(ctx context.Context, conn *grpc.ClientConn, request *[]byte, ln uint64, controlCh <-chan bool) (uint64, error) {
@@ -880,9 +878,19 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 			reqLen = ln - copiedPld
 		}
 
-		copiedFromNode, err := x.copyRemotePartRange(ctx, conn, needSign, connAPIVersion, partInfo, off+copiedPld, reqLen, controlCh)
+		request, err := x.makeGetECPartRangeRequest(needSign, connAPIVersion, partInfo, off+copiedPld, reqLen)
 		if err != nil {
 			return err
+		}
+
+		copiedFromNode, err := x.copyRemotePartRangeWithRequest(ctx, conn, request, reqLen, controlCh)
+		if err != nil {
+			defaultGRPCBufferPool.Put(request)
+			return err
+		}
+
+		if copiedFromNode > 0 {
+			defaultGRPCBufferPool.Put(request)
 		}
 
 		copiedPld += copiedFromNode
@@ -969,7 +977,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(needSign bool, remoteServerAP
 	*reqBufPtr, err = x.server.makeGetECPartRequest(needSign, remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, off, ln, true)
 	if err != nil {
 		// stream is closed by context cancellation
-		return nil, err
+		return nil, fmt.Errorf("make request: %w", err)
 	}
 
 	*rngPtr = rng
