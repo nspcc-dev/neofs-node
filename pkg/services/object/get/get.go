@@ -216,19 +216,15 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 	switch exec.status {
 	case statusOK:
 		exec.log.Debug("operation finished successfully")
+		return
 	case statusVIRTUAL:
 		exec.log.Debug("requested object is virtual")
 		if exec.collectOnly {
 			return
 		}
 		exec.assemble()
-		if errors.Is(exec.err, errNoLinkNoLastPart) && execCnr {
-			if exec.isLocal() {
-				exec.log.Debug("return result directly")
-				return
-			}
-			exec.executeOnContainer()
-			exec.analyzeStatus(false)
+		if !errors.Is(exec.err, errNoLinkNoLastPart) || !execCnr {
+			return
 		}
 	case statusAPIResponse:
 		exec.log.Debug("received api response locally, return directly", zap.Error(exec.err))
@@ -238,13 +234,15 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 			zap.Error(exec.err),
 		)
 
-		if execCnr && !exec.responseStarted {
-			if exec.isLocal() {
-				exec.log.Debug("return result directly")
-				return
-			}
-			exec.executeOnContainer()
-			exec.analyzeStatus(false)
+		if !execCnr || exec.responseStarted {
+			return
 		}
 	}
+
+	if exec.isLocal() {
+		exec.log.Debug("return result directly")
+		return
+	}
+	exec.executeOnContainer()
+	exec.analyzeStatus(false)
 }
