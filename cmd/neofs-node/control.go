@@ -83,3 +83,7 @@ func (c *cfg) IncPolicerObjectReplicated(isEC bool) {
 func (c *cfg) IncPolicerObjectDeleted(isEC bool) {
 	c.metricsCollector.IncPolicerObjectDeleted(isEC)
 }
+
+func (c *cfg) IncPolicerObjectRelocated() {
+	c.metricsCollector.IncPolicerObjectRelocated()
+}

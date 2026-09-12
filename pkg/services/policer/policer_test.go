@@ -66,7 +66,7 @@ func (s *storageListerWithDelay) Delete(_ context.Context, _ oid.Address, _ engi
 	panic("do not call me")
 }
 
-func (s *storageListerWithDelay) DeleteRedundantCopies(_ context.Context, address oid.Address, _ []string) error {
+func (s *storageListerWithDelay) OptimizeShardLocation(_ context.Context, _ oid.Address, _ []string) (bool, error) {
 	panic("do not call me")
 }
 
@@ -956,6 +956,14 @@ func TestPolicer_Run_EC(t *testing.T) {
 		})
 	})
 
+	t.Run("kept part is rebalanced locally", func(t *testing.T) {
+		localObj := localObj
+		localObj.ShardIDs = []string{"source"}
+
+		logBuf := testECCheck(t, rule, localObj, nodes, 5, all404, false, nil)
+		logBuf.AssertContainsMsg(zap.InfoLevel, "optimized local object shard location")
+	})
+
 	t.Run("found on more optimal node", func(t *testing.T) {
 		errs := slices.Clone(all404)
 		errs[5] = nil
@@ -966,6 +974,16 @@ func TestPolicer_Run_EC(t *testing.T) {
 			Fields: map[string]any{"component": "Object Policer", "cid": cnr.String(), "partOID": partOID.String(),
 				"rule": "6/3", "partIdx": json.Number("5"), "node": []any{"localhost:10010", "localhost:10011"}},
 		})
+	})
+
+	t.Run("remote part does not trigger local relocation", func(t *testing.T) {
+		localObj := localObj
+		localObj.ShardIDs = []string{"source"}
+		errs := slices.Clone(all404)
+		errs[5] = nil
+
+		logBuf := testECCheck(t, rule, localObj, nodes, 6, errs, true, nil)
+		logBuf.AssertNotContainsMsg(zap.InfoLevel, "optimized local object shard location")
 	})
 
 	t.Run("not found on more optimal node", func(t *testing.T) {
@@ -1265,8 +1283,8 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	return lb
 }
 
-func TestPolicer_DropShardDuplicates(t *testing.T) {
-	t.Run("regular", func(t *testing.T) {
+func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
+	t.Run("single copy", func(t *testing.T) {
 		cnr := cidtest.ID()
 		objID := oidtest.ID()
 		addr := oid.NewAddress(cnr, objID)
@@ -1276,17 +1294,77 @@ func TestPolicer_DropShardDuplicates(t *testing.T) {
 			Address:    addr,
 			Type:       object.TypeRegular,
 			Attributes: make([]string, 3),
-			ShardIDs:   []string{"redundant", "keeper"},
+			ShardIDs:   []string{"source"},
 		}
 
 		localNode := newTestLocalNode()
-		localNode.deleteRedundantCopies = func(got oid.Address, shardIDs []string) error {
+		mockM := &mockMetrics{}
+		localNode.optimizeShardLocation = func(got oid.Address, shardIDs []string) (bool, error) {
 			require.Equal(t, addr, got)
-			require.ElementsMatch(t, []string{"redundant", "keeper"}, shardIDs)
+			require.Equal(t, []string{"source"}, shardIDs)
 			localNode.delMtx.Lock()
-			localNode.delByShard[addr] = []string{"redundant"}
+			localNode.delByShard[addr] = []string{"source"}
 			localNode.delMtx.Unlock()
-			return nil
+			return true, nil
+		}
+
+		mockNet := newMockNetwork()
+		mockNet.pubKey = nodes[0].PublicKey()
+		mockNet.setObjectNodesRepResult(cnr, objID, nodes, 1)
+
+		p := New(neofscryptotest.Signer(),
+			WithNetwork(mockNet),
+			WithLogger(zap.NewNop()),
+			WithMetrics(mockM),
+		)
+		p.localStorage = localNode
+
+		p.processObject(context.Background(), localObj)
+
+		require.Empty(t, localNode.deletedObjects())
+		require.Equal(t, []string{"source"}, localNode.deletedShardCopies(addr))
+		require.EqualValues(t, 1, mockM.relocated.Load())
+	})
+
+	t.Run("EC part", func(t *testing.T) {
+		addr := oid.NewAddress(cidtest.ID(), oidtest.ID())
+		localNode := newTestLocalNode()
+		localNode.optimizeShardLocation = func(got oid.Address, shardIDs []string) (bool, error) {
+			require.Equal(t, addr, got)
+			require.Equal(t, []string{"source"}, shardIDs)
+			return true, nil
+		}
+		mockM := &mockMetrics{}
+		p := New(neofscryptotest.Signer(), WithLogger(zap.NewNop()), WithMetrics(mockM))
+		p.localStorage = localNode
+
+		p.optimizeLocalShardLocation(context.Background(), objectcore.AddressWithAttributes{
+			Address:  addr,
+			Type:     object.TypeRegular,
+			ShardIDs: []string{"source"},
+		})
+
+		require.EqualValues(t, 1, mockM.relocated.Load())
+	})
+
+	t.Run("duplicates", func(t *testing.T) {
+		cnr := cidtest.ID()
+		objID := oidtest.ID()
+		addr := oid.NewAddress(cnr, objID)
+		nodes := testutil.Nodes(2)
+
+		localObj := objectcore.AddressWithAttributes{
+			Address:    addr,
+			Type:       object.TypeRegular,
+			Attributes: make([]string, 3),
+			ShardIDs:   []string{"source", "target"},
+		}
+
+		localNode := newTestLocalNode()
+		localNode.optimizeShardLocation = func(got oid.Address, shardIDs []string) (bool, error) {
+			require.Equal(t, addr, got)
+			require.Equal(t, []string{"source", "target"}, shardIDs)
+			return false, nil // the preferred shard already contains the object
 		}
 
 		mockNet := newMockNetwork()
@@ -1300,9 +1378,6 @@ func TestPolicer_DropShardDuplicates(t *testing.T) {
 		p.localStorage = localNode
 
 		p.processObject(context.Background(), localObj)
-
-		require.Empty(t, localNode.deletedObjects())
-		require.Equal(t, []string{"redundant"}, localNode.deletedShardCopies(addr))
 	})
 
 	t.Run("broadcast", func(t *testing.T) {
@@ -1321,9 +1396,9 @@ func TestPolicer_DropShardDuplicates(t *testing.T) {
 				}
 
 				localNode := newTestLocalNode()
-				localNode.deleteRedundantCopies = func(oid.Address, []string) error {
-					t.Fatal("DeleteRedundantCopies must not be called for broadcast objects")
-					return nil
+				localNode.optimizeShardLocation = func(oid.Address, []string) (bool, error) {
+					t.Fatal("OptimizeShardLocation must not be called for broadcast objects")
+					return false, nil
 				}
 
 				mockNet := newMockNetwork()
@@ -1423,7 +1498,7 @@ type testLocalNode struct {
 	delMtx                sync.RWMutex
 	del                   map[oid.Address]struct{}
 	delByShard            map[oid.Address][]string
-	deleteRedundantCopies func(oid.Address, []string) error
+	optimizeShardLocation func(oid.Address, []string) (bool, error)
 }
 
 func newTestLocalNode() *testLocalNode {
@@ -1460,6 +1535,7 @@ type mockMetrics struct {
 	replicatedEC     atomic.Uint64
 	deletedRep       atomic.Uint64
 	deletedEC        atomic.Uint64
+	relocated        atomic.Uint64
 }
 
 func (m *mockMetrics) SetPolicerConsistency(b bool) {
@@ -1496,6 +1572,10 @@ func (m *mockMetrics) IncPolicerObjectDeleted(isEC bool) {
 		return
 	}
 	m.deletedRep.Add(1)
+}
+
+func (m *mockMetrics) IncPolicerObjectRelocated() {
+	m.relocated.Add(1)
 }
 
 func (x *mockNetwork) IsLocalNodePublicKey(key []byte) bool {
@@ -1583,19 +1663,15 @@ func (x *testLocalNode) GetRange(_ context.Context, _ oid.Address, _ uint64, _ u
 	panic("unimplemented")
 }
 
-func (x *testLocalNode) DeleteRedundantCopies(_ context.Context, addr oid.Address, shardIDs []string) error {
-	if x.deleteRedundantCopies != nil {
-		return x.deleteRedundantCopies(addr, shardIDs)
-	}
-
-	if len(shardIDs) < 2 {
-		return nil
+func (x *testLocalNode) OptimizeShardLocation(_ context.Context, addr oid.Address, shardIDs []string) (bool, error) {
+	if x.optimizeShardLocation != nil {
+		return x.optimizeShardLocation(addr, shardIDs)
 	}
 
 	x.delMtx.Lock()
-	x.delByShard[addr] = append(x.delByShard[addr], shardIDs[1:]...)
+	x.delByShard[addr] = append(x.delByShard[addr], shardIDs...)
 	x.delMtx.Unlock()
-	return nil
+	return len(shardIDs) > 0, nil
 }
 
 type getNodesKey struct {
