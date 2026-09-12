@@ -51,5 +51,12 @@ them in the FS tree, so finding a file containing some object doesn't require
 any additional effort. Finding it in the file contents however requires
 reading the prefix described above, comparing the target OID and either
 skipping the object length specified there or reading it after the prefix.
+
+New writes use a header+payload record format. It starts with magic 0x7E,
+format version 1, 64-bit big-endian canonical header prefix and payload lengths,
+the canonical object bytes through the payload field length, and raw payload
+bytes. This lets FSTree read a header and return a reader positioned directly
+at the payload without materializing it. The reader remains compatible with
+legacy-serialized protobuf and ZSTD-compressed records.
 */
 package fstree
