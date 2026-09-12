@@ -65,7 +65,7 @@ func TestFSTreeRewriteCompressed(t *testing.T) {
 		require.EqualValues(t, 0, st.Compressed)
 		require.EqualValues(t, 0, st.Rewritten)
 		require.EqualValues(t, 1, st.Skipped)
-		require.Equal(t, obj.Marshal(), readRawObjectFile(t, tree, obj.Address()))
+		require.Equal(t, separateObject(obj.Marshal()), readRawObjectFile(t, tree, obj.Address()))
 	})
 
 	t.Run("malformed object", func(t *testing.T) {
