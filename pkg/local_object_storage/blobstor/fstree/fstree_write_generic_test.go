@@ -130,7 +130,7 @@ func testInitPutGenericWithLength(t *testing.T, payloadLen uint64) {
 
 			stream, abortFn := assertInitPut(t, fst, testAddress, header, payload)
 
-			expData := concatHeaderAndPayload(header, payload)
+			expData := separateHeaderAndPayload(header, payload)
 
 			fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, expData)
 
@@ -155,7 +155,7 @@ func testInitPutGenericWithLength(t *testing.T, payloadLen uint64) {
 
 		assertInitPut(t, fst, testAddress, header, chunks...)
 
-		expData := concatHeaderAndPayload(header, slices.Concat(chunks...))
+		expData := separateHeaderAndPayload(header, slices.Concat(chunks...))
 
 		fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, expData)
 	})
@@ -164,12 +164,13 @@ func testInitPutGenericWithLength(t *testing.T, payloadLen uint64) {
 
 	assertInitPut(t, fst, testAddress, payload)
 
-	fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, payload)
+	expData := separateHeaderAndPayload(payload, nil)
+	fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, expData)
 
 	t.Run("already exists", func(t *testing.T) {
 		assertInitPut(t, fst, testAddress, payload)
 
-		fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, payload)
+		fstest.AssertSingleDirFileData(t, filepath.Join(fst.RootPath, testObjectDir), testObjectFileName, expData)
 	})
 }
 
