@@ -7,11 +7,6 @@ import (
 )
 
 func (exec *execCtx) executeOnContainer() {
-	if exec.isLocal() {
-		exec.log.Debug("return result directly")
-		return
-	}
-
 	exec.log.Debug("trying to execute in container...")
 
 	addr := exec.address()
