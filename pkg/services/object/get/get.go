@@ -223,6 +223,10 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 		}
 		exec.assemble()
 		if errors.Is(exec.err, errNoLinkNoLastPart) && execCnr {
+			if exec.isLocal() {
+				exec.log.Debug("return result directly")
+				return
+			}
 			exec.executeOnContainer()
 			exec.analyzeStatus(false)
 		}
@@ -235,6 +239,10 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 		)
 
 		if execCnr && !exec.responseStarted {
+			if exec.isLocal() {
+				exec.log.Debug("return result directly")
+				return
+			}
 			exec.executeOnContainer()
 			exec.analyzeStatus(false)
 		}
