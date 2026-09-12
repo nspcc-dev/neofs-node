@@ -285,22 +285,11 @@ func (t *FSTree) iterateMerged(objHandler func(oid.Address, []byte) error, error
 			return addrHandler(entry.addr)
 		}
 		if sizeHandler != nil {
-			primary, secondary := t.treePaths(entry.addr)
-			var info os.FileInfo
-			var err error
-			for _, path := range [...]string{secondary, primary} {
-				if path == "" {
-					continue
-				}
-				info, err = os.Stat(path)
-				if !errors.Is(err, fs.ErrNotExist) {
-					break
-				}
-			}
+			data, err := t.getObjBytes(entry.addr)
 			if err != nil {
-				return fail(entry.addr, fmt.Errorf("stat object %s: %w", entry.addr, err))
+				return fail(entry.addr, fmt.Errorf("read object %s: %w", entry.addr, err))
 			}
-			return sizeHandler(entry.addr, uint64(info.Size()))
+			return sizeHandler(entry.addr, uint64(len(data)))
 		}
 		data, err := t.getObjBytes(entry.addr)
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -526,7 +515,7 @@ func (t *FSTree) Put(addr oid.Address, data []byte) error {
 		return fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
 
-	err := t.writer.writeData(addr.Object(), p, data)
+	err := t.writer.writeData(addr.Object(), p, separateObject(data))
 	if err != nil {
 		return fmt.Errorf("write object data into file %q: %w", p, err)
 	}
@@ -551,7 +540,7 @@ func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 		writeDataUnits = append(writeDataUnits, writeDataUnit{
 			id:   addr.Object(),
 			path: p,
-			data: data,
+			data: separateObject(data),
 		})
 	}
 
@@ -685,6 +674,13 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 		return nil, fmt.Errorf("read: %w", err)
 	}
 	data = data[:len(initial)+n]
+	data, separated, err := restoreSeparatedObject(data)
+	if err != nil {
+		return nil, err
+	}
+	if separated {
+		return data, nil
+	}
 
 	return decompress(data)
 }

@@ -321,6 +321,10 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadSeekCloser, initial []byte) (*obj
 }
 
 func (t *FSTree) preprocessStreamHead(f io.ReadSeekCloser, initial []byte) ([]byte, io.ReadSeekCloser, error) {
+	if headerLen, payloadLen := parseSeparatedPrefix(initial); headerLen != 0 {
+		return preprocessSeparatedObject(f, initial, headerLen, payloadLen)
+	}
+
 	var err error
 	if len(initial) < objectwire.NonPayloadFieldsBufferLength {
 		_ = f.Close()
