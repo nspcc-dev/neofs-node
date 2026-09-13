@@ -97,7 +97,7 @@ func initReputationService(c *cfg) {
 		common.RemoteProviderPrm{
 			NetmapKeys:      c,
 			DeadEndProvider: daughterStorageWriterProvider,
-			ClientCache:     c.bgClientCache,
+			ClientCache:     c.clientCache,
 			WriterProvider: localreputation.NewRemoteProvider(
 				localreputation.RemoteProviderPrm{
 					Key: &c.key.PrivateKey,
@@ -112,7 +112,7 @@ func initReputationService(c *cfg) {
 		common.RemoteProviderPrm{
 			NetmapKeys:      c,
 			DeadEndProvider: consumerStorageWriterProvider,
-			ClientCache:     c.bgClientCache,
+			ClientCache:     c.clientCache,
 			WriterProvider: intermediatereputation.NewRemoteProvider(
 				intermediatereputation.RemoteProviderPrm{
 					Key: &c.key.PrivateKey,
