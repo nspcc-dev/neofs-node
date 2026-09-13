@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 - Policer now uses an in-memory queue for redundant object removal, reducing metabase writes (#4216)
 - Session token storage now indexes tokens by expiration epoch for efficient cleanup (#4243)
 - Session key encryption now uses HPKE (#4247)
+- SN object GET/HEAD server now traverses nodes strictly by weight, and falls back to local storage (#4232)
 
 ### Removed
 - fstree-decompress utility (#4223)
