@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - CLI `request create-container` command now attaches current API version to requests (#4213)
 - ReplicateV2 Linux server now uses `writev()` syscall for multi-frame chunks (#4194)
 - IR now denies creation of containers and setting of eACL with API version less than v2.22 (#4229)
+- SN object GET/HEAD server now traverses nodes strictly by weight, and falls back to local storage (#XXXX)
 
 ### Removed
 - fstree-decompress utility (#4223)

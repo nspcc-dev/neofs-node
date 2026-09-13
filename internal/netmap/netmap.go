@@ -11,11 +11,13 @@ import (
 // least one element from nodeSets.
 func NodeSetsContainPublicKeyFunc(nodeSets [][]netmap.NodeInfo, checkPubKeyFn func([]byte) bool) bool {
 	return slices.ContainsFunc(nodeSets, func(nodeSet []netmap.NodeInfo) bool {
-		return nodeSetContainsPublicKeyFunc(nodeSet, checkPubKeyFn)
+		return NodeSetContainsPublicKeyFunc(nodeSet, checkPubKeyFn)
 	})
 }
 
-func nodeSetContainsPublicKeyFunc(nodeSet []netmap.NodeInfo, checkPubKeyFn func([]byte) bool) bool {
+// NodeSetContainsPublicKeyFunc checks whether checkPubKeyFn is true for at
+// least one element from nodeSet.
+func NodeSetContainsPublicKeyFunc(nodeSet []netmap.NodeInfo, checkPubKeyFn func([]byte) bool) bool {
 	return slices.ContainsFunc(nodeSet, func(node netmap.NodeInfo) bool {
 		return checkPubKeyFn(node.PublicKey())
 	})

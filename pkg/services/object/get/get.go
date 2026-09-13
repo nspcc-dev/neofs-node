@@ -211,19 +211,14 @@ func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) st
 func (exec *execCtx) execute() {
 	exec.log.Debug("serving request...")
 
-	// perform local operation
-	exec.executeLocal()
-	if exec.analyzeLocalStatus() {
-		return
-	}
-
 	if exec.isLocal() {
+		exec.executeLocal()
+		exec.analyzeLocalStatus()
 		exec.log.Debug("return result directly")
 		return
 	}
 
 	exec.executeOnContainer()
-	exec.analyzeContainerStatus()
 }
 
 func (exec *execCtx) analyzeLocalStatus() bool {
