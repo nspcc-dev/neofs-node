@@ -213,42 +213,66 @@ func (exec *execCtx) execute() {
 
 	// perform local operation
 	exec.executeLocal()
-
-	exec.analyzeStatus(true)
-}
-
-func (exec *execCtx) analyzeStatus(execCnr bool) {
-	// analyze local result
-	switch exec.status {
-	case statusOK:
-		exec.log.Debug("operation finished successfully")
+	if exec.analyzeLocalStatus() {
 		return
-	case statusVIRTUAL:
-		exec.log.Debug("requested object is virtual")
-		if exec.collectOnly {
-			return
-		}
-		exec.assemble()
-		if !errors.Is(exec.err, errNoLinkNoLastPart) || !execCnr {
-			return
-		}
-	case statusAPIResponse:
-		exec.log.Debug("received api response locally, return directly", zap.Error(exec.err))
-		return
-	default:
-		exec.log.Debug("operation finished with error",
-			zap.Error(exec.err),
-		)
-
-		if !execCnr || exec.responseStarted {
-			return
-		}
 	}
 
 	if exec.isLocal() {
 		exec.log.Debug("return result directly")
 		return
 	}
+
 	exec.executeOnContainer()
-	exec.analyzeStatus(false)
+	exec.analyzeContainerStatus()
+}
+
+func (exec *execCtx) analyzeLocalStatus() bool {
+	// analyze local result
+	switch exec.status {
+	case statusOK:
+		exec.logSuccess()
+	case statusVIRTUAL:
+		exec.handleVirtualObject()
+		return !errors.Is(exec.err, errNoLinkNoLastPart)
+	case statusAPIResponse:
+		exec.logAPIError()
+	default:
+		exec.logOtherError()
+		return exec.responseStarted
+	}
+
+	return true
+}
+
+func (exec *execCtx) analyzeContainerStatus() {
+	switch exec.status {
+	case statusOK:
+		exec.logSuccess()
+	case statusVIRTUAL:
+		exec.handleVirtualObject()
+	case statusAPIResponse:
+		exec.logAPIError()
+	default:
+		exec.logOtherError()
+	}
+}
+
+func (exec *execCtx) handleVirtualObject() {
+	exec.log.Debug("requested object is virtual")
+	if exec.collectOnly {
+		return
+	}
+	exec.assemble()
+}
+
+func (exec *execCtx) logSuccess() {
+	exec.log.Debug("operation finished successfully")
+}
+
+func (exec *execCtx) logAPIError() {
+	exec.log.Debug("received api response locally, return directly", zap.Error(exec.err))
+}
+
+func (exec *execCtx) logOtherError() {
+	exec.log.Debug("operation finished with error", zap.Error(exec.err))
 }
