@@ -21,7 +21,7 @@ func (exec *execCtx) executeOnContainer() {
 			exec.status = statusUndefined
 			exec.err = err
 			exec.log.Debug("failed to list storage nodes for the object", zap.Error(err))
-			exec.analyzeContainerStatus()
+			exec.logOtherError()
 			return
 		}
 	}
@@ -66,7 +66,7 @@ func (exec *execCtx) executeOnContainer() {
 				exec.log.Debug("interrupt placement iteration by context",
 					zap.Error(ctx.Err()),
 				)
-				exec.analyzeContainerStatus()
+				exec.logOtherError()
 				return
 			default:
 			}
