@@ -213,7 +213,6 @@ func (exec *execCtx) execute() {
 
 	if exec.isLocal() {
 		exec.executeLocal()
-		exec.analyzeLocalStatus()
 		exec.log.Debug("return result directly")
 		return
 	}
