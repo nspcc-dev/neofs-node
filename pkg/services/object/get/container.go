@@ -21,7 +21,7 @@ func (exec *execCtx) executeOnContainer() {
 			exec.status = statusUndefined
 			exec.err = err
 			exec.log.Debug("failed to list storage nodes for the object", zap.Error(err))
-			exec.analyzeContainerStatus()
+			exec.logOtherError()
 			return
 		}
 	}
@@ -69,7 +69,7 @@ func (exec *execCtx) executeOnContainer() {
 				if exec.err == nil {
 					exec.err = ctx.Err()
 				}
-				exec.analyzeContainerStatus()
+				exec.logOtherError()
 				return
 			default:
 			}
