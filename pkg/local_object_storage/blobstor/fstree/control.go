@@ -88,6 +88,10 @@ func (t *FSTree) Init(id common.ID) error {
 		return err
 	}
 
+	if t.newReshapeProgressTracker != nil {
+		t.reshapeProgressTracker = t.newReshapeProgressTracker(t.shardID.String())
+	}
+
 	t.log = t.log.With(
 		zap.String("substorage", t.subtype),
 		zap.String("shard_id", t.shardID.String()),
@@ -235,6 +239,7 @@ func (t *FSTree) updateReshapeProgress(lastProcessedPath string) error {
 		return err
 	}
 	t.descriptor = d
+	t.setReshapeProgress(t.reshapeProgress(lastProcessedPath))
 	return nil
 }
 
@@ -252,6 +257,7 @@ func (t *FSTree) completeReshape() error {
 		return err
 	}
 	t.descriptor = d
+	t.setReshapeProgress(100)
 	return nil
 }
 

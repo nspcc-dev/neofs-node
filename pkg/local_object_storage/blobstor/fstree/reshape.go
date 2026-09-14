@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -18,6 +20,45 @@ var (
 	reshapeProgressStep  = 10_000
 	reshapeRetryInterval = time.Minute
 )
+
+const (
+	base58Length                 = 58
+	reshapeProgressPathSeparator = "/" // progress paths are persisted with filepath.ToSlash
+)
+
+func (t *FSTree) setReshapeProgress(progress float64) {
+	if t.reshapeProgressTracker != nil {
+		t.reshapeProgressTracker.SetReshapeProgress(progress)
+	}
+}
+
+func (t *FSTree) reshapeProgress(lastProcessedPath string) float64 {
+	if lastProcessedPath == "" {
+		return 0
+	}
+
+	var position, maxPosition, processed uint64
+	for part := range strings.SplitSeq(lastProcessedPath, reshapeProgressPathSeparator) {
+		if processed == t.secondaryDepth {
+			break
+		}
+		if len(part) != DirNameLen {
+			return 0
+		}
+		digit, err := base58.Decode(part)
+		if err != nil || len(digit) != 1 {
+			return 0
+		}
+		position = position*base58Length + uint64(digit[0])
+		maxPosition = maxPosition*base58Length + base58Length - 1
+		processed++
+	}
+	if processed != t.secondaryDepth {
+		return 0
+	}
+
+	return float64(position) * 100 / float64(maxPosition)
+}
 
 func (t *FSTree) startReshape() {
 	if t.secondaryDepth == 0 || t.secondaryDepth == t.Depth {
@@ -29,6 +70,8 @@ func (t *FSTree) startReshape() {
 	if t.reshapeCancel != nil {
 		return
 	}
+
+	t.setReshapeProgress(t.reshapeProgress(t.descriptor.Reshape.LastProcessedPath))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
