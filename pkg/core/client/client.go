@@ -13,6 +13,7 @@ import (
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"google.golang.org/grpc"
 )
 
@@ -61,4 +62,12 @@ type MultiAddressClient interface {
 func IsMutuallyAuthenticated(c any) bool {
 	x, ok := c.(interface{ IsMutuallyAuthenticated() bool })
 	return ok && x.IsMutuallyAuthenticated()
+}
+
+// CompareAPIVersion performs three-way comparison of API server version against
+// the given one.
+func CompareAPIVersion(c MultiAddressClient, v version.Version) int {
+	cvMsg := c.APIVersion()
+	cv := version.New(cvMsg.GetMajor(), cvMsg.GetMinor())
+	return cv.Compare(v)
 }

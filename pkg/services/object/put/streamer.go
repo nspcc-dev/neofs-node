@@ -34,8 +34,7 @@ type Streamer struct {
 
 	maxPayloadSz uint64 // network config
 
-	transport Transport
-	neoFSNet  NeoFSNetwork
+	neoFSNet NeoFSNetwork
 }
 
 var errNotInit = errors.New("stream not initialized")
@@ -281,7 +280,6 @@ func (p *Streamer) newDistrubutedWriter(prm *PutInitPrm) *distributedTarget {
 		keyStorage:              p.keyStorage,
 		commonPrm:               prm.common,
 		clientConstructor:       p.clientConstructor,
-		transport:               p.transport,
 		relay:                   relay,
 		fmt:                     p.fmtValidator,
 		containerNodes:          prm.containerNodes,

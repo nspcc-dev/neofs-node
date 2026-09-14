@@ -72,14 +72,6 @@ type Handlers interface {
 	Delete(context.Context, deletesvc.Prm) error
 }
 
-// Various NeoFS protocol status codes.
-const (
-	codeInternal          = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_INTERNAL)
-	codeBadRequest        = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_BAD_REQUEST)
-	codeAccessDenied      = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_ACCESS_DENIED)
-	codeContainerNotFound = uint32(1024*protostatus.Section_SECTION_CONTAINER) + uint32(protostatus.Container_CONTAINER_NOT_FOUND)
-)
-
 // MetricCollector tracks exec statistics for the following ops:
 //   - [stat.MethodObjectPut]
 //   - [stat.MethodObjectGet]
@@ -1557,111 +1549,154 @@ func (s *Server) Search(_ *protoobject.SearchRequest, _ protoobject.ObjectServic
 	return grpcstatus.Error(grpccodes.Unimplemented, "no longer supported, use SearchV2")
 }
 
+func readFirstReplicateV2Request(stream protoobject.ObjectService_ReplicateV2Server) (*protoobject.ReplicateV2Request_Init, *protostatus.Status, error) {
+	firstReq, err := stream.Recv()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	reqInit, ok := firstReq.StreamPart.(*protoobject.ReplicateV2Request_Init_)
+	if !ok {
+		return nil, newBadRequestStatus("first request does not contain init field"), nil
+	}
+
+	initPart := reqInit.Init
+	if initPart == nil { // not expected to ever happen, but better to keep safe
+		return nil, newInternalServerErrorStatus("first request contains nil init field"), nil
+	}
+
+	if initPart.Object == nil {
+		return nil, newBadRequestStatus("object field is missing"), nil
+	}
+
+	if len(initPart.Object.Payload) > 0 {
+		return nil, newBadRequestStatus("non-empty object payload in init field"), nil
+	}
+
+	return initPart, nil, nil
+}
+
+// ReplicateV2 serves neo.fs.v2.object.ObjectService/ReplicateV2 RPC.
+func (s *Server) ReplicateV2(stream protoobject.ObjectService_ReplicateV2Server) error {
+	initPart, st, err := readFirstReplicateV2Request(stream)
+	if err != nil {
+		return err
+	}
+	if st != nil {
+		return stream.SendAndClose(&protoobject.ReplicateV2Response{Status: st})
+	}
+
+	recvChunkFn := func() ([]byte, *protostatus.Status, error) {
+		req, err := stream.Recv()
+		if err != nil {
+			return nil, nil, err
+		}
+		chunkPart, ok := req.StreamPart.(*protoobject.ReplicateV2Request_PayloadChunk)
+		if !ok {
+			return nil, newBadRequestStatus("non-chunk subsequent message"), nil
+		}
+		return chunkPart.PayloadChunk, nil, nil
+	}
+
+	objSig, st, err := s.replicate(stream.Context(), initPart.Object, initPart.Signature, initPart.SignObject, recvChunkFn)
+	if err != nil {
+		return err
+	}
+
+	resp := &protoobject.ReplicateV2Response{
+		Status:          st,
+		ObjectSignature: objSig,
+	}
+	return stream.SendAndClose(resp)
+}
+
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
 func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
 	if req.Object == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "binary object field is missing/empty",
-		}}, nil
+		return &protoobject.ReplicateResponse{
+			Status: newBadRequestStatus("binary object field is missing/empty"),
+		}, nil
 	}
 
-	if req.Object.ObjectId == nil || len(req.Object.ObjectId.Value) == 0 {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "ID field is missing/empty in the object field",
-		}}, nil
+	objSig, st, err := s.replicate(ctx, req.Object, req.Signature, req.SignObject, func() ([]byte, *protostatus.Status, error) {
+		return nil, nil, io.EOF
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if req.Signature == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "missing object signature field",
-		}}, nil
+	return &protoobject.ReplicateResponse{
+		Status:          st,
+		ObjectSignature: objSig,
+	}, nil
+}
+
+func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig *refs.Signature, signObject bool, recvChunkFn func() ([]byte, *protostatus.Status, error)) ([]byte, *protostatus.Status, error) {
+	if objMsg.ObjectId == nil || len(objMsg.ObjectId.Value) == 0 {
+		return nil, newBadRequestStatus("ID field is missing/empty in the object field"), nil
 	}
 
-	if len(req.Signature.Key) == 0 {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "public key field is missing/empty in the object signature field",
-		}}, nil
+	if sig == nil {
+		return nil, newBadRequestStatus("missing object signature field"), nil
 	}
 
-	if len(req.Signature.Sign) == 0 {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeBadRequest, Message: "signature value is missing/empty in the object signature field",
-		}}, nil
+	if len(sig.Key) == 0 {
+		return nil, newBadRequestStatus("public key field is missing/empty in the object signature field"), nil
 	}
 
-	switch scheme := req.Signature.Scheme; scheme {
+	if len(sig.Sign) == 0 {
+		return nil, newBadRequestStatus("signature value is missing/empty in the object signature field"), nil
+	}
+
+	switch scheme := sig.Scheme; scheme {
 	default:
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "unsupported scheme in the object signature field",
-		}}, nil
+		return nil, newBadRequestStatus("unsupported scheme in the object signature field"), nil
 	case
 		refs.SignatureScheme_ECDSA_SHA512,
 		refs.SignatureScheme_ECDSA_RFC6979_SHA256,
 		refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
 	}
 
-	hdr := req.Object.GetHeader()
+	hdr := objMsg.GetHeader()
 	if hdr == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "missing header field in the object field",
-		}}, nil
+		return nil, newBadRequestStatus("missing header field in the object field"), nil
 	}
 
 	gCnrMsg := hdr.GetContainerId()
 	if gCnrMsg == nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "missing container ID field in the object header field",
-		}}, nil
+		return nil, newBadRequestStatus("missing container ID field in the object header field"), nil
 	}
 
 	var cnr cid.ID
 	err := cnr.FromProtoMessage(gCnrMsg)
 	if err != nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: fmt.Sprintf("invalid container ID in the object header field: %v", err),
-		}}, nil
+		return nil, newBadRequestStatus(fmt.Sprintf("invalid container ID in the object header field: %v", err)), nil
 	}
 
 	var pubKey neofscrypto.PublicKey
-	switch req.Signature.Scheme { //nolint:exhaustive
+	switch sig.Scheme { //nolint:exhaustive
 	// other cases already checked above
 	case refs.SignatureScheme_ECDSA_SHA512:
 		pubKey = new(neofsecdsa.PublicKey)
-		err = pubKey.Decode(req.Signature.Key)
+		err = pubKey.Decode(sig.Key)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeBadRequest,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
+			return nil, newBadRequestStatus("invalid ECDSA public key in the object signature field"), nil
 		}
 	case refs.SignatureScheme_ECDSA_RFC6979_SHA256:
 		pubKey = new(neofsecdsa.PublicKeyRFC6979)
-		err = pubKey.Decode(req.Signature.Key)
+		err = pubKey.Decode(sig.Key)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeBadRequest,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
+			return nil, newBadRequestStatus("invalid ECDSA public key in the object signature field"), nil
 		}
 	case refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
 		pubKey = new(neofsecdsa.PublicKeyWalletConnect)
-		err = pubKey.Decode(req.Signature.Key)
+		err = pubKey.Decode(sig.Key)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeBadRequest,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
+			return nil, newBadRequestStatus("invalid ECDSA public key in the object signature field"), nil
 		}
 	}
-	if !pubKey.Verify(req.Object.ObjectId.Value, req.Signature.Sign) {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: "signature mismatch in the object signature field",
-		}}, nil
+	if !pubKey.Verify(objMsg.ObjectId.Value, sig.Sign) {
+		return nil, newBadRequestStatus("signature mismatch in the object signature field"), nil
 	}
 
 	var serverInCnr bool
@@ -1671,77 +1706,75 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check server's compliance to object's storage policy: object's container not found",
-			}}, nil
+			return nil, newContainerNotFoundStatus("failed to check server's compliance to object's storage policy: object's container not found"), nil
 		}
 
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to apply object's storage policy: %v", err),
-		}}, nil
+		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to apply object's storage policy: %v", err)), nil
 	} else if !serverInCnr {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeAccessDenied, Message: "server does not match the object's storage policy",
-		}}, nil
+		return nil, newAccessDeniedStatus("server does not match the object's storage policy"), nil
 	}
 
 	var clientInCnr bool
 	err = s.fsChain.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
-		clientInCnr = bytes.Equal(pubKey, req.Signature.Key)
+		clientInCnr = bytes.Equal(pubKey, sig.Key)
 		return !clientInCnr
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check server's compliance to object's storage policy: object's container not found",
-			}}, nil
+			return nil, newContainerNotFoundStatus("failed to check server's compliance to object's storage policy: object's container not found"), nil
 		}
 
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to apply object's storage policy: %v", err),
-		}}, nil
+		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to apply object's storage policy: %v", err)), nil
 	} else if !clientInCnr {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code: codeAccessDenied, Message: "client does not match the object's storage policy",
-		}}, nil
+		return nil, newAccessDeniedStatus("client does not match the object's storage policy"), nil
 	}
 
 	// TODO(@cthulhu-rider): avoid decoding the object completely
-	obj, err := objectFromMessage(req.Object)
+	obj, err := objectFromMessage(objMsg)
 	if err != nil {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeBadRequest,
-			Message: fmt.Sprintf("invalid object field: %v", err),
-		}}, nil
+		return nil, newBadRequestStatus(fmt.Sprintf("invalid object field: %v", err)), nil
 	}
+
+	// TODO: avoid full buffering, copy  to local storage stream directly instead
+	payload := slices.Grow(objMsg.Payload, int(hdr.PayloadLength)-len(objMsg.Payload))
+	for {
+		chunk, st, err := recvChunkFn()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, nil, err
+		}
+		if st != nil {
+			return nil, st, nil
+		}
+
+		if len(chunk) == 0 {
+			return nil, newBadRequestStatus("empty payload chunk"), nil
+		}
+
+		payload = append(payload, chunk...)
+	}
+	obj.SetPayload(payload)
 
 	err = s.storage.VerifyAndStoreObjectLocally(ctx, *obj)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrBusy) {
-			return &protoobject.ReplicateResponse{Status: apistatus.FromError(err)}, nil
+			return nil, apistatus.FromError(err), nil
 		}
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to verify and store object locally: %v", err),
-		}}, nil
+		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to verify and store object locally: %v", err)), nil
 	}
 
-	resp := new(protoobject.ReplicateResponse)
-	if req.GetSignObject() {
-		resp.ObjectSignature, err = s.metaInfoSignature(*obj)
+	var objSig []byte
+	if signObject {
+		objSig, err = s.metaInfoSignature(*obj)
 		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
-				Message: fmt.Sprintf("failed to sign object meta information: %v", err),
-			}}, nil
+			return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to sign object meta information: %v", err)), nil
 		}
 	}
 
-	return resp, nil
+	// nil status corresponds to OK
+	return objSig, nil, nil
 }
 
 func (s *Server) signSearchResponse(body *protoobject.SearchV2Response_Body, err error, req *protoobject.SearchV2Request) *protoobject.SearchV2Response {

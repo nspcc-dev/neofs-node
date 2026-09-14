@@ -264,7 +264,7 @@ func initObjectService(c *cfg) {
 	})
 
 	os := &objectSource{signer: neofsecdsa.SignerRFC6979(c.key.PrivateKey), get: sGet}
-	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.metaService,
+	sPut := putsvc.NewService(c, c.metaService,
 		initQuotas(c.cCli, c.cfgObject.quotasTTL),
 		c.containerPayments,
 		putsvc.WithKeyStorage(keyStorage),
