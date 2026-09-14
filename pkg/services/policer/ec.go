@@ -11,6 +11,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -20,7 +21,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func (p *Policer) processECPart(ctx context.Context, addr oid.Address, parent oid.ID, pi iec.PartInfo, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo) {
+func (p *Policer) processECPart(ctx context.Context, obj objectcore.AddressWithAttributes, parent oid.ID, pi iec.PartInfo, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo) {
+	addr := obj.Address
 	if pi.RuleIndex >= len(ecRules) {
 		p.log.Warn("local object with invalid EC rule index detected, deleting",
 			zap.Stringer("object", addr), zap.Int("ruleIdx", pi.RuleIndex), zap.Int("totalRules", len(ecRules)))
@@ -43,10 +45,14 @@ func (p *Policer) processECPart(ctx context.Context, addr oid.Address, parent oi
 	}
 
 	p.checkECParts(ctx, addr.Container(), parent, rule, pi.RuleIndex, pi.Index, addr.Object())
-	p.processECPartByRule(ctx, rule, addr, pi.Index, nodeLists[pi.RuleIndex])
+	if p.processECPartByRule(ctx, rule, addr, pi.Index, nodeLists[pi.RuleIndex]) {
+		p.optimizeLocalShardLocation(ctx, obj)
+	}
 }
 
-func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr oid.Address, partIdx int, nodes []netmap.NodeInfo) {
+// processECPartByRule returns true if the local part has no confirmed
+// more-optimal remote holder and should have its local shard location optimized.
+func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr oid.Address, partIdx int, nodes []netmap.NodeInfo) bool {
 	var candidates []netmap.NodeInfo
 	var maintenance bool
 	headTimeout := time.Duration(-1)
@@ -57,7 +63,7 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 				p.log.Debug("local node is optimal for EC part, hold",
 					zap.Stringer("cid", addr.Container()), zap.Stringer("partOID", addr.Object()),
 					zap.Stringer("rule", rule), zap.Int("partIdx", partIdx))
-				return
+				return true
 			}
 			break
 		}
@@ -76,7 +82,7 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 				zap.Stringer("rule", rule), zap.Int("partIdx", partIdx),
 				zap.Strings("node", slices.Collect(nodes[i].NetworkEndpoints())))
 			p.dropRedundantLocalObject(ctx, addr, true)
-			return
+			return false
 		}
 
 		switch {
@@ -100,14 +106,14 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 		p.log.Info("more optimal node for EC part is under maintenance, hold",
 			zap.Stringer("cid", addr.Container()), zap.Stringer("partOID", addr.Object()),
 			zap.Stringer("rule", rule), zap.Int("partIdx", partIdx))
-		return
+		return true
 	}
 
 	if len(candidates) == 0 {
 		p.log.Info("local node is suboptimal for EC part but now there are no other candidates, hold",
 			zap.Stringer("cid", addr.Container()), zap.Stringer("partOID", addr.Object()),
 			zap.Stringer("rule", rule), zap.Int("partIdx", partIdx))
-		return
+		return true
 	}
 
 	p.log.Info("local node is suboptimal for EC part, moving to more optimal node...",
@@ -122,12 +128,13 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 			zap.Stringer("cid", addr.Container()), zap.Stringer("partOID", addr.Object()),
 			zap.Stringer("rule", rule), zap.Int("partIdx", partIdx), zap.Strings("newHolder", repRes.netAddresses))
 		p.dropRedundantLocalObject(ctx, addr, true)
-		return
+		return false
 	}
 
 	p.log.Info("failed to move EC part to more optimal node, hold",
 		zap.Stringer("cid", addr.Container()), zap.Stringer("partOID", addr.Object()),
 		zap.Stringer("rule", rule), zap.Int("partIdx", partIdx), zap.Int("candidateNum", len(candidates)))
+	return true
 }
 
 type singleReplication struct {

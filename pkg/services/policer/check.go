@@ -130,7 +130,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 
 	if isEC {
 		if len(ecRules) > 0 {
-			p.processECPart(ctx, addr, selectNodesAddr.Object(), ecp, ecRules, nn[len(repRules):])
+			p.processECPart(ctx, addrWithAttrs, selectNodesAddr.Object(), ecp, ecRules, nn[len(repRules):])
 			return
 		}
 		p.log.Info("object with EC attributes in container without EC rules detected, deleting",
@@ -228,7 +228,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		return
 	}
 
-	p.dropRedundantLocalCopies(ctx, addrWithAttrs)
+	p.optimizeLocalShardLocation(ctx, addrWithAttrs)
 }
 
 type processPlacementContext struct {
@@ -377,11 +377,10 @@ func (p *Policer) dropRedundantLocalObject(ctx context.Context, addr oid.Address
 	err := p.localStorage.Delete(ctx, addr, engine.GarbageMarkRedundant)
 	if err == nil {
 		p.metrics.IncPolicerObjectDeleted(isEC)
+		return
 	}
-	if err != nil {
-		p.log.Warn("could not inhume mark redundant copy as garbage",
-			zap.Error(err))
-	}
+
+	p.log.Warn("could not inhume mark redundant copy as garbage", zap.Error(err))
 }
 
 func (p *Policer) deleteLocalObject(ctx context.Context, addr oid.Address, isEC bool) error {
@@ -392,8 +391,8 @@ func (p *Policer) deleteLocalObject(ctx context.Context, addr oid.Address, isEC 
 	return err
 }
 
-func (p *Policer) dropRedundantLocalCopies(ctx context.Context, obj objectcore.AddressWithAttributes) {
-	if len(obj.ShardIDs) < 2 {
+func (p *Policer) optimizeLocalShardLocation(ctx context.Context, obj objectcore.AddressWithAttributes) {
+	if len(obj.ShardIDs) == 0 {
 		return
 	}
 
@@ -403,12 +402,19 @@ func (p *Policer) dropRedundantLocalCopies(ctx context.Context, obj objectcore.A
 	default:
 	}
 
-	err := p.localStorage.DeleteRedundantCopies(ctx, obj.Address, obj.ShardIDs)
+	moved, err := p.localStorage.OptimizeShardLocation(ctx, obj.Address, obj.ShardIDs)
 	if err != nil {
-		p.log.Warn("could not mark redundant local shard copies as garbage",
+		p.log.Warn("could not optimize local object shard location",
 			zap.Stringer("object", obj.Address),
 			zap.Strings("shards", obj.ShardIDs),
 			zap.Error(err))
+		return
+	}
+	if moved {
+		p.metrics.IncPolicerObjectRelocated()
+		p.log.Info("optimized local object shard location",
+			zap.Stringer("object", obj.Address),
+			zap.Strings("shards", obj.ShardIDs))
 	}
 }
 

@@ -29,7 +29,7 @@ type replicatorIface interface {
 type localStorage interface {
 	ListWithCursor(context.Context, uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
 	Delete(context.Context, oid.Address, engine.GarbageMark) error
-	DeleteRedundantCopies(context.Context, oid.Address, []string) error
+	OptimizeShardLocation(context.Context, oid.Address, []string) (bool, error)
 	Put(context.Context, *object.Object, []byte) error
 	Head(context.Context, oid.Address, bool) (*object.Object, error)
 	HeadECPart(context.Context, cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
@@ -113,6 +113,8 @@ type (
 		IncPolicerObjectReplicated(isEC bool)
 		// IncPolicerObjectDeleted increments deleted objects counter.
 		IncPolicerObjectDeleted(isEC bool)
+		// IncPolicerObjectRelocated increments successfully moved physical objects counter.
+		IncPolicerObjectRelocated()
 	}
 )
 
@@ -146,6 +148,7 @@ func (nopMetricsCollector) IncPolicerCycleCount()           {}
 func (nopMetricsCollector) IncPolicerObjectProcessed(bool)  {}
 func (nopMetricsCollector) IncPolicerObjectReplicated(bool) {}
 func (nopMetricsCollector) IncPolicerObjectDeleted(bool)    {}
+func (nopMetricsCollector) IncPolicerObjectRelocated()      {}
 
 func defaultCfg() *cfg {
 	return &cfg{

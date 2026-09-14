@@ -96,6 +96,13 @@ func (m stateMetrics) IncPolicerObjectDeleted(isEC bool) {
 	m.incPolicerObjectCounter("deleted", isEC)
 }
 
+func (m stateMetrics) IncPolicerObjectRelocated() {
+	m.policerObjectCounter.With(prometheus.Labels{
+		policerActionLabel: "relocated",
+		policerModeLabel:   "physical",
+	}).Inc()
+}
+
 func (m stateMetrics) incPolicerObjectCounter(action string, isEC bool) {
 	mode := "replica"
 	if isEC {

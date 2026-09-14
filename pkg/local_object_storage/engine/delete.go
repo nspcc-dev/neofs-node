@@ -2,13 +2,11 @@ package engine
 
 import (
 	"context"
-	"slices"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // GarbageMark specifies why an object is marked for garbage collection.
@@ -39,61 +37,6 @@ func (e *StorageEngine) Delete(_ context.Context, addr oid.Address, mark Garbage
 	}
 	return e.processAddrDelete(addr, func(sh *shard.Shard, cnr cid.ID, addrs []oid.ID) error {
 		return sh.MarkGarbage(cnr, addrs, mark)
-	})
-}
-
-// DeleteRedundantCopies marks redundant object copies to be removed from all
-// listed shards except the most preferred one according to HRW ordering.
-//
-// Returns an error if executions are blocked (see BlockExecution) or if none of
-// the provided shards is found in the engine.
-func (e *StorageEngine) DeleteRedundantCopies(_ context.Context, addr oid.Address, shardIDs []string) error {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddDeleteDuration)()
-	}
-
-	e.blockMtx.RLock()
-	defer e.blockMtx.RUnlock()
-
-	if e.blockErr != nil {
-		return e.blockErr
-	}
-
-	if len(shardIDs) < 2 {
-		return nil
-	}
-
-	var (
-		deleteShards []shardWrapper
-		keeperShard  string
-	)
-	for _, sh := range e.sortedShards(addr.Object()) {
-		var id = sh.ID().String()
-		if !slices.Contains(shardIDs, id) {
-			continue
-		}
-
-		if keeperShard == "" {
-			keeperShard = id
-			continue
-		}
-
-		deleteShards = append(deleteShards, sh)
-	}
-
-	if keeperShard == "" {
-		return errShardNotFound
-	}
-
-	if len(deleteShards) == 0 {
-		return nil
-	}
-
-	return e.processAddrDeleteOnShards(deleteShards, addr, func(sh *shard.Shard, cnr cid.ID, addrs []oid.ID) error {
-		e.log.Info("removing redundant local object copy",
-			zap.String("keeper_shard", keeperShard),
-			zap.Stringer("redundant_shard", sh.ID()))
-		return sh.MarkGarbage(cnr, addrs, GarbageMarkRedundant)
 	})
 }
 
