@@ -390,6 +390,7 @@ func (s *Server) makeLocalRequest(sigCount int, remoteServerAPIVersion version.V
 	// verification header
 	err := s.writeRequestSignatures(buf, off, bodySlice, buf[off-metaHdrLen:off], remoteServerAPIVersion)
 	if err != nil {
+		defaultGRPCBufferPool.Put(bufItem)
 		return nil, err
 	}
 
