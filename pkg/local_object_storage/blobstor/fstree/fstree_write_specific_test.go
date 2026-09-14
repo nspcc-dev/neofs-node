@@ -4,10 +4,10 @@ package fstree
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
-	"syscall"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -48,7 +48,7 @@ func TestFSTree_InitPut(t *testing.T) {
 
 						fstest.AssertFileData(t, filepath.Join(fst.RootPath, testObjectDir, testObjectFileName), fullObject)
 					} else {
-						require.ErrorIs(t, err, syscall.EEXIST)
+						require.ErrorIs(t, err, fs.ErrExist)
 						fstest.AssertFileNotExists(t, filepath.Join(fst.RootPath, testObjectDir, testObjectFileName))
 					}
 

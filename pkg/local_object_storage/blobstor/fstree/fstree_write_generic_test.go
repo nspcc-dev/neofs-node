@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"path/filepath"
 	"slices"
+	"syscall"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/internal/testutil/fstest"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -28,6 +31,39 @@ const (
 	// corresponds to testAddress and depth=4.
 	testObjectFileName = "2e5awsXzDz4FHEmoz81sVU4c3EQzd1oVM122RVST.BVBcG4LStyX486XkjmwcXytTsiEsed2tPkxEP8USaV4g"
 )
+
+func TestHandleFileError(t *testing.T) {
+	t.Run("not exists", func(t *testing.T) {
+		for _, err := range []error{
+			&fs.PathError{Err: fmt.Errorf("some context: %w", syscall.EEXIST)},
+			&fs.PathError{Err: fmt.Errorf("some context: %w", fs.ErrExist)},
+		} {
+			got := handleFileError("any path", err)
+			require.Equal(t, fs.ErrExist, got)
+		}
+	})
+
+	t.Run("no space", func(t *testing.T) {
+		for _, err := range []error{
+			&fs.PathError{Err: fmt.Errorf("some context: %w", syscall.ENOSPC)},
+		} {
+			got := handleFileError("any path", err)
+			require.ErrorIs(t, got, common.ErrNoSpace)
+			require.EqualError(t, got, `write data into file "any path": `+common.ErrNoSpace.Error())
+		}
+	})
+
+	t.Run("other", func(t *testing.T) {
+		for _, err := range []error{
+			fmt.Errorf("some context: %w", syscall.ENOSPC),
+			fs.ErrNotExist,
+			&fs.PathError{Err: fmt.Errorf("some context: %w", fs.ErrNotExist)},
+		} {
+			got := handleFileError("any path", err)
+			require.EqualError(t, got, `write data into file "any path": `+err.Error())
+		}
+	})
+}
 
 func BenchmarkFSTree_InitPut(b *testing.B) {
 	for _, payloadLen := range []uint64{

@@ -100,7 +100,7 @@ func (x *genericFileWriteStream) Write(p []byte) (int, error) {
 			x.tmpFile, err = x.genericWriter.openFile(tmpPath)
 			if err != nil {
 				err = handleFileError(tmpPath, err)
-				if !errors.Is(err, syscall.EEXIST) {
+				if !errors.Is(err, fs.ErrExist) {
 					break
 				}
 				continue
@@ -189,7 +189,7 @@ func (w *genericWriter) writeData(_ oid.ID, p string, data []byte) error {
 	for i := range genericFileWriteRetryCount {
 		tmpPath := p + "#" + strconv.FormatUint(uint64(i), 10)
 		err := w.writeAndRename(tmpPath, p, data)
-		if !errors.Is(err, syscall.EEXIST) || i == genericFileWriteRetryCount-1 {
+		if !errors.Is(err, fs.ErrExist) || i == genericFileWriteRetryCount-1 {
 			return err
 		}
 	}
@@ -278,8 +278,8 @@ func handleFileError(tmpPath string, err error) error {
 		switch {
 		case errors.Is(pe.Err, syscall.ENOSPC):
 			err = common.ErrNoSpace
-		case errors.Is(pe.Err, syscall.EEXIST):
-			return syscall.EEXIST
+		case errors.Is(pe.Err, fs.ErrExist):
+			return fs.ErrExist
 		}
 	}
 
