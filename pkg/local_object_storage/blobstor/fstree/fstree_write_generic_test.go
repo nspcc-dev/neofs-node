@@ -35,6 +35,7 @@ const (
 func TestHandleFileError(t *testing.T) {
 	t.Run("not exists", func(t *testing.T) {
 		for _, err := range []error{
+			fmt.Errorf("some context: %w", syscall.EEXIST),
 			&fs.PathError{Err: fmt.Errorf("some context: %w", syscall.EEXIST)},
 			&fs.PathError{Err: fmt.Errorf("some context: %w", fs.ErrExist)},
 		} {
@@ -45,6 +46,7 @@ func TestHandleFileError(t *testing.T) {
 
 	t.Run("no space", func(t *testing.T) {
 		for _, err := range []error{
+			fmt.Errorf("some context: %w", syscall.ENOSPC),
 			&fs.PathError{Err: fmt.Errorf("some context: %w", syscall.ENOSPC)},
 		} {
 			got := handleFileError("any path", err)
@@ -55,7 +57,6 @@ func TestHandleFileError(t *testing.T) {
 
 	t.Run("other", func(t *testing.T) {
 		for _, err := range []error{
-			fmt.Errorf("some context: %w", syscall.ENOSPC),
 			fs.ErrNotExist,
 			&fs.PathError{Err: fmt.Errorf("some context: %w", fs.ErrNotExist)},
 		} {

@@ -274,13 +274,11 @@ func newFilePathForTry(targetPath string, tryIdx int) string {
 }
 
 func handleFileError(tmpPath string, err error) error {
-	if pe, ok := errors.AsType[*fs.PathError](err); ok {
-		switch {
-		case errors.Is(pe.Err, syscall.ENOSPC):
-			err = common.ErrNoSpace
-		case errors.Is(pe.Err, fs.ErrExist):
-			return fs.ErrExist
-		}
+	switch {
+	case errors.Is(err, syscall.ENOSPC):
+		err = common.ErrNoSpace
+	case errors.Is(err, fs.ErrExist):
+		return fs.ErrExist
 	}
 
 	return fmt.Errorf("write data into file %q: %w", tmpPath, err)
