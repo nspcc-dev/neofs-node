@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -34,27 +36,22 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 		objBin = obj.Marshal()
 	}
 
-	var (
-		addr      = obj.Address()
-		cachedPut bool
-	)
+	var addr = obj.Address()
 
-	// exist check are not performed there, these checks should be executed
-	// ahead of `Put` by storage engine
-	if s.hasWriteCache() {
-		var err = s.writeCache.Put(addr, obj, objBin)
-		cachedPut = err == nil
-		if !cachedPut {
-			s.log.Debug("can't put object to the write-cache, trying blobstor",
-				zap.Error(err))
-			// Consider returning an error if cache is full.
-		}
+	writeCacheFn := func(writeCache writecache.Cache) error {
+		return s.writeCache.Put(addr, obj, objBin)
 	}
+
+	blobStorageFn := func(blobStorage common.Storage) error {
+		return s.blobStor.Put(addr, objBin)
+	}
+
+	cachedPut, err := s.putFunc(writeCacheFn, blobStorageFn)
+	if err != nil {
+		return err
+	}
+
 	if !cachedPut {
-		var err = s.blobStor.Put(addr, objBin)
-		if err != nil {
-			return fmt.Errorf("could not put object to BLOB storage: %w", err)
-		}
 		logOp(s.log, putOp, addr)
 	}
 
@@ -63,6 +60,30 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	}
 
 	return s.putToMetabaseLocked(addr, *obj, cachedPut)
+}
+
+func (s *Shard) putFunc(writeCacheFn func(writecache.Cache) error, blobStorageFn func(common.Storage) error) (bool, error) {
+	var cachedPut bool
+
+	// exist check are not performed there, these checks should be executed
+	// ahead of `Put` by storage engine
+	if s.hasWriteCache() {
+		var err = writeCacheFn(s.writeCache)
+		cachedPut = err == nil
+		if !cachedPut {
+			s.log.Debug("can't put object to the write-cache, trying blobstor",
+				zap.Error(err))
+			// Consider returning an error if cache is full.
+		}
+	}
+	if !cachedPut {
+		var err = blobStorageFn(s.blobStor)
+		if err != nil {
+			return false, fmt.Errorf("could not put object to BLOB storage: %w", err)
+		}
+	}
+
+	return cachedPut, nil
 }
 
 func (s *Shard) putToMetabaseLocked(addr oid.Address, hdr object.Object, cachedPut bool) error {
