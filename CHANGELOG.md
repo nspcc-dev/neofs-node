@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - SN pushes URI-style endpoints to netmap instead of multiaddr (#3982)
 - Write-cache FSTree depth increased from 1 to 2 with online migration (#4175)
 - Policer balances data across local shards (#4170)
+- `neofs-adm fschain set-config` now suggests well-known keys in shell completion (#1901)
 
 ### Removed
 - GetRange object service method (#4167)
