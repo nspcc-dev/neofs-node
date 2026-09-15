@@ -6,6 +6,7 @@ import (
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -57,37 +58,43 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 		logOp(s.log, putOp, addr)
 	}
 
-	if !m.NoMetabase() {
-		diff, metaErr := s.metaBase.PutCounted(obj)
-		if metaErr != nil {
-			if cachedPut {
-				var err = s.writeCache.Delete(addr)
-				if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) {
-					s.log.Warn("can't drop object from write cache on meta put failure",
-						zap.Stringer("addr", addr), zap.Error(err))
-				}
-			}
-			// Always delete from blobstor, write cache
-			// might have flushed it already.
-			var err = s.blobStor.Delete(addr)
+	if m.NoMetabase() {
+		return nil
+	}
+
+	return s.putToMetabaseLocked(addr, *obj, cachedPut)
+}
+
+func (s *Shard) putToMetabaseLocked(addr oid.Address, hdr object.Object, cachedPut bool) error {
+	diff, metaErr := s.metaBase.PutCounted(&hdr)
+	if metaErr != nil {
+		if cachedPut {
+			var err = s.writeCache.Delete(addr)
 			if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) {
-				s.log.Warn("can't drop object from blobstor on meta put failure",
+				s.log.Warn("can't drop object from write cache on meta put failure",
 					zap.Stringer("addr", addr), zap.Error(err))
 			}
-
-			// may we need to handle this case in a special way
-			// since the object has been successfully written to BlobStor
-			return fmt.Errorf("could not put object to metabase: %w", metaErr)
+		}
+		// Always delete from blobstor, write cache
+		// might have flushed it already.
+		var err = s.blobStor.Delete(addr)
+		if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) {
+			s.log.Warn("can't drop object from blobstor on meta put failure",
+				zap.Stringer("addr", addr), zap.Error(err))
 		}
 
-		s.addObjectCounter(physicalObjType, diff.Phy)
-		s.addObjectCounter(rootObjType, diff.Root)
-		s.addObjectCounter(tsObjType, diff.TS)
-		s.addObjectCounter(lockObjType, diff.Lock)
-		s.addObjectCounter(linkObjType, diff.Link)
-		s.addObjectCounter(gcObjType, diff.GC)
-		s.addToContainerSize(addr.Container().EncodeToString(), diff.Payload)
+		// may we need to handle this case in a special way
+		// since the object has been successfully written to BlobStor
+		return fmt.Errorf("could not put object to metabase: %w", metaErr)
 	}
+
+	s.addObjectCounter(physicalObjType, diff.Phy)
+	s.addObjectCounter(rootObjType, diff.Root)
+	s.addObjectCounter(tsObjType, diff.TS)
+	s.addObjectCounter(lockObjType, diff.Lock)
+	s.addObjectCounter(linkObjType, diff.Link)
+	s.addObjectCounter(gcObjType, diff.GC)
+	s.addToContainerSize(addr.Container().EncodeToString(), diff.Payload)
 
 	return nil
 }
