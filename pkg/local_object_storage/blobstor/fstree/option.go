@@ -9,6 +9,18 @@ import (
 
 type Option func(*FSTree)
 
+// ReshapeProgressTracker receives FSTree layout reshape progress percentage.
+type ReshapeProgressTracker interface {
+	SetReshapeProgress(float64)
+}
+
+// WithReshapeProgressTracker sets the FSTree layout reshape progress tracker factory.
+func WithReshapeProgressTracker(f func(string) ReshapeProgressTracker) Option {
+	return func(t *FSTree) {
+		t.newReshapeProgressTracker = f
+	}
+}
+
 func WithDepth(d uint64) Option {
 	return func(f *FSTree) {
 		f.Depth = d

@@ -33,11 +33,13 @@ import (
 type FSTree struct {
 	Info
 
-	log              *zap.Logger
-	Depth            uint64
-	secondaryDepth   uint64
-	AllowDepthChange bool
-	writer           writer
+	log                       *zap.Logger
+	Depth                     uint64
+	secondaryDepth            uint64
+	AllowDepthChange          bool
+	writer                    writer
+	newReshapeProgressTracker func(string) ReshapeProgressTracker
+	reshapeProgressTracker    ReshapeProgressTracker
 
 	depthSet   bool
 	shardIDSet bool
