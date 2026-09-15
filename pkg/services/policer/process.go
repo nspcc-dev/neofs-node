@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -137,7 +136,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			batchSize *= boostMultiplier
 		}
 
-		addrs, cursor, err = p.localStorage.ListWithCursor(ctx, batchSize, cursor, iec.AttributeRuleIdx, iec.AttributePartIdx, object.FilterParentID)
+		addrs, cursor, err = p.localStorage.ListWithCursor(ctx, batchSize, cursor, object.AttributeECRuleIndex, object.AttributeECPartIndex, object.FilterParentID)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				if wrapped {

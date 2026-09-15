@@ -215,8 +215,8 @@ func TestObjectWithAttributes(t *testing.T) {
 	require.False(t, iec.ObjectWithAttributes(obj))
 
 	for _, attr := range []string{
-		iec.AttributePartIdx,
-		iec.AttributeRuleIdx,
+		object.AttributeECPartIndex,
+		object.AttributeECRuleIndex,
 		"__NEOFS__EC_any",
 	} {
 		obj.SetAttributes(append(otherAttrs, object.NewAttribute(attr, "any"))...)

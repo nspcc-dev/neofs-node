@@ -154,7 +154,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 
 		if rulePref == nil {
 			// TODO: make and reuse one buffer for all keys
-			rulePref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributeRuleIdx), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.RuleIndex)))
+			rulePref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.AttributeECRuleIndex), objectcore.MetaAttributeDelimiter, []byte(strconv.Itoa(pi.RuleIndex)))
 		} else {
 			copy(rulePref[1:], id[:])
 		}
@@ -187,7 +187,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		}
 
 		if partPref == nil {
-			partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePartIdx), objectcore.MetaAttributeDelimiter)
+			partPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.AttributeECPartIndex), objectcore.MetaAttributeDelimiter)
 			if pi.Index >= 0 {
 				partPref = append(partPref, strconv.Itoa(pi.Index)...)
 			}

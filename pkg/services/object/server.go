@@ -952,7 +952,7 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 	}
 	if s.sendECPartIndInResponse {
 		for _, attr := range hdr.Attributes() {
-			if attr.Key() == iec.AttributePartIdx {
+			if attr.Key() == object.AttributeECPartIndex {
 				s.ecFoundPartInd = attr.Value()
 				break
 			}
@@ -992,7 +992,7 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 		metaHeader = &protosession.ResponseMetaHeader{
 			Version: v,
 			XHeaders: []*protosession.XHeader{{
-				Key:   iec.AttributePartIdx,
+				Key:   object.AttributeECPartIndex,
 				Value: s.ecFoundPartInd,
 			}},
 		}
@@ -1257,11 +1257,11 @@ func sendECPartIdxInResponse(req *protoobject.GetRequest) bool {
 attrL:
 	for _, attr := range req.MetaHeader.XHeaders {
 		switch attr.Key {
-		case iec.AttributePartIdx:
+		case object.AttributeECPartIndex:
 			isECPartReq = true
 			partIdxFound = attr.Key != ""
 			break attrL
-		case iec.AttributeRuleIdx:
+		case object.AttributeECRuleIndex:
 			isECPartReq = true
 		default:
 			continue

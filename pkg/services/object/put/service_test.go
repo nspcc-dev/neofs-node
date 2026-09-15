@@ -628,7 +628,7 @@ func attachECHashes(t *testing.T, parentObject *object.Object, rules []iec.Rule)
 	}
 
 	attrs := parentObject.Attributes()
-	attrs = append(attrs, object.NewAttribute(iec.AttributePartsHashes, strings.Join(hashes, ",")))
+	attrs = append(attrs, object.NewAttribute(object.AttributeECPartHashes, strings.Join(hashes, ",")))
 	parentObject.SetAttributes(attrs...)
 }
 

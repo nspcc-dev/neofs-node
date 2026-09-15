@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/nspcc-dev/bbolt"
-	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -144,7 +143,7 @@ func supplementRemovedECParts(res []oid.ID, cnrMetaCrs *bbolt.Cursor, addrs []oi
 		}
 
 		if ecPref == nil {
-			ecPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(iec.AttributePrefix)) // any of EC attributes
+			ecPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.AttributeECPrefix)) // any of EC attributes
 		} else {
 			copy(ecPref[1:], id[:])
 		}

@@ -11,7 +11,6 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
-	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/signed256"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	metatest "github.com/nspcc-dev/neofs-node/pkg/util/meta/test"
@@ -114,7 +113,7 @@ func TestPutMetadata(t *testing.T) {
 	addAttr("attr_1", "val_1")
 	addAttr("attr_2", "val_2")
 	addAttr(object.AttributeAssociatedObject, associatedID.EncodeToString())
-	addAttr(iec.AttributePartsHashes, ecPartHashes)
+	addAttr(object.AttributeECPartHashes, ecPartHashes)
 	addAttr("num_negative_overflow", "-115792089237316195423570985008687907853269984665640564039457584007913129639936")
 	addAttr("num_negative_min", "-115792089237316195423570985008687907853269984665640564039457584007913129639935")
 	addAttr("num_negative_min64", "-9223372036854775808")
@@ -196,7 +195,7 @@ func TestPutMetadata(t *testing.T) {
 		assertIntAttr(t, mb, id, "num_positive_max", "115792089237316195423570985008687907853269984665640564039457584007913129639935", []byte{1, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
 		assertAttr(t, mb, id, "num_positive_overflow", "115792089237316195423570985008687907853269984665640564039457584007913129639936")
-		assertAttrPresence(t, mb, id, iec.AttributePartsHashes, ecPartHashes, false)
+		assertAttrPresence(t, mb, id, object.AttributeECPartHashes, ecPartHashes, false)
 
 		return nil
 	})

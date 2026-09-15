@@ -258,7 +258,7 @@ loop:
 			splitInfo = object.NewSplitInfo()
 		}
 		for attrKey, attrVal := range iterIDAttrs(metaCursor.Bucket().Cursor(), objID) {
-			if strings.HasPrefix(string(attrKey), iec.AttributePrefix) {
+			if strings.HasPrefix(string(attrKey), object.AttributeECPrefix) {
 				ecParts = append(ecParts, objID)
 				continue loop
 			}

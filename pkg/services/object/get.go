@@ -919,8 +919,8 @@ func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion vers
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 	xHdrs := []string{
-		iec.AttributeRuleIdx, ruleIdxStr,
-		iec.AttributePartIdx, partIdxStr,
+		object.AttributeECRuleIndex, ruleIdxStr,
+		object.AttributeECPartIndex, partIdxStr,
 	}
 
 	remoteServerAPIVersion = chooseAPIVersionForNewRequest(remoteServerAPIVersion)
