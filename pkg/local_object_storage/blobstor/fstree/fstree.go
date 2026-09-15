@@ -71,6 +71,7 @@ type Info struct {
 // writer is an internal FS writing interface.
 type writer interface {
 	writeData(oid.ID, string, []byte) error
+	initWriteData(filePath string) (io.WriteCloser, func(), error)
 	finalize() error
 	writeBatch([]writeDataUnit) error
 }
@@ -511,12 +512,83 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 	return "", fmt.Errorf("get filesystem path for object by address: get file stat %q: %w", t.treePath(addr), fs.ErrNotExist)
 }
 
+// InitPut opens write stream for object with given properties. If stream is
+// successfully opened, InitPut writes header to it using headerW. It must write
+// exactly headerLen bytes.
+//
+// Resulting stream accepts payload passed to [io.Writer.Write] until
+// [io.Closer.Close] call. It is caller's responsibility to ensure that the
+// payload being written matches payloadLen parameter. Stream should not be used
+// after any stream method error.
+//
+// If the object is fully buffered, it is more efficient to use [FSTree.Put].
+//
+// InitPut never does a combined write. Use [FSTree.Put] instead if needed.
+//
+// Returned function allows to rollback whole operation and free all allocated
+// resources if any. It should not be called multiple times, after
+// [io.Closer.Close] or failed [io.Writer.Write].
+//
+// Either [io.Closer.Close] or abort function must be finally called. All
+// functions must not be called concurrently.
+//
+// If the device runs out of space, InitPut or resulting stream calls return
+// [common.ErrNoSpace].
+func (t *FSTree) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (io.WriteCloser, func(), error) {
+	var stream io.WriteCloser
+	var abortFn func()
+
+	err := t.putFunc(addr, headerLen == 0 && payloadLen == 0, func(id oid.ID, filePath string) error {
+		var err error
+		stream, abortFn, err = t.writer.initWriteData(filePath)
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	_, err = headerW.WriteTo(stream)
+	if err != nil {
+		return nil, nil, fmt.Errorf("write header: %w", err)
+	}
+
+	if payloadLen == 0 {
+		return stream, abortFn, nil
+	}
+
+	payloadTagLen := objectwire.CalculatePayloadFieldTagLength(payloadLen)
+	if payloadTagLen == 0 {
+		return stream, abortFn, nil
+	}
+
+	payloadTag := make([]byte, payloadTagLen)
+	payloadTag[0] = iprotobuf.TagBytes4
+	if n := binary.PutUvarint(payloadTag[1:], payloadLen); n != payloadTagLen-1 {
+		panic(fmt.Errorf("calculated %d varint bytes for %d but written %d", payloadTagLen-1, payloadTagLen, n))
+	}
+
+	_, err = stream.Write(payloadTag)
+	if err != nil {
+		return nil, nil, fmt.Errorf("write payload tag: %w", err)
+	}
+
+	return stream, abortFn, nil
+}
+
 // Put puts an object in the storage.
+//
+// Use [FSTree.InitPut] for streaming write.
 func (t *FSTree) Put(addr oid.Address, data []byte) error {
+	return t.putFunc(addr, len(data) == 0, func(id oid.ID, filePath string) error {
+		return t.writer.writeData(id, filePath, data)
+	})
+}
+
+func (t *FSTree) putFunc(addr oid.Address, isEmptyData bool, fn func(id oid.ID, filePath string) error) error {
 	if t.readOnly {
 		return common.ErrReadOnly
 	}
-	if len(data) == 0 {
+	if isEmptyData {
 		return io.ErrUnexpectedEOF
 	}
 
@@ -526,7 +598,7 @@ func (t *FSTree) Put(addr oid.Address, data []byte) error {
 		return fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
 
-	err := t.writer.writeData(addr.Object(), p, data)
+	err := fn(addr.Object(), p)
 	if err != nil {
 		return fmt.Errorf("write object data into file %q: %w", p, err)
 	}

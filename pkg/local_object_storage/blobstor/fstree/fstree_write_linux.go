@@ -6,12 +6,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
@@ -192,6 +194,59 @@ func (w *linuxWriter) finalize() error {
 	return nil
 }
 
+type linuxFileWriteStream struct {
+	targetPath string
+	fd         int // negative when aborted
+}
+
+func newLinuxFileWriteStream(targetPath string, fd int) *linuxFileWriteStream {
+	return &linuxFileWriteStream{
+		targetPath: targetPath,
+		fd:         fd,
+	}
+}
+
+func (x *linuxFileWriteStream) Write(p []byte) (int, error) {
+	if x.fd < 0 {
+		return 0, logicerr.ErrStreamAborted
+	}
+	n, err := linuxWrite(x.fd, p)
+	if err != nil {
+		x.fd = -1
+		return n, convertLinuxError(err)
+	}
+	return n, nil
+}
+
+func (x *linuxFileWriteStream) Close() error {
+	if x.fd < 0 {
+		return logicerr.ErrStreamAborted
+	}
+	fd := x.fd
+	x.fd = -1
+	err := linuxLinkatAndClose(fd, x.targetPath)
+	return convertLinuxError(err)
+}
+
+func (x *linuxFileWriteStream) abort() {
+	if x.fd < 0 {
+		return
+	}
+	fd := x.fd
+	x.fd = -1
+	_ = unix.Close(fd)
+}
+
+func (w *linuxWriter) initWriteData(filePath string) (io.WriteCloser, func(), error) {
+	fd, err := w.openFile()
+	if err != nil {
+		return nil, nil, convertLinuxError(err)
+	}
+
+	stream := newLinuxFileWriteStream(filePath, fd)
+	return stream, stream.abort, nil
+}
+
 func (w *linuxWriter) writeData(id oid.ID, p string, data []byte) error {
 	var err error
 	if len(data) > w.combinedSizeThreshold || w.combinedCountLimit < 2 {
@@ -199,13 +254,14 @@ func (w *linuxWriter) writeData(id oid.ID, p string, data []byte) error {
 	} else {
 		err = w.writeCombinedFile(id, p, data)
 	}
-	if err != nil {
-		if errors.Is(err, unix.ENOSPC) {
-			return common.ErrNoSpace
-		}
-		return err
+	return convertLinuxError(err)
+}
+
+func convertLinuxError(err error) error {
+	if errors.Is(err, unix.ENOSPC) {
+		return common.ErrNoSpace
 	}
-	return nil
+	return err
 }
 
 func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error {
@@ -243,29 +299,48 @@ func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error 
 }
 
 func (w *linuxWriter) writeFile(p string, data []byte) error {
+	fd, err := w.openFile()
+	if err != nil {
+		return err
+	}
+	_, err = linuxWrite(fd, data)
+	if err != nil {
+		return err
+	}
+	return linuxLinkatAndClose(fd, p)
+}
+
+func (w *linuxWriter) openFile() (int, error) {
 	fd, err := unix.Open(w.root, w.flags, w.perm)
 	if err != nil {
-		return fmt.Errorf("unix open: %w", err)
+		return 0, fmt.Errorf("unix open: %w", err)
 	}
-	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
+	return fd, nil
+}
+
+func linuxWrite(fd int, data []byte) (int, error) {
 	n, err := unix.Write(fd, data)
-	if err == nil {
-		if n == len(data) {
-			err = unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, p, unix.AT_SYMLINK_FOLLOW)
-			if errors.Is(err, unix.EEXIST) {
-				// https://github.com/nspcc-dev/neofs-node/issues/2563
-				err = nil
-			}
-		} else {
-			err = errors.New("incomplete unix write")
-		}
-	}
-	errClose := unix.Close(fd)
 	if err != nil {
-		return fmt.Errorf("unix write: %w", err) // Close() error is ignored, we have a better one.
+		_ = unix.Close(fd)
+		return n, fmt.Errorf("unix write: %w", err)
 	}
-	if errClose != nil {
-		return fmt.Errorf("unix close: %w", errClose)
+	if n != len(data) {
+		_ = unix.Close(fd)
+		return n, errors.New("incomplete unix write")
+	}
+	return n, nil
+}
+
+func linuxLinkatAndClose(fd int, newPath string) error {
+	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
+	err := unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, newPath, unix.AT_SYMLINK_FOLLOW)
+	if err != nil && !errors.Is(err, unix.EEXIST) { // https://github.com/nspcc-dev/neofs-node/issues/2563
+		_ = unix.Close(fd)
+		return fmt.Errorf("unix linkat: %w", err)
+	}
+	err = unix.Close(fd)
+	if err != nil {
+		return fmt.Errorf("unix close: %w", err)
 	}
 	return nil
 }

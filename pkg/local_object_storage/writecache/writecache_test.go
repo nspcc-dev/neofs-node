@@ -2,6 +2,7 @@ package writecache
 
 import (
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -27,4 +28,38 @@ func TestCache_InitReadOnly(t *testing.T) {
 
 	err = wc.Init(common.ID{})
 	require.NoError(t, err)
+}
+
+type unimplementedMetrics struct{}
+
+func (unimplementedMetrics) AddWCPutDuration(string, time.Duration) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetrics) AddWCInitPutDuration(string, time.Duration) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetrics) AddWCFlushSingleDuration(string, time.Duration) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetrics) AddWCFlushBatchDuration(string, time.Duration) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetrics) IncWCObjectCount(string) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetrics) DecWCObjectCount(string) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetrics) AddWCSize(string, uint64) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetrics) SetWCSize(string, uint64) {
+	panic("unimplemented")
 }

@@ -284,3 +284,28 @@ func assertReadObjectOK(t *testing.T, fst *FSTree, addr oid.Address, obj object.
 	require.NoError(t, iotest.TestReader(io.MultiReader(bytes.NewReader(buf[:n]), reader), obj.Marshal()))
 	require.NoError(t, reader.Close())
 }
+
+func assertInitPut(t testing.TB, fst *FSTree, addr oid.Address, header []byte, chunks ...[]byte) (io.WriteCloser, func()) {
+	var payloadLen int
+	for i := range chunks {
+		payloadLen += len(chunks[i])
+	}
+
+	stream, abortFn, err := fst.InitPut(addr, uint64(len(header)), uint64(payloadLen), bytes.NewBuffer(header))
+	require.NoError(t, err)
+
+	var written int
+	for i := range chunks {
+		n, err := stream.Write(chunks[i])
+		require.NoError(t, err)
+		written += n
+	}
+	if written != payloadLen {
+		t.Fatalf("expected to write %d bytes, wrote %d", payloadLen, written)
+	}
+
+	err = stream.Close()
+	require.NoError(t, err)
+
+	return stream, abortFn
+}

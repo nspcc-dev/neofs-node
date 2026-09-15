@@ -242,8 +242,9 @@ func TestGetStreamAfterErrors(t *testing.T) {
 	})
 }
 
-func setupFSTree(t *testing.T) *FSTree {
-	tree := New(WithPath(t.TempDir()))
+func setupFSTree(t testing.TB, opts ...Option) *FSTree {
+	opts = append([]Option{WithPath(t.TempDir())}, opts...)
+	tree := New(opts...)
 	require.NoError(t, tree.Open(false))
 	require.NoError(t, tree.Init(common.ID{}))
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })

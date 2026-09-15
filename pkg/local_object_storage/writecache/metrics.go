@@ -4,6 +4,7 @@ import "time"
 
 type metricRegister interface {
 	AddWCPutDuration(shardID string, d time.Duration)
+	AddWCInitPutDuration(shardID string, d time.Duration)
 	AddWCFlushSingleDuration(shardID string, d time.Duration)
 	AddWCFlushBatchDuration(shardID string, d time.Duration)
 	IncWCObjectCount(shardID string)
@@ -19,6 +20,12 @@ type metricsWithID struct {
 
 func (m *metricsWithID) AddWCPutDuration(d time.Duration) {
 	m.mr.AddWCPutDuration(m.id, d)
+}
+
+func (m *metricsWithID) addInitPutDuration(d time.Duration) {
+	if m.mr != nil {
+		m.mr.AddWCInitPutDuration(m.id, d)
+	}
 }
 
 func (m *metricsWithID) AddWCFlushSingleDuration(d time.Duration) {
