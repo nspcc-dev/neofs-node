@@ -194,13 +194,13 @@ func (t *distributedTarget) modifyECParentObject(hdr *object.Object, reader io.R
 		hashesStr = hashes.String()
 	)
 	for i := range attrs {
-		if attrs[i].Key() == iec.AttributePartsHashes {
+		if attrs[i].Key() == object.AttributeECPartHashes {
 			foundAttr = true
 			attrs[i].SetValue(hashesStr)
 		}
 	}
 	if !foundAttr {
-		attrs = append(attrs, object.NewAttribute(iec.AttributePartsHashes, hashesStr))
+		attrs = append(attrs, object.NewAttribute(object.AttributeECPartHashes, hashesStr))
 	}
 	hdr.SetAttributes(attrs...)
 

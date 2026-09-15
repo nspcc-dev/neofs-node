@@ -690,7 +690,7 @@ func TestServer_Replicate(t *testing.T) {
 			ecObj.SetContainerID(cnr)
 			ecObj.ResetRelations()
 			ecObj.SetParent(&par)
-			ecObj.SetAttributes(object.NewAttribute(iec.AttributeRuleIdx, "1"), object.NewAttribute(iec.AttributePartIdx, "2"))
+			ecObj.SetAttributes(object.NewAttribute(object.AttributeECRuleIndex, "1"), object.NewAttribute(object.AttributeECPartIndex, "2"))
 			require.NoError(t, ecObj.SetVerificationFields(signer))
 			ecID := ecObj.GetID()
 			s.obj = ecObj.ProtoMessage()

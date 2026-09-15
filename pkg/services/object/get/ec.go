@@ -648,8 +648,8 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 
 	// TODO: this must be stated in https://github.com/nspcc-dev/neofs-api
 	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, true, false, nil, []string{
-		iec.AttributeRuleIdx, ruleIdxAttr,
-		iec.AttributePartIdx, partIdxAttr,
+		object.AttributeECRuleIndex, ruleIdxAttr,
+		object.AttributeECPartIndex, partIdxAttr,
 	})
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
@@ -1352,8 +1352,8 @@ func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent
 	rng.SetLength(ln)
 
 	_, rc, err := s.conns.InitGetObjectStream(ctx, node, localNodeKey, cnr, parent, true, false, &rng, []string{
-		iec.AttributeRuleIdx, ruleIdxAttr,
-		iec.AttributePartIdx, partIdxAttr,
+		object.AttributeECRuleIndex, ruleIdxAttr,
+		object.AttributeECPartIndex, partIdxAttr,
 	})
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
@@ -1620,10 +1620,10 @@ func (s *Service) streamECPartRangePrefix(ctx context.Context, transport GetECRe
 func findECIndexes(xHdrs []string) (string, string) {
 	var ruleIdxStr, partIdxStr string
 	for i := 0; i < len(xHdrs); i += 2 {
-		if xHdrs[i] == iec.AttributeRuleIdx {
+		if xHdrs[i] == object.AttributeECRuleIndex {
 			ruleIdxStr = xHdrs[i+1]
 		}
-		if xHdrs[i] == iec.AttributePartIdx {
+		if xHdrs[i] == object.AttributeECPartIndex {
 			partIdxStr = xHdrs[i+1]
 		}
 		if ruleIdxStr != "" && partIdxStr != "" {
@@ -1649,13 +1649,13 @@ func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartIn
 	var ecRules = cnr.PlacementPolicy().ECRules()
 
 	if (ruleIdxStr == "") != (partIdxStr == "") {
-		return res, fmt.Errorf("%s and %s X-headers must be set together", iec.AttributeRuleIdx, iec.AttributePartIdx)
+		return res, fmt.Errorf("%s and %s X-headers must be set together", object.AttributeECRuleIndex, object.AttributeECPartIndex)
 	}
 
 	// TODO: state limits in https://github.com/nspcc-dev/neofs-api. Share consts for them.
 	ruleIdx, err := strconv.ParseUint(ruleIdxStr, 10, 8)
 	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributeRuleIdx, err)
+		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECRuleIndex, err)
 	}
 	res.RuleIndex = int(ruleIdx)
 
@@ -1666,7 +1666,7 @@ func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartIn
 
 	partIdx, err := strconv.ParseUint(partIdxStr, 10, 8)
 	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributePartIdx, err)
+		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECPartIndex, err)
 	}
 	res.Index = int(partIdx)
 
@@ -1685,13 +1685,13 @@ func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error
 	if ruleIdxStr == "" {
 		if partIdxStr != "" {
 			return res, fmt.Errorf("%s X-header must be set in a correct EC part GET request (%s X-header found: %s)",
-				iec.AttributeRuleIdx, iec.AttributePartIdx, partIdxStr)
+				object.AttributeECRuleIndex, object.AttributeECPartIndex, partIdxStr)
 		}
 
 		res.RuleIndex = -1
 		return res, nil
 	} else if partIdxStr == "" && neofs == nil {
-		return res, fmt.Errorf("request must have %s header for EC objects", iec.AttributePartIdx)
+		return res, fmt.Errorf("request must have %s header for EC objects", object.AttributeECPartIndex)
 	}
 
 	var (
@@ -1702,7 +1702,7 @@ func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error
 	// TODO: state limits in https://github.com/nspcc-dev/neofs-api. Share consts for them.
 	ruleIdx, err := strconv.ParseUint(ruleIdxStr, 10, 8)
 	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributeRuleIdx, err)
+		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECRuleIndex, err)
 	}
 	res.RuleIndex = int(ruleIdx)
 	err = checkECRuleIdx(bACL, ecRules, res.RuleIndex)
@@ -1713,17 +1713,17 @@ func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error
 	if partIdxStr == "" {
 		nodes, repList, ecList, err := neofs.GetNodesForObject(prm.addr)
 		if err != nil {
-			return res, fmt.Errorf("missing %s and calculating node's EC part finished with error: %w", iec.AttributePartIdx, err)
+			return res, fmt.Errorf("missing %s and calculating node's EC part finished with error: %w", object.AttributeECPartIndex, err)
 		}
 		if res.RuleIndex >= len(ecList) {
-			return res, fmt.Errorf("%s X-header is bigger than placement rules number (%d >= %d)", iec.AttributeRuleIdx, res.RuleIndex, len(ecList))
+			return res, fmt.Errorf("%s X-header is bigger than placement rules number (%d >= %d)", object.AttributeECRuleIndex, res.RuleIndex, len(ecList))
 		}
 		nodesForObject := nodes[len(repList)+res.RuleIndex]
 		i := slices.IndexFunc(nodesForObject, func(info netmap.NodeInfo) bool {
 			return neofs.IsLocalNodePublicKey(info.PublicKey())
 		})
 		if i == -1 {
-			return res, fmt.Errorf("missing %s and node does not belong to placement list for %d EC rule", iec.AttributePrefix, res.RuleIndex)
+			return res, fmt.Errorf("missing %s and node does not belong to placement list for %d EC rule", object.AttributeECPrefix, res.RuleIndex)
 		}
 
 		res.Index = i
@@ -1733,7 +1733,7 @@ func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error
 
 	partIdx, err := strconv.ParseUint(partIdxStr, 10, 8)
 	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", iec.AttributePartIdx, err)
+		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECPartIndex, err)
 	}
 	res.Index = int(partIdx)
 
@@ -1777,11 +1777,11 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 		switch attrs[i].Key() {
 		default:
 			continue
-		case iec.AttributeRuleIdx:
+		case object.AttributeECRuleIndex:
 			if attrs[i].Value() != ruleIdx {
 				return fmt.Errorf("wrong EC rule index attribute in received object for part: requested %q, got %q", ruleIdx, attrs[i].Value())
 			}
-		case iec.AttributePartIdx:
+		case object.AttributeECPartIndex:
 			if attrs[i].Value() != partIdx {
 				return fmt.Errorf("wrong EC part index attribute in received object for part: requested %q, got %q", partIdx, attrs[i].Value())
 			}

@@ -68,8 +68,8 @@ func TestGetExtendedRangeOfECPart(t *testing.T) {
 
 	var prm Prm
 	prm.SetCommonParameters(newCommonParameters(false, []string{
-		iec.AttributeRuleIdx, "0",
-		iec.AttributePartIdx, "0",
+		object.AttributeECRuleIndex, "0",
+		object.AttributeECPartIndex, "0",
 	}))
 	prm.WithContainer(container.Container{})
 	prm.SetRangeSuffix(3)

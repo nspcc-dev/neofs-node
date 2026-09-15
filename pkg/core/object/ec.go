@@ -16,10 +16,10 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 	attrs := hdr.Attributes()
 	var ecAttr string
 	if len(attrs) > 0 {
-		if first := attrs[0].Key(); strings.HasPrefix(first, iec.AttributePrefix) {
+		if first := attrs[0].Key(); strings.HasPrefix(first, object.AttributeECPrefix) {
 			if !isParent {
 				for i := 1; i < len(attrs); i++ {
-					if !strings.HasPrefix(attrs[i].Key(), iec.AttributePrefix) {
+					if !strings.HasPrefix(attrs[i].Key(), object.AttributeECPrefix) {
 						return false, fmt.Errorf("mix of EC (%s) and non-EC (%s) attributes", first, attrs[i].Key())
 					}
 				}
@@ -28,7 +28,7 @@ func checkEC(hdr object.Object, rules []netmap.ECRule, blank bool, isParent bool
 			ecAttr = first
 		} else {
 			for i := 1; i < len(attrs); i++ {
-				if strings.HasPrefix(attrs[i].Key(), iec.AttributePrefix) {
+				if strings.HasPrefix(attrs[i].Key(), object.AttributeECPrefix) {
 					ecAttr = attrs[i].Key()
 					if !isParent {
 						return false, fmt.Errorf("mix of EC (%s) and non-EC (%s) attributes", attrs[i].Key(), first)
@@ -135,8 +135,8 @@ func checkECPart(part object.Object, rules []netmap.ECRule) error {
 func checkECParent(parent, part object.Object, rules []netmap.ECRule, pi iec.PartInfo) error {
 	var hashAttr string
 	for _, attr := range parent.Attributes() {
-		if strings.HasPrefix(attr.Key(), iec.AttributePrefix) {
-			if attr.Key() != iec.AttributePartsHashes {
+		if strings.HasPrefix(attr.Key(), object.AttributeECPrefix) {
+			if attr.Key() != object.AttributeECPartHashes {
 				return fmt.Errorf("parent object has prohibited EC %s attribute", attr.Key())
 			}
 			hashAttr = attr.Value()
@@ -144,7 +144,7 @@ func checkECParent(parent, part object.Object, rules []netmap.ECRule, pi iec.Par
 		}
 	}
 	if hashAttr == "" {
-		return fmt.Errorf("missing %s EC attribute in parent object", iec.AttributePartsHashes)
+		return fmt.Errorf("missing %s EC attribute in parent object", object.AttributeECPartHashes)
 	}
 
 	cs, ok := part.PayloadChecksum()

@@ -303,7 +303,7 @@ func TestService_Get_EC_Part(t *testing.T) {
 
 		err := svc.Get(ctx, prm)
 		require.ErrorIs(t, err, placementErr)
-		require.EqualError(t, err, fmt.Sprintf("invalid request: missing %s and calculating node's EC part finished with error: %s", iec.AttributePartIdx, placementErr))
+		require.EqualError(t, err, fmt.Sprintf("invalid request: missing %s and calculating node's EC part finished with error: %s", object.AttributeECPartIndex, placementErr))
 	})
 
 	svc := New(&mockNeoFSNet{

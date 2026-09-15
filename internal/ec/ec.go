@@ -11,14 +11,6 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 )
 
-// Erasure coding attributes.
-const (
-	AttributePrefix      = "__NEOFS__EC_"
-	AttributeRuleIdx     = AttributePrefix + "RULE_IDX"
-	AttributePartIdx     = AttributePrefix + "PART_IDX"
-	AttributePartsHashes = AttributePrefix + "PART_HASHES"
-)
-
 // Rule represents erasure coding rule for object payload's encoding and placement.
 type Rule struct {
 	DataPartNum   uint8

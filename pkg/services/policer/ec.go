@@ -348,8 +348,8 @@ getNextPart:
 			// TODO: this is the 1st place where we known IDs of EC parts in advance.
 			//  Consider supporting direct requests of EC parts by ID, they are more lightweight.
 			rc, err := p.apiConns.GetRange(ctx, sortedNodes[nodeIdx], cnr, parent, off, ln, []string{
-				iec.AttributeRuleIdx, ruleIdxAttr,
-				iec.AttributePartIdx, partIdxAttr,
+				object.AttributeECRuleIndex, ruleIdxAttr,
+				object.AttributeECPartIndex, partIdxAttr,
 			})
 			if err != nil {
 				p.log.Info("failed to open RANGE stream for EC part from remote node",
@@ -410,8 +410,8 @@ func (p *Policer) headECPart(ctx context.Context, timeout time.Duration, node ne
 	defer cancel()
 
 	hdr, err := p.apiConns.headObject(ctx, node, oid.NewAddress(cnr, parent), false, []string{
-		iec.AttributeRuleIdx, ruleIdx,
-		iec.AttributePartIdx, partIdx,
+		object.AttributeECRuleIndex, ruleIdx,
+		object.AttributeECPartIndex, partIdx,
 	})
 	if err != nil {
 		return object.Object{}, err
@@ -517,11 +517,11 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 		switch attrs[i].Key() {
 		default:
 			continue
-		case iec.AttributeRuleIdx:
+		case object.AttributeECRuleIndex:
 			if attrs[i].Value() != ruleIdx {
 				return fmt.Errorf("wrong EC rule index attribute in received object for part: requested %q, got %q", ruleIdx, attrs[i].Value())
 			}
-		case iec.AttributePartIdx:
+		case object.AttributeECPartIndex:
 			if attrs[i].Value() != partIdx {
 				return fmt.Errorf("wrong EC part index attribute in received object for part: requested %q, got %q", partIdx, attrs[i].Value())
 			}

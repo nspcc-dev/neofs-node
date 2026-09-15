@@ -21,7 +21,7 @@ type PartInfo struct {
 }
 
 // GetPartInfo fetches EC part info from given object header. It one of
-// [AttributeRuleIdx] or [AttributeRuleIdx] attributes is set, the other must be
+// [object.AttributeECRuleIndex] or [object.AttributeECRuleIndex] attributes is set, the other must be
 // set too. If both are missing, GetPartInfo returns [PartInfo.RuleIndex] = -1
 // without error.
 func GetPartInfo(obj object.Object) (PartInfo, error) {
@@ -35,25 +35,25 @@ func GetRequiredPartInfo(obj object.Object) (PartInfo, error) {
 }
 
 func getPartInfo(obj object.Object, require bool) (PartInfo, error) {
-	ruleIdx, err := iobject.GetIndexAttribute(obj, AttributeRuleIdx)
+	ruleIdx, err := iobject.GetIndexAttribute(obj, object.AttributeECRuleIndex)
 	if err != nil {
-		return PartInfo{}, fmt.Errorf("invalid index attribute %s: %w", AttributeRuleIdx, err)
+		return PartInfo{}, fmt.Errorf("invalid index attribute %s: %w", object.AttributeECRuleIndex, err)
 	}
 
-	partIdx, err := iobject.GetIndexAttribute(obj, AttributePartIdx)
+	partIdx, err := iobject.GetIndexAttribute(obj, object.AttributeECPartIndex)
 	if err != nil {
-		return PartInfo{}, fmt.Errorf("invalid index attribute %s: %w", AttributePartIdx, err)
+		return PartInfo{}, fmt.Errorf("invalid index attribute %s: %w", object.AttributeECPartIndex, err)
 	}
 
 	if ruleIdx < 0 {
 		if partIdx >= 0 {
-			return PartInfo{}, fmt.Errorf("%s attribute is set while %s is not", AttributePartIdx, AttributeRuleIdx)
+			return PartInfo{}, fmt.Errorf("%s attribute is set while %s is not", object.AttributeECPartIndex, object.AttributeECRuleIndex)
 		}
 		if require {
-			return PartInfo{}, fmt.Errorf("missing %s attribute", AttributeRuleIdx)
+			return PartInfo{}, fmt.Errorf("missing %s attribute", object.AttributeECRuleIndex)
 		}
 	} else if partIdx < 0 {
-		return PartInfo{}, fmt.Errorf("%s attribute is set while %s is not", AttributeRuleIdx, AttributePartIdx)
+		return PartInfo{}, fmt.Errorf("%s attribute is set while %s is not", object.AttributeECRuleIndex, object.AttributeECPartIndex)
 	}
 
 	return PartInfo{
@@ -72,8 +72,8 @@ func FormObjectForECPart(signer neofscrypto.Signer, parent object.Object, part [
 	obj.SetType(object.TypeRegular)
 
 	obj.SetParent(&parent)
-	iobject.SetIntAttribute(&obj, AttributeRuleIdx, partInfo.RuleIndex)
-	iobject.SetIntAttribute(&obj, AttributePartIdx, partInfo.Index)
+	iobject.SetIntAttribute(&obj, object.AttributeECRuleIndex, partInfo.RuleIndex)
+	iobject.SetIntAttribute(&obj, object.AttributeECPartIndex, partInfo.Index)
 
 	obj.SetPayload(part)
 	obj.SetPayloadSize(uint64(len(part)))
@@ -136,6 +136,6 @@ func decodeUint8StringToInt(s string) (int, error) {
 // ObjectWithAttributes checks whether obj contains at least one EC attribute.
 func ObjectWithAttributes(obj object.Object) bool {
 	return slices.ContainsFunc(obj.Attributes(), func(a object.Attribute) bool {
-		return strings.HasPrefix(a.Key(), AttributePrefix)
+		return strings.HasPrefix(a.Key(), object.AttributeECPrefix)
 	})
 }

@@ -121,15 +121,15 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		{name: "mixed EC and non-EC attributes (non-EC first)", err: "mix of EC (__NEOFS__EC_RULE_IDX) and non-EC (foo) attributes", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
 				object.NewAttribute("foo", "bar"),
-				object.NewAttribute(iec.AttributeRuleIdx, "1"),
-				object.NewAttribute(iec.AttributePartIdx, "0"),
+				object.NewAttribute(object.AttributeECRuleIndex, "1"),
+				object.NewAttribute(object.AttributeECPartIndex, "0"),
 			)
 		}},
 		{name: "mixed EC and non-EC attributes (EC first)", err: "mix of EC (__NEOFS__EC_PART_IDX) and non-EC (foo) attributes", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
-				object.NewAttribute(iec.AttributePartIdx, "0"),
+				object.NewAttribute(object.AttributeECPartIndex, "0"),
 				object.NewAttribute("foo", "bar"),
-				object.NewAttribute(iec.AttributeRuleIdx, "1"),
+				object.NewAttribute(object.AttributeECRuleIndex, "1"),
 			)
 		}},
 		{name: "proto version mismatch", err: "invalid regular EC part object: diff proto version in parent (v1.2) and part (v3.4)", corruptParent: func(obj *object.Object) {
@@ -163,41 +163,41 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 		{name: "non-int rule index attribute", err: "invalid regular EC part object: unavailable part info: invalid index attribute __NEOFS__EC_RULE_IDX: " +
 			`strconv.Atoi: parsing "foo": invalid syntax`, corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
-				object.NewAttribute(iec.AttributeRuleIdx, "foo"),
-				object.NewAttribute(iec.AttributePartIdx, "0"),
+				object.NewAttribute(object.AttributeECRuleIndex, "foo"),
+				object.NewAttribute(object.AttributeECPartIndex, "0"),
 			)
 		}},
 		{name: "non-int part index attribute", err: "invalid regular EC part object: unavailable part info: invalid index attribute __NEOFS__EC_PART_IDX: " +
 			`strconv.Atoi: parsing "foo": invalid syntax`, corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
-				object.NewAttribute(iec.AttributeRuleIdx, "1"),
-				object.NewAttribute(iec.AttributePartIdx, "foo"),
+				object.NewAttribute(object.AttributeECRuleIndex, "1"),
+				object.NewAttribute(object.AttributeECPartIndex, "foo"),
 			)
 		}},
 		{name: "negative rule index attribute", err: "invalid regular EC part object: unavailable part info: invalid index attribute __NEOFS__EC_RULE_IDX: " +
 			"negative value -1", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
-				object.NewAttribute(iec.AttributeRuleIdx, "-1"),
-				object.NewAttribute(iec.AttributePartIdx, "0"),
+				object.NewAttribute(object.AttributeECRuleIndex, "-1"),
+				object.NewAttribute(object.AttributeECPartIndex, "0"),
 			)
 		}},
 		{name: "negative part index attribute", err: "invalid regular EC part object: unavailable part info: invalid index attribute __NEOFS__EC_PART_IDX: " +
 			"negative value -1", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
-				object.NewAttribute(iec.AttributeRuleIdx, "1"),
-				object.NewAttribute(iec.AttributePartIdx, "-1"),
+				object.NewAttribute(object.AttributeECRuleIndex, "1"),
+				object.NewAttribute(object.AttributeECPartIndex, "-1"),
 			)
 		}},
 		{name: "too big rule index", err: "invalid regular EC part object: rule index attribute (3) overflows total number of rules in policy (3)", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
-				object.NewAttribute(iec.AttributeRuleIdx, "3"),
-				object.NewAttribute(iec.AttributePartIdx, "0"),
+				object.NewAttribute(object.AttributeECRuleIndex, "3"),
+				object.NewAttribute(object.AttributeECPartIndex, "0"),
 			)
 		}},
 		{name: "too big part index", err: "invalid regular EC part object: part index attribute (16) overflows total number of parts in policy (16)", corruptPart: func(obj *object.Object) {
 			obj.SetAttributes(
-				object.NewAttribute(iec.AttributeRuleIdx, "1"),
-				object.NewAttribute(iec.AttributePartIdx, "16"),
+				object.NewAttribute(object.AttributeECRuleIndex, "1"),
+				object.NewAttribute(object.AttributeECPartIndex, "16"),
 			)
 		}},
 		{name: "wrong payload len", err: "invalid regular EC part object: wrong part payload len: expected 342, got 343, parent 4096", corruptPart: func(obj *object.Object) {
@@ -378,7 +378,7 @@ func encodeHashes(t *testing.T, ecParent *object.Object, creator user.Signer, ec
 	}
 
 	attrs := ecParent.Attributes()
-	attrs = append(attrs, object.NewAttribute(iec.AttributePartsHashes, strings.Join(hashes, ",")))
+	attrs = append(attrs, object.NewAttribute(object.AttributeECPartHashes, strings.Join(hashes, ",")))
 	ecParent.SetAttributes(attrs...)
 
 	require.NoError(t, ecParent.SetVerificationFields(creator))
