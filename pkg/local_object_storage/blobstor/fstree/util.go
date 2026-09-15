@@ -108,6 +108,9 @@ func (p *prefixedReadSeekCloser) Read(b []byte) (int, error) {
 	if prefBytes > 0 {
 		k, _ := p.prefix.Read(b[:prefBytes]) // io.EOF can't happen because of prefBytes and bytes.Reader can't have other errors.
 		n = k
+		if prefBytes == len(b) {
+			return n, nil
+		}
 	}
 
 	k, err := p.rest.Read(b[prefBytes:])

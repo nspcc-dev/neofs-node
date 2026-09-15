@@ -50,7 +50,9 @@ func (t *FSTree) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	return n, nil
 }
 
-func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadSeekCloser, error) {
+// openObject returns a canonical object prefix and a stream positioned after it.
+// The prefix contains all object header fields and can include a payload prefix.
+func (t *FSTree) openObject(addr oid.Address, buf []byte) ([]byte, io.ReadSeekCloser, error) {
 	if len(buf) < 2*objectwire.NonPayloadFieldsBufferLength {
 		return nil, nil, fmt.Errorf("too short buffer %d bytes", len(buf))
 	}
@@ -70,7 +72,9 @@ func (t *FSTree) _readObject(addr oid.Address, buf []byte) ([]byte, io.ReadSeekC
 
 		initial, stream, err := t.readHeader(addr.Object(), f, buf)
 		if err != nil {
-			stream.Close()
+			if stream != nil {
+				_ = stream.Close()
+			}
 			return nil, nil, err
 		}
 
@@ -154,7 +158,7 @@ func (t *FSTree) ReadObjectParts(buf []byte, addr oid.Address, rng common.Payloa
 }
 
 func (t *FSTree) readObject(addr oid.Address, buf []byte) (int, io.ReadSeekCloser, error) {
-	initial, stream, err := t._readObject(addr, buf)
+	initial, stream, err := t.openObject(addr, buf)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -177,48 +181,28 @@ func (t *FSTree) readObject(addr oid.Address, buf []byte) (int, io.ReadSeekClose
 // getObjectStream reads an object from the storage by address as a stream.
 // It returns the object with header only, and a reader for the payload.
 func (t *FSTree) getObjectStream(addr oid.Address) (*object.Object, io.ReadSeekCloser, error) {
-	primary, secondary := t.treePaths(addr)
-	for _, p := range [...]string{secondary, primary} {
-		if p == "" {
-			continue
-		}
-		f, err := os.Open(p)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				continue
-			}
-			return nil, nil, fmt.Errorf("read file %q: %w", p, err)
-		}
-
-		obj, reader, err := t.extractHeaderAndStream(addr.Object(), f)
-		if err != nil {
-			if reader != nil {
-				_ = reader.Close()
-			}
-			if errors.Is(err, fs.ErrNotExist) {
-				continue
-			}
-			return nil, nil, fmt.Errorf("extract object stream from %q: %w", p, err)
-		}
-
-		return obj, newPayloadReadSeekCloser(reader), nil
-	}
-
-	return nil, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
-}
-
-// extractHeaderAndStream reads the header of an object from a file.
-// The caller is responsible for closing the returned io.ReadCloser if it is not nil.
-func (t *FSTree) extractHeaderAndStream(id oid.ID, f *os.File) (*object.Object, io.ReadSeekCloser, error) {
-	buf := make([]byte, 2*objectwire.NonPayloadFieldsBufferLength)
-
-	initial, stream, err := t.readHeader(id, f, buf)
+	initial, reader, err := t.openObject(addr, make([]byte, 2*objectwire.NonPayloadFieldsBufferLength))
 	if err != nil {
-		stream.Close()
 		return nil, nil, err
 	}
 
-	return t.readHeaderAndPayload(stream, initial)
+	if reader == nil {
+		var obj object.Object
+		if err = obj.Unmarshal(initial); err != nil {
+			return nil, nil, fmt.Errorf("unmarshal object: %w", err)
+		}
+		payload := obj.Payload()
+		obj.SetPayload(nil)
+		return &obj, newPayloadReadSeekCloser(nopCloser(bytes.NewReader(payload))), nil
+	}
+
+	obj, payloadPrefix, err := objectwire.ExtractHeaderAndPayload(initial)
+	if err != nil {
+		_ = reader.Close()
+		return nil, nil, fmt.Errorf("extract header and payload: %w", err)
+	}
+
+	return obj, newPayloadReadSeekCloser(newPrefixedReadSeekCloser(payloadPrefix, reader)), nil
 }
 
 func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadSeekCloser, error) {
@@ -289,38 +273,11 @@ func (t *FSTree) readHeader(id oid.ID, f *os.File, buf []byte) ([]byte, io.ReadS
 	}
 }
 
-// readHeaderAndPayload reads an object header from the file and returns reader for payload.
-// This function takes ownership of the io.ReadCloser and will close it if it does not return it.
-func (t *FSTree) readHeaderAndPayload(f io.ReadSeekCloser, initial []byte) (*object.Object, io.ReadSeekCloser, error) {
-	initial, reader, err := t.preprocessStreamHead(f, initial)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if reader == nil {
-		var obj object.Object
-		err = obj.Unmarshal(initial)
-		if err != nil {
-			return nil, nil, fmt.Errorf("unmarshal object: %w", err)
-		}
-
-		pld := obj.Payload()
-
-		obj.SetPayload(nil)
-
-		return &obj, nopCloser(bytes.NewReader(pld)), nil
-	}
-
-	obj, payloadPrefix, err := objectwire.ExtractHeaderAndPayload(initial)
-	if err != nil {
-		_ = reader.Close()
-		return nil, nil, fmt.Errorf("extract header and payload: %w", err)
-	}
-
-	return obj, newPrefixedReadSeekCloser(payloadPrefix, reader), nil
-}
-
 func (t *FSTree) preprocessStreamHead(f io.ReadSeekCloser, initial []byte) ([]byte, io.ReadSeekCloser, error) {
+	if headerLen, payloadLen := parseSeparatedPrefix(initial); headerLen != 0 {
+		return preprocessSeparatedObject(f, initial, headerLen, payloadLen)
+	}
+
 	var err error
 	if len(initial) < objectwire.NonPayloadFieldsBufferLength {
 		_ = f.Close()
