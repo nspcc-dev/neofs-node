@@ -9,15 +9,17 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/stretchr/testify/require"
 )
 
-func newSimpleTestShard(_ testing.TB, bs common.Storage, mb metabase, wc writecache.Cache) *Shard {
-	return &Shard{
+func newSimpleTestShard(_ testing.TB, bs common.Storage, mb metabase, wc writecache.Cache, opts ...Option) *Shard {
+	sh := &Shard{
 		cfg: &cfg{
 			useWriteCache: wc != nil,
 			blobStor:      bs,
@@ -25,6 +27,12 @@ func newSimpleTestShard(_ testing.TB, bs common.Storage, mb metabase, wc writeca
 		writeCache:    wc,
 		metaBaseIface: mb,
 	}
+
+	for _, opt := range opts {
+		opt(sh.cfg)
+	}
+
+	return sh
 }
 
 type resolveECPartKey struct {
@@ -45,6 +53,7 @@ type resolveECPartWithLenValue struct {
 }
 
 type mockMetabase struct {
+	unimplementedMetabase
 	resolveECPart        map[resolveECPartKey]resolveECPartValue
 	resolveECPartWithLen map[resolveECPartKey]resolveECPartWithLenValue
 }
@@ -324,6 +333,10 @@ func (unimplementedBLOBStore) Put(oid.Address, []byte) error {
 	panic("unimplemented")
 }
 
+func (unimplementedBLOBStore) InitPut(oid.Address, uint64, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
+	panic("unimplemented")
+}
+
 func (unimplementedBLOBStore) PutBatch(map[oid.Address][]byte) error {
 	panic("unimplemented")
 }
@@ -434,4 +447,47 @@ func (unimplementedMetabase) ResolveECPart(cid.ID, oid.ID, iec.PartInfo) (oid.ID
 
 func (unimplementedMetabase) ResolveECPartWithPayloadLen(cid.ID, oid.ID, iec.PartInfo) (oid.ID, uint64, error) {
 	panic("unimplemented")
+}
+
+func (unimplementedMetabase) PutCounted(*object.Object) (meta.CountersDiff, error) {
+	panic("unimplemented")
+}
+
+type unimplementedMetricsWriter struct{}
+
+func (unimplementedMetricsWriter) SetObjectCounter(string, uint64) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetricsWriter) AddToObjectCounter(string, int) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetricsWriter) AddToContainerSize(string, int64) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetricsWriter) AddToPayloadSize(int64) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetricsWriter) IncObjectCounter(string) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetricsWriter) DecObjectCounter(string) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetricsWriter) SetShardID(string) {
+	panic("unimplemented")
+}
+
+func (unimplementedMetricsWriter) SetReadonly(bool) {
+	panic("unimplemented")
+}
+
+func assertUnlockedMode(t *testing.T, sh *Shard) {
+	require.True(t, sh.m.TryLock())
+	sh.m.Unlock()
 }
