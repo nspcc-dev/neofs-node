@@ -123,7 +123,7 @@ func WithMaxFlushBatchThreshold(sz uint64) Option {
 }
 
 // WithMetrics sets a metrics register instance for write-cache.
-func WithMetrics(m metricRegister) Option {
+func WithMetrics(m MetricRegister) Option {
 	return func(o *options) {
 		o.metrics.mr = m
 	}
