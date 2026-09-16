@@ -32,9 +32,19 @@ type (
 		readECPartHeaderDuration      prometheus.Histogram
 		readECPartRangeDuration       prometheus.Histogram
 
-		containerSize prometheus.GaugeVec
-		payloadSize   prometheus.GaugeVec
-		capacitySize  prometheus.GaugeVec
+		containerSize         prometheus.GaugeVec
+		payloadSize           prometheus.GaugeVec
+		capacitySize          prometheus.GaugeVec
+		fstreeReshapeProgress prometheus.GaugeVec
+	}
+
+	// ReshapeProgressTracker updates FSTree layout reshape progress percentage.
+	ReshapeProgressTracker interface {
+		SetReshapeProgress(float64)
+	}
+
+	reshapeProgressTracker struct {
+		progress prometheus.Gauge
 	}
 )
 
@@ -225,6 +235,13 @@ func newEngineMetrics() engineMetrics {
 			Name:      "capacity",
 			Help:      "Contains the shard's capacity",
 		}, []string{shardIDLabelKey})
+
+		fstreeReshapeProgress = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "fstree_reshape_progress",
+			Help:      "Percentage of FSTree layout reshape progress; 100 means no reshape is pending or it has completed.",
+		}, []string{shardIDLabelKey})
 	)
 
 	return engineMetrics{
@@ -254,6 +271,7 @@ func newEngineMetrics() engineMetrics {
 		containerSize:                 *containerSize,
 		payloadSize:                   *payloadSize,
 		capacitySize:                  *capacitySize,
+		fstreeReshapeProgress:         *fstreeReshapeProgress,
 	}
 }
 
@@ -284,6 +302,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.containerSize)
 	prometheus.MustRegister(m.payloadSize)
 	prometheus.MustRegister(m.capacitySize)
+	prometheus.MustRegister(m.fstreeReshapeProgress)
 }
 
 func (m engineMetrics) AddListContainersDuration(d time.Duration) {
@@ -392,4 +411,14 @@ func (m engineMetrics) AddToPayloadCounter(shardID string, size int64) {
 
 func (m engineMetrics) SetCapacitySize(shardID string, capacity uint64) {
 	m.capacitySize.With(prometheus.Labels{shardIDLabelKey: shardID}).Set(float64(capacity))
+}
+
+func (m engineMetrics) NewReshapeProgressTracker(shardID string) ReshapeProgressTracker {
+	tracker := reshapeProgressTracker{progress: m.fstreeReshapeProgress.With(prometheus.Labels{shardIDLabelKey: shardID})}
+	tracker.SetReshapeProgress(100)
+	return tracker
+}
+
+func (t reshapeProgressTracker) SetReshapeProgress(progress float64) {
+	t.progress.Set(progress)
 }
