@@ -43,6 +43,9 @@ const (
 	mintNeofsAmountFlag       = "amount"
 	mintTxHashFlag            = "deposit-tx"
 	quotasSoftLimitFlag       = "soft"
+	netmapEpochFlag           = "epoch"
+	netmapVersionFlag         = "version"
+	netmapPublicKeyFlag       = "public-key"
 )
 
 var (
@@ -298,6 +301,16 @@ Values for unknown keys are added exactly the way they're provided, no conversio
 		RunE: listNetmapCandidatesNodes,
 	}
 
+	netmapCmd = &cobra.Command{
+		Use:   "netmap",
+		Short: "Fetch network map from the Netmap contract",
+		Long:  "Fetch the current network map or a snapshot by epoch or version directly from the Netmap contract.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: getNetmap,
+	}
+
 	verifiedNodesDomainCmd = &cobra.Command{
 		Use:   "verified-nodes-domain",
 		Short: "Group of commands to work with verified domains for the storage nodes",
@@ -434,6 +447,13 @@ func init() {
 
 	RootCmd.AddCommand(netmapCandidatesCmd)
 	netmapCandidatesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(netmapCmd)
+	netmapCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	netmapCmd.Flags().Uint64(netmapEpochFlag, 0, "Network map epoch")
+	netmapCmd.Flags().Uint64(netmapVersionFlag, 0, "Historical network map version")
+	netmapCmd.Flags().String(netmapPublicKeyFlag, "", "HEX-encoded public key of a node to look up")
+	netmapCmd.MarkFlagsMutuallyExclusive(netmapEpochFlag, netmapVersionFlag)
 
 	cmd := verifiedNodesDomainAccessListCmd
 	fs := cmd.Flags()
