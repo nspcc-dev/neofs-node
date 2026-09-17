@@ -286,3 +286,27 @@ func GetPayloadLengthHeader(buf []byte) (uint64, error) {
 func GetTypeHeader(buf []byte) (object.Type, error) {
 	return iprotobuf.GetEnumField[object.Type](buf, protoobject.FieldHeaderObjectType)
 }
+
+// CalculatePayloadFieldTagLength calculates length payload field tag for the
+// object message in Protocol Buffers V3 format.
+//
+// Returns zero for empty payload.
+func CalculatePayloadFieldTagLength(payloadLen uint64) int {
+	if payloadLen == 0 {
+		return 0
+	}
+	return 1 + protowire.SizeVarint(payloadLen)
+}
+
+// CalculateConcatProtobufLength calculates length of concatenation of
+// non-payload and payload object's fields in Protocol Buffers V3 format.
+//
+// CalculateConcatProtobufLength assumes that empty payload has no field in the
+// object message.
+func CalculateConcatProtobufLength(nonPayloadLen uint64, payloadLen uint64) uint64 {
+	payloadTagLen := CalculatePayloadFieldTagLength(payloadLen)
+	if payloadTagLen == 0 {
+		return nonPayloadLen
+	}
+	return nonPayloadLen + uint64(payloadTagLen) + payloadLen
+}

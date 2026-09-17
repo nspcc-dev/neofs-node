@@ -2,8 +2,10 @@ package writecache
 
 import "time"
 
-type metricRegister interface {
+// MetricRegister stores various metrics of [Cache] work.
+type MetricRegister interface {
 	AddWCPutDuration(shardID string, d time.Duration)
+	AddWCStreamingPutDuration(shardID string, d time.Duration)
 	AddWCFlushSingleDuration(shardID string, d time.Duration)
 	AddWCFlushBatchDuration(shardID string, d time.Duration)
 	IncWCObjectCount(shardID string)
@@ -14,11 +16,17 @@ type metricRegister interface {
 
 type metricsWithID struct {
 	id string
-	mr metricRegister
+	mr MetricRegister
 }
 
 func (m *metricsWithID) AddWCPutDuration(d time.Duration) {
 	m.mr.AddWCPutDuration(m.id, d)
+}
+
+func (m *metricsWithID) submitFinishedInitPut(st time.Time) {
+	if m.mr != nil {
+		m.mr.AddWCStreamingPutDuration(m.id, time.Since(st))
+	}
 }
 
 func (m *metricsWithID) AddWCFlushSingleDuration(d time.Duration) {

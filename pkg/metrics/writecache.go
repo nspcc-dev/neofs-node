@@ -9,9 +9,10 @@ import (
 const writecacheSubsystem = "writecache"
 
 type writecacheMetrics struct {
-	putDuration         prometheus.HistogramVec
-	flushSingleDuration prometheus.HistogramVec
-	flushBatchDuration  prometheus.HistogramVec
+	putDuration          prometheus.HistogramVec
+	streamingPutDuration prometheus.HistogramVec
+	flushSingleDuration  prometheus.HistogramVec
+	flushBatchDuration   prometheus.HistogramVec
 
 	objectCount prometheus.GaugeVec
 	size        prometheus.GaugeVec
@@ -24,6 +25,13 @@ func newWritecacheMetrics() writecacheMetrics {
 			Subsystem: writecacheSubsystem,
 			Name:      "put_time",
 			Help:      "Writecache 'put' operations handling time",
+		}, []string{shardIDLabelKey})
+
+		streamingPutDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: writecacheSubsystem,
+			Name:      "streaming_put_time",
+			Help:      "Writecache streaming 'put' operations handling time",
 		}, []string{shardIDLabelKey})
 
 		flushSingleDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -55,16 +63,18 @@ func newWritecacheMetrics() writecacheMetrics {
 		}, []string{shardIDLabelKey})
 	)
 	return writecacheMetrics{
-		putDuration:         *putDuration,
-		flushSingleDuration: *flushSingleDuration,
-		flushBatchDuration:  *flushBatchDuration,
-		objectCount:         *objectCount,
-		size:                *size,
+		putDuration:          *putDuration,
+		streamingPutDuration: *streamingPutDuration,
+		flushSingleDuration:  *flushSingleDuration,
+		flushBatchDuration:   *flushBatchDuration,
+		objectCount:          *objectCount,
+		size:                 *size,
 	}
 }
 
 func (m writecacheMetrics) register() {
 	prometheus.MustRegister(m.putDuration)
+	prometheus.MustRegister(m.streamingPutDuration)
 	prometheus.MustRegister(m.flushSingleDuration)
 	prometheus.MustRegister(m.flushBatchDuration)
 	prometheus.MustRegister(m.objectCount)
@@ -73,6 +83,10 @@ func (m writecacheMetrics) register() {
 
 func (m writecacheMetrics) AddWCPutDuration(shardID string, d time.Duration) {
 	m.putDuration.With(prometheus.Labels{shardIDLabelKey: shardID}).Observe(d.Seconds())
+}
+
+func (m writecacheMetrics) AddWCStreamingPutDuration(shardID string, d time.Duration) {
+	m.streamingPutDuration.With(prometheus.Labels{shardIDLabelKey: shardID}).Observe(d.Seconds())
 }
 
 func (m writecacheMetrics) AddWCFlushSingleDuration(shardID string, d time.Duration) {
