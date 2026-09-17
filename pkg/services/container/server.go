@@ -20,6 +20,7 @@ import (
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/xheaders"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -698,6 +699,11 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 	cnrID := eACL.GetCID()
 	if cnrID.IsZero() {
 		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"), req)
+	}
+
+	err := xheaders.CheckRequestContainerRevision(req.GetMetaHeader(), cnrID, s.contract)
+	if err != nil {
+		return s.makeSetEACLResponse(err, req)
 	}
 
 	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cnrID)

@@ -474,6 +474,11 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
 		}
 
+		err = s.checkContainerRevision(req.GetMetaHeader(), cnrID)
+		if err != nil {
+			return s.sendStatusPutResponse(gStream, err, reqFirst)
+		}
+
 		var objID oid.ID
 		objID, err = fetchOptionalObjectID(initPart.ObjectId)
 		if err != nil {
@@ -564,6 +569,11 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	cnrID, objID, err := fetchRequiredObjectAddress(body.Address)
 	if err != nil {
 		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
+
+	err = s.checkContainerRevision(req.GetMetaHeader(), cnrID)
+	if err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
@@ -1823,6 +1833,11 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 	cnrID, err := fetchRequiredContainerID(body.ContainerId)
 	if err != nil {
 		err = newBadRequestError(invalidRequestBodyMessage + ": " + err.Error()) // defer
+		return s.signSearchResponse(nil, err, req)
+	}
+
+	err = s.checkContainerRevision(req.GetMetaHeader(), cnrID)
+	if err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
 
