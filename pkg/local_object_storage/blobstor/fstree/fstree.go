@@ -288,22 +288,11 @@ func (t *FSTree) iterateMerged(objHandler func(oid.Address, []byte) error, error
 			return addrHandler(entry.addr)
 		}
 		if sizeHandler != nil {
-			primary, secondary := t.treePaths(entry.addr)
-			var info os.FileInfo
-			var err error
-			for _, path := range [...]string{secondary, primary} {
-				if path == "" {
-					continue
-				}
-				info, err = os.Stat(path)
-				if !errors.Is(err, fs.ErrNotExist) {
-					break
-				}
-			}
+			size, err := t.getObjectSize(entry.addr)
 			if err != nil {
-				return fail(entry.addr, fmt.Errorf("stat object %s: %w", entry.addr, err))
+				return fail(entry.addr, fmt.Errorf("read object size %s: %w", entry.addr, err))
 			}
-			return sizeHandler(entry.addr, uint64(info.Size()))
+			return sizeHandler(entry.addr, size)
 		}
 		data, err := t.getObjBytes(entry.addr)
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
@@ -537,41 +526,51 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 // If the device runs out of space, InitPut or resulting stream calls return
 // [common.ErrNoSpace].
 func (t *FSTree) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (io.WriteCloser, func(), error) {
-	var payloadTagLen int
+	var payloadTag []byte
 	if payloadLen > 0 {
-		payloadTagLen = 1 + protowire.SizeVarint(payloadLen)
+		payloadTag = make([]byte, 1+protowire.SizeVarint(payloadLen))
+		payloadTag[0] = iprotobuf.TagBytes4
+		if n := binary.PutUvarint(payloadTag[1:], payloadLen); n != len(payloadTag)-1 {
+			panic(fmt.Errorf("calculated %d varint bytes for %d but written %d", len(payloadTag)-1, payloadLen, n))
+		}
 	}
 
+	canonicalHeaderLen := headerLen + uint64(len(payloadTag))
+	if canonicalHeaderLen < headerLen {
+		return nil, nil, fmt.Errorf("separated object header length overflows: %d", headerLen)
+	}
 	var stream io.WriteCloser
 	var abortFn func()
 
 	err := t.putFunc(addr, headerLen == 0 && payloadLen == 0, func(id oid.ID, filePath string) error {
 		var err error
 		stream, abortFn, err = t.writer.initWriteData(filePath)
-		return err
+		if err != nil {
+			return err
+		}
+
+		// The underlying writer uses O_SYNC, so write the storage prefix, object
+		// header and payload tag in one operation. Only the header is buffered;
+		// payload bytes remain streamed directly to the file.
+		recordHeader := bytes.NewBuffer(separatedObjectPrefix(canonicalHeaderLen, payloadLen))
+		if _, err = headerW.WriteTo(recordHeader); err != nil {
+			abortFn()
+			return fmt.Errorf("write header: %w", err)
+		}
+		_, _ = recordHeader.Write(payloadTag)
+
+		if n, err := stream.Write(recordHeader.Bytes()); err != nil {
+			abortFn()
+			return fmt.Errorf("write separated object header: %w", err)
+		} else if n != recordHeader.Len() {
+			abortFn()
+			return io.ErrShortWrite
+		}
+
+		return nil
 	})
 	if err != nil {
 		return nil, nil, err
-	}
-
-	_, err = headerW.WriteTo(stream)
-	if err != nil {
-		return nil, nil, fmt.Errorf("write header: %w", err)
-	}
-
-	if payloadLen == 0 {
-		return stream, abortFn, nil
-	}
-
-	payloadTag := make([]byte, payloadTagLen)
-	payloadTag[0] = iprotobuf.TagBytes4
-	if n := binary.PutUvarint(payloadTag[1:], payloadLen); n != payloadTagLen-1 {
-		panic(fmt.Errorf("calculated %d varint bytes for %d but written %d", payloadTagLen-1, payloadTagLen, n))
-	}
-
-	_, err = stream.Write(payloadTag)
-	if err != nil {
-		return nil, nil, fmt.Errorf("write payload tag: %w", err)
 	}
 
 	return stream, abortFn, nil
@@ -582,7 +581,7 @@ func (t *FSTree) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, 
 // Use [FSTree.InitPut] for streaming write.
 func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	return t.putFunc(addr, len(data) == 0, func(id oid.ID, filePath string) error {
-		return t.writer.writeData(id, filePath, data)
+		return t.writer.writeData(id, filePath, separateObject(data))
 	})
 }
 
@@ -625,7 +624,7 @@ func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 		writeDataUnits = append(writeDataUnits, writeDataUnit{
 			id:   addr.Object(),
 			path: p,
-			data: data,
+			data: separateObject(data),
 		})
 	}
 
@@ -694,6 +693,90 @@ func (t *FSTree) getObjectBytesByPath(id oid.ID, p string) ([]byte, error) {
 	return data, nil
 }
 
+// getObjectSize returns the canonical object size without reading its payload.
+func (t *FSTree) getObjectSize(addr oid.Address) (uint64, error) {
+	primary, secondary := t.treePaths(addr)
+	for _, p := range [...]string{secondary, primary} {
+		if p == "" {
+			continue
+		}
+		size, err := getObjectSizeByPath(addr.Object(), p)
+		if err == nil || !errors.Is(err, apistatus.ErrObjectNotFound) {
+			return size, err
+		}
+	}
+	return 0, logicerr.Wrap(apistatus.ObjectNotFound{})
+}
+
+func getObjectSizeByPath(id oid.ID, p string) (uint64, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
+		return 0, fmt.Errorf("open file %q: %w", p, err)
+	}
+	defer f.Close()
+
+	var (
+		prefix     [combinedDataOff]byte
+		isCombined bool
+	)
+	for {
+		n, err := io.ReadFull(f, prefix[:])
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				if isCombined {
+					return 0, logicerr.Wrap(apistatus.ObjectNotFound{})
+				}
+				return canonicalRecordSize(prefix[:n], uint64(n))
+			}
+			return 0, err
+		}
+
+		entryID, length := parseCombinedPrefix(prefix[:])
+		if entryID == nil {
+			if isCombined {
+				return 0, errors.New("malformed combined file")
+			}
+			info, err := f.Stat()
+			if err != nil {
+				return 0, err
+			}
+			return canonicalRecordSize(prefix[:], uint64(info.Size()))
+		}
+		isCombined = true
+		if bytes.Equal(entryID, id[:]) {
+			if length == 0 {
+				return 0, io.ErrUnexpectedEOF
+			}
+			buf := make([]byte, min(int(length), separatedDataOff))
+			if _, err := io.ReadFull(f, buf); err != nil {
+				return 0, err
+			}
+			return canonicalRecordSize(buf, uint64(length))
+		}
+		if _, err := f.Seek(int64(length), io.SeekCurrent); err != nil {
+			return 0, err
+		}
+	}
+}
+
+func canonicalRecordSize(prefix []byte, physicalSize uint64) (uint64, error) {
+	headerLen, payloadLen := parseSeparatedPrefix(prefix)
+	if headerLen == 0 {
+		return physicalSize, nil
+	}
+	if physicalSize < separatedDataOff {
+		return 0, fmt.Errorf("invalid separated object size: %d", physicalSize)
+	}
+	dataSize := physicalSize - separatedDataOff
+	if headerLen > dataSize || payloadLen != dataSize-headerLen {
+		return 0, fmt.Errorf("invalid separated object lengths: header %d, payload %d, data %d", headerLen, payloadLen, physicalSize)
+	}
+	return dataSize, nil
+}
+
 // parseCombinedPrefix checks the given array for combined data prefix and
 // returns a subslice with OID and object length if so (nil and 0 otherwise).
 func parseCombinedPrefix(p []byte) ([]byte, uint32) {
@@ -759,6 +842,13 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 		return nil, fmt.Errorf("read: %w", err)
 	}
 	data = data[:len(initial)+n]
+	data, separated, err := restoreSeparatedObject(data)
+	if err != nil {
+		return nil, err
+	}
+	if separated {
+		return data, nil
+	}
 
 	return decompress(data)
 }
@@ -811,7 +901,7 @@ func (t *FSTree) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byt
 }
 
 func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, readHeader bool, interceptHeaderBinaryFn func([]byte) error, getHdrBuf func() []byte) (*object.Object, uint64, io.ReadCloser, error) {
-	prefix, stream, err := t._readObject(addr, getHdrBuf())
+	prefix, stream, err := t.openObject(addr, getHdrBuf())
 	if err != nil {
 		return nil, 0, nil, err
 	}

@@ -21,7 +21,7 @@ func TestFSTree_InitPut(t *testing.T) {
 	const payloadLen = 256 << 10
 	payload := testutil.RandByteSlice(payloadLen)
 
-	fullObject := concatHeaderAndPayload(header, payload)
+	fullObject := separateHeaderAndPayload(header, payload)
 
 	t.Run("retries", func(t *testing.T) {
 		t.Run("existing tmp files", func(t *testing.T) {
