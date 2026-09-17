@@ -241,7 +241,7 @@ func TestServer_Delete(t *testing.T) {
 				require.NotNil(t, resp.MetaHeader.Status)
 				sts := resp.MetaHeader.Status
 				require.EqualValues(t, 1024, sts.Code, st)
-				require.Equal(t, "invalid context *session.SessionToken_Body_Object", sts.Message)
+				require.Equal(t, "missing container context", sts.Message)
 				require.Zero(t, sts.Details)
 			})
 			t.Run("wrong verb", func(t *testing.T) {
