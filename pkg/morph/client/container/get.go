@@ -38,19 +38,24 @@ func Get(c *Client, cnr cid.ID) (container.Container, error) {
 func (c *Client) Get(cid []byte) (container.Container, error) {
 	var cnr container.Container
 	prm := client.TestInvokePrm{}
-	method := getInfoMethod
+	method := getInfoRevisionedMethod
 	prm.SetMethod(method)
 	prm.SetArgs(cid)
 
 	arr, err := c.client.TestInvoke(prm)
 	if err != nil && isMethodNotFoundError(err, method) {
-		method = getDataMethod
+		method = getInfoMethod
 		prm.SetMethod(method)
 		arr, err = c.client.TestInvoke(prm)
 		if err != nil && isMethodNotFoundError(err, method) {
-			method = getMethod
+			method = getDataMethod
 			prm.SetMethod(method)
 			arr, err = c.client.TestInvoke(prm)
+			if err != nil && isMethodNotFoundError(err, method) {
+				method = getMethod
+				prm.SetMethod(method)
+				arr, err = c.client.TestInvoke(prm)
+			}
 		}
 	}
 	if err != nil {
@@ -64,11 +69,14 @@ func (c *Client) Get(cid []byte) (container.Container, error) {
 		return cnr, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
-	if method != getInfoMethod {
-		return decodeOldGetResponse(arr, method)
+	switch method {
+	case getInfoRevisionedMethod:
+		cnr, err = revisionedContainerFromStackItem(arr[0])
+	case getInfoMethod:
+		cnr, err = containerFromStackItem(arr[0])
+	default:
+		cnr, err = decodeOldGetResponse(arr, method)
 	}
-
-	cnr, err = containerFromStackItem(arr[0])
 	if err != nil {
 		return cnr, fmt.Errorf("invalid %q method result: invalid stack item: %w", method, err)
 	}

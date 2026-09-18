@@ -57,6 +57,7 @@ func initObjectPutCmd() {
 	flags.Uint64VarP(&putExpiredOn, commonflags.ExpireAt, "e", 0, "The last active epoch in the life of the object")
 	flags.Uint64P(commonflags.Lifetime, "l", 0, "Number of epochs for object to stay valid")
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
+	flags.Uint64(commonflags.ContainerRevisionFlag, 0, commonflags.ContainerRevisionFlagUsage)
 
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 	flags.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
@@ -124,6 +125,10 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	obj.SetAttributes(attrs...)
 
 	var prm client.PrmObjectPutInit
+	if cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
+		cnrRev, _ := cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
+		prm.AttachContainerRevision(cnrRev)
+	}
 
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {

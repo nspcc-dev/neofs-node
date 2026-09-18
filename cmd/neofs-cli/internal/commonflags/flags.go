@@ -59,6 +59,9 @@ const (
 
 	SessionSubjectNNSFlag      = "session-subjects-nns"
 	SessionSubjectNNSFlagUsage = "Session subject NNS names (optional, defaults to current node)"
+
+	ContainerRevisionFlag      = "container-revision"
+	ContainerRevisionFlagUsage = "Specify a certain container revision number"
 )
 
 // Init adds common flags to the command:

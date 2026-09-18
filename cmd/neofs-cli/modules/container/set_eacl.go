@@ -156,6 +156,10 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		}
 
 		var setEACLPrm client.PrmContainerSetEACL
+		if cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
+			cnrRev, _ := cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
+			setEACLPrm.AttachContainerRevision(cnrRev)
+		}
 		if tokAny != nil {
 			switch tok := tokAny.(type) {
 			case *sessionv2.Token:
@@ -191,4 +195,5 @@ func initContainerSetEACLCmd() {
 		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	markAwaitFlagDeprecated(flags, "get-eacl")
 	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "skip validation checks (ownership, extensibility of the container ACL)")
+	flags.Uint64(commonflags.ContainerRevisionFlag, 0, commonflags.ContainerRevisionFlagUsage)
 }

@@ -18,6 +18,7 @@ neofs-cli object put [flags]
       --bearer string                  File with signed JSON or binary encoded bearer token
       --binary                         Deserialize object structure from given file.
       --cid string                     Container ID.
+      --container-revision uint        Specify a certain container revision number
       --disable-filename               Do not set well-known filename attribute
       --disable-timestamp              Do not set well-known timestamp attribute
   -e, --expire-at uint                 The last active epoch in the life of the object

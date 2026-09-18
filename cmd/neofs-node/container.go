@@ -40,7 +40,7 @@ func initContainerService(c *cfg) {
 	}
 
 	if c.containerCache != nil {
-		subscribeToAttributeChanges(c)
+		subscribeToUpdatedContainerRevision(c)
 
 		subscribeToContainerCreation(c, func(id cid.ID, owner user.ID) {
 			if owner.IsZero() {
@@ -357,16 +357,16 @@ func subscribeToContainerRemoval(c *cfg, h func(id cid.ID, owner user.ID)) {
 	})
 }
 
-func subscribeToAttributeChanges(c *cfg) {
-	registerEventParserOnceContainer(c, containerEvent.AttributeChagedEvent, containerEvent.ParseAttributeChangedEvent)
-	addContainerAsyncNotificationHandler(c, containerEvent.AttributeChagedEvent, func(e event.Event) {
+func subscribeToUpdatedContainerRevision(c *cfg) {
+	registerEventParserOnceContainer(c, containerEvent.ContainerUpdatedEvent, containerEvent.ParseContainerUpdatedEvent)
+	addContainerAsyncNotificationHandler(c, containerEvent.ContainerUpdatedEvent, func(e event.Event) {
 		var (
-			ev  = e.(containerEvent.AttributeChanged)
+			ev  = e.(containerEvent.ContainerUpdated)
 			cID = ev.Container()
 		)
-		c.log.Debug(fmt.Sprintf("received %s event", containerEvent.AttributeChagedEvent),
+		c.log.Debug(fmt.Sprintf("received %s event", containerEvent.ContainerUpdatedEvent),
 			zap.Stringer("container", cID),
-			zap.String("changedAttribute", ev.Attribute()))
+			zap.Uint64("newRevision", ev.Revision()))
 
 		c.containerCache.handleChange(cID)
 	})

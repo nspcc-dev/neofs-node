@@ -15,6 +15,36 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func revisionedContainerFromStackItem(item stackitem.Item) (container.Container, error) {
+	var contractContainer containerrpc.ContainerInfoWithRevision
+	if err := contractContainer.FromStackItem(item); err != nil {
+		return container.Container{}, err
+	}
+
+	if contractContainer.Info == nil {
+		return container.Container{}, errors.New("container info from contract is nil unexpectedly")
+	}
+	if contractContainer.Revision == nil {
+		return container.Container{}, errors.New("container revision from contract is nil unexpectedly")
+	}
+
+	cnr, err := ContainerFromStruct(*contractContainer.Info)
+	if err != nil {
+		return container.Container{}, err
+	}
+	cnrP := cnr.ProtoMessage()
+	cnrP.Revision, err = toUint64(contractContainer.Revision)
+	if err != nil {
+		return container.Container{}, fmt.Errorf("invalid container revision from the contract: %w", err)
+	}
+	err = cnr.FromProtoMessage(cnrP)
+	if err != nil {
+		return container.Container{}, fmt.Errorf("incorrect container message reverse conversion: %w", err)
+	}
+
+	return cnr, nil
+}
+
 func containerFromStackItem(item stackitem.Item) (container.Container, error) {
 	var contractStruct containerrpc.ContainerInfo
 	if err := contractStruct.FromStackItem(item); err != nil {
