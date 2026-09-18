@@ -11,10 +11,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// unused starting from 10 DB version.
-var objectPhyCounterKey = []byte("phy_counter")
-var objectLogicCounterKey = []byte("logic_counter")
-
 // CountersDiff groups counters diff after operation on [DB]. Positive and
 // negative values are possible.
 type CountersDiff struct {

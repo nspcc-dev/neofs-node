@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - GetRange object service method (#4167)
+- Metabase migration code for DB version 10 (from 9) (#4184)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260911084039-e749b2b839ac` (#4168)
@@ -37,6 +38,10 @@ but this support will be removed in the next release.
 
 All applications should be updated to use parameterized Get instead of
 GetRange method since this version doesn't support GetRange.
+
+Metabase migration for version 10 introduced in NeoFS node 0.52.0
+was removed from this release, upgrade to 0.56.0 first if using
+earlier versions or resynchronize metabases.
 
 ## [0.56.0] - 2026-09-01 - Nabdo
 

@@ -29,7 +29,7 @@ const (
 	// unusedToMoveItPrefix was deleted in metabase version 9
 	unusedToMoveItPrefix //nolint:unused
 	// unusedContainerVolumePrefix was deleted in metabase version 10
-	unusedContainerVolumePrefix
+	unusedContainerVolumePrefix //nolint:unused
 	// unusedLockedPrefix was deleted in metabase version 9
 	unusedLockedPrefix //nolint:unused
 	// shardInfoPrefix is used for storing shard ID. All keys are custom and are not connected to the container.
