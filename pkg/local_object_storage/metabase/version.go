@@ -24,7 +24,7 @@ import (
 // things, but sometimes data needs to be corrected and it's also a valid
 // case for meta version update. Format changes and current scheme MUST be
 // documented in VERSION.md.
-const currentMetaVersion = 11
+const currentMetaVersion = 12
 
 var (
 	// migrateFrom stores migration callbacks for respective versions.
@@ -50,6 +50,7 @@ var (
 	// continue rather than return an error.
 	migrateFrom = map[uint64]func(*DB) error{
 		10: migrateFrom10Version,
+		11: migrateFrom11Version,
 	}
 
 	versionKey = []byte("version")
@@ -343,4 +344,50 @@ func splitAttributeValueObjectID(b []byte) ([]byte, []byte, error) {
 	}
 
 	return b[:valEnd], b[valEnd+1:], nil
+}
+
+func migrateFrom11Version(db *DB) error {
+	err := updateContainersInterruptable(db, []byte{metadataPrefix}, dropNonceIndexes)
+	if err != nil {
+		return fmt.Errorf("drop "+object.AttributeNonce+" indexes: %w", err)
+	}
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		return updateVersion(tx, 12)
+	})
+}
+
+func dropNonceIndexes(_ *zap.Logger, _ *bbolt.Tx, b *bbolt.Bucket, _ cid.ID, _ []byte, limit uint) (uint, []byte, error) {
+	var (
+		c            = b.Cursor()
+		k            []byte
+		attrIDPrefix = []byte{metaPrefixAttrIDPlain}
+		attrKeyLen   = len([]byte(object.AttributeNonce))
+		keysToDrop   [][]byte
+	)
+	attrIDPrefix = append(attrIDPrefix, []byte(object.AttributeNonce)...)
+	k, _ = c.Seek(attrIDPrefix)
+	for ; bytes.HasPrefix(k, attrIDPrefix); k, _ = c.Next() {
+		keysToDrop = append(keysToDrop, k)
+		if len(keysToDrop) == int(limit) {
+			break
+		}
+	}
+
+	for _, keyToDrop := range keysToDrop {
+		_ = b.Delete(keyToDrop)
+
+		v := keyToDrop[1+attrKeyLen+len(objectcore.MetaAttributeDelimiter) : len(keyToDrop)-(oid.Size+len(objectcore.MetaAttributeDelimiter))]
+		id := keyToDrop[len(keyToDrop)-oid.Size:]
+		reversedKey := slices.Concat([]byte{metaPrefixIDAttr}, id, []byte(object.AttributeNonce), objectcore.MetaAttributeDelimiter, v)
+		_ = b.Delete(reversedKey)
+
+		n, isInt := parseInt(string(v))
+		if isInt {
+			intKey := slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(object.AttributeNonce), objectcore.MetaAttributeDelimiter, make([]byte, intValLen), id)
+			n.FillBytes(intKey[len(intKey)-len(id)-intValLen:])
+			_ = b.Delete(intKey)
+		}
+	}
+
+	return uint(len(keysToDrop)), nil, nil
 }
