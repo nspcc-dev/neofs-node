@@ -14,18 +14,19 @@ neofs-cli container set-eacl [flags]
 ### Options
 
 ```
-      --address string        Address of wallet account
-      --cid string            Container ID.
-  -f, --force                 skip validation checks (ownership, extensibility of the container ACL)
-  -g, --generate-key          Generate new private key
-  -h, --help                  help for set-eacl
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
-      --session string        Filepath to a JSON- or binary-encoded token of the container SETEACL session
-      --table string          path to file with JSON or binary encoded EACL table
-  -t, --timeout duration      Timeout for the operation (default 15s)
-      --ttl uint32            TTL value in request meta header (default 2)
-  -w, --wallet string         Path to the wallet
-  -x, --xhdr strings          Request X-Headers in form of Key=Value
+      --address string            Address of wallet account
+      --cid string                Container ID.
+      --container-revision uint   Specify a certain container revision number
+  -f, --force                     skip validation checks (ownership, extensibility of the container ACL)
+  -g, --generate-key              Generate new private key
+  -h, --help                      help for set-eacl
+  -r, --rpc-endpoint string       Remote node address (as 'multiaddr' or '<host>:<port>')
+      --session string            Filepath to a JSON- or binary-encoded token of the container SETEACL session
+      --table string              path to file with JSON or binary encoded EACL table
+  -t, --timeout duration          Timeout for the operation (default 15s)
+      --ttl uint32                TTL value in request meta header (default 2)
+  -w, --wallet string             Path to the wallet
+  -x, --xhdr strings              Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands

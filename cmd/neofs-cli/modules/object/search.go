@@ -89,6 +89,7 @@ func initObjectSearchCmd() {
 	flags2.Uint16Var(&searchCountFlag.v, searchCountFlag.f, 0, "Max number of resulting items. Must not exceed 1000")
 	flags.StringVar(&searchCursorFlag.v, searchCursorFlag.f, "", "Cursor to continue previous search")
 	flags2.StringVar(&searchCursorFlag.v, searchCursorFlag.f, "", "Cursor to continue previous search")
+	flags.Uint64(commonflags.ContainerRevisionFlag, 0, commonflags.ContainerRevisionFlagUsage)
 }
 
 var searchUnaryOpVocabulary = map[string]object.SearchMatchType{
@@ -213,6 +214,10 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 		if st != nil {
 			opts.WithSessionToken(*st)
 		}
+	}
+	if cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
+		cnrRev, _ := cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
+		opts.AttachContainerRevision(cnrRev)
 	}
 	res, cursor, err := cli.SearchObjects(ctx, cnr, fs, searchAttributesFlag.v, searchCursorFlag.v, neofsecdsa.Signer(*pk), opts)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
