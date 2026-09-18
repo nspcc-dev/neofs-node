@@ -2,8 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -22,7 +20,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
-	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -133,152 +130,9 @@ func newDB(t testing.TB, opts ...Option) *DB {
 	return bdb
 }
 
-func generateTypedObject(cnr cid.ID, typ object.Type) object.Object {
-	data := make([]byte, 32)
-	_, _ = rand.Read(data)
-
-	obj := object.New(cnr, usertest.ID())
-	obj.SetID(oidtest.ID())
-	obj.SetType(typ)
-	obj.SetPayload(data)
-	obj.SetPayloadSize(uint64(len(data)))
-	obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(data)))
-
-	return *obj
-}
-
 func TestSlicesCloneNil(t *testing.T) {
 	// not stated in docs, but migrateContainersToMetaBucket relies on this
 	require.Nil(t, slices.Clone([]byte(nil)))
-}
-
-func TestMigrate9To10(t *testing.T) {
-	cID := cidtest.ID()
-	oTombstoned := generateTypedObject(cID, object.TypeRegular)
-	oTombstoned.SetPayloadSize(11)
-
-	o := generateTypedObject(cID, object.TypeRegular)
-	o.SetPayloadSize(22)
-
-	ts := generateTypedObject(cID, object.TypeTombstone)
-	ts.AssociateDeleted(oTombstoned.GetID())
-	ts.SetPayloadSize(33)
-
-	link := generateTypedObject(cID, object.TypeLink)
-	link.SetPayloadSize(44)
-
-	lock := generateTypedObject(cID, object.TypeLock)
-	lock.SetPayloadSize(55)
-
-	// every object except tombstoned one
-	var totalPayloadSize uint64
-	totalPayloadSize += o.PayloadSize()
-	totalPayloadSize += ts.PayloadSize()
-	totalPayloadSize += link.PayloadSize()
-	totalPayloadSize += lock.PayloadSize()
-
-	db := newDB(t)
-
-	require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-		// Put objects, no counters handling
-
-		err := PutMetadataForObject(tx, o, true)
-		if err != nil {
-			return err
-		}
-		err = PutMetadataForObject(tx, oTombstoned, true)
-		if err != nil {
-			return err
-		}
-		metaB := tx.Bucket(metaBucketKey(cID))
-		err = handleObjectWithAssociation(metaB, &CountersDiff{}, 0, ts)
-		if err != nil {
-			return err
-		}
-		err = PutMetadataForObject(tx, ts, true)
-		if err != nil {
-			return err
-		}
-		err = PutMetadataForObject(tx, link, true)
-		if err != nil {
-			return err
-		}
-		err = PutMetadataForObject(tx, lock, true)
-		if err != nil {
-			return err
-		}
-
-		// put outdated shard info values
-
-		someUint64Val := make([]byte, 8)
-		binary.LittleEndian.PutUint64(someUint64Val, 12345678)
-
-		infoBkt := tx.Bucket(shardInfoBucket)
-		err = infoBkt.Put(objectPhyCounterKey, slices.Clone(someUint64Val))
-		if err != nil {
-			return err
-		}
-		err = infoBkt.Put(objectLogicCounterKey, slices.Clone(someUint64Val))
-		if err != nil {
-			return err
-		}
-
-		// put deprecated container volume counters
-
-		bVolume, err := tx.CreateBucketIfNotExists([]byte{unusedContainerVolumePrefix})
-		if err != nil {
-			return err
-		}
-		bCnr, err := bVolume.CreateBucket(cID[:])
-		if err != nil {
-			return err
-		}
-		err = bCnr.Put([]byte{containerStorageSizeKey}, someUint64Val)
-		if err != nil {
-			return err
-		}
-		err = bCnr.Put([]byte{containerObjectsNumberKey}, someUint64Val)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}))
-
-	require.NoError(t, migrateFrom9Version(db))
-
-	require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
-		// there are no old values
-
-		v := tx.Bucket(shardInfoBucket).Get(objectPhyCounterKey)
-		require.Nil(t, v)
-		v = tx.Bucket(shardInfoBucket).Get(objectLogicCounterKey)
-		require.Nil(t, v)
-
-		// there are actual resynced new counters
-
-		requireUint64Value := func(v []byte, want uint64) {
-			require.NotNil(t, v)
-
-			require.Equal(t, want, binary.LittleEndian.Uint64(v))
-		}
-
-		metaB := tx.Bucket(metaBucketKey(cID))
-		requireUint64Value(metaB.Get([]byte{metaPrefixPhyCounter}), 5)
-		requireUint64Value(metaB.Get([]byte{metaPrefixRootCounter}), 2)
-		requireUint64Value(metaB.Get([]byte{metaPrefixTSCounter}), 1)
-		requireUint64Value(metaB.Get([]byte{metaPrefixLinkCounter}), 1)
-		requireUint64Value(metaB.Get([]byte{metaPrefixLockCounter}), 1)
-		requireUint64Value(metaB.Get([]byte{metaPrefixGCCounter}), 1)
-		requireUint64Value(metaB.Get([]byte{metaPrefixPayloadCounter}), totalPayloadSize)
-
-		// there is no container volume bucket
-
-		b := tx.Bucket([]byte{unusedContainerVolumePrefix})
-		require.Nil(t, b)
-
-		return nil
-	}))
 }
 
 //nolint:staticcheck // the whole tests is about checking deprecated values

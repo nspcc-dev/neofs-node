@@ -10,11 +10,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
-const (
-	containerStorageSizeKey   = 0
-	containerObjectsNumberKey = 1
-)
-
 func (db *DB) Containers() (list []cid.ID, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()

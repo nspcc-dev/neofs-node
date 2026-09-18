@@ -10,7 +10,6 @@ import (
 	"slices"
 
 	"github.com/nspcc-dev/bbolt"
-	berrors "github.com/nspcc-dev/bbolt/errors"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -50,7 +49,6 @@ var (
 	// and it's hardly acceptable, so in general it's better to log and
 	// continue rather than return an error.
 	migrateFrom = map[uint64]func(*DB) error{
-		9:  migrateFrom9Version,
 		10: migrateFrom10Version,
 	}
 
@@ -184,34 +182,6 @@ func iterateContainerBuckets(l *zap.Logger, cs Containers, tx *bbolt.Tx, fromBkt
 		rem -= done
 	}
 	return name, afterObj, nil
-}
-
-func migrateFrom9Version(db *DB) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		err := tx.DeleteBucket([]byte{unusedContainerVolumePrefix})
-		if err != nil {
-			if !errors.Is(err, berrors.ErrBucketNotFound) {
-				return fmt.Errorf("deleting deprecated container volume bucket: %w", err)
-			}
-		}
-
-		err = syncCounter(tx, true)
-		if err != nil {
-			return fmt.Errorf("resync object counters: %w", err)
-		}
-
-		infoBkt := tx.Bucket(shardInfoBucket)
-		err = infoBkt.Delete(objectLogicCounterKey)
-		if err != nil {
-			return fmt.Errorf("delete old object logic counter: %w", err)
-		}
-		err = infoBkt.Delete(objectPhyCounterKey)
-		if err != nil {
-			return fmt.Errorf("delete old object phy counter: %w", err)
-		}
-
-		return updateVersion(tx, 10)
-	})
 }
 
 func migrateFrom10Version(db *DB) error {
