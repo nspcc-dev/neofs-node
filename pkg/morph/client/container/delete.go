@@ -56,18 +56,6 @@ func (c *Client) Delete(ctx context.Context, p DeletePrm) error {
 		p.cnr, p.signature, p.key, p.token,
 	})
 	if err != nil {
-		if isMethodNotFoundError(err, fschaincontracts.RemoveContainerMethod) {
-			err = c.client.CallWithAlphabetWitness(ctx, deleteMethod, []any{
-				p.cnr, p.signature, p.key, p.token,
-			})
-			if err != nil {
-				if e := err.Error(); strings.Contains(e, containerrpc.ErrorLocked) {
-					return apistatus.NewContainerLocked(e)
-				}
-				return fmt.Errorf("could not invoke method (%s): %w", deleteMethod, err)
-			}
-			return nil
-		}
 		if e := err.Error(); strings.Contains(e, containerrpc.ErrorLocked) {
 			return apistatus.NewContainerLocked(e)
 		}

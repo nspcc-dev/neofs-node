@@ -51,11 +51,6 @@ func (c *Client) Get(cid []byte) (container.Container, error) {
 			method = getDataMethod
 			prm.SetMethod(method)
 			arr, err = c.client.TestInvoke(prm)
-			if err != nil && isMethodNotFoundError(err, method) {
-				method = getMethod
-				prm.SetMethod(method)
-				arr, err = c.client.TestInvoke(prm)
-			}
 		}
 	}
 	if err != nil {
@@ -86,18 +81,6 @@ func (c *Client) Get(cid []byte) (container.Container, error) {
 
 func decodeOldGetResponse(arr []stackitem.Item, method string) (container.Container, error) {
 	var cnr container.Container
-
-	if method == getMethod {
-		var err error
-		arr, err = client.ArrayFromStackItem(arr[0])
-		if err != nil {
-			return cnr, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
-		}
-
-		if len(arr) == 0 {
-			return cnr, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
-		}
-	}
 
 	cnrBytes, err := client.BytesFromStackItem(arr[0])
 	if err != nil {

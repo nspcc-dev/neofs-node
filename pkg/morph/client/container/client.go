@@ -24,15 +24,11 @@ type Client struct {
 
 const (
 	putMethod               = "put"
-	deleteMethod            = "delete"
-	getMethod               = "get"
 	getDataMethod           = "getContainerData"
 	getInfoMethod           = "getInfo"
 	getInfoRevisionedMethod = "getRevisionedInfo"
 	listMethod              = "containersOf"
-	eaclMethod              = "eACL"
 	eaclDataMethod          = "getEACLData"
-	setEACLMethod           = "setEACL"
 	tokensOfMethod          = "tokensOf"
 	tokensMethod            = "tokens"
 
