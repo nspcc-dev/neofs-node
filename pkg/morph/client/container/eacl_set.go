@@ -50,15 +50,6 @@ func (c *Client) PutEACL(ctx context.Context, p PutEACLPrm) error {
 		p.table, p.sig, p.key, p.token,
 	})
 	if err != nil {
-		if isMethodNotFoundError(err, fschaincontracts.PutContainerEACLMethod) {
-			err = c.client.CallWithAlphabetWitness(ctx, setEACLMethod, []any{
-				p.table, p.sig, p.key, p.token,
-			})
-			if err != nil {
-				return fmt.Errorf("could not invoke method (%s): %w", setEACLMethod, err)
-			}
-			return nil
-		}
 		return fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.PutContainerEACLMethod, err)
 	}
 	return nil

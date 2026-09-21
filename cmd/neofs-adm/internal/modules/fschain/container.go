@@ -76,7 +76,7 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 	for id := range requestedIDs {
 		b.Reset()
 		b.InvokeMethod(ch, "get", id[:])
-		b.InvokeMethod(ch, "eACL", id[:])
+		b.InvokeMethod(ch, "getEACLData", id[:])
 
 		script, err := b.Script()
 		if err != nil {
