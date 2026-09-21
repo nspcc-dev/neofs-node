@@ -26,7 +26,7 @@ Changelog for NeoFS Node
 - Metabase migration code for DB version 10 (from 9) (#4184)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260911084039-e749b2b839ac` (#4168)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260921152514-a9e144a15933` (#4168, #4187)
 
 ### Updating from v0.56.0
 To change an FSTree layout depth, configure the new `blobstor.depth` and set
