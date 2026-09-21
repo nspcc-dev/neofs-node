@@ -1387,10 +1387,6 @@ func (m *serviceClient) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer,
 	panic("unimplemented")
 }
 
-func (m *serviceClient) ObjectSearchInit(context.Context, cid.ID, user.Signer, client.PrmObjectSearch) (*client.ObjectListReader, error) {
-	panic("unimplemented")
-}
-
 func (m *serviceClient) SearchObjects(context.Context, cid.ID, object.SearchFilters, []string, string, neofscrypto.Signer, client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
 	panic("unimplemented")
 }

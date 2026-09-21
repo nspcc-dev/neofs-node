@@ -448,15 +448,6 @@ func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, o
 	return res, err
 }
 
-func (c *reputationClient) ObjectSearchInit(ctx context.Context, containerID cid.ID, signer user.Signer, prm client.PrmObjectSearch) (*client.ObjectListReader, error) {
-	res, err := c.MultiAddressClient.ObjectSearchInit(ctx, containerID, signer, prm)
-
-	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
-	c.submitResult(err)
-
-	return res, err
-}
-
 func (c *reputationClientConstructor) Get(ctx context.Context, info netmap.NodeInfo) (clientcore.Client, error) {
 	cl, err := c.basicConstructor.Get(ctx, info)
 	if err != nil {

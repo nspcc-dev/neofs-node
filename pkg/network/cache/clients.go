@@ -477,15 +477,6 @@ func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, sig
 	})
 }
 
-func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer user.Signer, opts client.PrmObjectSearch) (*client.ObjectListReader, error) {
-	var res *client.ObjectListReader
-	return res, x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
-		var err error
-		res, err = c.ObjectSearchInit(ctx, cnr, signer, opts)
-		return err
-	})
-}
-
 func (x *connections) AnnounceLocalTrust(ctx context.Context, epoch uint64, ts []reputation.Trust, opts client.PrmAnnounceLocalTrust) error {
 	return x.forAny(ctx, func(ctx context.Context, c *client.Client) error {
 		return c.AnnounceLocalTrust(ctx, epoch, ts, opts)
