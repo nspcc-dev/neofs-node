@@ -89,7 +89,7 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *object.Object, objBin []byte) error {
 	exists, err := sh.Exists(addr, false)
 	if err != nil {
-		sh.engine.log.Warn("object put: check object existence",
+		e.log.Warn("object put: check object existence",
 			zap.Stringer("addr", addr),
 			zap.Stringer("shard", sh.ID()),
 			zap.Error(err))
@@ -110,11 +110,11 @@ func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *objec
 	if err != nil {
 		if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
 			errors.Is(err, common.ErrNoSpace) {
-			sh.engine.log.Warn("could not put object to shard",
+			e.log.Warn("could not put object to shard",
 				zap.Stringer("shard_id", sh.ID()),
 				zap.Error(err))
 		} else {
-			sh.engine.reportShardError(sh, "could not put object to shard", err)
+			e.reportShardError(sh, "could not put object to shard", err)
 		}
 	}
 

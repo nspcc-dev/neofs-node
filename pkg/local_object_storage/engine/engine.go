@@ -60,7 +60,6 @@ type shardWrapper struct {
 	errorCount *atomic.Uint32
 	*shard.Shard
 	shardIface shardInterface // TODO: make Shard a shardInterface
-	engine     *StorageEngine
 }
 
 type setModeRequest struct {
