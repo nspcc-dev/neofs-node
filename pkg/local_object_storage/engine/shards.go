@@ -131,6 +131,7 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 	var shw = shardWrapper{
 		errorCount: new(atomic.Uint32),
 		Shard:      sh,
+		shardIface: sh,
 	}
 
 	e.shards[strID] = shw

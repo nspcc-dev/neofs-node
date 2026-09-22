@@ -35,3 +35,6 @@ func (x ParentObjectError) Is(target error) bool {
 	}
 	return errors.Is(x.error, target)
 }
+
+// ErrObjectExists is returned to indicate that some object exists.
+var ErrObjectExists = errors.New("object exists")

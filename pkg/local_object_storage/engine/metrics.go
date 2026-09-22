@@ -19,6 +19,7 @@ type MetricRegister interface {
 	AddGetRangeStreamDuration(d time.Duration)
 	AddInhumeDuration(d time.Duration)
 	AddPutDuration(d time.Duration)
+	AddStreamingPutDuration(d time.Duration)
 	AddRangeDuration(d time.Duration)
 	AddSearchDuration(d time.Duration)
 	AddListObjectsDuration(d time.Duration)
