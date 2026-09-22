@@ -36,6 +36,10 @@ The lowest not used bucket index: 20.
 
 # History
 
+## Version 12
+
+`__NEOFS__NONCE` attribute is dropped from the DB.
+
 ## Version 11
 
 Object counters are updated (resynced) to fix potential issues caused by GC mark

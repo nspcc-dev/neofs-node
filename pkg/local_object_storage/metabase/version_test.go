@@ -313,3 +313,126 @@ func makeAssociatedIDAttrKey(id oid.ID, value []byte) []byte {
 	copy(res[off:], value)
 	return res
 }
+
+func TestMigrate11To12(t *testing.T) {
+	var (
+		db   = newDB(t)
+		cID1 = cidtest.ID()
+		cID2 = cidtest.ID()
+	)
+
+	const numOfTestObjs = 2026 // a little more than single iteration in `updateContainersInterruptable` for two containers
+	objs := make([]object.Object, 0, numOfTestObjs)
+	for i := range numOfTestObjs {
+		o := objecttest.Object()
+		if i < numOfTestObjs/2 {
+			o.SetAttributes(object.NewAttribute(object.AttributeNonce, fmt.Sprintf("some %d", i)))
+			o.SetContainerID(cID1)
+		} else {
+			o.SetAttributes(object.NewAttribute(object.AttributeNonce, fmt.Sprintf("%d", i)))
+			o.SetContainerID(cID2)
+		}
+
+		objs = append(objs, o)
+	}
+
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		bkt1, err := tx.CreateBucketIfNotExists(metaBucketKey(cID1))
+		require.NoError(t, err)
+		bkt2, err := tx.CreateBucketIfNotExists(metaBucketKey(cID2))
+		require.NoError(t, err)
+
+		for _, o := range objs {
+			err = PutMetadataForObject(tx, o, true)
+			if err != nil {
+				return err
+			}
+		}
+
+		for i, o := range objs {
+			var bkt *bbolt.Bucket
+			if i < numOfTestObjs/2 {
+				bkt = bkt1
+			} else {
+				bkt = bkt2
+			}
+
+			// Same behavior as before version 12.
+			var keyBuf keyBuffer
+
+			attrs := o.Attributes()
+			for _, a := range attrs {
+				if a.Key() == object.AttributeNonce {
+					if n, isInt := parseInt(a.Value()); isInt {
+						err = putIntAttribute(bkt, &keyBuf, o.GetID(), a.Key(), a.Value(), &n)
+					} else {
+						err = putPlainAttribute(bkt, &keyBuf, o.GetID(), a.Key(), a.Value())
+					}
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+
+	countFields := func(db *bbolt.DB) (int, error) {
+		var numOfFields int
+		err := db.View(func(tx *bbolt.Tx) error {
+			for _, cID := range []cid.ID{cID1, cID2} {
+				b := tx.Bucket(metaBucketKey(cID))
+				err = b.ForEach(func(_, _ []byte) error {
+					numOfFields++
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		return numOfFields, nil
+	}
+
+	numOfFieldsBefore, err := countFields(db.boltDB)
+	require.NoError(t, err)
+
+	err = updateContainersInterruptable(db, []byte{metadataPrefix}, dropNonceIndexes)
+	require.NoError(t, err)
+
+	numOfFieldsAfter, err := countFields(db.boltDB)
+	require.NoError(t, err)
+
+	require.Equal(t, numOfFieldsBefore-2*numOfTestObjs-numOfTestObjs/2, numOfFieldsAfter) // two indexes deleted for every object, int index for a half of them
+
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		for _, cID := range []cid.ID{cID1, cID2} {
+			b := tx.Bucket(metaBucketKey(cID))
+			c := b.Cursor()
+
+			for k, _ := c.First(); k != nil; k, _ = c.Next() {
+				switch k[0] {
+				case metaPrefixAttrIDPlain:
+					if bytes.HasPrefix(k[1:], []byte(object.AttributeNonce)) {
+						return fmt.Errorf("found ATTR -> ID key for %s container: %x", cID, k)
+					}
+				case metaPrefixIDAttr:
+					if bytes.HasPrefix(k[1+oid.Size:], []byte(object.AttributeNonce)) {
+						return fmt.Errorf("found ID -> ATTR key for %s container: %x", cID, k)
+					}
+				default:
+				}
+			}
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+}

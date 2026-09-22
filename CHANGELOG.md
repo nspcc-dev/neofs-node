@@ -24,9 +24,10 @@ Changelog for NeoFS Node
 ### Removed
 - GetRange object service method (#4167)
 - Metabase migration code for DB version 10 (from 9) (#4184)
+- __NEOFS__NONCE attribute from metabase (#4187)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260911084039-e749b2b839ac` (#4168)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260921152514-a9e144a15933` (#4168, #4187)
 
 ### Updating from v0.56.0
 To change an FSTree layout depth, configure the new `blobstor.depth` and set
@@ -43,6 +44,10 @@ GetRange method since this version doesn't support GetRange.
 Metabase migration for version 10 introduced in NeoFS node 0.52.0
 was removed from this release, upgrade to 0.56.0 first if using
 earlier versions or resynchronize metabases.
+
+This release introduces metabase version 12 with minor changes to the old
+version. Metabases will be migrated automatically on node startup, but this
+can take some time  for large shards with many objects.
 
 ## [0.56.0] - 2026-09-01 - Nabdo
 

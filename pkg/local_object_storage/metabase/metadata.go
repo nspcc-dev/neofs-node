@@ -128,8 +128,9 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	for i := range attrs {
 		ak, av := attrs[i].Key(), attrs[i].Value()
 		switch ak {
-		case object.AttributeECPartHashes:
-			// indexing EC hashes attributes has no practical meaning
+		case object.AttributeECPartHashes,
+			object.AttributeNonce:
+			// indexing these attributes has no practical meaning
 			continue
 		case object.AttributeAssociatedObject:
 			var associated oid.ID
