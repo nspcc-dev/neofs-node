@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -18,6 +19,7 @@ import (
 type metabase interface {
 	ResolveECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, error)
 	ResolveECPartWithPayloadLen(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (oid.ID, uint64, error)
+	PutCounted(*object.Object) (meta.CountersDiff, error)
 }
 
 // Shard represents single shard of NeoFS Local Storage Engine.
