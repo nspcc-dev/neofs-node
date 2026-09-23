@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
@@ -159,6 +160,17 @@ type Storage interface {
 	//
 	// Returns [apistatus.Busy] error if storage is currently overloaded.
 	StoreObjectLocally(ctx context.Context, obj object.Object) error
+
+	// InitLocalObjectWrite initializes object write to the local storage, writes
+	// provided header and returns the stream to write payload. Once payload is
+	// written, stream is closed. On success, object becomes saved.
+	//
+	// Resulting function allows to abort operation in case of problems on caller
+	// side. It is not called multiple times, after [io.Closer.Close] or failed
+	// [io.Writer.Write].
+	//
+	// Returns [ierrors.ErrObjectExists] if object already exists in the storage.
+	InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error)
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
@@ -1610,19 +1622,7 @@ func (s *Server) ReplicateV2(stream protoobject.ObjectService_ReplicateV2Server)
 		return stream.SendAndClose(&protoobject.ReplicateV2Response{Status: st})
 	}
 
-	recvChunkFn := func() ([]byte, *protostatus.Status, error) {
-		req, err := stream.Recv()
-		if err != nil {
-			return nil, nil, err
-		}
-		chunkPart, ok := req.StreamPart.(*protoobject.ReplicateV2Request_PayloadChunk)
-		if !ok {
-			return nil, newBadRequestStatus("non-chunk subsequent message"), nil
-		}
-		return chunkPart.PayloadChunk, nil, nil
-	}
-
-	objSig, st, err := s.replicate(stream.Context(), initPart.Object, initPart.Signature, initPart.SignObject, recvChunkFn)
+	objSig, st, err := s.replicate(stream.Context(), initPart.Object, initPart.Signature, initPart.SignObject, stream)
 	if err != nil {
 		return err
 	}
@@ -1642,9 +1642,7 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 		}, nil
 	}
 
-	objSig, st, err := s.replicate(ctx, req.Object, req.Signature, req.SignObject, func() ([]byte, *protostatus.Status, error) {
-		return nil, nil, io.EOF
-	})
+	objSig, st, err := s.replicate(ctx, req.Object, req.Signature, req.SignObject, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1659,7 +1657,51 @@ func newWrongReplicatedObjectPayloadLengthStatus() *protostatus.Status {
 	return newInternalServerErrorStatus(fmt.Sprintf("%s: %v", verifyObjectFailMessage, putsvc.ErrWrongPayloadSize))
 }
 
-func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig *refs.Signature, signObject bool, recvChunkFn func() ([]byte, *protostatus.Status, error)) ([]byte, *protostatus.Status, error) {
+func newStoreLocalObjectFailureStatus(cause error) *protostatus.Status {
+	return newInternalServerErrorStatus(fmt.Sprintf("failed to store object locally: %v", cause))
+}
+
+// Wraps and returns w error along with errWriteStream.
+func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w io.Writer) ([]byte, uint64, *protostatus.Status, error) {
+	var totalLen uint64
+	h := sha256.New()
+
+	for {
+		var req protoobject.ReplicateV2Request
+		err := stream.RecvMsg(&req)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return h.Sum(nil), totalLen, nil, nil
+			}
+			return nil, 0, nil, err
+		}
+
+		chunkPart, ok := req.StreamPart.(*protoobject.ReplicateV2Request_PayloadChunk)
+		if !ok {
+			return nil, 0, newBadRequestStatus("non-chunk subsequent message"), nil
+		}
+
+		chunk := chunkPart.PayloadChunk
+
+		if len(chunk) == 0 {
+			return nil, 0, newBadRequestStatus("empty payload chunk"), nil
+		}
+
+		if totalLen+uint64(len(chunk)) > payloadLen {
+			return nil, 0, newWrongReplicatedObjectPayloadLengthStatus(), nil
+		}
+
+		_, err = w.Write(chunk)
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("%w: %w", errWriteStream, err)
+		}
+
+		totalLen += uint64(len(chunk))
+		h.Write(chunk)
+	}
+}
+
+func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig *refs.Signature, signObject bool, stream grpc.ServerStream) ([]byte, *protostatus.Status, error) {
 	if objMsg.ObjectId == nil || len(objMsg.ObjectId.Value) == 0 {
 		return nil, newBadRequestStatus("ID field is missing/empty in the object field"), nil
 	}
@@ -1757,7 +1799,6 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 		return nil, newAccessDeniedStatus("client does not match the object's storage policy"), nil
 	}
 
-	// TODO(@cthulhu-rider): avoid decoding the object completely
 	obj, err := objectFromMessage(objMsg)
 	if err != nil {
 		return nil, newBadRequestStatus(fmt.Sprintf("invalid object field: %v", err)), nil
@@ -1768,40 +1809,78 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 		return nil, newInternalServerErrorStatus(fmt.Sprintf("%s: %v", verifyObjectFailMessage, err)), nil
 	}
 
-	if hdr.PayloadLength < uint64(len(objMsg.Payload)) { // also prevents slices.Grow() panic below
-		return nil, newWrongReplicatedObjectPayloadLengthStatus(), nil
+	makeOKResult := func() ([]byte, *protostatus.Status, error) {
+		if !signObject {
+			return nil, nil, nil
+		}
+
+		objSig, err := s.metaInfoSignature(*obj)
+		if err != nil {
+			return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to sign object meta information: %v", err)), nil
+		}
+
+		// nil status corresponds to OK
+		return objSig, nil, nil
 	}
 
-	// TODO: avoid full buffering, copy  to local storage stream directly instead
-	payload := slices.Grow(objMsg.Payload, int(hdr.PayloadLength)-len(objMsg.Payload))
-	for {
-		chunk, st, err := recvChunkFn()
+	var gotPayloadLen uint64
+	var gotHash []byte
+
+	isStorageStream := stream != nil && obj.Type() == object.TypeRegular
+	var storageStreamAbortFn func()
+	var storageStreamCloser io.Closer
+
+	if isStorageStream {
+		// TODO: can be optimized from two sides:
+		//  1. header structure decoding can be done without unmarshaling (e.g. via protoscan funcs)
+		//  2. since header is already serialized in the original request, io.WriterTo can be implemented around it
+		var storageStream io.WriteCloser
+		storageStream, storageStreamAbortFn, err = s.storage.InitLocalObjectWrite(ctx, *obj, uint64(obj.HeaderLen()), iobject.WriterTo(*obj))
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
+			if errors.Is(err, ierrors.ErrObjectExists) {
+				return makeOKResult()
 			}
-			return nil, nil, err
-		}
-		if st != nil {
-			return nil, st, nil
+			return nil, newStoreLocalObjectFailureStatus(fmt.Errorf("init stream: %w", err)), nil
 		}
 
-		if len(chunk) == 0 {
-			return nil, newBadRequestStatus("empty payload chunk"), nil
+		var st *protostatus.Status
+		gotHash, gotPayloadLen, st, err = readReplicatedObjectPayload(obj.PayloadSize(), stream, storageStream)
+		if err != nil || st != nil {
+			if errors.Is(err, errWriteStream) {
+				return nil, newStoreLocalObjectFailureStatus(err), nil
+			}
+			storageStreamAbortFn()
+			return nil, st, err
 		}
 
-		if uint64(len(payload)+len(chunk)) > obj.PayloadSize() {
+		storageStreamCloser = storageStream
+	} else if stream != nil {
+		if hdr.PayloadLength < uint64(len(objMsg.Payload)) { // also prevents Grow() panic below
 			return nil, newWrongReplicatedObjectPayloadLengthStatus(), nil
 		}
 
-		payload = append(payload, chunk...)
+		buf := bytes.NewBuffer(objMsg.Payload)
+		buf.Grow(int(hdr.PayloadLength) - len(objMsg.Payload))
+
+		var st *protostatus.Status
+		gotHash, gotPayloadLen, st, err = readReplicatedObjectPayload(obj.PayloadSize(), stream, buf)
+		if err != nil || st != nil {
+			return nil, st, err
+		}
+
+		obj.SetPayload(buf.Bytes())
+	} else { // Replicate(V1)
+		gotPayloadLen = uint64(len(obj.Payload()))
+		h := sha256.Sum256(obj.Payload())
+		gotHash = h[:]
 	}
 
-	if obj.PayloadSize() != uint64(len(payload)) {
+	if obj.PayloadSize() != gotPayloadLen {
+		if isStorageStream {
+			storageStreamAbortFn()
+		}
 		return nil, newWrongReplicatedObjectPayloadLengthStatus(), nil
 	}
-
-	obj.SetPayload(payload)
 
 	if obj.Type() != object.TypeRegular {
 		err = s.storage.VerifyObjectPayload(ctx, *obj)
@@ -1811,29 +1890,29 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 	}
 
 	// checksum must be only SHA256, this was checked above
-	gotHash := sha256.Sum256(payload)
 	if !bytes.Equal(gotHash[:], hdr.GetPayloadHash().GetSum()) {
+		if isStorageStream {
+			storageStreamAbortFn()
+		}
 		return nil, newInternalServerErrorStatus(verifyObjectFailMessage + ": payload SHA-256 checksum mismatch"), nil
 	}
 
-	err = s.storage.StoreObjectLocally(ctx, *obj)
-	if err != nil {
-		if errors.Is(err, apistatus.ErrBusy) {
-			return nil, apistatus.FromError(err), nil
-		}
-		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to store object locally: %v", err)), nil
-	}
-
-	var objSig []byte
-	if signObject {
-		objSig, err = s.metaInfoSignature(*obj)
+	if isStorageStream {
+		err = storageStreamCloser.Close()
 		if err != nil {
-			return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to sign object meta information: %v", err)), nil
+			return nil, newStoreLocalObjectFailureStatus(fmt.Errorf("close stream: %w", err)), nil
+		}
+	} else {
+		err = s.storage.StoreObjectLocally(ctx, *obj)
+		if err != nil {
+			if errors.Is(err, apistatus.ErrBusy) {
+				return nil, apistatus.FromError(err), nil
+			}
+			return nil, newStoreLocalObjectFailureStatus(err), nil
 		}
 	}
 
-	// nil status corresponds to OK
-	return objSig, nil, nil
+	return makeOKResult()
 }
 
 func (s *Server) signSearchResponse(body *protoobject.SearchV2Response_Body, err error, req *protoobject.SearchV2Request) *protoobject.SearchV2Response {

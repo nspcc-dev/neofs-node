@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"slices"
 	"sync"
@@ -640,6 +641,11 @@ func (x storageForObjectService) VerifyObjectPayload(ctx context.Context, obj ob
 // StoreObjectLocally implements [objectService.Storage] interface.
 func (x storageForObjectService) StoreObjectLocally(ctx context.Context, obj object.Object) error {
 	return x.local.Put(ctx, &obj, nil)
+}
+
+// InitLocalObjectWrite implements [objectService.Storage] interface.
+func (x storageForObjectService) InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+	return x.local.InitPut(ctx, hdr, hdrLen, hdrW)
 }
 
 func (x storageForObjectService) GetSessionPrivateKey(account user.ID) (ecdsa.PrivateKey, error) {

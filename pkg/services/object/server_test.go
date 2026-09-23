@@ -140,6 +140,10 @@ func (noCallTestStorage) StoreObjectLocally(context.Context, object.Object) erro
 	panic("must not be called")
 }
 
+func (noCallTestStorage) InitLocalObjectWrite(context.Context, object.Object, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
+	panic("must not be called")
+}
+
 type noCallTestACLChecker struct{}
 
 func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool { panic("must not be called") }
@@ -877,7 +881,9 @@ func (x nopFSChain) IsOwnPublicKey([]byte) bool {
 
 func (nopFSChain) LocalNodeUnderMaintenance() bool { return false }
 
-type nopStorage struct{}
+type nopStorage struct {
+	noCallTestStorage
+}
 
 func (nopStorage) GetSessionPrivateKey(user.ID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
