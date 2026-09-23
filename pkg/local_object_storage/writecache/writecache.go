@@ -67,6 +67,8 @@ type cache struct {
 	flushCh chan []oid.Address
 	// flushObjs is a map with objects that are currently being processed by flusher.
 	flushObjs sync.Map
+	// flushLoadGates for workers, the length must always equal the number of workers.
+	flushLoadGates []*loadGate
 	// closeCh is close channel.
 	closeCh chan struct{}
 	// wg is a wait group for flush workers.
@@ -110,6 +112,7 @@ func New(opts ...Option) Cache {
 	for i := range opts {
 		opts[i](&c.options)
 	}
+	c.objCounters.sizeChangedCallback = c.handleSizeCallback()
 
 	return c
 }

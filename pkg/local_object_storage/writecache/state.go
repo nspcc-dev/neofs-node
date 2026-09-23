@@ -9,9 +9,10 @@ import (
 )
 
 type counters struct {
-	mu     sync.RWMutex
-	objMap map[oid.Address]uint64
-	size   uint64
+	mu                  sync.RWMutex
+	objMap              map[oid.Address]uint64
+	size                uint64
+	sizeChangedCallback func(uint64)
 }
 
 func (x *counters) Add(addr oid.Address, size uint64) {
@@ -19,6 +20,7 @@ func (x *counters) Add(addr oid.Address, size uint64) {
 	defer x.mu.Unlock()
 
 	x.size += size
+	x.sizeChangedCallback(x.size)
 	x.objMap[addr] = size
 }
 
@@ -27,6 +29,7 @@ func (x *counters) Delete(addr oid.Address) {
 	defer x.mu.Unlock()
 
 	x.size -= x.objMap[addr]
+	x.sizeChangedCallback(x.size)
 	delete(x.objMap, addr)
 }
 

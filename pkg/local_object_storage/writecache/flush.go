@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -29,13 +30,145 @@ const (
 	defaultMaxBatchTreshold = 128 * 1024
 )
 
+// newLoadGate initializes new gate. New gate is always paused.
+func newLoadGate(stopCh <-chan struct{}) *loadGate {
+	lg := &loadGate{
+		m:      sync.Mutex{},
+		ch:     make(chan struct{}),
+		stopCh: stopCh,
+	}
+	// new gate is paused
+	close(lg.ch)
+	return lg
+}
+
+type loadGate struct {
+	m  sync.Mutex
+	ch chan struct{}
+
+	stopCh <-chan struct{}
+}
+
+func (l *loadGate) wait() {
+	l.m.Lock()
+	ch := l.ch
+	l.m.Unlock()
+
+	select {
+	case <-l.stopCh:
+		return
+	case <-ch:
+		return
+	}
+}
+
+func (l *loadGate) pause() {
+	l.m.Lock()
+	defer l.m.Unlock()
+	select {
+	case <-l.ch:
+		l.ch = make(chan struct{})
+	default:
+		// already paused
+	}
+}
+
+func (l *loadGate) resume() {
+	select {
+	case <-l.stopCh:
+		return
+	default:
+	}
+
+	l.m.Lock()
+	defer l.m.Unlock()
+	select {
+	case <-l.ch:
+		// already resumed
+	default:
+		close(l.ch)
+	}
+}
+
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
+	c.flushLoadGates = make([]*loadGate, c.workersCount)
 	for i := range c.workersCount {
-		c.wg.Go(func() { c.flushWorker(i) })
+		lg := newLoadGate(c.closeCh)
+		if i == 0 {
+			// always start 1st flusher
+			lg.resume()
+		}
+
+		c.flushLoadGates[i] = lg
+	}
+
+	for i := range c.workersCount {
+		c.wg.Go(func() { c.flushWorker(i, c.flushLoadGates[i]) })
 	}
 
 	c.wg.Go(c.flushScheduler)
+}
+
+func (c *cache) handleSizeCallback() func(uint64) {
+	if c.workersCount <= 2 {
+		return func(u uint64) {}
+	}
+
+	var (
+		activeWorkersNumber = 1 // default start value
+
+		minThreshSize = c.maxCacheSize / 10 // 10%
+		maxThreshSize = c.maxCacheSize / 2  // 50%
+		step          = (maxThreshSize - minThreshSize) / uint64(c.workersCount-2)
+
+		// thresholds is a list with threshold elements:
+		//    [0, minThreshSize, ..., maxThreshSize]
+		// if taken size is between (i-1)-th and i-th elements, it means
+		// WC must have i active workers.
+		thresholds = make([]uint64, c.workersCount+1)
+	)
+	thresholds[0] = 0
+	thresholds[c.workersCount] = c.maxCacheSize
+	for i := range c.workersCount - 1 {
+		thresholds[i+1] = minThreshSize + uint64(i)*step
+	}
+
+	return func(size uint64) {
+		var newWorkersNumber int
+		for i, threshold := range thresholds {
+			newWorkersNumber = i
+			if size < threshold {
+				break
+			}
+		}
+
+		if newWorkersNumber == activeWorkersNumber {
+			return
+		}
+		defer func() {
+			activeWorkersNumber = newWorkersNumber
+		}()
+
+		c.log.Debug("changing active flush workers number...",
+			zap.Uint64("takenSize", size),
+			zap.Int("oldNumber", activeWorkersNumber),
+			zap.Int("newNumber", newWorkersNumber))
+
+		if activeWorkersNumber < newWorkersNumber {
+			for i := activeWorkersNumber; i < newWorkersNumber; i++ {
+				c.log.Debug("flush worker resumed", zap.Uint64("takenSize", size), zap.Int("index", i))
+				c.flushLoadGates[i].resume()
+			}
+			return
+		}
+
+		// activeNumberOfWorkers > newWorkersNumber
+		for i := newWorkersNumber; i < activeWorkersNumber; i++ {
+			c.log.Debug("flush worker paused", zap.Uint64("takenSize", size), zap.Int("index", i))
+			c.flushLoadGates[i].pause()
+		}
+	}
 }
 
 func (c *cache) flushScheduler() {
@@ -115,8 +248,10 @@ func (c *cache) flushScheduler() {
 	}
 }
 
-func (c *cache) flushWorker(id int) {
+func (c *cache) flushWorker(id int, loadGate *loadGate) {
 	for {
+		loadGate.wait()
+
 		var (
 			addrs []oid.Address
 			err   error
