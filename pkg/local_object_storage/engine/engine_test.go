@@ -135,7 +135,15 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 	ws := make([]shardWrapper, len(ss))
 
 	for i := range ss {
+		sh := shard.New(
+			shard.WithMetaBaseOptions(
+				meta.WithEpochState(epochState{}),
+			),
+			shard.WithBlobstor(mockShardBLOBStorageInfo{}),
+		)
 		ws[i] = shardWrapper{
+			errorCount: new(atomic.Uint32),
+			Shard:      sh,
 			shardIface: ss[i],
 		}
 	}
@@ -198,6 +206,14 @@ func (unimplementedShard) ReadRange(cid.ID, oid.ID, uint64, uint64, []byte, func
 }
 
 func (unimplementedShard) ReadECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) Exists(oid.Address, bool) (bool, error) {
+	panic("unimplemented")
+}
+
+func (unimplementedShard) InitPut(object.Object, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
 	panic("unimplemented")
 }
 
@@ -517,6 +533,10 @@ func (x unimplementedMetrics) AddPutDuration(time.Duration) {
 	panic("unimplemented")
 }
 
+func (x unimplementedMetrics) AddStreamingPutDuration(time.Duration) {
+	panic("unimplemented")
+}
+
 func (x unimplementedMetrics) AddRangeDuration(time.Duration) {
 	panic("unimplemented")
 }
@@ -546,6 +566,14 @@ func (x unimplementedMetrics) AddReadPayloadRangeDuration(time.Duration) {
 }
 
 func (x unimplementedMetrics) AddReadECPartRangeDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddReadECPartDuration(time.Duration) {
+	panic("unimplemented")
+}
+
+func (x unimplementedMetrics) AddReadECPartHeaderDuration(time.Duration) {
 	panic("unimplemented")
 }
 
@@ -596,4 +624,21 @@ func (x *testMetrics) AddHeadECPartDuration(d time.Duration) {
 
 func (x *testMetrics) AddReadECPartHeaderDuration(d time.Duration) {
 	x.readECPartHeader.Add(int64(d))
+}
+
+type mockShardBLOBStorageInfo struct {
+	common.Storage
+}
+
+func (m mockShardBLOBStorageInfo) Type() string {
+	return ""
+}
+
+func (m mockShardBLOBStorageInfo) Path() string {
+	return ""
+}
+
+func assertUnlockedExecutionBlocker(t *testing.T, s *StorageEngine) {
+	require.True(t, s.blockMtx.TryLock())
+	s.blockMtx.Unlock()
 }

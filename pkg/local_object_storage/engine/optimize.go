@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -79,7 +80,7 @@ func (e *StorageEngine) OptimizeShardLocation(_ context.Context, addr oid.Addres
 		}
 
 		err = e.putToShard(target, addr, obj, nil)
-		if err != nil && !errors.Is(err, errExists) {
+		if err != nil && !errors.Is(err, ierrors.ErrObjectExists) {
 			return false, err
 		}
 		moved = err == nil

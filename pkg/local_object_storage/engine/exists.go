@@ -14,8 +14,8 @@ func (e *StorageEngine) existsPhysical(addr oid.Address) (bool, error) {
 		defer elapsed(e.metrics.AddExistsDuration)()
 	}
 
-	for _, sh := range e.sortedShards(addr.Object()) {
-		exists, err := sh.Exists(addr, false)
+	for _, sh := range e.sortShardsFn(e, addr.Object()) {
+		exists, err := sh.shardIface.Exists(addr, false)
 		if err != nil {
 			if shard.IsErrObjectExpired(err) {
 				return true, nil

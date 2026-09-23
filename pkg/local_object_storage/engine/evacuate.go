@@ -9,6 +9,7 @@ import (
 
 	"github.com/nspcc-dev/hrw/v2"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -124,7 +125,7 @@ mainLoop:
 						count++
 						continue loop
 					}
-					if errors.Is(err, errExists) {
+					if errors.Is(err, ierrors.ErrObjectExists) {
 						continue loop
 					}
 

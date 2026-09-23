@@ -22,6 +22,7 @@ type (
 		getRangeStreamDuration        prometheus.Histogram
 		inhumeDuration                prometheus.Histogram
 		putDuration                   prometheus.Histogram
+		streamingPutDuration          prometheus.Histogram
 		rangeDuration                 prometheus.Histogram
 		searchDuration                prometheus.Histogram
 		listObjectsDuration           prometheus.Histogram
@@ -150,6 +151,13 @@ func newEngineMetrics() engineMetrics {
 			Help:      "Engine 'put' operations handling time",
 		})
 
+		streamingPutDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "streaming_put_time",
+			Help:      "Engine streaming 'put' operations handling time",
+		})
+
 		rangeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
@@ -259,6 +267,7 @@ func newEngineMetrics() engineMetrics {
 		getRangeStreamDuration:        getRangeStreamDuration,
 		inhumeDuration:                inhumeDuration,
 		putDuration:                   putDuration,
+		streamingPutDuration:          streamingPutDuration,
 		rangeDuration:                 rangeDuration,
 		searchDuration:                searchDuration,
 		listObjectsDuration:           listObjectsDuration,
@@ -290,6 +299,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.getRangeStreamDuration)
 	prometheus.MustRegister(m.inhumeDuration)
 	prometheus.MustRegister(m.putDuration)
+	prometheus.MustRegister(m.streamingPutDuration)
 	prometheus.MustRegister(m.rangeDuration)
 	prometheus.MustRegister(m.searchDuration)
 	prometheus.MustRegister(m.listObjectsDuration)
@@ -359,6 +369,10 @@ func (m engineMetrics) AddInhumeDuration(d time.Duration) {
 
 func (m engineMetrics) AddPutDuration(d time.Duration) {
 	m.putDuration.Observe(d.Seconds())
+}
+
+func (m engineMetrics) AddStreamingPutDuration(d time.Duration) {
+	m.streamingPutDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddRangeDuration(d time.Duration) {
