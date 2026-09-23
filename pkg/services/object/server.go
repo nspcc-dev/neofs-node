@@ -151,7 +151,8 @@ type Storage interface {
 	// Requires payload checksum to be of [checksum.SHA256] type.
 	VerifyObjectHeader(context.Context, object.Object) error
 
-	// VerifyObjectPayload makes type-based check of object payload.
+	// VerifyObjectPayload makes type-based check of object payload. Called only for
+	// objects of type different from [object.TypeRegular].
 	VerifyObjectPayload(context.Context, object.Object) error
 
 	// StoreObjectLocally saves given in-memory object in the local storage.
@@ -1802,9 +1803,11 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 
 	obj.SetPayload(payload)
 
-	err = s.storage.VerifyObjectPayload(ctx, *obj)
-	if err != nil {
-		return nil, newInternalServerErrorStatus(fmt.Sprintf("%s: %v", verifyObjectFailMessage, err)), nil
+	if obj.Type() != object.TypeRegular {
+		err = s.storage.VerifyObjectPayload(ctx, *obj)
+		if err != nil {
+			return nil, newInternalServerErrorStatus(fmt.Sprintf("%s: %v", verifyObjectFailMessage, err)), nil
+		}
 	}
 
 	// checksum must be only SHA256, this was checked above
