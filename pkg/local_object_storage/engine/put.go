@@ -20,8 +20,6 @@ import (
 
 var (
 	errPutShard = errors.New("could not put object to any shard")
-
-	errExists = errors.New("already exists")
 )
 
 // Put saves an object to local storage. objBin and hdrLen parameters are
@@ -71,7 +69,7 @@ func (e *StorageEngine) Put(ctx context.Context, obj *object.Object, objBin []by
 
 	for _, sh := range shs {
 		err = e.putToShard(sh, addr, obj, objBin)
-		if err == nil || errors.Is(err, errExists) {
+		if err == nil || errors.Is(err, ierrors.ErrObjectExists) {
 			return nil
 		}
 	}
@@ -122,13 +120,13 @@ func (e *StorageEngine) checkExistsOnShard(sh shardWrapper, addr oid.Address) er
 		if shard.IsErrObjectExpired(err) {
 			// object is already found but
 			// expired => do nothing with it
-			err = errExists
+			err = ierrors.ErrObjectExists
 		}
 		return err
 	}
 
 	if exists {
-		return errExists
+		return ierrors.ErrObjectExists
 	}
 
 	return nil
@@ -178,9 +176,9 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 
 	for _, sh := range allShards {
 		err := e.putToShard(sh, addr, obj, objBin)
-		if err == nil || errors.Is(err, errExists) {
+		if err == nil || errors.Is(err, ierrors.ErrObjectExists) {
 			goodShards = append(goodShards, sh)
-			if errors.Is(err, errExists) {
+			if errors.Is(err, ierrors.ErrObjectExists) {
 				e.log.Debug("object already exists on shard during broadcast",
 					zap.Stringer("type", obj.Type()),
 					zap.Stringer("associated", obj.AssociatedObject()),
@@ -283,7 +281,7 @@ func (e *StorageEngine) InitPut(_ context.Context, hdr object.Object, hdrLen uin
 	for _, sh := range shs {
 		err = e.checkExistsOnShard(sh, addr)
 		if err != nil {
-			if errors.Is(err, errExists) {
+			if errors.Is(err, ierrors.ErrObjectExists) {
 				return nil, nil, ierrors.ErrObjectExists
 			}
 			continue
