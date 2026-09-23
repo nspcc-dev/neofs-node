@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -145,10 +146,18 @@ type sessions interface {
 type Storage interface {
 	sessions
 
-	// VerifyAndStoreObjectLocally checks whether given object has correct format
-	// and, if so, saves it in the Storage. StoreObject is called only when local
-	// node complies with the container's storage policy.
-	VerifyAndStoreObjectLocally(context.Context, object.Object) error
+	// VerifyObjectHeader checks whether given object header has correct format.
+	//
+	// Requires payload checksum to be of [checksum.SHA256] type.
+	VerifyObjectHeader(context.Context, object.Object) error
+
+	// VerifyObjectPayload makes type-based check of object payload.
+	VerifyObjectPayload(context.Context, object.Object) error
+
+	// StoreObjectLocally saves given in-memory object in the local storage.
+	//
+	// Returns [apistatus.Busy] error if storage is currently overloaded.
+	StoreObjectLocally(ctx context.Context, obj object.Object) error
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
@@ -195,6 +204,10 @@ const (
 	maxRespDataChunkSize = maxRespMsgSize * 3 / 4             // 25% to meta, 75% to payload
 	addrMsgSize          = 72                                 // 32 bytes object ID, 32 bytes container ID, 8 bytes protobuf encoding
 	maxObjAddrRespAmount = maxRespDataChunkSize / addrMsgSize // each address is about 72 bytes
+)
+
+const (
+	verifyObjectFailMessage = "failed to verify object"
 )
 
 // Server represents Object Service server that provides object manipulation
@@ -1641,6 +1654,10 @@ func (s *Server) Replicate(ctx context.Context, req *protoobject.ReplicateReques
 	}, nil
 }
 
+func newWrongReplicatedObjectPayloadLengthStatus() *protostatus.Status {
+	return newInternalServerErrorStatus(fmt.Sprintf("%s: %v", verifyObjectFailMessage, putsvc.ErrWrongPayloadSize))
+}
+
 func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig *refs.Signature, signObject bool, recvChunkFn func() ([]byte, *protostatus.Status, error)) ([]byte, *protostatus.Status, error) {
 	if objMsg.ObjectId == nil || len(objMsg.ObjectId.Value) == 0 {
 		return nil, newBadRequestStatus("ID field is missing/empty in the object field"), nil
@@ -1745,6 +1762,15 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 		return nil, newBadRequestStatus(fmt.Sprintf("invalid object field: %v", err)), nil
 	}
 
+	err = s.storage.VerifyObjectHeader(ctx, *obj)
+	if err != nil {
+		return nil, newInternalServerErrorStatus(fmt.Sprintf("%s: %v", verifyObjectFailMessage, err)), nil
+	}
+
+	if hdr.PayloadLength < uint64(len(objMsg.Payload)) { // also prevents slices.Grow() panic below
+		return nil, newWrongReplicatedObjectPayloadLengthStatus(), nil
+	}
+
 	// TODO: avoid full buffering, copy  to local storage stream directly instead
 	payload := slices.Grow(objMsg.Payload, int(hdr.PayloadLength)-len(objMsg.Payload))
 	for {
@@ -1763,16 +1789,36 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 			return nil, newBadRequestStatus("empty payload chunk"), nil
 		}
 
+		if uint64(len(payload)+len(chunk)) > obj.PayloadSize() {
+			return nil, newWrongReplicatedObjectPayloadLengthStatus(), nil
+		}
+
 		payload = append(payload, chunk...)
 	}
+
+	if obj.PayloadSize() != uint64(len(payload)) {
+		return nil, newWrongReplicatedObjectPayloadLengthStatus(), nil
+	}
+
 	obj.SetPayload(payload)
 
-	err = s.storage.VerifyAndStoreObjectLocally(ctx, *obj)
+	err = s.storage.VerifyObjectPayload(ctx, *obj)
+	if err != nil {
+		return nil, newInternalServerErrorStatus(fmt.Sprintf("%s: %v", verifyObjectFailMessage, err)), nil
+	}
+
+	// checksum must be only SHA256, this was checked above
+	gotHash := sha256.Sum256(payload)
+	if !bytes.Equal(gotHash[:], hdr.GetPayloadHash().GetSum()) {
+		return nil, newInternalServerErrorStatus(verifyObjectFailMessage + ": payload SHA-256 checksum mismatch"), nil
+	}
+
+	err = s.storage.StoreObjectLocally(ctx, *obj)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrBusy) {
 			return nil, apistatus.FromError(err), nil
 		}
-		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to verify and store object locally: %v", err)), nil
+		return nil, newInternalServerErrorStatus(fmt.Sprintf("failed to store object locally: %v", err)), nil
 	}
 
 	var objSig []byte
