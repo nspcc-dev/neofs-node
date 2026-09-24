@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -290,6 +292,115 @@ func TestFlushScheduler(t *testing.T) {
 	for _, obj := range objects {
 		_, err := wc.Get(obj.addr)
 		require.Error(t, err)
+	}
+}
+
+func TestDynamicFlushing(t *testing.T) {
+	const (
+		workersNumber = 10
+		maxWCSize     = defaultMaxCacheSize
+
+		minThreshold = maxWCSize / 10 // 10%
+		maxThreshold = maxWCSize / 2  // 50%
+		step         = (maxThreshold - minThreshold) / (workersNumber - 2)
+	)
+	var (
+		takenSpace uint64
+		l, lb      = testutil.NewBufferedLogger(t, zap.DebugLevel)
+
+		testThresholds = make([]uint64, workersNumber-1)
+		objects        []oid.Address
+
+		addObject = func() oid.Address {
+			obj := oidtest.Address()
+			objects = append(objects, obj)
+			return obj
+		}
+	)
+	for i := range testThresholds {
+		testThresholds[i] = minThreshold + step*uint64(i)
+	}
+
+	wcInterface, _ := newCache(t, WithLogger(l), WithFlushWorkersCount(workersNumber), WithMaxCacheSize(maxWCSize))
+	wc := wcInterface.(*cache)
+
+	// no thresholds beaten
+	wc.objCounters.Add(addObject(), minThreshold-1)
+	takenSpace += minThreshold - 1
+	lb.AssertEmpty()
+
+	var lEntriesExpected []testutil.LogEntry
+
+	// thresholds are exceeded
+	for i := range testThresholds {
+		wc.objCounters.Add(addObject(), step)
+		takenSpace += step
+
+		newLogEntry := testutil.LogEntry{
+			Level:   zapcore.DebugLevel,
+			Message: "changing active flush workers number...",
+			Fields: map[string]any{
+				"component":  "WriteCache",
+				"shard_id":   "",
+				"substorage": "write-cache",
+				"takenSize":  json.Number(strconv.FormatUint(takenSpace, 10)),
+				"oldNumber":  json.Number(strconv.Itoa(i + 1)),
+				"newNumber":  json.Number(strconv.Itoa(i + 2)),
+			},
+		}
+		lEntriesExpected = append(lEntriesExpected, newLogEntry)
+
+		newLogEntry = testutil.LogEntry{
+			Level:   zapcore.DebugLevel,
+			Message: "flush worker resumed",
+			Fields: map[string]any{
+				"component":  "WriteCache",
+				"shard_id":   "",
+				"substorage": "write-cache",
+				"takenSize":  json.Number(strconv.FormatUint(takenSpace, 10)),
+				"index":      json.Number(strconv.Itoa(i + 1)),
+			},
+		}
+		lEntriesExpected = append(lEntriesExpected, newLogEntry)
+
+		lb.AssertEqual(lEntriesExpected)
+	}
+
+	// storage is decreasing
+	for i := range testThresholds {
+		objToDrop := objects[len(objects)-1-i]
+
+		wc.objCounters.Delete(objToDrop)
+		takenSpace -= step
+
+		newLogEntry := testutil.LogEntry{
+			Level:   zapcore.DebugLevel,
+			Message: "changing active flush workers number...",
+			Fields: map[string]any{
+				"component":  "WriteCache",
+				"shard_id":   "",
+				"substorage": "write-cache",
+				"takenSize":  json.Number(strconv.FormatUint(takenSpace, 10)),
+				"oldNumber":  json.Number(strconv.Itoa(len(testThresholds) + 1 - i)),
+				"newNumber":  json.Number(strconv.Itoa(len(testThresholds) - i)),
+			},
+		}
+		lEntriesExpected = append(lEntriesExpected, newLogEntry)
+
+		newLogEntry = testutil.LogEntry{
+			Level:   zapcore.DebugLevel,
+			Message: "flush worker paused",
+			Fields: map[string]any{
+				"component":  "WriteCache",
+				"shard_id":   "",
+				"substorage": "write-cache",
+				"takenSize":  json.Number(strconv.FormatUint(takenSpace, 10)),
+				"index":      json.Number(strconv.Itoa(len(testThresholds) - i)),
+			},
+		}
+		lEntriesExpected = append(lEntriesExpected, newLogEntry)
+
+		lb.AssertEqual(lEntriesExpected)
 	}
 }
 

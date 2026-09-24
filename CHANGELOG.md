@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Write-cache FSTree depth increased from 1 to 2 with online migration (#4175)
 - Policer balances data across local shards (#4170)
 - `neofs-adm fschain set-config` now suggests well-known keys in shell completion (#1901)
+- Write cache now flushes object dynamically based on taken space (#3415)
 
 ### Removed
 - GetRange object service method (#4167)
