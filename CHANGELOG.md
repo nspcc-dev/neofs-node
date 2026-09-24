@@ -28,7 +28,7 @@ Changelog for NeoFS Node
 - __NEOFS__NONCE attribute from metabase (#4187)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260921152514-a9e144a15933` (#4168, #4187)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260924060549-58858fd1f04a` (#4168, #4187, #4193)
 
 ### Updating from v0.56.0
 To change an FSTree layout depth, configure the new `blobstor.depth` and set
