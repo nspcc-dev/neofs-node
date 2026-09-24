@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -31,7 +31,7 @@ var tests = []struct {
 	{100 << 10, 100},
 }
 
-func newTestFSTree(tb testing.TB) common.Storage {
+func newTestFSTree(tb testing.TB) blobstor.Storage {
 	return fstree.New(
 		fstree.WithDepth(4), // Default.
 		fstree.WithPath(tb.TempDir()),
@@ -39,7 +39,7 @@ func newTestFSTree(tb testing.TB) common.Storage {
 	)
 }
 
-func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
+func benchmark(b *testing.B, p blobstor.Storage, objSize uint64, nThreads int) {
 	data := make([]byte, objSize)
 	_, _ = rand.Read(data)
 
@@ -60,13 +60,13 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 func BenchmarkPut(b *testing.B) {
 	for _, tc := range tests {
 		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
-			for name, creat := range map[string]func(testing.TB) common.Storage{
+			for name, creat := range map[string]func(testing.TB) blobstor.Storage{
 				"fstree": newTestFSTree,
 			} {
 				b.Run(name, func(b *testing.B) {
 					ptt := creat(b)
 					require.NoError(b, ptt.Open(false))
-					require.NoError(b, ptt.Init(common.ID{}))
+					require.NoError(b, ptt.Init(blobstor.ID{}))
 					b.Cleanup(func() { _ = ptt.Close() })
 
 					benchmark(b, ptt, tc.objSize, tc.nThreads)
@@ -81,7 +81,7 @@ func BenchmarkGet(b *testing.B) {
 
 	for _, tc := range tests {
 		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
-			for name, creat := range map[string]func(testing.TB) common.Storage{
+			for name, creat := range map[string]func(testing.TB) blobstor.Storage{
 				"fstree": newTestFSTree,
 			} {
 				b.Run(name, func(b *testing.B) {
@@ -111,7 +111,7 @@ func BenchmarkHead(b *testing.B) {
 
 	for _, tc := range tests {
 		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
-			for name, creat := range map[string]func(testing.TB) common.Storage{
+			for name, creat := range map[string]func(testing.TB) blobstor.Storage{
 				"fstree": newTestFSTree,
 			} {
 				b.Run(name, func(b *testing.B) {
@@ -136,12 +136,12 @@ func BenchmarkHead(b *testing.B) {
 	}
 }
 
-func prepareObjects(b *testing.B, creat func(testing.TB) common.Storage, objSize, nObjects uint64) (common.Storage, []oid.Address) {
+func prepareObjects(b *testing.B, creat func(testing.TB) blobstor.Storage, objSize, nObjects uint64) (blobstor.Storage, []oid.Address) {
 	var objs = make([]oid.Address, 0, nObjects)
 
 	ptt := creat(b)
 	require.NoError(b, ptt.Open(false))
-	require.NoError(b, ptt.Init(common.ID{}))
+	require.NoError(b, ptt.Init(blobstor.ID{}))
 	b.Cleanup(func() { _ = ptt.Close() })
 
 	obj := object.New(cid.ID{1, 2, 3}, usertest.ID())

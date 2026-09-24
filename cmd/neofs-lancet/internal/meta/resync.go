@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lancet/internal"
-	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -50,7 +50,7 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	err = db.Init(blobstorcommon.ID{})
+	err = db.Init(blobstor.ID{})
 	if err != nil {
 		return fmt.Errorf("init metabase: %w", err)
 	}
@@ -67,7 +67,7 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to open FSTree: %w", err)
 	}
 
-	err = fst.Init(blobstorcommon.ID{})
+	err = fst.Init(blobstor.ID{})
 	if err != nil {
 		return fmt.Errorf("init blobstor: %w", err)
 	}
@@ -77,9 +77,9 @@ func resyncFunc(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("read shard ID from metabase: %w", err)
 	}
-	var metaShardID blobstorcommon.ID
+	var metaShardID blobstor.ID
 	if len(idRaw) != 0 {
-		metaShardID, err = blobstorcommon.NewIDFromBytes(idRaw)
+		metaShardID, err = blobstor.NewIDFromBytes(idRaw)
 		if err != nil {
 			return fmt.Errorf("decode metabase shard ID: %w", err)
 		}

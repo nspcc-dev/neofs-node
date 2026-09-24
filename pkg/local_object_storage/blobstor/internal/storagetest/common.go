@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -16,7 +16,7 @@ import (
 
 // Constructor constructs storage component.
 // Each call must create a component using different file-system path.
-type Constructor = func(t *testing.T) common.Storage
+type Constructor = func(t *testing.T) blobstor.Storage
 
 // objectDesc is a helper structure to avoid multiple `Marshal` invokes during tests.
 type objectDesc struct {
@@ -49,7 +49,7 @@ func TestInfo(t *testing.T, cons Constructor, expectedType string, expectedPath 
 	require.Equal(t, expectedPath, s.Path())
 }
 
-func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64) []objectDesc {
+func prepare(t *testing.T, count int, s blobstor.Storage, minSize, maxSize uint64) []objectDesc {
 	objects := make([]objectDesc, count)
 
 	for i := range objects {
@@ -66,7 +66,7 @@ func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64)
 	return objects
 }
 
-func prepareBatch(t *testing.T, count int, s common.Storage, minSize, maxSize uint64) []objectDesc {
+func prepareBatch(t *testing.T, count int, s blobstor.Storage, minSize, maxSize uint64) []objectDesc {
 	objects := make([]objectDesc, count)
 	mObj := make(map[oid.Address][]byte, len(objects))
 

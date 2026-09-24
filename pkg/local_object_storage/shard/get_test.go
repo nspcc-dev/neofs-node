@@ -9,7 +9,7 @@ import (
 	"testing/iotest"
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -162,7 +162,7 @@ func testShardReadObject(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(obj, nil)
 		require.NoError(t, err)
 
-		n, stream, err := sh.ReadObject(obj.Address(), false, common.PayloadRange{}, buf, nil)
+		n, stream, err := sh.ReadObject(obj.Address(), false, blobstor.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		assertReadObjectOK(t, *obj, buf, n, stream)
 	})
@@ -179,14 +179,14 @@ func testShardReadObject(t *testing.T, hasWriteCache bool) {
 		err := sh.Put(child, nil)
 		require.NoError(t, err)
 
-		_, _, err = sh.ReadObject(parent.Address(), false, common.PayloadRange{}, buf, nil)
+		_, _, err = sh.ReadObject(parent.Address(), false, blobstor.PayloadRange{}, buf, nil)
 		var siErr *object.SplitInfoError
 		require.ErrorAs(t, err, &siErr)
 		si := siErr.SplitInfo()
 		require.NotNil(t, si)
 		require.Equal(t, child.GetID(), si.GetLastPart())
 
-		_, _, err = sh.ReadObject(parent.Address(), true, common.PayloadRange{}, buf, nil)
+		_, _, err = sh.ReadObject(parent.Address(), true, blobstor.PayloadRange{}, buf, nil)
 		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	})
 }

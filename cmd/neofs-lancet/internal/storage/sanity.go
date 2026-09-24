@@ -14,7 +14,7 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	commonb "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -97,11 +97,11 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("moving metabase in readonly mode: %w", err)
 		}
 
-		if err := sh.m.Init(commonb.ID{}); err != nil {
+		if err := sh.m.Init(blobstor.ID{}); err != nil {
 			return fmt.Errorf("init metabase: %w", err)
 		}
 		if sh.fsT != nil {
-			if err := sh.fsT.Init(commonb.ID{}); err != nil {
+			if err := sh.fsT.Init(blobstor.ID{}); err != nil {
 				return fmt.Errorf("init fstree: %w", err)
 			}
 		}
@@ -191,7 +191,7 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 	}
 }
 
-func checkObject(objHeader object.Object, storage commonb.Storage) error {
+func checkObject(objHeader object.Object, storage blobstor.Storage) error {
 	// header len check
 
 	raw := objHeader.Marshal()

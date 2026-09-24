@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -186,7 +186,7 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 
 	err = c.storage.Put(addr, data)
 	if err != nil {
-		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
+		if !errors.Is(err, blobstor.ErrNoSpace) && !errors.Is(err, blobstor.ErrReadOnly) {
 			c.reportFlushError("can't flush an object to blobstor",
 				addr.EncodeToString(), err)
 		}
@@ -219,7 +219,7 @@ func (c *cache) flushBatch(addrs []oid.Address) error {
 
 	err := c.storage.PutBatch(objs)
 	if err != nil {
-		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
+		if !errors.Is(err, blobstor.ErrNoSpace) && !errors.Is(err, blobstor.ErrReadOnly) {
 			for addr := range objs {
 				c.reportFlushError("can't flush an object to blobstor",
 					addr.EncodeToString(), err)

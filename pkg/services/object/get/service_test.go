@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	blobcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -131,7 +131,7 @@ type mockLocalObjects struct {
 	getECPart map[getECPartKey]getECPartValue
 }
 
-func (x *mockLocalObjects) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobcommon.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (x *mockLocalObjects) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	v, ok := x.getECPart[getECPartKey{cnr: cnr, parent: parent, pi: pi}]
 	if !ok {
 		return nil, 0, nil, errors.New("[test] unexpected object requested")
@@ -202,7 +202,7 @@ func (unimplementedObjectWriter) WriteChunk([]byte) error {
 
 type unimplementedLocalStorage struct{}
 
-func (x unimplementedLocalStorage) GetECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ blobcommon.PayloadRange, _ bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (x unimplementedLocalStorage) GetECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ blobstor.PayloadRange, _ bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -210,7 +210,7 @@ func (unimplementedLocalStorage) GetECPart(_ context.Context, _ cid.ID, _ oid.ID
 	panic("unimplemented")
 }
 
-func (unimplementedLocalStorage) ReadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ blobcommon.PayloadRange, _ []byte, _ func([]byte) error) (int, io.ReadCloser, error) {
+func (unimplementedLocalStorage) ReadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, _ blobstor.PayloadRange, _ []byte, _ func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

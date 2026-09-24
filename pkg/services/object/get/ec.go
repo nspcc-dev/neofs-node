@@ -16,7 +16,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -683,7 +683,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 	return hdr, rc, nil
 }
 
-func (s *Service) copyLocalECPartPayloadRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, headerFn func(*object.Object) error) error {
+func (s *Service) copyLocalECPartPayloadRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, headerFn func(*object.Object) error) error {
 	hdr, pldLen, rc, err := s.localObjects.GetECPartRange(ctx, cnr, parent, pi, rng, headerFn != nil)
 	if err != nil {
 		return fmt.Errorf("get object payload range from local storage: %w", err)
@@ -715,7 +715,7 @@ func (s *Service) copyLocalECPartPayloadRange(ctx context.Context, dst ChunkWrit
 
 type resolveECObjectRangeFunc func(*object.Object) (uint64, uint64, error)
 
-func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, rng common.PayloadRange, headerFn func(*object.Object) error) error {
+func (s *Service) copyECObjectRange(ctx context.Context, dst ChunkWriter, cnr cid.ID, parent oid.ID, ecRules []iec.Rule, sortedNodeLists [][]netmap.NodeInfo, rng blobstor.PayloadRange, headerFn func(*object.Object) error) error {
 	localNodeKey, err := s.keyStore.GetKey(nil)
 	if err != nil {
 		return fmt.Errorf("get local SN private key: %w", err)
@@ -1311,7 +1311,7 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 		}
 
 		if local {
-			_, _, rc, err = s.localObjects.GetECPartRange(ctx, cnr, parent, pi, common.NewPayloadRange(off, ln), false)
+			_, _, rc, err = s.localObjects.GetECPartRange(ctx, cnr, parent, pi, blobstor.NewPayloadRange(off, ln), false)
 			if err == nil || errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, apistatus.ErrObjectOutOfRange) {
 				return rc, err
 			}

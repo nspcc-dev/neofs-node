@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -114,7 +114,7 @@ func (x *genericFileWriteStream) Write(p []byte) (int, error) {
 				return n, err
 			}
 			err = handleFileError(x.tmpFile.Name(), err)
-			if errors.Is(err, common.ErrNoSpace) {
+			if errors.Is(err, blobstor.ErrNoSpace) {
 				x.abortForce(false) // writeToFile closes
 				return n, err
 			}
@@ -202,7 +202,7 @@ func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
 	err := w.writeFile(tmpPath, data)
 	if err != nil {
 		err = handleFileError(tmpPath, err)
-		if errors.Is(err, common.ErrNoSpace) {
+		if errors.Is(err, blobstor.ErrNoSpace) {
 			_ = os.RemoveAll(tmpPath)
 		}
 		return err
@@ -275,7 +275,7 @@ func newFilePathForTry(targetPath string, tryIdx int) string {
 func handleFileError(tmpPath string, err error) error {
 	switch {
 	case errors.Is(err, syscall.ENOSPC):
-		err = common.ErrNoSpace
+		err = blobstor.ErrNoSpace
 	case errors.Is(err, fs.ErrExist):
 		return fs.ErrExist
 	}

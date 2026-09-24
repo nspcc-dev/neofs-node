@@ -17,7 +17,7 @@ import (
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	iiotest "github.com/nspcc-dev/neofs-node/internal/testutil/iotest"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -554,8 +554,8 @@ func TestShard_InitPut(t *testing.T) {
 
 		shs := []shardInterface{
 			newShardWithError(shard.ErrReadOnlyMode),
-			newShardWithError(common.ErrReadOnly),
-			newShardWithError(common.ErrNoSpace),
+			newShardWithError(blobstor.ErrReadOnly),
+			newShardWithError(blobstor.ErrNoSpace),
 			newShardWithError(otherErr),
 		}
 

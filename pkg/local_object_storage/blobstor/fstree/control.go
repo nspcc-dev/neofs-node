@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.uber.org/zap"
 )
@@ -22,7 +22,7 @@ var migrateFrom = map[int]func(*FSTree, *fsDescriptor, string) error{
 	3: (*FSTree).migrateDescriptorFrom3Version,
 }
 
-// Open implements common.Storage.
+// Open implements blobstor.Storage.
 func (t *FSTree) Open(ro bool) error {
 	t.readOnly = ro
 	return nil
@@ -71,8 +71,8 @@ func writeDescriptorSync(path string, d fsDescriptor) error {
 	return syncFS(filepath.Dir(path))
 }
 
-// Init implements common.Storage.
-func (t *FSTree) Init(id common.ID) error {
+// Init implements blobstor.Storage.
+func (t *FSTree) Init(id blobstor.ID) error {
 	err := util.MkdirAllX(t.RootPath, t.Permissions)
 	if err != nil {
 		return fmt.Errorf("mkdir all for %q: %w", t.RootPath, err)
@@ -107,7 +107,7 @@ func (t *FSTree) Init(id common.ID) error {
 	return nil
 }
 
-// Close implements common.Storage.
+// Close implements blobstor.Storage.
 func (t *FSTree) Close() error {
 	t.stopReshape()
 	return t.writer.finalize()
@@ -124,7 +124,7 @@ func (t *FSTree) checkConfig() error {
 			return fmt.Errorf("descriptor %q is missing, can't open read-only storage", descPath)
 		}
 		if !t.shardIDSet {
-			t.shardID, err = common.NewID()
+			t.shardID, err = blobstor.NewID()
 			if err != nil {
 				return fmt.Errorf("generate shard ID: %w", err)
 			}
@@ -197,11 +197,11 @@ func (t *FSTree) checkConfig() error {
 		}
 	} else {
 		if d.ShardID == "" {
-			t.shardID = common.ID{}
+			t.shardID = blobstor.ID{}
 			t.shardIDSet = false
 			return nil
 		}
-		id, err := common.DecodeIDString(d.ShardID)
+		id, err := blobstor.DecodeIDString(d.ShardID)
 		if err != nil {
 			return fmt.Errorf("invalid shard ID %q in descriptor: %w", d.ShardID, err)
 		}
@@ -265,7 +265,7 @@ func (t *FSTree) completeReshape() error {
 // In version 1, ShardID was path-based and needs to be updated during migration.
 func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string) error {
 	if !t.shardIDSet && d.ShardID != "" {
-		id, err := common.DecodeIDString(d.ShardID)
+		id, err := blobstor.DecodeIDString(d.ShardID)
 		if err == nil {
 			t.shardID = id
 			t.shardIDSet = !id.IsZero()
@@ -273,7 +273,7 @@ func (t *FSTree) migrateDescriptorFrom1Version(d *fsDescriptor, descPath string)
 	}
 
 	if !t.shardIDSet {
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		if err != nil {
 			return fmt.Errorf("generate shard ID during migration: %w", err)
 		}

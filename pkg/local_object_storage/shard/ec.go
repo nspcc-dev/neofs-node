@@ -7,7 +7,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -20,7 +20,7 @@ import (
 // [Shard.ReadObject]. If optional interceptHeaderBinaryFn is specified, it's
 // called with read header. On error, ReadECPart returns it immediately.
 // ReadECPart also returns payload stream depending on range parameter. If kind
-// is [common.PayloadRangeModeNone], full payload including field prefix is
+// is [blobstor.PayloadRangeModeNone], full payload including field prefix is
 // returned. Otherwise, stream contains requested range bytes only. The stream
 // must be finally closed by the caller.
 //
@@ -30,14 +30,14 @@ import (
 // [apistatus.ErrObjectOutOfRange].
 //
 // Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
-func (s *Shard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (s *Shard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	var n int
 	var stream io.ReadCloser
 	return n, stream, s.getECPartFunc(cnr, parent, pi, func(writeCache writecache.Cache, addr oid.Address) error {
 		var err error
 		n, stream, err = writeCache.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		var err error
 		n, stream, err = blobStorage.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
 		return err
@@ -79,7 +79,7 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 			hdr, stream = *h, str
 		}
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		h, str, err := blobStorage.GetStream(addr)
 		if err == nil {
 			hdr, stream = *h, str
@@ -89,7 +89,7 @@ func (s *Shard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.Ob
 }
 
 func (s *Shard) getECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeCacheFn func(writecache.Cache, oid.Address) error,
-	blobStorageFn func(common.Storage, oid.Address) error) error {
+	blobStorageFn func(blobstor.Storage, oid.Address) error) error {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
 		se, isSI := errors.AsType[*object.SplitInfoError](err)
@@ -132,10 +132,10 @@ func (s *Shard) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off,
 	var stream io.ReadCloser
 	var err error
 
-	err = s.getECPartRangeFunc(cnr, parent, pi, common.NewPayloadRange(off, ln), false, func(writeCache writecache.Cache, addr oid.Address) error {
+	err = s.getECPartRangeFunc(cnr, parent, pi, blobstor.NewPayloadRange(off, ln), false, func(writeCache writecache.Cache, addr oid.Address) error {
 		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
 	})
@@ -168,7 +168,7 @@ func (s *Shard) ReadECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, off,
 //
 // If the range is out of payload bounds, GetECPartRange returns
 // [apistatus.ErrObjectOutOfRange].
-func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	var hdr *object.Object
 	var pldLen uint64
 	var stream io.ReadCloser
@@ -177,7 +177,7 @@ func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng c
 		var err error
 		hdr, pldLen, stream, err = writeCache.GetRangeStream(addr, rng, readHeader)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		var err error
 		hdr, pldLen, stream, err = blobStorage.GetRangeStream(addr, rng, readHeader)
 		return err
@@ -185,9 +185,9 @@ func (s *Shard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng c
 	return hdr, pldLen, stream, err
 }
 
-func (s *Shard) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool,
+func (s *Shard) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool,
 	writeCacheFn func(writecache.Cache, oid.Address) error,
-	blobStorageFn func(common.Storage, oid.Address) error,
+	blobStorageFn func(blobstor.Storage, oid.Address) error,
 ) error {
 	partID, pldLen, err := s.metaBaseIface.ResolveECPartWithPayloadLen(cnr, parent, pi)
 	if err != nil {
@@ -210,7 +210,7 @@ func (s *Shard) getECPartRangeFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, r
 	err = s.getRangeStreamFunc(cnr, partID,
 		func(c writecache.Cache, addr oid.Address) error {
 			return writeCacheFn(c, addr)
-		}, func(stor common.Storage, addr oid.Address) error {
+		}, func(stor blobstor.Storage, addr oid.Address) error {
 			return blobStorageFn(stor, addr)
 		})
 	if err != nil {
@@ -228,7 +228,7 @@ func (s *Shard) ReadECPartHeader(cnr cid.ID, parent oid.ID, pi iec.PartInfo, buf
 		var err error
 		n, err = writeCache.ReadHeader(addr, buf)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		var err error
 		n, err = blobStorage.ReadHeader(addr, buf)
 		return err
@@ -244,7 +244,7 @@ func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.O
 			hdr = *h
 		}
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		h, err := blobStorage.Head(addr)
 		if err == nil {
 			hdr = *h
@@ -254,7 +254,7 @@ func (s *Shard) HeadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (object.O
 }
 
 func (s *Shard) headECPartFunc(cnr cid.ID, parent oid.ID, pi iec.PartInfo, writeCacheFn func(writecache.Cache, oid.Address) error,
-	blobStorageFn func(common.Storage, oid.Address) error) error {
+	blobStorageFn func(blobstor.Storage, oid.Address) error) error {
 	partID, err := s.metaBaseIface.ResolveECPart(cnr, parent, pi)
 	if err != nil {
 		se, isSI := errors.AsType[*object.SplitInfoError](err)

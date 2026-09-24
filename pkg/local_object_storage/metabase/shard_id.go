@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 )
 
 var (
@@ -54,7 +54,7 @@ func (db *DB) WriteShardID(id []byte) error {
 	})
 }
 
-func (db *DB) ensureShardID(id common.ID) error {
+func (db *DB) ensureShardID(id blobstor.ID) error {
 	if id.IsZero() {
 		return nil
 	}
@@ -82,7 +82,7 @@ func (db *DB) ensureShardID(id common.ID) error {
 			}
 			return nil
 		}
-		storedID, err := common.NewIDFromBytes(bStoredID)
+		storedID, err := blobstor.NewIDFromBytes(bStoredID)
 		if err != nil {
 			return fmt.Errorf("invalid shard ID in metabase: %w", err)
 		}

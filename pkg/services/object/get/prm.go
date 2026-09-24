@@ -6,7 +6,7 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -26,7 +26,7 @@ type SubmitDataStreamFunc = func(io.ReadCloser)
 type Prm struct {
 	commonPrm
 
-	payloadRange common.PayloadRange
+	payloadRange blobstor.PayloadRange
 	payloadOnly  bool
 	recheckEACL  bool
 
@@ -118,25 +118,25 @@ func (p *Prm) SetObjectWriter(w ObjectWriter) {
 // SetRange sets range of the requested payload data.
 func (p *Prm) SetRange(rng *object.Range) {
 	if rng == nil {
-		p.payloadRange = common.PayloadRange{}
+		p.payloadRange = blobstor.PayloadRange{}
 		return
 	}
-	p.payloadRange = common.NewPayloadRange(rng.GetOffset(), rng.GetLength())
+	p.payloadRange = blobstor.NewPayloadRange(rng.GetOffset(), rng.GetLength())
 }
 
 // SetRangeBounds requests an inclusive payload range from first to last.
 func (p *Prm) SetRangeBounds(first, last uint64) {
-	p.payloadRange = common.NewPayloadRangeBounds(first, last)
+	p.payloadRange = blobstor.NewPayloadRangeBounds(first, last)
 }
 
 // SetRangeFrom requests payload bytes from first to the end.
 func (p *Prm) SetRangeFrom(first uint64) {
-	p.payloadRange = common.NewPayloadRangeFrom(first)
+	p.payloadRange = blobstor.NewPayloadRangeFrom(first)
 }
 
 // SetRangeSuffix requests the last length payload bytes.
 func (p *Prm) SetRangeSuffix(length uint64) {
-	p.payloadRange = common.NewPayloadRangeSuffix(length)
+	p.payloadRange = blobstor.NewPayloadRangeSuffix(length)
 }
 
 // ResolveRange resolves the requested payload range against payloadLen.
@@ -227,7 +227,7 @@ func (p Prm) GetBuffer() ([]byte, SubmitStreamFunc) {
 
 // Range returns payload range settings.
 func (p Prm) Range() *object.Range {
-	if p.payloadRange.Mode != common.PayloadRangeModeOffsetLength {
+	if p.payloadRange.Mode != blobstor.PayloadRangeModeOffsetLength {
 		return nil
 	}
 	off, ln := p.payloadRange.First, p.payloadRange.Second
@@ -248,7 +248,7 @@ func (p Prm) IsFullRange() bool {
 }
 
 // RangeMode returns kind of requested range.
-func (p Prm) RangeMode() common.PayloadRangeMode {
+func (p Prm) RangeMode() blobstor.PayloadRangeMode {
 	return p.payloadRange.Mode
 }
 

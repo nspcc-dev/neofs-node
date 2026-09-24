@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -25,7 +25,7 @@ import (
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	var hdr *object.Object
 	var pldLen uint64
 	var stream io.ReadCloser
@@ -34,7 +34,7 @@ func (s *Shard) GetRangeStream(cnr cid.ID, id oid.ID, rng common.PayloadRange, r
 		var err error
 		hdr, pldLen, stream, err = writeCache.GetRangeStream(addr, rng, readHeader)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		var err error
 		hdr, pldLen, stream, err = blobStorage.GetRangeStream(addr, rng, readHeader)
 		return err
@@ -56,7 +56,7 @@ func (s *Shard) ReadRange(cnr cid.ID, id oid.ID, off, ln uint64, buf []byte, int
 		var err error
 		stream, err = writeCache.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
-	}, func(blobStorage common.Storage, addr oid.Address) error {
+	}, func(blobStorage blobstor.Storage, addr oid.Address) error {
 		var err error
 		stream, err = blobStorage.ReadPayloadRange(addr, off, ln, buf, interceptHeaderBinaryFn)
 		return err
@@ -67,7 +67,7 @@ func (s *Shard) ReadRange(cnr cid.ID, id oid.ID, off, ln uint64, buf []byte, int
 
 func (s *Shard) getRangeStreamFunc(cnr cid.ID, id oid.ID,
 	writeCacheFn func(writecache.Cache, oid.Address) error,
-	blobStorageFn func(common.Storage, oid.Address) error,
+	blobStorageFn func(blobstor.Storage, oid.Address) error,
 ) error {
 	addr := oid.NewAddress(cnr, id)
 	if s.hasWriteCache() {
@@ -109,7 +109,7 @@ func (s *Shard) getRangeStreamFunc(cnr cid.ID, id oid.ID,
 //
 // If skipMeta flag is set, GetRangeStreamWithMetadataLookup attempts to access
 // object bypassing metabase.
-func (s *Shard) GetRangeStreamWithMetadataLookup(addr oid.Address, rng common.PayloadRange, readHeader, skipMeta bool) (*object.Object, io.ReadCloser, error) {
+func (s *Shard) GetRangeStreamWithMetadataLookup(addr oid.Address, rng blobstor.PayloadRange, readHeader, skipMeta bool) (*object.Object, io.ReadCloser, error) {
 	// implementation is similar to Get
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -117,7 +117,7 @@ func (s *Shard) GetRangeStreamWithMetadataLookup(addr oid.Address, rng common.Pa
 	var hdr *object.Object
 	var stream io.ReadCloser
 
-	cb := func(stor common.Storage) error {
+	cb := func(stor blobstor.Storage) error {
 		var err error
 		hdr, _, stream, err = stor.GetRangeStream(addr, rng, readHeader)
 		return err

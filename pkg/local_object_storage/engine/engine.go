@@ -8,7 +8,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -41,14 +41,14 @@ type StorageEngine struct {
 
 // interface of [shard.Shard] used by [StorageEngine] for overriding in tests.
 type shardInterface interface {
-	ID() common.ID
+	ID() blobstor.ID
 	GetStream(oid.Address, bool) (*object.Object, io.ReadCloser, error)
-	ReadObject(oid.Address, bool, common.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error)
-	GetRangeStream(cnr cid.ID, id oid.ID, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
+	ReadObject(oid.Address, bool, blobstor.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error)
+	GetRangeStream(cnr cid.ID, id oid.ID, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
 	ReadRange(cnr cid.ID, id oid.ID, off, ln uint64, buf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error)
 	GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, io.ReadCloser, error)
-	ReadECPart(cid.ID, oid.ID, iec.PartInfo, common.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error)
-	GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
+	ReadECPart(cid.ID, oid.ID, iec.PartInfo, blobstor.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error)
+	GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
 	ReadECPartRange(cid.ID, oid.ID, iec.PartInfo, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error)
 	Head(oid.Address, bool) (*object.Object, error)
 	ReadHeader(oid.Address, bool, []byte) (int, error)

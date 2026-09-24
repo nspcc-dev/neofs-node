@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -36,7 +36,7 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*object.Object, error) {
 
 	var res *object.Object
 
-	cb := func(stor common.Storage) error {
+	cb := func(stor blobstor.Storage) error {
 		obj, err := stor.Get(addr)
 		if err != nil {
 			return err
@@ -67,7 +67,7 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*object.Object, error) {
 // true iff skipMeta flag is unset && referenced object is found in the
 // underlying metaBase.
 func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
-	storageFunc func(st common.Storage) error,
+	storageFunc func(st blobstor.Storage) error,
 	wc func(w writecache.Cache) error,
 ) (bool, error) {
 	var (
@@ -135,7 +135,7 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 	defer s.m.RUnlock()
 
 	var b []byte
-	hasMeta, err := s.fetchObjectData(addr, skipMeta, func(st common.Storage) error {
+	hasMeta, err := s.fetchObjectData(addr, skipMeta, func(st blobstor.Storage) error {
 		var err error
 		b, err = st.GetBytes(addr)
 		return err
@@ -174,7 +174,7 @@ func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.R
 		reader io.ReadCloser
 	)
 
-	cb := func(stor common.Storage) error {
+	cb := func(stor blobstor.Storage) error {
 		obj, r, err := stor.GetStream(addr)
 		if err != nil {
 			return err
@@ -220,7 +220,7 @@ func (s *Shard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, io.R
 // If object is a split-parent, behavior depends on skipMeta flag. If set,
 // ReadObject returns [object.SplitInfoError] with all relations recorded in s.
 // If unset, ReadObject returns [apistatus.ErrObjectNotFound].
-func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, rng blobstor.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -229,7 +229,7 @@ func (s *Shard) ReadObject(addr oid.Address, skipMeta bool, rng common.PayloadRa
 		stream io.ReadCloser
 	)
 
-	cb := func(stor common.Storage) error {
+	cb := func(stor blobstor.Storage) error {
 		var err error
 		n, stream, err = stor.ReadObjectParts(buf, addr, rng, interceptHeaderBinaryFn)
 		return err
@@ -261,7 +261,7 @@ func (s *Shard) ReadPayloadRange(addr oid.Address, off, ln uint64, skipMeta bool
 
 	var stream io.ReadCloser
 
-	cb := func(stor common.Storage) error {
+	cb := func(stor blobstor.Storage) error {
 		var err error
 		stream, err = stor.ReadPayloadRange(addr, off, ln, buf, nil)
 		return err

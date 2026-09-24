@@ -9,7 +9,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -71,7 +71,7 @@ func (db *DB) openBolt() error {
 //
 // Does nothing if metabase has already been initialized and filled. To roll back the database to its initial state,
 // use Reset.
-func (db *DB) Init(id common.ID) error {
+func (db *DB) Init(id blobstor.ID) error {
 	if !id.IsZero() {
 		db.log = db.log.With(zap.Stringer("shard_id", id))
 	}
@@ -229,7 +229,7 @@ func (db *DB) Reload(opts ...Option) (bool, error) {
 // over all objects in the blobstor. onIterationError is called for every
 // object that fails to be read or unmarshalled; returning a non-nil error
 // aborts the resync; if onIterationError is nil, iteration errors are ignored.
-func (db *DB) ResyncFromBlobstor(bs common.Storage, onIterationError func(oid.Address, error) error) error {
+func (db *DB) ResyncFromBlobstor(bs blobstor.Storage, onIterationError func(oid.Address, error) error) error {
 	if onIterationError == nil {
 		onIterationError = func(oid.Address, error) error { return nil }
 	}

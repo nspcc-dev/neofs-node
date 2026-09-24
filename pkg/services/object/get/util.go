@@ -9,7 +9,7 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -167,15 +167,15 @@ func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, io.ReadCloser,
 		applyObjectReadAuth(exec, addr, &opts)
 		first, second := exec.payloadRange.First, exec.payloadRange.Second
 		switch exec.payloadRange.Mode {
-		case common.PayloadRangeModeNone:
+		case blobstor.PayloadRangeModeNone:
 			panic("missing payload range")
-		case common.PayloadRangeModeOffsetLength:
+		case blobstor.PayloadRangeModeOffsetLength:
 			opts.SetRange(first, second)
-		case common.PayloadRangeModeBounds:
+		case blobstor.PayloadRangeModeBounds:
 			opts.SetRangeBounds(first, second)
-		case common.PayloadRangeModeFrom:
+		case blobstor.PayloadRangeModeFrom:
 			opts.SetRangeFrom(first)
-		case common.PayloadRangeModeSuffix:
+		case blobstor.PayloadRangeModeSuffix:
 			opts.SetRangeSuffix(first)
 		}
 

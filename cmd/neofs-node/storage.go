@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -103,7 +103,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 			wcMaxBatchCount     int
 			wcMaxBatchThreshold uint64
 		)
-		var s common.Storage
+		var s blobstor.Storage
 		sRead := shCfg.Blobstor
 		switch sRead.Type {
 		case fstree.Type:

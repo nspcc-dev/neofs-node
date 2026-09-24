@@ -12,7 +12,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -48,7 +48,7 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 	return engine
 }
 
-func newStorage(root string) common.Storage {
+func newStorage(root string) blobstor.Storage {
 	return fstree.New(
 		fstree.WithPath(root),
 		fstree.WithDepth(1))
@@ -157,7 +157,7 @@ func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {
 
 type unimplementedShard struct{}
 
-func (unimplementedShard) ID() common.ID {
+func (unimplementedShard) ID() blobstor.ID {
 	panic("unimplemented")
 }
 
@@ -165,11 +165,11 @@ func (unimplementedShard) GetStream(oid.Address, bool) (*object.Object, io.ReadC
 	panic("unimplemented")
 }
 
-func (unimplementedShard) ReadObject(oid.Address, bool, common.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error) {
+func (unimplementedShard) ReadObject(oid.Address, bool, blobstor.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, common.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (unimplementedShard) GetRangeStream(cid.ID, oid.ID, blobstor.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -177,11 +177,11 @@ func (unimplementedShard) GetECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object
 	panic("unimplemented")
 }
 
-func (unimplementedShard) ReadECPart(cid.ID, oid.ID, iec.PartInfo, common.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error) {
+func (unimplementedShard) ReadECPart(cid.ID, oid.ID, iec.PartInfo, blobstor.PayloadRange, []byte, func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, common.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (unimplementedShard) GetECPartRange(cid.ID, oid.ID, iec.PartInfo, blobstor.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -289,8 +289,8 @@ type mockShard struct {
 	headECPart     map[headECPartKey]headECPartValue
 }
 
-func (x *mockShard) ID() common.ID {
-	id, err := common.NewIDFromBytes(fmt.Appendf(nil, "%016d", x.i))
+func (x *mockShard) ID() blobstor.ID {
+	id, err := blobstor.NewIDFromBytes(fmt.Appendf(nil, "%016d", x.i))
 	if err != nil {
 		panic(err)
 	}
@@ -308,7 +308,7 @@ func (x *mockShard) GetStream(addr oid.Address, skipMeta bool) (*object.Object, 
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, rng blobstor.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if rng.IsSet() {
 		panic("unimplemented range")
 	}
@@ -327,7 +327,7 @@ func (x *mockShard) ReadObject(addr oid.Address, skipMeta bool, rng common.Paylo
 	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
 }
 
-func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (x *mockShard) GetRangeStream(cnr cid.ID, id oid.ID, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	off, ln := rng.First, rng.Second
 	val, ok := x.getRangeStream[getRangeStreamKey{
 		cnr: cnr,
@@ -371,7 +371,7 @@ func (x *mockShard) GetECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo) (objec
 	return *val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if rng.IsSet() {
 		panic("unimplemented range")
 	}
@@ -392,7 +392,7 @@ func (x *mockShard) ReadECPart(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng c
 	return copy(buf, val.obj.CutPayload().Marshal()), io.NopCloser(bytes.NewReader(payloadFld)), val.err
 }
 
-func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (x *mockShard) GetECPartRange(cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	time.Sleep(x.eCPartSleep)
 	off, ln := rng.First, rng.Second
 	val, ok := x.getECPartRange[getECPartRangeKey{
@@ -627,7 +627,7 @@ func (x *testMetrics) AddReadECPartHeaderDuration(d time.Duration) {
 }
 
 type mockShardBLOBStorageInfo struct {
-	common.Storage
+	blobstor.Storage
 }
 
 func (m mockShardBLOBStorageInfo) Type() string {

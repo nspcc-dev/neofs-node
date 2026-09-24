@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -35,7 +35,7 @@ type execCtx struct {
 	ctx context.Context
 
 	prm          rangePrm
-	payloadRange common.PayloadRange
+	payloadRange blobstor.PayloadRange
 
 	statusError
 
@@ -109,14 +109,14 @@ func headOnly(transportFn HeadTransportFunc, submitResponseFn SubmitHeadResponse
 func withPayloadRange(r *object.Range) execOption {
 	return func(c *execCtx) {
 		if r == nil {
-			c.payloadRange = common.PayloadRange{}
+			c.payloadRange = blobstor.PayloadRange{}
 			return
 		}
-		c.payloadRange = common.NewPayloadRange(r.GetOffset(), r.GetLength())
+		c.payloadRange = blobstor.NewPayloadRange(r.GetOffset(), r.GetLength())
 	}
 }
 
-func withPayloadRangePrm(r common.PayloadRange) execOption {
+func withPayloadRangePrm(r blobstor.PayloadRange) execOption {
 	return func(c *execCtx) {
 		c.payloadRange = r
 	}
@@ -282,7 +282,7 @@ func (exec *execCtx) containerID() cid.ID {
 }
 
 func (exec *execCtx) ctxRange() *object.Range {
-	if exec.payloadRange.Mode != common.PayloadRangeModeOffsetLength {
+	if exec.payloadRange.Mode != blobstor.PayloadRangeModeOffsetLength {
 		return nil
 	}
 	off, ln := exec.payloadRange.First, exec.payloadRange.Second

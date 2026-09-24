@@ -3,18 +3,18 @@ package fstree
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/storagetest"
 )
 
 func TestGeneric(t *testing.T) {
-	helper := func(t *testing.T, dir string) common.Storage {
+	helper := func(t *testing.T, dir string) blobstor.Storage {
 		return New(
 			WithPath(dir),
 			WithDepth(2))
 	}
 
-	newTree := func(t *testing.T) common.Storage {
+	newTree := func(t *testing.T) blobstor.Storage {
 		return helper(t, t.TempDir())
 	}
 
@@ -22,14 +22,14 @@ func TestGeneric(t *testing.T) {
 
 	t.Run("info", func(t *testing.T) {
 		dir := t.TempDir()
-		storagetest.TestInfo(t, func(t *testing.T) common.Storage {
+		storagetest.TestInfo(t, func(t *testing.T) blobstor.Storage {
 			return helper(t, dir)
 		}, Type, dir)
 	})
 }
 
 func TestControl(t *testing.T) {
-	newTree := func(t *testing.T) common.Storage {
+	newTree := func(t *testing.T) blobstor.Storage {
 		return New(
 			WithPath(t.TempDir()),
 			WithDepth(2))

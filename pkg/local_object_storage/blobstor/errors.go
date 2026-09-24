@@ -1,4 +1,4 @@
-package common
+package blobstor
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"

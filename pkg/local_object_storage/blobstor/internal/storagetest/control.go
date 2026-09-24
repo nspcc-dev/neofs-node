@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +14,7 @@ import (
 func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
-	require.NoError(t, s.Init(common.ID{}))
+	require.NoError(t, s.Init(blobstor.ID{}))
 
 	objects := prepare(t, 10, s, minSize, maxSize)
 	objectsBatch := prepareBatch(t, 10, s, minSize, maxSize)
@@ -34,7 +34,7 @@ func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		var obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
 
 		err := s.Put(obj.Address(), obj.Marshal())
-		require.ErrorIs(t, err, common.ErrReadOnly)
+		require.ErrorIs(t, err, blobstor.ErrReadOnly)
 	})
 	t.Run("put batch fails", func(t *testing.T) {
 		var obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
@@ -42,12 +42,12 @@ func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		err := s.PutBatch(map[oid.Address][]byte{
 			obj.Address(): obj.Marshal(),
 		})
-		require.ErrorIs(t, err, common.ErrReadOnly)
+		require.ErrorIs(t, err, blobstor.ErrReadOnly)
 	})
 	t.Run("delete fails", func(t *testing.T) {
 		err := s.Delete(objects[0].addr)
-		require.ErrorIs(t, err, common.ErrReadOnly)
+		require.ErrorIs(t, err, blobstor.ErrReadOnly)
 		err = s.Delete(objectsBatch[0].addr)
-		require.ErrorIs(t, err, common.ErrReadOnly)
+		require.ErrorIs(t, err, blobstor.ErrReadOnly)
 	})
 }

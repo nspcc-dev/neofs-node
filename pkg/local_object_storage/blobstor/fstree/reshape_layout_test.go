@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -84,7 +84,7 @@ func TestFSTreeReshape(t *testing.T) {
 			t.Run(fmt.Sprintf("%d to %d", depths[0], depths[1]), func(t *testing.T) {
 				dir := t.TempDir()
 				old := New(WithPath(dir), WithDepth(depths[0]), WithCombinedCountLimit(1))
-				require.NoError(t, old.Init(common.ID{}))
+				require.NoError(t, old.Init(blobstor.ID{}))
 				t.Cleanup(func() { require.NoError(t, old.Close()) })
 				tree := New(WithPath(dir), WithDepth(depths[1]), WithCombinedCountLimit(1))
 				tree.secondaryDepth = depths[0]
@@ -274,7 +274,7 @@ func TestFSTreeReshape(t *testing.T) {
 
 	t.Run("keeps shared primary directories", func(t *testing.T) {
 		dir := t.TempDir()
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		old := New(WithPath(dir), WithDepth(5), WithCombinedCountLimit(1))
@@ -305,7 +305,7 @@ func TestFSTreeReshape(t *testing.T) {
 
 	t.Run("moves combined files", func(t *testing.T) {
 		dir := t.TempDir()
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		old := New(WithPath(dir), WithDepth(2))
@@ -365,7 +365,7 @@ func TestFSTreeReshape(t *testing.T) {
 
 	t.Run("concurrent operations", func(t *testing.T) {
 		dir := t.TempDir()
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		old := New(WithPath(dir), WithDepth(2), WithCombinedCountLimit(1))
@@ -440,7 +440,7 @@ func TestFSTreeReshape(t *testing.T) {
 
 func TestFSTreeReshapeIterateOrdered(t *testing.T) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	old := New(WithPath(dir), WithDepth(2), WithCombinedCountLimit(1))
@@ -473,7 +473,7 @@ func TestFSTreeReshapeIterateOrdered(t *testing.T) {
 
 func testFSTreeReshape(t *testing.T, oldDepth, newDepth uint64) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	old := New(WithPath(dir), WithDepth(oldDepth), WithCombinedCountLimit(1))
@@ -504,7 +504,7 @@ func testFSTreeReshape(t *testing.T, oldDepth, newDepth uint64) {
 
 func setupReshapingTree(t *testing.T) (*FSTree, *FSTree, object.Object) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	old := New(WithPath(dir), WithDepth(2), WithCombinedCountLimit(1))

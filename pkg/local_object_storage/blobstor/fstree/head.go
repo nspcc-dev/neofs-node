@@ -11,7 +11,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -98,7 +98,7 @@ func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, e
 // interceptHeaderBinaryFn is specified, it's called with read header. On error,
 // ReadObjectParts returns it immediately. ReadObjectParts also returns payload
 // stream depending on range parameter. If kind is
-// [common.PayloadRangeModeNone], full payload including field prefix is
+// [blobstor.PayloadRangeModeNone], full payload including field prefix is
 // returned. Otherwise, stream contains requested range bytes only. The stream
 // must be finally closed by the caller.
 //
@@ -108,7 +108,7 @@ func (t *FSTree) ReadObject(addr oid.Address, buf []byte) (int, io.ReadCloser, e
 // [apistatus.ErrObjectOutOfRange].
 //
 // Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
-func (t *FSTree) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (t *FSTree) ReadObjectParts(buf []byte, addr oid.Address, rng blobstor.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	n, stream, err := t.readObject(addr, buf)
 	if err != nil {
 		return 0, nil, err

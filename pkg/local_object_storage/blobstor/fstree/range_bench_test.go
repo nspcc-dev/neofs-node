@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +49,7 @@ func BenchmarkFSTree_GetRangeStream(b *testing.B) {
 					require.NoError(b, fsTree.Put(addr, obj.Marshal()))
 
 					for b.Loop() {
-						_, _, stream, err := fsTree.GetRangeStream(addr, common.NewPayloadRange(tc.from, tc.length), false)
+						_, _, stream, err := fsTree.GetRangeStream(addr, blobstor.NewPayloadRange(tc.from, tc.length), false)
 						if err == nil {
 							_, err = io.ReadFull(stream, buf)
 						}
@@ -65,7 +65,7 @@ func BenchmarkFSTree_GetRangeStream(b *testing.B) {
 
 					b.ResetTimer()
 					for k := range b.N {
-						_, _, stream, err := fsTree.GetRangeStream(addrs[k%len(addrs)], common.NewPayloadRange(tc.from, tc.length), false)
+						_, _, stream, err := fsTree.GetRangeStream(addrs[k%len(addrs)], blobstor.NewPayloadRange(tc.from, tc.length), false)
 						if err == nil {
 							_, err = io.ReadFull(stream, buf)
 						}

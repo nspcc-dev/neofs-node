@@ -16,7 +16,7 @@ import (
 	"time"
 
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -47,7 +47,7 @@ type FSTree struct {
 
 	noSync     bool
 	readOnly   bool
-	shardID    common.ID
+	shardID    blobstor.ID
 	subtype    string
 	descriptor fsDescriptor
 
@@ -111,7 +111,7 @@ const (
 	combinedDataOff = combinedLengthOff + combinedLenSize
 )
 
-var _ common.Storage = (*FSTree)(nil)
+var _ blobstor.Storage = (*FSTree)(nil)
 
 const SubtypeBlobstor = "blobstor"
 
@@ -453,7 +453,7 @@ func (t *FSTree) treePaths(addr oid.Address) (string, string) {
 // Delete removes the object with the specified address from the storage.
 func (t *FSTree) Delete(addr oid.Address) error {
 	if t.readOnly {
-		return common.ErrReadOnly
+		return blobstor.ErrReadOnly
 	}
 
 	var removed bool
@@ -535,7 +535,7 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 // functions must not be called concurrently.
 //
 // If the device runs out of space, InitPut or resulting stream calls return
-// [common.ErrNoSpace].
+// [blobstor.ErrNoSpace].
 func (t *FSTree) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (io.WriteCloser, func(), error) {
 	payloadTagLen := objectwire.CalculatePayloadFieldTagLength(payloadLen)
 
@@ -585,7 +585,7 @@ func (t *FSTree) Put(addr oid.Address, data []byte) error {
 
 func (t *FSTree) putFunc(addr oid.Address, isEmptyData bool, fn func(id oid.ID, filePath string) error) error {
 	if t.readOnly {
-		return common.ErrReadOnly
+		return blobstor.ErrReadOnly
 	}
 	if isEmptyData {
 		return io.ErrUnexpectedEOF
@@ -607,7 +607,7 @@ func (t *FSTree) putFunc(addr oid.Address, isEmptyData bool, fn func(id oid.ID, 
 // PutBatch puts a batch of objects in the storage.
 func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
 	if t.readOnly {
-		return common.ErrReadOnly
+		return blobstor.ErrReadOnly
 	}
 
 	writeDataUnits := make([]writeDataUnit, 0, len(objs))
@@ -785,7 +785,7 @@ func (t *FSTree) GetStream(addr oid.Address) (*object.Object, io.ReadSeekCloser,
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (t *FSTree) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (t *FSTree) GetRangeStream(addr oid.Address, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	return t.readPayloadRange(addr, rng, readHeader, nil, func() []byte {
 		return make([]byte, 2*objectwire.NonPayloadFieldsBufferLength)
 	})
@@ -801,13 +801,13 @@ func (t *FSTree) GetRangeStream(addr oid.Address, rng common.PayloadRange, readH
 // read (never concurrently). If it returns an error, whole operation is aborted
 // with this error.
 func (t *FSTree) ReadPayloadRange(addr oid.Address, off, ln uint64, hdrBuf []byte, interceptHeaderBinaryFn func([]byte) error) (io.ReadCloser, error) {
-	_, _, stream, err := t.readPayloadRange(addr, common.NewPayloadRange(off, ln), false, interceptHeaderBinaryFn, func() []byte {
+	_, _, stream, err := t.readPayloadRange(addr, blobstor.NewPayloadRange(off, ln), false, interceptHeaderBinaryFn, func() []byte {
 		return hdrBuf
 	})
 	return stream, err
 }
 
-func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, readHeader bool, interceptHeaderBinaryFn func([]byte) error, getHdrBuf func() []byte) (*object.Object, uint64, io.ReadCloser, error) {
+func (t *FSTree) readPayloadRange(addr oid.Address, rng blobstor.PayloadRange, readHeader bool, interceptHeaderBinaryFn func([]byte) error, getHdrBuf func() []byte) (*object.Object, uint64, io.ReadCloser, error) {
 	prefix, stream, err := t._readObject(addr, getHdrBuf())
 	if err != nil {
 		return nil, 0, nil, err
@@ -857,7 +857,7 @@ func (t *FSTree) readPayloadRange(addr oid.Address, rng common.PayloadRange, rea
 	return hdr, pldLen, resStream, nil
 }
 
-func shiftStreamToRange(prefix []byte, pldLen uint64, rng common.PayloadRange, stream io.ReadSeekCloser) (io.ReadSeekCloser, error) {
+func shiftStreamToRange(prefix []byte, pldLen uint64, rng blobstor.PayloadRange, stream io.ReadSeekCloser) (io.ReadSeekCloser, error) {
 	pldFldOff, pldFldTagLn, typ, err := iprotobuf.SeekFieldByNumber(prefix, protoobject.FieldObjectPayload)
 	if err != nil {
 		return nil, fmt.Errorf("seek payload field: %w", err)
@@ -985,23 +985,23 @@ func shiftPayloadRangeStream(prefix []byte, pldLen uint64, pldFldOff int, stream
 // Type is fstree storage type used in logs and configuration.
 const Type = "fstree"
 
-// Type implements common.Storage.
+// Type implements blobstor.Storage.
 func (*FSTree) Type() string {
 	return Type
 }
 
-// Path implements common.Storage.
+// Path implements blobstor.Storage.
 func (t *FSTree) Path() string {
 	return t.RootPath
 }
 
 // ShardID returns the shard ID associated with this FSTree.
-func (t *FSTree) ShardID() common.ID {
+func (t *FSTree) ShardID() blobstor.ID {
 	if !t.shardIDSet {
 		descPath := t.descriptorPath()
 		f, err := os.Open(descPath)
 		if err != nil {
-			return common.ID{}
+			return blobstor.ID{}
 		}
 		defer f.Close()
 
@@ -1009,11 +1009,11 @@ func (t *FSTree) ShardID() common.ID {
 		dec := json.NewDecoder(f)
 		dec.DisallowUnknownFields()
 		if err = dec.Decode(&d); err != nil {
-			return common.ID{}
+			return blobstor.ID{}
 		}
-		id, err := common.DecodeIDString(d.ShardID)
+		id, err := blobstor.DecodeIDString(d.ShardID)
 		if err != nil {
-			return common.ID{}
+			return blobstor.ID{}
 		}
 		return id
 	}
@@ -1023,7 +1023,7 @@ func (t *FSTree) ShardID() common.ID {
 // CleanUpTmp removes all temporary files garbage.
 func (t *FSTree) CleanUpTmp() error {
 	if t.readOnly {
-		return common.ErrReadOnly
+		return blobstor.ErrReadOnly
 	}
 
 	err := filepath.WalkDir(t.RootPath,

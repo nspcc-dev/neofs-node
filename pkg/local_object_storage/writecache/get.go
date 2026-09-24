@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -115,7 +115,7 @@ func (c *cache) GetStream(addr oid.Address) (*object.Object, io.ReadCloser, erro
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (c *cache) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (c *cache) GetRangeStream(addr oid.Address, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return nil, 0, nil, logicerr.Wrap(apistatus.ErrObjectNotFound)
 	}
@@ -150,7 +150,7 @@ func (c *cache) ReadPayloadRange(addr oid.Address, off, ln uint64, buf []byte, i
 // interceptHeaderBinaryFn is specified, it's called with read header. On error,
 // ReadObjectParts returns it immediately. ReadObjectParts also returns payload
 // stream depending on range parameter. If kind is
-// [common.PayloadRangeModeNone], full payload including field prefix is
+// [blobstor.PayloadRangeModeNone], full payload including field prefix is
 // returned. Otherwise, stream contains requested range bytes only. The stream
 // must be finally closed by the caller.
 //
@@ -160,7 +160,7 @@ func (c *cache) ReadPayloadRange(addr oid.Address, off, ln uint64, buf []byte, i
 // [apistatus.ErrObjectOutOfRange].
 //
 // Passed buf must have 2*[objectwire.NonPayloadFieldsBufferLength] bytes len at least.
-func (c *cache) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (c *cache) ReadObjectParts(buf []byte, addr oid.Address, rng blobstor.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return 0, nil, apistatus.ErrObjectNotFound
 	}

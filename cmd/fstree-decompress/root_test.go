@@ -10,7 +10,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -50,7 +50,7 @@ func TestCommandPath(t *testing.T) {
 
 	t.Run("migrates v2 blobstor descriptor", func(t *testing.T) {
 		dir := t.TempDir()
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		desc := filepath.Join(dir, ".fstree.json")
@@ -74,7 +74,7 @@ func TestCommandPath(t *testing.T) {
 			fstree.WithCombinedCountLimit(1),
 		)
 		require.NoError(t, tree.Open(false))
-		require.NoError(t, tree.Init(common.ID{}))
+		require.NoError(t, tree.Init(blobstor.ID{}))
 		require.NoError(t, tree.Put(obj.Address(), compressed))
 		require.NoError(t, tree.Close())
 
@@ -101,7 +101,7 @@ func TestCommandConfig(t *testing.T) {
 			fstree.WithCombinedCountLimit(1),
 		)
 		require.NoError(t, tree.Open(false))
-		require.NoError(t, tree.Init(common.ID{}))
+		require.NoError(t, tree.Init(blobstor.ID{}))
 		require.NoError(t, tree.Put(obj.Address(), compressed))
 		require.NoError(t, tree.Close())
 
@@ -139,7 +139,7 @@ func TestCommandConfig(t *testing.T) {
 			fstree.WithCombinedCountLimit(1),
 		)
 		require.NoError(t, tree.Open(false))
-		require.NoError(t, tree.Init(common.ID{}))
+		require.NoError(t, tree.Init(blobstor.ID{}))
 		require.NoError(t, tree.Put(obj.Address(), compressed))
 		require.NoError(t, tree.Close())
 

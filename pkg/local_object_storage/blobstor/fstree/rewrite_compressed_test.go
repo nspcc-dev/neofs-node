@@ -9,7 +9,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -138,7 +138,7 @@ func newRewriteCompressedTree(t *testing.T, opts ...Option) *FSTree {
 	opts = append([]Option{WithPath(t.TempDir())}, opts...)
 	tree := New(opts...)
 	require.NoError(t, tree.Open(false))
-	require.NoError(t, tree.Init(common.ID{}))
+	require.NoError(t, tree.Init(blobstor.ID{}))
 
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })
 	return tree

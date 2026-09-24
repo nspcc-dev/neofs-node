@@ -17,7 +17,7 @@ import (
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -32,7 +32,7 @@ import (
 )
 
 func testShardIDString(n int) string {
-	id, err := common.NewIDFromBytes(fmt.Appendf(nil, "%016d", n))
+	id, err := blobstor.NewIDFromBytes(fmt.Appendf(nil, "%016d", n))
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		_, _, err := s.GetECPart(context.Background(), cnr, parentID, pi, false)
 		require.Equal(t, e, err)
 
-		_, _, err = s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
+		_, _, err = s.ReadECPart(context.Background(), cnr, parentID, pi, blobstor.PayloadRange{}, make([]byte, 40<<10), nil)
 		require.Equal(t, e, err)
 	})
 
@@ -105,7 +105,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		_, _, _ = s.GetECPart(context.Background(), cnr, parentID, pi, false)
 		require.GreaterOrEqual(t, time.Duration(m.getECPart.Load()), sleepTime)
 
-		_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
+		_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, blobstor.PayloadRange{}, make([]byte, 40<<10), nil)
 		require.GreaterOrEqual(t, time.Duration(m.readECPart.Load()), sleepTime)
 	})
 
@@ -126,7 +126,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		lb.AssertEmpty()
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
+			_, _, _ = s.ReadECPart(context.Background(), cnr, parentID, pi, blobstor.PayloadRange{}, make([]byte, 40<<10), nil)
 		})
 
 		lb.AssertEmpty()
@@ -164,7 +164,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 	}
 	checkOKBuffered := func(t *testing.T, s *StorageEngine) {
 		buf := make([]byte, 40<<10)
-		n, rdr, err := s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, buf, nil)
+		n, rdr, err := s.ReadECPart(context.Background(), cnr, parentID, pi, blobstor.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		require.Equal(t, partObj.CutPayload().Marshal(), buf[:n])
 		tail, err := io.ReadAll(rdr)
@@ -177,7 +177,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		require.ErrorIs(t, err, e)
 	}
 	checkErrorIsBuffered := func(t *testing.T, s *StorageEngine, e error) {
-		_, _, err := s.ReadECPart(context.Background(), cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
+		_, _, err := s.ReadECPart(context.Background(), cnr, parentID, pi, blobstor.PayloadRange{}, make([]byte, 40<<10), nil)
 		require.ErrorIs(t, err, e)
 	}
 
@@ -585,7 +585,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		e := errors.New("any error")
 		require.NoError(t, s.BlockExecution(e))
 
-		_, _, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(0, 1), false)
+		_, _, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, blobstor.NewPayloadRange(0, 1), false)
 		require.Equal(t, e, err)
 	})
 
@@ -618,7 +618,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		s := newEngineWithFixedShardOrder([]shardInterface{shardOK, unimplementedShard{}}) // to ensure 2nd shard is not accessed
 		s.metrics = &m
 
-		_, _, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
+		_, _, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, blobstor.NewPayloadRange(off, ln), false)
 		require.GreaterOrEqual(t, time.Duration(m.getECPartRange.Load()), sleepTime)
 	})
 
@@ -633,7 +633,7 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 		s.log = l
 
 		require.PanicsWithValue(t, "zero object ID returned as error", func() {
-			_, _, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
+			_, _, _, _ = s.GetECPartRange(context.Background(), cnr, parentID, pi, blobstor.NewPayloadRange(off, ln), false)
 		})
 
 		lb.AssertEmpty()
@@ -670,13 +670,13 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 	}
 
 	checkOK := func(t *testing.T, s *StorageEngine) {
-		hdr, pldLen, rc, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), true)
+		hdr, pldLen, rc, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, blobstor.NewPayloadRange(off, ln), true)
 		require.NoError(t, err)
 		require.Equal(t, partObj.CutPayload(), hdr)
 		assertGetECPartRangeOK(t, partObj, off, ln, pldLen, rc)
 	}
 	checkErrorIs := func(t *testing.T, s *StorageEngine, e error) {
-		_, _, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
+		_, _, _, err := s.GetECPartRange(context.Background(), cnr, parentID, pi, blobstor.NewPayloadRange(off, ln), false)
 		require.ErrorIs(t, err, e)
 	}
 
@@ -979,12 +979,12 @@ func TestStorageEngine_GetECPartRange(t *testing.T) {
 
 			require.NoError(t, s.Put(context.Background(), &sysObj, nil))
 
-			hdr, gotLen, rc, err := s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, common.NewPayloadRange(0, 0), true)
+			hdr, gotLen, rc, err := s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, blobstor.NewPayloadRange(0, 0), true)
 			require.NoError(t, err)
 			require.Equal(t, sysObj.CutPayload(), hdr)
 			assertGetECPartRangeOK(t, sysObj, 0, 0, gotLen, rc)
 
-			_, _, _, err = s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, common.NewPayloadRange(0, 1), false)
+			_, _, _, err = s.GetECPartRange(context.Background(), cnr, sysObj.GetID(), pi, blobstor.NewPayloadRange(0, 1), false)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 		})
 	}

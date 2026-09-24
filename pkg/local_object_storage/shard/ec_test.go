@@ -13,7 +13,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -87,7 +87,7 @@ func TestShard_GetECPart(t *testing.T) {
 			require.ErrorContains(t, err, "resolve part ID in metabase")
 			tc.assertErr(t, err)
 
-			_, _, err = s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
+			_, _, err = s.ReadECPart(cnr, parentID, pi, blobstor.PayloadRange{}, make([]byte, 40<<10), nil)
 			require.ErrorContains(t, err, "resolve part ID in metabase")
 			tc.assertErr(t, err)
 		})
@@ -122,7 +122,7 @@ func TestShard_GetECPart(t *testing.T) {
 			_, _, err := s.GetECPart(cnr, parentID, pi)
 			assertErr(err)
 
-			_, _, err = s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, make([]byte, 40<<10), nil)
+			_, _, err = s.ReadECPart(cnr, parentID, pi, blobstor.PayloadRange{}, make([]byte, 40<<10), nil)
 			assertErr(err)
 		})
 	}
@@ -162,7 +162,7 @@ func TestShard_GetECPart(t *testing.T) {
 				lb.AssertSingle(tc.logMsg)
 
 				buf := make([]byte, 40<<10)
-				n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
+				n, rdr, err := s.ReadECPart(cnr, parentID, pi, blobstor.PayloadRange{}, buf, nil)
 				require.NoError(t, err)
 				b, err := io.ReadAll(rdr)
 				require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestShard_GetECPart(t *testing.T) {
 		assertGetECPartOK(t, partObj, hdr, rdr)
 
 		buf := make([]byte, 40<<10)
-		n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
+		n, rdr, err := s.ReadECPart(cnr, parentID, pi, blobstor.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		b, err := io.ReadAll(rdr)
 		require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestShard_GetECPart(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init(common.ID{}))
+			require.NoError(t, mb.Init(blobstor.ID{}))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)
@@ -228,7 +228,7 @@ func TestShard_GetECPart(t *testing.T) {
 			assertGetECPartOK(t, sysObj, hdr, rdr)
 
 			buf := make([]byte, 40<<10)
-			n, rdr, err := s.ReadECPart(cnr, sysObj.GetID(), pi, common.PayloadRange{}, buf, nil)
+			n, rdr, err := s.ReadECPart(cnr, sysObj.GetID(), pi, blobstor.PayloadRange{}, buf, nil)
 			require.NoError(t, err)
 			b, err := io.ReadAll(rdr)
 			require.NoError(t, err)
@@ -245,7 +245,7 @@ func TestShard_GetECPart(t *testing.T) {
 		)
 		require.NoError(t, mb.Open(false))
 		t.Cleanup(func() { _ = mb.Close() })
-		require.NoError(t, mb.Init(common.ID{}))
+		require.NoError(t, mb.Init(blobstor.ID{}))
 
 		payload := testutil.RandByteSlice(32) // any
 
@@ -269,7 +269,7 @@ func TestShard_GetECPart(t *testing.T) {
 		assertGetECPartOK(t, linker, hdr, rdr)
 
 		buf := make([]byte, 40<<10)
-		n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
+		n, rdr, err := s.ReadECPart(cnr, parentID, pi, blobstor.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		b, err := io.ReadAll(rdr)
 		require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestShard_GetECPart(t *testing.T) {
 		require.NoError(t, err)
 		assertGetECPartOK(t, linker, hdr, rdr)
 
-		n, rdr, err = s.ReadECPart(cnr, linker.GetID(), pi, common.PayloadRange{}, buf, nil)
+		n, rdr, err = s.ReadECPart(cnr, linker.GetID(), pi, blobstor.PayloadRange{}, buf, nil)
 		require.NoError(t, err)
 		b, err = io.ReadAll(rdr)
 		require.NoError(t, err)
@@ -295,7 +295,7 @@ func TestShard_GetECPart(t *testing.T) {
 	assertGetECPartOK(t, partObj, hdr, rdr)
 
 	buf := make([]byte, 40<<10)
-	n, rdr, err := s.ReadECPart(cnr, parentID, pi, common.PayloadRange{}, buf, nil)
+	n, rdr, err := s.ReadECPart(cnr, parentID, pi, blobstor.PayloadRange{}, buf, nil)
 	require.NoError(t, err)
 	b, err := io.ReadAll(rdr)
 	require.NoError(t, err)
@@ -361,7 +361,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 
 				s := newSimpleTestShard(t, unimplementedBLOBStore{}, &mdb, unimplementedWriteCache{})
 
-				_, _, _, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(0, 1), false)
+				_, _, _, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(0, 1), false)
 				require.ErrorContains(t, err, "resolve part ID and payload len in metabase")
 				tc.assertErr(t, err)
 			})
@@ -381,7 +381,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 			s.log = l
 
 			off, ln := partLen/3, partLen/2
-			_, gotLen, rdr, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
+			_, gotLen, rdr, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(off, ln), false)
 			require.NoError(t, err)
 			assertGetECPartRangeOK(t, partObj, off, ln, gotLen, rdr)
 
@@ -410,7 +410,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 					id: partID, ln: 0,
 				}
 
-				_, _, _, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(rng[0], rng[1]), false)
+				_, _, _, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(rng[0], rng[1]), false)
 				require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange, rng)
 			}
 		})
@@ -433,7 +433,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 
 			s := newSimpleTestShard(t, &bs, &mb, nil)
 
-			_, _, _, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(0, 1), false)
+			_, _, _, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(0, 1), false)
 			require.ErrorIs(t, err, tc.err)
 			require.ErrorContains(t, err, fmt.Sprintf("get range by ID %s", partID))
 
@@ -472,7 +472,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 				s.log = l
 
 				off, ln := partLen/3, partLen/2
-				_, gotLen, rdr, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(off, ln), false)
+				_, gotLen, rdr, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(off, ln), false)
 				require.NoError(t, err)
 				assertGetECPartRangeOK(t, partObj, off, ln, gotLen, rdr)
 
@@ -500,11 +500,11 @@ func TestShard_GetECPartRange(t *testing.T) {
 		s := newSimpleTestShard(t, unimplementedBLOBStore{}, &mb, unimplementedWriteCache{})
 
 		t.Run("non-zero range", func(t *testing.T) {
-			_, _, _, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(0, 1), false)
+			_, _, _, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(0, 1), false)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 		})
 
-		_, pldLen, rc, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(0, 0), false)
+		_, pldLen, rc, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(0, 0), false)
 		require.NoError(t, err)
 		require.Zero(t, pldLen)
 		require.Zero(t, rc)
@@ -516,7 +516,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 		}}
 		s = newSimpleTestShard(t, &bs, &mb, nil)
 
-		gotHdr, pldLen, rc, err := s.GetECPartRange(cnr, parentID, pi, common.NewPayloadRange(0, 0), true)
+		gotHdr, pldLen, rc, err := s.GetECPartRange(cnr, parentID, pi, blobstor.NewPayloadRange(0, 0), true)
 		require.NoError(t, err)
 		require.Equal(t, emptyHdr, gotHdr)
 		require.Zero(t, pldLen)
@@ -539,7 +539,7 @@ func TestShard_GetECPartRange(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init(common.ID{}))
+			require.NoError(t, mb.Init(blobstor.ID{}))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)
@@ -556,11 +556,11 @@ func TestShard_GetECPartRange(t *testing.T) {
 
 			s := newSimpleTestShard(t, &bs, mb, nil)
 
-			_, gotLen, rdr, err := s.GetECPartRange(cnr, sysObj.GetID(), pi, common.NewPayloadRange(0, 0), false)
+			_, gotLen, rdr, err := s.GetECPartRange(cnr, sysObj.GetID(), pi, blobstor.NewPayloadRange(0, 0), false)
 			require.NoError(t, err)
 			assertGetECPartRangeOK(t, sysObj, 0, 0, gotLen, rdr)
 
-			_, _, _, err = s.GetECPartRange(cnr, sysObj.GetID(), pi, common.NewPayloadRange(0, 1), false)
+			_, _, _, err = s.GetECPartRange(cnr, sysObj.GetID(), pi, blobstor.NewPayloadRange(0, 1), false)
 			require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 		})
 	}
@@ -744,7 +744,7 @@ func TestShard_HeadECPart(t *testing.T) {
 			)
 			require.NoError(t, mb.Open(false))
 			t.Cleanup(func() { _ = mb.Close() })
-			require.NoError(t, mb.Init(common.ID{}))
+			require.NoError(t, mb.Init(blobstor.ID{}))
 
 			sysObj := *newObject(t)
 			sysObj.SetContainerID(cnr)
@@ -794,7 +794,7 @@ func testGetECPartRangeStream(t *testing.T, obj object.Object, parent oid.ID, pi
 	} {
 		off, ln := rng[0], rng[1]
 		t.Run(fmt.Sprintf("full=%d,off=%d,len=%d", full, off, ln), func(t *testing.T) {
-			hdr, pldLen, rc, err := s.GetECPartRange(obj.GetContainerID(), parent, pi, common.NewPayloadRange(off, ln), true)
+			hdr, pldLen, rc, err := s.GetECPartRange(obj.GetContainerID(), parent, pi, blobstor.NewPayloadRange(off, ln), true)
 			require.NoError(t, err)
 			require.Equal(t, obj.CutPayload(), hdr)
 			assertGetECPartRangeOK(t, obj, off, ln, pldLen, rc)

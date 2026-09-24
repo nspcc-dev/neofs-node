@@ -6,7 +6,7 @@ import (
 	"io"
 
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -217,7 +217,7 @@ func (e *StorageEngine) GetStream(_ context.Context, addr oid.Address) (*object.
 //
 // If the range is out of payload bounds, GetRangeStream returns
 // [apistatus.ErrObjectOutOfRange].
-func (e *StorageEngine) GetRangeStream(ctx context.Context, addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, io.ReadCloser, error) {
+func (e *StorageEngine) GetRangeStream(ctx context.Context, addr oid.Address, rng blobstor.PayloadRange, readHeader bool) (*object.Object, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetRangeStreamDuration)()
 	}
@@ -225,7 +225,7 @@ func (e *StorageEngine) GetRangeStream(ctx context.Context, addr oid.Address, rn
 	return e.getRangeStream(ctx, addr, rng, readHeader)
 }
 
-func (e *StorageEngine) getRangeStream(_ context.Context, addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, io.ReadCloser, error) {
+func (e *StorageEngine) getRangeStream(_ context.Context, addr oid.Address, rng blobstor.PayloadRange, readHeader bool) (*object.Object, io.ReadCloser, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
@@ -259,7 +259,7 @@ func (e *StorageEngine) getRangeStream(_ context.Context, addr oid.Address, rng 
 //
 // If object is a split-parent, ReadObject returns [object.SplitInfoError] with
 // all relations recorded in e.
-func (e *StorageEngine) ReadObject(_ context.Context, addr oid.Address, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (e *StorageEngine) ReadObject(_ context.Context, addr oid.Address, rng blobstor.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadObjectDuration)()
 	}

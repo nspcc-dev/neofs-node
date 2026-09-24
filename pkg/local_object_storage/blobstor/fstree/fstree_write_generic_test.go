@@ -12,7 +12,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/internal/testutil/fstest"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -51,8 +51,8 @@ func TestHandleFileError(t *testing.T) {
 			&fs.PathError{Err: fmt.Errorf("some context: %w", syscall.ENOSPC)},
 		} {
 			got := handleFileError("any path", err)
-			require.ErrorIs(t, got, common.ErrNoSpace)
-			require.EqualError(t, got, `write data into file "any path": `+common.ErrNoSpace.Error())
+			require.ErrorIs(t, got, blobstor.ErrNoSpace)
+			require.EqualError(t, got, `write data into file "any path": `+blobstor.ErrNoSpace.Error())
 		}
 	})
 

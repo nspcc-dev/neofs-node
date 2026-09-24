@@ -5,7 +5,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -111,7 +111,7 @@ type cfg struct {
 
 	reportErrorFunc func(selfID string, message string, err error)
 
-	blobStor      common.Storage
+	blobStor      blobstor.Storage
 	initedStorage bool
 }
 
@@ -157,12 +157,12 @@ func New(opts ...Option) *Shard {
 }
 
 // ID returns Shard identifier.
-func (s *Shard) ID() common.ID {
+func (s *Shard) ID() blobstor.ID {
 	return s.info.ID
 }
 
 // WithBlobstor provides storage.
-func WithBlobstor(s common.Storage) Option {
+func WithBlobstor(s blobstor.Storage) Option {
 	return func(c *cfg) {
 		c.blobStor = s
 	}

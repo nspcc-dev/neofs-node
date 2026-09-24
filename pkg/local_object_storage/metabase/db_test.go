@@ -11,7 +11,7 @@ import (
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -62,7 +62,7 @@ func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 	)
 
 	require.NoError(t, bdb.Open(false))
-	require.NoError(t, bdb.Init(common.ID{}))
+	require.NoError(t, bdb.Init(blobstor.ID{}))
 
 	t.Cleanup(func() {
 		bdb.Close()

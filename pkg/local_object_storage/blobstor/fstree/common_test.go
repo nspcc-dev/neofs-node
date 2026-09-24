@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -26,7 +26,7 @@ var payloadSizes = []int{
 func setupFSTree(tb testing.TB) *fstree.FSTree {
 	fsTree := fstree.New(fstree.WithPath(tb.TempDir()))
 	require.NoError(tb, fsTree.Open(false))
-	require.NoError(tb, fsTree.Init(common.ID{}))
+	require.NoError(tb, fsTree.Init(blobstor.ID{}))
 	return fsTree
 }
 

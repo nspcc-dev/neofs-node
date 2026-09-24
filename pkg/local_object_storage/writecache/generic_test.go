@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -35,7 +35,7 @@ func TestGeneric(t *testing.T) {
 
 func TestOpenMigratesLegacyFSTree(t *testing.T) {
 	cachePath := filepath.Join(t.TempDir(), "writecache")
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	legacy := fstree.New(
@@ -96,7 +96,7 @@ func TestOpenMigratesLegacyFSTree(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
-func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
+func newCache(tb testing.TB, opts ...Option) (Cache, blobstor.Storage) {
 	dir := tb.TempDir()
 
 	fsTree := fstree.New(
@@ -104,7 +104,7 @@ func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
 		fstree.WithDepth(0))
 
 	require.NoError(tb, fsTree.Open(false))
-	require.NoError(tb, fsTree.Init(common.ID{}))
+	require.NoError(tb, fsTree.Init(blobstor.ID{}))
 
 	modeAwareStorage := NewModeAwareStorage(fsTree)
 
@@ -114,7 +114,7 @@ func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage) {
 			WithStorage(modeAwareStorage),
 		}, opts...)...)
 	require.NoError(tb, wc.Open(false))
-	require.NoError(tb, wc.Init(common.ID{}))
+	require.NoError(tb, wc.Init(blobstor.ID{}))
 
 	return wc, modeAwareStorage
 }

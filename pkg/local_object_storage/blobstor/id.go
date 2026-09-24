@@ -1,4 +1,4 @@
-package common
+package blobstor
 
 import (
 	"encoding/binary"
