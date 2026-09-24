@@ -1,9 +1,10 @@
 package fstree
 
 import (
+	"cmp"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -307,8 +308,8 @@ func TestFSTreeReshapeRecoveryFromCheckpoint(t *testing.T) {
 	}
 	require.NoError(t, old.Close())
 
-	sort.Slice(addrs, func(i, j int) bool {
-		return old.treePath(addrs[i]) < old.treePath(addrs[j])
+	slices.SortFunc(addrs, func(a, b oid.Address) int {
+		return cmp.Compare(old.treePath(a), old.treePath(b))
 	})
 	require.NoError(t, writeDescriptor(filepath.Join(dir, ".fstree.json"), fsDescriptor{
 		Version: currentVersion,
