@@ -170,13 +170,16 @@ func (t *distributedTarget) saveECPartWithProgress(prog *ecProgress, part object
 }
 
 func (t *distributedTarget) distributeECPart(prog *ecProgress, part object.Object, enc encodedObject, ruleIdx, partIdx, totalParts int, nodeList []netmap.NodeInfo) error {
+	var replicateV2Req replicateV2InitRequest
+	defer replicateV2Req.reset()
+
 	var firstErr error
 	for i := range iec.NodeSequenceForPart(partIdx, totalParts, len(nodeList)) {
 		if prog != nil && !prog.canTryNode(i) {
 			continue
 		}
 
-		err := t.saveECPartOnNode(ruleIdx, part, enc, nodeList[i])
+		err := t.saveECPartOnNode(ruleIdx, part, enc, &replicateV2Req, nodeList[i])
 		if err == nil {
 			if prog != nil {
 				prog.submitSuccess()
@@ -199,14 +202,14 @@ func (t *distributedTarget) distributeECPart(prog *ecProgress, part object.Objec
 	return errIncompletePut{singleErr: firstErr}
 }
 
-func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc encodedObject, node netmap.NodeInfo) error {
+func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc encodedObject, replicateV2InitReq *replicateV2InitRequest, node netmap.NodeInfo) error {
 	var n = nodeDesc{
 		info:            node,
 		local:           t.placementIterator.neoFSNet.IsLocalNodePublicKey(node.PublicKey()),
 		placementVector: len(t.containerNodes.PrimaryCounts()) + ruleIdx,
 	}
 
-	return t.sendObject(obj, enc, n)
+	return t.sendObject(obj, enc, n, replicateV2InitReq)
 }
 
 func (t *distributedTarget) doNotEncodeOriginalObject(hdr *object.Object) bool {
