@@ -699,8 +699,9 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		conn, err = t.clientConstructor.Get(t.opCtx, node.info)
 		if err == nil {
 			if clientcore.CompareAPIVersion(conn, iobject.ReplicateV2FirstAPIVersion) >= 0 {
+				hdr := encObj.b[encObj.hdrOff:encObj.pldFldOff]
 				payload := encObj.b[encObj.pldOff:]
-				sigsRaw, err = sendReplicationV2RequestToNode(t.opCtx, t.localNodeSigner, conn, obj, payload, t.metainfoConsistencyAttr != "")
+				sigsRaw, err = sendReplicationV2RequestToNode(t.opCtx, t.localNodeSigner, conn, obj.GetID(), hdr, payload, t.metainfoConsistencyAttr != "")
 			} else {
 				sigsRaw, err = sendReplicationRequestToNode(t.opCtx, conn, encObj.b)
 			}
