@@ -5,7 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Online FSTree layout reshaping via the `blobstor.allow_depth_change` configuration option (#4149, #4179)
-- SN now serves `ReplicateV2` API (#4168)
+- SN now serves `ReplicateV2` API (#4168, #4164)
 - Container SN now uses `ReplicateV2` API in PUT handler when available (#4168)
 - `neofs-adm fschain netmap` command to fetch current and historical network maps (#4181)
 - Container revisions support (#4183)
