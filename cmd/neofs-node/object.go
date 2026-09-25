@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"slices"
 	"sync"
@@ -627,8 +628,24 @@ func (x storageForObjectService) SearchObjects(ctx context.Context, cID cid.ID, 
 	return x.local.Search(ctx, cID, fs, attrs, cursor, count)
 }
 
-func (x storageForObjectService) VerifyAndStoreObjectLocally(ctx context.Context, obj object.Object) error {
-	return x.putSvc.ValidateAndStoreObjectLocally(ctx, obj)
+// VerifyObjectHeader implements [objectService.Storage] interface.
+func (x storageForObjectService) VerifyObjectHeader(ctx context.Context, obj object.Object) error {
+	return x.putSvc.VerifyObjectHeader(ctx, obj)
+}
+
+// VerifyObjectPayload implements [objectService.Storage] interface.
+func (x storageForObjectService) VerifyObjectPayload(ctx context.Context, obj object.Object) error {
+	return x.putSvc.VerifyObjectPayload(ctx, obj)
+}
+
+// StoreObjectLocally implements [objectService.Storage] interface.
+func (x storageForObjectService) StoreObjectLocally(ctx context.Context, obj object.Object) error {
+	return x.local.Put(ctx, &obj, nil)
+}
+
+// InitLocalObjectWrite implements [objectService.Storage] interface.
+func (x storageForObjectService) InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+	return x.local.InitPut(ctx, hdr, hdrLen, hdrW)
 }
 
 func (x storageForObjectService) GetSessionPrivateKey(account user.ID) (ecdsa.PrivateKey, error) {
