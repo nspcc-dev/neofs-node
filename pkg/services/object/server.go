@@ -1,6 +1,7 @@
 package object
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/ecdsa"
@@ -1697,8 +1698,21 @@ func newStoreLocalObjectFailureStatus(cause error) *protostatus.Status {
 	return newInternalServerErrorStatus(fmt.Sprintf("failed to store object locally: %v", cause))
 }
 
+var bufIOWriterPool = sync.Pool{
+	New: func() any {
+		return bufio.NewWriterSize(nil, 256<<10)
+	},
+}
+
 // Wraps and returns w error along with errWriteStream.
 func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w io.Writer) ([]byte, uint64, *protostatus.Status, error) {
+	bw := bufIOWriterPool.Get().(*bufio.Writer)
+	bw.Reset(w)
+	defer func() {
+		bw.Reset(nil) // deref w
+		bufIOWriterPool.Put(bw)
+	}()
+
 	var totalLen uint64
 	h := sha256.New()
 
@@ -1707,6 +1721,10 @@ func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w 
 		err := stream.RecvMsg(&reqBuffers)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				err = bw.Flush()
+				if err != nil {
+					return nil, 0, nil, fmt.Errorf("%w: %w", errWriteStream, err)
+				}
 				return h.Sum(nil), totalLen, nil, nil
 			}
 			return nil, 0, nil, err
@@ -1731,9 +1749,9 @@ func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w 
 
 		// Chunk length is limited by max data frame used in gRPC. By default, it is
 		// 16KB. Writing a lot of such chunks can lead to a large number of syscalls.
-		// Either bigger frames (https://github.com/nspcc-dev/neofs-node/issues/4155) or
-		// buffered I/O could be used as a solution.
-		_, err = chunkBuffers.WriteTo(w)
+		// Bigger frames (https://github.com/nspcc-dev/neofs-node/issues/4155) could be
+		// used as a solution.
+		_, err = chunkBuffers.WriteTo(bw)
 		if err != nil {
 			reqBuffers.Free()
 			return nil, 0, nil, fmt.Errorf("%w: %w", errWriteStream, err)
