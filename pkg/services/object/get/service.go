@@ -9,7 +9,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -159,13 +159,13 @@ type cfg struct {
 		// Returns [apistatus.ErrObjectAlreadyRemoved] if the object was marked for
 		// removal. Returns [apistatus.ErrObjectNotFound] if the object is missing.
 		// Returns [apistatus.ErrObjectNotFound] if the range is out of payload bounds.
-		GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
+		GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
 		// ReadECPart is a buffered alternative for GetECPart similar to ReadObject.
 		//
 		// If interceptHeaderBinaryFn is specified, it's called instantly once header is
 		// read (never concurrently). If it returns an error, whole operation is aborted
 		// with this error.
-		ReadECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
+		ReadECPart(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
 		// ReadECPartRange is a buffered alternative for GetECPartRange similar to ReadECPart.
 		//
 		// If interceptHeaderBinaryFn is specified, it's called instantly once header is

@@ -9,7 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/internal/testutil/fstest"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -252,7 +252,7 @@ func TestCache_InitPut(t *testing.T) {
 }
 
 func newInitPutTestCache(t *testing.T, opts ...Option) Cache {
-	shardID, err := common.DecodeIDString(testShardIDString)
+	shardID, err := blobstor.DecodeIDString(testShardIDString)
 	require.NoError(t, err)
 	opts = append([]Option{WithPath(t.TempDir())}, opts...)
 	c := New(opts...)

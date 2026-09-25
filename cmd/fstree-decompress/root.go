@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmderr"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	blobstorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
@@ -119,7 +119,7 @@ func runTree(out io.Writer, fst *fstree.FSTree) error {
 	}
 	defer func() { _ = fst.Close() }()
 
-	if err := fst.Init(common.ID{}); err != nil {
+	if err := fst.Init(blobstor.ID{}); err != nil {
 		return fmt.Errorf("init FSTree: %w", err)
 	}
 

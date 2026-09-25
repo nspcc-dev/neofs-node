@@ -8,7 +8,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -23,7 +23,7 @@ import (
 // If interceptHeaderBinaryFn is specified, it's called instantly once header is
 // read (never concurrently). If it returns an error, whole operation is aborted
 // with this error.
-func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (e *StorageEngine) ReadECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, buf []byte, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddReadECPartDuration)()
 	}
@@ -212,7 +212,7 @@ func (e *StorageEngine) ReadECPartRange(_ context.Context, cnr cid.ID, parent oi
 // [apistatus.ErrObjectOutOfRange].
 //
 // Range bounds are limited by int64.
-func (e *StorageEngine) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (e *StorageEngine) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	var hdr *object.Object
 	var pldLen uint64
 	var stream io.ReadCloser

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -42,7 +42,7 @@ var (
 // object files.
 func (t *FSTree) RewriteCompressed() (RewriteCompressedStats, error) {
 	if t.readOnly {
-		return RewriteCompressedStats{}, common.ErrReadOnly
+		return RewriteCompressedStats{}, blobstor.ErrReadOnly
 	}
 	if err := checkRewriteCompressedOnlineSupport(t.RootPath); err != nil {
 		return RewriteCompressedStats{}, err

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newSimpleTestShard(_ testing.TB, bs common.Storage, mb metabase, wc writecache.Cache, opts ...Option) *Shard {
+func newSimpleTestShard(_ testing.TB, bs blobstor.Storage, mb metabase, wc writecache.Cache, opts ...Option) *Shard {
 	sh := &Shard{
 		cfg: &cfg{
 			useWriteCache: wc != nil,
@@ -124,7 +124,7 @@ func (x *mockBLOBStore) GetStream(addr oid.Address) (*object.Object, io.ReadSeek
 	return val.obj.CutPayload(), nopReadSeekCloser{bytes.NewReader(val.obj.Payload())}, val.err
 }
 
-func (x *mockBLOBStore) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (x *mockBLOBStore) ReadObjectParts(buf []byte, addr oid.Address, rng blobstor.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if rng.IsSet() {
 		panic("unimplemented range")
 	}
@@ -162,7 +162,7 @@ func (x *mockBLOBStore) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	return copy(buf, val.hdr.Marshal()), nil
 }
 
-func (x *mockBLOBStore) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (x *mockBLOBStore) GetRangeStream(addr oid.Address, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	val, ok := x.getRangeStream[addr]
 	if !ok {
 		return nil, 0, nil, fmt.Errorf("[test] unexpected object requested %s", addr)
@@ -208,7 +208,7 @@ func (x *mockWriteCache) GetStream(addr oid.Address) (*object.Object, io.ReadClo
 	return val.obj.CutPayload(), io.NopCloser(bytes.NewReader(val.obj.Payload())), val.err
 }
 
-func (x *mockWriteCache) ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
+func (x *mockWriteCache) ReadObjectParts(buf []byte, addr oid.Address, rng blobstor.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error) {
 	if rng.IsSet() {
 		panic("unimplemented range")
 	}
@@ -246,7 +246,7 @@ func (x *mockWriteCache) ReadHeader(addr oid.Address, buf []byte) (int, error) {
 	return copy(buf, val.hdr.Marshal()), nil
 }
 
-func (x *mockWriteCache) GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (x *mockWriteCache) GetRangeStream(addr oid.Address, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	val, ok := x.getRangeStream[addr]
 	if !ok {
 		return nil, 0, nil, errors.New("[test] unexpected object requested")
@@ -273,7 +273,7 @@ func (unimplementedBLOBStore) Open(bool) error {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) Init(common.ID) error {
+func (unimplementedBLOBStore) Init(blobstor.ID) error {
 	panic("unimplemented")
 }
 
@@ -289,7 +289,7 @@ func (unimplementedBLOBStore) Path() string {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) ShardID() common.ID {
+func (unimplementedBLOBStore) ShardID() blobstor.ID {
 	panic("unimplemented")
 }
 
@@ -305,7 +305,7 @@ func (unimplementedBLOBStore) GetStream(oid.Address) (*object.Object, io.ReadSee
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) GetRangeStream(oid.Address, common.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (unimplementedBLOBStore) GetRangeStream(oid.Address, blobstor.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -353,7 +353,7 @@ func (unimplementedBLOBStore) IterateAddresses(func(oid.Address) error, bool) er
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) ReadObjectParts([]byte, oid.Address, common.PayloadRange, func([]byte) error) (int, io.ReadCloser, error) {
+func (unimplementedBLOBStore) ReadObjectParts([]byte, oid.Address, blobstor.PayloadRange, func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -371,7 +371,7 @@ func (unimplementedWriteCache) GetStream(oid.Address) (*object.Object, io.ReadCl
 	panic("unimplemented")
 }
 
-func (unimplementedWriteCache) GetRangeStream(oid.Address, common.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (unimplementedWriteCache) GetRangeStream(oid.Address, blobstor.PayloadRange, bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 
@@ -419,7 +419,7 @@ func (unimplementedWriteCache) Flush(bool) error {
 	panic("unimplemented")
 }
 
-func (unimplementedWriteCache) Init(common.ID) error {
+func (unimplementedWriteCache) Init(blobstor.ID) error {
 	panic("unimplemented")
 }
 
@@ -431,7 +431,7 @@ func (unimplementedWriteCache) Close() error {
 	panic("unimplemented")
 }
 
-func (unimplementedWriteCache) ReadObjectParts([]byte, oid.Address, common.PayloadRange, func([]byte) error) (int, io.ReadCloser, error) {
+func (unimplementedWriteCache) ReadObjectParts([]byte, oid.Address, blobstor.PayloadRange, func([]byte) error) (int, io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

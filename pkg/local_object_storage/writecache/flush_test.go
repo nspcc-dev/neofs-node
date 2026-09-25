@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -39,7 +39,7 @@ func TestFlush(t *testing.T) {
 		bigSize  = defaultMaxBatchTreshold
 	)
 
-	newCache := func(t *testing.T, opts ...Option) (Cache, common.Storage) {
+	newCache := func(t *testing.T, opts ...Option) (Cache, blobstor.Storage) {
 		wc, s := newCache(t, append(opts, WithLogger(zaptest.NewLogger(t)))...)
 
 		// First set mode for blobstor to prevent background flushes.
@@ -56,7 +56,7 @@ func TestFlush(t *testing.T) {
 		return objects
 	}
 
-	check := func(t *testing.T, s common.Storage, objects []objectPair) {
+	check := func(t *testing.T, s blobstor.Storage, objects []objectPair) {
 		for i := range objects {
 			res, err := s.Get(objects[i].addr)
 			require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestFlushPerformance(t *testing.T) {
 				require.NoError(t, storageSetMode(s, mode.ReadWrite))
 
 				require.NoError(t, wc.Open(false))
-				require.NoError(t, wc.Init(common.ID{}))
+				require.NoError(t, wc.Init(blobstor.ID{}))
 				start := time.Now()
 				waitForFlush(t, wc, objects)
 				duration := time.Since(start)
@@ -206,7 +206,7 @@ func TestFlushErrorRetry(t *testing.T) {
 			s := &mockWriter{full: true, Storage: NewModeAwareStorage(fsTree)}
 
 			require.NoError(t, s.Open(false))
-			require.NoError(t, s.Init(common.ID{}))
+			require.NoError(t, s.Init(blobstor.ID{}))
 
 			logger, logBuf := testutil.NewBufferedLogger(t, zap.DebugLevel)
 			wc := New(WithPath(filepath.Join(dir, "writecache")),
@@ -214,7 +214,7 @@ func TestFlushErrorRetry(t *testing.T) {
 				WithFlushWorkersCount(workerCount),
 				WithLogger(logger))
 			require.NoError(t, wc.Open(false))
-			require.NoError(t, wc.Init(common.ID{}))
+			require.NoError(t, wc.Init(blobstor.ID{}))
 
 			defer wc.Close()
 
@@ -279,7 +279,7 @@ func TestFlushScheduler(t *testing.T) {
 	require.NoError(t, storageSetMode(s, mode.ReadWrite))
 
 	require.NoError(t, wc.Open(false))
-	require.NoError(t, wc.Init(common.ID{}))
+	require.NoError(t, wc.Init(blobstor.ID{}))
 
 	waitForFlush(t, wc, objects)
 
@@ -454,7 +454,7 @@ func newObject(t *testing.T, size int) (*object.Object, []byte) {
 	return obj, obj.Marshal()
 }
 
-func storageSetMode(s common.Storage, m mode.Mode) error {
+func storageSetMode(s blobstor.Storage, m mode.Mode) error {
 	if ms, ok := s.(*ModeAwareStorage); ok {
 		return ms.SetMode(m)
 	}
@@ -462,18 +462,18 @@ func storageSetMode(s common.Storage, m mode.Mode) error {
 	err := s.Close()
 	if err == nil {
 		if err = s.Open(m.ReadOnly()); err == nil {
-			err = s.Init(common.ID{})
+			err = s.Init(blobstor.ID{})
 		}
 	}
 	return err
 }
 
 type ModeAwareStorage struct {
-	common.Storage
+	blobstor.Storage
 	currentMode mode.Mode
 }
 
-func NewModeAwareStorage(s common.Storage) *ModeAwareStorage {
+func NewModeAwareStorage(s blobstor.Storage) *ModeAwareStorage {
 	return &ModeAwareStorage{
 		Storage: s,
 	}
@@ -487,7 +487,7 @@ func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
 	err := m.Close()
 	if err == nil {
 		if err = m.Open(newMode.ReadOnly()); err == nil {
-			err = m.Init(common.ID{})
+			err = m.Init(blobstor.ID{})
 		}
 	}
 
@@ -496,7 +496,7 @@ func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
 }
 
 type mockWriter struct {
-	common.Storage
+	blobstor.Storage
 	mu   sync.Mutex
 	full bool
 }
@@ -505,7 +505,7 @@ func (x *mockWriter) Put(addr oid.Address, data []byte) error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	if x.full {
-		return common.ErrNoSpace
+		return blobstor.ErrNoSpace
 	}
 	return x.Storage.Put(addr, data)
 }
@@ -514,7 +514,7 @@ func (x *mockWriter) PutBatch(m map[oid.Address][]byte) error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	if x.full {
-		return common.ErrNoSpace
+		return blobstor.ErrNoSpace
 	}
 	return x.Storage.PutBatch(m)
 }

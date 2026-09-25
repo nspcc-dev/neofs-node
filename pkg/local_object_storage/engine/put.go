@@ -9,7 +9,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -149,7 +149,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, addr oid.Address, obj *objec
 }
 
 func (e *StorageEngine) handleShardPutError(sh shardWrapper, err error) {
-	if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
+	if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrReadOnly) || errors.Is(err, blobstor.ErrNoSpace) {
 		e.log.Warn("could not put object to shard",
 			zap.Stringer("shard_id", sh.ID()), zap.Error(err))
 		return

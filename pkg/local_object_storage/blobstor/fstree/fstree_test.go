@@ -9,7 +9,7 @@ import (
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -35,9 +35,9 @@ func TestFSTree_GetRangeStream(t *testing.T) {
 
 func TestFSTree_GetRangeStreamWithHeaderAndBounds(t *testing.T) {
 	testGetRangeStreamFunc(t, setupFSTree(t), func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
-		rng := common.NewPayloadRange(off, ln)
+		rng := blobstor.NewPayloadRange(off, ln)
 		if ln == 1 {
-			rng = common.NewPayloadRangeBounds(off, off+ln-1)
+			rng = blobstor.NewPayloadRangeBounds(off, off+ln-1)
 		}
 		hdr, payloadLen, stream, err := fst.GetRangeStream(addr, rng, true)
 		if err == nil {
@@ -56,7 +56,7 @@ func TestFSTree_ReadPayloadRange(t *testing.T) {
 
 func testGetRangeStream(t *testing.T, fst *FSTree) {
 	testGetRangeStreamFunc(t, fst, func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
-		_, _, stream, err := fst.GetRangeStream(addr, common.NewPayloadRange(off, ln), false)
+		_, _, stream, err := fst.GetRangeStream(addr, blobstor.NewPayloadRange(off, ln), false)
 		return stream, err
 	})
 }
@@ -84,7 +84,7 @@ func TestFSTree_PayloadRangeStreamsLimitBufferedPayload(t *testing.T) {
 		{
 			name: "GetRangeStream",
 			read: func(fst *FSTree, addr oid.Address, off, ln uint64) (io.ReadCloser, error) {
-				_, _, stream, err := fst.GetRangeStream(addr, common.NewPayloadRange(off, ln), false)
+				_, _, stream, err := fst.GetRangeStream(addr, blobstor.NewPayloadRange(off, ln), false)
 				return stream, err
 			},
 		},

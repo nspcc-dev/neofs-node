@@ -1,7 +1,7 @@
 package writecache
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -59,7 +59,7 @@ func WithPath(path string) Option {
 }
 
 // WithStorage sets main object storage.
-func WithStorage(s common.Storage) Option {
+func WithStorage(s blobstor.Storage) Option {
 	return func(o *options) {
 		o.storage = s
 	}

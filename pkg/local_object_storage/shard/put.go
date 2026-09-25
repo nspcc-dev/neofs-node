@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -44,7 +44,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 		return writeCache.Put(addr, obj, objBin)
 	}
 
-	blobStorageFn := func(blobStorage common.Storage) error {
+	blobStorageFn := func(blobStorage blobstor.Storage) error {
 		return blobStorage.Put(addr, objBin)
 	}
 
@@ -64,17 +64,17 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 	return s.putToMetabaseLocked(addr, *obj, cachedPut)
 }
 
-// InitPut calls [common.Storage.InitPut] on the underlying BLOB storage. If the
+// InitPut calls [blobstor.Storage.InitPut] on the underlying BLOB storage. If the
 // write-cache is enabled, InitPut attempts to write to it using
 // [writecache.Cache.InitPut]. In this case, if InitPut or resulting stream
 // fails, fallback to the main storage is performed if possible.
 //
 // If s is in read-only mode, InitPut instantly returns [ErrReadOnlyMode]. If
-// underlying [common.Storage] is in read-only mode, InitPut returns
-// [common.ErrReadOnly].
+// underlying [blobstor.Storage] is in read-only mode, InitPut returns
+// [blobstor.ErrReadOnly].
 //
 // If underlying device runs out of space, InitPut or resulting stream calls
-// return [common.ErrNoSpace].
+// return [blobstor.ErrNoSpace].
 func (s *Shard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
 	s.m.RLock()
 
@@ -96,7 +96,7 @@ func (s *Shard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.
 		return err
 	}
 
-	blobStorageFn := func(blobStorage common.Storage) error {
+	blobStorageFn := func(blobStorage blobstor.Storage) error {
 		var err error
 		stream, abortFn, err = blobStorage.InitPut(addr, hdrLen, hdr.PayloadSize(), hdrW)
 		return err
@@ -191,7 +191,7 @@ func (x *payloadWriteStream) finish() {
 	x.aborted = true
 }
 
-func (s *Shard) putFunc(writeCacheFn func(writecache.Cache) error, blobStorageFn func(common.Storage) error) (bool, error) {
+func (s *Shard) putFunc(writeCacheFn func(writecache.Cache) error, blobStorageFn func(blobstor.Storage) error) (bool, error) {
 	var cachedPut bool
 
 	// exist check are not performed there, these checks should be executed

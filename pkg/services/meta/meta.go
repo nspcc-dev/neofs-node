@@ -18,7 +18,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	metabase "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -227,9 +227,9 @@ func New(p Parameters) (*Meta, error) {
 		_ = metaDB.Close()
 		return nil, fmt.Errorf("failed to open metabase: %w", err)
 	}
-	var dbIDRaw [common.IDSize]byte
+	var dbIDRaw [blobstor.IDSize]byte
 	copy(dbIDRaw[:], "metadataobjectDB")
-	dbID, err := common.NewIDFromBytes(dbIDRaw[:])
+	dbID, err := blobstor.NewIDFromBytes(dbIDRaw[:])
 	if err != nil {
 		_ = metaDB.Close()
 		panic(fmt.Errorf("failed to create metabase ID: %w", err))

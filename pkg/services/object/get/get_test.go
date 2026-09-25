@@ -13,7 +13,7 @@ import (
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
-	blobcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -45,7 +45,7 @@ type extendedRangeECStorage struct {
 	readHeader *bool
 }
 
-func (s extendedRangeECStorage) GetECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, rng blobcommon.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+func (s extendedRangeECStorage) GetECPartRange(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	pldLen := uint64(len(s.payload))
 	if s.readHeader != nil {
 		*s.readHeader = readHeader

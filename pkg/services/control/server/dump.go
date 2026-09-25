@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,7 +23,7 @@ func (s *Server) DumpShard(_ context.Context, req *control.DumpShardRequest) (*c
 		return nil, err
 	}
 
-	shardID, err := common.NewIDFromBytes(req.GetBody().GetShard_ID())
+	shardID, err := blobstor.NewIDFromBytes(req.GetBody().GetShard_ID())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

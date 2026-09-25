@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ func TestDB_ReadLastResyncEpoch(t *testing.T) {
 	}...)
 
 	require.NoError(t, db.Open(false))
-	require.NoError(t, db.Init(common.ID{}))
+	require.NoError(t, db.Init(blobstor.ID{}))
 
 	t.Cleanup(func() {
 		db.Close()
@@ -58,7 +58,7 @@ func TestDB_ReadLastResyncEpoch(t *testing.T) {
 	// After reload, last resync epoch the same.
 	require.NoError(t, db.Close())
 	require.NoError(t, db.Open(false))
-	require.NoError(t, db.Init(common.ID{}))
+	require.NoError(t, db.Init(blobstor.ID{}))
 
 	checkEpoch(t, resyncEpoch)
 }

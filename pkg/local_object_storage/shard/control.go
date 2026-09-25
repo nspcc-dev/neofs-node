@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"go.uber.org/zap"
@@ -60,7 +60,7 @@ func (s *Shard) Open() error {
 
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
-	if err := s.blobStor.Init(common.ID{}); err != nil {
+	if err := s.blobStor.Init(blobstor.ID{}); err != nil {
 		return fmt.Errorf("could not initialize %T: %w", s.blobStor, err)
 	}
 	s.initedStorage = true

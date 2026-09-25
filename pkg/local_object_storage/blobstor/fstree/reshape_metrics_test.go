@@ -3,7 +3,7 @@ package fstree
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,9 +19,9 @@ func (t *reshapeProgressTracker) recordedValues() []float64 {
 	return t.values
 }
 
-func newReshapeFSTree(t *testing.T, lastProcessedPath string) (*FSTree, common.ID, *reshapeProgressTracker) {
+func newReshapeFSTree(t *testing.T, lastProcessedPath string) (*FSTree, blobstor.ID, *reshapeProgressTracker) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	tracker := new(reshapeProgressTracker)
@@ -87,7 +87,7 @@ func TestFSTreeReshapeMetric(t *testing.T) {
 	})
 
 	t.Run("tracker factory", func(t *testing.T) {
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		tracker := new(reshapeProgressTracker)

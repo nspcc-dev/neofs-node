@@ -3,17 +3,17 @@ package control
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // call only if `ready` returned no error.
-func (s *Server) getShardIDList(raw [][]byte) ([]common.ID, error) {
+func (s *Server) getShardIDList(raw [][]byte) ([]blobstor.ID, error) {
 	if len(raw) != 0 {
-		res := make([]common.ID, 0, len(raw))
+		res := make([]blobstor.ID, 0, len(raw))
 		for i := range raw {
-			id, err := common.NewIDFromBytes(raw[i])
+			id, err := blobstor.NewIDFromBytes(raw[i])
 			if err != nil {
 				return nil, fmt.Errorf("invalid shard ID #%d: %w", i, err)
 			}
@@ -23,7 +23,7 @@ func (s *Server) getShardIDList(raw [][]byte) ([]common.ID, error) {
 	}
 
 	info := s.storage.DumpInfo()
-	res := make([]common.ID, 0, len(info.Shards))
+	res := make([]blobstor.ID, 0, len(info.Shards))
 	for i := range info.Shards {
 		res = append(res, info.Shards[i].ID)
 	}

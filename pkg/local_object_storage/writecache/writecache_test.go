@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +26,7 @@ func TestCache_InitReadOnly(t *testing.T) {
 
 	t.Cleanup(func() { wc.Close() })
 
-	err = wc.Init(common.ID{})
+	err = wc.Init(blobstor.ID{})
 	require.NoError(t, err)
 }
 

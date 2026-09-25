@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -14,11 +14,11 @@ import (
 )
 
 type ModeAwareStorage struct {
-	common.Storage
+	blobstor.Storage
 	currentMode mode.Mode
 }
 
-func NewModeAwareStorage(s common.Storage) *ModeAwareStorage {
+func NewModeAwareStorage(s blobstor.Storage) *ModeAwareStorage {
 	return &ModeAwareStorage{
 		Storage: s,
 	}
@@ -32,7 +32,7 @@ func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
 	err := m.Close()
 	if err == nil {
 		if err = m.Open(newMode.ReadOnly()); err == nil {
-			err = m.Init(common.ID{})
+			err = m.Init(blobstor.ID{})
 		}
 	}
 
@@ -54,7 +54,7 @@ func TestBlobstorGeneric(t *testing.T) {
 
 		// fstree must be initialized to create a descriptor
 		require.NoError(t, fsTree.Open(false))
-		require.NoError(t, fsTree.Init(common.ID{}))
+		require.NoError(t, fsTree.Init(blobstor.ID{}))
 		require.NoError(t, fsTree.Close())
 
 		return NewModeAwareStorage(fsTree)

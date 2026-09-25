@@ -10,7 +10,7 @@ import (
 
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -80,14 +80,14 @@ func TestCache_GetRangeStream(t *testing.T) {
 
 	addr := obj.Address()
 
-	_, _, _, err := c.GetRangeStream(addr, common.NewPayloadRange(0, 0), false)
+	_, _, _, err := c.GetRangeStream(addr, blobstor.NewPayloadRange(0, 0), false)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-	_, _, _, err = c.GetRangeStream(addr, common.NewPayloadRange(1, pldLen-1), false)
+	_, _, _, err = c.GetRangeStream(addr, blobstor.NewPayloadRange(1, pldLen-1), false)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 	require.NoError(t, c.Put(addr, &obj, obj.Marshal()))
 
-	_, _, _, err = c.GetRangeStream(addr, common.NewPayloadRange(1, 0), false)
+	_, _, _, err = c.GetRangeStream(addr, blobstor.NewPayloadRange(1, 0), false)
 	require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 
 	for _, tc := range []struct{ off, ln uint64 }{
@@ -96,7 +96,7 @@ func TestCache_GetRangeStream(t *testing.T) {
 		{off: 1, ln: pldLen - 1},
 		{off: pldLen - 1, ln: 1},
 	} {
-		_, gotPldLen, stream, err := c.GetRangeStream(addr, common.NewPayloadRange(tc.off, tc.ln), false)
+		_, gotPldLen, stream, err := c.GetRangeStream(addr, blobstor.NewPayloadRange(tc.off, tc.ln), false)
 		require.NoError(t, err, tc)
 		require.EqualValues(t, pldLen, gotPldLen)
 
@@ -117,15 +117,15 @@ func TestCache_GetRangeStream(t *testing.T) {
 		{off: 1, ln: pldLen},
 		{off: pldLen - 1, ln: 2},
 	} {
-		_, _, _, err := c.GetRangeStream(addr, common.NewPayloadRange(tc.off, tc.ln), false)
+		_, _, _, err := c.GetRangeStream(addr, blobstor.NewPayloadRange(tc.off, tc.ln), false)
 		require.ErrorIs(t, err, apistatus.ErrObjectOutOfRange)
 	}
 
 	require.NoError(t, c.Delete(addr))
 
-	_, _, _, err = c.GetRangeStream(addr, common.NewPayloadRange(0, 0), false)
+	_, _, _, err = c.GetRangeStream(addr, blobstor.NewPayloadRange(0, 0), false)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-	_, _, _, err = c.GetRangeStream(addr, common.NewPayloadRange(1, pldLen-1), false)
+	_, _, _, err = c.GetRangeStream(addr, blobstor.NewPayloadRange(1, pldLen-1), false)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 }
 

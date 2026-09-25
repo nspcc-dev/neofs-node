@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -28,12 +28,12 @@ type Cache interface {
 	GetBytes(oid.Address) ([]byte, error)
 	// GetStream returns an object and a stream to read its payload.
 	GetStream(oid.Address) (*object.Object, io.ReadCloser, error)
-	GetRangeStream(addr oid.Address, rng common.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
+	GetRangeStream(addr oid.Address, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
 	Head(oid.Address) (*object.Object, error)
 	ReadHeader(oid.Address, []byte) (int, error)
 	ReadObject(oid.Address, []byte) (int, io.ReadCloser, error)
 	ReadPayloadRange(oid.Address, uint64, uint64, []byte, func([]byte) error) (io.ReadCloser, error)
-	ReadObjectParts(buf []byte, addr oid.Address, rng common.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
+	ReadObjectParts(buf []byte, addr oid.Address, rng blobstor.PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
 	// Delete removes object referenced by the given oid.Address from the
 	// Cache. Returns any error encountered that prevented the object to be
 	// removed.
@@ -48,7 +48,7 @@ type Cache interface {
 	DumpInfo() Info
 	Flush(bool) error
 
-	Init(common.ID) error
+	Init(blobstor.ID) error
 	Open(readOnly bool) error
 	Close() error
 	ObjectStatus(address oid.Address) (ObjectStatus, error)
@@ -76,7 +76,7 @@ type cache struct {
 	// fsTree contains big files stored directly on file-system.
 	fsTree *fstree.FSTree
 	// shardID is used to initialize FSTree after reopening it on a mode change.
-	shardID common.ID
+	shardID blobstor.ID
 	// initialized is set after the first FSTree initialization.
 	initialized bool
 }
@@ -146,7 +146,7 @@ func (c *cache) Open(readOnly bool) error {
 }
 
 // Init runs necessary services. No-op in read-only mode.
-func (c *cache) Init(id common.ID) error {
+func (c *cache) Init(id blobstor.ID) error {
 	c.metrics.id = id.String()
 	c.log = c.log.With(
 		zap.String("substorage", wcStorageType),

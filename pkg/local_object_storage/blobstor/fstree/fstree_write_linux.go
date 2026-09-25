@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -259,7 +259,7 @@ func (w *linuxWriter) writeData(id oid.ID, p string, data []byte) error {
 
 func convertLinuxError(err error) error {
 	if errors.Is(err, unix.ENOSPC) {
-		return common.ErrNoSpace
+		return blobstor.ErrNoSpace
 	}
 	return err
 }

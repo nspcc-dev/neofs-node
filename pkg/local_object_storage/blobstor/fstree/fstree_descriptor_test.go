@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -20,7 +20,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 		WithPath(dir),
 		WithDepth(2),
 	)
-	id1, err := common.NewID()
+	id1, err := blobstor.NewID()
 	require.NoError(t, err)
 	require.NoError(t, fs1.Init(id1))
 	desc := filepath.Join(dir, ".fstree.json")
@@ -52,7 +52,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 			WithPath(dir),
 			WithDepth(2),
 		)
-		id2, err := common.NewID()
+		id2, err := blobstor.NewID()
 		require.NoError(t, err)
 		err = fs.Init(id2)
 		require.EqualError(t, err, "shard ID mismatch: on-disk shard ID="+id1.String()+", configured shard ID="+id2.String())
@@ -109,7 +109,7 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 
 	t.Run("reshape depth", func(t *testing.T) {
 		dir := t.TempDir()
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		old := New(
@@ -168,16 +168,16 @@ func TestFSTreeDescriptor_CreateAndValidate(t *testing.T) {
 }
 
 func TestFSTreeDescriptor_MigrationFrom1Version(t *testing.T) {
-	id1, err := common.NewID()
+	id1, err := blobstor.NewID()
 	require.NoError(t, err)
 
-	id2, err := common.NewID()
+	id2, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	tests := []struct {
 		name              string
 		initialShardID    string
-		configuredShardID common.ID
+		configuredShardID blobstor.ID
 		expectedShardID   string
 		subtype           string
 		checkMismatch     bool
@@ -260,7 +260,7 @@ func TestFSTreeDescriptor_MigrationFrom1Version(t *testing.T) {
 
 func TestFSTreeDescriptor_ActiveReshape(t *testing.T) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	old := New(WithPath(dir), WithDepth(2))
@@ -295,7 +295,7 @@ func TestFSTreeDescriptor_ActiveReshape(t *testing.T) {
 
 func TestFSTreeReshapeRecoveryFromCheckpoint(t *testing.T) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	old := New(WithPath(dir), WithDepth(2), WithCombinedCountLimit(1))
@@ -349,7 +349,7 @@ func TestFSTreeReshapeRecoveryFromCheckpoint(t *testing.T) {
 
 func TestFSTreeDescriptor_ReshapeProgress(t *testing.T) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	descPath := filepath.Join(dir, ".fstree.json")
@@ -373,7 +373,7 @@ func TestFSTreeDescriptor_ReshapeProgress(t *testing.T) {
 
 func TestFSTreeDescriptor_MigrationFrom3Version(t *testing.T) {
 	dir := t.TempDir()
-	id, err := common.NewID()
+	id, err := blobstor.NewID()
 	require.NoError(t, err)
 
 	desc := filepath.Join(dir, ".fstree.json")
@@ -397,7 +397,7 @@ func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
 		for _, tc := range []string{SubtypeBlobstor, "write-cache"} {
 			t.Run(tc, func(t *testing.T) {
 				dir := t.TempDir()
-				id, err := common.NewID()
+				id, err := blobstor.NewID()
 				require.NoError(t, err)
 
 				desc := filepath.Join(dir, ".fstree.json")
@@ -420,7 +420,7 @@ func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
 
 	t.Run("require explicit subtype", func(t *testing.T) {
 		dir := t.TempDir()
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		desc := filepath.Join(dir, ".fstree.json")
@@ -437,7 +437,7 @@ func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
 
 	t.Run("validate depth after migration", func(t *testing.T) {
 		dir := t.TempDir()
-		id, err := common.NewID()
+		id, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		desc := filepath.Join(dir, ".fstree.json")
@@ -455,9 +455,9 @@ func TestFSTreeDescriptor_MigrationFrom2Version(t *testing.T) {
 
 	t.Run("validate shard id after migration", func(t *testing.T) {
 		dir := t.TempDir()
-		id1, err := common.NewID()
+		id1, err := blobstor.NewID()
 		require.NoError(t, err)
-		id2, err := common.NewID()
+		id2, err := blobstor.NewID()
 		require.NoError(t, err)
 
 		desc := filepath.Join(dir, ".fstree.json")
