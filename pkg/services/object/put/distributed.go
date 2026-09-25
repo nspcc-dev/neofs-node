@@ -94,6 +94,9 @@ type distributedTarget struct {
 	initialPolicy *netmap.InitialPlacementPolicy
 
 	postPlacementReplicator PostPlacementReplicator
+
+	replicateV2InitRequestMtx sync.RWMutex
+	replicateV2InitRequest    replicateV2InitRequest
 }
 
 type nodeDesc struct {
@@ -273,6 +276,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 			putPayload(t.encodedECParts[0][0])
 		}
 		t.encodedECParts = nil
+		t.replicateV2InitRequest.reset()
 	}()
 
 	if !t.doNotEncodeOriginalObject(t.obj) {
@@ -338,7 +342,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 		err = t.distributeObject(obj, encObj, func(obj object.Object, encObj encodedObject) error {
 			return t.placementIterator.iterateNodesForObject(obj.GetID(), useRepRules, objNodeLists, broadcast, func(node nodeDesc) error {
-				return t.sendObject(obj, encObj, node)
+				return t.sendObject(obj, encObj, node, nil)
 			})
 		})
 		if err != nil {
@@ -548,7 +552,7 @@ nextRule:
 		}
 
 		stored, err := t.placementIterator.handleREPRule(l, repProg, ruleIdx, minReps, maxReps, objNodeLists[ruleIdx], func(node nodeDesc) error {
-			return t.sendObject(obj, encObj, node)
+			return t.sendObject(obj, encObj, node, nil)
 		})
 		if err != nil {
 			if maxReplicas > 0 {
@@ -655,7 +659,7 @@ func (t *distributedTarget) distributeObject(obj object.Object, encObj encodedOb
 	return nil
 }
 
-func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc) error {
+func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, node nodeDesc, nonConcurrentReplicateV2InitReq *replicateV2InitRequest) error {
 	if node.local {
 		if err := t.writeObjectLocally(obj, encObj); err != nil {
 			return fmt.Errorf("write object locally: %w", err)
@@ -701,7 +705,12 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 			if clientcore.CompareAPIVersion(conn, iobject.ReplicateV2FirstAPIVersion) >= 0 {
 				hdr := encObj.b[encObj.hdrOff:encObj.pldFldOff]
 				payload := encObj.b[encObj.pldOff:]
-				sigsRaw, err = sendReplicationV2RequestToNode(t.opCtx, t.localNodeSigner, conn, obj.GetID(), hdr, payload, t.metainfoConsistencyAttr != "")
+				var mtx *sync.RWMutex
+				if nonConcurrentReplicateV2InitReq == nil {
+					mtx = &t.replicateV2InitRequestMtx
+					nonConcurrentReplicateV2InitReq = &t.replicateV2InitRequest
+				}
+				sigsRaw, err = t.replicateV2(t.opCtx, mtx, nonConcurrentReplicateV2InitReq, obj.GetID(), hdr, payload, conn)
 			} else {
 				sigsRaw, err = sendReplicationRequestToNode(t.opCtx, conn, encObj.b)
 			}

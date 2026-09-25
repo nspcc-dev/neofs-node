@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sync"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -144,10 +145,10 @@ func sendReplicationRequestToNode(ctx context.Context, conn clientcore.MultiAddr
 	})
 }
 
-func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Signer, conn clientcore.MultiAddressClient, id oid.ID, hdr []byte, payload []byte, signObjectMeta bool) ([]byte, error) {
+func encodeReplicateV2InitRequest(signer neofscrypto.Signer, id oid.ID, hdr []byte, signObjectMeta bool) (mem.BufferSlice, *[]byte, error) {
 	sig, err := signer.Sign(id[:])
 	if err != nil {
-		return nil, fmt.Errorf("sign object ID: %w", err)
+		return nil, nil, fmt.Errorf("sign object ID: %w", err)
 	}
 
 	pubKey := neofscrypto.PublicKeyBytes(signer.Public())
@@ -165,7 +166,6 @@ func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Sign
 	prefixLen := protoencoding.SizeVarint(protoobject.FieldReplicateV2RequestInit, initLen) + hdrPrefixLen
 
 	initReqBufItem := defaultGRPCBufferPool.Get(prefixLen + suffixLen)
-	defer defaultGRPCBufferPool.Put(initReqBufItem)
 
 	initReqBuf := *initReqBufItem
 
@@ -178,15 +178,77 @@ func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Sign
 	off += protoencoding.WriteMessageField(initReqBuf[off:], protoobject.FieldReplicateV2RequestInitSignature, sigLen, writeSigFn)
 	protoencoding.MarshalToBool(initReqBuf[off:], protoobject.FieldReplicateV2RequestInitSignObject, signObjectMeta)
 
-	initReqBuffers := mem.BufferSlice{
+	return mem.BufferSlice{
 		mem.SliceBuffer(initReqBuf[:prefixLen]),
 		mem.SliceBuffer(hdr),
 		mem.SliceBuffer(initReqBuf[prefixLen:]),
+	}, initReqBufItem, nil
+}
+
+type replicateV2InitRequest struct {
+	bufferSlice mem.BufferSlice
+	poolItem    *[]byte
+	encodeError error
+}
+
+// Must not be called concurrently.
+func (x *replicateV2InitRequest) reset() {
+	if x.bufferSlice == nil {
+		return
+	}
+	defaultGRPCBufferPool.Put(x.poolItem)
+	x.bufferSlice = nil
+	x.encodeError = nil
+}
+
+func (x *replicateV2InitRequest) encodeLocked(signer neofscrypto.Signer, id oid.ID, hdr []byte, signMeta bool) (mem.BufferSlice, error) {
+	if x.bufferSlice != nil || x.encodeError != nil {
+		return x.bufferSlice, x.encodeError
 	}
 
+	x.bufferSlice, x.poolItem, x.encodeError = encodeReplicateV2InitRequest(signer, id, hdr, signMeta)
+	if x.encodeError != nil {
+		return nil, x.encodeError
+	}
+
+	return x.bufferSlice, nil
+}
+
+func (x *replicateV2InitRequest) encode(mtx *sync.RWMutex, signer neofscrypto.Signer, id oid.ID, hdr []byte, signMeta bool) (mem.BufferSlice, error) {
+	if mtx == nil {
+		return x.encodeLocked(signer, id, hdr, signMeta)
+	}
+
+	mtx.RLock()
+	if bs := x.bufferSlice; bs != nil {
+		mtx.RUnlock()
+		return bs, nil
+	}
+	if err := x.encodeError; err != nil {
+		mtx.RUnlock()
+		return nil, err
+	}
+	mtx.RUnlock()
+
+	mtx.Lock()
+	defer mtx.Unlock()
+
+	return x.encodeLocked(signer, id, hdr, signMeta)
+}
+
+func (t *distributedTarget) replicateV2(ctx context.Context, reqMtx *sync.RWMutex, req *replicateV2InitRequest, id oid.ID, hdr []byte, payload []byte, conn clientcore.MultiAddressClient) ([]byte, error) {
+	initReqBuffers, err := req.encode(reqMtx, t.localNodeSigner, id, hdr, t.metainfoConsistencyAttr != "")
+	if err != nil {
+		return nil, err
+	}
+
+	return sendReplicationV2RequestToNode(ctx, conn, initReqBuffers, payload)
+}
+
+func sendReplicationV2RequestToNode(ctx context.Context, conn clientcore.MultiAddressClient, initReqBuffers mem.BufferSlice, payload []byte) ([]byte, error) {
 	var res []byte
 
-	err = conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 		stream, err := conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true}, protoobject.ObjectService_ReplicateV2_FullMethodName,
 			grpc.ForceCodecV2(protobuf.BufferedCodec{}),
 		)
