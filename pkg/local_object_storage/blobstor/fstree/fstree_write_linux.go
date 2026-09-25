@@ -224,7 +224,7 @@ func (x *linuxFileWriteStream) Close() error {
 	}
 	fd := x.fd
 	x.fd = -1
-	err := linuxLinkatAndClose(fd, x.targetPath)
+	err := linuxLinkatAndClose(fd, x.targetPath, true)
 	return convertLinuxError(err)
 }
 
@@ -238,7 +238,7 @@ func (x *linuxFileWriteStream) abort() {
 }
 
 func (w *linuxWriter) initWriteData(filePath string) (io.WriteCloser, func(), error) {
-	fd, err := w.openFile()
+	fd, err := w.openFile(w.bFlags)
 	if err != nil {
 		return nil, nil, convertLinuxError(err)
 	}
@@ -299,7 +299,7 @@ func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error 
 }
 
 func (w *linuxWriter) writeFile(p string, data []byte) error {
-	fd, err := w.openFile()
+	fd, err := w.openFile(w.flags)
 	if err != nil {
 		return err
 	}
@@ -307,11 +307,11 @@ func (w *linuxWriter) writeFile(p string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return linuxLinkatAndClose(fd, p)
+	return linuxLinkatAndClose(fd, p, false)
 }
 
-func (w *linuxWriter) openFile() (int, error) {
-	fd, err := unix.Open(w.root, w.flags, w.perm)
+func (w *linuxWriter) openFile(mode int) (int, error) {
+	fd, err := unix.Open(w.root, mode, w.perm)
 	if err != nil {
 		return 0, fmt.Errorf("unix open: %w", err)
 	}
@@ -331,7 +331,14 @@ func linuxWrite(fd int, data []byte) (int, error) {
 	return n, nil
 }
 
-func linuxLinkatAndClose(fd int, newPath string) error {
+func linuxLinkatAndClose(fd int, newPath string, sync bool) error {
+	if sync {
+		if err := unix.Fdatasync(fd); err != nil {
+			_ = unix.Close(fd)
+			return fmt.Errorf("unix fdatasync: %w", err)
+		}
+	}
+
 	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
 	err := unix.Linkat(unix.AT_FDCWD, tmpPath, unix.AT_FDCWD, newPath, unix.AT_SYMLINK_FOLLOW)
 	if err != nil && !errors.Is(err, unix.EEXIST) { // https://github.com/nspcc-dev/neofs-node/issues/2563
