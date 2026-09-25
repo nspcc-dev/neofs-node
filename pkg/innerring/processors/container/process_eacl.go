@@ -53,7 +53,7 @@ func (cp *Processor) processPutEACLRequest(req cnrevent.PutContainerEACLRequest)
 		return
 	}
 
-	err = cp.checkSetEACL(req, table, cid.NewFromMarshalledContainer(cnr.Marshal()), cnr)
+	err = cp.checkSetEACL(req, table, idCnr, cnr)
 	if err != nil {
 		// defer
 		return
