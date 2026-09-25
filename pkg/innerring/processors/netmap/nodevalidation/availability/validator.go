@@ -31,14 +31,15 @@ func (v Validator) Verify(nodeInfo netmap.NodeInfo) error {
 		var res *client.ResEndpointInfo
 		var c *client.Client
 
-		c, err = createSDKClient(s, nodeInfo.PublicKey())
+		ctx, cancel := context.WithTimeout(context.Background(), pingTimeout)
+
+		c, err = createSDKClient(ctx, s, nodeInfo.PublicKey())
 		if err != nil {
+			cancel()
 			return fmt.Errorf("'%s': client creation: %w", s, err)
 		}
 
-		timeoutContext, cancel := context.WithTimeout(context.Background(), pingTimeout)
-
-		res, err = c.EndpointInfo(timeoutContext, client.PrmEndpointInfo{})
+		res, err = c.EndpointInfo(ctx, client.PrmEndpointInfo{})
 		cancel()
 		_ = c.Close()
 		if err != nil {
@@ -114,7 +115,7 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 
 const pingTimeout = 15 * time.Second
 
-func createSDKClient(e string, expectedKey []byte) (*client.Client, error) {
+func createSDKClient(ctx context.Context, e string, expectedKey []byte) (*client.Client, error) {
 	// FIXME: pending removal in #3982.
 	var a network.Address
 	err := a.FromString(e)
@@ -122,37 +123,25 @@ func createSDKClient(e string, expectedKey []byte) (*client.Client, error) {
 		return nil, fmt.Errorf("parsing address: %w", err)
 	}
 
-	var prmDial client.PrmDial
-	prmDial.SetTimeout(pingTimeout)
-	prmDial.SetStreamTimeout(pingTimeout)
-	prmDial.SetServerURI(a.URIAddr())
+	var (
+		prmInit client.PrmInit
+		uri     = a.URIAddr()
+	)
 
-	c, err := dialSDKClient(prmDial)
-	if err == nil || !strings.HasPrefix(a.URIAddr(), "grpcs://") {
-		return c, err
-	}
-	if c != nil {
-		_ = c.Close()
+	if strings.HasPrefix(a.URIAddr(), "grpcs://") {
+		prmInit.SetTLSConfig(nodeTLSConfig(expectedKey))
 	}
 
-	// A candidate can use a self-signed certificate. Its public key is pinned
-	// to the key in the signed candidate instead of relying on a CA chain.
-	prmDial.SetTLSConfig(nodeTLSConfig(expectedKey))
-	c, pinErr := dialSDKClient(prmDial)
-	if pinErr != nil {
-		return nil, fmt.Errorf("can't init SDK client with self-signed certificate fallback: %w", errors.Join(err, pinErr))
-	}
-	return c, nil
-}
-
-func dialSDKClient(prmDial client.PrmDial) (*client.Client, error) {
-	c, err := client.New(client.PrmInit{})
+	c, err := client.New(prmInit)
 	if err != nil {
 		return nil, fmt.Errorf("can't create SDK client: %w", err)
 	}
-	if err = c.Dial(prmDial); err != nil {
-		return c, fmt.Errorf("can't init SDK client: %w", err)
+	err = c.DialEndpoint(ctx, uri)
+	if err != nil {
+		c.Close()
+		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
+
 	return c, nil
 }
 

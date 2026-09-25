@@ -37,11 +37,7 @@ func getSDKClientByFlag(ctx context.Context, endpointFlag string) (*client.Clien
 func GetSDKClient(ctx context.Context, addr network.Address) (*client.Client, error) {
 	var (
 		prmInit client.PrmInit
-		prmDial client.PrmDial
 	)
-
-	prmDial.SetServerURI(addr.URIAddr())
-	prmDial.SetContext(ctx)
 
 	deadline, ok := ctx.Deadline()
 	if ok {
@@ -49,8 +45,7 @@ func GetSDKClient(ctx context.Context, addr network.Address) (*client.Client, er
 			// In CLI we can only set a timeout for the whole operation.
 			// By also setting stream timeout we ensure that no operation hands
 			// for too long.
-			prmDial.SetTimeout(timeout)
-			prmDial.SetStreamTimeout(timeout)
+			prmInit.SetStreamTimeout(timeout)
 		}
 	}
 
@@ -59,7 +54,7 @@ func GetSDKClient(ctx context.Context, addr network.Address) (*client.Client, er
 		return nil, fmt.Errorf("can't create SDK client: %w", err)
 	}
 
-	if err := c.Dial(prmDial); err != nil {
+	if err := c.DialEndpoint(ctx, addr.URIAddr()); err != nil {
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
