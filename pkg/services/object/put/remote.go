@@ -144,37 +144,45 @@ func sendReplicationRequestToNode(ctx context.Context, conn clientcore.MultiAddr
 	})
 }
 
-func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Signer, conn clientcore.MultiAddressClient, hdr object.Object, payload []byte, signObjectMeta bool) ([]byte, error) {
-	id := hdr.GetID()
-
+func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Signer, conn clientcore.MultiAddressClient, id oid.ID, hdr []byte, payload []byte, signObjectMeta bool) ([]byte, error) {
 	sig, err := signer.Sign(id[:])
 	if err != nil {
 		return nil, fmt.Errorf("sign object ID: %w", err)
 	}
 
-	hdrMsg := hdr.ProtoMessage()
-	hdrMsg.Payload = nil
-
 	pubKey := neofscrypto.PublicKeyBytes(signer.Public())
 	sigScheme := signer.Scheme()
 
-	hdrLen := hdrMsg.MarshaledSize()
 	sigLen := protorefs.CalculateSignatureLength(pubKey, sig, sigScheme)
 
-	initLen := protoobject.CalculateReplicateV2InitLength(hdrLen, sigLen, signObjectMeta)
+	suffixLen := protoencoding.SizeEmbeddedLENField(protoobject.FieldReplicateV2RequestInitSignature, sigLen)
+	suffixLen += protoencoding.SizeBool(protoobject.FieldReplicateV2RequestInitSignObject, signObjectMeta)
 
-	initReqLen := protoobject.CalculateReplicateV2InitRequestLength(initLen)
+	hdrPrefixLen := protoencoding.SizeVarint(protoobject.FieldReplicateV2RequestInitObject, len(hdr))
 
-	initReqBufItem := defaultGRPCBufferPool.Get(initReqLen)
+	initLen := hdrPrefixLen + len(hdr) + suffixLen
+
+	prefixLen := protoencoding.SizeVarint(protoobject.FieldReplicateV2RequestInit, initLen) + hdrPrefixLen
+
+	initReqBufItem := defaultGRPCBufferPool.Get(prefixLen + suffixLen)
 	defer defaultGRPCBufferPool.Put(initReqBufItem)
 
 	initReqBuf := *initReqBufItem
 
-	writeHdrFn := protoencoding.WriteStablyMarshalledMessageFunc(hdrMsg)
+	off := protoencoding.WriteTagAndLength(initReqBuf, protoobject.FieldReplicateV2RequestInit, initLen)
+	off += protoencoding.WriteTagAndLength(initReqBuf[off:], protoobject.FieldReplicateV2RequestInitObject, len(hdr))
+
 	writeSigFn := func(buf []byte) int {
 		return protorefs.WriteSignature(buf, pubKey, sig, sigScheme)
 	}
-	protoobject.WriteReplicateV2InitRequest(initReqBuf, hdrLen, writeHdrFn, sigLen, writeSigFn, signObjectMeta)
+	off += protoencoding.WriteMessageField(initReqBuf[off:], protoobject.FieldReplicateV2RequestInitSignature, sigLen, writeSigFn)
+	protoencoding.MarshalToBool(initReqBuf[off:], protoobject.FieldReplicateV2RequestInitSignObject, signObjectMeta)
+
+	initReqBuffers := mem.BufferSlice{
+		mem.SliceBuffer(initReqBuf[:prefixLen]),
+		mem.SliceBuffer(hdr),
+		mem.SliceBuffer(initReqBuf[prefixLen:]),
+	}
 
 	var res []byte
 
@@ -186,7 +194,7 @@ func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Sign
 			return newAPICallError(protoobject.ObjectService_ReplicateV2_FullMethodName, err)
 		}
 
-		err = stream.SendMsg(mem.SliceBuffer(initReqBuf))
+		err = stream.SendMsg(initReqBuffers)
 		if err != nil {
 			return fmt.Errorf("send initial request: %w", err)
 		}
