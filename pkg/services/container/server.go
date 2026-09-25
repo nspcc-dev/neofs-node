@@ -20,7 +20,6 @@ import (
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/xheaders"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -701,9 +700,15 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"), req)
 	}
 
-	err := xheaders.CheckRequestContainerRevision(req.GetMetaHeader(), cnrID, s.contract)
-	if err != nil {
-		return s.makeSetEACLResponse(err, req)
+	if revClient := req.GetBody().GetContainerRevision(); revClient != 0 {
+		cnr, err := s.contract.Get(cnrID)
+		if err != nil {
+			return s.makeSetEACLResponse(fmt.Errorf("fetching container: %w", err), req)
+		}
+		if revServer := cnr.Revision(); revClient != revServer {
+			return s.makeSetEACLResponse(apistatus.NewContainerRevisionMismatch(fmt.Sprintf(
+				"container revision does not match: requested: %d, server's: %d", revClient, revServer)), req)
+		}
 	}
 
 	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cnrID)
