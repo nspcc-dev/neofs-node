@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 // RemoteSender represents utility for
@@ -190,11 +192,15 @@ func sendReplicationV2RequestToNode(ctx context.Context, signer neofscrypto.Sign
 		}
 
 		for chunk := range slices.Chunk(payload, maxReplicateV2PayloadChunkLen) {
-			reqLen := protoobject.CalculateReplicateV2ChunkRequestLength(chunk)
-			bufItem := defaultGRPCBufferPool.Get(reqLen)
-			protoobject.WriteReplicateV2ChunkRequest(*bufItem, chunk)
+			prefixLen := 1 + protowire.SizeVarint(uint64(len(chunk)))
 
-			err = stream.SendMsg(mem.NewBuffer(bufItem, defaultGRPCBufferPool))
+			prefixBufItem := defaultGRPCBufferPool.Get(prefixLen)
+			prefixBuf := *prefixBufItem
+
+			prefixBuf[0] = protobuf.TagBytes2
+			binary.PutUvarint(prefixBuf[1:], uint64(len(chunk)))
+
+			err = stream.SendMsg(mem.BufferSlice{mem.NewBuffer(prefixBufItem, defaultGRPCBufferPool), mem.SliceBuffer(chunk)})
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					res, err = replicationV2ResultFromStream(stream)
