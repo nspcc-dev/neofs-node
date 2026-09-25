@@ -49,6 +49,7 @@ import (
 	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
@@ -62,6 +63,7 @@ import (
 	grpccodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/mem"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -1612,7 +1614,41 @@ func readFirstReplicateV2Request(stream protoobject.ObjectService_ReplicateV2Ser
 	return initPart, nil, nil
 }
 
+var replicateV2RequestScheme = protoscan.MessageScheme{
+	Fields: map[protowire.Number]protoscan.MessageField{
+		protoobject.FieldReplicateV2RequestInit:  protoscan.NewMessageField("init", protoscan.FieldTypeNestedMessage),
+		protoobject.FieldReplicateV2RequestChunk: protoscan.NewMessageField("chunk", protoscan.FieldTypeBytes),
+	},
+}
+
+func getChunkFromReplicateV2Request(req mem.BufferSlice) (iprotobuf.BuffersSlice, *protostatus.Status) {
+	var chunkBuffers iprotobuf.BuffersSlice
+
+	var opts protoscan.ScanMessageOptions
+	opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
+		if num != protoobject.FieldReplicateV2RequestChunk {
+			return protoscan.ErrContinue
+		}
+		chunkBuffers = buffers
+		return nil
+	}
+	opts.InterceptNested = func(protowire.Number, iprotobuf.BuffersSlice) error {
+		return errors.New("non-chunk subsequent message")
+	}
+
+	err := protoscan.ScanMessage(iprotobuf.NewBuffersSlice(req), replicateV2RequestScheme, opts)
+	if err != nil {
+		return iprotobuf.BuffersSlice{}, newBadRequestStatus(err.Error())
+	}
+
+	return chunkBuffers, nil
+}
+
 // ReplicateV2 serves neo.fs.v2.object.ObjectService/ReplicateV2 RPC.
+//
+// ReplicateV2 receives requests of [*protoobject.ReplicateV2Request] or
+// [*mem.BufferSlice] type. ReplicateV2 sends response of
+// [*protoobject.ReplicateV2Response] type.
 func (s *Server) ReplicateV2(stream protoobject.ObjectService_ReplicateV2Server) error {
 	initPart, st, err := readFirstReplicateV2Request(stream)
 	if err != nil {
@@ -1667,8 +1703,8 @@ func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w 
 	h := sha256.New()
 
 	for {
-		var req protoobject.ReplicateV2Request
-		err := stream.RecvMsg(&req)
+		var reqBuffers mem.BufferSlice
+		err := stream.RecvMsg(&reqBuffers)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return h.Sum(nil), totalLen, nil, nil
@@ -1676,28 +1712,42 @@ func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w 
 			return nil, 0, nil, err
 		}
 
-		chunkPart, ok := req.StreamPart.(*protoobject.ReplicateV2Request_PayloadChunk)
-		if !ok {
-			return nil, 0, newBadRequestStatus("non-chunk subsequent message"), nil
+		chunkBuffers, st := getChunkFromReplicateV2Request(reqBuffers)
+		if st != nil {
+			reqBuffers.Free()
+			return nil, 0, st, nil
 		}
 
-		chunk := chunkPart.PayloadChunk
-
-		if len(chunk) == 0 {
+		chunkLen := chunkBuffers.Len()
+		if chunkLen == 0 {
+			reqBuffers.Free()
 			return nil, 0, newBadRequestStatus("empty payload chunk"), nil
 		}
 
-		if totalLen+uint64(len(chunk)) > payloadLen {
+		if totalLen+uint64(chunkLen) > payloadLen {
+			reqBuffers.Free()
 			return nil, 0, newWrongReplicatedObjectPayloadLengthStatus(), nil
 		}
 
-		_, err = w.Write(chunk)
+		// Chunk length is limited by max data frame used in gRPC. By default, it is
+		// 16KB. Writing a lot of such chunks can lead to a large number of syscalls.
+		// Either bigger frames (https://github.com/nspcc-dev/neofs-node/issues/4155) or
+		// buffered I/O could be used as a solution.
+		_, err = chunkBuffers.WriteTo(w)
 		if err != nil {
+			reqBuffers.Free()
 			return nil, 0, nil, fmt.Errorf("%w: %w", errWriteStream, err)
 		}
 
-		totalLen += uint64(len(chunk))
-		h.Write(chunk)
+		_, err = chunkBuffers.WriteTo(h)
+
+		reqBuffers.Free()
+
+		if err != nil { // not expected to ever happen
+			return nil, 0, newInternalServerErrorStatus(fmt.Sprintf("write to hash failure: %v", err)), nil
+		}
+
+		totalLen += uint64(chunkLen)
 	}
 }
 
