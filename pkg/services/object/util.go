@@ -146,6 +146,8 @@ func (x copyReadError) Unwrap() error {
 	return x.error
 }
 
+var errWriteStream = errors.New("write stream")
+
 func newBadRequestError(cause string) apistatus.BadRequest {
 	var err apistatus.BadRequest
 	err.SetMessage(cause)
