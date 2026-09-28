@@ -20,7 +20,6 @@ import (
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/xheaders"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -704,8 +703,7 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"), req)
 	}
 
-	err := xheaders.CheckRequestContainerRevision(req.GetMetaHeader(), cnrID, s.contract)
-	if err != nil {
+	if err := s.checkContainerRevision(req.GetMetaHeader(), reqBody.GetContainerRevision(), cnrID); err != nil {
 		return s.makeSetEACLResponse(err, req)
 	}
 
@@ -730,6 +728,29 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, tokenBytes)
 
 	return s.makeSetEACLResponse(err, req)
+}
+
+func (s *Server) checkContainerRevision(metaH *protosession.RequestMetaHeader, clientCnrRev uint64, cID cid.ID) error {
+	if v := metaH.GetVersion(); v == nil || (v.Major == 2 && v.Minor < 27) || v.Major < 2 {
+		// client does not know about revisions
+		return nil
+	}
+	if clientCnrRev == 0 {
+		var resp apistatus.BadRequest
+		resp.SetMessage("incorrect zero container revision")
+		return resp
+	}
+
+	cnr, err := s.contract.Get(cID)
+	if err != nil {
+		return fmt.Errorf("fetching container from FS chain: %w", err)
+	}
+	if srvCnrRev := cnr.Revision(); clientCnrRev != srvCnrRev {
+		return apistatus.NewContainerRevisionMismatch(fmt.Sprintf(
+			"container revision does not match: requested: %d, server's: %d", clientCnrRev, srvCnrRev))
+	}
+
+	return nil
 }
 
 func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse_Body, st *protostatus.Status, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {

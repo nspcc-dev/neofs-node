@@ -8,7 +8,7 @@ Changelog for NeoFS Node
 - SN now serves `ReplicateV2` API (#4168, #4164)
 - Container SN now uses `ReplicateV2` API in PUT handler when available (#4168, #4196)
 - `neofs-adm fschain netmap` command to fetch current and historical network maps (#4181)
-- Container revisions support (#4183, #4195)
+- Container revisions support (#4183, #4195, #4197)
 
 ### Fixed
 - Broken EC object GET with all data parts missing (#4173)
