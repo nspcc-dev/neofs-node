@@ -104,6 +104,10 @@ func prettyPrintContainer(cmd *cobra.Command, id cid.ID, cnr container.Container
 
 	cmd.Println("owner ID:", cnr.Owner())
 
+	if rev := cnr.Revision(); rev != 0 {
+		cmd.Println("revision:", rev)
+	}
+
 	basicACL := cnr.BasicACL()
 	prettyPrintBasicACL(cmd, basicACL)
 
