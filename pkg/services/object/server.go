@@ -1383,7 +1383,12 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 
 		n += prereadPldLen
 
-		if first && n > 0 {
+		if n == 0 {
+			chunkRespBuf.Free()
+			return nil
+		}
+
+		if first {
 			prereadPldLen, _, err = parseObjectPayloadFieldTag(chunkBuf[:n])
 			if err != nil {
 				chunkRespBuf.Free()
@@ -1393,9 +1398,6 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 			n -= prereadPldLen
 			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+prereadPldLen, n)
 			prereadPldLen = 0
-		} else if n == 0 {
-			chunkRespBuf.Free()
-			return nil
 		} else {
 			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
 		}
