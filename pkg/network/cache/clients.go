@@ -265,6 +265,8 @@ func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*
 		}),
 		grpc.WithReadBufferSize(256*1024),
 		grpc.WithWriteBufferSize(256*1024),
+		grpc.WithInitialWindowSize(64<<20),
+		grpc.WithInitialConnWindowSize(10*64<<20),
 	)
 	if err != nil { // should never happen
 		return nil, nil, fmt.Errorf("init gRPC client conn: %w", err)
