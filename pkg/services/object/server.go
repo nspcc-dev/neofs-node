@@ -60,6 +60,7 @@ import (
 	grpccodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/mem"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -1395,27 +1396,39 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 				return fmt.Errorf("parse payload field tag: %w", err)
 			}
 
-			n -= prereadPldLen
-			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+prereadPldLen, n)
+			chunkBuf = chunkBuf[prereadPldLen:n]
 			prereadPldLen = 0
 		} else {
-			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
+			chunkBuf = chunkBuf[:n]
 		}
 
-		if needSignResp {
-			n, err := s.signResponse(chunkRespBuf.SliceBuffer[bodyf.To:], chunkRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
-			if err != nil {
-				chunkRespBuf.Free()
-				return fmt.Errorf("sign chunk response: %w", err)
+		for len(chunkBuf) > 0 {
+			chunkLn := min(len(chunkBuf), maxGetResponseChunkLength)
+
+			bodyLen := 1 + protowire.SizeBytes(chunkLn)
+
+			prefix := make([]byte, maxGetResponseChunkPrefixLength)
+			prefixLn := protoencoding.WriteRequestBodyTagAndLength(prefix, bodyLen)
+			prefixLn += protoencoding.WriteTagAndLength(prefix[prefixLn:], protoobject.FieldGetResponseBodyChunk, chunkLn)
+
+			chunkRespBuf.Ref()
+
+			respBuffers := mem.BufferSlice{
+				mem.SliceBuffer(prefix[:prefixLn]),
+				newProtoMemBufferPart(chunkRespBuf, chunkBuf[:chunkLn]),
 			}
-			bodyf.To += n
+
+			if err = gStream.SendMsg(respBuffers); err != nil {
+				return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+			}
+
+			sent += chunkLn
+
+			chunkBuf = chunkBuf[chunkLn:]
 		}
 
-		chunkRespBuf.SetBounds(bodyf.From, bodyf.To)
-		if err = gStream.SendMsg(chunkRespBuf); err != nil {
-			return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
-		}
-		sent += n
+		chunkRespBuf.Free()
+
 		if streamDone {
 			return nil
 		}
@@ -1423,6 +1436,29 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 		chunkRespBuf, chunkBuf = getBufferForChunkGetResponse()
 	}
 }
+
+const (
+	grpcMaxDataFrameLength          = 16 << 10 // declared in gRPC internals
+	grpcDataFrameHeaderLength       = 5
+	grpcMaxDataFrameVarintLength    = 3
+	maxGetResponseChunkPrefixLength = 1 + grpcMaxDataFrameVarintLength + 1 + grpcMaxDataFrameVarintLength
+	maxGetResponseChunkLength       = grpcMaxDataFrameLength - grpcDataFrameHeaderLength - maxGetResponseChunkPrefixLength
+)
+
+type protoMemBufferPart struct {
+	mem.SliceBuffer
+	src *iprotobuf.MemBuffer
+}
+
+func newProtoMemBufferPart(b *iprotobuf.MemBuffer, data []byte) protoMemBufferPart {
+	return protoMemBufferPart{
+		SliceBuffer: data,
+		src:         b,
+	}
+}
+
+func (x protoMemBufferPart) Ref()  { x.src.Ref() }
+func (x protoMemBufferPart) Free() { x.src.Free() }
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
