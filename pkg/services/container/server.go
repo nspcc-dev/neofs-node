@@ -452,6 +452,9 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 	if mCnr == nil {
 		return s.makeFailedPutResponse(errors.New("missing container"), req)
 	}
+	if mCnr.Revision != 0 {
+		return s.makeFailedPutResponse(fmt.Errorf("new containers must have zero container revision, got: %d", mCnr.Revision), req)
+	}
 
 	if mCnr.PlacementPolicy == nil {
 		return s.makeFailedPutResponse(errors.New("missing storage policy"), req)
