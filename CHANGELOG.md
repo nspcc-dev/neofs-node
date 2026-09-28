@@ -28,7 +28,7 @@ Changelog for NeoFS Node
 - __NEOFS__NONCE attribute from metabase (#4187)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260924060549-58858fd1f04a` (#4168, #4187, #4193)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.22.0.20260928125451-bf79cba524a9` (#4168, #4187, #4193, #4197)
 - `github.com/nspcc-dev/neofs-contracts` module to `v0.27.0` (#4195)
 
 ### Updating from v0.56.0

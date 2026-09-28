@@ -13,6 +13,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
@@ -60,6 +62,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			return err
 		}
 		defer cli.Close()
+		var cnrCached *container.Container
 		force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
 		if !force {
 			common.PrintVerbose(cmd, "Validating eACL table...")
@@ -75,6 +78,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			if err != nil {
 				return fmt.Errorf("can't get the container: %w", err)
 			}
+			cnrCached = &cnr
 
 			owner := cnr.Owner()
 
@@ -155,11 +159,25 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			}
 		}
 
-		var setEACLPrm client.PrmContainerSetEACL
+		var (
+			setEACLPrm client.PrmContainerSetEACL
+			cnrRev     uint64
+		)
 		if cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
-			cnrRev, _ := cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
-			setEACLPrm.AttachContainerRevision(cnrRev)
+			cnrRev, _ = cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
+		} else {
+			common.PrintVerbose(cmd, commonflags.ContainerRevisionFlag+" flag is not set, using latest container revision...")
+			if cnrCached != nil {
+				cnrRev = cnrCached.Revision()
+			} else {
+				cnrRev, err = getLatestContainerRevision(ctx, cli, id)
+				if err != nil {
+					return fmt.Errorf("get latest container revision: %w", err)
+				}
+			}
+			common.PrintVerbose(cmd, "latest container revision from the network: %d", cnrRev)
 		}
+		setEACLPrm.AttachContainerRevision(cnrRev)
 		if tokAny != nil {
 			switch tok := tokAny.(type) {
 			case *sessionv2.Token:
@@ -183,6 +201,15 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		}
 		return nil
 	},
+}
+
+func getLatestContainerRevision(ctx context.Context, cli *client.Client, cID cid.ID) (uint64, error) {
+	cnr, err := cli.ContainerGet(ctx, cID, client.PrmContainerGet{})
+	if err != nil {
+		return 0, fmt.Errorf("can't get container: %w", err)
+	}
+
+	return cnr.Revision(), nil
 }
 
 func initContainerSetEACLCmd() {
