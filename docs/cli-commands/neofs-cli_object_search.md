@@ -26,7 +26,7 @@ neofs-cli object search [flags]
       --attributes strings        Additional attributes to display for suitable objects
       --bearer string             File with signed JSON or binary encoded bearer token
       --cid string                Container ID.
-      --container-revision uint   Specify a certain container revision number
+      --container-revision uint   Specify a certain positive container revision number
       --count uint16              Max number of resulting items. Must not exceed 1000
       --cursor string             Cursor to continue previous search
   -f, --filters strings           Repeated filter expressions ('key OP value' or 'key NOPRESENT') or files with protobuf JSON

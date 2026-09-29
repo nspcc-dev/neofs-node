@@ -215,7 +215,9 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 			opts.WithSessionToken(*st)
 		}
 	}
-	attachContainerRevision(cmd, &opts)
+	if err := attachContainerRevision(cmd, &opts); err != nil {
+		return fmt.Errorf("container revision: %w", err)
+	}
 	res, cursor, err := cli.SearchObjects(ctx, cnr, fs, searchAttributesFlag.v, searchCursorFlag.v, neofsecdsa.Signer(*pk), opts)
 	if err != nil && !errors.Is(err, apistatus.ErrIncomplete) {
 		return fmt.Errorf("rpc error: %w", err)

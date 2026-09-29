@@ -17,7 +17,7 @@ neofs-cli object delete [flags]
       --bearer string                  File with signed JSON or binary encoded bearer token
       --binary                         Deserialize object structure from given file.
       --cid string                     Container ID.
-      --container-revision uint        Specify a certain container revision number
+      --container-revision uint        Specify a certain positive container revision number
       --file string                    File with object payload
   -g, --generate-key                   Generate new private key
   -h, --help                           help for delete

@@ -94,7 +94,9 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	attachContainerRevision(cmd, &prm)
+	if err := attachContainerRevision(cmd, &prm); err != nil {
+		return fmt.Errorf("container revision: %w", err)
+	}
 
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
