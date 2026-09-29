@@ -224,6 +224,9 @@ func (x *linuxFileWriteStream) Close() error {
 	}
 	fd := x.fd
 	x.fd = -1
+	if err := unix.Fdatasync(fd); err != nil {
+		return convertLinuxError(err)
+	}
 	err := linuxLinkatAndClose(fd, x.targetPath)
 	return convertLinuxError(err)
 }
@@ -238,7 +241,7 @@ func (x *linuxFileWriteStream) abort() {
 }
 
 func (w *linuxWriter) initWriteData(filePath string) (io.WriteCloser, func(), error) {
-	fd, err := w.openFile()
+	fd, err := w.openFile(w.bFlags)
 	if err != nil {
 		return nil, nil, convertLinuxError(err)
 	}
@@ -299,7 +302,7 @@ func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error 
 }
 
 func (w *linuxWriter) writeFile(p string, data []byte) error {
-	fd, err := w.openFile()
+	fd, err := w.openFile(w.flags)
 	if err != nil {
 		return err
 	}
@@ -310,8 +313,8 @@ func (w *linuxWriter) writeFile(p string, data []byte) error {
 	return linuxLinkatAndClose(fd, p)
 }
 
-func (w *linuxWriter) openFile() (int, error) {
-	fd, err := unix.Open(w.root, w.flags, w.perm)
+func (w *linuxWriter) openFile(mode int) (int, error) {
+	fd, err := unix.Open(w.root, mode, w.perm)
 	if err != nil {
 		return 0, fmt.Errorf("unix open: %w", err)
 	}
