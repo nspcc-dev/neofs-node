@@ -31,7 +31,7 @@ func initObjectDeleteCmd() {
 	flags := objectDelCmd.Flags()
 
 	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
-	flags.StringSlice(commonflags.OIDFlag, nil, commonflags.OIDFlagUsage)
+	flags.StringSlice(commonflags.OIDFlag, nil, "Object ID[s].")
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 	flags.String(fileFlag, "", "File with object payload")
 	flags.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
