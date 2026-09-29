@@ -10,7 +10,6 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	"github.com/nspcc-dev/neofs-node/pkg/util/xheaders"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -202,8 +201,22 @@ type requestMetadata struct {
 	xHeaders              []*protosession.XHeader
 }
 
-func (s *Server) checkContainerRevision(metaHdr *protosession.RequestMetaHeader, cID cid.ID) error {
-	return xheaders.CheckRequestContainerRevision(metaHdr, cID, s.fsChain)
+func (s *Server) checkContainerRevision(clientCnrRev uint64, cID cid.ID) error {
+	if clientCnrRev == 0 {
+		// this field is optional, consider zero revision as a missing one
+		return nil
+	}
+	cnr, err := s.fsChain.Get(cID)
+	if err != nil {
+		return fmt.Errorf("fetching container from FS chain: %w", err)
+	}
+
+	if srvCnrRev := cnr.Revision(); clientCnrRev != srvCnrRev {
+		return apistatus.NewContainerRevisionMismatch(fmt.Sprintf(
+			"container revision does not match: requested: %d, server's: %d", clientCnrRev, srvCnrRev))
+	}
+
+	return nil
 }
 
 func (s *Server) handleRequestMetaHeader(metaHdr *protosession.RequestMetaHeader, reqVerb sessionv2.Verb, reqVerbV1 session.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (requestMetadata, error) {

@@ -500,7 +500,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
 		}
 
-		err = s.checkContainerRevision(req.GetMetaHeader(), cnrID)
+		err = s.checkContainerRevision(initPart.GetContainerRevision(), cnrID)
 		if err != nil {
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
 		}
@@ -598,7 +598,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	err = s.checkContainerRevision(req.GetMetaHeader(), cnrID)
+	err = s.checkContainerRevision(body.GetContainerRevision(), cnrID)
 	if err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
@@ -1964,7 +1964,7 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		return s.signSearchResponse(nil, err, req)
 	}
 
-	err = s.checkContainerRevision(req.GetMetaHeader(), cnrID)
+	err = s.checkContainerRevision(body.GetContainerRevision(), cnrID)
 	if err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
