@@ -17,10 +17,11 @@ neofs-cli object delete [flags]
       --bearer string                  File with signed JSON or binary encoded bearer token
       --binary                         Deserialize object structure from given file.
       --cid string                     Container ID.
+      --container-revision uint        Specify a certain positive container revision number
       --file string                    File with object payload
   -g, --generate-key                   Generate new private key
   -h, --help                           help for delete
-      --oid strings                    Object ID.
+      --oid strings                    Object ID[s].
   -r, --rpc-endpoint string            Remote node address (as 'multiaddr' or '<host>:<port>')
       --session string                 Filepath to a JSON- or binary-encoded token of the object DELETE session
       --session-subjects strings       Session subject user IDs (optional, defaults to current node)

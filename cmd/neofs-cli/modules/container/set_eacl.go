@@ -165,6 +165,9 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		)
 		if cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
 			cnrRev, _ = cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
+			if cnrRev == 0 {
+				return errors.New("container revision must be positive")
+			}
 		} else {
 			common.PrintVerbose(cmd, commonflags.ContainerRevisionFlag+" flag is not set, using latest container revision...")
 			if cnrCached != nil {

@@ -483,6 +483,18 @@ func finalizeSessionV2(cmd *cobra.Command, dst SessionPrm, tok *sessionv2.Token,
 	return nil
 }
 
+func attachContainerRevision[T interface{ AttachContainerRevision(uint64) }](cmd *cobra.Command, prm T) error {
+	if !cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
+		return nil
+	}
+	cnrRev, _ := cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
+	if cnrRev == 0 {
+		return errors.New("container revision must be positive")
+	}
+	prm.AttachContainerRevision(cnrRev)
+	return nil
+}
+
 // calls commonflags.InitSession with "object <verb>" name.
 func initFlagSession(cmd *cobra.Command, verb string) {
 	commonflags.InitSession(cmd, "object "+verb)

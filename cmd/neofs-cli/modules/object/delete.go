@@ -31,11 +31,12 @@ func initObjectDeleteCmd() {
 	flags := objectDelCmd.Flags()
 
 	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
-	flags.StringSlice(commonflags.OIDFlag, nil, commonflags.OIDFlagUsage)
+	flags.StringSlice(commonflags.OIDFlag, nil, "Object ID[s].")
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 	flags.String(fileFlag, "", "File with object payload")
 	flags.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
 	flags.StringSlice(commonflags.SessionSubjectNNSFlag, nil, commonflags.SessionSubjectNNSFlagUsage)
+	flags.Uint64(commonflags.ContainerRevisionFlag, 0, commonflags.ContainerRevisionFlagUsage)
 
 	_ = objectDelCmd.MarkFlagRequired(commonflags.CIDFlag)
 	_ = objectDelCmd.MarkFlagRequired(commonflags.OIDFlag)
@@ -92,6 +93,9 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	err = Prepare(cmd, &prm)
 	if err != nil {
 		return err
+	}
+	if err := attachContainerRevision(cmd, &prm); err != nil {
+		return fmt.Errorf("container revision: %w", err)
 	}
 
 	ctx, cancel := commonflags.GetCommandContext(cmd)
