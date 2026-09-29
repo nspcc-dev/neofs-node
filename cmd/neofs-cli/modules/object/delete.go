@@ -36,6 +36,7 @@ func initObjectDeleteCmd() {
 	flags.String(fileFlag, "", "File with object payload")
 	flags.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
 	flags.StringSlice(commonflags.SessionSubjectNNSFlag, nil, commonflags.SessionSubjectNNSFlagUsage)
+	flags.Uint64(commonflags.ContainerRevisionFlag, 0, commonflags.ContainerRevisionFlagUsage)
 
 	_ = objectDelCmd.MarkFlagRequired(commonflags.CIDFlag)
 	_ = objectDelCmd.MarkFlagRequired(commonflags.OIDFlag)
@@ -93,6 +94,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	attachContainerRevision(cmd, &prm)
 
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()

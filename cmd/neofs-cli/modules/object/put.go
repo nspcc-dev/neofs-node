@@ -125,10 +125,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	obj.SetAttributes(attrs...)
 
 	var prm client.PrmObjectPutInit
-	if cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
-		cnrRev, _ := cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
-		prm.AttachContainerRevision(cnrRev)
-	}
+	attachContainerRevision(cmd, &prm)
 
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {
