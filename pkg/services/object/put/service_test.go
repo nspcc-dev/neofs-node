@@ -1231,6 +1231,29 @@ type testObjectServiceServer struct {
 	svc *Service
 }
 
+func (x testObjectServiceServer) Replicate(ctx context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
+	if req.Object == nil {
+		return &protoobject.ReplicateResponse{
+			Status: &protostatus.Status{Code: protostatus.BadRequest, Message: "missing object in request"},
+		}, nil
+	}
+
+	var obj object.Object
+	if err := obj.FromProtoMessage(req.Object); err != nil {
+		return &protoobject.ReplicateResponse{
+			Status: &protostatus.Status{Code: protostatus.BadRequest, Message: fmt.Sprintf("invalid object in request: %v", err)},
+		}, nil
+	}
+
+	if err := x.svc.ValidateAndStoreObjectLocally(ctx, obj); err != nil {
+		return &protoobject.ReplicateResponse{
+			Status: &protostatus.Status{Code: protostatus.InternalServerError, Message: fmt.Sprintf("validate and store object locally: %v", err)},
+		}, nil
+	}
+
+	return new(protoobject.ReplicateResponse), nil
+}
+
 func (x testObjectServiceServer) ReplicateV2(stream protoobject.ObjectService_ReplicateV2Server) error {
 	firstReq, err := stream.Recv()
 	if err != nil {
