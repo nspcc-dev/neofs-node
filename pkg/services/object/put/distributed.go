@@ -702,7 +702,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 		var conn clientcore.MultiAddressClient
 		conn, err = t.clientConstructor.Get(t.opCtx, node.info)
 		if err == nil {
-			if clientcore.CompareAPIVersion(conn, iobject.ReplicateV2FirstAPIVersion) >= 0 {
+			if clientcore.CompareAPIVersion(conn, iobject.ReplicateV2FirstAPIVersion) >= 0 && obj.PayloadSize() > maxReplicateV2PayloadChunkLen {
 				hdr := encObj.b[encObj.hdrOff:encObj.pldFldOff]
 				payload := encObj.b[encObj.pldOff:]
 				var mtx *sync.RWMutex
