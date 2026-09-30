@@ -1701,7 +1701,10 @@ func newStoreLocalObjectFailureStatus(cause error) *protostatus.Status {
 // Wraps and returns w error along with errWriteStream.
 func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w io.Writer) ([]byte, uint64, *protostatus.Status, error) {
 	var totalLen uint64
+	var bs [][]byte
 	h := sha256.New()
+
+	bw, isBW := w.(iio.BuffersWriter)
 
 	for {
 		var reqBuffers mem.BufferSlice
@@ -1730,11 +1733,15 @@ func readReplicatedObjectPayload(payloadLen uint64, stream grpc.ServerStream, w 
 			return nil, 0, newWrongReplicatedObjectPayloadLengthStatus(), nil
 		}
 
-		// Chunk length is limited by max data frame used in gRPC. By default, it is
-		// 16KB. Writing a lot of such chunks can lead to a large number of syscalls.
-		// Either bigger frames (https://github.com/nspcc-dev/neofs-node/issues/4155) or
-		// buffered I/O could be used as a solution.
-		_, err = chunkBuffers.WriteTo(w)
+		if bufCount := chunkBuffers.Count(); bufCount > 1 && isBW {
+			if len(bs) < bufCount {
+				bs = slices.Grow(bs, bufCount-len(bs))[:bufCount]
+			}
+			n := chunkBuffers.CopyBuffers(bs)
+			_, err = bw.WriteBuffers(bs[:n])
+		} else {
+			_, err = chunkBuffers.WriteTo(w)
+		}
 		if err != nil {
 			reqBuffers.Free()
 			return nil, 0, nil, fmt.Errorf("%w: %w", errWriteStream, err)
@@ -1885,7 +1892,7 @@ func (s *Server) replicate(ctx context.Context, objMsg *protoobject.Object, sig 
 		// TODO: can be optimized from two sides:
 		//  1. header structure decoding can be done without unmarshaling (e.g. via protoscan funcs)
 		//  2. since header is already serialized in the original request, io.WriterTo can be implemented around it
-		var storageStream io.WriteCloser
+		var storageStream iio.BuffersWriteCloser
 		storageStream, storageStreamAbortFn, err = s.storage.InitLocalObjectWrite(ctx, *obj, uint64(obj.HeaderLen()), iobject.WriterTo(*obj))
 		if err != nil {
 			if errors.Is(err, ierrors.ErrObjectExists) {
