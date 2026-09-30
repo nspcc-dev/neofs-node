@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -75,7 +76,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte) error {
 //
 // If underlying device runs out of space, InitPut or resulting stream calls
 // return [blobstor.ErrNoSpace].
-func (s *Shard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (s *Shard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (iio.BuffersWriteCloser, func(), error) {
 	s.m.RLock()
 
 	m := s.info.Mode
@@ -86,7 +87,7 @@ func (s *Shard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.
 
 	var (
 		addr    = hdr.Address()
-		stream  io.WriteCloser
+		stream  iio.BuffersWriteCloser
 		abortFn func()
 	)
 
@@ -109,19 +110,20 @@ func (s *Shard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.
 	}
 
 	res := newPayloadWriteStream(s, hdr, stream, abortFn, cachedPut)
+
 	return res, res.abort, nil
 }
 
 type payloadWriteStream struct {
 	shard     *Shard
 	header    object.Object
-	stream    io.WriteCloser
+	stream    iio.BuffersWriteCloser
 	abortFn   func()
 	cachedPut bool
 	aborted   bool
 }
 
-func newPayloadWriteStream(s *Shard, hdr object.Object, stream io.WriteCloser, abortFn func(), cachedPut bool) *payloadWriteStream {
+func newPayloadWriteStream(s *Shard, hdr object.Object, stream iio.BuffersWriteCloser, abortFn func(), cachedPut bool) *payloadWriteStream {
 	return &payloadWriteStream{
 		shard:     s,
 		header:    hdr,
@@ -138,6 +140,26 @@ func (x *payloadWriteStream) Write(p []byte) (int, error) {
 
 	n, err := x.stream.Write(p)
 	if err != nil {
+		x.finish()
+		if x.cachedPut {
+			x.shard.logPutWriteCacheError(err)
+		} else {
+			err = newPutToBLOBStorageError(err)
+		}
+		return n, err
+	}
+
+	return n, nil
+}
+
+func (x *payloadWriteStream) WriteBuffers(bs [][]byte) (int, error) {
+	if x.aborted {
+		return 0, logicerr.ErrStreamAborted
+	}
+
+	n, err := x.stream.WriteBuffers(bs)
+	if err != nil {
+		// TODO: share with Write()
 		x.finish()
 		if x.cachedPut {
 			x.shard.logPutWriteCacheError(err)

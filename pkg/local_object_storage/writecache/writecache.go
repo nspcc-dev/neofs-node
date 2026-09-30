@@ -5,6 +5,7 @@ import (
 	"io"
 	"sync"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -43,7 +44,7 @@ type Cache interface {
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte) error, bool) error
 	Put(oid.Address, *object.Object, []byte) error
-	InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (io.WriteCloser, func(), error)
+	InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (iio.BuffersWriteCloser, func(), error)
 	SetMode(mode.Mode) error
 	DumpInfo() Info
 	Flush(bool) error

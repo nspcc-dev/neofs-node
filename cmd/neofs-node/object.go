@@ -15,6 +15,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -644,7 +645,7 @@ func (x storageForObjectService) StoreObjectLocally(ctx context.Context, obj obj
 }
 
 // InitLocalObjectWrite implements [objectService.Storage] interface.
-func (x storageForObjectService) InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (x storageForObjectService) InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (iio.BuffersWriteCloser, func(), error) {
 	return x.local.InitPut(ctx, hdr, hdrLen, hdrW)
 }
 

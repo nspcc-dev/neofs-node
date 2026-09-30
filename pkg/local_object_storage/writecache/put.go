@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -68,7 +69,7 @@ func (c *cache) handleSavedObject(addr oid.Address, objSz uint64) {
 // If c is in read-only mode, InitPut instantly returns [ErrReadOnly].
 // Otherwise, if [WithMetrics] is used, InitPut passes duration to
 // [MetricRegister.AddWCInitPutDuration].
-func (c *cache) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (io.WriteCloser, func(), error) {
+func (c *cache) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (iio.BuffersWriteCloser, func(), error) {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.readOnly() {
@@ -82,7 +83,7 @@ func (c *cache) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, h
 
 	dataLen := iobject.CalculateConcatProtobufLength(headerLen, payloadLen)
 
-	var fsTreeStream io.WriteCloser
+	var fsTreeStream iio.BuffersWriteCloser
 	var fstAbortFn func()
 
 	err := c.putFunc(dataLen, func() error {
@@ -104,13 +105,13 @@ type objectPayloadWriteStream struct {
 	writeCache    *cache
 	addr          oid.Address
 	dataLen       uint64
-	fsTreeStream  io.WriteCloser
+	fsTreeStream  iio.BuffersWriteCloser
 	fsTreeAbortFn func()
 	startTime     time.Time
 	aborted       bool
 }
 
-func newObjectPayloadWriteStream(writeCache *cache, addr oid.Address, dataLen uint64, fsTreeStream io.WriteCloser, fsTreeAbortFn func(), startTime time.Time) *objectPayloadWriteStream {
+func newObjectPayloadWriteStream(writeCache *cache, addr oid.Address, dataLen uint64, fsTreeStream iio.BuffersWriteCloser, fsTreeAbortFn func(), startTime time.Time) *objectPayloadWriteStream {
 	return &objectPayloadWriteStream{
 		writeCache:    writeCache,
 		addr:          addr,
@@ -130,6 +131,20 @@ func (x *objectPayloadWriteStream) Write(p []byte) (int, error) {
 	if err != nil {
 		x.finish()
 		return n, fmt.Errorf("FSTree write: %w", err)
+	}
+
+	return n, nil
+}
+
+func (x *objectPayloadWriteStream) WriteBuffers(bs [][]byte) (int, error) {
+	if x.aborted {
+		return 0, logicerr.ErrStreamAborted
+	}
+
+	n, err := x.fsTreeStream.WriteBuffers(bs)
+	if err != nil {
+		x.finish()
+		return n, fmt.Errorf("FSTree multi-write: %w", err)
 	}
 
 	return n, nil
