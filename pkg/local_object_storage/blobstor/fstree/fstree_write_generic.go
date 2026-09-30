@@ -3,7 +3,6 @@ package fstree
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"strconv"
@@ -134,6 +133,18 @@ func (x *genericFileWriteStream) Write(p []byte) (int, error) {
 	return 0, err
 }
 
+func (x *genericFileWriteStream) WriteBuffers(bs [][]byte) (int, error) {
+	var n int
+	for i := range bs {
+		n2, err := x.Write(bs[i])
+		n += n2
+		if err != nil {
+			return n, err
+		}
+	}
+	return n, nil
+}
+
 func (x *genericFileWriteStream) Close() error {
 	if x.aborted {
 		return logicerr.ErrStreamAborted
@@ -157,7 +168,7 @@ func (x *genericFileWriteStream) Close() error {
 	return renameFile(x.tmpFile.Name(), x.targetPath)
 }
 
-func (w *genericWriter) initWriteData(filePath string) (io.WriteCloser, func(), error) {
+func (w *genericWriter) initWriteData(filePath string) (blobstor.PutStream, func(), error) {
 	stream := newGenericFileWriteStream(w, filePath)
 	return stream, stream.abort, nil
 }

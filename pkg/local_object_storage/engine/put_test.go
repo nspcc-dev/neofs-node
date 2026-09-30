@@ -621,7 +621,7 @@ func TestShard_InitPut(t *testing.T) {
 		writeErr := errors.New("any write error")
 
 		var buf bytes.Buffer
-		resStream := mockWriteCloser{
+		resStream := mockPutStream{
 			Writer: iiotest.NewErrorWriterN(&buf, writeErr, 2), // header + first chunk
 		}
 
@@ -688,7 +688,7 @@ func TestShard_InitPut(t *testing.T) {
 		closeErr := errors.New("any close error")
 
 		var buf bytes.Buffer
-		resStream := mockWriteCloser{
+		resStream := mockPutStream{
 			Writer:     &buf,
 			closeError: closeErr,
 		}
@@ -754,7 +754,7 @@ func TestShard_InitPut(t *testing.T) {
 
 	t.Run("abort", func(t *testing.T) {
 		var buf bytes.Buffer
-		resStream := mockWriteCloser{
+		resStream := mockPutStream{
 			Writer: &buf,
 		}
 
@@ -808,7 +808,7 @@ func TestShard_InitPut(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	resStream := mockWriteCloser{
+	resStream := mockPutStream{
 		Writer: &buf,
 	}
 
@@ -877,7 +877,7 @@ type shardInitPutPrm struct {
 }
 
 type shardInitPutRes struct {
-	stream  io.WriteCloser
+	stream  blobstor.PutStream
 	abortFn func()
 	error   error
 }
@@ -920,7 +920,7 @@ func (x *mockInitPutShard) Exists(addr oid.Address, ignoreExpiration bool) (bool
 	return res.exists, res.error
 }
 
-func (x *mockInitPutShard) registerInitPutOKResult(hdr object.Object, hdrLen uint64, stream io.WriteCloser, abortFn func()) {
+func (x *mockInitPutShard) registerInitPutOKResult(hdr object.Object, hdrLen uint64, stream blobstor.PutStream, abortFn func()) {
 	x._registerInitPutResult(hdr, hdrLen, stream, abortFn, nil)
 }
 
@@ -935,7 +935,7 @@ func newShardInitPutPrm(hdr object.Object, hdrLen uint64) shardInitPutPrm {
 	}
 }
 
-func (x *mockInitPutShard) _registerInitPutResult(hdr object.Object, hdrLen uint64, stream io.WriteCloser, abortFn func(), err error) {
+func (x *mockInitPutShard) _registerInitPutResult(hdr object.Object, hdrLen uint64, stream blobstor.PutStream, abortFn func(), err error) {
 	if x.initPutItems == nil {
 		x.initPutItems = make(map[shardInitPutPrm]shardInitPutRes)
 	}
@@ -946,7 +946,7 @@ func (x *mockInitPutShard) _registerInitPutResult(hdr object.Object, hdrLen uint
 	}
 }
 
-func (x mockInitPutShard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (x mockInitPutShard) InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error) {
 	res, ok := x.initPutItems[newShardInitPutPrm(hdr, hdrLen)]
 	if !ok {
 		return nil, nil, errors.New("[test] unknown input")
@@ -974,13 +974,17 @@ func (x *mockInitPutMetrics) AddStreamingPutDuration(d time.Duration) {
 	x.initPutDurations = append(x.initPutDurations, d)
 }
 
-type mockWriteCloser struct {
+type mockPutStream struct {
 	io.Writer
 	closed     bool
 	closeError error
 }
 
-func (x *mockWriteCloser) Close() error {
+func (x *mockPutStream) WriteBuffers([][]byte) (int, error) {
+	panic("unimplemented")
+}
+
+func (x *mockPutStream) Close() error {
 	x.closed = true
 	return x.closeError
 }

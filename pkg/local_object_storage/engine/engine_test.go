@@ -213,7 +213,7 @@ func (unimplementedShard) Exists(oid.Address, bool) (bool, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedShard) InitPut(object.Object, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
+func (unimplementedShard) InitPut(object.Object, uint64, io.WriterTo) (blobstor.PutStream, func(), error) {
 	panic("unimplemented")
 }
 

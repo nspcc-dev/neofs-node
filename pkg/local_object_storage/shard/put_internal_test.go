@@ -11,6 +11,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	iiotest "github.com/nspcc-dev/neofs-node/internal/testutil/iotest"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -70,7 +71,7 @@ func TestShard_InitPut(t *testing.T) {
 		require.Empty(t, mtrc.containerCounters)
 	}
 
-	assertSuccess := func(t *testing.T, sh *Shard, resBuf *bytes.Buffer, resStream *mockWriteCloser, mtrc *mockInitPutMetrics) {
+	assertSuccess := func(t *testing.T, sh *Shard, resBuf *bytes.Buffer, resStream *mockPutStream, mtrc *mockInitPutMetrics) {
 		stream, abortFn, err := sh.InitPut(hdr, headerLength, bytes.NewBuffer(header))
 		require.NoError(t, err)
 
@@ -129,7 +130,7 @@ func TestShard_InitPut(t *testing.T) {
 			t.Run("write", func(t *testing.T) {
 				t.Run("second write failure", func(t *testing.T) {
 					var wcBuf bytes.Buffer
-					wcStream := &mockWriteCloser{
+					wcStream := &mockPutStream{
 						Writer: iiotest.NewErrorWriterN(&wcBuf, writeCacheError, 2),
 					}
 
@@ -184,7 +185,7 @@ func TestShard_InitPut(t *testing.T) {
 				})
 
 				var wcBuf bytes.Buffer
-				wcStream := &mockWriteCloser{
+				wcStream := &mockPutStream{
 					Writer: iiotest.NewErrorWriterN(&wcBuf, writeCacheError, 0),
 				}
 
@@ -195,7 +196,7 @@ func TestShard_InitPut(t *testing.T) {
 				wc.m.registerInitPutOKResult(addr, headerLength, payloadLength, wcStream, wcAbortFn)
 
 				var bsBuf bytes.Buffer
-				bsStream := &mockWriteCloser{
+				bsStream := &mockPutStream{
 					Writer: &bsBuf,
 				}
 
@@ -255,7 +256,7 @@ func TestShard_InitPut(t *testing.T) {
 			t.Run("close", func(t *testing.T) {
 				t.Run("after write", func(t *testing.T) {
 					var wcBuf bytes.Buffer
-					wcStream := &mockWriteCloser{
+					wcStream := &mockPutStream{
 						Writer:     &wcBuf,
 						closeError: writeCacheError,
 					}
@@ -310,7 +311,7 @@ func TestShard_InitPut(t *testing.T) {
 				})
 
 				var wcBuf bytes.Buffer
-				wcStream := &mockWriteCloser{
+				wcStream := &mockPutStream{
 					Writer:     &wcBuf,
 					closeError: writeCacheError,
 				}
@@ -360,7 +361,7 @@ func TestShard_InitPut(t *testing.T) {
 		t.Run("metabase failure", func(t *testing.T) {
 			testCommon := func(t *testing.T, wcDeleteErr error, bsDeleteErr error) *testutil.LogBuffer {
 				var wcBuf bytes.Buffer
-				wcStream := mockWriteCloser{
+				wcStream := mockPutStream{
 					Writer: &wcBuf,
 				}
 
@@ -457,7 +458,7 @@ func TestShard_InitPut(t *testing.T) {
 		t.Run("abort", func(t *testing.T) {
 			testCommon := func(t *testing.T, write bool) {
 				var wcBuf bytes.Buffer
-				wcStream := mockWriteCloser{
+				wcStream := mockPutStream{
 					Writer: &wcBuf,
 				}
 
@@ -515,7 +516,7 @@ func TestShard_InitPut(t *testing.T) {
 		})
 
 		var wcBuf bytes.Buffer
-		wcStream := mockWriteCloser{
+		wcStream := mockPutStream{
 			Writer: &wcBuf,
 		}
 
@@ -539,7 +540,7 @@ func TestShard_InitPut(t *testing.T) {
 	t.Run("BLOB storage failure", func(t *testing.T) {
 		t.Run("write", func(t *testing.T) {
 			t.Run("header", func(t *testing.T) {
-				bsStream := mockWriteCloser{
+				bsStream := mockPutStream{
 					Writer: iiotest.NewErrorWriter(blobStorageError),
 				}
 
@@ -575,7 +576,7 @@ func TestShard_InitPut(t *testing.T) {
 			})
 
 			var bsBuf bytes.Buffer
-			bsStream := mockWriteCloser{
+			bsStream := mockPutStream{
 				Writer: iiotest.NewErrorWriterN(&bsBuf, blobStorageError, 1),
 			}
 
@@ -626,7 +627,7 @@ func TestShard_InitPut(t *testing.T) {
 
 		t.Run("close", func(t *testing.T) {
 			var bsBuf bytes.Buffer
-			bsStream := mockWriteCloser{
+			bsStream := mockPutStream{
 				Writer:     &bsBuf,
 				closeError: blobStorageError,
 			}
@@ -706,7 +707,7 @@ func TestShard_InitPut(t *testing.T) {
 	t.Run("metabase failure", func(t *testing.T) {
 		testCommon := func(t *testing.T, bsDeleteErr error) *testutil.LogBuffer {
 			var bsBuf bytes.Buffer
-			bsStream := mockWriteCloser{
+			bsStream := mockPutStream{
 				Writer: &bsBuf,
 			}
 
@@ -790,7 +791,7 @@ func TestShard_InitPut(t *testing.T) {
 	t.Run("abort", func(t *testing.T) {
 		testCommon := func(t *testing.T, write bool) {
 			var bsBuf bytes.Buffer
-			bsStream := mockWriteCloser{
+			bsStream := mockPutStream{
 				Writer: &bsBuf,
 			}
 
@@ -848,7 +849,7 @@ func TestShard_InitPut(t *testing.T) {
 	})
 
 	var bsBuf bytes.Buffer
-	bsStream := mockWriteCloser{
+	bsStream := mockPutStream{
 		Writer: &bsBuf,
 	}
 
@@ -886,7 +887,7 @@ type mockBLOBStoreInitPut struct {
 	m mockInitPut
 }
 
-func (x mockBLOBStoreInitPut) InitPut(addr oid.Address, hdrLen uint64, payloadLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (x mockBLOBStoreInitPut) InitPut(addr oid.Address, hdrLen uint64, payloadLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error) {
 	return x.m.InitPut(addr, hdrLen, payloadLen, hdrW)
 }
 
@@ -899,7 +900,7 @@ type mockWriteCacheInitPut struct {
 	m mockInitPut
 }
 
-func (x mockWriteCacheInitPut) InitPut(addr oid.Address, hdrLen uint64, payloadLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (x mockWriteCacheInitPut) InitPut(addr oid.Address, hdrLen uint64, payloadLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error) {
 	return x.m.InitPut(addr, hdrLen, payloadLen, hdrW)
 }
 
@@ -914,7 +915,7 @@ type initPutObjectPrm struct {
 }
 
 type initPutObjectRes struct {
-	stream  io.WriteCloser
+	stream  blobstor.PutStream
 	abortFn func()
 	error   error
 }
@@ -924,7 +925,7 @@ type mockInitPut struct {
 	deleteItems  map[oid.Address]error
 }
 
-func (x *mockInitPut) registerInitPutOKResult(addr oid.Address, hdrLen uint64, payloadLen uint64, stream io.WriteCloser, abortFn func()) {
+func (x *mockInitPut) registerInitPutOKResult(addr oid.Address, hdrLen uint64, payloadLen uint64, stream blobstor.PutStream, abortFn func()) {
 	x._registerInitPutResult(addr, hdrLen, payloadLen, stream, abortFn, nil)
 }
 
@@ -932,7 +933,7 @@ func (x *mockInitPut) registerInitPutErrorResult(addr oid.Address, hdrLen uint64
 	x._registerInitPutResult(addr, hdrLen, payloadLen, nil, nil, err)
 }
 
-func (x *mockInitPut) _registerInitPutResult(addr oid.Address, hdrLen uint64, payloadLen uint64, stream io.WriteCloser, abortFn func(), err error) {
+func (x *mockInitPut) _registerInitPutResult(addr oid.Address, hdrLen uint64, payloadLen uint64, stream blobstor.PutStream, abortFn func(), err error) {
 	if x.initPutItems == nil {
 		x.initPutItems = make(map[initPutObjectPrm]initPutObjectRes)
 	}
@@ -947,7 +948,7 @@ func (x *mockInitPut) _registerInitPutResult(addr oid.Address, hdrLen uint64, pa
 	}
 }
 
-func (x mockInitPut) InitPut(addr oid.Address, hdrLen uint64, payloadLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (x mockInitPut) InitPut(addr oid.Address, hdrLen uint64, payloadLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error) {
 	res, ok := x.initPutItems[initPutObjectPrm{
 		address:       addr,
 		headerLength:  hdrLen,
@@ -980,13 +981,17 @@ func (x mockInitPut) Delete(addr oid.Address) error {
 	return res
 }
 
-type mockWriteCloser struct {
+type mockPutStream struct {
 	io.Writer
 	closed     bool
 	closeError error
 }
 
-func (x *mockWriteCloser) Close() error {
+func (x *mockPutStream) WriteBuffers([][]byte) (int, error) {
+	panic("unimplemented")
+}
+
+func (x *mockPutStream) Close() error {
 	x.closed = true
 	return x.closeError
 }

@@ -26,6 +26,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
@@ -168,11 +169,11 @@ type Storage interface {
 	// written, stream is closed. On success, object becomes saved.
 	//
 	// Resulting function allows to abort operation in case of problems on caller
-	// side. It is not called multiple times, after [io.Closer.Close] or failed
-	// [io.Writer.Write].
+	// side. It is not called multiple times, after [blobstor.PutStream.Close] or
+	// failed [blobstor.PutStream.Write].
 	//
 	// Returns [ierrors.ErrObjectExists] if object already exists in the storage.
-	InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error)
+	InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error)
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
