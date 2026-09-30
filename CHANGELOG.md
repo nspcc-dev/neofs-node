@@ -11,10 +11,12 @@ Changelog for NeoFS Node
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)
 - CLI `request create-container` command now attaches current API version to requests (#4213)
+- ReplicateV2 Linux server now uses `writev()` syscall for multi-frame chunks (#4194)
 
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20260930111007-de613fce5dda` (#4194)
 
 ### Updating from v0.57.0
 
