@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -73,7 +74,7 @@ type Info struct {
 // writer is an internal FS writing interface.
 type writer interface {
 	writeData(oid.ID, string, []byte) error
-	initWriteData(filePath string) (io.WriteCloser, func(), error)
+	initWriteData(filePath string) (iio.BuffersWriteCloser, func(), error)
 	finalize() error
 	writeBatch([]writeDataUnit) error
 }
@@ -518,10 +519,10 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 // successfully opened, InitPut writes header to it using headerW. It must write
 // exactly headerLen bytes.
 //
-// Resulting stream accepts payload passed to [io.Writer.Write] until
-// [io.Closer.Close] call. It is caller's responsibility to ensure that the
-// payload being written matches payloadLen parameter. Stream should not be used
-// after any stream method error.
+// Resulting stream accepts payload passed to [io.Writer.Write] /
+// [iio.BuffersWriter.WriteBuffers] until [io.Closer.Close] call. It is caller's
+// responsibility to ensure that the payload being written matches payloadLen
+// parameter. Stream should not be used after any stream method error.
 //
 // If the object is fully buffered, it is more efficient to use [FSTree.Put].
 //
@@ -529,17 +530,18 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 //
 // Returned function allows to rollback whole operation and free all allocated
 // resources if any. It should not be called multiple times, after
-// [io.Closer.Close] or failed [io.Writer.Write].
+// [io.Closer.Close] or failed [io.Writer.Write] /
+// [iio.BuffersWriter.WriteBuffers].
 //
 // Either [io.Closer.Close] or abort function must be finally called. All
 // functions must not be called concurrently.
 //
 // If the device runs out of space, InitPut or resulting stream calls return
 // [blobstor.ErrNoSpace].
-func (t *FSTree) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (io.WriteCloser, func(), error) {
+func (t *FSTree) InitPut(addr oid.Address, headerLen uint64, payloadLen uint64, headerW io.WriterTo) (iio.BuffersWriteCloser, func(), error) {
 	payloadTagLen := objectwire.CalculatePayloadFieldTagLength(payloadLen)
 
-	var stream io.WriteCloser
+	var stream iio.BuffersWriteCloser
 	var abortFn func()
 
 	err := t.putFunc(addr, headerLen == 0 && payloadLen == 0, func(id oid.ID, filePath string) error {

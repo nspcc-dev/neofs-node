@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -55,7 +56,7 @@ type shardInterface interface {
 	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 	ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error)
 	Exists(addr oid.Address, ignoreExpiration bool) (bool, error)
-	InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error)
+	InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (iio.BuffersWriteCloser, func(), error)
 }
 
 type shardWrapper struct {

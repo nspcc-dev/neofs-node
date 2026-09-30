@@ -20,6 +20,7 @@ import (
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	inetmap "github.com/nspcc-dev/neofs-node/internal/netmap"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -172,7 +173,7 @@ type Storage interface {
 	// [io.Writer.Write].
 	//
 	// Returns [ierrors.ErrObjectExists] if object already exists in the storage.
-	InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error)
+	InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (iio.BuffersWriteCloser, func(), error)
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.

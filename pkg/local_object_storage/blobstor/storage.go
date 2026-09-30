@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -144,7 +145,7 @@ type Storage interface {
 	ReadObjectParts(buf []byte, addr oid.Address, rng PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
-	InitPut(oid.Address, uint64, uint64, io.WriterTo) (io.WriteCloser, func(), error)
+	InitPut(oid.Address, uint64, uint64, io.WriterTo) (iio.BuffersWriteCloser, func(), error)
 	PutBatch(map[oid.Address][]byte) error
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte) error, func(oid.Address, error) error) error

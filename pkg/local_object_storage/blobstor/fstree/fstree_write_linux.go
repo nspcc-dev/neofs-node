@@ -6,17 +6,21 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
+	iio "github.com/nspcc-dev/neofs-node/internal/io"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
+)
+
+var (
+	errIncompleteLinuxWrite = errors.New("incomplete unix write")
 )
 
 type linuxWriter struct {
@@ -218,6 +222,18 @@ func (x *linuxFileWriteStream) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+func (x *linuxFileWriteStream) WriteBuffers(bs [][]byte) (int, error) {
+	if x.fd < 0 {
+		return 0, logicerr.ErrStreamAborted
+	}
+	n, err := linuxWriteBuffers(x.fd, bs)
+	if err != nil {
+		x.fd = -1
+		return n, convertLinuxError(err)
+	}
+	return n, nil
+}
+
 func (x *linuxFileWriteStream) Close() error {
 	if x.fd < 0 {
 		return logicerr.ErrStreamAborted
@@ -240,7 +256,7 @@ func (x *linuxFileWriteStream) abort() {
 	_ = unix.Close(fd)
 }
 
-func (w *linuxWriter) initWriteData(filePath string) (io.WriteCloser, func(), error) {
+func (w *linuxWriter) initWriteData(filePath string) (iio.BuffersWriteCloser, func(), error) {
 	fd, err := w.openFile(w.bFlags)
 	if err != nil {
 		return nil, nil, convertLinuxError(err)
@@ -325,13 +341,34 @@ func linuxWrite(fd int, data []byte) (int, error) {
 	n, err := unix.Write(fd, data)
 	if err != nil {
 		_ = unix.Close(fd)
-		return n, fmt.Errorf("unix write: %w", err)
+		return n, newLinuxWriteError(err)
 	}
 	if n != len(data) {
 		_ = unix.Close(fd)
-		return n, errors.New("incomplete unix write")
+		return n, errIncompleteLinuxWrite
 	}
 	return n, nil
+}
+
+func linuxWriteBuffers(fd int, bs [][]byte) (int, error) {
+	n, err := unix.Writev(fd, bs)
+	if err != nil {
+		_ = unix.Close(fd)
+		return n, newLinuxWriteError(err)
+	}
+	var dataLen int
+	for i := range bs {
+		dataLen += len(bs[i])
+	}
+	if n != dataLen {
+		_ = unix.Close(fd)
+		return n, errIncompleteLinuxWrite
+	}
+	return n, nil
+}
+
+func newLinuxWriteError(cause error) error {
+	return fmt.Errorf("unix write: %w", cause)
 }
 
 func linuxLinkatAndClose(fd int, newPath string) error {
