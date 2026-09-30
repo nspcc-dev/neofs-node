@@ -4,8 +4,22 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.57.0
+
+## [0.57.0] - 2026-09-30 - Bido
+
+### Added
 - Online FSTree layout reshaping via the `blobstor.allow_depth_change` configuration option (#4149, #4179)
-- SN now serves `ReplicateV2` API (#4168, #4164, #4201)
+- SN now serves `ReplicateV2` API (#4168, #4164, #4201, #4164)
 - Container SN now uses `ReplicateV2` API for objects >256K in PUT handler when available (#4168, #4196, #4203)
 - `neofs-adm fschain netmap` command to fetch current and historical network maps (#4181)
 - Container revisions support (#4183, #4195, #4197)
@@ -28,8 +42,9 @@ Changelog for NeoFS Node
 - __NEOFS__NONCE attribute from metabase (#4187)
 
 ### Updated
+- `github.com/nspcc-dev/neofs-contracts` module to `v0.27.0` (#4121, #4195)
+- `google.golang.org/grpc` dependency from 1.83.1 to 1.83.2 (#4169)
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23` (#4168, #4187, #4193, #4197, #4202)
-- `github.com/nspcc-dev/neofs-contracts` module to `v0.27.0` (#4195)
 
 ### Updating from v0.56.0
 To change an FSTree layout depth, configure the new `blobstor.depth` and set
@@ -3242,7 +3257,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.56.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.57.0...master
+[0.57.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.55.0...v0.56.0
 [0.55.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.53.0...v0.54.0
