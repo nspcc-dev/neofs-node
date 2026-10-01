@@ -103,7 +103,7 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 	tmpl := configTemplate{
 		Endpoint:          "https://neo.rpc.node:30333",
 		MaxObjectSize:     67108864,    // 64 MiB
-		EpochDuration:     240,         // 1 hour with 15s per block
+		EpochDuration:     240,         // 240 seconds per NeoFS epoch
 		BasicIncomeRate:   1_0000_0000, // 0.0001 GAS per GiB (Fixed12)
 		ContainerFee:      1000,        // 0.000000001 * 7 GAS per container (Fixed12)
 		ContainerAliasFee: 500,         // ContainerFee / 2
