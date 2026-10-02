@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Сross-rules EC parts restoration (#3848)
 
 ### Fixed
 
