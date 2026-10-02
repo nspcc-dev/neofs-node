@@ -9,6 +9,7 @@ import (
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -34,6 +35,7 @@ type localStorage interface {
 	Head(context.Context, oid.Address, bool) (*object.Object, error)
 	HeadECPart(context.Context, cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 	GetRange(context.Context, oid.Address, uint64, uint64) ([]byte, error)
+	GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error)
 }
 
 // interface of [headsvc.RemoteHeader] used by [Policer] for overriding in tests.
