@@ -20,6 +20,7 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -83,6 +84,10 @@ func (s *storageListerWithDelay) HeadECPart(_ context.Context, id cid.ID, id2 oi
 }
 
 func (s *storageListerWithDelay) GetRange(_ context.Context, address oid.Address, u uint64, u2 uint64) ([]byte, error) {
+	panic("do not call me")
+}
+
+func (s *storageListerWithDelay) GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("do not call me")
 }
 
@@ -1661,6 +1666,11 @@ func (x *testLocalNode) HeadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.
 
 func (x *testLocalNode) GetRange(_ context.Context, _ oid.Address, _ uint64, _ uint64) ([]byte, error) {
 	panic("unimplemented")
+}
+
+func (x *testLocalNode) GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (x *testLocalNode) OptimizeShardLocation(_ context.Context, addr oid.Address, shardIDs []string) (bool, error) {
