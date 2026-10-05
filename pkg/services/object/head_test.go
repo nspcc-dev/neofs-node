@@ -93,12 +93,6 @@ func TestServer_Head_Local(t *testing.T) {
 		handlerFSChain.ecRules = nil
 	})
 
-	t.Run("signed response", func(t *testing.T) {
-		resp := assertWithVersion(t, version.New(2, 17))
-		require.NotNil(t, resp.VerifyHeader)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
-	})
-
 	resp := assertWithVersion(t, version.Current())
 	require.Nil(t, resp.VerifyHeader)
 }

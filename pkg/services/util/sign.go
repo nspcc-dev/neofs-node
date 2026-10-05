@@ -1,51 +1,11 @@
 package util
 
 import (
-	"crypto/ecdsa"
 	"errors"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	sdkcrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	sdkecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 )
-
-// Request is a common interface of API request messages.
-type Request interface {
-	GetMetaHeader() *protosession.RequestMetaHeader
-}
-
-// VersionLE checks whether proto version in request meta header is less or
-// equal than the specified one.
-func VersionLE(req Request, mjr, mnr uint32) bool {
-	metaHdr := req.GetMetaHeader()
-
-	ver := metaHdr.GetVersion()
-	gotMjr := ver.GetMajor() // NPE-safe
-	return gotMjr < mjr || gotMjr == mjr && ver.GetMinor() <= mnr
-}
-
-// SignResponseIfNeeded checks whether response for the req should be signed. If
-// so, calculated verification header is returned. Otherwise, nil returns.
-func SignResponseIfNeeded[R protoencoding.Message](signer *ecdsa.PrivateKey, r sdkcrypto.SignedResponse[R], req Request) *protosession.ResponseVerificationHeader {
-	if VersionLE(req, 2, 21) {
-		return SignResponse(signer, r)
-	}
-
-	return nil
-}
-
-func SignResponse[R protoencoding.Message](signer *ecdsa.PrivateKey, r sdkcrypto.SignedResponse[R]) *protosession.ResponseVerificationHeader {
-	verHeader, err := sdkcrypto.SignResponseWithBuffer(sdkecdsa.Signer(*signer), r, nil)
-	if err != nil {
-		// We can't pass this error as NeoFS status code since response will be unsigned.
-		// Isn't expected in practice, so panic is ok here.
-		panic(err)
-	}
-	return verHeader
-}
 
 var (
 	// StatusOK is a missing response status field meaning OK in NeoFS protocol. It

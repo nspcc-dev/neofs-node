@@ -57,7 +57,6 @@ func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -68,6 +67,10 @@ func (s *server) makeFailedCreateResponse(err error, req *protosession.CreateReq
 // Create generates new private session key and saves it in the underlying
 // [KeyStorage].
 func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedCreateResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedCreateResponse(err, req)
 	}

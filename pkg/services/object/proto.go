@@ -24,13 +24,11 @@ const (
 	maxHeaderOffsetInHeadResponse = 1 + maxHeadResponseBodyVarintLen + 1 + iobject.MaxHeaderVarintLen // 1 for iprotobuf.TagBytes1
 	headResponseBufferLen         = maxHeaderOffsetInHeadResponse + 2*iobject.NonPayloadFieldsBufferLength
 
-	maxResponseVerificationHeaderLen = 1 << 10
-
 	maxGetResponseChunkLen       = 254 << 10
 	maxGetResponseChunkVarintLen = 3
 	maxChunkOffsetInGetResponse  = 1 + maxGetResponseChunkVarintLen + // 1 for iprotobuf.TagBytes1
 		1 + maxGetResponseChunkVarintLen // 1 for iprotobuf.TagBytes2
-	getResponseChunkBufferLen = maxChunkOffsetInGetResponse + maxGetResponseChunkLen + maxResponseVerificationHeaderLen
+	getResponseChunkBufferLen = maxChunkOffsetInGetResponse + maxGetResponseChunkLen
 )
 
 // Fixed message lengths.
@@ -40,7 +38,6 @@ const (
 	ecdsaWithSHA512SignatureLen      = 1 + 1 + compressedECDSAPublicKeyLen +
 		1 + 1 + ecdsaWithSHA256SignatureValueLen // scheme is 0
 	verificationHeaderECDSAWithSHA512SignatureLen = 1 + 1 + ecdsaWithSHA512SignatureLen
-	responseVerificationHeaderECDSAWIthSHA512Len  = verificationHeaderECDSAWithSHA512SignatureLen * 3
 )
 
 var defaultGRPCBufferPool = mem.DefaultBufferPool()
@@ -66,83 +63,17 @@ func init() {
 	currentVersionResponseMetaHeader = b[:off]
 }
 
-func writeSignatureToBuffer(buf []byte, pubKey []byte, scheme neofscrypto.Scheme, sig []byte) int {
-	// key
-	buf[0] = iprotobuf.TagBytes1
-	off := 1 + binary.PutUvarint(buf[1:], uint64(len(pubKey)))
-	off += copy(buf[off:], pubKey)
-	// value
-	buf[off] = iprotobuf.TagBytes2
-	off += 1 + binary.PutUvarint(buf[off+1:], uint64(len(sig)))
-	off += copy(buf[off:], sig)
-	// scheme
-	buf[off] = iprotobuf.TagVarint3
-	return off + 1 + binary.PutUvarint(buf[off+1:], uint64(scheme))
-}
-
-func (s *Server) signResponse(buf, body, metaHdr []byte) (int, error) {
-	signer := neofsecdsa.Signer(s.signer)
-
-	bodySig, err := signer.Sign(body)
-	if err != nil {
-		return 0, fmt.Errorf("sign body: %w", err)
-	}
-
-	metaSig, err := signer.Sign(metaHdr)
-	if err != nil {
-		return 0, fmt.Errorf("sign meta header: %w", err)
-	}
-
-	origSig, err := signer.Sign(nil) // no origin
-	if err != nil {
-		return 0, fmt.Errorf("sign empty original verification header: %w", err)
-	}
-
-	const scheme = neofscrypto.ECDSA_SHA512
-
-	commonPartLen := 1 + protowire.SizeBytes(len(s.pubKeyBytes)) + 1 + protowire.SizeVarint(uint64(scheme)) + 1
-
-	bodyLen := commonPartLen + protowire.SizeBytes(len(bodySig))
-	metaLen := commonPartLen + protowire.SizeBytes(len(metaSig))
-	origLen := commonPartLen + protowire.SizeBytes(len(origSig))
-
-	// Practically, verification header has constant length, so this could be faster.
-	// But since https://github.com/nspcc-dev/neofs-node/issues/3396 this is not worthy of attention.
-	fullLen := 1 + protowire.SizeBytes(bodyLen) + 1 + protowire.SizeBytes(metaLen) + 1 + protowire.SizeBytes(origLen)
-	if ln := 1 + protowire.SizeBytes(fullLen); ln > maxResponseVerificationHeaderLen {
-		return 0, fmt.Errorf("calculated verification header has len %d, expected limit is %d", ln, maxResponseVerificationHeaderLen)
-	}
-
-	buf[0] = iprotobuf.TagBytes3
-	off := 1 + binary.PutUvarint(buf[1:], uint64(fullLen))
-	// body
-	buf[off] = iprotobuf.TagBytes1
-	off += 1 + binary.PutUvarint(buf[off+1:], uint64(bodyLen))
-	off += writeSignatureToBuffer(buf[off:], s.pubKeyBytes, scheme, bodySig)
-	// meta
-	buf[off] = iprotobuf.TagBytes2
-	off += 1 + binary.PutUvarint(buf[off+1:], uint64(metaLen))
-	off += writeSignatureToBuffer(buf[off:], s.pubKeyBytes, scheme, metaSig)
-	// origin
-	buf[off] = iprotobuf.TagBytes3
-	off += 1 + binary.PutUvarint(buf[off+1:], uint64(origLen))
-	off += writeSignatureToBuffer(buf[off:], s.pubKeyBytes, scheme, origSig)
-
-	return off, nil
-}
-
-func (s *Server) writeMetaHeaderToResponseBuffer(buf []byte) (int, int) {
+func (s *Server) writeMetaHeaderToResponseBuffer(buf []byte) int {
 	ln := len(currentVersionResponseMetaHeader)
 
 	buf[0] = iprotobuf.TagBytes2
 	off := 1 + binary.PutUvarint(buf[1:], uint64(ln))
-	valOff := off
 	off += copy(buf[off:], currentVersionResponseMetaHeader)
 
-	return valOff, off
+	return off
 }
 
-func shiftHeaderInHeadResponseBuffer(respBuf, hdrBuf []byte, sigf, hdrf iprotobuf.FieldBounds, direct bool) iprotobuf.FieldBounds {
+func shiftHeaderInHeadResponseBuffer(respBuf, hdrBuf []byte, sigf, hdrf iprotobuf.FieldBounds) iprotobuf.FieldBounds {
 	sigLen := sigf.To - sigf.From
 	hdrLen := hdrf.To - hdrf.From
 
@@ -157,19 +88,7 @@ func shiftHeaderInHeadResponseBuffer(respBuf, hdrBuf []byte, sigf, hdrf iprotobu
 
 	hdrWithSigOff := maxHeaderOffsetInHeadResponse
 	if sigLen > 0 {
-		if direct {
-			if hdrWithSigOff+hdrf.To+sigLen <= len(respBuf) {
-				copy(hdrBuf[hdrf.To:], hdrBuf[sigf.From:sigf.To])
-				hdrWithSigOff += hdrf.From
-			} else { // not expected to ever happen
-				tmp := make([]byte, sigLen)
-				copy(tmp, hdrBuf[sigf.From:sigf.To])
-				copy(hdrBuf, hdrBuf[hdrf.From:hdrf.To])
-				copy(hdrBuf[hdrLen:], tmp)
-			}
-		} else {
-			hdrWithSigOff += sigf.From
-		}
+		hdrWithSigOff += sigf.From
 	} else {
 		hdrWithSigOff += hdrf.From
 	}
@@ -267,8 +186,7 @@ var getResponseChunkBufferPool = iprotobuf.NewBufferPool(getResponseChunkBufferL
 
 func getBufferForChunkGetResponse() (*iprotobuf.MemBuffer, []byte) {
 	item := getResponseChunkBufferPool.Get()
-	chunkBuf := item.SliceBuffer[maxChunkOffsetInGetResponse:]
-	return item, chunkBuf[:len(chunkBuf)-maxResponseVerificationHeaderLen]
+	return item, item.SliceBuffer[maxChunkOffsetInGetResponse:]
 }
 
 func signECDSAWithSHA512(privKey ecdsa.PrivateKey, data []byte) ([]byte, error) {

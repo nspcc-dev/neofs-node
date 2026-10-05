@@ -80,7 +80,7 @@ func handleSplitInfo(buffers iprotobuf.BuffersSlice, compose bool) error {
 }
 
 func (s *Server) sendChunkResponse(respStream grpc.ServerStream, respBuf mem.BufferSlice, chunkBuffers iprotobuf.BuffersSlice,
-	respChunkLen, chunkLen int, signResponse bool, chunkFldTag byte, readStream, responded *int, shiftFunc func([]byte, int, int) iprotobuf.FieldBounds) (bool, error) {
+	respChunkLen, chunkLen int, chunkFldTag byte, readStream, responded *int, shiftFunc func([]byte, int, int) iprotobuf.FieldBounds) (bool, error) {
 	remoteSent := respChunkLen == chunkLen
 	if !remoteSent {
 		if respChunkLen <= maxGetResponseChunkLen {
@@ -90,14 +90,6 @@ func (s *Server) sendChunkResponse(respStream grpc.ServerStream, respBuf mem.Buf
 
 			bodyf := shiftFunc(localRespBuf.SliceBuffer, maxChunkOffsetInGetResponse, respChunkLen)
 
-			if signResponse {
-				n, err := s.signResponse(localRespBuf.SliceBuffer[bodyf.To:], localRespBuf.SliceBuffer[bodyf.ValueFrom:bodyf.To], nil)
-				if err != nil {
-					return false, fmt.Errorf("sign chunk response: %w", err)
-				}
-				bodyf.To += n
-			}
-
 			localRespBuf.SetBounds(bodyf.From, bodyf.To)
 			respBuf = mem.BufferSlice{localRespBuf}
 		} else {
@@ -105,23 +97,13 @@ func (s *Server) sendChunkResponse(respStream grpc.ServerStream, respBuf mem.Buf
 			//  but then we'd have to provide mem.Buffer from iprotobuf.BuffersSlice
 			bodyFldLen := 1 + protowire.SizeBytes(respChunkLen)
 			fullLen := 1 + protowire.SizeBytes(bodyFldLen)
-			if signResponse {
-				fullLen += maxResponseVerificationHeaderLen
-			}
 
 			b := make(mem.SliceBuffer, fullLen)
 			b[0] = iprotobuf.TagBytes1 // body field
 			off := 1 + binary.PutUvarint(b[1:], uint64(bodyFldLen))
 			b[off] = chunkFldTag
 			off += 1 + binary.PutUvarint(b[off+1:], uint64(respChunkLen))
-			off += chunkBuffers.CopyTo(b[off:])
-			if signResponse {
-				n, err := s.signResponse(b[off:], b[:off], nil)
-				if err != nil {
-					return false, fmt.Errorf("sign chunk response: %w", err)
-				}
-				b = b[:off+n]
-			}
+			chunkBuffers.CopyTo(b[off:])
 
 			respBuf = mem.BufferSlice{b}
 		}

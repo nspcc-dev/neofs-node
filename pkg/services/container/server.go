@@ -378,7 +378,6 @@ func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, err erro
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -438,6 +437,10 @@ func verifyStoragePolicy(policy *protonetmap.PlacementPolicy) error {
 // further processing. If session token is attached, it's verified. Returns ID
 // to check request status in the response.
 func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedPutResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedPutResponse(err, req)
 	}
@@ -528,13 +531,16 @@ func (s *Server) makeDeleteResponse(err error, req *protocontainer.DeleteRequest
 	resp := &protocontainer.DeleteResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
 // Delete forwards container removal request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified.
 func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeDeleteResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeDeleteResponse(err, req)
 	}
@@ -582,7 +588,6 @@ func (s *Server) makeGetResponse(body *protocontainer.GetResponse_Body, st *prot
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -593,6 +598,10 @@ func (s *Server) makeFailedGetResponse(err error, req *protocontainer.GetRequest
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
 func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedGetResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedGetResponse(err, req)
 	}
@@ -623,7 +632,6 @@ func (s *Server) makeListResponse(body *protocontainer.ListResponse_Body, st *pr
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -634,6 +642,10 @@ func (s *Server) makeFailedListResponse(err error, req *protocontainer.ListReque
 // List lists user containers from the underlying [Contract] and returns their
 // IDs in the response.
 func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedListResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedListResponse(err, req)
 	}
@@ -672,13 +684,16 @@ func (s *Server) makeSetEACLResponse(err error, req *protocontainer.SetExtendedA
 	resp := &protocontainer.SetExtendedACLResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
 // SetExtendedACL forwards eACL setting request to the underlying [Contract]
 // for further processing. If session token is attached, it's verified.
 func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeSetEACLResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeSetEACLResponse(err, req)
 	}
@@ -758,7 +773,6 @@ func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -769,6 +783,10 @@ func (s *Server) makeFailedGetEACLResponse(err error, req *protocontainer.GetExt
 // GetExtendedACL read eACL of the requested container from the underlying
 // [Contract] and returns the result in the response.
 func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedGetEACLResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedGetEACLResponse(err, req)
 	}

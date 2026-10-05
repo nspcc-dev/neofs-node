@@ -272,11 +272,14 @@ func (s *reputationServer) makeLocalResponse(err error, req *protoreputation.Ann
 	resp := &protoreputation.AnnounceLocalTrustResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(&s.key.PrivateKey, resp, req)
 	return resp, nil
 }
 
 func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeLocalResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeLocalResponse(err, req)
 	}
@@ -310,11 +313,14 @@ func (s *reputationServer) makeIntermediateResponse(err error, req *protoreputat
 	resp := &protoreputation.AnnounceIntermediateResultResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(&s.key.PrivateKey, resp, req)
 	return resp, nil
 }
 
 func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeIntermediateResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeIntermediateResponse(err, req)
 	}
