@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- `AccountingService.Balance` server panic (#4212)
 
 ### Changed
 
