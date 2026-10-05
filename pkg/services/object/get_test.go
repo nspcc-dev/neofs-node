@@ -482,14 +482,6 @@ func callGet(t *testing.T, srv *Server, req *protoobject.GetRequest) (grpc.Serve
 }
 
 func assertGetOK(t *testing.T, srv *Server, mtrc *metricsCollector, obj object.Object, signer neofscrypto.Signer) {
-	t.Run("signed responses", func(t *testing.T) {
-		resps := assertGetOKVersioned(t, srv, mtrc, obj, signer, version.New(2, 17))
-		for _, resp := range resps {
-			require.NotNil(t, resp.VerifyHeader)
-			require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
-		}
-	})
-
 	resps := assertGetOKVersioned(t, srv, mtrc, obj, signer, version.Current())
 	require.False(t, slices.ContainsFunc(resps, func(resp *protoobject.GetResponse) bool { return resp.VerifyHeader != nil }))
 }

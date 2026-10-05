@@ -453,6 +453,11 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
+		if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
+			return err
+		}
+
 		if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
@@ -578,6 +583,10 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
+	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
+
 	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
@@ -682,6 +691,10 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
 	needSignResp := needSignGetResponse(req)
+
+	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeStatusHeadResponse(req, err, needSignResp)
+	}
 
 	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusHeadResponse(req, err, needSignResp)
@@ -1061,6 +1074,10 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 
 	needSignResp := needSignGetResponse(req)
+
+	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.sendStatusGetResponse(req, gStream, err, needSignResp)
+	}
 
 	if err = icrypto.VerifyRequestSignaturesWithContext(ctx, req); err != nil {
 		return s.sendStatusGetResponse(req, gStream, err, needSignResp)
@@ -1944,6 +1961,11 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
+
+	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.signSearchResponse(nil, err, req)
+	}
+
 	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}

@@ -192,6 +192,7 @@ func makeDeleteRequestWithSessionMessage(t testing.TB, usr usertest.UserSigner, 
 			Signature:   new(refs.SignatureRFC6979),
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
+			Version:      version.Current().ProtoMessage(),
 			SessionToken: st,
 		},
 	}
@@ -431,6 +432,7 @@ func TestSessionVerb(t *testing.T) {
 				},
 			},
 			MetaHeader: &protosession.RequestMetaHeader{
+				Version:      &refs.Version{Major: 2, Minor: 26}, // before revisions
 				SessionToken: st.ProtoMessage(),
 			},
 		}
@@ -440,7 +442,7 @@ func TestSessionVerb(t *testing.T) {
 		setEAClResp, err := s.SetExtendedACL(context.Background(), setEACLReq)
 		require.NoError(t, err)
 		require.NotNil(t, setEAClResp)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(setEAClResp, nil))
+		require.Nil(t, setEAClResp.VerifyHeader)
 		require.Nil(t, setEAClResp.Body)
 		require.NotNil(t, setEAClResp.MetaHeader)
 		require.NotZero(t, setEAClResp.MetaHeader.Status)
@@ -460,6 +462,7 @@ func TestSessionVerb(t *testing.T) {
 			},
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
+			Version:      version.Current().ProtoMessage(),
 			SessionToken: st.ProtoMessage(),
 		},
 	}
@@ -470,7 +473,7 @@ func TestSessionVerb(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, delResp)
 	require.Nil(t, delResp.Body)
-	require.NoError(t, neofscrypto.VerifyResponseWithBuffer(delResp, nil))
+	require.Nil(t, delResp.VerifyHeader)
 	require.NotNil(t, delResp.MetaHeader)
 	require.Zero(t, delResp.MetaHeader.Status)
 }
@@ -499,6 +502,9 @@ func TestServer_SetExtendedACL_InvalidRequest(t *testing.T) {
 				},
 				Signature: &refs.SignatureRFC6979{},
 			},
+			MetaHeader: &protosession.RequestMetaHeader{
+				Version: &refs.Version{Major: 2, Minor: 26}, // before revisions
+			},
 		}
 
 		var err error
@@ -508,12 +514,10 @@ func TestServer_SetExtendedACL_InvalidRequest(t *testing.T) {
 		resp, err := svc.SetExtendedACL(ctx, req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
-		resp.VerifyHeader = nil
+		require.Nil(t, resp.VerifyHeader)
 
 		require.True(t, proto.Equal(resp, &protocontainer.SetExtendedACLResponse{
 			MetaHeader: &protosession.ResponseMetaHeader{
-				Version: version.Current().ProtoMessage(),
 				Status: &protostatus.Status{
 					Code:    1024,
 					Message: "missing container ID in eACL table",
@@ -559,6 +563,7 @@ func TestService_SetExtendedACL_SessionIssuer(t *testing.T) {
 			Signature: &refs.SignatureRFC6979{},
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
+			Version:      &refs.Version{Major: 2, Minor: 26}, // before revisions
 			SessionToken: st.ProtoMessage(),
 		},
 	}
@@ -574,19 +579,15 @@ func TestService_SetExtendedACL_SessionIssuer(t *testing.T) {
 		resp, err := s.SetExtendedACL(ctx, req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+		require.Nil(t, resp.VerifyHeader)
 
-		req.VerifyHeader = nil
-
-		resp.VerifyHeader = nil
 		return resp
 	}
 
 	assertResp := func(t *testing.T, resp *protocontainer.SetExtendedACLResponse, st *protostatus.Status) {
 		require.True(t, proto.Equal(resp, &protocontainer.SetExtendedACLResponse{
 			MetaHeader: &protosession.ResponseMetaHeader{
-				Version: version.Current().ProtoMessage(),
-				Status:  st,
+				Status: st,
 			},
 		}), resp.GetMetaHeader().GetStatus())
 	}
@@ -663,17 +664,15 @@ func TestService_Delete_SessionIssuer(t *testing.T) {
 		resp, err := s.Delete(ctx, req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+		require.Nil(t, resp.VerifyHeader)
 
-		resp.VerifyHeader = nil
 		return resp
 	}
 
 	assertResp := func(t *testing.T, resp *protocontainer.DeleteResponse, st *protostatus.Status) {
 		require.True(t, proto.Equal(resp, &protocontainer.DeleteResponse{
 			MetaHeader: &protosession.ResponseMetaHeader{
-				Version: version.Current().ProtoMessage(),
-				Status:  st,
+				Status: st,
 			},
 		}), resp.GetMetaHeader().GetStatus())
 	}
@@ -768,6 +767,7 @@ func TestService_TokenV2(t *testing.T) {
 				},
 			},
 			MetaHeader: &protosession.RequestMetaHeader{
+				Version:        version.Current().ProtoMessage(),
 				SessionTokenV2: tok.ProtoMessage(),
 			},
 		}
@@ -784,7 +784,7 @@ func TestService_TokenV2(t *testing.T) {
 		resp, err := svc.Delete(ctx, req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+		require.Nil(t, resp.VerifyHeader)
 
 		require.NotNil(t, resp.MetaHeader)
 		require.Nil(t, resp.MetaHeader.Status)
@@ -797,7 +797,7 @@ func TestService_TokenV2(t *testing.T) {
 		resp, err := svc.Delete(ctx, req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+		require.Nil(t, resp.VerifyHeader)
 
 		sts := resp.GetMetaHeader().GetStatus()
 		require.NotNil(t, sts)
@@ -835,7 +835,7 @@ func TestService_TokenV2(t *testing.T) {
 		resp, err := svc.Delete(ctx, req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, neofscrypto.VerifyResponseWithBuffer(resp, nil))
+		require.Nil(t, resp.VerifyHeader)
 
 		sts := resp.GetMetaHeader().GetStatus()
 		require.NotNil(t, sts, "forged origin token must be rejected")

@@ -67,6 +67,10 @@ func (s *server) makeFailedBalanceResponse(err error, req *protoaccounting.Balan
 // Balance gets current balance of the requested user using underlying
 // [BalanceContract] and returns result in the response.
 func (s *server) Balance(_ context.Context, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
+	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedBalanceResponse(err, req)
+	}
+
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedBalanceResponse(err, req)
 	}

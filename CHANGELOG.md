@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - `AccountingService.Balance` server panic (#4212)
 
 ### Changed
+- SN now requires requests to have API version >= 2.22 (#4212)
 
 ### Removed
 
