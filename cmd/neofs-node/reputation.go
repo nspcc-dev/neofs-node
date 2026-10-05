@@ -272,7 +272,6 @@ func (s *reputationServer) makeLocalResponse(err error, req *protoreputation.Ann
 	resp := &protoreputation.AnnounceLocalTrustResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(&s.key.PrivateKey, resp, req)
 	return resp, nil
 }
 
@@ -314,7 +313,6 @@ func (s *reputationServer) makeIntermediateResponse(err error, req *protoreputat
 	resp := &protoreputation.AnnounceIntermediateResultResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(&s.key.PrivateKey, resp, req)
 	return resp, nil
 }
 

@@ -65,7 +65,6 @@ func (s *server) makeNodeInfoResponse(body *protonetmap.LocalNodeInfoResponse_Bo
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -101,7 +100,6 @@ func (s *server) makeNetInfoResponse(body *protonetmap.NetworkInfoResponse_Body,
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -136,7 +134,6 @@ func (s *server) makeNetmapResponse(body *protonetmap.NetmapSnapshotResponse_Bod
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 

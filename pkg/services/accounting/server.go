@@ -56,7 +56,6 @@ func (s *server) makeBalanceResponse(body *protoaccounting.BalanceResponse_Body,
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 

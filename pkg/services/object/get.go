@@ -308,7 +308,7 @@ func (x *getProxyContext) handleChunkResponse(streamProg *getStreamProgress, res
 	respChunkLen := to - from
 
 	return x.respStream.srv.sendChunkResponse(x.respStream.base, respBuf, chunkBuffers, respChunkLen, chunkLen,
-		x.respStream.signResponse, iprotobuf.TagBytes2, &streamProg.readPayload, &x.respondedPayload, shiftPayloadChunkInGetResponseBuffer)
+		iprotobuf.TagBytes2, &streamProg.readPayload, &x.respondedPayload, shiftPayloadChunkInGetResponseBuffer)
 }
 
 type preparedRangeRequest struct {
@@ -322,7 +322,6 @@ type getECTransport struct {
 	server           *Server
 	requestContainer cid.ID
 	requestObject    oid.ID
-	signResponses    bool
 	responseStream   grpc.ServerStream
 
 	getPartRequest                  *[]byte
@@ -414,7 +413,7 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromLocalFirstPart(ctx cont
 		n += copy(buf[n:], partHdrBuf[parentHdrf.From:parentHdrf.To])
 	}
 
-	err = x.server.copyGetStream(x.responseStream, hdrMemBuf, buf, prefixLen, n, stream, partHdrf.To, x.signResponses, true)
+	err = x.server.copyGetStream(x.responseStream, hdrMemBuf, buf, prefixLen, n, stream, partHdrf.To, true)
 	if err != nil {
 		e, isReadError := errors.AsType[copyReadError](err)
 		if !isReadError {
@@ -465,7 +464,7 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 		}
 	}
 
-	err = x.server.copyRangeStream(x.responseStream, stream, x.signResponses, shiftPayloadChunkInGetResponseBuffer)
+	err = x.server.copyRangeStream(x.responseStream, stream, shiftPayloadChunkInGetResponseBuffer)
 	if err != nil {
 		e, isReadError := errors.AsType[copyReadError](err)
 		if !isReadError {
@@ -657,7 +656,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 				return false, 0, 0, 0, err
 			}
 
-			err = x.server.writeInitGetResponseBuffers(x.responseStream, parentID, parentSig, parentHdr, x.signResponses)
+			err = x.server.writeInitGetResponseBuffers(x.responseStream, parentID, parentSig, parentHdr)
 			respBuf.Free()
 			if err != nil {
 				return false, 0, 0, 0, err
@@ -989,7 +988,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(needSign bool, remoteServerAP
 	return *reqBufPtr, nil
 }
 
-func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, sig, hdr iprotobuf.BuffersSlice, signResponse bool) error {
+func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, sig, hdr iprotobuf.BuffersSlice) error {
 	idLen := id.Len()
 	sigLen := sig.Len()
 	hdrLen := hdr.Len()
@@ -999,10 +998,6 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	bodyLen := 1 + protowire.SizeBytes(initFldLen) // 1 for iprotobuf.TagBytes1
 
 	respLen := 1 + protowire.SizeBytes(bodyLen) // 1 for iprotobuf.TagBytes1
-
-	if signResponse {
-		respLen += 1 + protowire.SizeBytes(responseVerificationHeaderECDSAWIthSHA512Len) // 1 for iprotobuf.TagBytes3
-	}
 
 	var respBuf mem.Buffer
 	var buf mem.SliceBuffer
@@ -1018,7 +1013,6 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	// body
 	buf[0] = iprotobuf.TagBytes1
 	off := 1 + binary.PutUvarint(buf[1:], uint64(bodyLen))
-	bodyFrom := off
 	// init
 	buf[off] = iprotobuf.TagBytes1
 	off++
@@ -1038,15 +1032,6 @@ func (s *Server) writeInitGetResponseBuffers(respStream grpc.ServerStream, id, s
 	off++
 	off += binary.PutUvarint(buf[off:], uint64(hdrLen))
 	off += hdr.CopyTo(buf[off:])
-
-	if signResponse {
-		n, err := s.signResponse(buf[off:], buf[bodyFrom:off], nil)
-		if err != nil {
-			respBuf.Free()
-			return fmt.Errorf("sign response: %w", err)
-		}
-		off += n
-	}
 
 	if respLen <= headResponseBufferLen {
 		respBuf.(*iprotobuf.MemBuffer).SetBounds(0, off)

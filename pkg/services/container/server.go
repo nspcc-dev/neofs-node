@@ -378,7 +378,6 @@ func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, err erro
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -532,7 +531,6 @@ func (s *Server) makeDeleteResponse(err error, req *protocontainer.DeleteRequest
 	resp := &protocontainer.DeleteResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -590,7 +588,6 @@ func (s *Server) makeGetResponse(body *protocontainer.GetResponse_Body, st *prot
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -635,7 +632,6 @@ func (s *Server) makeListResponse(body *protocontainer.ListResponse_Body, st *pr
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -688,7 +684,6 @@ func (s *Server) makeSetEACLResponse(err error, req *protocontainer.SetExtendedA
 	resp := &protocontainer.SetExtendedACLResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err), req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -778,7 +773,6 @@ func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st, req.MetaHeader),
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 

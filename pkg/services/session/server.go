@@ -57,7 +57,6 @@ func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
