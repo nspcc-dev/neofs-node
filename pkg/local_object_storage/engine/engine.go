@@ -55,7 +55,7 @@ type shardInterface interface {
 	HeadECPart(cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 	ReadECPartHeader(cid.ID, oid.ID, iec.PartInfo, []byte) (int, error)
 	Exists(addr oid.Address, ignoreExpiration bool) (bool, error)
-	InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error)
+	InitPut(hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error)
 }
 
 type shardWrapper struct {

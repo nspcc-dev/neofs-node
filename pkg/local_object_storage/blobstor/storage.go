@@ -120,6 +120,20 @@ func (r PayloadRange) IsFull() bool {
 	}
 }
 
+// PutStream streams object into [Storage].
+type PutStream interface {
+	io.WriteCloser
+
+	// WriteBuffers sequentially writes all L bytes from bs to the underlying data
+	// stream. It returns the number of bytes written from p (0 <= n <= L) and any
+	// error encountered that caused the write to stop early. WriteBuffers must
+	// return a non-nil error if it returns n < L. WriteBuffers must not bs and its
+	// elements, even temporarily.
+	//
+	// Implementations must not retain bs and its elements.
+	WriteBuffers(bs [][]byte) (int, error)
+}
+
 // Storage represents key-value object storage.
 // It is used as a building block for a blobstor of a shard.
 type Storage interface {
@@ -144,7 +158,7 @@ type Storage interface {
 	ReadObjectParts(buf []byte, addr oid.Address, rng PayloadRange, interceptHeaderBinaryFn func([]byte) error) (int, io.ReadCloser, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
-	InitPut(oid.Address, uint64, uint64, io.WriterTo) (io.WriteCloser, func(), error)
+	InitPut(oid.Address, uint64, uint64, io.WriterTo) (PutStream, func(), error)
 	PutBatch(map[oid.Address][]byte) error
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte) error, func(oid.Address, error) error) error

@@ -25,6 +25,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -140,7 +141,7 @@ func (noCallTestStorage) StoreObjectLocally(context.Context, object.Object) erro
 	panic("must not be called")
 }
 
-func (noCallTestStorage) InitLocalObjectWrite(context.Context, object.Object, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
+func (noCallTestStorage) InitLocalObjectWrite(context.Context, object.Object, uint64, io.WriterTo) (blobstor.PutStream, func(), error) {
 	panic("must not be called")
 }
 

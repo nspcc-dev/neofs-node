@@ -333,7 +333,7 @@ func (unimplementedBLOBStore) Put(oid.Address, []byte) error {
 	panic("unimplemented")
 }
 
-func (unimplementedBLOBStore) InitPut(oid.Address, uint64, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
+func (unimplementedBLOBStore) InitPut(oid.Address, uint64, uint64, io.WriterTo) (blobstor.PutStream, func(), error) {
 	panic("unimplemented")
 }
 
@@ -403,7 +403,7 @@ func (unimplementedWriteCache) Put(oid.Address, *object.Object, []byte) error {
 	panic("unimplemented")
 }
 
-func (unimplementedWriteCache) InitPut(oid.Address, uint64, uint64, io.WriterTo) (io.WriteCloser, func(), error) {
+func (unimplementedWriteCache) InitPut(oid.Address, uint64, uint64, io.WriterTo) (blobstor.PutStream, func(), error) {
 	panic("unimplemented")
 }
 

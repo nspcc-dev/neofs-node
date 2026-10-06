@@ -21,6 +21,7 @@ import (
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -644,7 +645,7 @@ func (x storageForObjectService) StoreObjectLocally(ctx context.Context, obj obj
 }
 
 // InitLocalObjectWrite implements [objectService.Storage] interface.
-func (x storageForObjectService) InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (x storageForObjectService) InitLocalObjectWrite(ctx context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error) {
 	return x.local.InitPut(ctx, hdr, hdrLen, hdrW)
 }
 

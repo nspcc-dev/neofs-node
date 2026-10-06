@@ -245,7 +245,7 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 // [StorageEngine.Put] should be used.
 //
 // If object already exists, InitPut returns [ierrors.ErrObjectExists].
-func (e *StorageEngine) InitPut(_ context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (io.WriteCloser, func(), error) {
+func (e *StorageEngine) InitPut(_ context.Context, hdr object.Object, hdrLen uint64, hdrW io.WriterTo) (blobstor.PutStream, func(), error) {
 	if typ := hdr.Type(); typ != object.TypeRegular {
 		return nil, nil, fmt.Errorf("invalid object type %s", typ)
 	}
@@ -287,7 +287,7 @@ func (e *StorageEngine) InitPut(_ context.Context, hdr object.Object, hdrLen uin
 			continue
 		}
 
-		var stream io.WriteCloser
+		var stream blobstor.PutStream
 		var abortFn func()
 		stream, abortFn, err = sh.shardIface.InitPut(hdr, hdrLen, hdrW)
 		if err != nil {
@@ -313,12 +313,12 @@ type payloadWriteStream struct {
 	storageEngine *StorageEngine
 	shard         shardWrapper
 	startTime     time.Time
-	stream        io.WriteCloser
+	stream        blobstor.PutStream
 	abortFn       func()
 	aborted       bool
 }
 
-func newPayloadWriteStream(storageEngine *StorageEngine, sh shardWrapper, st time.Time, stream io.WriteCloser, abortFn func()) *payloadWriteStream {
+func newPayloadWriteStream(storageEngine *StorageEngine, sh shardWrapper, st time.Time, stream blobstor.PutStream, abortFn func()) *payloadWriteStream {
 	return &payloadWriteStream{
 		storageEngine: storageEngine,
 		shard:         sh,
@@ -335,6 +335,22 @@ func (x *payloadWriteStream) Write(p []byte) (int, error) {
 
 	n, err := x.stream.Write(p)
 	if err != nil {
+		x.storageEngine.handleShardPutError(x.shard, err)
+		x.finish()
+		return n, newPutAllShardsError(err)
+	}
+
+	return n, nil
+}
+
+func (x *payloadWriteStream) WriteBuffers(bs [][]byte) (int, error) {
+	if x.aborted {
+		return 0, logicerr.ErrStreamAborted
+	}
+
+	n, err := x.stream.WriteBuffers(bs)
+	if err != nil {
+		// TODO: share with Write()
 		x.storageEngine.handleShardPutError(x.shard, err)
 		x.finish()
 		return n, newPutAllShardsError(err)
