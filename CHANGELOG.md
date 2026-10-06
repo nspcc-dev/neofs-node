@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)
+- CLI `request create-container` command now attaches current API version to requests (#4213)
 
 ### Removed
 

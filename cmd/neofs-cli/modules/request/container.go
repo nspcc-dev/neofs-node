@@ -23,7 +23,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -107,6 +109,11 @@ func createContainer(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate ECDSA private key: %w", err)
 	}
+
+	metaHdr := &protosession.RequestMetaHeader{
+		Version: version.Current().ProtoMessage(),
+	}
+
 	req := &protocontainer.PutRequest{
 		Body: &protocontainer.PutRequest_Body{
 			Container: &protocontainer.Container{
@@ -122,6 +129,7 @@ func createContainer(cmd *cobra.Command, args []string) error {
 				Sign: body.Witness.InvocationScript,
 			},
 		},
+		MetaHeader: metaHdr,
 	}
 	if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer((*neofsecdsa.Signer)(pk), req, nil); err != nil {
 		return fmt.Errorf("failed to sign request with generated ECDSA private key: %w", err)
@@ -188,6 +196,7 @@ func createContainer(cmd *cobra.Command, args []string) error {
 		Body: &protocontainer.GetRequest_Body{
 			ContainerId: resp.Body.ContainerId,
 		},
+		MetaHeader: metaHdr,
 	}
 	if getReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer((*neofsecdsa.Signer)(pk), getReq, nil); err != nil {
 		return fmt.Errorf("failed to sign Get request with generated ECDSA private key: %w", err)
