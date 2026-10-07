@@ -156,6 +156,8 @@ func (c *cache) Init(id blobstor.ID) error {
 	if err := c.fsTree.Init(id); err != nil {
 		return fmt.Errorf("init FSTree: %w", err)
 	}
+	// initCounters invokes the size callback, so flush gates must be initialized first.
+	c.initFlushLoadGates()
 	if err := c.initCounters(); err != nil {
 		return err
 	}

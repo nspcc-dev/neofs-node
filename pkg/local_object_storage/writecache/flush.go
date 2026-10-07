@@ -90,8 +90,7 @@ func (l *loadGate) resume() {
 	}
 }
 
-// runFlushLoop starts background workers which periodically flush objects to the blobstor.
-func (c *cache) runFlushLoop() {
+func (c *cache) initFlushLoadGates() {
 	c.flushLoadGates = make([]*loadGate, c.workersCount)
 	for i := range c.workersCount {
 		lg := newLoadGate(c.closeCh)
@@ -102,7 +101,10 @@ func (c *cache) runFlushLoop() {
 
 		c.flushLoadGates[i] = lg
 	}
+}
 
+// runFlushLoop starts background workers which periodically flush objects to the blobstor.
+func (c *cache) runFlushLoop() {
 	for i := range c.workersCount {
 		c.wg.Go(func() { c.flushWorker(i, c.flushLoadGates[i]) })
 	}
