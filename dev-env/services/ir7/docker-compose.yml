@@ -1,0 +1,255 @@
+---
+
+services:
+
+  ir01:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir01
+    container_name: ir01
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.61
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_WALLET_ADDRESS=NPa49xr5Fp3wZrvUqbdW1SArhpSGRqKS8d
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_1}
+    volumes:
+      - neofs_chain_ir01:/neofs_chain/
+      - ./alphabet/az.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg/config.yml:/etc/neofs/ir/config.yml
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_1}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir02:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir02
+    container_name: ir02
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.62
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_WALLET_ADDRESS=NhGnZcSeSsXG4wU1uKfCLatSFYNf4ufaF9
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_2}
+    volumes:
+      - neofs_chain_ir02:/neofs_chain/
+      - ./alphabet/buky.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg/config.yml:/etc/neofs/ir/config.yml
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_2}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir03:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir03
+    container_name: ir03
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.63
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_WALLET_ADDRESS=NLQTN4s6BaDR2Gci6T2KrFQ35sSxQ4PGSq
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_3}
+    volumes:
+      - neofs_chain_ir03:/neofs_chain/
+      - ./alphabet/vedi.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg/config.yml:/etc/neofs/ir/config.yml
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_3}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir04:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir04
+    container_name: ir04
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.64
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_WALLET_ADDRESS=NRycJKK6S7wdRQPdcTaMDnsgLVFTrbuhJ6
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_4}
+    volumes:
+      - neofs_chain_ir04:/neofs_chain/
+      - ./alphabet/glagoli.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg/config.yml:/etc/neofs/ir/config.yml
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_4}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir05:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir05
+    container_name: ir05
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.65
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_WALLET_ADDRESS=NfnG66ydpw6jsoyyFuvtb4FFYqkHHnqPdu
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_5}
+    volumes:
+      - neofs_chain_ir05:/neofs_chain/
+      - ./alphabet/dobro.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg/config.yml:/etc/neofs/ir/config.yml
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_5}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir06:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir06
+    container_name: ir06
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.66
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_WALLET_ADDRESS=NRjbg1cTZoaNtHyLwdciAk8a9YdtgPPaUC
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_6}
+    volumes:
+      - neofs_chain_ir06:/neofs_chain/
+      - ./alphabet/yest.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg/config.yml:/etc/neofs/ir/config.yml
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_6}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir07:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir07
+    container_name: ir07
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.67
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_WALLET_ADDRESS=NXqebp9T47ZvaMfMgdB1N1W42stk6RpHJp
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_7}
+    volumes:
+      - neofs_chain_ir07:/neofs_chain/
+      - ./alphabet/zhivete.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg/config.yml:/etc/neofs/ir/config.yml
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_7}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir-healthcheck:
+    container_name: ir-healthcheck
+    image: debian:10
+    depends_on:
+      ir01:
+        condition: service_healthy
+      ir02:
+        condition: service_healthy
+      ir03:
+        condition: service_healthy
+      ir04:
+        condition: service_healthy
+      ir05:
+        condition: service_healthy
+      ir06:
+        condition: service_healthy
+      ir07:
+        condition: service_healthy
+
+networks:
+  ir_int:
+  internet:
+    external: true
+    name: basenet_internet
+
+volumes:
+  neofs_chain_ir01:
+  neofs_chain_ir02:
+  neofs_chain_ir03:
+  neofs_chain_ir04:
+  neofs_chain_ir05:
+  neofs_chain_ir06:
+  neofs_chain_ir07:
+    

@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "accounts": [
+    {
+      "address": "NZBEUULRXo79EqBQVPpUTziicepFc7kuXU",
+      "key": "6PYPBU46oBC5E1BrDEGzRvvsMEQZCzLsDChQi3GyVGtWLTrtPo3o3n7fYU",
+      "label": "single",
+      "contract": {
+        "script": "DCEDLsIfADqZRkMGYscoe6gb2dYPofrxggZDT+rb0Aj1rgBBVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    },
+    {
+      "address": "NPpKskku5gC6g59f2gVRR8fmvUTLDp9w7Y",
+      "key": "6PYPBU46oBC5E1BrDEGzRvvsMEQZCzLsDChQi3GyVGtWLTrtPo3o3n7fYU",
+      "label": "committee",
+      "contract": {
+        "script": "EQwhAy7CHwA6mUZDBmLHKHuoG9nWD6H68YIGQ0/q29AI9a4AEUGe0Nw6",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    },
+    {
+      "address": "NPpKskku5gC6g59f2gVRR8fmvUTLDp9w7Y",
+      "key": "6PYPBU46oBC5E1BrDEGzRvvsMEQZCzLsDChQi3GyVGtWLTrtPo3o3n7fYU",
+      "label": "consensus",
+      "contract": {
+        "script": "EQwhAy7CHwA6mUZDBmLHKHuoG9nWD6H68YIGQ0/q29AI9a4AEUGe0Nw6",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    }
+  ],
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "extra": {
+    "Tokens": null
+  }
+}

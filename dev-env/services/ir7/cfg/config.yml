@@ -1,0 +1,82 @@
+# Logger section
+logger:
+  level: debug  # Minimum enabled logging level
+
+# Wallet settings
+wallet:
+  path: /wallet.json  # Path to NEP-6 NEO wallet file
+  password: one  # Account password in the wallet
+
+# Profiler section
+pprof:
+  enabled: true
+  address: :6060  # Endpoint for application pprof profiling; disabled by default
+  shutdown_timeout: 30s  # Timeout for profiling HTTP server graceful shutdown
+
+# Application metrics section
+prometheus:
+  enabled: true
+  address: :9090  # Endpoint for application prometheus metrics; disabled by default
+  shutdown_timeout: 30s  # Timeout for metrics HTTP server graceful shutdown
+
+# Neo main chain RPC settings
+mainnet:
+  enabled: true # Enable connection to mainchain; by default, 'false', run application in single chain environment
+  endpoints: # List of websocket RPC endpoints in mainchain; ignore if mainchain is disabled
+    - ws://main-chain:30333/ws
+
+# NeoFS chain RPC settings
+fschain:
+  consensus:
+    magic: 15405
+    committee:
+      - 022c0bf9e1a0c864905d2b8909555ae421db9a52f86ab268a84d9be42a6ad9d858
+      - 024a640c8cbe3e34f0cd927950c64f6d0d239770397fe645d52bf920fddd655bf8
+      - 024f19ec7a8e35722c8cdd7d21fcc2090f2658b2fd67b7b23f1936dc5e7b54b216
+      - 03797de54a6abb6d19c22a5afabf30d320a9348b0f294315e74cb3b423b1ac9dc9
+      - 03a90f6e7dcb49cf9603dde786781c4fdbd43f8a57c5b23fe93d4ecc33952599fd
+      - 03c7aa35ab64aad9b85a35647b1f0aec59344271a6c2ed7644faf1997ee098bbab
+      - 02ca9097295d28e28e2ae55eb62ca0b1ac48b2d9b6dcb64ddb936a64d80cb8b795
+    storage:
+      type: boltdb
+      path: /neofs_chain/db.bolt
+    time_per_block: 1s
+    max_traceable_blocks: 200000
+    seed_nodes:
+      - ir01
+      - ir02
+      - ir03
+      - ir04
+      - ir05
+      - ir06
+      - ir07
+    rpc:
+      listen:
+        - ":30333"
+    p2p:
+      listen:
+        - ":20333"
+    set_roles_in_genesis: true
+
+# Network time settings
+timers:
+  collect_basic_income:
+    mul: 1  # Multiplier in x/y relation of when to start basic income asset collection within the epoch
+    div: 2  # Divider in x/y relation of when to start basic income asset collecting within the epoch
+
+# Storage node GAS emission settings
+emit:
+  storage:
+    amount: 1000000000  # Fixed8 value of sidechain GAS emitted to all storage nodes once per GAS emission cycle; disabled by default
+
+# Settlement settings
+settlement:
+  basic_income_rate: 100000000  # Optional: override basic income rate value from network config; applied only in debug mode
+
+experimental:
+  allow_ec: true # Optional: allows creating containers with EC placement policies
+  chain_meta_data: # Optional: allows creating containers with metadata handled via FS chain
+    enabled: true
+    seed_port: 20334 # List of existing nodes to communicate with over Neo P2P protocol (addresses are taken from fschain.consensus.seed_nodes, but ports are changed to this value)
+    p2p_port: 20334 # Port for network addresses to listen Neo P2P on (addresses are taken from fschain.consensus.p2p, but ports are changed to this value)
+    rpc_port: 30334 # Port for network addresses to listen Neo RPC on (addresses are taken from fschain.consensus.rpc, but ports are changed to this value)

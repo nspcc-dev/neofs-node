@@ -1,0 +1,34 @@
+logger:
+  level: debug
+
+# Interval to check node health
+rebalance_interval: 30s
+
+# Timeout to check node health during rebalance
+healthcheck_timeout: 15s
+
+# Timeout to connect to a node
+connect_timeout: 10s
+
+# Limits for processing of clients' requests
+max_clients_count: 100
+
+# Deadline after which the gate sends error `RequestTimeout` to a client
+max_clients_deadline: 30s
+
+server:
+  - address: 0.0.0.0:8080
+    tls:
+      enabled: true
+      cert_file: /tls.crt
+      key_file: /tls.key
+
+# Wallet configuration
+wallet:
+  path: /wallet.json # Path to wallet
+  passphrase: "s3" # Passphrase to decrypt wallet
+
+# RPC endpoint
+fschain:
+  endpoints:
+    - http://ir01.neofs.devenv:30333

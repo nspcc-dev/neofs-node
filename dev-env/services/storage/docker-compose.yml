@@ -1,0 +1,177 @@
+---
+
+services:
+  storage01:
+    image: ${NODE_IMAGE}:${NODE_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: s01
+    container_name: s01
+    restart: "no"
+    networks:
+      storage_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.71
+    volumes:
+      - ./wallet01.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - storage_s01:/storage
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./s04tls.crt:/etc/ssl/certs/s04tls.crt
+      - ./cfg:/etc/neofs/storage
+    stop_signal: SIGKILL
+    env_file: [ ".env", ".storage.env" ]
+    command: [ "neofs-node", "--config", "/etc/neofs/storage/config.yml" ]
+    environment:
+      - NEOFS_NODE_WALLET_PATH=./wallet.json
+      - NEOFS_NODE_WALLET_PASSWORD=
+      - NEOFS_NODE_ADDRESSES=s01.${LOCAL_DOMAIN}:8080
+      - NEOFS_GRPC_0_ENDPOINT=s01.${LOCAL_DOMAIN}:8080
+      - NEOFS_CONTROL_GRPC_ENDPOINT=${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_1}
+      - NEOFS_NODE_ATTRIBUTES_0=UN-LOCODE:RU MOW
+      - NEOFS_NODE_ATTRIBUTES_1=Price:22
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_1}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  storage02:
+    image: ${NODE_IMAGE}:${NODE_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: s02
+    container_name: s02
+    restart: "no"
+    networks:
+      storage_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.72
+    volumes:
+      - ./wallet02.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - storage_s02:/storage
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./s04tls.crt:/etc/ssl/certs/s04tls.crt
+      - ./cfg:/etc/neofs/storage
+    stop_signal: SIGKILL
+    env_file: [ ".env", ".storage.env" ]
+    command: [ "neofs-node", "--config", "/etc/neofs/storage/config.yml" ]
+    environment:
+      - NEOFS_NODE_WALLET_PATH=./wallet.json
+      - NEOFS_NODE_WALLET_PASSWORD=
+      - NEOFS_NODE_ADDRESSES=s02.${LOCAL_DOMAIN}:8080
+      - NEOFS_GRPC_0_ENDPOINT=s02.${LOCAL_DOMAIN}:8080
+      - NEOFS_CONTROL_GRPC_ENDPOINT=${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_2}
+      - NEOFS_NODE_ATTRIBUTES_0=UN-LOCODE:RU LED
+      - NEOFS_NODE_ATTRIBUTES_1=Price:33
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_2}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  storage03:
+    image: ${NODE_IMAGE}:${NODE_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: s03
+    container_name: s03
+    restart: "no"
+    networks:
+      storage_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.73
+    volumes:
+      - ./wallet03.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - storage_s03:/storage
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./s04tls.crt:/etc/ssl/certs/s04tls.crt
+      - ./cfg:/etc/neofs/storage
+    stop_signal: SIGKILL
+    env_file: [ ".env", ".storage.env" ]
+    command: [ "neofs-node", "--config", "/etc/neofs/storage/config.yml" ]
+    environment:
+      - NEOFS_NODE_WALLET_PATH=./wallet.json
+      - NEOFS_NODE_WALLET_PASSWORD=
+      - NEOFS_NODE_ADDRESSES=s03.${LOCAL_DOMAIN}:8080
+      - NEOFS_GRPC_0_ENDPOINT=s03.${LOCAL_DOMAIN}:8080
+      - NEOFS_CONTROL_GRPC_ENDPOINT=${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_3}
+      - NEOFS_NODE_ATTRIBUTES_0=UN-LOCODE:SE STO
+      - NEOFS_NODE_ATTRIBUTES_1=Price:11
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_3}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  storage04:
+    image: ${NODE_IMAGE}:${NODE_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: s04
+    container_name: s04
+    restart: "no"
+    networks:
+      storage_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.74
+    volumes:
+      - ./wallet04.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - storage_s04:/storage
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./s04tls.crt:/tls.crt
+      - ./s04tls.key:/tls.key
+      - ./cfg:/etc/neofs/storage
+    stop_signal: SIGKILL
+    env_file: [ ".env", ".storage.env" ]
+    command: [ "neofs-node", "--config", "/etc/neofs/storage/config.yml" ]
+    environment:
+      - NEOFS_NODE_WALLET_PATH=./wallet.json
+      - NEOFS_NODE_WALLET_PASSWORD=
+      - NEOFS_NODE_ADDRESSES=s04.${LOCAL_DOMAIN}:8080 grpcs://s04.${LOCAL_DOMAIN}:8082
+      - NEOFS_CONTROL_GRPC_ENDPOINT=${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_4}
+      - NEOFS_GRPC_NUM=2
+      - NEOFS_GRPC_0_ENDPOINT=s04.${LOCAL_DOMAIN}:8080
+      - NEOFS_GRPC_1_ENDPOINT=s04.${LOCAL_DOMAIN}:8082
+      - NEOFS_GRPC_1_TLS_ENABLED=true
+      - NEOFS_GRPC_1_TLS_CERTIFICATE=/tls.crt
+      - NEOFS_GRPC_1_TLS_KEY=/tls.key
+      - NEOFS_NODE_ATTRIBUTES_0=UN-LOCODE:FI HEL
+      - NEOFS_NODE_ATTRIBUTES_1=Price:44
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_STORAGE_CONTROL_GRPC_ENDPOINT_4}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  sn-healthcheck:
+    container_name: sn-healthcheck
+    image: debian:10
+    depends_on:
+      storage01:
+        condition: service_healthy
+      storage02:
+        condition: service_healthy
+      storage03:
+        condition: service_healthy
+      storage04:
+        condition: service_healthy
+
+volumes:
+  storage_s01:
+  storage_s02:
+  storage_s03:
+  storage_s04:
+
+networks:
+  storage_int:
+  internet:
+    external: true
+    name: basenet_internet

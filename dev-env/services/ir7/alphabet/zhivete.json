@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "accounts": [
+    {
+      "address": "NXqebp9T47ZvaMfMgdB1N1W42stk6RpHJp",
+      "key": "6PYR3VC46tUeg7yF5uLQ1kXR9FmmuYSCzjDjf148qyb95s4bNAL7ziXnpn",
+      "label": "single",
+      "contract": {
+        "script": "DCECTxnseo41ciyM3X0h/MIJDyZYsv1nt7I/GTbcXntUshZBVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    },
+    {
+      "address": "NMkB37Z5ey3Lygck273aU2TQHTK6NhL8hC",
+      "key": "6PYR3VC46tUeg7yF5uLQ1kXR9FmmuYSCzjDjf148qyb95s4bNAL7ziXnpn",
+      "label": "committee",
+      "contract": {
+        "script": "FAwhAiwL+eGgyGSQXSuJCVVa5CHbmlL4arJoqE2b5Cpq2dhYDCECSmQMjL4+NPDNknlQxk9tDSOXcDl/5kXVK/kg/d1lW/gMIQJPGex6jjVyLIzdfSH8wgkPJliy/We3sj8ZNtxee1SyFgwhA3l95Upqu20Zwipa+r8w0yCpNIsPKUMV50yztCOxrJ3JDCEDqQ9ufctJz5YD3eeGeBxP29Q/ilfFsj/pPU7MM5Ulmf0MIQPHqjWrZKrZuFo1ZHsfCuxZNEJxpsLtdkT68Zl+4Ji7qwwhAsqQlyldKOKOKuVetiygsaxIstm23LZN25NqZNgMuLeVF0Ge0Nw6",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter1",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter2",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter3",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    },
+    {
+      "address": "NZxoqHeWp6XfKwHNMqJsdzFyHQMDPnKqAW",
+      "key": "6PYR3VC46tUeg7yF5uLQ1kXR9FmmuYSCzjDjf148qyb95s4bNAL7ziXnpn",
+      "label": "consensus",
+      "contract": {
+        "script": "FQwhAiwL+eGgyGSQXSuJCVVa5CHbmlL4arJoqE2b5Cpq2dhYDCECSmQMjL4+NPDNknlQxk9tDSOXcDl/5kXVK/kg/d1lW/gMIQJPGex6jjVyLIzdfSH8wgkPJliy/We3sj8ZNtxee1SyFgwhA3l95Upqu20Zwipa+r8w0yCpNIsPKUMV50yztCOxrJ3JDCEDqQ9ufctJz5YD3eeGeBxP29Q/ilfFsj/pPU7MM5Ulmf0MIQPHqjWrZKrZuFo1ZHsfCuxZNEJxpsLtdkT68Zl+4Ji7qwwhAsqQlyldKOKOKuVetiygsaxIstm23LZN25NqZNgMuLeVF0Ge0Nw6",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter1",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter2",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter3",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter4",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    }
+  ],
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "extra": {
+    "Tokens": null
+  }
+}

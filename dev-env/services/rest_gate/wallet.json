@@ -1,0 +1,30 @@
+{
+  "version": "3.0",
+  "accounts": [
+    {
+      "address": "NPFCqWHfi9ixCJRu7DABRbVfXRbkSEr9Vo",
+      "key": "6PYTAGjdaeicUDPqGv9mmgwb9kTwimWJJmmfNqJSDGH9qM79zSRcL9oHiB",
+      "label": "REST Gateway",
+      "contract": {
+        "script": "DCECcuPzZCZ2VyDsm2jKEOMnU6xEWO2bF1dvOvBWTDFYB1ZBVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    }
+  ],
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "extra": {
+    "Tokens": null
+  }
+}

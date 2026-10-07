@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "accounts": [
+    {
+      "address": "NYsJkMH9nPd6K345PNxLtWRdzNwKYy4KY7",
+      "key": "6PYT2HbyT9cUBeV1jpoWXLhfSkVCHGnqig2qhmAY1ipKMtCFj7YfaDHWVu",
+      "label": "single",
+      "contract": {
+        "script": "DCEDmhwz7Ri7V/bms+cStUuSTSuRN8SQbPQz7oaTo4EOOA5BVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    },
+    {
+      "address": "NWXweiZSaJ31iCDD8VpuxoWfoMwUkJnaXC",
+      "key": "6PYT2HbyT9cUBeV1jpoWXLhfSkVCHGnqig2qhmAY1ipKMtCFj7YfaDHWVu",
+      "label": "committee",
+      "contract": {
+        "script": "EwwhA0Xu/FBUXoPfx+yatkghDd2+s5lpEqj/ZBbi0+xRqOMkDCEDmhwz7Ri7V/bms+cStUuSTSuRN8SQbPQz7oaTo4EOOA4MIQLTCIkxwDSjkMW+oW0Z7y3r6XAgGScMlJE1KKisMOFzcwwhAvt1MWYUASItzycRu9eFl+gVK6iGYS5E6lMKCLvk66gQFEGe0Nw6",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter1",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter2",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    },
+    {
+      "address": "NWXweiZSaJ31iCDD8VpuxoWfoMwUkJnaXC",
+      "key": "6PYT2HbyT9cUBeV1jpoWXLhfSkVCHGnqig2qhmAY1ipKMtCFj7YfaDHWVu",
+      "label": "consensus",
+      "contract": {
+        "script": "EwwhA0Xu/FBUXoPfx+yatkghDd2+s5lpEqj/ZBbi0+xRqOMkDCEDmhwz7Ri7V/bms+cStUuSTSuRN8SQbPQz7oaTo4EOOA4MIQLTCIkxwDSjkMW+oW0Z7y3r6XAgGScMlJE1KKisMOFzcwwhAvt1MWYUASItzycRu9eFl+gVK6iGYS5E6lMKCLvk66gQFEGe0Nw6",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter1",
+            "type": "Signature"
+          },
+          {
+            "name": "parameter2",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    }
+  ],
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "extra": {
+    "Tokens": null
+  }
+}

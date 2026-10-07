@@ -69,7 +69,7 @@ make docker/bin/neofs-<name> # build a specific binary
 
 ## Docker images
 
-To make docker images suitable for use in [neofs-dev-env](https://github.com/nspcc-dev/neofs-dev-env/) use:
+To make docker images suitable for use in [dev-env](dev-env/.env) use:
 ```
 make images
 ```
@@ -132,12 +132,19 @@ networks and real configuration are likely to differ a lot for them.
 
 # Private network
 
-If you're planning on NeoFS development take a look at
-[neofs-dev-env](https://github.com/nspcc-dev/neofs-dev-env/). To develop
-applications using NeoFS we recommend more light-weight
+If you're planning on NeoFS development take a look at `dev-env` directory.
+To develop applications using NeoFS we recommend more light-weight
 [neofs-aio](https://github.com/nspcc-dev/neofs-aio) container. If you really
 want to get your hands dirty refer to [docs/deploy.md](docs/deploy.md) for
 instructions on how to do things manually from scratch.
+
+## Development Environment
+
+For a complete local development and testing setup, this repository includes
+development environment in the `dev-env/` directory. This environment sets up
+a local NeoFS network and a private N3 chain, allowing you to run and test
+the node without connecting to a public network. For more information, see
+[README.md](dev-env/README.md)
 
 # Contributing
 

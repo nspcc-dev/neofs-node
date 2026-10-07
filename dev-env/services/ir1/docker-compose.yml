@@ -1,0 +1,49 @@
+---
+
+services:
+
+  ir01:
+    image: ${IR_IMAGE}:${IR_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: ir01
+    container_name: ir01
+    restart: "no"
+    networks:
+      ir_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.61
+    stop_signal: SIGKILL
+    environment:
+      - NEOFS_IR_CONTROL_GRPC_ENDPOINT=${NEOFS_IR_CONTROL_GRPC_ENDPOINT_1}
+    volumes:
+      - neofs_chain_ir01:/neofs_chain/
+      - ./alphabet/az.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./../../vendor/neofs-cli:/neofs-cli
+      - ./cli-cfg.yml:/cli-cfg.yml
+      - ./cfg:/etc/neofs/ir
+      - ${CA_CERTS_TRUSTED_STORE}/s04.${LOCAL_DOMAIN}.tls.crt:/etc/ssl/certs/s04tls.crt
+    env_file: [ ".env", ".ir.env" ]
+    command: [ "neofs-ir", "--config", "/etc/neofs/ir/config.yml" ]
+    healthcheck:
+      test: ["CMD", "/neofs-cli", "control", "healthcheck", "-c", "/cli-cfg.yml", "--endpoint", "${NEOFS_IR_CONTROL_GRPC_ENDPOINT_1}", "--ir"]
+      interval: 1s
+      timeout: 1s
+      retries: 300
+      start_period: 5s
+
+  ir-healthcheck:
+    container_name: ir-healthcheck
+    image: debian:10
+    depends_on:
+      ir01:
+        condition: service_healthy
+
+networks:
+  ir_int:
+  internet:
+    external: true
+    name: basenet_internet
+
+volumes:
+  neofs_chain_ir01:
