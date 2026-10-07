@@ -1,5 +1,4 @@
 .docker
-.github
 vendor
 tmp
 .secrets
