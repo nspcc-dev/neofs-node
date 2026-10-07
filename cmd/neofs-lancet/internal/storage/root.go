@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +50,13 @@ type epochState struct {
 
 func (e epochState) CurrentEpoch() uint64 {
 	return 0
+}
+
+// containerProvider implements metabase.Containers.
+type containerProvider struct{}
+
+func (c containerProvider) Exists(_ cid.ID) (bool, error) {
+	return true, nil
 }
 
 func openEngine(readOnly bool) (*engine.StorageEngine, error) {
@@ -112,7 +120,7 @@ func openEngine(readOnly bool) (*engine.StorageEngine, error) {
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: time.Second,
 				}),
-
+				meta.WithContainers(containerProvider{}),
 				meta.WithEpochState(epochState{}),
 			),
 			shard.WithWriteCache(*shCfg.WriteCache.Enabled),
