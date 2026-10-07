@@ -1,11 +1,3 @@
-<p align="center">
-<img src="./.github/logo.svg" width="500px" alt="NeoFS">
-</p>
-<p align="center">
-  <a href="https://fs.neo.org">NeoFS</a> local Development and Testing environment
-</p>
-
----
 ## Overview
 
 Tools to set up local NeoFS network and N3 privnets. Devenv, for short.
@@ -22,12 +14,6 @@ Make sure you have installed all of the following prerequisites on your machine:
 
 
 ## Quick Start
-
-Clone repo: 
-
-```
-$ git clone https://github.com/nspcc-dev/neofs-dev-env.git
-```
 
 Run next commands from project's root:
 
@@ -146,15 +132,3 @@ Display addresses and host names for each running service, if available.
 Clean up `vendor` directory. Remove services' Docker volumes incl:
 - stored NeoFS objects
 - NeoFS chain state
-
-## Contributing
-
-Feel free to contribute to this project after reading the [contributing
-guidelines](CONTRIBUTING.md).
-
-Before starting to work on a certain topic, create an new issue first,
-describing the feature/topic you are going to implement.
-
-# License
-
-- [GNU General Public License v3.0](LICENSE)
