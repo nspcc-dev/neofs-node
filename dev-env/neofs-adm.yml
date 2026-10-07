@@ -1,0 +1,10 @@
+rpc-endpoint: http://ir01.neofs.devenv:30333
+credentials:
+  az: "one"
+  buky: "one"
+  glagoli: "one"
+  vedi: "one"
+  dobro: "one"
+  yest: "one"
+  zhivete: "one"
+  contract: "one"

@@ -1,0 +1,32 @@
+{
+  "version": "3.0",
+  "name":null,
+  "accounts": [
+    {
+      "address": "NUUb82KR2JrVByHs2YSKgtK29gKnF5q6Vt",
+      "key": "6PYSPET41jKtqie2cfkqgy7q9ueeucH8bX9Gotm2HwdNEDptj6aBe8dDg8",
+      "label": "NeoFS S3 Gate",
+      "contract": {
+        "script": "DCEDE7GsOoB24VWn55eyTwtlDMytWUHqWdfP1RoCSosqBr9BVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "extra":null,
+      "isDefault": false
+    }
+  ],
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "extra": {
+    "Tokens": null
+  }
+}

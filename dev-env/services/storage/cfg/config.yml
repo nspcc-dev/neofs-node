@@ -1,0 +1,56 @@
+# Logger section
+logger:
+  level: debug # Minimum enabled logging level
+
+# Profiler section
+pprof:
+  enabled: true
+  address: :6060  # Server address
+  shutdown_timeout: 15s  # Timeout for profiling HTTP server graceful shutdown
+
+# Application metrics section
+prometheus:
+  enabled: true
+  address: :9090  # Server address
+  shutdown_timeout: 15s  # Timeout for metrics HTTP server graceful shutdown
+
+# NeoFS chain section
+fschain:
+  dial_timeout: 30s  # Timeout for side chain NEO RPC client connection
+  quota_ttl: -1s
+  endpoints:  # Side chain NEO RPC endpoints
+    - ws://ir01.neofs.devenv:30333/ws
+
+# Storage engine configuration
+storage:
+  shards:
+    - writecache:
+        enabled: false
+        path: /storage/wc0  # Write-cache root directory
+
+      metabase:
+        path: /storage/meta0  # Path to the metabase
+
+      blobstor:
+        type: fstree
+        path: /storage/fstree0  # FSTree root directory
+        depth: 2
+
+    - writecache:
+        enabled: false
+        path: /storage/wc1  # Write-cache root directory
+
+      metabase:
+        path: /storage/meta1  # Path to the metabase
+
+      blobstor:
+        type: fstree
+        path: /storage/fstree1  # FSTree root directory
+        depth: 2
+
+metadata:
+  path: /storage/metachain/
+  seed_port: 20334
+  p2p_addresses:
+    - ":20334"
+  rpc_addresses: ":30334"

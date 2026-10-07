@@ -1,0 +1,42 @@
+---
+
+services:
+  s3_gate:
+    image: ${S3_GW_IMAGE}:${S3_GW_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: s3_gate
+    container_name: s3_gate
+    restart: "no"
+    dns:
+      - ${IPV4_PREFIX}.53
+    networks:
+      s3_gate_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.82
+    volumes:
+      - ./wallet.json:/wallet.json
+      - ./tls.key:/tls.key
+      - ./tls.crt:/tls.crt
+      - ./../../vendor/hosts:/etc/hosts
+      - ./cfg:/etc/neofs/s3
+    stop_signal: SIGKILL
+    env_file: [ ".env", ".s3.env" ]
+    command: [ "neofs-s3-gw", "--config", "/etc/neofs/s3/config.yml" ]
+    environment:
+      - S3_GW_SERVER_0_ADDRESS=s3.${LOCAL_DOMAIN}:8080
+      - S3_GW_LISTEN_DOMAINS=s3.${LOCAL_DOMAIN}
+      - S3_GW_TREE_SERVICE=s01.${LOCAL_DOMAIN}:8080
+      - S3_GW_PEERS_0_ADDRESS=s01.${LOCAL_DOMAIN}:8080
+      - S3_GW_PEERS_0_WEIGHT=0.2
+      - S3_GW_PEERS_1_ADDRESS=s02.${LOCAL_DOMAIN}:8080
+      - S3_GW_PEERS_1_WEIGHT=0.2
+      - S3_GW_PEERS_2_ADDRESS=s03.${LOCAL_DOMAIN}:8080
+      - S3_GW_PEERS_2_WEIGHT=0.2
+      - S3_GW_PEERS_3_ADDRESS=s04.${LOCAL_DOMAIN}:8080
+      - S3_GW_PEERS_3_WEIGHT=0.2
+
+networks:
+  s3_gate_int:
+  internet:
+    external: true
+    name: basenet_internet

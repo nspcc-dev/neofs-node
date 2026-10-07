@@ -1,0 +1,40 @@
+---
+
+services:
+  neofs_main_chain:
+    image: ${NEOGO_IMAGE}:${NEOGO_VERSION}
+    container_name: main_chain
+    command: ["node", "--config-path", "/config", "--privnet", "--debug"]
+    healthcheck:
+      test: [ "CMD", "/neo-go", "query", "height", "-r", "http://127.0.0.1:30333" ]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+      start_period: 5s
+    domainname: ${LOCAL_DOMAIN}
+    hostname: main-chain
+    restart: "no"
+    networks:
+      chain_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.50
+    stop_signal: SIGKILL
+    volumes:
+    - ./protocol.privnet${IR_NUMBER_OF_NODES}.yml:/config/protocol.privnet.yml
+    - ./node-wallet.json:/wallets/node-wallet.json
+    - ./config.yml:/wallets/config.yml
+    - ./../../vendor/hosts:/etc/hosts
+    - ./../../vendor/neo-go:/neo-go
+  
+  main-chain-healthcheck:
+    container_name: main-chain-healthcheck
+    image: debian:10
+    depends_on:
+      neofs_main_chain:
+        condition: service_healthy
+
+networks:
+  chain_int:
+  internet:
+    external: true
+    name: basenet_internet

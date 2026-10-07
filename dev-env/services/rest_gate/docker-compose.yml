@@ -1,0 +1,31 @@
+---
+
+services:
+  rest_gate:
+    image: ${REST_GW_IMAGE}:${REST_GW_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: rest
+    container_name: rest_gate
+    restart: "no"
+    networks:
+      rest_gate_int:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.83
+    volumes:
+      - ./wallet.json:/wallet.json
+      - ./../../vendor/hosts:/etc/hosts
+      - ./cfg:/etc/neofs/rest
+    stop_signal: SIGKILL
+    env_file: [ ".env" ]
+    command: [ "neofs-rest-gw", "--config", "/etc/neofs/rest/config.yml" ]
+    environment:
+      - REST_GW_POOL_PEERS_0_ADDRESS=s01.${LOCAL_DOMAIN}:8080
+      - REST_GW_POOL_PEERS_1_ADDRESS=s02.${LOCAL_DOMAIN}:8080
+      - REST_GW_POOL_PEERS_2_ADDRESS=s03.${LOCAL_DOMAIN}:8080
+      - REST_GW_POOL_PEERS_3_ADDRESS=s04.${LOCAL_DOMAIN}:8080
+
+networks:
+  rest_gate_int:
+  internet:
+    external: true
+    name: basenet_internet

@@ -14,7 +14,7 @@ temp
 tmp
 
 # binary
-bin/
+/bin/
 release/
 
 # coverage

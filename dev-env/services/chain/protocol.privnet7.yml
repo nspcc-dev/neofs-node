@@ -1,0 +1,74 @@
+ProtocolConfiguration:
+  Magic: 56753
+  MaxTraceableBlocks: 200000
+  TimePerBlock: 1s
+  MemPoolSize: 50000
+  StandbyCommittee:
+    - 032ec21f003a9946430662c7287ba81bd9d60fa1faf18206434feadbd008f5ae00
+  ValidatorsCount: 1
+  VerifyTransactions: true
+  P2PSigExtensions: false
+  Genesis:
+    Roles:
+      NeoFSAlphabet:
+        - 022c0bf9e1a0c864905d2b8909555ae421db9a52f86ab268a84d9be42a6ad9d858
+        - 024a640c8cbe3e34f0cd927950c64f6d0d239770397fe645d52bf920fddd655bf8
+        - 024f19ec7a8e35722c8cdd7d21fcc2090f2658b2fd67b7b23f1936dc5e7b54b216
+        - 03797de54a6abb6d19c22a5afabf30d320a9348b0f294315e74cb3b423b1ac9dc9
+        - 03a90f6e7dcb49cf9603dde786781c4fdbd43f8a57c5b23fe93d4ecc33952599fd
+        - 03c7aa35ab64aad9b85a35647b1f0aec59344271a6c2ed7644faf1997ee098bbab
+        - 02ca9097295d28e28e2ae55eb62ca0b1ac48b2d9b6dcb64ddb936a64d80cb8b795
+
+ApplicationConfiguration:
+  SkipBlockVerification: false
+  DBConfiguration:
+    Type: "boltdb"
+    BoltDBOptions:
+      FilePath: "./db/privnet.bolt"
+  P2P:
+    Addresses:
+      - ":20333"
+    DialTimeout: 3s
+    ProtoTickInterval: 2s
+    PingInterval: 30s
+    PingTimeout: 90s
+    MaxPeers: 10
+    AttemptConnPeers: 5
+    MinPeers: 0
+  Relay: true
+  RPC:
+    Addresses:
+      - ":30333"
+    Enabled: true
+    SessionEnabled: true
+    EnableCORSWorkaround: false
+    MaxGasInvoke: 15
+  Prometheus:
+    Addresses:
+      - ":20001"
+    Enabled: true
+  Pprof:
+    Addresses:
+      - ":20011"
+    Enabled: true
+  Consensus:
+    Enabled: true
+    UnlockWallet:
+      Path: "./wallets/node-wallet.json"
+      Password: "one"
+  Oracle:
+    Enabled: true
+    NeoFS:
+      Nodes:
+        - s01.neofs.devenv:8080
+        - s02.neofs.devenv:8080
+        - s03.neofs.devenv:8080
+        - s04.neofs.devenv:8080
+    UnlockWallet:
+      Path: "./wallets/node-wallet.json"
+      Password: "one"
+  P2PNotary:
+    Enabled: false
+    UnlockWallet:
+      Path: "./wallets/node-wallet.json"
+      Password: "one"

@@ -1,0 +1,21 @@
+# IDE
+.idea
+.vscode
+
+# Vendoring
+vendor
+
+temp
+tmp
+docker-compose.err
+
+.secrets
+sites/*
+!sites/.gitkeep
+
+# Runtime generation keys
+services/storage/*tls.crt
+services/storage/*tls.key
+
+# IR NeoFS contract configuration
+.ir.env

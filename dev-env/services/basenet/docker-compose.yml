@@ -1,0 +1,26 @@
+---
+
+services:
+
+  basenet:
+    container_name: bastion
+    image: ${BASTION_IMAGE}:${BASTION_VERSION}
+    domainname: ${LOCAL_DOMAIN}
+    hostname: bastion
+    command: ["/bin/sleep", "infinity"]
+    restart: always
+    stop_signal: SIGKILL
+    environment:
+      - TZ=Etc/UTC
+    networks:
+      internet:
+        ipv4_address: ${IPV4_PREFIX}.10
+    volumes:
+      - ./../../vendor/hosts:/etc/hosts
+networks:
+  internet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: ${IPV4_PREFIX}.0/24
