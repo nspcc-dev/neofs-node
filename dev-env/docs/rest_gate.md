@@ -10,7 +10,7 @@ Source code and more information can be found in [project's GitHub repository](h
 
 Image version label to use for containers.
 
-If you want to use locally built image, just set its label here. 
+If you want to use locally built image, just set its label here.
 Instead of pulling from DockerHub, the local image will be used.
 
 ### REST_GW_IMAGE=nspccdev/neofs-rest-gw

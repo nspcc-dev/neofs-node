@@ -16,21 +16,21 @@ Version of neo-go docker container for main chain deployment.
 
 ## Main chain wallets
 
-There is a wallet with GAS that used for contract deployment: 
+There is a wallet with GAS that used for contract deployment:
 `wallets/wallet.json`. This wallet has one account with **empty password**.
 
 ```
 $ neo-go wallet nep17 balance \
     -w wallets/wallet.json \
-    -r http://main-chain.neofs.devenv:30333 
-   
+    -r http://main-chain.neofs.devenv:30333
+
 Account NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM
 GAS: GasToken (d2a4cff31913016155e38e474a2c06d08be276cf)
         Amount : 9978.0074623
         Updated: 34
 ```
 
-If you want to operate in main chain with your personal wallet (e.g. to make 
+If you want to operate in main chain with your personal wallet (e.g. to make
 a deposit in NeoFS contract), you can transfer GAS from there.
 
 1. Create new wallet.
@@ -70,7 +70,7 @@ $ neo-go wallet nep17 balance \
     -w wallets/neofs1.json \
     -r http://main-chain.neofs.devenv:30333
 
-Account NXnzw3J9VvKXjM1BPAJK4QUpTtEQu4TpU6 
+Account NXnzw3J9VvKXjM1BPAJK4QUpTtEQu4TpU6
 GAS: GasToken (d2a4cff31913016155e38e474a2c06d08be276cf)
         Amount : 50
         Updated: 14689
@@ -85,7 +85,7 @@ Consensus node is running with `services/chain/node-wallet.json` wallet. It has
 multiple accounts with the password `one`.
 
 
-Claim GAS to consensus node's wallet. Use account that contains NEO tokens. 
+Claim GAS to consensus node's wallet. Use account that contains NEO tokens.
 ```
 $ neo-go wallet claim \
     -w services/chain/node-wallet.json \
@@ -117,8 +117,8 @@ Invoke `bin/deposit.sh` script by running `make prepare.ir` command to transfer
 automatically with `expect` utility.
 
 ```
-$ make prepare.ir 
-Password > 
+$ make prepare.ir
+Password >
 Can't find matching token in the wallet. Querying RPC-node for balances.
 6713c776f4102300691d9c3c493bcd3402434f5e32e8147e0a5bc72209a1e410
 ```

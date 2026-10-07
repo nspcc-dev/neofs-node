@@ -21,8 +21,8 @@ Run next commands from project's root:
 $ make get
 ```
 
-This command should be executed for the first run only to execute 
-`make hosts`. It is part of the `make up` and, if the hosts have 
+This command should be executed for the first run only to execute
+`make hosts`. It is part of the `make up` and, if the hosts have
 been added already, there is no need to run it separately.
 
 ```
@@ -38,7 +38,7 @@ This command shows addresses and hostnames of components. Add `make hosts`
 output to your local `/etc/hosts` file.
 
 Run all services with command:
-``` 
+```
 $ make up
 ```
 
@@ -62,10 +62,10 @@ password of inner ring wallet is `one`. See examples in `make help`.
 ```
 $ make update.epoch_duration val=30
 Changing EpochDuration configuration value to 30
-Enter account NNudMSGzEoktFzdYGYoNb3bzHzbmM1genF password > 
+Enter account NNudMSGzEoktFzdYGYoNb3bzHzbmM1genF password >
 Sent invocation transaction dbb8c1145b6d10f150135630e13bb0dc282023163f5956c6945a60db0cb45cb0
 Updating NeoFS epoch to 2
-Enter account NNudMSGzEoktFzdYGYoNb3bzHzbmM1genF password > 
+Enter account NNudMSGzEoktFzdYGYoNb3bzHzbmM1genF password >
 Sent invocation transaction 0e6eb5e190f36332e5e5f4e866c7e100826e285fd949e11c085e15224f343ba6
 ```
 
