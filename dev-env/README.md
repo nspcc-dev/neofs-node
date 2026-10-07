@@ -70,7 +70,7 @@ Sent invocation transaction 0e6eb5e190f36332e5e5f4e866c7e100826e285fd949e11c085e
 ```
 
 For instructions on how to set up DevEnv on macOS, please refer [the
-guide](docs/macOS.md) in `docs` directory.
+guide](docs/macos.md) in `docs` directory.
 
 ## How it's organized
 
