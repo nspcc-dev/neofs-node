@@ -57,6 +57,7 @@ func TestOpenMigratesLegacyFSTree(t *testing.T) {
 
 	wc := New(
 		WithPath(cachePath),
+		WithMaxCacheSize(1), // recovered object exceeds the first dynamic-flushing threshold
 		WithFlushWorkersCount(0),
 	).(*cache)
 	require.NoError(t, wc.Open(false))

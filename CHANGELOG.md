@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - `AccountingService.Balance` server panic (#4212)
+- Panic on startup while restoring write-cache counters (#4214)
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)
