@@ -1067,10 +1067,6 @@ func (unimplementedConn) SearchObjects(context.Context, cid.ID, object.SearchFil
 	panic("unimplemented")
 }
 
-func (unimplementedConn) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64, uint64, user.Signer, client.PrmObjectRange) (*client.ObjectRangeReader, error) {
-	panic("unimplemented")
-}
-
 func (unimplementedConn) AnnounceLocalTrust(context.Context, uint64, []reputation.Trust, client.PrmAnnounceLocalTrust) error {
 	panic("unimplemented")
 }

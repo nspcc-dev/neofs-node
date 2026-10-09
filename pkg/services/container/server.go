@@ -440,6 +440,9 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeFailedPutResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeFailedPutResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedPutResponse(err, req)
@@ -540,6 +543,9 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeDeleteResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeDeleteResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeDeleteResponse(err, req)
@@ -601,6 +607,9 @@ func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protoc
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeFailedGetResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeFailedGetResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedGetResponse(err, req)
@@ -643,6 +652,9 @@ func (s *Server) makeFailedListResponse(err error, req *protocontainer.ListReque
 // IDs in the response.
 func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedListResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.makeFailedListResponse(err, req)
 	}
 
@@ -691,6 +703,9 @@ func (s *Server) makeSetEACLResponse(err error, req *protocontainer.SetExtendedA
 // for further processing. If session token is attached, it's verified.
 func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeSetEACLResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.makeSetEACLResponse(err, req)
 	}
 
@@ -784,6 +799,9 @@ func (s *Server) makeFailedGetEACLResponse(err error, req *protocontainer.GetExt
 // [Contract] and returns the result in the response.
 func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedGetEACLResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.makeFailedGetEACLResponse(err, req)
 	}
 

@@ -78,6 +78,9 @@ func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoR
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeStatusNodeInfoResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeStatusNodeInfoResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusNodeInfoResponse(err, req)
@@ -113,6 +116,9 @@ func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequ
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeStatusNetInfoResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeStatusNetInfoResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusNetInfoResponse(err, req)
@@ -144,6 +150,9 @@ func (s *server) makeStatusNetmapResponse(err error, req *protonetmap.NetmapSnap
 // NetmapSnapshot returns current network map from the underlying [Contract].
 func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapshotRequest) (*protonetmap.NetmapSnapshotResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeStatusNetmapResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.makeStatusNetmapResponse(err, req)
 	}
 
