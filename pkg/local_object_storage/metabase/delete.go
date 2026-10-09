@@ -112,7 +112,8 @@ func (db *DB) delete(metaCursor *bbolt.Cursor, cnr cid.ID, addr oid.ID) (Counter
 	return diff, nil
 }
 
-// forms list of objects from oid list and their missing parts.
+// supplementRemovedObjects forms list of objects from oid list and their
+// missing parts.
 // [RemovedObject.PayloadLen] is not initialized.
 func supplementRemovedObjects(cur *bbolt.Cursor, addrs []oid.ID) ([]oid.ID, error) {
 	var (
@@ -129,7 +130,8 @@ func supplementRemovedObjects(cur *bbolt.Cursor, addrs []oid.ID) ([]oid.ID, erro
 	return res, nil
 }
 
-// extends res with EC parts of parent which are not in addrs and returns updated res.
+// supplementRemovedECParts extends res with EC parts of parent which are not in
+// addrs and returns updated res.
 func supplementRemovedECParts(res []oid.ID, cnrMetaCrs *bbolt.Cursor, addrs []oid.ID, parent oid.ID) ([]oid.ID, error) {
 	var partCrs *bbolt.Cursor
 	var ecPref []byte

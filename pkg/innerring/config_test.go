@@ -113,7 +113,7 @@ func newValidBlockchainConfig(tb testing.TB, full bool) *irconfig.Config {
 	return _newConfigFromYAML(tb, validBlockchainConfigMinimal, "")
 }
 
-// resets value by key.
+// resetConfig resets the value pointed to by field.
 func resetConfig(tb testing.TB, field any) {
 	v := reflect.ValueOf(field)
 

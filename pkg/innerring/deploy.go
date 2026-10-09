@@ -38,8 +38,8 @@ type fsChain struct {
 	notaryCh chan *result.NotaryRequestEvent
 }
 
-// cancels all active subscriptions. Must not be called concurrently with
-// subscribe methods.
+// cancelSubs cancels all active subscriptions. Must not be called concurrently
+// with subscribe methods.
 func (x *fsChain) cancelSubs() {
 	if x.wsClient == nil {
 		return
@@ -132,7 +132,8 @@ func (x *fsChain) SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent
 	return ch, nil
 }
 
-// second parameter is optional and affects subscription methods.
+// newFSChain constructs an fsChain over the given FS chain client. The second
+// parameter is optional and affects subscription methods.
 func newFSChain(fsChainClient *client.Client, fsChainWSClient *rpcclient.WSClient) *fsChain {
 	res := &fsChain{
 		client:   fsChainClient,
