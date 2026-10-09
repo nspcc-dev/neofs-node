@@ -14,7 +14,7 @@ import (
 
 var sessionsBucket = []byte("sessions")
 
-// newTokenStore initializes and returns a new TokenStore instance over the bolt DB.
+// initTokenStore initializes the TokenStore over the bolt DB.
 func (p *PersistentStorage) initTokenStore(cfg cfg) error {
 	err := p.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(sessionsBucket)

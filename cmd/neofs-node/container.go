@@ -317,7 +317,8 @@ func addContainerAsyncNotificationHandler(c *cfg, sTyp string, h event.Handler) 
 // MUST NOT be used concurrently.
 var mRegisteredParsersContainer = make(map[string]struct{})
 
-// registers event parser by name once. MUST NOT be called concurrently.
+// registerEventParserOnceContainer registers event parser by name once. MUST NOT
+// be called concurrently.
 func registerEventParserOnceContainer(c *cfg, name string, p event.NotificationParser) {
 	if _, ok := mRegisteredParsersContainer[name]; !ok {
 		setContainerNotificationParser(c, name, p)
@@ -325,9 +326,10 @@ func registerEventParserOnceContainer(c *cfg, name string, p event.NotificationP
 	}
 }
 
-// subscribes to successful container creation. Provided handler is called asynchronously
-// on corresponding routine pool. MUST NOT be called concurrently with itself and other
-// similar functions. Owner may be zero.
+// subscribeToContainerCreation subscribes to successful container creation.
+// Provided handler is called asynchronously on corresponding routine pool. MUST
+// NOT be called concurrently with itself and other similar functions. Owner may
+// be zero.
 func subscribeToContainerCreation(c *cfg, h func(id cid.ID, owner user.ID)) {
 	const eventNameContainerCreatedV2 = "Created"
 	registerEventParserOnceContainer(c, eventNameContainerCreatedV2, containerEvent.RestoreCreated)
@@ -382,9 +384,9 @@ func subscribeToContainerEACLChange(c *cfg, h func(cnr cid.ID)) {
 	})
 }
 
-// subscribes to successful container ownership transfer. Provided handler is
-// called asynchronously on corresponding routine pool. MUST NOT be called
-// concurrently with itself and other similar functions.
+// subscribeToContainerOwnerChange subscribes to successful container ownership
+// transfer. Provided handler is called asynchronously on corresponding routine
+// pool. MUST NOT be called concurrently with itself and other similar functions.
 func subscribeToContainerOwnerChange(c *cfg, h func(id cid.ID, from, to user.ID)) {
 	subscribeToContainerTransfer(c, func(id cid.ID, from, to user.ID) {
 		if !from.IsZero() && !to.IsZero() && from != to {
@@ -393,10 +395,10 @@ func subscribeToContainerOwnerChange(c *cfg, h func(id cid.ID, from, to user.ID)
 	})
 }
 
-// subscribes to container NEP-11 transfer. Zero from means creation, zero to -
-// removal. Provided handler is called asynchronously on corresponding routine
-// pool. MUST NOT be called concurrently with itself and other similar
-// functions.
+// subscribeToContainerTransfer subscribes to container NEP-11 transfer. Zero
+// from means creation, zero to - removal. Provided handler is called
+// asynchronously on corresponding routine pool. MUST NOT be called concurrently
+// with itself and other similar functions.
 func subscribeToContainerTransfer(c *cfg, h func(id cid.ID, from, to user.ID)) {
 	const eventName = "Transfer"
 	registerEventParserOnceContainer(c, eventName, containerEvent.RestoreTransfer)
