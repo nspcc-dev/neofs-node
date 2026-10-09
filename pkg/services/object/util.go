@@ -1,9 +1,11 @@
 package object
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -136,21 +138,38 @@ func newBadRequestError(cause string) apistatus.BadRequest {
 	return err
 }
 
-func calculateRequestMetaHeaderLen(apiVersion version.Version, ttl uint32, xHdrs []string) int {
+func calculateRequestMetaHeaderLen(apiVersion version.Version, ttl uint32, xHdrs []string, validUntil uint64) int {
 	xHdrLenFn := newXHeadersLengthFunc(xHdrs)
-	return protosession.CalculateRequestMetaHeaderLength(apiVersion.Major(), apiVersion.Minor(), ttl, len(xHdrs)/2, xHdrLenFn, 0, 0, 0, 0)
+	return protosession.CalculateRequestMetaHeaderLength(apiVersion.Major(), apiVersion.Minor(), ttl, len(xHdrs)/2, xHdrLenFn, 0, 0, 0, 0, validUntil)
 }
 
-func writeRequestMetaHeaderToRequest(buf []byte, apiVersion version.Version, ttl uint32, xHdrs []string) int {
+func writeRequestMetaHeaderToRequest(buf []byte, apiVersion version.Version, ttl uint32, xHdrs []string, validUntil uint64) int {
 	xHdrLenFn := newXHeadersLengthFunc(xHdrs)
 	writeXHdrFn := func(buf []byte, i int) int {
 		return protosession.WriteXHeader(buf, xHdrs[2*i], xHdrs[2*i+1])
 	}
-	return protosession.WriteRequestMetaHeaderToRequest(buf, apiVersion.Major(), apiVersion.Minor(), ttl, len(xHdrs)/2, xHdrLenFn, writeXHdrFn, 0, nil, 0, nil, 0, 0, nil)
+	return protosession.WriteRequestMetaHeaderToRequest(buf, apiVersion.Major(), apiVersion.Minor(), ttl, len(xHdrs)/2, xHdrLenFn, writeXHdrFn, 0, nil, 0, nil, 0, 0, nil, validUntil)
 }
 
 func newXHeadersLengthFunc(xHdrs []string) protoencoding.RepeatedMessageLenFunc {
 	return func(i int) int {
 		return protosession.CalculateXHeaderLength(xHdrs[2*i], xHdrs[2*i+1])
 	}
+}
+
+func validUntilTime(ctx context.Context, v version.Version) uint64 {
+	if (v.Major() == 2 && v.Minor() < 28) || v.Major() < 2 {
+		// request must have nothing about validity time, it is the same
+		// as attaching zero time
+		return 0
+	}
+
+	const defaultDeadline = 30 // in seconds
+
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return uint64(time.Now().Unix() + defaultDeadline)
+	}
+
+	return uint64(deadline.Unix())
 }

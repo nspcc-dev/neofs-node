@@ -762,7 +762,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 		if remoteReqBufs[sigCount] == nil {
 			var err error
-			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, body)
+			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, validUntilTime(ctx, apiVersion), body)
 			if err != nil {
 				return nil, iprotobuf.BuffersSlice{}, fmt.Errorf("make request (signature count = %d): %w", sigCount, err)
 			}
@@ -1149,7 +1149,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 			}
 
 			var err error
-			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, body)
+			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, validUntilTime(ctx, apiVersion), body)
 			if err != nil {
 				return fmt.Errorf("make request (signature count = %d): %w", sigCount, err)
 			}
@@ -2165,10 +2165,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		)
 
 		localVersion := version.Current()
+		validUntil := validUntilTime(ctx, localVersion)
 
 		bodyLen := body.MarshaledSize()
 		bodyFldLen := protoencoding.CalculateRequestBodyFieldLength(bodyLen)
-		metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(localVersion)
+		metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(localVersion, validUntil)
 		bodyWithMetaLen := bodyFldLen + protoencoding.CalculateRequestMetaHeaderFieldLength(metaHdrLen)
 		verifHdrFLdLen := calculateRequestVerificationHeaderFieldLen(localVersion)
 		reqLen := bodyWithMetaLen + verifHdrFLdLen
@@ -2182,7 +2183,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		bodySlice := reqBuf[off : off+bodyLen]
 		off += bodyLen
 
-		writeLocalSearchRequestMetaHeader(reqBuf[off:], localVersion)
+		writeLocalSearchRequestMetaHeader(reqBuf[off:], localVersion, validUntil)
 		metaHdrSlice := reqBuf[bodyWithMetaLen-metaHdrLen : bodyWithMetaLen]
 
 		var onceResign sync.Once
@@ -2205,15 +2206,17 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				return reqBuf, nil
 			}
 
+			valitUntil := validUntilTime(ctx, ver)
+
 			// need to lower API version
-			metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(ver)
+			metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(ver, valitUntil)
 			bodyWithMetaLen := bodyFldLen + protoencoding.CalculateRequestMetaHeaderFieldLength(metaHdrLen)
 			verifHdrFldLen := calculateRequestVerificationHeaderFieldLen(ver)
 			reqLen := bodyWithMetaLen + verifHdrFldLen
 
 			buf := make([]byte, reqLen)
 			off := copy(buf, reqBuf[:bodyFldLen])
-			writeLocalSearchRequestMetaHeader(buf[off:], ver)
+			writeLocalSearchRequestMetaHeader(buf[off:], ver, valitUntil)
 
 			err = s.writeRequestSignatures(buf, bodyWithMetaLen, bodySlice, buf[bodyWithMetaLen-metaHdrLen:bodyWithMetaLen], ver)
 			if err != nil {

@@ -276,14 +276,14 @@ func encodeRequestProtobuf(body protoencoding.Message, metaHdr protoencoding.Mes
 	return bufItem
 }
 
-func (s *Server) makeLocalRequestFromBody(sigCount int, remoteServerAPIVersion version.Version, body protoencoding.Message) (*[]byte, error) {
+func (s *Server) makeLocalRequestFromBody(sigCount int, remoteServerAPIVersion version.Version, validUntil uint64, body protoencoding.Message) (*[]byte, error) {
 	bodyLen := body.MarshaledSize()
 	writeBodyFn := protoencoding.WriteStablyMarshalledMessageFunc(body)
-	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, nil)
+	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, nil, validUntil)
 }
 
-func (s *Server) makeLocalRequest(sigCount int, remoteServerAPIVersion version.Version, bodyLen int, writeBodyFn protoencoding.WriteMessageFunc, xHeaders []string) (*[]byte, error) {
-	metaHdrLen := calculateRequestMetaHeaderLen(remoteServerAPIVersion, 1, xHeaders)
+func (s *Server) makeLocalRequest(sigCount int, remoteServerAPIVersion version.Version, bodyLen int, writeBodyFn protoencoding.WriteMessageFunc, xHeaders []string, validUntil uint64) (*[]byte, error) {
+	metaHdrLen := calculateRequestMetaHeaderLen(remoteServerAPIVersion, 1, xHeaders, validUntil)
 
 	reqLen := protoencoding.CalculateRequestBodyWithMetaHeaderLength(bodyLen, metaHdrLen)
 	if sigCount > 0 {
@@ -299,7 +299,7 @@ func (s *Server) makeLocalRequest(sigCount int, remoteServerAPIVersion version.V
 	bodySlice := buf[off-bodyLen : off]
 
 	// meta header
-	off += writeRequestMetaHeaderToRequest(buf[off:], remoteServerAPIVersion, 1, xHeaders)
+	off += writeRequestMetaHeaderToRequest(buf[off:], remoteServerAPIVersion, 1, xHeaders, validUntil)
 
 	if sigCount == 0 {
 		return bufItem, nil
