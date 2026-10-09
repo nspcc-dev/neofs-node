@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"time"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -34,6 +35,25 @@ func VerifyRequestAPIVersion(v *protorefs.Version) error {
 	if ver.Compare(minRequestVersion) < 0 {
 		msg := fmt.Sprintf("request API version %s is outdated and no longer supported, minimum allowed is %s", ver, minRequestVersion)
 		return newBadRequestError(msg)
+	}
+
+	return nil
+}
+
+// VerifyRequestValidityTime checks whether requests time is valid according to
+// current time.
+func VerifyRequestValidityTime(reqMetaHeader *protosession.RequestMetaHeader) error {
+	if v := reqMetaHeader.GetVersion(); v.Minor < 28 { // any current request should be at least minRequestVersion already
+		return nil
+	}
+	validUntil := reqMetaHeader.GetValidUntilTime()
+	if validUntil == 0 {
+		return newBadRequestError("invalid zero request validity time")
+	}
+	if now := time.Now(); uint64(now.Unix()) >= validUntil {
+		var errRequestExpired apistatus.RequestExpired
+		errRequestExpired.SetMessage(fmt.Sprintf("request is valid until: %s, now: %s", time.Unix(int64(validUntil), 0).UTC(), now.UTC()))
+		return errRequestExpired
 	}
 
 	return nil

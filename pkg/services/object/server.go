@@ -459,6 +459,10 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
+		if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+			err = s.sendStatusPutResponse(gStream, err, reqFirst)
+			return err
+		}
 
 		if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
@@ -587,6 +591,9 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
 
 	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
@@ -685,6 +692,9 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeStatusHeadResponse(req, err)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.makeStatusHeadResponse(req, err)
 	}
 
@@ -1047,6 +1057,9 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.sendStatusGetResponse(req, gStream, err)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.sendStatusGetResponse(req, gStream, err)
 	}
 
@@ -1949,6 +1962,9 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.signSearchResponse(nil, err, req)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
 

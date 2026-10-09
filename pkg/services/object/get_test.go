@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -447,8 +448,9 @@ func newUnsignedLocalGetRequest(ver version.Version, addr oid.Address) *protoobj
 			Address: addr.ProtoMessage(),
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
-			Version: ver.ProtoMessage(),
-			Ttl:     1,
+			Version:        ver.ProtoMessage(),
+			Ttl:            1,
+			ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 		},
 	}
 }

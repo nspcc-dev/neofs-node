@@ -111,7 +111,8 @@ func createContainer(cmd *cobra.Command, args []string) error {
 	}
 
 	metaHdr := &protosession.RequestMetaHeader{
-		Version: version.Current().ProtoMessage(),
+		Version:        version.Current().ProtoMessage(),
+		ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 	}
 
 	req := &protocontainer.PutRequest{

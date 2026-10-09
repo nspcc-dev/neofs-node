@@ -279,6 +279,9 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protorep
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeLocalResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeLocalResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeLocalResponse(err, req)
@@ -318,6 +321,9 @@ func (s *reputationServer) makeIntermediateResponse(err error, req *protoreputat
 
 func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeIntermediateResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
 		return s.makeIntermediateResponse(err, req)
 	}
 

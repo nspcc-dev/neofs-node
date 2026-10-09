@@ -69,6 +69,9 @@ func (s *server) Balance(_ context.Context, req *protoaccounting.BalanceRequest)
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeFailedBalanceResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeFailedBalanceResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedBalanceResponse(err, req)

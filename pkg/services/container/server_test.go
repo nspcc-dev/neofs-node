@@ -192,8 +192,9 @@ func makeDeleteRequestWithSessionMessage(t testing.TB, usr usertest.UserSigner, 
 			Signature:   new(refs.SignatureRFC6979),
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
-			Version:      version.Current().ProtoMessage(),
-			SessionToken: st,
+			Version:        version.Current().ProtoMessage(),
+			SessionToken:   st,
+			ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 		},
 	}
 
@@ -462,8 +463,9 @@ func TestSessionVerb(t *testing.T) {
 			},
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
-			Version:      version.Current().ProtoMessage(),
-			SessionToken: st.ProtoMessage(),
+			Version:        version.Current().ProtoMessage(),
+			SessionToken:   st.ProtoMessage(),
+			ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 		},
 	}
 	delReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(owner, delReq, nil)
@@ -769,6 +771,7 @@ func TestService_TokenV2(t *testing.T) {
 			MetaHeader: &protosession.RequestMetaHeader{
 				Version:        version.Current().ProtoMessage(),
 				SessionTokenV2: tok.ProtoMessage(),
+				ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 			},
 		}
 

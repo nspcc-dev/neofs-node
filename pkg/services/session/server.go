@@ -70,6 +70,9 @@ func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*pr
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeFailedCreateResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(req.MetaHeader); err != nil {
+		return s.makeFailedCreateResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedCreateResponse(err, req)
