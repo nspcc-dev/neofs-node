@@ -93,10 +93,10 @@ func (s *Server) forwardSearchRequest(ctx context.Context, req *protoobject.Sear
 	return nil, nil
 }
 
-func writeLocalSearchRequestMetaHeader(buf []byte, apiVersion version.Version) {
-	writeRequestMetaHeaderToRequest(buf, apiVersion, 1, nil)
+func writeLocalSearchRequestMetaHeader(buf []byte, apiVersion version.Version, validUntil uint64) {
+	writeRequestMetaHeaderToRequest(buf, apiVersion, 1, nil, validUntil)
 }
 
-func calculateLocalSearchRequestMetaHeaderLength(ver version.Version) int {
-	return calculateRequestMetaHeaderLen(ver, 1, nil)
+func calculateLocalSearchRequestMetaHeaderLength(ver version.Version, validUntil uint64) int {
+	return calculateRequestMetaHeaderLen(ver, 1, nil, validUntil)
 }
