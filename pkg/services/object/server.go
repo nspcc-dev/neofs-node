@@ -26,6 +26,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -241,11 +242,12 @@ type Server struct {
 	aclChecker  aclsvc.ACLChecker
 	reqInfoProc ACLInfoExtractor
 	nodeClients ClientConstructor
+	chainTime   timecore.Provider
 	log         *zap.Logger
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, log *zap.Logger) *Server {
+func New(hs Handlers, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, chainTime timecore.Provider, log *zap.Logger) *Server {
 	pubKeyBytes := (*keys.PublicKey)(&signer.PublicKey).Bytes()
 	if len(pubKeyBytes) != compressedECDSAPublicKeyLen {
 		panic(fmt.Sprintf("wrong public key len: expected %d, got %d", compressedECDSAPublicKeyLen, len(pubKeyBytes)))
@@ -262,6 +264,7 @@ func New(hs Handlers, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer
 		aclChecker:  ac,
 		reqInfoProc: rp,
 		nodeClients: cs,
+		chainTime:   chainTime,
 		log:         log,
 	}
 }
@@ -459,6 +462,10 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
+		if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+			err = s.sendStatusPutResponse(gStream, err, reqFirst)
+			return err
+		}
 
 		if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
@@ -587,6 +594,9 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
 
 	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
@@ -685,6 +695,9 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeStatusHeadResponse(req, err)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
 		return s.makeStatusHeadResponse(req, err)
 	}
 
@@ -1047,6 +1060,9 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.sendStatusGetResponse(req, gStream, err)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
 		return s.sendStatusGetResponse(req, gStream, err)
 	}
 
@@ -1949,6 +1965,9 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.signSearchResponse(nil, err, req)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
 

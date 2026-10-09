@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Request time expiration check by SNs (#4219)
 
 ### Fixed
 - `AccountingService.Balance` server panic (#4212)

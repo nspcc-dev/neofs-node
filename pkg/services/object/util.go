@@ -164,7 +164,7 @@ func validUntilTime(ctx context.Context, v version.Version) uint64 {
 		return 0
 	}
 
-	const defaultDeadline = 30 // in seconds
+	const defaultDeadline = 300 // 5 min in seconds
 
 	deadline, ok := ctx.Deadline()
 	if !ok {

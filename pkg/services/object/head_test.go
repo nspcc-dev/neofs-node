@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"testing"
+	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -57,7 +58,7 @@ func TestServer_Head_Local(t *testing.T) {
 	)
 	handlers := headOnlyHandler{svc: handler}
 
-	srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+	srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, fixedFutureTimeProvider{}, zap.NewNop())
 
 	assertWithVersion := func(t *testing.T, ver version.Version) *protoobject.HeadResponse {
 		req := newLocalHeadRequest(t, ver, obj.Address(), signer)
@@ -131,7 +132,7 @@ func TestServer_Head_Remote(t *testing.T) {
 	)
 	handlers := headOnlyHandler{svc: handler}
 
-	srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+	srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, fixedFutureTimeProvider{}, zap.NewNop())
 
 	t.Run("EC part", func(t *testing.T) {
 		nodes := make([]netmap.NodeInfo, 3)
@@ -183,7 +184,7 @@ func TestServer_Head_Remote(t *testing.T) {
 		)
 		handlers := headOnlyHandler{svc: handler}
 
-		srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+		srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, fixedFutureTimeProvider{}, zap.NewNop())
 
 		t.Run("header", func(t *testing.T) {
 			const payloadLen = 100 << 10
@@ -273,8 +274,9 @@ func newUnsignedLocalHeadRequest(ver version.Version, addr oid.Address) *protoob
 			Address: addr.ProtoMessage(),
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
-			Version: ver.ProtoMessage(),
-			Ttl:     1,
+			Version:        ver.ProtoMessage(),
+			Ttl:            1,
+			ValidUntilTime: uint64(time.Now().Add(5 * time.Minute).UTC().Unix()),
 		},
 	}
 }
