@@ -130,34 +130,6 @@ func TestGetStream(t *testing.T) {
 			require.NoError(t, reader.Close())
 		}
 	})
-
-	t.Run("compressed object", func(t *testing.T) {
-		fsTree, obj, _ := putCompressedRewriteObject(t, WithCombinedCountLimit(1))
-
-		res, reader, err := fsTree.GetStream(obj.Address())
-		require.NoError(t, err)
-		require.Equal(t, obj.CutPayload(), res)
-		assertPayloadSeeker(t, reader, obj.Payload())
-		require.NoError(t, reader.Close())
-	})
-
-	t.Run("large compressed object", func(t *testing.T) {
-		payload := make([]byte, 2*iobject.NonPayloadFieldsBufferLength)
-		_, _ = rand.Read(payload)
-		addr := oidtest.Address()
-		obj := new(object.Object)
-		obj.SetID(addr.Object())
-		obj.SetPayload(payload)
-
-		compressed := zstdCompress(t, obj.Marshal())
-		require.Greater(t, len(compressed), iobject.NonPayloadFieldsBufferLength)
-		require.NoError(t, tree.Put(addr, compressed))
-
-		_, reader, err := tree.GetStream(addr)
-		require.NoError(t, err)
-		assertPayloadSeeker(t, reader, payload)
-		require.NoError(t, reader.Close())
-	})
 }
 
 func assertPayloadSeeker(t testing.TB, reader io.ReadSeekCloser, payload []byte) {

@@ -7,9 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"slices"
 
-	"github.com/klauspost/compress/zstd"
 	objectwire "github.com/nspcc-dev/neofs-node/internal/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -321,38 +319,12 @@ func (t *FSTree) readHeaderAndPayload(f io.ReadSeekCloser, initial []byte) (*obj
 }
 
 func (t *FSTree) preprocessStreamHead(f io.ReadSeekCloser, initial []byte) ([]byte, io.ReadSeekCloser, error) {
-	var err error
 	if len(initial) < objectwire.NonPayloadFieldsBufferLength {
 		_ = f.Close()
-		initial, err = decompress(initial)
-		if err != nil {
-			return nil, nil, fmt.Errorf("decompress initial data: %w", err)
-		}
 		return initial, nil, nil
 	}
 
-	reader := f
-
-	if isCompressed(initial) {
-		decoder, err := zstd.NewReader(io.MultiReader(bytes.NewReader(slices.Clone(initial)), f))
-		if err != nil {
-			return nil, nil, fmt.Errorf("zstd decoder: %w", err)
-		}
-		reader = compressedReader{
-			Decoder:    decoder,
-			fileCloser: f,
-		}
-
-		buf := make([]byte, objectwire.NonPayloadFieldsBufferLength)
-		n, err := decoder.Read(buf)
-		if err != nil && !errors.Is(err, io.EOF) {
-			reader.Close()
-			return nil, nil, fmt.Errorf("zstd read: %w", err)
-		}
-		initial = buf[:n]
-	}
-
-	return initial, reader, nil
+	return initial, f, nil
 }
 
 type nopCloserRS struct {

@@ -5,29 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-
-	"github.com/klauspost/compress/zstd"
 )
-
-type compressedReader struct {
-	*zstd.Decoder
-	fileCloser io.Closer
-}
-
-func (x compressedReader) Close() error {
-	x.Decoder.Close()
-	return x.fileCloser.Close()
-}
-
-// Seek supports SeekCurrent and positive offsets only, allowing to skip some data.
-func (x compressedReader) Seek(offset int64, whence int) (int64, error) {
-	if whence != io.SeekCurrent || offset < 0 {
-		panic("wrong compressed reader seek")
-	}
-	_, err := io.CopyN(io.Discard, x.Decoder, offset)
-
-	return 0, err
-}
 
 type nopReadCloser struct{}
 
@@ -164,19 +142,4 @@ func (l *limitedFileReader) Seek(offset int64, whence int) (int64, error) {
 		l.limit -= offset
 	}
 	return 0, err
-}
-
-func isCompressed(data []byte) bool {
-	// zstdFrameMagic contains first 4 bytes of any compressed object
-	// https://github.com/klauspost/compress/blob/master/zstd/framedec.go#L58 .
-	var zstdFrameMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
-
-	return len(data) >= 4 && bytes.Equal(data[:4], zstdFrameMagic)
-}
-
-func decompress(data []byte) ([]byte, error) {
-	if !isCompressed(data) {
-		return data, nil
-	}
-	return zstd.DecodeTo(nil, data)
 }
