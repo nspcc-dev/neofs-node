@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - ReplicateV2 Linux server now uses `writev()` syscall for multi-frame chunks (#4194)
 - IR now denies creation of containers and setting of eACL with API version less than v2.22 (#4229)
 - SN now prohibits EC GET requests without part index and with `payload_only` flag set (#4222)
+- SN no longer forwards request X-headers to other SN (#4222)
 
 ### Removed
 - fstree-decompress utility (#4223)

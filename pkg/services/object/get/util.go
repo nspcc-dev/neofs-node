@@ -79,7 +79,6 @@ func objectGetOptions(exec *execCtx) client.PrmObjectGet {
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
 	}
-	opts.WithXHeaders(exec.prm.common.XHeaders()...) //nolint:staticcheck
 	if exec.isRaw() {
 		opts.MarkRaw()
 	}
@@ -199,7 +198,6 @@ func (c *clientWrapper) head(exec *execCtx, key *ecdsa.PrivateKey) (*object.Obje
 	if exec.prm.common.TTL() < 2 {
 		opts.MarkLocal()
 	}
-	opts.WithXHeaders(exec.prm.common.XHeaders()...) //nolint:staticcheck
 	if exec.isRaw() {
 		opts.MarkRaw()
 	}
