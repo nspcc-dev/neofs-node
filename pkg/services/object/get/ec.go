@@ -1690,7 +1690,7 @@ func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error
 
 		res.RuleIndex = -1
 		return res, nil
-	} else if partIdxStr == "" && prm.payloadRange.IsSet() {
+	} else if partIdxStr == "" && (prm.payloadRange.IsSet() || prm.payloadOnly) {
 		return res, fmt.Errorf("request must have %s header for EC objects", object.AttributeECPartIndex)
 	}
 
