@@ -17,6 +17,7 @@ neofs-cli object get [flags]
       --bearer string           File with signed JSON or binary encoded bearer token
       --binary                  Serialize whole object structure into given file(id + signature + header + payload).
       --cid string              Container ID.
+      --ec-part string          Request specific part of the object EC partition
       --extended-range string   Extended range in form first:last, first:, or :length
       --file string             File to write object payload to(with -b together with signature and header). Default: stdout.
   -g, --generate-key            Generate new private key

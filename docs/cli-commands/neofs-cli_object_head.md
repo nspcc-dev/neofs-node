@@ -16,6 +16,7 @@ neofs-cli object head [flags]
       --address string        Address of wallet account
       --bearer string         File with signed JSON or binary encoded bearer token
       --cid string            Container ID.
+      --ec-part string        Request specific part of the object EC partition
       --file string           File to write header to. Default: stdout.
   -g, --generate-key          Generate new private key
   -h, --help                  help for head

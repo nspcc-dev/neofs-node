@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Request time expiration check by SNs (#4219)
 - Time-based object expiration (#4224)
 - Support for GET/HEAD EC part ID field by SN (#4222)
+- CLI `ec-part` flag to `object get/head` commands (#4222)
 
 ### Fixed
 - `AccountingService.Balance` server panic (#4212)

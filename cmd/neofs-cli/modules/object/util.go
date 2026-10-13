@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +44,9 @@ const (
 	rawFlagDesc = "Set raw request option"
 	fileFlag    = "file"
 	binaryFlag  = "binary"
+
+	ecPartIDFlagName  = "ec-part"
+	ecPartIDFlagUsage = "Request specific part of the object EC partition"
 )
 
 type RPCParameters interface {
@@ -565,4 +569,32 @@ func parseSessionSubjects(cmd *cobra.Command, ctx context.Context, cli *client.C
 	ecdsaPubKey := (*ecdsa.PublicKey)(neoPubKey)
 	userID := user.NewFromECDSAPublicKey(*ecdsaPubKey)
 	return []sessionv2.Target{sessionv2.NewTargetUser(userID)}, nil
+}
+
+func parseECPartIDFlag(cmd *cobra.Command) (*uint32, *uint32, error) {
+	s, _ := cmd.Flags().GetString(ecPartIDFlagName)
+	if s == "" {
+		return nil, nil, nil
+	}
+
+	ruleIdxStr, partIdxStr, withPartIdx := strings.Cut(s, "/")
+	if ruleIdxStr == "" {
+		return nil, nil, fmt.Errorf("invalid EC part ID flag: %s", s)
+	}
+
+	ruleIdx, err := strconv.ParseUint(ruleIdxStr, 10, 32)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse EC rule index: %w", err)
+	}
+
+	if !withPartIdx {
+		return new(uint32(ruleIdx)), nil, nil
+	}
+
+	partIdx, err := strconv.ParseUint(partIdxStr, 10, 32)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse EC part index: %w", err)
+	}
+
+	return new(uint32(ruleIdx)), new(uint32(partIdx)), nil
 }
