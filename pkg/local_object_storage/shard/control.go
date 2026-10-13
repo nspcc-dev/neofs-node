@@ -35,6 +35,7 @@ func (s *Shard) handleMetabaseFailure(stage string, err error) error {
 
 // Open opens all Shard's components.
 func (s *Shard) Open() error {
+	s.redundant.setClosed(false)
 	if err := s.blobStor.Open(false); err != nil {
 		return fmt.Errorf("could not open %T: %w", s.blobStor, err)
 	}
@@ -122,8 +123,25 @@ func (s *Shard) Init() error {
 	return nil
 }
 
-// Close releases all Shard's components.
+// Close persists pending redundant objects and releases all Shard's components.
+// All components are closed even if persisting or closing another component fails.
 func (s *Shard) Close() error {
+	s.redundant.setClosed(true)
+	// Stop consumers before flushing their unfinished work or closing storage.
+	// If Init/Open was unsuccessful gc can be nil.
+	if s.gc != nil {
+		s.gc.stop()
+	}
+
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	lastErr := s.flushRedundant()
+	if lastErr != nil {
+		s.log.Error("could not persist redundant objects", zap.Error(lastErr))
+		lastErr = fmt.Errorf("persist redundant objects: %w", lastErr)
+	}
+
 	components := []interface{ Close() error }{}
 
 	if s.hasWriteCache() {
@@ -132,17 +150,11 @@ func (s *Shard) Close() error {
 
 	components = append(components, s.blobStor, s.metaBase)
 
-	var lastErr error
 	for _, component := range components {
 		if err := component.Close(); err != nil {
-			lastErr = err
+			lastErr = errors.Join(lastErr, err)
 			s.log.Error("could not close shard component", zap.Error(err))
 		}
-	}
-
-	// If Init/Open was unsuccessful gc can be nil.
-	if s.gc != nil {
-		s.gc.stop()
 	}
 
 	return lastErr

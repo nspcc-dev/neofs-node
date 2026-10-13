@@ -233,14 +233,15 @@ func TestCounters(t *testing.T) {
 
 			require.NoError(t, sh.Delete(cnr, []oid.ID{parent.GetID()}))
 
-			require.EqualValues(t, child.PayloadSize(), mm.containerSize[cnr])
-			require.Equal(t, phyBefore, mm.objectCounters[phyObj])
-			require.Equal(t, sumPldSizeBefore, mm.payloadSize)
+			// Deleting a virtual parent removes its physical child as well.
+			require.Zero(t, mm.containerSize[cnr])
+			require.Equal(t, phyBefore-1, mm.objectCounters[phyObj])
+			require.Equal(t, sumPldSizeBefore-int64(child.PayloadSize()), mm.payloadSize)
 
 			cnrInfo, err = sh.ContainerInfo(cnr)
 			require.NoError(t, err)
-			require.EqualValues(t, child.PayloadSize(), cnrInfo.StorageSize)
-			require.EqualValues(t, 1, cnrInfo.ObjectsNumber)
+			require.Zero(t, cnrInfo.StorageSize)
+			require.Zero(t, cnrInfo.ObjectsNumber)
 		})
 	})
 }

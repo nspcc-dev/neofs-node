@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"slices"
@@ -9,7 +8,6 @@ import (
 	"github.com/nspcc-dev/bbolt"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -18,9 +16,9 @@ import (
 // Does not stop on an error if there are more objects to handle requested;
 // returns the first error appeared with a number of deleted objects wrapped.
 //
-// Delete also looks up for objects that are hardly linked with elements of
-// addrs list but not in the list themselves. If there are any, they are also
-// deleted.
+// Delete also removes EC and split parts of the requested objects, including
+// nested split parts. The returned IDs start with addrs, followed by any parts
+// not already included in the list.
 func (db *DB) Delete(cnr cid.ID, addrs []oid.ID) ([]oid.ID, CountersDiff, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -66,7 +64,7 @@ func (db *DB) deleteGroup(metaCursor *bbolt.Cursor, cnr cid.ID, addrs []oid.ID) 
 	var firstErr error
 	var diff CountersDiff
 
-	removedObjs, err := supplementRemovedObjects(metaCursor, addrs)
+	removedObjs, err := supplementRemovedObjects(metaCursor, cnr, addrs)
 	if err != nil {
 		return nil, diff, fmt.Errorf("extend removed objects: %w", err)
 	}
@@ -112,53 +110,22 @@ func (db *DB) delete(metaCursor *bbolt.Cursor, cnr cid.ID, addr oid.ID) (Counter
 	return diff, nil
 }
 
-// supplementRemovedObjects forms list of objects from oid list and their
-// missing parts.
-// [RemovedObject.PayloadLen] is not initialized.
-func supplementRemovedObjects(cur *bbolt.Cursor, addrs []oid.ID) ([]oid.ID, error) {
-	var (
-		err error
-		res = slices.Clone(addrs)
-	)
-	for i := range addrs {
-		res, err = supplementRemovedECParts(res, cur, addrs, addrs[i])
+// supplementRemovedObjects extends addrs with their missing EC and split parts.
+func supplementRemovedObjects(cur *bbolt.Cursor, cnr cid.ID, addrs []oid.ID) ([]oid.ID, error) {
+	res := slices.Clone(addrs)
+	for _, parent := range addrs {
+		parts, err := collectChildren(cur, cnr, parent)
 		if err != nil {
-			return nil, fmt.Errorf("collect EC parts for %s: %w", addrs[i], err)
+			return nil, fmt.Errorf("collect parts for %s: %w", parent, err)
+		}
+		for _, id := range parts {
+			if id.IsZero() {
+				return nil, fmt.Errorf("invalid child of %s parent: %w", parent, oid.ErrZero)
+			}
+			if !slices.Contains(res, id) {
+				res = append(res, id)
+			}
 		}
 	}
-
-	return res, nil
-}
-
-// supplementRemovedECParts extends res with EC parts of parent which are not in
-// addrs and returns updated res.
-func supplementRemovedECParts(res []oid.ID, cnrMetaCrs *bbolt.Cursor, addrs []oid.ID, parent oid.ID) ([]oid.ID, error) {
-	var partCrs *bbolt.Cursor
-	var ecPref []byte
-	for id := range iterAttrVal(cnrMetaCrs, object.FilterParentID, parent[:]) {
-		if id.IsZero() {
-			return nil, fmt.Errorf("invalid child of %s parent: %w", parent, oid.ErrZero)
-		}
-
-		if partCrs == nil {
-			partCrs = cnrMetaCrs.Bucket().Cursor()
-		}
-
-		if ecPref == nil {
-			ecPref = slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.AttributeECPrefix)) // any of EC attributes
-		} else {
-			copy(ecPref[1:], id[:])
-		}
-
-		k, _ := partCrs.Seek(ecPref)
-		if !bytes.HasPrefix(k, ecPref) {
-			continue
-		}
-
-		if !slices.Contains(addrs, id) {
-			res = append(res, id)
-		}
-	}
-
 	return res, nil
 }
