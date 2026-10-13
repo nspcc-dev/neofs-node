@@ -7,7 +7,9 @@ import (
 	"math"
 	"math/rand"
 	"slices"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
@@ -81,6 +83,121 @@ func assertAttr[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, at
 func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origin string, val []byte) {
 	assertAttr(t, mb, id, attr, origin)
 	assertPrefixedAttrIDPresence(t, mb, id, true, attr, val, true)
+}
+
+func TestDB_SearchExpirationTime(t *testing.T) {
+	db := newDB(t, WithTimeSource(func() time.Time { return time.Unix(99, 0) }))
+	cnr := cidtest.ID()
+	var timed []client.SearchResultItem
+	var all []client.SearchResultItem
+	for i := range 5 {
+		var obj object.Object
+		obj.SetID(oidtest.ID())
+		obj.SetContainerID(cnr)
+		obj.SetOwner(usertest.ID())
+		obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(nil)))
+		var expiration string
+		if i < 3 {
+			seconds := int64(100 + i)
+			require.NoError(t, obj.SetExpirationTime(time.Unix(seconds, 0)))
+			expiration = strconv.FormatInt(seconds, 10)
+			timed = append(timed, client.SearchResultItem{ID: obj.GetID(), Attributes: []string{expiration}})
+		} else if i == 4 {
+			obj.SetExpirationEpoch(124) //nolint:staticcheck // Epoch expiration must not be indexed as expiration time.
+		}
+		require.NoError(t, db.Put(&obj))
+		all = append(all, client.SearchResultItem{ID: obj.GetID(), Attributes: []string{object.TypeRegular.String(), expiration}})
+	}
+
+	for _, tc := range []struct {
+		name string
+		op   object.SearchMatchType
+		from int
+		to   int
+	}{
+		{name: "equal", op: object.MatchStringEqual, from: 1, to: 2},
+		{name: "less", op: object.MatchNumLT, to: 1},
+		{name: "less or equal", op: object.MatchNumLE, to: 2},
+		{name: "greater", op: object.MatchNumGT, from: 2, to: 3},
+		{name: "greater or equal", op: object.MatchNumGE, from: 1, to: 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddExpirationTimeFilter(tc.op, time.Unix(101, 0))
+			assertSearchResult(t, db, cnr, fs, []string{object.FilterExpirationTime}, timed[tc.from:tc.to])
+		})
+	}
+	t.Run("requested attribute", func(t *testing.T) {
+		var fs object.SearchFilters
+		fs.AddTypeFilter(object.MatchStringEqual, object.TypeRegular)
+		slices.SortFunc(all, func(a, b client.SearchResultItem) int { return a.ID.Compare(b.ID) })
+		assertSearchResult(t, db, cnr, fs, []string{object.FilterType, object.FilterExpirationTime}, all)
+	})
+}
+
+func TestDB_ExpirationTimeIgnoresUserAttribute(t *testing.T) {
+	for _, kind := range []string{"time", "epoch", "none"} {
+		for _, attrValue := range []string{"100", "300", "invalid", "0", "-1"} {
+			t.Run(kind+"/"+attrValue, func(t *testing.T) {
+				now := int64(99)
+				epoch := testEpochState(123)
+				db := newDB(t, WithEpochState(epoch), WithTimeSource(func() time.Time { return time.Unix(now, 0) }))
+				var obj object.Object
+				obj.SetID(oidtest.ID())
+				obj.SetContainerID(cidtest.ID())
+				obj.SetOwner(usertest.ID())
+				obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(nil)))
+				obj.SetAttributes(object.NewAttribute(object.FilterExpirationTime, attrValue))
+				var expiration string
+				switch kind {
+				case "time":
+					require.NoError(t, obj.SetExpirationTime(time.Unix(200, 0)))
+					expiration = "200"
+				case "epoch":
+					obj.SetExpirationEpoch(124) //nolint:staticcheck // A user attribute must not override legacy expiration.
+				}
+				require.NoError(t, db.Put(&obj))
+
+				now = 101
+				hdr, err := db.Get(obj.Address(), false)
+				require.NoError(t, err)
+				require.Equal(t, obj.ExpirationTime(), hdr.ExpirationTime())
+				exists, err := db.Exists(obj.Address(), false)
+				require.NoError(t, err)
+				require.True(t, exists)
+
+				var expired []oid.Address
+				handler := func(addr oid.Address, _ object.Type) error {
+					expired = append(expired, addr)
+					return nil
+				}
+				require.NoError(t, db.IterateExpired(epoch.CurrentEpoch(), handler))
+				require.Empty(t, expired)
+
+				var filters object.SearchFilters
+				filters.AddTypeFilter(object.MatchStringEqual, object.TypeRegular)
+				assertSearchResult(t, db, obj.GetContainerID(), filters,
+					[]string{object.FilterType, object.FilterExpirationTime},
+					[]client.SearchResultItem{{ID: obj.GetID(), Attributes: []string{object.TypeRegular.String(), expiration}}})
+				filters = nil
+				filters.AddFilter(object.FilterExpirationTime, attrValue, object.MatchStringEqual)
+				assertSearchResult(t, db, obj.GetContainerID(), filters, nil, nil)
+
+				now = 201
+				*epoch = 125
+				require.NoError(t, db.IterateExpired(epoch.CurrentEpoch(), handler))
+				if kind == "none" {
+					require.Empty(t, expired)
+					_, err = db.Get(obj.Address(), false)
+					require.NoError(t, err)
+				} else {
+					require.Equal(t, []oid.Address{obj.Address()}, expired)
+					_, err = db.Get(obj.Address(), false)
+					require.ErrorIs(t, err, ErrObjectIsExpired)
+				}
+			})
+		}
+	}
 }
 
 func TestHeaderLimit(t *testing.T) { require.Less(t, object.MaxHeaderLen, bbolt.MaxKeySize) }

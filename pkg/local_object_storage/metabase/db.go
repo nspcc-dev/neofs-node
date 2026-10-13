@@ -53,6 +53,7 @@ type cfg struct {
 	log *zap.Logger
 
 	epochState EpochState
+	now        func() time.Time
 	containers Containers
 
 	initCtx context.Context
@@ -67,6 +68,7 @@ func defaultCfg() *cfg {
 		boltBatchSize:        1000,
 		searchIterationLimit: 10000,
 		log:                  zap.L(),
+		now:                  time.Now,
 		initCtx:              context.Background(),
 	}
 }
@@ -152,6 +154,14 @@ func WithSearchIterationLimit(limit uint64) Option {
 func WithEpochState(s EpochState) Option {
 	return func(c *cfg) {
 		c.epochState = s
+	}
+}
+
+// WithTimeSource sets the clock used to check expiration time.
+// By default, local system time is used.
+func WithTimeSource(now func() time.Time) Option {
+	return func(c *cfg) {
+		c.now = now
 	}
 }
 

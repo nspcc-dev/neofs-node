@@ -41,9 +41,10 @@ func (db *DB) PutCounted(obj *object.Object) (CountersDiff, error) {
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()
+	currTime := db.now().Unix()
 
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		diff, err = db.put(tx, obj, 0, currEpoch)
+		diff, err = db.put(tx, obj, 0, currEpoch, currTime)
 		return err
 	})
 	if err == nil {
@@ -82,11 +83,12 @@ func (db *DB) PutBatch(objs []*object.Object) error {
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()
+	currTime := db.now().Unix()
 
 	var successIndices []int
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		for i, obj := range objs {
-			if _, err := db.put(tx, obj, 0, currEpoch); err != nil {
+			if _, err := db.put(tx, obj, 0, currEpoch, currTime); err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ErrObjectIsExpired) ||
 					errors.Is(err, apistatus.ErrObjectLocked) {
 					db.log.Warn("skipping object in batch due to non-critical error",
@@ -113,7 +115,7 @@ func (db *DB) PutBatch(objs []*object.Object) error {
 	return err
 }
 
-func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch uint64) (CountersDiff, error) {
+func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch uint64, currTime int64) (CountersDiff, error) {
 	var diff CountersDiff
 	if err := objectcore.VerifyHeaderForMetadata(*obj); err != nil {
 		return diff, err
@@ -125,7 +127,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 		return diff, logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 	}
 
-	exists, err := db.exists(tx, obj.Address(), currEpoch, false)
+	exists, err := db.exists(tx, obj.Address(), currEpoch, currTime, false)
 
 	switch {
 	case exists:
@@ -143,7 +145,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 			return diff, fmt.Errorf("max object nesting level %d overflow", maxObjectNestingLevel)
 		}
 
-		_, err = db.put(tx, par, nestingLevel+1, currEpoch)
+		_, err = db.put(tx, par, nestingLevel+1, currEpoch, currTime)
 		if err != nil {
 			return diff, err
 		}
@@ -165,7 +167,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, nestingLevel int, currEpoch 
 	case object.TypeLink:
 		err = handleLinkObject(&diff)
 	case object.TypeTombstone, object.TypeLock:
-		err = handleObjectWithAssociation(metaBkt, &diff, currEpoch, *obj)
+		err = handleObjectWithAssociation(metaBkt, &diff, currEpoch, currTime, *obj)
 	case object.TypeRegular:
 		err = handleRegularObject(&diff, *obj, nestingLevel == 0)
 	default:
@@ -195,7 +197,7 @@ func handleLinkObject(diff *CountersDiff) error {
 	return nil
 }
 
-func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, currEpoch uint64, obj object.Object) error {
+func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, currEpoch uint64, currTime int64, obj object.Object) error {
 	target := obj.AssociatedObject()
 	if target.IsZero() {
 		return fmt.Errorf("%s object has zero associated object", obj.Type())
@@ -211,7 +213,7 @@ func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, curr
 			return logicerr.Wrap(apistatus.LockNonRegularObject{})
 		}
 
-		st := objectStatus(metaCursor, target, currEpoch)
+		st := objectStatus(metaCursor, target, currEpoch, currTime)
 		if st == statusTombstoned {
 			return logicerr.Wrap(apistatus.ErrObjectAlreadyRemoved)
 		}
@@ -236,7 +238,7 @@ func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, curr
 			}
 		}
 
-		if objectLocked(currEpoch, metaCursor, target) {
+		if objectLocked(currEpoch, currTime, metaCursor, target) {
 			return apistatus.ErrObjectLocked
 		}
 
@@ -252,7 +254,7 @@ func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, curr
 		for _, id := range children {
 			addr.SetObject(id)
 
-			obj, err := get(metaCursor, addr, false, true, currEpoch)
+			obj, err := get(metaCursor, addr, false, true, currEpoch, currTime)
 			// Garbage mark should be put irrespective of errors,
 			// especially if the error is SplitInfo.
 			if err == nil {

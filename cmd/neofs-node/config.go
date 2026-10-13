@@ -538,6 +538,11 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	nState := newNetworkState(c.log)
 	currBlock, err := cli.BlockCount()
 	fatalOnErr(err)
+	// Seed chain time before storage initialization starts GC. BlockCount
+	// includes genesis, so the latest header index is one less than the count.
+	header, err := cli.GetBlockHeader(currBlock - 1)
+	fatalOnErr(err)
+	c.chainTime.Set(header.Timestamp)
 	nState.block.Store(currBlock)
 
 	b.bCli, err = balanceClient.NewFromMorph(cli, b.balanceSH)

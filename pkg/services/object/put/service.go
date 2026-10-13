@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"context"
+	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
@@ -209,6 +210,14 @@ func WithNetworkState(v netmapcore.StateDetailed) Option {
 	return func(c *cfg) {
 		c.networkState = v
 		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithNetState(v))
+	}
+}
+
+// WithTimeSource sets the clock used to validate object expiration.
+// By default, local system time is used.
+func WithTimeSource(now func() time.Time) Option {
+	return func(c *cfg) {
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, objectcore.WithTimeSource(now))
 	}
 }
 

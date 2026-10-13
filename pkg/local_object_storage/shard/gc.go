@@ -59,8 +59,6 @@ type gc struct {
 
 	// currentEpoch stores the latest epoch announced via EventNewEpoch.
 	currentEpoch atomic.Uint64
-	// processedEpoch indicates highest epoch for which expired processing found nothing.
-	processedEpoch atomic.Uint64
 }
 
 type gcCfg struct {
@@ -173,16 +171,7 @@ func (s *Shard) removeGarbage() {
 
 func (s *Shard) collectExpiredObjects() {
 	epoch := s.gc.currentEpoch.Load()
-	doneUpTo := s.gc.processedEpoch.Load()
-	if s.info.Mode.NoMetabase() || doneUpTo == epoch {
-		return
-	}
-	if doneUpTo > epoch {
-		s.log.Warn("current epoch is less than the last processed epoch in GC",
-			zap.Uint64("current", epoch),
-			zap.Uint64("processed", doneUpTo),
-		)
-		s.gc.processedEpoch.Store(epoch)
+	if s.info.Mode.NoMetabase() {
 		return
 	}
 
@@ -217,9 +206,6 @@ func (s *Shard) collectExpiredObjects() {
 	if err != nil {
 		log.Warn("iterate expired objects", zap.Error(err))
 	}
-	if collected == 0 {
-		s.gc.processedEpoch.Store(epoch)
-	}
 
 	log.Debug("collected expired tombstones", zap.Int("num", tombCount))
 	for _, bin := range tombBins {
@@ -241,7 +227,7 @@ func (s *Shard) NotificationChannel() chan<- Event {
 }
 
 // setEpochEventHandler handles EventNewEpoch by setting current epoch
-// and marking that expired objects up to this epoch are not yet processed.
+// and checking container payments.
 func (s *Shard) setEpochEventHandler(e Event) {
 	ne := e.(newEpoch)
 	s.gc.currentEpoch.Store(ne.epoch)

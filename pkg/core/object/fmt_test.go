@@ -6,8 +6,10 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -315,6 +317,83 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("expiration", func(t *testing.T) {
+		t.Run("time", func(t *testing.T) {
+			var clock chaintime.AtomicChainTimeProvider
+			ls := testLockSource{m: make(map[oid.Address]bool)}
+			v := NewFormatValidator(nil, nil, nil,
+				WithTimeSource(clock.Now), WithLockSource(ls), WithNetState(testNetState{epoch: 13}))
+			obj := blankValidObject(usertest.User())
+			obj.SetID(oidtest.ID())
+			require.NoError(t, obj.SetExpirationTime(time.Unix(100, 0)))
+			for _, ms := range []uint64{99000, 100000, 100999} {
+				clock.Set(ms)
+				require.NoError(t, v.checkExpiration(context.Background(), *obj, true))
+			}
+			clock.Set(101000)
+			require.ErrorIs(t, v.checkExpiration(context.Background(), *obj, false), errExpired)
+			ls.m[obj.Address()] = true
+			require.NoError(t, v.checkExpiration(context.Background(), *obj, true))
+
+			for _, epoch := range []string{"0", "13", "invalid"} {
+				obj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, epoch)) //nolint:staticcheck // Test mutually exclusive expiration formats.
+				require.ErrorContains(t, v.checkExpiration(context.Background(), *obj, false), "mutually exclusive")
+			}
+			obj.ResetExpirationTime()
+			obj.SetAttributes()
+			require.NoError(t, v.checkExpiration(context.Background(), *obj, false))
+			require.ErrorIs(t, v.checkExpiration(context.Background(), *obj, true), ErrNoExpiration)
+		})
+
+		t.Run("zero time", func(t *testing.T) {
+			signer := usertest.User()
+			obj := blankValidObject(signer)
+			obj.SetID(oidtest.ID())
+			msg := obj.ProtoMessage()
+			msg.Header.ExpirationTime = new(uint64)
+			require.NoError(t, obj.FromProtoMessage(msg))
+			ver := version.Current()
+			obj.SetVersion(&ver)
+			obj.CalculateAndSetPayloadChecksum()
+			require.NoError(t, obj.SetIDWithSignature(signer))
+			cnrs := newMockContainers()
+			cnrs.setContainer(obj.GetContainerID(), container.Container{})
+			ls := testLockSource{m: make(map[oid.Address]bool)}
+			v := NewFormatValidator(nil, nil, cnrs,
+				WithTimeSource(func() time.Time { return time.Unix(100, 0) }), WithLockSource(ls))
+			for _, tc := range []struct {
+				name   string
+				locked bool
+			}{
+				{name: "unlocked"},
+				{name: "locked", locked: true},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					ls.m[obj.Address()] = tc.locked
+					require.ErrorContains(t, v.Validate(context.Background(), obj, false, false), "non-positive expiration time 0")
+				})
+			}
+		})
+
+		t.Run("system object time", func(t *testing.T) {
+			for _, typ := range []object.Type{object.TypeLock, object.TypeTombstone} {
+				t.Run(typ.String(), func(t *testing.T) {
+					obj := blankValidObject(usertest.User())
+					if typ == object.TypeLock {
+						obj.AssociateLocked(oidtest.ID())
+					} else {
+						obj.AssociateDeleted(oidtest.ID())
+					}
+					cnrs := newMockContainers()
+					cnrs.setContainer(obj.GetContainerID(), container.Container{})
+					v := NewFormatValidator(nil, nil, cnrs,
+						WithTimeSource(func() time.Time { return time.Unix(100, 0) }))
+					require.ErrorIs(t, v.Validate(context.Background(), obj, true, true), ErrNoExpiration)
+					require.NoError(t, obj.SetExpirationTime(time.Unix(100, 0)))
+					require.NoError(t, v.Validate(context.Background(), obj, true, true))
+				})
+			}
+		})
+
 		fn := func(val string) *object.Object {
 			signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
 			obj := blankValidObject(signer)

@@ -222,6 +222,37 @@ func TestDB_Put_InGarbageMarkedContainer(t *testing.T) {
 	require.Equal(t, []string{"GC MARKED"}, st.State)
 }
 
+func TestDB_Put_ExpirationTime(t *testing.T) {
+	db := newDB(t)
+	t.Run("epoch and time", func(t *testing.T) {
+		obj := generateObject(t)
+		require.NoError(t, obj.SetExpirationTime(time.Unix(100, 0)))
+		obj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "1")) //nolint:staticcheck // Test mutually exclusive expiration formats.
+		require.ErrorContains(t, db.Put(obj), "mutually exclusive")
+	})
+	t.Run("zero time", func(t *testing.T) {
+		obj := generateObject(t)
+		msg := obj.ProtoMessage()
+		msg.Header.ExpirationTime = new(uint64)
+		require.NoError(t, obj.FromProtoMessage(msg))
+		for _, tc := range []struct {
+			name string
+			put  func(*meta.DB, *object.Object) error
+		}{
+			{name: "single", put: func(db *meta.DB, obj *object.Object) error { return db.Put(obj) }},
+			{name: "batch", put: func(db *meta.DB, obj *object.Object) error { return db.PutBatch([]*object.Object{obj}) }},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				db := newDB(t)
+				require.ErrorContains(t, tc.put(db, obj), "non-positive expiration time 0")
+				exists, err := db.Exists(obj.Address(), true)
+				require.NoError(t, err)
+				require.False(t, exists)
+			})
+		}
+	})
+}
+
 func TestDB_Put_InvalidAssociatedObject(t *testing.T) {
 	db := newDB(t)
 

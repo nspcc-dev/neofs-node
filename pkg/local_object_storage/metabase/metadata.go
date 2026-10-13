@@ -89,6 +89,13 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterCreationEpoch, strconv.FormatUint(creationEpoch, 10), creationEpochInt.SetUint64(creationEpoch)); err != nil {
 		return err
 	}
+	if exp := hdr.ExpirationTime(); !exp.IsZero() {
+		seconds := exp.Unix()
+		var expInt signed256.Int
+		if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterExpirationTime, strconv.FormatInt(seconds, 10), expInt.SetUint64(uint64(seconds))); err != nil {
+			return err
+		}
+	}
 	payloadLen := hdr.PayloadSize()
 	var payloadLenInt signed256.Int
 	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterPayloadSize, strconv.FormatUint(payloadLen, 10), payloadLenInt.SetUint64(payloadLen)); err != nil {
@@ -128,6 +135,10 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	for i := range attrs {
 		ak, av := attrs[i].Key(), attrs[i].Value()
 		switch ak {
+		case object.FilterExpirationTime:
+			// Expiration time is indexed only from the header field. A user
+			// attribute with the same key must not affect expiration or GC.
+			continue
 		case object.AttributeECPartHashes,
 			object.AttributeNonce:
 			// indexing these attributes has no practical meaning
@@ -329,9 +340,10 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	var keyBuf keyBuffer
 	attrSkr := &metaAttributeSeeker{keyBuf: &keyBuf, bkt: metaBkt}
 	curEpoch := db.epochState.CurrentEpoch()
+	curTime := db.now().Unix()
 	var gcMetaCursor = metaBkt.Cursor()
 	var gcCheck objectcore.AdditionalObjectChecker = func(id oid.ID) (match bool) {
-		return objectStatus(gcMetaCursor, id, curEpoch) == statusAvailable
+		return objectStatus(gcMetaCursor, id, curEpoch, curTime) == statusAvailable
 	}
 	resHolder := objectcore.SearchResult{}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
@@ -364,6 +376,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 	var n uint16
 	var newCursor []byte
 	curEpoch := db.epochState.CurrentEpoch()
+	curTime := db.now().Unix()
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		mb := tx.Bucket(metaBucketKey(cnr))
 		if mb == nil {
@@ -388,7 +401,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 				return invalidMetaBucketKeyErr(k, fmt.Errorf("unexpected object key len %d", len(k)))
 			}
 			res[n].ID = oid.ID(k[1:])
-			if objectStatus(mb.Cursor(), res[n].ID, curEpoch) != statusAvailable { // GC-ed, expired, removed
+			if objectStatus(mb.Cursor(), res[n].ID, curEpoch, curTime) != statusAvailable { // GC-ed, expired, removed
 				continue
 			}
 			n++

@@ -127,7 +127,7 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID,
 
 		addr.SetObject(id)
 
-		obj, err := get(metaCursor, addr, false, true, currEpoch)
+		obj, err := get(metaCursor, addr, false, true, currEpoch, 0)
 		if err == nil {
 			if inGarbage(metaCursor, id) == statusAvailable && string(getObjAttribute(metaCursor, id, object.FilterPhysical)) == binPropMarker {
 				diff.PayloadDiff -= int64(obj.PayloadSize())

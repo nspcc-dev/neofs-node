@@ -10,6 +10,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -238,6 +239,106 @@ func TestExpiration(t *testing.T) {
 			require.ErrorIs(t, err, apistatus.ErrObjectNotFound, fmt.Sprintf("expiration should lead to object removal for %s", typ))
 		}
 	})
+}
+
+func TestExpirationChainTime(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		typ              object.Type
+		locked           bool
+		restart          bool
+		expiredEpochLock bool
+	}{
+		{name: "regular", typ: object.TypeRegular},
+		{name: "tombstone", typ: object.TypeTombstone},
+		{name: "lock", typ: object.TypeLock},
+		{name: "link", typ: object.TypeLink},
+		{name: "locked regular", typ: object.TypeRegular, locked: true},
+		{name: "restart before first header notification", typ: object.TypeRegular, restart: true},
+		{name: "expired epoch lock without notification", typ: object.TypeRegular, expiredEpochLock: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				const gcInterval = 100 * time.Millisecond
+				var clock chaintime.AtomicChainTimeProvider
+				clock.Set(99000)
+				root := t.TempDir()
+				var sh *shard.Shard
+				opts := []shard.Option{
+					shard.WithBlobstor(fstree.New(fstree.WithPath(filepath.Join(root, "fstree")))),
+					shard.WithMetaBaseOptions(
+						meta.WithPath(filepath.Join(root, "meta")),
+						meta.WithEpochState(epochState{Value: 3}),
+						meta.WithMaxBatchDelay(time.Microsecond),
+						meta.WithTimeSource(clock.Now),
+					),
+					shard.WithExpiredObjectsCallback(func(aa []oid.Address) {
+						for _, a := range aa {
+							require.NoError(t, sh.Delete(a.Container(), []oid.ID{a.Object()}))
+						}
+					}),
+					shard.WithGCRemoverSleepInterval(gcInterval),
+					shard.WithContainerPayments(&testContainerPayments{}),
+				}
+				sh = shard.New(opts...)
+				require.NoError(t, sh.Open())
+				require.NoError(t, sh.Init())
+				t.Cleanup(func() { releaseShard(sh, t) })
+
+				obj := generateObject()
+				obj.SetType(tc.typ)
+				if tc.typ == object.TypeLock || tc.typ == object.TypeTombstone {
+					obj.AssociateObject(oidtest.ID())
+				}
+				require.NoError(t, obj.SetExpirationTime(time.Unix(100, 0)))
+				require.NoError(t, sh.Put(obj, nil))
+				if tc.locked || tc.expiredEpochLock {
+					lock := generateObjectWithCID(obj.GetContainerID())
+					lock.AssociateLocked(obj.GetID())
+					if tc.expiredEpochLock {
+						lock.SetExpirationEpoch(1) //nolint:staticcheck // Test an expired epoch-based LOCK before GC gets an epoch notification.
+					} else {
+						require.NoError(t, lock.SetExpirationTime(time.Unix(105, 0)))
+					}
+					require.NoError(t, sh.Put(lock, nil))
+				}
+				if tc.restart {
+					require.NoError(t, sh.Close())
+					clock.Set(0)
+					require.Greater(t, clock.Now().Unix(), int64(100)) // The shared provider retains its wall-clock fallback.
+					// Like initBasics, seed time from the latest FS header before
+					// starting storage, without waiting for header notifications.
+					clock.Set(99000)
+					sh = shard.New(opts...)
+					require.NoError(t, sh.Open())
+					require.NoError(t, sh.Init())
+					time.Sleep(gcInterval * 2)
+					_, err := sh.Get(obj.Address(), true)
+					require.NoError(t, err, "GC must use the seeded chain time after restart")
+				}
+				// Run GC before expiration, then advance only chain time, never epoch.
+				time.Sleep(gcInterval * 2)
+				clock.Set(100999)
+				time.Sleep(gcInterval * 2)
+				_, err := sh.Get(obj.Address(), false)
+				require.NoError(t, err)
+				clock.Set(101000)
+				time.Sleep(gcInterval * 2)
+				if tc.locked {
+					_, err = sh.Get(obj.Address(), false)
+					require.NoError(t, err)
+					clock.Set(105999)
+					time.Sleep(gcInterval * 2)
+					_, err = sh.Get(obj.Address(), false)
+					require.NoError(t, err)
+					clock.Set(106000)
+					time.Sleep(gcInterval * 2)
+				}
+				_, err = sh.Get(obj.Address(), false)
+				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+			})
+		})
+	}
 }
 
 func TestContainerPayments(t *testing.T) {

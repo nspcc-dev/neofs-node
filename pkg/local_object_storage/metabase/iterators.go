@@ -27,7 +27,7 @@ var errObjTypeNotFound = errors.New("object type not found")
 var ErrInterruptIterator = logicerr.New("iterator is interrupted")
 
 // IterateExpired iterates over all objects in DB which are out of date
-// relative to epoch. Locked objects are not included (do not confuse
+// relative to epoch or the configured clock. Locked objects are not included (do not confuse
 // with objects of type LOCK).
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
@@ -45,7 +45,7 @@ func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) error {
 	})
 }
 
-func keyToEpochOID(k []byte, expStart []byte) (uint64, oid.ID) {
+func keyToExpirationOID(k []byte, expStart []byte) (uint64, oid.ID) {
 	if !bytes.HasPrefix(k, expStart) || len(k) < len(expStart)+32+objectKeySize {
 		return math.MaxUint64, oid.ID{}
 	}
@@ -106,35 +106,53 @@ func fillIDAttributePrefix(s []byte, id oid.ID, attr string) int {
 }
 
 func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandler) error {
+	curTime := db.now().Unix()
+	// GC epoch notifications may lag behind EpochState, especially after startup.
+	// Do not let a stale epoch make expired LOCKs protect time-expired objects.
+	lockEpoch := max(curEpoch, db.epochState.CurrentEpoch())
+	err := db.iterateExpiredBy(tx, object.AttributeExpirationEpoch, curEpoch, lockEpoch, curTime, h) //nolint:staticcheck // Support legacy epoch expiration.
+	if errors.Is(err, ErrInterruptIterator) {
+		return nil
+	}
+	if err == nil && curTime > 0 {
+		err = db.iterateExpiredBy(tx, object.FilterExpirationTime, uint64(curTime), lockEpoch, curTime, h)
+	}
+	if errors.Is(err, ErrInterruptIterator) {
+		return nil
+	}
+	return err
+}
+
+func (db *DB) iterateExpiredBy(tx *bbolt.Tx, attr string, threshold, curEpoch uint64, curTime int64, h ExpiredObjectHandler) error {
 	var (
-		expStart  = make([]byte, 1+len(object.AttributeExpirationEpoch)+1+1) //nolint:staticcheck
+		expStart  = make([]byte, 1+len(attr)+1+1)
 		typPrefix = make([]byte, metaIDTypePrefixSize)
 	)
 
 	expStart[0] = metaPrefixAttrIDInt
-	copy(expStart[1:], object.AttributeExpirationEpoch) //nolint:staticcheck
-	expStart[len(expStart)-1] = 1                       // Positive integer.
+	copy(expStart[1:], attr)
+	expStart[len(expStart)-1] = 1 // Positive integer.
 
 	fillIDTypePrefix(typPrefix)
 
-	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
 		cnrID, prefix := parseContainerIDWithPrefix(name)
 		if cnrID.IsZero() || prefix != metadataPrefix || containerMarkedGC(b.Cursor()) {
 			return nil
 		}
 
 		var (
-			cur          = b.Cursor()
-			curForLocked = b.Cursor()
-			expKey, _    = cur.Seek(expStart)
-			expEpoch, id = keyToEpochOID(expKey, expStart)
+			cur            = b.Cursor()
+			curForLocked   = b.Cursor()
+			expKey, _      = cur.Seek(expStart)
+			expiration, id = keyToExpirationOID(expKey, expStart)
 		)
-		for ; expEpoch < curEpoch && !id.IsZero(); expEpoch, id = keyToEpochOID(expKey, expStart) {
+		for ; expiration < threshold && !id.IsZero(); expiration, id = keyToExpirationOID(expKey, expStart) {
 			// Ignore locked objects.
 			//
 			// To slightly optimize performance we can check only REGULAR objects
 			// (only they can be locked), but it's more reliable.
-			if objectLocked(curEpoch, curForLocked, id) {
+			if objectLocked(curEpoch, curTime, curForLocked, id) {
 				expKey, _ = cur.Next()
 				continue
 			}
@@ -158,12 +176,6 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 		}
 		return nil
 	})
-
-	if errors.Is(err, ErrInterruptIterator) {
-		err = nil
-	}
-
-	return err
 }
 
 func mkFilterPhysicalPrefix() []byte {

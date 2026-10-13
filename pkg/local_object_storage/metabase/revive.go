@@ -105,7 +105,7 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 			// object marked with GC mark
 			res.setStatusGarbage()
 		case statusTombstoned:
-			_, tombOID := associatedWithTypedObject(0, metaCursor, addr.Object(), object.TypeTombstone)
+			_, tombOID := associatedWithTypedObject(0, 0, metaCursor, addr.Object(), object.TypeTombstone)
 			if tombOID.IsZero() {
 				return errors.New("reported as deleted, but no tombstone found")
 			}

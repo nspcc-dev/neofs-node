@@ -4,7 +4,9 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -192,6 +194,56 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("EC", testExistsEC)
+}
+
+func TestDB_ExpirationChainTime(t *testing.T) {
+	var clock chaintime.AtomicChainTimeProvider
+	clock.Set(99000)
+	db := newDB(t, meta.WithTimeSource(clock.Now))
+	obj := generateObject(t)
+	require.NoError(t, obj.SetExpirationTime(time.Unix(100, 0)))
+	require.NoError(t, db.Put(obj))
+	for _, ms := range []uint64{99000, 100000, 100999, 101000} {
+		clock.Set(ms)
+		exists, err := db.Exists(obj.Address(), false)
+		var expired []oid.Address
+		handler := func(addr oid.Address, _ object.Type) error {
+			expired = append(expired, addr)
+			return nil
+		}
+		require.NoError(t, db.IterateExpired(0, handler))
+		hdr, getErr := db.Get(obj.Address(), false)
+		var filters object.SearchFilters
+		filters.AddTypeFilter(object.MatchStringEqual, object.TypeRegular)
+		if ms < 101000 {
+			require.NoError(t, getErr)
+			require.Equal(t, obj.ExpirationTime(), hdr.ExpirationTime())
+			require.Empty(t, hdr.Attributes())
+			testSelect(t, db, obj.GetContainerID(), nil, obj.Address())
+			testSelect(t, db, obj.GetContainerID(), filters, obj.Address())
+			require.NoError(t, err)
+			require.True(t, exists)
+			require.Empty(t, expired)
+		} else {
+			require.ErrorIs(t, getErr, meta.ErrObjectIsExpired)
+			testSelect(t, db, obj.GetContainerID(), nil)
+			testSelect(t, db, obj.GetContainerID(), filters)
+			require.ErrorIs(t, db.Put(obj), meta.ErrObjectIsExpired)
+			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+			require.False(t, exists)
+			require.Equal(t, []oid.Address{obj.Address()}, expired)
+		}
+		exists, err = db.Exists(obj.Address(), true)
+		require.NoError(t, err)
+		require.True(t, exists)
+	}
+	_, _, err := db.Delete(obj.GetContainerID(), []oid.ID{obj.GetID()})
+	require.NoError(t, err)
+	handler := func(oid.Address, object.Type) error {
+		t.Fatal("expiration index must be removed along with the object")
+		return nil
+	}
+	require.NoError(t, db.IterateExpired(0, handler))
 }
 
 func BenchmarkExists(b *testing.B) {
