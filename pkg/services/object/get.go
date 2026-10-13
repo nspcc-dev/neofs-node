@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"sync"
 
@@ -916,16 +917,31 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 }
 
 func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool, validUntil uint64) (*[]byte, error) {
-	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
-	partIdxStr := strconv.Itoa(partInfo.Index)
-	xHdrs := []string{
-		object.AttributeECRuleIndex, ruleIdxStr,
-		object.AttributeECPartIndex, partIdxStr,
-	}
-
 	remoteServerAPIVersion = chooseAPIVersionForNewRequest(remoteServerAPIVersion)
 
-	bodyLen := protoobject.CalculateGetRequestBodyLength(false, rngOff, rngLen, payloadOnly, nil, nil, 0)
+	var ecPartIDLen int
+	var writeECPartIDFn func([]byte) int
+	var xHdrs []string
+	if remoteServerAPIVersion.Compare(version.New(2, 28)) >= 0 {
+		if partInfo.RuleIndex > math.MaxUint32 {
+			return nil, fmt.Errorf("rule index overflows uint32: %d", partInfo.RuleIndex)
+		}
+		if partInfo.Index > math.MaxUint32 {
+			return nil, fmt.Errorf("part index overflows uint32: %d", partInfo.Index)
+		}
+		partIdx := new(uint32(partInfo.Index))
+		ecPartIDLen = protoobject.CalculateECPartIDLength(uint32(partInfo.RuleIndex), partIdx)
+		writeECPartIDFn = func(buf []byte) int {
+			return protoobject.WriteECPartID(buf, uint32(partInfo.RuleIndex), partIdx)
+		}
+	} else {
+		xHdrs = []string{
+			object.AttributeECRuleIndex, strconv.Itoa(partInfo.RuleIndex),
+			object.AttributeECPartIndex, strconv.Itoa(partInfo.Index),
+		}
+	}
+
+	bodyLen := protoobject.CalculateGetRequestBodyLength(false, rngOff, rngLen, payloadOnly, nil, nil, ecPartIDLen)
 
 	var sigCount int
 	if needSign {
@@ -933,7 +949,7 @@ func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion vers
 	}
 
 	writeBodyFn := func(buf []byte) int {
-		return protoobject.WriteGetRequestBody(buf, cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil, 0, nil)
+		return protoobject.WriteGetRequestBody(buf, cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil, ecPartIDLen, writeECPartIDFn)
 	}
 
 	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, xHdrs, validUntil)

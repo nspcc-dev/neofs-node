@@ -192,7 +192,7 @@ type cfg struct {
 	//  interface because it cannot be fully overridden due to private fields. Consider exporting.
 	conns interface {
 		InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID,
-			local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error)
+			local, verifyID bool, rng *object.Range, ecPartID iec.PartInfo) (object.Object, io.ReadCloser, error)
 		Head(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey, cnr cid.ID, id oid.ID) (object.Object, error)
 	}
 

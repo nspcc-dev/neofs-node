@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -292,14 +294,21 @@ func (w *directChildWriter) ValidateHeader(obj *object.Object) error {
 }
 
 func (c *clientCacheWrapper) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, local, verifyID bool, rng *object.Range, ecPartID iec.PartInfo) (object.Object, io.ReadCloser, error) {
+	if ecPartID.RuleIndex > math.MaxUint32 {
+		return object.Object{}, nil, fmt.Errorf("rule index overflows uint32: %d", ecPartID.RuleIndex)
+	}
+	if ecPartID.Index > math.MaxUint32 {
+		return object.Object{}, nil, fmt.Errorf("part index overflows uint32: %d", ecPartID.Index)
+	}
+
 	conn, err := c.connect(ctx, node)
 	if err != nil {
 		return object.Object{}, nil, err
 	}
 
 	var opts client.PrmObjectGet
-	opts.WithXHeaders(xs...) //nolint:staticcheck
+	opts.SelectECPart(uint32(ecPartID.RuleIndex), uint32(ecPartID.Index))
 	if local {
 		opts.MarkLocal()
 	}

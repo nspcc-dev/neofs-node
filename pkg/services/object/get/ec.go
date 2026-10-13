@@ -643,14 +643,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 		return object.Object{}, nil, fmt.Errorf("get local SN private key: %w", err)
 	}
 
-	ruleIdxAttr := strconv.Itoa(pi.RuleIndex)
-	partIdxAttr := strconv.Itoa(pi.Index)
-
-	// TODO: this must be stated in https://github.com/nspcc-dev/neofs-api
-	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, true, false, nil, []string{
-		object.AttributeECRuleIndex, ruleIdxAttr,
-		object.AttributeECPartIndex, partIdxAttr,
-	})
+	hdr, rc, err := s.conns.InitGetObjectStream(ctx, node, *localNodeKey, cnr, parent, true, false, nil, pi)
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
 		return object.Object{}, nil, fmt.Errorf("get object from remote SN: %w", err)
@@ -676,7 +669,7 @@ func (s *Service) getECPartFromNode(ctx context.Context, cnr cid.ID, parent oid.
 		return hdr, rc, nil
 	}
 
-	if err = checkECAttributesInReceivedObject(hdr, ruleIdxAttr, partIdxAttr); err != nil {
+	if err = checkECAttributesInReceivedObject(hdr, pi.RuleIndex, pi.Index); err != nil {
 		return object.Object{}, nil, err // notice defer
 	}
 
@@ -1344,17 +1337,11 @@ func (s *Service) getECPartRangeStream(ctx context.Context, cnr cid.ID, parent o
 }
 
 func (s *Service) getECPartRangeFromNode(ctx context.Context, cnr cid.ID, parent oid.ID, off, ln uint64, pi iec.PartInfo, localNodeKey ecdsa.PrivateKey, node netmap.NodeInfo) (io.ReadCloser, error) {
-	ruleIdxAttr := strconv.Itoa(pi.RuleIndex)
-	partIdxAttr := strconv.Itoa(pi.Index)
-
 	var rng object.Range
 	rng.SetOffset(off)
 	rng.SetLength(ln)
 
-	_, rc, err := s.conns.InitGetObjectStream(ctx, node, localNodeKey, cnr, parent, true, false, &rng, []string{
-		object.AttributeECRuleIndex, ruleIdxAttr,
-		object.AttributeECPartIndex, partIdxAttr,
-	})
+	_, rc, err := s.conns.InitGetObjectStream(ctx, node, localNodeKey, cnr, parent, true, false, &rng, pi)
 	if err != nil {
 		err = igrpc.ConvertContextStatus(err)
 		return nil, fmt.Errorf("get range from remote node: %w", err)
@@ -1779,7 +1766,7 @@ func checkECPartIdx(bACL acl.Basic, ecRules []netmap.ECRule, ruleIdx, partIdx in
 	return nil
 }
 
-func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx string) error {
+func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx int) error {
 	var found uint8
 	const expected = 2
 
@@ -1789,12 +1776,12 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 		default:
 			continue
 		case object.AttributeECRuleIndex:
-			if attrs[i].Value() != ruleIdx {
-				return fmt.Errorf("wrong EC rule index attribute in received object for part: requested %q, got %q", ruleIdx, attrs[i].Value())
+			if attrs[i].Value() != strconv.Itoa(ruleIdx) {
+				return fmt.Errorf("wrong EC rule index attribute in received object for part: requested %d, got %q", ruleIdx, attrs[i].Value())
 			}
 		case object.AttributeECPartIndex:
-			if attrs[i].Value() != partIdx {
-				return fmt.Errorf("wrong EC part index attribute in received object for part: requested %q, got %q", partIdx, attrs[i].Value())
+			if attrs[i].Value() != strconv.Itoa(partIdx) {
+				return fmt.Errorf("wrong EC part index attribute in received object for part: requested %d, got %q", partIdx, attrs[i].Value())
 			}
 		}
 
