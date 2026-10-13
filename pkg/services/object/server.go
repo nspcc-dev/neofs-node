@@ -904,6 +904,13 @@ func convertHeadPrm(cnr container.Container, req *protoobject.HeadRequest, resp 
 	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.HeadPrm
+
+	var err error
+	p.ECPartSelector, err = convertECPartID(req.Body.EcPartId)
+	if err != nil {
+		return getsvc.HeadPrm{}, err
+	}
+
 	p.SetCommonParameters(cp)
 	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithContainer(cnr)
@@ -1407,6 +1414,13 @@ func convertGetPrm(cnr container.Container, req *protoobject.GetRequest, stream 
 	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.Prm
+
+	var err error
+	p.ECPartSelector, err = convertECPartID(body.EcPartId)
+	if err != nil {
+		return getsvc.Prm{}, err
+	}
+
 	p.SetCommonParameters(cp)
 	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithContainer(cnr)
@@ -2500,4 +2514,28 @@ func checkOrderedHeaderProtobufAgainstID(b []byte, id oid.ID) error {
 	}
 
 	return nil
+}
+
+func convertECPartID(ecPartID *protoobject.ECPartID) (*iec.PartInfo, error) {
+	if ecPartID == nil {
+		return nil, nil
+	}
+
+	partIdx := -1
+	if ecPartID.PartIndex != nil {
+		if *ecPartID.PartIndex > netmap.MaxTotalECParts {
+			return nil, fmt.Errorf("EC part index overflows policy limit: %d > %d", *ecPartID.PartIndex, netmap.MaxTotalECParts)
+		}
+
+		partIdx = int(*ecPartID.PartIndex)
+	}
+
+	if ecPartID.RuleIndex > netmap.MaxECRules {
+		return nil, fmt.Errorf("EC rule index overflows policy limit: %d > %d", ecPartID.RuleIndex, netmap.MaxECRules)
+	}
+
+	return &iec.PartInfo{
+		RuleIndex: int(ecPartID.RuleIndex),
+		Index:     partIdx,
+	}, nil
 }

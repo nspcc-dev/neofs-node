@@ -110,7 +110,7 @@ func writeObjectHeader(dst ObjectWriter, hdr *object.Object, payloadOnly bool) e
 // Returns ErrNotFound if the header was not received for the call.
 // Returns SplitInfoError if object is virtual and raw flag is set.
 func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
-	pi, err := checkECPartInfoRequest(prm.common.XHeaders(), prm.container)
+	pi, err := checkECPartInfoHeadRequest(prm)
 	if err != nil {
 		// TODO: track https://github.com/nspcc-dev/neofs-api/issues/269.
 		return fmt.Errorf("invalid request: %w", err)

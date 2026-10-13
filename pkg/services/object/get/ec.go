@@ -19,8 +19,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -1635,82 +1635,59 @@ func findECIndexes(xHdrs []string) (string, string) {
 }
 
 // returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.
-func checkECPartInfoRequest(xHdrs []string, cnr container.Container) (iec.PartInfo, error) {
-	var (
-		res                    iec.PartInfo
-		ruleIdxStr, partIdxStr = findECIndexes(xHdrs)
-		bAcl                   = cnr.BasicACL()
-	)
+func checkECPartInfoHeadRequest(prm HeadPrm) (iec.PartInfo, error) {
+	res, err := getECPartInfoFromXHeaders(prm.common, prm.ECPartSelector)
+	if err != nil {
+		return iec.PartInfo{}, err
+	}
 
-	if ruleIdxStr == "" && partIdxStr == "" {
-		res.RuleIndex = -1
+	if (res.RuleIndex < 0) != (res.Index < 0) {
+		return res, errors.New("EC part and rule indexes must be set together")
+	}
+
+	if res.RuleIndex < 0 {
 		return res, nil
 	}
-	var ecRules = cnr.PlacementPolicy().ECRules()
 
-	if (ruleIdxStr == "") != (partIdxStr == "") {
-		return res, fmt.Errorf("%s and %s X-headers must be set together", object.AttributeECRuleIndex, object.AttributeECPartIndex)
-	}
-
-	// TODO: state limits in https://github.com/nspcc-dev/neofs-api. Share consts for them.
-	ruleIdx, err := strconv.ParseUint(ruleIdxStr, 10, 8)
-	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECRuleIndex, err)
-	}
-	res.RuleIndex = int(ruleIdx)
+	var ecRules = prm.container.PlacementPolicy().ECRules()
+	var bAcl = prm.container.BasicACL()
 
 	err = checkECRuleIdx(bAcl, ecRules, res.RuleIndex)
 	if err != nil {
 		return res, err
 	}
 
-	partIdx, err := strconv.ParseUint(partIdxStr, 10, 8)
-	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECPartIndex, err)
-	}
-	res.Index = int(partIdx)
-
-	return res, checkECPartIdx(bAcl, cnr.PlacementPolicy().ECRules(), res.RuleIndex, res.Index)
+	return res, checkECPartIdx(bAcl, ecRules, res.RuleIndex, res.Index)
 }
 
 // returns [iec.PartInfo.RuleIndex] = -1 if request is not for particular EC part.
 func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error) {
-	var (
-		res                    iec.PartInfo
-		xHdrs                  = prm.common.XHeaders()
-		cnr                    = prm.container
-		ruleIdxStr, partIdxStr = findECIndexes(xHdrs)
-	)
+	res, err := getECPartInfoFromXHeaders(prm.common, prm.ECPartSelector)
+	if err != nil {
+		return iec.PartInfo{}, err
+	}
 
-	if ruleIdxStr == "" {
-		if partIdxStr != "" {
-			return res, fmt.Errorf("%s X-header must be set in a correct EC part GET request (%s X-header found: %s)",
-				object.AttributeECRuleIndex, object.AttributeECPartIndex, partIdxStr)
+	if res.RuleIndex < 0 {
+		if res.Index >= 0 {
+			return res, fmt.Errorf("EC rule index must be set in a correct EC part GET request (part index found: %d)", res.Index)
 		}
 
-		res.RuleIndex = -1
 		return res, nil
-	} else if partIdxStr == "" && (prm.payloadRange.IsSet() || prm.payloadOnly) {
+	} else if res.Index < 0 && (prm.payloadRange.IsSet() || prm.payloadOnly) {
 		return res, fmt.Errorf("request must have %s header for EC objects", object.AttributeECPartIndex)
 	}
 
 	var (
-		bACL    = cnr.BasicACL()
-		ecRules = cnr.PlacementPolicy().ECRules()
+		bACL    = prm.container.BasicACL()
+		ecRules = prm.container.PlacementPolicy().ECRules()
 	)
 
-	// TODO: state limits in https://github.com/nspcc-dev/neofs-api. Share consts for them.
-	ruleIdx, err := strconv.ParseUint(ruleIdxStr, 10, 8)
-	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECRuleIndex, err)
-	}
-	res.RuleIndex = int(ruleIdx)
 	err = checkECRuleIdx(bACL, ecRules, res.RuleIndex)
 	if err != nil {
 		return res, err
 	}
 
-	if partIdxStr == "" {
+	if res.Index < 0 {
 		nodes, repList, ecList, err := neofs.GetNodesForObject(prm.addr)
 		if err != nil {
 			return res, fmt.Errorf("missing %s and calculating node's EC part finished with error: %w", object.AttributeECPartIndex, err)
@@ -1731,15 +1708,49 @@ func checkECPartInfoGetRequest(neofs NeoFSNetwork, prm Prm) (iec.PartInfo, error
 		return res, nil
 	}
 
-	partIdx, err := strconv.ParseUint(partIdxStr, 10, 8)
-	if err != nil {
-		return res, fmt.Errorf("invalid %s X-header: %w", object.AttributeECPartIndex, err)
-	}
-	res.Index = int(partIdx)
-
 	err = checkECPartIdx(bACL, ecRules, res.RuleIndex, res.Index)
 	if err != nil {
 		return res, err
+	}
+
+	return res, nil
+}
+
+func getECPartInfoFromXHeaders(p *util.CommonPrm, fld *iec.PartInfo) (iec.PartInfo, error) {
+	ruleIdxStr, partIdxStr := findECIndexes(p.XHeaders())
+	if ruleIdxStr == "" && partIdxStr == "" {
+		if fld != nil {
+			return *fld, nil
+		}
+		return iec.PartInfo{RuleIndex: -1, Index: -1}, nil
+	}
+
+	if fld != nil && fld.RuleIndex >= 0 {
+		return iec.PartInfo{}, newECPartFieldAndXHeadersError()
+	}
+
+	var res iec.PartInfo
+
+	if ruleIdxStr != "" {
+		ruleIdx, err := strconv.ParseUint(ruleIdxStr, 10, 8)
+		if err != nil {
+			return iec.PartInfo{}, fmt.Errorf("invalid %s X-header: %w", object.AttributeECRuleIndex, err)
+		}
+
+		res.RuleIndex = int(ruleIdx)
+	} else {
+		res.RuleIndex = -1
+	}
+
+	if partIdxStr != "" {
+		partIdx, err := strconv.ParseUint(partIdxStr, 10, 8)
+		if err != nil {
+			return iec.PartInfo{}, fmt.Errorf("invalid %s X-header: %w", object.AttributeECPartIndex, err)
+		}
+
+		res.Index = int(partIdx)
+	} else {
+		res.Index = -1
 	}
 
 	return res, nil
@@ -1808,4 +1819,10 @@ func calcECRangeBufferLen(fullPartLen uint64, firstIdx int, firstOff uint64, las
 	}
 
 	return min(bufLen, streamChunkSize)
+}
+
+func newECPartFieldAndXHeadersError() error {
+	var e apistatus.BadRequest
+	e.SetMessage("EC part ID is specified by both field and X-headers")
+	return e
 }

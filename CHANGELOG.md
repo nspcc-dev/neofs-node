@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Request time expiration check by SNs (#4219)
 - Time-based object expiration (#4224)
+- Support for GET/HEAD EC part ID field by SN (#4222)
 
 ### Fixed
 - `AccountingService.Balance` server panic (#4212)
@@ -26,7 +27,7 @@ Changelog for NeoFS Node
 - Deprecated homomorphic hashing setting from CLI netinfo output (#4225)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261014115254-2a425aa9520f` (#4194, #4219, #4228, #4224)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261016090445-00254f6a3b8b` (#4194, #4219, #4228, #4224, #4222)
 
 ### Updating from v0.57.0
 This version no longer supports compressed objects in FSTree, please use

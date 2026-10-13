@@ -42,12 +42,12 @@ func TestService_Get_EC_Part(t *testing.T) {
 			{name: "part idx only", xs: []string{
 				"__NEOFS__EC_PART_IDX", "0",
 			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX X-header must be set in a correct EC part GET request")
+				require.ErrorContains(t, err, "EC rule index must be set in a correct EC part GET request")
 			}},
 			{name: "empty rule idx", xs: []string{
 				"__NEOFS__EC_RULE_IDX", "", "__NEOFS__EC_PART_IDX", "0",
 			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX X-header must be set in a correct EC part GET request")
+				require.ErrorContains(t, err, "EC rule index must be set in a correct EC part GET request")
 			}},
 			{name: "non-numeric rule idx", xs: []string{
 				"__NEOFS__EC_RULE_IDX", "foo", "__NEOFS__EC_PART_IDX", "0",
