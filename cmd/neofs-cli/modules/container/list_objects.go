@@ -76,7 +76,7 @@ var listContainerObjectsCmd = &cobra.Command{
 		if bt != nil {
 			opts.WithBearerToken(*bt)
 		}
-		opts.WithXHeaders(objectCli.ParseXHeaders(cmd)...)
+		opts.WithXHeaders(objectCli.ParseXHeaders(cmd)...) //nolint:staticcheck
 
 		var res []client.SearchResultItem
 		var cursor string

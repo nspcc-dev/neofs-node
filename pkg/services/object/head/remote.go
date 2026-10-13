@@ -96,7 +96,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 
 	var opts client.PrmObjectHead
 	opts.MarkLocal()
-	opts.WithXHeaders(prm.xs...)
+	opts.WithXHeaders(prm.xs...) //nolint:staticcheck
 	if !prm.checkOID {
 		opts.SkipChecksumVerification()
 	}
@@ -124,7 +124,7 @@ func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr c
 	var opts client.PrmObjectGet
 	opts.MarkLocal()
 	opts.SkipChecksumVerification() // TODO: see same place in GET service
-	opts.WithXHeaders(xs...)
+	opts.WithXHeaders(xs...)        //nolint:staticcheck
 	opts.MarkPayloadOnly()
 	opts.SetRange(off, ln)
 
