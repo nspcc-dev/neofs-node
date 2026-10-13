@@ -1757,7 +1757,7 @@ func (x *mockAPIConnections) setHeadResult(node netmap.NodeInfo, addr oid.Addres
 	x.head[newConnKey(node, addr)] = err
 }
 
-func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo, addr oid.Address, _ bool, _ []string) (object.Object, error) {
+func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo, addr oid.Address, _ bool, _ iec.PartInfo) (object.Object, error) {
 	x.lock.RLock()
 	defer x.lock.RUnlock()
 	v, ok := x.head[newConnKey(node, addr)]
@@ -1767,7 +1767,7 @@ func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo,
 	return object.Object{}, v
 }
 
-func (x *mockAPIConnections) GetRange(context.Context, netmap.NodeInfo, cid.ID, oid.ID, uint64, uint64, []string) (io.ReadCloser, error) {
+func (x *mockAPIConnections) GetRange(context.Context, netmap.NodeInfo, cid.ID, oid.ID, uint64, uint64, iec.PartInfo) (io.ReadCloser, error) {
 	panic("unimplemented")
 }
 

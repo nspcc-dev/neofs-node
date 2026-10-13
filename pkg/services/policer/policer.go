@@ -38,8 +38,8 @@ type localStorage interface {
 
 // interface of [headsvc.RemoteHeader] used by [Policer] for overriding in tests.
 type apiConnections interface {
-	headObject(context.Context, netmap.NodeInfo, oid.Address, bool, []string) (object.Object, error)
-	GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, off, ln uint64, xs []string) (io.ReadCloser, error)
+	headObject(context.Context, netmap.NodeInfo, oid.Address, bool, iec.PartInfo) (object.Object, error)
+	GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, off, ln uint64, ecPartSelector iec.PartInfo) (io.ReadCloser, error)
 }
 
 // Policer represents the utility that verifies
@@ -215,11 +215,11 @@ type remoteHeader struct {
 	*headsvc.RemoteHeader
 }
 
-func (x *remoteHeader) headObject(ctx context.Context, node netmap.NodeInfo, addr oid.Address, checkOID bool, xs []string) (object.Object, error) {
+func (x *remoteHeader) headObject(ctx context.Context, node netmap.NodeInfo, addr oid.Address, checkOID bool, ecPartSelector iec.PartInfo) (object.Object, error) {
 	var p headsvc.RemoteHeadPrm
 	p.WithNodeInfo(node)
 	p.WithObjectAddress(addr)
-	p.WithXHeaders(xs)
+	p.WithECPartSelector(ecPartSelector)
 	p.WithIDVerification(checkOID)
 	hdr, err := x.Head(ctx, &p)
 	if err != nil {

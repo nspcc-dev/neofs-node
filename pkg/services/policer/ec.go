@@ -73,7 +73,7 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 		}
 
 		callCtx, cancel := context.WithTimeout(ctx, headTimeout)
-		_, err := p.apiConns.headObject(callCtx, nodes[i], addr, true, nil)
+		_, err := p.apiConns.headObject(callCtx, nodes[i], addr, true, iec.PartInfo{RuleIndex: -1})
 		cancel()
 
 		if err == nil {
@@ -180,7 +180,6 @@ func (p *Policer) checkECParts(ctx context.Context, cnr cid.ID, parent oid.ID, r
 	var parentHdr object.Object
 	var partLen uint64
 	mPartID := make(map[int]oid.ID, totalParts)
-	ruleIdxAttr := strconv.Itoa(ruleIdx)
 	headTimeout := p.getHeadTimeout()
 	sortedNodes := sortedNodeLists[len(repRules)+ruleIdx]
 
@@ -191,18 +190,13 @@ headNextPart:
 			continue
 		}
 
-		var partIdxAttr string
-
 		for nodeIdx := range iec.NodeSequenceForPart(partIdx, totalParts, len(sortedNodes)) {
 			var hdr object.Object
 			local := p.network.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey())
 			if local {
 				hdr, err = p.localStorage.HeadECPart(ctx, cnr, parent, iec.PartInfo{RuleIndex: ruleIdx, Index: partIdx})
 			} else {
-				if partIdxAttr == "" {
-					partIdxAttr = strconv.Itoa(partIdx)
-				}
-				hdr, err = p.headECPart(ctx, headTimeout, sortedNodes[nodeIdx], cnr, parent, ruleIdxAttr, partIdxAttr)
+				hdr, err = p.headECPart(ctx, headTimeout, sortedNodes[nodeIdx], cnr, parent, ruleIdx, partIdx)
 			}
 			if err == nil {
 				if parentHdr.GetID().IsZero() {
@@ -347,9 +341,9 @@ getNextPart:
 
 			// TODO: this is the 1st place where we known IDs of EC parts in advance.
 			//  Consider supporting direct requests of EC parts by ID, they are more lightweight.
-			rc, err := p.apiConns.GetRange(ctx, sortedNodes[nodeIdx], cnr, parent, off, ln, []string{
-				object.AttributeECRuleIndex, ruleIdxAttr,
-				object.AttributeECPartIndex, partIdxAttr,
+			rc, err := p.apiConns.GetRange(ctx, sortedNodes[nodeIdx], cnr, parent, off, ln, iec.PartInfo{
+				RuleIndex: ruleIdx,
+				Index:     partIdx,
 			})
 			if err != nil {
 				p.log.Info("failed to open RANGE stream for EC part from remote node",
@@ -405,13 +399,13 @@ getNextPart:
 
 // returns part ID and parent header.
 func (p *Policer) headECPart(ctx context.Context, timeout time.Duration, node netmap.NodeInfo, cnr cid.ID, parent oid.ID,
-	ruleIdx, partIdx string) (object.Object, error) {
+	ruleIdx, partIdx int) (object.Object, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	hdr, err := p.apiConns.headObject(ctx, node, oid.NewAddress(cnr, parent), false, []string{
-		object.AttributeECRuleIndex, ruleIdx,
-		object.AttributeECPartIndex, partIdx,
+	hdr, err := p.apiConns.headObject(ctx, node, oid.NewAddress(cnr, parent), false, iec.PartInfo{
+		RuleIndex: ruleIdx,
+		Index:     partIdx,
 	})
 	if err != nil {
 		return object.Object{}, err
@@ -507,7 +501,7 @@ func (p *Policer) recreateECPart(ctx context.Context, parent object.Object, rule
 	}
 }
 
-func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx string) error {
+func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx int) error {
 	// copy-paste from GET service
 	var found uint8
 	const expected = 2
@@ -518,12 +512,12 @@ func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx strin
 		default:
 			continue
 		case object.AttributeECRuleIndex:
-			if attrs[i].Value() != ruleIdx {
-				return fmt.Errorf("wrong EC rule index attribute in received object for part: requested %q, got %q", ruleIdx, attrs[i].Value())
+			if attrs[i].Value() != strconv.Itoa(ruleIdx) {
+				return fmt.Errorf("wrong EC rule index attribute in received object for part: requested %v, got %q", ruleIdx, attrs[i].Value())
 			}
 		case object.AttributeECPartIndex:
-			if attrs[i].Value() != partIdx {
-				return fmt.Errorf("wrong EC part index attribute in received object for part: requested %q, got %q", partIdx, attrs[i].Value())
+			if attrs[i].Value() != strconv.Itoa(partIdx) {
+				return fmt.Errorf("wrong EC part index attribute in received object for part: requested %v, got %q", partIdx, attrs[i].Value())
 			}
 		}
 
