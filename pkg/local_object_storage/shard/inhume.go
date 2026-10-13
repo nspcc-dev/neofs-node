@@ -17,7 +17,8 @@ var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 // mark that overrides any restrictions imposed on object deletion (to be used
 // by control service and other manual intervention cases). Otherwise similar
 // to [Shard.Inhume], but doesn't need a tombstone. Redundant objects remain
-// readable until they are physically removed by GC.
+// readable until they are physically removed by GC. Redundant marks are queued
+// in memory and persisted only when the shard is closed or leaves read-write mode.
 func (s *Shard) MarkGarbage(cnr cid.ID, addrs []oid.ID, mark meta.GarbageMark) error {
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -28,6 +29,15 @@ func (s *Shard) MarkGarbage(cnr cid.ID, addrs []oid.ID, mark meta.GarbageMark) e
 		return ErrDegradedMode
 	}
 
+	if mark == meta.GarbageMarkRedundant {
+		return s.redundant.add(cnr, addrs)
+	}
+
+	return s.markGarbage(cnr, addrs, mark)
+}
+
+// markGarbage writes a durable mark and updates counters. The caller holds s.m.
+func (s *Shard) markGarbage(cnr cid.ID, addrs []oid.ID, mark meta.GarbageMark) error {
 	inhumed, err := s.metaBase.MarkGarbage(cnr, addrs, mark)
 	if err != nil {
 		s.log.Debug("could not mark object to delete in metabase",

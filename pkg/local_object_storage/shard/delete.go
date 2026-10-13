@@ -81,5 +81,9 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 		}
 	}
 
+	// Requested IDs must be forgotten even if the container was already absent;
+	// res also includes any additionally removed split/EC parts.
+	s.redundant.remove(cnr, addrs)
+	s.redundant.remove(cnr, res)
 	return nil
 }

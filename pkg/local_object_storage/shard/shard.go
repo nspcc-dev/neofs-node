@@ -28,6 +28,8 @@ type Shard struct {
 
 	gc *gc
 
+	redundant redundantQueue
+
 	writeCache writecache.Cache
 
 	metaBase *meta.DB
@@ -138,6 +140,7 @@ func New(opts ...Option) *Shard {
 		cfg:           c,
 		metaBase:      mb,
 		metaBaseIface: mb,
+		redundant:     redundantQueue{pending: make(map[cid.ID][]oid.ID)},
 	}
 
 	reportFunc := func(msg string, err error) {
