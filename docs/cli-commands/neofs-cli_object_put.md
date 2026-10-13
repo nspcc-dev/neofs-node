@@ -22,6 +22,7 @@ neofs-cli object put [flags]
       --disable-filename               Do not set well-known filename attribute
       --disable-timestamp              Do not set well-known timestamp attribute
   -e, --expire-at uint                 The last active epoch in the life of the object
+      --expire-at-time string          Expiration time in RFC3339 format
       --file string                    File with object payload
   -g, --generate-key                   Generate new private key
   -h, --help                           help for put

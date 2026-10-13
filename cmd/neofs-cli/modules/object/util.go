@@ -50,6 +50,24 @@ type RPCParameters interface {
 	WithXHeaders(...string)
 }
 
+func parseExpirationTime(cmd *cobra.Command) (time.Time, error) {
+	if !cmd.Flags().Changed(commonflags.ExpireAtTime) {
+		return time.Time{}, nil
+	}
+	raw, err := cmd.Flags().GetString(commonflags.ExpireAtTime)
+	if err != nil {
+		return time.Time{}, err
+	}
+	exp, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid --%s: %w", commonflags.ExpireAtTime, err)
+	}
+	if exp.Unix() <= 0 {
+		return time.Time{}, fmt.Errorf("--%s must have a positive Unix timestamp", commonflags.ExpireAtTime)
+	}
+	return exp, nil
+}
+
 // InitBearer adds bearer token flag to a command.
 func InitBearer(cmd *cobra.Command) {
 	flags := cmd.Flags()

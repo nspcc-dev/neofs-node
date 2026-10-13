@@ -17,6 +17,7 @@ neofs-cli object lock [flags]
       --bearer string                  File with signed JSON or binary encoded bearer token
       --cid string                     Container ID.
   -e, --expire-at uint                 The last active epoch for the lock
+      --expire-at-time string          Expiration time in RFC3339 format
   -g, --generate-key                   Generate new private key
   -h, --help                           help for lock
       --lifetime uint                  Lock lifetime

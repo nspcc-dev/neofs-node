@@ -56,13 +56,14 @@ func initObjectPutCmd() {
 	flags.Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
 	flags.Uint64VarP(&putExpiredOn, commonflags.ExpireAt, "e", 0, "The last active epoch in the life of the object")
 	flags.Uint64P(commonflags.Lifetime, "l", 0, "Number of epochs for object to stay valid")
+	flags.String(commonflags.ExpireAtTime, "", "Expiration time in RFC3339 format")
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 	flags.Uint64(commonflags.ContainerRevisionFlag, 0, commonflags.ContainerRevisionFlagUsage)
 
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 	flags.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
 	flags.StringSlice(commonflags.SessionSubjectNNSFlag, nil, commonflags.SessionSubjectNNSFlagUsage)
-	objectPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
+	objectPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime, commonflags.ExpireAtTime)
 }
 
 func putObject(cmd *cobra.Command, _ []string) error {
@@ -71,6 +72,10 @@ func putObject(cmd *cobra.Command, _ []string) error {
 
 	if !binary && cidVal == "" {
 		return fmt.Errorf("required flag \"%s\" not set", commonflags.CIDFlag)
+	}
+	expTime, err := parseExpirationTime(cmd)
+	if err != nil {
+		return err
 	}
 	pk, err := key.GetOrGenerate(cmd)
 	if err != nil {
@@ -123,6 +128,11 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	obj.SetContainerID(cnr)
 	obj.SetOwner(ownerID)
 	obj.SetAttributes(attrs...)
+	if !expTime.IsZero() {
+		if err := obj.SetExpirationTime(expTime); err != nil {
+			return err
+		}
+	}
 
 	var prm client.PrmObjectPutInit
 	if err := attachContainerRevision(cmd, &prm); err != nil {
@@ -245,6 +255,9 @@ func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribu
 		}
 
 		if k == object.AttributeExpirationEpoch { //nolint:staticcheck
+			if cmd.Flags().Changed(commonflags.ExpireAtTime) {
+				return nil, fmt.Errorf("expiration epoch attribute cannot be used with --%s", commonflags.ExpireAtTime)
+			}
 			expAttrFound = true
 
 			if expiresOn > 0 && v != expAttrValue {

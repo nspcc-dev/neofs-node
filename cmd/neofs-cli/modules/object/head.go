@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -169,6 +170,9 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 	printContainerID(cmd, obj.GetContainerID)
 	cmd.Printf("Owner: %s\n", obj.Owner())
 	cmd.Printf("CreatedAt: %d\n", obj.CreationEpoch())
+	if exp := obj.ExpirationTime(); !exp.IsZero() {
+		cmd.Printf("ExpirationTime: %s (%d)\n", exp.UTC().Format(time.RFC3339), exp.Unix())
+	}
 	cmd.Printf("Size: %d\n", obj.PayloadSize())
 	common.PrintChecksum(cmd, "HomoHash", obj.PayloadHomomorphicHash) //nolint:staticcheck // old objects may still have it
 	common.PrintChecksum(cmd, "Checksum", obj.PayloadChecksum)
