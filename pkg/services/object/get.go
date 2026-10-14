@@ -477,7 +477,7 @@ func (x *getECTransport) CopyLocalECPartRange(ctx context.Context, storage *engi
 	return ln, nil
 }
 
-func (x *getECTransport) initGetPartRequest(needSign bool, remoteServerAPIVersion version.Version, ruleIdx int) (*[]byte, error) {
+func (x *getECTransport) initGetPartRequest(needSign bool, remoteServerAPIVersion version.Version, validUntil uint64, ruleIdx int) (*[]byte, error) {
 	var reqBufPtr **[]byte
 	var reqRuleIdxPtr *int
 	if needSign {
@@ -498,7 +498,7 @@ func (x *getECTransport) initGetPartRequest(needSign bool, remoteServerAPIVersio
 	}
 
 	var err error
-	*reqBufPtr, err = x.server.makeGetECPartRequest(needSign, remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, 0, 0, false)
+	*reqBufPtr, err = x.server.makeGetECPartRequest(needSign, remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, 0, 0, false, validUntil)
 	if err != nil {
 		return nil, fmt.Errorf("make GET request: %w", err)
 	}
@@ -521,8 +521,9 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx con
 	needSign := !clientcore.IsMutuallyAuthenticated(conn)
 
 	err := conn.ForAnyGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		requestValidUntil := validUntilTime(ctx, connAPIVersion)
 		if !copiedHdr {
-			req, err := x.initGetPartRequest(needSign, connAPIVersion, ruleIdx)
+			req, err := x.initGetPartRequest(needSign, connAPIVersion, requestValidUntil, ruleIdx)
 			if err != nil {
 				return err
 			}
@@ -550,7 +551,7 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx con
 
 		leftPartPld := partPldLen - copiedPartPld
 
-		rngReq, err := x.makeGetECPartRangeRequest(needSign, connAPIVersion, partInfo, copiedPartPld, leftPartPld)
+		rngReq, err := x.makeGetECPartRangeRequest(needSign, connAPIVersion, requestValidUntil, partInfo, copiedPartPld, leftPartPld)
 		if err != nil {
 			return err
 		}
@@ -881,7 +882,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 			reqLen = ln - copiedPld
 		}
 
-		request, err := x.makeGetECPartRangeRequest(needSign, connAPIVersion, partInfo, off+copiedPld, reqLen)
+		request, err := x.makeGetECPartRangeRequest(needSign, connAPIVersion, validUntilTime(ctx, connAPIVersion), partInfo, off+copiedPld, reqLen)
 		if err != nil {
 			return err
 		}
@@ -914,7 +915,7 @@ func (x *getECTransport) CopyRemoteECPartRange(ctx context.Context, conn clientc
 	return copiedPld, nil
 }
 
-func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool) (*[]byte, error) {
+func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion version.Version, cnr cid.ID, parent oid.ID, partInfo iec.PartInfo, rngOff, rngLen uint64, payloadOnly bool, validUntil uint64) (*[]byte, error) {
 	ruleIdxStr := strconv.Itoa(partInfo.RuleIndex)
 	partIdxStr := strconv.Itoa(partInfo.Index)
 	xHdrs := []string{
@@ -935,10 +936,10 @@ func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion vers
 		return protoobject.WriteGetRequestBody(buf, cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil)
 	}
 
-	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, xHdrs)
+	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, xHdrs, validUntil)
 }
 
-func (x *getECTransport) makeGetECPartRangeRequest(needSign bool, remoteServerAPIVersion version.Version, partInfo iec.PartInfo, off, ln uint64) (*[]byte, error) {
+func (x *getECTransport) makeGetECPartRangeRequest(needSign bool, remoteServerAPIVersion version.Version, validUntil uint64, partInfo iec.PartInfo, off, ln uint64) (*[]byte, error) {
 	x.getPartRangeRequestsMtx.RLock()
 	req := x.getPartRangeRequests[partInfo]
 	x.getPartRangeRequestsMtx.RUnlock()
@@ -977,7 +978,7 @@ func (x *getECTransport) makeGetECPartRangeRequest(needSign bool, remoteServerAP
 	}
 
 	var err error
-	*reqBufPtr, err = x.server.makeGetECPartRequest(needSign, remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, off, ln, true)
+	*reqBufPtr, err = x.server.makeGetECPartRequest(needSign, remoteServerAPIVersion, x.requestContainer, x.requestObject, partInfo, off, ln, true, validUntil)
 	if err != nil {
 		// stream is closed by context cancellation
 		return nil, fmt.Errorf("make request: %w", err)

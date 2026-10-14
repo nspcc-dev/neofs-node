@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	protoaccounting "github.com/nspcc-dev/neofs-sdk-go/proto/accounting"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -28,8 +29,9 @@ type BalanceContract interface {
 
 type server struct {
 	protoaccounting.UnimplementedAccountingServiceServer
-	signer   *ecdsa.PrivateKey
-	contract BalanceContract
+	signer    *ecdsa.PrivateKey
+	contract  BalanceContract
+	chainTime timecore.Provider
 }
 
 // New provides protoaccounting.AccountingServiceServer based on specified
@@ -37,10 +39,11 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, c BalanceContract) protoaccounting.AccountingServiceServer {
+func New(s *ecdsa.PrivateKey, c BalanceContract, chainTime timecore.Provider) protoaccounting.AccountingServiceServer {
 	return &server{
-		signer:   s,
-		contract: c,
+		signer:    s,
+		contract:  c,
+		chainTime: chainTime,
 	}
 }
 
@@ -67,6 +70,9 @@ func (s *server) makeFailedBalanceResponse(err error, req *protoaccounting.Balan
 // [BalanceContract] and returns result in the response.
 func (s *server) Balance(_ context.Context, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeFailedBalanceResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
 		return s.makeFailedBalanceResponse(err, req)
 	}
 

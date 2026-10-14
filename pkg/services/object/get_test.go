@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
@@ -61,7 +62,7 @@ func TestServer_Get_Local(t *testing.T) {
 
 	reqInfoExt.getRequestInfo.Container.SetPlacementPolicy(policy)
 
-	srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+	srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, mtrc, aclChecker, reqInfoExt, nil, fixedFutureTimeProvider{}, zap.NewNop())
 
 	var anyAddr oid.Address
 	for _, pldLen := range []uint64{
@@ -270,7 +271,7 @@ func TestServer_Get_Remote(t *testing.T) {
 		)
 		handlers := getOnlyHandler{svc: handler}
 
-		srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+		srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil, fixedFutureTimeProvider{}, zap.NewNop())
 
 		t.Run("object", func(t *testing.T) {
 			const payloadLen = 100 << 10
@@ -447,8 +448,9 @@ func newUnsignedLocalGetRequest(ver version.Version, addr oid.Address) *protoobj
 			Address: addr.ProtoMessage(),
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
-			Version: ver.ProtoMessage(),
-			Ttl:     1,
+			Version:        ver.ProtoMessage(),
+			Ttl:            1,
+			ValidUntilTime: uint64(time.Now().Add(5 * time.Minute).UTC().Unix()),
 		},
 	}
 }

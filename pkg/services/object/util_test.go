@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -18,6 +19,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+type fixedFutureTimeProvider struct{}
+
+func (f fixedFutureTimeProvider) Now() time.Time {
+	return time.Now().Add(1 * time.Minute).UTC() // valid time for tests, that have valid_until_time 5 min after now
+}
 
 func newBlankMetaHeader() *protosession.ResponseMetaHeader {
 	return &protosession.ResponseMetaHeader{

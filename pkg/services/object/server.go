@@ -26,6 +26,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -241,11 +242,12 @@ type Server struct {
 	aclChecker  aclsvc.ACLChecker
 	reqInfoProc ACLInfoExtractor
 	nodeClients ClientConstructor
+	chainTime   timecore.Provider
 	log         *zap.Logger
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, log *zap.Logger) *Server {
+func New(hs Handlers, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs ClientConstructor, chainTime timecore.Provider, log *zap.Logger) *Server {
 	pubKeyBytes := (*keys.PublicKey)(&signer.PublicKey).Bytes()
 	if len(pubKeyBytes) != compressedECDSAPublicKeyLen {
 		panic(fmt.Sprintf("wrong public key len: expected %d, got %d", compressedECDSAPublicKeyLen, len(pubKeyBytes)))
@@ -262,6 +264,7 @@ func New(hs Handlers, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer
 		aclChecker:  ac,
 		reqInfoProc: rp,
 		nodeClients: cs,
+		chainTime:   chainTime,
 		log:         log,
 	}
 }
@@ -459,6 +462,10 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
+		if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+			err = s.sendStatusPutResponse(gStream, err, reqFirst)
+			return err
+		}
 
 		if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
@@ -587,6 +594,9 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+		return s.makeStatusDeleteResponse(err, req), nil
+	}
 
 	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
@@ -687,6 +697,9 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeStatusHeadResponse(req, err)
 	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+		return s.makeStatusHeadResponse(req, err)
+	}
 
 	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.makeStatusHeadResponse(req, err)
@@ -762,7 +775,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 		if remoteReqBufs[sigCount] == nil {
 			var err error
-			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, body)
+			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, validUntilTime(ctx, apiVersion), body)
 			if err != nil {
 				return nil, iprotobuf.BuffersSlice{}, fmt.Errorf("make request (signature count = %d): %w", sigCount, err)
 			}
@@ -1049,6 +1062,9 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.sendStatusGetResponse(req, gStream, err)
 	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+		return s.sendStatusGetResponse(req, gStream, err)
+	}
 
 	if err = icrypto.VerifyRequestSignaturesWithContext(ctx, req); err != nil {
 		return s.sendStatusGetResponse(req, gStream, err)
@@ -1149,7 +1165,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 			}
 
 			var err error
-			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, body)
+			remoteReqBufs[sigCount], err = s.makeLocalRequestFromBody(sigCount, apiVersion, validUntilTime(ctx, apiVersion), body)
 			if err != nil {
 				return fmt.Errorf("make request (signature count = %d): %w", sigCount, err)
 			}
@@ -1951,6 +1967,9 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 	if err = util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+		return s.signSearchResponse(nil, err, req)
+	}
 
 	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
 		return s.signSearchResponse(nil, err, req)
@@ -2165,10 +2184,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		)
 
 		localVersion := version.Current()
+		validUntil := validUntilTime(ctx, localVersion)
 
 		bodyLen := body.MarshaledSize()
 		bodyFldLen := protoencoding.CalculateRequestBodyFieldLength(bodyLen)
-		metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(localVersion)
+		metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(localVersion, validUntil)
 		bodyWithMetaLen := bodyFldLen + protoencoding.CalculateRequestMetaHeaderFieldLength(metaHdrLen)
 		verifHdrFLdLen := calculateRequestVerificationHeaderFieldLen(localVersion)
 		reqLen := bodyWithMetaLen + verifHdrFLdLen
@@ -2182,7 +2202,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 		bodySlice := reqBuf[off : off+bodyLen]
 		off += bodyLen
 
-		writeLocalSearchRequestMetaHeader(reqBuf[off:], localVersion)
+		writeLocalSearchRequestMetaHeader(reqBuf[off:], localVersion, validUntil)
 		metaHdrSlice := reqBuf[bodyWithMetaLen-metaHdrLen : bodyWithMetaLen]
 
 		var onceResign sync.Once
@@ -2205,15 +2225,17 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				return reqBuf, nil
 			}
 
+			valitUntil := validUntilTime(ctx, ver)
+
 			// need to lower API version
-			metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(ver)
+			metaHdrLen := calculateLocalSearchRequestMetaHeaderLength(ver, valitUntil)
 			bodyWithMetaLen := bodyFldLen + protoencoding.CalculateRequestMetaHeaderFieldLength(metaHdrLen)
 			verifHdrFldLen := calculateRequestVerificationHeaderFieldLen(ver)
 			reqLen := bodyWithMetaLen + verifHdrFldLen
 
 			buf := make([]byte, reqLen)
 			off := copy(buf, reqBuf[:bodyFldLen])
-			writeLocalSearchRequestMetaHeader(buf[off:], ver)
+			writeLocalSearchRequestMetaHeader(buf[off:], ver, valitUntil)
 
 			err = s.writeRequestSignatures(buf, bodyWithMetaLen, bodySlice, buf[bodyWithMetaLen-metaHdrLen:bodyWithMetaLen], ver)
 			if err != nil {

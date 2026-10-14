@@ -420,7 +420,7 @@ func TestServer_Replicate(t *testing.T) {
 	var noCallACLChecker noCallTestACLChecker
 	var noCallReqProc noCallTestReqInfoExtractor
 	var noCallCs noCallClients
-	noCallSrv := New(noCallObjSvc, &noCallFSChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+	noCallSrv := New(noCallObjSvc, &noCallFSChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 	clientSigner := neofscryptotest.Signer()
 	clientPubKey := neofscrypto.PublicKeyBytes(clientSigner.Public())
 	serverPubKey := neofscrypto.PublicKeyBytes(neofscryptotest.Signer().Public())
@@ -584,7 +584,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("apply storage policy failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
-		srv := New(noCallObjSvc, fsChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		fsChain.cnrErr = errors.New("any error")
 
@@ -596,7 +596,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("client or server mismatches object's storage policy", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
-		srv := New(noCallObjSvc, fsChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		fsChain.serverOutsideCnr = true
 		fsChain.clientOutsideCnr = true
@@ -618,7 +618,7 @@ func TestServer_Replicate(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		fsChain.serverOutsideCnr = true
 		fsChain.serverInPrevEpoch = true
-		srv := New(noCallObjSvc, fsChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, noCallStorage, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -630,7 +630,7 @@ func TestServer_Replicate(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		fsChain.clientOutsideCnr = true
 		fsChain.clientInPrevEpoch = true
-		srv := New(noCallObjSvc, fsChain, newTestStorage(t, req.Object), nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, newTestStorage(t, req.Object), nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -640,7 +640,7 @@ func TestServer_Replicate(t *testing.T) {
 	t.Run("verify header failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
-		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		s.verifyHeaderErr = errors.New("any error")
 
@@ -653,7 +653,7 @@ func TestServer_Replicate(t *testing.T) {
 	t.Run("verify payload failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
-		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		s.verifyHeaderErr = errors.New("any error")
 
@@ -669,7 +669,7 @@ func TestServer_Replicate(t *testing.T) {
 
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
-		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -700,7 +700,7 @@ func TestServer_Replicate(t *testing.T) {
 	t.Run("local storage failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
-		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		s.storeErr = errors.New("any error")
 
@@ -731,7 +731,7 @@ func TestServer_Replicate(t *testing.T) {
 			reqForSignature, o = anyValidRequest(t, signer, cnr, objID)
 			fsChain            = newTestFSChain(t, serverPubKey, signer.PublicKeyBytes, cnr)
 			s                  = newTestStorage(t, reqForSignature.Object)
-			srv                = New(noCallObjSvc, fsChain, s, testMetaSvc, signer.ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+			srv                = New(noCallObjSvc, fsChain, s, testMetaSvc, signer.ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 			policy        netmap.PlacementPolicy
 			placementReps = make([]netmap.ReplicaDescriptor, 4)
@@ -830,7 +830,7 @@ func TestServer_Replicate(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
-		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, zap.NewNop())
+		srv := New(noCallObjSvc, fsChain, s, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs, fixedFutureTimeProvider{}, zap.NewNop())
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -903,7 +903,7 @@ func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
 	var fsChain nopFSChain
 
-	srv := New(nil, fsChain, nopStorage{}, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, nopACLChecker{}, nopReqInfoExtractor{}, noCallClients{}, zap.NewNop())
+	srv := New(nil, fsChain, nopStorage{}, nil, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, nopACLChecker{}, nopReqInfoExtractor{}, noCallClients{}, fixedFutureTimeProvider{}, zap.NewNop())
 
 	for _, tc := range []struct {
 		name      string
@@ -1064,10 +1064,6 @@ func (unimplementedConn) ObjectHead(context.Context, cid.ID, oid.ID, user.Signer
 }
 
 func (unimplementedConn) SearchObjects(context.Context, cid.ID, object.SearchFilters, []string, string, neofscrypto.Signer, client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
-	panic("unimplemented")
-}
-
-func (unimplementedConn) ObjectRangeInit(context.Context, cid.ID, oid.ID, uint64, uint64, user.Signer, client.PrmObjectRange) (*client.ObjectRangeReader, error) {
 	panic("unimplemented")
 }
 

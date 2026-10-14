@@ -6,6 +6,7 @@ import (
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
@@ -29,8 +30,9 @@ type Contract interface {
 
 type server struct {
 	protonetmap.UnimplementedNetmapServiceServer
-	signer   *ecdsa.PrivateKey
-	contract Contract
+	signer    *ecdsa.PrivateKey
+	contract  Contract
+	chainTime timecore.Provider
 }
 
 // New provides protocontainer.NetmapServiceServer based on specified
@@ -38,10 +40,11 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, c Contract) protonetmap.NetmapServiceServer {
+func New(s *ecdsa.PrivateKey, c Contract, chainTime timecore.Provider) protonetmap.NetmapServiceServer {
 	return &server{
-		signer:   s,
-		contract: c,
+		signer:    s,
+		contract:  c,
+		chainTime: chainTime,
 	}
 }
 
@@ -76,6 +79,9 @@ func (s *server) makeStatusNodeInfoResponse(err error, req *protonetmap.LocalNod
 // [NodeState].
 func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoRequest) (*protonetmap.LocalNodeInfoResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeStatusNodeInfoResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
 		return s.makeStatusNodeInfoResponse(err, req)
 	}
 
@@ -113,6 +119,9 @@ func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequ
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeStatusNetInfoResponse(err, req)
 	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
+		return s.makeStatusNetInfoResponse(err, req)
+	}
 
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusNetInfoResponse(err, req)
@@ -144,6 +153,9 @@ func (s *server) makeStatusNetmapResponse(err error, req *protonetmap.NetmapSnap
 // NetmapSnapshot returns current network map from the underlying [Contract].
 func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapshotRequest) (*protonetmap.NetmapSnapshotResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
+		return s.makeStatusNetmapResponse(err, req)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), req.MetaHeader); err != nil {
 		return s.makeStatusNetmapResponse(err, req)
 	}
 

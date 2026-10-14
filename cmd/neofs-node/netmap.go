@@ -152,7 +152,7 @@ func initNetmapService(c *cfg) {
 
 	initNetmapState(c)
 
-	server := netmapService.New(&c.key.PrivateKey, c)
+	server := netmapService.New(&c.key.PrivateKey, c, &c.chainTime)
 
 	for _, srv := range c.cfgGRPC.servers {
 		protonetmap.RegisterNetmapServiceServer(srv, server)

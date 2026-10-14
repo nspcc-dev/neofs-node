@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Request time expiration check by SNs (#4219)
 
 ### Fixed
 - `AccountingService.Balance` server panic (#4212)
@@ -20,7 +21,7 @@ Changelog for NeoFS Node
 - Compressed object format support from FSTree (#4223)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20260930111007-de613fce5dda` (#4194)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261009185603-76533dec20b6` (#4194, #4219)
 
 ### Updating from v0.57.0
 This version no longer supports compressed objects in FSTree, please use

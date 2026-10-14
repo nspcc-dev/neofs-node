@@ -2,6 +2,7 @@ package v2
 
 import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +36,7 @@ func WithIRFetcher(v InnerRingFetcher) Option {
 }
 
 // WithTimeProvider sets external chain time provider updated from header subscriptions.
-func WithTimeProvider(p TimeProvider) Option {
+func WithTimeProvider(p timecore.Provider) Option {
 	return func(c *cfg) {
 		c.chainTime = p
 	}
