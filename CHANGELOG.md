@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 ### Removed
 - fstree-decompress utility (#4223)
 - Compressed object format support from FSTree (#4223)
+- Deprecated homomorphic hashing setting from CLI netinfo output (#4225)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20260930111007-de613fce5dda` (#4194)
