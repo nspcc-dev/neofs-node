@@ -20,6 +20,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -84,13 +85,6 @@ type Netmapper interface {
 	GetEpochBlockByTime(t uint32) (uint32, error)
 }
 
-// TimeProvider supplies current FS chain time without calling the chain.
-// It should be updated from block header subscriptions and return time
-// based on the latest observed header timestamp.
-type TimeProvider interface {
-	Now() time.Time
-}
-
 type cfg struct {
 	log *zap.Logger
 
@@ -100,7 +94,7 @@ type cfg struct {
 
 	nm Netmapper
 
-	chainTime TimeProvider
+	chainTime timecore.Provider
 }
 
 func defaultCfg() *cfg {

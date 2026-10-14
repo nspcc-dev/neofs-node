@@ -19,6 +19,7 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -100,13 +101,6 @@ type NetmapContract interface {
 	GetEpochBlockByTime(t uint32) (uint32, error)
 }
 
-// TimeProvider supplies current FS chain time without calling the chain.
-// It should be updated from block header subscriptions and return time
-// based on the latest observed header timestamp.
-type TimeProvider interface {
-	Now() time.Time
-}
-
 type historicN3ScriptRunner struct {
 	FSChain
 	NetmapContract
@@ -125,7 +119,7 @@ type Server struct {
 	net       netmapcore.State
 	contract  Contract
 	resolver  *nnscore.Resolver
-	chainTime TimeProvider
+	chainTime timecore.Provider
 	historicN3ScriptRunner
 
 	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
@@ -136,7 +130,7 @@ type Server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmapcore.State, fsChain FSChain, c Contract, nc NetmapContract, chainTime TimeProvider) *Server {
+func New(s *ecdsa.PrivateKey, net netmapcore.State, fsChain FSChain, c Contract, nc NetmapContract, chainTime timecore.Provider) *Server {
 	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))

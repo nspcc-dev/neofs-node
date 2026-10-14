@@ -3,9 +3,9 @@ package container
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	nnscore "github.com/nspcc-dev/neofs-node/pkg/core/nns"
+	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
@@ -33,7 +33,7 @@ type (
 		netState      NetworkState
 		metaEnabled   bool
 		allowEC       bool
-		chainTime     TimeProvider
+		chainTime     timecore.Provider
 		resolver      session.NNSResolver
 	}
 
@@ -47,7 +47,7 @@ type (
 		NetworkState    NetworkState
 		MetaEnabled     bool
 		AllowEC         bool
-		ChainTime       TimeProvider
+		ChainTime       timecore.Provider
 	}
 )
 
@@ -69,13 +69,6 @@ type NetworkState interface {
 	// GetEpochBlockByTime returns FS chain height of block index when the latest epoch that
 	// started not later than the provided block time came.
 	GetEpochBlockByTime(t uint32) (uint32, error)
-}
-
-// TimeProvider supplies current FS chain time without calling the chain.
-// It should be updated from block header subscriptions and return time
-// based on the latest observed header timestamp.
-type TimeProvider interface {
-	Now() time.Time
 }
 
 // New creates a container contract processor instance.
