@@ -39,8 +39,8 @@ this prefix can contain an unspecified number of objects (configured via
   - one byte version of the subsequent structure (currently zero only)
   - 32-byte OID of the next object then
   - 4-byte BE integer length of the next object
-  - followed by protobuf-encoded or ZSTD-compressed object data (of the length
-    specified in the previous field)
+  - followed by protobuf-encoded object data (of the length specified in
+    the previous field)
 
 Overall the structure is like this:
 

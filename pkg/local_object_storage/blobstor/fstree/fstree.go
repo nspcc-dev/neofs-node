@@ -714,7 +714,7 @@ func (t *FSTree) extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				if !isCombined {
-					return decompress(comBuf[:n])
+					return comBuf[:n], nil
 				}
 				return nil, fs.ErrNotExist
 			}
@@ -749,7 +749,7 @@ func (t *FSTree) extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 	}
 }
 
-// readFullObject reads full data of object from the file and decompresses it if necessary.
+// readFullObject reads full data of object from the file.
 func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte, error) {
 	data := make([]byte, size)
 	copy(data, initial)
@@ -759,7 +759,7 @@ func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte
 	}
 	data = data[:len(initial)+n]
 
-	return decompress(data)
+	return data, nil
 }
 
 // GetStream returns an object from the storage by address as a stream.

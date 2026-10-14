@@ -16,11 +16,15 @@ Changelog for NeoFS Node
 - ReplicateV2 Linux server now uses `writev()` syscall for multi-frame chunks (#4194)
 
 ### Removed
+- fstree-decompress utility (#4223)
+- Compressed object format support from FSTree (#4223)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20260930111007-de613fce5dda` (#4194)
 
 ### Updating from v0.57.0
+This version no longer supports compressed objects in FSTree, please use
+fstree-decompress utility from the previous release if needed.
 
 ## [0.57.0] - 2026-09-30 - Bido
 
