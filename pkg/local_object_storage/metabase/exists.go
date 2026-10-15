@@ -204,7 +204,7 @@ func findParent(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
 
 // isExpired checks if the object expired at the current epoch.
 func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
-	var val = getObjAttribute(metaCursor, idObj, object.AttributeExpirationEpoch)
+	var val = getObjAttribute(metaCursor, idObj, object.AttributeExpirationEpoch) //nolint:staticcheck
 
 	if val != nil {
 		objExpiration, err := strconv.ParseUint(string(val), 10, 64)

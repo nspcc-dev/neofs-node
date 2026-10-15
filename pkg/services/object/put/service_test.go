@@ -738,7 +738,7 @@ func testLinkSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnrNodeN
 	srcObj.SetContainerID(parentObj.GetContainerID())
 	srcObj.SetOwner(owner.UserID())
 	srcObj.SetAttributes(
-		object.NewAttribute(object.AttributeExpirationEpoch, "123"),
+		object.NewAttribute(object.AttributeExpirationEpoch, "123"), //nolint:staticcheck
 	)
 
 	// Set up a LINK object referencing a few child objects.
@@ -864,7 +864,7 @@ func testSysObjectSlicing(t *testing.T, cluster *testCluster, cnrNodeNum, outCnr
 	srcObj.SetContainerID(cidtest.ID())
 	srcObj.SetOwner(owner.UserID())
 	srcObj.SetAttributes(
-		object.NewAttribute(object.AttributeExpirationEpoch, "123"),
+		object.NewAttribute(object.AttributeExpirationEpoch, "123"), //nolint:staticcheck
 	)
 	associate(&srcObj, target)
 

@@ -56,7 +56,7 @@ func TestDB_IsLocked(t *testing.T) {
 		l := generateObject(t)
 		l.SetType(object.TypeLock)
 		l.SetContainerID(cnr)
-		l.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, fmt.Sprintf("%d", currEpoch)))
+		l.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, fmt.Sprintf("%d", currEpoch))) //nolint:staticcheck
 		l.AssociateLocked(o.GetID())
 
 		err := putBig(db, o)

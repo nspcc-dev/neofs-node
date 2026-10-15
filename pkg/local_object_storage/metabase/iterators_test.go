@@ -37,7 +37,7 @@ func TestDB_IterateExpired(t *testing.T) {
 
 	gcExpired := generateObjectWithCID(t, cidtest.ID())
 	gcExpired.SetType(object.TypeRegular)
-	addAttribute(gcExpired, object.AttributeExpirationEpoch, strconv.FormatUint(epoch-1, 10))
+	addAttribute(gcExpired, object.AttributeExpirationEpoch, strconv.FormatUint(epoch-1, 10)) //nolint:staticcheck
 	require.NoError(t, putBig(db, gcExpired))
 	_, err := db.InhumeContainer(gcExpired.GetContainerID())
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uin
 		obj.AssociateLocked(oidtest.ID())
 	default:
 	}
-	addAttribute(obj, object.AttributeExpirationEpoch, strconv.FormatUint(expiresAt, 10))
+	addAttribute(obj, object.AttributeExpirationEpoch, strconv.FormatUint(expiresAt, 10)) //nolint:staticcheck
 
 	require.NoError(t, putBig(db, obj))
 

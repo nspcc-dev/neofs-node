@@ -38,7 +38,7 @@ func BenchmarkSearch(b *testing.B) {
 		fs.AddFilter("versioning-state", "", object.MatchNotPresent)
 
 		var attrs = []string{object.AttributeFilePath, object.AttributeTimestamp, "versioning-state",
-			"delete-marker", "metatype", "objversion", object.AttributeExpirationEpoch, "lock-meta"}
+			"delete-marker", "metatype", "objversion", object.AttributeExpirationEpoch, "lock-meta"} //nolint:staticcheck
 
 		sfs, curs, err := objectcore.PreprocessSearchQuery(fs, attrs, "")
 		if err != nil {

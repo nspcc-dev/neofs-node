@@ -579,7 +579,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			objs[i].SetID(ids[i])
 			objs[i].SetContainerID(cnr)
 			if i == 3 {
-				appendAttribute(&objs[i], object.AttributeExpirationEpoch, "11")
+				appendAttribute(&objs[i], object.AttributeExpirationEpoch, "11") //nolint:staticcheck
 			}
 			objs[i].SetOwner(usertest.ID())                                                  // Put requires
 			objs[i].SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(objs[i].Payload()))) // Put requires

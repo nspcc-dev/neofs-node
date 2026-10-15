@@ -22,7 +22,7 @@ Changelog for NeoFS Node
 - Deprecated homomorphic hashing setting from CLI netinfo output (#4225)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261009185603-76533dec20b6` (#4194, #4219)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261013142247-085e800aab02` (#4194, #4228)
 
 ### Updating from v0.57.0
 This version no longer supports compressed objects in FSTree, please use

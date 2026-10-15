@@ -192,7 +192,7 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 
 	var opts client.SearchObjectsOptions
 	opts.SetCount(uint32(searchCountFlag.v))
-	opts.WithXHeaders(ParseXHeaders(cmd)...)
+	opts.WithXHeaders(ParseXHeaders(cmd)...) //nolint:staticcheck
 	if viper.GetUint32(commonflags.TTL) == 1 {
 		opts.DisableForwarding()
 	}

@@ -567,9 +567,9 @@ func TestDB_PutBatch(t *testing.T) {
 		cnr := cidtest.ID()
 
 		obj1 := generateObjectWithCID(t, cnr)
-		obj1.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "99")) // expired
+		obj1.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "99")) //nolint:staticcheck // expired
 		obj2 := generateObjectWithCID(t, cnr)
-		obj2.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "200")) // not expired
+		obj2.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "200")) //nolint:staticcheck // not expired
 
 		obj3 := generateObjectWithCID(t, cnr) // no expiration
 
@@ -642,7 +642,7 @@ func TestDB_PutBatch(t *testing.T) {
 		require.NoError(t, db.Put(ts1))
 
 		expiredObj := generateObjectWithCID(t, cnr)
-		expiredObj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "99"))
+		expiredObj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, "99")) //nolint:staticcheck
 
 		ts2 := generateObjectWithCID(t, cnr)
 		ts2.AssociateDeleted(lockedObj.GetID()) // tombstone for locked object

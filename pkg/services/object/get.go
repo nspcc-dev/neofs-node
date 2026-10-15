@@ -925,7 +925,7 @@ func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion vers
 
 	remoteServerAPIVersion = chooseAPIVersionForNewRequest(remoteServerAPIVersion)
 
-	bodyLen := protoobject.CalculateGetRequestBodyLength(false, rngOff, rngLen, payloadOnly, nil, nil)
+	bodyLen := protoobject.CalculateGetRequestBodyLength(false, rngOff, rngLen, payloadOnly, nil, nil, 0)
 
 	var sigCount int
 	if needSign {
@@ -933,7 +933,7 @@ func (s *Server) makeGetECPartRequest(needSign bool, remoteServerAPIVersion vers
 	}
 
 	writeBodyFn := func(buf []byte) int {
-		return protoobject.WriteGetRequestBody(buf, cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil)
+		return protoobject.WriteGetRequestBody(buf, cnr, parent, false, rngOff, rngLen, payloadOnly, nil, nil, 0, nil)
 	}
 
 	return s.makeLocalRequest(sigCount, remoteServerAPIVersion, bodyLen, writeBodyFn, xHdrs, validUntil)

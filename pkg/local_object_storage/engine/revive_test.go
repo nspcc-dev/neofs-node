@@ -23,7 +23,7 @@ func TestStorageEngine_ReviveObject(t *testing.T) {
 
 	ts := generateObjectWithCID(cnr)
 	ts.AssociateDeleted(obj.GetID())
-	addAttribute(ts, object.AttributeExpirationEpoch, "0")
+	addAttribute(ts, object.AttributeExpirationEpoch, "0") //nolint:staticcheck
 	tsAddr := ts.Address()
 
 	require.NoError(t, e.Put(context.Background(), ts, nil))
