@@ -29,14 +29,14 @@ func ReadEACL(cmd *cobra.Command, eaclPath string) (eacl.Table, error) {
 
 	table, err := eacl.UnmarshalJSON(data)
 	if err == nil {
-		validateAndFixEACLVersion(table)
+		validateAndFixEACLVersion(&table)
 		PrintVerbose(cmd, "Parsed JSON encoded EACL table")
 		return table, nil
 	}
 
 	table, err = eacl.Unmarshal(data)
 	if err == nil {
-		validateAndFixEACLVersion(table)
+		validateAndFixEACLVersion(&table)
 		PrintVerbose(cmd, "Parsed binary encoded EACL table")
 		return table, nil
 	}
@@ -44,7 +44,7 @@ func ReadEACL(cmd *cobra.Command, eaclPath string) (eacl.Table, error) {
 	return eacl.Table{}, errUnsupportedEACLFormat
 }
 
-func validateAndFixEACLVersion(table eacl.Table) {
+func validateAndFixEACLVersion(table *eacl.Table) {
 	if !versioncore.IsValid(table.Version()) {
 		table.SetVersion(version.Current())
 	}

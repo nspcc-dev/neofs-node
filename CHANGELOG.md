@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - `AccountingService.Balance` server panic (#4212)
 - Panic on startup while restoring write-cache counters (#4214)
 - Panic in neofs-lancet on storage operations that require metabase migration (#4215)
+- Setting eACL without API version in CLI (#4229)
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)
