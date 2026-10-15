@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 - IR now denies creation of containers and setting of eACL with API version less than v2.22 (#4229)
 - SN now prohibits EC GET requests without part index and with `payload_only` flag set (#4222)
 - SN no longer forwards request X-headers to other SN (#4222)
+- CLI `--xhdr` (`-x`) flag is deprecated now (#4222)
 
 ### Removed
 - fstree-decompress utility (#4223)
@@ -34,6 +35,8 @@ Changelog for NeoFS Node
 ### Updating from v0.57.0
 This version no longer supports compressed objects in FSTree, please use
 fstree-decompress utility from the previous release if needed.
+
+Remove `--xhdr` (`-x`) flags from all CLI commands. To GET/HEAD object's EC part, use `--ec-part RULE[/PART]` flag instead.
 
 ## [0.57.0] - 2026-09-30 - Bido
 

@@ -22,7 +22,6 @@ neofs-cli container list [flags]
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet
       --with-attr             Request and print attributes of each container
-  -x, --xhdr strings          Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands

@@ -22,7 +22,6 @@ neofs-cli container delete [flags]
       --session string        Filepath to a JSON- or binary-encoded token of the container DELETE session
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet
-  -x, --xhdr strings          Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands

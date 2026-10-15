@@ -25,7 +25,6 @@ neofs-cli container set-attribute [flags]
       --valid-for duration    request validity duration (default 1m0s)
       --value string          value for the attribute
   -w, --wallet string         Path to the wallet
-  -x, --xhdr strings          Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands
