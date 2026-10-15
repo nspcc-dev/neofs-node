@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var minEACLAPIVersion = minContainerAPIVersion
+
 func (cp *Processor) processPutEACLRequest(req cnrevent.PutContainerEACLRequest) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore set EACL")
@@ -102,6 +104,10 @@ func (cp *Processor) approveSetEACL(req cnrevent.PutContainerEACLRequest) {
 }
 
 func validateEACL(t eacl.Table) error {
+	if ver := t.Version(); ver.Compare(minEACLAPIVersion) < 0 {
+		return fmt.Errorf("API version is %s while %s is minimum supported", ver, minEACLAPIVersion)
+	}
+
 	var b big.Int
 	for _, record := range t.Records() {
 		if !utf8.ValidString(record.Comment()) {
