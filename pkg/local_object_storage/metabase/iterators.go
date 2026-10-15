@@ -107,13 +107,13 @@ func fillIDAttributePrefix(s []byte, id oid.ID, attr string) int {
 
 func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandler) error {
 	var (
-		expStart  = make([]byte, 1+len(object.AttributeExpirationEpoch)+1+1)
+		expStart  = make([]byte, 1+len(object.AttributeExpirationEpoch)+1+1) //nolint:staticcheck
 		typPrefix = make([]byte, metaIDTypePrefixSize)
 	)
 
 	expStart[0] = metaPrefixAttrIDInt
-	copy(expStart[1:], object.AttributeExpirationEpoch)
-	expStart[len(expStart)-1] = 1 // Positive integer.
+	copy(expStart[1:], object.AttributeExpirationEpoch) //nolint:staticcheck
+	expStart[len(expStart)-1] = 1                       // Positive integer.
 
 	fillIDTypePrefix(typPrefix)
 

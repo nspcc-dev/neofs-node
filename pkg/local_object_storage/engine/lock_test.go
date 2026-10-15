@@ -55,7 +55,7 @@ func TestLockUserScenario(t *testing.T) {
 	lockerAddr.SetObject(lockerID)
 
 	var a object.Attribute
-	a.SetKey(object.AttributeExpirationEpoch)
+	a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
 	lockerObj := generateObjectWithCID(cnr)
@@ -126,7 +126,7 @@ func TestLockExpiration(t *testing.T) {
 
 	// 2.
 	var a object.Attribute
-	a.SetKey(object.AttributeExpirationEpoch)
+	a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
 	lock := generateObjectWithCID(cnr)
@@ -191,7 +191,7 @@ func TestLockForceRemoval(t *testing.T) {
 		a              object.Attribute
 		tombForLockObj = generateObjectWithCID(cnr)
 	)
-	a.SetKey(object.AttributeExpirationEpoch)
+	a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 	a.SetValue(strconv.Itoa(100500))
 	tombForLockObj.SetAttributes(a)
 	tombForLockObj.AssociateDeleted(obj.GetID())

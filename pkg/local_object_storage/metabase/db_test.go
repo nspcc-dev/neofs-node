@@ -132,7 +132,7 @@ func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *object.O
 func setExpiration(o *object.Object, epoch uint64) {
 	var attr object.Attribute
 
-	attr.SetKey(object.AttributeExpirationEpoch)
+	attr.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 	attr.SetValue(strconv.FormatUint(epoch, 10))
 
 	o.SetAttributes(append(o.Attributes(), attr)...)

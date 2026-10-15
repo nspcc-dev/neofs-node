@@ -44,7 +44,7 @@ func (exec *execCtx) formTombstone() (ok bool) {
 	exec.tombstoneObj = object.New(exec.containerID(), owner)
 
 	var a object.Attribute
-	a.SetKey(object.AttributeExpirationEpoch)
+	a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 	a.SetValue(strconv.FormatUint(exec.svc.netInfo.CurrentEpoch()+tsLifetime, 10))
 	exec.tombstoneObj.SetAttributes(a)
 	exec.tombstoneObj.AssociateDeleted(exec.address().Object())

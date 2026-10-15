@@ -46,7 +46,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		tomb := generateObjectWithCID(parent.GetContainerID())
 
 		var a object.Attribute
-		a.SetKey(object.AttributeExpirationEpoch)
+		a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 		a.SetValue(strconv.Itoa(100500))
 		tomb.SetAttributes(a)
 		tomb.AssociateDeleted(idParent)
@@ -75,7 +75,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		tomb := generateObjectWithCID(parent.GetContainerID())
 
 		var a object.Attribute
-		a.SetKey(object.AttributeExpirationEpoch)
+		a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 		a.SetValue(strconv.Itoa(100500))
 		tomb.SetAttributes(a)
 		tomb.AssociateDeleted(idParent)

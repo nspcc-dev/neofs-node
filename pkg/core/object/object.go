@@ -17,7 +17,7 @@ var ErrNoExpiration = errors.New("missing expiration epoch attribute")
 // ErrNoExpiration if not found.
 func Expiration(obj object.Object) (uint64, error) {
 	for _, a := range obj.Attributes() {
-		if a.Key() != object.AttributeExpirationEpoch {
+		if a.Key() != object.AttributeExpirationEpoch { //nolint:staticcheck
 			continue
 		}
 

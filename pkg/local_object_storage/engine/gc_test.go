@@ -239,7 +239,7 @@ func TestGC(t *testing.T) {
 		tomb = generateObjectWithCID(cnr)
 
 		var a object.Attribute
-		a.SetKey(object.AttributeExpirationEpoch)
+		a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 		a.SetValue(strconv.Itoa(int(es.e)))
 		tomb.SetAttributes(a)
 
@@ -493,7 +493,7 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 }
 
 func addExpirationAttribute(obj *object.Object, epoch uint64) {
-	addAttribute(obj, object.AttributeExpirationEpoch, fmt.Sprint(epoch))
+	addAttribute(obj, object.AttributeExpirationEpoch, fmt.Sprint(epoch)) //nolint:staticcheck
 }
 
 func tickEpoch(es *asyncEpochState, e *StorageEngine) {

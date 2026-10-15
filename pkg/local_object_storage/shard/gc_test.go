@@ -89,8 +89,8 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 		cnr := cidtest.ID()
 
 		var expAttrObj, expAttrLocker object.Attribute
-		expAttrObj.SetKey(object.AttributeExpirationEpoch)
-		expAttrLocker.SetKey(object.AttributeExpirationEpoch)
+		expAttrObj.SetKey(object.AttributeExpirationEpoch)    //nolint:staticcheck
+		expAttrLocker.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 		expAttrObj.SetValue("1")
 
 		obj := generateObjectWithCID(cnr)
@@ -210,7 +210,7 @@ func TestExpiration(t *testing.T) {
 		ch := sh.NotificationChannel()
 
 		var expAttr object.Attribute
-		expAttr.SetKey(object.AttributeExpirationEpoch)
+		expAttr.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 
 		obj := generateObject()
 

@@ -244,7 +244,7 @@ func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribu
 			return nil, errors.New("can't override default filename attribute, use '--disable-filename' flag")
 		}
 
-		if k == object.AttributeExpirationEpoch {
+		if k == object.AttributeExpirationEpoch { //nolint:staticcheck
 			expAttrFound = true
 
 			if expiresOn > 0 && v != expAttrValue {
@@ -281,7 +281,7 @@ func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribu
 	if expiresOn > 0 && !expAttrFound {
 		index := len(attrs)
 		attrs = append(attrs, object.Attribute{})
-		attrs[index].SetKey(object.AttributeExpirationEpoch)
+		attrs[index].SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 		attrs[index].SetValue(expAttrValue)
 	}
 

@@ -68,7 +68,7 @@ var objectLockCmd = &cobra.Command{
 		common.PrintVerbose(cmd, "Lock object will expire after %d epoch", exp)
 
 		var expirationAttr object.Attribute
-		expirationAttr.SetKey(object.AttributeExpirationEpoch)
+		expirationAttr.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 		expirationAttr.SetValue(strconv.FormatUint(exp, 10))
 
 		var prm client.PrmObjectPutInit

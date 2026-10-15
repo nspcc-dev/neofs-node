@@ -320,7 +320,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			obj := blankValidObject(signer)
 
 			var a object.Attribute
-			a.SetKey(object.AttributeExpirationEpoch)
+			a.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
 			a.SetValue(val)
 
 			obj.SetAttributes(a)
