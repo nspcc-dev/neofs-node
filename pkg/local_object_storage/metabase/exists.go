@@ -47,15 +47,17 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 
 	var (
 		currEpoch uint64
+		currTime  int64
 		err       error
 		exists    bool
 	)
 	if !ignoreExpiration {
 		currEpoch = db.epochState.CurrentEpoch()
+		currTime = db.now().Unix()
 	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		exists, err = db.exists(tx, addr, currEpoch, true)
+		exists, err = db.exists(tx, addr, currEpoch, currTime, true)
 
 		return err
 	})
@@ -66,7 +68,7 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 // If checkParent is set and referenced object is a parent of some stored objects, exists returns [ParentError] wrapping:
 // - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [ErrParts] if object is EC.
-func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkParent bool) (bool, error) {
+func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, currTime int64, checkParent bool) (bool, error) {
 	var (
 		cnr        = addr.Container()
 		id         = addr.Object()
@@ -84,7 +86,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 	}
 
 	// check tombstones, garbage and object expiration first
-	switch objectStatus(metaCursor, id, currEpoch) {
+	switch objectStatus(metaCursor, id, currEpoch, currTime) {
 	case statusGCMarked:
 		return false, logicerr.Wrap(fmt.Errorf("%w: %w", apistatus.ObjectNotFound{}, errors.New("object marked as garbage")))
 	case statusTombstoned:
@@ -107,26 +109,26 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64, checkPare
 	return err == nil, nil
 }
 
-func objectStatus(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64) uint8 {
-	return objectStatusNested(metaCursor, id, currEpoch, 0)
+func objectStatus(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64, currTime int64) uint8 {
+	return objectStatusNested(metaCursor, id, currEpoch, currTime, 0)
 }
 
-func objectStatusNested(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64, nestingLevel int) uint8 {
-	var status = objectStatusDirect(metaCursor, id, currEpoch)
+func objectStatusNested(metaCursor *bbolt.Cursor, id oid.ID, currEpoch uint64, currTime int64, nestingLevel int) uint8 {
+	var status = objectStatusDirect(metaCursor, id, currEpoch, currTime)
 
 	if status == statusAvailable || status == statusGCMarked {
 		var parent = findParent(metaCursor, id)
 		if !parent.IsZero() && nestingLevel < maxObjectNestingLevel {
-			parentStatus := objectStatusNested(metaCursor, parent, currEpoch, nestingLevel+1)
+			parentStatus := objectStatusNested(metaCursor, parent, currEpoch, currTime, nestingLevel+1)
 			status = max(parentStatus, status)
 		}
 	}
 	return status
 }
 
-func objectStatusDirect(metaCursor *bbolt.Cursor, oID oid.ID, currEpoch uint64) uint8 {
-	if isExpired(metaCursor, oID, currEpoch) {
-		if objectLocked(currEpoch, metaCursor, oID) {
+func objectStatusDirect(metaCursor *bbolt.Cursor, oID oid.ID, currEpoch uint64, currTime int64) uint8 {
+	if isExpired(metaCursor, oID, currEpoch, currTime) {
+		if objectLocked(currEpoch, currTime, metaCursor, oID) {
 			return statusAvailable
 		}
 
@@ -134,7 +136,7 @@ func objectStatusDirect(metaCursor *bbolt.Cursor, oID oid.ID, currEpoch uint64) 
 	}
 
 	garbageStatus := inGarbage(metaCursor, oID)
-	if garbageStatus != statusAvailable && objectLocked(currEpoch, metaCursor, oID) {
+	if garbageStatus != statusAvailable && objectLocked(currEpoch, currTime, metaCursor, oID) {
 		return statusAvailable
 	}
 
@@ -202,8 +204,12 @@ func findParent(metaCursor *bbolt.Cursor, objID oid.ID) oid.ID {
 	return parent
 }
 
-// isExpired checks if the object expired at the current epoch.
-func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64) bool {
+// isExpired checks expiration against the current epoch and Unix time in seconds.
+func isExpired(metaCursor *bbolt.Cursor, idObj oid.ID, currEpoch uint64, currTime int64) bool {
+	if val := getObjAttribute(metaCursor, idObj, object.FilterExpirationTime); val != nil {
+		expiration, err := strconv.ParseInt(string(val), 10, 64)
+		return err == nil && currTime > expiration
+	}
 	var val = getObjAttribute(metaCursor, idObj, object.AttributeExpirationEpoch) //nolint:staticcheck
 
 	if val != nil {
@@ -221,7 +227,7 @@ func mkGarbageKey(id oid.ID) []byte {
 // inGarbage checks for tombstone and garbage marks of the given ID using
 // the given meta bucket cursor.
 func inGarbage(metaCursor *bbolt.Cursor, id oid.ID) uint8 {
-	deleted, _ := associatedWithTypedObject(0, metaCursor, id, object.TypeTombstone)
+	deleted, _ := associatedWithTypedObject(0, 0, metaCursor, id, object.TypeTombstone)
 	if deleted {
 		return statusTombstoned
 	}

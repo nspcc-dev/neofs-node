@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/klauspost/reedsolomon"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
@@ -92,6 +93,49 @@ func (p *payments) UnpaidSince(cID cid.ID) (unpaidFromEpoch int64, err error) {
 	}
 
 	return e, nil
+}
+
+type expirationTestStorage struct{ ObjectStorage }
+
+func (expirationTestStorage) IsLocked(context.Context, oid.Address) (bool, error) {
+	return false, nil
+}
+
+func TestService_ExpirationChainTime(t *testing.T) {
+	cluster := newTestClusterForRepPolicy(t, 1, 1, 1)
+	var clock chaintime.AtomicChainTimeProvider
+	clock.Set(99000)
+	svc := NewService(&cluster.nodeNetworks[0], nil, nil, nil,
+		WithNetworkState(&cluster.nodeNetworks[0]),
+		WithContainerSource(mockContainer(containertest.Container())),
+		WithObjectStorage(expirationTestStorage{}),
+		WithTimeSource(clock.Now),
+	)
+	owner := usertest.User()
+	obj := newSignedRegularObject(t, owner, owner.ID)
+	require.NoError(t, obj.SetExpirationTime(time.Unix(100, 0)))
+	// Local wall-clock time is far ahead of this object. Only the supplied
+	// chain clock determines whether the service accepts its expiration.
+	for _, tc := range []struct {
+		name    string
+		ms      uint64
+		expired bool
+	}{
+		{name: "before", ms: 99000},
+		{name: "equal", ms: 100000},
+		{name: "same second", ms: 100999},
+		{name: "after", ms: 101000, expired: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clock.Set(tc.ms)
+			err := svc.fmtValidator.Validate(context.Background(), &obj, true, true)
+			if tc.expired {
+				require.ErrorContains(t, err, "expired")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestPayments(t *testing.T) {

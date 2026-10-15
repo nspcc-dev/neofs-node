@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -37,6 +38,7 @@ type FormatValidatorOption func(*cfg)
 
 type cfg struct {
 	netState netmapcore.State
+	now      func() time.Time
 	e        LockSource
 	sv       SplitVerifier
 	tv       TombVerifier
@@ -117,7 +119,7 @@ var errNilID = errors.New("missing identifier")
 var errNilCID = errors.New("missing container identifier")
 
 func defaultCfg() *cfg {
-	return new(cfg)
+	return &cfg{now: time.Now}
 }
 
 // NewFormatValidator creates, initializes and returns FormatValidator instance.
@@ -348,7 +350,22 @@ func (v *FormatValidator) ValidateContent(ctx context.Context, o *object.Object)
 var errExpired = errors.New("object has expired")
 
 func (v *FormatValidator) checkExpiration(ctx context.Context, obj object.Object, expirationRequired bool) error {
+	expTime := obj.ExpirationTime()
 	exp, err := Expiration(obj)
+	var current uint64
+	if !expTime.IsZero() {
+		if expTime.Unix() <= 0 {
+			return fmt.Errorf("non-positive expiration time %d", expTime.Unix())
+		}
+		if !errors.Is(err, ErrNoExpiration) {
+			return errors.New("expiration time and epoch are mutually exclusive")
+		}
+		exp = uint64(expTime.Unix())
+		current = uint64(v.now().Unix())
+		err = nil
+	} else if err == nil {
+		current = v.netState.CurrentEpoch()
+	}
 	if err != nil {
 		if errors.Is(err, ErrNoExpiration) {
 			if !expirationRequired {
@@ -360,7 +377,7 @@ func (v *FormatValidator) checkExpiration(ctx context.Context, obj object.Object
 		return err
 	}
 
-	if currEpoch := v.netState.CurrentEpoch(); exp < currEpoch {
+	if exp < current {
 		// an object could be expired but locked;
 		// put such an object is a correct operation
 
@@ -377,7 +394,7 @@ func (v *FormatValidator) checkExpiration(ctx context.Context, obj object.Object
 		}
 
 		if !locked {
-			return fmt.Errorf("%w: attribute: %d, current: %d", errExpired, exp, currEpoch)
+			return fmt.Errorf("%w: expiration: %d, current: %d", errExpired, exp, current)
 		}
 	}
 
@@ -441,6 +458,14 @@ func (v *FormatValidator) checkOwner(obj *object.Object) error {
 func WithNetState(netState netmapcore.State) FormatValidatorOption {
 	return func(c *cfg) {
 		c.netState = netState
+	}
+}
+
+// WithTimeSource sets the clock used to validate expiration time.
+// By default, local system time is used.
+func WithTimeSource(now func() time.Time) FormatValidatorOption {
+	return func(c *cfg) {
+		c.now = now
 	}
 }
 

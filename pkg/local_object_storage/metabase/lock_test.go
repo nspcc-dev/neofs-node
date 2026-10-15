@@ -3,7 +3,9 @@ package meta_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -44,6 +46,65 @@ func TestDB_IsLocked(t *testing.T) {
 	locked, err = db.IsLocked(anotherObj.Address())
 	require.NoError(t, err)
 	require.False(t, locked)
+
+	t.Run("time and epoch expiration", func(t *testing.T) {
+		for _, objectUsesTime := range []bool{false, true} {
+			for _, lockUsesTime := range []bool{false, true} {
+				t.Run(fmt.Sprintf("objectTime=%t/lockTime=%t", objectUsesTime, lockUsesTime), func(t *testing.T) {
+					var clock chaintime.AtomicChainTimeProvider
+					clock.Set(99000)
+					es := &epochState{e: 1}
+					db := newDB(t, meta.WithEpochState(es), meta.WithTimeSource(clock.Now))
+					obj := generateObject(t)
+					if objectUsesTime {
+						require.NoError(t, obj.SetExpirationTime(time.Unix(100, 0)))
+					} else {
+						obj.SetExpirationEpoch(1) //nolint:staticcheck // Test compatibility with epoch-based expiration.
+					}
+					require.NoError(t, db.Put(obj))
+					lock := generateObjectWithCID(t, obj.GetContainerID())
+					lock.AssociateLocked(obj.GetID())
+					if lockUsesTime {
+						require.NoError(t, lock.SetExpirationTime(time.Unix(105, 0)))
+					} else {
+						lock.SetExpirationEpoch(2) //nolint:staticcheck // Test compatibility with epoch-based expiration.
+					}
+					require.NoError(t, db.Put(lock))
+					es.e = 2
+					clock.Set(101000)
+					locked, err := db.IsLocked(obj.Address())
+					require.NoError(t, err)
+					require.True(t, locked)
+					_, err = db.Get(obj.Address(), false)
+					require.NoError(t, err)
+					handler := func(oid.Address, object.Type) error {
+						t.Fatal("locked object must not expire")
+						return nil
+					}
+					require.NoError(t, db.IterateExpired(es.e, handler))
+					ts := generateObjectWithCID(t, obj.GetContainerID())
+					ts.AssociateDeleted(obj.GetID())
+					require.ErrorIs(t, db.Put(ts), apistatus.ErrObjectLocked)
+
+					es.e = 3
+					clock.Set(106000)
+					locked, err = db.IsLocked(obj.Address())
+					require.NoError(t, err)
+					require.False(t, locked)
+					_, err = db.Get(obj.Address(), false)
+					require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+					var expired []oid.Address
+					handler = func(addr oid.Address, _ object.Type) error {
+						expired = append(expired, addr)
+						return nil
+					}
+					require.NoError(t, db.IterateExpired(es.e, handler))
+					require.ElementsMatch(t, []oid.Address{obj.Address(), lock.Address()}, expired)
+					require.NoError(t, db.Put(ts))
+				})
+			}
+		}
+	})
 
 	t.Run("lock expiration", func(t *testing.T) {
 		es := &epochState{e: currEpoch}

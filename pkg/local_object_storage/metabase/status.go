@@ -33,6 +33,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		return res, nil
 	}
 	currEpoch := db.epochState.CurrentEpoch()
+	currTime := db.now().Unix()
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.Version, _ = getVersion(tx)
@@ -50,7 +51,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 			res.HeaderIndex = append(res.HeaderIndex, HeaderField{K: slices.Clone(k), V: slices.Clone(v)})
 		}
 
-		var objLocked = objectLocked(currEpoch, metaCursor, oID)
+		var objLocked = objectLocked(currEpoch, currTime, metaCursor, oID)
 
 		if objLocked {
 			res.State = append(res.State, "LOCKED")

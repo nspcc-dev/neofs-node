@@ -123,7 +123,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	}
 
-	switch objectStatus(crs, parent, db.epochState.CurrentEpoch()) {
+	switch objectStatus(crs, parent, db.epochState.CurrentEpoch(), db.now().Unix()) {
 	case statusGCMarked:
 		return oid.ID{}, apistatus.ErrObjectNotFound
 	case statusTombstoned:

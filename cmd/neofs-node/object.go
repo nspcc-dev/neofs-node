@@ -276,6 +276,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
+		putsvc.WithTimeSource(c.chainTime.Now),
 		putsvc.WithPostPlacementReplicator(putPostInitialPlacementReplicator{
 			log:        c.log,
 			replicator: c.replicator,

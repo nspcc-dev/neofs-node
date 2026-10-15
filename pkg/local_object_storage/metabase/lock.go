@@ -8,14 +8,14 @@ import (
 
 // associatedWithTypedObject checks if an object is associated with a typed
 // object and typed object has not expired yet. If expiration is unimportant
-// zero currEpoch skips expiration check. Returns associated object ID if it's
+// zero currEpoch and currTime skip expiration checks. Returns associated object ID if it's
 // present.
-func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) (bool, oid.ID) {
+func associatedWithTypedObject(currEpoch uint64, currTime int64, metaCursor *bbolt.Cursor, idObj oid.ID, typ object.Type) (bool, oid.ID) {
 	for associateID := range iterAttrVal(metaCursor, object.AttributeAssociatedObject, idObj[:]) {
 		var cur = metaCursor.Bucket().Cursor()
 
 		if isObjectType(cur, associateID, typ) {
-			if currEpoch > 0 && isExpired(cur, associateID, currEpoch) {
+			if (currEpoch > 0 || currTime > 0) && isExpired(cur, associateID, currEpoch, currTime) {
 				continue
 			}
 
@@ -27,8 +27,8 @@ func associatedWithTypedObject(currEpoch uint64, metaCursor *bbolt.Cursor, idObj
 }
 
 // checks if specified object is locked in the specified container.
-func objectLocked(currEpoch uint64, metaCursor *bbolt.Cursor, idObj oid.ID) bool {
-	locked, lockID := associatedWithTypedObject(currEpoch, metaCursor, idObj, object.TypeLock)
+func objectLocked(currEpoch uint64, currTime int64, metaCursor *bbolt.Cursor, idObj oid.ID) bool {
+	locked, lockID := associatedWithTypedObject(currEpoch, currTime, metaCursor, idObj, object.TypeLock)
 	if !locked {
 		return false
 	}
@@ -50,6 +50,7 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 	var (
 		locked    bool
 		currEpoch = db.epochState.CurrentEpoch()
+		currTime  = db.now().Unix()
 	)
 
 	return locked, db.boltDB.View(func(tx *bbolt.Tx) error {
@@ -61,7 +62,7 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 			return nil
 		}
 
-		locked = objectLocked(currEpoch, mBucket.Cursor(), addr.Object())
+		locked = objectLocked(currEpoch, currTime, mBucket.Cursor(), addr.Object())
 		return nil
 	})
 }

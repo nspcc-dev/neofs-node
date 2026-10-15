@@ -43,6 +43,10 @@ var objectLockCmd = &cobra.Command{
 			}
 		}
 
+		expTime, err := parseExpirationTime(cmd)
+		if err != nil {
+			return err
+		}
 		key, err := key.GetOrGenerate(cmd)
 		if err != nil {
 			return err
@@ -65,11 +69,11 @@ var objectLockCmd = &cobra.Command{
 			exp = currEpoch + lifetime
 		}
 
-		common.PrintVerbose(cmd, "Lock object will expire after %d epoch", exp)
-
-		var expirationAttr object.Attribute
-		expirationAttr.SetKey(object.AttributeExpirationEpoch) //nolint:staticcheck
-		expirationAttr.SetValue(strconv.FormatUint(exp, 10))
+		if expTime.IsZero() {
+			common.PrintVerbose(cmd, "Lock object will expire after %d epoch", exp)
+		} else {
+			common.PrintVerbose(cmd, "Lock object will expire after %s", expTime.UTC().Format(time.RFC3339))
+		}
 
 		var prm client.PrmObjectPutInit
 
@@ -97,9 +101,13 @@ var objectLockCmd = &cobra.Command{
 		}
 
 		obj := object.New(cnr, user.NewFromECDSAPublicKey(key.PublicKey))
+		if expTime.IsZero() {
+			obj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, strconv.FormatUint(exp, 10))) //nolint:staticcheck // Support legacy epoch expiration.
+		} else if err := obj.SetExpirationTime(expTime); err != nil {
+			return err
+		}
 
 		for _, locked := range lockList {
-			obj.SetAttributes(expirationAttr)
 			obj.AssociateLocked(locked)
 
 			wrt, err := cli.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), prm)
@@ -135,7 +143,10 @@ func initCommandObjectLock() {
 	ff.Uint64P(commonflags.ExpireAt, "e", 0, "The last active epoch for the lock")
 
 	ff.Uint64(commonflags.Lifetime, 0, "Lock lifetime")
-	objectLockCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
+	ff.String(commonflags.ExpireAtTime, "", "Expiration time in RFC3339 format")
+	objectLockCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime, commonflags.ExpireAtTime)
+	objectLockCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAtTime, commonflags.ExpireAt)
+	objectLockCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAtTime, commonflags.Lifetime)
 
 	ff.StringSlice(commonflags.SessionSubjectFlag, nil, commonflags.SessionSubjectFlagUsage)
 	ff.StringSlice(commonflags.SessionSubjectNNSFlag, nil, commonflags.SessionSubjectNNSFlagUsage)

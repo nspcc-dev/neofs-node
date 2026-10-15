@@ -243,6 +243,14 @@ func calcMaxUniqueSearchResults(lim uint16, sets [][]client.SearchResultItem) ui
 // VerifyHeaderForMetadata checks whether given header corresponds to metadata
 // bucket requirements and limits.
 func VerifyHeaderForMetadata(hdr object.Object) error {
+	if !hdr.ExpirationTime().IsZero() {
+		if hdr.ExpirationTime().Unix() <= 0 {
+			return fmt.Errorf("non-positive expiration time %d", hdr.ExpirationTime().Unix())
+		}
+		if _, err := Expiration(hdr); !errors.Is(err, ErrNoExpiration) {
+			return errors.New("expiration time and epoch are mutually exclusive")
+		}
+	}
 	if ln := hdr.HeaderLen(); ln > object.MaxHeaderLen {
 		return fmt.Errorf("header len %d exceeds the limit", ln)
 	}

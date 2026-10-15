@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/nspcc-dev/bbolt"
 	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
@@ -47,6 +48,7 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 		err       error
 		hdr       *object.Object
 		currEpoch = db.epochState.CurrentEpoch()
+		currTime  = db.now().Unix()
 	)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
@@ -60,7 +62,7 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 			return logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 
-		hdr, err = get(metaCursor, addr, true, raw, currEpoch)
+		hdr, err = get(metaCursor, addr, true, raw, currEpoch, currTime)
 
 		return err
 	})
@@ -71,14 +73,14 @@ func (db *DB) Get(addr oid.Address, raw bool) (*object.Object, error) {
 // If raw and the object is a parent of some stored objects, get returns:
 // - [object.SplitInfoError] wrapping [object.SplitInfo] collected from parts if object is split;
 // - [iec.ErrPartitionedObject] if object is EC.
-func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*object.Object, error) {
+func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, currEpoch uint64, currTime int64) (*object.Object, error) {
 	var (
 		cnr   = addr.Container()
 		objID = addr.Object()
 	)
 
 	if checkStatus {
-		switch objectStatus(metaCursor, objID, currEpoch) {
+		switch objectStatus(metaCursor, objID, currEpoch, currTime) {
 		case statusGCMarked:
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		case statusTombstoned:
@@ -130,6 +132,14 @@ func get(metaCursor *bbolt.Cursor, addr oid.Address, checkStatus, raw bool, curr
 				return nil, fmt.Errorf("invalid epoch in meta of %s/%s: %w", cnr, objID, err)
 			}
 			obj.SetCreationEpoch(s)
+		case object.FilterExpirationTime:
+			s, err := strconv.ParseInt(string(attrVal), 10, 64)
+			if err == nil {
+				err = obj.SetExpirationTime(time.Unix(s, 0))
+			}
+			if err != nil {
+				return nil, fmt.Errorf("invalid expiration time in meta of %s/%s: %w", cnr, objID, err)
+			}
 		case object.FilterPayloadSize:
 			s, err := strconv.ParseUint(string(attrVal), 10, 64)
 			if err != nil {

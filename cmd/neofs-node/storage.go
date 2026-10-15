@@ -162,6 +162,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 
 				meta.WithLogger(c.log),
 				meta.WithEpochState(c.cfgNetmap.state),
+				meta.WithTimeSource(c.chainTime.Now),
 				meta.WithContainers(containerPresenceChecker{src: c.cnrSrc}),
 				meta.WithInitContext(c.ctx),
 			),
