@@ -15,8 +15,11 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 )
+
+var minContainerAPIVersion = version.New(2, 22)
 
 func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateContainerV2Request) {
 	if !cp.alphabetState.IsAlphabet() {
@@ -110,6 +113,10 @@ var allowedSystemAttributes = map[string]struct{}{
 }
 
 func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
+	if ver := cnr.Version(); ver.Compare(minContainerAPIVersion) < 0 {
+		return fmt.Errorf("API version is %s while %s is minimum supported", ver, minContainerAPIVersion)
+	}
+
 	var metaEnabled bool
 	for k := range cnr.Attributes() {
 		if strings.HasPrefix(k, sysAttrPrefix) {
