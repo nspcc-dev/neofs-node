@@ -111,7 +111,7 @@ var objectLockCmd = &cobra.Command{
 
 			wrt, err := cli.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), prm)
 			if err != nil {
-				err = fmt.Errorf("nit object writing: %w", err)
+				err = fmt.Errorf("init object writing: %w", err)
 			} else if err = wrt.Close(); err != nil {
 				err = fmt.Errorf("finish object stream: %w", err)
 			}
@@ -120,8 +120,8 @@ var objectLockCmd = &cobra.Command{
 			}
 
 			cmd.Printf("Lock object ID for %s locked object: %s\n", locked, wrt.GetResult().StoredObjectID())
-			cmd.Println("Objects successfully locked.")
 		}
+		cmd.Println("Objects successfully locked.")
 
 		return nil
 	},
