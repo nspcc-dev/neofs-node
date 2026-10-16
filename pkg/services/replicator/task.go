@@ -41,3 +41,8 @@ func (t *Task) SetNodes(v []netmap.NodeInfo) {
 func (t Task) Nodes() []netmap.NodeInfo {
 	return t.nodes
 }
+
+// Object returns task's object.
+func (t Task) Object() *object.Object {
+	return t.obj
+}

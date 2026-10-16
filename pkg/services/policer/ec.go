@@ -7,11 +7,11 @@ import (
 	"io"
 	"slices"
 	"strconv"
-	"sync"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func (p *Policer) processECPart(ctx context.Context, obj objectcore.AddressWithAttributes, parent oid.ID, pi iec.PartInfo, ecRules []iec.Rule, nodeLists [][]netmap.NodeInfo) {
@@ -233,7 +234,7 @@ headNextPart:
 			case errors.Is(err, apistatus.ErrNodeUnderMaintenance):
 				// Server may store the part. We consider it unavailable, but we don't attempt to recreate it.
 				// Once SN finishes maintenance, the part will likely become available.
-				if len(missingIdx)+len(skipIdx) >= int(rule.ParityPartNum) {
+				if len(missingIdx)+len(skipIdx) >= int(rule.ParityPartNum) && len(ecRules) == 1 {
 					p.log.Warn("too many EC parts unavailable, recreation is impossible",
 						zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
 						zap.Int("unavailable", len(missingIdx)+len(skipIdx)))
@@ -250,7 +251,7 @@ headNextPart:
 			}
 		}
 
-		if len(missingIdx)+len(skipIdx) >= int(rule.ParityPartNum) {
+		if len(missingIdx)+len(skipIdx) >= int(rule.ParityPartNum) && len(ecRules) == 1 {
 			p.log.Warn("too many EC parts unavailable, recreation is impossible",
 				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
 				zap.Int("unavailable", len(missingIdx)+len(skipIdx)))
@@ -281,99 +282,142 @@ headNextPart:
 		partLen = (parentHdr.PayloadSize() + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
 	}
 
-	parts := make([][]byte, totalParts)
-	required := make([]bool, totalParts)
+	buf := make([]byte, int(partLen)*totalParts)
+
+	if len(missingIdx)+len(skipIdx) > int(rule.ParityPartNum) {
+		if len(ecRules) == 1 {
+			// code should never be here, it must be checked in every
+			// parts restoration branch above
+			panic("trying to cross restore EC parts with single EC rule")
+		}
+
+		var nextRule = ruleIdx + 1
+		if nextRule == len(ecRules) {
+			nextRule = 0
+		}
+		obj, err := p.fetchObjectFromECRule(ctx, buf, sortedNodeLists[len(repRules):], parentHdr, ecRules, ruleIdx, nextRule)
+		if err != nil {
+			p.log.Warn("fetching EC parts from other EC rules failed",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
+				zap.Int("unavailable", len(missingIdx)+len(skipIdx)), zap.Error(err))
+			return
+		}
+
+		parts, err := fillParityParts(obj, rule, int(partLen))
+		if err != nil {
+			p.log.Warn("restoring EC parity parts from other EC rules failed",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
+				zap.Int("localPartIdx", localPartIdx), zap.Int("unavailable", len(missingIdx)+len(skipIdx)),
+				zap.Error(err))
+			return
+		}
+		err = p.recreateECParts(ctx, parentHdr, rule, ruleIdx, parts, missingIdx)
+		if err != nil {
+			p.log.Warn("restoring EC parts from other EC rules failed",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
+				zap.Int("localPartIdx", localPartIdx), zap.Int("unavailable", len(missingIdx)+len(skipIdx)),
+				zap.Error(err))
+			return
+		}
+
+		p.log.Info("restored EC objects from other EC rules successfully",
+			zap.Stringer("container", cnr), zap.Stringer("parent", parent),
+			zap.Int("localPartIdx", localPartIdx), zap.Stringer("rule", rule),
+			zap.Int("ruleIdx", ruleIdx),
+		)
+
+		return
+	}
+
+	// fetchObjectFromECRule restores the object inside if parts are missing.
+	_, err = p.fetchObjectFromECRule(ctx, buf, sortedNodeLists[len(repRules):], parentHdr, ecRules, ruleIdx, ruleIdx)
+	if err != nil {
+		p.log.Warn("fetching other EC parts failed, while restoring EC object",
+			zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
+			zap.Int("localPartIdx", localPartIdx), zap.Int("unavailable", len(missingIdx)+len(skipIdx)),
+			zap.Error(err))
+		return
+	}
+}
+
+// fetchObjectFromECRule returns requested object WITH parity parts concatenated.
+func (p *Policer) fetchObjectFromECRule(ctx context.Context, buf []byte, nodes [][]netmap.NodeInfo, parentHeader object.Object, ecRules []iec.Rule, initialRuleIdx, ruleIdx int) ([]byte, error) {
+	var (
+		cnr          = parentHeader.GetContainerID()
+		parentID     = parentHeader.GetID()
+		rule         = ecRules[ruleIdx]
+		partLen      = (parentHeader.PayloadSize() + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
+		totalParts   = int(rule.DataPartNum + rule.ParityPartNum)
+		requiredNum  = int(rule.DataPartNum)
+		missingParts []int
+		sortedNodes  = nodes[ruleIdx]
+
+		err error
+	)
+	needLen := int(partLen) * totalParts
+	if cap(buf) < needLen {
+		buf = make([]byte, 0, needLen)
+	}
+	buf = buf[:needLen]
 
 getNextPart:
 	for partIdx := range totalParts {
-		if slices.Contains(skipIdx, partIdx) {
-			continue
-		}
-		if slices.Contains(missingIdx, partIdx) {
-			required[partIdx] = true
-			continue
-		}
-
-		partID, ok := mPartID[partIdx]
-		if !ok {
-			panic(fmt.Sprintf("missing ID of part#%d after successful HEAD", partIdx))
-		}
-
-		if partIdx == localPartIdx {
-			b, err := p.localStorage.GetRange(ctx, oid.NewAddress(cnr, partID), 0, 0)
-			if err == nil {
-				parts[partIdx] = b
-				continue
-			}
-
-			p.log.Info("failed to RANGE EC part from local storage",
-				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
-				zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Stringer("partID", partID), zap.Error(err))
-		}
-
-		var partIdxAttr string
-		var off, ln uint64
+		var (
+			part        = buf[partIdx*int(partLen) : (partIdx+1)*int(partLen)]
+			partIdxAttr string
+			off, ln     uint64
+		)
 		for nodeIdx := range iec.NodeSequenceForPart(partIdx, totalParts, len(sortedNodes)) {
+			var (
+				rc   io.ReadCloser
+				node zap.Field
+			)
 			if p.network.IsLocalNodePublicKey(sortedNodes[nodeIdx].PublicKey()) {
-				if partIdx == localPartIdx { // done above
-					continue
-				}
-
-				b, err := p.localStorage.GetRange(ctx, oid.NewAddress(cnr, partID), off, ln)
+				_, _, rc, err = p.localStorage.GetECPartRange(ctx, cnr, parentID, iec.PartInfo{RuleIndex: ruleIdx, Index: partIdx}, blobstor.NewPayloadRange(off, ln), false)
 				if err != nil {
-					p.log.Info("failed to RANGE EC part from local storage",
-						zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
-						zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Stringer("partID", partID), zap.Error(err))
+					p.log.Info("failed to open RANGE stream for EC part from local storage",
+						zap.Stringer("container", cnr), zap.Stringer("parent", parentID), zap.Stringer("rule", rule),
+						zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx),
+						zap.Uint64("off", off), zap.Uint64("ln", ln), zap.Error(err))
 					continue
 				}
 
-				if parts[partIdx] == nil {
-					parts[partIdx] = make([]byte, partLen)
+				node = zap.String("node", "local")
+			} else {
+				node = zap.Strings("nodeEndpoints", slices.Collect(sortedNodes[nodeIdx].NetworkEndpoints()))
+				if partIdxAttr == "" {
+					partIdxAttr = strconv.Itoa(partIdx)
 				}
 
-				copy(parts[partIdx][off:], b)
-				continue getNextPart
+				// TODO: this is the 1st place where we known IDs of EC parts in advance.
+				//  Consider supporting direct requests of EC parts by ID, they are more lightweight.
+				rc, err = p.apiConns.GetRange(ctx, sortedNodes[nodeIdx], cnr, parentID, off, ln, iec.PartInfo{
+					RuleIndex: ruleIdx,
+					Index:     partIdx,
+				})
+				if err != nil {
+					p.log.Info("failed to open RANGE stream for EC part from remote node",
+						zap.Stringer("container", cnr), zap.Stringer("parent", parentID), zap.Stringer("rule", rule),
+						zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), node,
+						zap.Uint64("off", off), zap.Uint64("ln", ln), zap.Error(err))
+					continue
+				}
 			}
-
-			if partIdxAttr == "" {
-				partIdxAttr = strconv.Itoa(partIdx)
-			}
-
-			// TODO: this is the 1st place where we known IDs of EC parts in advance.
-			//  Consider supporting direct requests of EC parts by ID, they are more lightweight.
-			rc, err := p.apiConns.GetRange(ctx, sortedNodes[nodeIdx], cnr, parent, off, ln, iec.PartInfo{
-				RuleIndex: ruleIdx,
-				Index:     partIdx,
-			})
-			if err != nil {
-				p.log.Info("failed to open RANGE stream for EC part from remote node",
-					zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
-					zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Stringer("partID", partID), zap.Error(err))
-				continue
-			}
-
-			defer rc.Close()
-
-			if parts[partIdx] == nil {
-				parts[partIdx] = make([]byte, partLen)
-			}
-
-			n, err := io.ReadFull(rc, parts[partIdx][off:])
+			n, err := io.ReadFull(rc, part[off:])
+			rc.Close()
 			if err == nil {
 				continue getNextPart
 			}
 			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
-				return
+				return nil, err
 			}
-
 			if errors.Is(err, io.EOF) {
 				err = io.ErrUnexpectedEOF
 			}
-
-			p.log.Info("failed to RANGE EC part from remote node",
-				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
-				zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx),
-				zap.Stringer("partID", partID), zap.Uint64("off", off), zap.Uint64("len", ln), zap.Error(err))
+			p.log.Info("failed to RANGE EC part",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parentID), zap.Stringer("rule", rule),
+				zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), node,
+				zap.Uint64("off", off), zap.Uint64("len", ln), zap.Error(err))
 
 			if n > 0 {
 				off += uint64(n)
@@ -381,20 +425,94 @@ getNextPart:
 			}
 		}
 
-		if len(missingIdx)+len(skipIdx) >= int(rule.ParityPartNum) {
-			p.log.Warn("too many EC parts unavailable, recreation is impossible",
-				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
-				zap.Int("unavailable", len(missingIdx)+len(skipIdx)))
-			return
+		missingParts = append(missingParts, partIdx)
+		if len(missingParts) > requiredNum {
+			break getNextPart
 		}
-
-		parts[partIdx] = nil
-
-		// Exists and may be OK later, so do not recreate.
-		skipIdx = append(skipIdx, partIdx)
 	}
 
-	p.recreateECParts(ctx, parentHdr, rule, ruleIdx, parts, missingIdx)
+	if missingParts == nil {
+		return buf, nil
+	}
+
+	p.log.Info("could not get full object by EC rule, trying to restore EC rule implicitly...",
+		zap.Stringer("cnr", cnr), zap.Stringer("parent", parentID), zap.Int("ruleIdx", ruleIdx),
+		zap.Stringer("rule", rule))
+
+	if totalParts-len(missingParts) >= requiredNum {
+		p.log.Info("restoring EC rule by survived EC parts", zap.Stringer("cnr", cnr),
+			zap.Stringer("parent", parentID), zap.Int("partsMissing", len(missingParts)),
+			zap.Int("ruleIdx", ruleIdx), zap.Stringer("rule", rule))
+		err = p.recreateECParts(ctx, parentHeader, rule, ruleIdx, sliceECParts(buf, int(partLen), rule, missingParts), missingParts)
+		if err != nil {
+			return nil, fmt.Errorf("part re-endcoding: %w", err)
+		}
+
+		return buf, nil
+	}
+
+	nextRule := ruleIdx + 1
+	if nextRule == len(ecRules) {
+		nextRule = 0
+	}
+	if nextRule == initialRuleIdx {
+		return nil, fmt.Errorf("all EC rules were tried, there is not enough data for restoration, last rule tried: %d", ruleIdx)
+	}
+	p.log.Info("not enought EC parts for rule restoration, trying another EC rule...",
+		zap.Stringer("cnr", cnr), zap.Stringer("parent", parentID), zap.Int("partsMissing", len(missingParts)),
+		zap.Int("failedRuleIdx", ruleIdx), zap.Int("nextRuleIdx", nextRule))
+
+	obj, err := p.fetchObjectFromECRule(ctx, buf, nodes, parentHeader, ecRules, ruleIdx, nextRule)
+	if err != nil {
+		return nil, fmt.Errorf("could not find enough (%d) EC parts but restoring from %d EC rule also failed: %w", requiredNum, nextRule, err)
+	}
+	if len(obj) < needLen {
+		obj = obj[:needLen]
+	}
+
+	parts, err := fillParityParts(obj, rule, int(partLen))
+	if err != nil {
+		return nil, fmt.Errorf("missing parity EC parts cannot be re-calculated: %w", err)
+	}
+
+	return obj, p.recreateECParts(ctx, parentHeader, rule, ruleIdx, parts, missingParts)
+}
+
+func parityIndexes(rule iec.Rule) []int {
+	res := make([]int, 0, rule.ParityPartNum)
+	for i := int(rule.DataPartNum); i < int(rule.ParityPartNum+rule.DataPartNum); i++ {
+		res = append(res, i)
+	}
+	return res
+}
+
+func fillParityParts(obj []byte, rule iec.Rule, partLen int) ([][]byte, error) {
+	var (
+		parityIdxs = parityIndexes(rule)
+		parts      = sliceECParts(obj, partLen, rule, parityIdxs)
+	)
+	if err := iec.DecodeIndexes(rule, parts, parityIdxs); err != nil {
+		return nil, fmt.Errorf("missing EC parts cannot be re-calculated: %w", err)
+	}
+
+	return parts, nil
+}
+
+// sliceECParts uses the buffer and slice it according to the EC rule.
+// Parity parts point to the right buffer places but have zero length.
+func sliceECParts(buf []byte, partLn int, rule iec.Rule, missingParts []int) [][]byte {
+	var (
+		totalParts = int(rule.DataPartNum + rule.ParityPartNum)
+		res        = make([][]byte, totalParts)
+	)
+	for part := range totalParts {
+		res[part] = buf[partLn*part : partLn*(part+1) : partLn*(part+1)]
+	}
+	for _, missing := range missingParts {
+		res[missing] = res[missing][:0:partLn]
+	}
+
+	return res
 }
 
 // returns part ID and parent header.
@@ -422,55 +540,46 @@ func (p *Policer) headECPart(ctx context.Context, timeout time.Duration, node ne
 	return hdr, nil
 }
 
-func (p *Policer) recreateECParts(ctx context.Context, parent object.Object, rule iec.Rule, ruleIdx int, parts [][]byte, missingIdx []int) {
+func (p *Policer) recreateECParts(ctx context.Context, parent object.Object, rule iec.Rule, ruleIdx int, parts [][]byte, missingIdx []int) error {
 	sortedNodeLists, _, ecRules, err := p.network.GetNodesForObject(oid.NewAddress(parent.GetContainerID(), parent.GetID()))
 	if err != nil {
 		p.log.Error("failed to select nodes for EC parent to recreate its parts",
 			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
 			zap.Stringer("rule", rule), zap.Error(err))
-		return
+		return err
 	}
 
 	if ruleIdx >= len(ecRules) {
-		p.log.Error("rule index overflows total number of EC rules in policy",
-			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
-			zap.Stringer("rule", rule), zap.Int("rule_idx", ruleIdx), zap.Int("total_rules", len(ecRules)))
-		return
+		return fmt.Errorf("rule index overflows total number of EC rules in policy: ruleIdx: %d, rules length: %d", ruleIdx, len(ecRules))
 	}
 
-	p.recreateECPartsIdx(ctx, parent, rule, ruleIdx, sortedNodeLists[ruleIdx], parts, missingIdx)
+	return p.recreateECPartsIdx(ctx, parent, rule, ruleIdx, sortedNodeLists[ruleIdx], parts, missingIdx)
 }
 
 func (p *Policer) recreateECPartsIdx(ctx context.Context, parent object.Object, rule iec.Rule, ruleIdx int, sortedNodes []netmap.NodeInfo,
-	parts [][]byte, missingIdx []int) {
+	parts [][]byte, missingIdx []int) error {
 	if err := iec.DecodeIndexes(rule, parts, missingIdx); err != nil { // should never happen if we count parts correctly
-		p.log.Error("missing EC parts cannot be re-calculated",
-			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
-			zap.Stringer("rule", rule), zap.Error(err))
-		return
+		return fmt.Errorf("missing EC parts cannot be re-calculated: %w", err)
 	}
 
-	var wg sync.WaitGroup
+	var wg errgroup.Group
 
 	for _, partIdx := range missingIdx {
-		wg.Go(func() {
-			p.recreateECPart(ctx, parent, rule, ruleIdx, partIdx, parts[partIdx], sortedNodes)
+		wg.Go(func() error {
+			return p.recreateECPart(ctx, parent, rule, ruleIdx, partIdx, parts[partIdx], sortedNodes)
 		})
 	}
 
-	wg.Wait()
+	return wg.Wait()
 }
 
-func (p *Policer) recreateECPart(ctx context.Context, parent object.Object, rule iec.Rule, ruleIdx, partIdx int, part []byte, sortedNodes []netmap.NodeInfo) {
+func (p *Policer) recreateECPart(ctx context.Context, parent object.Object, rule iec.Rule, ruleIdx, partIdx int, part []byte, sortedNodes []netmap.NodeInfo) error {
 	partObj, err := iec.FormObjectForECPart(p.signer, parent, part, iec.PartInfo{
 		RuleIndex: ruleIdx,
 		Index:     partIdx,
 	})
 	if err != nil {
-		p.log.Info("failed to form object with restored EC part",
-			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
-			zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Error(err))
-		return
+		return fmt.Errorf("failed to form object with %d restored EC part: %w", partIdx, err)
 	}
 
 	totalParts := int(rule.DataPartNum) + int(rule.ParityPartNum)
@@ -488,17 +597,21 @@ func (p *Policer) recreateECPart(ctx context.Context, parent object.Object, rule
 	task.SetNodes(nodes)
 	p.replicator.HandleTask(ctx, task, &repRes)
 
-	if repRes.done {
-		p.metrics.IncPolicerObjectReplicated(true)
-		p.log.Info("EC part successfully recreated",
-			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
-			zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()),
-			zap.Strings("node", repRes.netAddresses))
-	} else {
+	if !repRes.done {
 		p.log.Info("failed to put recreated EC part on any node",
 			zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
 			zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()))
+
+		return fmt.Errorf("failed to put recreated %d EC part on any node", partIdx)
 	}
+
+	p.metrics.IncPolicerObjectReplicated(true)
+	p.log.Info("EC part successfully recreated",
+		zap.Stringer("container", parent.GetContainerID()), zap.Stringer("parent", parent.GetID()),
+		zap.Stringer("rule", rule), zap.Int("part_idx", partIdx), zap.Stringer("part_id", partObj.GetID()),
+		zap.Strings("node", repRes.netAddresses))
+
+	return nil
 }
 
 func checkECAttributesInReceivedObject(hdr object.Object, ruleIdx, partIdx int) error {

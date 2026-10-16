@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -30,8 +32,10 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 type storageListerWithDelay struct {
@@ -83,6 +87,10 @@ func (s *storageListerWithDelay) HeadECPart(_ context.Context, id cid.ID, id2 oi
 }
 
 func (s *storageListerWithDelay) GetRange(_ context.Context, address oid.Address, u uint64, u2 uint64) ([]byte, error) {
+	panic("do not call me")
+}
+
+func (s *storageListerWithDelay) GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
 	panic("do not call me")
 }
 
@@ -180,8 +188,8 @@ func TestConsistencyAndPlacement(t *testing.T) {
 		mockNet.inNetmap = true
 
 		conns := newMockAPIConnections()
-		conns.setHeadResult(nodes[1], addr, apistatus.ErrObjectNotFound)
-		conns.setHeadResult(nodes[2], addr, nil)
+		conns.setHeadResult(nodes[1], addr, object.Object{}, apistatus.ErrObjectNotFound)
+		conns.setHeadResult(nodes[2], addr, object.Object{}, nil)
 
 		r := newTestReplicator(t)
 		r.success = true
@@ -748,7 +756,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	localNode.objList = []objectcore.AddressWithAttributes{localObj}
 
 	mockNet := newMockNetwork()
-	mockNet.setObjectNodesRepResult(localObj.Address.Container(), localObj.Address.Object(), slices.Clone(nodes), rep)
+	mockNet.setObjectNodesRepResult(localObj.Address.Container(), localObj.Address.Object(), [][]netmap.NodeInfo{slices.Clone(nodes)}, rep)
 	if localIdx >= 0 {
 		mockNet.pubKey = nodes[localIdx].PublicKey()
 		mockNet.inNetmap = true
@@ -759,7 +767,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 	conns := newMockAPIConnections()
 	for i := range nodes {
 		if i != localIdx {
-			conns.setHeadResult(nodes[i], localObj.Address, headErrs[i])
+			conns.setHeadResult(nodes[i], localObj.Address, object.Object{}, headErrs[i])
 		}
 	}
 
@@ -769,7 +777,7 @@ func testRepCheck(t *testing.T, rep uint, localObj objectcore.AddressWithAttribu
 		r.successfulCopies = expShortage
 		r.onTask = func(_ replicator.Task, successfulNodes []netmap.NodeInfo) {
 			for _, node := range successfulNodes {
-				conns.setHeadResult(node, localObj.Address, nil)
+				conns.setHeadResult(node, localObj.Address, object.Object{}, nil)
 			}
 		}
 	}
@@ -889,7 +897,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 		localObj.Attributes[2] = string(testutil.RandByteSlice(31))
 
 		mockNet := newMockNetwork()
-		mockNet.setObjectNodesECResult(cnr, parentOID, nodes, rule)
+		mockNet.setObjectNodesECResult(cnr, parentOID, [][]netmap.NodeInfo{nodes}, []iec.Rule{rule})
 
 		testECCheckWithNetworkAndShortage(t, mockNet, localObj, nodes, 0, allOK, false, nil, false, 0, testutil.LogEntry{
 			Level: zap.ErrorLevel, Message: "received EC parent OID with unexpected len from local storage, skip object",
@@ -899,7 +907,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 
 	t.Run("EC part in non-EC container", func(t *testing.T) {
 		mockNet := newMockNetwork()
-		mockNet.setObjectNodesRepResult(localObj.Address.Container(), parentOID, nodes, 3)
+		mockNet.setObjectNodesRepResult(localObj.Address.Container(), parentOID, [][]netmap.NodeInfo{nodes}, 3)
 
 		logBuf := testECCheckWithNetwork(t, mockNet, localObj, nodes, 0, allOK, true, nil)
 		logBuf.AssertContains(testutil.LogEntry{
@@ -1131,6 +1139,138 @@ func TestPolicer_Run_EC(t *testing.T) {
 		})
 	})
 
+	t.Run("parts restoration", func(t *testing.T) {
+		ecRules := []iec.Rule{
+			{
+				DataPartNum:   6,
+				ParityPartNum: 2,
+			},
+			{
+				DataPartNum:   3,
+				ParityPartNum: 1,
+			},
+		}
+
+		var (
+			totalNodesNeed        uint8
+			totalFirstRuleObjects = int(ecRules[0].DataPartNum + ecRules[0].ParityPartNum)
+		)
+		for _, ecRule := range ecRules {
+			totalNodesNeed += ecRule.DataPartNum + ecRule.ParityPartNum
+		}
+		nodes := testutil.Nodes(int(totalNodesNeed))
+		var nodesPlacement = make([][]netmap.NodeInfo, len(ecRules))
+		for i := range nodes {
+			var placementVector int
+			if i < totalFirstRuleObjects {
+				placementVector = 0
+			} else {
+				placementVector = 1
+			}
+			nodesPlacement[placementVector] = append(nodesPlacement[placementVector], nodes[i])
+		}
+
+		const parentSize = 4 << 10
+		var (
+			parent, ecChain = generateECChain(t, parentSize, ecRules)
+			parentAddr      = parent.Address()
+			cID             = parentAddr.Container()
+			parentOID       = parentAddr.Object()
+		)
+
+		const (
+			localObjectECIdx   = 0
+			localObjectPartIdx = 4
+		)
+		localObj := objectcore.AddressWithAttributes{
+			Address:    oid.NewAddress(cID, ecChain[localObjectECIdx][localObjectPartIdx].GetID()),
+			Type:       object.TypeRegular,
+			Attributes: []string{strconv.Itoa(localObjectECIdx), strconv.Itoa(localObjectPartIdx), string(parentOID[:])},
+		}
+		localNode := newTestLocalNode()
+		localNode.objList = []objectcore.AddressWithAttributes{localObj}
+		localNode.obj = ecChain[localObjectECIdx][localObjectPartIdx]
+
+		mockNet := newMockNetwork()
+		mockNet.setObjectNodesECResult(localObj.Address.Container(), parentOID, nodesPlacement, ecRules)
+		mockNet.pubKey = nodes[localObjectPartIdx].PublicKey()
+		conns := newMockAPIConnections()
+
+		// drop more objects than parity number from the first rule and set up
+		// the second rule
+		var firstRuleHealthyParts = int(ecRules[0].DataPartNum - 1)
+		for i := range nodes {
+			if i < totalFirstRuleObjects {
+				// first rule
+				obj := ecChain[0][i]
+				if i == localObjectPartIdx {
+					localNode.setECPartResult(t, obj)
+				}
+				if i < firstRuleHealthyParts {
+					conns.setHeadResult(nodes[i], parentAddr, obj, nil)
+					conns.setRangeResult(nodes[i], parentAddr, 0, uint8(i), obj.Payload(), nil)
+				} else {
+					conns.setHeadResult(nodes[i], parentAddr, object.Object{}, error(apistatus.ErrObjectNotFound))
+					conns.setRangeResult(nodes[i], parentAddr, 0, uint8(i), nil, apistatus.ErrObjectNotFound)
+				}
+			} else {
+				// second rule
+				var (
+					obj  = ecChain[1][i-totalFirstRuleObjects]
+					data = obj.Payload()
+				)
+
+				conns.setHeadResult(nodes[i], parentAddr, obj, nil)
+				conns.setRangeResult(nodes[i], parentAddr, 1, uint8(i-totalFirstRuleObjects), data, nil)
+			}
+		}
+
+		r := newTestReplicator(t)
+		r.success = true
+		var (
+			m                sync.Mutex
+			restoredObjectsM = make(map[oid.Address]object.Object)
+		)
+		r.onTask = func(task replicator.Task, infos []netmap.NodeInfo) {
+			m.Lock()
+			obj := task.Object()
+			addr := obj.Address()
+			restoredObjectsM[addr] = *obj
+			m.Unlock()
+		}
+
+		p := New(neofscryptotest.Signer(),
+			WithReplicationCooldown(50*time.Millisecond),
+			WithNetwork(mockNet),
+			WithLogger(zaptest.NewLogger(t)),
+			WithMetrics(&mockMetrics{}),
+		)
+		p.localStorage = localNode
+		p.apiConns = conns
+		p.replicator = r
+
+		synctest.Test(t, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			go p.Run(ctx)
+
+			time.Sleep(time.Second)
+			require.NotNil(t, r.task.Load())
+
+			require.Greater(t, mockNet.totalGetNodesCalls(), uint64(0))
+
+			synctest.Wait()
+
+			var (
+				droppedObjects  = ecChain[0][firstRuleHealthyParts:]
+				restoredObjects = slices.Collect(maps.Values(restoredObjectsM))
+			)
+
+			require.Len(t, restoredObjects, len(droppedObjects))
+			require.ElementsMatch(t, restoredObjects, droppedObjects)
+		})
+	})
+
 	for _, typ := range []object.Type{
 		object.TypeTombstone,
 		object.TypeLock,
@@ -1143,7 +1283,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 
 			for localIdx := -1; localIdx < len(nodes); localIdx++ {
 				mockNet := newMockNetwork()
-				mockNet.setObjectNodesECResult(cnr, partOID, slices.Clone(nodes), rule)
+				mockNet.setObjectNodesECResult(cnr, partOID, [][]netmap.NodeInfo{slices.Clone(nodes)}, []iec.Rule{rule})
 				if localIdx >= 0 {
 					mockNet.pubKey = nodes[localIdx].PublicKey()
 				}
@@ -1171,7 +1311,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	}
 }
 
-func newECMockNetwork(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int) *mockNetwork {
+func newECMockNetwork(t *testing.T, rules []iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int) *mockNetwork {
 	require.Len(t, localObj.Attributes, 3)
 
 	var sortOID oid.ID
@@ -1183,7 +1323,7 @@ func newECMockNetwork(t *testing.T, rule iec.Rule, localObj objectcore.AddressWi
 	}
 
 	mockNet := newMockNetwork()
-	mockNet.setObjectNodesECResult(localObj.Address.Container(), sortOID, slices.Clone(nodes), rule)
+	mockNet.setObjectNodesECResult(localObj.Address.Container(), sortOID, [][]netmap.NodeInfo{slices.Clone(nodes)}, rules)
 	if localIdx >= 0 {
 		mockNet.pubKey = nodes[localIdx].PublicKey()
 	}
@@ -1192,12 +1332,12 @@ func newECMockNetwork(t *testing.T, rule iec.Rule, localObj objectcore.AddressWi
 }
 
 func testECCheck(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, expRedundant bool, expCandidates []netmap.NodeInfo) *testutil.LogBuffer {
-	mockNet := newECMockNetwork(t, rule, localObj, nodes, localIdx)
+	mockNet := newECMockNetwork(t, []iec.Rule{rule}, localObj, nodes, localIdx)
 	return testECCheckWithNetwork(t, mockNet, localObj, nodes, localIdx, headErrs, expRedundant, expCandidates)
 }
 
 func testECCheckWaitLog(t *testing.T, rule iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int, headErrs []error, exp testutil.LogEntry) {
-	mockNet := newECMockNetwork(t, rule, localObj, nodes, localIdx)
+	mockNet := newECMockNetwork(t, []iec.Rule{rule}, localObj, nodes, localIdx)
 	testECCheckWithNetworkAndShortage(t, mockNet, localObj, nodes, localIdx, headErrs, false, nil, false, 0, exp)
 }
 
@@ -1221,7 +1361,7 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 	conns := newMockAPIConnections()
 	for i := range nodes {
 		if i != localIdx {
-			conns.setHeadResult(nodes[i], localObj.Address, headErrs[i])
+			conns.setHeadResult(nodes[i], localObj.Address, object.Object{}, headErrs[i])
 		}
 	}
 
@@ -1231,7 +1371,7 @@ func testECCheckWithNetworkAndShortage(t *testing.T, mockNet *mockNetwork, local
 		r.successfulCopies = expShortage
 		r.onTask = func(_ replicator.Task, successfulNodes []netmap.NodeInfo) {
 			for _, node := range successfulNodes {
-				conns.setHeadResult(node, localObj.Address, nil)
+				conns.setHeadResult(node, localObj.Address, object.Object{}, nil)
 			}
 		}
 	}
@@ -1310,7 +1450,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 
 		mockNet := newMockNetwork()
 		mockNet.pubKey = nodes[0].PublicKey()
-		mockNet.setObjectNodesRepResult(cnr, objID, nodes, 1)
+		mockNet.setObjectNodesRepResult(cnr, objID, [][]netmap.NodeInfo{nodes}, 1)
 
 		p := New(neofscryptotest.Signer(),
 			WithNetwork(mockNet),
@@ -1369,7 +1509,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 
 		mockNet := newMockNetwork()
 		mockNet.pubKey = nodes[0].PublicKey()
-		mockNet.setObjectNodesRepResult(cnr, objID, nodes, 1)
+		mockNet.setObjectNodesRepResult(cnr, objID, [][]netmap.NodeInfo{nodes}, 1)
 
 		p := New(neofscryptotest.Signer(),
 			WithNetwork(mockNet),
@@ -1403,9 +1543,9 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 
 				mockNet := newMockNetwork()
 				mockNet.pubKey = nodes[0].PublicKey()
-				mockNet.setObjectNodesRepResult(cnr, objID, nodes, 1)
+				mockNet.setObjectNodesRepResult(cnr, objID, [][]netmap.NodeInfo{nodes}, 1)
 				conns := newMockAPIConnections()
-				conns.setHeadResult(nodes[1], addr, nil)
+				conns.setHeadResult(nodes[1], addr, object.Object{}, nil)
 
 				p := New(neofscryptotest.Signer(),
 					WithNetwork(mockNet),
@@ -1493,12 +1633,27 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 }
 
 type testLocalNode struct {
-	objList []objectcore.AddressWithAttributes
+	objList   []objectcore.AddressWithAttributes
+	obj       object.Object
+	objECRule int
+	objECPart int
 
 	delMtx                sync.RWMutex
 	del                   map[oid.Address]struct{}
 	delByShard            map[oid.Address][]string
 	optimizeShardLocation func(oid.Address, []string) (bool, error)
+}
+
+func (x *testLocalNode) setECPartResult(t *testing.T, obj object.Object) {
+	attrs := obj.Attributes()
+	rule, err := strconv.ParseInt(attrs[0].Value(), 10, 64)
+	require.NoError(t, err)
+	part, err := strconv.ParseInt(attrs[1].Value(), 10, 64)
+	require.NoError(t, err)
+
+	x.obj = obj
+	x.objECRule = int(rule)
+	x.objECPart = int(part)
 }
 
 func newTestLocalNode() *testLocalNode {
@@ -1655,12 +1810,36 @@ func (x *testLocalNode) Head(_ context.Context, _ oid.Address, _ bool) (*object.
 	return &object.Object{}, nil
 }
 
-func (x *testLocalNode) HeadECPart(_ context.Context, _ cid.ID, _ oid.ID, _ iec.PartInfo) (object.Object, error) {
-	return object.Object{}, nil
+func (x *testLocalNode) HeadECPart(_ context.Context, cID cid.ID, oID oid.ID, pi iec.PartInfo) (object.Object, error) {
+	if pi.RuleIndex != x.objECRule || pi.Index != x.objECPart {
+		return object.Object{}, apistatus.ErrObjectNotFound
+	}
+	if x.obj.Address().Compare(oid.NewAddress(cID, oID)) == 0 {
+		return *x.obj.CutPayload(), nil
+	}
+
+	return object.Object{}, apistatus.ErrObjectNotFound
 }
 
-func (x *testLocalNode) GetRange(_ context.Context, _ oid.Address, _ uint64, _ uint64) ([]byte, error) {
+func (x *testLocalNode) GetRange(_ context.Context, addr oid.Address, off uint64, ln uint64) ([]byte, error) {
 	panic("unimplemented")
+}
+
+func (x *testLocalNode) GetECPartRange(ctx context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
+	if pi.RuleIndex != x.objECRule || pi.Index != x.objECPart {
+		return nil, 0, nil, apistatus.ErrObjectNotFound
+	}
+	if x.obj.Parent().Address().Compare(oid.NewAddress(cnr, parent)) == 0 {
+		var data = x.obj.Payload()
+		data = data[rng.First:rng.Second]
+		if rng.First == 0 && rng.Second == 0 {
+			data = x.obj.Payload()
+		}
+
+		return nil, 0, io.NopCloser(bytes.NewReader(data)), nil
+	}
+
+	return nil, 0, nil, apistatus.ErrObjectNotFound
 }
 
 func (x *testLocalNode) OptimizeShardLocation(_ context.Context, addr oid.Address, shardIDs []string) (bool, error) {
@@ -1680,7 +1859,7 @@ type getNodesKey struct {
 }
 
 type getNodesValue struct {
-	nodes    []netmap.NodeInfo
+	nodes    [][]netmap.NodeInfo
 	repRules []uint
 	ecRules  []iec.Rule
 }
@@ -1692,7 +1871,7 @@ func newGetNodesKey(cnr cid.ID, obj oid.ID) getNodesKey {
 	}
 }
 
-func (x *mockNetwork) setObjectNodesRepResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rep uint) {
+func (x *mockNetwork) setObjectNodesRepResult(cnr cid.ID, obj oid.ID, nodes [][]netmap.NodeInfo, rep uint) {
 	x.mtx.Lock()
 	x.getNodes[newGetNodesKey(cnr, obj)] = getNodesValue{
 		nodes:    nodes,
@@ -1701,11 +1880,11 @@ func (x *mockNetwork) setObjectNodesRepResult(cnr cid.ID, obj oid.ID, nodes []ne
 	x.mtx.Unlock()
 }
 
-func (x *mockNetwork) setObjectNodesECResult(cnr cid.ID, obj oid.ID, nodes []netmap.NodeInfo, rule iec.Rule) {
+func (x *mockNetwork) setObjectNodesECResult(cnr cid.ID, obj oid.ID, nodes [][]netmap.NodeInfo, rules []iec.Rule) {
 	x.mtx.Lock()
 	x.getNodes[newGetNodesKey(cnr, obj)] = getNodesValue{
 		nodes:   nodes,
-		ecRules: []iec.Rule{rule},
+		ecRules: rules,
 	}
 	x.mtx.Unlock()
 }
@@ -1720,7 +1899,7 @@ func (x *mockNetwork) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, 
 		return nil, nil, nil, errors.New("[test] unexpected policy requested")
 	}
 
-	return [][]netmap.NodeInfo{v.nodes}, v.repRules, v.ecRules, nil
+	return v.nodes, v.repRules, v.ecRules, nil
 }
 
 func (x *mockNetwork) totalGetNodesCalls() uint64 {
@@ -1746,33 +1925,126 @@ func newConnKey(node netmap.NodeInfo, objAddr oid.Address) connObjectKey {
 	}
 }
 
-type mockAPIConnections struct {
-	lock sync.RWMutex
-	head map[connObjectKey]error
+type rngReq struct {
+	connObjectKey
+	rule uint8
+	part uint8
+}
+type rngResult struct {
+	data []byte
+	err  error
 }
 
-func (x *mockAPIConnections) setHeadResult(node netmap.NodeInfo, addr oid.Address, err error) {
+type headResult struct {
+	hdr object.Object
+	err error
+}
+
+type mockAPIConnections struct {
+	lock     sync.RWMutex
+	head     map[connObjectKey]headResult
+	getRange map[rngReq]rngResult
+}
+
+func (x *mockAPIConnections) setHeadResult(node netmap.NodeInfo, addrRequested oid.Address, obj object.Object, err error) {
 	x.lock.Lock()
 	defer x.lock.Unlock()
-	x.head[newConnKey(node, addr)] = err
+	x.head[newConnKey(node, addrRequested)] = headResult{
+		hdr: obj,
+		err: err,
+	}
 }
 
-func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo, addr oid.Address, _ bool, _ iec.PartInfo) (object.Object, error) {
+func (x *mockAPIConnections) setRangeResult(node netmap.NodeInfo, addr oid.Address, ruleIdx, part uint8, data []byte, err error) {
+	x.lock.Lock()
+	defer x.lock.Unlock()
+	x.getRange[rngReq{
+		connObjectKey: newConnKey(node, addr),
+		rule:          ruleIdx,
+		part:          part,
+	}] = rngResult{
+		data: data,
+		err:  err,
+	}
+}
+
+func (x *mockAPIConnections) headObject(_ context.Context, node netmap.NodeInfo, addr oid.Address, _ bool, pi iec.PartInfo) (object.Object, error) {
 	x.lock.RLock()
 	defer x.lock.RUnlock()
 	v, ok := x.head[newConnKey(node, addr)]
 	if !ok {
 		return object.Object{}, errors.New("[test] unexpected conn/object accessed")
 	}
-	return object.Object{}, v
+	attrs := v.hdr.Attributes()
+	if len(attrs) == 0 {
+		return v.hdr, v.err
+	}
+	ecRule, err := strconv.ParseInt(attrs[0].Value(), 10, 8)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("[test] unexpected object EC rule attr value: %s", attrs[0].Value())
+	}
+	ecPart, err := strconv.ParseInt(attrs[1].Value(), 10, 8)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("[test] unexpected object EC part attr value: %s", attrs[1].Value())
+	}
+	if int(ecRule) != pi.RuleIndex || int(ecPart) != pi.Index {
+		return object.Object{}, apistatus.ErrObjectNotFound
+	}
+
+	return v.hdr, v.err
 }
 
-func (x *mockAPIConnections) GetRange(context.Context, netmap.NodeInfo, cid.ID, oid.ID, uint64, uint64, iec.PartInfo) (io.ReadCloser, error) {
-	panic("unimplemented")
+func (x *mockAPIConnections) GetRange(_ context.Context, node netmap.NodeInfo, cID cid.ID, oID oid.ID, off uint64, ln uint64, pi iec.PartInfo) (io.ReadCloser, error) {
+	x.lock.RLock()
+	defer x.lock.RUnlock()
+	v, ok := x.getRange[rngReq{
+		connObjectKey: newConnKey(node, oid.NewAddress(cID, oID)),
+		rule:          uint8(pi.RuleIndex),
+		part:          uint8(pi.Index),
+	}]
+	if !ok {
+		return nil, errors.New("[test] unexpected object range accessed")
+	}
+
+	data := v.data[off:ln]
+	if off == 0 && ln == 0 {
+		data = v.data
+	}
+
+	return io.NopCloser(bytes.NewReader(data)), v.err
 }
 
 func newMockAPIConnections() *mockAPIConnections {
 	return &mockAPIConnections{
-		head: make(map[connObjectKey]error),
+		head:     make(map[connObjectKey]headResult),
+		getRange: make(map[rngReq]rngResult),
 	}
+}
+
+func generateECChain(t *testing.T, parentSize uint64, rules []iec.Rule) (object.Object, [][]object.Object) {
+	parent := objecttest.Object()
+	parent.ResetRelations()
+	data := testutil.RandByteSlice(parentSize)
+	parent.SetPayload(data)
+	parent.SetPayloadSize(parentSize)
+
+	res := make([][]object.Object, 0, len(rules))
+	for ruleIdx, rule := range rules {
+		parts, _, err := iec.Encode(rule, data)
+		require.NoError(t, err)
+
+		ruleObjs := make([]object.Object, 0, len(parts))
+		for i, partBytes := range parts {
+			partObj, err := iec.FormObjectForECPart(nil, parent, partBytes, iec.PartInfo{
+				RuleIndex: ruleIdx,
+				Index:     i,
+			})
+			require.NoError(t, err)
+
+			ruleObjs = append(ruleObjs, partObj)
+		}
+		res = append(res, ruleObjs)
+	}
+
+	return parent, res
 }
