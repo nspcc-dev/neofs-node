@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"io"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
@@ -22,9 +23,14 @@ type SubmitStreamFunc = func(int, io.ReadCloser)
 // SubmitDataStreamFunc is a handler of data stream.
 type SubmitDataStreamFunc = func(io.ReadCloser)
 
+type ecPartSelectorPrm struct {
+	ECPartSelector *iec.PartInfo
+}
+
 // Prm groups parameters of Get service call.
 type Prm struct {
 	commonPrm
+	ecPartSelectorPrm
 
 	payloadRange blobstor.PayloadRange
 	payloadOnly  bool
@@ -65,6 +71,7 @@ type GetTransportFunc func(context.Context, clientcore.MultiAddressClient) error
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
+	ecPartSelectorPrm
 
 	buffer      []byte
 	submitLenFn func(int)

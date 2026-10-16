@@ -904,6 +904,13 @@ func convertHeadPrm(cnr container.Container, req *protoobject.HeadRequest, resp 
 	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.HeadPrm
+
+	var err error
+	p.ECPartSelector, err = convertECPartID(req.Body.EcPartId)
+	if err != nil {
+		return getsvc.HeadPrm{}, err
+	}
+
 	p.SetCommonParameters(cp)
 	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithContainer(cnr)
@@ -953,9 +960,6 @@ type getStream struct {
 	recheckEACL             bool
 	payloadOnly             bool
 	returnVersionInResponse bool
-
-	sendECPartIndInResponse bool
-	ecFoundPartInd          string
 }
 
 func (s *getStream) ValidateHeader(hdr *object.Object) error {
@@ -985,14 +989,7 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 	if err := s.ValidateHeader(hdr); err != nil {
 		return err
 	}
-	if s.sendECPartIndInResponse {
-		for _, attr := range hdr.Attributes() {
-			if attr.Key() == object.AttributeECPartIndex {
-				s.ecFoundPartInd = attr.Value()
-				break
-			}
-		}
-	}
+
 	if s.payloadOnly {
 		return nil
 	}
@@ -1018,29 +1015,13 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 }
 
 func (s *getStream) WriteChunk(chunk []byte) error {
-	var metaHeader *protosession.ResponseMetaHeader
-	if s.ecFoundPartInd != "" {
-		var v *refs.Version
-		if s.returnVersionInResponse {
-			v = version.Current().ProtoMessage()
-		}
-		metaHeader = &protosession.ResponseMetaHeader{
-			Version: v,
-			XHeaders: []*protosession.XHeader{{
-				Key:   object.AttributeECPartIndex,
-				Value: s.ecFoundPartInd,
-			}},
-		}
-	}
-
-	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; metaHeader, s.ecFoundPartInd = nil, "" {
+	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; {
 		newResp := &protoobject.GetResponse{
 			Body: &protoobject.GetResponse_Body{
 				ObjectPart: &protoobject.GetResponse_Body_Chunk{
 					Chunk: buf.Next(maxRespDataChunkSize),
 				},
 			},
-			MetaHeader: metaHeader,
 		}
 		if err := s.base.Send(newResp); err != nil {
 			return err
@@ -1120,7 +1101,6 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		recheckEACL:             recheckEACL,
 		payloadOnly:             req.GetBody().GetPayloadOnly(),
 		returnVersionInResponse: util.NeedVersionInResponse(req.MetaHeader),
-		sendECPartIndInResponse: sendECPartIdxInResponse(req),
 	}
 
 	p, err := convertGetPrm(reqInfo.Container, req, respStream, cnrID, objID, reqMD)
@@ -1284,31 +1264,6 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	return nil
 }
 
-func sendECPartIdxInResponse(req *protoobject.GetRequest) bool {
-	if req.MetaHeader == nil || !req.Body.PayloadOnly || req.Body.Range != nil {
-		return false
-	}
-	var (
-		isECPartReq  bool
-		partIdxFound bool
-	)
-attrL:
-	for _, attr := range req.MetaHeader.XHeaders {
-		switch attr.Key {
-		case object.AttributeECPartIndex:
-			isECPartReq = true
-			partIdxFound = attr.Key != ""
-			break attrL
-		case object.AttributeECRuleIndex:
-			isECPartReq = true
-		default:
-			continue
-		}
-	}
-
-	return isECPartReq && !partIdxFound
-}
-
 func (s *Server) copyGetResponseHeader(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.MemBuffer, hdrBuf []byte, hdrTo int) error {
 	bodyf := shiftHeaderInGetResponseBuffer(hdrRespBuf.SliceBuffer, hdrBuf[:hdrTo])
 
@@ -1459,6 +1414,13 @@ func convertGetPrm(cnr container.Container, req *protoobject.GetRequest, stream 
 	cp := objutil.CommonPrmFromRequest(reqMD.ttl, reqMD.xHeaders, reqMD.tokens)
 
 	var p getsvc.Prm
+
+	var err error
+	p.ECPartSelector, err = convertECPartID(body.EcPartId)
+	if err != nil {
+		return getsvc.Prm{}, err
+	}
+
 	p.SetCommonParameters(cp)
 	p.WithAddress(oid.NewAddress(cnrID, objID))
 	p.WithContainer(cnr)
@@ -2552,4 +2514,28 @@ func checkOrderedHeaderProtobufAgainstID(b []byte, id oid.ID) error {
 	}
 
 	return nil
+}
+
+func convertECPartID(ecPartID *protoobject.ECPartID) (*iec.PartInfo, error) {
+	if ecPartID == nil {
+		return nil, nil
+	}
+
+	partIdx := -1
+	if ecPartID.PartIndex != nil {
+		if *ecPartID.PartIndex > netmap.MaxTotalECParts {
+			return nil, fmt.Errorf("EC part index overflows policy limit: %d > %d", *ecPartID.PartIndex, netmap.MaxTotalECParts)
+		}
+
+		partIdx = int(*ecPartID.PartIndex)
+	}
+
+	if ecPartID.RuleIndex > netmap.MaxECRules {
+		return nil, fmt.Errorf("EC rule index overflows policy limit: %d > %d", ecPartID.RuleIndex, netmap.MaxECRules)
+	}
+
+	return &iec.PartInfo{
+		RuleIndex: int(ecPartID.RuleIndex),
+		Index:     partIdx,
+	}, nil
 }

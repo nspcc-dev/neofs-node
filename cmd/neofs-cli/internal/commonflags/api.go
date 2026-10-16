@@ -21,6 +21,9 @@ func InitAPI(cmd *cobra.Command) {
 	ff := cmd.Flags()
 
 	ff.StringSliceP(XHeadersKey, XHeadersShorthand, []string{}, XHeadersUsage)
+	if err := ff.MarkDeprecated(XHeadersKey, "For EC, use --ec-part flag. Otherwise, discontinue use."); err != nil {
+		panic(err)
+	}
 	ff.Uint32P(TTL, TTLShorthand, TTLDefault, TTLUsage)
 }
 

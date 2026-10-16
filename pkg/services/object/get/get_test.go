@@ -67,10 +67,7 @@ func TestGetExtendedRangeOfECPart(t *testing.T) {
 	svc := Service{cfg: &cfg{localObjects: extendedRangeECStorage{payload: payload, readHeader: &readHeader}}}
 
 	var prm Prm
-	prm.SetCommonParameters(newCommonParameters(false, []string{
-		object.AttributeECRuleIndex, "0",
-		object.AttributeECPartIndex, "0",
-	}))
+	prm.ECPartSelector = new(iec.PartInfo)
 	prm.WithContainer(container.Container{})
 	prm.SetRangeSuffix(3)
 	var w mockObjectWriter

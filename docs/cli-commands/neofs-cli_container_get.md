@@ -24,7 +24,6 @@ neofs-cli container get [flags]
       --to string             Path to dump encoded container
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet
-  -x, --xhdr strings          Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands

@@ -317,7 +317,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 
 			callCtx, cancel := context.WithTimeout(ctx, headTimeout)
 
-			_, err := p.apiConns.headObject(callCtx, nodes[i], plc.object.Address, true, nil)
+			_, err := p.apiConns.headObject(callCtx, nodes[i], plc.object.Address, true, iec.PartInfo{RuleIndex: -1})
 
 			cancel()
 

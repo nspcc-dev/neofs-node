@@ -17,6 +17,7 @@ neofs-cli object get [flags]
       --bearer string           File with signed JSON or binary encoded bearer token
       --binary                  Serialize whole object structure into given file(id + signature + header + payload).
       --cid string              Container ID.
+      --ec-part string          Request specific part of the object EC partition
       --extended-range string   Extended range in form first:last, first:, or :length
       --file string             File to write object payload to(with -b together with signature and header). Default: stdout.
   -g, --generate-key            Generate new private key
@@ -31,7 +32,6 @@ neofs-cli object get [flags]
   -t, --timeout duration        Timeout for the operation (default 15s)
       --ttl uint32              TTL value in request meta header (default 2)
   -w, --wallet string           Path to the wallet
-  -x, --xhdr strings            Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands

@@ -75,7 +75,6 @@ func putObjectToNode(ctx context.Context, nodeInfo netmap.NodeInfo, obj *object.
 	if bt := commonPrm.BearerToken(); bt != nil {
 		opts.WithBearerToken(*bt)
 	}
-	opts.WithXHeaders(commonPrm.XHeaders()...) //nolint:staticcheck
 
 	w, err := c.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), opts)
 	if err != nil {

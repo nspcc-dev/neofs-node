@@ -58,6 +58,7 @@ func initObjectGetCmd() {
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 	flags.Bool(binaryFlag, false, "Serialize whole object structure into given file(id + signature + header + payload).")
 	flags.Bool(payloadOnlyFlag, false, "Request only payload for a payload range")
+	flags.String(ecPartIDFlagName, "", ecPartIDFlagUsage)
 }
 
 func getObject(cmd *cobra.Command, _ []string) error {
@@ -101,6 +102,11 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
+
+	ecRuleIdx, ecPartIdx, err := parseECPartIDFlag(cmd)
 	if err != nil {
 		return err
 	}
@@ -150,6 +156,14 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	}
 	if payloadOnly {
 		prm.MarkPayloadOnly()
+	}
+
+	if ecRuleIdx != nil {
+		if ecPartIdx != nil {
+			prm.SelectECPart(*ecRuleIdx, *ecPartIdx)
+		} else {
+			prm.SelectAnyECPart(*ecRuleIdx)
+		}
 	}
 
 	hdr, rdr, err := cli.ObjectGetInit(ctx, cnr, obj, user.NewAutoIDSigner(*pk), prm)

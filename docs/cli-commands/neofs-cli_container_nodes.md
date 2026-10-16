@@ -23,7 +23,6 @@ neofs-cli container nodes [flags]
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet
-  -x, --xhdr strings          Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands

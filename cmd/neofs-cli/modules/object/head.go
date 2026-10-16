@@ -44,6 +44,7 @@ func initObjectHeadCmd() {
 	flags.Bool("proto", false, "Marshal output in Protobuf")
 	flags.Bool(rawFlag, false, rawFlagDesc)
 	flags.Bool(commonflags.RawAttributesFlag, false, commonflags.RawAttributesFlagUsage)
+	flags.String(ecPartIDFlagName, "", ecPartIDFlagUsage)
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) error {
@@ -58,6 +59,14 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	pk, err := key.GetOrGenerate(cmd)
 	if err != nil {
 		return err
+	}
+
+	ecRuleIdx, ecPartIdx, err := parseECPartIDFlag(cmd)
+	if err != nil {
+		return err
+	}
+	if ecRuleIdx != nil && ecPartIdx == nil {
+		return errors.New("missing EC part index")
 	}
 
 	ctx, cancel := commonflags.GetCommandContext(cmd)
@@ -82,6 +91,10 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 	if raw {
 		prm.MarkRaw()
+	}
+
+	if ecRuleIdx != nil {
+		prm.SelectECPart(*ecRuleIdx, *ecPartIdx)
 	}
 
 	hdr, err := cli.ObjectHead(ctx, cnr, obj, user.NewAutoIDSigner(*pk), prm)

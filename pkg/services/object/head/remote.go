@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 	"strings"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -35,7 +37,7 @@ type RemoteHeadPrm struct {
 
 	node netmap.NodeInfo
 
-	xs []string
+	ecPartSelector iec.PartInfo
 
 	checkOID bool
 }
@@ -66,9 +68,9 @@ func (p *RemoteHeadPrm) WithObjectAddress(v oid.Address) *RemoteHeadPrm {
 	return p
 }
 
-// WithXHeaders sets X-headers.
-func (p *RemoteHeadPrm) WithXHeaders(xs []string) {
-	p.xs = xs
+// WithECPartSelector sets EC part selector.
+func (p *RemoteHeadPrm) WithECPartSelector(ecPartSelector iec.PartInfo) {
+	p.ecPartSelector = ecPartSelector
 }
 
 // WithIDVerification specifies whether to check object ID match.
@@ -96,7 +98,9 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 
 	var opts client.PrmObjectHead
 	opts.MarkLocal()
-	opts.WithXHeaders(prm.xs...) //nolint:staticcheck
+	if err := ecPartSelectorToOptions(prm.ecPartSelector, &opts); err != nil {
+		return nil, err
+	}
 	if !prm.checkOID {
 		opts.SkipChecksumVerification()
 	}
@@ -110,7 +114,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 }
 
 // GetRange requests object payload range from the remote node.
-func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, off, ln uint64, xs []string) (io.ReadCloser, error) {
+func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr cid.ID, id oid.ID, off, ln uint64, ecPartSelector iec.PartInfo) (io.ReadCloser, error) {
 	key, err := h.keyStorage.GetKey(nil)
 	if err != nil {
 		return nil, fmt.Errorf("get local SN private key: %w", err)
@@ -124,7 +128,9 @@ func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr c
 	var opts client.PrmObjectGet
 	opts.MarkLocal()
 	opts.SkipChecksumVerification() // TODO: see same place in GET service
-	opts.WithXHeaders(xs...)        //nolint:staticcheck
+	if err := ecPartSelectorToOptions(ecPartSelector, &opts); err != nil {
+		return nil, err
+	}
 	opts.MarkPayloadOnly()
 	opts.SetRange(off, ln)
 
@@ -134,4 +140,24 @@ func (h *RemoteHeader) GetRange(ctx context.Context, node netmap.NodeInfo, cnr c
 	}
 
 	return rc, nil
+}
+
+func ecPartSelectorToOptions(ecPartSelector iec.PartInfo, opts interface {
+	SelectECPart(uint32, uint32)
+}) error {
+	if ecPartSelector.RuleIndex < 0 {
+		return nil
+	}
+
+	if ecPartSelector.RuleIndex > math.MaxUint32 {
+		return fmt.Errorf("EC rule index %d overflows uint32", ecPartSelector.RuleIndex)
+	}
+
+	if ecPartSelector.Index > math.MaxUint32 {
+		return fmt.Errorf("EC part index %d overflows uint32", ecPartSelector.Index)
+	}
+
+	opts.SelectECPart(uint32(ecPartSelector.RuleIndex), uint32(ecPartSelector.Index))
+
+	return nil
 }

@@ -6,6 +6,8 @@ Changelog for NeoFS Node
 ### Added
 - Request time expiration check by SNs (#4219)
 - Time-based object expiration (#4224)
+- Support for GET/HEAD EC part ID field by SN (#4222)
+- CLI `ec-part` flag to `object get/head` commands (#4222)
 
 ### Fixed
 - `AccountingService.Balance` server panic (#4212)
@@ -18,6 +20,9 @@ Changelog for NeoFS Node
 - CLI `request create-container` command now attaches current API version to requests (#4213)
 - ReplicateV2 Linux server now uses `writev()` syscall for multi-frame chunks (#4194)
 - IR now denies creation of containers and setting of eACL with API version less than v2.22 (#4229)
+- SN now prohibits EC GET requests without part index and with `payload_only` flag set (#4222)
+- SN no longer forwards request X-headers to other SN (#4222)
+- CLI `--xhdr` (`-x`) flag is deprecated now (#4222)
 
 ### Removed
 - fstree-decompress utility (#4223)
@@ -25,11 +30,13 @@ Changelog for NeoFS Node
 - Deprecated homomorphic hashing setting from CLI netinfo output (#4225)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261014115254-2a425aa9520f` (#4194, #4219, #4228, #4224)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261016090445-00254f6a3b8b` (#4194, #4219, #4228, #4224, #4222)
 
 ### Updating from v0.57.0
 This version no longer supports compressed objects in FSTree, please use
 fstree-decompress utility from the previous release if needed.
+
+Remove `--xhdr` (`-x`) flags from all CLI commands. To GET/HEAD object's EC part, use `--ec-part RULE[/PART]` flag instead.
 
 ## [0.57.0] - 2026-09-30 - Bido
 

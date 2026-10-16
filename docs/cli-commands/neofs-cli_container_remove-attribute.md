@@ -24,7 +24,6 @@ neofs-cli container remove-attribute [flags]
       --ttl uint32            TTL value in request meta header (default 2)
       --valid-for duration    request validity duration (default 1m0s)
   -w, --wallet string         Path to the wallet
-  -x, --xhdr strings          Request X-Headers in form of Key=Value
 ```
 
 ### Options inherited from parent commands

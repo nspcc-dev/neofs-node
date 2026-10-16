@@ -42,12 +42,12 @@ func TestService_Get_EC_Part(t *testing.T) {
 			{name: "part idx only", xs: []string{
 				"__NEOFS__EC_PART_IDX", "0",
 			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX X-header must be set in a correct EC part GET request")
+				require.ErrorContains(t, err, "EC rule index must be set in a correct EC part GET request")
 			}},
 			{name: "empty rule idx", xs: []string{
 				"__NEOFS__EC_RULE_IDX", "", "__NEOFS__EC_PART_IDX", "0",
 			}, assertErr: func(t *testing.T, err error) {
-				require.ErrorContains(t, err, "__NEOFS__EC_RULE_IDX X-header must be set in a correct EC part GET request")
+				require.ErrorContains(t, err, "EC rule index must be set in a correct EC part GET request")
 			}},
 			{name: "non-numeric rule idx", xs: []string{
 				"__NEOFS__EC_RULE_IDX", "foo", "__NEOFS__EC_PART_IDX", "0",
@@ -425,7 +425,7 @@ func TestService_Get_EC(t *testing.T) {
 		tc.nodes[string(nodeLists[0][i].Marshal())] = nodeSvcs[i]
 	}
 
-	cp := newCommonParameters(false, nil)
+	cp := newCommonParameters(false)
 
 	var prm Prm
 	prm.WithAddress(parentAddr)
@@ -627,7 +627,7 @@ type testECServiceConn struct {
 }
 
 func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap.NodeInfo, pk ecdsa.PrivateKey,
-	cnr cid.ID, id oid.ID, local, verifyID bool, rng *object.Range, xs []string) (object.Object, io.ReadCloser, error) {
+	cnr cid.ID, id oid.ID, local, verifyID bool, rng *object.Range, pi iec.PartInfo) (object.Object, io.ReadCloser, error) {
 	if ctx == nil {
 		return object.Object{}, nil, errors.New("[test] missing context")
 	}
@@ -646,7 +646,7 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 		return object.Object{}, nil, errors.New("[test] unexpected node")
 	}
 
-	cp := newCommonParameters(local, xs)
+	cp := newCommonParameters(local)
 
 	var w mockObjectWriter
 
@@ -654,6 +654,7 @@ func (x *testECServiceConn) InitGetObjectStream(ctx context.Context, node netmap
 	prm.WithAddress(oid.NewAddress(cnr, id))
 	prm.SetObjectWriter(&w)
 	prm.SetCommonParameters(cp)
+	prm.ECPartSelector = &pi
 	if rng != nil {
 		prm.SetRange(rng)
 		prm.MarkPayloadOnly()
