@@ -21,6 +21,7 @@ func (s *Shard) ReviveObject(addr oid.Address) (meta.ReviveStatus, error) {
 
 	st, err := s.metaBase.ReviveObject(addr)
 	if err == nil {
+		s.redundant.remove(addr.Container(), []oid.ID{addr.Object()})
 		if ts := st.TombstoneAddress(); !ts.Object().IsZero() {
 			if delErr := s.deleteObjs(addr.Container(), []oid.ID{ts.Object()}); delErr != nil {
 				s.log.Debug("tombstone delete after revive failed", zap.Stringer("tombstone", ts), zap.Error(delErr))

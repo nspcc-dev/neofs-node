@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - SN now prohibits EC GET requests without part index and with `payload_only` flag set (#4222)
 - SN no longer forwards request X-headers to other SN (#4222)
 - CLI `--xhdr` (`-x`) flag is deprecated now (#4222)
+- Policer now uses an in-memory queue for redundant object removal, reducing metabase writes (#4216)
 
 ### Removed
 - fstree-decompress utility (#4223)

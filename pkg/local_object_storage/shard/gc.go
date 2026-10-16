@@ -140,6 +140,12 @@ func (s *Shard) removeGarbage() {
 
 	s.collectExpiredObjects()
 
+	for _, bin := range s.redundant.batch(s.rmBatchSize) {
+		if err := s.deleteObjs(bin.Container, bin.Objects); err != nil {
+			s.log.Warn("can't delete redundant objects", zap.Error(err))
+		}
+	}
+
 	bins, err := s.metaBase.GetGarbage(s.rmBatchSize)
 	if err != nil {
 		s.log.Warn("fetching garbage objects",

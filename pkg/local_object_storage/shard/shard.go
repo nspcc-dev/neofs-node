@@ -28,6 +28,8 @@ type Shard struct {
 
 	gc *gc
 
+	redundant redundantQueue
+
 	writeCache writecache.Cache
 
 	metaBase *meta.DB
