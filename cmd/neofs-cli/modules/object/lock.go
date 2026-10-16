@@ -100,19 +100,18 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		obj := object.New(cnr, user.NewFromECDSAPublicKey(key.PublicKey))
-		if expTime.IsZero() {
-			obj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, strconv.FormatUint(exp, 10))) //nolint:staticcheck // Support legacy epoch expiration.
-		} else if err := obj.SetExpirationTime(expTime); err != nil {
-			return err
-		}
-
 		for _, locked := range lockList {
+			obj := object.New(cnr, user.NewFromECDSAPublicKey(key.PublicKey))
+			if expTime.IsZero() {
+				obj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, strconv.FormatUint(exp, 10))) //nolint:staticcheck // Support legacy epoch expiration.
+			} else if err := obj.SetExpirationTime(expTime); err != nil {
+				return err
+			}
 			obj.AssociateLocked(locked)
 
 			wrt, err := cli.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), prm)
 			if err != nil {
-				err = fmt.Errorf("nit object writing: %w", err)
+				err = fmt.Errorf("init object writing: %w", err)
 			} else if err = wrt.Close(); err != nil {
 				err = fmt.Errorf("finish object stream: %w", err)
 			}
@@ -121,8 +120,8 @@ var objectLockCmd = &cobra.Command{
 			}
 
 			cmd.Printf("Lock object ID for %s locked object: %s\n", locked, wrt.GetResult().StoredObjectID())
-			cmd.Println("Objects successfully locked.")
 		}
+		cmd.Println("Objects successfully locked.")
 
 		return nil
 	},
