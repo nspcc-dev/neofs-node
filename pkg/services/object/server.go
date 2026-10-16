@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -309,7 +310,8 @@ type putStream struct {
 	initReq   *protoobject.PutRequest
 	chunkReqs []*protoobject.PutRequest
 
-	expBytes, recvBytes uint64 // payload
+	knownPayloadLength  bool
+	expBytes, recvBytes uint64 // payload (undefined if knownPayloadLength is false)
 }
 
 func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context, log *zap.Logger) *putStream {
@@ -378,11 +380,21 @@ func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *pr
 		return fmt.Errorf("could not init object put stream: %w", err)
 	}
 
+	ln := initPart.Header.GetPayloadLength()
+
+	x.knownPayloadLength = ln != math.MaxUint64 // special value defined in the protocol
+	if x.knownPayloadLength {
+		x.expBytes = ln
+	}
+
 	if x.cacheReqs = initPart.Signature != nil; !x.cacheReqs {
 		return nil
 	}
 
-	x.expBytes = initPart.Header.GetPayloadLength()
+	if !x.knownPayloadLength {
+		return putsvc.ErrExceedingMaxSize
+	}
+
 	if m := x.base.MaxObjectSize(); x.expBytes > m {
 		return putsvc.ErrExceedingMaxSize
 	}
@@ -391,7 +403,7 @@ func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *pr
 }
 
 func (x *putStream) forwardChunkRequest(req *protoobject.PutRequest, c []byte) error {
-	if x.cacheReqs {
+	if x.knownPayloadLength {
 		if x.recvBytes += uint64(len(c)); x.recvBytes > x.expBytes {
 			return putsvc.ErrWrongPayloadSize
 		}
@@ -407,7 +419,7 @@ func (x *putStream) forwardChunkRequest(req *protoobject.PutRequest, c []byte) e
 }
 
 func (x *putStream) close() (*protoobject.PutResponse, error) {
-	if x.cacheReqs && x.recvBytes != x.expBytes {
+	if x.knownPayloadLength && x.recvBytes != x.expBytes {
 		return nil, putsvc.ErrWrongPayloadSize
 	}
 
