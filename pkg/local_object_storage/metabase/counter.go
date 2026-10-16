@@ -274,7 +274,7 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 		if deadContainer {
 			continue
 		}
-		if inGarbage(cInt, obj) != statusAvailable {
+		if inGarbage(cInt, obj) != statusAvailable || b.Get(mkGarbageKey(obj)) != nil {
 			continue
 		}
 		sizeRaw := getObjAttribute(cInt, obj, object.FilterPayloadSize)
