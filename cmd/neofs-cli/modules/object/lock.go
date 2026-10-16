@@ -100,14 +100,13 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		obj := object.New(cnr, user.NewFromECDSAPublicKey(key.PublicKey))
-		if expTime.IsZero() {
-			obj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, strconv.FormatUint(exp, 10))) //nolint:staticcheck // Support legacy epoch expiration.
-		} else if err := obj.SetExpirationTime(expTime); err != nil {
-			return err
-		}
-
 		for _, locked := range lockList {
+			obj := object.New(cnr, user.NewFromECDSAPublicKey(key.PublicKey))
+			if expTime.IsZero() {
+				obj.SetAttributes(object.NewAttribute(object.AttributeExpirationEpoch, strconv.FormatUint(exp, 10))) //nolint:staticcheck // Support legacy epoch expiration.
+			} else if err := obj.SetExpirationTime(expTime); err != nil {
+				return err
+			}
 			obj.AssociateLocked(locked)
 
 			wrt, err := cli.ObjectPutInit(ctx, *obj, user.NewAutoIDSigner(*key), prm)
