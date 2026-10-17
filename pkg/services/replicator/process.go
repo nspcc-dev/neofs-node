@@ -95,10 +95,11 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 		if err != nil {
 			log.Error("could not replicate object",
+				zap.Stringer("addr", task.addr),
 				zap.Error(err),
 			)
 		} else {
-			log.Debug("object successfully replicated")
+			log.Debug("object successfully replicated", zap.Stringer("addr", task.addr))
 
 			task.quantity--
 
