@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - Panic on startup while restoring write-cache counters (#4214)
 - Panic in neofs-lancet on storage operations that require metabase migration (#4215)
 - Setting eACL without API version in CLI (#4229)
+- Unnecessary local shard relocation of EC parts by policer (#4236)
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)

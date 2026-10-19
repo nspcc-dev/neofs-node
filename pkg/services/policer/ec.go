@@ -54,7 +54,7 @@ func (p *Policer) processECPart(ctx context.Context, obj objectcore.AddressWithA
 		p.checkECParts(ctx, addr.Container(), parent, ecRules[ruleIdx], ruleIdx, -1, oid.ID{})
 	}
 	if p.processECPartByRule(ctx, rule, addr, pi.Index, nodeLists[pi.RuleIndex]) {
-		p.optimizeLocalShardLocation(ctx, obj)
+		p.optimizeLocalShardLocation(ctx, obj, parent)
 	}
 }
 

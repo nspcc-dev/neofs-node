@@ -228,7 +228,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		return
 	}
 
-	p.optimizeLocalShardLocation(ctx, addrWithAttrs)
+	p.optimizeLocalShardLocation(ctx, addrWithAttrs, addr.Object())
 }
 
 type processPlacementContext struct {
@@ -391,7 +391,7 @@ func (p *Policer) deleteLocalObject(ctx context.Context, addr oid.Address, isEC 
 	return err
 }
 
-func (p *Policer) optimizeLocalShardLocation(ctx context.Context, obj objectcore.AddressWithAttributes) {
+func (p *Policer) optimizeLocalShardLocation(ctx context.Context, obj objectcore.AddressWithAttributes, placementID oid.ID) {
 	if len(obj.ShardIDs) == 0 {
 		return
 	}
@@ -402,7 +402,7 @@ func (p *Policer) optimizeLocalShardLocation(ctx context.Context, obj objectcore
 	default:
 	}
 
-	moved, err := p.localStorage.OptimizeShardLocation(ctx, obj.Address, obj.ShardIDs)
+	moved, err := p.localStorage.OptimizeShardLocation(ctx, obj.Address, placementID, obj.ShardIDs)
 	if err != nil {
 		p.log.Warn("could not optimize local object shard location",
 			zap.Stringer("object", obj.Address),

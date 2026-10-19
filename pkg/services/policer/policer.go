@@ -30,7 +30,7 @@ type replicatorIface interface {
 type localStorage interface {
 	ListWithCursor(context.Context, uint32, *engine.Cursor, ...string) ([]objectcore.AddressWithAttributes, *engine.Cursor, error)
 	Delete(context.Context, oid.Address, engine.GarbageMark) error
-	OptimizeShardLocation(context.Context, oid.Address, []string) (bool, error)
+	OptimizeShardLocation(context.Context, oid.Address, oid.ID, []string) (bool, error)
 	Put(context.Context, *object.Object, []byte) error
 	Head(context.Context, oid.Address, bool) (*object.Object, error)
 	HeadECPart(context.Context, cid.ID, oid.ID, iec.PartInfo) (object.Object, error)

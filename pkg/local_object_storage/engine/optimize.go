@@ -12,7 +12,9 @@ import (
 )
 
 // OptimizeShardLocation moves an object to its most preferred shard according
-// to HRW ordering and marks its copies on all other listed shards as redundant.
+// to HRW ordering by placementID and marks its copies on all other listed shards
+// as redundant. placementID must be the parent ID for EC parts and the object's
+// own ID otherwise. addr always identifies the physical object being moved.
 //
 // The source copies are marked only after the object is known to exist on the
 // preferred shard. The operation therefore never removes the last local copy
@@ -23,7 +25,7 @@ import (
 //
 // Returns an error if executions are blocked (see BlockExecution), no listed
 // source shard contains the object, or optimization/marking fails.
-func (e *StorageEngine) OptimizeShardLocation(_ context.Context, addr oid.Address, shardIDs []string) (bool, error) {
+func (e *StorageEngine) OptimizeShardLocation(_ context.Context, addr oid.Address, placementID oid.ID, shardIDs []string) (bool, error) {
 	e.blockMtx.RLock()
 	defer e.blockMtx.RUnlock()
 
@@ -34,7 +36,7 @@ func (e *StorageEngine) OptimizeShardLocation(_ context.Context, addr oid.Addres
 		return false, errShardNotFound
 	}
 
-	shards := e.sortedShards(addr.Object())
+	shards := e.sortedShards(placementID)
 	if len(shards) == 0 {
 		return false, errShardNotFound
 	}
