@@ -70,7 +70,7 @@ func (s *storageListerWithDelay) Delete(_ context.Context, _ oid.Address, _ engi
 	panic("do not call me")
 }
 
-func (s *storageListerWithDelay) OptimizeShardLocation(_ context.Context, _ oid.Address, _ []string) (bool, error) {
+func (s *storageListerWithDelay) OptimizeShardLocation(_ context.Context, _ oid.Address, _ oid.ID, _ []string) (bool, error) {
 	panic("do not call me")
 }
 
@@ -1439,8 +1439,9 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 
 		localNode := newTestLocalNode()
 		mockM := &mockMetrics{}
-		localNode.optimizeShardLocation = func(got oid.Address, shardIDs []string) (bool, error) {
+		localNode.optimizeShardLocation = func(got oid.Address, placementID oid.ID, shardIDs []string) (bool, error) {
 			require.Equal(t, addr, got)
+			require.Equal(t, objID, placementID)
 			require.Equal(t, []string{"source"}, shardIDs)
 			localNode.delMtx.Lock()
 			localNode.delByShard[addr] = []string{"source"}
@@ -1467,24 +1468,37 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 	})
 
 	t.Run("EC part", func(t *testing.T) {
-		addr := oid.NewAddress(cidtest.ID(), oidtest.ID())
+		rules := []iec.Rule{{DataPartNum: 1, ParityPartNum: 1}}
+		parent, parts := generateECChain(t, 1024, rules)
+		parentID := parent.GetID()
+		addr := parts[0][0].Address()
+		localObj := objectcore.AddressWithAttributes{
+			Address:    addr,
+			Type:       object.TypeRegular,
+			Attributes: []string{"0", "0", string(parentID[:])},
+			ShardIDs:   []string{"source"},
+		}
 		localNode := newTestLocalNode()
-		localNode.optimizeShardLocation = func(got oid.Address, shardIDs []string) (bool, error) {
+		localNode.optimizeShardLocation = func(got oid.Address, placementID oid.ID, shardIDs []string) (bool, error) {
 			require.Equal(t, addr, got)
+			require.Equal(t, parentID, placementID)
+			require.NotEqual(t, addr.Object(), placementID)
 			require.Equal(t, []string{"source"}, shardIDs)
 			return true, nil
 		}
+		nodes := testutil.Nodes(2)
+		mockNet := newECMockNetwork(t, rules, localObj, nodes, 0)
+		conns := newMockAPIConnections()
+		conns.setHeadResult(nodes[1], parent.Address(), parts[0][1], nil)
 		mockM := &mockMetrics{}
-		p := New(neofscryptotest.Signer(), WithLogger(zap.NewNop()), WithMetrics(mockM))
+		p := New(neofscryptotest.Signer(), WithNetwork(mockNet), WithLogger(zap.NewNop()), WithMetrics(mockM))
 		p.localStorage = localNode
+		p.apiConns = conns
 
-		p.optimizeLocalShardLocation(context.Background(), objectcore.AddressWithAttributes{
-			Address:  addr,
-			Type:     object.TypeRegular,
-			ShardIDs: []string{"source"},
-		})
+		p.processObject(context.Background(), localObj)
 
 		require.EqualValues(t, 1, mockM.relocated.Load())
+		require.Empty(t, localNode.deletedObjects())
 	})
 
 	t.Run("duplicates", func(t *testing.T) {
@@ -1501,8 +1515,9 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 		}
 
 		localNode := newTestLocalNode()
-		localNode.optimizeShardLocation = func(got oid.Address, shardIDs []string) (bool, error) {
+		localNode.optimizeShardLocation = func(got oid.Address, placementID oid.ID, shardIDs []string) (bool, error) {
 			require.Equal(t, addr, got)
+			require.Equal(t, objID, placementID)
 			require.Equal(t, []string{"source", "target"}, shardIDs)
 			return false, nil // the preferred shard already contains the object
 		}
@@ -1536,7 +1551,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 				}
 
 				localNode := newTestLocalNode()
-				localNode.optimizeShardLocation = func(oid.Address, []string) (bool, error) {
+				localNode.optimizeShardLocation = func(oid.Address, oid.ID, []string) (bool, error) {
 					t.Fatal("OptimizeShardLocation must not be called for broadcast objects")
 					return false, nil
 				}
@@ -1641,7 +1656,7 @@ type testLocalNode struct {
 	delMtx                sync.RWMutex
 	del                   map[oid.Address]struct{}
 	delByShard            map[oid.Address][]string
-	optimizeShardLocation func(oid.Address, []string) (bool, error)
+	optimizeShardLocation func(oid.Address, oid.ID, []string) (bool, error)
 }
 
 func (x *testLocalNode) setECPartResult(t *testing.T, obj object.Object) {
@@ -1842,9 +1857,9 @@ func (x *testLocalNode) GetECPartRange(ctx context.Context, cnr cid.ID, parent o
 	return nil, 0, nil, apistatus.ErrObjectNotFound
 }
 
-func (x *testLocalNode) OptimizeShardLocation(_ context.Context, addr oid.Address, shardIDs []string) (bool, error) {
+func (x *testLocalNode) OptimizeShardLocation(_ context.Context, addr oid.Address, placementID oid.ID, shardIDs []string) (bool, error) {
 	if x.optimizeShardLocation != nil {
-		return x.optimizeShardLocation(addr, shardIDs)
+		return x.optimizeShardLocation(addr, placementID, shardIDs)
 	}
 
 	x.delMtx.Lock()
