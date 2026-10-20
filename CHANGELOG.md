@@ -35,6 +35,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261016090445-00254f6a3b8b` (#4194, #4219, #4228, #4224, #4222)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.27.1-0.20261021092014-1a856b3e9a5b` (#4239)
 
 ### Updating from v0.57.0
 This version no longer supports compressed objects in FSTree, please use
