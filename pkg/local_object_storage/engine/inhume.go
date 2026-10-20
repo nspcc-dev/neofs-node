@@ -5,8 +5,10 @@ import (
 	"errors"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -230,23 +232,26 @@ func (e *StorageEngine) IsLocked(_ context.Context, addr oid.Address) (bool, err
 		return false, e.blockErr
 	}
 
-	return e.isLocked(addr)
+	lockID, _, err := e.getLock(addr)
+	return !lockID.IsZero(), err
 }
 
-func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
+// getLock returns an active LOCK's ID and the shard that stores it.
+// Returns a zero ID and nil shard if addr is not locked.
+func (e *StorageEngine) getLock(addr oid.Address) (oid.ID, *shard.Shard, error) {
 	for _, sh := range e.unsortedShards() {
-		locked, err := sh.IsLocked(addr)
+		lockID, err := sh.GetLockID(addr)
 		if err != nil {
 			e.reportShardError(sh, "can't check object's lockers", err, zap.Stringer("addr", addr))
-			return false, err
+			return oid.ID{}, nil, err
 		}
 
-		if locked {
-			return true, nil
+		if !lockID.IsZero() {
+			return lockID, sh.Shard, nil
 		}
 	}
 
-	return false, nil
+	return oid.ID{}, nil, nil
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
@@ -258,20 +263,43 @@ func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 	defer e.blockMtx.RUnlock()
 
 	for _, addr := range addrs {
-		locked, err := e.isLocked(addr)
+		lockID, source, err := e.getLock(addr)
 		if err != nil {
 			e.log.Warn("removing an object without full locking check",
 				zap.Error(err),
 				zap.Stringer("addr", addr))
-		} else if locked {
+		} else if !lockID.IsZero() {
 			e.log.Warn("skip an expired object with lock",
 				zap.Stringer("addr", addr))
+			e.restoreLock(source, oid.NewAddress(addr.Container(), lockID))
 			continue
 		}
 
 		err = e.processAddrDelete(addr, (*shard.Shard).Delete)
 		if err != nil {
 			e.log.Warn("deleting expired object", zap.Stringer("addr", addr), zap.Error(err))
+		}
+	}
+}
+
+// restoreLock copies one active LOCK to shards that missed its broadcast.
+// Copy failures must not roll back existing LOCKs.
+func (e *StorageEngine) restoreLock(source *shard.Shard, lockAddr oid.Address) {
+	lock, err := source.Get(lockAddr, false)
+	if err != nil {
+		e.log.Warn("could not read LOCK to restore", zap.Stringer("addr", lockAddr), zap.Error(err))
+		return
+	}
+
+	for _, target := range e.unsortedShards() {
+		if target.GetMode() != mode.ReadWrite {
+			continue
+		}
+		err = e.putToShard(target, lockAddr, lock, nil)
+		if err != nil && !errors.Is(err, ierrors.ErrObjectExists) {
+			e.log.Warn("could not restore LOCK",
+				zap.Stringer("addr", lockAddr),
+				zap.Stringer("shard", target.ID()), zap.Error(err))
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -19,22 +20,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDB_IsLocked(t *testing.T) {
+func TestDB_GetLockID(t *testing.T) {
 	db := newDB(t)
 
 	// existing and locked objs
 
-	obj, _ := putObjAndLockIt(t, db)
+	obj, lock := putObjAndLockIt(t, db)
 
-	locked, err := db.IsLocked(obj.Address())
+	lockID, err := db.GetLockID(obj.Address())
 	require.NoError(t, err)
-	require.True(t, locked)
+	require.Equal(t, lock.GetID(), lockID)
 
 	// some rand obj
 
-	locked, err = db.IsLocked(oidtest.Address())
+	unknown := oidtest.Address()
+	lockID, err = db.GetLockID(unknown)
 	require.NoError(t, err)
-	require.False(t, locked)
+	require.True(t, lockID.IsZero())
 
 	// existing but not locked obj
 
@@ -43,9 +45,9 @@ func TestDB_IsLocked(t *testing.T) {
 	err = db.Put(anotherObj)
 	require.NoError(t, err)
 
-	locked, err = db.IsLocked(anotherObj.Address())
+	lockID, err = db.GetLockID(anotherObj.Address())
 	require.NoError(t, err)
-	require.False(t, locked)
+	require.True(t, lockID.IsZero())
 
 	t.Run("time and epoch expiration", func(t *testing.T) {
 		for _, objectUsesTime := range []bool{false, true} {
@@ -72,9 +74,9 @@ func TestDB_IsLocked(t *testing.T) {
 					require.NoError(t, db.Put(lock))
 					es.e = 2
 					clock.Set(101000)
-					locked, err := db.IsLocked(obj.Address())
+					lockID, err := db.GetLockID(obj.Address())
 					require.NoError(t, err)
-					require.True(t, locked)
+					require.Equal(t, lock.GetID(), lockID)
 					_, err = db.Get(obj.Address(), false)
 					require.NoError(t, err)
 					handler := func(oid.Address, object.Type) error {
@@ -88,9 +90,9 @@ func TestDB_IsLocked(t *testing.T) {
 
 					es.e = 3
 					clock.Set(106000)
-					locked, err = db.IsLocked(obj.Address())
+					lockID, err = db.GetLockID(obj.Address())
 					require.NoError(t, err)
-					require.False(t, locked)
+					require.True(t, lockID.IsZero())
 					_, err = db.Get(obj.Address(), false)
 					require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 					var expired []oid.Address
@@ -146,9 +148,29 @@ func TestDB_IsLocked(t *testing.T) {
 		_, err := db.InhumeContainer(obj.GetContainerID())
 		require.NoError(t, err)
 
-		locked, err := db.IsLocked(obj.Address())
+		lockID, err := db.GetLockID(obj.Address())
 		require.NoError(t, err)
-		require.False(t, locked)
+		require.True(t, lockID.IsZero())
+	})
+
+	t.Run("lock ID without target", func(t *testing.T) {
+		db := newDB(t)
+		lock := generateObject(t)
+		target := oid.NewAddress(lock.GetContainerID(), oidtest.ID())
+		lock.AssociateLocked(target.Object())
+		require.NoError(t, db.Put(lock))
+		lockID, err := db.GetLockID(target)
+		require.NoError(t, err)
+		require.Equal(t, lock.GetID(), lockID)
+	})
+
+	t.Run("lock ID in degraded mode", func(t *testing.T) {
+		db := newDB(t)
+		require.NoError(t, db.SetMode(mode.Degraded))
+		addr := oidtest.Address()
+		lockID, err := db.GetLockID(addr)
+		require.ErrorIs(t, err, meta.ErrDegradedMode)
+		require.True(t, lockID.IsZero())
 	})
 }
 
@@ -247,7 +269,7 @@ func TestDB_Lock_Removed(t *testing.T) {
 			tc.preset(t, db)
 
 			lockErr := db.Put(lockObj)
-			locked, lockedErr := db.IsLocked(objAddr)
+			lockID, lockIDErr := db.GetLockID(objAddr)
 			lockExists, existsErr := db.Exists(lockAddr, false)
 			_, lockGetError := db.Get(lockAddr, false)
 
@@ -255,16 +277,16 @@ func TestDB_Lock_Removed(t *testing.T) {
 			if tc.assertLockErr != nil {
 				tc.assertLockErr(t, lockErr)
 
-				require.NoError(t, lockedErr)
-				require.False(t, locked)
+				require.NoError(t, lockIDErr)
+				require.True(t, lockID.IsZero())
 				require.False(t, lockExists)
 				require.ErrorIs(t, lockGetError, apistatus.ErrObjectNotFound)
 			} else {
 				require.NoError(t, lockErr)
 
-				require.NoError(t, lockedErr)
+				require.NoError(t, lockIDErr)
 				require.NoError(t, lockGetError)
-				require.True(t, locked)
+				require.Equal(t, lockObj.GetID(), lockID)
 				require.True(t, lockExists)
 			}
 		})

@@ -242,9 +242,9 @@ func TestResyncMetabase(t *testing.T) {
 		for i := range locked {
 			addr.SetObject(locked[i])
 
-			locked, err := sh.IsLocked(addr)
+			lockID, err := sh.GetLockID(addr)
 			require.NoError(t, err)
-			require.True(t, locked)
+			require.False(t, lockID.IsZero())
 		}
 	}
 

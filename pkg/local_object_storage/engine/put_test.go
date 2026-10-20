@@ -182,9 +182,9 @@ func testPutLock(t *testing.T, shardNum int) {
 		require.True(t, locked)
 
 		for _, sh := range s.unsortedShards() {
-			locked, err := sh.IsLocked(parentAddr)
+			lockID, err := sh.GetLockID(parentAddr)
 			require.NoError(t, err)
-			require.True(t, locked)
+			require.Equal(t, lock.GetID(), lockID)
 		}
 
 		logBuf.AssertEmpty()

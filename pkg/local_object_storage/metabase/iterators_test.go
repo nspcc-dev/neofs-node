@@ -89,9 +89,13 @@ func TestDB_IterateExpired_StaleEpoch(t *testing.T) {
 			require.NoError(t, db.Put(lock))
 			clock.Set(101000)
 
-			locked, err := db.IsLocked(testObj.Address())
+			lockID, err := db.GetLockID(testObj.Address())
 			require.NoError(t, err)
-			require.Equal(t, tc.locked, locked)
+			if tc.locked {
+				require.Equal(t, lock.GetID(), lockID)
+			} else {
+				require.True(t, lockID.IsZero())
+			}
 			var expired []oid.Address
 			handler := func(addr oid.Address, _ object.Type) error {
 				expired = append(expired, addr)

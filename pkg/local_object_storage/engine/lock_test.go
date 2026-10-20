@@ -466,6 +466,14 @@ func TestSimpleLockExpiration(t *testing.T) {
 	require.NoError(t, e.Put(context.Background(), obj, nil))
 	require.NoError(t, e.Put(context.Background(), lock, nil))
 
+	lockID, source, err := e.getLock(objAddr)
+	require.NoError(t, err)
+	require.Equal(t, lock.GetID(), lockID)
+	require.NotNil(t, source)
+	storedLock, err := source.Get(oid.NewAddress(cnr, lockID), false)
+	require.NoError(t, err)
+	require.Equal(t, lock.Marshal(), storedLock.Marshal())
+
 	locked, err := e.IsLocked(context.Background(), objAddr)
 	require.NoError(t, err)
 	require.True(t, locked)
@@ -483,4 +491,8 @@ func TestSimpleLockExpiration(t *testing.T) {
 	locked, err = e.IsLocked(context.Background(), objAddr)
 	require.NoError(t, err)
 	require.False(t, locked)
+	lockID, source, err = e.getLock(objAddr)
+	require.NoError(t, err)
+	require.True(t, lockID.IsZero())
+	require.Nil(t, source)
 }

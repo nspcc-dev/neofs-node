@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -97,7 +98,7 @@ func TestShard_Lock(t *testing.T) {
 	})
 }
 
-func TestShard_IsLocked(t *testing.T) {
+func TestShard_GetLockID(t *testing.T) {
 	sh := newShard(t, false)
 
 	cnr := cidtest.ID()
@@ -115,19 +116,22 @@ func TestShard_IsLocked(t *testing.T) {
 
 	// not locked object is not locked
 
-	locked, err := sh.IsLocked(obj.Address())
+	lockID, err := sh.GetLockID(obj.Address())
 	require.NoError(t, err)
-
-	require.False(t, locked)
+	require.True(t, lockID.IsZero())
 
 	// locked object is locked
 
 	require.NoError(t, sh.Put(lock, nil))
 
-	locked, err = sh.IsLocked(obj.Address())
+	lockID, err = sh.GetLockID(obj.Address())
 	require.NoError(t, err)
+	require.Equal(t, lock.GetID(), lockID)
 
-	require.True(t, locked)
+	require.NoError(t, sh.SetMode(mode.Degraded))
+	lockID, err = sh.GetLockID(obj.Address())
+	require.ErrorIs(t, err, shard.ErrDegradedMode)
+	require.True(t, lockID.IsZero())
 }
 
 func TestShard_Lock_Removed(t *testing.T) {
@@ -201,7 +205,7 @@ func TestShard_Lock_Removed(t *testing.T) {
 			tc.preset(t, sh)
 
 			lockErr := sh.Put(lockObj, nil)
-			locked, lockedErr := sh.IsLocked(objAddr)
+			lockID, lockIDErr := sh.GetLockID(objAddr)
 			lockExists, existsErr := sh.Exists(lockAddr, false)
 			_, lockGetError := sh.Get(lockAddr, false)
 
@@ -209,16 +213,16 @@ func TestShard_Lock_Removed(t *testing.T) {
 			if tc.assertLockErr != nil {
 				tc.assertLockErr(t, lockErr)
 
-				require.NoError(t, lockedErr)
-				require.False(t, locked)
+				require.NoError(t, lockIDErr)
+				require.True(t, lockID.IsZero())
 				require.False(t, lockExists)
 				require.ErrorIs(t, lockGetError, apistatus.ErrObjectNotFound)
 			} else {
 				require.NoError(t, lockErr)
 
-				require.NoError(t, lockedErr)
+				require.NoError(t, lockIDErr)
 				require.NoError(t, lockGetError)
-				require.True(t, locked)
+				require.Equal(t, lockObj.GetID(), lockID)
 				require.True(t, lockExists)
 			}
 		})

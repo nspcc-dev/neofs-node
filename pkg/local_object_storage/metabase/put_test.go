@@ -360,9 +360,9 @@ func TestDB_Put_Lock(t *testing.T) {
 
 			require.ErrorIs(t, db.Put(&lock), apistatus.ErrLockNonRegularObject)
 
-			locked, err := db.IsLocked(objAddr)
+			lockID, err := db.GetLockID(objAddr)
 			require.NoError(t, err)
-			require.False(t, locked)
+			require.True(t, lockID.IsZero())
 
 			exists, err := db.Exists(lockAddr, false)
 			require.NoError(t, err)
@@ -407,15 +407,15 @@ func TestDB_Put_Lock(t *testing.T) {
 			tc.preset(t, db)
 
 			putErr := db.Put(&lock)
-			locked, lockedErr := db.IsLocked(objAddr)
+			lockID, lockIDErr := db.GetLockID(objAddr)
 			exists, existsErr := db.Exists(lockAddr, false)
 			got, getErr := db.Get(lockAddr, false)
 
 			if tc.assertPutErr != nil {
 				tc.assertPutErr(t, putErr)
 
-				require.NoError(t, lockedErr)
-				require.False(t, locked)
+				require.NoError(t, lockIDErr)
+				require.True(t, lockID.IsZero())
 
 				require.NoError(t, existsErr)
 				require.False(t, exists)
@@ -424,8 +424,8 @@ func TestDB_Put_Lock(t *testing.T) {
 			} else {
 				require.NoError(t, putErr)
 
-				require.NoError(t, lockedErr)
-				require.True(t, locked)
+				require.NoError(t, lockIDErr)
+				require.Equal(t, lock.GetID(), lockID)
 
 				require.NoError(t, existsErr)
 				require.True(t, exists)
@@ -631,9 +631,9 @@ func TestDB_PutBatch(t *testing.T) {
 		lock.AssociateLocked(obj1.GetID())
 		require.NoError(t, db.Put(lock))
 
-		locked, err := db.IsLocked(obj1.Address())
+		lockID, err := db.GetLockID(obj1.Address())
 		require.NoError(t, err)
-		require.True(t, locked)
+		require.Equal(t, lock.GetID(), lockID)
 
 		ts := generateObjectWithCID(t, cnr)
 		ts.AssociateDeleted(obj1.GetID())
