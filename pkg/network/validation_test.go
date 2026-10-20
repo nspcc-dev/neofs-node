@@ -9,48 +9,36 @@ import (
 
 type testCase struct {
 	input string
-	err   error
+	err   bool
 }
 
 func TestVerifyMultiAddress_Order(t *testing.T) {
 	testCases := []testCase{
 		{
-			input: "/ip4/1.2.3.4/tcp/80",
-			err:   nil,
+			input: "1.2.3.4:80",
+			err:   false,
 		},
 		{
-			input: "/ip6/1.2.3.4/tcp/80",
-			err:   nil,
+			input: "grpcs://1.2.3.4:80",
+			err:   false,
 		},
 		{
-			input: "/dns4/1.2.3.4/tcp/80",
-			err:   nil,
+			input: "grpcz://1.2.3.4:80",
+			err:   true,
 		},
 		{
-			input: "/dns4/1.2.3.4/tcp/80/tls",
-			err:   nil,
-		},
-		{
-			input: "/tls/dns4/1.2.3.4/tcp/80",
-			err:   errUnsupportedNetworkProtocol,
-		},
-		{
-			input: "/dns4/1.2.3.4/tls/tcp/80",
-			err:   errUnsupportedTransportProtocol,
-		},
-		{
-			input: "/dns4/1.2.3.4/tcp/80/wss",
-			err:   errUnsupportedPresentationProtocol,
+			input: "1.2.3.4:808080",
+			err:   false,
 		},
 	}
 
 	for _, test := range testCases {
 		ni := constructNodeInfo(test.input)
 
-		if test.err != nil {
-			require.EqualError(t, test.err, VerifyMultiAddress(ni).Error())
+		if test.err {
+			require.Error(t, VerifyAddresses(ni))
 		} else {
-			require.NoError(t, VerifyMultiAddress(ni))
+			require.NoError(t, VerifyAddresses(ni))
 		}
 	}
 }

@@ -27,7 +27,7 @@ neofs-cli object get [flags]
       --payload-only            Request only payload for a payload range
       --range string            Range to take data from in the form offset:length
       --raw                     Set raw request option
-  -r, --rpc-endpoint string     Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string     Remote node address
       --session string          Filepath to a JSON- or binary-encoded token of the object GET session
   -t, --timeout duration        Timeout for the operation (default 15s)
       --ttl uint32              TTL value in request meta header (default 2)

@@ -23,7 +23,7 @@ neofs-cli session create [flags]
       --json                  Output token in JSON
   -l, --lifetime uint         Number of epochs for token to stay valid (default 10)
       --out string            File to write session token to
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
   -w, --wallet string         Path to the wallet
 ```
 

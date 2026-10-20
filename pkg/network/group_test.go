@@ -1,7 +1,7 @@
 package network
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -10,13 +10,10 @@ import (
 
 func TestAddressGroup_FromStringSlice(t *testing.T) {
 	addrs := []string{
-		"/dns4/node1.neofs/tcp/8080",
-		"/dns4/node2.neofs/tcp/1234/tls",
+		"node1.neofs:8080",
+		"grpcs://node2.neofs:1234",
 	}
-	expected := make(AddressGroup, len(addrs))
-	for i := range addrs {
-		expected[i] = Address{buildMultiaddr(addrs[i], t)}
-	}
+	expected := slices.Clone(addrs)
 
 	var ag AddressGroup
 	t.Run("empty", func(t *testing.T) {
@@ -24,27 +21,23 @@ func TestAddressGroup_FromStringSlice(t *testing.T) {
 	})
 
 	require.NoError(t, ag.FromStringSlice(addrs))
-	require.Equal(t, expected, ag)
+	require.Equal(t, expected, []string(ag))
 
 	t.Run("error is returned, group is unchanged", func(t *testing.T) {
 		require.Error(t, ag.FromStringSlice([]string{"invalid"}))
-		require.Equal(t, expected, ag)
+		require.Equal(t, expected, []string(ag))
 	})
 }
 
 func TestAddressGroup_FromNodeInfo(t *testing.T) {
 	var (
 		addrs = []string{
-			"/dns4/node1.neofs/tcp/8080",
-			"/dns4/node2.neofs/tcp/1234/tls",
+			"node1.neofs:8080",
+			"grpcs://node2.neofs:1234",
 		}
 		ni netmap.NodeInfo
 	)
-	expected := make(AddressGroup, len(addrs))
-	for i := range addrs {
-		expected[i] = Address{buildMultiaddr(addrs[i], t)}
-	}
-	sort.Sort(expected)
+	expected := slices.Clone(addrs)
 
 	var ag AddressGroup
 	t.Run("empty", func(t *testing.T) {
@@ -53,11 +46,11 @@ func TestAddressGroup_FromNodeInfo(t *testing.T) {
 
 	ni.SetNetworkEndpoints(addrs...)
 	require.NoError(t, ag.FromNodeInfo(ni))
-	require.Equal(t, expected, ag)
+	require.Equal(t, expected, []string(ag))
 
 	t.Run("error is returned, group is unchanged", func(t *testing.T) {
 		ni.SetNetworkEndpoints("invalid")
 		require.Error(t, ag.FromNodeInfo(ni))
-		require.Equal(t, expected, ag)
+		require.Equal(t, expected, []string(ag))
 	})
 }

@@ -14,7 +14,7 @@ neofs-cli control shards restore [flags]
 
 ```
       --address string     Address of wallet account
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
   -h, --help               help for restore
       --id string          Shard ID in base58 encoding
       --no-errors          Skip invalid/unreadable objects

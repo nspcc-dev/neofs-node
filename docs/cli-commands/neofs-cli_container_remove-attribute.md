@@ -18,7 +18,7 @@ neofs-cli container remove-attribute [flags]
       --cid string            Container ID.
   -g, --generate-key          Generate new private key
   -h, --help                  help for remove-attribute
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
       --session string        Filepath to a JSON- or binary-encoded token of the container REMOVEATTRIBUTE session
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)

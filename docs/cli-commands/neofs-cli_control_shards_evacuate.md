@@ -15,7 +15,7 @@ neofs-cli control shards evacuate [flags]
 ```
       --address string     Address of wallet account
       --all                Process all shards
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
   -h, --help               help for evacuate
       --id strings         List of shard IDs in base58 encoding
       --no-errors          Skip invalid/unreadable objects

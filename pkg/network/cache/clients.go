@@ -21,7 +21,6 @@ import (
 	igrpc "github.com/nspcc-dev/neofs-node/internal/grpc"
 	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -221,13 +220,7 @@ func (x *Clients) initConnections(ctx context.Context, pub []byte, addrs iter.Se
 }
 
 func (x *Clients) initConnection(ctx context.Context, pub []byte, uri string) (*endpointClient, *protorefs.Version, error) {
-	// FIXME: pending removal in #3982.
-	var a network.Address
-	if err := a.FromString(uri); err != nil {
-		return nil, nil, fmt.Errorf("parse network address %q: %w", uri, err)
-	}
-
-	target, withTLS, err := uriutil.Parse(a.URIAddr())
+	target, withTLS, err := uriutil.Parse(uri)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse URI: %w", err)
 	}
@@ -335,7 +328,7 @@ type connections struct {
 	hasClientCertificate bool
 
 	mtx                   sync.RWMutex
-	m                     map[string]*endpointClient // keys are multiaddrs
+	m                     map[string]*endpointClient // keys are addresses
 	mutuallyAuthenticated atomic.Bool
 	apiVersion            *protorefs.Version
 }

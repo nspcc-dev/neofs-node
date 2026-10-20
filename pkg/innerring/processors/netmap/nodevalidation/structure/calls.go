@@ -9,9 +9,9 @@ import (
 
 // Verify calls network.VerifyAddress.
 func (v *Validator) Verify(n netmap.NodeInfo) error {
-	err := network.VerifyMultiAddress(n)
+	err := network.VerifyAddresses(n)
 	if err != nil {
-		return fmt.Errorf("could not verify multiaddress: %w", err)
+		return fmt.Errorf("could not verify address: %w", err)
 	}
 
 	attrM := make(map[string]struct{}, n.NumberOfAttributes())

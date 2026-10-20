@@ -18,7 +18,7 @@ neofs-cli container set-attribute [flags]
       --cid string            Container ID.
   -g, --generate-key          Generate new private key
   -h, --help                  help for set-attribute
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
       --session string        Filepath to a JSON- or binary-encoded token of the container SETATTRIBUTE session
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)

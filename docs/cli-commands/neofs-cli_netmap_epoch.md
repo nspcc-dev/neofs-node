@@ -16,7 +16,7 @@ neofs-cli netmap epoch [flags]
       --address string        Address of wallet account
   -g, --generate-key          Generate new private key
   -h, --help                  help for epoch
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet

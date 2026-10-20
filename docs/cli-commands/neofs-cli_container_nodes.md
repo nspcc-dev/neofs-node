@@ -18,7 +18,7 @@ neofs-cli container nodes [flags]
       --from string           Path to file with encoded container
   -g, --generate-key          Generate new private key
   -h, --help                  help for nodes
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
       --short                 Shortens output of node info
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)

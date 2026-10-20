@@ -10,7 +10,7 @@ neofs-cli control object status [flags]
 
 ```
       --address string     Address of wallet account
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
   -h, --help               help for status
       --object string      Object address
   -t, --timeout duration   Timeout for the operation (default 15s)

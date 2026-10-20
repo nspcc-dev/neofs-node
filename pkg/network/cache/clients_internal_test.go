@@ -88,7 +88,7 @@ func TestNodeTLSConfig(t *testing.T) {
 }
 
 func TestInvalidTLSPublicKey(t *testing.T) {
-	_, _, err := new(Clients).initConnection(context.Background(), []byte("invalid"), "/dns4/example.com/tcp/443/tls")
+	_, _, err := new(Clients).initConnection(context.Background(), []byte("invalid"), "grpcs://example.com:443")
 	require.ErrorContains(t, err, "parse node public key")
 }
 

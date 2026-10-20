@@ -17,7 +17,7 @@ neofs-cli accounting balance [flags]
   -g, --generate-key          Generate new private key
   -h, --help                  help for balance
       --owner string          owner of balance account (omit to use owner from private key)
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
   -t, --timeout duration      Timeout for the operation (default 15s)
   -w, --wallet string         Path to the wallet
 ```

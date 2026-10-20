@@ -16,7 +16,7 @@ neofs-cli object nodes [flags]
       --cid string            Container ID.
   -h, --help                  help for nodes
       --oid string            Object ID.
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
       --short                 Short node output info
   -t, --timeout duration      Timeout for the operation (default 15s)
 ```

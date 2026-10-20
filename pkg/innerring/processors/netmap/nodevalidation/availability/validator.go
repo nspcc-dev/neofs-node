@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/peerauth"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -116,19 +115,11 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 const pingTimeout = 15 * time.Second
 
 func createSDKClient(ctx context.Context, e string, expectedKey []byte) (*client.Client, error) {
-	// FIXME: pending removal in #3982.
-	var a network.Address
-	err := a.FromString(e)
-	if err != nil {
-		return nil, fmt.Errorf("parsing address: %w", err)
-	}
-
 	var (
 		prmInit client.PrmInit
-		uri     = a.URIAddr()
 	)
 
-	if strings.HasPrefix(a.URIAddr(), "grpcs://") {
+	if strings.HasPrefix(e, "grpcs://") {
 		prmInit.SetTLSConfig(nodeTLSConfig(expectedKey))
 	}
 
@@ -136,7 +127,7 @@ func createSDKClient(ctx context.Context, e string, expectedKey []byte) (*client
 	if err != nil {
 		return nil, fmt.Errorf("can't create SDK client: %w", err)
 	}
-	err = c.DialEndpoint(ctx, uri)
+	err = c.DialEndpoint(ctx, e)
 	if err != nil {
 		c.Close()
 		return nil, fmt.Errorf("can't init SDK client: %w", err)

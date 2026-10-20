@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -28,8 +27,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	netutil "github.com/nspcc-dev/neofs-node/pkg/network"
-
+	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	"github.com/spf13/cobra"
 )
 
@@ -178,18 +176,16 @@ func storageConfig(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		validator := netutil.Address{}
-		err := validator.FromString(c.AnnouncedAddress)
+		uriHost, _, err := uriutil.Parse(c.AnnouncedAddress)
 		if err != nil {
-			cmd.Println("Incorrect address format. See https://github.com/nspcc-dev/neofs-node/blob/master/pkg/network/address.go for details.")
+			cmd.Printf("Incorrect address format: %v.\n", err)
 			continue
 		}
-		uriAddr, err := url.Parse(validator.URIAddr())
+		addr, port, err = net.SplitHostPort(uriHost)
 		if err != nil {
-			panic(fmt.Errorf("unexpected error: %w", err))
+			cmd.Printf("Can't split address into host/port: %v.\n", err)
+			continue
 		}
-		addr = uriAddr.Hostname()
-		port = uriAddr.Port()
 		ip, err := net.ResolveIPAddr("ip", addr)
 		if err != nil {
 			cmd.Printf("Can't resolve IP address %s: %v\n", addr, err)

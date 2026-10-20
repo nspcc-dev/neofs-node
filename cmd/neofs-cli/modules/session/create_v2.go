@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -151,13 +150,9 @@ func createSessionV2(cmd *cobra.Command, _ []string) error {
 	common.PrintVerbose(cmd, "Creating server-side session key via RPC...")
 
 	rpcEndpoint, _ := cmd.Flags().GetString(commonflags.RPC)
-	var netAddr network.Address
-	if err := netAddr.FromString(rpcEndpoint); err != nil {
-		return fmt.Errorf("parse endpoint: %w", err)
-	}
 
 	ctx := context.Background()
-	c, err := internalclient.GetSDKClient(ctx, netAddr)
+	c, err := internalclient.GetSDKClient(ctx, rpcEndpoint)
 	if err != nil {
 		return fmt.Errorf("create client: %w", err)
 	}
