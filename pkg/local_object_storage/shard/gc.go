@@ -131,14 +131,14 @@ func (gc *gc) stop() {
 // with GC-marked graves.
 // Does nothing if shard is in "read-only" mode.
 func (s *Shard) removeGarbage() {
+	s.collectExpiredObjects()
+
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if s.info.Mode != mode.ReadWrite {
 		return
 	}
-
-	s.collectExpiredObjects()
 
 	bins, err := s.metaBase.GetGarbage(s.rmBatchSize)
 	if err != nil {
@@ -170,10 +170,12 @@ func (s *Shard) removeGarbage() {
 }
 
 func (s *Shard) collectExpiredObjects() {
-	epoch := s.gc.currentEpoch.Load()
-	if s.info.Mode.NoMetabase() {
+	s.m.RLock()
+	if s.info.Mode != mode.ReadWrite {
+		s.m.RUnlock()
 		return
 	}
+	epoch := s.gc.currentEpoch.Load()
 
 	var (
 		tombBins       []meta.TrashBin
@@ -214,6 +216,9 @@ func (s *Shard) collectExpiredObjects() {
 			log.Warn("can't delete tombstones", zap.Error(err))
 		}
 	}
+	// The callback may read or write any shard, including this one. Do not
+	// retain the shard lock across it: a pending mode change blocks new readers.
+	s.m.RUnlock()
 	log.Debug("collected expired objects", zap.Int("num", len(expiredObjects)))
 	if len(expiredObjects) > 0 && s.expiredObjectsCallback != nil {
 		s.expiredObjectsCallback(expiredObjects)

@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -248,6 +249,7 @@ func TestExpirationChainTime(t *testing.T) {
 		locked           bool
 		restart          bool
 		expiredEpochLock bool
+		changeMode       bool
 	}{
 		{name: "regular", typ: object.TypeRegular},
 		{name: "tombstone", typ: object.TypeTombstone},
@@ -256,6 +258,7 @@ func TestExpirationChainTime(t *testing.T) {
 		{name: "locked regular", typ: object.TypeRegular, locked: true},
 		{name: "restart before first header notification", typ: object.TypeRegular, restart: true},
 		{name: "expired epoch lock without notification", typ: object.TypeRegular, expiredEpochLock: true},
+		{name: "mode change in expiration callback", typ: object.TypeRegular, changeMode: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -275,6 +278,9 @@ func TestExpirationChainTime(t *testing.T) {
 					shard.WithExpiredObjectsCallback(func(aa []oid.Address) {
 						for _, a := range aa {
 							require.NoError(t, sh.Delete(a.Container(), []oid.ID{a.Object()}))
+						}
+						if tc.changeMode {
+							require.NoError(t, sh.SetMode(mode.ReadOnly))
 						}
 					}),
 					shard.WithGCRemoverSleepInterval(gcInterval),
