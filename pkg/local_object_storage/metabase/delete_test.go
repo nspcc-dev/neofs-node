@@ -34,12 +34,22 @@ func TestDB_Delete(t *testing.T) {
 	err := putBig(db, child)
 	require.NoError(t, err)
 
-	// try to remove parent, should be no-op, error-free
-	_, diff, err := db.Delete(cnr, []oid.ID{idParent})
+	// removing a virtual parent also removes its stored parts
+	removed, diff, err := db.Delete(cnr, []oid.ID{idParent})
 	require.NoError(t, err)
-	require.Zero(t, diff.Phy)
+	require.Equal(t, []oid.ID{idParent, child.GetID()}, removed)
+	require.Equal(t, -1, diff.Phy)
+	ok, err := metaExists(db, child.Address())
+	require.NoError(t, err)
+	require.False(t, ok)
 
-	// inhume child so it will be on graveyard
+	// repeated removal remains an error-free no-op
+	_, diff, err = db.Delete(cnr, []oid.ID{idParent})
+	require.NoError(t, err)
+	require.Zero(t, diff)
+
+	// restore the child and inhume it so it will be on graveyard
+	require.NoError(t, putBig(db, child))
 	ts := generateObjectWithCID(t, cnr)
 
 	err = metaInhume(db, child.Address(), ts.Address())
@@ -53,7 +63,7 @@ func TestDB_Delete(t *testing.T) {
 	// TS status that should be kept for some epochs and be handled
 	// separately) and parent is not found
 
-	ok, err := metaExists(db, child.Address())
+	ok, err = metaExists(db, child.Address())
 	require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	require.False(t, ok)
 
@@ -156,6 +166,7 @@ func TestDeleteAllChildren(t *testing.T) {
 	child2 := generateObjectWithCID(t, cnr)
 	child2.SetParent(parent)
 	child2.SetParentID(idParent)
+	child2.SetFirstID(child1.GetID())
 
 	// put children
 	require.NoError(t, putBig(db, child1))
@@ -167,9 +178,12 @@ func TestDeleteAllChildren(t *testing.T) {
 	require.ErrorIs(t, err, ierrors.ErrParentObject)
 	require.True(t, errors.As(err, &siErr))
 
-	// remove all children in single call
-	_, _, err = db.Delete(cnr, []oid.ID{child1.GetID(), child2.GetID()})
+	// removing a child and its parent must not duplicate the child in the
+	// result. Requested IDs stay at the front, followed by missing parts.
+	removed, diff, err := db.Delete(cnr, []oid.ID{child1.GetID(), idParent})
 	require.NoError(t, err)
+	require.Equal(t, []oid.ID{child1.GetID(), idParent, child2.GetID()}, removed)
+	require.Equal(t, -2, diff.Phy)
 
 	// parent should not be found now
 	ex, err := metaExists(db, parent.Address())

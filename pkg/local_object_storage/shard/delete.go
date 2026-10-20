@@ -45,7 +45,9 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 		return err // stop on metabase error ?
 	}
 
-	if hasWriteCache {
+	// A stale GC task may refer to a container already removed from metabase,
+	// in which case res is empty. Requested addresses were handled above.
+	if hasWriteCache && len(res) > len(addrs) {
 		for _, id := range res[len(addrs):] { // the rest are addrs, removed above
 			err := s.writeCache.Delete(oid.NewAddress(cnr, id))
 			if err != nil && !errors.Is(err, apistatus.ErrObjectNotFound) && !errors.Is(err, writecache.ErrReadOnly) {
@@ -79,5 +81,9 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 		}
 	}
 
+	// Requested IDs must be forgotten even if the container was already absent;
+	// res also includes any additionally removed split/EC parts.
+	s.redundant.remove(cnr, addrs)
+	s.redundant.remove(cnr, res)
 	return nil
 }

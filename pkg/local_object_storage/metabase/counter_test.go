@@ -223,6 +223,29 @@ func TestCounters(t *testing.T) {
 		})
 	})
 
+	t.Run("sync redundant payload", func(t *testing.T) {
+		db := newDB(t)
+		redundant := generateTypedObject(t, object.TypeRegular, 1024)
+		kept := generateTypedObject(t, object.TypeRegular, 2048)
+		kept.SetContainerID(redundant.GetContainerID())
+		require.NoError(t, db.Put(redundant))
+		require.NoError(t, db.Put(kept))
+		_, err := db.MarkGarbage(redundant.GetContainerID(), []oid.ID{redundant.GetID()}, meta.GarbageMarkRedundant)
+		require.NoError(t, err)
+		before, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.EqualValues(t, 2, before.Phy)
+		require.EqualValues(t, 1, before.GC)
+		require.Equal(t, kept.PayloadSize(), before.Payload)
+
+		require.NoError(t, db.SyncCounters())
+		after, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, before, after)
+		_, err = db.Get(redundant.Address(), false)
+		require.NoError(t, err)
+	})
+
 	t.Run("split", func(t *testing.T) {
 		const (
 			childrenCount     = objCount

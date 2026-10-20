@@ -32,6 +32,14 @@ func (s *Shard) setMode(m mode.Mode) error {
 		zap.Stringer("old_mode", s.info.Mode),
 		zap.Stringer("new_mode", m))
 
+	if s.info.Mode == mode.ReadWrite && m != mode.ReadWrite {
+		if err := s.flushRedundant(); err != nil {
+			// A metabase failure must not prevent switching to a safer mode.
+			// Keep unfinished work in memory for a later retry.
+			s.log.Warn("could not persist redundant objects before changing mode", zap.Error(err))
+		}
+	}
+
 	components := []func(mode.Mode) error{
 		s.metaBase.SetMode, s.setModeStorage,
 	}
