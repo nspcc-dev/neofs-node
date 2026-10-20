@@ -61,4 +61,8 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		_, err = sh.Get(obj.Address(), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
+
+	t.Run("missing container", func(t *testing.T) {
+		require.NoError(t, sh.Delete(cidtest.ID(), []oid.ID{obj.GetID()}))
+	})
 }
