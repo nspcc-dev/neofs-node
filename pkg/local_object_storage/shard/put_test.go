@@ -101,9 +101,9 @@ func TestShard_Put_Lock(t *testing.T) {
 
 			require.ErrorIs(t, sh.Put(&lock, nil), apistatus.ErrLockNonRegularObject)
 
-			locked, err := sh.IsLocked(objAddr)
+			lockID, err := sh.GetLockID(objAddr)
 			require.NoError(t, err)
-			require.False(t, locked)
+			require.True(t, lockID.IsZero())
 
 			exists, err := sh.Exists(lockAddr, false)
 			require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestShard_Put_Lock(t *testing.T) {
 			tc.preset(t, sh)
 
 			putErr := sh.Put(&lock, nil)
-			locked, lockedErr := sh.IsLocked(objAddr)
+			lockID, lockIDErr := sh.GetLockID(objAddr)
 			exists, existsErr := sh.Exists(lockAddr, false)
 			got, getErr := sh.Get(lockAddr, false)
 			fsExists, fsExistsErr := fst.Exists(lockAddr)
@@ -163,8 +163,8 @@ func TestShard_Put_Lock(t *testing.T) {
 			if tc.assertPutErr != nil {
 				tc.assertPutErr(t, putErr)
 
-				require.NoError(t, lockedErr)
-				require.False(t, locked)
+				require.NoError(t, lockIDErr)
+				require.True(t, lockID.IsZero())
 
 				require.NoError(t, existsErr)
 				require.False(t, exists)
@@ -178,8 +178,8 @@ func TestShard_Put_Lock(t *testing.T) {
 			} else {
 				require.NoError(t, putErr)
 
-				require.NoError(t, lockedErr)
-				require.True(t, locked)
+				require.NoError(t, lockIDErr)
+				require.Equal(t, lock.GetID(), lockID)
 
 				require.NoError(t, existsErr)
 				require.True(t, exists)

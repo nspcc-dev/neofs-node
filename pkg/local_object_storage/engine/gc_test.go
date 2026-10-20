@@ -10,9 +10,12 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/chaintime"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -159,6 +162,173 @@ func checkObjectsAsyncRemoval(t *testing.T, e *StorageEngine, cnr cid.ID, objs .
 		_, err := e.Get(context.Background(), addr)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	}
+}
+
+func TestGC_CopyLocks(t *testing.T) {
+	newEngine := func(t *testing.T, numShards int, metaOpts []meta.Option, extraOpts ...shard.Option) (*StorageEngine, []blobstor.Storage) {
+		e := New()
+		stores := make([]blobstor.Storage, numShards)
+		for i := range stores {
+			root := t.TempDir()
+			stores[i] = newStorage(filepath.Join(root, "fstree"))
+			_, err := e.AddShard(append([]shard.Option{
+				shard.WithBlobstor(stores[i]),
+				shard.WithMetaBaseOptions(append([]meta.Option{
+					meta.WithPath(filepath.Join(root, "meta")),
+					meta.WithMaxBatchDelay(time.Microsecond),
+				}, metaOpts...)...),
+				shard.WithGCRemoverSleepInterval(time.Hour),
+				shard.WithContainerPayments(containerPaymantsStub{}),
+			}, extraOpts...)...)
+			require.NoError(t, err)
+		}
+		require.NoError(t, e.Init())
+		t.Cleanup(func() { require.NoError(t, e.Close()) })
+		return e, stores
+	}
+
+	t.Run("progress", func(t *testing.T) {
+		for _, tc := range []struct {
+			name     string
+			timeLock bool
+		}{
+			{name: "epoch lock"},
+			{name: "time lock", timeLock: true},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				synctest.Test(t, func(t *testing.T) {
+					const (
+						batchSize  = 2
+						gcInterval = 100 * time.Millisecond
+					)
+					var clock chaintime.AtomicChainTimeProvider
+					clock.Set(99000)
+					es := &asyncEpochState{e: 1}
+					e, _ := newEngine(t, 2, []meta.Option{
+						meta.WithEpochState(es),
+						meta.WithTimeSource(clock.Now),
+					},
+						shard.WithRemoverBatchSize(batchSize),
+						shard.WithGCRemoverSleepInterval(gcInterval),
+					)
+					shs := e.unsortedShards()
+					cnr := cidtest.ID()
+					objects := make([]*object.Object, batchSize)
+					locks := make([]*object.Object, batchSize)
+					for i := range batchSize {
+						obj := generateObjectWithCID(cnr)
+						addExpirationAttribute(obj, 1)
+						require.NoError(t, shs[0].Put(obj, nil))
+						lock := generateObjectWithCID(cnr)
+						lock.AssociateLocked(obj.GetID())
+						if tc.timeLock {
+							require.NoError(t, lock.SetExpirationTime(time.Unix(105, 0)))
+						} else {
+							addExpirationAttribute(lock, 2)
+						}
+						// Simulate a missed LOCK broadcast to the object's shard.
+						require.NoError(t, shs[1].Put(lock, nil))
+						objects[i], locks[i] = obj, lock
+					}
+					timeObj := generateObjectWithCID(cnr)
+					require.NoError(t, timeObj.SetExpirationTime(time.Unix(100, 0)))
+					require.NoError(t, shs[0].Put(timeObj, nil))
+
+					clock.Set(101000)
+					tickEpoch(es, e)
+					time.Sleep(10 * gcInterval)
+
+					// A normal Get hides expired objects even if GC never deletes them.
+					_, err := shs[0].Get(timeObj.Address(), true)
+					require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+					for i, obj := range objects {
+						_, err := shs[0].Get(obj.Address(), false)
+						require.NoError(t, err)
+						for _, sh := range shs {
+							got, err := sh.Get(locks[i].Address(), false)
+							require.NoError(t, err)
+							require.Equal(t, locks[i].Marshal(), got.Marshal())
+						}
+					}
+					// Repeating the callback must preserve all existing LOCK copies.
+					for _, obj := range objects {
+						e.processExpiredObjects([]oid.Address{obj.Address()})
+					}
+
+					clock.Set(106000)
+					tickEpoch(es, e)
+					time.Sleep(10 * gcInterval)
+					for i, obj := range objects {
+						_, err := shs[0].Get(obj.Address(), true)
+						require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+						for _, sh := range shs {
+							_, err := sh.Get(locks[i].Address(), true)
+							require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+						}
+					}
+				})
+			})
+		}
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		for _, scenario := range []string{"read-only destination", "conflicting tombstone", "missing source blob"} {
+			t.Run(scenario, func(t *testing.T) {
+				e, stores := newEngine(t, 3, []meta.Option{meta.WithEpochState(epochState{e: 1})})
+				shs := e.unsortedShards()
+				obj := generateObjectWithCID(cidtest.ID())
+				addExpirationAttribute(obj, 0)
+				require.NoError(t, shs[0].Put(obj, nil))
+				lock := generateObjectWithCID(obj.GetContainerID())
+				lock.AssociateLocked(obj.GetID())
+				addExpirationAttribute(lock, 2)
+				require.NoError(t, shs[1].Put(lock, nil))
+
+				switch scenario {
+				case "read-only destination":
+					require.NoError(t, shs[2].SetMode(mode.ReadOnly))
+				case "conflicting tombstone":
+					tomb := generateObjectWithCID(obj.GetContainerID())
+					tomb.AssociateDeleted(obj.GetID())
+					require.NoError(t, shs[2].Put(tomb, nil))
+				case "missing source blob":
+					for _, store := range stores {
+						if store.ShardID() == shs[1].ID() {
+							require.NoError(t, store.Delete(lock.Address()))
+						}
+					}
+				}
+
+				for range 2 {
+					e.processExpiredObjects([]oid.Address{obj.Address()})
+					// Even if copying fails, the protected object's bytes must remain.
+					_, err := shs[0].Get(obj.Address(), true)
+					require.NoError(t, err)
+					if scenario == "missing source blob" {
+						lockID, err := shs[1].GetLockID(obj.Address())
+						require.NoError(t, err)
+						require.Equal(t, lock.GetID(), lockID)
+						_, err = shs[0].Get(lock.Address(), false)
+						require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+					} else {
+						for _, sh := range shs[:2] {
+							got, err := sh.Get(lock.Address(), false)
+							require.NoError(t, err)
+							require.Equal(t, lock.Marshal(), got.Marshal())
+						}
+					}
+				}
+				// A temporarily read-only shard can be repaired by a later callback.
+				if scenario == "read-only destination" {
+					require.NoError(t, shs[2].SetMode(mode.ReadWrite))
+					e.processExpiredObjects([]oid.Address{obj.Address()})
+					got, err := shs[2].Get(lock.Address(), false)
+					require.NoError(t, err)
+					require.Equal(t, lock.Marshal(), got.Marshal())
+				}
+			})
+		}
+	})
 }
 
 func TestGC(t *testing.T) {

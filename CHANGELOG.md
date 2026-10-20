@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Panic in neofs-lancet on storage operations that require metabase migration (#4215)
 - Setting eACL without API version in CLI (#4229)
 - Unnecessary local shard relocation of EC parts by policer (#4236)
+- GC stalling on expired objects protected by LOCKs stored only on other shards (#4237)
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)

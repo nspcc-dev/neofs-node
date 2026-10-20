@@ -94,7 +94,7 @@ func BenchmarkSearch(b *testing.B) {
 	})
 }
 
-func BenchmarkIsLocked(b *testing.B) {
+func BenchmarkGetLockID(b *testing.B) {
 	db := newDB(b, meta.WithMaxBatchDelay(time.Microsecond))
 	cid := cidtest.ID()
 
@@ -110,23 +110,23 @@ func BenchmarkIsLocked(b *testing.B) {
 
 	b.Run("locked", func(b *testing.B) {
 		for b.Loop() {
-			locked, err := db.IsLocked(lockedObj.Address())
+			lockID, err := db.GetLockID(lockedObj.Address())
 			if err != nil {
 				b.Fatal(err)
 			}
-			if !locked {
-				b.Fatal("expected object to be locked")
+			if lockID != lock.GetID() {
+				b.Fatal("unexpected LOCK ID")
 			}
 		}
 	})
 
 	b.Run("unlocked", func(b *testing.B) {
 		for b.Loop() {
-			locked, err := db.IsLocked(unlockedObj.Address())
+			lockID, err := db.GetLockID(unlockedObj.Address())
 			if err != nil {
 				b.Fatal(err)
 			}
-			if locked {
+			if !lockID.IsZero() {
 				b.Fatal("expected object to be unlocked")
 			}
 		}

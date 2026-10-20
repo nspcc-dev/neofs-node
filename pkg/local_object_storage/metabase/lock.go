@@ -28,32 +28,35 @@ func associatedWithTypedObject(currEpoch uint64, currTime int64, metaCursor *bbo
 
 // checks if specified object is locked in the specified container.
 func objectLocked(currEpoch uint64, currTime int64, metaCursor *bbolt.Cursor, idObj oid.ID) bool {
-	locked, lockID := associatedWithTypedObject(currEpoch, currTime, metaCursor, idObj, object.TypeLock)
-	if !locked {
-		return false
-	}
-	return inGarbage(metaCursor, lockID) == statusAvailable
+	return !objectLockID(currEpoch, currTime, metaCursor, idObj).IsZero()
 }
 
-// IsLocked checks is the provided object is locked by any `LOCK`. Not found
-// object is considered as non-locked.
-//
-// Returns only non-logical errors related to underlying database.
-func (db *DB) IsLocked(addr oid.Address) (bool, error) {
+func objectLockID(currEpoch uint64, currTime int64, metaCursor *bbolt.Cursor, idObj oid.ID) oid.ID {
+	locked, lockID := associatedWithTypedObject(currEpoch, currTime, metaCursor, idObj, object.TypeLock)
+	if !locked || inGarbage(metaCursor, lockID) != statusAvailable {
+		return oid.ID{}
+	}
+	return lockID
+}
+
+// GetLockID returns the ID of the LOCK used to determine whether addr is locked.
+// Returns a zero ID if addr is not considered locked, including for a container marked as garbage.
+// The protected object does not have to be stored in DB.
+func (db *DB) GetLockID(addr oid.Address) (oid.ID, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return false, ErrDegradedMode
+		return oid.ID{}, ErrDegradedMode
 	}
 
 	var (
-		locked    bool
+		lockID    oid.ID
 		currEpoch = db.epochState.CurrentEpoch()
 		currTime  = db.now().Unix()
 	)
 
-	return locked, db.boltDB.View(func(tx *bbolt.Tx) error {
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		mBucket := tx.Bucket(metaBucketKey(addr.Container()))
 		if mBucket == nil {
 			return nil
@@ -62,7 +65,8 @@ func (db *DB) IsLocked(addr oid.Address) (bool, error) {
 			return nil
 		}
 
-		locked = objectLocked(currEpoch, currTime, mBucket.Cursor(), addr.Object())
+		lockID = objectLockID(currEpoch, currTime, mBucket.Cursor(), addr.Object())
 		return nil
 	})
+	return lockID, err
 }
