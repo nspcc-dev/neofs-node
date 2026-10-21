@@ -685,8 +685,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 			network := &testNetwork{epoch: anyEpoch, curNetmap: networkMap}
 			ns, err := New(cnrs, network)
 			require.NoError(t, err)
-			ns.sortContainerNodesFunc = func(nm netmap.NetMap, ns [][]netmap.NodeInfo, id oid.ID) ([][]netmap.NodeInfo, error) {
-				require.Equal(t, *networkMap, nm)
+			ns.sortContainerNodesFunc = func(ns [][]netmap.NodeInfo, id oid.ID) ([][]netmap.NodeInfo, error) {
 				require.Equal(t, anyAddr.Object(), id)
 				for i := range ns {
 					for j := range ns[i] {
