@@ -32,8 +32,7 @@ func (exec *execCtx) executeOnContainer() {
 			return false
 		}
 		localDone = true
-		exec.executeLocal()
-		return exec.analyzeLocalStatus()
+		return exec.executeLocal()
 	}
 
 	// try local node first if it is a primary holder
