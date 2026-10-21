@@ -86,15 +86,6 @@ func (c *Client) Put(ctx context.Context, p PutPrm) (cid.ID, error) {
 		cnrBytes, p.sig, p.key, p.token, domain.Name(), domain.Zone(), metaEnabled,
 	})
 	if err != nil {
-		if isMethodNotFoundError(err, fschaincontracts.CreateContainerMethod) {
-			err = c.client.CallWithAlphabetWitness(ctx, putMethod, []any{
-				cnrBytes, p.sig, p.key, p.token, domain.Name(), domain.Zone(), metaEnabled,
-			})
-			if err != nil {
-				return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
-			}
-			return cid.NewFromMarshalledContainer(cnrBytes), nil
-		}
 		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerMethod, err)
 	}
 	return cid.NewFromMarshalledContainer(cnrBytes), nil

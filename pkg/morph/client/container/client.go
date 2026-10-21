@@ -23,7 +23,6 @@ type Client struct {
 }
 
 const (
-	putMethod               = "put"
 	getDataMethod           = "getContainerData"
 	getInfoMethod           = "getInfo"
 	getInfoRevisionedMethod = "getRevisionedInfo"
