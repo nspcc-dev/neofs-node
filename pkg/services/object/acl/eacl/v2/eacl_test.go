@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -343,6 +344,7 @@ func TestObjectHeaders(t *testing.T) {
 		})
 	})
 
+	require.NoError(t, obj.SetExpirationTime(time.Unix(1<<40, 0)))
 	ver := version.New(12, 34)
 	obj.SetVersion(&ver)
 	obj.SetOwner(owner)
@@ -373,6 +375,7 @@ func TestObjectHeaders(t *testing.T) {
 		child.SetOwner(childOwner)
 		child.SetPayloadSize(childPayloadLen)
 		child.SetCreationEpoch(childCreationEpoch)
+		require.NoError(t, child.SetExpirationTime(time.Unix(1<<40, 0)))
 		ver := version.New(56, 78)
 		child.SetVersion(&ver)
 		child.SetType(object.TypeLock)

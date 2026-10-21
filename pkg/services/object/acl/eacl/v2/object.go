@@ -214,6 +214,12 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 				return nil, err
 			}
 			off += n + ln
+		case protoobject.FieldHeaderExpirationTime:
+			_, n, err := iprotobuf.ParseUint64Field(buf[off:], num, typ)
+			if err != nil {
+				return nil, err
+			}
+			off += n
 		default:
 			return nil, iprotobuf.NewUnsupportedFieldError(num, typ)
 		}

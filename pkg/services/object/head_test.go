@@ -189,6 +189,7 @@ func TestServer_Head_Remote(t *testing.T) {
 		t.Run("header", func(t *testing.T) {
 			const payloadLen = 100 << 10
 			obj := object.New(cnr, signer.ID)
+			require.NoError(t, obj.SetExpirationTime(time.Unix(1<<40, 0)))
 			obj.SetAttributes(
 				object.NewAttribute("k1", "v1"),
 				object.NewAttribute("k2", "v2"),
@@ -224,6 +225,14 @@ func TestServer_Head_Remote(t *testing.T) {
 			gotResp, err := callHead(t, srv, req)
 			require.NoError(t, err)
 			require.True(t, proto.Equal(resp, gotResp))
+
+			t.Run("via container node", func(t *testing.T) {
+				handlerFSChain.localPub = nodes[0].PublicKey()
+				t.Cleanup(func() { handlerFSChain.localPub = nil })
+				gotResp, err := callHead(t, srv, req)
+				require.NoError(t, err)
+				require.True(t, proto.Equal(resp, gotResp))
+			})
 		})
 
 		t.Run("split info", func(t *testing.T) {
