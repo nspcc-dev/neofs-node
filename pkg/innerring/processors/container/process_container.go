@@ -36,7 +36,7 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 	cnrBytes := cnr.Marshal()
 	id := cid.NewFromMarshalledContainer(cnrBytes)
 
-	err = cp.checkPutContainer(cnr, cnrBytes, req.SessionToken, req.InvocationScript, req.VerificationScript, "", "")
+	err = cp.checkPutContainer(cnr, cnrBytes, req.SessionToken, req.InvocationScript, req.VerificationScript)
 	if err != nil {
 		cp.log.Error("container creation request failed check",
 			zap.Stringer("container", id), zap.Error(err))
@@ -72,34 +72,6 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 	cp.approvePutContainer(req.MainTransaction, cnr, id)
 }
 
-// Process a new container from the user by checking the container sanity
-// and sending approve tx back to the FS chain.
-func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest, id cid.ID) {
-	if !cp.alphabetState.IsAlphabet() {
-		cp.log.Info("non alphabet mode, ignore container put")
-		return
-	}
-
-	var cnr container.Container
-	if err := cnr.Unmarshal(req.Container); err != nil {
-		cp.log.Error("put container check failed",
-			zap.Error(fmt.Errorf("invalid binary container: %w", err)),
-		)
-		return
-	}
-
-	err := cp.checkPutContainer(cnr, req.Container, req.SessionToken, req.InvocationScript, req.VerificationScript, req.DomainName, req.DomainZone)
-	if err != nil {
-		cp.log.Error("put container check failed",
-			zap.Error(err),
-		)
-
-		return
-	}
-
-	cp.approvePutContainer(req.MainTransaction, cnr, id)
-}
-
 const (
 	sysAttrPrefix    = "__NEOFS__"
 	sysAttrChainMeta = sysAttrPrefix + "METAINFO_CONSISTENCY"
@@ -112,7 +84,7 @@ var allowedSystemAttributes = map[string]struct{}{
 	sysAttrChainMeta:             {},
 }
 
-func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, domainName, domainZone string) error {
+func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessionToken, invocScript, verifScript []byte) error {
 	if ver := cnr.Version(); ver.Compare(minContainerAPIVersion) < 0 {
 		return fmt.Errorf("API version is %s while %s is minimum supported", ver, minContainerAPIVersion)
 	}
@@ -159,13 +131,6 @@ func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessio
 
 	if err = cnr.PlacementPolicy().Verify(); err != nil {
 		return fmt.Errorf("invalid storage policy: %w", err)
-	}
-
-	if domainZone != "" { // if PutNamed event => check if values in-container domain name and zone correspond to args
-		err = checkNNS(cnr, domainName, domainZone)
-		if err != nil {
-			return fmt.Errorf("NNS: %w", err)
-		}
 	}
 
 	return nil
@@ -451,19 +416,4 @@ func (cp *Processor) approveRemoveAttributeRequest(req containerEvent.RemoveAttr
 		cp.log.Error("could not approve attribute removal",
 			zap.Stringer("container", id), zap.Error(err))
 	}
-}
-
-func checkNNS(cnr container.Container, name, zone string) error {
-	// fetch domain info
-	d := cnr.ReadDomain()
-
-	if name != d.Name() {
-		return fmt.Errorf("names differ %s/%s", name, d.Name())
-	}
-
-	if zone != d.Zone() {
-		return fmt.Errorf("zones differ %s/%s", zone, d.Zone())
-	}
-
-	return nil
 }

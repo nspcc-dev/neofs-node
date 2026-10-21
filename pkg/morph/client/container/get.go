@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -38,58 +37,24 @@ func Get(c *Client, cnr cid.ID) (container.Container, error) {
 func (c *Client) Get(cid []byte) (container.Container, error) {
 	var cnr container.Container
 	prm := client.TestInvokePrm{}
-	method := getInfoRevisionedMethod
-	prm.SetMethod(method)
+	prm.SetMethod(getInfoRevisionedMethod)
 	prm.SetArgs(cid)
 
 	arr, err := c.client.TestInvoke(prm)
-	if err != nil && isMethodNotFoundError(err, method) {
-		method = getInfoMethod
-		prm.SetMethod(method)
-		arr, err = c.client.TestInvoke(prm)
-		if err != nil && isMethodNotFoundError(err, method) {
-			method = getDataMethod
-			prm.SetMethod(method)
-			arr, err = c.client.TestInvoke(prm)
-		}
-	}
 	if err != nil {
 		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
 			var errNotFound apistatus.ContainerNotFound
 
 			return cnr, errNotFound
 		}
-		return cnr, fmt.Errorf("could not perform test invocation (%s): %w", method, err)
+		return cnr, fmt.Errorf("could not perform test invocation (%s): %w", getInfoRevisionedMethod, err)
 	} else if ln := len(arr); ln != 1 {
-		return cnr, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
+		return cnr, fmt.Errorf("unexpected stack item count (%s): %d", getInfoRevisionedMethod, ln)
 	}
 
-	switch method {
-	case getInfoRevisionedMethod:
-		cnr, err = revisionedContainerFromStackItem(arr[0])
-	case getInfoMethod:
-		cnr, err = containerFromStackItem(arr[0])
-	default:
-		cnr, err = decodeOldGetResponse(arr, method)
-	}
+	cnr, err = revisionedContainerFromStackItem(arr[0])
 	if err != nil {
-		return cnr, fmt.Errorf("invalid %q method result: invalid stack item: %w", method, err)
-	}
-
-	return cnr, nil
-}
-
-func decodeOldGetResponse(arr []stackitem.Item, method string) (container.Container, error) {
-	var cnr container.Container
-
-	cnrBytes, err := client.BytesFromStackItem(arr[0])
-	if err != nil {
-		return cnr, fmt.Errorf("could not get byte array of container (%s): %w", method, err)
-	}
-
-	if err := cnr.Unmarshal(cnrBytes); err != nil {
-		// use other major version if there any
-		return cnr, fmt.Errorf("can't unmarshal container: %w", err)
+		return cnr, fmt.Errorf("invalid %q method result: invalid stack item: %w", getInfoRevisionedMethod, err)
 	}
 
 	return cnr, nil

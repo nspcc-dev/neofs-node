@@ -130,10 +130,6 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetScriptHash(cp.cnrClient.ContractAddress())
 
 	// create container
-	p.SetRequestType(fschaincontracts.CreateContainerMethod)
-	p.SetUnaryParser(containerEvent.RestoreCreateContainerRequest)
-	pp = append(pp, p)
-
 	p.SetRequestType(fschaincontracts.CreateContainerV2Method)
 	p.SetParser(containerEvent.RestoreCreateContainerV2Request)
 	pp = append(pp, p)
@@ -177,10 +173,6 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	h.SetScriptHash(cp.cnrClient.ContractAddress())
 
 	// create container
-	h.SetRequestType(fschaincontracts.CreateContainerMethod)
-	h.SetHandler(cp.handlePut)
-	hh = append(hh, h)
-
 	h.SetRequestType(fschaincontracts.CreateContainerV2Method)
 	h.SetHandler(cp.handleCreationRequest)
 	hh = append(hh, h)
