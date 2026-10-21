@@ -1,7 +1,6 @@
 package container
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 
 	"github.com/mr-tron/base58"
@@ -13,24 +12,6 @@ import (
 
 func (cp *Processor) handleCreationRequest(ev event.Event) {
 	err := cp.pool.Submit(func() { cp.processCreateContainerRequest(ev.(containerEvent.CreateContainerV2Request)) })
-	if err != nil {
-		// there system can be moved into controlled degradation stage
-		cp.log.Warn("container processor worker pool drained",
-			zap.Int("capacity", cp.pool.Cap()))
-	}
-}
-
-func (cp *Processor) handlePut(ev event.Event) {
-	req := ev.(containerEvent.CreateContainerRequest)
-
-	id := sha256.Sum256(req.Container)
-	cp.log.Info("notification",
-		zap.String("type", "container put"),
-		zap.String("id", base58.Encode(id[:])))
-
-	// send an event to the worker pool
-
-	err := cp.pool.Submit(func() { cp.processContainerPut(req, id) })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",

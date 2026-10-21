@@ -166,51 +166,6 @@ func containerAttributeFromPushedItem(instr scparser.PushedItem) (*containerrpc.
 	return res, nil
 }
 
-// CreateContainerRequest wraps container creation request to provide
-// app-internal event.
-type CreateContainerRequest struct {
-	event.Event
-	MainTransaction transaction.Transaction
-	fschaincontracts.CreateContainerParams
-}
-
-// RestoreCreateContainerRequest restores [CreateContainerRequest] from the
-// notary one.
-func RestoreCreateContainerRequest(notaryReq event.NotaryEvent) (event.Event, error) {
-	const argNum = 7
-	args, err := event.GetArgs(notaryReq, argNum)
-	if err != nil {
-		return nil, err
-	}
-
-	var res CreateContainerRequest
-
-	if res.Container, err = event.GetValueFromArg(args, 0, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.InvocationScript, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.VerificationScript, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.SessionToken, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.DomainName, err = event.GetValueFromArg(args, 4, notaryReq.Type().String(), scparser.GetStringFromInstr); err != nil {
-		return nil, err
-	}
-	if res.DomainZone, err = event.GetValueFromArg(args, 5, notaryReq.Type().String(), scparser.GetStringFromInstr); err != nil {
-		return nil, err
-	}
-	if res.EnableObjectMetadata, err = event.GetValueFromArg(args, 6, notaryReq.Type().String(), scparser.GetBoolFromInstr); err != nil {
-		return nil, err
-	}
-	res.MainTransaction = *notaryReq.Raw().MainTransaction
-
-	return res, nil
-}
-
 // RemoveContainerRequest wraps container removal request to provide
 // app-internal event.
 type RemoveContainerRequest struct {

@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - Compressed object format support from FSTree (#4223)
 - Deprecated homomorphic hashing setting from CLI netinfo output (#4225)
 - Support for multiaddr addresses in CLI and node (#4238)
+- Support for `create` method of Container contract in IR (#4242)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261021092246-abe302e8498b` (#4194, #4219, #4228, #4224, #4222, #4240)

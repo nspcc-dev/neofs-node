@@ -4,7 +4,6 @@ package fschaincontracts
 const (
 	PayBalanceMethod               = "settleContainerPayment"
 	UnpaidBalanceMethod            = "getUnpaidContainerEpoch"
-	CreateContainerMethod          = "create"
 	CreateContainerV2Method        = "createV2"
 	RemoveContainerMethod          = "remove"
 	PutContainerEACLMethod         = "putEACL"
