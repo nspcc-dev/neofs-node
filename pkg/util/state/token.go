@@ -1,8 +1,10 @@
 package state
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
@@ -17,8 +19,11 @@ var sessionsBucket = []byte("sessions")
 // initTokenStore initializes the TokenStore over the bolt DB.
 func (p *PersistentStorage) initTokenStore(cfg cfg) error {
 	err := p.db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(sessionsBucket)
-		return err
+		b, err := tx.CreateBucketIfNotExists(sessionsBucket)
+		if err != nil {
+			return err
+		}
+		return migrateTokens(b)
 	})
 	if err != nil {
 		_ = p.db.Close()
@@ -58,7 +63,7 @@ func (p PersistentStorage) GetToken(account user.ID) (t *session.PrivateToken) {
 			return nil
 		}
 
-		rawToken := rootBucket.Get(account[:])
+		rawToken := rootBucket.Get(tokenKey(account))
 		if rawToken == nil {
 			return nil
 		}
@@ -87,30 +92,31 @@ func (p PersistentStorage) RemoveOldTokens(epoch uint64) {
 	err := p.db.Update(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 
-		// iterating over accounts
 		c := rootBucket.Cursor()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			tokenEpoch, err := epochFromToken(v)
-			if err != nil {
-				p.l.Warn("could not parse token epoch", zap.Error(err))
-				continue
+		for k, _ := c.Seek([]byte{sessionEpochPrefix}); len(k) > 0 && k[0] == sessionEpochPrefix; {
+			var account user.ID
+			if len(k) != sessionEpochAccountOffset+len(account) {
+				return fmt.Errorf("invalid session epoch index key: %x", k)
 			}
-
-			if tokenEpoch <= epoch {
-				err := c.Delete()
-				var id user.ID
-				copy(id[:], k)
-				if err != nil {
-					p.l.Error("could not delete token",
-						zap.Stringer("account", id),
-					)
-				}
+			tokenEpoch := binary.BigEndian.Uint64(k[sessionPrefixSize:sessionEpochAccountOffset])
+			if tokenEpoch > epoch {
+				break
 			}
+			copy(account[:], k[sessionEpochAccountOffset:])
+			indexKey := tokenEpochKey(tokenEpoch, account)
+			if err := rootBucket.Delete(tokenKey(account)); err != nil {
+				return fmt.Errorf("could not delete session token for %s: %w", account, err)
+			}
+			if err := rootBucket.Delete(indexKey); err != nil {
+				return fmt.Errorf("could not delete session token index for %s: %w", account, err)
+			}
+			k, _ = c.Seek(indexKey)
 		}
 		return nil
 	})
 	if err != nil {
 		p.l.Error("could not clean up expired tokens",
+			zap.Error(err),
 			zap.Uint64("epoch", epoch),
 		)
 	}
@@ -129,7 +135,7 @@ func (p PersistentStorage) FindTokenBySubjects(subjects []sessionv2.Target) *ses
 
 		for _, subject := range subjects {
 			if subjectUser := subject.UserID(); !subjectUser.IsZero() {
-				rawToken := rootBucket.Get(subjectUser[:])
+				rawToken := rootBucket.Get(tokenKey(subjectUser))
 				if rawToken == nil {
 					continue
 				}
@@ -155,4 +161,46 @@ func (p PersistentStorage) FindTokenBySubjects(subjects []sessionv2.Target) *ses
 	}
 
 	return token
+}
+
+// migrateTokens upgrades the legacy account keys without changing token values.
+// All token/index pairs are committed in the same transaction, so legacy and new
+// keys cannot coexist. A new token key sorts first and means migration is complete.
+func migrateTokens(b *bbolt.Bucket) error {
+	if k, _ := b.Cursor().First(); k == nil || len(k) == sessionPrefixSize+len(user.ID{}) && k[0] == sessionTokenPrefix {
+		return nil
+	}
+
+	var accounts []user.ID
+	if err := b.ForEach(func(k, v []byte) error {
+		var account user.ID
+		if len(k) != len(account) || v == nil {
+			return fmt.Errorf("invalid legacy session key: %x", k)
+		}
+		if _, err := epochFromToken(v); err != nil {
+			return fmt.Errorf("invalid legacy session value for %x: %w", k, err)
+		}
+		copy(account[:], k)
+		accounts = append(accounts, account)
+		return nil
+	}); err != nil {
+		return err
+	}
+	for _, account := range accounts {
+		raw := bytes.Clone(b.Get(account[:]))
+		epoch, err := epochFromToken(raw)
+		if err != nil {
+			return err
+		}
+		if err := b.Put(tokenKey(account), raw); err != nil {
+			return err
+		}
+		if err := b.Put(tokenEpochKey(epoch, account), nil); err != nil {
+			return err
+		}
+		if err := b.Delete(account[:]); err != nil {
+			return err
+		}
+	}
+	return nil
 }

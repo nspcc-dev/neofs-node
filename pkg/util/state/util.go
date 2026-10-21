@@ -8,9 +8,34 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/state/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-const keyOffset = 8
+const (
+	keyOffset = 8
+
+	sessionTokenPrefix = 0
+	sessionEpochPrefix = 1
+
+	sessionPrefixSize         = 1
+	sessionEpochSize          = 8
+	sessionEpochAccountOffset = sessionPrefixSize + sessionEpochSize
+)
+
+func tokenKey(account user.ID) []byte {
+	key := make([]byte, sessionPrefixSize+len(account))
+	key[0] = sessionTokenPrefix
+	copy(key[sessionPrefixSize:], account[:])
+	return key
+}
+
+func tokenEpochKey(epoch uint64, account user.ID) []byte {
+	key := make([]byte, sessionEpochAccountOffset+len(account))
+	key[0] = sessionEpochPrefix
+	binary.BigEndian.PutUint64(key[sessionPrefixSize:sessionEpochAccountOffset], epoch)
+	copy(key[sessionEpochAccountOffset:], account[:])
+	return key
+}
 
 var errInvalidPackedToken = errors.New("invalid packed token")
 
