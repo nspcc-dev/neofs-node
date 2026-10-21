@@ -331,12 +331,6 @@ func registerEventParserOnceContainer(c *cfg, name string, p event.NotificationP
 // NOT be called concurrently with itself and other similar functions. Owner may
 // be zero.
 func subscribeToContainerCreation(c *cfg, h func(id cid.ID, owner user.ID)) {
-	const eventNameContainerCreatedV2 = "Created"
-	registerEventParserOnceContainer(c, eventNameContainerCreatedV2, containerEvent.RestoreCreated)
-	addContainerAsyncNotificationHandler(c, eventNameContainerCreatedV2, func(e event.Event) {
-		created := e.(containerEvent.Created)
-		h(created.ID, created.Owner)
-	})
 	subscribeToContainerTransfer(c, func(id cid.ID, from, to user.ID) {
 		if from.IsZero() {
 			h(id, to)
@@ -346,12 +340,6 @@ func subscribeToContainerCreation(c *cfg, h func(id cid.ID, owner user.ID)) {
 
 // like subscribeToContainerCreation but for removal. Owner may be zero.
 func subscribeToContainerRemoval(c *cfg, h func(id cid.ID, owner user.ID)) {
-	const eventNameContainerRemovedV2 = "Removed"
-	registerEventParserOnceContainer(c, eventNameContainerRemovedV2, containerEvent.RestoreRemoved)
-	addContainerAsyncNotificationHandler(c, eventNameContainerRemovedV2, func(e event.Event) {
-		removed := e.(containerEvent.Removed)
-		h(removed.ID, removed.Owner)
-	})
 	subscribeToContainerTransfer(c, func(id cid.ID, from, to user.ID) {
 		if to.IsZero() {
 			h(id, from)
