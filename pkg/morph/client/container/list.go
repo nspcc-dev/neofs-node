@@ -25,15 +25,6 @@ func (c *Client) List(idUser *user.ID) ([]cid.ID, error) {
 	}
 
 	res, err := c.client.TestInvokeIterator(mtd, iteratorPrefetchNumber, args...)
-	if err != nil && isMethodNotFoundError(err, mtd) {
-		var rawIdUser []byte
-		if idUser != nil {
-			rawIdUser = idUser[:]
-		}
-
-		res, err = c.client.TestInvokeIterator(listMethod, iteratorPrefetchNumber, rawIdUser)
-		mtd = listMethod
-	}
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", mtd, err)
 	}

@@ -3,9 +3,7 @@ package container
 import (
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
@@ -24,7 +22,6 @@ type Client struct {
 
 const (
 	getInfoRevisionedMethod = "getRevisionedInfo"
-	listMethod              = "containersOf"
 	eaclDataMethod          = "getEACLData"
 	tokensOfMethod          = "tokensOf"
 	tokensMethod            = "tokens"
@@ -93,15 +90,4 @@ func AsAlphabet() Option {
 	return func(o *opts) {
 		o.staticOpts = append(o.staticOpts, client.AsAlphabet())
 	}
-}
-
-func isMethodNotFoundError(err error, mtd string) bool {
-	if exc, ok := errors.AsType[unwrap.Exception](err); ok {
-		return isMethodNotFoundException(string(exc), mtd)
-	}
-	return isMethodNotFoundException(err.Error(), mtd)
-}
-
-func isMethodNotFoundException(msg, mtd string) bool {
-	return strings.Contains(msg, "method not found: "+mtd)
 }
