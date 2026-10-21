@@ -2,14 +2,21 @@ package state
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/nspcc-dev/bbolt"
 	bolterrors "github.com/nspcc-dev/bbolt/errors"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -110,6 +117,9 @@ func TestTokenStore_Migration(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), ".storage")
 		ts := newStorageWithSession(t, path)
+		require.NoError(t, ts.db.Update(func(tx *bbolt.Tx) error {
+			return ts.migrateTokens(tx.Bucket(sessionsBucket))
+		}))
 		require.NoError(t, ts.Close())
 
 		ts = newStorageWithSession(t, path)
@@ -149,14 +159,14 @@ func TestTokenStore_Migration(t *testing.T) {
 					require.NoError(t, err)
 				}
 				require.NoError(t, ts.SetBytes([]byte("unrelated"), []byte("state")))
-				// Populate the exact pre-migration layout, including encrypted values.
+				// Test key migration independently of the encryption scheme.
 				prepareLegacy(t, ts, func(b *bbolt.Bucket) error {
 					for i, account := range accounts {
 						if err := b.Put(account.ID[:], values[i]); err != nil {
 							return err
 						}
 					}
-					return nil
+					return new(PersistentStorage).migrateTokens(b)
 				})
 
 				// A second reopen must neither repeat the migration nor change values.
@@ -233,6 +243,134 @@ func TestTokenStore_Migration(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestTokenStore_MigrateEncryption(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		wrongKey   bool
+		first      bool
+		corrupt    func([]byte) []byte
+		invalidKey bool
+	}{
+		{name: "valid"},
+		{name: "wrong node key", wrongKey: true},
+		{name: "corrupt first record", first: true, corrupt: func(raw []byte) []byte {
+			raw[len(raw)-1] ^= 1
+			return raw
+		}},
+		{name: "corrupt last record", corrupt: func(raw []byte) []byte {
+			raw[len(raw)-1] ^= 1
+			return raw
+		}},
+		{name: "truncated epoch", corrupt: func(raw []byte) []byte { return raw[:keyOffset-1] }},
+		{name: "truncated ciphertext", corrupt: func(raw []byte) []byte { return raw[:keyOffset+1] }},
+		{name: "invalid private key", invalidKey: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pk, err := keys.NewPrivateKey()
+			require.NoError(t, err)
+			path := filepath.Join(t.TempDir(), ".storage")
+			ts := newStorageWithSession(t, path)
+			require.NoError(t, ts.SetBytes([]byte("unrelated"), []byte("state")))
+
+			// Build the old on-disk format independently of the new encryption code.
+			key, err := pk.ECDH()
+			require.NoError(t, err)
+			block, err := aes.NewCipher(key.Bytes())
+			require.NoError(t, err)
+			gcm, err := cipher.NewGCM(block)
+			require.NoError(t, err)
+			accounts := []usertest.UserSigner{usertest.User(), usertest.User(), usertest.User()}
+			require.NoError(t, ts.db.Update(func(tx *bbolt.Tx) error {
+				b := tx.Bucket(sessionsBucket)
+				for i, account := range accounts {
+					plain, err := x509.MarshalECPrivateKey(&account.ECDSAPrivateKey)
+					require.NoError(t, err)
+					if tc.invalidKey && i == 2 {
+						plain = []byte("invalid private key")
+					}
+					nonce := make([]byte, gcm.NonceSize())
+					_, err = rand.Read(nonce)
+					require.NoError(t, err)
+					raw := make([]byte, keyOffset)
+					binary.LittleEndian.PutUint64(raw, uint64(i+1))
+					raw = append(raw, gcm.Seal(nonce, nonce, plain, nil)...)
+					require.NoError(t, b.Put(account.ID[:], raw))
+				}
+				return nil
+			}))
+			if tc.corrupt != nil {
+				records := storedSessions(t, ts)
+				var ids []string
+				for id := range records {
+					ids = append(ids, id)
+				}
+				slices.Sort(ids)
+				id := ids[len(ids)-1]
+				if tc.first {
+					id = ids[0]
+				}
+				require.NoError(t, ts.db.Update(func(tx *bbolt.Tx) error {
+					return tx.Bucket(sessionsBucket).Put([]byte(id), tc.corrupt(records[id]))
+				}))
+			}
+			before := storedSessions(t, ts)
+			require.NoError(t, ts.Close())
+
+			openingKey := pk
+			if tc.wrongKey {
+				openingKey, err = keys.NewPrivateKey()
+				require.NoError(t, err)
+			}
+			migrated, err := NewPersistentStorage(path, true, WithEncryptionKey(&openingKey.PrivateKey))
+			if tc.wrongKey || tc.corrupt != nil || tc.invalidKey {
+				require.Error(t, err)
+				require.Nil(t, migrated)
+				// A failed migration must release the DB and roll back every write.
+				ts, err = NewPersistentStorage(path, false)
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = ts.Close() })
+				require.Equal(t, before, storedSessions(t, ts))
+				state, err := ts.Bytes([]byte("unrelated"))
+				require.NoError(t, err)
+				require.Equal(t, []byte("state"), state)
+				return
+			}
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = migrated.Close() })
+			after := storedSessions(t, migrated)
+			require.Len(t, after, 2*len(accounts))
+			for i, account := range accounts {
+				require.NotContains(t, after, string(account.ID[:]))
+				require.NotEqual(t, before[string(account.ID[:])], after[string(tokenKey(account.ID))])
+				require.Contains(t, after, string(tokenEpochKey(uint64(i+1), account.ID)))
+				token := migrated.GetToken(account.ID)
+				require.NotNil(t, token)
+				require.Equal(t, account.ECDSAPrivateKey, *token.SessionKey())
+				require.EqualValues(t, i+1, token.ExpiredAt())
+			}
+			state, err := migrated.Bytes([]byte("unrelated"))
+			require.NoError(t, err)
+			require.Equal(t, []byte("state"), state)
+			newAccount := usertest.User()
+			require.NoError(t, migrated.Store(newAccount.ECDSAPrivateKey, 4))
+			after = storedSessions(t, migrated)
+			require.NoError(t, migrated.Close())
+			reopened := newStorageWithSession(t, path, WithEncryptionKey(&pk.PrivateKey))
+			require.Equal(t, after, storedSessions(t, reopened))
+			require.NotNil(t, reopened.GetToken(newAccount.ID))
+			reopened.RemoveOldTokens(2)
+			for i, account := range accounts {
+				if i < 2 {
+					require.Nil(t, reopened.GetToken(account.ID))
+				} else {
+					require.NotNil(t, reopened.GetToken(account.ID))
+				}
+			}
+			require.NotNil(t, reopened.GetToken(newAccount.ID))
+		})
+	}
 }
 
 func TestTokenStore_Persistent(t *testing.T) {

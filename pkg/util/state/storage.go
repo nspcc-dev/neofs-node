@@ -2,7 +2,7 @@ package state
 
 import (
 	"bytes"
-	"crypto/cipher"
+	"crypto/hpke"
 	"encoding/binary"
 	"fmt"
 
@@ -20,10 +20,8 @@ type PersistentStorage struct {
 
 	l *zap.Logger
 
-	// optional AES-256 algorithm
-	// encryption in Galois/Counter
-	// Mode
-	gcm cipher.AEAD
+	// Optional HPKE key for encrypting private session keys.
+	encryptionKey hpke.PrivateKey
 }
 
 var stateBucket = []byte("state")
