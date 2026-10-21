@@ -23,7 +23,6 @@ type Client struct {
 }
 
 const (
-	getInfoMethod           = "getInfo"
 	getInfoRevisionedMethod = "getRevisionedInfo"
 	listMethod              = "containersOf"
 	eaclDataMethod          = "getEACLData"

@@ -45,15 +45,6 @@ func revisionedContainerFromStackItem(item stackitem.Item) (container.Container,
 	return cnr, nil
 }
 
-func containerFromStackItem(item stackitem.Item) (container.Container, error) {
-	var contractStruct containerrpc.ContainerInfo
-	if err := contractStruct.FromStackItem(item); err != nil {
-		return container.Container{}, err
-	}
-
-	return ContainerFromStruct(contractStruct)
-}
-
 // ContainerFromStruct decodes container from contract structure.
 func ContainerFromStruct(contractStruct containerrpc.ContainerInfo) (container.Container, error) {
 	mjr, mnr, err := containerVersionFromStruct(contractStruct.Version)
