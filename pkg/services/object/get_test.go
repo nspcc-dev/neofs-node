@@ -276,6 +276,7 @@ func TestServer_Get_Remote(t *testing.T) {
 		t.Run("object", func(t *testing.T) {
 			const payloadLen = 100 << 10
 			obj := *object.New(cnr, signer.ID)
+			require.NoError(t, obj.SetExpirationTime(time.Unix(1<<40, 0)))
 			obj.SetAttributes(
 				object.NewAttribute("k1", "v1"),
 				object.NewAttribute("k2", "v2"),
@@ -327,6 +328,16 @@ func TestServer_Get_Remote(t *testing.T) {
 			require.True(t, slices.EqualFunc(resps, gotResps, func(resp *protoobject.GetResponse, gotResp *protoobject.GetResponse) bool {
 				return proto.Equal(resp, gotResp)
 			}))
+
+			t.Run("via container node", func(t *testing.T) {
+				handlerFSChain.localPub = nodes[0].PublicKey()
+				t.Cleanup(func() { handlerFSChain.localPub = nil })
+				gotResps := collectGetResponses(t, srv, req)
+				require.Equal(t, len(resps), len(gotResps))
+				require.True(t, slices.EqualFunc(resps, gotResps, func(resp *protoobject.GetResponse, gotResp *protoobject.GetResponse) bool {
+					return proto.Equal(resp, gotResp)
+				}))
+			})
 		})
 
 		t.Run("extended range", func(t *testing.T) {

@@ -76,12 +76,14 @@ func New(containers containercore.Source, network netmapcore.Source) (*Service, 
 		return nil, fmt.Errorf("create LRU container node cache for objects: %w", err)
 	}
 	return &Service{
-		containers:             containers,
-		network:                network,
-		cache:                  l,
-		objCache:               lo,
-		getContainerNodesFunc:  netmap.NetMap.ContainerNodes,
-		sortContainerNodesFunc: netmap.NetMap.PlacementVectors,
+		containers:            containers,
+		network:               network,
+		cache:                 l,
+		objCache:              lo,
+		getContainerNodesFunc: netmap.NetMap.ContainerNodes,
+		sortContainerNodesFunc: func(_ netmap.NetMap, nodes [][]netmap.NodeInfo, id oid.ID) ([][]netmap.NodeInfo, error) {
+			return netmap.PlacementVectors(nodes, id)
+		},
 	}, nil
 }
 
