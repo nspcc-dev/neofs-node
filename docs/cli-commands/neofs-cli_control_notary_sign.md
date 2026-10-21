@@ -14,7 +14,7 @@ neofs-cli control notary sign [flags]
 
 ```
       --address string     Address of wallet account
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
       --hash string        hash of the notary request
   -h, --help               help for sign
   -t, --timeout duration   Timeout for the operation (default 15s)

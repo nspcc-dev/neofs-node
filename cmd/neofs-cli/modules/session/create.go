@@ -12,7 +12,6 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -65,14 +64,10 @@ func createSession(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var netAddr network.Address
 	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
-	if err := netAddr.FromString(addrStr); err != nil {
-		return fmt.Errorf("can't parse endpoint: %w", err)
-	}
 
 	ctx := context.Background()
-	c, err := internalclient.GetSDKClient(ctx, netAddr)
+	c, err := internalclient.GetSDKClient(ctx, addrStr)
 	if err != nil {
 		return fmt.Errorf("can't create client: %w", err)
 	}

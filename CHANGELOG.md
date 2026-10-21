@@ -32,6 +32,7 @@ Changelog for NeoFS Node
 - fstree-decompress utility (#4223)
 - Compressed object format support from FSTree (#4223)
 - Deprecated homomorphic hashing setting from CLI netinfo output (#4225)
+- Support for multiaddr addresses in CLI and node (#4238)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261021092246-abe302e8498b` (#4194, #4219, #4228, #4224, #4222, #4240)
@@ -42,6 +43,8 @@ This version no longer supports compressed objects in FSTree, please use
 fstree-decompress utility from the previous release if needed.
 
 Remove `--xhdr` (`-x`) flags from all CLI commands. To GET/HEAD object's EC part, use `--ec-part RULE[/PART]` flag instead.
+
+Use plain URIs instead of multiaddress in node config and CLI invocations.
 
 ## [0.57.0] - 2026-09-30 - Bido
 

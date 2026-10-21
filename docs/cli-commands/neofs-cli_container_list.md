@@ -17,7 +17,7 @@ neofs-cli container list [flags]
   -g, --generate-key          Generate new private key
   -h, --help                  help for list
       --owner string          Owner of containers (omit to use owner from private key or if no key provided - list all containers)
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
   -t, --timeout duration      Timeout for the operation (default 15s)
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet

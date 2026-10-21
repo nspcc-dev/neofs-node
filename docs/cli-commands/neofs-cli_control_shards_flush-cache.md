@@ -15,7 +15,7 @@ neofs-cli control shards flush-cache [flags]
 ```
       --address string     Address of wallet account
       --all                Process all shards
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
   -h, --help               help for flush-cache
       --id strings         List of shard IDs in base58 encoding
   -t, --timeout duration   Timeout for the operation (default 15s)

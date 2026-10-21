@@ -14,7 +14,7 @@ neofs-cli control drop-objects [flags]
 
 ```
       --address string     Address of wallet account
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
   -h, --help               help for drop-objects
   -o, --objects strings    List of object addresses to be removed in string format
   -t, --timeout duration   Timeout for the operation (default 15s)

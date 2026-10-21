@@ -27,7 +27,7 @@ neofs-cli bearer create [flags]
   -n, --not-valid-before string   Not valid before epoch
       --out string                File to write token to
   -o, --owner string              Token owner
-  -r, --rpc-endpoint string       Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string       Remote node address
 ```
 
 ### Options inherited from parent commands

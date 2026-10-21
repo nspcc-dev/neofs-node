@@ -51,7 +51,7 @@ neofs-cli session create-v2 [flags]
   -l, --lifetime uint             Duration in seconds for token to stay valid (default 36000)
       --origin string             Path to origin token file for token delegation chain
       --out string                File to write session token to
-  -r, --rpc-endpoint string       Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string       Remote node address
       --subject stringArray       Subject user IDs (can be specified multiple times)
       --subject-nns stringArray   Subject NNS names (can be specified multiple times)
   -w, --wallet string             Path to the wallet

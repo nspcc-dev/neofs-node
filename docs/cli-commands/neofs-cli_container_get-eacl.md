@@ -18,7 +18,7 @@ neofs-cli container get-eacl [flags]
   -g, --generate-key          Generate new private key
   -h, --help                  help for get-eacl
       --json                  Encode EACL table in json format
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
   -t, --timeout duration      Timeout for the operation (default 15s)
       --to string             Path to dump encoded container (default: binary encoded)
       --ttl uint32            TTL value in request meta header (default 2)

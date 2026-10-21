@@ -18,7 +18,7 @@ neofs-cli container delete [flags]
       --cid string            Container ID.
   -f, --force                 Skip validation checks (ownership, presence of LOCK objects)
   -h, --help                  help for delete
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
       --session string        Filepath to a JSON- or binary-encoded token of the container DELETE session
       --ttl uint32            TTL value in request meta header (default 2)
   -w, --wallet string         Path to the wallet

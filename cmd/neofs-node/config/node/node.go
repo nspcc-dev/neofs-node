@@ -2,7 +2,6 @@ package nodeconfig
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -60,6 +59,5 @@ func (n *Node) BootstrapAddresses() (addr network.AddressGroup) {
 	if err != nil {
 		panic(fmt.Errorf("could not parse bootstrap addresses: %w", err))
 	}
-	sort.Sort(addr)
 	return addr
 }

@@ -14,7 +14,7 @@ neofs-cli control healthcheck [flags]
 
 ```
       --address string     Address of wallet account
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
   -h, --help               help for healthcheck
       --ir                 Communicate with IR node
   -t, --timeout duration   Timeout for the operation (default 15s)

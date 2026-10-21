@@ -3,45 +3,22 @@ package network
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"slices"
-	"sort"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // AddressGroup represents list of network addresses of the node.
-//
-// List is sorted by priority of use.
-type AddressGroup []Address
+type AddressGroup []string
 
 // String implements fmt.Stringer for AddressGroup.
 // Returns concatenation of all addresses from the AddressGroup.
 // The result is order-dependent.
 func (x AddressGroup) String() string {
-	var s strings.Builder
-
-	for addr := range slices.Values(x) {
-		s.WriteString(addr.String())
-	}
-
-	return s.String()
-}
-
-// Len returns number of addresses in AddressGroup.
-func (x AddressGroup) Len() int {
-	return len(x)
-}
-
-// Less returns true if i-th address in AddressGroup supports TLS
-// and j-th one doesn't.
-func (x AddressGroup) Less(i, j int) bool {
-	return x[i].isTLSEnabled() && !x[j].isTLSEnabled()
-}
-
-// Swap swaps i-th and j-th addresses in AddressGroup.
-func (x AddressGroup) Swap(i, j int) {
-	x[i], x[j] = x[j], x[i]
+	return strings.Join([]string(x), "")
 }
 
 // FromStringSlice forms AddressGroup from a string slice.
@@ -52,21 +29,20 @@ func (x *AddressGroup) FromStringSlice(addr []string) error {
 		return errors.New("missing network addresses")
 	}
 
-	res := make(AddressGroup, len(addr))
-	for i := range addr {
-		var a Address
-		if err := a.FromString(addr[i]); err != nil {
-			return err // invalid format, ignore the whole field
-		}
-		res[i] = a
+	var as = make([]string, 0, len(addr))
+
+	err := iterateParsedAddresses(slices.Values(addr), func(a string) error {
+		as = append(as, a)
+		return nil
+	})
+	if err == nil {
+		*x = as
 	}
 
-	*x = res
-	return nil
+	return err
 }
 
 // FromNodeInfo forms AddressGroup from [netmap.NodeInfo] structure.
-// The result is sorted with sort.Sort.
 //
 // Returns an error in the absence of addresses or if any of the addresses are incorrect.
 func (x *AddressGroup) FromNodeInfo(ni netmap.NodeInfo) error {
@@ -78,31 +54,28 @@ func (x *AddressGroup) FromNodeInfo(ni netmap.NodeInfo) error {
 	}
 
 	as = slices.Grow(as, addrNum)[:0]
-	err := iterateParsedAddresses(ni, func(a Address) error {
+	err := iterateParsedAddresses(ni.NetworkEndpoints(), func(a string) error {
 		as = append(as, a)
 		return nil
 	})
 
 	if err == nil {
-		sort.Sort(as)
 		*x = as
 	}
 
 	return err
 }
 
-// iterateParsedAddresses parses each address from MultiAddressIterator and passes it to f
-// until 1st parsing failure or f's error.
-func iterateParsedAddresses(ni netmap.NodeInfo, f func(s Address) error) error {
-	for s := range ni.NetworkEndpoints() {
-		var a Address
-
-		err := a.FromString(s)
+// iterateParsedAddresses parses each ni address and passes it to f until
+// the first parsing failure or f's error.
+func iterateParsedAddresses(addrs iter.Seq[string], f func(s string) error) error {
+	for s := range addrs {
+		_, _, err := uriutil.Parse(s)
 		if err != nil {
 			return fmt.Errorf("could not parse address from string: %w", err)
 		}
 
-		if err = f(a); err != nil {
+		if err = f(s); err != nil {
 			return err
 		}
 	}
@@ -111,22 +84,14 @@ func iterateParsedAddresses(ni netmap.NodeInfo, f func(s Address) error) error {
 
 // WriteToNodeInfo writes AddressGroup to netmap.NodeInfo structure.
 func WriteToNodeInfo(g AddressGroup, ni *netmap.NodeInfo) {
-	num := g.Len()
-	addrs := make([]string, 0, num)
-
-	for addr := range slices.Values(g) {
-		ni.SetNetworkEndpoints()
-		addrs = append(addrs, addr.URIAddr())
-	}
-
-	ni.SetNetworkEndpoints(addrs...)
+	ni.SetNetworkEndpoints(slices.Clone([]string(g))...)
 }
 
 // Intersects checks if two AddressGroup have
 // at least one common address.
 func (x AddressGroup) Intersects(x2 AddressGroup) bool {
 	for i := range x {
-		if slices.ContainsFunc(x2, x[i].equal) {
+		if slices.Contains([]string(x2), x[i]) {
 			return true
 		}
 	}

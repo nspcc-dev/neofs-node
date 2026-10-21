@@ -34,7 +34,7 @@ neofs-cli object search [flags]
   -h, --help                      help for search
       --phy                       Search physically stored objects
       --root                      Search for user objects
-  -r, --rpc-endpoint string       Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string       Remote node address
       --session string            Filepath to a JSON- or binary-encoded token of the object SEARCH session
   -t, --timeout duration          Timeout for the operation (default 15s)
       --ttl uint32                TTL value in request meta header (default 2)

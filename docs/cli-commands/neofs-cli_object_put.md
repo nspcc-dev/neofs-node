@@ -28,7 +28,7 @@ neofs-cli object put [flags]
   -h, --help                           help for put
   -l, --lifetime uint                  Number of epochs for object to stay valid
       --no-progress                    Do not show progress bar
-  -r, --rpc-endpoint string            Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string            Remote node address
       --session string                 Filepath to a JSON- or binary-encoded token of the object PUT session
       --session-subjects strings       Session subject user IDs (optional, defaults to current node)
       --session-subjects-nns strings   Session subject NNS names (optional, defaults to current node)

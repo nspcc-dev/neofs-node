@@ -29,7 +29,7 @@ const (
 	RPC          = "rpc-endpoint"
 	RPCShorthand = "r"
 	RPCDefault   = ""
-	RPCUsage     = "Remote node address (as 'multiaddr' or '<host>:<port>')"
+	RPCUsage     = "Remote node address"
 
 	Timeout          = "timeout"
 	TimeoutShorthand = "t"

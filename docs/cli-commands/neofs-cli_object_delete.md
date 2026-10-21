@@ -22,7 +22,7 @@ neofs-cli object delete [flags]
   -g, --generate-key                   Generate new private key
   -h, --help                           help for delete
       --oid strings                    Object ID[s].
-  -r, --rpc-endpoint string            Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string            Remote node address
       --session string                 Filepath to a JSON- or binary-encoded token of the object DELETE session
       --session-subjects strings       Session subject user IDs (optional, defaults to current node)
       --session-subjects-nns strings   Session subject NNS names (optional, defaults to current node)

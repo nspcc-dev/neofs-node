@@ -19,7 +19,7 @@ neofs-cli container policy check [flags]
 ```
   -h, --help                  help for check
   -p, --policy string         QL-encoded or JSON-encoded placement policy or path to file with it
-  -r, --rpc-endpoint string   Remote node address (as 'multiaddr' or '<host>:<port>')
+  -r, --rpc-endpoint string   Remote node address
       --short                 Shortens output of node info
   -t, --timeout duration      Timeout for the operation (default 15s)
 ```

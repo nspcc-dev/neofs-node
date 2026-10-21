@@ -14,7 +14,7 @@ neofs-cli control notary list [flags]
 
 ```
       --address string     Address of wallet account
-      --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
+      --endpoint string    Remote node control address
   -h, --help               help for list
   -t, --timeout duration   Timeout for the operation (default 15s)
   -w, --wallet string      Path to the wallet
