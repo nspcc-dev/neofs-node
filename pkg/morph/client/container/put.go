@@ -70,25 +70,11 @@ func (c *Client) Put(ctx context.Context, p PutPrm) (cid.ID, error) {
 	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.CreateContainerV2Method, []any{
 		containerToStackItem(p.cnr), p.sig, p.key, p.token,
 	})
-	if err == nil {
-		return cid.NewFromMarshalledContainer(p.cnr.Marshal()), nil
-	}
-	if !isMethodNotFoundError(err, fschaincontracts.CreateContainerV2Method) {
+	if err != nil {
 		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerV2Method, err)
 	}
 
-	domain := p.cnr.ReadDomain()
-	metaAttr := p.cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY")
-	metaEnabled := metaAttr == "optimistic" || metaAttr == "strict"
-	cnrBytes := p.cnr.Marshal()
-
-	err = c.client.CallWithAlphabetWitness(ctx, fschaincontracts.CreateContainerMethod, []any{
-		cnrBytes, p.sig, p.key, p.token, domain.Name(), domain.Zone(), metaEnabled,
-	})
-	if err != nil {
-		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerMethod, err)
-	}
-	return cid.NewFromMarshalledContainer(cnrBytes), nil
+	return cid.NewFromMarshalledContainer(p.cnr.Marshal()), nil
 }
 
 func (c *Client) putContainerWithEacl(ctx context.Context, p PutPrm) (cid.ID, error) {
