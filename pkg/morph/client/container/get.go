@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -47,11 +46,6 @@ func (c *Client) Get(cid []byte) (container.Container, error) {
 		method = getInfoMethod
 		prm.SetMethod(method)
 		arr, err = c.client.TestInvoke(prm)
-		if err != nil && isMethodNotFoundError(err, method) {
-			method = getDataMethod
-			prm.SetMethod(method)
-			arr, err = c.client.TestInvoke(prm)
-		}
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
@@ -64,32 +58,13 @@ func (c *Client) Get(cid []byte) (container.Container, error) {
 		return cnr, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
-	switch method {
-	case getInfoRevisionedMethod:
+	if method == getInfoRevisionedMethod {
 		cnr, err = revisionedContainerFromStackItem(arr[0])
-	case getInfoMethod:
+	} else {
 		cnr, err = containerFromStackItem(arr[0])
-	default:
-		cnr, err = decodeOldGetResponse(arr, method)
 	}
 	if err != nil {
 		return cnr, fmt.Errorf("invalid %q method result: invalid stack item: %w", method, err)
-	}
-
-	return cnr, nil
-}
-
-func decodeOldGetResponse(arr []stackitem.Item, method string) (container.Container, error) {
-	var cnr container.Container
-
-	cnrBytes, err := client.BytesFromStackItem(arr[0])
-	if err != nil {
-		return cnr, fmt.Errorf("could not get byte array of container (%s): %w", method, err)
-	}
-
-	if err := cnr.Unmarshal(cnrBytes); err != nil {
-		// use other major version if there any
-		return cnr, fmt.Errorf("can't unmarshal container: %w", err)
 	}
 
 	return cnr, nil
