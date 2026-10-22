@@ -532,12 +532,13 @@ func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
 	return x.cnrLst.List(&id)
 }
 
-func (x *containersInChain) Put(ctx context.Context, cnr container.Container, pub, sig []byte, st []byte, eACL *eacl.Table, eaclPub, eaclSig []byte) (cid.ID, error) {
+func (x *containersInChain) Put(ctx context.Context, cnr container.Container, pub, sig []byte, st []byte, eACL *eacl.Table, eaclPub, eaclSig []byte, origReq []byte) (cid.ID, error) {
 	var prm cntClient.PutPrm
 	prm.SetContainer(cnr)
 	prm.SetKey(pub)
 	prm.SetSignature(sig)
 	prm.SetToken(st)
+	prm.SetOriginalRequest(origReq)
 	if eACL != nil {
 		prm.SetEACLTable(*eACL, eaclPub, eaclSig)
 	}
@@ -550,12 +551,13 @@ func (x *containersInChain) Put(ctx context.Context, cnr container.Container, pu
 	return id, err
 }
 
-func (x *containersInChain) Delete(ctx context.Context, id cid.ID, pub, sig []byte, st []byte) error {
+func (x *containersInChain) Delete(ctx context.Context, id cid.ID, pub, sig []byte, st []byte, origReq []byte) error {
 	var prm cntClient.DeletePrm
 	prm.SetCID(id[:])
 	prm.SetSignature(sig)
 	prm.SetKey(pub)
 	prm.SetToken(st)
+	prm.SetOriginalRequest(origReq)
 
 	err := x.cCli.Delete(ctx, prm)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {
@@ -565,12 +567,13 @@ func (x *containersInChain) Delete(ctx context.Context, id cid.ID, pub, sig []by
 	return err
 }
 
-func (x *containersInChain) PutEACL(ctx context.Context, eACL eacl.Table, pub, sig []byte, st []byte) error {
+func (x *containersInChain) PutEACL(ctx context.Context, eACL eacl.Table, pub, sig []byte, st []byte, origReq []byte) error {
 	var prm cntClient.PutEACLPrm
 	prm.SetTable(eACL.Marshal())
 	prm.SetKey(pub)
 	prm.SetSignature(sig)
 	prm.SetToken(st)
+	prm.SetOriginalRequest(origReq)
 
 	err := x.cCli.PutEACL(ctx, prm)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {
