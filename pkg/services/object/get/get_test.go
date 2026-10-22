@@ -92,7 +92,8 @@ func TestGetExtendedRangeOfECPart(t *testing.T) {
 }
 
 type testNeoFS struct {
-	vectors map[oid.Address][][]netmap.NodeInfo
+	vectors        map[oid.Address][][]netmap.NodeInfo
+	localPublicKey []byte
 }
 
 type testClientCache struct {
@@ -116,7 +117,9 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testNeoFS) IsLocalNodePublicKey([]byte) bool { return false }
+func (g *testNeoFS) IsLocalNodePublicKey(pubKey []byte) bool {
+	return bytes.Equal(g.localPublicKey, pubKey)
+}
 
 func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, []iec.Rule, error) {
 	nodeLists, ok := g.vectors[addr]
@@ -1404,7 +1407,7 @@ func TestDoubleWriteHeaderOnPayloadReadFailure(t *testing.T) {
 		err:       readErr,
 	}
 
-	anyNodeLists, nodeStrs := testNodeMatrix(t, []int{1})
+	anyNodeLists, nodeStrs := testNodeMatrix(t, []int{2})
 
 	clientCache := &testClientCache{
 		clients: make(map[string]*testClient),
@@ -1422,6 +1425,7 @@ func TestDoubleWriteHeaderOnPayloadReadFailure(t *testing.T) {
 		vectors: map[oid.Address][][]netmap.NodeInfo{
 			addr: anyNodeLists,
 		},
+		localPublicKey: anyNodeLists[0][0].PublicKey(),
 	}
 
 	writer := &trackingWriter{}
@@ -1452,7 +1456,7 @@ func TestDoubleWriteHeaderOnChunkWriteFailure(t *testing.T) {
 	storage := newTestStorage()
 	storage.addPhy(addr, obj)
 
-	anyNodeLists, nodeStrs := testNodeMatrix(t, []int{1})
+	anyNodeLists, nodeStrs := testNodeMatrix(t, []int{2})
 
 	clientCache := &testClientCache{
 		clients: make(map[string]*testClient),
@@ -1470,6 +1474,7 @@ func TestDoubleWriteHeaderOnChunkWriteFailure(t *testing.T) {
 		vectors: map[oid.Address][][]netmap.NodeInfo{
 			addr: anyNodeLists,
 		},
+		localPublicKey: anyNodeLists[0][0].PublicKey(),
 	}
 
 	writeErr := errors.New("simulated chunk write error")

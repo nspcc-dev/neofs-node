@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (exec *execCtx) executeLocal() {
+func (exec *execCtx) executeLocal() bool {
 	var err error
 
 	exec.collectedHeader, exec.collectedReader, err = exec.svc.localStorage.get(exec)
@@ -40,7 +40,7 @@ func (exec *execCtx) executeLocal() {
 			exec.status = statusNotFound
 			exec.err = err
 
-			return
+			break
 		}
 
 		exec.status = statusAPIResponse
@@ -50,6 +50,8 @@ func (exec *execCtx) executeLocal() {
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
 		exec.err = object.NewSplitInfoError(exec.infoSplit)
 	}
+
+	return exec.analyzeLocalStatus()
 }
 
 func (s *Service) copyLocalObjectHeader(ctx context.Context, dst internal.HeaderWriter, cnr cid.ID, id oid.ID, raw bool) error {
