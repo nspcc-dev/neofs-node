@@ -21,6 +21,8 @@ type PutPrm struct {
 	eACLTable *eacl.Table
 	eaclKey   []byte
 	eaclSig   []byte
+
+	origReq []byte
 }
 
 // SetContainer sets container.
@@ -51,6 +53,11 @@ func (p *PutPrm) SetEACLTable(eaclTable eacl.Table, key, sig []byte) {
 	p.eaclSig = sig
 }
 
+// SetOriginalRequest sets original API request that triggered contract call.
+func (p *PutPrm) SetOriginalRequest(req []byte) {
+	p.origReq = req
+}
+
 // Put calls Container contract to create container with parameterized
 // credentials. If transaction is accepted for processing, Put waits for it to
 // be successfully executed. Waiting is performed within ctx,
@@ -59,7 +66,7 @@ func (p *PutPrm) SetEACLTable(eaclTable eacl.Table, key, sig []byte) {
 // Returns calculated container identifier and any error
 // encountered that caused the saving to interrupt.
 func (c *Client) Put(ctx context.Context, p PutPrm) (cid.ID, error) {
-	if len(p.sig) == 0 || len(p.key) == 0 {
+	if (len(p.sig) == 0 || len(p.key) == 0) && len(p.origReq) == 0 {
 		return cid.ID{}, errNilArgument
 	}
 
@@ -67,9 +74,7 @@ func (c *Client) Put(ctx context.Context, p PutPrm) (cid.ID, error) {
 		return c.putContainerWithEacl(ctx, p)
 	}
 
-	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.CreateContainerV2Method, []any{
-		containerToStackItem(p.cnr), p.sig, p.key, p.token,
-	})
+	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.CreateContainerV2Method, putCnrArgs(p))
 	if err != nil {
 		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerV2Method, err)
 	}
@@ -84,7 +89,7 @@ func (c *Client) putContainerWithEacl(ctx context.Context, p PutPrm) (cid.ID, er
 		rawTable = p.eACLTable.Marshal()
 	)
 
-	b.InvokeMethod(addr, fschaincontracts.CreateContainerV2Method, containerToStackItem(p.cnr), p.sig, p.key, p.token)
+	b.InvokeMethod(addr, fschaincontracts.CreateContainerV2Method, putCnrArgs(p)...)
 	b.InvokeMethod(addr, fschaincontracts.PutContainerEACLMethod, rawTable, p.eaclSig, p.eaclKey, p.token)
 	script, err := b.Script()
 	if err != nil {
@@ -97,4 +102,17 @@ func (c *Client) putContainerWithEacl(ctx context.Context, p PutPrm) (cid.ID, er
 	}
 
 	return cid.NewFromMarshalledContainer(p.cnr.Marshal()), nil
+}
+
+func putCnrArgs(p PutPrm) []any {
+	var (
+		args  []any
+		cnrSI = containerToStackItem(p.cnr)
+	)
+	if p.origReq == nil {
+		args = []any{cnrSI, p.sig, p.key, p.token}
+	} else {
+		args = []any{cnrSI, p.origReq}
+	}
+	return args
 }

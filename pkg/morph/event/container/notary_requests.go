@@ -25,17 +25,20 @@ type CreateContainerV2Request struct {
 	// EACLTable is set if container eACL was set in the same
 	// transaction container was created. It is nil otherwise.
 	EACLTable *PutContainerEACLRequest
+
+	OriginalRequest []byte
 }
 
 // RestoreCreateContainerV2Request restores [CreateContainerV2Request] from the
 // notary one.
 func RestoreCreateContainerV2Request(contractCalls []event.NotaryEvent) (event.Event, error) {
-	const argNum = 4
 	var (
 		res              CreateContainerV2Request
+		args             []scparser.PushedItem
 		withOptionalEacl bool
 		err              error
 	)
+
 	switch l := len(contractCalls); l {
 	case 1:
 	case 2:
@@ -43,26 +46,46 @@ func RestoreCreateContainerV2Request(contractCalls []event.NotaryEvent) (event.E
 	default:
 		return nil, fmt.Errorf("unexpected number of contract calls: %d", l)
 	}
-
 	cnrCall := contractCalls[0]
-	args, err := event.GetArgs(cnrCall, argNum)
-	if err != nil {
-		return nil, err
+
+	const (
+		argNumNoOrigReq   = 4
+		argNumWithOrigReq = 2
+	)
+
+	switch argNum := len(cnrCall.Params()); argNum {
+	case argNumNoOrigReq:
+		args, err = event.GetArgs(cnrCall, argNumNoOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.InvocationScript, err = event.GetValueFromArg(args, 1, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.VerificationScript, err = event.GetValueFromArg(args, 2, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.SessionToken, err = event.GetValueFromArg(args, 3, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	case argNumWithOrigReq:
+		args, err = event.GetArgs(cnrCall, argNumWithOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.OriginalRequest, err = event.GetValueFromArg(args, 1, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("wrong parameter count for %s call: expected %d or %d, has %d", cnrCall.Type(), argNumNoOrigReq, argNumWithOrigReq, argNum)
 	}
 
+	res.MainTransaction = *cnrCall.Raw().MainTransaction
 	if res.Container, err = containerInfoFromPushedItem(args[0]); err != nil {
 		return nil, event.WrapInvalidArgError(0, "Container", err)
 	}
-	if res.InvocationScript, err = event.GetValueFromArg(args, 1, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.VerificationScript, err = event.GetValueFromArg(args, 2, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.SessionToken, err = event.GetValueFromArg(args, 3, cnrCall.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	res.MainTransaction = *cnrCall.Raw().MainTransaction
 
 	if withOptionalEacl {
 		ev, err := RestorePutContainerEACLRequest(contractCalls[1])
@@ -177,27 +200,48 @@ type RemoveContainerRequest struct {
 // RestoreRemoveContainerRequest restores [RemoveContainerRequest] from the
 // notary one.
 func RestoreRemoveContainerRequest(notaryReq event.NotaryEvent) (event.Event, error) {
-	const argNum = 4
-	args, err := event.GetArgs(notaryReq, argNum)
-	if err != nil {
-		return nil, err
+	const (
+		argNumNoOrigReq   = 4
+		argNumWithOrigReq = 2
+	)
+	var (
+		res  RemoveContainerRequest
+		args []scparser.PushedItem
+		err  error
+	)
+	switch argNum := len(notaryReq.Params()); argNum {
+	case argNumNoOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumNoOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.InvocationScript, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.VerificationScript, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.SessionToken, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	case argNumWithOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumWithOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.OriginalRequest, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("wrong parameter count for %s call: expected %d or %d, has %d", notaryReq.Type(), argNumNoOrigReq, argNumWithOrigReq, argNum)
 	}
 
-	var res RemoveContainerRequest
-
+	res.MainTransaction = *notaryReq.Raw().MainTransaction
 	if res.ID, err = event.GetValueFromArg(args, 0, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.VerificationScript, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.SessionToken, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	res.MainTransaction = *notaryReq.Raw().MainTransaction
 
 	return res, nil
 }
@@ -213,27 +257,49 @@ type PutContainerEACLRequest struct {
 // RestorePutContainerEACLRequest restores [PutContainerEACLRequest] from the
 // notary one.
 func RestorePutContainerEACLRequest(notaryReq event.NotaryEvent) (event.Event, error) {
-	const argNum = 4
-	args, err := event.GetArgs(notaryReq, argNum)
-	if err != nil {
-		return nil, err
+	const (
+		argNumNoOrigReq   = 4
+		argNumWithOrigReq = 2
+	)
+
+	var (
+		res  PutContainerEACLRequest
+		args []scparser.PushedItem
+		err  error
+	)
+	switch argNum := len(notaryReq.Params()); argNum {
+	case argNumNoOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumNoOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.InvocationScript, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.VerificationScript, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.SessionToken, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	case argNumWithOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumWithOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.OriginalRequest, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("wrong parameter count for %s call: expected %d or %d, has %d", notaryReq.Type(), argNumNoOrigReq, argNumWithOrigReq, argNum)
 	}
 
-	var res PutContainerEACLRequest
-
+	res.MainTransaction = *notaryReq.Raw().MainTransaction
 	if res.EACL, err = event.GetValueFromArg(args, 0, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
-	if res.InvocationScript, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.VerificationScript, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.SessionToken, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	res.MainTransaction = *notaryReq.Raw().MainTransaction
 
 	return res, nil
 }

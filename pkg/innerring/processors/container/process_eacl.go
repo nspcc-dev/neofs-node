@@ -1,6 +1,7 @@
 package container
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -12,6 +13,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"go.uber.org/zap"
@@ -55,7 +58,7 @@ func (cp *Processor) processPutEACLRequest(req cnrevent.PutContainerEACLRequest)
 		return
 	}
 
-	err = cp.checkSetEACL(req, table, idCnr, cnr)
+	err = cp.checkSetEACL(req, table, idCnr, cnr, true)
 	if err != nil {
 		// defer
 		return
@@ -64,7 +67,7 @@ func (cp *Processor) processPutEACLRequest(req cnrevent.PutContainerEACLRequest)
 	cp.approveSetEACL(req)
 }
 
-func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table eacl.Table, cID cid.ID, cnr container.Container) error {
+func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table eacl.Table, cID cid.ID, cnr container.Container, checkSig bool) error {
 	err := validateEACL(table)
 	if err != nil {
 		return fmt.Errorf("table validation: %w", err)
@@ -73,6 +76,27 @@ func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table ea
 	// ACL extensions can be disabled by basic ACL, check it
 	if !cnr.BasicACL().Extendable() {
 		return errors.New("ACL extension disabled by container basic ACL")
+	}
+
+	if !checkSig {
+		return nil
+	}
+
+	if len(req.OriginalRequest) != 0 {
+		var apiReq protocontainer.SetExtendedACLRequest
+		err := protoencoding.UnmarshalMessage(req.OriginalRequest, &apiReq)
+		if err != nil {
+			return fmt.Errorf("could not unmarshal original request: %w", err)
+		}
+		var (
+			body  = apiReq.GetBody()
+			mEACL = body.GetEacl()
+		)
+		if mEACL == nil || !bytes.Equal(req.EACL, protoencoding.MarshalMessage(mEACL)) {
+			return fmt.Errorf("container ID in the original request does not match the contract one")
+		}
+
+		return cp.checkOriginalRequest(cnr, cID, session.VerbContainerSetEACL, sessionv2.VerbContainerSetEACL, apiReq.GetBody(), apiReq.GetMetaHeader(), apiReq.GetVerifyHeader())
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
