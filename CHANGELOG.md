@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - CLI `--xhdr` (`-x`) flag is deprecated now (#4222)
 - Policer now uses an in-memory queue for redundant object removal, reducing metabase writes (#4216)
 - Session token storage now indexes tokens by expiration epoch for efficient cleanup (#4243)
+- Session key encryption now uses HPKE (#4247)
 
 ### Removed
 - fstree-decompress utility (#4223)
@@ -51,8 +52,10 @@ Remove `--xhdr` (`-x`) flags from all CLI commands. To GET/HEAD object's EC part
 Use plain URIs instead of multiaddress in node config and CLI invocations.
 
 Session records in `node.persistent_state.path` are migrated automatically on
-startup and become unreadable by previous versions. Before upgrading, stop the
-node and back up this file in case a rollback is needed.
+startup to an epoch-indexed format with HPKE encryption and become unreadable by
+previous versions. Before upgrading, stop the node and back up this file.
+Do not open the migrated database with an older node binary; restore the
+pre-upgrade backup before rolling back.
 
 ## [0.57.0] - 2026-09-30 - Bido
 

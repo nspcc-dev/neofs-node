@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hpke"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 
@@ -18,38 +20,28 @@ var sessionsBucket = []byte("sessions")
 
 // initTokenStore initializes the TokenStore over the bolt DB.
 func (p *PersistentStorage) initTokenStore(cfg cfg) error {
+	if cfg.privateKey != nil {
+		key, err := cfg.privateKey.ECDH()
+		if err != nil {
+			return fmt.Errorf("could not convert encryption key to ECDH: %w", err)
+		}
+
+		p.encryptionKey, err = hpke.NewDHKEMPrivateKey(key)
+		if err != nil {
+			return fmt.Errorf("could not create HPKE key: %w", err)
+		}
+	}
+
 	err := p.db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(sessionsBucket)
 		if err != nil {
 			return err
 		}
-		return migrateTokens(b)
+		return p.migrateTokens(b)
 	})
 	if err != nil {
-		_ = p.db.Close()
-
 		return fmt.Errorf("could not init session bucket: %w", err)
 	}
-
-	// enable encryption if it
-	// was configured so
-	if cfg.privateKey != nil {
-		rawKey := make([]byte, (cfg.privateKey.Params().N.BitLen()+7)/8)
-		cfg.privateKey.D.FillBytes(rawKey) // nolint:staticcheck // To be fixed in #3426.
-
-		c, err := aes.NewCipher(rawKey)
-		if err != nil {
-			return fmt.Errorf("could not create cipher block: %w", err)
-		}
-
-		gcm, err := cipher.NewGCM(c)
-		if err != nil {
-			return fmt.Errorf("could not wrap cipher block in Galois Counter Mode: %w", err)
-		}
-
-		p.gcm = gcm
-	}
-
 	return nil
 }
 
@@ -163,10 +155,10 @@ func (p PersistentStorage) FindTokenBySubjects(subjects []sessionv2.Target) *ses
 	return token
 }
 
-// migrateTokens upgrades the legacy account keys without changing token values.
+// migrateTokens upgrades legacy account keys and optionally re-encrypts token values.
 // All token/index pairs are committed in the same transaction, so legacy and new
 // keys cannot coexist. A new token key sorts first and means migration is complete.
-func migrateTokens(b *bbolt.Bucket) error {
+func (p PersistentStorage) migrateTokens(b *bbolt.Bucket) error {
 	if k, _ := b.Cursor().First(); k == nil || len(k) == sessionPrefixSize+len(user.ID{}) && k[0] == sessionTokenPrefix {
 		return nil
 	}
@@ -186,11 +178,47 @@ func migrateTokens(b *bbolt.Bucket) error {
 	}); err != nil {
 		return err
 	}
+	var gcm cipher.AEAD
+	if p.encryptionKey != nil {
+		legacyKey, err := p.encryptionKey.Bytes()
+		if err != nil {
+			return fmt.Errorf("could not export legacy encryption key: %w", err)
+		}
+		defer clear(legacyKey)
+
+		block, err := aes.NewCipher(legacyKey)
+		if err != nil {
+			return fmt.Errorf("could not create legacy cipher: %w", err)
+		}
+		gcm, err = cipher.NewGCM(block)
+		if err != nil {
+			return fmt.Errorf("could not create legacy GCM: %w", err)
+		}
+	}
+
 	for _, account := range accounts {
 		raw := bytes.Clone(b.Get(account[:]))
 		epoch, err := epochFromToken(raw)
 		if err != nil {
 			return err
+		}
+		if gcm != nil {
+			encrypted := raw[keyOffset:]
+			if len(encrypted) < gcm.NonceSize() {
+				return fmt.Errorf("legacy session ciphertext is too short: %d bytes", len(encrypted))
+			}
+			plain, err := gcm.Open(nil, encrypted[:gcm.NonceSize()], encrypted[gcm.NonceSize():], nil)
+			if err != nil {
+				return fmt.Errorf("could not decrypt legacy session key: %w", err)
+			}
+			key, err := x509.ParseECPrivateKey(plain)
+			if err != nil {
+				return fmt.Errorf("could not unmarshal legacy session key: %w", err)
+			}
+			raw, err = p.packToken(epoch, key)
+			if err != nil {
+				return err
+			}
 		}
 		if err := b.Put(tokenKey(account), raw); err != nil {
 			return err

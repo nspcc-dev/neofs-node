@@ -86,6 +86,7 @@ func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s [
 	var configID string
 
 	e := New()
+	t.Cleanup(func() { require.NoError(t, e.Close()) })
 	_, err := e.AddShard(s...)
 	if errOnAdd {
 		require.Error(t, err)

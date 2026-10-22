@@ -2,6 +2,7 @@ package state
 
 import (
 	"crypto/ecdsa"
+	"crypto/hpke"
 	"crypto/x509"
 	"encoding/binary"
 	"errors"
@@ -13,6 +14,8 @@ import (
 
 const (
 	keyOffset = 8
+
+	sessionEncryptionInfo = "neofs-node/session-storage"
 
 	sessionTokenPrefix = 0
 	sessionEpochPrefix = 1
@@ -45,7 +48,7 @@ func (p PersistentStorage) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte,
 		return nil, fmt.Errorf("could not marshal private key: %w", err)
 	}
 
-	if p.gcm != nil {
+	if p.encryptionKey != nil {
 		rawKey, err = p.encrypt(rawKey)
 		if err != nil {
 			return nil, fmt.Errorf("could not encrypt session key: %w", err)
@@ -69,7 +72,7 @@ func (p PersistentStorage) unpackToken(raw []byte) (*session.PrivateToken, error
 	}
 	rawKey := raw[keyOffset:]
 
-	if p.gcm != nil {
+	if p.encryptionKey != nil {
 		rawKey, err = p.decrypt(rawKey)
 		if err != nil {
 			return nil, fmt.Errorf("could not decrypt session key: %w", err)
@@ -82,6 +85,14 @@ func (p PersistentStorage) unpackToken(raw []byte) (*session.PrivateToken, error
 	}
 
 	return session.NewPrivateToken(key, epoch), nil
+}
+
+func (p PersistentStorage) encrypt(value []byte) ([]byte, error) {
+	return hpke.Seal(p.encryptionKey.PublicKey(), hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(sessionEncryptionInfo), value)
+}
+
+func (p PersistentStorage) decrypt(value []byte) ([]byte, error) {
+	return hpke.Open(p.encryptionKey, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(sessionEncryptionInfo), value)
 }
 
 func epochFromToken(rawToken []byte) (uint64, error) {
