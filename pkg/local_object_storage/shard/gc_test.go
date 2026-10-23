@@ -233,7 +233,11 @@ func TestExpiration(t *testing.T) {
 			_, err = sh.Get(obj.Address(), false)
 			require.NoError(t, err)
 
-			ch <- shard.EventNewEpoch(exp + 1)
+			nextEpoch := exp + 1
+			if typ == object.TypeTombstone {
+				nextEpoch++ // Tombstones are retained for one additional expired epoch.
+			}
+			ch <- shard.EventNewEpoch(nextEpoch)
 
 			time.Sleep(gcInterval * 2)
 			_, err = sh.Get(obj.Address(), false)
@@ -341,7 +345,13 @@ func TestExpirationChainTime(t *testing.T) {
 					time.Sleep(gcInterval * 2)
 				}
 				_, err = sh.Get(obj.Address(), false)
-				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+				if tc.typ == object.TypeTombstone {
+					require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+					_, err = sh.Get(obj.Address(), true)
+					require.NoError(t, err, "expired tombstone must remain physically stored during the grace period")
+				} else {
+					require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+				}
 			})
 		})
 	}

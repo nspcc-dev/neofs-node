@@ -1639,7 +1639,7 @@ func testPutTombstoneEC(t *testing.T) {
 		assertSearch(t, []oid.Address{tomb.Address()})
 
 		// reach tombstone expiration and check all is gone
-		s.HandleNewEpoch(tombLastEpoch + 1)
+		s.HandleNewEpoch(tombLastEpoch + 2)
 
 		time.Sleep(2 * gcInterval)
 

@@ -28,6 +28,8 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+const splitExpirationTestGCInterval = 100 * time.Millisecond
+
 type containerPaymantsStub struct{}
 
 func (p containerPaymantsStub) PaymentsDisabled() bool { return false }
@@ -97,6 +99,7 @@ func TestChildrenExpiration(t *testing.T) {
 		require.NoError(t, e.Put(context.Background(), link, nil))
 
 		tickEpoch(es, e)
+		tickEpoch(es, e)
 
 		checkObjectsAsyncRemoval(t, e, cnr, child1ID, child2ID, child3ID)
 
@@ -145,9 +148,290 @@ func TestChildrenExpiration(t *testing.T) {
 		require.NoError(t, e.Put(context.Background(), &linkObj, nil))
 
 		tickEpoch(es, e)
+		tickEpoch(es, e)
 
 		checkObjectsAsyncRemoval(t, e, cnr, child1ID, child2ID, child3ID)
 	})
+}
+
+func TestExpiredTombstone_LateSplitPart(t *testing.T) {
+	for _, split := range []string{"V1", "V2"} {
+		t.Run(split, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				const gcInterval = splitExpirationTestGCInterval
+				ctx := context.Background()
+				epoch := &asyncEpochState{e: 10}
+				var clock chaintime.AtomicChainTimeProvider
+				clock.Set(100000)
+				root := t.TempDir()
+				e, _ := newExpirationTestEngine(t, root, epoch, &clock, gcInterval, true)
+				var err error
+
+				cnr := cidtest.ID()
+				parent := generateObjectWithCID(cnr)
+				first := generateObjectWithCID(cnr)
+				last := generateObjectWithCID(cnr)
+				late := generateObjectWithCID(cnr)
+				if split == "V1" {
+					splitID := object.NewSplitID()
+					for _, part := range []*object.Object{first, last, late} {
+						part.SetSplitID(splitID)
+					}
+				} else {
+					first.SetParent(parent)
+					last.SetFirstID(first.GetID())
+					late.SetFirstID(first.GetID())
+				}
+				last.SetParent(parent)
+				last.SetParentID(parent.GetID())
+				last.SetPreviousID(first.GetID())
+				late.SetPreviousID(first.GetID())
+				require.NoError(t, e.Put(ctx, first, nil))
+				require.NoError(t, e.Put(ctx, last, nil))
+
+				tomb := generateObjectWithCID(cnr)
+				tomb.SetType(object.TypeTombstone)
+				tomb.AssociateDeleted(parent.GetID())
+				addExpirationAttribute(tomb, epoch.CurrentEpoch())
+				require.NoError(t, e.Put(ctx, tomb, nil))
+
+				tickEpoch(epoch, e)
+				time.Sleep(10 * gcInterval)
+				_, err = e.unsortedShards()[0].Get(tomb.Address(), true)
+				require.NoError(t, err, "tombstone must survive the first expired epoch")
+				tickEpoch(epoch, e)
+				time.Sleep(10 * gcInterval)
+				_, err = e.unsortedShards()[0].Get(tomb.Address(), true)
+				require.ErrorIs(t, err, apistatus.ErrObjectNotFound, "tombstone must be collected after the grace epoch")
+
+				// Simulate a lagging node replicating a part not present when the
+				// tombstone was applied. The expired tombstone no longer provides a
+				// deletion mark for this part.
+				require.NoError(t, e.Put(ctx, late, nil))
+				_, err = e.Get(ctx, late.Address())
+				require.NoError(t, err, "a late split part can be resurrected after the grace period")
+			})
+		})
+	}
+}
+
+func TestChildrenExpiration_LateReplication(t *testing.T) {
+	for _, split := range []string{"V1", "V2"} {
+		for _, expiration := range []string{"epoch", "time", "time after restart", "time missing part"} {
+			t.Run(split+"/"+expiration, func(t *testing.T) {
+				synctest.Test(t, func(t *testing.T) {
+					const gcInterval = splitExpirationTestGCInterval
+					ctx := context.Background()
+					var senderClock, receiverClock chaintime.AtomicChainTimeProvider
+					senderClock.Set(99000)
+					receiverClock.Set(99000)
+					epoch := &asyncEpochState{e: 10}
+					sender, _ := newExpirationTestEngine(t, t.TempDir(), &asyncEpochState{e: 10}, &senderClock,
+						gcInterval, true, meta.WithMaxBatchDelay(time.Microsecond))
+					receiverRoot := t.TempDir()
+					receiver, closeReceiver := newExpirationTestEngine(t, receiverRoot, epoch, &receiverClock,
+						gcInterval, true, meta.WithMaxBatchDelay(time.Microsecond))
+					cnr := cidtest.ID()
+					parent := generateObjectWithCID(cnr)
+					if expiration == "epoch" {
+						addExpirationAttribute(parent, epoch.CurrentEpoch())
+					} else {
+						require.NoError(t, parent.SetExpirationTime(time.Unix(100, 0)))
+					}
+					first := generateObjectWithCID(cnr)
+					middle := generateObjectWithCID(cnr)
+					last := generateObjectWithCID(cnr)
+					link := generateObjectWithCID(cnr)
+					middle.SetPreviousID(first.GetID())
+					last.SetPreviousID(middle.GetID())
+					last.SetParent(parent)
+					last.SetParentID(parent.GetID())
+					link.SetParent(parent)
+					link.SetParentID(parent.GetID())
+					if split == "V1" {
+						id := object.NewSplitID()
+						for _, part := range []*object.Object{first, middle, last, link} {
+							part.SetSplitID(id)
+						}
+						link.SetChildren(first.GetID(), middle.GetID(), last.GetID())
+					} else {
+						first.SetParent(parent)
+						for _, part := range []*object.Object{middle, last, link} {
+							part.SetFirstID(first.GetID())
+						}
+						children := make([]object.MeasuredObject, 3)
+						for i, part := range []*object.Object{first, middle, last} {
+							children[i].SetObjectID(part.GetID())
+							children[i].SetObjectSize(uint32(part.PayloadSize()))
+						}
+						var data object.Link
+						data.SetObjects(children)
+						link.WriteLink(data)
+					}
+					parts := []*object.Object{first, middle, last, link}
+					for _, node := range []*StorageEngine{sender, receiver} {
+						for _, part := range parts {
+							if expiration == "time missing part" && node == receiver && part == middle {
+								continue
+							}
+							require.NoError(t, node.Put(ctx, part, nil))
+							_, err := node.Get(ctx, part.Address())
+							require.NoError(t, err)
+						}
+					}
+
+					if expiration == "time missing part" {
+						_, err := receiver.unsortedShards()[0].Get(middle.Address(), true)
+						require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+					}
+
+					// Only the receiver advances. For timestamp expiration, no epoch
+					// notification is sent: GC must follow chain time independently.
+					if expiration == "epoch" {
+						tickEpoch(epoch, receiver)
+					} else {
+						receiverClock.Set(101000)
+					}
+					time.Sleep(10 * gcInterval)
+					if expiration == "time after restart" {
+						closeReceiver()
+						receiverClock.Set(105000)
+						receiver, _ = newExpirationTestEngine(t, receiverRoot, epoch, &receiverClock,
+							gcInterval, true, meta.WithMaxBatchDelay(time.Microsecond))
+					}
+					_, err := receiver.Get(ctx, parent.Address())
+					require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+					replica, err := sender.Get(ctx, middle.Address())
+					require.NoError(t, err)
+					require.Nil(t, replica.Parent())
+					require.Empty(t, replica.Attributes())
+					err = receiver.Put(ctx, replica, nil)
+					if err != nil {
+						require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+					}
+					if expiration == "time missing part" {
+						_, err := receiver.unsortedShards()[0].Get(middle.Address(), true)
+						require.NoError(t, err, "the late part must actually be written before GC removes it")
+					}
+
+					if expiration == "epoch" {
+						tickEpoch(epoch, receiver)
+					} else {
+						receiverClock.Set(701000)
+					}
+					time.Sleep(10 * gcInterval)
+					for _, part := range parts {
+						_, err = receiver.Get(ctx, part.Address())
+						require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+						for _, sh := range receiver.unsortedShards() {
+							_, err = sh.Get(part.Address(), true)
+							require.ErrorIs(t, err, apistatus.ErrObjectNotFound, "GC must physically remove every part")
+						}
+					}
+				})
+			})
+		}
+	}
+}
+
+func TestChildrenExpiration_ExpiredPhysicalParts(t *testing.T) {
+	for _, split := range []string{"V1", "V2"} {
+		for _, parentTime := range []bool{false, true} {
+			for _, partTime := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/parentTime=%t/partTime=%t", split, parentTime, partTime), func(t *testing.T) {
+					synctest.Test(t, func(t *testing.T) {
+						const interval = splitExpirationTestGCInterval
+						ctx := context.Background()
+						epoch := &asyncEpochState{e: 10}
+						var clock chaintime.AtomicChainTimeProvider
+						clock.Set(99000)
+						root := t.TempDir()
+						e, _ := newExpirationTestEngine(t, root, epoch, &clock, interval, false)
+						var err error
+						parent := generateObjectWithCID(cidtest.ID())
+						first := generateObjectWithCID(parent.GetContainerID())
+						middle := generateObjectWithCID(parent.GetContainerID())
+						last := generateObjectWithCID(parent.GetContainerID())
+						if parentTime {
+							require.NoError(t, parent.SetExpirationTime(time.Unix(100, 0)))
+						} else {
+							addExpirationAttribute(parent, 10)
+						}
+						if partTime {
+							require.NoError(t, last.SetExpirationTime(time.Unix(100, 0)))
+						} else {
+							addExpirationAttribute(last, 10)
+						}
+						middle.SetPreviousID(first.GetID())
+						last.SetPreviousID(middle.GetID())
+						last.SetParent(parent)
+						last.SetParentID(parent.GetID())
+						if split == "V1" {
+							id := object.NewSplitID()
+							for _, part := range []*object.Object{first, middle, last} {
+								part.SetSplitID(id)
+							}
+						} else {
+							first.SetParent(parent)
+							middle.SetFirstID(first.GetID())
+							last.SetFirstID(first.GetID())
+						}
+						require.NoError(t, e.Put(ctx, first, nil))
+						require.NoError(t, e.Put(ctx, last, nil))
+						tickEpoch(epoch, e)
+						clock.Set(101000)
+						time.Sleep(10 * interval)
+						_, err = e.unsortedShards()[0].Get(last.Address(), true)
+						require.NoError(t, err, "the parent relationship must survive the grace period")
+						require.NoError(t, e.Put(ctx, middle, nil))
+						_, err = e.unsortedShards()[0].Get(middle.Address(), true)
+						require.NoError(t, err)
+						tickEpoch(epoch, e)
+						clock.Set(701000)
+						time.Sleep(10 * interval)
+						for _, part := range []*object.Object{first, middle, last} {
+							_, err = e.unsortedShards()[0].Get(part.Address(), true)
+							require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+						}
+					})
+				})
+			}
+		}
+	}
+}
+
+func newExpirationTestEngine(t *testing.T, root string, epoch *asyncEpochState, clock *chaintime.AtomicChainTimeProvider,
+	gcInterval time.Duration, processExpired bool, metaOpts ...meta.Option) (*StorageEngine, func()) {
+	e := New()
+	options := []meta.Option{
+		meta.WithPath(filepath.Join(root, "meta")),
+		meta.WithEpochState(epoch),
+	}
+	if clock != nil {
+		options = append(options, meta.WithTimeSource(clock.Now))
+	}
+	options = append(options, metaOpts...)
+	shardOpts := []shard.Option{
+		shard.WithBlobstor(newStorage(filepath.Join(root, "fstree"))),
+		shard.WithMetaBaseOptions(options...),
+		shard.WithGCRemoverSleepInterval(gcInterval),
+		shard.WithContainerPayments(containerPaymantsStub{}),
+	}
+	if processExpired {
+		shardOpts = append(shardOpts, shard.WithExpiredObjectsCallback(e.processExpiredObjects))
+	}
+	_, err := e.AddShard(shardOpts...)
+	require.NoError(t, err)
+	require.NoError(t, e.Init())
+	var closed bool
+	closeEngine := func() {
+		if !closed {
+			require.NoError(t, e.Close())
+			closed = true
+		}
+	}
+	t.Cleanup(closeEngine)
+	return e, closeEngine
 }
 
 func checkObjectsAsyncRemoval(t *testing.T, e *StorageEngine, cnr cid.ID, objs ...oid.ID) {
@@ -400,6 +684,7 @@ func TestGC(t *testing.T) {
 		require.NoError(t, e.Put(context.Background(), tomb, nil))
 
 		tickEpoch(es, e)
+		tickEpoch(es, e)
 
 		checkObjectsAsyncRemoval(t, e, cnr, tomb.GetID())
 
@@ -422,6 +707,7 @@ func TestGC(t *testing.T) {
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
 		tickEpoch(es, e)
+		tickEpoch(es, e)
 
 		checkObjectsAsyncRemoval(t, e, cnr, obj.GetID(), tomb.GetID())
 
@@ -436,6 +722,7 @@ func TestGC(t *testing.T) {
 		_, err = e.Get(context.Background(), obj.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 
+		tickEpoch(es, e)
 		tickEpoch(es, e)
 
 		checkObjectsAsyncRemoval(t, e, cnr, obj.GetID(), tomb.GetID())
@@ -462,6 +749,7 @@ func TestGC(t *testing.T) {
 		_, err = e.Get(context.Background(), tomb.Address())
 		require.NoError(t, err)
 
+		tickEpoch(es, e)
 		tickEpoch(es, e)
 
 		// now GC must delete the object eventually
@@ -540,6 +828,7 @@ func TestSplitObjectExpirationWithoutLink(t *testing.T) {
 		require.Equal(t, childIDs[len(childIDs)-1], splitErr.SplitInfo().GetLastPart())
 		require.Equal(t, childIDs[0], splitErr.SplitInfo().GetFirstPart())
 
+		tickEpoch(es, e)
 		tickEpoch(es, e)
 
 		time.Sleep(1 * time.Second)
@@ -648,6 +937,7 @@ func TestSplitObjectExpirationWithLinkNotFound(t *testing.T) {
 		require.Equal(t, childIDs[len(childIDs)-1], splitErr.SplitInfo().GetLastPart())
 		require.Equal(t, childIDs[0], splitErr.SplitInfo().GetFirstPart())
 
+		tickEpoch(es, e)
 		tickEpoch(es, e)
 
 		time.Sleep(1 * time.Second)
