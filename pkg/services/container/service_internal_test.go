@@ -35,7 +35,7 @@ type mockContainerContract struct {
 	cnr container.Container
 }
 
-func (mockContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte) (cid.ID, error) {
+func (mockContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte, []byte) (cid.ID, error) {
 	panic("unimplemented")
 }
 
@@ -47,7 +47,7 @@ func (mockContainerContract) List(user.ID) ([]cid.ID, error) {
 	panic("unimplemented")
 }
 
-func (mockContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte) error {
+func (mockContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -55,7 +55,7 @@ func (mockContainerContract) GetEACL(cid.ID) (eacl.Table, error) {
 	panic("unimplemented")
 }
 
-func (mockContainerContract) Delete(context.Context, cid.ID, []byte, []byte, []byte) error {
+func (mockContainerContract) Delete(context.Context, cid.ID, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 

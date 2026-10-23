@@ -1,18 +1,24 @@
 package container
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -36,7 +42,7 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 	cnrBytes := cnr.Marshal()
 	id := cid.NewFromMarshalledContainer(cnrBytes)
 
-	err = cp.checkPutContainer(cnr, cnrBytes, req.SessionToken, req.InvocationScript, req.VerificationScript)
+	err = cp.checkPutContainer(cnr, cnrBytes, req.SessionToken, req.InvocationScript, req.VerificationScript, req.OriginalRequest)
 	if err != nil {
 		cp.log.Error("container creation request failed check",
 			zap.Stringer("container", id), zap.Error(err))
@@ -58,7 +64,7 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 			return
 		}
 
-		err = cp.checkSetEACL(*req.EACLTable, table, id, cnr)
+		err = cp.checkSetEACL(*req.EACLTable, table, id, cnr, req.OriginalRequest == nil)
 		if err != nil {
 			cp.log.Error("additional eACL with container creation check failed",
 				zap.Stringer("cid", id), zap.Error(err))
@@ -84,7 +90,7 @@ var allowedSystemAttributes = map[string]struct{}{
 	sysAttrChainMeta:             {},
 }
 
-func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessionToken, invocScript, verifScript []byte) error {
+func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessionToken, invocScript, verifScript []byte, origReq []byte) error {
 	if ver := cnr.Version(); ver.Compare(minContainerAPIVersion) < 0 {
 		return fmt.Errorf("API version is %s while %s is minimum supported", ver, minContainerAPIVersion)
 	}
@@ -114,6 +120,24 @@ func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes, sessio
 	}
 	if metaEnabled && cnr.PlacementPolicy().Initial() != nil {
 		return errors.New("initial placement policies with consistent metadata are not supported yet")
+	}
+
+	if origReq != nil {
+		var apiReq protocontainer.PutRequest
+		err := protoencoding.UnmarshalMessage(origReq, &apiReq)
+		if err != nil {
+			return fmt.Errorf("could not unmarshal original request: %w", err)
+		}
+
+		var (
+			body = apiReq.GetBody()
+			mCnr = body.GetContainer()
+		)
+		if mCnr == nil || !bytes.Equal(cnrBytes, protoencoding.MarshalMessage(mCnr)) {
+			return fmt.Errorf("container in the original request does not match the contract one")
+		}
+
+		return cp.checkOriginalRequest(cnr, cid.ID{}, session.VerbContainerPut, sessionv2.VerbContainerPut, body, apiReq.GetMetaHeader(), apiReq.GetVerifyHeader())
 	}
 
 	err := cp.verifySignature(signatureVerificationData{
@@ -247,6 +271,20 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
+	if req.OriginalRequest != nil {
+		var origReq protocontainer.DeleteRequest
+		err := protoencoding.UnmarshalMessage(req.OriginalRequest, &origReq)
+		if err != nil {
+			return fmt.Errorf("could not unmarshal original request: %w", err)
+		}
+		var body = origReq.GetBody()
+		if !bytes.Equal(req.ID, body.GetContainerId().GetValue()) {
+			return fmt.Errorf("container ID in the original request does not match the contract one")
+		}
+
+		return cp.checkOriginalRequest(cnr, idCnr, session.VerbContainerDelete, sessionv2.VerbContainerDelete, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
+	}
+
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerDelete,
@@ -263,6 +301,100 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 	}
 
 	return nil
+}
+
+func (cp *Processor) checkOriginalRequest(cnr container.Container, cnrID cid.ID, verbV1 session.ContainerVerb, verbV2 sessionv2.Verb, reqBody protoencoding.Message, reqMetaHeader *protosession.RequestMetaHeader, reqVerifHeader *protosession.RequestVerificationHeader) error {
+	if err := util.VerifyRequestAPIVersion(reqMetaHeader.GetVersion()); err != nil {
+		return fmt.Errorf("invalid request API version: %w", err)
+	}
+	if err := util.VerifyRequestValidityTime(cp.chainTime.Now(), reqMetaHeader); err != nil {
+		return fmt.Errorf("invalid request validity time: %w", err)
+	}
+
+	var sTok []byte
+	switch {
+	case reqMetaHeader.GetSessionToken() != nil:
+		t := reqMetaHeader.GetSessionToken()
+		sTok = make([]byte, t.MarshaledSize())
+		t.MarshalStable(sTok)
+	case reqMetaHeader.GetSessionTokenV2() != nil:
+		t := reqMetaHeader.GetSessionTokenV2()
+		sTok = make([]byte, t.MarshaledSize())
+		t.MarshalStable(sTok)
+	default:
+	}
+
+	var (
+		signedReq, _ = protoencoding.EncodeRequest(nil, reqBody, reqMetaHeader)
+		sig          = reqVerifHeader.GetRequestSignature()
+		verifData    = signatureVerificationData{
+			ownerContainer:  cnr.Owner(),
+			verb:            verbV1,
+			verbV2:          verbV2,
+			idContainerSet:  !cnrID.IsZero(),
+			idContainer:     cnrID,
+			verifScript:     sig.GetKey(),
+			binTokenSession: sTok,
+			invocScript:     sig.GetSign(),
+			signedData:      signedReq,
+		}
+	)
+
+	if multipleReqSignatures(reqMetaHeader) {
+		// API 2.25- requests.
+
+		var (
+			bodyLen    = reqBody.MarshaledSize()
+			mHeaderLen = reqMetaHeader.MarshaledSize()
+			needBuff   = max(bodyLen, mHeaderLen)
+			signedData = slices.Grow(verifData.signedData[:0], needBuff)
+		)
+
+		// body
+
+		signedData = signedData[:bodyLen]
+		reqBody.MarshalStable(signedData)
+
+		sig := reqVerifHeader.GetBodySignature()
+
+		verifData.signedData = signedData
+		verifData.verifScript = sig.GetKey()
+		verifData.invocScript = sig.GetSign()
+
+		err := cp.verifySignature(verifData)
+		if err != nil {
+			return fmt.Errorf("body signature auth error: %w", err)
+		}
+
+		// meta header
+
+		signedData = signedData[:mHeaderLen]
+		reqMetaHeader.MarshalStable(signedData)
+
+		sig = reqVerifHeader.GetMetaSignature()
+
+		verifData.signedData = signedData
+		verifData.verifScript = sig.GetKey()
+		verifData.invocScript = sig.GetSign()
+
+		err = cp.verifySignature(verifData)
+		if err != nil {
+			return fmt.Errorf("meta header auth error: %w", err)
+		}
+
+		return nil
+	}
+
+	err := cp.verifySignature(verifData)
+	if err != nil {
+		return fmt.Errorf("auth error: %w", err)
+	}
+
+	return nil
+}
+
+func multipleReqSignatures(m *protosession.RequestMetaHeader) bool {
+	return m == nil || m.Version == nil || m.Version.Major < 2 || (m.Version.Major == 2 && m.Version.Minor < 26)
 }
 
 func (cp *Processor) approveDeleteContainer(e containerEvent.RemoveContainerRequest) {

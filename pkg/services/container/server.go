@@ -27,6 +27,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
+	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -58,7 +59,7 @@ type Contract interface {
 	// transaction is accepted for processing, Put waits for it to be successfully
 	// executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned on when it is done.
-	Put(ctx context.Context, _ container.Container, pub, sig []byte, sessionToken []byte, eACL *eacl.Table, eaclPub, eaclSig []byte) (cid.ID, error)
+	Put(ctx context.Context, _ container.Container, pub, sig []byte, sessionToken []byte, eACL *eacl.Table, eaclPub, eaclSig []byte, origRequest []byte) (cid.ID, error)
 	// Get returns container by its ID. Returns [apistatus.ErrContainerNotFound]
 	// error if container is missing.
 	Get(cid.ID) (container.Container, error)
@@ -70,7 +71,7 @@ type Contract interface {
 	// credentials. If transaction is accepted for processing, PutEACL waits for it
 	// to be successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is when it is done.
-	PutEACL(ctx context.Context, _ eacl.Table, pub, sig []byte, sessionToken []byte) error
+	PutEACL(ctx context.Context, _ eacl.Table, pub, sig []byte, sessionToken []byte, origRequest []byte) error
 	// GetEACL returns eACL of the container by its ID. Returns
 	// [apistatus.ErrEACLNotFound] error if eACL is missing.
 	GetEACL(cid.ID) (eacl.Table, error)
@@ -78,7 +79,7 @@ type Contract interface {
 	// transaction is accepted for processing, Delete waits for it to be
 	// successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
-	Delete(ctx context.Context, _ cid.ID, pub, sig []byte, sessionToken []byte) error
+	Delete(ctx context.Context, _ cid.ID, pub, sig []byte, sessionToken []byte, origRequest []byte) error
 	// SetAttribute sends transaction setting container attribute with provided
 	// credentials. If transaction is accepted for processing, SetAttribute waits
 	// for it to be successfully executed. Waiting is performed within ctx,
@@ -467,13 +468,14 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err), req)
 	}
 
-	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerPut, cid.ID{})
+	var reqMetaHeader = req.GetMetaHeader()
+	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerPut, cid.ID{})
 	if err != nil {
 		return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err), req)
 	}
 
 	if stV2 == nil {
-		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(req.GetMetaHeader(), session.VerbContainerPut, cid.ID{})
+		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(reqMetaHeader, session.VerbContainerPut, cid.ID{})
 		if err != nil {
 			return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err), req)
 		}
@@ -500,7 +502,7 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 			return s.makeFailedPutResponse(fmt.Errorf("eACL table's container ID does not correspond to container"), req)
 		}
 
-		_, _, err = s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cid.ID{})
+		_, _, err = s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerSetEACL, cid.ID{})
 		if err != nil {
 			return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err), req)
 		}
@@ -513,7 +515,7 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, tokenBytes, eACL, eaclPub, eaclSig)
+	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, tokenBytes, eACL, eaclPub, eaclSig, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 	if err != nil && !errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
 		return s.makeFailedPutResponse(err, req)
 	}
@@ -560,13 +562,14 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 		return s.makeDeleteResponse(fmt.Errorf("invalid ID: %w", err), req)
 	}
 
-	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerDelete, id)
+	var reqMetaHeader = req.GetMetaHeader()
+	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerDelete, id)
 	if err != nil {
 		return s.makeDeleteResponse(fmt.Errorf("verify session token v2: %w", err), req)
 	}
 
 	if stV2 == nil {
-		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(req.GetMetaHeader(), session.VerbContainerDelete, id)
+		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(reqMetaHeader, session.VerbContainerDelete, id)
 		if err != nil {
 			return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err), req)
 		}
@@ -578,7 +581,7 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	err = s.contract.Delete(ctx, id, mSig.Key, mSig.Sign, tokenBytes)
+	err = s.contract.Delete(ctx, id, mSig.Key, mSig.Sign, tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 
 	return s.makeDeleteResponse(err, req)
 }
@@ -727,17 +730,18 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"), req)
 	}
 
-	if err := s.checkContainerRevision(req.GetMetaHeader(), reqBody.GetContainerRevision(), cnrID); err != nil {
+	var reqMetaHeader = req.GetMetaHeader()
+	if err := s.checkContainerRevision(reqMetaHeader, reqBody.GetContainerRevision(), cnrID); err != nil {
 		return s.makeSetEACLResponse(err, req)
 	}
 
-	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cnrID)
+	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerSetEACL, cnrID)
 	if err != nil {
 		return s.makeSetEACLResponse(fmt.Errorf("verify session token v2: %w", err), req)
 	}
 
 	if stV2 == nil {
-		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
+		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(reqMetaHeader, session.VerbContainerSetEACL, cnrID)
 		if err != nil {
 			return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err), req)
 		}
@@ -749,7 +753,7 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, tokenBytes)
+	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 
 	return s.makeSetEACLResponse(err, req)
 }
@@ -975,4 +979,24 @@ func (s *Server) RemoveAttribute(ctx context.Context, req *protocontainer.Remove
 		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken)
 
 	return s.makeRemoveAttributeResponse(err)
+}
+
+func marshalRequest[B protoencoding.Message](reqBody B, reqMetaHeader *protosession.RequestMetaHeader, vHeader *protosession.RequestVerificationHeader) []byte {
+	var (
+		bLen = reqBody.MarshaledSize()
+		mLen = reqMetaHeader.MarshaledSize()
+		vLen = vHeader.MarshaledSize()
+	)
+
+	ln := protoencoding.CalculateRequestBodyFieldLength(bLen)
+	ln += protoencoding.CalculateRequestMetaHeaderFieldLength(mLen)
+	ln += protoencoding.CalculateRequestVerificationHeaderFieldLength(vLen)
+
+	buf := make([]byte, ln)
+
+	off := protoencoding.WriteRequestBodyMessage(buf, reqBody)
+	off += protoencoding.WriteRequestMetaHeaderMessage(buf[off:], reqMetaHeader)
+	protoencoding.WriteRequestVerificationHeaderMessage(buf[off:], vHeader)
+
+	return buf
 }

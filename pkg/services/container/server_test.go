@@ -52,7 +52,7 @@ func (unimplementedFSChain) HasUserInNNS(string, neoutil.Uint160) (bool, error) 
 
 type unimplementedContainerContract struct{}
 
-func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte) (cid.ID, error) {
+func (unimplementedContainerContract) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte, []byte) (cid.ID, error) {
 	panic("implement me")
 }
 
@@ -64,7 +64,7 @@ func (unimplementedContainerContract) List(user.ID) ([]cid.ID, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte) error {
+func (unimplementedContainerContract) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -72,7 +72,7 @@ func (unimplementedContainerContract) GetEACL(cid.ID) (eacl.Table, error) {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []byte, []byte) error {
+func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -113,7 +113,7 @@ type testFSChain struct {
 	nnsUsers map[string]neoutil.Uint160
 }
 
-func (testFSChain) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte) (cid.ID, error) {
+func (testFSChain) Put(context.Context, container.Container, []byte, []byte, []byte, *eacl.Table, []byte, []byte, []byte) (cid.ID, error) {
 	return cid.ID{}, errors.New("unimplemented")
 }
 
@@ -132,7 +132,7 @@ func (testFSChain) List(user.ID) ([]cid.ID, error) {
 	return nil, errors.New("unimplemented")
 }
 
-func (testFSChain) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte) error {
+func (testFSChain) PutEACL(context.Context, eacl.Table, []byte, []byte, []byte, []byte) error {
 	return nil
 }
 
@@ -140,7 +140,7 @@ func (testFSChain) GetEACL(cid.ID) (eacl.Table, error) {
 	return eacl.Table{}, errors.New("unimplemented")
 }
 
-func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, []byte) error {
+func (testFSChain) Delete(context.Context, cid.ID, []byte, []byte, []byte, []byte) error {
 	return nil
 }
 
