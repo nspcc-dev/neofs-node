@@ -121,7 +121,7 @@ parameters are correct there, however, their particular values are provided
 for informational purposes only (and not recommended for direct use), real
 networks and real configuration are likely to differ a lot for them.
 
- See [node.yaml](node.yaml) for configuration notes.
+See [node.yaml](config/example/node.yaml) for configuration notes.
 - Storage node
   - YAML (with comments): [node.yaml](config/example/node.yaml)
   - JSON: [node.json](config/example/node.json)
