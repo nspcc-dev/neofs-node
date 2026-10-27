@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Unchecked known payload length of unfinished objects in PUT (#4233)
 - IR validates original container API requests via contract calls (#4245)
 - Container ID was not returned after container creation timeout (#4254)
+- Container operation signature check with session token V2 (#4251)
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)
