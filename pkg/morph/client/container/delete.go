@@ -16,6 +16,8 @@ type DeletePrm struct {
 	signature []byte
 	key       []byte
 	token     []byte
+
+	origReq []byte
 }
 
 // SetCID sets container ID.
@@ -38,6 +40,11 @@ func (d *DeletePrm) SetToken(token []byte) {
 	d.token = token
 }
 
+// SetOriginalRequest sets original API request that triggered contract call.
+func (d *DeletePrm) SetOriginalRequest(req []byte) {
+	d.origReq = req
+}
+
 // Delete calls Container contract to delete container with parameterized
 // credentials. If transaction is accepted for processing, Delete waits for it
 // to be successfully executed. Waiting is performed within ctx,
@@ -48,13 +55,18 @@ func (d *DeletePrm) SetToken(token []byte) {
 //
 // Returns [apistatus.ContainerLocked] if container is locked.
 func (c *Client) Delete(ctx context.Context, p DeletePrm) error {
-	if len(p.signature) == 0 {
+	if len(p.signature) == 0 && len(p.origReq) == 0 {
 		return errNilArgument
 	}
 
-	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.RemoveContainerMethod, []any{
-		p.cnr, p.signature, p.key, p.token,
-	})
+	var args []any
+	if p.origReq == nil {
+		args = []any{p.cnr, p.signature, p.key, p.token}
+	} else {
+		args = []any{p.cnr, p.origReq}
+	}
+
+	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.RemoveContainerMethod, args)
 	if err != nil {
 		if e := err.Error(); strings.Contains(e, containerrpc.ErrorLocked) {
 			return apistatus.NewContainerLocked(e)

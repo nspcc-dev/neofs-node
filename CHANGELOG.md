@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Unnecessary local shard relocation of EC parts by policer (#4236)
 - GC stalling on expired objects protected by LOCKs stored only on other shards (#4237)
 - Unchecked known payload length of unfinished objects in PUT (#4233)
+- IR validates original container API requests via contract calls (#4245)
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)
@@ -41,7 +42,7 @@ Changelog for NeoFS Node
 - Support for `Created` and `Removed` events of Container contract in SN (#4242)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261021092246-abe302e8498b` (#4194, #4219, #4228, #4224, #4222, #4240)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.23.0.20261021092246-e754fb0cb9bf` (#4194, #4219, #4228, #4224, #4222, #4240, #4245)
 - `github.com/nspcc-dev/neofs-contract` module to `v0.28.0` (#4239, #4246, #4250)
 
 ### Updating from v0.57.0

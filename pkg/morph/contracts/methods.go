@@ -26,6 +26,8 @@ type CreateContainerParams struct {
 	DomainName           string
 	DomainZone           string
 	EnableObjectMetadata bool
+
+	OriginalRequest []byte
 }
 
 // RemoveContainerParams are parameters of [RemoveContainerMethod].
@@ -34,6 +36,8 @@ type RemoveContainerParams struct {
 	InvocationScript   []byte
 	VerificationScript []byte
 	SessionToken       []byte
+
+	OriginalRequest []byte
 }
 
 // PutContainerEACLParams are parameters of [PutContainerEACLMethod].
@@ -42,4 +46,6 @@ type PutContainerEACLParams struct {
 	InvocationScript   []byte
 	VerificationScript []byte
 	SessionToken       []byte
+
+	OriginalRequest []byte
 }

@@ -13,6 +13,8 @@ type PutEACLPrm struct {
 	key   []byte
 	sig   []byte
 	token []byte
+
+	origReq []byte
 }
 
 // SetTable sets table.
@@ -35,6 +37,11 @@ func (p *PutEACLPrm) SetToken(token []byte) {
 	p.token = token
 }
 
+// SetOriginalRequest sets original API request that triggered contract call.
+func (p *PutEACLPrm) SetOriginalRequest(req []byte) {
+	p.origReq = req
+}
+
 // PutEACL calls Container contract to set container's extended ACL with
 // parameterized credentials. If transaction is accepted for processing, PutEACL
 // waits for it to be successfully executed. Waiting is done within ctx,
@@ -42,13 +49,18 @@ func (p *PutEACLPrm) SetToken(token []byte) {
 //
 // Returns any error encountered that caused the saving to interrupt.
 func (c *Client) PutEACL(ctx context.Context, p PutEACLPrm) error {
-	if len(p.sig) == 0 || len(p.key) == 0 {
+	if (len(p.sig) == 0 || len(p.key) == 0) && len(p.origReq) == 0 {
 		return errNilArgument
 	}
 
-	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.PutContainerEACLMethod, []any{
-		p.table, p.sig, p.key, p.token,
-	})
+	var args []any
+	if p.origReq == nil {
+		args = []any{p.table, p.sig, p.key, p.token}
+	} else {
+		args = []any{p.table, p.origReq}
+	}
+
+	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.PutContainerEACLMethod, args)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.PutContainerEACLMethod, err)
 	}
