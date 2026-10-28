@@ -399,6 +399,7 @@ func TestServer_Get_Remote(t *testing.T) {
 		t.Run("split info", func(t *testing.T) {
 			req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
 			req.Body.Raw = true
+			req.Body.Range = &protoobject.Range{Offset: 0, Length: 10}
 			req.MetaHeader.Ttl = 2
 			signGetRequest(t, req, signer)
 
@@ -415,13 +416,21 @@ func TestServer_Get_Remote(t *testing.T) {
 					MetaHeader:   metaHdr,
 					VerifyHeader: newAnyVerificationHeader(),
 				},
+				{
+					Body: &protoobject.GetResponse_Body{
+						ObjectPart: &protoobject.GetResponse_Body_Chunk{
+							Chunk: []byte("unexpected"),
+						},
+					},
+					VerifyHeader: newAnyVerificationHeader(),
+				},
 			}
 
 			mockConns.setConn(nodes[1], newFixedGetResponsesConn(t, resps))
 
 			gotResps := collectGetResponses(t, srv, req)
-			require.Equal(t, len(resps), len(gotResps))
-			require.True(t, slices.EqualFunc(resps, gotResps, func(resp *protoobject.GetResponse, gotResp *protoobject.GetResponse) bool {
+			require.Len(t, gotResps, 1)
+			require.True(t, slices.EqualFunc(resps[:1], gotResps, func(resp *protoobject.GetResponse, gotResp *protoobject.GetResponse) bool {
 				return proto.Equal(resp, gotResp)
 			}))
 		})

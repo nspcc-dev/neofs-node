@@ -154,6 +154,17 @@ func handleResponseCodeAndBody(respBuf mem.BufferSlice) (uint32, iprotobuf.Buffe
 	return code, body, err
 }
 
+func isSplitInfoGetResponse(respBuf mem.BufferSlice) bool {
+	_, body, err := handleResponseCodeAndBody(respBuf)
+	if err != nil {
+		return false
+	}
+
+	var headWas bool
+	num, _, err := handleGetResponseBodyOneof(&headWas, body)
+	return err == nil && num == protoobject.FieldGetResponseBodySplitInfo
+}
+
 func (x *getProxyContext) handleGetResponse(ctx context.Context, raw bool, streamProg *getStreamProgress, respBuf mem.BufferSlice) (bool, bool, error) {
 	code, body, err := handleResponseCodeAndBody(respBuf)
 	if err != nil {
@@ -170,12 +181,12 @@ func (x *getProxyContext) handleGetResponse(ctx context.Context, raw bool, strea
 
 	// TODO: forbid body if code != OK?
 
-	sent, err := x.handleResponseBody(ctx, raw, streamProg, respBuf, body)
+	fin, sent, err := x.handleResponseBody(ctx, raw, streamProg, respBuf, body)
 	if err != nil {
 		return false, sent, fmt.Errorf("handle body: %w", err)
 	}
 
-	return false, sent, nil
+	return fin, sent, nil
 }
 
 func handleGetResponseBodyOneof(headWas *bool, buffers iprotobuf.BuffersSlice) (protowire.Number, iprotobuf.BuffersSlice, error) {
@@ -215,21 +226,24 @@ func handleGetResponseBodyOneof(headWas *bool, buffers iprotobuf.BuffersSlice) (
 	return oneofNum, oneofFld, err
 }
 
-func (x *getProxyContext) handleResponseBody(ctx context.Context, raw bool, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
+func (x *getProxyContext) handleResponseBody(ctx context.Context, raw bool, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, bool, error) {
 	oneofNum, oneofFld, err := handleGetResponseBodyOneof(&streamProg.headWas, buffers)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	switch oneofNum {
 	default:
-		return false, errors.New("none of the supported oneof fields are specified")
+		return false, false, errors.New("none of the supported oneof fields are specified")
 	case protoobject.FieldGetResponseBodyInit:
-		return x.handleInitResponse(ctx, respBuf, oneofFld)
+		sent, err := x.handleInitResponse(ctx, respBuf, oneofFld)
+		return false, sent, err
 	case protoobject.FieldGetResponseBodyChunk:
-		return x.handleChunkResponse(streamProg, respBuf, oneofFld)
+		sent, err := x.handleChunkResponse(streamProg, respBuf, oneofFld)
+		return false, sent, err
 	case protoobject.FieldGetResponseBodySplitInfo:
-		return handleSplitInfoAndRespond(raw, x.respStream.base, respBuf, oneofFld)
+		sent, err := handleSplitInfoAndRespond(raw, x.respStream.base, respBuf, oneofFld)
+		return raw, sent, err
 	}
 }
 

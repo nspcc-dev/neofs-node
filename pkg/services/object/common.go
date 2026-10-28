@@ -116,8 +116,12 @@ func forwardServerStreamRequestGRPC(ctx context.Context, req any, respStream grp
 			return fmt.Errorf("read response from stream: %w", err)
 		}
 
+		splitInfo := isSplitInfoGetResponse(respBuf)
 		if err = respStream.SendMsg(respBuf); err != nil {
 			return fmt.Errorf("%w: %w", getsvc.ErrResponseStreamFailure, err)
+		}
+		if splitInfo {
+			return nil
 		}
 	}
 }
