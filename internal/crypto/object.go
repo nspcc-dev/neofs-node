@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	versioncore "github.com/nspcc-dev/neofs-node/pkg/core/version"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -73,21 +74,24 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, sToke
 			return errors.New("different object owner and session issuer")
 		}
 	}
+	var signer = obj.Owner()
 	if sessionTokenV2 != nil {
 		// NOTE: update this place for non-ECDSA schemes
 		if ecdsaPub != nil {
-			nodeUser := user.NewFromECDSAPublicKey(*ecdsaPub)
-			ok, err := sessionTokenV2.AssertAuthority(nodeUser, resolver)
-			if err != nil {
-				return fmt.Errorf("assert session v2 authority: %w", err)
-			}
-			if !ok { // same format for all ECDSA schemes
-				return errors.New("session v2 token is not for object's signer")
-			}
+			signer = user.NewFromECDSAPublicKey(*ecdsaPub)
+		} else {
+			signer = user.NewFromScriptHash(hash.Hash160(verifScript))
+		}
+		ok, err := sessionTokenV2.AssertAuthority(signer, resolver)
+		if err != nil {
+			return fmt.Errorf("assert session v2 authority: %w", err)
+		}
+		if !ok { // same format for all ECDSA schemes
+			return errors.New("session v2 token is not for object's signer")
 		}
 
 		k := sha256.Sum256(sessionTokenV2.Marshal())
-		_, err := sTokenCache.AuthenticateTokenV2(k, func() (sessionv2.Token, error) {
+		_, err = sTokenCache.AuthenticateTokenV2(k, func() (sessionv2.Token, error) {
 			if err := AuthenticateTokenV2(sessionTokenV2, fsChain); err != nil {
 				return sessionv2.Token{}, fmt.Errorf("session token v2: %w", err)
 			}
@@ -114,7 +118,7 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, sToke
 			return errors.New("owner mismatches signature")
 		}
 	case neofscrypto.N3:
-		if err := verifyN3ScriptsAtEpoch(fsChain, obj.CreationEpoch(), obj.Owner().ScriptHash(), invocScript, verifScript, func() [sha256.Size]byte {
+		if err := verifyN3ScriptsAtEpoch(fsChain, obj.CreationEpoch(), signer.ScriptHash(), invocScript, verifScript, func() [sha256.Size]byte {
 			return sha256.Sum256(obj.SignedData())
 		}); err != nil {
 			return err
