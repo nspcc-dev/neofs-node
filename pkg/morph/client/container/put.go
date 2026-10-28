@@ -2,9 +2,11 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -76,6 +78,13 @@ func (c *Client) Put(ctx context.Context, p PutPrm) (cid.ID, error) {
 
 	err := c.client.CallWithAlphabetWitness(ctx, fschaincontracts.CreateContainerV2Method, putCnrArgs(p))
 	if err != nil {
+		if errors.Is(err, client.ErrTxAwaitTimeout) {
+			// it sent TX correctly but its status is unknown,
+			// container ID may be helpful, it is the only
+			// outcome left after Put call
+			return cid.NewFromMarshalledContainer(p.cnr.Marshal()), fmt.Errorf("(%s) tx invocation timeout: %w", fschaincontracts.CreateContainerV2Method, err)
+		}
+
 		return cid.ID{}, fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerV2Method, err)
 	}
 
