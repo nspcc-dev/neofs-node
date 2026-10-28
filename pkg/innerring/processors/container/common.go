@@ -1,10 +1,14 @@
 package container
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -142,5 +146,24 @@ func (cp *Processor) verifySessionV2(tok sessionv2.Token, v signatureVerificatio
 		return fmt.Errorf("v2 token is not valid at %s", currentTime)
 	}
 
-	return nil
+	var u user.ID
+	pub, err := keys.NewPublicKeyFromBytes(v.verifScript, elliptic.P256())
+	if err == nil {
+		var k = (*ecdsa.PublicKey)(pub)
+		u = user.NewFromECDSAPublicKey(*k)
+	} else {
+		// try N3
+		verifScriptHash := hash.Hash160(v.verifScript)
+		u = user.NewFromScriptHash(verifScriptHash)
+	}
+
+	ok, err := tok.AssertAuthority(u, cp.resolver)
+	if err != nil {
+		return fmt.Errorf("assert session v2 authority: %w", err)
+	}
+	if !ok {
+		return errors.New("session v2 token is not for operation signer")
+	}
+
+	return icrypto.AuthenticateContainerRequest(u, v.invocScript, v.verifScript, v.signedData, cp.cnrClient.Morph())
 }
