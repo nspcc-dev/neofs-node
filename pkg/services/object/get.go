@@ -73,6 +73,7 @@ func callGet(ctx context.Context, conn *grpc.ClientConn, request any) (grpc.Clie
 // returns:
 //   - nil on completed object transmission
 //   - [object.SplitInfoError]/nil on split info response and unset/set raw flag in request
+//   - [getsvc.ErrResponded] after forwarding a raw split info response
 //   - [apistatus.ErrObjectNotFound] on 404 status
 //   - nil on other API statuses
 //   - any other transport/protocol error otherwise
@@ -92,6 +93,7 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, req mem.Buffer, 
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
+		splitInfo := isSplitInfoGetResponse(respBuf)
 		fin, sent, err := x.handleGetResponse(ctx, body.Raw, &prog, respBuf)
 		if !sent {
 			respBuf.Free()
@@ -100,6 +102,9 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, req mem.Buffer, 
 			return fmt.Errorf("handle next stream message: %w", err)
 		}
 		if fin {
+			if splitInfo {
+				return getsvc.ErrResponded
+			}
 			return nil
 		}
 	}
@@ -155,8 +160,8 @@ func handleResponseCodeAndBody(respBuf mem.BufferSlice) (uint32, iprotobuf.Buffe
 }
 
 func isSplitInfoGetResponse(respBuf mem.BufferSlice) bool {
-	_, body, err := handleResponseCodeAndBody(respBuf)
-	if err != nil {
+	code, body, err := handleResponseCodeAndBody(respBuf)
+	if err != nil || code != protostatus.OK {
 		return false
 	}
 

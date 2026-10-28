@@ -103,6 +103,8 @@ type testClientCache struct {
 type testClient struct {
 	delay time.Duration
 
+	calls int
+
 	results map[oid.Address]struct {
 		obj *object.Object
 		err error
@@ -154,6 +156,8 @@ func newTestClient() *testClient {
 }
 
 func (c *testClient) getObject(exec *execCtx) (*object.Object, io.ReadCloser, error) {
+	c.calls++
+
 	if c.delay > 0 {
 		time.Sleep(c.delay)
 	}
@@ -731,6 +735,36 @@ func TestGetRemoteSmall(t *testing.T) {
 		err = svc.Head(ctx, headPrm)
 		require.NoError(t, err)
 		require.Equal(t, obj.CutPayload(), w.Object())
+	})
+
+	t.Run("raw SplitInfo response stops placement iteration", func(t *testing.T) {
+		addr := oidtest.Address()
+		addr.SetContainer(idCnr)
+
+		ns, as := testNodeMatrix(t, []int{2})
+		vectors := map[oid.Address][][]netmap.NodeInfo{addr: ns}
+
+		c1 := newTestClient()
+		c1.addResult(addr, nil, ErrResponded)
+		c2 := newTestClient()
+		c2.addResult(addr, generateObject(addr, nil, []byte("unexpected")), nil)
+
+		svc := newSvc(vectors, &testClientCache{
+			clients: map[string]*testClient{
+				as[0][0]: c1,
+				as[0][1]: c2,
+			},
+		})
+
+		p := newPrm(true, nil)
+		p.WithAddress(addr)
+		rng := object.NewRange()
+		rng.SetLength(10)
+		p.SetRange(rng)
+
+		require.NoError(t, svc.Get(ctx, p))
+		require.Equal(t, 1, c1.calls)
+		require.Zero(t, c2.calls)
 	})
 
 	t.Run("INHUMED", func(t *testing.T) {

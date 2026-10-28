@@ -25,6 +25,12 @@ func (exec *execCtx) processNode(info netmap.NodeInfo) bool {
 
 	obj, reader, err := remoteClient.getObject(exec)
 
+	if errors.Is(err, ErrResponded) {
+		exec.status = statusOK
+		exec.err = nil
+		return true
+	}
+
 	var errSplitInfo *object.SplitInfoError
 
 	switch {
