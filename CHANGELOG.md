@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.58.0
+
+## [0.58.0] - 2026-10-28 - Gopado
+
+### Added
 - Request time expiration check by SNs (#4219)
 - Time-based object expiration (#4224)
 - Support for GET/HEAD EC part ID field by SN (#4222)
@@ -3303,7 +3317,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.57.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.0...master
+[0.58.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.55.0...v0.56.0
 [0.55.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.54.0...v0.55.0
