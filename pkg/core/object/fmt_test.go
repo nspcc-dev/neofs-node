@@ -317,6 +317,54 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("expiration", func(t *testing.T) {
+		t.Run("split parts with expired parent", func(t *testing.T) {
+			for _, split := range []string{"V1", "V2"} {
+				for _, expiration := range []string{"epoch", "time"} {
+					t.Run(split+"/"+expiration, func(t *testing.T) {
+						signer := usertest.User()
+						parent := blankValidObject(signer)
+						if expiration == "epoch" {
+							parent.SetExpirationEpoch(curEpoch - 1) //nolint:staticcheck // Cover legacy epoch expiration.
+						} else {
+							require.NoError(t, parent.SetExpirationTime(time.Unix(100, 0)))
+						}
+						require.NoError(t, parent.SetIDWithSignature(signer))
+						cnrs := newMockContainers()
+						cnrs.setContainer(parent.GetContainerID(), container.Container{})
+						v := NewFormatValidator(nil, nil, cnrs,
+							WithNetState(testNetState{epoch: curEpoch}),
+							WithTimeSource(func() time.Time { return time.Unix(101, 0) }),
+							WithLockSource(testLockSource{m: make(map[oid.Address]bool)}),
+						)
+						require.ErrorIs(t, v.Validate(context.Background(), parent, false, true), errExpired)
+
+						for _, withParent := range []bool{false, true} {
+							t.Run(fmt.Sprintf("parentHeader=%t", withParent), func(t *testing.T) {
+								part := object.New(parent.GetContainerID(), signer.UserID())
+								part.SetPreviousID(oidtest.ID())
+								if split == "V1" {
+									part.SetSplitID(object.NewSplitID())
+								} else {
+									part.SetFirstID(oidtest.ID())
+								}
+								if withParent {
+									part.SetParent(parent)
+									part.SetParentID(parent.GetID())
+								}
+								require.NoError(t, part.SetIDWithSignature(signer))
+								err := v.Validate(context.Background(), part, false, true)
+								if withParent {
+									require.ErrorIs(t, err, errExpired)
+								} else {
+									require.NoError(t, err)
+								}
+							})
+						}
+					})
+				}
+			}
+		})
+
 		t.Run("time", func(t *testing.T) {
 			var clock chaintime.AtomicChainTimeProvider
 			ls := testLockSource{m: make(map[oid.Address]bool)}

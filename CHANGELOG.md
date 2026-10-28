@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - GC stalling on expired objects protected by LOCKs stored only on other shards (#4237)
 - Unchecked known payload length of unfinished objects in PUT (#4233)
 - IR validates original container API requests via contract calls (#4245)
+- Delayed GC of expired split-object parents and tombstones to reduce resurrection risk from lagging replication (#4252)
 
 ### Changed
 - SN now requires requests to have API version >= 2.22 (#4212)

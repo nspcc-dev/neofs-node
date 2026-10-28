@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"math"
+	"time"
 
 	"github.com/nspcc-dev/bbolt"
 	islices "github.com/nspcc-dev/neofs-node/internal/slices"
@@ -17,6 +18,8 @@ import (
 
 const metaIDTypePrefixSize = 1 + objectKeySize + len(object.FilterType) + 1
 
+const splitObjectExpirationGracePeriod = 10 * time.Minute
+
 // ExpiredObjectHandler is an expired object handling function.
 type ExpiredObjectHandler func(oid.Address, object.Type) error
 
@@ -26,9 +29,11 @@ var errObjTypeNotFound = errors.New("object type not found")
 // as a "break" keyword.
 var ErrInterruptIterator = logicerr.New("iterator is interrupted")
 
-// IterateExpired iterates over all objects in DB which are out of date
-// relative to epoch or the configured clock. Locked objects are not included (do not confuse
-// with objects of type LOCK).
+// IterateExpired iterates over objects eligible for expiration GC. Virtual
+// parents and tombstones are retained for one extra epoch or a grace period after
+// time-based expiration. This only narrows the race: parts arriving after the
+// grace period, or on a node without parent metadata, may still survive.
+// Locked objects are not included (do not confuse with objects of type LOCK).
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
@@ -124,6 +129,10 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 }
 
 func (db *DB) iterateExpiredBy(tx *bbolt.Tx, attr string, threshold, curEpoch uint64, curTime int64, h ExpiredObjectHandler) error {
+	grace := uint64(1)
+	if attr == object.FilterExpirationTime {
+		grace = uint64(splitObjectExpirationGracePeriod / time.Second)
+	}
 	var (
 		expStart  = make([]byte, 1+len(attr)+1+1)
 		typPrefix = make([]byte, metaIDTypePrefixSize)
@@ -148,11 +157,26 @@ func (db *DB) iterateExpiredBy(tx *bbolt.Tx, attr string, threshold, curEpoch ui
 			expiration, id = keyToExpirationOID(expKey, expStart)
 		)
 		for ; expiration < threshold && !id.IsZero(); expiration, id = keyToExpirationOID(expKey, expStart) {
+			// Tombstones receive the same GC grace as virtual parents.
+			typ, err := fetchTypeForIDWBuf(b.Cursor(), typPrefix, id)
+			if err != nil {
+				db.log.Warn("inconsistent DB in expired iterator",
+					zap.Stringer("object", oid.NewAddress(cnrID, id)), zap.Error(err))
+			}
+
+			// Measure grace from expiration; subtraction is safe because
+			// threshold > expiration and avoids duration addition overflow.
+			physical := getObjAttribute(curForLocked, id, object.FilterPhysical) != nil
+			if threshold-expiration <= grace && (!physical || typ == object.TypeTombstone) {
+				expKey, _ = cur.Next()
+				continue
+			}
+
 			// Ignore locked objects.
 			//
 			// To slightly optimize performance we can check only REGULAR objects
 			// (only they can be locked), but it's more reliable.
-			if objectLocked(curEpoch, curTime, curForLocked, id) {
+			if objectLocked(curEpoch, curTime, curForLocked, id) || protectsVirtualParent(curForLocked, id) {
 				expKey, _ = cur.Next()
 				continue
 			}
@@ -162,12 +186,6 @@ func (db *DB) iterateExpiredBy(tx *bbolt.Tx, attr string, threshold, curEpoch ui
 			addr.SetContainer(cnrID)
 			addr.SetObject(id)
 
-			typ, err := fetchTypeForIDWBuf(b.Cursor(), typPrefix, id)
-			if err != nil {
-				db.log.Warn("inconsistent DB in expired iterator",
-					zap.Stringer("object", addr), zap.Error(err))
-			}
-
 			err = h(addr, typ)
 			if err != nil {
 				return err
@@ -176,6 +194,21 @@ func (db *DB) iterateExpiredBy(tx *bbolt.Tx, attr string, threshold, curEpoch ui
 		}
 		return nil
 	})
+}
+
+// protectsVirtualParent keeps references to an expiring virtual parent until GC processes the parent.
+// Otherwise deleting its last child can discard the parent before its GC turn.
+func protectsVirtualParent(c *bbolt.Cursor, id oid.ID) bool {
+	parent := getParentID(c, id)
+	for depth := 0; !parent.IsZero() && depth < maxObjectNestingLevel; depth++ {
+		if getObjAttribute(c, parent, object.FilterPhysical) == nil &&
+			(getObjAttribute(c, parent, object.AttributeExpirationEpoch) != nil || //nolint:staticcheck // Legacy epoch expiration.
+				getObjAttribute(c, parent, object.FilterExpirationTime) != nil) {
+			return true
+		}
+		parent = getParentID(c, parent)
+	}
+	return false
 }
 
 func mkFilterPhysicalPrefix() []byte {
