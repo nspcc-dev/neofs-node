@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- SNs do not support objects signed with N3 scheme via session v2 feature (#4259)
 
 ### Changed
 
