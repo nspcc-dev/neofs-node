@@ -569,6 +569,14 @@ func newFSChainForObjects(placementSvc *placement.Service, isLocalPubKey func([]
 	}
 }
 
+// ResetContainer drops cached container, if any, so that next Get fetches it
+// from the FS chain.
+func (x *fsChainForObjects) ResetContainer(id cid.ID) {
+	if r, ok := x.Source.(interface{ resetContainer(cid.ID) }); ok {
+		r.resetContainer(id)
+	}
+}
+
 // InContainerInLastTwoEpochs checks whether given public key belongs to any SN
 // from the referenced container either in the current or the previous NeoFS
 // epoch.
