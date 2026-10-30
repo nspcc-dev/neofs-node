@@ -439,7 +439,7 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		return s.makeFailedPutResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
 		return s.makeFailedPutResponse(err, req)
 	}
 
@@ -543,7 +543,7 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 		return s.makeDeleteResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
 		return s.makeDeleteResponse(err, req)
 	}
 
@@ -600,7 +600,7 @@ func (s *Server) makeFailedGetResponse(err error, req *protocontainer.GetRequest
 
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
-func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
+func (s *Server) Get(ctx context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeFailedGetResponse(err, req)
 	}
@@ -608,7 +608,7 @@ func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protoc
 		return s.makeFailedGetResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
 		return s.makeFailedGetResponse(err, req)
 	}
 
@@ -647,7 +647,7 @@ func (s *Server) makeFailedListResponse(err error, req *protocontainer.ListReque
 
 // List lists user containers from the underlying [Contract] and returns their
 // IDs in the response.
-func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
+func (s *Server) List(ctx context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeFailedListResponse(err, req)
 	}
@@ -655,7 +655,7 @@ func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*prot
 		return s.makeFailedListResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
 		return s.makeFailedListResponse(err, req)
 	}
 
@@ -706,7 +706,7 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
 		return s.makeSetEACLResponse(err, req)
 	}
 
@@ -795,7 +795,7 @@ func (s *Server) makeFailedGetEACLResponse(err error, req *protocontainer.GetExt
 
 // GetExtendedACL read eACL of the requested container from the underlying
 // [Contract] and returns the result in the response.
-func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
+func (s *Server) GetExtendedACL(ctx context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
 	if err := util.VerifyRequestAPIVersion(req.MetaHeader.GetVersion()); err != nil {
 		return s.makeFailedGetEACLResponse(err, req)
 	}
@@ -803,7 +803,7 @@ func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtend
 		return s.makeFailedGetEACLResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
 		return s.makeFailedGetEACLResponse(err, req)
 	}
 

@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- SNs do not support N3 signatures for container service requests (#4258)
 
 ### Changed
 
