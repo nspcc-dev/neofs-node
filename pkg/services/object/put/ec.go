@@ -13,8 +13,11 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
+
+// errECPartPlacement reports failure to store a single EC part on any node.
+// The result of the whole EC rule is determined after all parts are processed.
+var errECPartPlacement = errors.New("could not place EC part")
 
 func newECProgress(nodeList []netmap.NodeInfo, ecRule iec.Rule) *ecProgress {
 	return &ecProgress{
@@ -69,42 +72,57 @@ func (p *ecProgress) submitSuccess() {
 	p.successPuts.Add(1)
 }
 
-// finalizeErr must not be called concurrently with any other ecProgress's methods.
-// call it only if at least one part was not put successfully.
-func (p *ecProgress) finalizeErr(err *errIncompletePut) error {
-	if p.stop {
-		return fmt.Errorf("not enough nodes for EC parts (%d parts were put)", p.successPuts.Load())
-	}
-	err.singleErr = fmt.Errorf("only %d EC parts were put successfully"+
-		" for %s EC rule, latest error: %w", p.successPuts.Load(), p.ecRule, err.singleErr)
-	return err
-}
-
-func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Object, ruleIdx int, payloadParts [][]byte, ecRule iec.Rule, nodeList []netmap.NodeInfo) error {
+func (t *distributedTarget) applyECRule(signer neofscrypto.Signer, obj object.Object, ruleIdx int, payloadParts [][]byte, ecRule iec.Rule, minParts uint32, nodeList []netmap.NodeInfo) error {
 	var (
-		eg   errgroup.Group
-		prog = newECProgress(nodeList, ecRule)
+		wg      sync.WaitGroup
+		prog    = newECProgress(nodeList, ecRule)
+		partErr = make([]error, len(payloadParts))
 	)
 
 	for partIdx := range payloadParts {
-		eg.Go(func() error {
+		wg.Go(func() {
 			if err := t.formAndSaveObjectForECPart(prog, signer, obj, ruleIdx, partIdx, payloadParts, nodeList); err != nil {
-				return fmt.Errorf("form and save object for part %d: %w", partIdx, err)
+				partErr[partIdx] = fmt.Errorf("form and save object for part %d: %w", partIdx, err)
 			}
-
-			return nil
 		})
 	}
-	err := eg.Wait()
-	if err != nil {
-		if incompleteErr, ok := errors.AsType[errIncompletePut](err); ok {
-			return prog.finalizeErr(&incompleteErr)
-		}
+	wg.Wait()
 
-		return err
+	if t.opCtx != nil && t.opCtx.Err() != nil {
+		return t.opCtx.Err()
 	}
 
-	return nil
+	if t.localOnly {
+		// Local PUT does not perform distributed placement or count its successes.
+		return errors.Join(partErr...)
+	}
+	return prog.result(partErr, minParts)
+}
+
+func (p *ecProgress) result(partErr []error, minParts uint32) error {
+	var placementErr error
+	for _, err := range partErr {
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, errECPartPlacement) {
+			return err
+		}
+		placementErr = err
+	}
+
+	if minParts == 0 {
+		minParts = uint32(len(partErr))
+	}
+	stored := uint32(p.successPuts.Load())
+	if stored >= minParts {
+		return nil
+	}
+	if stored < uint32(p.ecRule.DataPartNum) {
+		return fmt.Errorf("not enough nodes for EC parts (%d parts were put)", stored)
+	}
+	return newCompletionError(errIncompletePut{singleErr: fmt.Errorf("only %d EC parts were put successfully"+
+		" for %s EC rule, latest error: %w", stored, p.ecRule, placementErr)}, true)
 }
 
 func (t *distributedTarget) formAndSaveObjectForECPart(prog *ecProgress, signer neofscrypto.Signer, obj object.Object, ruleIdx, partIdx int, payloadParts [][]byte, nodeList []netmap.NodeInfo) error {
@@ -195,11 +213,11 @@ func (t *distributedTarget) distributeECPart(prog *ecProgress, part object.Objec
 		}
 
 		if prog != nil && !prog.submitNodeFailure() {
-			return errIncompletePut{singleErr: firstErr}
+			return errors.Join(errECPartPlacement, firstErr)
 		}
 	}
 
-	return errIncompletePut{singleErr: firstErr}
+	return errors.Join(errECPartPlacement, firstErr)
 }
 
 func (t *distributedTarget) saveECPartOnNode(ruleIdx int, obj object.Object, enc encodedObject, replicateV2InitReq *replicateV2InitRequest, node netmap.NodeInfo) error {

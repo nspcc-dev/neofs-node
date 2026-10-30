@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support for minimum EC parts required for successful PUT (#4267)
 
 ### Fixed
 - SNs do not support N3 signatures for container service requests (#4258)
