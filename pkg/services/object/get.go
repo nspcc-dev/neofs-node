@@ -42,8 +42,9 @@ var (
 )
 
 type getStreamProgress struct {
-	headWas     bool
-	readPayload int
+	headWas      bool
+	splitInfoWas bool
+	readPayload  int
 }
 
 func callServerStream(ctx context.Context, conn *grpc.ClientConn, method string, streamDesc *grpc.StreamDesc, request any) (grpc.ClientStream, error) {
@@ -106,6 +107,9 @@ func (x *getProxyContext) continueWithConn(ctx context.Context, req mem.Buffer, 
 }
 
 func (x *getProxyContext) validateEOF(reqBody *protoobject.GetRequest_Body, prog getStreamProgress) error {
+	if prog.splitInfoWas {
+		return nil
+	}
 	if reqRange := reqBody.GetRange(); reqRange != nil && reqRange.GetLength() > 0 {
 		if uint64(x.respondedPayload) < reqRange.GetLength() {
 			return io.ErrUnexpectedEOF
@@ -178,14 +182,14 @@ func (x *getProxyContext) handleGetResponse(ctx context.Context, raw bool, strea
 	return false, sent, nil
 }
 
-func handleGetResponseBodyOneof(headWas *bool, buffers iprotobuf.BuffersSlice) (protowire.Number, iprotobuf.BuffersSlice, error) {
+func handleGetResponseBodyOneof(prog *getStreamProgress, buffers iprotobuf.BuffersSlice) (protowire.Number, iprotobuf.BuffersSlice, error) {
 	var oneofNum protowire.Number
 	var oneofFld iprotobuf.BuffersSlice
 
 	var opts protoscan.ScanMessageOptions
 	opts.InterceptBytes = func(num protowire.Number, buffers iprotobuf.BuffersSlice) error {
 		if num == protoobject.FieldGetResponseBodyChunk {
-			if !*headWas {
+			if !prog.headWas || prog.splitInfoWas {
 				return errors.New("incorrect message sequence")
 			}
 			oneofNum, oneofFld = num, buffers
@@ -197,14 +201,14 @@ func handleGetResponseBodyOneof(headWas *bool, buffers iprotobuf.BuffersSlice) (
 		default:
 			return protoscan.ErrContinue
 		case protoobject.FieldGetResponseBodyInit:
-			if *headWas {
+			if prog.headWas || prog.splitInfoWas {
 				return errors.New("incorrect message sequence")
 			}
-			*headWas = true
+			prog.headWas = true
 			oneofNum, oneofFld = num, buffers
 			return nil
 		case protoobject.FieldGetResponseBodySplitInfo:
-			*headWas = true
+			prog.splitInfoWas = true
 			oneofNum, oneofFld = num, buffers
 			return nil
 		}
@@ -216,7 +220,7 @@ func handleGetResponseBodyOneof(headWas *bool, buffers iprotobuf.BuffersSlice) (
 }
 
 func (x *getProxyContext) handleResponseBody(ctx context.Context, raw bool, streamProg *getStreamProgress, respBuf mem.BufferSlice, buffers iprotobuf.BuffersSlice) (bool, error) {
-	oneofNum, oneofFld, err := handleGetResponseBodyOneof(&streamProg.headWas, buffers)
+	oneofNum, oneofFld, err := handleGetResponseBodyOneof(streamProg, buffers)
 	if err != nil {
 		return false, err
 	}
@@ -605,7 +609,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 	var partPldLen uint64
 	var copiedPartPldLen uint64
 
-	var headWas bool
+	var prog getStreamProgress
 	for {
 		var respBuf mem.BufferSlice
 		if err = stream.RecvMsg(&respBuf); err != nil {
@@ -627,8 +631,11 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 
 		if code == protostatus.ObjectNotFound {
 			respBuf.Free()
-			if headWas {
+			if prog.headWas {
 				return false, 0, 0, 0, errors.New("received object not found status after header")
+			}
+			if prog.splitInfoWas {
+				return false, 0, 0, 0, errors.New("received object not found status after split info")
 			}
 			return false, 0, 0, 0, nil
 		}
@@ -640,7 +647,7 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 			return false, 0, 0, 0, getsvc.ErrResponded
 		}
 
-		num, fld, err := handleGetResponseBodyOneof(&headWas, body)
+		num, fld, err := handleGetResponseBodyOneof(&prog, body)
 		if err != nil {
 			respBuf.Free()
 			return false, 0, 0, 0, err
