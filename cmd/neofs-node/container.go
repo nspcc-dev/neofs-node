@@ -589,6 +589,10 @@ func (x *containersInChain) SetAttribute(ctx context.Context, cnr cid.ID, attr, 
 		err = apistatus.ErrContainerAwaitTimeout
 	}
 
+	if err == nil && x.containerCache != nil {
+		x.containerCache.handleChange(cnr)
+	}
+
 	return err
 }
 
@@ -596,6 +600,10 @@ func (x *containersInChain) RemoveAttribute(ctx context.Context, cnr cid.ID, att
 	err := x.cCli.RemoveAttribute(ctx, cnr, attr, validUntil, pub, sig, sessionToken)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {
 		err = apistatus.ErrContainerAwaitTimeout
+	}
+
+	if err == nil && x.containerCache != nil {
+		x.containerCache.handleChange(cnr)
 	}
 
 	return err
