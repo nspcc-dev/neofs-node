@@ -1,6 +1,8 @@
 package control
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -21,6 +23,9 @@ var dropObjectsCmd = &cobra.Command{
 		}
 
 		dropObjectsList, _ := cmd.Flags().GetStringSlice(dropObjectsFlag)
+		if len(dropObjectsList) == 0 {
+			return fmt.Errorf("provide at least one object via --%s flag", dropObjectsFlag)
+		}
 		binAddrList := make([][]byte, len(dropObjectsList))
 
 		for i := range dropObjectsList {
