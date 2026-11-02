@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support of container *AttributeV2 RPC requests (#)
 
 ### Fixed
 - SNs do not support N3 signatures for container service requests (#4258)
