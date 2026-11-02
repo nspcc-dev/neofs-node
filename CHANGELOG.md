@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Support for minimum EC parts required for successful PUT (#4267)
+- Support of container *AttributeV2 RPC requests (#4268)
 
 ### Fixed
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
