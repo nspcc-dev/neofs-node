@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.25` (#)
 
 ### Updating from v0.58.0
 
