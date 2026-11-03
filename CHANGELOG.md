@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support for container policies with limited number of additional nodes (#XXXX)
 
 ### Fixed
 - SNs do not support N3 signatures for container service requests (#4258)
@@ -17,6 +18,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261103171611-aaf88500c567` (#XXXX)
 
 ### Updating from v0.58.0
 
