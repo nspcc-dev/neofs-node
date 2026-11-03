@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - SNs do not support N3 signatures for container service requests (#4258)
 - Incorrect split object's raw ranged GET response stream by SN (#4266)
 - SN container cache not dropped after successful `SetAttribute`/`RemoveAttribute` (#4264)
+- SNs do not support objects signed with N3 scheme via session v2 feature (#4259)
 
 ### Changed
 
