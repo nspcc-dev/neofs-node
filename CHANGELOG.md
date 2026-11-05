@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support of container *AttributeV2 RPC requests (#)
 
 ### Fixed
 - ACL author identity could be spoofed via unverified `BodySignature` on API >=2.26 requests (#4270)
@@ -18,6 +19,8 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.25` (#)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.29.0` (#)
 
 ### Updating from v0.58.0
 
