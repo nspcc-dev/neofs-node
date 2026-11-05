@@ -143,19 +143,19 @@ func TestVerifyRequestSignatures(t *testing.T) {
 func TestGetRequestAuthor(t *testing.T) {
 	t.Run("correctly signed", func(t *testing.T) {
 		t.Run("sig=3", func(t *testing.T) {
-			author, authorPub, err := icrypto.GetRequestAuthor(getObjectRequest3Sig.VerifyHeader)
+			author, authorPub, err := icrypto.GetRequestAuthor(getObjectRequest3Sig.VerifyHeader, getObjectRequest3Sig.MetaHeader)
 			require.NoError(t, err)
 			require.Equal(t, reqAuthorECDSA, author)
 			require.Equal(t, reqSignerECDSAPub, authorPub)
 		})
 		t.Run("sig=2", func(t *testing.T) {
-			author, authorPub, err := icrypto.GetRequestAuthor(getObjectRequest2Sig.VerifyHeader)
+			author, authorPub, err := icrypto.GetRequestAuthor(getObjectRequest2Sig.VerifyHeader, getObjectRequest2Sig.MetaHeader)
 			require.NoError(t, err)
 			require.Equal(t, reqAuthorECDSA, author)
 			require.Equal(t, reqSignerECDSAPub, authorPub)
 		})
 
-		author, authorPub, err := icrypto.GetRequestAuthor(getObjectRequest1Sig.VerifyHeader)
+		author, authorPub, err := icrypto.GetRequestAuthor(getObjectRequest1Sig.VerifyHeader, getObjectRequest1Sig.MetaHeader)
 		require.NoError(t, err)
 		require.Equal(t, reqAuthorECDSA, author)
 		require.Equal(t, reqSignerECDSAPub, authorPub)
@@ -164,21 +164,52 @@ func TestGetRequestAuthor(t *testing.T) {
 		t.Run("nil", func(t *testing.T) {
 			req := proto.Clone(getObjectRequest3Sig).(*protoobject.GetRequest)
 			req.VerifyHeader = nil
-			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
+			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader, req.MetaHeader)
 			require.EqualError(t, err, "missing verification header")
 		})
 		t.Run("without body signature", func(t *testing.T) {
 			req := proto.Clone(getObjectRequest3Sig).(*protoobject.GetRequest)
 			req.VerifyHeader.BodySignature = nil
-			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
+			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader, req.MetaHeader)
 			require.EqualError(t, err, "missing body/request signature")
 		})
 		t.Run("unsupported body signature scheme", func(t *testing.T) {
 			req := proto.Clone(getObjectRequest3Sig).(*protoobject.GetRequest)
 			req.VerifyHeader.BodySignature.Scheme = 4
-			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
+			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader, req.MetaHeader)
 			require.EqualError(t, err, "unsupported scheme 4")
 		})
+		t.Run("single-signature protocol without request signature", func(t *testing.T) {
+			req := proto.Clone(getObjectRequest1Sig).(*protoobject.GetRequest)
+			req.VerifyHeader.RequestSignature = nil
+			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader, req.MetaHeader)
+			require.EqualError(t, err, "missing request signature")
+		})
+	})
+	// Regression test for the BodySignature identity-spoofing bypass: for API
+	// >=2.26 neofs-sdk-go verifies only RequestSignature (multipleReqSignatures
+	// returns false), so a BodySignature naming a different key must never be
+	// trusted as the author, even though it is well-formed and present.
+	t.Run("API >=2.26 ignores a spoofed body signature", func(t *testing.T) {
+		req := proto.Clone(getObjectRequest1Sig).(*protoobject.GetRequest)
+		req.VerifyHeader.BodySignature = &refs.Signature{
+			Key:    []byte("victim_pub_key_look_alike_____"),
+			Sign:   []byte("garbage, never verified"),
+			Scheme: refs.SignatureScheme_ECDSA_SHA512,
+		}
+		author, authorPub, err := icrypto.GetRequestAuthor(req.VerifyHeader, req.MetaHeader)
+		require.NoError(t, err)
+		require.Equal(t, reqAuthorECDSA, author)
+		require.Equal(t, reqSignerECDSAPub, authorPub)
+	})
+	t.Run("API <2.26 still allows a well-formed body signature", func(t *testing.T) {
+		// Sanity check that the old multi-signature protocol (verified by
+		// neofs-sdk-go via its BodySignature check) is untouched by the fix.
+		req := proto.Clone(getObjectRequest3Sig).(*protoobject.GetRequest)
+		author, authorPub, err := icrypto.GetRequestAuthor(req.VerifyHeader, req.MetaHeader)
+		require.NoError(t, err)
+		require.Equal(t, reqAuthorECDSA, author)
+		require.Equal(t, reqSignerECDSAPub, authorPub)
 	})
 }
 
