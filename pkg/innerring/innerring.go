@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -901,12 +902,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	initTimers(server, cfg, settlementProcessor)
+	err = initTimers(server, cfg, settlementProcessor)
+	if err != nil {
+		return nil, fmt.Errorf("timers init: %w", err)
+	}
 
 	return server, nil
 }
 
-func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement.Processor) {
+func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement.Processor) error {
 	basicIncomeTick, stopBasicIncomeFunc := util.SingleAsyncExecutingInstance(func() {
 		epochN := server.EpochCounter()
 		if epochN == 0 { // estimates are invalid in genesis epoch
@@ -920,8 +924,14 @@ func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement
 	epochH, stopEpochHandlerFunc := util.SingleAsyncExecutingInstance(server.netmapProcessor.HandleNewEpochTick)
 	server.closers = append(server.closers, func() error { stopEpochHandlerFunc(); return nil })
 
+	epochDuration, err := server.netmapClient.EpochDuration()
+	if err != nil {
+		return fmt.Errorf("can't read epoch duration: %w", err)
+	}
+
 	ticks := timers.EpochTicks{
-		NewEpochTicks: []timers.Tick{epochH},
+		InitialEpochDuration: epochDuration * uint64(time.Second/time.Millisecond),
+		NewEpochTicks:        []timers.Tick{epochH},
 		DeltaTicks: []timers.SubEpochTick{
 			{
 				Tick:     basicIncomeTick,
@@ -932,6 +942,8 @@ func initTimers(server *Server, cfg *config.Config, paymentProcessor *settlement
 	}
 
 	server.epochTimers = timers.NewTimers(ticks)
+
+	return nil
 }
 
 func createListener(cli *client.Client, p chainParams) (event.Listener, error) {
