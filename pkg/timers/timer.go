@@ -41,7 +41,7 @@ type (
 // [EpochTimers.UpdateTime].
 type EpochTimers struct {
 	m          sync.Mutex
-	done       bool
+	epochDur   uint64 // epoch duration in milliseconds
 	nextTickAt uint64 // timestamp with milliseconds precision as in NEO's blocks
 
 	eHandlers     []Tick
@@ -55,15 +55,16 @@ func (et *EpochTimers) UpdateTime(curr uint64) {
 	et.m.Lock()
 	defer et.m.Unlock()
 
-	if et.done {
-		return
-	}
-
 	if et.nextTickAt <= curr {
 		for _, h := range et.eHandlers {
 			h()
 		}
-		et.done = true
+		// prevent epoch stuck: even if smth is wrong with the epochs,
+		// the next tick will be done in time; if everything is ok,
+		// the following Reset call will tune the next tick more precisely
+		if et.epochDur != 0 {
+			et.nextTickAt = curr + et.epochDur
+		}
 	}
 	for _, dh := range et.deltaHandlers {
 		if !dh.done && dh.nextTickAt <= curr {
@@ -80,8 +81,8 @@ func (et *EpochTimers) Reset(lastTick, dur uint64) {
 	et.m.Lock()
 	defer et.m.Unlock()
 
+	et.epochDur = dur
 	et.nextTickAt = lastTick + dur
-	et.done = false
 
 	for _, dh := range et.deltaHandlers {
 		dh.nextTickAt = lastTick + dur*dh.mul/dh.div
