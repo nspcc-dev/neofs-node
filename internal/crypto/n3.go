@@ -9,6 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
@@ -51,6 +52,17 @@ func verifyN3ScriptsAtTime(fsChain HistoricN3ScriptRunner, t time.Time, acc util
 }
 
 func verifyN3Scripts(nsr N3ScriptRunner, height uint32, acc util.Uint160, invocScript, verifScript []byte, dataHash [sha256.Size]byte) error {
+	// Canonical Neo witness rule: a verification script only witnesses for the
+	// account it hashes to. InvokeContainedScript (unlike real transaction
+	// verification) does not enforce this itself - it just runs invocScript++
+	// verifScript and reports whether the result is truthy, so acc is otherwise
+	// pure metadata that the executed script is never required to match. Without
+	// this check, any halting verifScript (e.g. a bare PUSH1) would "witness" for
+	// an arbitrary claimed account.
+	if !acc.Equals(hash.Hash160(verifScript)) {
+		return errors.New("verification script does not correspond to the expected account")
+	}
+
 	fullScript := slices.Concat(invocScript, verifScript)
 	signer := transaction.Signer{
 		Account: acc,
