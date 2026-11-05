@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support for container policies with limited number of additional nodes (#XXXX)
 
 ### Fixed
 - ACL author identity could be spoofed via unverified `BodySignature` on API >=2.26 requests (#4270)
@@ -12,12 +13,14 @@ Changelog for NeoFS Node
 - Incorrect split object's raw ranged GET response stream by SN (#4266)
 - SN container cache not dropped after successful `SetAttribute`/`RemoveAttribute` (#4264)
 - SNs do not support objects signed with N3 scheme via session v2 feature (#4259)
+- Unchecked EC rules in created containers on SN side (#XXXX)
 
 ### Changed
 
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261103171611-aaf88500c567` (#XXXX)
 
 ### Updating from v0.58.0
 

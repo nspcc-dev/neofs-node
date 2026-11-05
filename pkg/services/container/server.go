@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -28,7 +27,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
-	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -380,54 +378,6 @@ func (s *Server) makeFailedPutResponse(err error, req *protocontainer.PutRequest
 	return s.makePutResponse(nil, err, req)
 }
 
-const (
-	maxObjectReplicasPerSet = 8
-	maxContainerNodesInSet  = 64
-	maxContainerNodeSets    = 256
-	maxContainerNodes       = 512
-)
-
-const defaultBackupFactor = 3
-
-var errInvalidNodeSetDesc = errors.New("invalid node set descriptor")
-
-func verifyStoragePolicy(policy *protonetmap.PlacementPolicy) error {
-	if len(policy.Replicas) > maxContainerNodeSets {
-		return fmt.Errorf("more than %d node sets", maxContainerNodeSets)
-	}
-	bf := policy.ContainerBackupFactor
-	if bf == 0 {
-		bf = defaultBackupFactor
-	}
-	var cnrNodeCount uint32
-	for i := range policy.Replicas {
-		if policy.Replicas[i] == nil {
-			return fmt.Errorf("nil replica #%d", i)
-		}
-		if policy.Replicas[i].Count > maxObjectReplicasPerSet {
-			return fmt.Errorf("%w #%d: more than %d object replicas", errInvalidNodeSetDesc, i, maxObjectReplicasPerSet)
-		}
-		var sNum uint32
-		if policy.Replicas[i].Selector != "" {
-			si := slices.IndexFunc(policy.Selectors, func(s *protonetmap.Selector) bool { return s != nil && s.Name == policy.Replicas[i].Selector })
-			if si < 0 {
-				return fmt.Errorf("%w #%d: missing selector %q", errInvalidNodeSetDesc, i, policy.Replicas[i].Selector)
-			}
-			sNum = policy.Selectors[si].Count
-		} else {
-			sNum = policy.Replicas[i].Count
-		}
-		nodesInSet := bf * sNum
-		if nodesInSet > maxContainerNodesInSet {
-			return fmt.Errorf("%w #%d: more than %d nodes", errInvalidNodeSetDesc, i, maxContainerNodesInSet)
-		}
-		if cnrNodeCount += nodesInSet; cnrNodeCount > maxContainerNodes {
-			return fmt.Errorf("more than %d nodes in total", maxContainerNodes)
-		}
-	}
-	return nil
-}
-
 // Put forwards container creation request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified. Returns ID
 // to check request status in the response.
@@ -459,13 +409,14 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 	if mCnr.PlacementPolicy == nil {
 		return s.makeFailedPutResponse(errors.New("missing storage policy"), req)
 	}
-	if err := verifyStoragePolicy(mCnr.PlacementPolicy); err != nil {
-		return s.makeFailedPutResponse(fmt.Errorf("invalid storage policy: %w", err), req)
-	}
 
 	var cnr container.Container
 	if err := cnr.FromProtoMessage(mCnr); err != nil {
 		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err), req)
+	}
+
+	if err := cnr.PlacementPolicy().Verify(); err != nil {
+		return s.makeFailedPutResponse(fmt.Errorf("invalid storage policy: %w", err), req)
 	}
 
 	var reqMetaHeader = req.GetMetaHeader()
