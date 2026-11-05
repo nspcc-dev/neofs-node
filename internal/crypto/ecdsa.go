@@ -3,7 +3,6 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"errors"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -17,9 +16,6 @@ var verifyECDSAFns = map[neofscrypto.Scheme]func(_ ecdsa.PublicKey, sig, data []
 }
 
 func decodeECDSAPublicKey(b []byte) (*ecdsa.PublicKey, error) {
-	if len(b) > 0 && b[0] == 0x00 {
-		return nil, errors.New("invalid prefix 0")
-	}
 	pub, err := keys.NewPublicKeyFromBytes(b, elliptic.P256())
 	if err != nil {
 		return nil, err

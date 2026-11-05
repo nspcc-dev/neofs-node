@@ -193,7 +193,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 				{name: "empty", err: "EOF", changePub: func([]byte) []byte { return []byte{} }},
 				{name: "undersize", err: "unexpected EOF", changePub: func(k []byte) []byte { return k[:len(k)-1] }},
 				{name: "oversize", err: "extra data", changePub: func(k []byte) []byte { return append(k, 1) }},
-				{name: "prefix 0", err: "invalid prefix 0", changePub: func(k []byte) []byte { return []byte{0x00} }},
+				{name: "prefix 0", err: "point at infinity is not a valid key", changePub: func(k []byte) []byte { return []byte{0x00} }},
 				{name: "prefix 1", err: "invalid prefix 1", changePub: func(k []byte) []byte { return []byte{0x01} }},
 				{name: "prefix 4", err: "EOF", changePub: func(k []byte) []byte { return []byte{0x04} }},
 				{name: "prefix 5", err: "invalid prefix 5", changePub: func(k []byte) []byte { return []byte{0x05} }},
