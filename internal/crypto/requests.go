@@ -87,7 +87,10 @@ func GetRequestAuthor(vh *protosession.RequestVerificationHeader) (user.ID, []by
 	case refs.SignatureScheme_ECDSA_SHA512, refs.SignatureScheme_ECDSA_RFC6979_SHA256, refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
 		// TODO: being called with VerifyRequestSignatures, public key is decoded twice.
 		//  Not so big overhead, but still better to avoid this
-		ecdsaPub, _ := decodeECDSAPublicKey(sig.Key)
+		ecdsaPub, err := decodeECDSAPublicKey(sig.Key)
+		if err != nil {
+			return user.ID{}, nil, fmt.Errorf("invalid ECDSA key: %w", err)
+		}
 		return user.NewFromECDSAPublicKey(*ecdsaPub), sig.Key, nil
 	case refs.SignatureScheme_N3:
 		return user.NewFromScriptHash(hash.Hash160(sig.Key)), sig.Key, nil
