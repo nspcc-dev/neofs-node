@@ -67,18 +67,34 @@ func requestNeedsSignature[B protoencoding.Message](ctx context.Context, req neo
 }
 
 // GetRequestAuthor returns ID of the request author along with public key from
-// the request verification header.
-func GetRequestAuthor(vh *protosession.RequestVerificationHeader) (user.ID, []byte, error) {
+// the request verification header. meta is the request's meta header: which
+// signature carries verified authorship depends on the request's declared API
+// version, exactly as in neofs-sdk-go's request signature verification, so
+// the two must never be decided independently.
+func GetRequestAuthor(vh *protosession.RequestVerificationHeader, meta *protosession.RequestMetaHeader) (user.ID, []byte, error) {
 	if vh == nil {
 		return user.ID{}, nil, errors.New("missing verification header")
 	}
 
-	var sig = vh.BodySignature
-	if sig == nil {
-		if vh.RequestSignature == nil {
-			return user.ID{}, nil, errors.New("missing body/request signature")
-		}
+	var sig *refs.Signature
+	if singleRequestSignature(meta) {
+		// For this API version, neofs-sdk-go verifies RequestSignature only
+		// (see multipleReqSignatures in neofs-sdk-go/crypto/proto.go);
+		// BodySignature carries no verified authentication and must be
+		// ignored for identity, or a caller could pass verification with
+		// their own key while naming an arbitrary victim as the author.
 		sig = vh.RequestSignature
+		if sig == nil {
+			return user.ID{}, nil, errors.New("missing request signature")
+		}
+	} else {
+		sig = vh.BodySignature
+		if sig == nil {
+			if vh.RequestSignature == nil {
+				return user.ID{}, nil, errors.New("missing body/request signature")
+			}
+			sig = vh.RequestSignature
+		}
 	}
 
 	switch sig.Scheme {
@@ -92,4 +108,15 @@ func GetRequestAuthor(vh *protosession.RequestVerificationHeader) (user.ID, []by
 	case refs.SignatureScheme_N3:
 		return user.NewFromScriptHash(hash.Hash160(sig.Key)), sig.Key, nil
 	}
+}
+
+// singleRequestSignature reports whether a request declaring this meta header
+// is, per the NeoFS API protocol, authenticated by a single RequestSignature
+// rather than the older per-field signature set. This must mirror
+// multipleReqSignatures in neofs-sdk-go/crypto/proto.go (negated): that is the
+// function that actually decides, during signature verification, which
+// field(s) are checked.
+func singleRequestSignature(m *protosession.RequestMetaHeader) bool {
+	return m != nil && m.Version != nil &&
+		(m.Version.Major > 2 || (m.Version.Major == 2 && m.Version.Minor >= 26))
 }

@@ -297,7 +297,7 @@ func getRequestCredentials(ctx context.Context, req interface {
 	if tokens.SessionV1 != nil {
 		return getCredentialsFromSessionV1Token(*tokens.SessionV1)
 	}
-	return icrypto.GetRequestAuthor(verifyHeader)
+	return icrypto.GetRequestAuthor(verifyHeader, req.GetMetaHeader())
 }
 
 type sessionTokenV2WithEncodedBody struct {

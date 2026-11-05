@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- ACL author identity could be spoofed via unverified `BodySignature` on API >=2.26 requests
 - SNs do not support N3 signatures for container service requests (#4258)
 - Incorrect split object's raw ranged GET response stream by SN (#4266)
 - SN container cache not dropped after successful `SetAttribute`/`RemoveAttribute` (#4264)
