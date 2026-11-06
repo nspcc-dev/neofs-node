@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - SNs do not support objects signed with N3 scheme via session v2 feature (#4259)
 - SN panics if container put RPC was received without optional eACL table signature (#4275)
 - Object service session tokens were not bound to the request signer (#4277)
+- IR might sign unknown contract call in container put routine (#4279)
 
 ### Changed
 
