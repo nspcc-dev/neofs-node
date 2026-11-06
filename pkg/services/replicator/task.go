@@ -15,6 +15,14 @@ type Task struct {
 	obj *object.Object
 
 	nodes []netmap.NodeInfo
+
+	objectFilter func([]byte) bool
+}
+
+// SetObjectFilter sets a pre-send check of serialized object bytes.
+// Returning false stops the task. The check runs synchronously in HandleTask.
+func (t *Task) SetObjectFilter(f func([]byte) bool) {
+	t.objectFilter = f
 }
 
 // SetCopiesNumber sets number of copies to replicate.

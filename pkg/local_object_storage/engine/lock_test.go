@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -22,6 +23,62 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
+
+func TestStorageEngine_DeleteExpiredSplitPart(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		complete bool
+		lock     bool
+		degraded bool
+		deleted  bool
+	}{
+		{name: "orphan", deleted: true},
+		{name: "parent in another shard", complete: true},
+		{name: "root LOCK without local LINK or last part", lock: true},
+		{name: "unavailable metadata", degraded: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := testEngineFromShardOpts(t, 2, nil)
+			t.Cleanup(func() { require.NoError(t, e.Close()) })
+			shards := e.unsortedShards()
+			cnr := cidtest.ID()
+			parent := generateObjectWithCID(cnr)
+			incomplete := *parent
+			incomplete.ResetID()
+			first := generateObjectWithCID(cnr)
+			first.SetParent(&incomplete)
+			require.NoError(t, shards[0].Put(first, nil))
+			if tc.complete {
+				last := generateObjectWithCID(cnr)
+				last.SetFirstID(first.GetID())
+				last.SetParent(parent)
+				require.NoError(t, shards[1].Put(last, nil))
+			}
+			if tc.lock {
+				locker := generateObjectWithCID(cnr)
+				locker.AssociateLocked(parent.GetID())
+				addExpirationAttribute(locker, 1000)
+				require.NoError(t, shards[1].Put(locker, nil))
+			}
+			if tc.degraded {
+				require.NoError(t, shards[1].SetMode(mode.DegradedReadOnly))
+			}
+			deleted, err := e.DeleteExpiredSplitPart(context.Background(), first.Address())
+			if tc.degraded {
+				require.ErrorIs(t, err, shard.ErrDegradedMode)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tc.deleted, deleted)
+			_, err = e.Head(context.Background(), first.Address(), true)
+			if tc.deleted {
+				require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
 
 func TestLockUserScenario(t *testing.T) {
 	// Tested user actions:

@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Incorrect split object's raw ranged GET response stream by SN (#4266)
 - SN container cache not dropped after successful `SetAttribute`/`RemoveAttribute` (#4264)
 - SNs do not support objects signed with N3 scheme via session v2 feature (#4259)
+- Attempts to replicate expired split parts left by incomplete uploads (#4276)
 
 ### Changed
 
