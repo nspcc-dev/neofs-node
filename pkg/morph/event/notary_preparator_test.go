@@ -30,7 +30,8 @@ var (
 	dummyAlphabetInvocationScriptOld = append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...) // expected to be dummy if generated manually
 	wrongDummyInvocationScript       = append([]byte{byte(opcode.PUSHDATA1), 64, 1}, make([]byte, 63)...)
 
-	scriptHash util.Uint160
+	scriptHash        util.Uint160
+	scriptHashAnother util.Uint160
 )
 
 func init() {
@@ -45,6 +46,7 @@ func init() {
 	wrongAlphaKeys = keys.PublicKeys{wrongPub}
 
 	scriptHash, _ = util.Uint160DecodeStringLE("21fce15191428e9c2f0e8d0329ff6d3dd14882de")
+	scriptHashAnother, _ = util.Uint160DecodeStringLE("6e0f547bf7289daee916d25b985626fc98ee6271")
 }
 
 type blockCounter struct {
@@ -93,6 +95,19 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 			_, err := preparator.Prepare(nr)
 
 			require.ErrorContains(t, err, "failed to parse arguments: failed to parse SYSCALL: System.Contract.Call requires 4 parameters, got 3")
+		})
+
+		t.Run("contract calls of different contracts", func(t *testing.T) {
+			bw := io.NewBufBinWriter()
+
+			emit.AppCall(bw.BinWriter, scriptHash, contractMethod, callflag.All, 1, 2, 3)
+			emit.AppCall(bw.BinWriter, scriptHashAnother, contractMethod+"_another", callflag.All, 3, 2, 1)
+
+			nr := correctNR(bw.Bytes(), dummyMultisig, false)
+
+			_, err := preparator.Prepare(nr)
+
+			require.ErrorContains(t, err, "multiple notary contract calls with different script hashes: 0: de8248d13d6dff29038d0e2f9c8e429151e1fc21 (method: 'test'), 1: 7162ee98fc2656985bd216e9ae9d28f77b540f6e (method: 'test_another')")
 		})
 	}
 }

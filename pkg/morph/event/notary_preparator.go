@@ -196,6 +196,12 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) ([]NotaryEvent, error)
 			return nil, fmt.Errorf("parsing %d call: %w", i, err)
 		}
 
+		if len(res) > 0 && res[0].ScriptHash() != ev.ScriptHash() {
+			return nil, fmt.Errorf(
+				"multiple notary contract calls with different script hashes: 0: %s (method: '%s'), %d: %s (method: '%s')",
+				res[0].ScriptHash(), res[0].Type(), i, ev.ScriptHash(), ev.Type())
+		}
+
 		res = append(res, ev)
 	}
 	// not required checks but this must always be this way
