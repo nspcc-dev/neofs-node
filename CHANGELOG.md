@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Incorrect split object's raw ranged GET response stream by SN (#4266)
 - SN container cache not dropped after successful `SetAttribute`/`RemoveAttribute` (#4264)
 - SNs do not support objects signed with N3 scheme via session v2 feature (#4259)
+- SN panics if container put RPC was received without optional eACL table signature (#4275)
 
 ### Changed
 

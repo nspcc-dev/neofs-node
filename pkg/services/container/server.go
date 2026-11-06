@@ -508,8 +508,17 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		}
 
 		sig := reqBody.GetEaclSignature()
-		eaclSig = sig.Sign
-		eaclPub = sig.Key
+		if sig == nil {
+			return s.makeFailedPutResponse(errors.New("missing signature message for optional eACL table"), req)
+		}
+		eaclSig = sig.GetSign()
+		if eaclSig == nil {
+			return s.makeFailedPutResponse(errors.New("missing signature for optional eACL table"), req)
+		}
+		eaclPub = sig.GetKey()
+		if eaclPub == nil {
+			return s.makeFailedPutResponse(errors.New("missing signature key for optional eACL table"), req)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
