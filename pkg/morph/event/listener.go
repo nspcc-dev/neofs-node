@@ -321,7 +321,7 @@ func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotifi
 
 func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	// prepare the notary event
-	notaryEvent, err := l.notaryEventsPreparator.Prepare(nr.NotaryRequest)
+	notaryEvents, err := l.notaryEventsPreparator.Prepare(nr.NotaryRequest)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrTXAlreadyHandled) || errors.Is(err, ErrUnknownEvent):
@@ -338,12 +338,12 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 		return
 	}
 
-	typ := notaryEvent[0].Type()
-	sh := notaryEvent[0].ScriptHash()
+	typ := notaryEvents[0].Type()
+	sh := notaryEvents[0].ScriptHash()
 	log := l.log.With(
 		zap.String("contract", sh.StringLE()),
 		zap.Stringer("method", typ),
-		zap.Int("numberOfCalls", len(notaryEvent)),
+		zap.Int("numberOfCalls", len(notaryEvents)),
 	)
 
 	notaryKey := notaryRequestTypes{}
@@ -362,7 +362,7 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	}
 
 	// parse the notary event
-	event, err := parser(notaryEvent)
+	event, err := parser(notaryEvents)
 	if err != nil {
 		log.Warn("could not parse notary event",
 			zap.Error(err),
