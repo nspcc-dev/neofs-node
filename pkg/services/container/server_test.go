@@ -24,6 +24,7 @@ import (
 	eacltest "github.com/nspcc-dev/neofs-sdk-go/eacl/test"
 	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
+	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
@@ -478,6 +479,97 @@ func TestSessionVerb(t *testing.T) {
 	require.Nil(t, delResp.VerifyHeader)
 	require.NotNil(t, delResp.MetaHeader)
 	require.Zero(t, delResp.MetaHeader.Status)
+}
+
+func TestServer_Put(t *testing.T) {
+	const currentEpoch = 10
+	var (
+		ctx   = context.Background()
+		usr   = usertest.User()
+		state = &testNodeState{
+			epoch: currentEpoch,
+		}
+
+		fsChain      unimplementedFSChain
+		cnrContract  unimplementedContainerContract
+		nmContract   unimplementedNetmapContract
+		timeProvider testTimeProvider
+
+		svc = containerSvc.New(&usr.ECDSAPrivateKey, state, fsChain, cnrContract, nmContract, timeProvider)
+
+		nonce = uuid.New()
+		mCnr  = &protocontainer.Container{
+			Version: version.Current().ProtoMessage(),
+			OwnerId: usr.ID.ProtoMessage(),
+			Nonce:   nonce[:],
+			PlacementPolicy: &protonetmap.PlacementPolicy{
+				Replicas: []*protonetmap.Replica{{Count: 1}},
+			},
+		}
+	)
+
+	t.Run("missing eACL signature", func(t *testing.T) {
+		var cnr container.Container
+		require.NoError(t, cnr.FromProtoMessage(mCnr))
+		cID := cid.NewFromMarshalledContainer(cnr.Marshal())
+
+		req := &protocontainer.PutRequest{
+			Body: &protocontainer.PutRequest_Body{
+				Container: mCnr,
+				Signature: &refs.SignatureRFC6979{
+					Key:  usr.PublicKeyBytes,
+					Sign: []byte("any signature"),
+				},
+				Eacl: &protoacl.EACLTable{
+					ContainerId: cID.ProtoMessage(),
+				},
+				// EaclSignature deliberately omitted.
+			},
+			MetaHeader: &protosession.RequestMetaHeader{
+				Version:        &refs.Version{Major: version.Current().Major(), Minor: version.Current().Minor()},
+				ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
+			},
+		}
+
+		// missing signature message
+
+		var err error
+		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(usr, req, nil)
+		require.NoError(t, err)
+
+		resp, err := svc.Put(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		require.EqualValues(t, 1024, resp.MetaHeader.Status.Code)
+		require.Equal(t, "missing signature message for optional eACL table", resp.MetaHeader.Status.Message)
+
+		// missing signature
+
+		req.Body.EaclSignature = &refs.SignatureRFC6979{}
+		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(usr, req, nil)
+		require.NoError(t, err)
+
+		resp, err = svc.Put(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		require.EqualValues(t, 1024, resp.MetaHeader.Status.Code)
+		require.Equal(t, "missing signature for optional eACL table", resp.MetaHeader.Status.Message)
+
+		// missing signature key
+
+		req.Body.EaclSignature = &refs.SignatureRFC6979{Sign: []byte("any signature")}
+		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(usr, req, nil)
+		require.NoError(t, err)
+
+		resp, err = svc.Put(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		require.EqualValues(t, 1024, resp.MetaHeader.Status.Code)
+		require.Equal(t, "missing signature key for optional eACL table", resp.MetaHeader.Status.Message)
+	})
 }
 
 func TestServer_SetExtendedACL_InvalidRequest(t *testing.T) {
