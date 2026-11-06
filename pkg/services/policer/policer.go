@@ -32,6 +32,7 @@ type localStorage interface {
 	Delete(context.Context, oid.Address, engine.GarbageMark) error
 	OptimizeShardLocation(context.Context, oid.Address, oid.ID, []string) (bool, error)
 	Put(context.Context, *object.Object, []byte) error
+	DeleteExpiredSplitPart(context.Context, oid.Address) (bool, error)
 	Head(context.Context, oid.Address, bool) (*object.Object, error)
 	HeadECPart(context.Context, cid.ID, oid.ID, iec.PartInfo) (object.Object, error)
 	GetRange(context.Context, oid.Address, uint64, uint64) ([]byte, error)
@@ -65,6 +66,8 @@ type Option func(*cfg)
 type (
 	// Network provides information about the NeoFS network to Policer for work.
 	Network interface {
+		// CurrentEpoch returns the latest known NeoFS epoch.
+		CurrentEpoch() uint64
 		// IsLocalNodeInNetmap checks whether the local node belongs to the current
 		// network map. If it is impossible to check this fact, IsLocalNodeInNetmap
 		// returns false.
@@ -140,6 +143,7 @@ type cfg struct {
 	rebalanceFreq time.Duration
 
 	network Network
+	now     func() time.Time
 }
 
 type nopMetricsCollector struct{}
@@ -155,6 +159,7 @@ func (nopMetricsCollector) IncPolicerObjectRelocated()      {}
 func defaultCfg() *cfg {
 	return &cfg{
 		log:           zap.L(),
+		now:           time.Now,
 		batchSize:     10,
 		rebalanceFreq: 1 * time.Second,
 		repCooldown:   1 * time.Second,
@@ -242,6 +247,13 @@ func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 func WithReplicator(v *replicator.Replicator) Option {
 	return func(c *cfg) {
 		c.replicator = v
+	}
+}
+
+// WithTimeSource sets the chain clock used to check object expiration.
+func WithTimeSource(now func() time.Time) Option {
+	return func(c *cfg) {
+		c.now = now
 	}
 }
 

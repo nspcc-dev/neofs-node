@@ -237,6 +237,7 @@ func initObjectService(c *cfg) {
 		policer.WithHeadTimeout(c.appCfg.Policer.HeadTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithNetwork(c),
+		policer.WithTimeSource(c.chainTime.Now),
 		policer.WithReplicationCooldown(c.appCfg.Policer.ReplicationCooldown),
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 		policer.WithBoostMultiplier(c.appCfg.Policer.BoostMultiplier),

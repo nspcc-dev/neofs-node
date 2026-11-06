@@ -54,6 +54,9 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		}
 		stream = bytes.NewReader(objBin)
 	}
+	if task.objectFilter != nil && !task.objectFilter(objBin) {
+		return
+	}
 	if len(task.nodes) > 1 {
 		stream = client.DemuxReplicatedObject(stream)
 	}

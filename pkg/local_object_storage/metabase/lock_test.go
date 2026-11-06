@@ -20,6 +20,64 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDB_CanDeleteExpiredSplitPart(t *testing.T) {
+	for _, usesTime := range []bool{false, true} {
+		t.Run(fmt.Sprintf("time=%t", usesTime), func(t *testing.T) {
+			var clock chaintime.AtomicChainTimeProvider
+			clock.Set(99000)
+			es := &epochState{e: 1}
+			db := newDB(t, meta.WithEpochState(es), meta.WithTimeSource(clock.Now))
+			cnr := cidtest.ID()
+			addr := oid.NewAddress(cnr, oidtest.ID())
+			canDelete, err := db.CanDeleteExpiredSplitPart(addr)
+			require.NoError(t, err)
+			require.True(t, canDelete)
+
+			locker := generateObjectWithCID(t, cnr)
+			locker.AssociateLocked(oidtest.ID()) // The locked parent need not exist locally.
+			if usesTime {
+				require.NoError(t, locker.SetExpirationTime(time.Unix(100, 0)))
+			} else {
+				locker.SetExpirationEpoch(2) //nolint:staticcheck // Test legacy expiration.
+			}
+			require.NoError(t, db.Put(locker))
+			canDelete, err = db.CanDeleteExpiredSplitPart(addr)
+			require.NoError(t, err)
+			require.False(t, canDelete)
+			canDelete, err = db.CanDeleteExpiredSplitPart(oidtest.Address())
+			require.NoError(t, err)
+			require.True(t, canDelete)
+
+			es.e = 2
+			clock.Set(100000)
+			canDelete, err = db.CanDeleteExpiredSplitPart(addr)
+			require.NoError(t, err)
+			require.False(t, canDelete, "LOCK remains active at the expiration boundary")
+			es.e = 3
+			clock.Set(101000)
+			canDelete, err = db.CanDeleteExpiredSplitPart(addr)
+			require.NoError(t, err)
+			require.True(t, canDelete)
+
+			active := generateObjectWithCID(t, cnr)
+			active.AssociateLocked(oidtest.ID())
+			require.NoError(t, active.SetExpirationTime(time.Unix(1000, 0)))
+			require.NoError(t, db.Put(active))
+			canDelete, err = db.CanDeleteExpiredSplitPart(addr)
+			require.NoError(t, err)
+			require.False(t, canDelete, "an expired LOCK must not hide an active one")
+			_, err = db.MarkGarbage(cnr, []oid.ID{active.GetID()}, meta.GarbageMarkDefault)
+			require.NoError(t, err)
+			canDelete, err = db.CanDeleteExpiredSplitPart(addr)
+			require.NoError(t, err)
+			require.True(t, canDelete)
+			require.NoError(t, db.SetMode(mode.Degraded))
+			_, err = db.CanDeleteExpiredSplitPart(addr)
+			require.ErrorIs(t, err, meta.ErrDegradedMode)
+		})
+	}
+}
+
 func TestDB_GetLockID(t *testing.T) {
 	db := newDB(t)
 

@@ -78,6 +78,10 @@ func (s *storageListerWithDelay) Put(_ context.Context, o *object.Object, i []by
 	panic("do not call me")
 }
 
+func (s *storageListerWithDelay) DeleteExpiredSplitPart(context.Context, oid.Address) (bool, error) {
+	panic("do not call me")
+}
+
 func (s *storageListerWithDelay) Head(_ context.Context, address oid.Address, b bool) (*object.Object, error) {
 	panic("do not call me")
 }
@@ -1643,6 +1647,8 @@ func (x *testReplicator) HandleTask(ctx context.Context, task replicator.Task, r
 		x.onTask(task, successfulNodes)
 	}
 
+	// Ignore the callback when comparing tasks.
+	task.SetObjectFilter(nil)
 	// Prevent collisions on subsequent iterations
 	_ = x.task.CompareAndSwap(nil, task)
 }
@@ -1652,6 +1658,9 @@ type testLocalNode struct {
 	obj       object.Object
 	objECRule int
 	objECPart int
+
+	preserveExpiredPart bool
+	expiredPartErr      error
 
 	delMtx                sync.RWMutex
 	del                   map[oid.Address]struct{}
@@ -1682,11 +1691,14 @@ type mockNetwork struct {
 	pubKey []byte
 
 	inNetmap bool
+	epoch    uint64
 
 	mtx            sync.RWMutex
 	getNodes       map[getNodesKey]getNodesValue
 	getNodesCalled map[getNodesKey]uint64
 }
+
+func (x *mockNetwork) CurrentEpoch() uint64 { return x.epoch }
 
 func newMockNetwork() *mockNetwork {
 	return &mockNetwork{
@@ -1808,6 +1820,16 @@ func (x *testLocalNode) deletedShardCopies(addr oid.Address) []string {
 	res := slices.Clone(x.delByShard[addr])
 	x.delMtx.RUnlock()
 	return res
+}
+
+func (x *testLocalNode) DeleteExpiredSplitPart(ctx context.Context, addr oid.Address) (bool, error) {
+	if x.expiredPartErr != nil {
+		return false, x.expiredPartErr
+	}
+	if x.preserveExpiredPart {
+		return false, nil
+	}
+	return true, x.Delete(ctx, addr, engine.GarbageMarkDefault)
 }
 
 func (x *testLocalNode) Delete(_ context.Context, addr oid.Address, _ engine.GarbageMark) error {

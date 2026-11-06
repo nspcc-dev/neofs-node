@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -177,6 +178,9 @@ func (p *Policer) processObject(ctx context.Context, addrWithAttrs objectcore.Ad
 		}
 
 		p.processNodes(ctx, c, nn[i], uint32(repRules[i]))
+		if c.stopReplication {
+			return
+		}
 	}
 
 	// if context is done, needLocalCopy might not be able to calculate
@@ -240,6 +244,8 @@ type processPlacementContext struct {
 	// or when such nodes fail replica check). Can be true only along with
 	// localNodeInContainer.
 	needLocalCopy bool
+
+	stopReplication bool
 
 	// descriptor of the object for which the policy is being checked
 	object objectcore.AddressWithAttributes
@@ -350,7 +356,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Uint32("shortage", shortage),
 		)
 
-		p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, plc.checkedNodes)
+		plc.stopReplication = !p.tryToReplicate(ctx, plc.object.Address, shortage, candidates, plc.checkedNodes)
 	} else if len(candidates) > 0 {
 		// The required number of replicas exists, but some primary placement
 		// nodes are missing the object. Replicate to them so that the placement
@@ -363,7 +369,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			zap.Int("misplaced", len(candidates)),
 		)
 
-		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, plc.checkedNodes)
+		plc.stopReplication = !p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, plc.checkedNodes)
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
@@ -418,11 +424,61 @@ func (p *Policer) optimizeLocalShardLocation(ctx context.Context, obj objectcore
 	}
 }
 
-func (p *Policer) tryToReplicate(ctx context.Context, addr oid.Address, shortage uint32, candidates []netmap.NodeInfo, res replicator.TaskResult) {
+func (p *Policer) tryToReplicate(ctx context.Context, addr oid.Address, shortage uint32, candidates []netmap.NodeInfo, res replicator.TaskResult) bool {
+	allowed := true
 	var task replicator.Task
+	task.SetObjectFilter(func(data []byte) bool {
+		allowed = p.checkReplication(ctx, addr, data)
+		return allowed
+	})
 	task.SetObjectAddress(addr)
 	task.SetNodes(candidates)
 	task.SetCopiesNumber(shortage)
 
 	p.replicator.HandleTask(ctx, task, res)
+	return allowed
+}
+
+// checkReplication filters first parts with expired, unindexed parent headers.
+func (p *Policer) checkReplication(ctx context.Context, addr oid.Address, data []byte) bool {
+	hdr, _, err := iobject.ExtractHeaderAndPayload(data)
+	if err != nil {
+		p.log.Warn("could not decode object before replication", zap.Stringer("object", addr), zap.Error(err))
+		return false
+	}
+	parent := hdr.Parent()
+	if hdr.Type() != object.TypeRegular || parent == nil || !parent.GetID().IsZero() || !hdr.GetFirstID().IsZero() || hdr.SplitID() != nil {
+		return true
+	}
+
+	exp, err := objectcore.Expiration(*parent)
+	expTime := parent.ExpirationTime()
+	var expired bool
+	switch {
+	case !expTime.IsZero():
+		if expTime.Unix() <= 0 || !errors.Is(err, objectcore.ErrNoExpiration) {
+			p.log.Warn("invalid parent expiration before replication", zap.Stringer("object", addr))
+			return false
+		}
+		expired = p.now().Unix() > expTime.Unix()
+	case errors.Is(err, objectcore.ErrNoExpiration):
+		return true
+	case err != nil:
+		p.log.Warn("could not decode parent expiration before replication", zap.Stringer("object", addr), zap.Error(err))
+		return false
+	default:
+		expired = p.network.CurrentEpoch() > exp
+	}
+	if !expired {
+		return true
+	}
+
+	// Without the parent ID, any container LOCK may protect this part.
+	deleted, err := p.localStorage.DeleteExpiredSplitPart(ctx, addr)
+	if err != nil {
+		p.log.Warn("could not delete expired split part", zap.Stringer("object", addr), zap.Error(err))
+	} else if deleted {
+		p.metrics.IncPolicerObjectDeleted(false)
+	}
+	return false
 }
