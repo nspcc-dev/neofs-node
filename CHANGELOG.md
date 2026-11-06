@@ -6,6 +6,18 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.58.1
+
+## [0.58.1] - 2026-11-06
+
+### Fixed
 - ACL author identity could be spoofed via unverified `BodySignature` on API >=2.26 requests (#4270)
 - N3 witness verification did not bind the verification script to the claimed account, allowing any halting script to authenticate as an arbitrary issuer/owner (#4271)
 - SNs do not support N3 signatures for container service requests (#4258)
@@ -15,14 +27,6 @@ Changelog for NeoFS Node
 - SN panics if container put RPC was received without optional eACL table signature (#4275)
 - Object service session tokens were not bound to the request signer (#4277)
 - IR might sign unknown contract call in container put routine (#4279)
-
-### Changed
-
-### Removed
-
-### Updated
-
-### Updating from v0.58.0
 
 ## [0.58.0] - 2026-10-28 - Gopado
 
@@ -3326,7 +3330,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.1...master
+[0.58.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.0...v0.58.1
 [0.58.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.55.0...v0.56.0
