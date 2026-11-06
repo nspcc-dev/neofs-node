@@ -19,8 +19,7 @@ import (
 )
 
 func TestShardReload(t *testing.T) {
-	p := t.Name()
-	defer os.RemoveAll(p)
+	p := t.TempDir()
 
 	l := zaptest.NewLogger(t)
 
@@ -39,6 +38,7 @@ func TestShardReload(t *testing.T) {
 	}
 
 	sh := New(opts...)
+	t.Cleanup(func() { require.NoError(t, sh.Close()) })
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
