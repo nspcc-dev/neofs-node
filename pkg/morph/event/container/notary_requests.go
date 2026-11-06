@@ -41,6 +41,15 @@ func RestoreCreateContainerV2Request(contractCalls []event.NotaryEvent) (event.E
 	switch l := len(contractCalls); l {
 	case 1:
 	case 2:
+		if method := contractCalls[1].Type(); method != fschaincontracts.PutContainerEACLMethod {
+			return nil, fmt.Errorf(
+				"unexpected second contract call after '%s': expected '%s', got: %s",
+				fschaincontracts.CreateContainerV2Method,
+				fschaincontracts.PutContainerEACLMethod,
+				method,
+			)
+		}
+
 		withOptionalEacl = true
 	default:
 		return nil, fmt.Errorf("unexpected number of contract calls: %d", l)
