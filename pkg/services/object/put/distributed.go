@@ -87,6 +87,7 @@ type distributedTarget struct {
 	ecPart             iec.PartInfo
 	ecSplitOnlyObject  bool // if true, encodedECParts are the only payload to PUT
 	ecRules            []iec.Rule
+	ecMinPartNums      []uint32 // indexed by EC rule, zero requires all parts
 	payloadAlreadyRead bool
 	encodedECParts     [][][]byte // according to ecRules indexing
 	objectPayload      []byte
@@ -466,7 +467,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	leftReplicas := maxReplicas
 
 	handleECRule := func(ruleIdx int, ecRuleIdx int, payloadParts [][]byte, ecRule iec.Rule) (bool, error) {
-		err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, ecRule, objNodeLists[ruleIdx])
+		err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, ecRule, t.minECPartNum(ecRuleIdx), objNodeLists[ruleIdx])
 		if err != nil {
 			err = fmt.Errorf("apply EC rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
 			if maxReplicas == 0 {
@@ -491,7 +492,6 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 	var repProg *repProgress
 	var l *zap.Logger
 
-nextRule:
 	for i := range ruleNum {
 		ruleIdx := getRuleIdx(i)
 
@@ -500,30 +500,13 @@ nextRule:
 				continue
 			}
 
-			if slices.Contains(ecRules[:ecRuleIdx], ecRules[ecRuleIdx]) { // has already been processed, see below
-				continue
-			}
-
-			payloadParts := t.encodedECParts[ruleIdx]
+			payloadParts := t.encodedECParts[ecRuleIdx]
 			fin, err := handleECRule(ruleIdx, ecRuleIdx, payloadParts, ecRules[ecRuleIdx])
 			if err != nil {
 				return err
 			}
 			if fin {
 				break
-			}
-
-			for j := ecRuleIdx + 1; j < len(ecRules); j++ {
-				if ecRules[ecRuleIdx] != ecRules[j] {
-					continue
-				}
-				fin, err := handleECRule(i, j, payloadParts, ecRules[ecRuleIdx])
-				if err != nil {
-					return err
-				}
-				if fin {
-					break nextRule
-				}
 			}
 
 			continue
@@ -583,6 +566,17 @@ nextRule:
 		}
 	}
 	return nil
+}
+
+func (t *distributedTarget) minECPartNum(ruleIdx int) uint32 {
+	// Metadata placement currently requires signatures from all EC parts.
+	if t.metainfoConsistencyAttr == "strict" || t.metainfoConsistencyAttr == "optimistic" {
+		return 0
+	}
+	if ruleIdx < len(t.ecMinPartNums) {
+		return t.ecMinPartNums[ruleIdx]
+	}
+	return 0
 }
 
 func (t *distributedTarget) replicateRemainingPrimaryNodes(obj object.Object, nodeLists [][]netmap.NodeInfo, repRules []uint, prog *repProgress) {
