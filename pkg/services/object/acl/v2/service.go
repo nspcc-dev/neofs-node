@@ -27,6 +27,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -168,10 +169,27 @@ func (b Service) VerifySessionV1TokenMessage(m *protosession.SessionToken, reqVe
 	return sToken, nil
 }
 
-func getCredentialsFromSessionV1Token(token session.Object) (user.ID, []byte, error) {
+func getCredentialsFromSessionV1Token(token session.Object, reqAuthor user.ID, reqKey []byte) (user.ID, []byte, error) {
 	sig, ok := token.Signature()
 	if !ok {
 		return user.ID{}, nil, errors.New("missing signature in session token")
+	}
+
+	// The issuer may use a session key held by a remote node.
+	if reqAuthor == token.Issuer() {
+		return token.Issuer(), sig.PublicKeyBytes(), nil
+	}
+
+	var key neofsecdsa.PublicKey
+	if err := key.Decode(reqKey); err != nil {
+		return user.ID{}, nil, fmt.Errorf("session token requires an ECDSA-signed request: %w", err)
+	}
+	// V1 holders must authenticate with ECDSA, not N3.
+	if user.NewFromECDSAPublicKey(ecdsa.PublicKey(key)) != reqAuthor {
+		return user.ID{}, nil, errors.New("session token requires an ECDSA-signed request")
+	}
+	if !token.AssertAuthKey(&key) {
+		return user.ID{}, nil, errors.New("session token is not bound to the request signer")
 	}
 
 	return token.Issuer(), sig.PublicKeyBytes(), nil
@@ -261,7 +279,7 @@ func (b Service) VerifySessionTokenMessage(mV2 *protosession.SessionTokenV2, req
 	return sToken, nil
 }
 
-func getCredentialsFromSessionToken(token sessionv2.Token) (user.ID, []byte, error) {
+func (b Service) getCredentialsFromSessionToken(token sessionv2.Token, reqAuthor user.ID) (user.ID, []byte, error) {
 	var key []byte
 	origin := &token
 	for origin != nil {
@@ -273,6 +291,19 @@ func getCredentialsFromSessionToken(token sessionv2.Token) (user.ID, []byte, err
 		origin = origin.Origin()
 	}
 
+	// Accept the presented token's issuer, not arbitrary origin issuers.
+	if reqAuthor == token.Issuer() {
+		return token.OriginalIssuer(), key, nil
+	}
+
+	ok, err := token.AssertAuthority(reqAuthor, b.r)
+	if err != nil {
+		return user.ID{}, nil, fmt.Errorf("assert session v2 authority: %w", err)
+	}
+	if !ok {
+		return user.ID{}, nil, errors.New("session token is not bound to the request signer")
+	}
+
 	return token.OriginalIssuer(), key, nil
 }
 
@@ -280,7 +311,7 @@ func getCredentialsFromPeerPublicKey(key *keys.PublicKey) (user.ID, []byte, erro
 	return user.NewFromECDSAPublicKey(ecdsa.PublicKey(*key)), key.Bytes(), nil
 }
 
-func getRequestCredentials(ctx context.Context, req interface {
+func (b Service) getRequestCredentials(ctx context.Context, req interface {
 	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
 }, tokens common.RequestTokens) (user.ID, []byte, error) {
@@ -290,14 +321,17 @@ func getRequestCredentials(ctx context.Context, req interface {
 			return getCredentialsFromPeerPublicKey(key)
 		}
 	}
-	verifyHeader := req.GetVerifyHeader()
+	reqAuthor, reqKey, err := icrypto.GetRequestAuthor(req.GetVerifyHeader(), req.GetMetaHeader())
+	if err != nil {
+		return user.ID{}, nil, err
+	}
 	if tokens.Session != nil {
-		return getCredentialsFromSessionToken(*tokens.Session)
+		return b.getCredentialsFromSessionToken(*tokens.Session, reqAuthor)
 	}
 	if tokens.SessionV1 != nil {
-		return getCredentialsFromSessionV1Token(*tokens.SessionV1)
+		return getCredentialsFromSessionV1Token(*tokens.SessionV1, reqAuthor, reqKey)
 	}
-	return icrypto.GetRequestAuthor(verifyHeader, req.GetMetaHeader())
+	return reqAuthor, reqKey, nil
 }
 
 type sessionTokenV2WithEncodedBody struct {
@@ -498,7 +532,7 @@ func (b Service) findRequestInfo(ctx context.Context, req interface {
 	GetVerifyHeader() *protosession.RequestVerificationHeader
 }, idCnr cid.ID, op acl.Op, tokens common.RequestTokens) (RequestInfo, error) {
 	var info RequestInfo
-	reqAuthor, reqAuthorPub, err := getRequestCredentials(ctx, req, tokens)
+	reqAuthor, reqAuthorPub, err := b.getRequestCredentials(ctx, req, tokens)
 	if err != nil {
 		return info, fmt.Errorf("get request author: %w", err)
 	}
