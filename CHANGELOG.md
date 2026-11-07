@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Policer could drop the only verified local replica of an object when one primary was under maintenance and another's HEAD request failed transiently (#4291)
+- Meta service panicked with "send on closed channel" on shutdown (#4283)
 
 ### Changed
 
