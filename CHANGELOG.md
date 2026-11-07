@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Config parsing panicked instead of returning a clean error when a struct-slice field (e.g. `grpc`, shards) was given the wrong YAML shape, including via SIGHUP reload on a running node
 
 ### Changed
 

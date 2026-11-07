@@ -71,16 +71,15 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 	var result []map[string]any
 
 	sla := v.Get(baseKey)
-	var sl []any
-	if sla != nil {
-		sl = sla.([]any)
-	}
+	sl, _ := sla.([]any)
 	var updated bool
 	for i := 0; ; i++ {
 		idxPrefix := fmt.Sprintf("%s_%d", makeEnvKey(baseKey), i)
 		item := map[string]any{}
 		if i < len(sl) {
-			item = sl[i].(map[string]any)
+			if m, ok := sl[i].(map[string]any); ok {
+				item = m
+			}
 		}
 		found := false
 
