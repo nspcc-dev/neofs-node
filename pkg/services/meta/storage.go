@@ -2,12 +2,19 @@ package meta
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	metabase "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
+
+// storagerConcurrency defines how many storage tasks are handled
+// simultaneously: each may block on a network HEAD (m.net.Head), so handling
+// them one at a time would let a single slow one stall the whole queue -
+// and, transitively, the chain notification delivery feeding it.
+const storagerConcurrency = 16
 
 // PutObjects forces [Meta] to index provided objects.
 func (m *Meta) PutObjects(o []*object.Object) error {
@@ -18,6 +25,14 @@ func (m *Meta) storager(ctx context.Context, buff <-chan storageTask) {
 	ch := make(chan *object.Object, cap(buff))
 	go batchWriter(ctx, m.l, m.batchFlushInterval, m.metabase, ch)
 
+	var wg sync.WaitGroup
+	for range storagerConcurrency {
+		wg.Go(func() { m.storagerWorker(ctx, buff, ch) })
+	}
+	wg.Wait()
+}
+
+func (m *Meta) storagerWorker(ctx context.Context, buff <-chan storageTask, ch chan<- *object.Object) {
 	for {
 		if len(buff) >= notificationBuffSize-1 {
 			m.l.Warn("storage task queue buffer has been completely filled")
