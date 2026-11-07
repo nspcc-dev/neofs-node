@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Meta service's object indexing processed one notification at a time, including its network HEAD call, so a single slow peer could stall the whole queue and transitively the chain notification delivery feeding it
 
 ### Changed
 
