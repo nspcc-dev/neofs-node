@@ -71,6 +71,30 @@ func TestEnvUnmarshal(t *testing.T) {
 	require.Equal(t, "ProxyNew", cfg.Proxy.Clients[3].Name)
 }
 
+// Regression test for M7: a struct-slice field (clients) given as a scalar
+// instead of a list in the config (e.g. a typo, or a list mistakenly
+// indented as a single value) must be rejected with a clean error from
+// Unmarshal, not a panic - this is reachable not just at startup but via
+// SIGHUP config reload on a running node. Before the fix, Get-ing the
+// misshapen value and asserting it directly to []any paniced with
+// "interface conversion: interface {} is string, not []any" instead of
+// reaching mapstructure's own, properly error-returning type check.
+func TestEnvUnmarshal_StructSliceAsScalar(t *testing.T) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+
+	err := v.ReadConfig(strings.NewReader(`
+clients: oops
+`))
+	require.NoError(t, err)
+
+	var cfg config
+	require.NotPanics(t, func() {
+		err = configutil.Unmarshal(v, &cfg, "APP")
+	})
+	require.Error(t, err)
+}
+
 type clientConfig struct {
 	Name string `mapstructure:"name"`
 }
