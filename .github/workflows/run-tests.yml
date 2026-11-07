@@ -34,7 +34,8 @@ on:
           - sanity
         default: 'default'
 
-permissions: write-all
+permissions:
+  statuses: write # only permission system-tests.yml actually uses (posting a commit status)
 
 jobs:
   run_system_tests:
@@ -52,7 +53,9 @@ jobs:
       tests_parallel_level: 3
       os: >
         [{"runner": "ubuntu-latest", "binary": "linux-amd64"}]
-    secrets: inherit
+    secrets:
+      TEST_RESULTS_WALLET: ${{ secrets.TEST_RESULTS_WALLET }}
+      TEST_RESULTS_PASSWORD: ${{ secrets.TEST_RESULTS_PASSWORD }}
 
   run_all_tests:
     if: ${{ !(github.event.inputs.test_set == 'sanity' || (github.event.inputs.test_set != 'all' && github.event_name == 'pull_request')) }}
@@ -70,4 +73,6 @@ jobs:
         [{"runner": "ubuntu-latest", "binary": "linux-amd64"},
          {"runner": "macos-latest", "binary": "darwin-arm64", "shard": 0},
          {"runner": "macos-latest", "binary": "darwin-arm64", "shard": 1}]
-    secrets: inherit
+    secrets:
+      TEST_RESULTS_WALLET: ${{ secrets.TEST_RESULTS_WALLET }}
+      TEST_RESULTS_PASSWORD: ${{ secrets.TEST_RESULTS_PASSWORD }}
