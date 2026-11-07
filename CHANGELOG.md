@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Meta service could panic with "send on closed channel" during graceful shutdown, racing the chain's own concurrent block/notification delivery against closing the receiving channels
 
 ### Changed
 
