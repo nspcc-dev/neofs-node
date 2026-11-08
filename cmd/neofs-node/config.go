@@ -235,11 +235,23 @@ func (c *cfg) GetNetworkMap() (netmap.NetMap, error) {
 // CurrentEpoch returns the latest cached epoch.
 func (c *cfg) CurrentEpoch() uint64 { return c.networkState.CurrentEpoch() }
 
+// cfgGRPCServer groups a running gRPC server with the listener it serves on
+// and the config snapshot it was built from. Keeping these together (instead
+// of in parallel slices indexed separately from the config) means a server's
+// own endpoint/config is always available directly from the entry itself,
+// never by re-deriving it from a separately-recomputed config snapshot that
+// can silently drift out of positional sync with the servers actually
+// running (e.g. after a reload that only partially succeeds).
+type cfgGRPCServer struct {
+	snap grpcServerSnapshot
+	srv  *grpc.Server
+	lis  net.Listener
+}
+
 type cfgGRPC struct {
 	mu sync.Mutex
 
-	listeners []net.Listener
-	servers   []*grpc.Server
+	servers []cfgGRPCServer
 
 	// serviceRegistrators stores functions that register gRPC service
 	// implementations into a gRPC server.
@@ -253,8 +265,8 @@ func (g *cfgGRPC) registerService(f func(*grpc.Server)) {
 	defer g.mu.Unlock()
 
 	g.serviceRegistrators = append(g.serviceRegistrators, f)
-	for _, srv := range g.servers {
-		f(srv)
+	for _, e := range g.servers {
+		f(e.srv)
 	}
 }
 
@@ -677,7 +689,6 @@ func (c *cfg) reloadConfig() error {
 	oldCfg := c.appCfg
 	oldMetrics := writeMetricConfig(oldCfg)
 	oldProfiler := writeProfilerConfig(oldCfg)
-	oldGRPC := writeGRPCConfig(oldCfg)
 
 	newCfg, err := config.New(config.WithConfigFile(oldCfg.Path()))
 	if err != nil {
@@ -728,7 +739,7 @@ func (c *cfg) reloadConfig() error {
 
 	// gRPC
 
-	if err := reloadGRPC(c, oldGRPC); err != nil {
+	if err := reloadGRPC(c); err != nil {
 		return fmt.Errorf("reload gRPC configuration: %w", err)
 	}
 

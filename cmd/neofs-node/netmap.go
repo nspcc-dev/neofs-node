@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 // defaultEpochDuration is a default epoch duration to replace zero from FS chain.
@@ -154,9 +155,9 @@ func initNetmapService(c *cfg) {
 
 	server := netmapService.New(&c.key.PrivateKey, c, &c.chainTime)
 
-	for _, srv := range c.cfgGRPC.servers {
+	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protonetmap.RegisterNetmapServiceServer(srv, server)
-	}
+	})
 
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
 		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())

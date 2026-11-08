@@ -125,7 +125,9 @@ func initGRPC(c *cfg) {
 	c.onShutdown(func() {
 		c.cfgGRPC.mu.Lock()
 		srvs := make([]*grpc.Server, len(c.cfgGRPC.servers))
-		copy(srvs, c.cfgGRPC.servers)
+		for i, e := range c.cfgGRPC.servers {
+			srvs[i] = e.srv
+		}
 		c.cfgGRPC.mu.Unlock()
 		for _, srv := range srvs {
 			stopGRPC("NeoFS Public API", srv, c.log)
@@ -175,13 +177,13 @@ func buildGRPCServers(c *cfg, maxRecvMsgSizeOpt grpc.ServerOption) error {
 	if len(c.appCfg.GRPC) == 0 {
 		return errors.New("could not listen to any gRPC endpoints")
 	}
-	for _, sc := range c.appCfg.GRPC {
+	snaps := writeGRPCConfig(c.appCfg)
+	for i, sc := range c.appCfg.GRPC {
 		srv, lis, err := buildSingleGRPCServer(c, sc, maxRecvMsgSizeOpt)
 		if err != nil {
 			return err
 		}
-		c.cfgGRPC.listeners = append(c.cfgGRPC.listeners, lis)
-		c.cfgGRPC.servers = append(c.cfgGRPC.servers, srv)
+		c.cfgGRPC.servers = append(c.cfgGRPC.servers, cfgGRPCServer{snap: snaps[i], srv: srv, lis: lis})
 	}
 	return nil
 }
@@ -253,14 +255,61 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 	return grpc.NewServer(serverOpts...), lis, nil
 }
 
+// reconcileGRPCServers decides, for each endpoint in newCfg, whether to
+// reuse the matching entry in old (same endpoint, config unchanged), stop it
+// and build a fresh one (same endpoint, config changed - stopped before
+// building the replacement, so the old server releases the endpoint first),
+// or build a fresh one outright (no matching endpoint in old). build is only
+// called for the latter two cases; stop is called for every old entry that
+// isn't reused, whether changed or dropped from the config entirely.
+// Matching is by endpoint name alone - old is taken as the authoritative,
+// self-describing state of what's actually running, never paired up with
+// newCfg by position, so a previous partial failure (old having fewer, or a
+// different subset of, endpoints than newCfg) can never cause a later
+// reload to misattribute a running server to the wrong endpoint.
+//
+// Returns the full new server set and the subset of it that's freshly built
+// (needs service registration and must start serving).
+func reconcileGRPCServers(old []cfgGRPCServer, newCfg grpcConfigSnapshot, build func(grpcServerSnapshot) (*grpc.Server, net.Listener, error), stop func(*grpc.Server)) (newServers []cfgGRPCServer, freshServers []*grpc.Server, freshListeners []net.Listener) {
+	oldByEndpoint := make(map[string]cfgGRPCServer, len(old))
+	for _, e := range old {
+		oldByEndpoint[e.snap.Endpoint] = e
+	}
+
+	newServers = make([]cfgGRPCServer, 0, len(newCfg))
+
+	for _, newSnap := range newCfg {
+		if oldEntry, ok := oldByEndpoint[newSnap.Endpoint]; ok {
+			delete(oldByEndpoint, newSnap.Endpoint)
+			if oldEntry.snap.unchanged(newSnap) {
+				newServers = append(newServers, oldEntry)
+				continue
+			}
+			stop(oldEntry.srv)
+		}
+
+		srv, lis, err := build(newSnap)
+		if err != nil {
+			continue
+		}
+		newServers = append(newServers, cfgGRPCServer{snap: newSnap, srv: srv, lis: lis})
+		freshServers = append(freshServers, srv)
+		freshListeners = append(freshListeners, lis)
+	}
+
+	// endpoints removed from the config entirely
+	for _, entry := range oldByEndpoint {
+		stop(entry.srv)
+	}
+
+	return
+}
+
 // reloadGRPC performs a fine-grained reload: only gRPC servers whose
 // configuration or TLS certificate has actually changed are stopped and
 // re-created; the rest continue serving without interruption.
-func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
+func reloadGRPC(c *cfg) error {
 	newCfg := writeGRPCConfig(c.appCfg)
-	if selfSignedTLSConfigChanged(oldCfg, newCfg) {
-		return errors.New("changing self-signed TLS endpoints requires node restart")
-	}
 
 	maxRecvMsgSizeOpt, err := getMaxRecvMsgSizeOpt(c)
 	if err != nil {
@@ -270,63 +319,38 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 	c.cfgGRPC.mu.Lock()
 	defer c.cfgGRPC.mu.Unlock()
 
-	type serverEntry struct {
-		srv  *grpc.Server
-		lis  net.Listener
-		snap grpcServerSnapshot
+	// The "old" state is each currently running server's own stored snapshot,
+	// never a config snapshot recomputed separately and paired up by
+	// position: that pairing silently breaks as soon as a previous reload
+	// has ever built fewer servers than it was given endpoints for (e.g. one
+	// endpoint failed to bind), since the servers slice then has fewer
+	// entries than any freshly recomputed config snapshot, and matching them
+	// up by index mismatches every entry from that point on.
+	oldCfg := make(grpcConfigSnapshot, len(c.cfgGRPC.servers))
+	for i, e := range c.cfgGRPC.servers {
+		oldCfg[i] = e.snap
 	}
-	oldByEndpoint := make(map[string]serverEntry, len(c.cfgGRPC.servers))
-	for i, srv := range c.cfgGRPC.servers {
-		if i < len(oldCfg) {
-			oldByEndpoint[oldCfg[i].Endpoint] = serverEntry{
-				srv:  srv,
-				lis:  c.cfgGRPC.listeners[i],
-				snap: oldCfg[i],
+	if selfSignedTLSConfigChanged(oldCfg, newCfg) {
+		return errors.New("changing self-signed TLS endpoints requires node restart")
+	}
+
+	newServers, freshServers, freshListeners := reconcileGRPCServers(c.cfgGRPC.servers, newCfg,
+		func(snap grpcServerSnapshot) (*grpc.Server, net.Listener, error) {
+			srv, lis, err := buildSingleGRPCServer(c, snap.GRPC, maxRecvMsgSizeOpt)
+			if err != nil {
+				c.log.Error("failed to start gRPC server",
+					zap.String("endpoint", snap.Endpoint), zap.Error(err))
 			}
-		}
-	}
-
-	newServers := make([]*grpc.Server, 0, len(newCfg))
-	newListeners := make([]net.Listener, 0, len(newCfg))
-	// freshServers/freshListeners hold only newly created servers that need
-	// service registration and must start serving.
-	var freshServers []*grpc.Server
-	var freshListeners []net.Listener
-
-	for _, newSnap := range newCfg {
-		if old, ok := oldByEndpoint[newSnap.Endpoint]; ok {
-			delete(oldByEndpoint, newSnap.Endpoint)
-			if old.snap.unchanged(newSnap) {
-				newServers = append(newServers, old.srv)
-				newListeners = append(newListeners, old.lis)
-				continue
-			}
-			stopGRPC("NeoFS Public API", old.srv, c.log)
-		}
-
-		srv, lis, err := buildSingleGRPCServer(c, newSnap.GRPC, maxRecvMsgSizeOpt)
-		if err != nil {
-			c.log.Error("failed to start gRPC server",
-				zap.String("endpoint", newSnap.Endpoint), zap.Error(err))
-			continue
-		}
-		newServers = append(newServers, srv)
-		newListeners = append(newListeners, lis)
-		freshServers = append(freshServers, srv)
-		freshListeners = append(freshListeners, lis)
-	}
-
-	// stop servers that were removed from the config entirely
-	for _, entry := range oldByEndpoint {
-		stopGRPC("NeoFS Public API", entry.srv, c.log)
-	}
+			return srv, lis, err
+		},
+		func(srv *grpc.Server) { stopGRPC("NeoFS Public API", srv, c.log) },
+	)
 
 	if len(newServers) == 0 {
 		return errors.New("could not listen to any gRPC endpoints")
 	}
 
 	c.cfgGRPC.servers = newServers
-	c.cfgGRPC.listeners = newListeners
 
 	for _, reg := range c.cfgGRPC.serviceRegistrators {
 		for _, srv := range freshServers {
@@ -338,7 +362,13 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 }
 
 func serveGRPC(c *cfg) {
-	serveGRPCList(c, c.cfgGRPC.servers, c.cfgGRPC.listeners)
+	servers := make([]*grpc.Server, len(c.cfgGRPC.servers))
+	listeners := make([]net.Listener, len(c.cfgGRPC.servers))
+	for i, e := range c.cfgGRPC.servers {
+		servers[i] = e.srv
+		listeners[i] = e.lis
+	}
+	serveGRPCList(c, servers, listeners)
 }
 
 func serveGRPCList(c *cfg, servers []*grpc.Server, listeners []net.Listener) {

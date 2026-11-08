@@ -11,6 +11,8 @@ Changelog for NeoFS Node
 - Config parsing panicked instead of returning a clean error when a struct-slice field (e.g. `grpc`, shards) was given the wrong YAML shape, including via SIGHUP reload on a running node (#4282)
 - Object expiration time was not exposed to eACL filters (#4303)
 - Possible infinite EC parts restoration loop in the policer (#4293)
+- SIGHUP config reload matched running gRPC servers to endpoints by slice position, permanently misattributing them after an earlier endpoint failed to bind (#4286)
+- NetmapService was missing from gRPC servers created by SIGHUP config reload (#4286)
 
 ### Changed
 
