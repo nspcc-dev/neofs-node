@@ -108,6 +108,7 @@ type InvokePrmOptional struct {
 	signByAlphabet bool
 
 	nonce *uint32
+	vub   *uint32
 }
 
 // SetHash sets optional hash of the transaction.
@@ -129,6 +130,19 @@ func (i *InvokePrmOptional) RequireAlphabetSignature() {
 // SetNonce sets optional nonce only for notary request's main transaction.
 func (i *InvokePrmOptional) SetNonce(nonce uint32) {
 	i.nonce = &nonce
+}
+
+// SetVUB sets optional `validUntilBlock` for notary request's main
+// transaction, overriding any value that would otherwise be derived from
+// SetHash or the client's own default. Use this when multiple notification
+// receivers need to independently build the exact same main transaction but
+// have no shared, already-mined transaction hash to derive it from (SetHash
+// requires one); the caller is responsible for computing a value that is
+// both identical across all receivers and far enough in the future for all
+// of them, typically from a chain-recorded fact rather than each receiver's
+// own observed current height.
+func (i *InvokePrmOptional) SetVUB(vub uint32) {
+	i.vub = &vub
 }
 
 // CallWithAlphabetWitness sends transaction calling given method of underlying
@@ -173,6 +187,10 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 			}
 			if prm.nonce != nil {
 				nonce = *prm.nonce
+			}
+			if prm.vub != nil {
+				vub = *prm.vub
+				vubP = &vub
 			}
 
 			invokeFunc = func() error {

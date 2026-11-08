@@ -11,12 +11,22 @@ import (
 // SettleContainerPayment invokes transfers from container's owner to storage
 // nodes that maintain objects inside the container. Always sends a notary
 // request with Alphabet multi-signature. Always awaits transaction inclusion.
-func (c *Client) SettleContainerPayment(epoch uint64, cID cid.ID) error {
+//
+// vub pins the notary main transaction's ValidUntilBlock. Every Alphabet
+// node settles payments for the same epoch independently, on its own local
+// timer, with no shared triggering transaction to derive a nonce/VUB pair
+// from (unlike most other notary calls in this package) - so the caller
+// must compute vub from something every node already agrees on (e.g. a
+// chain-recorded block height), not from its own observed current height,
+// or different nodes' calls build different main transactions that can
+// never combine into one 2/3+1-signed notary request.
+func (c *Client) SettleContainerPayment(epoch uint64, cID cid.ID, vub uint32) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(fschaincontracts.PayBalanceMethod)
 	prm.SetArgs(cID[:])
 	prm.RequireAlphabetSignature()
 	prm.SetNonce(uint32(epoch))
+	prm.SetVUB(vub)
 
 	err := c.client.Invoke(prm)
 	if err != nil {

@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Basic income settlement transactions pinned a nonce but not `validUntilBlock`, so Alphabet nodes independently settling the same epoch's payments - with no shared triggering transaction to synchronize on - could build notary main transactions that never combine into one 2/3+1 signature, silently losing that epoch's settlement
 
 ### Changed
 
