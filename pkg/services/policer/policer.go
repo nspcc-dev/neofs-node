@@ -97,6 +97,17 @@ type (
 		IsLocalNodePublicKey([]byte) bool
 	}
 
+	// MaxSizeSource provides the maximum payload size of a physically stored
+	// object in the system, used to reject a peer-declared payload size
+	// before allocating a buffer for it.
+	MaxSizeSource interface {
+		// MaxObjectSize returns maximum payload size of physically stored
+		// object in the system.
+		//
+		// Must return 0 if the value cannot be obtained.
+		MaxObjectSize() uint64
+	}
+
 	// MetricsCollector describes [Policer]'s state metrics collector.
 	MetricsCollector interface {
 		// SetPolicerConsistency must update [Policer] consistency metric
@@ -140,6 +151,8 @@ type cfg struct {
 	rebalanceFreq time.Duration
 
 	network Network
+
+	maxSizeSrc MaxSizeSource
 }
 
 type nopMetricsCollector struct{}
@@ -276,5 +289,16 @@ func WithObjectBatchSize(s uint32) Option {
 func WithBoostMultiplier(m uint32) Option {
 	return func(c *cfg) {
 		c.boostMultiplier = m
+	}
+}
+
+// WithMaxSizeSource returns an option to specify the source of the maximum
+// payload size of a physically stored object, used to bound memory
+// allocation for peer-declared sizes that are not otherwise bounded (e.g. an
+// EC parent object's declared payload size, received from another EC
+// container member while checking that container's parts).
+func WithMaxSizeSource(v MaxSizeSource) Option {
+	return func(c *cfg) {
+		c.maxSizeSrc = v
 	}
 }

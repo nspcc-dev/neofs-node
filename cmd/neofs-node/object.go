@@ -227,6 +227,8 @@ func initObjectService(c *cfg) {
 		replicator.WithLocalNodeKey(c),
 	)
 
+	maxObjectSizeSrc := newCachedMaxObjectSizeSource(c.MaxObjectSize)
+
 	c.policer = policer.New(neofsecdsa.Signer(c.key.PrivateKey),
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
@@ -240,6 +242,7 @@ func initObjectService(c *cfg) {
 		policer.WithReplicationCooldown(c.appCfg.Policer.ReplicationCooldown),
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 		policer.WithBoostMultiplier(c.appCfg.Policer.BoostMultiplier),
+		policer.WithMaxSizeSource(maxObjectSizeSrc),
 	)
 
 	c.workers = append(c.workers, c.policer, c.replicator)
@@ -272,7 +275,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithContainerClient(c.cCli),
-		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c.MaxObjectSize)),
+		putsvc.WithMaxSizeSource(maxObjectSizeSrc),
 		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),

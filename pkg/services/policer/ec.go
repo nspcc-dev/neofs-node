@@ -158,6 +158,28 @@ func (x *singleReplication) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 	x.netAddresses = slices.Collect(node.NetworkEndpoints())
 }
 
+// checkParentPayloadSize rejects sz as an EC parent object's declared
+// payload size if it exceeds the system's maximum object size. sz is read
+// from the parent header embedded in a part object received from another EC
+// container member - another member (or an attacker who has placed
+// themselves as a member of the same container) can declare an arbitrarily
+// large payload size there, which is otherwise used, unchecked, to size a
+// buffer allocation for reassembling/restoring the object - up to an OOM
+// kill, or a makeslice panic above the runtime's allocation threshold.
+func (p *Policer) checkParentPayloadSize(sz uint64) error {
+	if p.maxSizeSrc == nil {
+		return errors.New("max object size source is not configured")
+	}
+	max := p.maxSizeSrc.MaxObjectSize()
+	if max == 0 {
+		return errors.New("could not obtain max object size parameter")
+	}
+	if sz > max {
+		return fmt.Errorf("EC parent payload size %d exceeds max object size %d", sz, max)
+	}
+	return nil
+}
+
 func (p *Policer) checkECParts(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx, localPartIdx int, localPartID oid.ID) {
 	parentAddr := oid.NewAddress(cnr, parent)
 
@@ -215,6 +237,14 @@ headNextPart:
 							zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Bool("local", local),
 							zap.String("node", netmap.StringifyPublicKey(sortedNodes[nodeIdx])))
 
+						return
+					}
+
+					if err := p.checkParentPayloadSize(ph.PayloadSize()); err != nil {
+						p.log.Error("EC parent payload size declared by peer rejected",
+							zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
+							zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Bool("local", local),
+							zap.String("node", netmap.StringifyPublicKey(sortedNodes[nodeIdx])), zap.Error(err))
 						return
 					}
 

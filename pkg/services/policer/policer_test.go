@@ -1291,6 +1291,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 			WithNetwork(mockNet),
 			WithLogger(zaptest.NewLogger(t)),
 			WithMetrics(&mockMetrics{}),
+			WithMaxSizeSource(fakeMaxSizeSource(parentSize)),
 		)
 		p.localStorage = localNode
 		p.apiConns = conns
