@@ -35,7 +35,8 @@ on:
         default: 'default'
 
 permissions:
-  statuses: write # only permission system-tests.yml actually uses (posting a commit status)
+  contents: read # checkouts in the called workflow
+  statuses: write # its commit-status posts
 
 jobs:
   run_system_tests:
