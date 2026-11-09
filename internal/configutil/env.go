@@ -75,12 +75,8 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 	if sla != nil && !isList {
 		return nil
 	}
-	// A value of the wrong shape - not a list, or a list item that is not a
-	// mapping - is left for Unmarshal's own type check to report. Carrying on
-	// here would substitute an empty map for it, and an env override on any
-	// item would then write the whole reconstructed list back over the
-	// original, hiding the bad input and silently yielding a zero-valued
-	// entry instead of a configuration error.
+	// Leave a wrong-shaped value for Unmarshal to report: an env override
+	// would otherwise write the rebuilt list back over it, hiding the error.
 	for _, it := range sl {
 		if _, ok := it.(map[string]any); !ok {
 			return nil
