@@ -1,13 +1,20 @@
 package object
 
 import (
+	"context"
+	"net"
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 func TestIterateSearchableContainerNodes(t *testing.T) {
@@ -85,17 +92,10 @@ func TestIterateSearchableContainerNodes(t *testing.T) {
 	})
 }
 
-// Regression test: a remote peer's SearchV2 response item must carry
-// exactly one attribute for an attribute-less query whose first filter is not
-// STRING_EQUAL - that single synthesized attribute is what MergeSearchResults
-// indexes (sets[i][0].Attributes[0]) to compare and page results across
-// peers. The wire format's own doc comment on SearchV2Response_OIDWithMeta.
-// Attributes says as much ("this field carry value of the first filtered
-// attribute"). Before this fix, a response with zero attributes for a
-// non-equality filter was accepted here, which let a malicious or
-// non-conforming peer crash the merge with an out-of-range index - the exact
-// panic class already hit once in production for the STRING_EQUAL case
-// (fixed by a059fd39f) and never closed for every other filter type.
+// An attribute-less query whose first filter is not STRING_EQUAL requires the
+// single synthesized attribute: MergeSearchResults indexes Attributes[0] of
+// such items without checking it is there. Only STRING_EQUAL queries may omit
+// it, since conforming peers deliberately clear a value the caller knows.
 func TestValidateSearchResultItem(t *testing.T) {
 	id := &refs.ObjectID{Value: make([]byte, 32)}
 
@@ -139,5 +139,66 @@ func TestValidateSearchResultItem(t *testing.T) {
 
 		r.Attributes = []string{"v", "extra"}
 		require.ErrorContains(t, validateSearchResultItem(r, true, 0, protoobject.MatchType_NUM_GT), "wrong attribute count")
+	})
+}
+
+// searchV2OnlyConn serves resp to any SearchV2 call.
+func searchV2OnlyConn(t *testing.T, resp *protoobject.SearchV2Response) *grpc.ClientConn {
+	lis := bufconn.Listen(32 << 10)
+
+	grpcSrv := grpc.NewServer(grpc.ForceServerCodecV2(iprotobuf.BufferedCodec{}))
+	t.Cleanup(grpcSrv.Stop)
+
+	grpcSrv.RegisterService(&grpc.ServiceDesc{
+		ServiceName: protoobject.ObjectService_ServiceDesc.ServiceName,
+		Methods: []grpc.MethodDesc{
+			{
+				MethodName: "SearchV2",
+				Handler: func(_ any, _ context.Context, _ func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
+					return resp, nil
+				},
+			},
+		},
+	}, nil)
+
+	go func() { _ = grpcSrv.Serve(lis) }()
+
+	c, err := grpc.NewClient("passthrough:///bufnet", // dialer ignores it; skips DNS
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return lis.DialContext(ctx) }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()), // error otherwise
+	)
+	require.NoError(t, err) // lib misuse or internal error
+	t.Cleanup(func() { _ = c.Close() })
+
+	return c
+}
+
+// The validation must be reachable from the caller: an item accepted here
+// reaches MergeSearchResults, which indexes Attributes[0] of it.
+func TestSearchOnRemoteAddress_AttributelessItem(t *testing.T) {
+	reqBody := func(mt protoobject.MatchType) *protoobject.SearchV2Request_Body {
+		return &protoobject.SearchV2Request_Body{
+			Count:   1,
+			Filters: []*protoobject.SearchFilter{{MatchType: mt, Key: "someAttribute"}},
+		}
+	}
+	resp := &protoobject.SearchV2Response{
+		Body: &protoobject.SearchV2Response_Body{
+			Result: []*protoobject.SearchV2Response_OIDWithMeta{
+				{Id: oidtest.ID().ProtoMessage()},
+			},
+		},
+	}
+
+	t.Run("non-equality filter", func(t *testing.T) {
+		_, _, err := searchOnRemoteAddress(context.Background(), searchV2OnlyConn(t, resp), nil, reqBody(protoobject.MatchType_NUM_GT))
+		require.ErrorContains(t, err, "missing required attribute")
+	})
+
+	t.Run("STRING_EQUAL filter", func(t *testing.T) {
+		res, more, err := searchOnRemoteAddress(context.Background(), searchV2OnlyConn(t, resp), nil, reqBody(protoobject.MatchType_STRING_EQUAL))
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Len(t, res, 1)
 	})
 }

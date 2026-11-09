@@ -2374,8 +2374,8 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, req []byt
 
 // validateSearchResultItem checks a single SearchV2 result item received from
 // a remote node against the request that produced it. reqAttrsLen is
-// len(reqBody.Attributes); firstFilterMatchType is only meaningful (and only
-// read) when filteredAttributeless is true.
+// len(reqBody.Attributes); firstFilterMatchType is read only when
+// filteredAttributeless is set.
 func validateSearchResultItem(r *protoobject.SearchV2Response_OIDWithMeta, filteredAttributeless bool, reqAttrsLen int, firstFilterMatchType protoobject.MatchType) error {
 	switch {
 	case r == nil:
@@ -2387,12 +2387,9 @@ func validateSearchResultItem(r *protoobject.SearchV2Response_OIDWithMeta, filte
 	case filteredAttributeless && len(r.Attributes) > 1:
 		return fmt.Errorf("wrong attribute count %d", len(r.Attributes))
 	case filteredAttributeless && len(r.Attributes) == 0 && firstFilterMatchType != protoobject.MatchType_STRING_EQUAL:
-		// The single synthesized attribute (see ProcessSearch's filteredAttributeless
-		// handling) is required by MergeSearchResults to compare and page results for
-		// any non-equality filter. Only STRING_EQUAL queries may omit it: the value is
-		// already known to the caller, so conforming peers deliberately clear it. A peer
-		// omitting it for any other filter type is either non-conforming or malicious -
-		// accepting it here would make the merge index into an empty Attributes slice.
+		// MergeSearchResults indexes this attribute to compare and page results.
+		// Only STRING_EQUAL queries may omit it, since conforming peers clear a
+		// value the caller already knows.
 		return errors.New("missing required attribute for non-equality filter")
 	}
 	return nil
