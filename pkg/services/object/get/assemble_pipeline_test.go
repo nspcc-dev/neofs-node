@@ -369,16 +369,10 @@ func BenchmarkAssembleSplitObject(b *testing.B) {
 	}
 }
 
-// Regression test for M29: assembly collects the parent header from a
-// child/link object supplied by a container node and emits it as the
-// response header for the *requested* object, without ever checking that
-// the header's content actually hashes to the requested ID. A malicious or
-// compromised container node (or an attacker who has placed themselves as
-// one, and is contacted before any honest node) can therefore substitute a
-// different object's header: conforming clients reject it, but the node's
-// own deferred eACL pass evaluates $Object filters against those
-// attacker-chosen fields, and internal consumers that skip verification
-// accept them outright.
+// Assembly emits a parent header collected from a container node as the
+// response header for the requested object. A node answering with a
+// different object's header must not get that header through: the deferred
+// eACL pass evaluates $Object filters against whatever fields it carries.
 func TestAssembleSplitRejectsForeignParentHeader(t *testing.T) {
 	ctx := context.Background()
 
@@ -394,10 +388,8 @@ func TestAssembleSplitRejectsForeignParentHeader(t *testing.T) {
 
 			sc := buildSplitScene(t, sv.ver, 4, time.Millisecond)
 
-			// A well-formed header for a *different* object than the one
-			// being requested - exactly what a malicious container node
-			// would return to get its own attributes evaluated in place of
-			// the real object's.
+			// A well-formed header for a different object than the one
+			// requested.
 			const injectedKey = "injected"
 			foreign := new(object.Object)
 			foreign.SetContainerID(sc.addr.Container())
