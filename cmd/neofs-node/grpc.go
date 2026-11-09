@@ -255,21 +255,18 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 	return grpc.NewServer(serverOpts...), lis, nil
 }
 
-// reconcileGRPCServers decides, for each endpoint in newCfg, whether to
-// reuse the matching entry in old (same endpoint, config unchanged), stop it
-// and build a fresh one (same endpoint, config changed - stopped before
-// building the replacement, so the old server releases the endpoint first),
-// or build a fresh one outright (no matching endpoint in old). build is only
-// called for the latter two cases; stop is called for every old entry that
-// isn't reused, whether changed or dropped from the config entirely.
-// Matching is by endpoint name alone - old is taken as the authoritative,
-// self-describing state of what's actually running, never paired up with
-// newCfg by position, so a previous partial failure (old having fewer, or a
-// different subset of, endpoints than newCfg) can never cause a later
-// reload to misattribute a running server to the wrong endpoint.
+// reconcileGRPCServers decides, per endpoint in newCfg, whether to reuse the
+// matching entry in old, stop it and build a replacement, or build one
+// outright. stop is called for every old entry not reused; a changed
+// endpoint is stopped before its replacement is built, so the address is
+// released first.
 //
-// Returns the full new server set and the subset of it that's freshly built
-// (needs service registration and must start serving).
+// Matching is by endpoint name, never by position: old describes what is
+// actually running, which a previous partial failure can leave smaller than
+// newCfg.
+//
+// Returns the new server set and the subset of it that is freshly built and
+// still needs service registration and serving.
 func reconcileGRPCServers(old []cfgGRPCServer, newCfg grpcConfigSnapshot, build func(grpcServerSnapshot) (*grpc.Server, net.Listener, error), stop func(*grpc.Server)) (newServers []cfgGRPCServer, freshServers []*grpc.Server, freshListeners []net.Listener) {
 	oldByEndpoint := make(map[string]cfgGRPCServer, len(old))
 	for _, e := range old {

@@ -14,14 +14,9 @@ func snap(endpoint string) grpcServerSnapshot {
 	return grpcServerSnapshot{GRPC: grpcconfig.GRPC{Endpoint: endpoint}}
 }
 
-// Regression test for H9: a reload that only partially succeeds (one
-// endpoint fails to (re)build) must not cause a *later* reload to
-// misattribute a still-running server to the wrong endpoint. Before the
-// fix, the "old" state reloadGRPC compared against was a config snapshot
-// recomputed from the declared config file and paired with
-// c.cfgGRPC.servers purely by slice position - once a build failure ever
-// shrinks servers without a matching shrink on the declared-config side,
-// every pairing after the gap is off by one, permanently, until restart.
+// A reload where one endpoint fails to build leaves fewer running servers
+// than the config declares. A later reload must still match each server to
+// its own endpoint, which pairing by slice position does not.
 func TestReconcileGRPCServers_SurvivesPriorPartialFailure(t *testing.T) {
 	srvA := grpc.NewServer()
 	srvB := grpc.NewServer()
