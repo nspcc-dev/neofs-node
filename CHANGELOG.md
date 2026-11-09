@@ -6,7 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Policer could drop the only verified local replica of an object when a primary node was under maintenance and another primary's HEAD request merely failed transiently
+- Policer could drop the only verified local replica of an object when one primary was under maintenance and another's HEAD request failed transiently (#4291)
 
 ### Changed
 
