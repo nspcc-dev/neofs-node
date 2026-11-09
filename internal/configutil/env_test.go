@@ -71,28 +71,62 @@ func TestEnvUnmarshal(t *testing.T) {
 	require.Equal(t, "ProxyNew", cfg.Proxy.Clients[3].Name)
 }
 
-// Regression test for M7: a struct-slice field (clients) given as a scalar
-// instead of a list in the config (e.g. a typo, or a list mistakenly
-// indented as a single value) must be rejected with a clean error from
-// Unmarshal, not a panic - this is reachable not just at startup but via
-// SIGHUP config reload on a running node. Before the fix, Get-ing the
-// misshapen value and asserting it directly to []any paniced with
-// "interface conversion: interface {} is string, not []any" instead of
-// reaching mapstructure's own, properly error-returning type check.
-func TestEnvUnmarshal_StructSliceAsScalar(t *testing.T) {
+// A struct-slice field (clients) given as a scalar instead of a list in the
+// config (e.g. a typo, or a list mistakenly indented as a single value) must
+// be rejected with a clean error from Unmarshal, not a panic - this is
+// reachable not just at startup but via SIGHUP config reload on a running
+// node. Before the fix, Get-ing the misshapen value and asserting it directly
+// to []any paniced with "interface conversion: interface {} is string, not
+// []any" instead of reaching mapstructure's own, properly error-returning
+// type check.
+//
+// The env-override subtests matter separately: an override makes
+// processStructSlice rebuild the list and the caller v.Set it back over the
+// original, so a malformed value that is merely tolerated there (rather than
+// bailing out) would be overwritten and never reach that type check - the
+// config would load with a zero-valued entry and no error at all.
+func TestEnvUnmarshal_StructSliceWrongShape(t *testing.T) {
+	const wantErr = `'clients[1]' expected a map or struct, got "string"`
+
+	t.Run("scalar instead of list", func(t *testing.T) {
+		require.Error(t, unmarshalShape(t, "clients: oops\n"))
+	})
+
+	t.Run("scalar instead of list, with env override", func(t *testing.T) {
+		t.Setenv("APP_CLIENTS_0_NAME", "overridden")
+		require.Error(t, unmarshalShape(t, "clients: oops\n"))
+	})
+
+	t.Run("malformed item in an otherwise valid list", func(t *testing.T) {
+		err := unmarshalShape(t, "clients:\n  - name: foo\n  - oops\n")
+		require.ErrorContains(t, err, wantErr)
+	})
+
+	t.Run("malformed item, with env override", func(t *testing.T) {
+		t.Setenv("APP_CLIENTS_0_NAME", "overridden")
+		err := unmarshalShape(t, "clients:\n  - name: foo\n  - oops\n")
+		require.ErrorContains(t, err, wantErr)
+	})
+}
+
+// unmarshalShape reads yml and unmarshals it, asserting only that no panic
+// occurs; the returned error is left to the caller to check.
+func unmarshalShape(t *testing.T, yml string) error {
+	t.Helper()
+
 	v := viper.New()
 	v.SetConfigType("yaml")
+	require.NoError(t, v.ReadConfig(strings.NewReader(yml)))
 
-	err := v.ReadConfig(strings.NewReader(`
-clients: oops
-`))
-	require.NoError(t, err)
-
-	var cfg config
+	var (
+		cfg config
+		err error
+	)
 	require.NotPanics(t, func() {
 		err = configutil.Unmarshal(v, &cfg, "APP")
 	})
-	require.Error(t, err)
+
+	return err
 }
 
 type clientConfig struct {

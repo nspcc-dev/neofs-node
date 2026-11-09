@@ -71,15 +71,31 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 	var result []map[string]any
 
 	sla := v.Get(baseKey)
-	sl, _ := sla.([]any)
+	sl, isList := sla.([]any)
+	if sla != nil && !isList {
+		return nil
+	}
+	// A value of the wrong shape - not a list, or a list item that is not a
+	// mapping - is left for Unmarshal's own type check to report. Carrying on
+	// here would substitute an empty map for it, and an env override on any
+	// item would then write the whole reconstructed list back over the
+	// original, hiding the bad input and silently yielding a zero-valued
+	// entry instead of a configuration error.
+	for _, it := range sl {
+		if _, ok := it.(map[string]any); !ok {
+			return nil
+		}
+	}
 	var updated bool
 	for i := 0; ; i++ {
 		idxPrefix := fmt.Sprintf("%s_%d", makeEnvKey(baseKey), i)
 		item := map[string]any{}
 		if i < len(sl) {
-			if m, ok := sl[i].(map[string]any); ok {
-				item = m
+			m, ok := sl[i].(map[string]any)
+			if !ok {
+				return nil // unreachable: shape checked above
 			}
+			item = m
 		}
 		found := false
 
