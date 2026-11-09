@@ -87,11 +87,7 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 		idxPrefix := fmt.Sprintf("%s_%d", makeEnvKey(baseKey), i)
 		item := map[string]any{}
 		if i < len(sl) {
-			m, ok := sl[i].(map[string]any)
-			if !ok {
-				return nil // unreachable: shape checked above
-			}
-			item = m
+			item = sl[i].(map[string]any)
 		}
 		found := false
 
