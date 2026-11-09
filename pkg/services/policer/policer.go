@@ -98,8 +98,7 @@ type (
 	}
 
 	// MaxSizeSource provides the maximum payload size of a physically stored
-	// object in the system, used to reject a peer-declared payload size
-	// before allocating a buffer for it.
+	// object in the system.
 	MaxSizeSource interface {
 		// MaxObjectSize returns maximum payload size of physically stored
 		// object in the system.

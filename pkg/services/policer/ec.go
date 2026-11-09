@@ -158,14 +158,9 @@ func (x *singleReplication) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 	x.netAddresses = slices.Collect(node.NetworkEndpoints())
 }
 
-// checkParentPayloadSize rejects sz as an EC parent object's declared
-// payload size if it exceeds the system's maximum object size. sz is read
-// from the parent header embedded in a part object received from another EC
-// container member - another member (or an attacker who has placed
-// themselves as a member of the same container) can declare an arbitrarily
-// large payload size there, which is otherwise used, unchecked, to size a
-// buffer allocation for reassembling/restoring the object - up to an OOM
-// kill, or a makeslice panic above the runtime's allocation threshold.
+// checkParentPayloadSize rejects an EC parent object's declared payload size
+// if it exceeds the system's maximum object size. The size is used to size a
+// buffer allocation and is not otherwise verified.
 func (p *Policer) checkParentPayloadSize(sz uint64) error {
 	if p.maxSizeSrc == nil {
 		return errors.New("max object size source is not configured")
@@ -310,6 +305,13 @@ headNextPart:
 		hdr, err := p.localStorage.Head(ctx, parentAddr, false)
 		if err != nil {
 			p.log.Info("failed to get EC parent header locally",
+				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
+				zap.Int("ruleIdx", ruleIdx), zap.Error(err))
+			return
+		}
+
+		if err := p.checkParentPayloadSize(hdr.PayloadSize()); err != nil {
+			p.log.Error("EC parent payload size read locally rejected",
 				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
 				zap.Int("ruleIdx", ruleIdx), zap.Error(err))
 			return
