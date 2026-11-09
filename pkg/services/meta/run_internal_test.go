@@ -14,12 +14,9 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// raceMetaChain is a MetaChain whose Subscribe* methods keep sending into
-// the given channel as fast as possible, from a goroutine Run itself does
-// not wait on - exactly like the real chain's internal delivery goroutine -
-// until the matching Unsubscribe* method is called and confirmed to have
-// stopped it. This lets a test deterministically exercise the race between
-// Run's shutdown and the chain's own concurrent sends.
+// raceMetaChain sends into the subscribed channel as fast as possible from a
+// goroutine Run does not wait on, until the matching Unsubscribe* call stops
+// it - like the real chain's delivery goroutine.
 type raceMetaChain struct {
 	stopBlocks chan struct{}
 	blocksWG   sync.WaitGroup
@@ -28,9 +25,9 @@ type raceMetaChain struct {
 	notifsWG   sync.WaitGroup
 }
 
-func (c *raceMetaChain) Magic() uint32                                     { return 0 }
-func (c *raceMetaChain) Height() uint32                                    { return 0 }
-func (c *raceMetaChain) AddTx(*transaction.Transaction) error              { panic("not used by Run") }
+func (c *raceMetaChain) Magic() uint32                        { return 0 }
+func (c *raceMetaChain) Height() uint32                       { return 0 }
+func (c *raceMetaChain) AddTx(*transaction.Transaction) error { panic("not used by Run") }
 func (c *raceMetaChain) TransactionTestInvocation(*transaction.Transaction) error {
 	panic("not used by Run")
 }
@@ -77,13 +74,8 @@ func (c *raceMetaChain) UnsubscribeFromNotifications(chan *state.ContainedNotifi
 	c.notifsWG.Wait()
 }
 
-// Regression test for M43: Run used to close m.bCh/m.evsCh right after its
-// own handler goroutines stopped, without telling the chain to stop sending
-// into them first. The chain's delivery goroutine runs independently and
-// keeps sending as long as it's subscribed, so a send racing the close
-// panics with "send on closed channel". Cancelling the context immediately,
-// with the fake chain hammering both channels as fast as possible, reliably
-// hits that window if Run doesn't unsubscribe before closing.
+// Run must not close its channels while the chain can still send into them:
+// a send racing the close panics with "send on closed channel".
 func TestMeta_Run_DoesNotPanicOnConcurrentChainSends(t *testing.T) {
 	m, err := New(Parameters{
 		Logger:  zaptest.NewLogger(t),

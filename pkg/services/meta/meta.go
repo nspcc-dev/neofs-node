@@ -58,15 +58,14 @@ type (
 		// SubscribeForBlocks must subscribe for new block headers.
 		// Block shouldbe sent to provided channel.
 		SubscribeForBlocks(ch chan *block.Header)
-		// UnsubscribeFromBlocks must unsubscribe the given channel from new
-		// block headers; the channel must be safe to close afterwards.
+		// UnsubscribeFromBlocks must stop sending block headers to ch, which
+		// must then be safe to close.
 		UnsubscribeFromBlocks(ch chan *block.Header)
 		// SubscribeForNotifications must subscribe for new chain notifications.
 		// Notifications should be sent to provided channel.
 		SubscribeForNotifications(ch chan *state.ContainedNotificationEvent)
-		// UnsubscribeFromNotifications must unsubscribe the given channel from
-		// new chain notifications; the channel must be safe to close
-		// afterwards.
+		// UnsubscribeFromNotifications must stop sending notifications to ch,
+		// which must then be safe to close.
 		UnsubscribeFromNotifications(ch chan *state.ContainedNotificationEvent)
 		// TransactionTestInvocation must validate transaction execution
 		// without persisting it.
@@ -348,10 +347,8 @@ func (m *Meta) Run(ctx context.Context) error {
 
 	wg.Wait()
 
-	// The chain keeps sending to m.bCh/m.evsCh on its own, independently of
-	// the handler goroutines waited on above: unsubscribing first is what
-	// makes it safe to close them next, see [MetaChain.UnsubscribeFromBlocks]/
-	// [MetaChain.UnsubscribeFromNotifications].
+	// The chain sends independently of the handlers waited on above, so it
+	// must stop before the channels are closed.
 	m.chain.UnsubscribeFromBlocks(m.bCh)
 	m.chain.UnsubscribeFromNotifications(m.evsCh)
 
