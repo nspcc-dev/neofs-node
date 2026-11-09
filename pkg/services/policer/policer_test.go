@@ -1318,6 +1318,48 @@ func TestPolicer_Run_EC(t *testing.T) {
 		})
 	})
 
+	t.Run("cross-rule restoration recursion", func(t *testing.T) {
+		const (
+			partNumber        = 2
+			parityNumber      = 1
+			totalPartsPerRule = partNumber + parityNumber
+		)
+
+		ecRules := []iec.Rule{
+			{DataPartNum: partNumber, ParityPartNum: parityNumber},
+			{DataPartNum: partNumber, ParityPartNum: parityNumber},
+			{DataPartNum: partNumber, ParityPartNum: parityNumber},
+		}
+
+		parent := objecttest.Object()
+		parent.ResetRelations()
+		parent.SetPayload(testutil.RandByteSlice(6))
+		parent.SetPayloadSize(6)
+		parentAddr := parent.Address()
+
+		nodes := make([][]netmap.NodeInfo, len(ecRules))
+		conns := newMockAPIConnections()
+		for ruleIdx := range ecRules {
+			nodes[ruleIdx] = testutil.Nodes(totalPartsPerRule)
+			for partIdx, node := range nodes[ruleIdx] {
+				// every part of every rule is unavailable, so every rule is
+				// insufficient (0 healthy parts, 2 required).
+				conns.setRangeResult(node, parentAddr, uint8(ruleIdx), uint8(partIdx), nil, apistatus.ErrObjectNotFound)
+			}
+		}
+
+		p := New(neofscryptotest.Signer(),
+			WithNetwork(newMockNetwork()),
+			WithLogger(zaptest.NewLogger(t)),
+			WithMetrics(&mockMetrics{}),
+		)
+		p.apiConns = conns
+
+		// no infinite recuirsion
+		_, err := p.fetchObjectFromECRule(t.Context(), nil, nodes, parent, ecRules, 0, 0)
+		require.ErrorContains(t, err, "all EC rules were tried")
+	})
+
 	for _, typ := range []object.Type{
 		object.TypeTombstone,
 		object.TypeLock,
