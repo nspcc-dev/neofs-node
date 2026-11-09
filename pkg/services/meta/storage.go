@@ -10,10 +10,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// storagerConcurrency defines how many storage tasks are handled
-// simultaneously: each may block on a network HEAD (m.net.Head), so handling
-// them one at a time would let a single slow one stall the whole queue -
-// and, transitively, the chain notification delivery feeding it.
+// storagerConcurrency bounds how many storage tasks are handled at once.
+// Each may block on a network HEAD, so one at a time lets a single slow
+// peer stall the queue and the notification delivery feeding it.
 const storagerConcurrency = 16
 
 // PutObjects forces [Meta] to index provided objects.

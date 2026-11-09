@@ -67,15 +67,9 @@ func newTestMetabase(t *testing.T) *metabase.DB {
 	return db
 }
 
-// Regression test for M44: storager used to process one storageTask at a
-// time, including the network HEAD call for tasks whose header wasn't
-// already known locally. A single slow peer stalled that HEAD call, and
-// since storager was the sole reader of its queue, nothing else enqueued
-// behind it could make progress either - all the way back through
-// notifyReceived's synchronous send and the chain's own notification
-// delivery into m.evsCh. storagerConcurrency workers pulling from the same
-// queue bound how many tasks can be stuck on one slow HEAD at a time,
-// instead of all of them.
+// storager is the sole reader of its queue, so a task blocked in a network
+// HEAD must not stop other tasks from being picked up. Several HEADs have to
+// be in flight at once, and no more than the configured bound.
 func TestMeta_storager_ProcessesTasksConcurrently(t *testing.T) {
 	net := &gatedNetwork{gate: make(chan struct{})}
 
@@ -102,15 +96,19 @@ func TestMeta_storager_ProcessesTasksConcurrently(t *testing.T) {
 		m.storager(ctx, buff)
 	}()
 
-	// Exactly storagerConcurrency tasks should end up blocked in Head at
-	// once - not 1 (the pre-fix behavior) and not more than the bound.
+	// A literal bound, not storagerConcurrency: an expectation derived from
+	// the constant is satisfied by any value of it, serial included.
+	const wantAtLeast = 2
+
 	require.Eventually(t, func() bool {
-		return net.inFlight.Load() == storagerConcurrency
-	}, time.Second, time.Millisecond, "expected %d concurrent Head calls", storagerConcurrency)
+		return net.inFlight.Load() >= wantAtLeast
+	}, time.Second, time.Millisecond, "expected at least %d concurrent Head calls, saw %d",
+		wantAtLeast, net.inFlight.Load())
 
 	close(net.gate) // let every blocked (and subsequent) Head call through
 	cancel()
 	<-done
 
-	require.EqualValues(t, storagerConcurrency, net.maxInFlight.Load())
+	require.GreaterOrEqual(t, net.maxInFlight.Load(), int32(wantAtLeast), "Head calls never overlapped")
+	require.LessOrEqual(t, net.maxInFlight.Load(), int32(storagerConcurrency), "concurrency exceeded its bound")
 }
