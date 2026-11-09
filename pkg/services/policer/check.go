@@ -364,9 +364,18 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 		)
 
 		p.tryToReplicate(ctx, plc.object.Address, uint32(len(candidates)), candidates, plc.checkedNodes)
-	} else if uncheckedCopies > 0 {
-		// If we have more copies than needed, but some of them are from the maintenance nodes,
-		// save the local copy.
+	}
+
+	// Some of the copies counted above are on maintenance nodes and were
+	// never actually verified to hold the object - they only count towards
+	// shortage/candidates to avoid spamming new replicas while a primary is
+	// temporarily down. This must hold regardless of whether shortage was
+	// also >0 for an unrelated reason (e.g. another primary's HEAD failing
+	// transiently): otherwise an unverified maintenance node and an
+	// unrelated, unverified error on another node combine to make this
+	// node think its own, actually-confirmed copy is redundant, and it gets
+	// dropped - the only copy whose existence isn't in doubt.
+	if uncheckedCopies > 0 {
 		plc.needLocalCopy = true
 		p.log.Debug("some of the copies are stored on nodes under maintenance, save local copy",
 			zap.Int("count", uncheckedCopies))
