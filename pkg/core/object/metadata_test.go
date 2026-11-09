@@ -650,3 +650,27 @@ func TestApplyFilter(t *testing.T) {
 		}
 	})
 }
+
+// Documents the invariant behind the validator: MergeSearchResults indexes
+// Attributes[0] of the first item of every non-empty set as soon as a
+// non-empty firstAttr is given (i.e. the first filter is not STRING_EQUAL),
+// to order and compare results across sets. It never checks that index is
+// actually present. Any caller that lets an item with zero attributes
+// through for such a query - e.g. a non-conforming or malicious remote peer
+// in pkg/services/object.searchOnRemoteAddress, whose validateSearchResultItem
+// is responsible for rejecting exactly this - causes an out-of-range panic
+// here, not a clean error. This is the same panic class already hit once in
+// production for the STRING_EQUAL case (fixed by skipping the comparison
+// entirely for that case, see the "No reason to compare equal values" guard
+// in ProcessSearch) and is why validateSearchResultItem must reject it
+// before it ever reaches here for every other filter type.
+func TestMergeSearchResults_PanicsOnEmptyAttributesWithNonEmptyFirstAttr(t *testing.T) {
+	sets := [][]client.SearchResultItem{
+		{{ID: oidtest.ID(), Attributes: []string{"v"}}},
+		{{ID: oidtest.ID(), Attributes: nil}}, // a non-conforming/malicious peer's reply
+	}
+
+	require.Panics(t, func() {
+		_, _, _ = MergeSearchResults(10, "someAttribute", false, sets, []bool{false, false})
+	})
+}
