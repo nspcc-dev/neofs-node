@@ -45,13 +45,26 @@ func (p *Policer) processECPart(ctx context.Context, obj objectcore.AddressWithA
 		return
 	}
 
+	localPartHdr, err := p.localStorage.Head(ctx, addr, false)
+	if err != nil {
+		p.log.Info("failed to get local EC part header",
+			zap.Stringer("object", addr), zap.Stringer("rule", rule), zap.Int("partIdx", pi.Index), zap.Error(err))
+		return
+	}
+
+	// Every part of a rule is ceil(parentSize/DataPartNum) long and padded, so
+	// the parent cannot be longer than DataPartNum of them. All rules encode
+	// the same parent, which makes this the bound for every rule below - and
+	// the only one not taken from a peer.
+	maxParentSz := localPartHdr.PayloadSize() * uint64(rule.DataPartNum)
+
 	for ruleIdx := range ecRules {
 		if ruleIdx == pi.RuleIndex {
-			p.checkECParts(ctx, addr.Container(), parent, rule, pi.RuleIndex, pi.Index, addr.Object())
+			p.checkECParts(ctx, addr.Container(), parent, rule, pi.RuleIndex, pi.Index, addr.Object(), maxParentSz)
 			continue
 		}
 
-		p.checkECParts(ctx, addr.Container(), parent, ecRules[ruleIdx], ruleIdx, -1, oid.ID{})
+		p.checkECParts(ctx, addr.Container(), parent, ecRules[ruleIdx], ruleIdx, -1, oid.ID{}, maxParentSz)
 	}
 	if p.processECPartByRule(ctx, rule, addr, pi.Index, nodeLists[pi.RuleIndex]) {
 		p.optimizeLocalShardLocation(ctx, obj, parent)
@@ -159,23 +172,16 @@ func (x *singleReplication) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 }
 
 // checkParentPayloadSize rejects an EC parent object's declared payload size
-// if it exceeds the system's maximum object size. The size is used to size a
-// buffer allocation and is not otherwise verified.
-func (p *Policer) checkParentPayloadSize(sz uint64) error {
-	if p.maxSizeSrc == nil {
-		return errors.New("max object size source is not configured")
-	}
-	max := p.maxSizeSrc.MaxObjectSize()
-	if max == 0 {
-		return errors.New("could not obtain max object size parameter")
-	}
+// if it exceeds max, derived from the part held locally. The size is used to
+// size a buffer allocation and is not otherwise verified.
+func checkParentPayloadSize(sz, max uint64) error {
 	if sz > max {
-		return fmt.Errorf("EC parent payload size %d exceeds max object size %d", sz, max)
+		return fmt.Errorf("EC parent payload size %d exceeds %d implied by the local part", sz, max)
 	}
 	return nil
 }
 
-func (p *Policer) checkECParts(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx, localPartIdx int, localPartID oid.ID) {
+func (p *Policer) checkECParts(ctx context.Context, cnr cid.ID, parent oid.ID, rule iec.Rule, ruleIdx, localPartIdx int, localPartID oid.ID, maxParentSz uint64) {
 	parentAddr := oid.NewAddress(cnr, parent)
 
 	sortedNodeLists, repRules, ecRules, err := p.network.GetNodesForObject(parentAddr)
@@ -235,7 +241,7 @@ headNextPart:
 						return
 					}
 
-					if err := p.checkParentPayloadSize(ph.PayloadSize()); err != nil {
+					if err := checkParentPayloadSize(ph.PayloadSize(), maxParentSz); err != nil {
 						p.log.Error("EC parent payload size declared by peer rejected",
 							zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
 							zap.Int("ruleIdx", ruleIdx), zap.Int("partIdx", partIdx), zap.Bool("local", local),
@@ -310,7 +316,7 @@ headNextPart:
 			return
 		}
 
-		if err := p.checkParentPayloadSize(hdr.PayloadSize()); err != nil {
+		if err := checkParentPayloadSize(hdr.PayloadSize(), maxParentSz); err != nil {
 			p.log.Error("EC parent payload size read locally rejected",
 				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
 				zap.Int("ruleIdx", ruleIdx), zap.Error(err))

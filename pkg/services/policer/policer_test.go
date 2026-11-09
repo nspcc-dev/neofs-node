@@ -1292,7 +1292,6 @@ func TestPolicer_Run_EC(t *testing.T) {
 			WithNetwork(mockNet),
 			WithLogger(zaptest.NewLogger(t)),
 			WithMetrics(&mockMetrics{}),
-			WithMaxSizeSource(fakeMaxSizeSource(parentSize)),
 		)
 		p.localStorage = localNode
 		p.apiConns = conns
@@ -1913,9 +1912,12 @@ func (x *testLocalNode) Put(_ context.Context, _ *object.Object, _ []byte) error
 	return nil
 }
 
-func (x *testLocalNode) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
+func (x *testLocalNode) Head(_ context.Context, addr oid.Address, _ bool) (*object.Object, error) {
 	if x.headObj != nil {
 		return x.headObj, nil
+	}
+	if !x.obj.GetID().IsZero() && x.obj.Address().Compare(addr) == 0 {
+		return x.obj.CutPayload(), nil
 	}
 	return &object.Object{}, nil
 }
@@ -2159,25 +2161,22 @@ func generateECChain(t *testing.T, parentSize uint64, rules []iec.Rule) (object.
 	return parent, res
 }
 
-type fakeMaxSizeSource uint64
-
-func (f fakeMaxSizeSource) MaxObjectSize() uint64 { return uint64(f) }
-
 // checkECParts sizes a buffer from the EC parent payload size declared in a
 // part header received from another container member. With a 2/1 rule, one
 // healthy remote part and one missing part, the restoration path is reached
-// and the buffer allocated; an oversized declared size must be rejected
-// before that, for a size read from a peer and for one read locally.
+// and the buffer allocated; a size exceeding what the locally stored part
+// implies must be rejected before that.
 func TestPolicer_checkECParts_BoundsParentPayloadSize(t *testing.T) {
-	const configuredMax = 64 << 20
-
 	// Overflows int when multiplied by totalParts, so an unbounded allocation
 	// panics deterministically instead of trying to reserve the memory.
 	const oversized = math.MaxUint64 / 2
 
 	rule := iec.Rule{DataPartNum: 2, ParityPartNum: 1}
 	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
-	partLen := (uint64(oversized) + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
+
+	// The bound processECPart derives from the part this node stores.
+	const localPartLen = 1 << 20
+	maxParentSz := uint64(localPartLen) * uint64(rule.DataPartNum)
 
 	cnr := cidtest.ID()
 	parent := oidtest.ID()
@@ -2187,10 +2186,10 @@ func TestPolicer_checkECParts_BoundsParentPayloadSize(t *testing.T) {
 	// Part 1 is served by nodes[1] and carries the oversized parent header;
 	// part 2 is missing everywhere, so missingIdx is non-empty and the
 	// allocation downstream is reached. Part 0 is local.
-	newRemotePart := func() object.Object {
+	newRemotePart := func(parentSz uint64) object.Object {
 		var parentHdr object.Object
 		parentHdr.SetID(parent)
-		parentHdr.SetPayloadSize(oversized)
+		parentHdr.SetPayloadSize(parentSz)
 
 		var hdr object.Object
 		var attrRule, attrPart object.Attribute
@@ -2199,18 +2198,19 @@ func TestPolicer_checkECParts_BoundsParentPayloadSize(t *testing.T) {
 		attrPart.SetKey(object.AttributeECPartIndex)
 		attrPart.SetValue("1")
 		hdr.SetAttributes(attrRule, attrPart)
-		hdr.SetParent(&parentHdr)   // derives the parent ID from the header
-		hdr.SetPayloadSize(partLen) // must match, or the part is rejected first
+		hdr.SetParent(&parentHdr) // derives the parent ID from the header
+		// must match ceil(parentSz/DataPartNum), or the part is rejected first
+		hdr.SetPayloadSize((parentSz + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum))
 		return hdr
 	}
 
-	newPolicer := func(t *testing.T, maxSize MaxSizeSource) (*Policer, *testutil.LogBuffer) {
+	newPolicer := func(t *testing.T, parentSz uint64) (*Policer, *testutil.LogBuffer) {
 		mockNet := newMockNetwork()
 		mockNet.setObjectNodesECResult(cnr, parent, [][]netmap.NodeInfo{nodes}, []iec.Rule{rule})
 		mockNet.pubKey = nodes[0].PublicKey()
 
 		conns := newMockAPIConnections()
-		conns.setHeadResult(nodes[1], parentAddr, newRemotePart(), nil)
+		conns.setHeadResult(nodes[1], parentAddr, newRemotePart(parentSz), nil)
 		conns.setHeadResult(nodes[2], parentAddr, object.Object{}, error(apistatus.ErrObjectNotFound))
 
 		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
@@ -2219,7 +2219,6 @@ func TestPolicer_checkECParts_BoundsParentPayloadSize(t *testing.T) {
 			WithLogger(l),
 			WithHeadTimeout(time.Second),
 			WithMetrics(&mockMetrics{}),
-			WithMaxSizeSource(maxSize),
 		)
 		p.localStorage = newTestLocalNode()
 		p.apiConns = conns
@@ -2227,31 +2226,22 @@ func TestPolicer_checkECParts_BoundsParentPayloadSize(t *testing.T) {
 		return p, lb
 	}
 
+	const rejected = "EC parent payload size declared by peer rejected"
+
 	t.Run("oversized size declared by a peer", func(t *testing.T) {
-		p, lb := newPolicer(t, fakeMaxSizeSource(configuredMax))
+		p, lb := newPolicer(t, oversized)
 
 		require.NotPanics(t, func() {
-			p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID())
+			p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID(), maxParentSz)
 		})
-		lb.AssertContainsMsg(zap.ErrorLevel, "EC parent payload size declared by peer rejected")
+		lb.AssertContainsMsg(zap.ErrorLevel, rejected)
 	})
 
-	t.Run("max size source unavailable", func(t *testing.T) {
-		p, lb := newPolicer(t, fakeMaxSizeSource(0))
-
-		require.NotPanics(t, func() {
-			p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID())
-		})
-		lb.AssertContainsMsg(zap.ErrorLevel, "EC parent payload size declared by peer rejected")
-	})
-
-	t.Run("max size source not configured", func(t *testing.T) {
-		p, lb := newPolicer(t, nil)
-
-		require.NotPanics(t, func() {
-			p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID())
-		})
-		lb.AssertContainsMsg(zap.ErrorLevel, "EC parent payload size declared by peer rejected")
+	// The accepted path runs on into restoration, which TestPolicer_Run_EC
+	// covers with real part sizes; the bound itself is checked below.
+	t.Run("boundary", func(t *testing.T) {
+		require.NoError(t, checkParentPayloadSize(maxParentSz, maxParentSz))
+		require.Error(t, checkParentPayloadSize(maxParentSz+1, maxParentSz))
 	})
 }
 
@@ -2261,10 +2251,10 @@ func TestPolicer_checkECParts_BoundsParentPayloadSize(t *testing.T) {
 // only a part's own payload size, not the size its embedded parent header
 // declares, so that value is not bounded either and must be checked too.
 func TestPolicer_checkECParts_BoundsParentPayloadSizeReadLocally(t *testing.T) {
-	const configuredMax = 64 << 20
 	const oversized = math.MaxUint64 / 2
 
 	rule := iec.Rule{DataPartNum: 1, ParityPartNum: 1}
+	maxParentSz := uint64(1<<20) * uint64(rule.DataPartNum)
 	cnr := cidtest.ID()
 	parent := oidtest.ID()
 	nodes := testutil.Nodes(int(rule.DataPartNum + rule.ParityPartNum))
@@ -2289,13 +2279,12 @@ func TestPolicer_checkECParts_BoundsParentPayloadSizeReadLocally(t *testing.T) {
 		WithLogger(l),
 		WithHeadTimeout(time.Second),
 		WithMetrics(&mockMetrics{}),
-		WithMaxSizeSource(fakeMaxSizeSource(configuredMax)),
 	)
 	p.localStorage = local
 	p.apiConns = conns
 
 	require.NotPanics(t, func() {
-		p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID())
+		p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID(), maxParentSz)
 	})
 	lb.AssertContainsMsg(zap.ErrorLevel, "EC parent payload size read locally rejected")
 }
