@@ -46,7 +46,25 @@ func (exec *execCtx) processV2Last(lastID oid.ID) {
 		return
 	}
 
-	exec.collectedHeader = lastHead.Parent()
+	par := lastHead.Parent()
+	if par == nil {
+		exec.status = statusUndefined
+		exec.err = errors.New("missing parent header in last part object")
+
+		exec.log.Debug("received last part with empty parent", zap.Stringer("last part ID", lastID))
+
+		return
+	}
+	if err := verifyParentHeaderID(par, exec.address().Object()); err != nil {
+		exec.status = statusUndefined
+		exec.err = err
+
+		exec.log.Debug("received last part with wrong parent header", zap.Stringer("last part ID", lastID), zap.Error(err))
+
+		return
+	}
+
+	exec.collectedHeader = par
 	if !exec.resolvePayloadRange() {
 		return
 	}
@@ -85,7 +103,25 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 		return false
 	}
 
-	exec.collectedHeader = linkObj.Parent()
+	parentHdr := linkObj.Parent()
+	if parentHdr == nil {
+		exec.status = statusUndefined
+		exec.err = errors.New("missing parent header in link object")
+
+		exec.log.Debug("received link object with empty parent", zap.Stringer("link ID", linkID))
+
+		return false
+	}
+	if err := verifyParentHeaderID(parentHdr, exec.address().Object()); err != nil {
+		exec.status = statusUndefined
+		exec.err = err
+
+		exec.log.Debug("received link object with wrong parent header", zap.Stringer("link ID", linkID), zap.Error(err))
+
+		return false
+	}
+
+	exec.collectedHeader = parentHdr
 
 	var link object.Link
 	err := linkObj.ReadLink(&link)

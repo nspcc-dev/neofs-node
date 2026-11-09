@@ -437,12 +437,20 @@ func TestGetLocalOnly(t *testing.T) {
 		for _, tc := range []struct {
 			name      string
 			configure func(*object.SplitInfo, oid.ID, *object.Object)
+			// expErr: a missing parent header is now rejected as soon as it's
+			// read - earlier than the generic "missing object header" check
+			// downstream ever sees it. For "link" specifically, the earlier
+			// rejection makes processV2Split fall back to the (here, also
+			// absent) last part, same as it always did for any link failure,
+			// surfacing that fallback's own error instead.
+			expErr string
 		}{
 			{
 				name: "last part",
 				configure: func(si *object.SplitInfo, childID oid.ID, _ *object.Object) {
 					si.SetLastPart(childID)
 				},
+				expErr: "missing parent header in last part object",
 			},
 			{
 				name: "link",
@@ -450,6 +458,7 @@ func TestGetLocalOnly(t *testing.T) {
 					si.SetLink(childID)
 					child.WriteLink(object.Link{})
 				},
+				expErr: "no link and no last part in split info",
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -477,7 +486,7 @@ func TestGetLocalOnly(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.ErrorContains(t, err, "missing object header")
+				require.ErrorContains(t, err, tc.expErr)
 			})
 		}
 	})
@@ -487,15 +496,26 @@ func TestGetLocalOnly(t *testing.T) {
 		splitInfo := object.NewSplitInfo()
 		splitInfo.SetLink(oidtest.ID())
 
-		srcObj := generateObject(addr, nil, nil)
 		children, childIDs, payload := generateChain(2, addr.Container())
+
+		// srcObj's address is derived from its real content (rather than
+		// the outer addr, picked upfront with no relation to this
+		// content) so that the link's embedded parent header - which
+		// readers must now verify actually hashes to the address they
+		// requested - is genuinely self-consistent, matching how an
+		// honest sender populates it.
+		srcObj := new(object.Object)
+		srcObj.SetContainerID(addr.Container())
 		srcObj.SetPayload(payload)
 		srcObj.SetPayloadSize(uint64(len(payload)))
+		require.NoError(t, srcObj.CalculateAndSetID())
+		splitAddr := srcObj.Address()
+
 		splitInfo.SetFirstPart(childIDs[0])
 
 		var linkChildren []object.MeasuredObject
 		for i := range children {
-			children[i].SetParentID(addr.Object())
+			children[i].SetParentID(splitAddr.Object())
 			children[i].SetParent(srcObj)
 			var child object.MeasuredObject
 			child.SetObjectID(children[i].GetID())
@@ -503,20 +523,20 @@ func TestGetLocalOnly(t *testing.T) {
 			linkChildren = append(linkChildren, child)
 		}
 
-		linkAddr := oid.NewAddress(addr.Container(), splitInfo.GetLink())
+		linkAddr := oid.NewAddress(splitAddr.Container(), splitInfo.GetLink())
 		linkObj := generateObject(linkAddr, nil, nil)
-		linkObj.SetParentID(addr.Object())
+		linkObj.SetParentID(splitAddr.Object())
 		linkObj.SetParent(srcObj)
 		linkObj.SetFirstID(childIDs[0])
 		var link object.Link
 		link.SetObjects(linkChildren)
 		linkObj.WriteLink(link)
 
-		storage.addVirtual(addr, splitInfo)
+		storage.addVirtual(splitAddr, splitInfo)
 		ns, as := testNodeMatrix(t, []int{1})
 		vectors := map[oid.Address][][]netmap.NodeInfo{
-			addr:     ns,
-			linkAddr: ns,
+			splitAddr: ns,
+			linkAddr:  ns,
 		}
 		c := newTestClient()
 		c.addResult(linkAddr, linkObj, nil)
@@ -543,7 +563,7 @@ func TestGetLocalOnly(t *testing.T) {
 		t.Run("regular range", func(t *testing.T) {
 			w := NewSimpleObjectWriter()
 			p := newPrm(false, w)
-			p.WithAddress(addr)
+			p.WithAddress(splitAddr)
 
 			r := object.NewRange()
 			r.SetOffset(1)
@@ -559,7 +579,7 @@ func TestGetLocalOnly(t *testing.T) {
 		t.Run("payload-only range validates header", func(t *testing.T) {
 			w := &trackingWriter{}
 			p := newPrm(false, w)
-			p.WithAddress(addr)
+			p.WithAddress(splitAddr)
 			p.MarkPayloadOnly()
 
 			r := object.NewRange()
@@ -864,12 +884,16 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
-				addr := oidtest.Address()
-				addr.SetContainer(idCnr)
-				addr.SetObject(oidtest.ID())
-
-				srcObj := generateObject(addr, nil, nil)
+				// srcObj's address is derived from its real content (rather
+				// than picked upfront) so that the linking object's embedded
+				// parent header - which readers must now verify actually
+				// hashes to the address they requested - is genuinely
+				// self-consistent, matching how an honest sender populates it.
+				srcObj := new(object.Object)
+				srcObj.SetContainerID(idCnr)
 				srcObj.SetPayloadSize(10)
+				require.NoError(t, srcObj.CalculateAndSetID())
+				addr := srcObj.Address()
 
 				ns, as := testNodeMatrix(t, []int{2})
 
@@ -932,11 +956,19 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("OK", func(t *testing.T) {
-				addr := oidtest.Address()
-				addr.SetContainer(idCnr)
-				addr.SetObject(oidtest.ID())
+				children, childIDs, payload := generateChain(2, idCnr)
 
-				srcObj := generateObject(addr, nil, nil)
+				// srcObj's address is derived from its real content (rather
+				// than picked upfront) so that the linking object's embedded
+				// parent header - which readers must now verify actually
+				// hashes to the address they requested - is genuinely
+				// self-consistent, matching how an honest sender populates it.
+				srcObj := new(object.Object)
+				srcObj.SetContainerID(idCnr)
+				srcObj.SetPayload(payload)
+				srcObj.SetPayloadSize(uint64(len(payload)))
+				require.NoError(t, srcObj.CalculateAndSetID())
+				addr := srcObj.Address()
 
 				ns, as := testNodeMatrix(t, []int{2})
 
@@ -944,9 +976,6 @@ func TestGetRemoteSmall(t *testing.T) {
 				splitInfo.SetLink(oidtest.ID())
 				splitInfo.SetSplitID(object.NewSplitID())
 
-				children, childIDs, payload := generateChain(2, idCnr)
-				srcObj.SetPayload(payload)
-				srcObj.SetPayloadSize(uint64(len(payload)))
 				children[len(children)-1].SetParent(srcObj)
 
 				var linkAddr oid.Address
@@ -1070,12 +1099,16 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
-				addr := oidtest.Address()
-				addr.SetContainer(idCnr)
-				addr.SetObject(oidtest.ID())
-
-				srcObj := generateObject(addr, nil, nil)
+				// srcObj's address is derived from its real content (rather
+				// than picked upfront) so that the right child's embedded
+				// parent header - which readers must now verify actually
+				// hashes to the address they requested - is genuinely
+				// self-consistent, matching how an honest sender populates it.
+				srcObj := new(object.Object)
+				srcObj.SetContainerID(idCnr)
 				srcObj.SetPayloadSize(11)
+				require.NoError(t, srcObj.CalculateAndSetID())
+				addr := srcObj.Address()
 
 				ns, as := testNodeMatrix(t, []int{2})
 
@@ -1131,21 +1164,25 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("OK", func(t *testing.T) {
-				addr := oidtest.Address()
-				addr.SetContainer(idCnr)
-				addr.SetObject(oidtest.ID())
+				children, _, payload := generateChain(2, idCnr)
 
-				srcObj := generateObject(addr, nil, nil)
+				// srcObj's address is derived from its real content (rather
+				// than picked upfront) so that the right child's embedded
+				// parent header - which readers must now verify actually
+				// hashes to the address they requested - is genuinely
+				// self-consistent, matching how an honest sender populates it.
+				srcObj := new(object.Object)
+				srcObj.SetContainerID(idCnr)
+				srcObj.SetPayloadSize(uint64(len(payload)))
+				srcObj.SetPayload(payload)
+				require.NoError(t, srcObj.CalculateAndSetID())
+				addr := srcObj.Address()
 
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := object.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
 				splitInfo.SetSplitID(object.NewSplitID())
-
-				children, _, payload := generateChain(2, idCnr)
-				srcObj.SetPayloadSize(uint64(len(payload)))
-				srcObj.SetPayload(payload)
 
 				rightObj := children[len(children)-1]
 

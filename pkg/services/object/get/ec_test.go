@@ -341,7 +341,23 @@ func TestService_Get_EC_Part(t *testing.T) {
 func TestService_Get_EC(t *testing.T) {
 	ctx := context.Background()
 	cnr := cidtest.ID()
-	parentID := oidtest.ID()
+
+	parentPayload := testutil.RandByteSlice(4 << 10)
+
+	// parentHdr's address is derived from its real content (rather than
+	// picked upfront) so that the parent header embedded in each EC part -
+	// which readers must now verify actually hashes to the address they
+	// requested - is genuinely self-consistent, matching how an honest
+	// sender populates it.
+	var parentHdr object.Object
+	parentHdr.SetContainerID(cnr)
+	parentHdr.SetAttributes(
+		object.NewAttribute("parent_attr1", "parent_val1"),
+		object.NewAttribute("parent_attr2", "parent_val2"),
+	)
+	parentHdr.SetPayloadSize(uint64(len(parentPayload)))
+	require.NoError(t, parentHdr.CalculateAndSetID())
+	parentID := parentHdr.GetID()
 	parentAddr := oid.NewAddress(cnr, parentID)
 
 	t.Run("container policy application failure", func(t *testing.T) {
@@ -364,17 +380,6 @@ func TestService_Get_EC(t *testing.T) {
 
 	signer := usertest.User()
 	nodeKey := neofscryptotest.ECDSAPrivateKey()
-
-	parentPayload := testutil.RandByteSlice(4 << 10)
-
-	var parentHdr object.Object
-	parentHdr.SetID(parentID)
-	parentHdr.SetContainerID(cnr)
-	parentHdr.SetAttributes(
-		object.NewAttribute("parent_attr1", "parent_val1"),
-		object.NewAttribute("parent_attr2", "parent_val2"),
-	)
-	parentHdr.SetPayloadSize(uint64(len(parentPayload)))
 
 	rule := iec.Rule{
 		DataPartNum:   12,

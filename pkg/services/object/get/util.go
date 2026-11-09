@@ -30,6 +30,26 @@ var errInterrupt = errors.New("interrupt")
 
 var errInvalidSizeSplitLinker = errors.New("invalid size-split linker")
 
+var errParentHeaderIDMismatch = errors.New("parent header does not match requested object")
+
+// verifyParentHeaderID checks that hdr's content actually hashes to want,
+// rather than merely carrying fields that claim to. hdr is a parent header
+// embedded in a part/child/linker object received from another node (local
+// or remote); nothing about it is otherwise bound to the object that was
+// actually requested, so without this check a node answering with a
+// different object's header passes every downstream check (eACL,
+// payload-size bounds, ...) that trusts hdr's claimed identity.
+func verifyParentHeaderID(hdr *object.Object, want oid.ID) error {
+	got, err := hdr.CalculateID()
+	if err != nil {
+		return fmt.Errorf("calculate parent header ID: %w", err)
+	}
+	if got != want {
+		return errParentHeaderIDMismatch
+	}
+	return nil
+}
+
 type sizeSplitinkerError object.Object
 
 func (x sizeSplitinkerError) Error() string {

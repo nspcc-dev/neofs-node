@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Config parsing panicked instead of returning a clean error when a struct-slice field (e.g. `grpc`, shards) was given the wrong YAML shape, including via SIGHUP reload on a running node (#4282)
 - Object expiration time was not exposed to eACL filters (#4303)
 - Possible infinite EC parts restoration loop in the policer (#4293)
+- Split and EC read paths emitted a parent object header collected from another node without checking that it hashes to the requested object ID (#4290)
 
 ### Changed
 

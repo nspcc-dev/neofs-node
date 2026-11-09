@@ -272,6 +272,9 @@ func (s *Service) copySplitECObjectByInfo(ctx context.Context, dst ObjectWriter,
 	if parentHdr == nil {
 		return fmt.Errorf("received invalid header of first size-split part %s: missing parent header", lastPartID)
 	}
+	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
+		return fmt.Errorf("verify parent header of size-split part %s: %w", lastPartID, err)
+	}
 
 	// we need []oid.ID only, but called method accepts []object.MeasuredObject. Payload sizes are left undefined
 	sizeSplitParts := make([]object.MeasuredObject, 1)
@@ -301,6 +304,9 @@ func (s *Service) copySplitECObjectByLinker(ctx context.Context, dst ObjectWrite
 	parentHdr := linker.Parent()
 	if parentHdr == nil {
 		return fmt.Errorf("%w: missing parent header", errInvalidSizeSplitLinker)
+	}
+	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
+		return fmt.Errorf("verify parent header of size-split linker: %w", err)
 	}
 
 	var l object.Link
@@ -588,6 +594,9 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, rule
 	if parentHdr == nil {
 		return object.Object{}, nil, errors.New("missing parent header in object for part")
 	}
+	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
+		return object.Object{}, nil, fmt.Errorf("verify parent header of EC part: %w", err)
+	}
 
 	if typ == object.TypeLink {
 		buf := make([]byte, partHdr.PayloadSize())
@@ -811,6 +820,9 @@ func (s *Service) copySplitECObjectRangeByInfo(ctx context.Context, dst ChunkWri
 	if parentHdr == nil {
 		return fmt.Errorf("received invalid header of first size-split part %s: missing parent header", lastPartID)
 	}
+	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
+		return fmt.Errorf("verify parent header of size-split part %s: %w", lastPartID, err)
+	}
 	off, ln, err := resolveRange(parentHdr)
 	if err != nil {
 		return err
@@ -874,6 +886,9 @@ func (s *Service) copySplitECObjectRangeByLinker(ctx context.Context, dst ChunkW
 	parentHdr := linker.Parent()
 	if parentHdr == nil {
 		return fmt.Errorf("%w: missing parent header", errInvalidSizeSplitLinker)
+	}
+	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
+		return fmt.Errorf("verify parent header of size-split linker: %w", err)
 	}
 	off, ln, err := resolveRange(parentHdr)
 	if err != nil {
@@ -1017,6 +1032,9 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 	parentHdr := partHdr.Parent()
 	if parentHdr == nil {
 		return 0, 0, errors.New("missing parent header in object for part") // TODO: copied, share?
+	}
+	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
+		return 0, 0, fmt.Errorf("verify parent header of EC part: %w", err)
 	}
 
 	pldLen := parentHdr.PayloadSize()
