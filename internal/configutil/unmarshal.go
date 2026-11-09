@@ -103,7 +103,7 @@ func uint160Hook() mapstructure.DecodeHookFuncType {
 
 		str, ok := data.(string)
 		if !ok {
-			return nil, fmt.Errorf("hash invalid type %T insted of %T", data, str)
+			return nil, fmt.Errorf("invalid hash type %T: expected string", data)
 		}
 		if str == "" {
 			return util.Uint160{}, nil
