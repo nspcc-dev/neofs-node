@@ -451,11 +451,15 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 		})
 		t.Run("out container", func(t *testing.T) {
 			t.Run("in netmap", func(t *testing.T) {
+				// Even though a genuine shortage exists and is
+				// being replicated to real (confirmed-missing) candidates, some of
+				// the shortage accounting still rests on unverified maintenance
+				// nodes - the local backup copy must not be dropped just because
+				// replication to the confirmed-missing nodes is in progress; it's
+				// the only copy actually known to exist right now.
 				expShortage := uint32(0)
-				expRedundant := false
 				if broadcast {
 					expShortage = uint32(len(nodes)) - 3
-					expRedundant = true
 				}
 
 				var expCandidates []netmap.NodeInfo
@@ -463,7 +467,7 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 					expCandidates = nodes[defaultRep:]
 				}
 
-				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, errs, expShortage, expRedundant, expCandidates)
+				logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, errs, expShortage, false, expCandidates)
 
 				for j := range defaultRep {
 					logBuf.AssertContains(testutil.LogEntry{
@@ -482,7 +486,6 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 							"shortage":  json.Number("6"),
 						},
 					})
-					return
 				}
 
 				logBuf.AssertContains(testutil.LogEntry{
@@ -531,6 +534,50 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 						"count":     json.Number("3"),
 					},
 				})
+			})
+		})
+
+		// Regression test: one primary under maintenance (unverified, optimistically
+		// counted as a holder to avoid replication spam) and one primary
+		// returning a transient, non-404, non-maintenance error (also
+		// unverified, but doesn't even get counted as anything). With the
+		// local node outside the container, neither primary is actually
+		// confirmed to hold the object - the local copy is the only one
+		// whose existence is known for certain. It must survive even though
+		// shortage > 0 drives the code into the replication branch, and even
+		// though a replication attempt (to the empty candidate list - the
+		// transient-error node can't be identified as a holder *or* a
+		// candidate) cannot provide any real guarantee either.
+		t.Run("maintenance plus a transient error on another primary leaves the local copy intact", func(t *testing.T) {
+			errs := islices.RepeatElement(len(nodes), error(apistatus.ErrObjectNotFound))
+			errs[0] = apistatus.ErrNodeUnderMaintenance
+			errs[1] = errors.New("transient network error")
+
+			expShortage := uint32(defaultRep - 1)
+			if broadcast {
+				expShortage = uint32(len(nodes)) - 1
+			}
+
+			logBuf := testRepCheck(t, defaultRep, localObj, nodes, -1, true, errs, expShortage, false, slices.Clone(nodes)[2:])
+
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.DebugLevel, Message: "consider node under maintenance as OK", Fields: map[string]any{
+					"component": "Object Policer",
+					"node":      hex.EncodeToString(nodes[0].PublicKey()),
+				},
+			})
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.ErrorLevel, Message: "receive object header to check policy compliance", Fields: map[string]any{
+					"component": "Object Policer",
+					"object":    objAddr.String(),
+					"error":     "transient network error",
+				},
+			})
+			logBuf.AssertContains(testutil.LogEntry{
+				Level: zap.DebugLevel, Message: "some of the copies are stored on nodes under maintenance, save local copy", Fields: map[string]any{
+					"component": "Object Policer",
+					"count":     json.Number("1"),
+				},
 			})
 		})
 	})
