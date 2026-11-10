@@ -58,15 +58,9 @@ type (
 		// SubscribeForBlocks must subscribe for new block headers.
 		// Block shouldbe sent to provided channel.
 		SubscribeForBlocks(ch chan *block.Header)
-		// UnsubscribeFromBlocks must stop sending block headers to ch, which
-		// must then be safe to close.
-		UnsubscribeFromBlocks(ch chan *block.Header)
 		// SubscribeForNotifications must subscribe for new chain notifications.
 		// Notifications should be sent to provided channel.
 		SubscribeForNotifications(ch chan *state.ContainedNotificationEvent)
-		// UnsubscribeFromNotifications must stop sending notifications to ch,
-		// which must then be safe to close.
-		UnsubscribeFromNotifications(ch chan *state.ContainedNotificationEvent)
 		// TransactionTestInvocation must validate transaction execution
 		// without persisting it.
 		TransactionTestInvocation(tx *transaction.Transaction) error
@@ -347,13 +341,9 @@ func (m *Meta) Run(ctx context.Context) error {
 
 	wg.Wait()
 
-	// The chain sends independently of the handlers waited on above, so it
-	// must stop before the channels are closed.
-	m.chain.UnsubscribeFromBlocks(m.bCh)
-	m.chain.UnsubscribeFromNotifications(m.evsCh)
-
-	close(m.bCh)
-	close(m.evsCh)
+	// m.bCh and m.evsCh are not closed: the chain writes into them and keeps
+	// sending after the handlers above are gone, so closing them here races
+	// with those sends. m.taskQueue's only writers are the handlers.
 	close(m.taskQueue)
 
 	return m.metabase.Close()

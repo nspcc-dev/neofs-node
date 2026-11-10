@@ -157,22 +157,10 @@ func (s *SideChain) SubscribeForNotifications(ch chan *state.ContainedNotificati
 	s.core.SubscribeForNotifications(ch)
 }
 
-// UnsubscribeFromNotifications unsubscribes given channel from chain
-// notifications; it is safe to close the channel afterwards.
-func (s *SideChain) UnsubscribeFromNotifications(ch chan *state.ContainedNotificationEvent) {
-	s.core.UnsubscribeFromNotifications(ch)
-}
-
 // SubscribeForBlocks subscribes for chain block headers. Channel must
 // be read to prevent deadlock.
 func (s *SideChain) SubscribeForBlocks(ch chan *block.Header) {
 	s.core.SubscribeForHeadersOfAddedBlocks(ch)
-}
-
-// UnsubscribeFromBlocks unsubscribes given channel from chain block headers;
-// it is safe to close the channel afterwards.
-func (s *SideChain) UnsubscribeFromBlocks(ch chan *block.Header) {
-	s.core.UnsubscribeFromHeadersOfAddedBlocks(ch)
 }
 
 // TransactionTestInvocation runs a test with transaction's script without

@@ -2,7 +2,9 @@ package meta
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,15 +16,23 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// raceMetaChain sends into the subscribed channel as fast as possible from a
-// goroutine Run does not wait on, until the matching Unsubscribe* call stops
-// it - like the real chain's delivery goroutine.
+// raceMetaChain sends into the subscribed channels as fast as possible from
+// goroutines Run does not wait on, like the real chain's delivery goroutine,
+// and records a panic instead of taking the test binary down with it.
 type raceMetaChain struct {
-	stopBlocks chan struct{}
-	blocksWG   sync.WaitGroup
+	stop     chan struct{}
+	wg       sync.WaitGroup
+	panicked atomic.Pointer[string]
+}
 
-	stopNotifs chan struct{}
-	notifsWG   sync.WaitGroup
+func newRaceMetaChain(t *testing.T) *raceMetaChain {
+	c := &raceMetaChain{stop: make(chan struct{})}
+	t.Cleanup(func() {
+		close(c.stop)
+		c.wg.Wait()
+	})
+
+	return c
 }
 
 func (c *raceMetaChain) Magic() uint32                        { return 0 }
@@ -32,70 +42,74 @@ func (c *raceMetaChain) TransactionTestInvocation(*transaction.Transaction) erro
 	panic("not used by Run")
 }
 
-func (c *raceMetaChain) SubscribeForBlocks(ch chan *block.Header) {
-	stop := make(chan struct{})
-	c.stopBlocks = stop
-	c.blocksWG.Add(1)
+// send keeps calling f until the test is over, recording any panic f causes.
+func (c *raceMetaChain) send(f func()) {
+	c.wg.Add(1)
 	go func() {
-		defer c.blocksWG.Done()
+		defer c.wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				s := fmt.Sprint(r)
+				c.panicked.CompareAndSwap(nil, &s)
+			}
+		}()
 		for {
 			select {
-			case <-stop:
+			case <-c.stop:
 				return
-			case ch <- new(block.Header):
+			default:
+				f()
 			}
 		}
 	}()
 }
 
-func (c *raceMetaChain) UnsubscribeFromBlocks(chan *block.Header) {
-	close(c.stopBlocks)
-	c.blocksWG.Wait() // only returns once the sender goroutine is guaranteed gone
+func (c *raceMetaChain) SubscribeForBlocks(ch chan *block.Header) {
+	c.send(func() {
+		select {
+		case <-c.stop:
+		case ch <- new(block.Header):
+		}
+	})
 }
 
 func (c *raceMetaChain) SubscribeForNotifications(ch chan *state.ContainedNotificationEvent) {
-	stop := make(chan struct{})
-	c.stopNotifs = stop
-	c.notifsWG.Add(1)
-	go func() {
-		defer c.notifsWG.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			case ch <- new(state.ContainedNotificationEvent):
-			}
+	c.send(func() {
+		select {
+		case <-c.stop:
+		case ch <- new(state.ContainedNotificationEvent):
 		}
-	}()
+	})
 }
 
-func (c *raceMetaChain) UnsubscribeFromNotifications(chan *state.ContainedNotificationEvent) {
-	close(c.stopNotifs)
-	c.notifsWG.Wait()
-}
+// Run must leave the channels the chain sends into open: closing one while the
+// chain is still delivering panics that delivery goroutine with "send on
+// closed channel", taking the node down on shutdown.
+func TestMeta_Run_DoesNotCloseChainFedChannels(t *testing.T) {
+	// addMetrics registers collectors in the global default registerer, which
+	// another New in this package has already used; give this one its own.
+	defaultReg := prometheus.DefaultRegisterer
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+	t.Cleanup(func() { prometheus.DefaultRegisterer = defaultReg })
 
-// Run must not close its channels while the chain can still send into them:
-// a send racing the close panics with "send on closed channel".
-func TestMeta_Run_DoesNotPanicOnConcurrentChainSends(t *testing.T) {
+	chain := newRaceMetaChain(t)
 	m, err := New(Parameters{
 		Logger:  zaptest.NewLogger(t),
-		Chain:   &raceMetaChain{},
+		Chain:   chain,
 		Path:    t.TempDir(),
 		Network: noopNetwork{},
 	})
 	require.NoError(t, err)
-	// addMetrics registers collectors in the global default registerer;
-	// unregister them so other tests in this package can call New again.
-	t.Cleanup(func() {
-		prometheus.Unregister(m.metrics.newBlockFetchTime)
-		prometheus.Unregister(m.metrics.objAcceptTime)
-		prometheus.Unregister(m.metrics.objAcceptBlocks)
-	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 
-	require.NotPanics(t, func() {
-		require.NoError(t, m.Run(ctx))
-	})
+	require.NoError(t, m.Run(ctx))
+
+	// Run has returned, so any close it performs has already happened; give
+	// the senders time to hit it.
+	require.Never(t, func() bool {
+		return chain.panicked.Load() != nil
+	}, 50*time.Millisecond, time.Millisecond,
+		"chain delivery goroutine panicked with \"send on closed channel\"")
 }
