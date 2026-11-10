@@ -341,8 +341,10 @@ func (m *Meta) Run(ctx context.Context) error {
 
 	wg.Wait()
 
-	close(m.bCh)
-	close(m.evsCh)
+	// m.bCh and m.evsCh stay open: the chain writes into them, and neo-go's
+	// Close waits only for its Run loop, not for the goroutine dispatching to
+	// subscribers, so their sends are never known to have stopped.
+	// m.taskQueue's only writers are the handlers above.
 	close(m.taskQueue)
 
 	return m.metabase.Close()

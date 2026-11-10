@@ -256,9 +256,6 @@ func initMeta(c *cfg) {
 			}
 		},
 	})
-	c.closers = append(c.closers, func() {
-		c.sidechain.Stop()
-	})
 
 	var batchFlushInterval = blobstorconfig.DefaultFlushInterval
 	if c.appCfg.Storage.Default.Blobstor.FlushInterval > 0 {
@@ -279,12 +276,20 @@ func initMeta(c *cfg) {
 	})
 	fatalOnErr(err)
 
-	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		err = c.metaService.Run(ctx)
-		if err != nil {
+	// The service reads the chain's block and notification subscriptions, so
+	// the chain must stop delivering before the service stops reading them.
+	// Hence the service runs until the closer below stops it, rather than
+	// until the node's context is done like every other worker.
+	metaCtx, stopMeta := context.WithCancel(context.Background())
+	c.workers = append(c.workers, newWorkerFromFunc(func(context.Context) {
+		if err := c.metaService.Run(metaCtx); err != nil {
 			c.internalErr <- fmt.Errorf("meta data service error: %w", err)
 		}
 	}))
+	c.closers = append(c.closers, func() {
+		c.sidechain.Stop()
+		stopMeta()
+	})
 }
 
 func metadataChainHardforks() map[string]uint32 {
