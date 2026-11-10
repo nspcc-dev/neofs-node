@@ -127,7 +127,7 @@ func TestConsistencyAndPlacement(t *testing.T) {
 			localObj = objectcore.AddressWithAttributes{
 				Address:    objAddr,
 				Type:       object.TypeRegular,
-				Attributes: make([]string, 3),
+				Attributes: make([]string, 4),
 			}
 
 			mockM         = &mockMetrics{}
@@ -269,7 +269,7 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 	localObj := objectcore.AddressWithAttributes{
 		Address:    objAddr,
 		Type:       typ,
-		Attributes: make([]string, 3),
+		Attributes: make([]string, 4),
 	}
 
 	t.Run("all OK", func(t *testing.T) {
@@ -884,7 +884,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	localObj := objectcore.AddressWithAttributes{
 		Address:    oid.NewAddress(cnr, partOID),
 		Type:       object.TypeRegular,
-		Attributes: []string{"0", "5", parentOIDAttr},
+		Attributes: []string{"0", "5", parentOIDAttr, "0"},
 	}
 
 	nodes := testutil.Nodes(int(rule.DataPartNum+rule.ParityPartNum) * defaultCBF)
@@ -929,7 +929,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 				err: "part index is set, rule index is not"},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx, parentOIDAttr}
+				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx, parentOIDAttr, "0"}
 
 				testECCheckWaitLog(t, rule, localObj, nodes, 0, allOK, testutil.LogEntry{
 					Level: zap.ErrorLevel, Message: "failed to decode EC part info from attributes, skip object",
@@ -937,6 +937,18 @@ func TestPolicer_Run_EC(t *testing.T) {
 				})
 			})
 		}
+	})
+
+	t.Run("invalid payload size attribute in local object", func(t *testing.T) {
+		localObj := localObj
+		localObj.Attributes = slices.Clone(localObj.Attributes)
+		localObj.Attributes[3] = "not_an_int"
+
+		testECCheckWaitLog(t, rule, localObj, nodes, 0, allOK, testutil.LogEntry{
+			Level: zap.ErrorLevel, Message: "failed to decode local EC part payload size from attributes, skip object",
+			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "value": "not_an_int",
+				"error": `strconv.ParseUint: parsing "not_an_int": invalid syntax`},
+		})
 	})
 
 	t.Run("invalid parent attribute in local object", func(t *testing.T) {
@@ -968,7 +980,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	t.Run("part violates EC policy", func(t *testing.T) {
 		t.Run("no EC attributes", func(t *testing.T) {
 			localObj := localObj
-			localObj.Attributes = []string{"", "", parentOIDAttr}
+			localObj.Attributes = []string{"", "", parentOIDAttr, "0"}
 
 			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil)
 			logBuf.AssertContains(testutil.LogEntry{
@@ -1231,9 +1243,12 @@ func TestPolicer_Run_EC(t *testing.T) {
 			localObjectPartIdx = 4
 		)
 		localObj := objectcore.AddressWithAttributes{
-			Address:    oid.NewAddress(cID, ecChain[localObjectECIdx][localObjectPartIdx].GetID()),
-			Type:       object.TypeRegular,
-			Attributes: []string{strconv.Itoa(localObjectECIdx), strconv.Itoa(localObjectPartIdx), string(parentOID[:])},
+			Address: oid.NewAddress(cID, ecChain[localObjectECIdx][localObjectPartIdx].GetID()),
+			Type:    object.TypeRegular,
+			Attributes: []string{
+				strconv.Itoa(localObjectECIdx), strconv.Itoa(localObjectPartIdx), string(parentOID[:]),
+				strconv.FormatUint(ecChain[localObjectECIdx][localObjectPartIdx].PayloadSize(), 10),
+			},
 		}
 		localNode := newTestLocalNode()
 		localNode.objList = []objectcore.AddressWithAttributes{localObj}
@@ -1402,7 +1417,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 }
 
 func newECMockNetwork(t *testing.T, rules []iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int) *mockNetwork {
-	require.Len(t, localObj.Attributes, 3)
+	require.Len(t, localObj.Attributes, 4)
 
 	var sortOID oid.ID
 	if localObj.Attributes[0] == "" && localObj.Attributes[1] == "" {
@@ -1523,7 +1538,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 		localObj := objectcore.AddressWithAttributes{
 			Address:    addr,
 			Type:       object.TypeRegular,
-			Attributes: make([]string, 3),
+			Attributes: make([]string, 4),
 			ShardIDs:   []string{"source"},
 		}
 
@@ -1565,7 +1580,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 		localObj := objectcore.AddressWithAttributes{
 			Address:    addr,
 			Type:       object.TypeRegular,
-			Attributes: []string{"0", "0", string(parentID[:])},
+			Attributes: []string{"0", "0", string(parentID[:]), strconv.FormatUint(parts[0][0].PayloadSize(), 10)},
 			ShardIDs:   []string{"source"},
 		}
 		localNode := newTestLocalNode()
@@ -1600,7 +1615,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 		localObj := objectcore.AddressWithAttributes{
 			Address:    addr,
 			Type:       object.TypeRegular,
-			Attributes: make([]string, 3),
+			Attributes: make([]string, 4),
 			ShardIDs:   []string{"source", "target"},
 		}
 
@@ -1636,7 +1651,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 				localObj := objectcore.AddressWithAttributes{
 					Address:    addr,
 					Type:       typ,
-					Attributes: make([]string, 3),
+					Attributes: make([]string, 4),
 					ShardIDs:   []string{"A", "B"},
 				}
 
@@ -1912,12 +1927,9 @@ func (x *testLocalNode) Put(_ context.Context, _ *object.Object, _ []byte) error
 	return nil
 }
 
-func (x *testLocalNode) Head(_ context.Context, addr oid.Address, _ bool) (*object.Object, error) {
+func (x *testLocalNode) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
 	if x.headObj != nil {
 		return x.headObj, nil
-	}
-	if !x.obj.GetID().IsZero() && x.obj.Address().Compare(addr) == 0 {
-		return x.obj.CutPayload(), nil
 	}
 	return &object.Object{}, nil
 }

@@ -45,10 +45,11 @@ func (p *Policer) processECPart(ctx context.Context, obj objectcore.AddressWithA
 		return
 	}
 
-	localPartHdr, err := p.localStorage.Head(ctx, addr, false)
+	// Attributes are the ones requested in the listing, payload size last.
+	localPartSz, err := strconv.ParseUint(obj.Attributes[3], 10, 64)
 	if err != nil {
-		p.log.Info("failed to get local EC part header",
-			zap.Stringer("object", addr), zap.Stringer("rule", rule), zap.Int("partIdx", pi.Index), zap.Error(err))
+		p.log.Error("failed to decode local EC part payload size from attributes, skip object",
+			zap.Stringer("object", addr), zap.String("value", obj.Attributes[3]), zap.Error(err))
 		return
 	}
 
@@ -56,7 +57,7 @@ func (p *Policer) processECPart(ctx context.Context, obj objectcore.AddressWithA
 	// the parent cannot be longer than DataPartNum of them. All rules encode
 	// the same parent, which makes this the bound for every rule below - and
 	// the only one not taken from a peer.
-	maxParentSz := localPartHdr.PayloadSize() * uint64(rule.DataPartNum)
+	maxParentSz := localPartSz * uint64(rule.DataPartNum)
 
 	for ruleIdx := range ecRules {
 		if ruleIdx == pi.RuleIndex {
