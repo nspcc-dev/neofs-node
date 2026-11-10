@@ -684,6 +684,7 @@ func (c *cfg) reloadConfig() error {
 	oldCfg := c.appCfg
 	oldMetrics := writeMetricConfig(oldCfg)
 	oldProfiler := writeProfilerConfig(oldCfg)
+	oldGRPC := writeGRPCConfig(oldCfg)
 
 	newCfg, err := config.New(config.WithConfigFile(oldCfg.Path()))
 	if err != nil {
@@ -734,7 +735,7 @@ func (c *cfg) reloadConfig() error {
 
 	// gRPC
 
-	if err := reloadGRPC(c); err != nil {
+	if err := reloadGRPC(c, oldGRPC); err != nil {
 		return fmt.Errorf("reload gRPC configuration: %w", err)
 	}
 

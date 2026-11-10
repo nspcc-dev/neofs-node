@@ -59,11 +59,11 @@ func TestReconcileGRPCServers_SurvivesPriorPartialFailure(t *testing.T) {
 	require.Same(t, srvC, byEndpoint1["C"].srv)
 	require.NotContains(t, byEndpoint1, "B")
 
-	// Reload #2: nothing changed further - B is simply absent from what's
-	// actually running (newServers1, now only 2 entries), while the
-	// declared config still has all 3 endpoints. This is exactly the "N
-	// declared, N-1 running" state the finding is about.
-	newCfg2 := grpcConfigSnapshot{snap("A"), snap("B"), snap("C")}
+	// Reload #2: the same config again, so nothing has changed further - B
+	// is simply absent from what's actually running (newServers1, now only 2
+	// entries), while the declared config still has all 3 endpoints. This is
+	// exactly the "N declared, N-1 running" state the finding is about.
+	newCfg2 := newCfg1
 
 	var built2 []string
 	srvB2 := grpc.NewServer()

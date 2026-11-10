@@ -305,8 +305,15 @@ func reconcileGRPCServers(old []cfgGRPCServer, newCfg grpcConfigSnapshot, build 
 // reloadGRPC performs a fine-grained reload: only gRPC servers whose
 // configuration or TLS certificate has actually changed are stopped and
 // re-created; the rest continue serving without interruption.
-func reloadGRPC(c *cfg) error {
+//
+// oldCfg is the previously declared configuration, not what is running: an
+// endpoint whose rebuild failed is absent from the latter, and would look
+// newly added to the self-signed TLS check.
+func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 	newCfg := writeGRPCConfig(c.appCfg)
+	if selfSignedTLSConfigChanged(oldCfg, newCfg) {
+		return errors.New("changing self-signed TLS endpoints requires node restart")
+	}
 
 	maxRecvMsgSizeOpt, err := getMaxRecvMsgSizeOpt(c)
 	if err != nil {
@@ -315,21 +322,6 @@ func reloadGRPC(c *cfg) error {
 
 	c.cfgGRPC.mu.Lock()
 	defer c.cfgGRPC.mu.Unlock()
-
-	// The "old" state is each currently running server's own stored snapshot,
-	// never a config snapshot recomputed separately and paired up by
-	// position: that pairing silently breaks as soon as a previous reload
-	// has ever built fewer servers than it was given endpoints for (e.g. one
-	// endpoint failed to bind), since the servers slice then has fewer
-	// entries than any freshly recomputed config snapshot, and matching them
-	// up by index mismatches every entry from that point on.
-	oldCfg := make(grpcConfigSnapshot, len(c.cfgGRPC.servers))
-	for i, entry := range c.cfgGRPC.servers {
-		oldCfg[i] = entry.snap
-	}
-	if selfSignedTLSConfigChanged(oldCfg, newCfg) {
-		return errors.New("changing self-signed TLS endpoints requires node restart")
-	}
 
 	newServers, freshServers, freshListeners := reconcileGRPCServers(c.cfgGRPC.servers, newCfg,
 		func(snap grpcServerSnapshot) (*grpc.Server, net.Listener, error) {
@@ -343,11 +335,14 @@ func reloadGRPC(c *cfg) error {
 		func(srv *grpc.Server) { stopGRPC("NeoFS Public API", srv, c.log) },
 	)
 
+	// Stored before the check below, where every old server has been stopped
+	// already: keeping the previous entries would offer stopped servers for
+	// reuse to the next reload.
+	c.cfgGRPC.servers = newServers
+
 	if len(newServers) == 0 {
 		return errors.New("could not listen to any gRPC endpoints")
 	}
-
-	c.cfgGRPC.servers = newServers
 
 	for _, reg := range c.cfgGRPC.serviceRegistrators {
 		for _, srv := range freshServers {
