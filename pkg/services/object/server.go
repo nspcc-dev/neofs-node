@@ -2356,14 +2356,13 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, req []byt
 	//  additional allocation. At the same time, this will require generic code for merging.
 	res := make([]client.SearchResultItem, n)
 	filteredAttributeless := len(reqBody.Attributes) == 0 && len(reqBody.Filters) > 0
+	var firstFilterMatchType protoobject.MatchType
+	if filteredAttributeless {
+		firstFilterMatchType = reqBody.Filters[0].MatchType
+	}
 	for i, r := range resp.Body.Result {
-		switch {
-		case r == nil:
-			return nil, false, fmt.Errorf("invalid response body: nil element #%d", i)
-		case r.Id == nil:
-			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: missing ID", i)
-		case !filteredAttributeless && len(r.Attributes) != len(reqBody.Attributes) || filteredAttributeless && len(r.Attributes) > 1:
-			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: wrong attribute count %d", i, len(r.Attributes))
+		if err := validateSearchResultItem(r, filteredAttributeless, len(reqBody.Attributes), firstFilterMatchType); err != nil {
+			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: %w", i, err)
 		}
 		if err := res[i].ID.FromProtoMessage(r.Id); err != nil {
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: invalid ID: %w", i, err)
@@ -2371,6 +2370,29 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, req []byt
 		res[i].Attributes = r.Attributes
 	}
 	return res, resp.Body.Cursor != "", nil
+}
+
+// validateSearchResultItem checks a single SearchV2 result item received from
+// a remote node against the request that produced it. reqAttrsLen is
+// len(reqBody.Attributes); firstFilterMatchType is read only when
+// filteredAttributeless is set.
+func validateSearchResultItem(r *protoobject.SearchV2Response_OIDWithMeta, filteredAttributeless bool, reqAttrsLen int, firstFilterMatchType protoobject.MatchType) error {
+	switch {
+	case r == nil:
+		return errors.New("nil element")
+	case r.Id == nil:
+		return errors.New("missing ID")
+	case !filteredAttributeless && len(r.Attributes) != reqAttrsLen:
+		return fmt.Errorf("wrong attribute count %d", len(r.Attributes))
+	case filteredAttributeless && len(r.Attributes) > 1:
+		return fmt.Errorf("wrong attribute count %d", len(r.Attributes))
+	case filteredAttributeless && len(r.Attributes) == 0 && firstFilterMatchType != protoobject.MatchType_STRING_EQUAL:
+		// MergeSearchResults indexes this attribute to compare and page results.
+		// Only STRING_EQUAL queries may omit it, since conforming peers clear a
+		// value the caller already knows.
+		return errors.New("missing required attribute for non-equality filter")
+	}
+	return nil
 }
 
 func objectFromMessage(gMsg *protoobject.Object) (*object.Object, error) {
