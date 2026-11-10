@@ -44,9 +44,7 @@ func (c *raceMetaChain) TransactionTestInvocation(*transaction.Transaction) erro
 
 // send keeps calling f until the test is over, recording any panic f causes.
 func (c *raceMetaChain) send(f func()) {
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
+	c.wg.Go(func() {
 		defer func() {
 			if r := recover(); r != nil {
 				s := fmt.Sprint(r)
@@ -61,7 +59,7 @@ func (c *raceMetaChain) send(f func()) {
 				f()
 			}
 		}
-	}()
+	})
 }
 
 func (c *raceMetaChain) SubscribeForBlocks(ch chan *block.Header) {
