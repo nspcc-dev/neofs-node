@@ -590,6 +590,66 @@ func TestService_Get_EC(t *testing.T) {
 	require.Equal(t, parentPayload, w.buf.Bytes())
 }
 
+// A size-split linker is an addressable object of its own, and resolving an EC
+// part for its ID yields the linker itself (see [metabase.DB.ResolveECPart]).
+// Its parent header is then the size-split parent it links, not the requested
+// object, so it must not be verified against the requested ID.
+//
+// The rule is a single part on a single node so that the only fetch is local
+// and deterministic; the linker path does not depend on part counts.
+func TestService_Get_EC_LinkerByOwnID(t *testing.T) {
+	ctx := context.Background()
+	cnr := cidtest.ID()
+
+	rule := iec.Rule{DataPartNum: 1}
+
+	var parentHdr object.Object
+	parentHdr.SetContainerID(cnr)
+	parentHdr.SetPayloadSize(4 << 10)
+	require.NoError(t, parentHdr.CalculateAndSetID())
+
+	var link object.Link
+	link.SetObjects([]object.MeasuredObject{{}})
+
+	var linker object.Object
+	linker.SetContainerID(cnr)
+	linker.SetType(object.TypeLink)
+	linker.SetParent(&parentHdr)
+	linker.WriteLink(link)
+	linker.SetPayloadSize(uint64(len(linker.Payload())))
+	require.NoError(t, linker.CalculateAndSetID())
+	require.NotEqual(t, parentHdr.GetID(), linker.GetID())
+
+	linkerAddr := oid.NewAddress(cnr, linker.GetID())
+	nodeLists, _ := testNodeMatrix(t, []int{int(rule.DataPartNum)})
+
+	svc := New(&mockNeoFSNet{
+		getNodesForObject: map[oid.Address]getNodesForObjectValue{
+			linkerAddr: {nodeSets: nodeLists, ecRules: []iec.Rule{rule}},
+		},
+		localPubKey: nodeLists[0][0].PublicKey(),
+	})
+	svc.localObjects = &mockLocalObjects{
+		getECPart: map[getECPartKey]getECPartValue{
+			{cnr: cnr, parent: linker.GetID(), pi: iec.PartInfo{}}: {
+				hdr: *linker.CutPayload(),
+				rdr: io.NopCloser(bytes.NewReader(linker.Payload())),
+			},
+		},
+	}
+
+	var w mockObjectWriter
+
+	var prm Prm
+	prm.WithAddress(linkerAddr)
+	prm.SetCommonParameters(newCommonParameters(false))
+	prm.SetObjectWriter(&w)
+
+	require.NoError(t, svc.Get(ctx, prm))
+	require.Equal(t, *linker.CutPayload(), w.hdr)
+	require.Equal(t, linker.Payload(), w.buf.Bytes())
+}
+
 func parameterizePartInfo(t testing.TB, p *Prm, pi iec.PartInfo) {
 	parameterizePartInfoString(t, p, strconv.Itoa(pi.RuleIndex), strconv.Itoa(pi.Index))
 }

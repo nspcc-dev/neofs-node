@@ -594,9 +594,6 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, rule
 	if parentHdr == nil {
 		return object.Object{}, nil, errors.New("missing parent header in object for part")
 	}
-	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
-		return object.Object{}, nil, fmt.Errorf("verify parent header of EC part: %w", err)
-	}
 
 	if typ == object.TypeLink {
 		buf := make([]byte, partHdr.PayloadSize())
@@ -610,6 +607,13 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, rule
 		}
 
 		return partHdr, buf, nil
+	}
+
+	// Deliberately past the linker case above: there, the returned object is
+	// the linker itself, and its parent header is the size-split parent it
+	// links, not the requested object. The caller tells the two apart by ID.
+	if err := verifyParentHeaderID(parentHdr, parent); err != nil {
+		return object.Object{}, nil, fmt.Errorf("verify parent header of EC part: %w", err)
 	}
 
 	if partHdr.PayloadSize() > parentHdr.PayloadSize() {
