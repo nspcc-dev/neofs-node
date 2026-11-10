@@ -590,26 +590,47 @@ func TestService_Get_EC(t *testing.T) {
 	require.Equal(t, parentPayload, w.buf.Bytes())
 }
 
-// A size-split linker is an addressable object of its own, and resolving an EC
-// part for its ID yields the linker itself (see [metabase.DB.ResolveECPart]).
-// Its parent header is then the size-split parent it links, not the requested
-// object, so it must not be verified against the requested ID.
+// ecLinkerScene is a size-split object within a container with a single EC
+// rule: a parent, the two children it splits into, and the linker listing
+// them. Everything is served locally by one node, which keeps the fetch
+// deterministic; the linker paths do not depend on part counts.
 //
-// The rule is a single part on a single node so that the only fetch is local
-// and deterministic; the linker path does not depend on part counts.
-func TestService_Get_EC_LinkerByOwnID(t *testing.T) {
-	ctx := context.Background()
-	cnr := cidtest.ID()
+// Only the linker's address is placed in the netmap, since both tests below
+// request the linker itself rather than the object it links.
+type ecLinkerScene struct {
+	cnr        cid.ID
+	linker     object.Object
+	linkerAddr oid.Address
+	childPlds  [][]byte
+	svc        *Service
+}
 
+func newECLinkerScene(t testing.TB) *ecLinkerScene {
+	cnr := cidtest.ID()
 	rule := iec.Rule{DataPartNum: 1}
+
+	childPlds := [][]byte{[]byte("AAAAAAAAAA"), []byte("BBBBBBBBBB")}
+	children := make([]object.Object, len(childPlds))
+	for i := range children {
+		children[i].SetContainerID(cnr)
+		children[i].SetPayload(childPlds[i])
+		children[i].SetPayloadSize(uint64(len(childPlds[i])))
+		children[i].CalculateAndSetPayloadChecksum()
+		require.NoError(t, children[i].CalculateAndSetID())
+	}
 
 	var parentHdr object.Object
 	parentHdr.SetContainerID(cnr)
-	parentHdr.SetPayloadSize(4 << 10)
+	parentHdr.SetPayloadSize(uint64(len(childPlds[0]) + len(childPlds[1])))
 	require.NoError(t, parentHdr.CalculateAndSetID())
 
+	linkChildren := make([]object.MeasuredObject, len(children))
+	for i := range children {
+		linkChildren[i].SetObjectID(children[i].GetID())
+		linkChildren[i].SetObjectSize(uint32(len(childPlds[i])))
+	}
 	var link object.Link
-	link.SetObjects([]object.MeasuredObject{{}})
+	link.SetObjects(linkChildren)
 
 	var linker object.Object
 	linker.SetContainerID(cnr)
@@ -629,25 +650,67 @@ func TestService_Get_EC_LinkerByOwnID(t *testing.T) {
 		},
 		localPubKey: nodeLists[0][0].PublicKey(),
 	})
-	svc.localObjects = &mockLocalObjects{
-		getECPart: map[getECPartKey]getECPartValue{
-			{cnr: cnr, parent: linker.GetID(), pi: iec.PartInfo{}}: {
-				hdr: *linker.CutPayload(),
-				rdr: io.NopCloser(bytes.NewReader(linker.Payload())),
-			},
-		},
+	svc.keyStore = &mockKeyStorage{privKey: neofscryptotest.ECDSAPrivateKey()}
+
+	local := &mockLocalObjects{getECPart: make(map[getECPartKey]getECPartValue)}
+	addLocal := func(id oid.ID, hdr object.Object, pld []byte) {
+		local.getECPart[getECPartKey{cnr: cnr, parent: id, pi: iec.PartInfo{}}] = getECPartValue{
+			hdr: *hdr.CutPayload(),
+			pld: pld,
+			rdr: io.NopCloser(bytes.NewReader(pld)),
+		}
 	}
+	addLocal(linker.GetID(), linker, linker.Payload())
+	for i := range children {
+		addLocal(children[i].GetID(), children[i], childPlds[i])
+	}
+	svc.localObjects = local
+
+	return &ecLinkerScene{cnr: cnr, linker: linker, linkerAddr: linkerAddr, childPlds: childPlds, svc: svc}
+}
+
+// A size-split linker is an addressable object of its own, and resolving an EC
+// part for its ID yields the linker itself (see [metabase.DB.ResolveECPart]).
+// Its parent header is then the size-split parent it links, not the requested
+// object, so it must not be verified against the requested ID.
+func TestService_Get_EC_LinkerByOwnID(t *testing.T) {
+	sc := newECLinkerScene(t)
 
 	var w mockObjectWriter
 
 	var prm Prm
-	prm.WithAddress(linkerAddr)
+	prm.WithAddress(sc.linkerAddr)
 	prm.SetCommonParameters(newCommonParameters(false))
 	prm.SetObjectWriter(&w)
 
-	require.NoError(t, svc.Get(ctx, prm))
-	require.Equal(t, *linker.CutPayload(), w.hdr)
-	require.Equal(t, linker.Payload(), w.buf.Bytes())
+	require.NoError(t, sc.svc.Get(context.Background(), prm))
+	require.Equal(t, *sc.linker.CutPayload(), w.hdr)
+	require.Equal(t, sc.linker.Payload(), w.buf.Bytes())
+}
+
+// Ranged GET has no counterpart of the above: copyECObjectRangeByRule treats
+// every linker it receives as the size-split linker of the requested object,
+// so a range addressed to a linker's own ID used to be resolved against the
+// size-split parent and answered with that object's payload. Nothing serves a
+// range of a linker's own payload, so the request must fail instead.
+func TestService_Get_EC_RangeByLinkerIDIsNotServedFromParent(t *testing.T) {
+	sc := newECLinkerScene(t)
+
+	w := &validatingChunkWriter{}
+
+	var prm Prm
+	prm.WithAddress(sc.linkerAddr)
+	prm.SetCommonParameters(newCommonParameters(false))
+	prm.SetObjectWriter(w)
+	prm.MarkPayloadOnly()
+	rng := object.NewRange()
+	rng.SetLength(uint64(len(sc.childPlds[0])))
+	prm.SetRange(rng)
+
+	err := sc.svc.Get(context.Background(), prm)
+	require.ErrorIs(t, err, errParentHeaderIDMismatch)
+	require.NotEqual(t, sc.childPlds[0], w.buf.Bytes())
+	require.Zero(t, w.buf.Len())
 }
 
 func parameterizePartInfo(t testing.TB, p *Prm, pi iec.PartInfo) {
