@@ -71,9 +71,16 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 	var result []map[string]any
 
 	sla := v.Get(baseKey)
-	var sl []any
-	if sla != nil {
-		sl = sla.([]any)
+	sl, isList := sla.([]any)
+	if sla != nil && !isList {
+		return nil
+	}
+	// Leave a wrong-shaped value for Unmarshal to report: an env override
+	// would otherwise write the rebuilt list back over it, hiding the error.
+	for _, it := range sl {
+		if _, ok := it.(map[string]any); !ok {
+			return nil
+		}
 	}
 	var updated bool
 	for i := 0; ; i++ {
