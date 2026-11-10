@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
 
 ### Changed
+- CI workflow calling the system tests no longer requests `write-all` permissions nor inherits all repository secrets (#4285)
 
 ### Removed
 
