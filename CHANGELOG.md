@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
+- Meta service panicked with "send on closed channel" on shutdown, closing the chain-fed channels before the chain was stopped (#4299)
 
 ### Changed
 
