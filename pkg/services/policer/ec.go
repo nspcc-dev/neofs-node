@@ -172,11 +172,11 @@ func (x *singleReplication) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 }
 
 // checkParentPayloadSize rejects an EC parent object's declared payload size
-// if it exceeds max, derived from the part held locally. The size is used to
+// if it exceeds maxSz, derived from the part held locally. The size is used to
 // size a buffer allocation and is not otherwise verified.
-func checkParentPayloadSize(sz, max uint64) error {
-	if sz > max {
-		return fmt.Errorf("EC parent payload size %d exceeds %d implied by the local part", sz, max)
+func checkParentPayloadSize(sz, maxSz uint64) error {
+	if sz > maxSz {
+		return fmt.Errorf("EC parent payload size %d exceeds %d implied by the local part", sz, maxSz)
 	}
 	return nil
 }
