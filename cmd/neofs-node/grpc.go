@@ -125,8 +125,8 @@ func initGRPC(c *cfg) {
 	c.onShutdown(func() {
 		c.cfgGRPC.mu.Lock()
 		srvs := make([]*grpc.Server, len(c.cfgGRPC.servers))
-		for i, e := range c.cfgGRPC.servers {
-			srvs[i] = e.srv
+		for i, entry := range c.cfgGRPC.servers {
+			srvs[i] = entry.srv
 		}
 		c.cfgGRPC.mu.Unlock()
 		for _, srv := range srvs {
@@ -269,8 +269,8 @@ func buildSingleGRPCServer(c *cfg, sc grpcconfig.GRPC, maxRecvMsgSizeOpt grpc.Se
 // still needs service registration and serving.
 func reconcileGRPCServers(old []cfgGRPCServer, newCfg grpcConfigSnapshot, build func(grpcServerSnapshot) (*grpc.Server, net.Listener, error), stop func(*grpc.Server)) (newServers []cfgGRPCServer, freshServers []*grpc.Server, freshListeners []net.Listener) {
 	oldByEndpoint := make(map[string]cfgGRPCServer, len(old))
-	for _, e := range old {
-		oldByEndpoint[e.snap.Endpoint] = e
+	for _, entry := range old {
+		oldByEndpoint[entry.snap.Endpoint] = entry
 	}
 
 	newServers = make([]cfgGRPCServer, 0, len(newCfg))
@@ -324,8 +324,8 @@ func reloadGRPC(c *cfg) error {
 	// entries than any freshly recomputed config snapshot, and matching them
 	// up by index mismatches every entry from that point on.
 	oldCfg := make(grpcConfigSnapshot, len(c.cfgGRPC.servers))
-	for i, e := range c.cfgGRPC.servers {
-		oldCfg[i] = e.snap
+	for i, entry := range c.cfgGRPC.servers {
+		oldCfg[i] = entry.snap
 	}
 	if selfSignedTLSConfigChanged(oldCfg, newCfg) {
 		return errors.New("changing self-signed TLS endpoints requires node restart")
@@ -361,9 +361,9 @@ func reloadGRPC(c *cfg) error {
 func serveGRPC(c *cfg) {
 	servers := make([]*grpc.Server, len(c.cfgGRPC.servers))
 	listeners := make([]net.Listener, len(c.cfgGRPC.servers))
-	for i, e := range c.cfgGRPC.servers {
-		servers[i] = e.srv
-		listeners[i] = e.lis
+	for i, entry := range c.cfgGRPC.servers {
+		servers[i] = entry.srv
+		listeners[i] = entry.lis
 	}
 	serveGRPCList(c, servers, listeners)
 }

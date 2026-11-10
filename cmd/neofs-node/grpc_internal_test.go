@@ -52,8 +52,8 @@ func TestReconcileGRPCServers_SurvivesPriorPartialFailure(t *testing.T) {
 	require.Equal(t, []*grpc.Server{srvB}, stopped1, "B's old server must be stopped even though its rebuild failed")
 	require.Len(t, newServers1, 2, "B must be dropped after its failed rebuild")
 	byEndpoint1 := make(map[string]cfgGRPCServer, len(newServers1))
-	for _, e := range newServers1 {
-		byEndpoint1[e.snap.Endpoint] = e
+	for _, entry := range newServers1 {
+		byEndpoint1[entry.snap.Endpoint] = entry
 	}
 	require.Same(t, srvA, byEndpoint1["A"].srv)
 	require.Same(t, srvC, byEndpoint1["C"].srv)
@@ -83,8 +83,8 @@ func TestReconcileGRPCServers_SurvivesPriorPartialFailure(t *testing.T) {
 	require.Equal(t, []*grpc.Server{srvB2}, fresh2)
 	require.Len(t, newServers2, 3)
 	byEndpoint2 := make(map[string]cfgGRPCServer, len(newServers2))
-	for _, e := range newServers2 {
-		byEndpoint2[e.snap.Endpoint] = e
+	for _, entry := range newServers2 {
+		byEndpoint2[entry.snap.Endpoint] = entry
 	}
 	require.Same(t, srvA, byEndpoint2["A"].srv, "A must still be its own original server")
 	require.Same(t, srvC, byEndpoint2["C"].srv, "C must still be its own original server, not misattributed to B")
