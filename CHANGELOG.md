@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support of container *AttributeV2 RPC requests (#)
 
 ### Fixed
 - Policer could drop the only verified local replica of an object when one primary was under maintenance and another's HEAD request failed transiently (#4291)
@@ -13,6 +14,8 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.25` (#)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.29.0` (#)
 
 ### Updating from v0.58.1
 

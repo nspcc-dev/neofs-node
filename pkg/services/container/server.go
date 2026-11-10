@@ -843,6 +843,24 @@ func (s *Server) makeSetAttributeResponse(err error) (*protocontainer.SetAttribu
 	}, nil
 }
 
+func (s *Server) makeSetAttributeV2Response(err error) (*protocontainer.SetAttributeV2Response, error) {
+	return &protocontainer.SetAttributeV2Response{
+		MetaHeader: &protosession.ResponseMetaHeader{
+			Version: version.Current().ProtoMessage(),
+			Status:  util.ToStatus(err),
+		},
+	}, nil
+}
+
+func (s *Server) makeRemoveAttributeV2Response(err error) (*protocontainer.RemoveAttributeV2Response, error) {
+	return &protocontainer.RemoveAttributeV2Response{
+		MetaHeader: &protosession.ResponseMetaHeader{
+			Version: version.Current().ProtoMessage(),
+			Status:  util.ToStatus(err),
+		},
+	}, nil
+}
+
 func verifySetAttributeRequestBody(body *protocontainer.SetAttributeRequest_Body) error {
 	switch {
 	case body == nil:
@@ -859,6 +877,38 @@ func verifySetAttributeRequestBody(body *protocontainer.SetAttributeRequest_Body
 		return errors.New("missing parameters' signature")
 	case body.SessionToken != nil && body.SessionTokenV1 != nil:
 		return errors.New("both session V1 and V2 tokens set")
+	}
+
+	return nil
+}
+
+func verifySetAttributeV2RequestBody(body *protocontainer.SetAttributeV2Request_Body) error {
+	switch {
+	case body == nil:
+		return errors.New("missing request body")
+	case body.ContainerRevision == 0:
+		return errors.New("zero container revision")
+	case body.ContainerId == nil:
+		return errors.New("missing container ID")
+	case body.Attribute == "":
+		return errors.New("missing attribute name")
+	case body.Value == "":
+		return errors.New("missing attribute value")
+	}
+
+	return nil
+}
+
+func verifyRemoveAttributeV2RequestBody(body *protocontainer.RemoveAttributeV2Request_Body) error {
+	switch {
+	case body == nil:
+		return errors.New("missing request body")
+	case body.ContainerRevision == 0:
+		return errors.New("zero container revision")
+	case body.ContainerId == nil:
+		return errors.New("missing container ID")
+	case body.Attribute == "":
+		return errors.New("missing attribute name")
 	}
 
 	return nil
@@ -913,6 +963,86 @@ func (s *Server) SetAttribute(ctx context.Context, req *protocontainer.SetAttrib
 		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken)
 
 	return s.makeSetAttributeResponse(err)
+}
+
+// SetAttributeV2 forwards attribute setting request to the underlying [Contract]
+// for further processing. If session token is attached, it's verified.
+func (s *Server) SetAttributeV2(ctx context.Context, req *protocontainer.SetAttributeV2Request) (*protocontainer.SetAttributeV2Response, error) {
+	var reqMetaHeader = req.GetMetaHeader()
+
+	if err := util.VerifyRequestAPIVersion(reqMetaHeader.GetVersion()); err != nil {
+		return s.makeSetAttributeV2Response(err)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), reqMetaHeader); err != nil {
+		return s.makeSetAttributeV2Response(err)
+	}
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+		return s.makeSetAttributeV2Response(err)
+	}
+	if err := verifySetAttributeV2RequestBody(req.GetBody()); err != nil {
+		return s.makeSetAttributeV2Response(err)
+	}
+
+	var id cid.ID
+	if err := id.FromProtoMessage(req.GetBody().GetContainerId()); err != nil {
+		return s.makeSetAttributeV2Response(fmt.Errorf("invalid container ID: %w", err))
+	}
+
+	if reqMetaHeader.SessionToken != nil {
+		return s.makeSetAttributeV2Response(errors.New("request does not support session token v1"))
+	}
+	_, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerSetAttribute, id)
+	if err != nil {
+		return s.makeSetAttributeV2Response(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
+
+	err = s.contract.SetAttribute(ctx, id, req.Body.Attribute, req.Body.Value, reqMetaHeader.ValidUntilTime,
+		req.VerifyHeader.RequestSignature.Key, req.VerifyHeader.RequestSignature.Sign, tokenBytes)
+
+	return s.makeSetAttributeV2Response(err)
+}
+
+// RemoveAttributeV2 forwards attribute setting request to the underlying [Contract]
+// for further processing. If session token is attached, it's verified.
+func (s *Server) RemoveAttributeV2(ctx context.Context, req *protocontainer.RemoveAttributeV2Request) (*protocontainer.RemoveAttributeV2Response, error) {
+	var reqMetaHeader = req.GetMetaHeader()
+
+	if err := util.VerifyRequestAPIVersion(reqMetaHeader.GetVersion()); err != nil {
+		return s.makeRemoveAttributeV2Response(err)
+	}
+	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), reqMetaHeader); err != nil {
+		return s.makeRemoveAttributeV2Response(err)
+	}
+	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+		return s.makeRemoveAttributeV2Response(err)
+	}
+	if err := verifyRemoveAttributeV2RequestBody(req.GetBody()); err != nil {
+		return s.makeRemoveAttributeV2Response(err)
+	}
+
+	var id cid.ID
+	if err := id.FromProtoMessage(req.GetBody().GetContainerId()); err != nil {
+		return s.makeRemoveAttributeV2Response(fmt.Errorf("invalid container ID: %w", err))
+	}
+
+	if reqMetaHeader.SessionToken != nil {
+		return s.makeRemoveAttributeV2Response(errors.New("request does not support session token v1"))
+	}
+	_, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerRemoveAttribute, id)
+	if err != nil {
+		return s.makeRemoveAttributeV2Response(fmt.Errorf("verify session token v2: %w", err))
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
+	defer cancel()
+
+	err = s.contract.RemoveAttribute(ctx, id, req.Body.Attribute, reqMetaHeader.ValidUntilTime,
+		req.VerifyHeader.RequestSignature.Key, req.VerifyHeader.RequestSignature.Sign, tokenBytes)
+
+	return s.makeRemoveAttributeV2Response(err)
 }
 
 func (s *Server) makeRemoveAttributeResponse(err error) (*protocontainer.RemoveAttributeResponse, error) {
