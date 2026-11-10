@@ -354,6 +354,9 @@ func getCIDs(cmd *cobra.Command) (map[cid.ID]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(rawIDs) == 0 {
+		return nil, fmt.Errorf("provide at least one container via --%s flag", containerIDsFlag)
+	}
 	var id cid.ID
 	res := make(map[cid.ID]struct{}, len(rawIDs))
 	for i := range rawIDs {
