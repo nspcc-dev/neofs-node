@@ -78,6 +78,12 @@ func TestCheckEACLUnavailableObjectAttributes(t *testing.T) {
 							},
 						},
 						{
+							name:    "container ID remains available",
+							action:  eacl.ActionDeny,
+							filters: []eacl.Filter{eacl.NewFilterObjectsFromContainer(cnr)},
+							deny:    true,
+						},
+						{
 							name:    "object ID is available only for DELETE",
 							action:  eacl.ActionDeny,
 							filters: []eacl.Filter{eacl.NewFilterObjectWithID(obj)},
