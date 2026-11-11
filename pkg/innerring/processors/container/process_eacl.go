@@ -58,7 +58,7 @@ func (cp *Processor) processPutEACLRequest(req cnrevent.PutContainerEACLRequest)
 		return
 	}
 
-	err = cp.checkSetEACL(req, table, idCnr, cnr, true)
+	err = cp.checkSetEACL(req, table, idCnr, cnr)
 	if err != nil {
 		// defer
 		return
@@ -67,7 +67,7 @@ func (cp *Processor) processPutEACLRequest(req cnrevent.PutContainerEACLRequest)
 	cp.approveSetEACL(req)
 }
 
-func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table eacl.Table, cID cid.ID, cnr container.Container, checkSig bool) error {
+func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table eacl.Table, cID cid.ID, cnr container.Container) error {
 	err := validateEACL(table)
 	if err != nil {
 		return fmt.Errorf("table validation: %w", err)
@@ -76,10 +76,6 @@ func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table ea
 	// ACL extensions can be disabled by basic ACL, check it
 	if !cnr.BasicACL().Extendable() {
 		return errors.New("ACL extension disabled by container basic ACL")
-	}
-
-	if !checkSig {
-		return nil
 	}
 
 	if len(req.OriginalRequest) != 0 {
