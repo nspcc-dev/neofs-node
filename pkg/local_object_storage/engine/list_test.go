@@ -20,7 +20,7 @@ import (
 func TestListWithCursor(t *testing.T) {
 	s1 := testNewShard(t, 1)
 	s2 := testNewShard(t, 2)
-	e := testNewEngineWithShards(s1, s2)
+	e := testNewEngineWithShards(t, s1, s2)
 
 	t.Cleanup(func() {
 		e.Close()
@@ -130,7 +130,7 @@ func TestListWithCursor(t *testing.T) {
 func TestListWithCursor_Dedup(t *testing.T) {
 	s1 := testNewShard(t, 1)
 	s2 := testNewShard(t, 2)
-	e := testNewEngineWithShards(s1, s2)
+	e := testNewEngineWithShards(t, s1, s2)
 	t.Cleanup(func() { _ = e.Close() })
 
 	obj := generateObjectWithCID(cidtest.ID())

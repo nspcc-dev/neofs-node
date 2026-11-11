@@ -242,6 +242,7 @@ func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []str
 	currShards := make([]string, 0, num)
 
 	e := New()
+	registerEngineCleanup(t, e)
 	for i := range num {
 		id, err := e.AddShard(
 			shard.WithBlobstor(newStorage(filepath.Join(addPath, strconv.Itoa(i)))),
