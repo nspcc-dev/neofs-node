@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Possible infinite EC parts restoration loop in the policer (#4293)
 - SIGHUP config reload matched running gRPC servers to endpoints by slice position, permanently misattributing them after an earlier endpoint failed to bind (#4286)
 - NetmapService was missing from gRPC servers created by SIGHUP config reload (#4286)
+- eACL attached to container creation was accepted without verifying it is signed by the container owner (#4298)
 
 ### Changed
 
