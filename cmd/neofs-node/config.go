@@ -235,11 +235,18 @@ func (c *cfg) GetNetworkMap() (netmap.NetMap, error) {
 // CurrentEpoch returns the latest cached epoch.
 func (c *cfg) CurrentEpoch() uint64 { return c.networkState.CurrentEpoch() }
 
+// cfgGRPCServer is a running gRPC server along with the listener it serves on
+// and the config snapshot it was built from.
+type cfgGRPCServer struct {
+	snap grpcServerSnapshot
+	srv  *grpc.Server
+	lis  net.Listener
+}
+
 type cfgGRPC struct {
 	mu sync.Mutex
 
-	listeners []net.Listener
-	servers   []*grpc.Server
+	servers []cfgGRPCServer
 
 	// serviceRegistrators stores functions that register gRPC service
 	// implementations into a gRPC server.
@@ -253,8 +260,8 @@ func (g *cfgGRPC) registerService(f func(*grpc.Server)) {
 	defer g.mu.Unlock()
 
 	g.serviceRegistrators = append(g.serviceRegistrators, f)
-	for _, srv := range g.servers {
-		f(srv)
+	for _, entry := range g.servers {
+		f(entry.srv)
 	}
 }
 
