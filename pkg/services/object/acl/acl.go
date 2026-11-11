@@ -168,7 +168,7 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, cnr cid.ID, obj oid.ID
 	if req, ok := msg.(eaclV2.Request); ok {
 		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
 	} else if b, ok := msg.([]byte); ok {
-		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithObjectHeaderBinary(b))
+		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithObjectHeaderBinary(b, reqInfo.SrcRequest.(eaclV2.Request)))
 	} else {
 		hdrSrcOpts = append(hdrSrcOpts,
 			eaclV2.WithServiceResponse(

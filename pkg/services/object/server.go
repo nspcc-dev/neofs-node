@@ -842,7 +842,13 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
-		return s.makeStatusHeadResponse(req, err)
+		if _, ok := errors.AsType[*object.SplitInfoError](err); !ok || !recheckEACL {
+			return s.makeStatusHeadResponse(req, err)
+		}
+		// SplitInfoError represents a successful response, so authorization
+		// must finish before it can be sent, just like a buffered response.
+		resp = *s.makeStatusHeadResponse(req, err)
+		err = nil
 	}
 
 	if forwardResp != nil {
@@ -852,13 +858,32 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 	var buffered bool
 	var sigf, hdrf iprotobuf.FieldBounds
 	if proxyRespBuf != nil {
-		if !recheckEACL || proxyHdrBuf.IsEmpty() {
+		if !recheckEACL {
 			return proxyRespBuf
 		}
-		// TODO: this can be optimized by passing iprotobuf.BuffersSlice into eACL checker
-		hdrBuf = proxyHdrBuf.ReadOnlyData()
-		hdrf.To = len(hdrBuf)
-		buffered = true
+		if proxyHdrBuf.IsEmpty() {
+			// Use the same Origin-aware status interpretation as the transport.
+			var code uint32
+			code, _, err = handleResponseCodeAndBody(proxyRespBuf)
+			if err != nil {
+				proxyRespBuf.Free()
+				return s.makeStatusHeadResponse(req, err)
+			}
+			if code != protostatus.OK {
+				return proxyRespBuf
+			}
+			// A successful SplitInfo response still needs authorization. Unlike
+			// an object header, it must be resolved before evaluating object filters.
+			if err = proto.Unmarshal(proxyRespBuf.Materialize(), &resp); err != nil {
+				proxyRespBuf.Free()
+				return s.makeStatusHeadResponse(req, err)
+			}
+		} else {
+			// TODO: this can be optimized by passing iprotobuf.BuffersSlice into eACL checker
+			hdrBuf = proxyHdrBuf.ReadOnlyData()
+			hdrf.To = len(hdrBuf)
+			buffered = true
+		}
 	} else if buffered = hdrLen >= 0; buffered {
 		_, sigf, hdrf, err = iobject.GetNonPayloadFieldBounds(hdrBuf[:hdrLen])
 		if err != nil {
@@ -866,7 +891,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		}
 	}
 
-	if recheckEACL { // previous check didn't match, but we have a header now.
+	if recheckEACL { // Finish authorization using the response's object metadata.
 		var msg any
 		if buffered {
 			msg = hdrBuf[hdrf.ValueFrom:hdrf.To]
@@ -875,6 +900,7 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		}
 		err = s.aclChecker.CheckEACL(ctx, msg, cnrID, objID, reqInfo)
 		if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+			proxyRespBuf.Free()
 			err = eACLErr(reqInfo, err) // defer
 			return s.makeStatusHeadResponse(req, err)
 		}
@@ -983,17 +1009,27 @@ func (s *getStream) ValidateHeader(hdr *object.Object) error {
 	}
 
 	mo := hdr.ProtoMessage()
-	resp := &protoobject.GetResponse{
-		Body: &protoobject.GetResponse_Body{
-			ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
-				ObjectId:  mo.ObjectId,
-				Signature: mo.Signature,
-				Header:    mo.Header,
-			}},
-		},
-	}
+	return s.checkGetResponseEACL(s.base.Context(), &protoobject.GetResponse_Body{
+		ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
+			ObjectId:  mo.ObjectId,
+			Signature: mo.Signature,
+			Header:    mo.Header,
+		}},
+	})
+}
 
-	err := s.srv.aclChecker.CheckEACL(s.base.Context(), resp, s.reqCID, s.reqOID, s.reqInfo)
+func (s *getStream) checkSplitInfo(ctx context.Context, info *protoobject.SplitInfo) error {
+	if !s.recheckEACL {
+		return nil
+	}
+	return s.checkGetResponseEACL(ctx, &protoobject.GetResponse_Body{
+		ObjectPart: &protoobject.GetResponse_Body_SplitInfo{SplitInfo: info},
+	})
+}
+
+func (s *getStream) checkGetResponseEACL(ctx context.Context, body *protoobject.GetResponse_Body) error {
+	resp := &protoobject.GetResponse{Body: body}
+	err := s.srv.aclChecker.CheckEACL(ctx, resp, s.reqCID, s.reqOID, s.reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		return eACLErr(s.reqInfo, err)
 	}
@@ -1235,6 +1271,11 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err != nil {
 		if errors.Is(err, getsvc.ErrResponseStreamFailure) {
 			return err
+		}
+		if splitErr, ok := errors.AsType[*object.SplitInfoError](err); ok {
+			if checkErr := respStream.checkSplitInfo(ctx, splitErr.SplitInfo().ProtoMessage()); checkErr != nil {
+				err = checkErr
+			}
 		}
 		return s.sendStatusGetResponse(req, gStream, err)
 	}

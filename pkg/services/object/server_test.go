@@ -32,6 +32,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/common"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
@@ -48,6 +49,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -228,6 +230,67 @@ type mockReqInfoExtractor struct {
 
 func (x mockReqInfoExtractor) GetRequestToInfo(context.Context, *protoobject.GetRequest, cid.ID, common.RequestTokens) (v2.RequestInfo, error) {
 	return x.getRequestInfo, nil
+}
+
+type requestHeaderEACLSource struct{}
+
+func (requestHeaderEACLSource) GetEACL(cid.ID) (eacl.Table, error) {
+	targets := []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}
+	var records []eacl.Record
+	for _, op := range []eacl.Operation{eacl.OperationGet, eacl.OperationHead} {
+		records = append(records,
+			eacl.ConstructRecord(eacl.ActionDeny, op, targets, eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "secret")),
+			eacl.ConstructRecord(eacl.ActionDeny, op, targets, eacl.NewRequestHeaderFilter("X-Probe", eacl.MatchStringEqual, "yes")))
+	}
+	return eacl.ConstructTable(records), nil
+}
+
+// splitInfoHandler exercises the successful split response carried as an error
+// by the internal GET/HEAD service, rather than as a buffered remote response.
+type splitInfoHandler struct {
+	noCallObjectService
+	info object.SplitInfo
+}
+
+func (h splitInfoHandler) Head(context.Context, getsvc.HeadPrm) error {
+	return object.NewSplitInfoError(&h.info)
+}
+
+func (h splitInfoHandler) Get(context.Context, getsvc.Prm) error {
+	return object.NewSplitInfoError(&h.info)
+}
+
+type testACLHeaderSource func(context.Context, oid.Address) (*object.Object, error)
+
+func (f testACLHeaderSource) Head(ctx context.Context, addr oid.Address) (*object.Object, error) {
+	return f(ctx, addr)
+}
+
+func newRequestHeaderEACLChecker(storage *engine.StorageEngine, source testACLHeaderSource) *aclsvc.Checker {
+	return aclsvc.NewChecker(new(aclsvc.CheckerPrm).
+		SetLocalStorage(storage).SetValidator(eacl.NewValidator()).
+		SetEACLSource(requestHeaderEACLSource{}).SetHeaderSource(source))
+}
+
+type eaclReqInfoExtractor struct {
+	nopReqInfoExtractor
+	info v2.RequestInfo
+}
+
+func (x eaclReqInfoExtractor) GetRequestToInfo(_ context.Context, req *protoobject.GetRequest, _ cid.ID, _ common.RequestTokens) (v2.RequestInfo, error) {
+	x.info.SrcRequest = req
+	x.info.Operation = acl.OpObjectGet
+	x.info.RequestRole = acl.RoleOthers
+	x.info.Container.SetBasicACL(acl.PublicRWExtended)
+	return x.info, nil
+}
+
+func (x eaclReqInfoExtractor) HeadRequestToInfo(_ context.Context, req *protoobject.HeadRequest, _ cid.ID, _ common.RequestTokens) (v2.RequestInfo, error) {
+	x.info.SrcRequest = req
+	x.info.Operation = acl.OpObjectHead
+	x.info.RequestRole = acl.RoleOthers
+	x.info.Container.SetBasicACL(acl.PublicRWExtended)
+	return x.info, nil
 }
 
 type nopMetrics struct{}
@@ -940,6 +1003,22 @@ func BenchmarkServer_Replicate(b *testing.B) {
 			}
 		})
 	}
+}
+
+// newTwoNodeSetup creates a REP placement with the first node missing the object.
+func newTwoNodeSetup() ([]netmap.NodeInfo, *mockHandlerFSChain, *mockConnections) {
+	nodes := make([]netmap.NodeInfo, 2)
+	for i := range nodes {
+		nodes[i].SetPublicKey(fmt.Appendf(nil, "pub_%d", i))
+		nodes[i].SetNetworkEndpoints(fmt.Sprintf("localhost:%d", 9090+i))
+	}
+	chain := &mockHandlerFSChain{
+		repRules:  []uint{uint(len(nodes))},
+		nodeLists: [][]netmap.NodeInfo{nodes},
+	}
+	conns := newMockConnections()
+	conns.setConn(nodes[0], emptyRemoteNode{})
+	return nodes, chain, conns
 }
 
 type mockHandlerFSChain struct {

@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - NetmapService was missing from gRPC servers created by SIGHUP config reload (#4286)
 - Attempts to replicate expired split parts left by incomplete uploads (#4276)
 - Delayed GC of expired split-object parents to reduce resurrection risk from lagging replication (#4252)
+- Object GET and HEAD could bypass request-header eACL rules during deferred authorization, including split-info responses (#4305)
 
 ### Changed
 

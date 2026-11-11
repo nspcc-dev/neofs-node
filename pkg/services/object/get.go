@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -233,6 +234,15 @@ func (x *getProxyContext) handleResponseBody(ctx context.Context, raw bool, stre
 	case protoobject.FieldGetResponseBodyChunk:
 		return x.handleChunkResponse(streamProg, respBuf, oneofFld)
 	case protoobject.FieldGetResponseBodySplitInfo:
+		if raw && x.respStream.recheckEACL {
+			var info protoobject.SplitInfo
+			if err := proto.Unmarshal(oneofFld.ReadOnlyData(), &info); err != nil {
+				return false, fmt.Errorf("decode split info: %w", err)
+			}
+			if err := x.respStream.checkSplitInfo(ctx, &info); err != nil {
+				return false, err
+			}
+		}
 		return handleSplitInfoAndRespond(raw, x.respStream.base, respBuf, oneofFld)
 	}
 }
