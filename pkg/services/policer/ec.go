@@ -469,7 +469,7 @@ getNextPart:
 		zap.Stringer("cnr", cnr), zap.Stringer("parent", parentID), zap.Int("partsMissing", len(missingParts)),
 		zap.Int("failedRuleIdx", ruleIdx), zap.Int("nextRuleIdx", nextRule))
 
-	obj, err := p.fetchObjectFromECRule(ctx, buf, nodes, parentHeader, ecRules, ruleIdx, nextRule)
+	obj, err := p.fetchObjectFromECRule(ctx, buf, nodes, parentHeader, ecRules, initialRuleIdx, nextRule)
 	if err != nil {
 		return nil, fmt.Errorf("could not find enough (%d) EC parts but restoring from %d EC rule also failed: %w", requiredNum, nextRule, err)
 	}
