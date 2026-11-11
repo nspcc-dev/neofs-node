@@ -36,8 +36,22 @@ func (s epochState) CurrentEpoch() uint64 {
 	return s.e
 }
 
-func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
+func registerEngineCleanup(t testing.TB, e *StorageEngine) {
+	t.Helper()
+	t.Cleanup(func() {
+		// Some tests close the engine explicitly before reopening its storage.
+		select {
+		case <-e.closeCh:
+			return
+		default:
+		}
+		require.NoError(t, e.Close())
+	})
+}
+
+func testNewEngineWithShards(t testing.TB, shards ...*shard.Shard) *StorageEngine {
 	engine := New()
+	registerEngineCleanup(t, engine)
 
 	for _, s := range shards {
 		err := engine.addShard(s)
@@ -77,6 +91,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *StorageEngine {
 	engine := New()
 	dir := t.TempDir()
+	registerEngineCleanup(t, engine)
 	for i := range num {
 		_, err := engine.AddShard(append([]shard.Option{
 			shard.WithBlobstor(
@@ -126,7 +141,7 @@ func testNewEngineWithShardNum(t *testing.T, num int) *StorageEngine {
 		shards = append(shards, testNewShard(t, i))
 	}
 
-	return testNewEngineWithShards(shards...)
+	return testNewEngineWithShards(t, shards...)
 }
 
 func newEngineWithFixedShardOrder(ss []shardInterface) *StorageEngine {

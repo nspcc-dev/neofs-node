@@ -41,7 +41,7 @@ func TestHeadRaw(t *testing.T) {
 		s1 := testNewShard(t, 1)
 		s2 := testNewShard(t, 2)
 
-		e := testNewEngineWithShards(s1, s2)
+		e := testNewEngineWithShards(t, s1, s2)
 		defer e.Close()
 
 		// put most left object in one shard

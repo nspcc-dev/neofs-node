@@ -21,7 +21,7 @@ func TestStorageEngine_OptimizeShardLocation(t *testing.T) {
 	newEngine := func(t *testing.T, opts ...shard.Option) *StorageEngine {
 		var e *StorageEngine
 		if len(opts) == 0 {
-			e = testNewEngineWithShards(testNewShard(t, 1), testNewShard(t, 2))
+			e = testNewEngineWithShards(t, testNewShard(t, 1), testNewShard(t, 2))
 		} else {
 			e = testEngineFromShardOpts(t, 2, opts)
 		}
