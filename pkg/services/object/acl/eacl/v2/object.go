@@ -33,7 +33,7 @@ func u64Value(v uint64) string {
 func headersFromObject(obj *object.Object, cnr cid.ID, oid oid.ID) []eacl.Header {
 	var count int
 	for obj := obj; obj != nil; obj = obj.Parent() {
-		count += 9 + len(obj.Attributes())
+		count += 10 + len(obj.Attributes())
 	}
 
 	res := make([]eacl.Header, 0, count)
@@ -65,6 +65,13 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid oid.ID) []eacl.Header
 				v: obj.Type().String(),
 			},
 		)
+
+		if expiration := obj.ExpirationTime(); !expiration.IsZero() {
+			res = append(res, sysObjHdr{
+				k: object.FilterExpirationTime,
+				v: strconv.FormatInt(expiration.Unix(), 10),
+			})
+		}
 
 		if !oid.IsZero() {
 			res = append(res, oidHeader(oid))
@@ -215,11 +222,12 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 			}
 			off += n + ln
 		case protoobject.FieldHeaderExpirationTime:
-			_, n, err := iprotobuf.ParseUint64Field(buf[off:], num, typ)
+			expiration, n, err := iprotobuf.ParseUint64Field(buf[off:], num, typ)
 			if err != nil {
 				return nil, err
 			}
 			off += n
+			res = append(res, sysObjHdr{k: object.FilterExpirationTime, v: u64Value(expiration)})
 		default:
 			return nil, iprotobuf.NewUnsupportedFieldError(num, typ)
 		}
