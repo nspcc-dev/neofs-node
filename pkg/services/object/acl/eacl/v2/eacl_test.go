@@ -266,6 +266,61 @@ func TestV2Split(t *testing.T) {
 	})
 }
 
+func TestExpirationTimeRule(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		expiration time.Time
+		action     eacl.Action
+	}{
+		{name: "absent", action: eacl.ActionDeny},
+		{name: "minimum timestamp", expiration: time.Unix(1, 0), action: eacl.ActionDeny},
+		{name: "below threshold", expiration: time.Unix(1749999999, 0), action: eacl.ActionDeny},
+		{name: "equal to threshold", expiration: time.Unix(1750000000, 0), action: eacl.ActionAllow},
+		{name: "above threshold", expiration: time.Unix(1750000001, 0), action: eacl.ActionAllow},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var obj object.Object
+			obj.SetCreationEpoch(1)
+			if !tc.expiration.IsZero() {
+				require.NoError(t, obj.SetExpirationTime(tc.expiration))
+			}
+			hdr := obj.ProtoMessage().Header
+			buf := make([]byte, hdr.MarshaledSize())
+			hdr.MarshalStable(buf)
+			for _, source := range []struct {
+				name string
+				opt  Option
+			}{
+				{"binary", WithObjectHeaderBinary(buf)},
+				{"object", WithServiceResponse(&protoobject.HeadResponse{
+					Body: &protoobject.HeadResponse_Body{
+						Head: &protoobject.HeadResponse_Body_Header{
+							Header: &protoobject.HeaderWithSignature{Header: hdr},
+						},
+					},
+				}, nil)},
+			} {
+				t.Run(source.name, func(t *testing.T) {
+					src, err := NewMessageHeaderSource(source.opt)
+					require.NoError(t, err)
+					targets := []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}
+					table := eacl.ConstructTable([]eacl.Record{
+						eacl.ConstructRecord(eacl.ActionAllow, eacl.OperationHead, targets,
+							eacl.NewObjectPropertyFilter("$Object:expirationTime", eacl.MatchNumGE, "1750000000")),
+						eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationHead, targets),
+					})
+					unit := new(eacl.ValidationUnit).
+						WithRole(eacl.RoleOthers).
+						WithOperation(eacl.OperationHead).
+						WithEACLTable(&table).
+						WithHeaderSource(src)
+					checkAction(t, tc.action, eacl.NewValidator(), unit)
+				})
+			}
+		})
+	}
+}
+
 func TestObjectHeaders(t *testing.T) {
 	id := oid.ID{115, 0, 118, 16, 207, 179, 251, 24, 242, 80, 173, 62, 203, 159, 249, 96, 133, 158, 64, 52, 145, 73, 2, 217, 66, 141, 1, 240, 129, 44, 196, 30}
 	const idStr = "8jvJ15BTY16PQ4FVuPs2r8WVHQCdKGBuBt7m3AQCpyMF"
@@ -375,7 +430,7 @@ func TestObjectHeaders(t *testing.T) {
 		child.SetOwner(childOwner)
 		child.SetPayloadSize(childPayloadLen)
 		child.SetCreationEpoch(childCreationEpoch)
-		require.NoError(t, child.SetExpirationTime(time.Unix(1<<40, 0)))
+		require.NoError(t, child.SetExpirationTime(time.Unix(1<<40+1, 0)))
 		ver := version.New(56, 78)
 		child.SetVersion(&ver)
 		child.SetType(object.TypeLock)
@@ -394,6 +449,8 @@ func TestObjectHeaders(t *testing.T) {
 			{"$Object:ownerID", childOwnerStr},
 			{"$Object:creationEpoch", creationEpochStr},
 			{"$Object:creationEpoch", childCreationEpochStr},
+			{"$Object:expirationTime", "1099511627776"},
+			{"$Object:expirationTime", "1099511627777"},
 			{"$Object:payloadLength", payloadLenStr},
 			{"$Object:payloadLength", childPayloadLenStr},
 			{"$Object:objectType", "REGULAR"},
@@ -413,6 +470,7 @@ func TestObjectHeaders(t *testing.T) {
 		{"$Object:containerID", cnrStr},
 		{"$Object:ownerID", ownerStr},
 		{"$Object:creationEpoch", creationEpochStr},
+		{"$Object:expirationTime", "1099511627776"},
 		{"$Object:payloadLength", payloadLenStr},
 		{"$Object:objectType", "REGULAR"},
 		{"$Object:payloadHash", payloadHashStr},
