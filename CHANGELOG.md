@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Attempts to replicate expired split parts left by incomplete uploads (#4276)
 - Delayed GC of expired split-object parents to reduce resurrection risk from lagging replication (#4252)
 - Missing parent presence check for LINK objects (#4306)
+- Missing last parent vs link parent ID check in format verifier (#4306)
 
 ### Changed
 

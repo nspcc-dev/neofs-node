@@ -76,9 +76,9 @@ type SplitVerifier interface {
 	// not allow processing the chain. Must break (if possible) any internal
 	// computations if context is done. The second and the third args are the
 	// first part's address used as a chain unique identifier that also must
-	// be checked. The fourth arg is guaranteed to be the full list from the
-	// link's payload without item order change.
-	VerifySplit(context.Context, cid.ID, oid.ID, []object.MeasuredObject) error
+	// be checked. The fourth arg is the link object to check, including its
+	// payload.
+	VerifySplit(context.Context, cid.ID, oid.ID, *object.Object) error
 }
 
 // TombVerifier represents tombstone validation unit. It verifies tombstone
@@ -322,14 +322,7 @@ func (v *FormatValidator) ValidateContent(ctx context.Context, o *object.Object)
 			return errors.New("link object does not have container ID")
 		}
 
-		var testLink object.Link
-
-		err := o.ReadLink(&testLink)
-		if err != nil {
-			return fmt.Errorf("reading link object's payload: %w", err)
-		}
-
-		err = v.sv.VerifySplit(ctx, cnr, firstObjID, testLink.Objects())
+		err := v.sv.VerifySplit(ctx, cnr, firstObjID, o)
 		if err != nil {
 			return fmt.Errorf("link object's split chain verification: %w", err)
 		}

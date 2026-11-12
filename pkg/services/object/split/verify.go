@@ -32,18 +32,30 @@ type Verifier struct {
 //  1. Children should be ordered correctly (in the sense of a linked list child objects compose)
 //  2. NeoFS should answer to the HEAD requests with children whose object size corresponds to the link's info
 //  3. Every child should have a provided first object in its split header (the first object itself is an exception)
-func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, childrenFromLink []object.MeasuredObject) error {
-	uncheckedChildren := childrenFromLink
+//  4. The last child should contain the same parent as the link object.
+func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, o *object.Object) error {
+	var objLink object.Link
+
+	err := o.ReadLink(&objLink)
+	if err != nil {
+		return fmt.Errorf("reading link object's payload: %w", err)
+	}
+
+	var (
+		parID             = o.GetParentID()
+		uncheckedChildren = objLink.Objects()
+	)
 	for len(uncheckedChildren) > 0 {
 		if len(uncheckedChildren) > maxConcurrentObjects {
 			bound := len(uncheckedChildren) - maxConcurrentObjects
 			group := uncheckedChildren[bound:]
 
-			leftChild, err := v.verifyChildGroup(ctx, cnr, firstID, false, group)
+			leftChild, err := v.verifyChildGroup(ctx, cnr, firstID, parID, false, group)
 			if err != nil {
 				return err
 			}
 
+			parID = oid.ID{} // Only needed for the right batch with the last part.
 			uncheckedChildren = uncheckedChildren[:bound]
 
 			if leftChild != nil {
@@ -56,7 +68,7 @@ func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, 
 				}
 			}
 		} else {
-			_, err := v.verifyChildGroup(ctx, cnr, firstID, true, childrenFromLink)
+			_, err := v.verifyChildGroup(ctx, cnr, firstID, parID, true, uncheckedChildren)
 			if err != nil {
 				return err
 			}
@@ -77,7 +89,7 @@ func (w *headerWriter) WriteHeader(o *object.Object) error {
 	return nil
 }
 
-func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid.ID, firstObjIncluded bool, children []object.MeasuredObject) (*object.Object, error) {
+func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid.ID, parentID oid.ID, firstObjIncluded bool, children []object.MeasuredObject) (*object.Object, error) {
 	var wg errgroup.Group
 	receivedObjects := make([]*object.Object, len(children))
 
@@ -103,7 +115,10 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 
 	// check children order
 	for i, o := range receivedObjects {
-		id := o.GetID()
+		var (
+			id      = o.GetID()
+			oParent = o.GetParentID()
+		)
 
 		if firstObjIncluded && i == 0 {
 			// first object check only
@@ -117,6 +132,10 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 				return nil, fmt.Errorf("link: first object has split previousID: %s", id)
 			}
 		} else {
+			if !parentID.IsZero() && i == len(receivedObjects)-1 && parentID != oParent {
+				return nil, fmt.Errorf("link: last object %s has a different parent: %s", id, oParent)
+			}
+
 			prevRead := o.GetPreviousID()
 			if prevRead.IsZero() {
 				return nil, fmt.Errorf("link: non-first object does not have previous ID: %s", id)

@@ -633,7 +633,7 @@ func getParentChain(t *testing.T, nesting int) []object.Object {
 type testSplitVerifier struct {
 }
 
-func (t *testSplitVerifier) VerifySplit(ctx context.Context, cID cid.ID, firstID oid.ID, children []object.MeasuredObject) error {
+func (t *testSplitVerifier) VerifySplit(ctx context.Context, cID cid.ID, firstID oid.ID, o *object.Object) error {
 	return nil
 }
 
