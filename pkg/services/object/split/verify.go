@@ -3,6 +3,7 @@ package split
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -43,49 +44,39 @@ func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, 
 	}
 
 	var (
-		par               = o.Parent()
-		parID             = o.GetParentID()
-		l                 uint64
-		uncheckedChildren = objLink.Objects()
+		par      = o.Parent()
+		parID    = o.GetParentID()
+		l        uint64
+		children = objLink.Objects()
 	)
-	if len(uncheckedChildren) < 2 {
-		return fmt.Errorf("link: should have at least 2 children, got %d", len(uncheckedChildren))
+	if len(children) < 2 {
+		return fmt.Errorf("link: should have at least 2 children, got %d", len(children))
 	}
-	for _, mo := range uncheckedChildren {
+	for _, mo := range children {
 		l += uint64(mo.ObjectSize())
 	}
 	if l != par.PayloadSize() {
 		return fmt.Errorf("link: sum of payload lengths (%d) doesn't match parent length (%d)", l, par.PayloadSize())
 	}
-	for len(uncheckedChildren) > 0 {
-		if len(uncheckedChildren) > maxConcurrentObjects {
-			bound := len(uncheckedChildren) - maxConcurrentObjects
-			group := uncheckedChildren[bound:]
+	for last := len(children); last > 0; {
+		var first = max(0, last-maxConcurrentObjects)
 
-			leftChild, err := v.verifyChildGroup(ctx, cnr, firstID, parID, false, group)
-			if err != nil {
-				return err
+		leftChild, err := v.verifyChildGroup(ctx, cnr, firstID, parID, first == 0, children[first:last])
+		if err != nil {
+			return err
+		}
+
+		parID = oid.ID{} // Only needed for the right batch with the last part.
+		last = first
+
+		if first != 0 && leftChild != nil {
+			leftChildID := leftChild.GetID()
+			prevRead := leftChild.GetPreviousID()
+			prevGot := children[first-1].ObjectID()
+
+			if prevRead != prevGot {
+				return fmt.Errorf("link: object %s has wrong previous object: got %s, want: %s", leftChildID, prevGot, prevRead)
 			}
-
-			parID = oid.ID{} // Only needed for the right batch with the last part.
-			uncheckedChildren = uncheckedChildren[:bound]
-
-			if leftChild != nil {
-				leftChildID := leftChild.GetID()
-				prevRead := leftChild.GetPreviousID()
-				prevGot := uncheckedChildren[len(uncheckedChildren)-1].ObjectID()
-
-				if prevRead != prevGot {
-					return fmt.Errorf("link: object %s has wrong previous object: got %s, want: %s", leftChildID, prevGot, prevRead)
-				}
-			}
-		} else {
-			_, err := v.verifyChildGroup(ctx, cnr, firstID, parID, true, uncheckedChildren)
-			if err != nil {
-				return err
-			}
-
-			break
 		}
 	}
 
@@ -126,7 +117,7 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 	}
 
 	// check children order
-	for i, o := range receivedObjects {
+	for i, o := range slices.Backward(receivedObjects) {
 		var (
 			id      = o.GetID()
 			oParent = o.GetParentID()
