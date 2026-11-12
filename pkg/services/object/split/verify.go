@@ -48,6 +48,9 @@ func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, 
 		l                 uint64
 		uncheckedChildren = objLink.Objects()
 	)
+	if len(uncheckedChildren) < 2 {
+		return fmt.Errorf("link: should have at least 2 children, got %d", len(uncheckedChildren))
+	}
 	for _, mo := range uncheckedChildren {
 		l += uint64(mo.ObjectSize())
 	}
