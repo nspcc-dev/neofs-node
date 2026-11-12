@@ -166,6 +166,10 @@ func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unpr
 	switch obj.Type() {
 	case object.TypeStorageGroup: //nolint:staticcheck // TypeStorageGroup is deprecated and that's exactly what we want to check here.
 		return fmt.Errorf("strorage group type is no longer supported")
+	case object.TypeLink:
+		if obj.Parent() == nil {
+			return fmt.Errorf("link object missing parent")
+		}
 	case object.TypeLock, object.TypeTombstone:
 		if !unprepared {
 			if !versioncore.SysObjTargetShouldBeInHeader(obj.Version()) {
