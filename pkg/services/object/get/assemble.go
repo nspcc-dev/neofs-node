@@ -98,6 +98,14 @@ func (exec *execCtx) initFromChild(obj oid.ID) (*oid.ID, []oid.ID) {
 
 		return nil, nil
 	}
+	if err := verifyParentHeaderID(par, exec.address().Object()); err != nil {
+		exec.status = statusUndefined
+		exec.err = err
+
+		exec.log.Debug("received child with wrong parent header", zap.Stringer("child ID", obj), zap.Error(err))
+
+		return nil, nil
+	}
 
 	exec.collectedHeader = par
 	if !exec.resolvePayloadRange() {
