@@ -98,9 +98,9 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 
 	for i := range children {
 		iCopy := i
-		var shouldHaveFirstObject *oid.ID
-		if firstObjIncluded && iCopy != 0 {
-			shouldHaveFirstObject = &firstID
+		var shouldHaveFirstObject = &firstID
+		if firstObjIncluded && i == 0 {
+			shouldHaveFirstObject = nil
 		}
 
 		wg.Go(func() error {

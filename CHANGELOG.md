@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - Panic in Get service when processing incorrect LINKs (#4306)
 - Single-child LINKs accepted as valid (but they never are) (#4306)
 - First ID not checked against the real first object when validating LINKs (#4306)
+- Incorrect first ID check for middle and last objects specified in LINK (#4306)
 
 ### Changed
 
