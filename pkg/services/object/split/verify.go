@@ -33,6 +33,7 @@ type Verifier struct {
 //  2. NeoFS should answer to the HEAD requests with children whose object size corresponds to the link's info
 //  3. Every child should have a provided first object in its split header (the first object itself is an exception)
 //  4. The last child should contain the same parent as the link object.
+//  5. Sum of child lengths should match the parent payload length.
 func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, o *object.Object) error {
 	var objLink object.Link
 
@@ -42,9 +43,17 @@ func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, 
 	}
 
 	var (
+		par               = o.Parent()
 		parID             = o.GetParentID()
+		l                 uint64
 		uncheckedChildren = objLink.Objects()
 	)
+	for _, mo := range uncheckedChildren {
+		l += uint64(mo.ObjectSize())
+	}
+	if l != par.PayloadSize() {
+		return fmt.Errorf("link: sum of payload lengths (%d) doesn't match parent length (%d)", l, par.PayloadSize())
+	}
 	for len(uncheckedChildren) > 0 {
 		if len(uncheckedChildren) > maxConcurrentObjects {
 			bound := len(uncheckedChildren) - maxConcurrentObjects
