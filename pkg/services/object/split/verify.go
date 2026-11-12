@@ -97,7 +97,6 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 	receivedObjects := make([]*object.Object, len(children))
 
 	for i := range children {
-		iCopy := i
 		var shouldHaveFirstObject = &firstID
 		if firstObjIncluded && i == 0 {
 			shouldHaveFirstObject = nil
@@ -105,7 +104,7 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 
 		wg.Go(func() error {
 			var err error
-			receivedObjects[iCopy], err = v.verifySinglePart(ctx, cnr, shouldHaveFirstObject, children[iCopy])
+			receivedObjects[i], err = v.verifySinglePart(ctx, cnr, shouldHaveFirstObject, children[i])
 
 			return err
 		})
