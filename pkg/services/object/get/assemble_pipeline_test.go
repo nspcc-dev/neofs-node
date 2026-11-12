@@ -24,6 +24,13 @@ type splitScene struct {
 	payload  []byte
 	childIDs []oid.ID
 	c1, c2   *testClient
+
+	// retained so addNestedVirtualChild can rebuild the top-level link
+	// after substituting one child's address below.
+	ver      int
+	srcObj   *object.Object
+	children []*object.Object
+	linkAddr oid.Address
 }
 
 const splitChildPayloadLen = 10
@@ -31,17 +38,22 @@ const splitChildPayloadLen = 10
 func buildSplitScene(t testing.TB, ver, n int, delay time.Duration) *splitScene {
 	idCnr := cidtest.ID()
 
-	addr := oidtest.Address()
-	addr.SetContainer(idCnr)
-	addr.SetObject(oidtest.ID())
-
-	srcObj := generateObject(addr, nil, nil)
-
 	ns, as := testNodeMatrix(t, []int{2})
 
 	children, childIDs, payload := generateChain(n, idCnr)
+
+	// srcObj's address is derived from its real content (rather than picked
+	// upfront) so that the parent header embedded in children/link - which
+	// readers must now verify actually hashes to the address they
+	// requested - is genuinely self-consistent, matching how an honest
+	// sender populates it.
+	srcObj := new(object.Object)
+	srcObj.SetContainerID(idCnr)
 	srcObj.SetPayload(payload)
 	srcObj.SetPayloadSize(uint64(len(payload)))
+	require.NoError(t, srcObj.CalculateAndSetID())
+	addr := srcObj.Address()
+
 	children[len(children)-1].SetParent(srcObj)
 
 	linkID := oidtest.ID()
@@ -83,21 +95,43 @@ func buildSplitScene(t testing.TB, ver, n int, delay time.Duration) *splitScene 
 		},
 	}
 
-	return &splitScene{svc: svc, addr: addr, payload: payload, childIDs: childIDs, c1: c1, c2: c2}
+	return &splitScene{
+		svc: svc, addr: addr, payload: payload, childIDs: childIDs, c1: c1, c2: c2,
+		ver: ver, srcObj: srcObj, children: children, linkAddr: linkAddr,
+	}
 }
 
 func (sc *splitScene) childAddr(i int) oid.Address {
 	return oid.NewAddress(sc.addr.Container(), sc.childIDs[i])
 }
 
-func addNestedVirtualChild(sc *splitScene, ver, idx int) {
+func addNestedVirtualChild(t testing.TB, sc *splitScene, ver, idx int) {
 	idCnr := sc.addr.Container()
-	parentAddr := sc.childAddr(idx)
 	left := idx * splitChildPayloadLen
 	payload := append([]byte(nil), sc.payload[left:left+splitChildPayloadLen]...)
 
-	parent := generateObject(parentAddr, nil, payload)
+	// Build the nested split's own parent from its real content first, and
+	// derive its address from that (rather than reusing childIDs[idx], an
+	// address picked upfront with no relation to this content) - same
+	// reasoning as buildSplitScene. This makes childIDs[idx] - the id the
+	// outer chain already uses to refer to this now-virtual child - change,
+	// so every outer-chain structure that baked in the old value (the
+	// top-level link, and the next child's previous-ID back-reference) is
+	// patched to match below.
+	parent := new(object.Object)
+	parent.SetContainerID(idCnr)
+	parent.SetPayload(payload)
 	parent.SetPayloadSize(uint64(len(payload)))
+	require.NoError(t, parent.CalculateAndSetID())
+	parentAddr := parent.Address()
+
+	oldChildID := sc.childIDs[idx]
+	sc.childIDs[idx] = parentAddr.Object()
+	if idx+1 < len(sc.children) {
+		if prev := sc.children[idx+1].GetPreviousID(); prev == oldChildID {
+			sc.children[idx+1].SetPreviousID(parentAddr.Object())
+		}
+	}
 
 	childIDs := []oid.ID{oidtest.ID(), oidtest.ID()}
 	children := make([]*object.Object, len(childIDs))
@@ -126,12 +160,20 @@ func addNestedVirtualChild(sc *splitScene, ver, idx int) {
 	vectors := sc.svc.neoFSNet.(*testNeoFS).vectors
 	ns := vectors[sc.addr]
 	vectors[linkAddr] = ns
+	vectors[parentAddr] = ns
 	for i := range children {
 		addr := oid.NewAddress(idCnr, childIDs[i])
 		sc.c1.addResult(addr, nil, errors.New("any error"))
 		sc.c2.addResult(addr, children[i], nil)
 		vectors[addr] = ns
 	}
+
+	// The top-level link already baked in the old childIDs[idx] value (and
+	// the old, now-replaced child object's payload size happens to be
+	// unchanged, since both are exactly splitChildPayloadLen bytes) -
+	// rebuild and re-register it so it reflects the new address.
+	outerLinkObj, _ := buildSplitLink(sc.ver, sc.linkAddr, sc.srcObj, sc.children, sc.childIDs)
+	sc.c2.addResult(sc.linkAddr, outerLinkObj, nil)
 }
 
 func buildSplitLink(ver int, linkAddr oid.Address, parent *object.Object, children []*object.Object, childIDs []oid.ID) (*object.Object, *object.SplitInfo) {
@@ -260,7 +302,7 @@ func TestAssembleSplitPipelined(t *testing.T) {
 				setPrefetchWindow(t, 3)
 
 				sc := buildSplitScene(t, sv.ver, 4, time.Millisecond)
-				addNestedVirtualChild(sc, sv.ver, 1)
+				addNestedVirtualChild(t, sc, sv.ver, 1)
 
 				w, err := getFull(ctx, sc.svc, sc.addr)
 				require.NoError(t, err)
@@ -271,7 +313,7 @@ func TestAssembleSplitPipelined(t *testing.T) {
 				setPrefetchWindow(t, 3)
 
 				sc := buildSplitScene(t, sv.ver, 4, time.Millisecond)
-				addNestedVirtualChild(sc, sv.ver, 1)
+				addNestedVirtualChild(t, sc, sv.ver, 1)
 
 				w := NewSimpleObjectWriter()
 				var p Prm
@@ -322,5 +364,103 @@ func BenchmarkAssembleSplitObject(b *testing.B) {
 				require.NoError(b, err)
 			}
 		})
+	}
+}
+
+// foreignAttrKey marks a header built by foreignParentHeader, so its arrival
+// in a response can be detected.
+const foreignAttrKey = "injected"
+
+// foreignParentHeader builds a well-formed header for an object other than the
+// one sc requests. claimRequestedID makes it declare the requested object's ID,
+// which its content does not hash to: the claimed-parent-address (isChild)
+// checks then pass and only the content hash tells the two apart.
+func foreignParentHeader(t testing.TB, sc *splitScene, claimRequestedID bool) *object.Object {
+	foreign := new(object.Object)
+	foreign.SetContainerID(sc.addr.Container())
+	foreign.SetPayloadSize(uint64(len(sc.payload)))
+	foreign.SetAttributes(object.NewAttribute(foreignAttrKey, "by-malicious-node"))
+	require.NoError(t, foreign.CalculateAndSetID())
+	require.NotEqual(t, sc.addr.Object(), foreign.GetID())
+
+	if claimRequestedID {
+		foreign.SetID(sc.addr.Object())
+	}
+
+	return foreign
+}
+
+// Assembly emits a parent header collected from a container node as the
+// response header for the requested object. A node answering with a
+// different object's header must not get that header through: the deferred
+// eACL pass evaluates $Object filters against whatever fields it carries.
+func TestAssembleSplitRejectsForeignParentHeader(t *testing.T) {
+	ctx := context.Background()
+
+	for _, sv := range []struct {
+		name string
+		ver  int
+	}{
+		{"V1", 1},
+		{"V2", 2},
+	} {
+		for _, fc := range []struct {
+			name             string
+			claimRequestedID bool
+		}{
+			{name: "own ID"},
+			{name: "claiming requested ID", claimRequestedID: true},
+		} {
+			t.Run(sv.name+"/"+fc.name, func(t *testing.T) {
+				setPrefetchWindow(t, 3)
+
+				sc := buildSplitScene(t, sv.ver, 4, time.Millisecond)
+				foreign := foreignParentHeader(t, sc, fc.claimRequestedID)
+
+				// Substitute it everywhere assembly could pick a parent
+				// header up: the link object, and the last child of the chain.
+				sc.c2.results[sc.linkAddr].obj.SetParent(foreign)
+				sc.children[len(sc.children)-1].SetParent(foreign)
+
+				w, err := getFull(ctx, sc.svc, sc.addr)
+
+				// The read must not succeed. Which error surfaces differs by
+				// split version and by which assembly path rejects first, so
+				// assert the security property itself rather than a particular
+				// error value: the attacker-chosen header must never reach the
+				// response.
+				require.Error(t, err)
+				assertNoForeignHeader(t, w)
+			})
+		}
+	}
+
+	// processV2Last is reached only through a split info carrying no link, so
+	// exercise it on its own: headChild reports the parent mismatch but still
+	// returns the child, whose parent header is then used.
+	t.Run("V2 last part", func(t *testing.T) {
+		setPrefetchWindow(t, 3)
+
+		sc := buildSplitScene(t, 2, 4, time.Millisecond)
+		foreign := foreignParentHeader(t, sc, true)
+
+		lastChild := sc.children[len(sc.children)-1]
+		lastChild.SetParent(foreign)
+
+		si := object.NewSplitInfo()
+		si.SetFirstPart(sc.childIDs[0])
+		si.SetLastPart(lastChild.GetID())
+		sc.c2.addResult(sc.addr, nil, object.NewSplitInfoError(si))
+
+		w, err := getFull(ctx, sc.svc, sc.addr)
+		require.Error(t, err)
+		assertNoForeignHeader(t, w)
+	})
+}
+
+func assertNoForeignHeader(t *testing.T, w *SimpleObjectWriter) {
+	for _, a := range w.Object().Attributes() {
+		require.NotEqual(t, foreignAttrKey, a.Key(),
+			"foreign parent header leaked into the response")
 	}
 }

@@ -40,6 +40,34 @@ func (e *StorageEngine) Delete(_ context.Context, addr oid.Address, mark Garbage
 	})
 }
 
+// DeleteExpiredSplitPart marks a first split part for GC if local metadata has
+// neither a complete parent nor an active container LOCK. The caller checks
+// expiration. Returns whether removal was requested.
+//
+// Concurrent PUTs may add a LOCK between the check and marking.
+func (e *StorageEngine) DeleteExpiredSplitPart(_ context.Context, addr oid.Address) (bool, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddDeleteDuration)()
+	}
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+	if e.blockErr != nil {
+		return false, e.blockErr
+	}
+	shards := e.unsortedShards()
+	for _, sh := range shards {
+		canDelete, err := sh.CanDeleteExpiredSplitPart(addr)
+		if err != nil || !canDelete {
+			return false, err
+		}
+	}
+	// Use the checked shards if configuration changes.
+	err := e.processAddrDeleteOnShards(shards, addr, func(sh *shard.Shard, cnr cid.ID, addrs []oid.ID) error {
+		return sh.MarkGarbage(cnr, addrs, GarbageMarkDefault)
+	})
+	return err == nil, err
+}
+
 // Drop removes an object from the storage engine from all shards. This
 // function bypasses any lock checks or other reasons to keep the object and
 // performs immediate removal, not just marking it to be removed by GC later
