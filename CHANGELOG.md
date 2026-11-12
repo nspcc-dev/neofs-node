@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 - Missing check for children sizes summing up to parent length in LINK object verifier (#4306)
 - Panic in Get service when processing incorrect LINKs (#4306)
 - Single-child LINKs accepted as valid (but they never are) (#4306)
+- First ID not checked against the real first object when validating LINKs (#4306)
 
 ### Changed
 

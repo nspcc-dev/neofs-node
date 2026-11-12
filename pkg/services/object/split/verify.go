@@ -125,6 +125,9 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 
 		if firstObjIncluded && i == 0 {
 			// first object check only
+			if id != firstID {
+				return nil, fmt.Errorf("link: first object ID is not %s (but %s)", firstID, id)
+			}
 
 			_, firstSet := o.FirstID()
 			if firstSet {
