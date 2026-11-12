@@ -12,6 +12,8 @@ Changelog for NeoFS Node
 - Object expiration time was not exposed to eACL filters (#4303)
 - Possible infinite EC parts restoration loop in the policer (#4293)
 - Split and EC read paths emitted a parent object header collected from another node without checking that it hashes to the requested object ID (#4290)
+- SIGHUP config reload matched running gRPC servers to endpoints by slice position, permanently misattributing them after an earlier endpoint failed to bind (#4286)
+- NetmapService was missing from gRPC servers created by SIGHUP config reload (#4286)
 
 ### Changed
 
