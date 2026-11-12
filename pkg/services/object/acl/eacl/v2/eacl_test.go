@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
@@ -38,10 +40,17 @@ type testLocalStorage struct {
 
 type testHeaderSource struct {
 	header *object.Object
+	err    error
+	calls  []oid.Address
+	fetch  func(oid.Address) (*object.Object, error)
 }
 
-func (t *testHeaderSource) Head(_ context.Context, _ oid.Address) (*object.Object, error) {
-	return t.header, nil
+func (t *testHeaderSource) Head(_ context.Context, addr oid.Address) (*object.Object, error) {
+	t.calls = append(t.calls, addr)
+	if t.fetch != nil {
+		return t.fetch(addr)
+	}
+	return t.header, t.err
 }
 
 func (s *testLocalStorage) Head(_ context.Context, addr oid.Address) (*object.Object, error) {
@@ -173,6 +182,194 @@ func checkNonFinalAction(t *testing.T, v *eacl.Validator, u *eacl.ValidationUnit
 	require.Equal(t, eacl.ActionAllow, actual)
 }
 
+func TestHeadSplitInfo(t *testing.T) {
+	cnr := cidtest.ID()
+	parent := object.New(cnr, usertest.ID())
+	parent.SetAttributes(object.NewAttribute("classified", "public"))
+	require.NoError(t, parent.SetIDWithSignature(usertest.User()))
+	child := object.New(cnr, usertest.ID())
+	child.SetParent(parent)
+	childID := oidtest.ID()
+	request := &protoobject.HeadRequest{MetaHeader: &protosession.RequestMetaHeader{
+		XHeaders: []*protosession.XHeader{{Key: "X-Probe", Value: "yes"}},
+	}}
+	targets := []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}
+	table := eacl.ConstructTable([]eacl.Record{
+		eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationHead, targets, eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "secret")),
+		eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationHead, targets, eacl.NewRequestHeaderFilter("X-Probe", eacl.MatchStringEqual, "yes")),
+	})
+	for _, part := range []string{"link", "last"} {
+		t.Run(part, func(t *testing.T) {
+			var info object.SplitInfo
+			switch part {
+			case "link":
+				info.SetLink(childID)
+			case "last":
+				info.SetLastPart(childID)
+			}
+			response := &protoobject.HeadResponse{Body: &protoobject.HeadResponse_Body{
+				Head: &protoobject.HeadResponse_Body_SplitInfo{SplitInfo: info.ProtoMessage()},
+			}}
+			source := &testHeaderSource{header: child}
+			newSource := func(t *testing.T) eacl.TypedHeaderSource {
+				src, err := NewMessageHeaderSource(WithCID(cnr), WithOID(parent.GetID()),
+					WithHeaderSource(source), WithServiceResponse(response, request))
+				require.NoError(t, err)
+				return src
+			}
+			unit := new(eacl.ValidationUnit).WithRole(eacl.RoleOthers).
+				WithOperation(eacl.OperationHead).WithEACLTable(&table)
+			validator := eacl.NewValidator()
+			checkAction(t, eacl.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+			require.Equal(t, []oid.Address{oid.NewAddress(cnr, childID)}, source.calls)
+			request.MetaHeader.XHeaders = nil
+			checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
+			request.MetaHeader.XHeaders = []*protosession.XHeader{{Key: "X-Probe", Value: "yes"}}
+
+			t.Run("object not present does not match", func(t *testing.T) {
+				objectTable := eacl.ConstructTable([]eacl.Record{eacl.ConstructRecord(eacl.ActionDeny,
+					eacl.OperationHead, targets, eacl.NewObjectPropertyFilter("classified", eacl.MatchNotPresent, ""))})
+				checkDefaultAction(t, validator, unit.WithEACLTable(&objectTable).WithHeaderSource(newSource(t)))
+				unit.WithEACLTable(&table)
+			})
+			t.Run("earlier allow does not fetch header", func(t *testing.T) {
+				allowTable := eacl.ConstructTable([]eacl.Record{eacl.ConstructRecord(eacl.ActionAllow,
+					eacl.OperationHead, targets)})
+				calls := len(source.calls)
+				checkAction(t, eacl.ActionAllow, validator, unit.WithEACLTable(&allowTable).WithHeaderSource(newSource(t)))
+				require.Len(t, source.calls, calls)
+				unit.WithEACLTable(&table)
+			})
+			t.Run("header fetch error", func(t *testing.T) {
+				source.err = errors.New("header unavailable")
+				_, _, err := validator.CalculateAction(unit.WithHeaderSource(newSource(t)))
+				require.ErrorIs(t, err, source.err)
+				source.err = nil
+			})
+			t.Run("missing child header", func(t *testing.T) {
+				source.header = nil
+				_, _, err := validator.CalculateAction(unit.WithHeaderSource(newSource(t)))
+				require.ErrorContains(t, err, "no parent header")
+				source.header = child
+			})
+			t.Run("missing parent header", func(t *testing.T) {
+				source.header = object.New(cnr, usertest.ID())
+				_, _, err := validator.CalculateAction(unit.WithHeaderSource(newSource(t)))
+				require.ErrorContains(t, err, "no parent header")
+				source.header = child
+			})
+			t.Run("wrong parent", func(t *testing.T) {
+				other := object.New(cnr, usertest.ID())
+				other.SetParent(object.New(cnr, usertest.ID()))
+				source.header = other
+				_, _, err := validator.CalculateAction(unit.WithHeaderSource(newSource(t)))
+				require.ErrorContains(t, err, "does not match requested object")
+				source.header = child
+			})
+		})
+	}
+}
+
+func TestSplitParentHeaderFallback(t *testing.T) {
+	parent := object.New(cidtest.ID(), usertest.ID())
+	require.NoError(t, parent.SetIDWithSignature(usertest.User()))
+	child := object.New(parent.GetContainerID(), usertest.ID())
+	child.SetParent(parent)
+	link, last := oidtest.ID(), oidtest.ID()
+	fetchErr := errors.New("link unavailable")
+	wrongChild := object.New(parent.GetContainerID(), usertest.ID())
+	wrongChild.SetParent(object.New(parent.GetContainerID(), usertest.ID()))
+	for _, tc := range []struct {
+		name string
+		hdr  *object.Object
+		err  error
+	}{
+		{name: "fetch error", err: fetchErr},
+		{name: "link RPC timeout", err: fmt.Errorf("link RPC: %w", context.DeadlineExceeded)},
+		{name: "link RPC cancellation", err: fmt.Errorf("link RPC: %w", context.Canceled)},
+		{name: "missing child"},
+		{name: "missing parent", hdr: object.New(parent.GetContainerID(), usertest.ID())},
+		{name: "wrong parent", hdr: wrongChild},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var info object.SplitInfo
+			info.SetLink(link)
+			info.SetLastPart(last)
+			source := &testHeaderSource{fetch: func(addr oid.Address) (*object.Object, error) {
+				if addr.Object() == link {
+					return tc.hdr, tc.err
+				}
+				require.Equal(t, last, addr.Object())
+				return child, nil
+			}}
+			cfg := defaultCfg()
+			cfg.cnr, cfg.obj, cfg.headerSource = parent.GetContainerID(), parent.GetID(), source
+			got, err := cfg.splitParentHeader(info.ProtoMessage())
+			require.NoError(t, cfg.ctx.Err(), "the request context is still active")
+			require.NoError(t, err)
+			require.Equal(t, parent, got)
+			require.Equal(t, []oid.Address{oid.NewAddress(cfg.cnr, link), oid.NewAddress(cfg.cnr, last)}, source.calls)
+		})
+	}
+	t.Run("both unavailable", func(t *testing.T) {
+		var info object.SplitInfo
+		info.SetLink(link)
+		info.SetLastPart(last)
+		lastErr := errors.New("last part unavailable")
+		source := &testHeaderSource{fetch: func(addr oid.Address) (*object.Object, error) {
+			if addr.Object() == link {
+				return nil, fetchErr
+			}
+			return nil, lastErr
+		}}
+		cfg := defaultCfg()
+		cfg.headerSource = source
+		_, err := cfg.splitParentHeader(info.ProtoMessage())
+		require.ErrorIs(t, err, fetchErr)
+		require.ErrorIs(t, err, lastErr)
+	})
+	t.Run("same child is not retried", func(t *testing.T) {
+		var info object.SplitInfo
+		info.SetLink(link)
+		info.SetLastPart(link)
+		source := &testHeaderSource{err: fetchErr}
+		cfg := defaultCfg()
+		cfg.headerSource = source
+		_, err := cfg.splitParentHeader(info.ProtoMessage())
+		require.ErrorIs(t, err, fetchErr)
+		require.Len(t, source.calls, 1)
+	})
+	t.Run("expired request does not fetch headers", func(t *testing.T) {
+		var info object.SplitInfo
+		info.SetLink(link)
+		info.SetLastPart(last)
+		ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(-time.Second))
+		defer cancel()
+		source := &testHeaderSource{header: child}
+		cfg := defaultCfg()
+		cfg.ctx, cfg.headerSource = ctx, source
+		_, err := cfg.splitParentHeader(info.ProtoMessage())
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.Empty(t, source.calls)
+	})
+	t.Run("cancellation stops fallback", func(t *testing.T) {
+		var info object.SplitInfo
+		info.SetLink(link)
+		info.SetLastPart(last)
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		source := &testHeaderSource{fetch: func(oid.Address) (*object.Object, error) {
+			cancel()
+			return nil, ctx.Err()
+		}}
+		cfg := defaultCfg()
+		cfg.ctx, cfg.headerSource = ctx, source
+		_, err := cfg.splitParentHeader(info.ProtoMessage())
+		require.ErrorIs(t, err, context.Canceled)
+		require.Len(t, source.calls, 1)
+	})
+}
+
 func TestV2Split(t *testing.T) {
 	attrKey := "allow"
 	attrVal := "me"
@@ -291,7 +488,7 @@ func TestExpirationTimeRule(t *testing.T) {
 				name string
 				opt  Option
 			}{
-				{"binary", WithObjectHeaderBinary(buf)},
+				{"binary", WithObjectHeaderBinary(buf, &protoobject.HeadRequest{})},
 				{"object", WithServiceResponse(&protoobject.HeadResponse{
 					Body: &protoobject.HeadResponse_Body{
 						Head: &protoobject.HeadResponse_Body_Header{
@@ -383,7 +580,7 @@ func TestObjectHeaders(t *testing.T) {
 			buf := make([]byte, msg.MarshaledSize())
 			msg.MarshalStable(buf)
 
-			testWithOption(t, id, exp, WithObjectHeaderBinary(buf))
+			testWithOption(t, id, exp, WithObjectHeaderBinary(buf, &protoobject.HeadRequest{}))
 		})
 
 		testWithOption(t, id, exp, WithServiceResponse(newHeadResponse(obj), nil))

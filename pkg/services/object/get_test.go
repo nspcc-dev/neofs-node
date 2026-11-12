@@ -23,9 +23,11 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -250,21 +252,9 @@ func TestServer_Get_Remote(t *testing.T) {
 	keyStorage := util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)
 
 	t.Run("REP forwarded", func(t *testing.T) {
-		var handlerFSChain mockHandlerFSChain
-		mockConns := newMockConnections()
+		nodes, handlerFSChain, mockConns := newTwoNodeSetup()
 
-		nodes := make([]netmap.NodeInfo, 2)
-		for i := range nodes {
-			nodes[i].SetPublicKey([]byte("pub_" + strconv.Itoa(i)))
-			nodes[i].SetNetworkEndpoints("localhost:" + strconv.Itoa(9090+i)) // any
-		}
-
-		mockConns.setConn(nodes[0], emptyRemoteNode{})
-
-		handlerFSChain.repRules = []uint{uint(len(nodes))}
-		handlerFSChain.nodeLists = [][]netmap.NodeInfo{nodes}
-
-		handler := getsvc.New(&handlerFSChain,
+		handler := getsvc.New(handlerFSChain,
 			getsvc.WithLocalStorageEngine(newSimpleStorage(t, fsChain)),
 			getsvc.WithClientConstructor(mockConns),
 			getsvc.WithKeyStorage(keyStorage),
@@ -470,6 +460,159 @@ func signGetRequest(t *testing.T, req *protoobject.GetRequest, signer neofscrypt
 	var err error
 	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
 	require.NoError(t, err)
+}
+
+func TestServer_Get_EACLRecheck(t *testing.T) {
+	signer := usertest.User()
+	obj := object.New(cidtest.ID(), signer.ID)
+	obj.SetAttributes(object.NewAttribute("classified", "public"))
+	obj.SetPayload([]byte("test payload"))
+	obj.SetPayloadSize(uint64(len(obj.Payload())))
+	require.NoError(t, obj.SetVerificationFields(signer))
+	for _, location := range []string{"local", "local buffered recheck", "remote"} {
+		t.Run(location, func(t *testing.T) {
+			for _, mode := range []string{"full", "payload only", "range"} {
+				t.Run(mode, func(t *testing.T) {
+					for _, denied := range []bool{false, true} {
+						t.Run(fmt.Sprintf("denied=%t", denied), func(t *testing.T) {
+							var fsChain nopFSChain
+							storage := newSimpleStorage(t, fsChain)
+							if location != "remote" {
+								require.NoError(t, storage.Put(t.Context(), obj, nil))
+							}
+							aclStorage := storage
+							if location == "local buffered recheck" {
+								// Simulate an unavailable header on the initial ACL check.
+								aclStorage = newSimpleStorage(t, fsChain)
+							}
+							var headerFetches []oid.Address
+							checker := newRequestHeaderEACLChecker(aclStorage, func(_ context.Context, addr oid.Address) (*object.Object, error) {
+								headerFetches = append(headerFetches, addr)
+								return nil, errors.New("unexpected extra header fetch")
+							})
+							req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
+							req.MetaHeader.Ttl = 2
+							if denied {
+								req.MetaHeader.XHeaders = []*protosession.XHeader{{Key: "X-Probe", Value: "yes"}}
+							}
+							payload := obj.Payload()
+							switch mode {
+							case "payload only":
+								req.Body.PayloadOnly = true
+							case "range":
+								req.Body.Range = &protoobject.Range{Offset: 1, Length: 3}
+								payload = payload[1:4]
+							}
+							signGetRequest(t, req, signer)
+							nodes, chain, conns := newTwoNodeSetup()
+							chain.localPub = nodes[0].PublicKey()
+							msg := obj.ProtoMessage()
+							conns.setConn(nodes[1], newFixedGetResponsesConn(t, []*protoobject.GetResponse{
+								{Body: &protoobject.GetResponse_Body{ObjectPart: &protoobject.GetResponse_Body_Init_{
+									Init: &protoobject.GetResponse_Body_Init{ObjectId: msg.ObjectId, Signature: msg.Signature, Header: msg.Header},
+								}}, MetaHeader: newBlankMetaHeader(), VerifyHeader: newAnyVerificationHeader()},
+								{Body: &protoobject.GetResponse_Body{ObjectPart: &protoobject.GetResponse_Body_Chunk{Chunk: payload}}},
+							}))
+							handler := getsvc.New(chain, getsvc.WithLocalStorageEngine(storage),
+								getsvc.WithClientConstructor(conns), getsvc.WithKeyStorage(util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)))
+							var extractor eaclReqInfoExtractor
+							var policy netmap.PlacementPolicy
+							policy.SetReplicas([]netmap.ReplicaDescriptor{{}})
+							extractor.info.Container.SetPlacementPolicy(policy)
+							srv := New(getOnlyHandler{svc: handler}, fsChain, nil, nil, signer.ECDSAPrivateKey,
+								nopMetrics{}, checker, extractor, nil, fixedFutureTimeProvider{}, zap.NewNop())
+							resps := collectGetResponses(t, srv, req)
+							require.Empty(t, headerFetches, "unexpected extra header fetch")
+							if denied {
+								require.Len(t, resps, 1, "no object header or payload may precede the denial")
+								require.EqualValues(t, status.ObjectAccessDenied, resps[0].GetMetaHeader().GetStatus().GetCode())
+								require.Nil(t, resps[0].Body)
+							} else {
+								var gotPayload []byte
+								for _, resp := range resps {
+									require.Zero(t, resp.GetMetaHeader().GetStatus().GetCode())
+									gotPayload = append(gotPayload, resp.GetBody().GetChunk()...)
+									if mode == "payload only" {
+										require.Nil(t, resp.GetBody().GetInit())
+									}
+								}
+								require.Equal(t, payload, gotPayload)
+							}
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestServer_Get_SplitEACLRecheck(t *testing.T) {
+	signer := usertest.User()
+	obj := object.New(cidtest.ID(), signer.ID)
+	obj.SetAttributes(object.NewAttribute("classified", "public"))
+	require.NoError(t, obj.SetVerificationFields(signer))
+	childID := oidtest.ID()
+	child := object.New(obj.GetContainerID(), signer.ID)
+	child.SetParent(obj)
+	var split object.SplitInfo
+	split.SetLink(childID)
+	for _, remote := range []bool{false, true} {
+		t.Run(fmt.Sprintf("remote=%t", remote), func(t *testing.T) {
+			for _, unavailable := range []bool{false, true} {
+				t.Run(fmt.Sprintf("header unavailable=%t", unavailable), func(t *testing.T) {
+					for _, denied := range []bool{false, true} {
+						t.Run(fmt.Sprintf("denied=%t", denied), func(t *testing.T) {
+							var fsChain nopFSChain
+							storage := newSimpleStorage(t, fsChain)
+							var fetched []oid.Address
+							checker := newRequestHeaderEACLChecker(storage, func(_ context.Context, addr oid.Address) (*object.Object, error) {
+								fetched = append(fetched, addr)
+								if unavailable {
+									return nil, errors.New("header unavailable")
+								}
+								return child, nil
+							})
+							var handlers Handlers = splitInfoHandler{info: split}
+							if remote {
+								nodes, chain, conns := newTwoNodeSetup()
+								chain.localPub = nodes[0].PublicKey()
+								conns.setConn(nodes[1], newFixedGetResponsesConn(t, []*protoobject.GetResponse{{
+									Body:       &protoobject.GetResponse_Body{ObjectPart: &protoobject.GetResponse_Body_SplitInfo{SplitInfo: split.ProtoMessage()}},
+									MetaHeader: newBlankMetaHeader(), VerifyHeader: newAnyVerificationHeader(),
+								}}))
+								handler := getsvc.New(chain, getsvc.WithLocalStorageEngine(storage),
+									getsvc.WithClientConstructor(conns), getsvc.WithKeyStorage(util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)))
+								handlers = getOnlyHandler{svc: handler}
+							}
+							var extractor eaclReqInfoExtractor
+							var policy netmap.PlacementPolicy
+							policy.SetReplicas([]netmap.ReplicaDescriptor{{}})
+							extractor.info.Container.SetPlacementPolicy(policy)
+							srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey,
+								nopMetrics{}, checker, extractor, nil, fixedFutureTimeProvider{}, zap.NewNop())
+							req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
+							req.MetaHeader.Ttl = 2
+							req.Body.Raw = true
+							if denied {
+								req.MetaHeader.XHeaders = []*protosession.XHeader{{Key: "X-Probe", Value: "yes"}}
+							}
+							signGetRequest(t, req, signer)
+							resps := collectGetResponses(t, srv, req)
+							require.Len(t, resps, 1)
+							if denied || unavailable {
+								require.EqualValues(t, status.ObjectAccessDenied, resps[0].GetMetaHeader().GetStatus().GetCode())
+								require.Nil(t, resps[0].Body)
+							} else {
+								require.Zero(t, resps[0].GetMetaHeader().GetStatus().GetCode())
+								require.True(t, proto.Equal(split.ProtoMessage(), resps[0].GetBody().GetSplitInfo()))
+							}
+							require.Equal(t, []oid.Address{oid.NewAddress(obj.GetContainerID(), childID)}, fetched)
+						})
+					}
+				})
+			}
+		})
+	}
 }
 
 func callGet(t *testing.T, srv *Server, req *protoobject.GetRequest) (grpc.ServerStreamingClient[protoobject.GetResponse], error) {

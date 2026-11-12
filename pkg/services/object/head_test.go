@@ -2,6 +2,7 @@ package object_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -19,10 +20,12 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -163,21 +166,9 @@ func TestServer_Head_Remote(t *testing.T) {
 	})
 
 	t.Run("REP forwarded", func(t *testing.T) {
-		var handlerFSChain mockHandlerFSChain
-		mockConns := newMockConnections()
+		nodes, handlerFSChain, mockConns := newTwoNodeSetup()
 
-		nodes := make([]netmap.NodeInfo, 2)
-		for i := range nodes {
-			nodes[i].SetPublicKey([]byte("pub_" + strconv.Itoa(i)))
-			nodes[i].SetNetworkEndpoints("localhost:" + strconv.Itoa(9090+i)) // any
-		}
-
-		mockConns.setConn(nodes[0], emptyRemoteNode{})
-
-		handlerFSChain.repRules = []uint{uint(len(nodes))}
-		handlerFSChain.nodeLists = [][]netmap.NodeInfo{nodes}
-
-		handler := getsvc.New(&handlerFSChain,
+		handler := getsvc.New(handlerFSChain,
 			getsvc.WithLocalStorageEngine(newSimpleStorage(t, fsChain)),
 			getsvc.WithClientConstructor(mockConns),
 			getsvc.WithKeyStorage(keyStorage),
@@ -260,6 +251,107 @@ func TestServer_Head_Remote(t *testing.T) {
 			require.True(t, proto.Equal(resp, gotResp))
 		})
 	})
+}
+
+func TestServer_Head_EACLRecheck(t *testing.T) {
+	signer := usertest.User()
+	cnr := cidtest.ID()
+	obj := object.New(cnr, signer.ID)
+	obj.SetAttributes(object.NewAttribute("classified", "public"))
+	require.NoError(t, obj.SetVerificationFields(signer))
+	childID := oidtest.ID()
+	child := object.New(cnr, signer.ID)
+	child.SetParent(obj)
+	var split object.SplitInfo
+	split.SetLink(childID)
+	for _, tc := range []struct {
+		name              string
+		split             bool
+		handlerError      bool
+		headerUnavailable bool
+		nested            bool
+		remoteError       bool
+	}{
+		{name: "header"},
+		{name: "split info", split: true},
+		{name: "split header unavailable", split: true, headerUnavailable: true},
+		{name: "split error", split: true, handlerError: true},
+		{name: "split error header unavailable", split: true, handlerError: true, headerUnavailable: true},
+		{name: "nested split info", split: true, nested: true},
+		{name: "remote error", remoteError: true},
+		{name: "nested remote error", remoteError: true, nested: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, denied := range []bool{false, true} {
+				t.Run(fmt.Sprintf("denied=%t", denied), func(t *testing.T) {
+					var fsChain nopFSChain
+					storage := newSimpleStorage(t, fsChain)
+					nodes, chain, conns := newTwoNodeSetup()
+					chain.localPub = nodes[0].PublicKey()
+					resp := &protoobject.HeadResponse{Body: &protoobject.HeadResponse_Body{
+						Head: &protoobject.HeadResponse_Body_Header{Header: &protoobject.HeaderWithSignature{
+							Header: obj.ProtoMessage().Header, Signature: obj.ProtoMessage().Signature,
+						}},
+					}, MetaHeader: newBlankMetaHeader(), VerifyHeader: newAnyVerificationHeader()}
+					if tc.split {
+						resp.Body.Head = &protoobject.HeadResponse_Body_SplitInfo{SplitInfo: split.ProtoMessage()}
+					} else if tc.remoteError {
+						resp.Body = nil
+						resp.MetaHeader.Status = &status.Status{Code: status.ObjectAlreadyRemoved}
+					}
+					if tc.nested {
+						resp.MetaHeader = &protosession.ResponseMetaHeader{Origin: resp.MetaHeader}
+						if tc.split {
+							// Status is taken from the root of the Origin chain, not this wrapper.
+							resp.MetaHeader.Status = &status.Status{Code: status.ObjectAccessDenied}
+						}
+					}
+					conns.setConn(nodes[1], newFixedHeadResponseConn(t, resp))
+					var fetched []oid.Address
+					checker := newRequestHeaderEACLChecker(storage, func(_ context.Context, addr oid.Address) (*object.Object, error) {
+						fetched = append(fetched, addr)
+						if tc.headerUnavailable {
+							return nil, errors.New("header unavailable")
+						}
+						return child, nil
+					})
+					handler := getsvc.New(chain, getsvc.WithLocalStorageEngine(storage),
+						getsvc.WithClientConstructor(conns), getsvc.WithKeyStorage(util.NewKeyStorage(&signer.ECDSAPrivateKey, nil, nil)))
+					var handlers Handlers = headOnlyHandler{svc: handler}
+					if tc.handlerError {
+						handlers = splitInfoHandler{info: split}
+					}
+					srv := New(handlers, fsChain, nil, nil, signer.ECDSAPrivateKey,
+						nopMetrics{}, checker, eaclReqInfoExtractor{}, nil, fixedFutureTimeProvider{}, zap.NewNop())
+					req := newUnsignedLocalHeadRequest(version.Current(), obj.Address())
+					req.MetaHeader.Ttl = 2
+					req.Body.Raw = true
+					if denied {
+						req.MetaHeader.XHeaders = []*protosession.XHeader{{Key: "X-Probe", Value: "yes"}}
+					}
+					signHeadRequest(t, req, signer)
+					got, err := callHead(t, srv, req)
+					require.NoError(t, err)
+					if tc.remoteError {
+						require.True(t, proto.Equal(resp, got))
+					} else if denied || tc.headerUnavailable {
+						require.EqualValues(t, status.ObjectAccessDenied, got.GetMetaHeader().GetStatus().GetCode())
+						require.Nil(t, got.Body)
+					} else if tc.handlerError {
+						require.True(t, proto.Equal(resp.Body, got.Body))
+						require.Zero(t, got.GetMetaHeader().GetStatus().GetCode())
+					} else {
+						require.True(t, proto.Equal(resp, got))
+					}
+					if tc.split {
+						require.Equal(t, []oid.Address{oid.NewAddress(cnr, childID)}, fetched)
+					} else {
+						require.Empty(t, fetched)
+					}
+				})
+			}
+		})
+	}
 }
 
 type headOnlyHandler struct {

@@ -16,7 +16,10 @@ import (
 
 type Option func(*cfg)
 
-type binaryHeader []byte
+type binaryHeader struct {
+	requestXHeaderSource
+	header []byte
+}
 
 type cfg struct {
 	ctx          context.Context
@@ -122,7 +125,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
 	case binaryHeader:
 		var err error
-		dst.objectHeaders, err = headersFromBinaryObjectHeader(m, h.cnr, h.obj)
+		dst.objectHeaders, err = headersFromBinaryObjectHeader(m.header, h.cnr, h.obj)
 		if err != nil {
 			return err
 		}
@@ -214,7 +217,8 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			dst.objectHeaders = objectHeaders
 			dst.incompleteObjectHeaders = !completed
 		case *protoobject.GetResponse:
-			if v, ok := resp.GetBody().GetObjectPart().(*protoobject.GetResponse_Body_Init_); ok {
+			switch v := resp.GetBody().GetObjectPart().(type) {
+			case *protoobject.GetResponse_Body_Init_:
 				if v == nil || v.Init == nil {
 					return errors.New("nil oneof field with heading part")
 				}
@@ -229,11 +233,30 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					return err
 				}
 				dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
+			case *protoobject.GetResponse_Body_SplitInfo:
+				if v == nil || v.SplitInfo == nil {
+					return errors.New("nil oneof field with split info")
+				}
+				parent, err := h.splitParentHeader(v.SplitInfo)
+				if err != nil {
+					return err
+				}
+				dst.objectHeaders = headersFromObject(parent, h.cnr, h.obj)
 			}
 		case *protoobject.HeadResponse:
 			var hdr *protoobject.Header
 
 			switch v := resp.GetBody().GetHead().(type) {
+			case *protoobject.HeadResponse_Body_SplitInfo:
+				if v == nil || v.SplitInfo == nil {
+					return errors.New("nil oneof field with split info")
+				}
+				parent, err := h.splitParentHeader(v.SplitInfo)
+				if err != nil {
+					return err
+				}
+				dst.objectHeaders = headersFromObject(parent, h.cnr, h.obj)
+				return nil
 			case *protoobject.HeadResponse_Body_ShortHeader:
 				if v == nil || v.ShortHeader == nil {
 					return errors.New("nil oneof field with short header")
@@ -271,6 +294,52 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	}
 
 	return nil
+}
+
+// splitParentHeader returns the requested object's header from its link or last split part.
+func (h *cfg) splitParentHeader(msg *protoobject.SplitInfo) (*object.Object, error) {
+	var info object.SplitInfo
+	if err := info.FromProtoMessage(msg); err != nil {
+		return nil, fmt.Errorf("parse split info: %w", err)
+	}
+	link, last := info.GetLink(), info.GetLastPart()
+	var errs []error
+	for i, child := range [2]oid.ID{link, last} {
+		if child.IsZero() || (i == 1 && child == link) {
+			continue
+		}
+		if err := h.ctx.Err(); err != nil {
+			return nil, err
+		}
+		parent, err := h.splitChildParentHeader(child)
+		if err == nil {
+			return parent, nil
+		}
+		if ctxErr := h.ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		errs = append(errs, err)
+	}
+	return nil, errors.Join(errs...)
+}
+
+func (h *cfg) splitChildParentHeader(child oid.ID) (*object.Object, error) {
+	hdr, err := h.headerSource.Head(h.ctx, oid.NewAddress(h.cnr, child))
+	if err != nil {
+		return nil, fmt.Errorf("fetch split child header: %w", err)
+	}
+	if hdr == nil || hdr.Parent() == nil {
+		return nil, errors.New("split child has no parent header")
+	}
+	parent := hdr.Parent()
+	id, err := parent.CalculateID()
+	if err != nil {
+		return nil, fmt.Errorf("calculate split parent ID: %w", err)
+	}
+	if id != h.obj {
+		return nil, errors.New("split parent header does not match requested object")
+	}
+	return parent, nil
 }
 
 func (h *cfg) localObjectHeaders(cnr cid.ID, idObj oid.ID) ([]eacl.Header, bool) {

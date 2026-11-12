@@ -51,9 +51,12 @@ func WithServiceResponse(resp Response, req Request) Option {
 	}
 }
 
-func WithObjectHeaderBinary(b []byte) Option {
+func WithObjectHeaderBinary(b []byte, req Request) Option {
 	return func(c *cfg) {
-		c.msg = binaryHeader(b)
+		c.msg = binaryHeader{
+			requestXHeaderSource: requestXHeaderSource{req: req},
+			header:               b,
+		}
 	}
 }
 
