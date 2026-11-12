@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - SIGHUP config reload matched running gRPC servers to endpoints by slice position, permanently misattributing them after an earlier endpoint failed to bind (#4286)
 - NetmapService was missing from gRPC servers created by SIGHUP config reload (#4286)
 - Attempts to replicate expired split parts left by incomplete uploads (#4276)
+- Delayed GC of expired split-object parents to reduce resurrection risk from lagging replication (#4252)
 
 ### Changed
 
