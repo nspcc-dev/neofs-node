@@ -136,7 +136,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			batchSize *= boostMultiplier
 		}
 
-		addrs, cursor, err = p.localStorage.ListWithCursor(ctx, batchSize, cursor, object.AttributeECRuleIndex, object.AttributeECPartIndex, object.FilterParentID)
+		addrs, cursor, err = p.localStorage.ListWithCursor(ctx, batchSize, cursor, object.AttributeECRuleIndex, object.AttributeECPartIndex, object.FilterParentID, object.FilterPayloadSize)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				if wrapped {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"sync"
@@ -130,7 +131,7 @@ func TestConsistencyAndPlacement(t *testing.T) {
 			localObj = objectcore.AddressWithAttributes{
 				Address:    objAddr,
 				Type:       object.TypeRegular,
-				Attributes: make([]string, 3),
+				Attributes: make([]string, 4),
 			}
 
 			mockM         = &mockMetrics{}
@@ -272,7 +273,7 @@ func testDefaultREPWithType(t *testing.T, typ object.Type) {
 	localObj := objectcore.AddressWithAttributes{
 		Address:    objAddr,
 		Type:       typ,
-		Attributes: make([]string, 3),
+		Attributes: make([]string, 4),
 	}
 
 	t.Run("all OK", func(t *testing.T) {
@@ -887,7 +888,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	localObj := objectcore.AddressWithAttributes{
 		Address:    oid.NewAddress(cnr, partOID),
 		Type:       object.TypeRegular,
-		Attributes: []string{"0", "5", parentOIDAttr},
+		Attributes: []string{"0", "5", parentOIDAttr, "0"},
 	}
 
 	nodes := testutil.Nodes(int(rule.DataPartNum+rule.ParityPartNum) * defaultCBF)
@@ -932,7 +933,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 				err: "part index is set, rule index is not"},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx, parentOIDAttr}
+				localObj.Attributes = []string{tc.ruleIdx, tc.partIdx, parentOIDAttr, "0"}
 
 				testECCheckWaitLog(t, rule, localObj, nodes, 0, allOK, testutil.LogEntry{
 					Level: zap.ErrorLevel, Message: "failed to decode EC part info from attributes, skip object",
@@ -940,6 +941,18 @@ func TestPolicer_Run_EC(t *testing.T) {
 				})
 			})
 		}
+	})
+
+	t.Run("invalid payload size attribute in local object", func(t *testing.T) {
+		localObj := localObj
+		localObj.Attributes = slices.Clone(localObj.Attributes)
+		localObj.Attributes[3] = "not_an_int"
+
+		testECCheckWaitLog(t, rule, localObj, nodes, 0, allOK, testutil.LogEntry{
+			Level: zap.ErrorLevel, Message: "failed to decode local EC part payload size from attributes, skip object",
+			Fields: map[string]any{"component": "Object Policer", "object": localObj.Address.String(), "value": "not_an_int",
+				"error": `strconv.ParseUint: parsing "not_an_int": invalid syntax`},
+		})
 	})
 
 	t.Run("invalid parent attribute in local object", func(t *testing.T) {
@@ -971,7 +984,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 	t.Run("part violates EC policy", func(t *testing.T) {
 		t.Run("no EC attributes", func(t *testing.T) {
 			localObj := localObj
-			localObj.Attributes = []string{"", "", parentOIDAttr}
+			localObj.Attributes = []string{"", "", parentOIDAttr, "0"}
 
 			logBuf := testECCheck(t, rule, localObj, nodes, 0, allOK, true, nil)
 			logBuf.AssertContains(testutil.LogEntry{
@@ -1234,9 +1247,12 @@ func TestPolicer_Run_EC(t *testing.T) {
 			localObjectPartIdx = 4
 		)
 		localObj := objectcore.AddressWithAttributes{
-			Address:    oid.NewAddress(cID, ecChain[localObjectECIdx][localObjectPartIdx].GetID()),
-			Type:       object.TypeRegular,
-			Attributes: []string{strconv.Itoa(localObjectECIdx), strconv.Itoa(localObjectPartIdx), string(parentOID[:])},
+			Address: oid.NewAddress(cID, ecChain[localObjectECIdx][localObjectPartIdx].GetID()),
+			Type:    object.TypeRegular,
+			Attributes: []string{
+				strconv.Itoa(localObjectECIdx), strconv.Itoa(localObjectPartIdx), string(parentOID[:]),
+				strconv.FormatUint(ecChain[localObjectECIdx][localObjectPartIdx].PayloadSize(), 10),
+			},
 		}
 		localNode := newTestLocalNode()
 		localNode.objList = []objectcore.AddressWithAttributes{localObj}
@@ -1405,7 +1421,7 @@ func TestPolicer_Run_EC(t *testing.T) {
 }
 
 func newECMockNetwork(t *testing.T, rules []iec.Rule, localObj objectcore.AddressWithAttributes, nodes []netmap.NodeInfo, localIdx int) *mockNetwork {
-	require.Len(t, localObj.Attributes, 3)
+	require.Len(t, localObj.Attributes, 4)
 
 	var sortOID oid.ID
 	if localObj.Attributes[0] == "" && localObj.Attributes[1] == "" {
@@ -1526,7 +1542,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 		localObj := objectcore.AddressWithAttributes{
 			Address:    addr,
 			Type:       object.TypeRegular,
-			Attributes: make([]string, 3),
+			Attributes: make([]string, 4),
 			ShardIDs:   []string{"source"},
 		}
 
@@ -1568,7 +1584,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 		localObj := objectcore.AddressWithAttributes{
 			Address:    addr,
 			Type:       object.TypeRegular,
-			Attributes: []string{"0", "0", string(parentID[:])},
+			Attributes: []string{"0", "0", string(parentID[:]), strconv.FormatUint(parts[0][0].PayloadSize(), 10)},
 			ShardIDs:   []string{"source"},
 		}
 		localNode := newTestLocalNode()
@@ -1603,7 +1619,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 		localObj := objectcore.AddressWithAttributes{
 			Address:    addr,
 			Type:       object.TypeRegular,
-			Attributes: make([]string, 3),
+			Attributes: make([]string, 4),
 			ShardIDs:   []string{"source", "target"},
 		}
 
@@ -1639,7 +1655,7 @@ func TestPolicer_OptimizeLocalShardLocation(t *testing.T) {
 				localObj := objectcore.AddressWithAttributes{
 					Address:    addr,
 					Type:       typ,
-					Attributes: make([]string, 3),
+					Attributes: make([]string, 4),
 					ShardIDs:   []string{"A", "B"},
 				}
 
@@ -1747,6 +1763,7 @@ type testLocalNode struct {
 	obj       object.Object
 	objECRule int
 	objECPart int
+	headObj   *object.Object
 
 	preserveExpiredPart bool
 	expiredPartErr      error
@@ -1933,6 +1950,9 @@ func (x *testLocalNode) Put(_ context.Context, _ *object.Object, _ []byte) error
 }
 
 func (x *testLocalNode) Head(_ context.Context, _ oid.Address, _ bool) (*object.Object, error) {
+	if x.headObj != nil {
+		return x.headObj, nil
+	}
 	return &object.Object{}, nil
 }
 
@@ -2173,4 +2193,132 @@ func generateECChain(t *testing.T, parentSize uint64, rules []iec.Rule) (object.
 	}
 
 	return parent, res
+}
+
+// checkECParts sizes a buffer from the EC parent payload size declared in a
+// part header received from another container member. With a 2/1 rule, one
+// healthy remote part and one missing part, the restoration path is reached
+// and the buffer allocated; a size exceeding what the locally stored part
+// implies must be rejected before that.
+func TestPolicer_checkECParts_BoundsParentPayloadSize(t *testing.T) {
+	// Overflows int when multiplied by totalParts, so an unbounded allocation
+	// panics deterministically instead of trying to reserve the memory.
+	const oversized = math.MaxUint64 / 2
+
+	rule := iec.Rule{DataPartNum: 2, ParityPartNum: 1}
+	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
+
+	// The bound processECPart derives from the part this node stores.
+	const localPartLen = 1 << 20
+	maxParentSz := uint64(localPartLen) * uint64(rule.DataPartNum)
+
+	cnr := cidtest.ID()
+	parent := oidtest.ID()
+	parentAddr := oid.NewAddress(cnr, parent)
+	nodes := testutil.Nodes(totalParts)
+
+	// Part 1 is served by nodes[1] and carries the oversized parent header;
+	// part 2 is missing everywhere, so missingIdx is non-empty and the
+	// allocation downstream is reached. Part 0 is local.
+	newRemotePart := func(parentSz uint64) object.Object {
+		var parentHdr object.Object
+		parentHdr.SetID(parent)
+		parentHdr.SetPayloadSize(parentSz)
+
+		var hdr object.Object
+		var attrRule, attrPart object.Attribute
+		attrRule.SetKey(object.AttributeECRuleIndex)
+		attrRule.SetValue("0")
+		attrPart.SetKey(object.AttributeECPartIndex)
+		attrPart.SetValue("1")
+		hdr.SetAttributes(attrRule, attrPart)
+		hdr.SetParent(&parentHdr) // derives the parent ID from the header
+		// must match ceil(parentSz/DataPartNum), or the part is rejected first
+		hdr.SetPayloadSize((parentSz + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum))
+		return hdr
+	}
+
+	newPolicer := func(t *testing.T, parentSz uint64) (*Policer, *testutil.LogBuffer) {
+		mockNet := newMockNetwork()
+		mockNet.setObjectNodesECResult(cnr, parent, [][]netmap.NodeInfo{nodes}, []iec.Rule{rule})
+		mockNet.pubKey = nodes[0].PublicKey()
+
+		conns := newMockAPIConnections()
+		conns.setHeadResult(nodes[1], parentAddr, newRemotePart(parentSz), nil)
+		conns.setHeadResult(nodes[2], parentAddr, object.Object{}, error(apistatus.ErrObjectNotFound))
+
+		l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+		p := New(neofscryptotest.Signer(),
+			WithNetwork(mockNet),
+			WithLogger(l),
+			WithHeadTimeout(time.Second),
+			WithMetrics(&mockMetrics{}),
+		)
+		p.localStorage = newTestLocalNode()
+		p.apiConns = conns
+
+		return p, lb
+	}
+
+	const rejected = "EC parent payload size declared by peer rejected"
+
+	t.Run("oversized size declared by a peer", func(t *testing.T) {
+		p, lb := newPolicer(t, oversized)
+
+		require.NotPanics(t, func() {
+			p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID(), maxParentSz)
+		})
+		lb.AssertContainsMsg(zap.ErrorLevel, rejected)
+	})
+
+	// The accepted path runs on into restoration, which TestPolicer_Run_EC
+	// covers with real part sizes; the bound itself is checked below.
+	t.Run("boundary", func(t *testing.T) {
+		require.NoError(t, checkParentPayloadSize(maxParentSz, maxParentSz))
+		require.Error(t, checkParentPayloadSize(maxParentSz+1, maxParentSz))
+	})
+}
+
+// The 1/1 rule is the only one reaching the local parent-header fallback in
+// checkECParts: the local part is never HEADed in the loop and the remote one
+// is unreachable, so the parent size comes from local storage. PUT validates
+// only a part's own payload size, not the size its embedded parent header
+// declares, so that value is not bounded either and must be checked too.
+func TestPolicer_checkECParts_BoundsParentPayloadSizeReadLocally(t *testing.T) {
+	const oversized = math.MaxUint64 / 2
+
+	rule := iec.Rule{DataPartNum: 1, ParityPartNum: 1}
+	maxParentSz := uint64(1<<20) * uint64(rule.DataPartNum)
+	cnr := cidtest.ID()
+	parent := oidtest.ID()
+	nodes := testutil.Nodes(int(rule.DataPartNum + rule.ParityPartNum))
+
+	mockNet := newMockNetwork()
+	mockNet.setObjectNodesECResult(cnr, parent, [][]netmap.NodeInfo{nodes}, []iec.Rule{rule})
+	mockNet.pubKey = nodes[0].PublicKey()
+
+	conns := newMockAPIConnections()
+	conns.setHeadResult(nodes[1], oid.NewAddress(cnr, parent), object.Object{}, error(apistatus.ErrObjectNotFound))
+
+	var localParent object.Object
+	localParent.SetID(parent)
+	localParent.SetPayloadSize(oversized)
+
+	local := newTestLocalNode()
+	local.headObj = &localParent
+
+	l, lb := testutil.NewBufferedLogger(t, zap.DebugLevel)
+	p := New(neofscryptotest.Signer(),
+		WithNetwork(mockNet),
+		WithLogger(l),
+		WithHeadTimeout(time.Second),
+		WithMetrics(&mockMetrics{}),
+	)
+	p.localStorage = local
+	p.apiConns = conns
+
+	require.NotPanics(t, func() {
+		p.checkECParts(context.Background(), cnr, parent, rule, 0, 0, oidtest.ID(), maxParentSz)
+	})
+	lb.AssertContainsMsg(zap.ErrorLevel, "EC parent payload size read locally rejected")
 }
