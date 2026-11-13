@@ -17,6 +17,13 @@ Changelog for NeoFS Node
 - NetmapService was missing from gRPC servers created by SIGHUP config reload (#4286)
 - Attempts to replicate expired split parts left by incomplete uploads (#4276)
 - Delayed GC of expired split-object parents to reduce resurrection risk from lagging replication (#4252)
+- Missing parent presence check for LINK objects (#4306)
+- Missing last parent vs link parent ID check in format verifier (#4306)
+- Missing check for children sizes summing up to parent length in LINK object verifier (#4306)
+- Panic in Get service when processing incorrect LINKs (#4306)
+- Single-child LINKs accepted as valid (but they never are) (#4306)
+- First ID not checked against the real first object when validating LINKs (#4306)
+- Incorrect first ID check for middle and last objects specified in LINK (#4306)
 
 ### Changed
 

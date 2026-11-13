@@ -1071,7 +1071,7 @@ func newTestClusterForRepPolicyWithContainer(t *testing.T, repNodes, cnrReserveN
 
 type mockSplitVerifier struct{}
 
-func (mockSplitVerifier) VerifySplit(context.Context, cid.ID, oid.ID, []object.MeasuredObject) error {
+func (mockSplitVerifier) VerifySplit(context.Context, cid.ID, oid.ID, *object.Object) error {
 	return nil
 }
 

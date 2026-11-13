@@ -324,6 +324,10 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 
 		require.NoError(t, linker.SetVerificationFields(creator))
 
+		require.Error(t, v.Validate(context.Background(), &linker, false, true)) // Missing parent
+
+		linker.SetParent(&parent)
+		require.NoError(t, linker.SetVerificationFields(creator))
 		require.NoError(t, v.Validate(context.Background(), &linker, false, true))
 
 		for i := range splitParts {

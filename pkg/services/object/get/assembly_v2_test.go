@@ -85,3 +85,26 @@ func Test_RequiredChildren(t *testing.T) {
 		})
 	}
 }
+
+func Test_RequiredChildren_OutOfRealRange(t *testing.T) {
+	children := make([]object.MeasuredObject, 2)
+	children[0].SetObjectSize(10)
+	children[1].SetObjectSize(10)
+	// real sum = 20.
+
+	t.Run("offset beyond real sum", func(t *testing.T) {
+		first, _, _, _ := requiredChildren(50, 10, children)
+		require.Equal(t, -1, first)
+	})
+
+	t.Run("offset within real sum, end beyond it", func(t *testing.T) {
+		_, _, last, _ := requiredChildren(15, 100, children)
+		require.Equal(t, -1, last)
+	})
+
+	t.Run("fully within real sum", func(t *testing.T) {
+		first, _, last, _ := requiredChildren(5, 15, children)
+		require.Equal(t, 0, first)
+		require.Equal(t, 1, last)
+	})
+}

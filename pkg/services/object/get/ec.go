@@ -926,6 +926,9 @@ func (s *Service) copySplitECObjectRangeByLinker(ctx context.Context, dst ChunkW
 		}
 
 		firstPartIdx, firstPartOff, lastPartIdx, lastPartTo = requiredChildren(off, ln, sizeSplitParts)
+		if firstPartIdx == -1 || lastPartIdx == -1 {
+			return apistatus.ErrObjectOutOfRange
+		}
 	}
 
 	return s.copySplitECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, rules, sortedNodeLists, fromRule,
@@ -1079,6 +1082,9 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 		}
 
 		firstPartIdx, firstPartOff, lastPartIdx, lastPartTo = requiredChildrenIter(off, ln, nEqualSizeIter(totalParts, fullPartLen))
+		if firstPartIdx == -1 || lastPartIdx == -1 {
+			return 0, apistatus.ErrObjectOutOfRange
+		}
 	}
 
 	deadline, deadlineSet := ctx.Deadline()

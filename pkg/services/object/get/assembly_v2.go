@@ -181,6 +181,12 @@ func (exec *execCtx) rangeFromLink(link object.Link) bool {
 	children := link.Objects()
 	rng := exec.ctxRange()
 	first, firstOffset, last, lastBound := requiredChildren(rng.GetOffset(), rng.GetLength(), children)
+	if first == -1 || last == -1 {
+		exec.err = apistatus.ErrObjectOutOfRange
+		exec.status = statusAPIResponse
+
+		return true
+	}
 	n := last - first + 1
 
 	at := func(i int) (oid.ID, *object.Range, bool) {
@@ -250,7 +256,7 @@ func nEqualSizeIter(n int, sz uint64) iter.Seq2[int, uint64] {
 func requiredChildrenIter(off, ln uint64, children iter.Seq2[int, uint64]) (int, uint64, int, uint64) {
 	var firstChildIndex = -1
 	var firstChildOffset uint64
-	var lastChildIndex int
+	var lastChildIndex = -1
 	var lastChildRightBound uint64
 
 	leftBound := off
