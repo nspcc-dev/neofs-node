@@ -278,6 +278,7 @@ func testLockRemoved(t *testing.T, shardNum int) {
 		dir := t.TempDir()
 
 		s := New()
+		registerEngineCleanup(t, s)
 
 		for i := range shardNum {
 			sIdx := strconv.Itoa(i)

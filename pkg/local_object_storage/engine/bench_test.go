@@ -353,7 +353,7 @@ func benchmarkNewEngineWithShardNum(tb testing.TB, shardCount int) *StorageEngin
 	for i := range shardCount {
 		shards = append(shards, testNewShard(tb, i))
 	}
-	return testNewEngineWithShards(shards...)
+	return testNewEngineWithShards(tb, shards...)
 }
 
 func benchmarkSearchQuery(tb testing.TB, attr, val string) ([]objectcore.SearchFilter, []string, *objectcore.SearchCursor) {

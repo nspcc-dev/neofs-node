@@ -136,7 +136,8 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			dst.objectHeaders = objHeaders
 			dst.incompleteObjectHeaders = !completed
 		case
-			*protoobject.DeleteRequest:
+			*protoobject.DeleteRequest,
+			*protoobject.SearchV2Request:
 			dst.objectHeaders = addressHeaders(h.cnr, h.obj)
 		case *protoobject.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*protoobject.PutRequest_Body_Init_); ok {

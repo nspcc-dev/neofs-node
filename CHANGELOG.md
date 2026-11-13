@@ -6,12 +6,14 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Incorrect eACL `NOT_PRESENT` matching for SEARCH and DELETE (#4302)
 
 ### Changed
 
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261113124103-31f830e86783` (#4302)
 
 ### Updating from v0.58.2
 
