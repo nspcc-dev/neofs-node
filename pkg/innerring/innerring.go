@@ -1002,6 +1002,11 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't get FS chain height: %w", err)
 	}
 
+	currChainTime, err := s.fsChainClient.GetBlockHeader(blockHeight)
+	if err != nil {
+		return fmt.Errorf("can't read current block header (#%d): %w", blockHeight, err)
+	}
+
 	nextTickAt, err := s.resetEpochTimer(0)
 	if err != nil {
 		return fmt.Errorf("could not reset epoch timer: %w", err)
@@ -1017,6 +1022,7 @@ func (s *Server) initConfigFromBlockchain() error {
 		zap.Uint32("precision", s.precision),
 		zap.Uint32("last epoch tick block", lastTick),
 		zap.Uint32("current chain height", blockHeight),
+		zap.Uint64("current chain time (timestamp, ms)", currChainTime.Timestamp),
 		zap.Uint64("next epoch tick at (timestamp, ms)", nextTickAt),
 	)
 
