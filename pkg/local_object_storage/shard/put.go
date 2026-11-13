@@ -262,6 +262,7 @@ func (s *Shard) putToMetabaseLocked(addr oid.Address, hdr object.Object, cachedP
 	s.addObjectCounter(linkObjType, diff.Link)
 	s.addObjectCounter(gcObjType, diff.GC)
 	s.addToContainerSize(addr.Container().EncodeToString(), diff.Payload)
+	s.addToPayloadCounter(diff.Payload)
 
 	return nil
 }

@@ -95,6 +95,7 @@ func TestCounters(t *testing.T) {
 	oo := make([]*object.Object, objNumber)
 	for i := range objNumber {
 		oo[i] = generateObject()
+		addPayload(oo[i], 100+i)
 	}
 
 	t.Run("defaults", func(t *testing.T) {
@@ -140,6 +141,9 @@ func TestCounters(t *testing.T) {
 		for i := range inhumedNumber {
 			err := sh.MarkGarbage(oo[i].GetContainerID(), []oid.ID{oo[i].GetID()}, meta.GarbageMarkDefault)
 			require.NoError(t, err)
+
+			expectedSizes[oo[i].GetContainerID()] -= int64(oo[i].PayloadSize())
+			totalPayload -= int64(oo[i].PayloadSize())
 		}
 
 		require.Equal(t, uint64(objNumber), mm.objectCounters[phyObj])
@@ -173,6 +177,8 @@ func TestCounters(t *testing.T) {
 
 		// Tomb is an object too.
 		phy++
+		expectedSizes[oo[0].GetContainerID()] -= int64(oo[0].PayloadSize())
+		totalPayload -= int64(oo[0].PayloadSize())
 
 		require.Equal(t, phy, mm.objectCounters[phyObj])
 		require.Equal(t, root, mm.objectCounters[rootObj])
