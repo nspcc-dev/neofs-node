@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support for minimum EC parts required for successful PUT (#4267)
 
 ### Fixed
 - Policer could drop the only verified local replica of an object when one primary was under maintenance and another's HEAD request failed transiently (#4291)
@@ -30,6 +31,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261031163016-c59c747f65e9` (#4267)
 
 ### Updating from v0.58.1
 

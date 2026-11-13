@@ -493,6 +493,133 @@ func Test_Slicing_EC(t *testing.T) {
 		})
 	})
 
+	t.Run("minimum EC parts", func(t *testing.T) {
+		const dataParts, parityParts = 12, 4
+		for _, tc := range []struct {
+			name      string
+			minParts  uint32
+			available int
+			success   bool
+			localOnly bool
+		}{
+			{name: "all parts", minParts: 14, available: 16, success: true},
+			{name: "above minimum", minParts: 14, available: 15, success: true},
+			{name: "at minimum", minParts: 14, available: 14, success: true},
+			{name: "below minimum", minParts: 14, available: 13},
+			{name: "data parts only", minParts: 14, available: 12},
+			{name: "minimum equals data parts", minParts: 12, available: 12, success: true},
+			{name: "below data parts", minParts: 14, available: 11},
+			{name: "no parts", minParts: 14},
+			{name: "default requires all parts", available: 15},
+			{name: "local PUT with minimum", minParts: 14, available: 1, success: true, localOnly: true},
+			{name: "local PUT with default", available: 1, success: true, localOnly: true},
+			{name: "local PUT storage failure", minParts: 14, localOnly: true},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				rule := iec.Rule{DataPartNum: dataParts, ParityPartNum: parityParts}
+				policyRule := netmap.NewECRule(dataParts, parityParts)
+				policyRule.SetMinPartNum(tc.minParts)
+				var policy netmap.PlacementPolicy
+				policy.SetECRules([]netmap.ECRule{policyRule})
+				var cnr container.Container
+				cnr.SetPlacementPolicy(policy)
+				cluster := newTestClusterForRepPolicyWithContainer(t, dataParts+parityParts, 0, 0, cnr)
+				for i := range cluster.nodeNetworks {
+					cluster.nodeNetworks[i].cnrNodes.repCounts = nil
+					cluster.nodeNetworks[i].cnrNodes.ecRules = []iec.Rule{rule}
+					if i >= tc.available {
+						cluster.nodeLocalStorages[i].err = errors.New("cannot store object")
+					}
+				}
+
+				owner := usertest.User()
+				var obj object.Object
+				obj.SetContainerID(cidtest.ID())
+				obj.SetOwner(owner.UserID())
+				obj.SetPayload(testutil.RandByteSlice(maxObjectSize - 1))
+				token := newSessionTokenV2(t, cidtest.ID(), owner, nil, []sessionv2.Verb{sessionv2.VerbObjectPut})
+				pk := cluster.nodeSessions[0].signer.ECDSAPrivateKey.PublicKey
+				require.NoError(t, token.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(user.NewFromECDSAPublicKey(pk))}))
+				require.NoError(t, token.Sign(owner))
+
+				ttl := uint32(2)
+				if tc.localOnly {
+					ttl = 1
+				}
+				err := putObjectWithSessionTTL(cluster.nodeServices[0], obj, nil, token, ttl)
+				if tc.success {
+					require.NoError(t, err)
+				} else if !tc.localOnly && tc.available >= dataParts {
+					require.ErrorIs(t, err, apistatus.ErrIncomplete)
+				} else {
+					require.Error(t, err)
+					require.NotErrorIs(t, err, apistatus.ErrIncomplete)
+				}
+				var stored int
+				for i := range cluster.nodeLocalStorages {
+					if tc.localOnly && tc.success && i == 0 {
+						require.Len(t, cluster.nodeLocalStorages[i].objs, dataParts+parityParts)
+					} else {
+						require.LessOrEqual(t, len(cluster.nodeLocalStorages[i].objs), 1)
+					}
+					stored += len(cluster.nodeLocalStorages[i].objs)
+				}
+				if tc.localOnly && tc.success {
+					require.Equal(t, dataParts+parityParts, stored)
+				} else if !tc.localOnly && tc.available < dataParts {
+					require.LessOrEqual(t, stored, tc.available)
+				} else {
+					require.Equal(t, tc.available, stored)
+				}
+			})
+		}
+	})
+
+	t.Run("same EC scheme with different minimums", func(t *testing.T) {
+		for _, tc := range []struct {
+			name      string
+			available int
+			success   bool
+		}{
+			{name: "both thresholds met", available: 3, success: true},
+			{name: "second threshold not met", available: 2},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				rules := []iec.Rule{{DataPartNum: 2, ParityPartNum: 2}, {DataPartNum: 2, ParityPartNum: 2}}
+				policyRules := []netmap.ECRule{netmap.NewECRule(2, 2), netmap.NewECRule(2, 2)}
+				policyRules[0].SetMinPartNum(2)
+				policyRules[1].SetMinPartNum(3)
+				var policy netmap.PlacementPolicy
+				policy.SetECRules(policyRules)
+				var cnr container.Container
+				cnr.SetPlacementPolicy(policy)
+				env := newPlacementTestEnv(t, cnr, nil, rules, false, true)
+				var nodeIdx int
+				for i := range env.nodeLists {
+					available := 2
+					if i == 1 {
+						available = tc.available
+					}
+					for j := range env.nodeLists[i] {
+						if j >= available {
+							env.cluster.nodeLocalStorages[nodeIdx].err = errors.New("cannot store object")
+						}
+						nodeIdx++
+					}
+				}
+				owner := usertest.User()
+				obj := newSessionRegularObject(owner.UserID())
+				token := newSessionTokenV2ForNode(t, env.cluster, env.nodeLists, -1, owner)
+				err := putObjectWithSession(env.cluster.nodeServices[0], obj, nil, token)
+				if tc.success {
+					require.NoError(t, err)
+				} else {
+					require.Error(t, err)
+				}
+			})
+		}
+	})
+
 	t.Run("no EC parts on the same node", func(t *testing.T) {
 		const (
 			dataPartNum     = 12
@@ -1659,12 +1786,16 @@ func storeObjectWithSession(t *testing.T, c *serviceClient, obj object.Object, s
 }
 
 func putObjectWithSession(c *serviceClient, obj object.Object, st *session.Object, st2 *sessionv2.Token) error {
+	return putObjectWithSessionTTL(c, obj, st, st2, 2)
+}
+
+func putObjectWithSessionTTL(c *serviceClient, obj object.Object, st *session.Object, st2 *sessionv2.Token, ttl uint32) error {
 	stream, err := c.svc.Put(context.Background())
 	if err != nil {
 		return fmt.Errorf("init stream: %w", err)
 	}
 
-	commonPrm := objutil.CommonPrmFromRequest(2, nil, common.RequestTokens{
+	commonPrm := objutil.CommonPrmFromRequest(ttl, nil, common.RequestTokens{
 		Session:   st2,
 		SessionV1: st,
 	})

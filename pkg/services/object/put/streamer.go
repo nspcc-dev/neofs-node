@@ -268,6 +268,12 @@ func (p *Streamer) newDistrubutedWriter(prm *PutInitPrm) *distributedTarget {
 
 	metaAttr := metaAttribute(prm.cnr)
 
+	policyRules := prm.cnr.PlacementPolicy().ECRules()
+	minPartNums := make([]uint32, len(policyRules))
+	for i := range policyRules {
+		minPartNums[i] = policyRules[i].MinPartNum()
+	}
+
 	return &distributedTarget{
 		opCtx:   p.ctx,
 		fsState: p.networkState,
@@ -285,6 +291,7 @@ func (p *Streamer) newDistrubutedWriter(prm *PutInitPrm) *distributedTarget {
 		containerNodes:          prm.containerNodes,
 		ecPart:                  prm.ecPart,
 		ecRules:                 prm.ecRules,
+		ecMinPartNums:           minPartNums,
 		ecSplitOnlyObject:       prm.ecPart.RuleIndex < 0 && len(prm.containerNodes.PrimaryCounts()) == 0,
 		localNodeInContainer:    prm.localNodeInContainer,
 		localNodeSigner:         prm.localNodeSigner,
