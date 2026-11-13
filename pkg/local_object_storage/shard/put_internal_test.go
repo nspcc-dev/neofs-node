@@ -64,11 +64,13 @@ func TestShard_InitPut(t *testing.T) {
 		require.Equal(t, map[string]int64{
 			hdr.GetContainerID().String(): mockedMetabaseCountersDiff.Payload,
 		}, mtrc.containerCounters)
+		require.Equal(t, mockedMetabaseCountersDiff.Payload, mtrc.payloadSize)
 	}
 
 	assertEmptyMetrics := func(t *testing.T, mtrc mockInitPutMetrics) {
 		require.Empty(t, mtrc.typeCounters)
 		require.Empty(t, mtrc.containerCounters)
+		require.Zero(t, mtrc.payloadSize)
 	}
 
 	assertSuccess := func(t *testing.T, sh *Shard, resBuf *bytes.Buffer, resStream *mockPutStream, mtrc *mockInitPutMetrics) {
@@ -1042,6 +1044,7 @@ type mockInitPutMetrics struct {
 	unimplementedMetricsWriter
 	typeCounters      map[string]int
 	containerCounters map[string]int64
+	payloadSize       int64
 }
 
 func (x *mockInitPutMetrics) AddToObjectCounter(typ string, val int) {
@@ -1056,4 +1059,8 @@ func (x *mockInitPutMetrics) AddToContainerSize(cnr string, val int64) {
 		x.containerCounters = make(map[string]int64)
 	}
 	x.containerCounters[cnr] = val
+}
+
+func (x *mockInitPutMetrics) AddToPayloadSize(val int64) {
+	x.payloadSize = val
 }
