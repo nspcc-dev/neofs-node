@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -224,11 +223,6 @@ func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, curr
 
 		diff.Lock++
 	case object.TypeTombstone:
-		var (
-			addr    oid.Address
-			inhumed int
-		)
-		addr.SetContainer(cID)
 		if targetTypErr == nil {
 			if targetTyp == object.TypeTombstone {
 				return fmt.Errorf("%s TS's target is another TS: %s", oID, target)
@@ -251,29 +245,13 @@ func handleObjectWithAssociation(metaBkt *bbolt.Bucket, diff *CountersDiff, curr
 			return fmt.Errorf("collect children: %w", err)
 		}
 		children = append(children, target)
-		for _, id := range children {
-			addr.SetObject(id)
-
-			obj, err := get(metaCursor, addr, false, true, currEpoch, currTime)
-			// Garbage mark should be put irrespective of errors,
-			// especially if the error is SplitInfo.
-			if err == nil {
-				if inGarbage(metaCursor, id) == statusAvailable {
-					inhumed++
-				}
-				// if object is stored, and it is regular object then update bucket
-				// with container size estimations
-				if obj.Type() == object.TypeRegular {
-					diff.Payload -= int64(obj.PayloadSize())
-				}
-			}
-			err = metaBkt.Put(mkGarbageKey(id), nil)
-			if err != nil {
-				return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
-			}
+		gcDiff, err := markGarbageInContainer(metaCursor, cID, children, currEpoch, GarbageMarkDefault)
+		if err != nil {
+			return fmt.Errorf("put %s object to garbage bucket: %w", target, err)
 		}
 		diff.TS++
-		diff.GC += inhumed
+		diff.GC += gcDiff.NewGarbage
+		diff.Payload += gcDiff.PayloadDiff
 	default:
 	}
 

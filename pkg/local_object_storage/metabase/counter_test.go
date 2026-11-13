@@ -8,6 +8,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,11 +61,11 @@ func TestCounters(t *testing.T) {
 						require.Zero(t, c.GC)
 					case object.TypeTombstone:
 						require.EqualValues(t, i+1, c.TS)
+						require.EqualValues(t, i+1, c.GC)
 
 						require.Zero(t, c.Root)
 						require.Zero(t, c.Lock)
 						require.Zero(t, c.Link)
-						require.Zero(t, c.GC)
 					case object.TypeLock:
 						require.EqualValues(t, i+1, c.Lock)
 
@@ -105,7 +106,6 @@ func TestCounters(t *testing.T) {
 
 					require.EqualValues(t, i, c.Phy)
 					require.EqualValues(t, i*(payloadSize), c.Payload)
-					require.Zero(t, c.GC)
 					switch typ {
 					case object.TypeRegular:
 						require.EqualValues(t, i, c.Root)
@@ -113,8 +113,10 @@ func TestCounters(t *testing.T) {
 						require.Zero(t, c.TS)
 						require.Zero(t, c.Lock)
 						require.Zero(t, c.Link)
+						require.Zero(t, c.GC)
 					case object.TypeTombstone:
 						require.EqualValues(t, i, c.TS)
+						require.EqualValues(t, objCount, c.GC) // targets stay marked
 
 						require.Zero(t, c.Lock)
 						require.Zero(t, c.Link)
@@ -123,11 +125,13 @@ func TestCounters(t *testing.T) {
 
 						require.Zero(t, c.TS)
 						require.Zero(t, c.Link)
+						require.Zero(t, c.GC)
 					case object.TypeLink:
 						require.EqualValues(t, i, c.Link)
 
 						require.Zero(t, c.TS)
 						require.Zero(t, c.Lock)
+						require.Zero(t, c.GC)
 					default:
 					}
 				}
@@ -221,6 +225,46 @@ func TestCounters(t *testing.T) {
 
 			require.NoError(t, db.Reset())
 		})
+
+		t.Run("absent target", func(t *testing.T) {
+			cnr := cidtest.ID()
+			target := oidtest.ID()
+			ts := createTSForObject(cnr, target)
+
+			diff, err := db.PutCounted(ts)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, diff.GC)
+
+			_, _, err = db.Delete(cnr, []oid.ID{target, ts.GetID()})
+			require.NoError(t, err)
+
+			c, err := db.ObjectCounters()
+			require.NoError(t, err)
+			require.Zero(t, c.Phy)
+			require.Zero(t, c.TS)
+			require.Zero(t, c.GC)
+
+			require.NoError(t, db.Reset())
+		})
+
+		t.Run("redundant target", func(t *testing.T) {
+			o := generateTypedObject(t, object.TypeRegular, 1024)
+			require.NoError(t, db.Put(o))
+			_, err := db.MarkGarbage(o.GetContainerID(), []oid.ID{o.GetID()}, meta.GarbageMarkRedundant)
+			require.NoError(t, err)
+
+			diff, err := db.PutCounted(createTSForObject(o.GetContainerID(), o.GetID()))
+			require.NoError(t, err)
+			require.Zero(t, diff.GC)
+			require.Zero(t, diff.Payload)
+
+			c, err := db.ObjectCounters()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, c.GC)
+			require.Zero(t, c.Payload)
+
+			require.NoError(t, db.Reset())
+		})
 	})
 
 	t.Run("sync redundant payload", func(t *testing.T) {
@@ -302,6 +346,26 @@ func TestCounters(t *testing.T) {
 			require.EqualValues(t, 1, c.Link)
 			require.Zero(t, c.TS)
 			require.Zero(t, c.Lock)
+
+			require.NoError(t, db.Reset())
+		})
+
+		t.Run("tombstone", func(t *testing.T) {
+			cnr := cidtest.ID()
+			par, chain := generateChain(t, childrenCount, cnr)
+			for _, o := range chain {
+				require.NoError(t, db.Put(o))
+			}
+
+			require.NoError(t, db.Put(createTSForObject(cnr, par.GetID())))
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+
+			require.EqualValues(t, phyObjectsInTotal+1, c.Phy)
+			require.EqualValues(t, phyObjectsInTotal+1, c.GC) // parent also gets GC mark
+			require.EqualValues(t, 1, c.TS)
+			require.Zero(t, c.Payload)
 
 			require.NoError(t, db.Reset())
 		})

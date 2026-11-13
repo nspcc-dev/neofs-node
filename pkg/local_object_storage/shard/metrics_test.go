@@ -13,6 +13,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
@@ -31,20 +32,8 @@ func (m metricsStore) SetObjectCounter(objectType string, v uint64) {
 }
 
 func (m metricsStore) AddToObjectCounter(objectType string, delta int) {
-	switch {
-	case delta > 0:
-		m.objectCounters[objectType] += uint64(delta)
-	case delta < 0:
-		uDelta := uint64(-delta)
-
-		if m.objectCounters[objectType] >= uDelta {
-			m.objectCounters[objectType] -= uDelta
-		} else {
-			m.objectCounters[objectType] = 0
-		}
-	default:
-		return
-	}
+	// Wrap instead of clamping so that a negative counter fails assertions.
+	m.objectCounters[objectType] = uint64(int64(m.objectCounters[objectType]) + int64(delta))
 }
 
 func (m metricsStore) IncObjectCounter(objectType string) {
@@ -292,6 +281,42 @@ func TestInhumeContainerCounters(t *testing.T) {
 	require.Empty(t, mm.containerSize[c2])
 	// payload size still unchanged
 	require.Equal(t, initialPayload, mm.payloadSize)
+}
+
+func TestTombstoneCounters(t *testing.T) {
+	t.Run("absent target", func(t *testing.T) {
+		sh, mm := shardWithMetrics(t, t.TempDir())
+		cnr := cidtest.ID()
+		target := oidtest.ID()
+
+		ts := generateObjectWithCID(cnr)
+		ts.AssociateDeleted(target)
+		require.NoError(t, sh.Put(ts, nil))
+		require.Equal(t, uint64(1), mm.objectCounters[gcObj])
+
+		require.NoError(t, sh.Delete(cnr, []oid.ID{target, ts.GetID()}))
+		require.Zero(t, mm.objectCounters[gcObj])
+		require.Zero(t, mm.objectCounters[phyObj])
+	})
+
+	t.Run("garbage target", func(t *testing.T) {
+		sh, mm := shardWithMetrics(t, t.TempDir())
+		cnr := cidtest.ID()
+
+		obj := generateObjectWithCID(cnr)
+		addPayload(obj, 100)
+		require.NoError(t, sh.Put(obj, nil))
+		require.NoError(t, sh.MarkGarbage(cnr, []oid.ID{obj.GetID()}, meta.GarbageMarkDefault))
+		require.Zero(t, mm.payloadSize)
+		require.Zero(t, mm.containerSize[cnr])
+
+		ts := generateObjectWithCID(cnr)
+		ts.AssociateDeleted(obj.GetID())
+		require.NoError(t, sh.Put(ts, nil))
+		require.Equal(t, uint64(1), mm.objectCounters[gcObj])
+		require.Zero(t, mm.payloadSize)
+		require.Zero(t, mm.containerSize[cnr])
+	})
 }
 
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
