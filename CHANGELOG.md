@@ -6,6 +6,18 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.58.2
+
+## [0.58.2] - 2026-11-13
+
+### Fixed
 - Policer could drop the only verified local replica of an object when one primary was under maintenance and another's HEAD request failed transiently (#4291)
 - A container node could crash the SearchV2 aggregating node by replying with zero attributes to an attribute-less, non-equality-filtered query (#4292)
 - Config parsing panicked instead of returning a clean error when a struct-slice field (e.g. `grpc`, shards) was given the wrong YAML shape, including via SIGHUP reload on a running node (#4282)
@@ -24,14 +36,6 @@ Changelog for NeoFS Node
 - Single-child LINKs accepted as valid (but they never are) (#4306)
 - First ID not checked against the real first object when validating LINKs (#4306)
 - Incorrect first ID check for middle and last objects specified in LINK (#4306)
-
-### Changed
-
-### Removed
-
-### Updated
-
-### Updating from v0.58.1
 
 ## [0.58.1] - 2026-11-06
 
@@ -3348,7 +3352,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.2...master
+[0.58.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.1...v0.58.2
 [0.58.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.58.0...v0.58.1
 [0.58.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.56.0...v0.57.0
