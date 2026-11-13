@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- CI workflow calling the system tests no longer requests `write-all` permissions nor inherits all repository secrets (#4285)
 
 ### Removed
 
