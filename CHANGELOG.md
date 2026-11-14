@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Tombstones, locks and links are written to all shards of a node at the same time, not one shard after another (#4323)
+- Tombstones, locks and links are sent to all container nodes in one round, not to the nodes the policy requires first and the rest afterwards (#4323)
 
 ### Removed
 
