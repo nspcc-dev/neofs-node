@@ -32,6 +32,7 @@ Changelog for NeoFS Node
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
 - Reject split v1 fields in object headers with API version 2.29 or later (#4361)
+- Tombstones, locks and links are written to all shards of a node at the same time, not one shard after another (#4323)
 
 ### Removed
 
