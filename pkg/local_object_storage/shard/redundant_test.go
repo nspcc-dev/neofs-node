@@ -412,7 +412,7 @@ func TestShard_Redundant(t *testing.T) {
 		require.NoError(t, sh.Delete(cnr, ids))
 		require.Empty(t, sh.redundant.pending)
 		require.NoError(t, sh.MarkGarbage(cnr, ids, meta.GarbageMarkRedundant))
-		require.NotPanics(t, sh.removeGarbage)
+		require.NotPanics(t, func() { sh.removeGarbage() })
 		require.Empty(t, sh.redundant.pending)
 		require.NoError(t, sh.Delete(cnr, ids))
 	})
@@ -434,4 +434,32 @@ func TestShard_Redundant(t *testing.T) {
 		require.ErrorIs(t, <-done, errRedundantQueueClosed)
 		require.Empty(t, sh.redundant.pending)
 	})
+}
+
+// removeGarbage asks for another pass only while it fills its batch and
+// gets it removed. A shard that cannot remove anything must not be asked
+// again at once, however much is waiting.
+func TestShard_RemoveGarbageTellsWhetherToGoOn(t *testing.T) {
+	const batch = 4
+	sh := newRedundantTestShard(t, t.TempDir(), false, WithRemoverBatchSize(batch))
+
+	cnr := cidtest.ID()
+	for range 2*batch + 1 {
+		require.NoError(t, sh.Put(generateTypedObject(cnr, object.TypeRegular), nil))
+	}
+	require.NoError(t, sh.InhumeContainer(cnr))
+
+	// Nothing can be removed from a read-only shard.
+	require.NoError(t, sh.SetMode(mode.ReadOnly))
+	require.False(t, sh.removeGarbage())
+	require.NoError(t, sh.SetMode(mode.ReadWrite))
+
+	require.True(t, sh.removeGarbage(), "a full batch was removed and more is waiting")
+	require.True(t, sh.removeGarbage())
+	require.False(t, sh.removeGarbage(), "the last pass took less than a batch")
+	require.False(t, sh.removeGarbage(), "the empty container is cleaned up, and that is all")
+
+	cnrs, err := sh.ListContainers()
+	require.NoError(t, err)
+	require.Empty(t, cnrs)
 }

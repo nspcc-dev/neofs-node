@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- Shard GC keeps removing garbage while it finds full batches of it, not one batch per `remover_sleep_interval` (#4324)
 
 ### Removed
 

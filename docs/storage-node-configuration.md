@@ -226,10 +226,10 @@ gc:
   remover_sleep_interval: 5m
 ```
 
-| Parameter                | Type       | Default value | Description                                  |
-|--------------------------|------------|---------------|----------------------------------------------|
-| `remover_batch_size`     | `int`      | `100`         | Amount of objects to grab in a single batch. |
-| `remover_sleep_interval` | `duration` | `1m`          | Time to sleep between iterations.            |
+| Parameter                | Type       | Default value | Description                                                  |
+|--------------------------|------------|---------------|--------------------------------------------------------------|
+| `remover_batch_size`     | `int`      | `100`         | Amount of objects to grab in a single batch.                 |
+| `remover_sleep_interval` | `duration` | `1m`          | Time to sleep after a pass that did not remove a full batch. |
 
 ### `metabase` subsection
 
