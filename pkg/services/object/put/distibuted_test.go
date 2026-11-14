@@ -7,11 +7,16 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -200,7 +205,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		// policy: [1 1 1]
 		// D fails, all others succeed
 		//
-		// expected order candidates: [A C E B D F]
+		// every node is asked once, in any order
 		objID := oidtest.ID()
 		cnrNodes := allocNodes([]uint{2, 3, 2})
 		cnrNodes[1][2].SetPublicKey(cnrNodes[0][1].PublicKey())
@@ -220,19 +225,71 @@ func TestIterateNodesForObject(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
-		require.Len(t, handlerCalls, 6)
 		require.ElementsMatch(t, [][]byte{
 			cnrNodes[0][0].PublicKey(),
+			cnrNodes[0][1].PublicKey(),
 			cnrNodes[1][0].PublicKey(),
+			cnrNodes[1][1].PublicKey(),
 			cnrNodes[2][0].PublicKey(),
-		}, handlerCalls[:3])
-		for _, key := range handlerCalls[3:] {
-			require.Contains(t, [][]byte{
-				cnrNodes[0][1].PublicKey(),
-				cnrNodes[1][1].PublicKey(),
-				cnrNodes[2][1].PublicKey(),
-			}, key)
+			cnrNodes[2][1].PublicKey(),
+		}, handlerCalls)
+	})
+	t.Run("broadcast is one round", func(t *testing.T) {
+		// nodes: [A B C D]
+		// policy: [2]
+		//
+		// No node finishes until all four have been asked: nodes beyond
+		// the policy's two must not wait for the first two to answer.
+		const nodes = 4
+		objID := oidtest.ID()
+		cnrNodes := allocNodes([]uint{nodes})
+		iter := placementIterator{
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
 		}
+		var asked sync.WaitGroup
+		asked.Add(nodes)
+		allAsked := make(chan struct{})
+		go func() { asked.Wait(); close(allAsked) }()
+		var late atomic.Bool
+		err := iter.iterateNodesForObject(objID, []uint{2}, cnrNodes, true, func(nodeDesc) error {
+			asked.Done()
+			select {
+			case <-allAsked:
+			case <-time.After(10 * time.Second):
+				late.Store(true)
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		require.False(t, late.Load(), "a node was asked only after others had answered")
+	})
+	t.Run("broadcast keeps the policy's minimum", func(t *testing.T) {
+		// nodes: [A B C D]
+		// policy: [2]
+		objID := oidtest.ID()
+		cnrNodes := allocNodes([]uint{4})
+		iter := placementIterator{
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
+		}
+		failing := func(keys ...[]byte) func(nodeDesc) error {
+			return func(node nodeDesc) error {
+				for _, k := range keys {
+					if bytes.Equal(node.info.PublicKey(), k) {
+						return errors.New("any node error")
+					}
+				}
+				return nil
+			}
+		}
+		// Two of four took the object, whichever two: enough.
+		require.NoError(t, iter.iterateNodesForObject(objID, []uint{2}, cnrNodes, true,
+			failing(cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey())))
+		// One of four: not enough.
+		err := iter.iterateNodesForObject(objID, []uint{2}, cnrNodes, true,
+			failing(cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey(), cnrNodes[0][3].PublicKey()))
+		require.ErrorContains(t, err, "any node error")
 	})
 	t.Run("not enough nodes a priori", func(t *testing.T) {
 		// nodes: [A B] [C D E] [F]
@@ -302,5 +359,100 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, handlerCalls[2:], [][]byte{
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
+	})
+}
+
+// A broadcast object is answered by every node of a placement vector, while
+// the placement policy requires a fixed number of signatures per vector.
+func TestMetaCollection_AddSignature(t *testing.T) {
+	t.Run("cap per vector", func(t *testing.T) {
+		m := &metaCollection{
+			signatures:    make([][]meta.IndexedSignature, 2),
+			maxSignatures: []int{2, 3},
+		}
+		var wg sync.WaitGroup
+		for i := range 4 {
+			wg.Go(func() {
+				m.addSignature(0, uint8(i), nil, neofscrypto.Signature{}, false)
+				m.addSignature(1, uint8(i), nil, neofscrypto.Signature{}, false)
+			})
+		}
+		wg.Wait()
+		require.Len(t, m.signatures[0], 2)
+		require.Len(t, m.signatures[1], 3)
+
+		// Each kept signature is of another node.
+		for _, sigs := range m.signatures {
+			seen := map[uint8]struct{}{}
+			for _, sig := range sigs {
+				seen[sig.Index] = struct{}{}
+			}
+			require.Len(t, seen, len(sigs))
+		}
+	})
+
+	t.Run("overlapping vectors on broadcast", func(t *testing.T) {
+		// Vector 0: [A B C] (REP 1), vector 1: [B C D] (REP 2).
+		// In one-round broadcast, vector 0 asks A, B and C at once, so
+		// vector 1 reuses B and C from nodeResults and only sends to D.
+		// Vector 1 still needs 2 distinct signatures with its own indices.
+		cnrNodes := allocNodes([]uint{3, 3})
+		cnrNodes[1][0].SetPublicKey(cnrNodes[0][1].PublicKey()) // B
+		cnrNodes[1][1].SetPublicKey(cnrNodes[0][2].PublicKey()) // C
+
+		// Use different node order in sortedNodes than in cnrNodes so
+		// that indices in vector 0 and vector 1 differ for B and C.
+		sortedNodes := [][]netmap.NodeInfo{
+			{cnrNodes[0][2], cnrNodes[0][1], cnrNodes[0][0]}, // [C, B, A]
+			{cnrNodes[1][0], cnrNodes[1][2], cnrNodes[1][1]}, // [B, D, C]
+		}
+		m := &metaCollection{
+			sortedNodes:   sortedNodes,
+			signatures:    make([][]meta.IndexedSignature, 2),
+			maxSignatures: []int{1, 2},
+		}
+		iter := placementIterator{
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
+		}
+		err := iter.iterateNodesForObject(oidtest.ID(), []uint{1, 2}, cnrNodes, true, func(node nodeDesc) error {
+			pk := node.info.PublicKey()
+			ind := slices.IndexFunc(m.sortedNodes[node.placementVector], func(info netmap.NodeInfo) bool {
+				return bytes.Equal(info.PublicKey(), pk)
+			})
+			require.GreaterOrEqual(t, ind, 0)
+			m.addSignature(node.placementVector, uint8(ind), pk, neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pk, pk), true)
+			return nil
+		})
+		require.NoError(t, err)
+
+		require.Len(t, m.signatures[0], 1)
+		require.Len(t, m.signatures[1], 2)
+		for v, sigs := range m.signatures {
+			seen := map[uint8]struct{}{}
+			for _, sig := range sigs {
+				seen[sig.Index] = struct{}{}
+				require.Equal(t, m.sortedNodes[v][sig.Index].PublicKey(), sig.Signature.Value())
+			}
+			require.Len(t, seen, len(sigs))
+		}
+	})
+
+	t.Run("non-broadcast stays in its vector", func(t *testing.T) {
+		cnrNodes := allocNodes([]uint{2, 2})
+		cnrNodes[1][0].SetPublicKey(cnrNodes[0][1].PublicKey())
+
+		m := &metaCollection{
+			sortedNodes:   cnrNodes,
+			signatures:    make([][]meta.IndexedSignature, 2),
+			maxSignatures: []int{1, 1},
+		}
+		pk := cnrNodes[0][1].PublicKey()
+		m.addSignature(0, 1, pk, neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pk, pk), false)
+		// Duplicate call for the same node is ignored.
+		m.addSignature(0, 1, pk, neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pk, pk), false)
+
+		require.Len(t, m.signatures[0], 1)
+		require.Empty(t, m.signatures[1])
 	})
 }
