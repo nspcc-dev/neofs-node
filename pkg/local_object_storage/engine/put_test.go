@@ -402,6 +402,28 @@ func TestStorageEngine_Put_Tombstone_LockOnOneShard(t *testing.T) {
 	})
 }
 
+// A shard refuses a broadcast object for good and another one fails for a
+// reason of its own: the error says why the object was refused, whichever
+// shard is looked at last.
+func TestStorageEngine_Put_Broadcast_FatalErrorIsReported(t *testing.T) {
+	for range 8 {
+		_, _, tomb := newTombstoneFixture()
+		// A lock for a tombstone is refused by every shard that has the
+		// tombstone.
+		lock := tomb
+		lock.SetID(oidtest.OtherID(tomb.GetID()))
+		lock.SetAttributes()
+		lock.AssociateLocked(tomb.GetID())
+
+		s := testNewEngineWithShardNum(t, 3)
+		require.NoError(t, s.Put(context.Background(), &tomb, nil))
+		require.NoError(t, s.unsortedShards()[0].SetMode(mode.ReadOnly))
+
+		err := s.Put(context.Background(), &lock, nil)
+		require.ErrorIs(t, err, apistatus.ErrLockNonRegularObject)
+	}
+}
+
 func TestShard_InitPut(t *testing.T) {
 	ctx := context.Background()
 	const headerLength = 1 << 10

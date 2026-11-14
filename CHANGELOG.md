@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Object could stop being served after a tombstone for it was refused because of a lock known to only some shards (#4323)
 
 ### Changed
+- Tombstones, locks and links are written to all shards of a node at the same time, not one shard after another (#4323)
 
 ### Removed
 

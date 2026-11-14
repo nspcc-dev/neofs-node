@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -194,8 +195,16 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 		}
 	}
 
-	for _, sh := range allShards {
-		err := e.putToShard(sh, addr, obj, objBin)
+	// Each write waits for its shard's disk: do them at the same time.
+	errs := make([]error, len(allShards))
+	var wg sync.WaitGroup
+	for i, sh := range allShards {
+		wg.Go(func() { errs[i] = e.putToShard(sh, addr, obj, objBin) })
+	}
+	wg.Wait()
+
+	for i, sh := range allShards {
+		err := errs[i]
 		if err == nil || errors.Is(err, ierrors.ErrObjectExists) {
 			goodShards = append(goodShards, sh)
 			if errors.Is(err, ierrors.ErrObjectExists) {
@@ -213,12 +222,15 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 			}
 			continue
 		}
-		lastError = err
+		if !isFatal {
+			lastError = err
+		}
 		if errors.Is(err, apistatus.ErrLockNonRegularObject) ||
 			errors.Is(err, apistatus.ErrObjectLocked) ||
 			errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+			// Go on: every shard that took the object is rolled back.
 			isFatal = true
-			break
+			continue
 		}
 
 		e.log.Warn("failed to put object on shard during broadcast",
