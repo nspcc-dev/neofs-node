@@ -20,14 +20,21 @@ func (s *Shard) Delete(cnr cid.ID, addrs []oid.ID) error {
 }
 
 func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
+	_, err := s.deleteObjsCounted(cnr, addrs)
+	return err
+}
+
+// deleteObjsCounted is deleteObjs that also returns how many objects the
+// metabase let go of.
+func (s *Shard) deleteObjsCounted(cnr cid.ID, addrs []oid.ID) (int, error) {
 	if s.info.Mode.ReadOnly() {
-		return ErrReadOnlyMode
+		return 0, ErrReadOnlyMode
 	} else if s.info.Mode.NoMetabase() {
-		return ErrDegradedMode
+		return 0, ErrDegradedMode
 	}
 
 	if len(addrs) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	hasWriteCache := s.hasWriteCache()
@@ -42,7 +49,7 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 
 	res, diff, err := s.metaBase.Delete(cnr, addrs)
 	if err != nil {
-		return err // stop on metabase error ?
+		return 0, err // stop on metabase error ?
 	}
 
 	// A stale GC task may refer to a container already removed from metabase,
@@ -85,5 +92,5 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 	// res also includes any additionally removed split/EC parts.
 	s.redundant.remove(cnr, addrs)
 	s.redundant.remove(cnr, res)
-	return nil
+	return len(res), nil
 }

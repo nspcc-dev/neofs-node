@@ -458,3 +458,39 @@ func TestContainerPayments(t *testing.T) {
 		lb.AssertContains(expLog)
 	})
 }
+
+// A backlog larger than a batch is removed in one go, not a batch per
+// interval: what a shard can shed must not be fixed whatever has piled up.
+func TestGC_DrainsBacklog(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const (
+			batch     = 5
+			numOfObjs = 4*batch + 3
+			interval  = time.Minute
+		)
+		sh := newCustomShard(t, t.TempDir(), false,
+			nil,
+			shard.WithGCRemoverSleepInterval(interval),
+			shard.WithRemoverBatchSize(batch),
+			shard.WithLogger(zaptest.NewLogger(t)))
+		defer releaseShard(sh, t)
+
+		cID := cidtest.ID()
+		for i := range numOfObjs {
+			obj := generateObjectWithCID(cID)
+			addAttribute(obj, fmt.Sprintf("foo%d", i), fmt.Sprintf("bar%d", i))
+			addPayload(obj, 1<<5)
+			require.NoError(t, sh.Put(obj, nil))
+		}
+		require.NoError(t, sh.InhumeContainer(cID))
+
+		// The first wake-up removes every object, in several passes, and the
+		// second one the empty container. With a batch per interval the
+		// objects alone would take five intervals.
+		time.Sleep(2*interval + time.Second)
+
+		containers, err := sh.ListContainers()
+		require.NoError(t, err)
+		require.Empty(t, containers)
+	})
+}

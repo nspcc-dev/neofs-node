@@ -1,10 +1,13 @@
 package meta_test
 
 import (
+	"bytes"
+	"slices"
 	"strconv"
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -279,4 +282,58 @@ func TestDB_GetGarbage(t *testing.T) {
 	require.Len(t, trash, 1)
 	require.Equal(t, cID, trash[0].Container)
 	require.Len(t, trash[0].Objects, numOfObjs) // still only numOfObjs are removed
+}
+
+func TestDB_GetGarbageAfter(t *testing.T) {
+	db := newDB(t)
+
+	const (
+		containers = 4
+		objsPerCnr = 3
+	)
+	cnrs := make([]cid.ID, containers)
+	for i := range cnrs {
+		cnrs[i] = cidtest.ID()
+		for range objsPerCnr {
+			require.NoError(t, putBig(db, generateObjectWithCID(t, cnrs[i])))
+		}
+		_, err := db.InhumeContainer(cnrs[i])
+		require.NoError(t, err)
+	}
+	// The metabase's order.
+	slices.SortFunc(cnrs, func(a, b cid.ID) int { return bytes.Compare(a[:], b[:]) })
+
+	// A zero ID starts from the beginning.
+	first, err := db.GetGarbageAfter(objsPerCnr, cid.ID{})
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+	require.Equal(t, cnrs[0], first[0].Container)
+
+	// Passing the container that was served last walks all of them in
+	// turn, and comes round to the first one again: no container's garbage
+	// keeps another's from being listed.
+	last := cid.ID{}
+	for round := range 2 {
+		for i := range cnrs {
+			bins, err := db.GetGarbageAfter(objsPerCnr, last)
+			require.NoError(t, err)
+			require.Len(t, bins, 1, "round %d, container %d", round, i)
+			require.Equal(t, cnrs[i], bins[0].Container, "round %d, container %d", round, i)
+			require.Len(t, bins[0].Objects, objsPerCnr)
+			last = bins[0].Container
+		}
+	}
+
+	// A limit that spans containers goes on into the next ones, past the end.
+	bins, err := db.GetGarbageAfter(2*objsPerCnr, cnrs[containers-2])
+	require.NoError(t, err)
+	require.Len(t, bins, 2)
+	require.Equal(t, cnrs[containers-1], bins[0].Container)
+	require.Equal(t, cnrs[0], bins[1].Container)
+
+	// A container that is not there (any more) is a place to start from
+	// like any other.
+	bins, err = db.GetGarbageAfter(containers*objsPerCnr, cidtest.ID())
+	require.NoError(t, err)
+	require.Len(t, bins, containers)
 }

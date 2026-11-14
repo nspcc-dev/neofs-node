@@ -412,7 +412,7 @@ func TestShard_Redundant(t *testing.T) {
 		require.NoError(t, sh.Delete(cnr, ids))
 		require.Empty(t, sh.redundant.pending)
 		require.NoError(t, sh.MarkGarbage(cnr, ids, meta.GarbageMarkRedundant))
-		require.NotPanics(t, sh.removeGarbage)
+		require.NotPanics(t, func() { sh.removeGarbage() })
 		require.Empty(t, sh.redundant.pending)
 		require.NoError(t, sh.Delete(cnr, ids))
 	})
@@ -434,4 +434,64 @@ func TestShard_Redundant(t *testing.T) {
 		require.ErrorIs(t, <-done, errRedundantQueueClosed)
 		require.Empty(t, sh.redundant.pending)
 	})
+}
+
+// removeGarbage asks for another pass only while it fills its batch and
+// gets it removed. A shard that cannot remove anything must not be asked
+// again at once, however much is waiting.
+func TestShard_RemoveGarbageTellsWhetherToGoOn(t *testing.T) {
+	const batch = 4
+	sh := newRedundantTestShard(t, t.TempDir(), false, WithRemoverBatchSize(batch))
+
+	cnr := cidtest.ID()
+	for range 2*batch + 1 {
+		require.NoError(t, sh.Put(generateTypedObject(cnr, object.TypeRegular), nil))
+	}
+	require.NoError(t, sh.InhumeContainer(cnr))
+
+	// Nothing can be removed from a read-only shard.
+	require.NoError(t, sh.SetMode(mode.ReadOnly))
+	require.False(t, sh.removeGarbage())
+	require.NoError(t, sh.SetMode(mode.ReadWrite))
+
+	require.True(t, sh.removeGarbage(), "a full batch was removed and more is waiting")
+	require.True(t, sh.removeGarbage())
+	require.False(t, sh.removeGarbage(), "the last pass took less than a batch")
+	require.False(t, sh.removeGarbage(), "the empty container is cleaned up, and that is all")
+
+	cnrs, err := sh.ListContainers()
+	require.NoError(t, err)
+	require.Empty(t, cnrs)
+}
+
+// Two containers with more garbage than a batch each: a pass that took its
+// batch from one of them is followed by one that takes from the other,
+// not by another helping of the first.
+func TestShard_RemoveGarbageTakesContainersInTurn(t *testing.T) {
+	const (
+		batch = 4
+		objs  = 2*batch + 2
+	)
+	sh := newRedundantTestShard(t, t.TempDir(), false, WithRemoverBatchSize(batch))
+
+	cnrs := []cid.ID{cidtest.ID(), cidtest.ID()}
+	for _, cnr := range cnrs {
+		for range objs {
+			require.NoError(t, sh.Put(generateTypedObject(cnr, object.TypeRegular), nil))
+		}
+		require.NoError(t, sh.InhumeContainer(cnr))
+	}
+	left := func() map[cid.ID]int {
+		bins, err := sh.metaBase.GetGarbage(100)
+		require.NoError(t, err)
+		res := map[cid.ID]int{}
+		for _, bin := range bins {
+			res[bin.Container] = len(bin.Objects)
+		}
+		return res
+	}
+
+	require.True(t, sh.removeGarbage())
+	require.True(t, sh.removeGarbage())
+	require.Equal(t, map[cid.ID]int{cnrs[0]: objs - batch, cnrs[1]: objs - batch}, left())
 }

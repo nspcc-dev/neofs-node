@@ -8,6 +8,7 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -52,13 +53,19 @@ type gc struct {
 	stopChannel chan struct{}
 	wg          sync.WaitGroup
 
-	remover func()
+	// remover makes one removal pass and tells whether another one is due
+	// right away.
+	remover func() bool
 
 	eventChan     chan Event
 	mEventHandler map[eventType]*eventHandler
 
 	// currentEpoch stores the latest epoch announced via EventNewEpoch.
 	currentEpoch atomic.Uint64
+
+	// lastContainer is the last container the remover took garbage from.
+	// Only the remover touches it.
+	lastContainer cid.ID
 }
 
 type gcCfg struct {
@@ -109,7 +116,14 @@ func (gc *gc) tickRemover() {
 			gc.log.Debug("GC is stopped")
 			return
 		case <-timer.C:
-			gc.remover()
+			for gc.remover() {
+				select {
+				case <-gc.stopChannel:
+					gc.log.Debug("GC is stopped")
+					return
+				default:
+				}
+			}
 			timer.Reset(gc.removerInterval)
 		}
 	}
@@ -130,31 +144,49 @@ func (gc *gc) stop() {
 // iterates over metabase and deletes objects
 // with GC-marked graves.
 // Does nothing if shard is in "read-only" mode.
-func (s *Shard) removeGarbage() {
-	s.collectExpiredObjects()
+//
+// Returns true if there is likely more to remove and this pass got
+// somewhere: one of its batches was full and the metabase let go of
+// something. A pass that removed nothing (a read-only shard, a metabase that
+// cannot be written, records that stay) returns false however much is
+// waiting, so that the caller sleeps instead of spinning.
+func (s *Shard) removeGarbage() bool {
+	more := s.collectExpiredObjects()
 
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if s.info.Mode != mode.ReadWrite {
-		return
+		return false
 	}
 
+	var seen, removed int
 	for _, bin := range s.redundant.batch(s.rmBatchSize) {
-		if err := s.deleteObjs(bin.Container, bin.Objects); err != nil {
+		seen += len(bin.Objects)
+		n, err := s.deleteObjsCounted(bin.Container, bin.Objects)
+		if err != nil {
 			s.log.Warn("can't delete redundant objects", zap.Error(err))
+			continue
 		}
+		removed += n
 	}
+	more = more || seen >= s.rmBatchSize && removed > 0
 
-	bins, err := s.metaBase.GetGarbage(s.rmBatchSize)
+	bins, err := s.metaBase.GetGarbageAfter(s.rmBatchSize, s.gc.lastContainer)
 	if err != nil {
 		s.log.Warn("fetching garbage objects",
 			zap.Error(err),
 		)
 
-		return
+		return more
 	}
 
+	seen, removed = 0, 0
+	defer func() {
+		if len(bins) > 0 {
+			s.gc.lastContainer = bins[len(bins)-1].Container
+		}
+	}()
 	for _, bin := range bins {
 		if len(bin.Objects) == 0 {
 			// objects are removed, clean up empty container (all the object
@@ -167,19 +199,28 @@ func (s *Shard) removeGarbage() {
 				)
 			}
 		} else {
-			err := s.deleteObjs(bin.Container, bin.Objects)
+			seen += len(bin.Objects)
+			n, err := s.deleteObjsCounted(bin.Container, bin.Objects)
 			if err != nil {
 				s.log.Warn("can't delete objects", zap.Error(err))
+				continue
 			}
+			removed += n
 		}
 	}
+	return more || seen >= s.rmBatchSize && removed > 0
 }
 
-func (s *Shard) collectExpiredObjects() {
+// collectExpiredObjects handles one batch of expired objects. It returns
+// true if the batch was full of tombstones and they were removed: more of
+// them are likely waiting. Other expired objects are removed by the
+// engine, which does not say how far it got, so they never ask for another
+// pass by themselves.
+func (s *Shard) collectExpiredObjects() bool {
 	s.m.RLock()
 	if s.info.Mode != mode.ReadWrite {
 		s.m.RUnlock()
-		return
+		return false
 	}
 	epoch := s.gc.currentEpoch.Load()
 
@@ -216,11 +257,14 @@ func (s *Shard) collectExpiredObjects() {
 	}
 
 	log.Debug("collected expired tombstones", zap.Int("num", tombCount))
+	var tombRemoved int
 	for _, bin := range tombBins {
-		err = s.deleteObjs(bin.Container, bin.Objects)
+		n, err := s.deleteObjsCounted(bin.Container, bin.Objects)
 		if err != nil {
 			log.Warn("can't delete tombstones", zap.Error(err))
+			continue
 		}
+		tombRemoved += n
 	}
 	// The callback may read or write any shard, including this one. Do not
 	// retain the shard lock across it: a pending mode change blocks new readers.
@@ -230,6 +274,7 @@ func (s *Shard) collectExpiredObjects() {
 		s.expiredObjectsCallback(expiredObjects)
 	}
 	log.Debug("finished expired objects handling")
+	return tombCount >= s.rmBatchSize && tombRemoved > 0
 }
 
 // NotificationChannel returns channel for shard events.
