@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Object could stop being served after a tombstone for it was refused because of a lock known to only some shards (#4323)
 
 ### Changed
 

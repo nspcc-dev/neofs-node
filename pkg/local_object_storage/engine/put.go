@@ -174,6 +174,26 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 		zap.Stringer("associated", obj.AssociatedObject()),
 		zap.Int("shard_count", len(allShards)))
 
+	// A tombstone for a locked object must not reach any shard: removing
+	// it again does not bring the object back. A shard that cannot tell
+	// (degraded) does not keep the others from being asked.
+	if obj.Type() == object.TypeTombstone {
+		target := oid.NewAddress(addr.Container(), obj.AssociatedObject())
+		for _, sh := range allShards {
+			lockID, err := sh.GetLockID(target)
+			if err != nil {
+				e.log.Warn("storing a tombstone without full locking check",
+					zap.Stringer("shard", sh.ID()),
+					zap.Stringer("addr", addr),
+					zap.Error(err))
+				continue
+			}
+			if !lockID.IsZero() {
+				return fmt.Errorf("could not store %s object: target is locked: %w", obj.Type(), apistatus.ErrObjectLocked)
+			}
+		}
+	}
+
 	for _, sh := range allShards {
 		err := e.putToShard(sh, addr, obj, objBin)
 		if err == nil || errors.Is(err, ierrors.ErrObjectExists) {
