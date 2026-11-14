@@ -463,3 +463,35 @@ func TestShard_RemoveGarbageTellsWhetherToGoOn(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, cnrs)
 }
+
+// Two containers with more garbage than a batch each: a pass that took its
+// batch from one of them is followed by one that takes from the other,
+// not by another helping of the first.
+func TestShard_RemoveGarbageTakesContainersInTurn(t *testing.T) {
+	const (
+		batch = 4
+		objs  = 2*batch + 2
+	)
+	sh := newRedundantTestShard(t, t.TempDir(), false, WithRemoverBatchSize(batch))
+
+	cnrs := []cid.ID{cidtest.ID(), cidtest.ID()}
+	for _, cnr := range cnrs {
+		for range objs {
+			require.NoError(t, sh.Put(generateTypedObject(cnr, object.TypeRegular), nil))
+		}
+		require.NoError(t, sh.InhumeContainer(cnr))
+	}
+	left := func() map[cid.ID]int {
+		bins, err := sh.metaBase.GetGarbage(100)
+		require.NoError(t, err)
+		res := map[cid.ID]int{}
+		for _, bin := range bins {
+			res[bin.Container] = len(bin.Objects)
+		}
+		return res
+	}
+
+	require.True(t, sh.removeGarbage())
+	require.True(t, sh.removeGarbage())
+	require.Equal(t, map[cid.ID]int{cnrs[0]: objs - batch, cnrs[1]: objs - batch}, left())
+}

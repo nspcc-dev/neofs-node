@@ -8,6 +8,7 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -61,6 +62,10 @@ type gc struct {
 
 	// currentEpoch stores the latest epoch announced via EventNewEpoch.
 	currentEpoch atomic.Uint64
+
+	// lastContainer is the last container the remover took garbage from.
+	// Only the remover touches it.
+	lastContainer cid.ID
 }
 
 type gcCfg struct {
@@ -167,7 +172,7 @@ func (s *Shard) removeGarbage() bool {
 	}
 	more = more || seen >= s.rmBatchSize && removed > 0
 
-	bins, err := s.metaBase.GetGarbage(s.rmBatchSize)
+	bins, err := s.metaBase.GetGarbageAfter(s.rmBatchSize, s.gc.lastContainer)
 	if err != nil {
 		s.log.Warn("fetching garbage objects",
 			zap.Error(err),
@@ -177,6 +182,11 @@ func (s *Shard) removeGarbage() bool {
 	}
 
 	seen, removed = 0, 0
+	defer func() {
+		if len(bins) > 0 {
+			s.gc.lastContainer = bins[len(bins)-1].Container
+		}
+	}()
 	for _, bin := range bins {
 		if len(bin.Objects) == 0 {
 			// objects are removed, clean up empty container (all the object
