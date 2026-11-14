@@ -7,7 +7,11 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -130,7 +134,7 @@ func TestIterateNodesForObject(t *testing.T) {
 		// policy: [1 1 1]
 		// D fails, all others succeed
 		//
-		// expected order candidates: [A C E B D F]
+		// every node is asked once, in any order
 		objID := oidtest.ID()
 		cnrNodes := allocNodes([]uint{2, 3, 2})
 		cnrNodes[1][2].SetPublicKey(cnrNodes[0][1].PublicKey())
@@ -150,19 +154,71 @@ func TestIterateNodesForObject(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
-		require.Len(t, handlerCalls, 6)
 		require.ElementsMatch(t, [][]byte{
 			cnrNodes[0][0].PublicKey(),
+			cnrNodes[0][1].PublicKey(),
 			cnrNodes[1][0].PublicKey(),
+			cnrNodes[1][1].PublicKey(),
 			cnrNodes[2][0].PublicKey(),
-		}, handlerCalls[:3])
-		for _, key := range handlerCalls[3:] {
-			require.Contains(t, [][]byte{
-				cnrNodes[0][1].PublicKey(),
-				cnrNodes[1][1].PublicKey(),
-				cnrNodes[2][1].PublicKey(),
-			}, key)
+			cnrNodes[2][1].PublicKey(),
+		}, handlerCalls)
+	})
+	t.Run("broadcast is one round", func(t *testing.T) {
+		// nodes: [A B C D]
+		// policy: [2]
+		//
+		// No node finishes until all four have been asked: nodes beyond
+		// the policy's two must not wait for the first two to answer.
+		const nodes = 4
+		objID := oidtest.ID()
+		cnrNodes := allocNodes([]uint{nodes})
+		iter := placementIterator{
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
 		}
+		var asked sync.WaitGroup
+		asked.Add(nodes)
+		allAsked := make(chan struct{})
+		go func() { asked.Wait(); close(allAsked) }()
+		var late atomic.Bool
+		err := iter.iterateNodesForObject(objID, []uint{2}, cnrNodes, true, func(nodeDesc) error {
+			asked.Done()
+			select {
+			case <-allAsked:
+			case <-time.After(10 * time.Second):
+				late.Store(true)
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		require.False(t, late.Load(), "a node was asked only after others had answered")
+	})
+	t.Run("broadcast keeps the policy's minimum", func(t *testing.T) {
+		// nodes: [A B C D]
+		// policy: [2]
+		objID := oidtest.ID()
+		cnrNodes := allocNodes([]uint{4})
+		iter := placementIterator{
+			log:      zaptest.NewLogger(t),
+			neoFSNet: new(testNetwork),
+		}
+		failing := func(keys ...[]byte) func(nodeDesc) error {
+			return func(node nodeDesc) error {
+				for _, k := range keys {
+					if bytes.Equal(node.info.PublicKey(), k) {
+						return errors.New("any node error")
+					}
+				}
+				return nil
+			}
+		}
+		// Two of four took the object, whichever two: enough.
+		require.NoError(t, iter.iterateNodesForObject(objID, []uint{2}, cnrNodes, true,
+			failing(cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey())))
+		// One of four: not enough.
+		err := iter.iterateNodesForObject(objID, []uint{2}, cnrNodes, true,
+			failing(cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey(), cnrNodes[0][3].PublicKey()))
+		require.ErrorContains(t, err, "any node error")
 	})
 	t.Run("not enough nodes a priori", func(t *testing.T) {
 		// nodes: [A B] [C D E] [F]
@@ -233,4 +289,33 @@ func TestIterateNodesForObject(t *testing.T) {
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
 	})
+}
+
+// A broadcast object is answered by every node of a placement vector, and
+// the chain takes exactly as many signatures per vector as the policy asks
+// for.
+func TestMetaCollection_AddSignature(t *testing.T) {
+	m := &metaCollection{
+		signatures:    make([][]meta.IndexedSignature, 2),
+		maxSignatures: []int{2, 3},
+	}
+	var wg sync.WaitGroup
+	for i := range 4 {
+		wg.Go(func() {
+			m.addSignature(0, meta.IndexedSignature{Index: uint8(i)})
+			m.addSignature(1, meta.IndexedSignature{Index: uint8(i)})
+		})
+	}
+	wg.Wait()
+	require.Len(t, m.signatures[0], 2)
+	require.Len(t, m.signatures[1], 3)
+
+	// Each kept signature is of another node.
+	for _, sigs := range m.signatures {
+		seen := map[uint8]struct{}{}
+		for _, sig := range sigs {
+			seen[sig.Index] = struct{}{}
+		}
+		require.Len(t, seen, len(sigs))
+	}
 }

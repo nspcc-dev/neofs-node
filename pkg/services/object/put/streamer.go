@@ -332,9 +332,18 @@ func initMetaColletion(metaAttr string, localNodeInContainer bool, containerNode
 		})
 	}
 
+	maxSignatures := make([]int, 0, len(containerNodes.PrimaryCounts())+len(containerNodes.ECRules()))
+	for _, n := range containerNodes.PrimaryCounts() {
+		maxSignatures = append(maxSignatures, int(n))
+	}
+	for _, rule := range containerNodes.ECRules() {
+		maxSignatures = append(maxSignatures, int(rule.DataPartNum+rule.ParityPartNum))
+	}
+
 	return &metaCollection{
-		sortedNodes: cnrNodes,
-		signatures:  make([][]meta.IndexedSignature, len(containerNodes.PrimaryCounts())+len(containerNodes.ECRules())),
+		sortedNodes:   cnrNodes,
+		signatures:    make([][]meta.IndexedSignature, len(maxSignatures)),
+		maxSignatures: maxSignatures,
 	}
 }
 

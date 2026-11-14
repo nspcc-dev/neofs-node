@@ -40,6 +40,20 @@ type metaCollection struct {
 
 	signaturesMtx sync.RWMutex
 	signatures    [][]meta.IndexedSignature
+	// maxSignatures is how many signatures the chain takes for each
+	// placement vector. An object that goes to every node of a vector gets
+	// more answers than that.
+	maxSignatures []int
+}
+
+// addSignature keeps a node's signature for a placement vector, unless the
+// vector already has as many as the chain takes.
+func (m *metaCollection) addSignature(vector int, sig meta.IndexedSignature) {
+	m.signaturesMtx.Lock()
+	defer m.signaturesMtx.Unlock()
+	if len(m.signatures[vector]) < m.maxSignatures[vector] {
+		m.signatures[vector] = append(m.signatures[vector], sig)
+	}
 }
 
 type distributedTarget struct {
@@ -665,11 +679,6 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 			return fmt.Errorf("write object locally: %w", err)
 		}
 
-		if node.placementVector < 0 {
-			// additional broadcast
-			return nil
-		}
-
 		if t.metaCollection != nil {
 			sig, err := t.metaSigner.Sign(t.metaCollection.dataToSign)
 			if err != nil {
@@ -684,9 +693,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				return fmt.Errorf("local node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
 			}
 
-			t.metaCollection.signaturesMtx.Lock()
-			t.metaCollection.signatures[node.placementVector] = append(t.metaCollection.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig)})
-			t.metaCollection.signaturesMtx.Unlock()
+			t.metaCollection.addSignature(node.placementVector, meta.IndexedSignature{Index: uint8(ind), Signature: neofscrypto.NewSignature(t.metaSigner.Scheme(), t.metaSigner.Public(), sig)})
 		}
 
 		return nil
@@ -728,11 +735,6 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 	}
 
 	if t.metaCollection != nil {
-		if node.placementVector < 0 {
-			// additional broadcast
-			return nil
-		}
-
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", obj.GetID()),
@@ -761,9 +763,7 @@ func (t *distributedTarget) sendObject(obj object.Object, encObj encodedObject, 
 				return fmt.Errorf("remote node is not container's part, placement vector number: %d, public key: %X", node.placementVector, node.info.PublicKey())
 			}
 
-			t.metaCollection.signaturesMtx.Lock()
-			t.metaCollection.signatures[node.placementVector] = append(t.metaCollection.signatures[node.placementVector], meta.IndexedSignature{Index: uint8(ind), Signature: sig})
-			t.metaCollection.signaturesMtx.Unlock()
+			t.metaCollection.addSignature(node.placementVector, meta.IndexedSignature{Index: uint8(ind), Signature: sig})
 
 			return nil
 		}
@@ -904,20 +904,14 @@ func repToNode(l *zap.Logger, prog *repProgress, pubKeyStr string, listInd int, 
 	nr.desc.placementVector = listInd
 	err := f(nr.desc)
 	prog.nodeResultsMtx.Lock()
-	if listInd >= 0 {
-		if nr.succeeded = err == nil; nr.succeeded {
-			prog.nodesCounters[listInd].stored++
-		}
+	if nr.succeeded = err == nil; nr.succeeded {
+		prog.nodesCounters[listInd].stored++
 	}
 	prog.nodeResults[pubKeyStr] = nr
 	prog.nodeResultsMtx.Unlock()
 	if err != nil {
 		prog.lastRespErr.Store(err)
-		if listInd >= 0 {
-			svcutil.LogServiceError(l, "PUT", nr.desc.info.NetworkEndpoints(), err)
-		} else {
-			svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.NetworkEndpoints(), err)
-		}
+		svcutil.LogServiceError(l, "PUT", nr.desc.info.NetworkEndpoints(), err)
 		return
 	}
 }
@@ -998,44 +992,16 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, replCounts []uint, 
 	//  the failure of any of the nodes the ability to comply with the policy
 	//  requirements may be lost.
 	for i := range replCounts {
-		stored, err := x.handleREPRule(l, prog, i, replCounts[i], replCounts[i], nodeLists[i], f)
+		// Broadcast objects go to all nodes of a list at once; the policy
+		// still sets how many must take them.
+		maxReps := replCounts[i]
+		if broadcast {
+			maxReps = uint(len(nodeLists[i]))
+		}
+		stored, err := x.handleREPRule(l, prog, i, replCounts[i], maxReps, nodeLists[i], f)
 		if err != nil {
 			return newCompletionError(err, stored > 0)
 		}
 	}
-	if !broadcast {
-		return nil
-	}
-	// TODO: since main part of the operation has already been completed, and
-	//  additional broadcast does not affect the result, server should immediately
-	//  send the response
-	for i := range nodeLists {
-		for j := range nodeLists[i] {
-			pk := nodeLists[i][j].PublicKey()
-			pks := string(pk)
-			prog.nodeResultsMtx.RLock()
-			nr, ok := prog.nodeResults[pks]
-			prog.nodeResultsMtx.RUnlock()
-			if ok {
-				continue
-			}
-			nr.desc.local = x.neoFSNet.IsLocalNodePublicKey(pk)
-			nr.desc.info = nodeLists[i][j]
-			nr.desc.placementVector = i
-
-			prog.nodeResultsMtx.Lock()
-			prog.nodeResults[pks] = nr
-			prog.nodeResultsMtx.Unlock()
-
-			if nr.desc.local {
-				prog.wg.Go(func() { repToNode(l, prog, pks, -1, nr, f) })
-				continue
-			}
-			prog.wg.Go(func() {
-				repToNode(l, prog, pks, -1, nr, f)
-			})
-		}
-	}
-	prog.wg.Wait()
 	return nil
 }

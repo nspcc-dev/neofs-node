@@ -21,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -256,8 +257,9 @@ func TestStorageEngine_Put_Tombstone(t *testing.T) {
 	t.Run("EC", testPutTombstoneEC)
 }
 
-func testPutTombstone(t *testing.T, shardNum int) {
-	var obj object.Object
+// newTombstoneFixture returns an object, a lock for it and a tombstone for
+// it.
+func newTombstoneFixture() (obj, lock, tomb object.Object) {
 	ver := version.Current()
 	obj.SetVersion(&ver)
 	obj.SetContainerID(cidtest.ID())
@@ -266,18 +268,24 @@ func testPutTombstone(t *testing.T, shardNum int) {
 	obj.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
 
 	objID := obj.GetID()
-	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
 
-	lock := obj
+	lock = obj
 	lock.SetID(oidtest.OtherID(objID))
 	lock.AssociateLocked(objID)
 
-	tomb := obj
+	tomb = obj
 	tomb.SetID(oidtest.OtherID(objID, lock.GetID()))
 	tomb.SetAttributes(
 		object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
 	)
 	tomb.AssociateDeleted(objID)
+	return
+}
+
+func testPutTombstone(t *testing.T, shardNum int) {
+	obj, lock, tomb := newTombstoneFixture()
+	objID := obj.GetID()
+	objAddr := oid.NewAddress(obj.GetContainerID(), objID)
 
 	tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
 
@@ -348,6 +356,71 @@ func testPutTombstone(t *testing.T, shardNum int) {
 				require.ErrorIs(t, getObjErr, apistatus.ErrObjectAlreadyRemoved)
 			}
 		})
+	}
+}
+
+// The object is locked on one shard only. No shard may take a tombstone for
+// it, and the object must still be served.
+func TestStorageEngine_Put_Tombstone_LockOnOneShard(t *testing.T) {
+	const shardNum = 4
+
+	// The order in which the engine visits its shards differs from call to
+	// call: repeat, so that the shard with the lock comes first, last and
+	// in between.
+	for range 8 {
+		obj, lock, tomb := newTombstoneFixture()
+		tombAddr := oid.NewAddress(tomb.GetContainerID(), tomb.GetID())
+
+		s := testNewEngineWithShardNum(t, shardNum)
+		shards := s.unsortedShards()
+		require.NoError(t, s.Put(context.Background(), &obj, nil))
+		require.NoError(t, shards[0].Put(&lock, nil))
+
+		err := s.Put(context.Background(), &tomb, nil)
+		require.ErrorIs(t, err, apistatus.ErrObjectLocked)
+
+		for _, sh := range shards {
+			_, err := sh.Get(tombAddr, true)
+			require.Error(t, err, "a shard kept the tombstone")
+		}
+		_, err = s.Get(context.Background(), obj.Address())
+		require.NoError(t, err, "the object must still be served")
+	}
+
+	t.Run("another shard is degraded", func(t *testing.T) {
+		obj, lock, tomb := newTombstoneFixture()
+
+		s := testNewEngineWithShardNum(t, shardNum)
+		shards := s.unsortedShards()
+		require.NoError(t, s.Put(context.Background(), &obj, nil))
+		require.NoError(t, shards[0].Put(&lock, nil))
+		require.NoError(t, shards[1].SetMode(mode.DegradedReadOnly))
+
+		// The shards that can tell are still asked.
+		err := s.Put(context.Background(), &tomb, nil)
+		require.ErrorIs(t, err, apistatus.ErrObjectLocked)
+	})
+}
+
+// A shard refuses a broadcast object for good and another one fails for a
+// reason of its own: the error says why the object was refused, whichever
+// shard is looked at last.
+func TestStorageEngine_Put_Broadcast_FatalErrorIsReported(t *testing.T) {
+	for range 8 {
+		_, _, tomb := newTombstoneFixture()
+		// A lock for a tombstone is refused by every shard that has the
+		// tombstone.
+		lock := tomb
+		lock.SetID(oidtest.OtherID(tomb.GetID()))
+		lock.SetAttributes()
+		lock.AssociateLocked(tomb.GetID())
+
+		s := testNewEngineWithShardNum(t, 3)
+		require.NoError(t, s.Put(context.Background(), &tomb, nil))
+		require.NoError(t, s.unsortedShards()[0].SetMode(mode.ReadOnly))
+
+		err := s.Put(context.Background(), &lock, nil)
+		require.ErrorIs(t, err, apistatus.ErrLockNonRegularObject)
 	}
 }
 
