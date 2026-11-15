@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -40,6 +42,74 @@ func (x testNetwork) IsLocalNodePublicKey(pk []byte) bool { return bytes.Equal(x
 func (x testNetwork) GetContainerNodes(cid.ID) (ContainerNodes, error) { panic("unimplemented") }
 func (x testNetwork) GetEpochBlock(uint64) (uint32, error)             { panic("unimplemented") }
 func (x testNetwork) GetEpochBlockByTime(uint32) (uint32, error)       { panic("unimplemented") }
+
+func TestMinECPartNum(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		metaAttr string
+		ruleIdx  int
+		want     uint32
+	}{
+		{name: "configured minimum", want: 3},
+		{name: "missing rule", ruleIdx: 1},
+		{name: "strict metadata requires all parts", metaAttr: "strict"},
+		{name: "optimistic metadata requires all parts", metaAttr: "optimistic"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			target := distributedTarget{ecMinPartNums: []uint32{3}, metainfoConsistencyAttr: tc.metaAttr}
+			require.Equal(t, tc.want, target.minECPartNum(tc.ruleIdx))
+		})
+	}
+}
+
+func TestECProgressResult(t *testing.T) {
+	placementErr := fmt.Errorf("save part: %w", errors.Join(errECPartPlacement, errors.New("node unavailable")))
+	fatalErr := errors.New("cannot form part")
+	for _, tc := range []struct {
+		name       string
+		success    int32
+		minParts   uint32
+		incomplete bool
+		failed     bool
+		fatal      bool
+		stopped    bool
+	}{
+		{name: "all parts", success: 16, minParts: 14},
+		{name: "minimum met", success: 14, minParts: 14},
+		{name: "minimum not met", success: 13, minParts: 14, incomplete: true},
+		{name: "data parts only", success: 12, minParts: 14, incomplete: true},
+		{name: "below data parts", success: 11, minParts: 14, failed: true},
+		{name: "below data parts without early stop", success: 11, failed: true},
+		{name: "below data parts with early stop", success: 11, minParts: 14, failed: true, stopped: true},
+		{name: "no parts", minParts: 14, failed: true},
+		{name: "default requires all", success: 15, incomplete: true},
+		{name: "default all parts", success: 16},
+		{name: "fatal error is not hidden", success: 14, minParts: 14, fatal: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newECProgress(nil, iec.Rule{DataPartNum: 12, ParityPartNum: 4})
+			p.successPuts.Store(tc.success)
+			p.stop = tc.stopped
+			partErr := make([]error, 16)
+			for i := int(tc.success); i < len(partErr); i++ {
+				partErr[i] = placementErr
+			}
+			if tc.fatal {
+				partErr[len(partErr)-1] = fatalErr
+			}
+			err := p.result(partErr, tc.minParts)
+			if tc.incomplete {
+				require.ErrorIs(t, err, apistatus.ErrIncomplete)
+			} else if tc.fatal {
+				require.ErrorIs(t, err, fatalErr)
+			} else if tc.failed {
+				require.ErrorContains(t, err, "not enough nodes for EC parts")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
 
 func TestIterateNodesForObject(t *testing.T) {
 	// nodes: [A B C] [D C E F G] [B H I J]
