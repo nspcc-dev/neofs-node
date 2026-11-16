@@ -36,6 +36,13 @@ The lowest not used bucket index: 20.
 
 # History
 
+## Version 13
+
+Objects of a container marked for garbage collection are counted until they
+are deleted: PHY and the per-type counters follow the objects that are still
+stored, the garbage counter equals PHY and the payload counter is zero.
+Counters of the marked containers are resynced.
+
 ## Version 12
 
 `__NEOFS__NONCE` attribute is dropped from the DB.

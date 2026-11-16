@@ -79,9 +79,27 @@ func (s *Shard) InhumeContainer(cID cid.ID) error {
 		return ErrDegradedMode
 	}
 
-	_, err := s.metaBase.InhumeContainer(cID)
+	err := s.inhumeContainer(cID)
 	if err != nil {
 		return fmt.Errorf("mark container as inhumed in metabase: %w", err)
+	}
+
+	return nil
+}
+
+// inhumeContainer marks container's objects as removed in the metabase and
+// updates counters: the objects become garbage, they are still stored. The
+// caller holds s.m.
+func (s *Shard) inhumeContainer(cID cid.ID) error {
+	diff, err := s.metaBase.InhumeContainer(cID)
+	if err != nil {
+		return err
+	}
+
+	s.addObjectCounter(gcObjType, diff.GC)
+	if diff.Payload != 0 {
+		s.addToContainerSize(cID.EncodeToString(), diff.Payload)
+		s.addToPayloadCounter(diff.Payload)
 	}
 
 	return nil

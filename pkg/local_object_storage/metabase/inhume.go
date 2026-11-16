@@ -2,7 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/nspcc-dev/bbolt"
@@ -149,10 +148,16 @@ func markGarbageInContainer(metaCursor *bbolt.Cursor, cnr cid.ID, objs []oid.ID,
 
 // InhumeContainer marks every object in a container as removed.
 // Any further [DB.Get] calls will return [apistatus.ObjectNotFound]
-// errors. Returns number of available objects marked with GC.
+// errors.
 // There is no any LOCKs, forced GC marks and any relations checks,
 // every object that belongs to a provided container will be marked
 // as a removed one.
+//
+// The objects stay in the DB until GC deletes them, see [DB.GetGarbage] and
+// [DB.Delete], and so does their count by PHY and by type. All of them
+// become garbage and none of their payload belongs to the container any
+// longer: InhumeContainer returns this change of the GC and the payload
+// counters, the only ones it makes.
 func (db *DB) InhumeContainer(cID cid.ID) (CountersDiff, error) {
 	var res CountersDiff
 
@@ -175,57 +180,19 @@ func (db *DB) InhumeContainer(cID cid.ID) (CountersDiff, error) {
 		}
 
 		counters := getCountersByContainer(metaBkt)
-		err = resetContainerCounters(metaBkt, counters.Phy)
-		if err != nil {
-			return fmt.Errorf("reset container counters: %w", err)
+		// Batch can call this function more than once.
+		res = CountersDiff{
+			GC:      int(counters.Phy) - int(counters.GC),
+			Payload: -int64(counters.Payload),
 		}
 
-		res.Phy = -int(counters.Phy)
-		res.Root = -int(counters.Root)
-		res.TS = -int(counters.TS)
-		res.Lock = -int(counters.Lock)
-		res.Link = -int(counters.Link)
-		res.GC = int(counters.Phy) - int(counters.GC)
-		res.Payload = -int64(counters.Payload)
+		err = applyDiff(metaBkt, res)
+		if err != nil {
+			return fmt.Errorf("update container counters: %w", err)
+		}
 
 		return nil
 	})
 
 	return res, err
-}
-
-func resetContainerCounters(metaBkt *bbolt.Bucket, newGCCounter uint64) error {
-	err := metaBkt.Put([]byte{metaPrefixPhyCounter}, make([]byte, 8))
-	if err != nil {
-		return fmt.Errorf("reset phy counter: %w", err)
-	}
-	err = metaBkt.Put([]byte{metaPrefixRootCounter}, make([]byte, 8))
-	if err != nil {
-		return fmt.Errorf("reset root counter: %w", err)
-	}
-	err = metaBkt.Put([]byte{metaPrefixTSCounter}, make([]byte, 8))
-	if err != nil {
-		return fmt.Errorf("reset ts counter: %w", err)
-	}
-	err = metaBkt.Put([]byte{metaPrefixLockCounter}, make([]byte, 8))
-	if err != nil {
-		return fmt.Errorf("reset lock counter: %w", err)
-	}
-	err = metaBkt.Put([]byte{metaPrefixLinkCounter}, make([]byte, 8))
-	if err != nil {
-		return fmt.Errorf("reset link counter: %w", err)
-	}
-	err = metaBkt.Put([]byte{metaPrefixPayloadCounter}, make([]byte, 8))
-	if err != nil {
-		return fmt.Errorf("reset payload counter: %w", err)
-	}
-
-	raw := make([]byte, 8)
-	binary.LittleEndian.PutUint64(raw, newGCCounter)
-	err = metaBkt.Put([]byte{metaPrefixGCCounter}, raw)
-	if err != nil {
-		return fmt.Errorf("reset gc counter: %w", err)
-	}
-
-	return nil
 }

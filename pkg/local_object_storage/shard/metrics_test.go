@@ -247,45 +247,82 @@ func TestCounters(t *testing.T) {
 }
 
 func TestInhumeContainerCounters(t *testing.T) {
-	sh, mm := shardWithMetrics(t, t.TempDir())
+	dir := t.TempDir()
+	sh, mm := shardWithMetrics(t, dir)
 
 	c1 := cidtest.ID()
 	c2 := cidtest.ID()
 
-	var objsC1, objsC2 = 5, 7
-	var sizeC1, sizeC2 int64 = 0, 0
+	const objsC1, objsC2 = 5, 7
+	var sizeC1, sizeC2 int64
+	var idsC1 []oid.ID
 
-	for range objsC1 {
-		obj := generateObjectWithCID(c1)
+	for i := range objsC1 {
+		obj := generateObjectWithPayload(c1, make([]byte, 10+i))
+		obj.SetPayloadSize(uint64(len(obj.Payload())))
 		require.NoError(t, sh.Put(obj, nil))
 		sizeC1 += int64(obj.PayloadSize())
+		idsC1 = append(idsC1, obj.GetID())
 	}
-	for range objsC2 {
-		obj := generateObjectWithCID(c2)
+	for i := range objsC2 {
+		obj := generateObjectWithPayload(c2, make([]byte, 20+i))
+		obj.SetPayloadSize(uint64(len(obj.Payload())))
 		require.NoError(t, sh.Put(obj, nil))
 		sizeC2 += int64(obj.PayloadSize())
 	}
 
-	total := uint64(objsC1 + objsC2)
-	initialPayload := mm.payloadSize
-	require.Equal(t, sizeC1+sizeC2, initialPayload)
-	require.Equal(t, mm.objectCounters[phyObj], total)
+	const total = objsC1 + objsC2
+	check := func(t *testing.T, mm *metricsStore, phy, root, gc int, payload int64, cnrSizes map[cid.ID]int64) {
+		require.Equal(t, map[string]uint64{
+			phyObj:  uint64(phy),
+			rootObj: uint64(root),
+			gcObj:   uint64(gc),
+			tsObj:   0,
+			lockObj: 0,
+			linkObj: 0,
+		}, mm.objectCounters)
+		require.Equal(t, payload, mm.payloadSize)
+		require.Equal(t, cnrSizes, mm.containerSize)
+	}
+	// the metrics a shard would start with, given what it stores now
+	checkRestarted := func(t *testing.T, phy, root, gc int, payload int64, cnrSizes map[cid.ID]int64) {
+		require.NoError(t, sh.Close())
+		sh, mm = shardWithMetrics(t, dir)
+		check(t, mm, phy, root, gc, payload, cnrSizes)
+	}
+
+	payload := mm.payloadSize
+	check(t, mm, total, total, 0, payload, map[cid.ID]int64{c1: sizeC1, c2: sizeC2})
 
 	require.NoError(t, sh.InhumeContainer(c1))
 
-	require.Equal(t, mm.objectCounters[phyObj], total)
-	require.Empty(t, mm.containerSize[c1])
-	require.Equal(t, mm.containerSize[c2], sizeC2)
-	// payload size must remain unchanged after logical removal
-	require.Equal(t, initialPayload, mm.payloadSize)
+	// objects are stored until GC deletes them, as garbage; their payload
+	// is no longer the container's
+	check(t, mm, total, total, objsC1, payload-sizeC1, map[cid.ID]int64{c1: 0, c2: sizeC2})
+
+	// nothing changes the second time
+	require.NoError(t, sh.InhumeContainer(c1))
+	check(t, mm, total, total, objsC1, payload-sizeC1, map[cid.ID]int64{c1: 0, c2: sizeC2})
+
+	checkRestarted(t, total, total, objsC1, sizeC2, map[cid.ID]int64{c1: 0, c2: sizeC2})
+
+	// GC deletes some of them, the payload is not taken off again
+	const deleted = 2
+	require.NoError(t, sh.Delete(c1, idsC1[:deleted]))
+	check(t, mm, total-deleted, total-deleted, objsC1-deleted, sizeC2, map[cid.ID]int64{c1: 0, c2: sizeC2})
+
+	checkRestarted(t, total-deleted, total-deleted, objsC1-deleted, sizeC2, map[cid.ID]int64{c1: 0, c2: sizeC2})
+
+	// and the rest after the restart
+	require.NoError(t, sh.Delete(c1, idsC1[deleted:]))
+	check(t, mm, objsC2, objsC2, 0, sizeC2, map[cid.ID]int64{c1: 0, c2: sizeC2})
+
+	checkRestarted(t, objsC2, objsC2, 0, sizeC2, map[cid.ID]int64{c1: 0, c2: sizeC2})
 
 	require.NoError(t, sh.InhumeContainer(c2))
+	check(t, mm, objsC2, objsC2, objsC2, 0, map[cid.ID]int64{c1: 0, c2: 0})
 
-	require.Equal(t, mm.objectCounters[phyObj], total)
-	require.Empty(t, mm.containerSize[c1])
-	require.Empty(t, mm.containerSize[c2])
-	// payload size still unchanged
-	require.Equal(t, initialPayload, mm.payloadSize)
+	checkRestarted(t, objsC2, objsC2, objsC2, 0, map[cid.ID]int64{c1: 0, c2: 0})
 }
 
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {

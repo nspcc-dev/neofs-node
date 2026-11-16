@@ -90,6 +90,12 @@ func (db *DB) deleteGroup(metaCursor *bbolt.Cursor, cnr cid.ID, addrs []oid.ID) 
 		success := all - errorCount
 		return nil, diff, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
 	}
+	if containerMarkedGC(metaCursor) {
+		// All the objects became garbage at once, marked or not, and
+		// their payload is not counted since then, see InhumeContainer.
+		diff.GC = diff.Phy
+		diff.Payload = 0
+	}
 	err = applyDiff(metaCursor.Bucket(), diff)
 	if err != nil {
 		return nil, diff, fmt.Errorf("failed to update counters: %w", err)
