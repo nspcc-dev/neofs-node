@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -174,8 +175,36 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 		zap.Stringer("associated", obj.AssociatedObject()),
 		zap.Int("shard_count", len(allShards)))
 
-	for _, sh := range allShards {
-		err := e.putToShard(sh, addr, obj, objBin)
+	// A tombstone for a locked object must not reach any shard: removing
+	// it again does not bring the object back. A shard that cannot tell
+	// (degraded) does not keep the others from being asked.
+	if obj.Type() == object.TypeTombstone {
+		target := oid.NewAddress(addr.Container(), obj.AssociatedObject())
+		for _, sh := range allShards {
+			lockID, err := sh.GetLockID(target)
+			if err != nil {
+				e.log.Warn("storing a tombstone without full locking check",
+					zap.Stringer("shard", sh.ID()),
+					zap.Stringer("addr", addr),
+					zap.Error(err))
+				continue
+			}
+			if !lockID.IsZero() {
+				return fmt.Errorf("could not store %s object: target is locked: %w", obj.Type(), apistatus.ErrObjectLocked)
+			}
+		}
+	}
+
+	// Each write waits for its shard's disk: do them at the same time.
+	errs := make([]error, len(allShards))
+	var wg sync.WaitGroup
+	for i, sh := range allShards {
+		wg.Go(func() { errs[i] = e.putToShard(sh, addr, obj, objBin) })
+	}
+	wg.Wait()
+
+	for i, sh := range allShards {
+		err := errs[i]
 		if err == nil || errors.Is(err, ierrors.ErrObjectExists) {
 			goodShards = append(goodShards, sh)
 			if errors.Is(err, ierrors.ErrObjectExists) {
@@ -193,12 +222,15 @@ func (e *StorageEngine) broadcastObject(ctx context.Context, obj *object.Object,
 			}
 			continue
 		}
-		lastError = err
+		if !isFatal {
+			lastError = err
+		}
 		if errors.Is(err, apistatus.ErrLockNonRegularObject) ||
 			errors.Is(err, apistatus.ErrObjectLocked) ||
 			errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+			// Go on: every shard that took the object is rolled back.
 			isFatal = true
-			break
+			continue
 		}
 
 		e.log.Warn("failed to put object on shard during broadcast",
