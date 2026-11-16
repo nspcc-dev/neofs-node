@@ -199,25 +199,44 @@ func TestCounters(t *testing.T) {
 			require.Zero(t, c.Lock)
 			require.Zero(t, c.Link)
 
-			diff, err := db.InhumeContainer(oo[0].GetContainerID())
+			// the objects are still there, all of them are garbage now
+			diff, err := db.InhumeContainer(cnr)
 			require.NoError(t, err)
+			require.Equal(t, meta.CountersDiff{GC: objCount, Payload: -int64(c.Payload)}, diff)
 
-			require.EqualValues(t, -(objCount + 1), diff.Phy)
-			require.EqualValues(t, -objCount, diff.Root)
-			require.EqualValues(t, -1, diff.TS)
-			require.EqualValues(t, (c.Phy)-1, diff.GC)
-			require.EqualValues(t, 0, diff.Lock)
-			require.EqualValues(t, 0, diff.Link)
+			exp := c
+			exp.GC = c.Phy
+			exp.Payload = 0
 
 			c, err = db.ObjectCounters()
 			require.NoError(t, err)
+			require.Equal(t, exp, c)
 
-			require.Zero(t, c.Phy)
-			require.Zero(t, c.Root)
-			require.Zero(t, c.TS)
-			require.EqualValues(t, objCount+1, c.GC)
-			require.Zero(t, c.Lock)
-			require.Zero(t, c.Link)
+			// nothing changes the second time
+			diff, err = db.InhumeContainer(cnr)
+			require.NoError(t, err)
+			require.Zero(t, diff)
+
+			// GC takes them one by one; the first object had a mark of
+			// its own, and is garbage once, as the others
+			_, diff, err = db.Delete(cnr, []oid.ID{oo[0].GetID(), oo[1].GetID()})
+			require.NoError(t, err)
+			require.Equal(t, meta.CountersDiff{Phy: -2, Root: -2, GC: -2}, diff)
+
+			exp.Phy -= 2
+			exp.Root -= 2
+			exp.GC -= 2
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+			require.Equal(t, exp, c)
+
+			// and counting from scratch gives the same
+			require.NoError(t, db.SyncCounters())
+
+			c, err = db.ObjectCounters()
+			require.NoError(t, err)
+			require.Equal(t, exp, c)
 
 			require.NoError(t, db.Reset())
 		})

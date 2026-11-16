@@ -107,23 +107,19 @@ func TestInhumeContainer(t *testing.T) {
 
 	diff, err := db.InhumeContainer(cID)
 	require.NoError(t, err)
+	require.Equal(t, meta.CountersDiff{GC: numOfObjs, Payload: -int64(size)}, diff)
 
-	require.EqualValues(t, -numOfObjs, diff.Phy)
-	require.EqualValues(t, -numOfObjs, diff.Root)
-	require.EqualValues(t, 0, diff.Link)
-	require.EqualValues(t, 0, diff.Lock)
-	require.EqualValues(t, numOfObjs, diff.GC)
-	require.EqualValues(t, 0, diff.TS)
-
+	// the objects are counted for as long as they are stored
 	cc, err = db.ObjectCounters()
 	require.NoError(t, err)
 
-	require.Zero(t, cc.Phy)
-	require.Zero(t, cc.Root)
+	require.EqualValues(t, numOfObjs, cc.Phy)
+	require.EqualValues(t, numOfObjs, cc.Root)
 	require.Zero(t, cc.Link)
 	require.Zero(t, cc.Lock)
 	require.EqualValues(t, numOfObjs, cc.GC)
 	require.Zero(t, cc.TS)
+	require.Zero(t, cc.Payload)
 
 	containerSize, err := db.GetContainerInfo(cID)
 	require.NoError(t, err)

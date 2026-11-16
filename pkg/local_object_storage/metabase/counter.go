@@ -281,20 +281,17 @@ func syncContainerCounters(b *bbolt.Bucket, force bool) error {
 		size, _ := strconv.ParseUint(string(sizeRaw), 10, 64)
 		usersPayloadCounter += size
 	}
-	if deadContainer {
-		err := resetContainerCounters(b, phyCounter)
-		if err != nil {
-			return fmt.Errorf("reset container counters: %w", err)
-		}
-
-		return nil
-	}
 
 	for range iterAttrVal(c, object.FilterRoot, []byte(binPropMarker)) {
 		rootCounter++
 	}
-	for range iterPrefixedIDs(c, []byte{metaPrefixGarbage}, oid.ID{}) {
-		gcCounter++
+	if deadContainer {
+		// see InhumeContainer
+		gcCounter = phyCounter
+	} else {
+		for range iterPrefixedIDs(c, []byte{metaPrefixGarbage}, oid.ID{}) {
+			gcCounter++
+		}
 	}
 	for range iterAttrVal(c, object.FilterType, []byte(object.TypeTombstone.String())) {
 		tsCounter++
