@@ -71,7 +71,7 @@ func TestStorageEngine_GetECPart(t *testing.T) {
 		part, err := iec.FormObjectForECPart(neofscryptotest.Signer(), *parent, []byte("payload"), pi)
 		require.NoError(t, err)
 
-		e := testNewEngineWithShards(testNewShard(t, 1), testNewShard(t, 2))
+		e := testNewEngineWithShards(t, testNewShard(t, 1), testNewShard(t, 2))
 		t.Cleanup(func() { _ = e.Close() })
 		require.NoError(t, e.Put(ctx, &part, nil))
 		require.NoError(t, e.Delete(ctx, part.Address(), GarbageMarkRedundant))

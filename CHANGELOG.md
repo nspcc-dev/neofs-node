@@ -8,13 +8,14 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
+- Incorrect eACL `NOT_PRESENT` matching for SEARCH and DELETE (#4302)
 
 ### Changed
 
 ### Removed
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261031163016-c59c747f65e9` (#4267)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261113124103-31f830e86783` (#4267, #4302)
 
 ### Updating from v0.58.2
 This release introduces metabase version 13: objects of removed containers

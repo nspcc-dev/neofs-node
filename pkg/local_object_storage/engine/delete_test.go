@@ -19,7 +19,7 @@ func TestDeleteRedundant(t *testing.T) {
 	obj.SetPayload([]byte("payload"))
 	obj.SetPayloadSize(uint64(len(obj.Payload())))
 
-	e := testNewEngineWithShards(testNewShard(t, 1), testNewShard(t, 2))
+	e := testNewEngineWithShards(t, testNewShard(t, 1), testNewShard(t, 2))
 	t.Cleanup(func() { _ = e.Close() })
 
 	require.NoError(t, e.Put(ctx, obj, nil))
@@ -84,7 +84,7 @@ func testDeleteBigObject(t *testing.T, fun func(*StorageEngine, oid.Address) err
 	s2 := testNewShard(t, 2)
 	s3 := testNewShard(t, 3)
 
-	e := testNewEngineWithShards(s1, s2, s3)
+	e := testNewEngineWithShards(t, s1, s2, s3)
 	e.log = zaptest.NewLogger(t)
 	defer e.Close()
 

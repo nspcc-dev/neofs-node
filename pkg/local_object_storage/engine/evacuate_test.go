@@ -30,6 +30,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 		err error
 		ids = make([]blobstor.ID, shardNum)
 	)
+	registerEngineCleanup(t, e)
 
 	for i := range ids {
 		ids[i], err = e.AddShard(
@@ -105,6 +106,7 @@ func TestEvacuateShard(t *testing.T) {
 
 	checkHasObjects(t)
 
+	require.NoError(t, e.shards[evacuateShardID].Close())
 	e.mtx.Lock()
 	delete(e.shards, evacuateShardID)
 	e.mtx.Unlock()

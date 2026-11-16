@@ -28,6 +28,7 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 	}
 
 	e := New(opts...)
+	registerEngineCleanup(t, e)
 
 	var ids [2]blobstor.ID
 	var err error
