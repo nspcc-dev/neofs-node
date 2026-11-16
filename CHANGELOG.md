@@ -16,6 +16,11 @@ Changelog for NeoFS Node
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261031163016-c59c747f65e9` (#4267)
 
 ### Updating from v0.58.2
+This release introduces metabase version 13: objects of removed containers
+are counted until GC deletes them. Metabases will be migrated automatically
+on node startup, the migration only recounts the objects of removed containers
+that still wait for GC and it can't be reverted, so older node binaries won't
+open the migrated databases.
 
 ## [0.58.2] - 2026-11-13
 

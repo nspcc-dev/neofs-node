@@ -436,3 +436,87 @@ func TestMigrate11To12(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestMigrate12To13(t *testing.T) {
+	const (
+		numOfObjs = 10
+		collected = 3
+	)
+	var (
+		db   = newDB(t)
+		dead = cidtest.ID()
+		live = cidtest.ID()
+		ids  []oid.ID
+	)
+	for range numOfObjs {
+		for _, cnr := range []cid.ID{dead, live} {
+			o := objecttest.Object()
+			o.SetContainerID(cnr)
+			o.ResetRelations()
+			o.SetType(object.TypeRegular)
+			require.NoError(t, db.Put(&o))
+			if cnr == dead {
+				ids = append(ids, o.GetID())
+			}
+		}
+	}
+	// objects of other types, for their counters
+	for _, cnr := range []cid.ID{dead, live} {
+		require.NoError(t, db.Put(createTSForObject(cnr, oidtest.ID())))
+
+		lock := objecttest.Object()
+		lock.SetContainerID(cnr)
+		lock.ResetRelations()
+		lock.AssociateLocked(oidtest.ID())
+		require.NoError(t, db.Put(&lock))
+	}
+
+	_, err := db.InhumeContainer(dead)
+	require.NoError(t, err)
+	_, _, err = db.Delete(dead, ids[:collected])
+	require.NoError(t, err)
+
+	counters := func(cnr cid.ID) ObjectCounters {
+		var res ObjectCounters
+		require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
+			res = getCountersByContainer(tx.Bucket(metaBucketKey(cnr)))
+			return nil
+		}))
+		return res
+	}
+	liveBefore := counters(live)
+
+	const left = numOfObjs - collected
+	exp := ObjectCounters{Phy: left + 2, Root: left, TS: 1, Lock: 1, GC: left + 2}
+	require.Equal(t, exp, counters(dead))
+
+	// What version 12 kept for a container with the mark: zeros, and the
+	// number of objects it had when it was marked as its garbage.
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(metaBucketKey(dead))
+		for _, c := range []byte{metaPrefixPhyCounter, metaPrefixRootCounter, metaPrefixTSCounter,
+			metaPrefixLockCounter, metaPrefixLinkCounter, metaPrefixPayloadCounter} {
+			if err := b.Put([]byte{c}, make([]byte, 8)); err != nil {
+				return err
+			}
+		}
+		if err := b.Put([]byte{metaPrefixGCCounter}, binary.LittleEndian.AppendUint64(nil, numOfObjs+2)); err != nil {
+			return err
+		}
+		return updateVersion(tx, 12)
+	})
+	require.NoError(t, err)
+	require.Equal(t, ObjectCounters{GC: numOfObjs + 2}, counters(dead))
+
+	require.NoError(t, migrateFrom12Version(db))
+
+	require.Equal(t, exp, counters(dead))
+	require.Equal(t, liveBefore, counters(live))
+
+	require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
+		v, ok := getVersion(tx)
+		require.True(t, ok)
+		require.EqualValues(t, 13, v)
+		return nil
+	}))
+}
