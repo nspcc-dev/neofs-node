@@ -989,6 +989,14 @@ func (s *getStream) ValidateHeader(hdr *object.Object) error {
 	return nil
 }
 
+func (s *getStream) checkBinaryHeader(ctx context.Context, hdr []byte) error {
+	err := s.srv.aclChecker.CheckEACL(ctx, hdr, s.reqCID, s.reqOID, s.reqInfo)
+	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
+		return eACLErr(s.reqInfo, err)
+	}
+	return nil
+}
+
 func (s *getStream) WriteHeader(hdr *object.Object) error {
 	if err := s.ValidateHeader(hdr); err != nil {
 		return err
@@ -1179,12 +1187,16 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return forwardGetRequest(ctx, mem.SliceBuffer(*forwardReqBufItem), gStream, node)
 	})
 
-	p.WithECTransport(&getECTransport{
+	ecTransport := &getECTransport{
 		server:           s,
 		requestContainer: cnrID,
 		requestObject:    objID,
 		responseStream:   gStream,
-	})
+	}
+	if recheckEACL {
+		ecTransport.checkHeader = respStream.checkBinaryHeader
+	}
+	p.WithECTransport(ecTransport)
 
 	// TODO: consider optimization
 	// We could acquire ~256K buffer (like for chunks) if storage would try to read it full.
@@ -1210,11 +1222,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if recheckEACL {
 		checkHeaderBinaryFn = func(hdr []byte) error {
 			recheckEACL = false // check once
-			err := s.aclChecker.CheckEACL(ctx, hdr, cnrID, objID, reqInfo)
-			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-				err = eACLErr(reqInfo, err)
-			}
-			return err
+			return respStream.checkBinaryHeader(ctx, hdr)
 		}
 	}
 

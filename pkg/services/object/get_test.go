@@ -16,16 +16,22 @@ import (
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
+	aclv2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -426,6 +432,151 @@ func TestServer_Get_Remote(t *testing.T) {
 			}))
 		})
 	})
+}
+
+type ecEACLTable struct{ table eacl.Table }
+
+func (s ecEACLTable) GetEACL(cid.ID) (eacl.Table, error) { return s.table, nil }
+
+type ecEACLHeaderSource struct{}
+
+func (ecEACLHeaderSource) Head(context.Context, oid.Address) (*object.Object, error) {
+	return nil, errors.New("unexpected extra HEAD")
+}
+
+type ecEACLChecker struct {
+	*aclsvc.Checker
+	rechecks int
+	deferred bool
+}
+
+func (c *ecEACLChecker) CheckEACL(ctx context.Context, msg any, cnr cid.ID, obj oid.ID, info aclv2.RequestInfo) error {
+	_, binary := msg.([]byte)
+	if binary {
+		c.rechecks++
+	}
+	err := c.Checker.CheckEACL(ctx, msg, cnr, obj, info)
+	if !binary && errors.Is(err, aclv2.ErrNotMatched) {
+		c.deferred = true
+	}
+	return err
+}
+
+func TestServer_Get_ECEACL(t *testing.T) {
+	owner, client := usertest.User(), usertest.User()
+	for _, remote := range []bool{false, true} {
+		t.Run(fmt.Sprintf("remote=%t", remote), func(t *testing.T) {
+			for _, tc := range []struct {
+				name       string
+				filter     eacl.Filter
+				deny       bool
+				immediate  bool
+				whitelist  bool
+				attributes []object.Attribute
+			}{
+				{name: "attribute deny", filter: eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "secret"), deny: true},
+				{name: "attribute mismatch", filter: eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "public")},
+				{name: "owner deny", filter: eacl.NewFilterObjectOwnerEquals(owner.ID), deny: true},
+				{name: "owner mismatch", filter: eacl.NewFilterObjectOwnerEquals(client.ID)},
+				{name: "no recheck", immediate: true},
+				{name: "forged owner whitelist", filter: eacl.NewFilterObjectOwnerEquals(client.ID), whitelist: true, deny: true,
+					attributes: []object.Attribute{object.NewAttribute(eacl.FilterObjectOwnerID, client.ID.String())}},
+				{name: "real owner whitelist", filter: eacl.NewFilterObjectOwnerEquals(owner.ID), whitelist: true,
+					attributes: []object.Attribute{object.NewAttribute(eacl.FilterObjectOwnerID, client.ID.String())}},
+				{name: "forged payload size whitelist", filter: eacl.NewObjectPropertyFilter(eacl.FilterObjectPayloadSize, eacl.MatchNumLE, "1"), whitelist: true, deny: true,
+					attributes: []object.Attribute{object.NewAttribute(eacl.FilterObjectPayloadSize, "1")}},
+				{name: "unknown system property", filter: eacl.NewObjectPropertyFilter("$Object:foo", eacl.MatchNotPresent, ""), whitelist: true,
+					attributes: []object.Attribute{object.NewAttribute("$Object:foo", "forged")}},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					cnr := cidtest.ID()
+					obj := object.New(cnr, owner.ID)
+					attrs := []object.Attribute{object.NewAttribute("classified", "secret")}
+					obj.SetAttributes(append(attrs, tc.attributes...)...)
+					obj.SetPayload([]byte("EC object payload"))
+					obj.SetPayloadSize(uint64(len(obj.Payload())))
+					require.NoError(t, obj.SetVerificationFields(owner))
+					part, err := iec.FormObjectForECPart(owner, *obj, obj.Payload(), iec.PartInfo{RuleIndex: 0, Index: 0})
+					require.NoError(t, err)
+					var fsChain nopFSChain
+					storage := newSimpleStorage(t, fsChain)
+					checkerStorage := storage
+					if !remote {
+						require.NoError(t, storage.Put(t.Context(), &part, nil))
+						// Force a deferred initial check while the actual GET can read locally.
+						checkerStorage = newSimpleStorage(t, fsChain)
+					}
+					nodes := make([]netmap.NodeInfo, 2)
+					for i := range nodes {
+						nodes[i].SetPublicKey([]byte{byte(i + 1)})
+						nodes[i].SetNetworkEndpoints(fmt.Sprintf("localhost:%d", 9090+i))
+					}
+					chain := &mockHandlerFSChain{ecRules: []iec.Rule{{DataPartNum: 1, ParityPartNum: 1}}, nodeLists: [][]netmap.NodeInfo{nodes}, localPub: nodes[0].PublicKey()}
+					conns := newMockConnections()
+					conns.setConn(nodes[1], emptyRemoteNode{})
+					if remote {
+						chain.localPub = nodes[1].PublicKey()
+						msg := part.ProtoMessage()
+						conns.setConn(nodes[0], newFixedGetResponsesConn(t, []*protoobject.GetResponse{
+							{Body: &protoobject.GetResponse_Body{ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
+								ObjectId: msg.ObjectId, Signature: msg.Signature, Header: msg.Header,
+							}}}, MetaHeader: newBlankMetaHeader(), VerifyHeader: newAnyVerificationHeader()},
+							{Body: &protoobject.GetResponse_Body{ObjectPart: &protoobject.GetResponse_Body_Chunk{Chunk: part.Payload()}}},
+						}))
+					}
+					record := eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationGet, []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}, tc.filter)
+					if tc.immediate {
+						record = eacl.ConstructRecord(eacl.ActionAllow, eacl.OperationGet, []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)})
+					}
+					records := []eacl.Record{record}
+					if tc.whitelist {
+						targets := []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}
+						records = []eacl.Record{
+							eacl.ConstructRecord(eacl.ActionAllow, eacl.OperationGet, targets, tc.filter),
+							eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationGet, targets),
+						}
+					}
+					checker := &ecEACLChecker{Checker: aclsvc.NewChecker(new(aclsvc.CheckerPrm).
+						SetLocalStorage(checkerStorage).SetValidator(eacl.NewValidator()).
+						SetEACLSource(ecEACLTable{eacl.ConstructTable(records)}).SetHeaderSource(ecEACLHeaderSource{}))}
+					req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
+					req.MetaHeader.Ttl = 2
+					signGetRequest(t, req, client)
+					var extractor mockReqInfoExtractor
+					extractor.getRequestInfo = aclv2.RequestInfo{Operation: acl.OpObjectGet, RequestRole: acl.RoleOthers, SrcRequest: req}
+					extractor.getRequestInfo.Container.SetBasicACL(acl.PublicRWExtended)
+					var policy netmap.PlacementPolicy
+					policy.SetECRules([]netmap.ECRule{netmap.NewECRule(1, 1)})
+					extractor.getRequestInfo.Container.SetPlacementPolicy(policy)
+					handler := getsvc.New(chain, getsvc.WithLocalStorageEngine(storage), getsvc.WithClientConstructor(conns),
+						getsvc.WithKeyStorage(util.NewKeyStorage(&client.ECDSAPrivateKey, nil, nil)))
+					srv := New(getOnlyHandler{svc: handler}, fsChain, nil, nil, client.ECDSAPrivateKey,
+						nopMetrics{}, checker, extractor, nil, fixedFutureTimeProvider{}, zap.NewNop())
+					resps := collectGetResponses(t, srv, req)
+					if tc.deny {
+						require.Len(t, resps, 1, "no header or payload may precede an eACL denial")
+						require.EqualValues(t, status.ObjectAccessDenied, resps[0].GetMetaHeader().GetStatus().GetCode())
+						require.Nil(t, resps[0].Body)
+					} else {
+						require.NotEmpty(t, resps)
+						require.True(t, proto.Equal(obj.ProtoMessage().Header, resps[0].GetBody().GetInit().GetHeader()))
+						var payload []byte
+						for _, resp := range resps {
+							require.Zero(t, resp.GetMetaHeader().GetStatus().GetCode())
+							payload = append(payload, resp.GetBody().GetChunk()...)
+						}
+						require.Equal(t, obj.Payload(), payload)
+					}
+					require.Equal(t, !tc.immediate, checker.deferred)
+					if tc.immediate {
+						require.Zero(t, checker.rechecks)
+					} else {
+						require.Equal(t, 1, checker.rechecks)
+					}
+				})
+			}
+		})
+	}
 }
 
 type getOnlyHandler struct {

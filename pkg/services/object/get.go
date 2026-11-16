@@ -16,7 +16,6 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -275,9 +274,7 @@ func (x *getProxyContext) handleInitResponse(ctx context.Context, respBuf mem.Bu
 	var sent bool
 	x.onceHdr.Do(func() {
 		if x.respStream.recheckEACL {
-			err = x.respStream.srv.aclChecker.CheckEACL(ctx, hdr.ReadOnlyData(), x.respStream.reqCID, x.respStream.reqOID, x.respStream.reqInfo)
-			if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
-				err = eACLErr(x.respStream.reqInfo, err)
+			if err = x.respStream.checkBinaryHeader(ctx, hdr.ReadOnlyData()); err != nil {
 				return
 			}
 		}
@@ -328,6 +325,7 @@ type getECTransport struct {
 	requestContainer cid.ID
 	requestObject    oid.ID
 	responseStream   grpc.ServerStream
+	checkHeader      func(context.Context, []byte) error
 
 	getPartRequest                  *[]byte
 	getPartRequestRuleIndex         int
@@ -399,6 +397,12 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromLocalFirstPart(ctx cont
 	if err != nil {
 		logError("invalid local object header (get payload length from parent header)", err)
 		return false, 0, 0, 0, nil
+	}
+
+	if x.checkHeader != nil {
+		if err := x.checkHeader(ctx, partHdrBuf[parentHdrf.ValueFrom:parentHdrf.To]); err != nil {
+			return false, 0, 0, 0, err
+		}
 	}
 
 	var n int
@@ -665,6 +669,12 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 				return false, 0, 0, 0, err
 			}
 
+			if x.checkHeader != nil {
+				if err := x.checkHeader(ctx, parentHdr.ReadOnlyData()); err != nil {
+					respBuf.Free()
+					return false, 0, 0, 0, err
+				}
+			}
 			err = x.server.writeInitGetResponseBuffers(x.responseStream, parentID, parentSig, parentHdr)
 			respBuf.Free()
 			if err != nil {
