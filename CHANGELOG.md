@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Incorrect eACL `NOT_PRESENT` matching for SEARCH and DELETE (#4302)
 - Shard `payload_size` and `gc` object counter metrics drifting negative on long-running nodes (#4308)
 - IR may deadlock New Epoch event handling if restarted at a bad time (#4274)
+- User attributes with `$Object:` keys could impersonate system object properties in eACL filters (#4338)
 
 ### Changed
 

@@ -22,6 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
@@ -321,6 +322,104 @@ func TestExpirationTimeRule(t *testing.T) {
 	}
 }
 
+func TestSystemAttributeRules(t *testing.T) {
+	owner := usertest.ID()
+	otherOwner := usertest.OtherID(owner)
+	for _, tc := range []struct {
+		name       string
+		key        string
+		attribute  string
+		matcher    eacl.Match
+		value      string
+		expiration time.Time
+		operation  eacl.Operation
+		action     eacl.Action
+	}{
+		{name: "forged owner", key: eacl.FilterObjectOwnerID, attribute: otherOwner.EncodeToString(), matcher: eacl.MatchStringEqual, value: otherOwner.EncodeToString(), action: eacl.ActionDeny},
+		{name: "real owner", key: eacl.FilterObjectOwnerID, attribute: otherOwner.EncodeToString(), matcher: eacl.MatchStringEqual, value: owner.EncodeToString(), action: eacl.ActionAllow},
+		{name: "forged payload size", key: eacl.FilterObjectPayloadSize, attribute: "1", matcher: eacl.MatchNumLE, value: "10", operation: eacl.OperationPut, action: eacl.ActionDeny},
+		{name: "real payload size", key: eacl.FilterObjectPayloadSize, attribute: "2000", matcher: eacl.MatchNumLE, value: "1000", operation: eacl.OperationPut, action: eacl.ActionAllow},
+		{name: "forged expiration", key: object.FilterExpirationTime, attribute: "200", matcher: eacl.MatchNumGE, value: "200", expiration: time.Unix(100, 0), action: eacl.ActionDeny},
+		{name: "real expiration", key: object.FilterExpirationTime, attribute: "1", matcher: eacl.MatchNumGE, value: "100", expiration: time.Unix(100, 0), action: eacl.ActionAllow},
+		{name: "absent expiration", key: object.FilterExpirationTime, attribute: "200", matcher: eacl.MatchNotPresent, action: eacl.ActionAllow},
+		{name: "present expiration", key: object.FilterExpirationTime, attribute: "200", matcher: eacl.MatchNotPresent, expiration: time.Unix(100, 0), action: eacl.ActionDeny},
+		{name: "unknown system property", key: "$Object:foo", attribute: "bar", matcher: eacl.MatchStringEqual, value: "bar", action: eacl.ActionDeny},
+		{name: "absent system property", key: "$Object:foo", attribute: "bar", matcher: eacl.MatchNotPresent, action: eacl.ActionAllow},
+		{name: "ordinary attribute", key: "foo", attribute: "bar", matcher: eacl.MatchStringEqual, value: "bar", action: eacl.ActionAllow},
+		{name: "present ordinary attribute", key: "foo", attribute: "bar", matcher: eacl.MatchNotPresent, action: eacl.ActionDeny},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, parent := range []bool{false, true} {
+				name := "object attribute"
+				if parent {
+					name = "parent attribute"
+				}
+				t.Run(name, func(t *testing.T) {
+					var obj object.Object
+					obj.SetCreationEpoch(1)
+					obj.SetOwner(owner)
+					obj.SetPayloadSize(1000)
+					if !tc.expiration.IsZero() {
+						require.NoError(t, obj.SetExpirationTime(tc.expiration))
+					}
+					if parent {
+						var par object.Object
+						obj.CopyTo(&par)
+						par.SetAttributes(object.NewAttribute(tc.key, tc.attribute))
+						obj.SetParent(&par)
+					} else {
+						obj.SetAttributes(object.NewAttribute(tc.key, tc.attribute))
+					}
+					hdr := obj.ProtoMessage().Header
+					buf := make([]byte, hdr.MarshaledSize())
+					hdr.MarshalStable(buf)
+					for _, source := range []struct {
+						name string
+						opt  Option
+					}{
+						{"binary", WithObjectHeaderBinary(buf)},
+						{"put request", WithServiceRequest(&protoobject.PutRequest{
+							Body: &protoobject.PutRequest_Body{
+								ObjectPart: &protoobject.PutRequest_Body_Init_{
+									Init: &protoobject.PutRequest_Body_Init{Header: hdr},
+								},
+							},
+						})},
+						{"object", WithServiceResponse(&protoobject.HeadResponse{
+							Body: &protoobject.HeadResponse_Body{
+								Head: &protoobject.HeadResponse_Body_Header{
+									Header: &protoobject.HeaderWithSignature{Header: hdr},
+								},
+							},
+						}, nil)},
+					} {
+						t.Run(source.name, func(t *testing.T) {
+							src, err := NewMessageHeaderSource(source.opt)
+							require.NoError(t, err)
+							op := tc.operation
+							if op == 0 {
+								op = eacl.OperationGet
+							}
+							targets := []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}
+							table := eacl.ConstructTable([]eacl.Record{
+								eacl.ConstructRecord(eacl.ActionAllow, op, targets,
+									eacl.NewObjectPropertyFilter(tc.key, tc.matcher, tc.value)),
+								eacl.ConstructRecord(eacl.ActionDeny, op, targets),
+							})
+							unit := new(eacl.ValidationUnit).
+								WithRole(eacl.RoleOthers).
+								WithOperation(op).
+								WithEACLTable(&table).
+								WithHeaderSource(src)
+							checkAction(t, tc.action, eacl.NewValidator(), unit)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestObjectHeaders(t *testing.T) {
 	id := oid.ID{115, 0, 118, 16, 207, 179, 251, 24, 242, 80, 173, 62, 203, 159, 249, 96, 133, 158, 64, 52, 145, 73, 2, 217, 66, 141, 1, 240, 129, 44, 196, 30}
 	const idStr = "8jvJ15BTY16PQ4FVuPs2r8WVHQCdKGBuBt7m3AQCpyMF"
@@ -408,6 +507,17 @@ func TestObjectHeaders(t *testing.T) {
 	obj.SetAttributes(
 		object.NewAttribute("foo", "bar"),
 		object.NewAttribute("hello", "world"),
+		object.NewAttribute(eacl.FilterObjectVersion, "forged"),
+		object.NewAttribute(eacl.FilterObjectID, "forged"),
+		object.NewAttribute(eacl.FilterObjectContainerID, "forged"),
+		object.NewAttribute(eacl.FilterObjectOwnerID, "forged"),
+		object.NewAttribute(eacl.FilterObjectCreationEpoch, "forged"),
+		object.NewAttribute(object.FilterExpirationTime, "forged"),
+		object.NewAttribute(eacl.FilterObjectPayloadSize, "forged"),
+		object.NewAttribute(eacl.FilterObjectType, "forged"),
+		object.NewAttribute(eacl.FilterObjectPayloadChecksum, "forged"),
+		object.NewAttribute(eacl.FilterObjectPayloadHomomorphicChecksum, "forged"),
+		object.NewAttribute("$Object:unknown", "forged"),
 	)
 
 	t.Run("child", func(t *testing.T) {

@@ -3,6 +3,7 @@ package v2
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/mr-tron/base58"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -13,6 +14,9 @@ import (
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
+
+// reservedAttributePrefix separates system object properties from user attributes.
+const reservedAttributePrefix = "$Object:"
 
 type sysObjHdr struct {
 	k, v string
@@ -100,6 +104,9 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid oid.ID) []eacl.Header
 
 		attrs := obj.Attributes()
 		for i := range attrs {
+			if strings.HasPrefix(attrs[i].Key(), reservedAttributePrefix) {
+				continue
+			}
 			res = append(res, &attrs[i]) // only pointer attrs can implement eacl.Header interface
 		}
 	}
@@ -192,7 +199,9 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 			}
 			off += n
 
-			res = append(res, sysObjHdr{k: string(k), v: string(v)})
+			if !strings.HasPrefix(string(k), reservedAttributePrefix) {
+				res = append(res, sysObjHdr{k: string(k), v: string(v)})
+			}
 		case protoobject.FieldHeaderSplit:
 			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
 			if err != nil {
