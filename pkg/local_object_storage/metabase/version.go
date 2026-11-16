@@ -393,23 +393,16 @@ func dropNonceIndexes(_ *zap.Logger, _ *bbolt.Tx, b *bbolt.Bucket, _ cid.ID, _ [
 	return uint(len(keysToDrop)), nil, nil
 }
 
-// migrateFrom12Version recounts the objects of containers marked for GC:
-// their counters were zeroed when the mark was put, while the objects are
-// counted until they are deleted since version 13. Other containers are not
-// touched.
+// migrateFrom12Version resyncs object counters of all containers. Objects of
+// containers marked for GC are counted until they are deleted since version
+// 13, while their counters were zeroed when the mark was put. In other
+// containers garbage marks of objects missing in the metabase were not
+// counted, and payload of an already marked object could be subtracted twice.
 func migrateFrom12Version(db *DB) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-			if name[0] != metadataPrefix || !containerMarkedGC(b.Cursor()) {
-				return nil
-			}
-			if err := syncContainerCounters(b, true); err != nil {
-				return fmt.Errorf("container bucket 0x%X: %w", name, err)
-			}
-			return nil
-		})
+		err := syncCounter(tx, true)
 		if err != nil {
-			return fmt.Errorf("resync object counters of removed containers: %w", err)
+			return fmt.Errorf("resync object counters: %w", err)
 		}
 		return updateVersion(tx, 13)
 	})

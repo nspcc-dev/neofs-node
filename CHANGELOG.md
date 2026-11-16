@@ -20,10 +20,10 @@ Changelog for NeoFS Node
 
 ### Updating from v0.58.2
 This release introduces metabase version 13: objects of removed containers
-are counted until GC deletes them. Metabases will be migrated automatically
-on node startup, the migration only recounts the objects of removed containers
-that still wait for GC and it can't be reverted, so older node binaries won't
-open the migrated databases.
+are counted until GC deletes them and every garbage mark is counted. Metabases
+will be migrated automatically on node startup, the migration recounts the
+objects of all containers and it can't be reverted, so older node binaries
+won't open the migrated databases.
 
 ## [0.58.2] - 2026-11-13
 

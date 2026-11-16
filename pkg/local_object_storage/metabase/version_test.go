@@ -484,7 +484,10 @@ func TestMigrate12To13(t *testing.T) {
 		}))
 		return res
 	}
-	liveBefore := counters(live)
+	liveExp := counters(live)
+	// the mark of the tombstone's target
+	require.EqualValues(t, 1, liveExp.GC)
+	require.NotZero(t, liveExp.Payload)
 
 	const left = numOfObjs - collected
 	exp := ObjectCounters{Phy: left + 2, Root: left, TS: 1, Lock: 1, GC: left + 2}
@@ -503,15 +506,25 @@ func TestMigrate12To13(t *testing.T) {
 		if err := b.Put([]byte{metaPrefixGCCounter}, binary.LittleEndian.AppendUint64(nil, numOfObjs+2)); err != nil {
 			return err
 		}
+		// Version 12 did not count the mark of an object missing in the
+		// metabase and could subtract payload of a marked object twice.
+		b = tx.Bucket(metaBucketKey(live))
+		if err := b.Put([]byte{metaPrefixGCCounter}, make([]byte, 8)); err != nil {
+			return err
+		}
+		if err := b.Put([]byte{metaPrefixPayloadCounter}, binary.LittleEndian.AppendUint64(nil, liveExp.Payload-1)); err != nil {
+			return err
+		}
 		return updateVersion(tx, 12)
 	})
 	require.NoError(t, err)
 	require.Equal(t, ObjectCounters{GC: numOfObjs + 2}, counters(dead))
+	require.NotEqual(t, liveExp, counters(live))
 
 	require.NoError(t, migrateFrom12Version(db))
 
 	require.Equal(t, exp, counters(dead))
-	require.Equal(t, liveBefore, counters(live))
+	require.Equal(t, liveExp, counters(live))
 
 	require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
 		v, ok := getVersion(tx)
