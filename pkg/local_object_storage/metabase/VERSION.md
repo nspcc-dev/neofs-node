@@ -41,7 +41,11 @@ The lowest not used bucket index: 20.
 Objects of a container marked for garbage collection are counted until they
 are deleted: PHY and the per-type counters follow the objects that are still
 stored, the garbage counter equals PHY and the payload counter is zero.
-Counters of the marked containers are resynced.
+
+In other containers the garbage counter is the number of garbage marks,
+including the marks of objects that are not stored in the metabase.
+
+Object counters are updated (resynced) for all containers.
 
 ## Version 12
 

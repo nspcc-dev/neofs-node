@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
 - Incorrect eACL `NOT_PRESENT` matching for SEARCH and DELETE (#4302)
+- Shard `payload_size` and `gc` object counter metrics drifting negative on long-running nodes (#4308)
 
 ### Changed
 
@@ -19,10 +20,10 @@ Changelog for NeoFS Node
 
 ### Updating from v0.58.2
 This release introduces metabase version 13: objects of removed containers
-are counted until GC deletes them. Metabases will be migrated automatically
-on node startup, the migration only recounts the objects of removed containers
-that still wait for GC and it can't be reverted, so older node binaries won't
-open the migrated databases.
+are counted until GC deletes them and every garbage mark is counted. Metabases
+will be migrated automatically on node startup, the migration recounts the
+objects of all containers and it can't be reverted, so older node binaries
+won't open the migrated databases.
 
 ## [0.58.2] - 2026-11-13
 
