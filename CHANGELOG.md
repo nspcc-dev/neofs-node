@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
 - Incorrect eACL `NOT_PRESENT` matching for SEARCH and DELETE (#4302)
 - Shard `payload_size` and `gc` object counter metrics drifting negative on long-running nodes (#4308)
+- IR may deadlock New Epoch event handling if restarted at a bad time (#4274)
 
 ### Changed
 
