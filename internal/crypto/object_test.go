@@ -5,15 +5,20 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	isessions "github.com/nspcc-dev/neofs-node/internal/sessions"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
@@ -184,6 +189,104 @@ func TestAuthenticateObject(t *testing.T) {
 			require.NoError(t, icrypto.AuthenticateObject(tc.object, nil, isessions.NewObjectSessionsCache(1), nil))
 		})
 	}
+}
+
+func TestAuthenticateObject_SessionV2(t *testing.T) {
+	owner, delegate, subject := usertest.User(), usertest.User(), usertest.User()
+	cnr := cidtest.ID()
+	newToken := func(t *testing.T, signer usertest.UserSigner, target user.ID) sessionv2.Token {
+		t.Helper()
+		var tok sessionv2.Token
+		tok.SetVersion(sessionv2.TokenCurrentVersion)
+		tok.SetIat(time.Unix(100, 0))
+		tok.SetNbf(time.Unix(100, 0))
+		tok.SetExp(time.Unix(200, 0))
+		ctx, err := sessionv2.NewContext(cnr, []sessionv2.Verb{sessionv2.VerbObjectPut})
+		require.NoError(t, err)
+		require.NoError(t, tok.AddContext(ctx))
+		require.NoError(t, tok.AddSubject(sessionv2.NewTargetUser(target)))
+		require.NoError(t, tok.Sign(signer))
+		return tok
+	}
+
+	for _, tc := range []struct {
+		name   string
+		change func(*testing.T, *sessionv2.Token)
+		err    string
+	}{
+		{name: "valid chain"},
+		{name: "legacy root", change: func(t *testing.T, tok *sessionv2.Token) {
+			tok.Origin().SetVersion(0)
+			require.NoError(t, tok.Origin().Sign(owner))
+			tok.SetOrigin(tok.Origin())
+			require.NoError(t, tok.Sign(delegate))
+		}},
+		{name: "swapped origin", change: func(t *testing.T, tok *sessionv2.Token) {
+			other := newToken(t, usertest.User(), delegate.ID)
+			m := tok.ProtoMessage()
+			m.Origin = other.ProtoMessage()
+			require.NoError(t, tok.FromProtoMessage(m))
+			require.True(t, tok.VerifySignature())
+		}, err: "origin hash mismatch"},
+		{name: "unauthorized delegate", change: func(t *testing.T, tok *sessionv2.Token) {
+			other := newToken(t, owner, usertest.ID())
+			tok.SetOrigin(&other)
+			require.NoError(t, tok.Sign(delegate))
+		}, err: "token issuer is not in this origin token's subjects"},
+		{name: "legacy chain", change: func(t *testing.T, tok *sessionv2.Token) {
+			tok.Origin().SetVersion(0)
+			require.NoError(t, tok.Origin().Sign(owner))
+			m := tok.ProtoMessage()
+			m.Body.Version = 0
+			m.Body.OriginHash = nil
+			require.NoError(t, tok.FromProtoMessage(m))
+			require.NoError(t, tok.Sign(delegate))
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			origin := newToken(t, owner, delegate.ID)
+			tok := newToken(t, delegate, subject.ID)
+			tok.SetOrigin(&origin)
+			require.NoError(t, tok.Sign(delegate))
+			if tc.change != nil {
+				tc.change(t, &tok)
+			}
+			obj := *object.New(cnr, tok.OriginalIssuer())
+			obj.SetSessionTokenV2(&tok)
+			require.NoError(t, obj.SetVerificationFields(subject))
+			var decoded object.Object
+			require.NoError(t, decoded.Unmarshal(obj.Marshal()))
+			require.Equal(t, obj.GetID(), decoded.GetID())
+			require.Equal(t, obj.Marshal(), decoded.Marshal())
+			cache := isessions.NewObjectSessionsCache(1)
+			for range 2 { // Check both fresh and cached token authentication.
+				err := icrypto.AuthenticateObject(decoded, nil, cache, objectSessionResolver{})
+				if tc.err == "" {
+					require.NoError(t, err)
+				} else {
+					require.ErrorContains(t, err, tc.err)
+				}
+			}
+		})
+	}
+
+	t.Run("standalone tokens", func(t *testing.T) {
+		for _, v := range []uint32{0, 1} {
+			tok := newToken(t, owner, subject.ID)
+			tok.SetVersion(v)
+			require.NoError(t, tok.Sign(owner))
+			obj := *object.New(cnr, owner.ID)
+			obj.SetSessionTokenV2(&tok)
+			require.NoError(t, obj.SetVerificationFields(subject))
+			require.NoError(t, icrypto.AuthenticateObject(obj, nil, isessions.NewObjectSessionsCache(1), objectSessionResolver{}))
+		}
+	})
+}
+
+type objectSessionResolver struct{}
+
+func (objectSessionResolver) HasUser(string, user.ID) (bool, error) {
+	return false, nil
 }
 
 // set in init.

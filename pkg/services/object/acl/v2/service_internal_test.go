@@ -225,6 +225,63 @@ func TestGetRequestCredentialsSessionTokens(t *testing.T) {
 	deeplyDelegated.SetOrigin(&middle)
 	require.NoError(t, deeplyDelegated.Sign(intermediate))
 
+	var legacyOrigin, legacyDelegated sessionv2.Token
+	origin.CopyTo(&legacyOrigin)
+	legacyOrigin.SetVersion(0)
+	require.NoError(t, legacyOrigin.Sign(issuer))
+	legacyMessage := delegated.ProtoMessage()
+	legacyMessage.Body.Version = 0
+	legacyMessage.Body.OriginHash = nil
+	legacyMessage.Origin = legacyOrigin.ProtoMessage()
+	require.NoError(t, legacyDelegated.FromProtoMessage(legacyMessage))
+	require.NoError(t, legacyDelegated.Sign(delegator))
+
+	t.Run("origin binding", func(t *testing.T) {
+		var otherOrigin sessionv2.Token
+		origin.CopyTo(&otherOrigin)
+		require.NoError(t, otherOrigin.Sign(attacker))
+		for _, tc := range []struct {
+			name   string
+			token  *sessionv2.Token
+			change func(*protosession.SessionTokenV2)
+			err    string
+		}{
+			{name: "swapped origin", token: &delegated, change: func(m *protosession.SessionTokenV2) {
+				m.Origin = otherOrigin.ProtoMessage()
+			}, err: "origin hash mismatch"},
+			{name: "swapped nested origin", token: &deeplyDelegated, change: func(m *protosession.SessionTokenV2) {
+				m.Origin.Origin = otherOrigin.ProtoMessage()
+			}, err: "depth 1: origin hash mismatch"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				m := tc.token.ProtoMessage()
+				tc.change(m)
+				var token sessionv2.Token
+				require.NoError(t, token.FromProtoMessage(m))
+				require.True(t, token.VerifySignature())
+				s := New(nopFSChain{}, isessions.NewObjectSessionsCache(1),
+					WithIRFetcher(nopIR{}), WithNetmapper(nopNetmapContract{}),
+					WithContainerSource(nopContrainerContract{}), WithTimeProvider(mockChainTime{}))
+				for range 2 {
+					_, err := s.VerifySessionTokenMessage(token.ProtoMessage(), sessionv2.VerbObjectGet, cnr)
+					require.ErrorContains(t, err, tc.err)
+				}
+			})
+		}
+	})
+
+	t.Run("legacy standalone", func(t *testing.T) {
+		var token sessionv2.Token
+		v2.CopyTo(&token)
+		token.SetVersion(0)
+		require.NoError(t, token.Sign(issuer))
+		s := New(nopFSChain{}, isessions.NewObjectSessionsCache(1),
+			WithIRFetcher(nopIR{}), WithNetmapper(nopNetmapContract{}),
+			WithContainerSource(nopContrainerContract{}), WithTimeProvider(mockChainTime{}))
+		_, err := s.VerifySessionTokenMessage(token.ProtoMessage(), sessionv2.VerbObjectGet, cnr)
+		require.NoError(t, err)
+	})
+
 	for _, tc := range []struct {
 		name           string
 		tokens         common.RequestTokens
@@ -235,6 +292,7 @@ func TestGetRequestCredentialsSessionTokens(t *testing.T) {
 		{name: "V2", tokens: common.RequestTokens{Session: &v2}, requestIssuer: issuer.ID, checkProtocols: true},
 		{name: "V2 final", tokens: common.RequestTokens{Session: &final}, requestIssuer: issuer.ID},
 		{name: "V2 delegated", tokens: common.RequestTokens{Session: &delegated}, requestIssuer: delegator.ID},
+		{name: "V2 legacy delegated", tokens: common.RequestTokens{Session: &legacyDelegated}, requestIssuer: delegator.ID},
 		{name: "V2 multi-level delegation", tokens: common.RequestTokens{Session: &deeplyDelegated}, requestIssuer: intermediate.ID},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

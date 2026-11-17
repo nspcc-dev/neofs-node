@@ -900,6 +900,69 @@ func TestService_TokenV2(t *testing.T) {
 		require.Equal(t, "session was not issued by the container owner", sts.Message)
 	})
 
+	t.Run("legacy standalone", func(t *testing.T) {
+		tok := buildToken(t, owner)
+		tok.SetVersion(0)
+		require.NoError(t, tok.Sign(owner))
+		resp, err := svc.Delete(ctx, makeDelete(t, tok))
+		require.NoError(t, err)
+		require.Nil(t, resp.GetMetaHeader().GetStatus())
+	})
+
+	for _, tc := range []struct {
+		name string
+		err  string
+	}{
+		{name: "valid chain"},
+		{name: "swapped origin", err: "origin hash mismatch"},
+		{name: "legacy chain"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			origin := buildToken(t, owner)
+			require.NoError(t, origin.SetSubjects([]sessionv2.Target{sessionv2.NewTargetUser(other.ID)}))
+			if tc.name == "legacy chain" {
+				origin.SetVersion(0)
+			}
+			require.NoError(t, origin.Sign(owner))
+			tok := buildToken(t, other)
+			tok.Lifetime = origin.Lifetime
+			if tc.name == "swapped origin" {
+				var otherOrigin sessionv2.Token
+				origin.CopyTo(&otherOrigin)
+				require.NoError(t, otherOrigin.Sign(usertest.User()))
+				tok.SetOrigin(&otherOrigin)
+			} else {
+				tok.SetOrigin(&origin)
+			}
+			require.NoError(t, tok.Sign(other))
+			if tc.name == "swapped origin" || tc.name == "legacy chain" {
+				m := tok.ProtoMessage()
+				m.Origin = origin.ProtoMessage()
+				if tc.name == "legacy chain" {
+					m.Body.Version = 0
+					m.Body.OriginHash = nil
+				}
+				require.NoError(t, tok.FromProtoMessage(m))
+				if tc.name == "legacy chain" {
+					require.NoError(t, tok.Sign(other))
+				}
+			}
+			require.True(t, tok.VerifySignature())
+			for range 2 {
+				resp, err := svc.Delete(ctx, makeDelete(t, tok))
+				require.NoError(t, err)
+				sts := resp.GetMetaHeader().GetStatus()
+				if tc.err == "" {
+					require.Nil(t, sts)
+				} else {
+					require.NotNil(t, sts)
+					require.EqualValues(t, 1024, sts.Code)
+					require.Contains(t, sts.Message, tc.err)
+				}
+			}
+		})
+	}
+
 	t.Run("forged origin issuer", func(t *testing.T) {
 		var origin sessionv2.Token
 		origin.SetVersion(sessionv2.TokenCurrentVersion)
@@ -924,7 +987,9 @@ func TestService_TokenV2(t *testing.T) {
 		))
 
 		tok := buildToken(t, other)
+		tok.Lifetime = origin.Lifetime
 		tok.SetOrigin(&origin)
+		require.NoError(t, tok.Sign(other))
 
 		req := makeDelete(t, tok)
 		resp, err := svc.Delete(ctx, req)
