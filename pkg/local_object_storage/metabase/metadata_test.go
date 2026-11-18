@@ -200,6 +200,77 @@ func TestDB_ExpirationTimeIgnoresUserAttribute(t *testing.T) {
 	}
 }
 
+func TestDB_SystemPropertiesIgnoreUserAttributes(t *testing.T) {
+	ver := version.New(2, 18)
+	owner := usertest.ID()
+	newObject := func(attrs ...object.Attribute) object.Object {
+		var obj object.Object
+		obj.SetVersion(&ver)
+		obj.SetID(oidtest.ID())
+		obj.SetContainerID(cidtest.ID())
+		obj.SetOwner(owner)
+		obj.SetCreationEpoch(10)
+		obj.SetPayloadSize(1000)
+		obj.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(nil)))
+		obj.SetAttributes(attrs...)
+		return obj
+	}
+
+	for _, tc := range []struct {
+		key, forged string
+		real        string // empty if the property is not set
+	}{
+		{key: object.FilterPayloadSize, forged: "1", real: "1000"},
+		{key: object.FilterType, forged: object.TypeTombstone.String(), real: object.TypeRegular.String()},
+		{key: object.FilterVersion, forged: "v100.200", real: ver.String()},
+		{key: object.FilterOwnerID, forged: usertest.OtherID(owner).String(), real: owner.String()},
+		{key: object.FilterCreationEpoch, forged: "1", real: "10"},
+		{key: object.FilterParentID, forged: oidtest.ID().String()},
+		{key: object.FilterFirstSplitObject, forged: oidtest.ID().String()},
+		{key: "$Object:foo", forged: "bar"},
+	} {
+		t.Run(tc.key, func(t *testing.T) {
+			db := newDB(t)
+			obj := newObject(object.NewAttribute(tc.key, tc.forged))
+			require.NoError(t, db.Put(&obj))
+
+			var fs object.SearchFilters
+			fs.AddFilter(tc.key, tc.forged, object.MatchStringEqual)
+			assertSearchResult(t, db, obj.GetContainerID(), fs, nil, nil)
+			if tc.real != "" {
+				fs = nil
+				fs.AddFilter(tc.key, tc.real, object.MatchStringEqual)
+				assertSearchResult(t, db, obj.GetContainerID(), fs, []string{tc.key},
+					[]client.SearchResultItem{{ID: obj.GetID(), Attributes: []string{tc.real}}})
+			}
+
+			hdr, err := db.Get(obj.Address(), false)
+			require.NoError(t, err)
+			exp := obj
+			exp.SetAttributes()
+			require.Equal(t, exp, *hdr)
+
+			require.NoError(t, db.SyncCounters())
+			c, err := db.ObjectCounters()
+			require.NoError(t, err)
+			require.EqualValues(t, obj.PayloadSize(), c.Payload)
+		})
+	}
+
+	t.Run("tombstone impersonation", func(t *testing.T) {
+		db := newDB(t)
+		victim := newObject()
+		require.NoError(t, db.Put(&victim))
+		forged := newObject(object.NewAttribute(object.FilterType, object.TypeTombstone.String()),
+			object.NewAttribute(object.AttributeAssociatedObject, victim.GetID().EncodeToString()))
+		forged.SetContainerID(victim.GetContainerID())
+		require.NoError(t, db.Put(&forged))
+
+		_, err := db.Get(victim.Address(), false)
+		require.NoError(t, err)
+	})
+}
+
 func TestHeaderLimit(t *testing.T) { require.Less(t, object.MaxHeaderLen, bbolt.MaxKeySize) }
 
 func TestPutMetadata(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/nspcc-dev/bbolt"
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
@@ -44,6 +45,9 @@ const (
 
 const binPropMarker = "1" // ROOT, PHY, etc.
 
+// systemPropertyPrefix is the key prefix of header properties exposed to SEARCH.
+const systemPropertyPrefix = "$Object:"
+
 // ErrSearchIterationLimitExceeded is returned when filtered search exceeded the
 // configured number of index iterations without producing any results.
 var ErrSearchIterationLimitExceeded = errors.New("search iteration limit exceeded")
@@ -55,7 +59,8 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 // PutMetadataForObject fills object meta-data indexes using bbolt transaction.
 // Transaction must be writable. Additional bucket for container's meta-data
 // may be created using {255, CID...} form as a key.
-// `__NEOFS__EC_PART_HASHES` parent's EC attribute is skipped.
+// `__NEOFS__EC_PART_HASHES` parent's EC attribute and attributes with `$Object:`
+// keys are skipped.
 func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(hdr.GetContainerID()))
 	if err != nil {
@@ -134,11 +139,11 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, phy bool) error {
 	attrs := hdr.Attributes()
 	for i := range attrs {
 		ak, av := attrs[i].Key(), attrs[i].Value()
-		switch ak {
-		case object.FilterExpirationTime:
-			// Expiration time is indexed only from the header field. A user
-			// attribute with the same key must not affect expiration or GC.
+		if strings.HasPrefix(ak, systemPropertyPrefix) {
+			// System properties are indexed only from header fields.
 			continue
+		}
+		switch ak {
 		case object.AttributeECPartHashes,
 			object.AttributeNonce:
 			// indexing these attributes has no practical meaning
