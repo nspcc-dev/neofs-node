@@ -101,6 +101,7 @@ func setAttribute(cmd *cobra.Command, _ []string) error {
 		ValidUntil: time.Now().Add(setAttributeFlagVars.validFor),
 	}
 
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	signedPrm := client.GetSignedSetContainerAttributeParameters(prm)
 
 	var prmSig neofscrypto.Signature
@@ -113,6 +114,7 @@ func setAttribute(cmd *cobra.Command, _ []string) error {
 		opts.AttachSessionTokenV1(*sessionToken)
 	}
 
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	err = cli.SetContainerAttribute(ctx, prm, prmSig, opts)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
@@ -205,6 +207,7 @@ func removeAttribute(cmd *cobra.Command, _ []string) error {
 		ValidUntil: time.Now().Add(removeAttributeFlagVars.validFor),
 	}
 
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	signedPrm := client.GetSignedRemoveContainerAttributeParameters(prm)
 
 	var prmSig neofscrypto.Signature
@@ -217,6 +220,7 @@ func removeAttribute(cmd *cobra.Command, _ []string) error {
 		opts.AttachSessionTokenV1(*sessionToken)
 	}
 
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	err = cli.RemoveContainerAttribute(ctx, prm, prmSig, opts)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerAwaitTimeout) {

@@ -499,6 +499,7 @@ func (cp *Processor) checkSetAttributeRequest(req containerEvent.SetAttributeReq
 		return fmt.Errorf("get container by ID: %w", err)
 	}
 
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	signedData := client.GetSignedSetContainerAttributeParameters(client.SetContainerAttributeParameters{
 		ID:         id,
 		Attribute:  req.Attribute,
@@ -571,6 +572,7 @@ func (cp *Processor) checkRemoveAttributeRequest(req containerEvent.RemoveAttrib
 		return fmt.Errorf("get container by ID: %w", err)
 	}
 
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	signedData := client.GetSignedRemoveContainerAttributeParameters(client.RemoveContainerAttributeParameters{
 		ID:         id,
 		Attribute:  req.Attribute,
