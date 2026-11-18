@@ -77,11 +77,11 @@ func (unimplementedContainerContract) Delete(context.Context, cid.ID, []byte, []
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte) error {
+func (unimplementedContainerContract) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
-func (unimplementedContainerContract) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte) error {
+func (unimplementedContainerContract) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
@@ -170,11 +170,11 @@ func (x testFSChain) MsPerBlock() (int64, error) {
 	return 0, nil
 }
 
-func (testFSChain) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte) error {
+func (testFSChain) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte, []byte) error {
 	return errors.New("unimplemented")
 }
 
-func (testFSChain) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte) error {
+func (testFSChain) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte, []byte) error {
 	return errors.New("unimplemented")
 }
 

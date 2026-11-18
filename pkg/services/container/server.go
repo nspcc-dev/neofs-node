@@ -84,12 +84,12 @@ type Contract interface {
 	// credentials. If transaction is accepted for processing, SetAttribute waits
 	// for it to be successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
-	SetAttribute(ctx context.Context, _ cid.ID, attr, val string, validUntil uint64, pub, sig, sessionToken []byte) error
+	SetAttribute(ctx context.Context, _ cid.ID, attr, val string, validUntil uint64, pub, sig, sessionToken, origReq []byte) error
 	// RemoveAttribute sends transaction removing container attribute with provided
 	// credentials. If transaction is accepted for processing, RemoveAttribute waits
 	// for it to be successfully executed. Waiting is performed within ctx,
 	// [apistatus.ErrContainerAwaitTimeout] is returned when it is done.
-	RemoveAttribute(ctx context.Context, _ cid.ID, attr string, validUntil uint64, pub, sig, sessionToken []byte) error
+	RemoveAttribute(ctx context.Context, _ cid.ID, attr string, validUntil uint64, pub, sig, sessionToken, origReq []byte) error
 }
 
 // NetmapContract represents Netmap contract deployed in the FS chain required
@@ -960,7 +960,7 @@ func (s *Server) SetAttribute(ctx context.Context, req *protocontainer.SetAttrib
 	defer cancel()
 
 	err = s.contract.SetAttribute(ctx, id, req.Body.Parameters.Attribute, req.Body.Parameters.Value, req.Body.Parameters.ValidUntil,
-		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken)
+		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken, nil)
 
 	return s.makeSetAttributeResponse(err)
 }
@@ -1006,7 +1006,7 @@ func (s *Server) SetAttributeV2(ctx context.Context, req *protocontainer.SetAttr
 	defer cancel()
 
 	err = s.contract.SetAttribute(ctx, id, reqBody.Attribute, reqBody.Value, reqMetaHeader.ValidUntilTime,
-		req.GetVerifyHeader().GetRequestSignature().GetKey(), req.GetVerifyHeader().GetRequestSignature().GetSign(), tokenBytes)
+		req.GetVerifyHeader().GetRequestSignature().GetKey(), req.GetVerifyHeader().GetRequestSignature().GetSign(), tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 
 	return s.makeSetAttributeV2Response(err)
 }
@@ -1052,7 +1052,7 @@ func (s *Server) RemoveAttributeV2(ctx context.Context, req *protocontainer.Remo
 	defer cancel()
 
 	err = s.contract.RemoveAttribute(ctx, id, reqBody.Attribute, reqMetaHeader.ValidUntilTime,
-		req.GetVerifyHeader().GetRequestSignature().GetKey(), req.GetVerifyHeader().GetRequestSignature().GetSign(), tokenBytes)
+		req.GetVerifyHeader().GetRequestSignature().GetKey(), req.GetVerifyHeader().GetRequestSignature().GetSign(), tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 
 	return s.makeRemoveAttributeV2Response(err)
 }
@@ -1127,7 +1127,7 @@ func (s *Server) RemoveAttribute(ctx context.Context, req *protocontainer.Remove
 	defer cancel()
 
 	err = s.contract.RemoveAttribute(ctx, id, req.Body.Parameters.Attribute, req.Body.Parameters.ValidUntil,
-		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken)
+		req.Body.Signature.Key, req.Body.Signature.Sign, sessionToken, nil)
 
 	return s.makeRemoveAttributeResponse(err)
 }

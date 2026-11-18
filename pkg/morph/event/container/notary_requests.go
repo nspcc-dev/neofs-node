@@ -325,18 +325,54 @@ type SetAttributeRequest struct {
 	InvocationScript   []byte
 	VerificationScript []byte
 	SessionToken       []byte
+
+	OriginalRequest []byte
 }
 
 // RestoreSetAttributeRequest restores [SetAttributeRequest] from the notary
 // one.
 func RestoreSetAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error) {
-	const argNum = 7
-	args, err := event.GetArgs(notaryReq, argNum)
-	if err != nil {
-		return nil, err
-	}
+	const (
+		argNumNoOrigReq   = 7
+		argNumWithOrigReq = 4
+	)
 
-	var res SetAttributeRequest
+	var (
+		res  SetAttributeRequest
+		args []scparser.PushedItem
+		err  error
+	)
+	switch argNum := len(notaryReq.Params()); argNum {
+	case argNumNoOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumNoOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.ValidUntil, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetInt64FromInstr); err != nil {
+			return nil, err
+		}
+		if res.InvocationScript, err = event.GetValueFromArg(args, 4, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.VerificationScript, err = event.GetValueFromArg(args, 5, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.SessionToken, err = event.GetValueFromArg(args, 6, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	case argNumWithOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumWithOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.OriginalRequest, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("wrong parameter count for %s call: expected %d or %d, has %d", notaryReq.Type(), argNumNoOrigReq, argNumWithOrigReq, argNum)
+	}
 
 	if res.ID, err = event.GetValueFromArg(args, 0, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
@@ -345,18 +381,6 @@ func RestoreSetAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error
 		return nil, err
 	}
 	if res.Value, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetStringFromInstr); err != nil {
-		return nil, err
-	}
-	if res.ValidUntil, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetInt64FromInstr); err != nil {
-		return nil, err
-	}
-	if res.InvocationScript, err = event.GetValueFromArg(args, 4, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.VerificationScript, err = event.GetValueFromArg(args, 5, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.SessionToken, err = event.GetValueFromArg(args, 6, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 
@@ -377,35 +401,59 @@ type RemoveAttributeRequest struct {
 	InvocationScript   []byte
 	VerificationScript []byte
 	SessionToken       []byte
+
+	OriginalRequest []byte
 }
 
 // RestoreRemoveAttributeRequest restores [RemoveAttributeRequest] from the
 // notary one.
 func RestoreRemoveAttributeRequest(notaryReq event.NotaryEvent) (event.Event, error) {
-	const argNum = 6
-	args, err := event.GetArgs(notaryReq, argNum)
-	if err != nil {
-		return nil, err
-	}
+	const (
+		argNumNoOrigReq   = 6
+		argNumWithOrigReq = 3
+	)
 
-	var res RemoveAttributeRequest
+	var (
+		res  RemoveAttributeRequest
+		args []scparser.PushedItem
+		err  error
+	)
+	switch argNum := len(notaryReq.Params()); argNum {
+	case argNumNoOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumNoOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.ValidUntil, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetInt64FromInstr); err != nil {
+			return nil, err
+		}
+		if res.InvocationScript, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.VerificationScript, err = event.GetValueFromArg(args, 4, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+		if res.SessionToken, err = event.GetValueFromArg(args, 5, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	case argNumWithOrigReq:
+		args, err = event.GetArgs(notaryReq, argNumWithOrigReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.OriginalRequest, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("wrong parameter count for %s call: expected %d or %d, has %d", notaryReq.Type(), argNumNoOrigReq, argNumWithOrigReq, argNum)
+	}
 
 	if res.ID, err = event.GetValueFromArg(args, 0, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 	if res.Attribute, err = event.GetValueFromArg(args, 1, notaryReq.Type().String(), scparser.GetStringFromInstr); err != nil {
-		return nil, err
-	}
-	if res.ValidUntil, err = event.GetValueFromArg(args, 2, notaryReq.Type().String(), scparser.GetInt64FromInstr); err != nil {
-		return nil, err
-	}
-	if res.InvocationScript, err = event.GetValueFromArg(args, 3, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.VerificationScript, err = event.GetValueFromArg(args, 4, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
-		return nil, err
-	}
-	if res.SessionToken, err = event.GetValueFromArg(args, 5, notaryReq.Type().String(), scparser.GetBytesFromInstr); err != nil {
 		return nil, err
 	}
 
