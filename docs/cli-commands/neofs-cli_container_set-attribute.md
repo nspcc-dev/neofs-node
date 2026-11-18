@@ -13,18 +13,19 @@ neofs-cli container set-attribute [flags]
 ### Options
 
 ```
-      --address string        Address of wallet account
-      --attribute string      attribute to be set
-      --cid string            Container ID.
-  -g, --generate-key          Generate new private key
-  -h, --help                  help for set-attribute
-  -r, --rpc-endpoint string   Remote node address
-      --session string        Filepath to a JSON- or binary-encoded token of the container SETATTRIBUTE session
-  -t, --timeout duration      Timeout for the operation (default 15s)
-      --ttl uint32            TTL value in request meta header (default 2)
-      --valid-for duration    request validity duration (default 1m0s)
-      --value string          value for the attribute
-  -w, --wallet string         Path to the wallet
+      --address string            Address of wallet account
+      --attribute string          attribute to be set
+      --cid string                Container ID.
+      --container-revision uint   Specify a certain positive container revision number
+  -g, --generate-key              Generate new private key
+  -h, --help                      help for set-attribute
+  -r, --rpc-endpoint string       Remote node address
+      --session string            Filepath to a JSON- or binary-encoded token of the container SETATTRIBUTE session
+  -t, --timeout duration          Timeout for the operation (default 15s)
+      --ttl uint32                TTL value in request meta header (default 2)
+      --valid-for duration        request validity duration (default 1m0s)
+      --value string              value for the attribute
+  -w, --wallet string             Path to the wallet
 ```
 
 ### Options inherited from parent commands

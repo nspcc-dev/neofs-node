@@ -163,22 +163,9 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			setEACLPrm client.PrmContainerSetEACL
 			cnrRev     uint64
 		)
-		if cmd.Flags().Changed(commonflags.ContainerRevisionFlag) {
-			cnrRev, _ = cmd.Flags().GetUint64(commonflags.ContainerRevisionFlag)
-			if cnrRev == 0 {
-				return errors.New("container revision must be positive")
-			}
-		} else {
-			common.PrintVerbose(cmd, commonflags.ContainerRevisionFlag+" flag is not set, using latest container revision...")
-			if cnrCached != nil {
-				cnrRev = cnrCached.Revision()
-			} else {
-				cnrRev, err = getLatestContainerRevision(ctx, cli, id)
-				if err != nil {
-					return fmt.Errorf("get latest container revision: %w", err)
-				}
-			}
-			common.PrintVerbose(cmd, "latest container revision from the network: %d", cnrRev)
+		cnrRev, err = fetchContainerRevision(ctx, cmd, cli, id, cnrCached)
+		if err != nil {
+			return fmt.Errorf("fetching container revision: %w", err)
 		}
 		setEACLPrm.AttachContainerRevision(cnrRev)
 		if tokAny != nil {
