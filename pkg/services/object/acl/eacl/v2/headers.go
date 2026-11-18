@@ -17,6 +17,11 @@ type Option func(*cfg)
 
 type binaryHeader []byte
 
+type decodedHeader struct {
+	obj *object.Object
+	req requestXHeaderSource
+}
+
 type cfg struct {
 	ctx          context.Context
 	storage      ObjectStorage
@@ -94,6 +99,8 @@ func (h *headerSource) HeaderValue(typ eacl.FilterHeaderType, key string) ([]byt
 			value, found = msg.headerValue(key)
 		case responseXHeaderSource:
 			value, found = msg.req.headerValue(key)
+		case decodedHeader:
+			value, found = msg.req.headerValue(key)
 		}
 	case eacl.HeaderFromObject:
 		if msg, ok := h.cfg.msg.(binaryHeader); ok {
@@ -124,6 +131,8 @@ func (h *cfg) readObjectHeader(dst *headerSource) error {
 	switch m := h.msg.(type) {
 	default:
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
+	case decodedHeader:
+		dst.obj = m.obj
 	case requestXHeaderSource:
 		switch req := m.req.(type) {
 		case

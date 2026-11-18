@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -169,6 +170,9 @@ func (c *Checker) CheckEACL(ctx context.Context, msg any, cnr cid.ID, obj oid.ID
 		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
 	} else if b, ok := msg.([]byte); ok {
 		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithObjectHeaderBinary(b))
+	} else if hdr, ok := msg.(*object.Object); ok {
+		req, _ := reqInfo.SrcRequest.(eaclV2.Request)
+		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithObjectHeader(hdr, req))
 	} else {
 		hdrSrcOpts = append(hdrSrcOpts,
 			eaclV2.WithServiceResponse(

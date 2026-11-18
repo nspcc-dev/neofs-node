@@ -982,18 +982,7 @@ func (s *getStream) ValidateHeader(hdr *object.Object) error {
 		return nil
 	}
 
-	mo := hdr.ProtoMessage()
-	resp := &protoobject.GetResponse{
-		Body: &protoobject.GetResponse_Body{
-			ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
-				ObjectId:  mo.ObjectId,
-				Signature: mo.Signature,
-				Header:    mo.Header,
-			}},
-		},
-	}
-
-	err := s.srv.aclChecker.CheckEACL(s.base.Context(), resp, s.reqCID, s.reqOID, s.reqInfo)
+	err := s.srv.aclChecker.CheckEACL(s.base.Context(), hdr, s.reqCID, s.reqOID, s.reqInfo)
 	if err != nil && !errors.Is(err, aclsvc.ErrNotMatched) { // Not matched -> follow basic ACL.
 		return eACLErr(s.reqInfo, err)
 	}

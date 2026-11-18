@@ -15,7 +15,7 @@ Changelog for NeoFS Node
 - User-defined object attributes could impersonate system properties in eACL filters (#4341)
 
 ### Changed
-- Reduced allocations in eACL header lookups (#4341)
+- Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
 
 ### Removed
 
