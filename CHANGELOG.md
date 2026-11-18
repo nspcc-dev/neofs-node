@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Meta service fetched object headers one at a time, so a slow peer delayed indexing of every object queued behind it (#4284)
 
 ### Changed
+- CI workflow calling the system tests no longer requests `write-all` permissions nor inherits all repository secrets (#4285)
 
 ### Removed
 
