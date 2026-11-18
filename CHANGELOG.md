@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - CLI `session create-v2` silently ignored object IDs in `--context`, producing a container-wide token (#4344)
 - User attributes with `$Object:` keys could override system object properties in the metabase, affecting SEARCH results and object status (#4339)
 - Missing delegation chain validation for v2 session tokens embedded in objects (#4347)
+- Storage node could return a wrong EC part for rules with 11 or more parts (#4325)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
