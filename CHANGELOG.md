@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Incorrect eACL `NOT_PRESENT` matching for SEARCH and DELETE (#4302)
 - Shard `payload_size` and `gc` object counter metrics drifting negative on long-running nodes (#4308)
 - IR may deadlock New Epoch event handling if restarted at a bad time (#4274)
+- Meta service fetched object headers one at a time, so a slow peer delayed indexing of every object queued behind it (#4284)
 
 ### Changed
 
