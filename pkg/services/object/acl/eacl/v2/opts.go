@@ -51,6 +51,8 @@ func WithServiceResponse(resp Response, req Request) Option {
 	}
 }
 
+// WithObjectHeaderBinary uses b as the object header. The caller must not modify b
+// while the header source is in use.
 func WithObjectHeaderBinary(b []byte) Option {
 	return func(c *cfg) {
 		c.msg = binaryHeader(b)

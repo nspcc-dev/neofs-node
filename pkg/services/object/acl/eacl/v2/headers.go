@@ -11,7 +11,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type Option func(*cfg)
@@ -48,11 +47,14 @@ type Response interface {
 }
 
 type headerSource struct {
-	cfg            cfg
-	requestHeaders []eacl.Header
-	objectHeaders  []eacl.Header
+	cfg cfg
 
-	incompleteObjectHeaders bool
+	obj         *object.Object
+	loaded      bool
+	binaryValid bool
+	addressOnly bool
+	loadErr     error
+	scratch     []byte
 }
 
 func defaultCfg() *cfg {
@@ -80,65 +82,60 @@ func NewMessageHeaderSource(opts ...Option) (eacl.TypedHeaderSource, error) {
 	return res, nil
 }
 
-func (h *headerSource) HeadersOfType(typ eacl.FilterHeaderType) ([]eacl.Header, bool, error) {
+func (h *headerSource) HeaderValue(typ eacl.FilterHeaderType, key string) ([]byte, error) {
+	var value string
+	var found bool
 	switch typ {
-	default:
-		return nil, true, nil
+	case eacl.HeaderTypeUnspecified, eacl.HeaderFromService:
+		return nil, nil
 	case eacl.HeaderFromRequest:
-		if h.requestHeaders == nil {
-			if x, ok := h.cfg.msg.(xHeaderSource); ok {
-				h.requestHeaders = requestHeaders(x)
-			}
+		switch msg := h.cfg.msg.(type) {
+		case requestXHeaderSource:
+			value, found = msg.headerValue(key)
+		case responseXHeaderSource:
+			value, found = msg.req.headerValue(key)
 		}
-		return h.requestHeaders, true, nil
 	case eacl.HeaderFromObject:
-		if h.objectHeaders == nil {
-			err := h.cfg.readObjectHeaders(h)
-			if err != nil {
-				return nil, false, err
-			}
+		if msg, ok := h.cfg.msg.(binaryHeader); ok {
+			value, err := lookupBinaryObjectHeader(msg, h.cfg.cnr, h.cfg.obj, key, !h.binaryValid)
+			h.binaryValid = err == nil
+			return value, err
 		}
-		return h.objectHeaders, !h.incompleteObjectHeaders, nil
+		if !h.loaded {
+			h.loadErr = h.cfg.readObjectHeader(h)
+			h.loaded = true
+		}
+		if h.loadErr != nil {
+			return nil, h.loadErr
+		}
+		value, found = lookupObjectHeader(h.obj, h.cfg.cnr, h.cfg.obj, h.addressOnly, key)
 	}
+	if !found {
+		return nil, nil
+	}
+	if value == "" {
+		return []byte{}, nil
+	}
+	h.scratch = append(h.scratch[:0], value...)
+	return h.scratch, nil
 }
 
-type xHeader [2]string
-
-func (x xHeader) Key() string {
-	return x[0]
-}
-
-func (x xHeader) Value() string {
-	return x[1]
-}
-
-func requestHeaders(msg xHeaderSource) []eacl.Header {
-	return msg.GetXHeaders()
-}
-
-func (h *cfg) readObjectHeaders(dst *headerSource) error {
+func (h *cfg) readObjectHeader(dst *headerSource) error {
 	switch m := h.msg.(type) {
 	default:
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
-	case binaryHeader:
-		var err error
-		dst.objectHeaders, err = headersFromBinaryObjectHeader(m, h.cnr, h.obj)
-		if err != nil {
-			return err
-		}
 	case requestXHeaderSource:
 		switch req := m.req.(type) {
 		case
 			*protoobject.GetRequest,
 			*protoobject.HeadRequest:
-			objHeaders, completed := h.localObjectHeaders(h.cnr, h.obj)
-
-			dst.objectHeaders = objHeaders
-			dst.incompleteObjectHeaders = !completed
+			var err error
+			dst.obj, err = h.localObject()
+			return err
 		case
 			*protoobject.DeleteRequest,
 			*protoobject.SearchV2Request:
-			dst.objectHeaders = addressHeaders(h.cnr, h.obj)
+			dst.addressOnly = true
 		case *protoobject.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*protoobject.PutRequest_Body_Init_); ok {
 				if v == nil || v.Init == nil {
@@ -159,7 +156,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					if err != nil {
 						return err
 					}
-					dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
+					dst.obj = &obj
 
 					break
 				}
@@ -179,7 +176,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					if err != nil {
 						return err
 					}
-					dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
+					dst.obj = &obj
 				} else {
 					// middle object, parent header should
 					// be received via the first object
@@ -200,7 +197,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 							return fmt.Errorf("fetching first object header: %w", err)
 						}
 
-						dst.objectHeaders = headersFromObject(firstObject.Parent(), h.cnr, h.obj)
+						dst.obj = firstObject.Parent()
 					}
 
 					// first object not defined, unexpected, do not attach any header
@@ -210,10 +207,9 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	case responseXHeaderSource:
 		switch resp := m.resp.(type) {
 		default:
-			objectHeaders, completed := h.localObjectHeaders(h.cnr, h.obj)
-
-			dst.objectHeaders = objectHeaders
-			dst.incompleteObjectHeaders = !completed
+			var err error
+			dst.obj, err = h.localObject()
+			return err
 		case *protoobject.GetResponse:
 			if v, ok := resp.GetBody().GetObjectPart().(*protoobject.GetResponse_Body_Init_); ok {
 				if v == nil || v.Init == nil {
@@ -229,7 +225,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 				if err != nil {
 					return err
 				}
-				dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
+				dst.obj = &obj
 			}
 		case *protoobject.HeadResponse:
 			var hdr *protoobject.Header
@@ -267,56 +263,19 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			if err != nil {
 				return err
 			}
-			dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
+			dst.obj = &obj
 		}
 	}
 
 	return nil
 }
 
-func (h *cfg) localObjectHeaders(cnr cid.ID, idObj oid.ID) ([]eacl.Header, bool) {
-	if !idObj.IsZero() {
-		var addr oid.Address
-		addr.SetContainer(cnr)
-		addr.SetObject(idObj)
-
-		obj, err := h.storage.Head(h.ctx, addr)
+func (h *cfg) localObject() (*object.Object, error) {
+	if !h.obj.IsZero() {
+		obj, err := h.storage.Head(h.ctx, oid.NewAddress(h.cnr, h.obj))
 		if err == nil {
-			return headersFromObject(obj, cnr, idObj), true
+			return obj, nil
 		}
 	}
-
-	return addressHeaders(cnr, idObj), false
-}
-
-func cidHeader(idCnr cid.ID) sysObjHdr {
-	return sysObjHdr{
-		k: eacl.FilterObjectContainerID,
-		v: idCnr.EncodeToString(),
-	}
-}
-
-func oidHeader(obj oid.ID) sysObjHdr {
-	return sysObjHdr{
-		k: eacl.FilterObjectID,
-		v: obj.EncodeToString(),
-	}
-}
-
-func ownerIDHeader(ownerID user.ID) sysObjHdr {
-	return sysObjHdr{
-		k: eacl.FilterObjectOwnerID,
-		v: ownerID.EncodeToString(),
-	}
-}
-
-func addressHeaders(cnr cid.ID, oid oid.ID) []eacl.Header {
-	hh := make([]eacl.Header, 0, 2)
-	hh = append(hh, cidHeader(cnr))
-
-	if !oid.IsZero() {
-		hh = append(hh, oidHeader(oid))
-	}
-
-	return hh
+	return nil, eacl.ErrHeaderUnavailable
 }

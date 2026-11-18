@@ -3,6 +3,7 @@ package v2
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/mr-tron/base58"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -12,107 +13,86 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
-type sysObjHdr struct {
-	k, v string
-}
+// reservedAttributePrefix separates system object properties from user attributes.
+const reservedAttributePrefix = "$Object:"
 
-func (s sysObjHdr) Key() string {
-	return s.k
-}
-
-func (s sysObjHdr) Value() string {
-	return s.v
-}
-
-func u64Value(v uint64) string {
-	return strconv.FormatUint(v, 10)
-}
-
-func headersFromObject(obj *object.Object, cnr cid.ID, oid oid.ID) []eacl.Header {
-	var count int
-	for obj := obj; obj != nil; obj = obj.Parent() {
-		count += 10 + len(obj.Attributes())
+func lookupObjectHeader(obj *object.Object, cnr cid.ID, id oid.ID, addressOnly bool, key string) (string, bool) {
+	if obj != nil || addressOnly {
+		switch key {
+		case eacl.FilterObjectContainerID:
+			return cnr.EncodeToString(), true
+		case eacl.FilterObjectID:
+			if !id.IsZero() {
+				return id.EncodeToString(), true
+			}
+			return "", false
+		}
 	}
 
-	res := make([]eacl.Header, 0, count)
-	for ; obj != nil; obj = obj.Parent() {
-		var ver = obj.Version()
-		if ver == nil {
-			ver = &version.Version{}
+	if strings.HasPrefix(key, reservedAttributePrefix) {
+		for ; obj != nil; obj = obj.Parent() {
+			if value, ok := systemObjectHeader(obj, key); ok {
+				return value, true
+			}
 		}
-		res = append(res,
-			cidHeader(cnr),
-			// creation epoch
-			sysObjHdr{
-				k: eacl.FilterObjectCreationEpoch,
-				v: u64Value(obj.CreationEpoch()),
-			},
-			// payload size
-			sysObjHdr{
-				k: eacl.FilterObjectPayloadSize,
-				v: u64Value(obj.PayloadSize()),
-			},
-			// object version
-			sysObjHdr{
-				k: eacl.FilterObjectVersion,
-				v: ver.String(),
-			},
-			// object type
-			sysObjHdr{
-				k: eacl.FilterObjectType,
-				v: obj.Type().String(),
-			},
-		)
+	} else {
+		for ; obj != nil; obj = obj.Parent() {
+			for _, attr := range obj.Attributes() {
+				if attr.Key() == key {
+					return attr.Value(), true
+				}
+			}
+		}
+	}
+	return "", false
+}
 
+func systemObjectHeader(obj *object.Object, key string) (string, bool) {
+	switch key {
+	case eacl.FilterObjectCreationEpoch:
+		return strconv.FormatUint(obj.CreationEpoch(), 10), true
+	case eacl.FilterObjectPayloadSize:
+		return strconv.FormatUint(obj.PayloadSize(), 10), true
+	case eacl.FilterObjectVersion:
+		if ver := obj.Version(); ver != nil {
+			return ver.String(), true
+		}
+		return "v0.0", true
+	case eacl.FilterObjectType:
+		return obj.Type().String(), true
+	case object.FilterExpirationTime:
 		if expiration := obj.ExpirationTime(); !expiration.IsZero() {
-			res = append(res, sysObjHdr{
-				k: object.FilterExpirationTime,
-				v: strconv.FormatInt(expiration.Unix(), 10),
-			})
+			return strconv.FormatInt(expiration.Unix(), 10), true
 		}
-
-		if !oid.IsZero() {
-			res = append(res, oidHeader(oid))
+	case eacl.FilterObjectOwnerID:
+		if owner := obj.Owner(); !owner.IsZero() {
+			return owner.EncodeToString(), true
 		}
-
-		if idOwner := obj.Owner(); !idOwner.IsZero() {
-			res = append(res, ownerIDHeader(idOwner))
+	case eacl.FilterObjectPayloadChecksum:
+		if cs, ok := obj.PayloadChecksum(); ok {
+			return cs.String(), true
 		}
-
-		cs, ok := obj.PayloadChecksum()
-		if ok {
-			res = append(res, sysObjHdr{
-				k: eacl.FilterObjectPayloadChecksum,
-				v: cs.String(),
-			})
-		}
-
+	case eacl.FilterObjectPayloadHomomorphicChecksum:
 		//nolint:staticcheck // if we store old objects with it, we should support old eACL rules
-		cs, ok = obj.PayloadHomomorphicHash()
-		if ok {
-			res = append(res, sysObjHdr{
-				k: eacl.FilterObjectPayloadHomomorphicChecksum,
-				v: cs.String(),
-			})
-		}
-
-		attrs := obj.Attributes()
-		for i := range attrs {
-			res = append(res, &attrs[i]) // only pointer attrs can implement eacl.Header interface
+		if cs, ok := obj.PayloadHomomorphicHash(); ok {
+			return cs.String(), true
 		}
 	}
-
-	return res
+	return "", false
 }
 
-func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.Header, error) {
+// lookupBinaryObjectHeader prefers the current header over its split parent.
+// The first lookup validates the whole header, including any split parents.
+func lookupBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID, key string, validate bool) ([]byte, error) {
 	var ver version.Version
 	var creationEpoch uint64
 	var payloadLen uint64
 	var objTyp object.Type
-	res := make([]eacl.Header, 0, 10)
+	var value, parentValue []byte
+	system := strings.HasPrefix(key, reservedAttributePrefix)
 
 	var off int
 	for {
@@ -143,7 +123,9 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 			}
 			off += n
 
-			res = append(res, sysObjHdr{k: eacl.FilterObjectOwnerID, v: base58.Encode(owner)})
+			if value == nil && key == eacl.FilterObjectOwnerID {
+				value = []byte(base58.Encode(owner))
+			}
 		case protoobject.FieldHeaderCreationEpoch:
 			creationEpoch, n, err = iprotobuf.ParseUint64Field(buf[off:], num, typ)
 			if err != nil {
@@ -163,7 +145,9 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 			}
 			off += n
 
-			res = append(res, sysObjHdr{k: eacl.FilterObjectPayloadChecksum, v: cs.String()})
+			if value == nil && key == eacl.FilterObjectPayloadChecksum {
+				value = []byte(cs.String())
+			}
 		case protoobject.FieldHeaderObjectType:
 			objTyp, n, err = iprotobuf.ParseEnumField[object.Type](buf[off:], num, typ)
 			if err != nil {
@@ -178,7 +162,9 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 			off += n
 
 			//nolint:staticcheck // if we store old objects with it, we should support old eACL rules
-			res = append(res, sysObjHdr{k: eacl.FilterObjectPayloadHomomorphicChecksum, v: cs.String()})
+			if value == nil && key == eacl.FilterObjectPayloadHomomorphicChecksum {
+				value = []byte(cs.String())
+			}
 		case protoobject.FieldHeaderSessionToken:
 			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
 			if err != nil {
@@ -186,13 +172,28 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 			}
 			off += n + ln
 		case protoobject.FieldHeaderAttributes:
+			if !validate {
+				attr, n := protowire.ConsumeBytes(buf[off:])
+				off += n
+				if !system {
+					if v := lookupValidatedAttribute(attr, key); v != nil {
+						return v, nil
+					}
+				}
+				break
+			}
 			k, v, n, err := iprotobuf.ParseAttribute(buf[off:], num, typ)
 			if err != nil {
 				return nil, err
 			}
 			off += n
 
-			res = append(res, sysObjHdr{k: string(k), v: string(v)})
+			if value == nil && !system && string(k) == key {
+				value = v
+				if value == nil {
+					value = []byte{}
+				}
+			}
 		case protoobject.FieldHeaderSplit:
 			ln, n, err := iprotobuf.ParseLENField(buf[off:], num, typ)
 			if err != nil {
@@ -206,12 +207,13 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 			}
 
 			if !parHdrf.IsMissing() {
-				parRes, err := headersFromBinaryObjectHeader(buf[off:][parHdrf.ValueFrom:parHdrf.To], cnr, id)
+				v, err := lookupBinaryObjectHeader(buf[off:][parHdrf.ValueFrom:parHdrf.To], cnr, id, key, validate)
 				if err != nil {
 					return nil, fmt.Errorf("invalid split header field: %w", err)
 				}
-
-				res = append(res, parRes...)
+				if parentValue == nil {
+					parentValue = v
+				}
 			}
 
 			off += ln
@@ -227,7 +229,9 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 				return nil, err
 			}
 			off += n
-			res = append(res, sysObjHdr{k: object.FilterExpirationTime, v: u64Value(expiration)})
+			if value == nil && key == object.FilterExpirationTime {
+				value = strconv.AppendUint(nil, expiration, 10)
+			}
 		default:
 			return nil, iprotobuf.NewUnsupportedFieldError(num, typ)
 		}
@@ -237,17 +241,51 @@ func headersFromBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID) ([]eacl.He
 		}
 	}
 
-	res = append(res,
-		sysObjHdr{k: eacl.FilterObjectCreationEpoch, v: u64Value(creationEpoch)},
-		sysObjHdr{k: eacl.FilterObjectPayloadSize, v: u64Value(payloadLen)},
-		sysObjHdr{k: eacl.FilterObjectVersion, v: ver.String()},
-		sysObjHdr{k: eacl.FilterObjectType, v: objTyp.String()},
-		cidHeader(cnr),
-	)
-
-	if !id.IsZero() {
-		res = append(res, oidHeader(id))
+	if value != nil {
+		return value, nil
 	}
+	switch key {
+	case eacl.FilterObjectCreationEpoch:
+		return strconv.AppendUint(nil, creationEpoch, 10), nil
+	case eacl.FilterObjectPayloadSize:
+		return strconv.AppendUint(nil, payloadLen, 10), nil
+	case eacl.FilterObjectVersion:
+		return []byte(ver.String()), nil
+	case eacl.FilterObjectType:
+		return []byte(objTyp.String()), nil
+	case eacl.FilterObjectContainerID:
+		return []byte(cnr.EncodeToString()), nil
+	case eacl.FilterObjectID:
+		if !id.IsZero() {
+			return []byte(id.EncodeToString()), nil
+		}
+	}
+	return parentValue, nil
+}
 
-	return res, nil
+// lookupValidatedAttribute relies on ParseAttribute having checked field order,
+// types and lengths. It only reads the value if the key matches.
+func lookupValidatedAttribute(buf []byte, key string) []byte {
+	if len(buf) == 0 {
+		if key == "" {
+			return []byte{}
+		}
+		return nil
+	}
+	num, _, n := protowire.ConsumeTag(buf)
+	if num == protoobject.FieldAttributeKey {
+		k, size := protowire.ConsumeBytes(buf[n:])
+		if string(k) != key {
+			return nil
+		}
+		buf = buf[n+size:]
+		if len(buf) == 0 {
+			return []byte{}
+		}
+		_, _, n = protowire.ConsumeTag(buf)
+	} else if key != "" {
+		return nil
+	}
+	v, _ := protowire.ConsumeBytes(buf[n:])
+	return v
 }

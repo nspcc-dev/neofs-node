@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -266,6 +268,27 @@ func TestV2Split(t *testing.T) {
 	})
 }
 
+func marshalObjectHeader(hdr *protoobject.Header) []byte {
+	buf := make([]byte, hdr.MarshaledSize())
+	hdr.MarshalStable(buf)
+	return buf
+}
+
+func objectHeaderOptions(hdr *protoobject.Header) []struct {
+	name string
+	opt  Option
+} {
+	return []struct {
+		name string
+		opt  Option
+	}{
+		{"binary", WithObjectHeaderBinary(marshalObjectHeader(hdr))},
+		{"decoded", WithServiceResponse(&protoobject.HeadResponse{Body: &protoobject.HeadResponse_Body{
+			Head: &protoobject.HeadResponse_Body_Header{Header: &protoobject.HeaderWithSignature{Header: hdr}},
+		}}, nil)},
+	}
+}
+
 func TestExpirationTimeRule(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -284,22 +307,7 @@ func TestExpirationTimeRule(t *testing.T) {
 			if !tc.expiration.IsZero() {
 				require.NoError(t, obj.SetExpirationTime(tc.expiration))
 			}
-			hdr := obj.ProtoMessage().Header
-			buf := make([]byte, hdr.MarshaledSize())
-			hdr.MarshalStable(buf)
-			for _, source := range []struct {
-				name string
-				opt  Option
-			}{
-				{"binary", WithObjectHeaderBinary(buf)},
-				{"object", WithServiceResponse(&protoobject.HeadResponse{
-					Body: &protoobject.HeadResponse_Body{
-						Head: &protoobject.HeadResponse_Body_Header{
-							Header: &protoobject.HeaderWithSignature{Header: hdr},
-						},
-					},
-				}, nil)},
-			} {
+			for _, source := range objectHeaderOptions(obj.ProtoMessage().Header) {
 				t.Run(source.name, func(t *testing.T) {
 					src, err := NewMessageHeaderSource(source.opt)
 					require.NoError(t, err)
@@ -321,7 +329,87 @@ func TestExpirationTimeRule(t *testing.T) {
 	}
 }
 
+type countingRequest struct {
+	metaCalls int
+}
+
+func (r *countingRequest) GetMetaHeader() *protosession.RequestMetaHeader {
+	r.metaCalls++
+	return &protosession.RequestMetaHeader{XHeaders: []*protosession.XHeader{{Key: "empty"}}}
+}
+
+func TestReservedObjectHeaderLookup(t *testing.T) {
+	for _, withParent := range []bool{false, true} {
+		name := "object"
+		if withParent {
+			name = "parent"
+		}
+		t.Run(name, func(t *testing.T) {
+			attrs := []object.Attribute{
+				object.NewAttribute(eacl.FilterObjectCreationEpoch, "999"),
+				object.NewAttribute(object.FilterExpirationTime, "999"),
+				object.NewAttribute("$Object:unknown", "forged"),
+				object.NewAttribute("ordinary", "found"),
+			}
+			var obj object.Object
+			obj.SetCreationEpoch(1)
+			if withParent {
+				var parent object.Object
+				parent.SetCreationEpoch(1)
+				parent.SetAttributes(attrs...)
+				obj.SetParent(&parent)
+			} else {
+				obj.SetAttributes(attrs...)
+			}
+			for _, source := range objectHeaderOptions(obj.ProtoMessage().Header) {
+				src, err := NewMessageHeaderSource(source.opt)
+				require.NoError(t, err)
+				for _, kv := range []struct {
+					key   string
+					value []byte
+				}{
+					{eacl.FilterObjectCreationEpoch, []byte("1")},
+					{object.FilterExpirationTime, nil},
+					{"$Object:unknown", nil},
+					{"ordinary", []byte("found")},
+				} {
+					value, err := src.HeaderValue(eacl.HeaderFromObject, kv.key)
+					require.NoError(t, err)
+					require.Equal(t, kv.value, value, kv.key)
+				}
+			}
+		})
+	}
+}
+
 func TestObjectHeaders(t *testing.T) {
+	t.Run("request headers are read only on request lookup", func(t *testing.T) {
+		req := new(countingRequest)
+		src, err := NewMessageHeaderSource(WithServiceResponse(new(protoobject.HeadResponse), req))
+		require.NoError(t, err)
+		_, err = src.HeaderValue(eacl.HeaderFromObject, eacl.FilterObjectContainerID)
+		require.NoError(t, err)
+		require.Zero(t, req.metaCalls)
+
+		value, err := src.HeaderValue(eacl.HeaderFromRequest, "empty")
+		require.NoError(t, err)
+		require.Equal(t, []byte{}, value)
+		require.Equal(t, 1, req.metaCalls)
+	})
+
+	t.Run("binary rejects trailing data after match", func(t *testing.T) {
+		var obj object.Object
+		obj.SetAttributes(object.NewAttribute("key", "value"))
+		buf := marshalObjectHeader(obj.ProtoMessage().Header)
+		src, err := NewMessageHeaderSource(WithObjectHeaderBinary(append(buf, 0x80))) // truncated tag
+		require.NoError(t, err)
+		for range 2 {
+			value, err := src.HeaderValue(eacl.HeaderFromObject, "key")
+			require.Error(t, err)
+			require.Nil(t, value)
+		}
+	})
+
 	id := oid.ID{115, 0, 118, 16, 207, 179, 251, 24, 242, 80, 173, 62, 203, 159, 249, 96, 133, 158, 64, 52, 145, 73, 2, 217, 66, 141, 1, 240, 129, 44, 196, 30}
 	const idStr = "8jvJ15BTY16PQ4FVuPs2r8WVHQCdKGBuBt7m3AQCpyMF"
 	cnr := cid.ID{220, 109, 68, 96, 19, 33, 31, 137, 22, 248, 206, 34, 29, 21, 216, 65, 22, 28, 132, 248, 155, 146, 160, 16, 154, 143, 67, 147, 156, 117, 183, 82}
@@ -365,25 +453,33 @@ func TestObjectHeaders(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		hs, rdy, err := src.HeadersOfType(eacl.HeaderFromObject)
-		require.NoError(t, err)
-		require.True(t, rdy)
-
-		var res [][2]string
-		for i := range hs {
-			res = append(res, [2]string{hs[i].Key(), hs[i].Value()})
+		filters := make([]eacl.Filter, 0, len(exp))
+		for _, kv := range exp {
+			filters = append(filters, eacl.NewObjectPropertyFilter(kv[0], eacl.MatchStringEqual, kv[1]))
 		}
+		table := eacl.ConstructTable([]eacl.Record{eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationHead,
+			[]eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}, filters...)})
+		unit := new(eacl.ValidationUnit).WithRole(eacl.RoleOthers).WithOperation(eacl.OperationHead).WithEACLTable(&table).WithHeaderSource(src)
+		checkAction(t, eacl.ActionDeny, eacl.NewValidator(), unit)
 
-		require.ElementsMatch(t, exp, res)
+		for _, kv := range exp {
+			value, err := src.HeaderValue(eacl.HeaderFromObject, kv[0])
+			require.NoError(t, err)
+			require.Equal(t, []byte(kv[1]), value, kv[0])
+		}
+		value, err := src.HeaderValue(eacl.HeaderFromObject, "missing")
+		require.NoError(t, err)
+		require.Nil(t, value)
+		if id.IsZero() {
+			value, err := src.HeaderValue(eacl.HeaderFromObject, eacl.FilterObjectID)
+			require.NoError(t, err)
+			require.Nil(t, value)
+		}
 	}
 
 	testWithObject := func(t *testing.T, id oid.ID, obj object.Object, exp [][2]string) {
 		t.Run("binary", func(t *testing.T) {
-			msg := obj.ProtoMessage().Header
-			buf := make([]byte, msg.MarshaledSize())
-			msg.MarshalStable(buf)
-
-			testWithOption(t, id, exp, WithObjectHeaderBinary(buf))
+			testWithOption(t, id, exp, WithObjectHeaderBinary(marshalObjectHeader(obj.ProtoMessage().Header)))
 		})
 
 		testWithOption(t, id, exp, WithServiceResponse(newHeadResponse(obj), nil))
@@ -435,31 +531,42 @@ func TestObjectHeaders(t *testing.T) {
 		child.SetVersion(&ver)
 		child.SetType(object.TypeLock)
 		child.SetPayloadChecksum(childPayloadHash)
-		child.SetPayloadHomomorphicHash(childHomoHash) //nolint:staticcheck // this is a test and such objects are possible
+		child.SetAttributes(object.NewAttribute("foo", "child"))
 		child.SetParent(&obj)
+
+		checkParentHashRule := func(t *testing.T, want eacl.Action) {
+			table := eacl.ConstructTable([]eacl.Record{eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationHead,
+				[]eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)},
+				eacl.NewObjectPropertyFilter("$Object:homomorphicHash", eacl.MatchStringEqual, homoHashStr))})
+			for _, source := range objectHeaderOptions(child.ProtoMessage().Header) {
+				t.Run(source.name, func(t *testing.T) {
+					src, err := NewMessageHeaderSource(WithCID(cnr), WithOID(id), source.opt)
+					require.NoError(t, err)
+					unit := new(eacl.ValidationUnit).WithRole(eacl.RoleOthers).WithOperation(eacl.OperationHead).WithEACLTable(&table).WithHeaderSource(src)
+					checkAction(t, want, eacl.NewValidator(), unit)
+				})
+			}
+		}
+		t.Run("parent hash is used when child has none", func(t *testing.T) {
+			checkParentHashRule(t, eacl.ActionDeny)
+		})
+		child.SetPayloadHomomorphicHash(childHomoHash) //nolint:staticcheck // this is a test and such objects are possible
+		t.Run("child hash shadows parent hash", func(t *testing.T) {
+			checkParentHashRule(t, eacl.ActionAllow)
+		})
 
 		testWithObject(t, id, child, [][2]string{
 			{"$Object:objectID", idStr},
-			{"$Object:objectID", idStr}, // redundantly repeated
-			{"$Object:version", "v12.34"},
 			{"$Object:version", "v56.78"},
 			{"$Object:containerID", cnrStr},
-			{"$Object:containerID", cnrStr}, // redundantly repeated
-			{"$Object:ownerID", ownerStr},
 			{"$Object:ownerID", childOwnerStr},
-			{"$Object:creationEpoch", creationEpochStr},
 			{"$Object:creationEpoch", childCreationEpochStr},
-			{"$Object:expirationTime", "1099511627776"},
 			{"$Object:expirationTime", "1099511627777"},
-			{"$Object:payloadLength", payloadLenStr},
 			{"$Object:payloadLength", childPayloadLenStr},
-			{"$Object:objectType", "REGULAR"},
 			{"$Object:objectType", "LOCK"},
-			{"$Object:payloadHash", payloadHashStr},
 			{"$Object:payloadHash", childPayloadHashStr},
-			{"$Object:homomorphicHash", homoHashStr},
 			{"$Object:homomorphicHash", childHomoHashStr},
-			{"foo", "bar"},
+			{"foo", "child"},
 			{"hello", "world"},
 		})
 	})
@@ -478,4 +585,72 @@ func TestObjectHeaders(t *testing.T) {
 		{"foo", "bar"},
 		{"hello", "world"},
 	})
+}
+
+// BenchmarkHeaderFilters uses the validator API shared by both versions of the
+// header source, so the same benchmark can be run on the baseline revision.
+func BenchmarkHeaderFilters(b *testing.B) {
+	cnr, id := cidtest.ID(), oidtest.ID()
+	value := strings.Repeat("a", 64)
+	for _, count := range []int{8, 128} {
+		attrs := make([]object.Attribute, count)
+		for i := range attrs {
+			attrs[i] = object.NewAttribute(fmt.Sprintf("attr-%03d", i), value)
+		}
+		var obj object.Object
+		obj.SetCreationEpoch(123456789)
+		obj.SetAttributes(attrs...)
+		buf := marshalObjectHeader(obj.ProtoMessage().Header)
+		for _, src := range []struct {
+			name string
+			opt  Option
+		}{
+			{"binary", WithObjectHeaderBinary(buf)},
+			{"decoded", WithServiceRequest(new(protoobject.HeadRequest))},
+		} {
+			benchmark := func(b *testing.B, records []eacl.Record) {
+				table := eacl.ConstructTable(records)
+				unit := new(eacl.ValidationUnit).WithRole(eacl.RoleOthers).WithOperation(eacl.OperationHead).WithEACLTable(&table)
+				v := eacl.NewValidator()
+				opts := []Option{WithCID(cnr), WithOID(id), WithObjectStorage(&testHeaderSource{header: &obj}), src.opt}
+				h, err := NewMessageHeaderSource(opts...)
+				require.NoError(b, err)
+				action, final, err := v.CalculateAction(unit.WithHeaderSource(h))
+				require.NoError(b, err)
+				require.True(b, final)
+				require.Equal(b, eacl.ActionDeny, action)
+
+				b.ReportAllocs()
+				for b.Loop() {
+					h, err := NewMessageHeaderSource(opts...)
+					if err != nil {
+						b.Fatal(err)
+					}
+					if action, final, err := v.CalculateAction(unit.WithHeaderSource(h)); err != nil || !final || action != eacl.ActionDeny {
+						b.Fatalf("unexpected evaluation: %v, %v, %v", action, final, err)
+					}
+				}
+			}
+			targets := []eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}
+			for _, n := range []int{1, 4} {
+				b.Run(fmt.Sprintf("%s/attrs=%d/filters=%d", src.name, count, n), func(b *testing.B) {
+					filters := make([]eacl.Filter, n)
+					// Look near the end to include the cost of scanning attributes.
+					for i := range filters {
+						filters[i] = eacl.NewObjectPropertyFilter(attrs[count-1-i].Key(), eacl.MatchStringEqual, value)
+					}
+					benchmark(b, []eacl.Record{eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationHead, targets, filters...)})
+				})
+				b.Run(fmt.Sprintf("%s/attrs=%d/system=creationEpoch/records=%d", src.name, count, n), func(b *testing.B) {
+					records := make([]eacl.Record, n)
+					// Only the last record matches, forcing repeated lookups of the same key.
+					for i := range records {
+						filter := eacl.NewFilterObjectCreationEpochIs(eacl.MatchStringEqual, 123456789+uint64(n-1-i))
+						records[i] = eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationHead, targets, filter)
+					}
+					benchmark(b, records)
+				})
+			}
+		}
+	}
 }
