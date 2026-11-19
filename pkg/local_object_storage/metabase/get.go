@@ -22,9 +22,10 @@ import (
 )
 
 // Get returns partial object header data for specified address (as stored in
-// metabase). This header contains all user-defined attributes and mandatory
+// metabase). This header contains user-defined attributes and mandatory
 // header fields that can be used as search filters like size, checksum and
-// owner. It does not contain parent header or session token.
+// owner. It does not contain parent header, session token and attributes with
+// `$Object:` keys.
 //
 // "raw" flag controls virtual object processing, when false (default) a
 // proper object header is returned, when true only SplitInfo of virtual

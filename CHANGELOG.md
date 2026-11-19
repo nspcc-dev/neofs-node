@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - User-defined object attributes could impersonate system properties in eACL filters (#4341)
 - EC GET skipped deferred eACL checks when streaming directly from parts (#4341)
 - CLI `session create-v2` silently ignored object IDs in `--context`, producing a container-wide token (#4344)
+- User attributes with `$Object:` keys could override system object properties in the metabase, affecting SEARCH results and object status (#4339)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
@@ -32,6 +33,11 @@ are counted until GC deletes them and every garbage mark is counted. Metabases
 will be migrated automatically on node startup, the migration recounts the
 objects of all containers and it can't be reverted, so older node binaries
 won't open the migrated databases.
+
+User attributes with `$Object:` keys are no longer indexed in the metabase as
+system object properties (#4339). The upgrade does not clean up entries already
+indexed for objects stored before it, so these objects can still affect SEARCH
+results and object status as before.
 
 ## [0.58.2] - 2026-11-13
 
