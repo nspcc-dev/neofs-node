@@ -18,7 +18,7 @@ const (
 	minTxDelay      = time.Millisecond
 	maxTxDelay      = 20 * time.Millisecond
 	minWritesPerSec = 0
-	maxWritesPerSec = 10000
+	maxWritesPerSec = 400
 	txDelayShape    = 4
 	writesEMAFactor = 0.3
 
