@@ -14,6 +14,12 @@ type NodeMetrics struct {
 	epoch prometheus.Gauge
 }
 
+// readPathBuckets are bounds of histograms timing operations that normally
+// take much less than the 5 ms [prometheus.DefBuckets] start at, such as
+// reading a header. They are the default bounds with finer ones in front.
+var readPathBuckets = append([]float64{.000025, .00005, .0001, .00025, .0005, .001, .0025},
+	prometheus.DefBuckets...)
+
 func NewNodeMetrics(version string) *NodeMetrics {
 	registerVersionMetric(storageNodeNameSpace, version)
 

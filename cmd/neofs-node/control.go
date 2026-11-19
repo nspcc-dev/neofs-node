@@ -2,9 +2,12 @@ package main
 
 import (
 	"net"
+	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
+	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -88,4 +91,20 @@ func (c *cfg) IncPolicerObjectDeleted(isEC bool) {
 
 func (c *cfg) IncPolicerObjectRelocated() {
 	c.metricsCollector.IncPolicerObjectRelocated()
+}
+
+func (c *cfg) HandlePolicerHead(res policer.HeadResult, d time.Duration) {
+	result := metrics.PolicerHeadError
+	switch res {
+	case policer.HeadOK:
+		result = metrics.PolicerHeadOK
+	case policer.HeadNotFound:
+		result = metrics.PolicerHeadNotFound
+	case policer.HeadMaintenance:
+		result = metrics.PolicerHeadMaintenance
+	case policer.HeadTimeout:
+		result = metrics.PolicerHeadTimeout
+	default:
+	}
+	c.metricsCollector.HandlePolicerHead(result, d)
 }
