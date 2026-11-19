@@ -134,6 +134,9 @@ func TestDB_ResolveECPart(t *testing.T) {
 		{name: "another part", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			addPart(t, db, iec.PartInfo{RuleIndex: pi.RuleIndex, Index: pi.Index + 1})
 		}},
+		{name: "another part with the same prefix", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
+			addPart(t, db, iec.PartInfo{RuleIndex: pi.RuleIndex, Index: pi.Index * 10})
+		}},
 		{name: "another rule and part", assertErr: assertObjectNotFoundError, preset: func(t *testing.T, db *meta.DB) {
 			addPart(t, db, iec.PartInfo{RuleIndex: pi.RuleIndex + 1, Index: pi.Index + 1})
 		}},
@@ -286,7 +289,7 @@ func TestDB_ResolveECPart(t *testing.T) {
 		db := newDB(t)
 
 		pi := pi
-		const partNum = 10
+		const partNum = 12
 
 		var partIDs []oid.ID
 		for i := range partNum {

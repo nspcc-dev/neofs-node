@@ -198,7 +198,7 @@ func (db *DB) resolveECPartInMetaBucket(crs *bbolt.Cursor, parent oid.ID, pi iec
 		if !bytes.HasPrefix(k, partPref) {
 			continue
 		}
-		if pi.Index >= 0 {
+		if pi.Index >= 0 && bytes.Equal(k, partPref) {
 			return id, nil
 		}
 
