@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -51,6 +52,16 @@ func WithServiceResponse(resp Response, req Request) Option {
 	}
 }
 
+// WithObjectHeader uses an already decoded and validated object header and
+// the original request. Neither is modified by the header source.
+func WithObjectHeader(hdr *object.Object, req Request) Option {
+	return func(c *cfg) {
+		c.msg = decodedHeader{obj: hdr, req: requestXHeaderSource{req}}
+	}
+}
+
+// WithObjectHeaderBinary uses b as the object header. The caller must not modify b
+// while the header source is in use.
 func WithObjectHeaderBinary(b []byte) Option {
 	return func(c *cfg) {
 		c.msg = binaryHeader(b)

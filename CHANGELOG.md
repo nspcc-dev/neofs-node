@@ -12,13 +12,16 @@ Changelog for NeoFS Node
 - Shard `payload_size` and `gc` object counter metrics drifting negative on long-running nodes (#4308)
 - IR may deadlock New Epoch event handling if restarted at a bad time (#4274)
 - Meta service fetched object headers one at a time, so a slow peer delayed indexing of every object queued behind it (#4284)
+- User-defined object attributes could impersonate system properties in eACL filters (#4341)
+- EC GET skipped deferred eACL checks when streaming directly from parts (#4341)
 
 ### Changed
+- Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
 
 ### Removed
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261113124103-31f830e86783` (#4267, #4302)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261118200649-304e6f6e0619` (#4267, #4302, #4341)
 
 ### Updating from v0.58.2
 This release introduces metabase version 13: objects of removed containers

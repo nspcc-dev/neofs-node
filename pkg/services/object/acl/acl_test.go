@@ -15,6 +15,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
@@ -172,6 +173,50 @@ func TestCheckEACLNotPresentObjectAttribute(t *testing.T) {
 				} else {
 					require.ErrorIs(t, err, errEACLDeniedByRule)
 				}
+			}
+		})
+	}
+}
+
+func TestCheckEACLDecodedGETHeader(t *testing.T) {
+	cnr, id := cidtest.ID(), oidtest.ID()
+	table := eacl.ConstructTable([]eacl.Record{eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationGet,
+		[]eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)},
+		eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "secret"),
+		eacl.NewRequestHeaderFilter("x-check", eacl.MatchStringEqual, "yes"),
+	)})
+	checker := NewChecker(new(CheckerPrm).
+		SetLocalStorage(&engine.StorageEngine{}).
+		SetValidator(eacl.NewValidator()).
+		SetEACLSource(testEACLSource{table}).
+		SetHeaderSource(emptyHeaderSource{}))
+	info := v2.RequestInfo{Operation: acl.OpObjectGet, RequestRole: acl.RoleOthers}
+	info.Container.SetBasicACL(acl.PublicRWExtended)
+
+	for _, tc := range []struct {
+		name, attribute, xHeader string
+		want                     error
+	}{
+		{"both filters match", "secret", "yes", errEACLDeniedByRule},
+		{"object filter does not match", "public", "yes", nil},
+		{"request filter does not match", "secret", "no", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			info.SrcRequest = &protoobject.GetRequest{MetaHeader: &protosession.RequestMetaHeader{
+				XHeaders: []*protosession.XHeader{{Key: "x-check", Value: tc.xHeader}},
+			}}
+			var hdr object.Object
+			hdr.SetID(id)
+			hdr.SetContainerID(cnr)
+			hdr.SetAttributes(object.NewAttribute("classified", tc.attribute))
+			msg := hdr.ProtoMessage()
+			resp := &protoobject.GetResponse{Body: &protoobject.GetResponse_Body{
+				ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
+					ObjectId: msg.ObjectId, Signature: msg.Signature, Header: msg.Header,
+				}},
+			}}
+			for _, input := range []any{resp, &hdr} {
+				require.ErrorIs(t, checker.CheckEACL(t.Context(), input, cnr, id, info), tc.want)
 			}
 		})
 	}
