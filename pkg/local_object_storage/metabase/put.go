@@ -42,7 +42,7 @@ func (db *DB) PutCounted(obj *object.Object) (CountersDiff, error) {
 	currEpoch := db.epochState.CurrentEpoch()
 	currTime := db.now().Unix()
 
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err = db.putBatch(obj.HeaderLen(), func(tx *bbolt.Tx) error {
 		diff, err = db.put(tx, obj, 0, currEpoch, currTime)
 		return err
 	})

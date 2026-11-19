@@ -59,6 +59,7 @@ func (db *DB) openBolt() error {
 	}
 	db.boltDB.MaxBatchDelay = db.boltBatchDelay
 	db.boltDB.MaxBatchSize = db.boltBatchSize
+	db.startWriteController()
 
 	db.log.Debug("opened boltDB instance for Metabase")
 
@@ -186,6 +187,7 @@ func (db *DB) SyncCounters() error {
 
 // Close closes boltDB instance.
 func (db *DB) Close() error {
+	db.stopWriteController()
 	if db.boltDB != nil {
 		return db.boltDB.Close()
 	}

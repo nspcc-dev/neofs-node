@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
+- Metabase PUT transactions wait 1-20ms depending on the write load instead of a fixed `max_batch_delay`, hold at most 1 MB of object headers and are reported in periodic statistics logs (#4340)
 
 ### Removed
 

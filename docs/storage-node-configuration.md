@@ -247,7 +247,7 @@ metabase:
 | `path`                   | `string`   |               | Path to the metabase file.                                                                                     |
 | `perm`                   | file mode  | `0640`        | Permissions to set for the database file.                                                                      |
 | `max_batch_size`         | `int`      | `1000`        | Maximum amount of write operations to perform in a single transaction.                                         |
-| `max_batch_delay`        | `duration` | `10ms`        | Maximum delay before a batch starts.                                                                           |
+| `max_batch_delay`        | `duration` | `10ms`        | Maximum delay before a batch starts. Object PUT batches do not use it: their delay grows from 1ms to 20ms with the write load. |
 | `search_iteration_limit` | `int`      | `10000`       | Maximum number of consecutive objects to iterate without a match during search operations. `0` means no limit. |
 
 ### `writecache` subsection
