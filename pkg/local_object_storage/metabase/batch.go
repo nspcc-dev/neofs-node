@@ -46,6 +46,10 @@ type writeController struct {
 	stop chan struct{}
 	done chan struct{}
 
+	// commitMtx serializes batch transactions, so a pending batch keeps
+	// collecting calls while the previous one commits.
+	commitMtx sync.Mutex
+
 	mtx     sync.Mutex
 	pending *putBatch
 	stats   putBatchStats
@@ -194,6 +198,9 @@ func (b *putBatch) trigger() {
 
 func (b *putBatch) run() {
 	c := &b.db.putCtrl
+	c.commitMtx.Lock()
+	defer c.commitMtx.Unlock()
+
 	c.mtx.Lock()
 	b.timer.Stop()
 	if c.pending == b {

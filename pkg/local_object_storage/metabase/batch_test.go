@@ -94,6 +94,31 @@ func TestDB_Put_WriteController(t *testing.T) {
 		require.EqualValues(t, n, s.objects)
 	})
 
+	t.Run("puts join pending batch during commit", func(t *testing.T) {
+		const n = 5
+		db := newDB(t)
+		setPutTxDelay(db, minTxDelay)
+
+		tx, err := db.boltDB.Begin(true)
+		require.NoError(t, err)
+
+		errs := make([]error, n)
+		var wg sync.WaitGroup
+		for i := range n {
+			wg.Go(func() { errs[i] = db.Put(newBatchTestObject(0)) })
+			time.Sleep(5 * minTxDelay)
+		}
+		require.NoError(t, tx.Rollback())
+		wg.Wait()
+		for i := range errs {
+			require.NoError(t, errs[i])
+		}
+
+		s := putStats(db)
+		require.LessOrEqual(t, s.batches, uint64(2))
+		require.EqualValues(t, n, s.objects)
+	})
+
 	t.Run("batch size limit", func(t *testing.T) {
 		db := newDB(t)
 		setPutTxDelay(db, 100*time.Millisecond)
