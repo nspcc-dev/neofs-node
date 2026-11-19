@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Meta service fetched object headers one at a time, so a slow peer delayed indexing of every object queued behind it (#4284)
 - User-defined object attributes could impersonate system properties in eACL filters (#4341)
 - EC GET skipped deferred eACL checks when streaming directly from parts (#4341)
+- PUT with initial placement `MaxReplicas` and `PreferLocal` could succeed with fewer replicas than required or fail needlessly after an EC rule failure (#4332)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)

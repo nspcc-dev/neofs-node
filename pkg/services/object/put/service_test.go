@@ -2289,6 +2289,53 @@ func TestInitialPlacement(t *testing.T) {
 				})
 			}
 		})
+
+		t.Run("EC rule failure", func(t *testing.T) {
+			for _, tc := range []struct {
+				name        string
+				failedList  int
+				maxReplicas uint32
+				err         string
+			}{
+				{name: "after local rule", failedList: 0, maxReplicas: 3, err: "unreachable MaxReplicas: 1 of 3 replicas placed in total, aborted on rule #0"},
+				{name: "local rule", failedList: 2, maxReplicas: 2},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					rule := iec.Rule{DataPartNum: 2, ParityPartNum: 1}
+					ecRules := []iec.Rule{rule, rule, rule}
+
+					var ip netmap.InitialPlacementPolicy
+					ip.SetMaxReplicas(tc.maxReplicas)
+					ip.SetPreferLocal(true)
+
+					var pp netmap.PlacementPolicy
+					pp.SetECRules([]netmap.ECRule{netmap.NewECRule(2, 1), netmap.NewECRule(2, 1), netmap.NewECRule(2, 1)})
+					pp.SetInitial(ip)
+
+					var cnr container.Container
+					cnr.SetPlacementPolicy(pp)
+
+					env := newPlacementTestEnv(t, cnr, nil, ecRules, false, true)
+					nodeIdx := tc.failedList * len(env.nodeLists[0])
+					for range env.nodeLists[tc.failedList] {
+						env.cluster.nodeLocalStorages[nodeIdx].err = errors.New("cannot store object")
+						nodeIdx++
+					}
+
+					creator := usertest.User()
+					localList := len(env.nodeLists) - 1
+					token := newSessionTokenV2ForNode(t, env.cluster, env.nodeLists, localList, creator)
+					obj := newSessionRegularObject(creator.ID)
+
+					err := putObjectWithSession(env.cluster.nodeServices[nodeIndexForList(env.nodeLists, localList)], obj, nil, token)
+					if tc.err != "" {
+						require.ErrorContains(t, err, tc.err)
+					} else {
+						require.NoError(t, err)
+					}
+				})
+			}
+		})
 	})
 }
 

@@ -466,14 +466,14 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 
 	leftReplicas := maxReplicas
 
-	handleECRule := func(ruleIdx int, ecRuleIdx int, payloadParts [][]byte, ecRule iec.Rule) (bool, error) {
+	handleECRule := func(pos, ruleIdx, ecRuleIdx int, payloadParts [][]byte, ecRule iec.Rule) (bool, error) {
 		err := t.applyECRule(t.sessionSigner, obj, ecRuleIdx, payloadParts, ecRule, t.minECPartNum(ecRuleIdx), objNodeLists[ruleIdx])
 		if err != nil {
 			err = fmt.Errorf("apply EC rule #%d (%s): %w", ecRuleIdx, ecRules[ecRuleIdx], err)
 			if maxReplicas == 0 {
 				return false, err
 			}
-			if leftReplicas > sumLimitsSinceRule(ruleIdx+1) {
+			if leftReplicas > sumLimitsSinceRule(pos+1) {
 				return false, newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas, ruleIdx, err)
 			}
 			t.placementIterator.log.Info("PUT by EC rule failure", zap.Stringer("object", obj.Address()), zap.Error(err))
@@ -501,7 +501,7 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			}
 
 			payloadParts := t.encodedECParts[ecRuleIdx]
-			fin, err := handleECRule(ruleIdx, ecRuleIdx, payloadParts, ecRules[ecRuleIdx])
+			fin, err := handleECRule(i, ruleIdx, ecRuleIdx, payloadParts, ecRules[ecRuleIdx])
 			if err != nil {
 				return err
 			}
