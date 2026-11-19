@@ -75,6 +75,9 @@ func AuthenticateObject(obj object.Object, fsChain HistoricN3ScriptRunner, sToke
 	}
 	var creator = obj.Owner()
 	if sessionTokenV2 != nil {
+		if err := sessionTokenV2.Validate(resolver); err != nil {
+			return fmt.Errorf("validate session token v2: %w", err)
+		}
 		if ecdsaPub != nil {
 			creator = user.NewFromECDSAPublicKey(*ecdsaPub)
 		} else {

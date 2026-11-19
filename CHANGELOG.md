@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - EC GET skipped deferred eACL checks when streaming directly from parts (#4341)
 - CLI `session create-v2` silently ignored object IDs in `--context`, producing a container-wide token (#4344)
 - User attributes with `$Object:` keys could override system object properties in the metabase, affecting SEARCH results and object status (#4339)
+- Missing delegation chain validation for v2 session tokens embedded in objects (#4347)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
@@ -38,6 +39,13 @@ User attributes with `$Object:` keys are no longer indexed in the metabase as
 system object properties (#4339). The upgrade does not clean up entries already
 indexed for objects stored before it, so these objects can still affect SEARCH
 results and object status as before.
+
+V2 session token version 1 binds delegation chains to their origin tokens.
+Delegation chains using token version 0 remain accepted in requests for
+compatibility, but support will be removed in a future protocol version.
+Such session tokens embedded in objects will remain supported.
+Upgrade storage and Inner Ring nodes before issuing version 1 session tokens,
+including standalone tokens: older nodes reject this token version.
 
 ## [0.58.2] - 2026-11-13
 
