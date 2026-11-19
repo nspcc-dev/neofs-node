@@ -377,6 +377,8 @@ func (cp *Processor) checkOriginalRequest(cnr container.Container, cnrID cid.ID,
 			b.GetEacl().MarshalStable(signedData)
 
 			sig = b.GetSignature()
+		case *protocontainer.SetAttributeV2Request_Body, *protocontainer.RemoveAttributeV2Request_Body:
+			return fmt.Errorf("%T request body parsed with incorrect old %s API version", b, reqMetaHeader.Version)
 		default:
 			panic(fmt.Sprintf("unexpected body in container service check: %v", b))
 		}
@@ -489,9 +491,11 @@ func (cp *Processor) processSetAttributeRequest(req containerEvent.SetAttributeR
 }
 
 func (cp *Processor) checkSetAttributeRequest(req containerEvent.SetAttributeRequest, id cid.ID) error {
-	now := time.Now()
-	if nowUnix := now.Unix(); nowUnix > req.ValidUntil {
-		return fmt.Errorf("request is valid until %d (%s), now %d (%s)", req.ValidUntil, time.Unix(req.ValidUntil, 0).UTC(), nowUnix, now.UTC())
+	if req.OriginalRequest == nil {
+		err := checkOldValidUntil(req.ValidUntil)
+		if err != nil {
+			return err
+		}
 	}
 
 	cnr, err := cp.cnrClient.Get(req.ID)
@@ -499,6 +503,27 @@ func (cp *Processor) checkSetAttributeRequest(req containerEvent.SetAttributeReq
 		return fmt.Errorf("get container by ID: %w", err)
 	}
 
+	if req.OriginalRequest != nil {
+		var origReq protocontainer.SetAttributeV2Request
+		err = protoencoding.UnmarshalMessage(req.OriginalRequest, &origReq)
+		if err != nil {
+			return fmt.Errorf("could not unmarshal original request: %w", err)
+		}
+		var body = origReq.GetBody()
+		if !bytes.Equal(req.ID, body.GetContainerId().GetValue()) {
+			return fmt.Errorf("container ID in the original request does not match the contract one")
+		}
+		if body.Attribute != req.Attribute {
+			return fmt.Errorf("attribute key in the original request (%s) does not match the contract one (%s)", body.Attribute, req.Attribute)
+		}
+		if body.Value != req.Value {
+			return fmt.Errorf("attribute value in the original request (%s) does not match the contract one (%s)", body.Value, req.Value)
+		}
+
+		return cp.checkOriginalRequest(cnr, id, session.VerbContainerSetAttribute, sessionv2.VerbContainerSetAttribute, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
+	}
+
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	signedData := client.GetSignedSetContainerAttributeParameters(client.SetContainerAttributeParameters{
 		ID:         id,
 		Attribute:  req.Attribute,
@@ -519,6 +544,18 @@ func (cp *Processor) checkSetAttributeRequest(req containerEvent.SetAttributeReq
 	})
 	if err != nil {
 		return fmt.Errorf("authenticate client: %w", err)
+	}
+
+	return nil
+}
+
+func checkOldValidUntil(validUntil int64) error {
+	var (
+		now     = time.Now()
+		nowUnix = now.Unix()
+	)
+	if nowUnix > validUntil {
+		return fmt.Errorf("request is valid until %d (%s), now %d (%s)", validUntil, time.Unix(validUntil, 0).UTC(), nowUnix, now.UTC())
 	}
 
 	return nil
@@ -561,9 +598,11 @@ func (cp *Processor) processRemoveAttributeRequest(req containerEvent.RemoveAttr
 }
 
 func (cp *Processor) checkRemoveAttributeRequest(req containerEvent.RemoveAttributeRequest, id cid.ID) error {
-	now := time.Now()
-	if nowUnix := now.Unix(); nowUnix > req.ValidUntil {
-		return fmt.Errorf("request is valid until %d (%s), now %d (%s)", req.ValidUntil, time.Unix(req.ValidUntil, 0), nowUnix, now)
+	if req.OriginalRequest == nil {
+		err := checkOldValidUntil(req.ValidUntil)
+		if err != nil {
+			return err
+		}
 	}
 
 	cnr, err := cp.cnrClient.Get(req.ID)
@@ -571,6 +610,24 @@ func (cp *Processor) checkRemoveAttributeRequest(req containerEvent.RemoveAttrib
 		return fmt.Errorf("get container by ID: %w", err)
 	}
 
+	if req.OriginalRequest != nil {
+		var origReq protocontainer.RemoveAttributeV2Request
+		err = protoencoding.UnmarshalMessage(req.OriginalRequest, &origReq)
+		if err != nil {
+			return fmt.Errorf("could not unmarshal original request: %w", err)
+		}
+		var body = origReq.GetBody()
+		if !bytes.Equal(req.ID, body.GetContainerId().GetValue()) {
+			return fmt.Errorf("container ID in the original request does not match the contract one")
+		}
+		if body.Attribute != req.Attribute {
+			return fmt.Errorf("attribute in the original request (%s) does not match the contract one (%s)", body.Attribute, req.Attribute)
+		}
+
+		return cp.checkOriginalRequest(cnr, id, session.VerbContainerRemoveAttribute, sessionv2.VerbContainerRemoveAttribute, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
+	}
+
+	//nolint:staticcheck // we are the server that deprecated it, still need the support
 	signedData := client.GetSignedRemoveContainerAttributeParameters(client.RemoveContainerAttributeParameters{
 		ID:         id,
 		Attribute:  req.Attribute,

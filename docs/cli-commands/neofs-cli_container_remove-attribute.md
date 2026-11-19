@@ -13,17 +13,18 @@ neofs-cli container remove-attribute [flags]
 ### Options
 
 ```
-      --address string        Address of wallet account
-      --attribute string      attribute to be set
-      --cid string            Container ID.
-  -g, --generate-key          Generate new private key
-  -h, --help                  help for remove-attribute
-  -r, --rpc-endpoint string   Remote node address
-      --session string        Filepath to a JSON- or binary-encoded token of the container REMOVEATTRIBUTE session
-  -t, --timeout duration      Timeout for the operation (default 15s)
-      --ttl uint32            TTL value in request meta header (default 2)
-      --valid-for duration    request validity duration (default 1m0s)
-  -w, --wallet string         Path to the wallet
+      --address string            Address of wallet account
+      --attribute string          attribute to be set
+      --cid string                Container ID.
+      --container-revision uint   Specify a certain positive container revision number
+  -g, --generate-key              Generate new private key
+  -h, --help                      help for remove-attribute
+  -r, --rpc-endpoint string       Remote node address
+      --session string            Filepath to a JSON- or binary-encoded token of the container REMOVEATTRIBUTE session
+  -t, --timeout duration          Timeout for the operation (default 15s)
+      --ttl uint32                TTL value in request meta header (default 2)
+      --valid-for duration        request validity duration (default 1m0s)
+  -w, --wallet string             Path to the wallet
 ```
 
 ### Options inherited from parent commands

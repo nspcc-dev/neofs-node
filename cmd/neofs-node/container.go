@@ -583,8 +583,8 @@ func (x *containersInChain) PutEACL(ctx context.Context, eACL eacl.Table, pub, s
 	return err
 }
 
-func (x *containersInChain) SetAttribute(ctx context.Context, cnr cid.ID, attr, val string, validUntil uint64, pub, sig, sessionToken []byte) error {
-	err := x.cCli.SetAttribute(ctx, cnr, attr, val, validUntil, pub, sig, sessionToken)
+func (x *containersInChain) SetAttribute(ctx context.Context, cnr cid.ID, attr, val string, validUntil uint64, pub, sig, sessionToken, origReq []byte) error {
+	err := x.cCli.SetAttributeWithOrigReq(ctx, cnr, attr, val, validUntil, pub, sig, sessionToken, origReq)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {
 		err = apistatus.ErrContainerAwaitTimeout
 	}
@@ -596,8 +596,8 @@ func (x *containersInChain) SetAttribute(ctx context.Context, cnr cid.ID, attr, 
 	return err
 }
 
-func (x *containersInChain) RemoveAttribute(ctx context.Context, cnr cid.ID, attr string, validUntil uint64, pub, sig, sessionToken []byte) error {
-	err := x.cCli.RemoveAttribute(ctx, cnr, attr, validUntil, pub, sig, sessionToken)
+func (x *containersInChain) RemoveAttribute(ctx context.Context, cnr cid.ID, attr string, validUntil uint64, pub, sig, sessionToken, origReq []byte) error {
+	err := x.cCli.RemoveAttributeWithOrigReq(ctx, cnr, attr, validUntil, pub, sig, sessionToken, origReq)
 	if errors.Is(err, client.ErrTxAwaitTimeout) {
 		err = apistatus.ErrContainerAwaitTimeout
 	}

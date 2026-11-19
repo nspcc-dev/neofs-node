@@ -59,11 +59,11 @@ func (mockContainerContract) Delete(context.Context, cid.ID, []byte, []byte, []b
 	panic("unimplemented")
 }
 
-func (mockContainerContract) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte) error {
+func (mockContainerContract) SetAttribute(context.Context, cid.ID, string, string, uint64, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 
-func (mockContainerContract) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte) error {
+func (mockContainerContract) RemoveAttribute(context.Context, cid.ID, string, uint64, []byte, []byte, []byte, []byte) error {
 	panic("unimplemented")
 }
 

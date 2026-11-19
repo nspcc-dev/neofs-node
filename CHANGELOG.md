@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Support for minimum EC parts required for successful PUT (#4267)
+- Support of container *AttributeV2 RPC requests (#4268)
 
 ### Fixed
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
@@ -22,6 +23,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261118200649-304e6f6e0619` (#4267, #4302, #4341)
+- `github.com/nspcc-dev/neofs-contract` module to `v0.28.1-0.20261110143356-1fd09a8bf001` (#4268)
 
 ### Updating from v0.58.2
 This release introduces metabase version 13: objects of removed containers
