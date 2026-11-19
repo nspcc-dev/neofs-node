@@ -19,8 +19,9 @@ func (s *Shard) ReviveObject(addr oid.Address) (meta.ReviveStatus, error) {
 		return meta.ReviveStatus{}, ErrDegradedMode
 	}
 
-	st, err := s.metaBase.ReviveObject(addr)
+	st, diff, err := s.metaBase.ReviveObject(addr)
 	if err == nil {
+		s.applyCountersDiff(addr.Container(), diff)
 		s.redundant.remove(addr.Container(), []oid.ID{addr.Object()})
 		if ts := st.TombstoneAddress(); !ts.Object().IsZero() {
 			if delErr := s.deleteObjs(addr.Container(), []oid.ID{ts.Object()}); delErr != nil {
