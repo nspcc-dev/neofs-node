@@ -33,7 +33,7 @@ func (db *DB) Delete(cnr cid.ID, addrs []oid.ID) ([]oid.ID, CountersDiff, error)
 	var err error
 	var removed []oid.ID
 
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err = db.writeOutsideController("Delete", len(addrs), db.boltDB.Batch, func(tx *bbolt.Tx) error {
 		var metaBucket = tx.Bucket(metaBucketKey(cnr))
 		if metaBucket == nil {
 			return nil

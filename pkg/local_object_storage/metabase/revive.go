@@ -83,7 +83,7 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 
 	cnr := addr.Container()
 
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.writeOutsideController("ReviveObject", 1, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		metaBucket := tx.Bucket(metaBucketKey(cnr))
 		if metaBucket == nil {
 			// wrong container or incorrect metabase state

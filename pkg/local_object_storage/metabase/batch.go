@@ -248,3 +248,14 @@ func safePutCall(fn func(*bbolt.Tx) error, tx *bbolt.Tx) (err error) {
 	}()
 	return fn(tx)
 }
+
+// writeOutsideController logs a write that bypasses the PUT write controller
+// and performs it with the given bbolt write method.
+func (db *DB) writeOutsideController(op string, objects int, write func(func(*bbolt.Tx) error) error, fn func(*bbolt.Tx) error) error {
+	fields := []zap.Field{zap.String("op", op)}
+	if objects > 0 {
+		fields = append(fields, zap.Int("objects", objects))
+	}
+	db.log.Info("metabase write outside put controller", fields...)
+	return write(fn)
+}

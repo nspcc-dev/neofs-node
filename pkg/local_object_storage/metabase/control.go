@@ -112,7 +112,7 @@ func (db *DB) init(reset bool) error {
 		}
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("init", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		var err error
 		for k := range mStaticBuckets {
 			name := []byte(k)
@@ -180,7 +180,7 @@ func (db *DB) SyncCounters() error {
 		return ErrReadOnlyMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("SyncCounters", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		return syncCounter(tx, true)
 	})
 }
