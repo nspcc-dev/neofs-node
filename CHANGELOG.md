@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Support for minimum EC parts required for successful PUT (#4267)
+- SN `policer_head_time` and `policer_head_count` metrics for HEAD requests the policer sends to other nodes (#4350)
 
 ### Fixed
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)

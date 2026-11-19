@@ -1,6 +1,10 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 const stateSubsystem = "state"
 
@@ -10,15 +14,29 @@ type stateMetrics struct {
 	policerOptimalPlacement prometheus.Gauge
 	policerCycleCounter     prometheus.Counter
 	policerObjectCounter    *prometheus.CounterVec
+	policerHeadDuration     prometheus.Histogram
+	policerHeadCounter      *prometheus.CounterVec
+	// policerHeadResults are children of policerHeadCounter, resolved once.
+	policerHeadResults map[string]prometheus.Counter
 }
+
+// Results of Policer's HEAD requests, see [stateMetrics.HandlePolicerHead].
+const (
+	PolicerHeadOK          = "ok"
+	PolicerHeadNotFound    = "not_found"
+	PolicerHeadMaintenance = "maintenance"
+	PolicerHeadTimeout     = "timeout"
+	PolicerHeadError       = "error"
+)
 
 const (
 	policerActionLabel = "action"
 	policerModeLabel   = "mode"
+	policerResultLabel = "result"
 )
 
 func newStateMetrics() stateMetrics {
-	return stateMetrics{
+	m := stateMetrics{
 		healthCheck: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: stateSubsystem,
@@ -49,7 +67,25 @@ func newStateMetrics() stateMetrics {
 			Name:      "policer_object_count",
 			Help:      "Number of objects processed by Policer grouped by action and mode",
 		}, []string{policerActionLabel, policerModeLabel}),
+		policerHeadDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: stateSubsystem,
+			Name:      "policer_head_time",
+			Help:      "Time of HEAD requests Policer sent to other nodes, whatever their result",
+			Buckets:   readPathBuckets,
+		}),
+		policerHeadCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: stateSubsystem,
+			Name:      "policer_head_count",
+			Help:      "Number of HEAD requests Policer sent to other nodes grouped by result",
+		}, []string{policerResultLabel}),
 	}
+	m.policerHeadResults = make(map[string]prometheus.Counter)
+	for _, r := range []string{PolicerHeadOK, PolicerHeadNotFound, PolicerHeadMaintenance, PolicerHeadTimeout, PolicerHeadError} {
+		m.policerHeadResults[r] = m.policerHeadCounter.WithLabelValues(r)
+	}
+	return m
 }
 
 func (m stateMetrics) register() {
@@ -58,6 +94,8 @@ func (m stateMetrics) register() {
 	prometheus.MustRegister(m.policerOptimalPlacement)
 	prometheus.MustRegister(m.policerCycleCounter)
 	prometheus.MustRegister(m.policerObjectCounter)
+	prometheus.MustRegister(m.policerHeadDuration)
+	prometheus.MustRegister(m.policerHeadCounter)
 }
 
 func (m stateMetrics) SetHealth(s int32) {
@@ -101,6 +139,13 @@ func (m stateMetrics) IncPolicerObjectRelocated() {
 		policerActionLabel: "relocated",
 		policerModeLabel:   "physical",
 	}).Inc()
+}
+
+// HandlePolicerHead counts a HEAD request Policer sent to another node by
+// its result, one of the PolicerHead* values, and observes its duration.
+func (m stateMetrics) HandlePolicerHead(result string, d time.Duration) {
+	m.policerHeadDuration.Observe(d.Seconds())
+	m.policerHeadResults[result].Inc()
 }
 
 func (m stateMetrics) incPolicerObjectCounter(action string, isEC bool) {
