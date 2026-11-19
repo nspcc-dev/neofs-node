@@ -86,7 +86,9 @@ func systemObjectHeader(obj *object.Object, key string) (string, bool) {
 
 // lookupBinaryObjectHeader prefers the current header over its split parent.
 // The first lookup validates the whole header, including any split parents.
-func lookupBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID, key string, validate bool) ([]byte, error) {
+// When no value is found and the deepest header is a split part without a
+// parent header, first is set to its first part ID.
+func lookupBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID, key string, validate bool, first *oid.ID) ([]byte, error) {
 	var ver version.Version
 	var creationEpoch uint64
 	var payloadLen uint64
@@ -207,13 +209,15 @@ func lookupBinaryObjectHeader(buf []byte, cnr cid.ID, id oid.ID, key string, val
 			}
 
 			if !parHdrf.IsMissing() {
-				v, err := lookupBinaryObjectHeader(buf[off:][parHdrf.ValueFrom:parHdrf.To], cnr, id, key, validate)
+				v, err := lookupBinaryObjectHeader(buf[off:][parHdrf.ValueFrom:parHdrf.To], cnr, id, key, validate, first)
 				if err != nil {
 					return nil, fmt.Errorf("invalid split header field: %w", err)
 				}
 				if parentValue == nil {
 					parentValue = v
 				}
+			} else if *first, err = splitFirstIDBinary(buf[off:][:ln]); err != nil {
+				return nil, fmt.Errorf("invalid split header field: %w", err)
 			}
 
 			off += ln
@@ -288,4 +292,34 @@ func lookupValidatedAttribute(buf []byte, key string) []byte {
 	}
 	v, _ := protowire.ConsumeBytes(buf[n:])
 	return v
+}
+
+func splitFirstIDBinary(split []byte) (oid.ID, error) {
+	for off := 0; off < len(split); {
+		num, typ, n, err := iprotobuf.ParseTag(split[off:])
+		if err != nil {
+			return oid.ID{}, err
+		}
+		off += n
+
+		if num != protoobject.FieldHeaderSplitFirst {
+			n, err = iprotobuf.SkipField(split[off:], num, typ)
+			if err != nil {
+				return oid.ID{}, err
+			}
+			off += n
+			continue
+		}
+
+		ln, n, err := iprotobuf.ParseLENField(split[off:], num, typ)
+		if err != nil {
+			return oid.ID{}, err
+		}
+		b, err := iprotobuf.GetFirstBytesField(split[off+n:][:ln])
+		if err != nil {
+			return oid.ID{}, err
+		}
+		return oid.DecodeBytes(b)
+	}
+	return oid.ID{}, nil
 }

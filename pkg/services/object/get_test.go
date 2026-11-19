@@ -438,10 +438,13 @@ type ecEACLTable struct{ table eacl.Table }
 
 func (s ecEACLTable) GetEACL(cid.ID) (eacl.Table, error) { return s.table, nil }
 
-type ecEACLHeaderSource struct{}
+type ecEACLHeaderSource struct{ first *object.Object }
 
-func (ecEACLHeaderSource) Head(context.Context, oid.Address) (*object.Object, error) {
-	return nil, errors.New("unexpected extra HEAD")
+func (s ecEACLHeaderSource) Head(_ context.Context, addr oid.Address) (*object.Object, error) {
+	if s.first == nil || addr != s.first.Address() {
+		return nil, errors.New("unexpected extra HEAD")
+	}
+	return s.first, nil
 }
 
 type ecEACLChecker struct {
@@ -472,6 +475,7 @@ func TestServer_Get_ECEACL(t *testing.T) {
 				deny       bool
 				immediate  bool
 				whitelist  bool
+				middle     bool
 				attributes []object.Attribute
 			}{
 				{name: "attribute deny", filter: eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "secret"), deny: true},
@@ -487,11 +491,23 @@ func TestServer_Get_ECEACL(t *testing.T) {
 					attributes: []object.Attribute{object.NewAttribute(eacl.FilterObjectPayloadSize, "1")}},
 				{name: "unknown system property", filter: eacl.NewObjectPropertyFilter("$Object:foo", eacl.MatchNotPresent, ""), whitelist: true,
 					attributes: []object.Attribute{object.NewAttribute("$Object:foo", "forged")}},
+				{name: "split middle part attribute deny", filter: eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "secret"), middle: true, deny: true},
+				{name: "split middle part attribute mismatch", filter: eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "public"), middle: true},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
 					cnr := cidtest.ID()
 					obj := object.New(cnr, owner.ID)
 					attrs := []object.Attribute{object.NewAttribute("classified", "secret")}
+					var hdrSrc ecEACLHeaderSource
+					if tc.middle {
+						parent := object.New(cnr, owner.ID)
+						parent.SetAttributes(attrs...)
+						hdrSrc.first = object.New(cnr, owner.ID)
+						hdrSrc.first.SetParent(parent)
+						require.NoError(t, hdrSrc.first.SetVerificationFields(owner))
+						obj.SetFirstID(hdrSrc.first.GetID())
+						attrs = nil
+					}
 					obj.SetAttributes(append(attrs, tc.attributes...)...)
 					obj.SetPayload([]byte("EC object payload"))
 					obj.SetPayloadSize(uint64(len(obj.Payload())))
@@ -538,7 +554,7 @@ func TestServer_Get_ECEACL(t *testing.T) {
 					}
 					checker := &ecEACLChecker{Checker: aclsvc.NewChecker(new(aclsvc.CheckerPrm).
 						SetLocalStorage(checkerStorage).SetValidator(eacl.NewValidator()).
-						SetEACLSource(ecEACLTable{eacl.ConstructTable(records)}).SetHeaderSource(ecEACLHeaderSource{}))}
+						SetEACLSource(ecEACLTable{eacl.ConstructTable(records)}).SetHeaderSource(hdrSrc))}
 					req := newUnsignedLocalGetRequest(version.Current(), obj.Address())
 					req.MetaHeader.Ttl = 2
 					signGetRequest(t, req, client)
