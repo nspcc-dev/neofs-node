@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Support for minimum EC parts required for successful PUT (#4267)
 - Support of container *AttributeV2 RPC requests (#4268)
 - Support for container policies with limited number of additional nodes (#4269, #4302)
+- SN `policer_head_time` and `policer_head_count` metrics for HEAD requests the policer sends to other nodes (#4350)
 
 ### Fixed
 - Shard object counters, payload size, and container size metrics drifted after reviving an object (#4309)
