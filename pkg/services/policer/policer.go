@@ -2,6 +2,7 @@ package policer
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -13,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -120,8 +122,56 @@ type (
 		IncPolicerObjectDeleted(isEC bool)
 		// IncPolicerObjectRelocated increments successfully moved physical objects counter.
 		IncPolicerObjectRelocated()
+		// HandlePolicerHead handles the outcome and the duration of a HEAD
+		// request [Policer] sent to another node.
+		HandlePolicerHead(HeadResult, time.Duration)
 	}
 )
+
+// HeadResult is the outcome of a HEAD request [Policer] sent to another
+// node, as far as [Policer] tells outcomes apart.
+type HeadResult uint8
+
+const (
+	// HeadOK is for a received header.
+	HeadOK HeadResult = iota
+	// HeadNotFound is for a node that answered it does not have the object.
+	HeadNotFound
+	// HeadMaintenance is for a node under maintenance.
+	HeadMaintenance
+	// HeadTimeout is for a request that did not complete within the HEAD
+	// timeout.
+	HeadTimeout
+	// HeadError is for any other failure.
+	HeadError
+)
+
+func classifyHead(err error) HeadResult {
+	switch {
+	case err == nil:
+		return HeadOK
+	case errors.Is(err, apistatus.ErrObjectNotFound):
+		return HeadNotFound
+	case errors.Is(err, apistatus.ErrNodeUnderMaintenance):
+		return HeadMaintenance
+	case errors.Is(err, context.DeadlineExceeded):
+		return HeadTimeout
+	default:
+		return HeadError
+	}
+}
+
+// headRemote requests the object's header from the node and reports the
+// request's outcome and duration to metrics. Requests cut short by ctx being
+// canceled say nothing about the node and are not reported.
+func (p *Policer) headRemote(ctx context.Context, node netmap.NodeInfo, addr oid.Address, checkOID bool, ecPartSelector iec.PartInfo) (object.Object, error) {
+	st := time.Now()
+	hdr, err := p.apiConns.headObject(ctx, node, addr, checkOID, ecPartSelector)
+	if !errors.Is(err, context.Canceled) {
+		p.metrics.HandlePolicerHead(classifyHead(err), time.Since(st))
+	}
+	return hdr, err
+}
 
 type cfg struct {
 	mtx sync.RWMutex
@@ -155,6 +205,8 @@ func (nopMetricsCollector) IncPolicerObjectProcessed(bool)  {}
 func (nopMetricsCollector) IncPolicerObjectReplicated(bool) {}
 func (nopMetricsCollector) IncPolicerObjectDeleted(bool)    {}
 func (nopMetricsCollector) IncPolicerObjectRelocated()      {}
+func (nopMetricsCollector) HandlePolicerHead(HeadResult, time.Duration) {
+}
 
 func defaultCfg() *cfg {
 	return &cfg{

@@ -95,7 +95,7 @@ func (p *Policer) processECPartByRule(ctx context.Context, rule iec.Rule, addr o
 		}
 
 		callCtx, cancel := context.WithTimeout(ctx, headTimeout)
-		_, err := p.apiConns.headObject(callCtx, nodes[i], addr, true, iec.PartInfo{RuleIndex: -1})
+		_, err := p.headRemote(callCtx, nodes[i], addr, true, iec.PartInfo{RuleIndex: -1})
 		cancel()
 
 		if err == nil {
@@ -567,7 +567,7 @@ func (p *Policer) headECPart(ctx context.Context, timeout time.Duration, node ne
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	hdr, err := p.apiConns.headObject(ctx, node, oid.NewAddress(cnr, parent), false, iec.PartInfo{
+	hdr, err := p.headRemote(ctx, node, oid.NewAddress(cnr, parent), false, iec.PartInfo{
 		RuleIndex: ruleIdx,
 		Index:     partIdx,
 	})

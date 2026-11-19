@@ -1824,6 +1824,11 @@ type mockMetrics struct {
 	deletedRep       atomic.Uint64
 	deletedEC        atomic.Uint64
 	relocated        atomic.Uint64
+	heads            [HeadError + 1]atomic.Uint64
+}
+
+func (m *mockMetrics) HandlePolicerHead(res HeadResult, _ time.Duration) {
+	m.heads[res].Add(1)
 }
 
 func (m *mockMetrics) SetPolicerConsistency(b bool) {
