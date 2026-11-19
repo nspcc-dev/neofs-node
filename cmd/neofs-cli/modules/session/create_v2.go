@@ -305,8 +305,8 @@ func parseContexts(cmd *cobra.Command) ([]session.Context, error) {
 			return nil, fmt.Errorf("context #%d is empty", idx+1)
 		}
 		parts := strings.Split(spec, ":")
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("context #%d must have at least 'containerID:verbs'", idx+1)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("context #%d must be 'containerID:verbs' (object IDs are not supported)", idx+1)
 		}
 		cnrStr := strings.TrimSpace(parts[0])
 		verbsStr := strings.TrimSpace(parts[1])
