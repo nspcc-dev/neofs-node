@@ -143,7 +143,8 @@ type getClient interface {
 }
 
 type cfg struct {
-	log *zap.Logger
+	log              *zap.Logger
+	maxObjectSizeSrc interface{ MaxObjectSize() uint64 }
 
 	// TODO: merge localStorage into localObjects
 	localObjects interface {
@@ -231,6 +232,14 @@ func New(neoFSNet NeoFSNetwork, opts ...Option) *Service {
 func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l.With(zap.String("component", "Object.Get service"))
+	}
+}
+
+// WithMaxObjectSizeSource sets the network payload limit used to read EC
+// linkers. A missing source or a zero limit prevents reading linkers.
+func WithMaxObjectSizeSource(src interface{ MaxObjectSize() uint64 }) Option {
+	return func(c *cfg) {
+		c.maxObjectSizeSrc = src
 	}
 }
 
