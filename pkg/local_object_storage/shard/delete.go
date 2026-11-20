@@ -56,14 +56,7 @@ func (s *Shard) deleteObjs(cnr cid.ID, addrs []oid.ID) error {
 		}
 	}
 
-	s.addObjectCounter(physicalObjType, diff.Phy)
-	s.addObjectCounter(rootObjType, diff.Root)
-	s.addObjectCounter(tsObjType, diff.TS)
-	s.addObjectCounter(lockObjType, diff.Lock)
-	s.addObjectCounter(linkObjType, diff.Link)
-	s.addObjectCounter(gcObjType, diff.GC)
-	s.addToContainerSize(cnr.EncodeToString(), diff.Payload)
-	s.addToPayloadCounter(diff.Payload)
+	s.applyCountersDiff(cnr, diff)
 
 	for _, id := range res {
 		var addr = oid.NewAddress(cnr, id)

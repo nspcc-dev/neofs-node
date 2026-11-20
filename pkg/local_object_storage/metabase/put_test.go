@@ -164,7 +164,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 		})
 	})
 
-	rs, err := db.ReviveObject(addr)
+	rs, _, err := db.ReviveObject(addr)
 	require.NoError(t, err)
 	require.Equal(t, meta.ReviveStatusGraveyard, rs.StatusType())
 	require.Contains(t, rs.Message(), "successful revival from graveyard")

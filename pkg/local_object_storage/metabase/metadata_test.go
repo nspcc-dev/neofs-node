@@ -786,7 +786,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			require.NoError(t, err)
 			check(t, slices.Concat(ids[:1], ids[2:]))
 			// resurrect the object
-			_, err = db.ReviveObject(oid.NewAddress(cnr, ids[1]))
+			_, _, err = db.ReviveObject(oid.NewAddress(cnr, ids[1]))
 			require.NoError(t, err)
 			check(t, ids)
 		})
@@ -796,7 +796,7 @@ func TestDB_SearchObjects(t *testing.T) {
 
 			check(t, slices.Concat(ids[:2], ids[3:]))
 			// resurrect the object
-			_, err = db.ReviveObject(oid.NewAddress(cnr, ids[2]))
+			_, _, err = db.ReviveObject(oid.NewAddress(cnr, ids[2]))
 			require.NoError(t, err)
 			check(t, ids)
 		})

@@ -68,17 +68,17 @@ func (s *ReviveStatus) setStatusError(err error) {
 }
 
 // ReviveObject revives object by oid.Address. Removes GCMark/Tombstone records in the corresponding buckets
-// and restore metrics.
-func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
+// and restore metrics. Returns the [CountersDiff] that was applied to the metabase counters.
+func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, diff CountersDiff, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.ReadOnly() {
 		res.setStatusError(ErrReadOnlyMode)
-		return res, ErrReadOnlyMode
+		return res, diff, ErrReadOnlyMode
 	} else if db.mode.NoMetabase() {
 		res.setStatusError(ErrDegradedMode)
-		return res, ErrDegradedMode
+		return res, diff, ErrDegradedMode
 	}
 
 	cnr := addr.Container()
@@ -110,47 +110,52 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 				return errors.New("reported as deleted, but no tombstone found")
 			}
 			var tombAddress = oid.NewAddress(cnr, tombOID)
-			diff, err := db.delete(metaCursor, cnr, tombOID)
+			tombDiff, err := db.delete(metaCursor, cnr, tombOID)
 			if err != nil {
 				return err
 			}
-			err = applyDiff(metaCursor.Bucket(), diff)
-			if err != nil {
-				return fmt.Errorf("failed to update counters: %w", err)
-			}
+			diff.add(tombDiff)
 			res.setStatusGraveyard(tombAddress.EncodeToString())
 			res.tombstoneAddr = tombAddress
-		}
-		if status == statusGCMarked || status == statusTombstoned {
-			err = updateCounter(metaBucket, gcCounter, -1)
-			if err != nil {
-				return fmt.Errorf("update garbage counter: %w", err)
+			// The object stays deleted for as long as another tombstone
+			// references it, so the garbage mark and the counters it takes
+			// away must be kept until the last tombstone is removed.
+			if another, _ := associatedWithTypedObject(0, 0, metaCursor, addr.Object(), object.TypeTombstone); another {
+				if err := applyDiff(metaBucket, diff); err != nil {
+					return fmt.Errorf("failed to update counters: %w", err)
+				}
+				return nil
 			}
 		}
-		err := reviveCounters(metaCursor, status, addr.Object())
-		if err != nil {
-			return fmt.Errorf("revive object counters: %w", err)
-		}
+		diff.GC--
+		diff.add(reviveCountersDiff(metaCursor, addr.Object()))
 
 		// Deleted objects are marked as garbage as well, so this mark is _always_ deleted.
 		if err := metaBucket.Delete(mkGarbageKey(addr.Object())); err != nil {
 			return err
 		}
 
+		if err := applyDiff(metaBucket, diff); err != nil {
+			return fmt.Errorf("failed to update counters: %w", err)
+		}
+
 		return nil
 	})
 	if err != nil {
 		res.setStatusError(err)
+		diff = CountersDiff{}
 	}
 
 	return
 }
 
-func reviveCounters(metaC *bbolt.Cursor, gcStatus uint8, obj oid.ID) error {
+// reviveCountersDiff computes the [CountersDiff] of reviving a garbage-marked
+// object. Marking only takes the object's payload off the payload counter, all
+// the other counters keep counting the object for as long as it is stored, so
+// only the payload must be restored, and only for physical objects.
+func reviveCountersDiff(metaC *bbolt.Cursor, obj oid.ID) CountersDiff {
 	var (
-		typ  object.Type = -1
 		phy  bool
-		root bool
 		size uint64
 	)
 
@@ -158,56 +163,14 @@ func reviveCounters(metaC *bbolt.Cursor, gcStatus uint8, obj oid.ID) error {
 		switch string(k) {
 		case object.FilterPayloadSize:
 			size, _ = strconv.ParseUint(string(v), 10, 64)
-		case object.FilterType:
-			typ.DecodeString(string(v))
 		case object.FilterPhysical:
 			phy = string(v) == binPropMarker
-		case object.FilterRoot:
-			root = string(v) == binPropMarker
 		default:
 		}
 	}
 
-	switch gcStatus {
-	case statusTombstoned, statusGCMarked:
-		err := updateCounter(metaC.Bucket(), payloadCounter, int64(size))
-		if err != nil {
-			return fmt.Errorf("update payload counter: %w", err)
-		}
-	default:
+	if !phy {
+		return CountersDiff{}
 	}
-
-	switch typ {
-	case object.TypeRegular:
-		if phy {
-			err := updateCounter(metaC.Bucket(), phyCounter, 1)
-			if err != nil {
-				return fmt.Errorf("revive PHY counter : %w", err)
-			}
-		}
-		if root {
-			err := updateCounter(metaC.Bucket(), rootCounter, 1)
-			if err != nil {
-				return fmt.Errorf("revive ROOT counter : %w", err)
-			}
-		}
-	case object.TypeTombstone:
-		err := updateCounter(metaC.Bucket(), tsCounter, 1)
-		if err != nil {
-			return fmt.Errorf("revive TS counter : %w", err)
-		}
-	case object.TypeLock:
-		err := updateCounter(metaC.Bucket(), lockCounter, 1)
-		if err != nil {
-			return fmt.Errorf("revive LOCK counter : %w", err)
-		}
-	case object.TypeLink:
-		err := updateCounter(metaC.Bucket(), linkCounter, 1)
-		if err != nil {
-			return fmt.Errorf("revive LINK counter : %w", err)
-		}
-	default:
-	}
-
-	return nil
+	return CountersDiff{Payload: int64(size)}
 }

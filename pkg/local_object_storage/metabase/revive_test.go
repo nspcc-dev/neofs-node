@@ -37,10 +37,19 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 		// revive object
-		res, err := db.ReviveObject(raw.Address())
+		res, diff, err := db.ReviveObject(raw.Address())
 		require.NoError(t, err)
 		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
 		require.NotNil(t, res.TombstoneAddress())
+		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1, GC: -1, Payload: int64(raw.PayloadSize())}, diff)
+
+		c, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.EqualValues(t, 1, c.Phy)
+		require.EqualValues(t, 1, c.Root)
+		require.Zero(t, c.TS)
+		require.Zero(t, c.GC)
+		require.EqualValues(t, raw.PayloadSize(), c.Payload)
 
 		exists, err = metaExists(db, raw.Address())
 		require.NoError(t, err)
@@ -51,11 +60,67 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.False(t, exists)
 	})
 
+	t.Run("two tombstones", func(t *testing.T) {
+		raw := generateObject(t)
+		addAttribute(raw, "foo", "bar")
+
+		err := putBig(db, raw)
+		require.NoError(t, err)
+
+		cBefore, err := db.ObjectCounters()
+		require.NoError(t, err)
+
+		// two tombstones target the same object
+		require.NoError(t, db.Put(createTSForObject(raw.GetContainerID(), raw.GetID())))
+		require.NoError(t, db.Put(createTSForObject(raw.GetContainerID(), raw.GetID())))
+
+		c, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, cBefore.Phy+2, c.Phy)
+		require.EqualValues(t, 2, c.TS)
+		require.Equal(t, cBefore.GC+1, c.GC)
+		require.Equal(t, cBefore.Payload-raw.PayloadSize(), c.Payload)
+
+		// the first revive removes only a tombstone: the object stays
+		// deleted and the garbage mark keeps its payload off the counters
+		res, diff, err := db.ReviveObject(raw.Address())
+		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
+		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1}, diff)
+
+		_, err = metaExists(db, raw.Address())
+		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
+
+		c, err = db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, cBefore.Phy+1, c.Phy)
+		require.EqualValues(t, 1, c.TS)
+		require.Equal(t, cBefore.GC+1, c.GC)
+		require.Equal(t, cBefore.Payload-raw.PayloadSize(), c.Payload)
+
+		// the last tombstone's removal revives the object for real
+		res, diff, err = db.ReviveObject(raw.Address())
+		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
+		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1, GC: -1, Payload: int64(raw.PayloadSize())}, diff)
+
+		exists, err := metaExists(db, raw.Address())
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		c, err = db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, cBefore, c)
+	})
+
 	t.Run("from GC", func(t *testing.T) {
 		raw := generateObject(t)
 		addAttribute(raw, "foo", "bar")
 
 		err := putBig(db, raw)
+		require.NoError(t, err)
+
+		cBefore, err := db.ObjectCounters()
 		require.NoError(t, err)
 
 		exists, err := metaExists(db, raw.Address())
@@ -73,9 +138,17 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		// revive object
-		res, err := db.ReviveObject(raw.Address())
+		res, diff, err := db.ReviveObject(raw.Address())
 		require.NoError(t, err)
 		require.Equal(t, meta.ReviveStatusGarbage, res.StatusType())
+		require.Equal(t, meta.CountersDiff{GC: -1, Payload: int64(raw.PayloadSize())}, diff)
+
+		cAfter, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, cBefore.Phy, cAfter.Phy)
+		require.Equal(t, cBefore.Root, cAfter.Root)
+		require.Equal(t, cBefore.GC, cAfter.GC)
+		require.Equal(t, cBefore.Payload, cAfter.Payload)
 
 		exists, err = metaExists(db, raw.Address())
 		require.NoError(t, err)
@@ -97,7 +170,7 @@ func TestDB_ReviveObject(t *testing.T) {
 
 		require.ErrorIs(t, err, new(apistatus.ObjectLocked))
 
-		res, err := db.ReviveObject(locked)
+		res, _, err := db.ReviveObject(locked)
 		require.ErrorIs(t, err, meta.ErrObjectWasNotRemoved)
 		require.Equal(t, meta.ReviveStatusError, res.StatusType())
 	})
@@ -105,7 +178,7 @@ func TestDB_ReviveObject(t *testing.T) {
 	t.Run("revive object that not stored in db", func(t *testing.T) {
 		addr := oidtest.Address()
 
-		res, err := db.ReviveObject(addr)
+		res, _, err := db.ReviveObject(addr)
 		require.ErrorIs(t, err, meta.ErrObjectWasNotRemoved)
 		require.Equal(t, meta.ReviveStatusError, res.StatusType())
 	})
@@ -121,7 +194,7 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, exists)
 
-		res, err := db.ReviveObject(raw.Address())
+		res, _, err := db.ReviveObject(raw.Address())
 		require.ErrorIs(t, err, meta.ErrObjectWasNotRemoved)
 		require.Equal(t, meta.ReviveStatusError, res.StatusType())
 	})
