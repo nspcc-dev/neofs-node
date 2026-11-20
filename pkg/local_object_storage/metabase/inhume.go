@@ -61,7 +61,7 @@ func (db *DB) MarkGarbage(cnr cid.ID, addrs []oid.ID, mark GarbageMark) (Contain
 		err         error
 		counterDiff ContainerGarbageDiff
 	)
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err = db.writeOutsideController("MarkGarbage", len(addrs), db.boltDB.Batch, func(tx *bbolt.Tx) error {
 		metaBucket := tx.Bucket(metaBucketKey(cnr))
 		if metaBucket == nil {
 			return nil
@@ -170,7 +170,7 @@ func (db *DB) InhumeContainer(cID cid.ID) (CountersDiff, error) {
 		return res, ErrReadOnlyMode
 	}
 
-	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err := db.writeOutsideController("InhumeContainer", 0, db.boltDB.Batch, func(tx *bbolt.Tx) error {
 		metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cID))
 		if err != nil {
 			return fmt.Errorf("create meta bucket: %w", err)

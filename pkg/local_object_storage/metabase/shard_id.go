@@ -45,7 +45,7 @@ func (db *DB) WriteShardID(id []byte) error {
 		return ErrReadOnlyMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("WriteShardID", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
 		if err != nil {
 			return err
@@ -68,7 +68,7 @@ func (db *DB) ensureShardID(id blobstor.ID) error {
 		return ErrReadOnlyMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("ensureShardID", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
 		if err != nil {
 			return err

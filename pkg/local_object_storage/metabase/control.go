@@ -59,6 +59,7 @@ func (db *DB) openBolt() error {
 	}
 	db.boltDB.MaxBatchDelay = db.boltBatchDelay
 	db.boltDB.MaxBatchSize = db.boltBatchSize
+	db.startWriteController()
 
 	db.log.Debug("opened boltDB instance for Metabase")
 
@@ -111,7 +112,7 @@ func (db *DB) init(reset bool) error {
 		}
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("init", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		var err error
 		for k := range mStaticBuckets {
 			name := []byte(k)
@@ -179,13 +180,14 @@ func (db *DB) SyncCounters() error {
 		return ErrReadOnlyMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("SyncCounters", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		return syncCounter(tx, true)
 	})
 }
 
 // Close closes boltDB instance.
 func (db *DB) Close() error {
+	db.stopWriteController()
 	if db.boltDB != nil {
 		return db.boltDB.Close()
 	}
